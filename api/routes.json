@@ -1,0 +1,102 @@
+[
+  {
+    "method": "GET",
+    "path": "/dive-spots/"
+  },
+  {
+    "method": "POST",
+    "path": "/dive-spots/"
+  },
+  {
+    "method": "GET",
+    "path": "/dive-spots/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/dive-spots/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/media/"
+  },
+  {
+    "method": "GET",
+    "path": "/auth/me"
+  },
+  {
+    "method": "GET",
+    "path": "/auth/session"
+  },
+  {
+    "method": "GET",
+    "path": "/auth/account-verification"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/register"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/request-otp"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/login"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/login/otp"
+  },
+  {
+    "method": "GET",
+    "path": "/auth/login/google"
+  },
+  {
+    "method": "GET",
+    "path": "/auth/google/callback"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/verify-user"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/check-user"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/reset-password"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/reset-password/confirm"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/change-password"
+  },
+  {
+    "method": "POST",
+    "path": "/auth/logout"
+  },
+  {
+    "method": "GET",
+    "path": "/auth/google"
+  },
+  {
+    "method": "GET",
+    "path": "/users/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/users/"
+  },
+  {
+    "method": "GET",
+    "path": "/users/export"
+  },
+  {
+    "method": "GET",
+    "path": "/csrf-token/"
+  }
+]

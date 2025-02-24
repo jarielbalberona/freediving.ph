@@ -1,0 +1,40 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Logs & Debugging
+logs/
+*.log
+debug.log
+output.log
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# Next.js build files
+.next/
+out/
+
+# Express build files
+dist/
+build/
+
+# Miscellaneous
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.tmp
