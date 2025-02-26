@@ -3,7 +3,7 @@ import { jsonb, pgTable, serial, text } from "drizzle-orm/pg-core";
 
 import { timestamps } from "@/databases/drizzle/helpers";
 
-export const diveShop = pgTable("dive_shop", {
+export const diveShops = pgTable("dive_shops", {
 	id: serial("id").primaryKey(),
 	name: text("name").notNull(),
 	location: text("location").notNull(), // Store as "latitude,longitude" or use PostGIS

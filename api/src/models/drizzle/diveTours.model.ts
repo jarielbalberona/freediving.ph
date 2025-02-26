@@ -1,14 +1,14 @@
 import { sql } from "drizzle-orm";
 import { integer, numeric, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
-import { diveShop } from "./diveShop.model";
-import { diveSpot } from "./diveSpot.model";
+import { diveShops } from "./diveShops.model";
+import { diveSpots } from "./diveSpots.model";
 import { timestamps } from "@/databases/drizzle/helpers";
 
-export const diveTour = pgTable("dive_tour", {
+export const diveTours = pgTable("dive_tours", {
 	id: serial("id").primaryKey(),
-	shopId: integer("shop_id").references(() => diveShop.id, { onDelete: "cascade" }),
-	locationId: integer("location_id").references(() => diveSpot.id, { onDelete: "set null" }),
+	shopId: integer("shop_id").references(() => diveShops.id, { onDelete: "cascade" }),
+	locationId: integer("location_id").references(() => diveSpots.id, { onDelete: "set null" }),
 	tourName: text("tour_name").notNull(),
 	price: numeric("price", { precision: 10, scale: 2 }),
 	description: text("description"),

@@ -13,10 +13,9 @@ import { timestamps } from "@/databases/drizzle/helpers";
 import { ROLE_LIST, TOKEN_LIST } from "@/databases/drizzle/lists";
 
 export const ROLE_TYPE = pgEnum("role_type", ROLE_LIST.enumValues);
-
 export const TOKEN_TYPE = pgEnum("token_type", TOKEN_LIST.enumValues);
 
-export const users = pgTable("user", {
+export const users = pgTable("users", {
 	id: serial("id").primaryKey(),
 	name: text("name"),
 	username: text("username").unique(),
@@ -24,29 +23,31 @@ export const users = pgTable("user", {
 	password: text("password"),
 	emailVerified: timestamp("email_verified", { withTimezone: true }),
 	image: text("image"),
-	role: ROLE_TYPE("role").default("USER"),
+  role: ROLE_TYPE("role").default("USER"),
+  alias: text("alias").unique().notNull(),
 	...timestamps
 });
 
-export const accounts = pgTable("account", {
-	id: serial("id").primaryKey(),
-	userId: integer("user_id")
-		.notNull()
-		.references(() => users.id, { onDelete: "cascade" }),
-	type: text("type").notNull(),
-	provider: text("provider").notNull(),
-	providerAccountId: text("provider_account_id").notNull(),
-	refreshToken: text("refresh_token"),
-	accessToken: text("access_token"),
-	expiresAt: integer("expires_at"),
-	tokenType: text("token_type"),
-	scope: text("scope"),
-	idToken: text("id_token"),
-	sessionState: text("session_state"),
-	...timestamps
+export const accounts = pgTable("accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  provider: text("provider").notNull(),
+  providerAccountId: text("provider_account_id").notNull(),
+  refreshToken: text("refresh_token"),
+  accessToken: text("access_token"),
+  expiresAt: integer("expires_at"),
+  tokenType: text("token_type"),
+  scope: text("scope"),
+  idToken: text("id_token"),
+  sessionState: text("session_state"),
+  ...timestamps
 });
 
-export const sessions = pgTable("session", {
+
+export const sessions = pgTable("sessions", {
 	id: serial("id").primaryKey(),
 	sessionId: text("session_id").notNull().unique(),
 	sessionCookie: text("session_cookie").unique(),
@@ -55,8 +56,8 @@ export const sessions = pgTable("session", {
 	...timestamps
 });
 
-export const verificationToken = pgTable(
-	"verification_token",
+export const verificationTokens = pgTable(
+	"verification_tokens",
 	{
 		id: serial("id").primaryKey(),
 		identifier: text("identifier").notNull(),

@@ -2,7 +2,7 @@ import { integer, pgTable, serial, text } from "drizzle-orm/pg-core";
 import { DIVE_DIFFICULTY } from "@/databases/drizzle/lists";
 import { timestamps } from "@/databases/drizzle/helpers";
 
-export const diveSpot = pgTable("dive_spot", {
+export const diveSpots = pgTable("dive_spots", {
 	id: serial("id").primaryKey(),
 	name: text("name").notNull(),
 	location: text("location").notNull(), // Store as "latitude,longitude" or use PostGIS

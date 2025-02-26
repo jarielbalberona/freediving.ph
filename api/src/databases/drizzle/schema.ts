@@ -1,15 +1,21 @@
 import * as AuthenticationSchema from "@/models/drizzle/authentication.model";
-import * as DiveShopSchema from "@/models/drizzle/diveShop.model";
-import * as DiveSpotSchema from "@/models/drizzle/diveSpot.model";
-import * as DiveTourSchema from "@/models/drizzle/diveTour.model";
-import * as ReviewSchema from "@/models/drizzle/review.model";
+import * as DiveShopsSchema from "@/models/drizzle/diveShops.model";
+import * as DiveSpotsSchema from "@/models/drizzle/diveSpots.model";
+import * as DiveToursSchema from "@/models/drizzle/diveTours.model";
+import * as ReviewsSchema from "@/models/drizzle/reviews.model";
+import * as MediaSchema from "@/models/drizzle/media.model"
+import * as TagsSchema from "@/models/drizzle/tags.model"
+import * as ThreadsSchema from "@/models/drizzle/threads.model"
 
 const schema = {
-	...ReviewSchema,
-	...DiveTourSchema,
-	...DiveShopSchema,
-	...DiveSpotSchema,
-	...AuthenticationSchema
+	...AuthenticationSchema,
+	...DiveShopsSchema,
+	...DiveSpotsSchema,
+	...DiveToursSchema,
+  ...ReviewsSchema,
+  ...MediaSchema,
+  ...TagsSchema,
+  ...ThreadsSchema
 };
 
 export default schema;

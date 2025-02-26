@@ -30,3 +30,9 @@ export const DIVE_DIFFICULTY = {
 	ADVANCED: "ADVANCED",
 	enumValues: ["BEGINNER", "INTERMEDIATE", "ADVANCED"]
 } as const;
+
+export const REACTION_LIST = {
+	LIKE: "LIKE",
+	DISLIKE: "DISLIKE",
+	enumValues: ["LIKE", "DISLIKE"]
+} as const;

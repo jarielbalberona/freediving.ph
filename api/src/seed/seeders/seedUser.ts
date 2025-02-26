@@ -10,7 +10,8 @@ interface SeedUser {
 	name: string;
 	username: string;
 	email: string;
-	image: string;
+  image: string;
+  alias: string;
 	role: RoleType;
 }
 
@@ -19,15 +20,17 @@ const generateFakeUsers = (count: number): SeedUser[] => {
 		name: faker.person.fullName(),
 		username: faker.internet.username(),
 		email: faker.internet.email(),
-		image: faker.image.avatar(),
+    image: faker.image.avatar(),
+    alias: faker.internet.username(),
 		role: faker.helpers.arrayElement(ROLE_LIST.enumValues) as RoleType
 	}));
 };
 
 const seedUsers = async () => {
-	try {
+  try {
+    console.log("Seeding users started...");
 		// Generate fake users
-		const seedData: SeedUser[] = generateFakeUsers(100);
+		const seedData: SeedUser[] = generateFakeUsers(50);
 
 		// Hash the password
 		const hashedPassword = await hash("Bang@123", 10);
@@ -42,7 +45,8 @@ const seedUsers = async () => {
 		}));
 
 		// Insert users into database
-		await db.insert(users).values(userData);
+    await db.insert(users).values(userData);
+    console.log("✅ Users seeded successfully!");
 	} catch (error) {
 		console.error("Error seeding users:", error);
 	}

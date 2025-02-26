@@ -3,16 +3,16 @@ import { InferSelectModel, desc, eq } from "drizzle-orm";
 import { DiveSpotServerSchemaType } from "@/app/diveSpot/diveSpot.validators";
 
 import DrizzleService from "@/databases/drizzle/service";
-import { diveSpot } from "@/models/drizzle/diveSpot.model";
+import { diveSpots } from "@/models/drizzle/diveSpots.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
-export type DiveSpotSchemaType = InferSelectModel<typeof diveSpot>;
+export type DiveSpotSchemaType = InferSelectModel<typeof diveSpots>;
 
 export default class DiveSpotService extends DrizzleService {
 	async createDiveSpot(data: DiveSpotServerSchemaType) {
 		try {
-			const createdData = await this.db.insert(diveSpot).values(data).returning();
+			const createdData = await this.db.insert(diveSpots).values(data).returning();
 
 			if (!createdData.length) {
 				return ServiceResponse.createResponse(
@@ -34,7 +34,7 @@ export default class DiveSpotService extends DrizzleService {
 
 	async retrieveDiveSpot(id: number): Promise<ServiceApiResponse<DiveSpotSchemaType>> {
 		try {
-			const retrieveData = await this.db.query.diveSpot.findFirst({ where: eq(diveSpot.id, id) });
+			const retrieveData = await this.db.query.diveSpots.findFirst({ where: eq(diveSpots.id, id) });
 
 			if (!retrieveData) {
 				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
@@ -52,7 +52,7 @@ export default class DiveSpotService extends DrizzleService {
 
 	async updateDiveSpot(id: number, data: DiveSpotServerSchemaType) {
 		try {
-			const updatedData = await this.db.update(diveSpot).set(data).where(eq(diveSpot.id, id)).returning();
+			const updatedData = await this.db.update(diveSpots).set(data).where(eq(diveSpots.id, id)).returning();
 
 			if (!updatedData.length) {
 				return ServiceResponse.createResponse(
@@ -74,8 +74,8 @@ export default class DiveSpotService extends DrizzleService {
 
 	async retrieveAllDiveSpot() {
 		try {
-			const retrieveData = await this.db.query.diveSpot.findMany({
-				orderBy: desc(diveSpot.createdAt)
+			const retrieveData = await this.db.query.diveSpots.findMany({
+				orderBy: desc(diveSpots.createdAt)
 			});
 
 			return ServiceResponse.createResponse(

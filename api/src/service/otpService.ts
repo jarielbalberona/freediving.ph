@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import DrizzleService from "@/databases/drizzle/service";
 import { TokenType, UserSchemaType } from "@/databases/drizzle/types";
-import { verificationToken } from "@/models/drizzle/authentication.model";
+import { verificationTokens } from "@/models/drizzle/authentication.model";
 import AppHelpers from "@/utils/appHelpers";
 import { ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
@@ -14,10 +14,10 @@ export default class OTPService extends DrizzleService {
 		timeLimit: number = 5
 	) {
 		try {
-			const otpRequestCount = await this.db.query.verificationToken.findFirst({
+			const otpRequestCount = await this.db.query.verificationTokens.findFirst({
 				where: and(
-					eq(verificationToken.identifier, user.email!),
-					eq(verificationToken.tokenType, tokenType)
+					eq(verificationTokens.identifier, user.email!),
+					eq(verificationTokens.tokenType, tokenType)
 				)
 			});
 
@@ -55,7 +55,7 @@ export default class OTPService extends DrizzleService {
 
 			const generatedOTP = AppHelpers.OTPGenerator();
 			await this.db
-				.insert(verificationToken)
+				.insert(verificationTokens)
 				.values({
 					identifier: user.email,
 					token: String(generatedOTP),
@@ -63,7 +63,7 @@ export default class OTPService extends DrizzleService {
 					expires: expiresAt
 				})
 				.onConflictDoUpdate({
-					target: [verificationToken.identifier, verificationToken.tokenType],
+					target: [verificationTokens.identifier, verificationTokens.tokenType],
 					set: {
 						token: String(generatedOTP),
 						expires: expiresAt
@@ -78,11 +78,11 @@ export default class OTPService extends DrizzleService {
 
 	async verifyOTPFromDatabase(user: Partial<UserSchemaType>, otp: string, tokenType: TokenType) {
 		try {
-			const tokenRecord = await this.db.query.verificationToken.findFirst({
+			const tokenRecord = await this.db.query.verificationTokens.findFirst({
 				where: and(
-					eq(verificationToken.identifier, user.email!),
-					eq(verificationToken.token, otp),
-					eq(verificationToken.tokenType, tokenType)
+					eq(verificationTokens.identifier, user.email!),
+					eq(verificationTokens.token, otp),
+					eq(verificationTokens.tokenType, tokenType)
 				)
 			});
 
@@ -105,11 +105,11 @@ export default class OTPService extends DrizzleService {
 	async deleteOTPFromDatabase(user: Partial<UserSchemaType>, tokenType: TokenType) {
 		try {
 			await this.db
-				.delete(verificationToken)
+				.delete(verificationTokens)
 				.where(
 					and(
-						eq(verificationToken.identifier, user.email!),
-						eq(verificationToken.tokenType, tokenType)
+						eq(verificationTokens.identifier, user.email!),
+						eq(verificationTokens.tokenType, tokenType)
 					)
 				);
 
