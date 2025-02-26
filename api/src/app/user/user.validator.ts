@@ -10,7 +10,8 @@ import {
 	validatePassword,
 	validatePositiveNumber,
 	validateString,
-	validateUsername
+  validateUsername,
+  validateAlias
 } from "@/validators/commonRules";
 
 export const UserQuerySchema = <T extends PgTableWithColumns<any>>(
@@ -38,7 +39,8 @@ export const UserCreateSchema = z.object({
 	name: validateString("Name"),
 	email: validateEmail,
 	username: validateUsername,
-	password: validatePassword,
+  password: validatePassword,
+  alias: validateAlias,
 	role: z.enum(ROLE_LIST.enumValues, {
 		required_error: zodMessages.error.required.fieldIsRequired("Role"),
 		invalid_type_error: zodMessages.error.invalid.invalidEnum("Role", ROLE_LIST.enumValues)

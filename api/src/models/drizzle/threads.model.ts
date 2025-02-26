@@ -1,4 +1,5 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
+import { check } from "drizzle-orm/pg-core";
 import {
   integer,
   pgEnum,
@@ -15,7 +16,7 @@ import { users, sessions, accounts } from "./authentication.model"
 
 import { REACTION_LIST } from "@/databases/drizzle/lists";
 
-export const REACTION_TYPE = pgEnum("reaction_type", REACTION_LIST.enumValues);
+export const REACTION_TYPE = pgEnum("reaction_type", ["1", "0"]);// Convert numbers to strings
 
 // Threads Table
 export const threads = pgTable("threads", {
@@ -36,15 +37,24 @@ export const comments = pgTable("comments", {
   ...timestamps
 });
 
-// Reactions Table
-export const reactions = pgTable("reactions", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  threadId: integer("thread_id").references(() => threads.id, { onDelete: "cascade" }),
-  commentId: integer("comment_id").references(() => comments.id, { onDelete: "cascade" }),
-  type: REACTION_TYPE("type").notNull(), // Ocean-themed reaction
-  ...timestamps
-});
+export const reactions = pgTable("reactions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    threadId: integer("thread_id").references(() => threads.id, { onDelete: "cascade" }),
+    commentId: integer("comment_id").references(() => comments.id, { onDelete: "cascade" }),
+    type: REACTION_TYPE("type").notNull(), // 1 = Like, 0 = Dislike
+    ...timestamps,
+  },
+  (table) => ({
+    checkThreadOrComment: check(
+      "check_thread_or_comment", // ✅ Constraint name
+      sql`${table.threadId} IS NOT NULL OR ${table.commentId} IS NOT NULL` // ✅ SQL condition
+    ),
+  })
+);
 
 // Relationships
 export const usersRelations = relations(users, ({ many }) => ({

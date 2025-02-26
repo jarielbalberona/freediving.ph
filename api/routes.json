@@ -1,21 +1,5 @@
 [
   {
-    "method": "GET",
-    "path": "/dive-spots/"
-  },
-  {
-    "method": "POST",
-    "path": "/dive-spots/"
-  },
-  {
-    "method": "GET",
-    "path": "/dive-spots/:id"
-  },
-  {
-    "method": "PUT",
-    "path": "/dive-spots/:id"
-  },
-  {
     "method": "POST",
     "path": "/media/"
   },
@@ -98,5 +82,37 @@
   {
     "method": "GET",
     "path": "/csrf-token/"
+  },
+  {
+    "method": "GET",
+    "path": "/dive-spots/"
+  },
+  {
+    "method": "POST",
+    "path": "/dive-spots/"
+  },
+  {
+    "method": "GET",
+    "path": "/dive-spots/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/dive-spots/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/threads/"
+  },
+  {
+    "method": "POST",
+    "path": "/threads/"
+  },
+  {
+    "method": "GET",
+    "path": "/threads/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/threads/:id"
   }
 ]

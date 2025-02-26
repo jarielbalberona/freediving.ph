@@ -32,7 +32,7 @@ export const DIVE_DIFFICULTY = {
 } as const;
 
 export const REACTION_LIST = {
-	LIKE: "LIKE",
-	DISLIKE: "DISLIKE",
-	enumValues: ["LIKE", "DISLIKE"]
+	LIKE: 1,
+	DISLIKE: 0,
+	enumValues: [1, 0]
 } as const;

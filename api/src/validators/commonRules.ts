@@ -88,6 +88,14 @@ export const validateUsername = z
 	.max(20, zodMessages.error.limit.stringMax("Username", 20))
 	.regex(new RegExp("^[a-zA-Z0-9_]*$"), zodMessages.error.invalid.invalidUsername("Username"));
 
+export const validateAlias = z
+	.string({
+		required_error: zodMessages.error.required.fieldIsRequired("Alias")
+	})
+	.min(1, zodMessages.error.required.fieldIsRequired("Alias"))
+	.max(20, zodMessages.error.limit.stringMax("Alias", 20))
+	.regex(new RegExp("^[a-zA-Z0-9_]*$"), zodMessages.error.invalid.invalidUsername("Alias"));
+
 export const validateEmail = z
 	.string({
 		required_error: zodMessages.error.required.fieldIsRequired("Email")
