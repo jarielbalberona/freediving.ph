@@ -32,23 +32,38 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async retrieve(id: number): Promise<ServiceApiResponse<ThreadsSchemaType>> {
-		try {
-			const retrieveData = await this.db.query.threads.findFirst({ where: eq(threads.id, id) });
+async retrieve(id: number): Promise<ServiceApiResponse<ThreadsSchemaType>> {
+  try {
+    const retrieveData = await this.db.query.threads.findFirst({
+      where: eq(threads.id, id),
+      with: {
+        user: {
+          columns: {
+            id: true,
+            username: true,
+            email: true, // Include only necessary fields
+          },
+        },
+      },
+    });
 
-			if (!retrieveData) {
-				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
-			}
+    if (!retrieveData) {
+      return ServiceResponse.createRejectResponse(
+        status.HTTP_404_NOT_FOUND,
+        "Thread not found"
+      );
+    }
 
-			return ServiceResponse.createResponse(
-				status.HTTP_200_OK,
-				"Dive spots retrieved successfully",
-				retrieveData
-			);
-		} catch (error) {
-			return ServiceResponse.createErrorResponse(error);
-		}
-	}
+    return ServiceResponse.createResponse(
+      status.HTTP_200_OK,
+      "Thread retrieved successfully",
+      retrieveData
+    );
+  } catch (error) {
+    return ServiceResponse.createErrorResponse(error);
+  }
+}
+
 
 	async update(id: number, data: ThreadsServerSchemaType) {
 		try {
@@ -91,7 +106,7 @@ async retrieveAll() {
 
     return ServiceResponse.createResponse(
       status.HTTP_200_OK,
-      "Dive spots retrieved successfully",
+      "Threads retrieved successfully",
       retrieveData
     );
   } catch (error) {

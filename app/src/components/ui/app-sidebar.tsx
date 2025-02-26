@@ -10,8 +10,11 @@ import {
   Users,
   ClipboardList,
   MessageCircleMore,
-  CalendarHeart
+  CalendarHeart,
+  Shapes
 } from "lucide-react"
+
+
 
 import { NavUser } from "@/components/ui/nav-user"
 
@@ -58,6 +61,11 @@ const data = {
       icon: Users,
     },
     {
+      title: "Groups",
+      url: "/groups",
+      icon: Shapes,
+    },
+    {
       title: "Chika",
       url: "/chika",
       icon: MessagesSquare,
@@ -86,7 +94,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-          <Image src="/images/freedivingph-blue-transparent.png" alt="Image" className="rounded-md object-cover p-4" width={150}  height={100}/>
+          <Image src="/images/freedivingph-blue-transparent.png" alt="Image" className="object-cover p-4 rounded-md" width={150}  height={100}/>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
