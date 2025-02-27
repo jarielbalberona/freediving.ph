@@ -1,21 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers"
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { cn } from "@/lib/utils"
-import { Analytics } from "@/components/analytics"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/sonner"
-import { siteConfig, META_THEME_COLORS } from "@/config/site"
-import { AppSidebar } from "@/components/ui/app-sidebar"
-import { NavHeader } from "@/components/ui/nav-header"
-import { Separator } from "@/components/ui/separator"
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/react-query";
+import { cn } from "@/lib/utils";
+import { Analytics } from "@/components/analytics";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+import { siteConfig, META_THEME_COLORS } from "@/config/site";
+import { AppSidebar } from "@/components/ui/app-sidebar";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar"
-import { ModeSwitcher } from "@/components/ui/mode-switcher"
+} from "@/components/ui/sidebar";
+import { ModeSwitcher } from "@/components/ui/mode-switcher";
 
 import "./globals.css";
 
@@ -40,15 +40,15 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: META_THEME_COLORS.light,
-}
+};
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies()
-  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true"
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -77,23 +77,24 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {/* {children} */}
-          <SidebarProvider defaultOpen={defaultOpen}>
-            <AppSidebar />
-            <SidebarInset>
-              <header className="bg-background sticky inset-x-0 top-0 isolate z-10 flex shrink-0 items-center gap-2">
-                <div className="flex h-14 w-full items-center gap-2 px-4">
-                  <SidebarTrigger className="-ml-1.5" />
-                  <div className="ml-auto flex items-center gap-2">
-                    <ModeSwitcher />
+          <QueryClientProvider client={queryClient}>
+            <SidebarProvider defaultOpen={defaultOpen}>
+              <AppSidebar />
+              <SidebarInset>
+                <header className="sticky inset-x-0 top-0 z-10 flex items-center gap-2 bg-background isolate shrink-0">
+                  <div className="flex items-center w-full gap-2 px-4 h-14">
+                    <SidebarTrigger className="-ml-1.5" />
+                    <div className="flex items-center gap-2 ml-auto">
+                      <ModeSwitcher />
+                    </div>
                   </div>
-                </div>
-              </header>
-              {children}
-            </SidebarInset>
-          </SidebarProvider>
-          <Toaster />
-          <Analytics />
+                </header>
+                {children}
+              </SidebarInset>
+            </SidebarProvider>
+            <Toaster />
+            <Analytics />
+          </QueryClientProvider>
         </ThemeProvider>
       </body>
     </html>

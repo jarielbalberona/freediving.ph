@@ -26,7 +26,7 @@ export default class AuthenticationService extends DrizzleService {
 
 	async createUser(
 		data: CreateUserType
-	): Promise<ServiceApiResponse<Omit<UserSchemaType, "password">>> {
+	): Promise<ServiceApiResponse<Omit<UserSchemaType, "password" | "alias">>> {
 		try {
 			data.username && (await this.duplicateUserCheckByUsername(data.username));
 			data.email && (await this.duplicateUserCheckByEmail(data.email));
@@ -131,7 +131,7 @@ export default class AuthenticationService extends DrizzleService {
 				username: data._json.email!.split("@")[0],
 				password: null,
 				emailVerified: new Date(),
-				image: data._json.picture!
+        image: data._json.picture!
 			});
 
 			// Create google account

@@ -46,7 +46,7 @@ export default class AuthenticationController extends ApiController {
 			if (!check.success)
 				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join(", "));
 
-			const extendedData: Omit<UserSchemaType, "id" | "role" | "createdAt" | "updatedAt"> = {
+			const extendedData: Omit<UserSchemaType, "id" | "role" | "createdAt" | "updatedAt" | "alias"> = {
 				...check.data,
 				image: null,
 				emailVerified: null,
@@ -55,20 +55,20 @@ export default class AuthenticationController extends ApiController {
 
 			const user = await this.authenticationService.createUser(extendedData);
 
-			const otp = await this.otpService.saveOTPToDatabase(user.data, TOKEN_LIST.EMAIL_VERIFICATION);
+			// const otp = await this.otpService.saveOTPToDatabase(user.data, TOKEN_LIST.EMAIL_VERIFICATION);
 
-			if (otp && user.data.email) {
-				sendEmail({
-					email: user.data.email,
-					emailSubject: "Your account verification OTP",
-					template: "otpEmailTemplate",
-					data: {
-						username: user.data.username,
-						otp,
-						otpExpirationTime: 5
-					}
-				});
-			}
+			// if (otp && user.data.email) {
+			// 	sendEmail({
+			// 		email: user.data.email,
+			// 		emailSubject: "Your account verification OTP",
+			// 		template: "otpEmailTemplate",
+			// 		data: {
+			// 			username: user.data.username,
+			// 			otp,
+			// 			otpExpirationTime: 5
+			// 		}
+			// 	});
+			// }
 
 			return this.apiResponse.sendResponse(user);
 		} catch (error) {
@@ -91,8 +91,7 @@ export default class AuthenticationController extends ApiController {
 			const { password, ...userData } = user.data;
 
 			const accessToken = await this.cookieService.saveCookieToBrowser(userData);
-
-			// Log the user in to establish session
+      // Log the user in to establish session
 			this.request.login(user.data, err => {
 				if (err) {
 					return this.apiResponse.sendResponse({
@@ -108,7 +107,7 @@ export default class AuthenticationController extends ApiController {
 					token: accessToken
 				});
 			});
-		} catch (error) {
+    } catch (error) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
 		}
 	}

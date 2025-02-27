@@ -1,8 +1,10 @@
 "use client"
 import MoodBoardItem from "@/components/ui/mood-board"
 import { images } from "@/data/dummy"
+import { useProfile } from "@/hooks/react-queries/auth"
 
-export default function Home() {
+export default function ProfileView({ initialData} : any) {
+  const { data: user }: any = useProfile(initialData);
 
   return (
     <div className="container px-4 py-8 mx-auto">

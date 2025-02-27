@@ -10,8 +10,9 @@ import { corsOptions } from "@/cors";
 import analysis from "@/databases/drizzle/analysis";
 import appLogger from "@/logger";
 import { uploadDir } from "@/multer/globalConfig";
-// import "@/passport/passportCustom";
 // import "@/passport/passportGoogle";
+// import "@/passport/passportCustom";
+import "@/passport/passportLocal";
 import appRateLimiter from "@/rateLimiter";
 import indexRouter from "@/routes/index.route";
 import appRouter from "@/routes/routes.config";
@@ -56,8 +57,8 @@ app.use(sessionConfig);
  * Initialize passport
  * This is used for authentication
  */
-// app.use(passport.initialize());
-// app.use(passport.session());
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Generate CSRF token for all routes
 app.use(doubleCsrfProtection);

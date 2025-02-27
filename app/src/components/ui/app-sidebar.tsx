@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import Image from "next/image"
 import {
@@ -11,10 +9,9 @@ import {
   ClipboardList,
   MessageCircleMore,
   CalendarHeart,
-  Shapes
+  Shapes,
+  FishSymbol
 } from "lucide-react"
-
-
 
 import { NavUser } from "@/components/ui/nav-user"
 
@@ -34,7 +31,8 @@ import {
 const data = {
   user: {
     name: "Frothy Meow",
-    email: "froth@meow.com",
+    username: "meowmeow",
+    alias: "pspsps",
     avatar: "/avatars/shadcn.jpg",
   },
   navMain: [
@@ -42,6 +40,12 @@ const data = {
       title: "Home",
       url: "/#",
       icon: Waves,
+      isActive: true,
+    },
+    {
+      title: "Profile",
+      url: "/profile",
+      icon: FishSymbol,
       isActive: true,
     },
     {
@@ -90,7 +94,7 @@ const data = {
 
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  console.log("props", props);
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
