@@ -1,23 +1,11 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { appAPICall } from "@/lib/api";
-import { queryClient } from "@/lib/react-query";
 
-export async function useProfilePrefetch(cookie: any) {
-    await queryClient.prefetchQuery({
-    queryKey: ["profile"],
-    queryFn: () =>
-      appAPICall("/auth/me", {
-        headers: { Cookie: cookie },
-      }),
-  });
-
-}
 export function useProfile(data: any = {}) {
   return useQuery({
     queryKey: ["profile"],
     queryFn: () => appAPICall("/auth/me"),
     initialData: data,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 }
 
@@ -28,6 +16,7 @@ interface LoginRequest {
 }
 
 export function useLogin(successCB: any) {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: LoginRequest) =>
       appAPICall("/auth/login", {
@@ -46,9 +35,10 @@ export function useLogin(successCB: any) {
 }
 
 export function useRegister(successCB: any) {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: LoginRequest) =>
-      appAPICall("/auth/resgister", {
+      appAPICall("/auth/register", {
         method: "POST",
         body: JSON.stringify(body),
         headers: { "x-csrf-token": body.csrfToken },
@@ -59,6 +49,23 @@ export function useRegister(successCB: any) {
     },
     onError: (error: any) => {
       console.error("Register failed:", error?.message);
+    },
+  });
+}
+export function useLogout(successCB: any) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (csrfToken: any) =>
+      appAPICall("/auth/logout", {
+        method: "POST",
+        headers: { "x-csrf-token": csrfToken },
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["profile"], undefined)
+      successCB(data)
+    },
+    onError: (error: any) => {
+      console.error("Logout failed:", error?.message);
     },
   });
 }

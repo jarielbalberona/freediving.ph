@@ -9,7 +9,7 @@ const Thread = ({ initialThreads }: any) => {
 
   return (
     <>
-      {threads?.data.map(({ thread, user }: any) => (
+      {threads?.map(({ thread, user }: any) => (
         <Link
           key={thread.id}
           href={`/chika/${thread.id}`}

@@ -43,7 +43,7 @@ appLogger(app);
  * This will limit the number of requests to the server
  * This is to prevent abuse of the server
  */
-appRateLimiter(app);
+// appRateLimiter(app);
 
 /**
  * Initialize session

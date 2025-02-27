@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/lib/react-query";
+import ReactQueryProvider from "@/providers/react-query";
 import { cn } from "@/lib/utils";
 import { Analytics } from "@/components/analytics";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -77,7 +76,7 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <QueryClientProvider client={queryClient}>
+          <ReactQueryProvider>
             <SidebarProvider defaultOpen={defaultOpen}>
               <AppSidebar />
               <SidebarInset>
@@ -94,7 +93,7 @@ export default async function RootLayout({
             </SidebarProvider>
             <Toaster />
             <Analytics />
-          </QueryClientProvider>
+          </ReactQueryProvider>
         </ThemeProvider>
       </body>
     </html>

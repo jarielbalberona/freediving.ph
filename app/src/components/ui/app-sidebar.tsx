@@ -1,19 +1,9 @@
-import * as React from "react"
-import Image from "next/image"
-import {
-  MessagesSquare,
-  Bell,
-  Compass,
-  Waves,
-  Users,
-  ClipboardList,
-  MessageCircleMore,
-  CalendarHeart,
-  Shapes,
-  FishSymbol
-} from "lucide-react"
-
-import { NavUser } from "@/components/ui/nav-user"
+import * as React from "react";
+import Image from "next/image";
+import { cookies } from "next/headers";
+import { navigation } from "@/config/nav";
+import { serverAPICall } from "@/lib/api";
+import { NavUser } from "@/components/ui/nav-user";
 
 import {
   Sidebar,
@@ -25,101 +15,58 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
+import { profile } from "console";
 
-// This is sample data.
-const data = {
-  user: {
-    name: "Frothy Meow",
-    username: "meowmeow",
-    alias: "pspsps",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    {
-      title: "Home",
-      url: "/#",
-      icon: Waves,
-      isActive: true,
-    },
-    {
-      title: "Profile",
-      url: "/profile",
-      icon: FishSymbol,
-      isActive: true,
-    },
-    {
-      title: "Messages",
-      url: "/messages",
-      icon: MessageCircleMore,
-      isActive: true,
-    },
-    {
-      title: "Explore",
-      url: "/explore",
-      icon: Compass,
-    },
-    {
-      title: "Buddies",
-      url: "/buddies",
-      icon: Users,
-    },
-    {
-      title: "Groups",
-      url: "/groups",
-      icon: Shapes,
-    },
-    {
-      title: "Chika",
-      url: "/chika",
-      icon: MessagesSquare,
-    },
-    {
-      title: "Events",
-      url: "/events",
-      icon: CalendarHeart,
-    },
-    {
-      title: "Competitive Records",
-      url: "/competitive-records",
-      icon: ClipboardList,
-    },
-    {
-      title: "Notifications",
-      url: "/notifications",
-      icon: Bell,
-    },
-  ]
-}
+export async function AppSidebar({
+  ...props
+}: React.ComponentProps<typeof Sidebar>) {
+  const cookieStore = await cookies();
+  // const profile: any = await serverAPICall("/auth/me", {
+  //   headers: { Cookie: cookieStore.toString() },
+  // });
 
+  const res = await fetch(`${process.env.API_URL}/auth/me`, {
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookieStore.toString()
+    },
+    credentials: "include", // Include cookies
+  });
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { status, data = null} = await res.json()
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-          <Image src="/images/freedivingph-blue-transparent.png" alt="Image" className="object-cover p-4 rounded-md" width={150}  height={100}/>
+        <Image
+          src="/images/freedivingph-blue-transparent.png"
+          alt="Image"
+          className="object-cover p-4 rounded-md"
+          width={150}
+          height={100}
+        />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {data.navMain.map((item) => (
-                <SidebarMenuItem key={item.title} className="">
-                  <SidebarMenuButton asChild>
-                    <a href={item.url} className="p-6">
-                      <item.icon />
-                      <span  className="text-base">{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+            {navigation.map((item) => (
+              <SidebarMenuItem key={item.title} className="">
+                <SidebarMenuButton asChild>
+                  <a href={item.url} className="p-6">
+                    <item.icon />
+                    <span className="text-base">{item.title}</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             ))}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser initialData={data} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  )
+  );
 }

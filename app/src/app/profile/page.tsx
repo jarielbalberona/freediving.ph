@@ -1,28 +1,21 @@
-import { cookies } from "next/headers";
-import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
+import { redirect } from "next/navigation";
 import { serverAPICall } from "@/lib/api";
 import ProfileView from "@/components/profile/profile-view";
-import { queryClient } from "@/lib/react-query";
+import { cookies } from "next/headers";
 
 export default async function Profile() {
   const cookieStore = await cookies();
-
-  const profile = await serverAPICall("/auth/me", {
-    headers: { Cookie: cookieStore.toString() },
+  const profile: any = await serverAPICall("/auth/me", {
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookieStore.toString()
+    },
+    credentials: "include", // Include cookies
   });
-
-  await queryClient.prefetchQuery({
-    queryKey: ["profile"],
-    queryFn: () =>
-    serverAPICall("/auth/me", {
-      headers: { Cookie: cookieStore.toString() },
-      credentials: "include",
-    }),
-  })
-
+  if (profile?.status === 401 || profile?.status === 403) {
+      redirect("/auth"); // Redirect to login page
+    }
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <ProfileView initialData={profile} />
-    </HydrationBoundary>
+    <ProfileView initialData={profile?.data || {}} />
   );
 }
