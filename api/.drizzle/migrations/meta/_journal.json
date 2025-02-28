@@ -85,6 +85,20 @@
       "when": 1740586895162,
       "tag": "0011_supreme_rafael_vega",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1740737738957,
+      "tag": "0012_curved_captain_cross",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1740738363284,
+      "tag": "0013_red_sugar_man",
+      "breakpoints": true
     }
   ]
 }

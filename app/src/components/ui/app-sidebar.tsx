@@ -2,7 +2,6 @@ import * as React from "react";
 import Image from "next/image";
 import { cookies } from "next/headers";
 import { navigation } from "@/config/nav";
-import { serverAPICall } from "@/lib/api";
 import { NavUser } from "@/components/ui/nav-user";
 
 import {
@@ -16,16 +15,11 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { profile } from "console";
 
 export async function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const cookieStore = await cookies();
-  // const profile: any = await serverAPICall("/auth/me", {
-  //   headers: { Cookie: cookieStore.toString() },
-  // });
-
   const res = await fetch(`${process.env.API_URL}/auth/me`, {
     headers: {
       "Content-Type": "application/json",
@@ -34,8 +28,15 @@ export async function AppSidebar({
     credentials: "include", // Include cookies
   });
 
-  const { status, data = null} = await res.json()
+  const { status, data = null } = await res.json()
+  let filteredNav = navigation
 
+  // buggy, must hide protected nav items
+  if (status === 401 || status === 403) {
+    filteredNav = navigation.filter((nav) => !nav.isProtected)
+  }
+
+  console.log("AppSidebar status", status);
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -50,7 +51,7 @@ export async function AppSidebar({
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {navigation.map((item) => (
+            {filteredNav.map((item) => (
               <SidebarMenuItem key={item.title} className="">
                 <SidebarMenuButton asChild>
                   <a href={item.url} className="p-6">

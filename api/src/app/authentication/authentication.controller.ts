@@ -85,7 +85,7 @@ export default class AuthenticationController extends ApiController {
 			}
 
 			const user = await this.authenticationService.findUserByUsernameOrEmail(check.data.username);
-			await this.authenticationService.checkAccountVerification(user.data.id);
+			// await this.authenticationService.checkAccountVerification(user.data.id);
 			await this.authenticationService.passwordChecker(check.data.password, user.data.password);
 
 			const { password, ...userData } = user.data;
