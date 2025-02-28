@@ -1,6 +1,6 @@
 # Freediving Philippines Web App
 
-![Freediving Philippines Banner](https://your-image-url.com/banner.png)
+![Freediving Philippines Banner](https://raw.githubusercontent.com/jarielbalberona/freediving.ph/refs/heads/main/app/public/images/freedivingph-blue-transparent.png)
 _A social platform built for freedivers, by freedivers._
 
 ## 🌊 About the Project
