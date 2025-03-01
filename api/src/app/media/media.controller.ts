@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import AWS from "aws-sdk";
+import { S3Client, GetObjectCommand, S3ClientConfig } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import MediaService from "@/app/media/media.service";
 
 import { ApiController } from "@/controllers/base/api.controller";
@@ -7,7 +8,15 @@ import { processImage } from "@/multer/processImage";
 import { ServiceApiResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
-const s3 = new AWS.S3();
+const S3Configuration: S3ClientConfig = {
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY,
+        secretAccessKey: process.env.AWS_SECRET_KEY,
+    },
+    region: process.env.AWS_REGION,
+};
+
+const s3 = new S3Client(S3Configuration);
 
 export default class MediaController extends ApiController {
   protected mediaService: MediaService;
@@ -40,27 +49,24 @@ export default class MediaController extends ApiController {
 
   async createPresignedS3URL() {
     try {
-      const { fileType } = this.request.query;
+    const username = this.request.params.username;
+    const { type, ext } = this.request.query
 
-      if (!fileType) {
-        return this.apiResponse.badResponse("Missing fileType");
-      }
+    const params = {
+      // media/presigned-url/jarielbalberona/?type=videos?&ext=.png
+      Bucket: process.env.AWS_S3_FPH_BUCKET_NAME,
+      Key: `media/${username}/${type}/${Date.now()}${ext}`,
+      ContentType: "image/png", // "image/png" or "video/mp4"
+    };
 
-      const params = {
-        Bucket: process.env.AWS_S3_FPH_BUCKET_NAME,
-        Key: `uploads/${Date.now()}`,
-        ContentType: fileType,
-        Expires: 720,
-        ACL: "public-read",
-      };
+    const command = new GetObjectCommand(params);
+    const url = await getSignedUrl(s3, command, { expiresIn: 12 * 60 });
 
-      const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
-
-      return this.apiResponse.sendResponse({
-        status: status.HTTP_200_OK,
-        message: "Presigned URL generated.",
-        data: { uploadUrl, key: params.Key },
-      });
+    return this.apiResponse.sendResponse({
+      status: status.HTTP_200_OK,
+      message: "Presigned URL generated.",
+      data: { url: url, key: params.Key },
+    });
     } catch (error) {
       console.error("Error generating presigned URL:", error);
       this.apiResponse.internalServerError("Internal Server Error");

@@ -8,7 +8,7 @@ terraform {
 
   backend "s3" {
     bucket  = "freediving.ph-tofu-state"
-    key     = "shared/terraform.tfstate"
+    key     = "development/terraform.tfstate"
     region  = "ap-southeast-1"
     encrypt = true
   }
@@ -22,7 +22,8 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project = var.project
+      Environment = var.environment
+      Project     = var.project
     }
   }
 }

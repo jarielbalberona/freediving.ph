@@ -26,6 +26,9 @@ export const envSchema = z.object({
 	ORIGIN_URL: validateString("ORIGIN_URL"),
 	APP_URL: validateString("APP_URL"),
 	API_URL: validateString("API_URL"),
+	AWS_REGION: validateString("AWS_REGION"),
+	AWS_ACCESS_KEY: validateString("AWS_ACCESS_KEY"),
+  AWS_SECRET_KEY: validateString("AWS_SECRET_KEY"),
 	AWS_S3_FPH_BUCKET_NAME: validateString("AWS_S3_FPH_BUCKET_NAME"),
 	...googleEnvSchema.shape,
 	...emailEnvSchema.shape

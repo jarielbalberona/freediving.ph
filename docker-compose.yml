@@ -7,8 +7,8 @@ services:
     env_file:
       - ./api/.env
     volumes:
-      - ./api:/usr/src/app  # Sync project files (hot reload)
-      - /usr/src/app/node_modules  # Prevent overwriting node_modules (IMPORTANT)
+      - ./api:/usr/src/app # Sync project files (hot reload)
+      - /usr/src/app/node_modules # Prevent overwriting node_modules (IMPORTANT)
     restart: unless-stopped
 
   app:
@@ -19,8 +19,8 @@ services:
     # env_file:
     #   - ./app/.env
     volumes:
-      - ./app:/usr/src/app  # Sync local files to container
-      - /usr/src/app/node_modules  # Prevent overwriting node_modules
+      - ./app:/usr/src/app # Sync local files to container
+      - /usr/src/app/node_modules # Prevent overwriting node_modules
     depends_on:
       - api
       - database
