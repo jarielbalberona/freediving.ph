@@ -25,10 +25,12 @@ Freediving Philippines is an open-source social web app designed for the growing
 
 ## 🔧 Tech Stack
 
-- **Frontend:** Next.js 15, React Query, Tailwind CSS
-- **Backend:** Node.js, Express, PostgreSQL
+- **Frontend:** Next.js 15, React Query, Zustand, Tailwind CSS
+- **Backend:** Node.js, Express, Drizzle ORM, PostgreSQL
 - **Authentication:** JWT + Session-based auth
-- **Deployment:** Vercel (Frontend), DigitalOcean/AWS (Backend)
+- **Deployment:** Vercel (Frontend), Backend TBD
+- **Cloud Provider:** AWS, AWS S3
+- **Infrastructure:** Terraform
 
 ## 🚀 Getting Started
 
@@ -39,17 +41,9 @@ Freediving Philippines is an open-source social web app designed for the growing
  cd freediving.ph
 ```
 
-### **2. Install Dependencies**
+### **2. Set Up Environment Variables**
 
-cd to each folder
-
-```sh
-  npm install
-```
-
-### **3. Set Up Environment Variables**
-
-Create a `.env.local` file and add the following:
+Create a `.env` file and add the following:
 
 ```env
   NEXT_PUBLIC_API_URL=https://api.freedivingph.com
@@ -58,7 +52,7 @@ Create a `.env.local` file and add the following:
   // check example envs
 ```
 
-### **4. Run the Development Server**
+### **3. Run the Development Server**
 
 in the root folder
 
