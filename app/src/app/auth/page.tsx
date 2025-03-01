@@ -1,4 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Image from "next/image";
 import { serverAPICall } from "@/lib/api";
 import { redirect } from "next/navigation";
 import AuthForm from "./form"
@@ -15,7 +16,7 @@ export default async function AuthPage() {
     <div className="flex flex-col flex-1 min-h-full px-6 py-12 mt-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
         <div className="mb-4">
-          <img
+          <Image
             alt="Your Company"
             src="/images/freedivingph-blue-transparent.png"
             className="w-auto h-10 mx-auto"

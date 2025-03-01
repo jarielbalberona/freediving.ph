@@ -36,7 +36,7 @@ export function NavUser({initialData}: any) {
 
   const { data: user }: any = useProfile(initialData);
 
-  const successCallback = (data: any) => {
+  const successCallback = () => {
     queryClient.setQueryData(["profile"], undefined); // ✅ Instantly update UI
     queryClient.removeQueries({ queryKey: ["profile"] }); // 🚀 Ensure it's cleared
     queryClient.invalidateQueries({ queryKey: ["profile"] }); // 🔄 Trigger refetch if needed

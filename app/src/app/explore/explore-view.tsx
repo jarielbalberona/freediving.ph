@@ -1,5 +1,6 @@
 "use client";
 import { MapProvider } from "@/providers/map-provider";
+import Image from "next/image";
 import * as React from "react";
 import { Compass, Info, Layers, Menu } from "lucide-react";
 import { useDiveSpots } from "@/hooks/react-queries/dives"
@@ -56,7 +57,7 @@ export default function Explore({ initialDiveSpots }: any) {
 
           <div className="relative flex-1">
             <div className="h-full w-full bg-[#e5e3df]">
-              <img
+              <Image
                 src="https://images.unsplash.com/photo-1740600379671-46903506e162"
                 alt="Map"
                 className="object-cover w-full h-full"

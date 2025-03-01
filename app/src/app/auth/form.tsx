@@ -23,12 +23,12 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import useCsrf from "@/hooks/use-csrf";
-import { useLogin, useRegister, useProfile } from "@/hooks/react-queries/auth";
+import { useLogin, useRegister } from "@/hooks/react-queries/auth";
 
 const AuthForm = ({ isSignIn }: { isSignIn: boolean }) => {
   const router = useRouter();
   const csrfToken = useCsrf()
-  const successCallback = (data: any) => {
+  const successCallback = () => {
     router.push("/")
   }
   const loginMutation = useLogin(successCallback);
@@ -43,9 +43,6 @@ const AuthForm = ({ isSignIn }: { isSignIn: boolean }) => {
     name: z.string().optional(),
     email: z.string().optional(),
   });
-
-  // Ensure TypeScript understands the schema
-  type FormSchema = z.infer<typeof baseSchema>;
 
   let formSchema: z.ZodObject<z.ZodRawShape> = baseSchema;
 

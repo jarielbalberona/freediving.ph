@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-
 export async function appAPICall<T>(
   url: string,
   options: RequestInit = {}

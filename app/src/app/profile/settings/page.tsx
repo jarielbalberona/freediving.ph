@@ -5,20 +5,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-interface ProfileFormProps {
-  defaultValues?: {
-    name: string;
-    username: string;
-    avatar: string;
-    bio: string;
-    location?: string;
-    website?: string;
-    twitter?: string;
-    instagram?: string;
-  };
-}
+// interface ProfileFormProps {
+//   defaultValues?: {
+//     name: string;
+//     username: string;
+//     avatar: string;
+//     bio: string;
+//     location?: string;
+//     website?: string;
+//     twitter?: string;
+//     instagram?: string;
+//   };
+// }
 
-export default function ProfileForm({ defaultValues }: ProfileFormProps) {
+export default function ProfileForm({ defaultValues }: any) {
   return (
     <div className="w-full max-w-2xl p-6 mx-auto space-y-8 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-xs rounded-xl border-zinc-200/80 dark:border-zinc-800/80">
       <div className="flex items-center justify-center gap-6">
@@ -90,7 +90,7 @@ export default function ProfileForm({ defaultValues }: ProfileFormProps) {
             Social Links
           </h3>
           <div className="grid gap-4">
-            {["website", "twitter", "instagram"].map((social) => (
+            {["website", "twitter", "instagram"]?.map((social) => (
               <div key={social} className="grid gap-2">
                 <Label
                   htmlFor={social}

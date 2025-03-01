@@ -1,5 +1,6 @@
 
 import { Card, CardContent } from "@/components/ui/card";
+import Image from "next/image";
 import {
   Star,
 } from "lucide-react";
@@ -56,7 +57,7 @@ function DiveSpotCard({
             </div>
           </div>
           <div className="h-[100px] w-[100px] overflow-hidden">
-            <img
+            <Image
               src={diveSpot.imageUrl || "/placeholder.svg"}
               alt={diveSpot.name}
               className="object-cover w-full h-full"

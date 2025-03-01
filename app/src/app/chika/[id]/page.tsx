@@ -1,6 +1,6 @@
-import { ArrowBigDown, ArrowBigUp, MessageSquare } from "lucide-react"
+import { MessageSquare } from "lucide-react"
 
-export default async function Chika({ params }: { params: { id: string } }) {
+export default async function Chika(params: any) {
 
   const res = await fetch(`${process.env.API_URL}/threads/${params.id}`, {
     cache: "no-store", // Ensures fresh data

@@ -51,7 +51,7 @@ export async function AppSidebar({
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {filteredNav.map((item) => (
+            {filteredNav?.map((item) => (
               <SidebarMenuItem key={item.title} className="">
                 <SidebarMenuButton asChild>
                   <a href={item.url} className="p-6">
