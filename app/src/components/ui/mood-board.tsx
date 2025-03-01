@@ -11,10 +11,6 @@ interface ImageData {
   title: string
 }
 
-interface MoodBoardProps {
-  images: ImageData[]
-}
-
 export default function MoodBoardItem({ image }: { image: ImageData }) {
   const cardRef = useRef<HTMLDivElement>(null)
 

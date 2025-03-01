@@ -19,3 +19,4 @@ export default async function Profile() {
     <ProfileView initialData={profile?.data || {}} />
   );
 }
+

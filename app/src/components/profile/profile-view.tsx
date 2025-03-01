@@ -3,7 +3,6 @@ import MoodBoardItem from "@/components/ui/mood-board";
 import { images } from "@/data/dummy";
 import { useProfile } from "@/hooks/react-queries/auth";
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -162,29 +161,6 @@ export default function ProfileView({ initialData }: any) {
           </div>
         </div>
 
-        {/* Stories Highlights */}
-        <div className="flex hidden gap-4 pb-4 mb-6 overflow-x-auto">
-          {[1, 2, 3, 4, 5].map((item) => (
-            <div
-              key={item}
-              className="flex flex-col items-center gap-1 min-w-[72px]"
-            >
-              <div className="w-16 h-16 p-1 border-2 rounded-full border-muted">
-                <div className="w-full h-full overflow-hidden rounded-full bg-muted">
-                  <Image
-                    src={`/placeholder.svg?height=64&width=64`}
-                    alt={`Highlight ${item}`}
-                    width={64}
-                    height={64}
-                    className="object-cover"
-                  />
-                </div>
-              </div>
-              <span className="text-xs">Story {item}</span>
-            </div>
-          ))}
-        </div>
-
         {/* Tabs and Content */}
         <Tabs defaultValue="posts" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -216,7 +192,7 @@ export default function ProfileView({ initialData }: any) {
 
           <TabsContent value="posts" className="mt-6">
             <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] auto-rows-[6px] gap-4">
-              {images.map((image, index) => (
+              {images?.map((image, index) => (
                 <MoodBoardItem key={index} image={image} />
               ))}
             </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, ChevronLeft, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronLeft } from "lucide-react";
 import DiveSpotCard from "./dive-spot-card";
 import Filters from "./filters";
 
