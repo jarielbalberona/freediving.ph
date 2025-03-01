@@ -6,6 +6,5 @@ export function useThreads(initialThreads?: any) {
     queryKey: ["threads"],
     queryFn: () => appAPICall("/threads"),
     initialData: initialThreads,
-    staleTime: 30000, // 30 seconds
   });
 }

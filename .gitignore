@@ -38,3 +38,28 @@ Thumbs.db
 *.swo
 *.bak
 *.tmp
+
+
+# Terraform State files (sensitive)
+*.tfstate
+*.tfstate.backup
+
+# Terraform crash logs
+crash.log
+crash.*.log
+
+# Terraform variables (sensitive if using plaintext secrets)
+*.tfvars
+*.tfvars.json
+
+# Terraform lock file (ensures consistent provider versions, but not needed in Git)
+.terraform.lock.hcl
+
+# Terraform provider and module caches
+.terraform/
+**/.terraform/
+
+# Ignore temporary files
+*.tfplan
+*.backup
+terraform.tfstate.d/

@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text } from "drizzle-orm/pg-core";
+import { integer, pgTable, serial, text, numeric } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { DIVE_DIFFICULTY } from "@/databases/drizzle/lists";
 import { timestamps } from "@/databases/drizzle/helpers";
@@ -7,11 +7,14 @@ import { users } from "./authentication.model"
 export const diveSpots = pgTable("dive_spots", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  location: text("location").notNull(), // Store as "latitude,longitude" or use PostGIS
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  locationName: text("location_name"),
   depth: integer("depth"), // Depth in meters
   difficulty: text("difficulty", { enum: DIVE_DIFFICULTY.enumValues }).default(DIVE_DIFFICULTY.BEGINNER),
   description: text("description"),
   bestSeason: text("best_season"),
+  imageUrl: text("image_url"), // Optional: Dive photo
   directions: text("directions").notNull(), // Step-by-step guide on how to get there
   ...timestamps
 });
@@ -27,6 +30,7 @@ export const diveSpotComments = pgTable("dive_spot_comments", {
   parentId: integer("parent_id")
     .references((): any => diveSpotComments.id, { onDelete: "cascade" }), // Explicit type for self-referencing
   content: text("content").notNull(),
+  imageUrl: text("image_url"), // Optional: Dive photo
   ...timestamps
 });
 
@@ -35,6 +39,7 @@ export const diveSpotRatings = pgTable("dive_spot_ratings", {
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   diveSpotId: integer("dive_spot_id").notNull().references(() => diveSpots.id, { onDelete: "cascade" }),
   rating: integer("rating").notNull(),
+  imageUrl: text("image_url"), // Optional: Dive photo
   review: text("review"), // Optional review text
   ...timestamps
 });

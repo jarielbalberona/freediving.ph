@@ -4,6 +4,10 @@
     "path": "/media/"
   },
   {
+    "method": "POST",
+    "path": "/media/s3-presigned-url"
+  },
+  {
     "method": "GET",
     "path": "/auth/me"
   },

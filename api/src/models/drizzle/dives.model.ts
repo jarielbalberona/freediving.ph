@@ -12,7 +12,7 @@ export const diveLogs = pgTable("dive_logs", {
   userId: integer("user_id")
     .notNull()
     .references((): any => users.id, { onDelete: "cascade" }), // Links to uploader
-  photoUrl: text("photo_url"), // Optional: Dive photo
+  imageUrl: text("image_url"), // Optional: Dive photo
   caption: text("caption"), // Optional: Caption for the dive/photo
   maxDepth: integer("max_depth"), // Optional: Maximum depth reached (meters)
   diveTime: integer("dive_time"), // Optional: Total dive time (seconds)
@@ -21,6 +21,9 @@ export const diveLogs = pgTable("dive_logs", {
   waterConditions: text("water_conditions"), // Visibility, currents, thermocline, etc.
   waterTemperature: decimal("water_temperature", { precision: 4, scale: 1 }), // Temperature in °C (e.g., 28.5°C)
   equipmentUsed: text("equipment_used"), // List of gear used (e.g., fins, mask, weights)
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  locationName: text("location_name"),
   ...timestamps
 });
 

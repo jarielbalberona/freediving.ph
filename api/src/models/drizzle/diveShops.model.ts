@@ -1,12 +1,14 @@
 import { sql } from "drizzle-orm";
-import { jsonb, pgTable, serial, text } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, serial, text, decimal} from "drizzle-orm/pg-core";
 
 import { timestamps } from "@/databases/drizzle/helpers";
 
 export const diveShops = pgTable("dive_shops", {
 	id: serial("id").primaryKey(),
 	name: text("name").notNull(),
-	location: text("location").notNull(), // Store as "latitude,longitude" or use PostGIS
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  locationName: text("location_name"),
 	contactInfo: jsonb("contact_info"), // Store phone, email, social media as JSON
 	services: text("services")
 		.array()
