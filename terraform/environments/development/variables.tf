@@ -51,8 +51,9 @@ variable "project_api_url" {
   description = "Project API URL"
   type        = string
 }
-variable "project_auth_domain" {
+variable "project_auth_domain_cognito" {
   description = "Project Auth Domain"
   type        = string
 }
+
 
