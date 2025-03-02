@@ -27,10 +27,22 @@ Freediving Philippines is an open-source social web app designed for the growing
 
 - **Frontend:** Next.js 15, React Query, Zustand, Tailwind CSS
 - **Backend:** Node.js, Express, Drizzle ORM, PostgreSQL
-- **Authentication:** JWT + Session-based auth
-- **Deployment:** Vercel (Frontend), Backend TBD
-- **Cloud Provider:** AWS, AWS S3
-- **Infrastructure:** Terraform
+- **Authentication:** AWS Cognito
+- **Deployment:** CI/CD ~ Github Acitons
+- **Cloud Provider:** AWS, Cognito, ECS, RDS, Route53, & S3
+- **Infrastructure:** Terraform (Multi-Environment)
+
+## 👥 Multi-Environment Terraform Setup
+
+The infrastructure is managed using Terraform with support for multiple environments.
+
+### **Terraform Services**
+
+- **Cognito** – Manages user authentication and authorization.
+- **ECS (Elastic Container Service)** – Hosts both the Express backend and Next.js frontend applications.
+- **RDS (Relational Database Service)** – PostgreSQL database instance for storing application data.
+- **Route 53** – Domain management for subdomains and DNS configurations.
+- **S3** – Used for storing images and assets.
 
 ## 🚀 Getting Started
 
