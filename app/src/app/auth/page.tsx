@@ -19,6 +19,8 @@ export default async function AuthPage() {
           <Image
             alt="Your Company"
             src="/images/freedivingph-blue-transparent.png"
+            width={400}
+            height={400}
             className="w-auto h-10 mx-auto"
           />
         </div>

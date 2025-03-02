@@ -21,6 +21,8 @@ export default function ProfileView({ initialData }: any) {
               <AvatarImage
                 src="/placeholder.svg?height=150&width=150"
                 alt="@username"
+                width={150}
+                height={150}
               />
               <AvatarFallback>UN</AvatarFallback>
             </Avatar>

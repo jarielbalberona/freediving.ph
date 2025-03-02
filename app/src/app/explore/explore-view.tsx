@@ -5,7 +5,7 @@ import * as React from "react";
 import { Compass, Info, Layers, Menu } from "lucide-react";
 import { useDiveSpots } from "@/hooks/react-queries/dives"
 import { Button } from "@/components/ui/button";
-
+import { MapComponent } from "./maps/map-container"
 import {
   DiveSpotsContainerMobile,
   DiveSpotsContainer,
@@ -57,14 +57,10 @@ export default function Explore({ initialDiveSpots }: any) {
 
           <div className="relative flex-1">
             <div className="h-full w-full bg-[#e5e3df]">
-              <Image
-                src="https://images.unsplash.com/photo-1740600379671-46903506e162"
-                alt="Map"
-                className="object-cover w-full h-full"
-              />
+              <MapComponent />
             </div>
 
-            <div className="absolute flex flex-col gap-2 bottom-6 right-6">
+            <div className="absolute flex flex-col hidden gap-2 bottom-6 right-6">
               <Button
                 variant="secondary"
                 size="icon"
