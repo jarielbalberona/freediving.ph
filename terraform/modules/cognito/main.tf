@@ -2,9 +2,6 @@
 resource "aws_cognito_user_pool" "nextjs_auth" {
   name = "${var.project}-cognito-user-pool"
 
-  # Allow users to log in with email instead of a username
-  username_attributes = ["email"]
-
   # Allow alias login (username or email)
   alias_attributes = ["email", "preferred_username"]
 
@@ -30,7 +27,7 @@ resource "aws_cognito_user_pool" "nextjs_auth" {
   # Configuration for email verification
   verification_message_template {
     email_subject        = "Verify your email"
-    email_message        = "Click the link to verify your email: {##Verify Email##}"
+    email_message        = "Click the link to verify your email: {####}"
     default_email_option = "CONFIRM_WITH_LINK" # Uses a verification link instead of a code
   }
 
@@ -76,7 +73,7 @@ resource "aws_cognito_user_pool" "nextjs_auth" {
   schema {
     name                = "custom:user_id"
     attribute_data_type = "String"
-    required            = true
+    required            = false
     mutable             = false
   }
 
@@ -85,6 +82,14 @@ resource "aws_cognito_user_pool" "nextjs_auth" {
     attribute_data_type = "String"
     required            = false
     mutable             = true
+  }
+
+  lifecycle {
+
+    ignore_changes = [
+      password_policy,
+      schema
+    ]
   }
 }
 
@@ -110,7 +115,7 @@ resource "aws_cognito_user_pool_client" "nextjs_client" {
 
 # Cognito Domain (For Hosted UI Login)
 resource "aws_cognito_user_pool_domain" "nextjs_domain" {
-  domain       = var.project_auth_domain
+  domain       = var.project_auth_domain_cognito
   user_pool_id = aws_cognito_user_pool.nextjs_auth.id
 }
 

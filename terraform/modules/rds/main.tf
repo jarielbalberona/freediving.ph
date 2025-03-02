@@ -26,13 +26,13 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
 
 # RDS Instance
 resource "aws_db_instance" "express_db" {
-  identifier             = "${var.project}-rds"
+  identifier             = "freedivingph-rds"
   allocated_storage      = 20
   storage_type           = "gp2"
   engine                 = "postgres" # Change to "mysql" if needed
   engine_version         = "14"       # Change based on your requirement
   instance_class         = "db.t3.micro"
-  db_name                = var.project
+  db_name                = "freedivingph"
   username               = var.db_user
   password               = var.db_password
   parameter_group_name   = "default.postgres14"
