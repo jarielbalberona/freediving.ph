@@ -43,11 +43,11 @@ jobs:
       - name: Set Environment Variables
         run: |
           if [ "${{ inputs.environment }}" == "dev" ]; then
-            echo "ENV=dev" >> $GITHUB_ENV
+            echo "ENV=dev" >> $GITHUB_ENV \
             echo "ECS_CLUSTER=dev-freediving-ph-cluster" >> $GITHUB_ENV
           else
-            echo "ENV=prod" >> $GITHUB_ENV
-            echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV
+            echo "ENV=prod" >> $GITHUB_ENV \
+            echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV;
           fi
 
       - name: Build and Push Frontend Image
