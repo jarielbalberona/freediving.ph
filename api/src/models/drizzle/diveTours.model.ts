@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, numeric, pgTable, serial, text, timestamp, decimal } from "drizzle-orm/pg-core";
+import { integer, numeric, pgTable, serial, text, timestamp, doublePrecision } from "drizzle-orm/pg-core";
 
 import { diveShops } from "./diveShops.model";
 import { diveSpots } from "./diveSpots.model";
@@ -12,8 +12,8 @@ export const diveTours = pgTable("dive_tours", {
 	tourName: text("tour_name").notNull(),
 	price: numeric("price", { precision: 10, scale: 2 }),
   description: text("description"),
-  latitude: text("latitude"),
-  longitude: text("longitude"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
   locationName: text("location_name"),
 	availableDates: timestamp("available_dates", { withTimezone: true })
 		.array()

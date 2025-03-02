@@ -9,15 +9,6 @@ export const defaultMapContainerStyle = {
   borderRadius: "15px 0px 0px 15px",
 };
 
-// Freediving spots in the Philippines
-const freedivingSpots = [
-  { id: 1, name: "Apo Island", lat: 9.0578, lng: 123.2680 },
-  { id: 2, name: "Moalboal", lat: 9.9440, lng: 123.3980 },
-  { id: 3, name: "Siquijor", lat: 9.2145, lng: 123.5150 },
-  { id: 4, name: "Panglao", lat: 9.5493, lng: 123.7877 },
-  { id: 5, name: "Coron", lat: 11.9981, lng: 120.2008 },
-];
-
 const defaultMapCenter = {
   lat: 11.8,
   lng: 121.4,
@@ -41,8 +32,7 @@ const defaultMapOptions = {
   },
 };
 
-const MapComponent = () => {
-  const [map, setMap] = useState(null);
+const MapComponent = ({ freedivingSpots = [] }: { freedivingSpots: any}) => {
 
   return (
     <div className="w-full">
@@ -55,7 +45,7 @@ const MapComponent = () => {
       >
         <MarkerClusterer>
           {(clusterer) =>
-            freedivingSpots.map((loc: any, index: any) => (
+            freedivingSpots?.map((loc: any, index: any) => (
               <CustomMarker
                 key={index}
                 position={loc}

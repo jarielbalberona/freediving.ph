@@ -41,6 +41,6 @@ resource "aws_ecs_cluster" "main" {
 }
 
 # ECR Repository
-resource "aws_ecr_repository" "express" {
-  name = "${var.environment}-${var.aws_project_name}-api-ecr"
+resource "aws_ecr_repository" "main" {
+  name = var.aws_project_name
 }

@@ -31,8 +31,8 @@ resource "aws_ecs_task_definition" "nextjs_task" {
 
   container_definitions = jsonencode([
     {
-      name      = "nextjs"
-      image     = "your-ecr-repo-url:latest"
+      name      = "${var.environment}-${var.aws_project_name}-api",
+      image     = "${aws_ecr_repository.main.repository_url}:latest",
       essential = true
       portMappings = [
         {
@@ -55,7 +55,7 @@ resource "aws_ecs_task_definition" "nextjs_task" {
 # Attach Next.js Service to the Existing ECS Cluster
 resource "aws_ecs_service" "nextjs_service" {
   name            = "nextjs-service"
-  cluster         = aws_ecs_cluster.main.id # Use your existing cluster
+  cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.nextjs_task.arn
   launch_type     = "FARGATE"
 

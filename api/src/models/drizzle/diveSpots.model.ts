@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, numeric } from "drizzle-orm/pg-core";
+import { integer, pgTable, serial, text, doublePrecision } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { DIVE_DIFFICULTY } from "@/databases/drizzle/lists";
 import { timestamps } from "@/databases/drizzle/helpers";
@@ -7,8 +7,8 @@ import { users } from "./authentication.model"
 export const diveSpots = pgTable("dive_spots", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  latitude: text("latitude"),
-  longitude: text("longitude"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
   locationName: text("location_name"),
   depth: integer("depth"), // Depth in meters
   difficulty: text("difficulty", { enum: DIVE_DIFFICULTY.enumValues }).default(DIVE_DIFFICULTY.BEGINNER),

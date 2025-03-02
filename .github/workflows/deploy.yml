@@ -1,31 +1,71 @@
-name: Deploy Express API to ECR
+name: Reusable Deploy Workflow
 
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_ECR_REGISTRY:
+        required: true
+
+env:
+  AWS_REGION: ap-southeast-1
+  ECS_CLUSTER: freedivingph-cluster
 
 jobs:
-  push_to_ecr:
-    name: Push Express API to ECR
+  deploy:
+    name: Deploy to AWS ECS
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Login to AWS ECR
-        run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Build Express API Docker image
-        run: |
-          docker build -t ${{ secrets.ECR_REPOSITORY }} ./api
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Tag Docker image
+      - name: Set Environment Variables
         run: |
-          docker tag ${{ secrets.ECR_REPOSITORY }}:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
+          if [ "${{ inputs.environment }}" == "dev" ]; then
+            echo "FRONTEND_REPO=dev-freedivingph-app" >> $GITHUB_ENV
+            echo "BACKEND_REPO=dev-freedivingph-api" >> $GITHUB_ENV
+            echo "FRONTEND_SERVICE=dev-freedivingph-app-service" >> $GITHUB_ENV
+            echo "BACKEND_SERVICE=dev-freedivingph-api-service" >> $GITHUB_ENV
+          else
+            echo "FRONTEND_REPO=prod-freedivingph-app" >> $GITHUB_ENV
+            echo "BACKEND_REPO=prod-freedivingph-api" >> $GITHUB_ENV
+            echo "FRONTEND_SERVICE=prod-freedivingph-app-service" >> $GITHUB_ENV
+            echo "BACKEND_SERVICE=prod-freedivingph-api-service" >> $GITHUB_ENV
+          fi
 
-      - name: Push Docker image to ECR
+      - name: Build and Push Frontend Image
         run: |
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
+          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/$FRONTEND_REPO:latest -f app/Dockerfile app
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/$FRONTEND_REPO:latest
+
+      - name: Build and Push Backend Image
+        run: |
+          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/$BACKEND_REPO:latest -f api/Dockerfile api
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/$BACKEND_REPO:latest
+
+      - name: Deploy Frontend to ECS
+        run: |
+          aws ecs update-service --cluster $ECS_CLUSTER --service $FRONTEND_SERVICE --force-new-deployment
+
+      - name: Deploy Backend to ECS
+        run: |
+          aws ecs update-service --cluster $ECS_CLUSTER --service $BACKEND_SERVICE --force-new-deployment

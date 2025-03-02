@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, timestamp, decimal } from "drizzle-orm/pg-core";
+import { integer, pgTable, serial, text, timestamp, decimal, doublePrecision } from "drizzle-orm/pg-core";
 import { timestamps } from "@/databases/drizzle/helpers";
 import { users } from "./authentication.model"
 import { diveSpots } from "./diveSpots.model"
@@ -21,8 +21,8 @@ export const diveLogs = pgTable("dive_logs", {
   waterConditions: text("water_conditions"), // Visibility, currents, thermocline, etc.
   waterTemperature: decimal("water_temperature", { precision: 4, scale: 1 }), // Temperature in °C (e.g., 28.5°C)
   equipmentUsed: text("equipment_used"), // List of gear used (e.g., fins, mask, weights)
-  latitude: text("latitude"),
-  longitude: text("longitude"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
   locationName: text("location_name"),
   ...timestamps
 });

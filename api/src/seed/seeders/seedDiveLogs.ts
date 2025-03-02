@@ -4,7 +4,7 @@ import { DIVE_TYPE } from "@/databases/drizzle/lists"
 
 const diveLogData = [
   {
-    diveSpotId: 3,
+    diveSpotId: 12,
     userId: 402,
     photoUrl: "https://example.com/dive1.jpg",
     caption: "Amazing dive with sea turtles!",
@@ -17,7 +17,7 @@ const diveLogData = [
     equipmentUsed: "Carbon fins, low-volume mask",
   },
   {
-    diveSpotId: 4,
+    diveSpotId: 13,
     userId: 402,
     photoUrl: "https://example.com/dive2.jpg",
     caption: "First deep dive at Balicasag!",
