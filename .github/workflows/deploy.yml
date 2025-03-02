@@ -16,7 +16,9 @@ on:
 
 env:
   AWS_REGION: ap-southeast-1
-  ECS_CLUSTER: freedivingph-cluster
+  ECR_REPO: freediving-ph
+  APP_SERVICE: nextjs-service
+  API_SERVICE: express-api-service
 
 jobs:
   deploy:
@@ -41,31 +43,25 @@ jobs:
       - name: Set Environment Variables
         run: |
           if [ "${{ inputs.environment }}" == "dev" ]; then
-            echo "FRONTEND_REPO=dev-freedivingph-app" >> $GITHUB_ENV
-            echo "BACKEND_REPO=dev-freedivingph-api" >> $GITHUB_ENV
-            echo "FRONTEND_SERVICE=dev-freedivingph-app-service" >> $GITHUB_ENV
-            echo "BACKEND_SERVICE=dev-freedivingph-api-service" >> $GITHUB_ENV
+            echo "ECS_CLUSTER=dev-freediving-ph-cluster" >> $GITHUB_ENV
           else
-            echo "FRONTEND_REPO=prod-freedivingph-app" >> $GITHUB_ENV
-            echo "BACKEND_REPO=prod-freedivingph-api" >> $GITHUB_ENV
-            echo "FRONTEND_SERVICE=prod-freedivingph-app-service" >> $GITHUB_ENV
-            echo "BACKEND_SERVICE=prod-freedivingph-api-service" >> $GITHUB_ENV
+            echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV
           fi
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/$FRONTEND_REPO:latest -f app/Dockerfile app
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}/$FRONTEND_REPO:latest
+          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/$APP_SERVICE:latest -f app/Dockerfile app
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/$APP_SERVICE:latest
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/$BACKEND_REPO:latest -f api/Dockerfile api
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}/$BACKEND_REPO:latest
+          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/$API_SERVICE:latest -f api/Dockerfile api
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/$API_SERVICE:latest
 
       - name: Deploy Frontend to ECS
         run: |
-          aws ecs update-service --cluster $ECS_CLUSTER --service $FRONTEND_SERVICE --force-new-deployment
+          aws ecs update-service --cluster $ECS_CLUSTER --service $APP_SERVICE --force-new-deployment
 
       - name: Deploy Backend to ECS
         run: |
-          aws ecs update-service --cluster $ECS_CLUSTER --service $BACKEND_SERVICE --force-new-deployment
+          aws ecs update-service --cluster $ECS_CLUSTER --service $API_SERVICE --force-new-deployment
