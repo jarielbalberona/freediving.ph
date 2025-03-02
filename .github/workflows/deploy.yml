@@ -50,13 +50,13 @@ jobs:
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/$APP_SERVICE:latest -f app/Dockerfile app
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}/$APP_SERVICE:latest
+          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}:latest -f app/Dockerfile $APP_SERVICE
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}:latest
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/$API_SERVICE:latest -f api/Dockerfile api
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}/$API_SERVICE:latest
+          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}:latest -f api/Dockerfile $API_SERVICE
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}:latest
 
       - name: Deploy Frontend to ECS
         run: |
