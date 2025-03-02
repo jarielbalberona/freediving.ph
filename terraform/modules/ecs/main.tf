@@ -42,5 +42,5 @@ resource "aws_ecs_cluster" "main" {
 
 # ECR Repository
 resource "aws_ecr_repository" "main" {
-  name = var.aws_project_name
+  name = "${var.environment}-${var.aws_project_name}"
 }

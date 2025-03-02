@@ -19,7 +19,7 @@ env:
   ECR_REPO: freediving-ph
   APP_SERVICE: nextjs-service
   API_SERVICE: express-api-service
-
+  AWS_ECR_REGISTRY: 486564619398.dkr.ecr.ap-southeast-1.amazonaws.com
 jobs:
   deploy:
     name: Deploy to AWS ECS
@@ -43,20 +43,22 @@ jobs:
       - name: Set Environment Variables
         run: |
           if [ "${{ inputs.environment }}" == "dev" ]; then
+            echo "ENV=dev" >> $GITHUB_ENV
             echo "ECS_CLUSTER=dev-freediving-ph-cluster" >> $GITHUB_ENV
           else
+            echo "ENV=prod" >> $GITHUB_ENV
             echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV
           fi
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}:app -f app/Dockerfile app
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}:app
+          docker build -t ${{ AWS_ECR_REGISTRY }}/${{ ENV }}-${{ ECR_REPO }}:app -f app/Dockerfile app
+          docker push ${{ AWS_ECR_REGISTRY }}/${{ ENV }}-${{ ECR_REPO }}:app
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}:api -f api/Dockerfile api
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}:api
+          docker build -t ${{ AWS_ECR_REGISTRY }}/${{ ENV }}-${{ ECR_REPO }}:api -f app/Dockerfile api
+          docker push ${{ AWS_ECR_REGISTRY }}/${{ ENV }}-${{ ECR_REPO }}:api
 
       - name: Deploy Frontend to ECS
         run: |
