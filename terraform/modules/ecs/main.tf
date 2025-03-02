@@ -1,118 +1,46 @@
-# IAM Role for ECS Task Execution
-resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "ecsTaskExecutionRole"
-  assume_role_policy = jsonencode({
-    Statement = [{
-      Action = "sts:AssumeRole",
-      Effect = "Allow",
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
-      }
-    }]
-  })
+
+# Security Group for ALB
+resource "aws_security_group" "ecs_sg" {
+  vpc_id = var.module_networking_main_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+# ALB (Application Load Balancer)
+resource "aws_lb" "ecs_lb" {
+  name               = "ecs-load-balancer"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.ecs_sg.id]
+  subnets            = [var.module_networking_subnet1_id, var.module_networking_subnet2_id]
 }
+
 
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "${var.environment}-${var.aws_ecr_repository_name}-cluster"
 }
 
-# ECS Task Definition
-resource "aws_ecs_task_definition" "express" {
-  family                   = "express-api-task"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  cpu                      = "256"
-  memory                   = "512"
-
-  container_definitions = jsonencode([
-    {
-      name  = "${var.aws_ecr_repository_name}-container",
-      image = "${aws_ecr_repository.express.repository_url}:latest",
-      portMappings = [{
-        containerPort = 4000,
-        hostPort      = 4000
-      }]
-    }
-  ])
-}
-
-# ECS Service
-resource "aws_ecs_service" "express" {
-  name            = "express-api-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.express.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-  network_configuration {
-    subnets          = [var.module_vpc_subnet1_id, var.module_vpc_subnet2_id]
-    security_groups  = [var.module_vpc_ecs_sg_id]
-    assign_public_ip = true
-  }
-}
-
-# Load Balancer
-resource "aws_lb" "ecs_lb" {
-  name               = "ecs-load-balancer"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [var.module_vpc_ecs_sg_id]
-  subnets            = [var.module_vpc_subnet1_id, var.module_vpc_subnet2_id]
-}
-
-resource "aws_lb_target_group" "ecs_tg" {
-  name        = "ecs-target-group"
-  port        = 80
-  protocol    = "HTTP"
-  vpc_id      = var.module_vpc_main_id
-  target_type = "ip"
-}
-
-resource "aws_lb_listener" "ecs_listener" {
-  load_balancer_arn = aws_lb.ecs_lb.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.ecs_tg.arn
-  }
-}
-
-resource "aws_appautoscaling_target" "ecs_target" {
-  max_capacity       = 4
-  min_capacity       = 1
-  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.express.name}"
-  scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs"
-}
-
-resource "aws_appautoscaling_policy" "ecs_policy" {
-  name               = "scale-down"
-  policy_type        = "StepScaling"
-  resource_id        = aws_appautoscaling_target.ecs_target.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs_target.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs_target.service_namespace
-
-  step_scaling_policy_configuration {
-    adjustment_type         = "ChangeInCapacity"
-    cooldown                = 60
-    metric_aggregation_type = "Maximum"
-
-    step_adjustment {
-      metric_interval_upper_bound = 0
-      scaling_adjustment          = -1
-    }
-  }
-}
-
 # ECR Repository
 resource "aws_ecr_repository" "express" {
-  name = "${var.environment}-${var.aws_ecr_repository_name}-ecr"
+  name = "${var.environment}-${var.aws_ecr_repository_name}-api-ecr"
 }

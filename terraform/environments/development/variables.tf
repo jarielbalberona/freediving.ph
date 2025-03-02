@@ -56,4 +56,13 @@ variable "project_auth_domain_cognito" {
   type        = string
 }
 
+variable "project_app_domain" {
+  description = "Project App Domain"
+  type        = string
+}
+variable "project_api_domain" {
+  description = "Project API Domain"
+  type        = string
+}
+
 

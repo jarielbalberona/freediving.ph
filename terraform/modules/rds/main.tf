@@ -1,13 +1,13 @@
 # RDS Security Group
 resource "aws_security_group" "rds_sg" {
-  vpc_id = var.module_vpc_main_id
+  vpc_id = var.module_networking_main_id
 
   # Allow inbound connections from ECS security group
   ingress {
     from_port       = 5432 # Change to 3306 for MySQL
     to_port         = 5432 # Change to 3306 for MySQL
     protocol        = "tcp"
-    security_groups = [var.module_vpc_ecs_sg_id]
+    security_groups = [var.module_ecs_sg_id]
   }
 
   egress {
@@ -21,7 +21,7 @@ resource "aws_security_group" "rds_sg" {
 # Subnet Group for RDS (Multi-AZ Support)
 resource "aws_db_subnet_group" "rds_subnet_group" {
   name       = "rds-subnet-group"
-  subnet_ids = [var.module_vpc_subnet1_id, var.module_vpc_subnet2_id]
+  subnet_ids = [var.module_networking_subnet1_id, var.module_networking_subnet2_id]
 }
 
 # RDS Instance
