@@ -1,5 +1,6 @@
 variable "environment" {}
 variable "project" {}
+variable "aws_project_name" {}
 variable "db_user" {}
 variable "db_password" {}
 variable "module_ecs_sg_id" {}

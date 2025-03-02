@@ -23,8 +23,8 @@ variable "aws_s3_bucket_tfstate_name" {
   description = "S3 Bucket Name"
   type        = string
 }
-variable "aws_ecr_repository_name" {
-  description = "ECR Name"
+variable "aws_project_name" {
+  description = "Project Name"
   type        = string
 }
 

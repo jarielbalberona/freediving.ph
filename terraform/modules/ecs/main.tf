@@ -37,10 +37,10 @@ resource "aws_lb" "ecs_lb" {
 
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
-  name = "${var.environment}-${var.aws_ecr_repository_name}-cluster"
+  name = "${var.environment}-${var.aws_project_name}-cluster"
 }
 
 # ECR Repository
 resource "aws_ecr_repository" "express" {
-  name = "${var.environment}-${var.aws_ecr_repository_name}-api-ecr"
+  name = "${var.environment}-${var.aws_project_name}-api-ecr"
 }

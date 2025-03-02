@@ -20,7 +20,7 @@ module "ecs" {
   environment                                    = var.environment
   project                                        = var.project
   aws_region                                     = var.aws_region
-  aws_ecr_repository_name                        = var.aws_ecr_repository_name
+  aws_project_name                               = var.aws_project_name
   module_networking_main_id                      = module.networking.main_id
   module_networking_subnet1_id                   = module.networking.subnet1_id
   module_networking_subnet2_id                   = module.networking.subnet2_id
@@ -33,12 +33,14 @@ module "rds" {
   source                       = "../../modules/rds"
   environment                  = var.environment
   project                      = var.project
+  aws_project_name             = var.aws_project_name
   module_ecs_sg_id             = module.ecs.sg_id
   module_networking_main_id    = module.networking.main_id
   module_networking_subnet1_id = module.networking.subnet1_id
   module_networking_subnet2_id = module.networking.subnet2_id
   db_user                      = var.db_user
   db_password                  = var.db_password
+
 }
 
 module "cognito" {

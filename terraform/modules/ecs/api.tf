@@ -29,7 +29,7 @@ resource "aws_ecs_task_definition" "express" {
 
   container_definitions = jsonencode([
     {
-      name  = "${var.aws_ecr_repository_name}-container",
+      name  = "${var.aws_project_name}-container",
       image = "${aws_ecr_repository.express.repository_url}:latest",
       portMappings = [{
         containerPort = 4000,
