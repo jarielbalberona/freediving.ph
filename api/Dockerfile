@@ -34,4 +34,5 @@ COPY package.json ./
 EXPOSE 4000
 
 # Run in production mode
-CMD ["node", "dist/src/server.cjs"]
+CMD ["node", "dist/src/server.js"]
+
