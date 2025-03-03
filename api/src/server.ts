@@ -1,4 +1,4 @@
-import { version as expressVersion } from "express/package.json";
+import { version as expressVersion } from "express/package.json" assert { type: "json" };
 import ip from "ip";
 import pc from "picocolors";
 
