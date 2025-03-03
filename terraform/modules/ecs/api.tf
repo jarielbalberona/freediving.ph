@@ -67,6 +67,30 @@ resource "aws_ecs_task_definition" "express" {
         containerPort = 4000,
         hostPort      = 4000
       }]
+      environment = [
+        { name = "DATABASE_URL", value = "postgres://fphbuddies:bPZ6SdIth7@dev-freediving-ph-rds.cji8vqdamzfa.ap-southeast-1.rds.amazonaws.com" },
+        { name = "PORT", value = 4000 },
+        { name = "NODE_ENV", value = "dev" },
+        { name = "SECRET", value = "secretcsrffdph" },
+        { name = "JWT_COOKIE_NAME", value = "jwtauthfdph" },
+        { name = "SESSION_COOKIE_NAME", value = "sessauthfdph" },
+        { name = "ORIGIN_URL", value = "dev.freediving.ph/" },
+        { name = "APP_URL", value = "dev.freediving.ph/" },
+        { name = "API_URL", value = "api-dev.freediving.ph/" },
+        { name = "GOOGLE_CLIENT_ID", value = "test" },
+        { name = "GOOGLE_CLIENT_SECRET", value = "test" },
+        { name = "GOOGLE_CALLBACK_URL", value = "test" },
+        { name = "EMAIL_SERVER_HOST", value = "test" },
+        { name = "EMAIL_SERVER_USER", value = "test" },
+        { name = "EMAIL_SERVER_PASSWORD", value = "test" },
+        { name = "EMAIL_SERVER_PORT", value = "test" },
+        { name = "EMAIL_FROM", value = "test" },
+        { name = "AWS_REGION", value = "southeast-1" },
+        { name = "AWS_ACCESS_KEY", value = "AKIAXCSMC4SDJIG7P55L" },
+        { name = "AWS_SECRET_KEY", value = "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" },
+        { name = "AWS_S3_FPH_BUCKET_NAME", value = "dev.freediving.ph-media" }
+
+      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
