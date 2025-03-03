@@ -1,10 +1,12 @@
 # IAM Role for ECS Task Execution
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "ecsTaskExecutionRole"
+
   assume_role_policy = jsonencode({
+    Version = "2012-10-17"
     Statement = [{
-      Action = "sts:AssumeRole",
-      Effect = "Allow",
+      Effect = "Allow"
+      Action = "sts:AssumeRole"
       Principal = {
         Service = "ecs-tasks.amazonaws.com"
       }
@@ -12,9 +14,39 @@ resource "aws_iam_role" "ecs_task_execution_role" {
   })
 }
 
+# Attach AWS Managed Policy for ECS Task Execution
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# IAM Policy for CloudWatch Logs (Needed for ECS Logging)
+resource "aws_iam_policy" "ecs_logs_policy" {
+  name        = "ecsTaskExecutionRoleLogsPolicy"
+  description = "Allows ECS tasks to create and write logs to CloudWatch"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "arn:aws:logs:ap-southeast-1:486564619398:log-group:*"
+      }
+    ]
+  })
+}
+
+# Attach CloudWatch Logs Policy to ECS Task Execution Role
+resource "aws_iam_role_policy_attachment" "ecs_logs_policy_attach" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = aws_iam_policy.ecs_logs_policy.arn
 }
 
 
