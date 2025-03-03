@@ -1,23 +1,37 @@
-# Use Node.js as base image
-FROM node:20.10.0
+# Stage 1: Build
+FROM node:20.10.0 AS builder
 
-# Install pnpm globally
+# Enable pnpm globally
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Set working directory inside container
+# Set working directory
 WORKDIR /usr/src/app
 
-# Copy package.json and pnpm-lock.yaml
+# Copy package files first for better caching
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies inside the container
-RUN pnpm install
+# Install dependencies (production only)
+RUN pnpm install --frozen-lockfile --production=false
 
-# Copy the entire project
+# Copy source code
 COPY . .
 
-# Expose the port the API runs on
+# Build the project
+RUN pnpm build
+
+# Stage 2: Run
+FROM node:20.10.0 AS runner
+
+# Set working directory
+WORKDIR /usr/src/app
+
+# Copy built files from builder stage
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY package.json ./
+
+# Expose the port
 EXPOSE 4000
 
-# Start in development mode
-CMD ["pnpm", "run", "dev"]
+# Run in production mode
+CMD ["node", "dist/src/server.cjs"]

@@ -67,7 +67,7 @@ resource "aws_ecs_service" "nextjs_service" {
 
   load_balancer {
     target_group_arn = var.module_networking_lb_target_group_nextjs_tg_id
-    container_name   = "nextjs"
+    container_name   = "${var.environment}-${var.aws_project_name}-app"
     container_port   = 3000
   }
 
