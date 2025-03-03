@@ -35,6 +35,15 @@ resource "aws_ecs_task_definition" "express" {
         containerPort = 4000,
         hostPort      = 4000
       }]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "ecs/${var.environment}-${var.aws_project_name}-api"
+          awslogs-create-group  = "true"
+          awslogs-region        = "ap-southeast-1"
+          awslogs-stream-prefix = "ecs"
+        }
+      }
     }
   ])
 }

@@ -43,8 +43,9 @@ resource "aws_ecs_task_definition" "nextjs_task" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = "/ecs/nextjs"
-          awslogs-region        = var.aws_region
+          awslogs-group         = "ecs/${var.environment}-${var.aws_project_name}-app"
+          awslogs-create-group  = "true"
+          awslogs-region        = "ap-southeast-1"
           awslogs-stream-prefix = "ecs"
         }
       }
