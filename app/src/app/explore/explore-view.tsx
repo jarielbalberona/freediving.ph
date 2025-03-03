@@ -1,6 +1,5 @@
 "use client";
 import { MapProvider } from "@/providers/map-provider";
-import Image from "next/image";
 import * as React from "react";
 import { Compass, Info, Layers, Menu } from "lucide-react";
 import { useDiveSpots } from "@/hooks/react-queries/dives"

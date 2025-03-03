@@ -5,7 +5,7 @@ FROM node:20.10.0 AS builder
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Set working directory
-WORKDIR /usr/src/app
+WORKDIR /usr/src/api
 
 # Copy package files first for better caching
 COPY package.json pnpm-lock.yaml ./
@@ -23,11 +23,11 @@ RUN pnpm build
 FROM node:20.10.0 AS runner
 
 # Set working directory
-WORKDIR /usr/src/app
+WORKDIR /usr/src/api
 
 # Copy built files from builder stage
-COPY --from=builder /usr/src/app/dist ./dist
-COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/api/dist ./dist
+COPY --from=builder /usr/src/api/node_modules ./node_modules
 COPY package.json ./
 
 # Expose the port

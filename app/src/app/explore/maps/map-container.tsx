@@ -1,6 +1,5 @@
 "use client";
-import  { useState, useEffect } from "react";
-import { GoogleMap, Marker, MarkerClusterer } from "@react-google-maps/api";
+import { GoogleMap, MarkerClusterer } from "@react-google-maps/api";
 import CustomMarker from "./marker"
 
 export const defaultMapContainerStyle = {
