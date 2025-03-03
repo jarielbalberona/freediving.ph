@@ -8,15 +8,21 @@ import { threadsRouter } from "@/app/threads/threads.routes";
 import { csrfRouter } from "@/routes/csrf.route";
 
 interface RouteConfig {
-	path: string;
-	router: Router;
+  path: string;
+  router: Router;
 }
 
+const healthRouter = Router();
+healthRouter.get("/", (req, res) => {
+  res.status(200).send("ok");
+});
+
 export const routes: RouteConfig[] = [
+  { path: "/health", router: healthRouter },
   { path: "/media", router: mediaRouter },
-	{ path: "/auth", router: authenticationRouter },
-	{ path: "/users", router: userRouter },
-	{ path: "/csrf-token", router: csrfRouter },
-	{ path: "/dive-spots", router: diveSpotRouter },
-	{ path: "/threads", router: threadsRouter }
+  { path: "/auth", router: authenticationRouter },
+  { path: "/users", router: userRouter },
+  { path: "/csrf-token", router: csrfRouter },
+  { path: "/dive-spots", router: diveSpotRouter },
+  { path: "/threads", router: threadsRouter },
 ];

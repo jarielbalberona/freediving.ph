@@ -12,13 +12,13 @@ output "ecs_express_sg_id" {
   value = aws_security_group.ecs_express_sg.id
 }
 
-output "ecs_nextjs_sg_id" {
-  value = aws_security_group.ecs_nextjs_sg.id
-}
+# output "ecs_nextjs_sg_id" {
+#   value = aws_security_group.ecs_nextjs_sg.id
+# }
 
-output "lb_target_group_nextjs_tg_id" {
-  value = aws_lb_target_group.nextjs_tg.id
-}
+# output "lb_target_group_nextjs_tg_id" {
+#   value = aws_lb_target_group.nextjs_tg.id
+# }
 
 output "lb_alb_dns_name" {
   value = aws_lb.alb.dns_name

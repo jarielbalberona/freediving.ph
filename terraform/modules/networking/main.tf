@@ -76,25 +76,25 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
-resource "aws_security_group" "ecs_nextjs_sg" {
-  vpc_id = aws_vpc.main.id
+# resource "aws_security_group" "ecs_nextjs_sg" {
+#   vpc_id = aws_vpc.main.id
 
-  # Allow only ALB to access the Next.js app (port 3000 or 80, depending on setup)
-  ingress {
-    from_port       = 3000 # Change to 80 if running Next.js on port 80
-    to_port         = 3000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb_sg.id] # ALB security group
-  }
+#   # Allow only ALB to access the Next.js app (port 3000 or 80, depending on setup)
+#   ingress {
+#     from_port       = 3000 # Change to 80 if running Next.js on port 80
+#     to_port         = 3000
+#     protocol        = "tcp"
+#     security_groups = [aws_security_group.alb_sg.id] # ALB security group
+#   }
 
-  # Allow Next.js to access external resources (API, DB, S3, etc.)
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
+#   # Allow Next.js to access external resources (API, DB, S3, etc.)
+#   egress {
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
+# }
 
 resource "aws_security_group" "ecs_express_sg" {
   vpc_id = aws_vpc.main.id
@@ -117,29 +117,12 @@ resource "aws_security_group" "ecs_express_sg" {
 }
 
 
-
 resource "aws_lb" "alb" {
   name               = "freediving-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id] # ALB Security Group
   subnets            = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
-}
-
-resource "aws_lb_target_group" "nextjs_tg" {
-  name        = "nextjs-target-group"
-  port        = 3000 # Change to 80 if your app runs on port 80
-  protocol    = "HTTP"
-  vpc_id      = aws_vpc.main.id
-  target_type = "ip" # Fargate requires "ip" target type
-
-  health_check {
-    path                = "/"
-    interval            = 30
-    timeout             = 5
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
-  }
 }
 
 resource "aws_lb_target_group" "express_tg" {
@@ -178,34 +161,13 @@ resource "aws_lb_listener" "https" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = var.module_route53_acm_certificate_arn # Your SSL Cert
+  certificate_arn   = var.module_route53_acm_certificate_arn_api
 
   default_action {
-    type = "fixed-response"
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "Invalid request"
-      status_code  = "404"
-    }
-  }
-}
-
-
-resource "aws_lb_listener_rule" "nextjs_rule" {
-  listener_arn = aws_lb_listener.https.arn
-
-  condition {
-    host_header {
-      values = [var.project_app_domain]
-    }
-  }
-
-  action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.nextjs_tg.arn
+    target_group_arn = aws_lb_target_group.express_tg.arn
   }
 }
-
 
 resource "aws_lb_listener_rule" "express_rule" {
   listener_arn = aws_lb_listener.https.arn

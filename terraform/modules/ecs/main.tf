@@ -25,15 +25,6 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-# ALB (Application Load Balancer)
-resource "aws_lb" "ecs_lb" {
-  name               = "ecs-load-balancer"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.ecs_sg.id]
-  subnets            = [var.module_networking_subnet1_id, var.module_networking_subnet2_id]
-}
-
 
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
