@@ -40,7 +40,12 @@ resource "aws_ecs_cluster" "main" {
   name = "${var.environment}-${var.aws_project_name}-cluster"
 }
 
-# ECR Repository
-resource "aws_ecr_repository" "main" {
-  name = "${var.environment}-${var.aws_project_name}"
+# ECR Repository for app
+resource "aws_ecr_repository" "app" {
+  name = "${var.environment}-${var.aws_project_name}-app"
 }
+# ECR Repository for api
+resource "aws_ecr_repository" "api" {
+  name = "${var.environment}-${var.aws_project_name}-api"
+}
+

@@ -17,7 +17,8 @@ env:
   ECR_REPO: freediving-ph
   APP_SERVICE: nextjs-service
   API_SERVICE: express-api-service
-  AWS_ECR_REGISTRY: 486564619398.dkr.ecr.ap-southeast-1.amazonaws.com
+  AWS_ECR_REGISTRY_APP: 486564619398.dkr.ecr.ap-southeast-1.amazonaws.com/dev-freediving-ph-app:latest
+  AWS_ECR_REGISTRY_API: 486564619398.dkr.ecr.ap-southeast-1.amazonaws.com/dev-freediving-ph-api:latest
 jobs:
   deploy:
     name: Deploy to AWS ECS
@@ -48,19 +49,19 @@ jobs:
             echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV;
           fi
 
-      - name: Build and Push Frontend Image
-        run: |
-          docker build -t $AWS_ECR_REGISTRY/$ENV-$ECR_REPO:app -f app/Dockerfile app
-          docker push $AWS_ECR_REGISTRY/$ENV-$ECR_REPO:app
+      # - name: Build and Push Frontend Image
+      #   run: |
+      #     docker build -t $AWS_ECR_REGISTRY_APP -f app/Dockerfile app
+      #     docker push $AWS_ECR_REGISTRY_APP
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t $AWS_ECR_REGISTRY/$ENV-$ECR_REPO:api -f api/Dockerfile api
-          docker push $AWS_ECR_REGISTRY/$ENV-$ECR_REPO:api
+          docker build -t $AWS_ECR_REGISTRY_API -f api/Dockerfile api
+          docker push $AWS_ECR_REGISTRY_API
 
-      - name: Deploy Frontend to ECS
-        run: |
-          aws ecs update-service --cluster $ECS_CLUSTER --service $APP_SERVICE --force-new-deployment
+      # - name: Deploy Frontend to ECS
+      #   run: |
+      #     aws ecs update-service --cluster $ECS_CLUSTER --service $APP_SERVICE --force-new-deployment
 
       - name: Deploy Backend to ECS
         run: |
