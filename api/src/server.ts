@@ -1,9 +1,4 @@
-import expressPkg from "express/package.json";
-
-const expressVersion = expressPkg.version;
-
 import ip from "ip";
-import pc from "picocolors";
 
 import app from "@/app";
 import "@/core/env";
@@ -35,7 +30,6 @@ const startServer = async () => {
 		const ipAddress = ip.address();
 
 		app.listen(port, () => {
-			console.log(pc.magenta(`\n▲ Express.js ${expressVersion}`));
 			console.log(`- Local:        http://localhost:${port}`);
 			console.log(`- Network:      http://${ipAddress}:${port}`);
 			console.log(`- Environment:  ${ENV}`);
