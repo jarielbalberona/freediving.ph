@@ -55,7 +55,7 @@ jobs:
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t $AWS_ECR_REGISTRY/$ENV-$ECR_REPO:api -f app/Dockerfile api
+          docker build -t $AWS_ECR_REGISTRY/$ENV-$ECR_REPO:api -f api/Dockerfile api
           docker push $AWS_ECR_REGISTRY/$ENV-$ECR_REPO:api
 
       - name: Deploy Frontend to ECS
