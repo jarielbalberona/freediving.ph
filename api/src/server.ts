@@ -1,4 +1,7 @@
-import { version as expressVersion } from "express/package.json" assert { type: "json" };
+import expressPkg from "express/package.json";
+
+const expressVersion = expressPkg.version;
+
 import ip from "ip";
 import pc from "picocolors";
 
