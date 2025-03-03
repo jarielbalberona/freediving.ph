@@ -15,7 +15,7 @@ export const diveSpots = pgTable("dive_spots", {
   description: text("description"),
   bestSeason: text("best_season"),
   imageUrl: text("image_url"), // Optional: Dive photo
-  directions: text("directions").notNull(), // Step-by-step guide on how to get there
+  directions: text("directions"),
   ...timestamps
 });
 

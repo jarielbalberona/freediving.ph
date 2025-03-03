@@ -46,10 +46,11 @@ export default class AuthenticationController extends ApiController {
 			if (!check.success)
 				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join(", "));
 
-			const extendedData: Omit<UserSchemaType, "id" | "role" | "createdAt" | "updatedAt" | "alias"> = {
+			const extendedData: Omit<UserSchemaType, "id" | "role" | "createdAt" | "updatedAt"> = {
 				...check.data,
 				image: null,
-				emailVerified: null,
+        emailVerified: null,
+        alias: null,
 				password: bcryptjs.hashSync(check.data.password, 10)
 			};
 
