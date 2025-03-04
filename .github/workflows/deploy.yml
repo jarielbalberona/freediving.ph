@@ -49,19 +49,19 @@ jobs:
             echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV;
           fi
 
-      # - name: Build and Push Frontend Image
-      #   run: |
-      #     docker build -t $AWS_ECR_REGISTRY_APP -f app/Dockerfile app
-      #     docker push $AWS_ECR_REGISTRY_APP
+      - name: Build and Push Frontend Image
+        run: |
+          docker build -t $AWS_ECR_REGISTRY_APP -f app/Dockerfile app
+          docker push $AWS_ECR_REGISTRY_APP
 
       - name: Build and Push Backend Image
         run: |
           docker build -t $AWS_ECR_REGISTRY_API -f api/Dockerfile api
           docker push $AWS_ECR_REGISTRY_API
 
-      # - name: Deploy Frontend to ECS
-      #   run: |
-      #     aws ecs update-service --cluster $ECS_CLUSTER --service $APP_SERVICE --force-new-deployment
+      - name: Deploy Frontend to ECS
+        run: |
+          aws ecs update-service --cluster $ECS_CLUSTER --service $APP_SERVICE --force-new-deployment
 
       - name: Deploy Backend to ECS
         run: |
