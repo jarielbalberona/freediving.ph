@@ -24,6 +24,10 @@ RUN pnpm build
 # 🔹 Stage 2: Run (Final Production Image)
 FROM node:20.10.0 AS runner
 
+# Enable pnpm in the final stage
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+
 # Set working directory
 WORKDIR /usr/src/app
 
