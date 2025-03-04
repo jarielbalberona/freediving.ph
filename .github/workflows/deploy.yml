@@ -11,14 +11,19 @@ on:
         required: true
       AWS_SECRET_ACCESS_KEY:
         required: true
+      DATABASE_URL_DEV:
+        required: true
+      DATABASE_URL_PROD:
+        required: true
+      AWS_ECR_REGISTRY_URL:
+        required: true
 
 env:
   AWS_REGION: ap-southeast-1
-  ECR_REPO: freediving-ph
+  ECR_REPO_APP: freediving-ph-app
+  ECR_REPO_API: freediving-ph-api
   APP_SERVICE: app-service
   API_SERVICE: api-service
-  AWS_ECR_REGISTRY_APP: 486564619398.dkr.ecr.ap-southeast-1.amazonaws.com/dev-freediving-ph-app:latest
-  AWS_ECR_REGISTRY_API: 486564619398.dkr.ecr.ap-southeast-1.amazonaws.com/dev-freediving-ph-api:latest
 
 jobs:
   deploy:
@@ -45,10 +50,27 @@ jobs:
           if [ "${{ inputs.environment }}" == "dev" ]; then
             echo "ENV=dev" >> $GITHUB_ENV
             echo "ECS_CLUSTER=dev-freediving-ph-cluster" >> $GITHUB_ENV
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL_DEV }}" >> $GITHUB_ENV
+            echo "AWS_ECR_REGISTRY_APP=${{ secrets.AWS_ECR_REGISTRY_URL }}/dev-${{ env.ECR_REPO_APP }}:latest" >> $GITHUB_ENV
+            echo "AWS_ECR_REGISTRY_API=${{ secrets.AWS_ECR_REGISTRY_URL }}/dev-${{ env.ECR_REPO_API }}:latest" >> $GITHUB_ENV
           else
             echo "ENV=prod" >> $GITHUB_ENV
-            echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV;
+            echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL_PROD }}" >> $GITHUB_ENV
+            echo "AWS_ECR_REGISTRY_APP=${{ secrets.AWS_ECR_REGISTRY_URL }}/prod-${{ env.ECR_REPO_APP }}:latest" >> $GITHUB_ENV
+            echo "AWS_ECR_REGISTRY_API=${{ secrets.AWS_ECR_REGISTRY_URL }}/prod-${{ env.ECR_REPO_API }}:latest" >> $GITHUB_ENV
           fi
+
+      - name: Install Dependencies for Drizzle ORM
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Run Drizzle Migrations
+        run: |
+          pnpm drizzle:push
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
 
       - name: Build and Push Frontend Image
         run: |
