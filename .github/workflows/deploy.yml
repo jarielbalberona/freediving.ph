@@ -68,7 +68,7 @@ jobs:
 
       - name: Run Drizzle Migrations
         run: |
-          npm drizzle:push
+          npm db:push
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
