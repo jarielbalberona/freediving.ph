@@ -1,5 +1,5 @@
 # Cognito User Pool
-resource "aws_cognito_user_pool" "nextjs_auth" {
+resource "aws_cognito_user_pool" "app_auth" {
   name = "${var.project}-cognito-user-pool"
 
   # Allow alias login (username or email)
@@ -11,39 +11,39 @@ resource "aws_cognito_user_pool" "nextjs_auth" {
   mfa_configuration = "OFF" # Change to "OPTIONAL" or "ON" if needed
 
   schema {
-    name                = "sub"
-    attribute_data_type = "String"
-    required            = true
-    mutable             = false
-  }
-
-  schema {
     name                = "email"
     attribute_data_type = "String"
     required            = true
-    mutable             = true # Allow users to update their email
-  }
-
-  # Configuration for email verification
-  verification_message_template {
-    email_subject        = "Verify your email"
-    email_message        = "Click the link to verify your email: {####}"
-    default_email_option = "CONFIRM_WITH_LINK" # Uses a verification link instead of a code
+    mutable             = true # Users can update their email
   }
 
   schema {
     name                = "name"
     attribute_data_type = "String"
-    required            = true
+    required            = false
     mutable             = true
   }
 
-  # Allow "username" as a separate attribute
   schema {
-    name                = "username"
+    name                = "email_verified"
+    attribute_data_type = "Boolean"
+    required            = false
+    mutable             = false # Cognito auto-manages this
+  }
+
+  schema {
+    name                = "phone_number"
     attribute_data_type = "String"
-    required            = true
-    mutable             = false # Allows users to change their username if needed
+    required            = false
+    mutable             = true
+  }
+
+  # Custom Attributes (Must be prefixed with "custom:")
+  schema {
+    name                = "custom:user_id"
+    attribute_data_type = "String"
+    required            = false
+    mutable             = false
   }
 
   # Password Policy
@@ -56,32 +56,11 @@ resource "aws_cognito_user_pool" "nextjs_auth" {
     temporary_password_validity_days = 7
   }
 
-  schema {
-    name                = "email_verified"
-    attribute_data_type = "Boolean"
-    required            = false
-    mutable             = true
-  }
-
-  schema {
-    name                = "phone_number"
-    attribute_data_type = "String"
-    required            = false
-    mutable             = true
-  }
-
-  schema {
-    name                = "custom:user_id"
-    attribute_data_type = "String"
-    required            = false
-    mutable             = false
-  }
-
-  schema {
-    name                = "custom:role"
-    attribute_data_type = "String"
-    required            = false
-    mutable             = true
+  # Configuration for email verification
+  verification_message_template {
+    email_subject        = "Verify your email"
+    email_message        = "Click the link to verify your email: {####}"
+    default_email_option = "CONFIRM_WITH_LINK" # Uses a verification link instead of a code
   }
 
   lifecycle {
@@ -94,9 +73,9 @@ resource "aws_cognito_user_pool" "nextjs_auth" {
 }
 
 # Cognito User Pool Client (For Next.js App)
-resource "aws_cognito_user_pool_client" "nextjs_client" {
+resource "aws_cognito_user_pool_client" "app_client" {
   name                                 = "${var.project}-cognito-user-pool-client"
-  user_pool_id                         = aws_cognito_user_pool.nextjs_auth.id
+  user_pool_id                         = aws_cognito_user_pool.app_auth.id
   generate_secret                      = false
   allowed_oauth_flows                  = ["code", "implicit"] # OIDC flows
   allowed_oauth_flows_user_pool_client = true
@@ -114,8 +93,8 @@ resource "aws_cognito_user_pool_client" "nextjs_client" {
 }
 
 # Cognito Domain (For Hosted UI Login)
-resource "aws_cognito_user_pool_domain" "nextjs_domain" {
+resource "aws_cognito_user_pool_domain" "app_domain" {
   domain       = var.project_auth_domain_cognito
-  user_pool_id = aws_cognito_user_pool.nextjs_auth.id
+  user_pool_id = aws_cognito_user_pool.app_auth.id
 }
 

@@ -64,5 +64,13 @@ variable "project_api_domain" {
   description = "Project API Domain"
   type        = string
 }
+variable "project_app_port" {
+  description = "Project App Port"
+  type        = string
+}
+variable "project_api_port" {
+  description = "Project API Port"
+  type        = string
+}
 
 

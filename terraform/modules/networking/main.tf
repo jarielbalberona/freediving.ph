@@ -76,27 +76,34 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
-# resource "aws_security_group" "ecs_nextjs_sg" {
-#   vpc_id = aws_vpc.main.id
 
-#   # Allow only ALB to access the Next.js app (port 3000 or 80, depending on setup)
-#   ingress {
-#     from_port       = 3000 # Change to 80 if running Next.js on port 80
-#     to_port         = 3000
-#     protocol        = "tcp"
-#     security_groups = [aws_security_group.alb_sg.id] # ALB security group
-#   }
+## Shared
+resource "aws_lb" "alb" {
+  name               = "freediving-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb_sg.id]
+  subnets            = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
+  idle_timeout       = 30 # Default is 60, reducing to 30 to save cost
+}
 
-#   # Allow Next.js to access external resources (API, DB, S3, etc.)
-#   egress {
-#     from_port   = 0
-#     to_port     = 0
-#     protocol    = "-1"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-# }
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.alb.arn
+  port              = 80
+  protocol          = "HTTP"
 
-resource "aws_security_group" "ecs_express_sg" {
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# API Load Balancer, Target Groups
+resource "aws_security_group" "ecs_api_sg" {
   vpc_id = aws_vpc.main.id
 
   # Allow only ALB to access Express API (port 4000 or any API port)
@@ -116,17 +123,8 @@ resource "aws_security_group" "ecs_express_sg" {
   }
 }
 
-
-resource "aws_lb" "alb" {
-  name               = "freediving-alb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_sg.id] # ALB Security Group
-  subnets            = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
-}
-
-resource "aws_lb_target_group" "express_tg" {
-  name        = "express-target-group"
+resource "aws_lb_target_group" "api_tg" {
+  name        = "api-target-group"
   port        = 4000 # Change to your Express API port
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
@@ -141,35 +139,20 @@ resource "aws_lb_target_group" "express_tg" {
   }
 }
 
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.alb.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
-  }
-}
-
 resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.alb.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = var.module_route53_acm_certificate_arn_api
+  certificate_arn   = var.module_route53_acm_certificate_ssl_cert
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.express_tg.arn
+    target_group_arn = aws_lb_target_group.api_tg.arn
   }
 }
 
-resource "aws_lb_listener_rule" "express_rule" {
+resource "aws_lb_listener_rule" "api_rule" {
   listener_arn = aws_lb_listener.https.arn
 
   condition {
@@ -180,6 +163,51 @@ resource "aws_lb_listener_rule" "express_rule" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.express_tg.arn
+    target_group_arn = aws_lb_target_group.api_tg.arn
+  }
+}
+
+
+# App Load Balancer, Target Groups
+resource "aws_security_group" "ecs_app_sg" {
+  vpc_id = aws_vpc.main.id
+
+  # Allow only ALB to access NextJS App (port 3000 or any API port)
+  ingress {
+    from_port       = 3000 # Change to your NextJS App port
+    to_port         = 3000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id] # ALB security group
+  }
+
+  # Allow NextJS App to access external resources
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_lb_target_group" "app_tg" {
+  name        = "app-target-group"
+  port        = 3000 # Change to your NextJS App port
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+}
+
+resource "aws_lb_listener_rule" "app_rule" {
+  listener_arn = aws_lb_listener.https.arn
+
+  condition {
+    host_header {
+      values = [var.project_app_domain]
+    }
+  }
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app_tg.arn
   }
 }

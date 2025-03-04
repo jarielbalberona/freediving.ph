@@ -1,3 +1,3 @@
-output "acm_certificate_arn_api" {
-  value = aws_acm_certificate.api_ssl_cert.arn
+output "acm_certificate_ssl_cert_arn" {
+  value = aws_acm_certificate.ssl_cert.arn
 }

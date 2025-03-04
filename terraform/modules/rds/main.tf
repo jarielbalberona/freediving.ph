@@ -25,7 +25,7 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
 }
 
 # RDS Instance
-resource "aws_db_instance" "express_db" {
+resource "aws_db_instance" "project_db" {
   identifier             = "${var.environment}-${var.aws_project_name}-rds"
   allocated_storage      = 20
   storage_type           = "gp2"
