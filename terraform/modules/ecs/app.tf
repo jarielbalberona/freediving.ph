@@ -70,6 +70,11 @@ resource "aws_ecs_task_definition" "app" {
           hostPort      = 3000
         }
       ]
+      environment = [
+        { name = "NEXT_PUBLIC_API_URL", value = "https://api-dev.freediving.ph" },
+        { name = "NEXT_PUBLIC_GOOGLE_MAP_API", value = "AIzaSyCt8RQ54ZSo4Vh1EgUPQHQaYeB3P1oiRAQ" },
+        { name = "API_URL", value = "https://api-dev.freediving.ph" },
+      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {

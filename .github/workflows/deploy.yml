@@ -16,7 +16,7 @@ env:
   AWS_REGION: ap-southeast-1
   ECR_REPO: freediving-ph
   APP_SERVICE: app-service
-  API_SERVICE: api-api-service
+  API_SERVICE: api-service
   AWS_ECR_REGISTRY_APP: 486564619398.dkr.ecr.ap-southeast-1.amazonaws.com/dev-freediving-ph-app:latest
   AWS_ECR_REGISTRY_API: 486564619398.dkr.ecr.ap-southeast-1.amazonaws.com/dev-freediving-ph-api:latest
 
