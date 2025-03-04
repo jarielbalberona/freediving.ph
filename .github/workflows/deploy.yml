@@ -60,15 +60,17 @@ jobs:
             echo "AWS_ECR_REGISTRY_APP=${{ secrets.AWS_ECR_REGISTRY_URL }}/prod-${{ env.ECR_REPO_APP }}:latest" >> $GITHUB_ENV
             echo "AWS_ECR_REGISTRY_API=${{ secrets.AWS_ECR_REGISTRY_URL }}/prod-${{ env.ECR_REPO_API }}:latest" >> $GITHUB_ENV
           fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
 
-      - name: Install Dependencies for Drizzle ORM
+      - name: Enable Corepack & Install Dependencies
         run: |
-          corepack enable && corepack prepare pnpm@latest --activate
+          corepack enable
+          corepack prepare pnpm@latest --activate
           pnpm install --frozen-lockfile
 
       - name: Run Drizzle Migrations
