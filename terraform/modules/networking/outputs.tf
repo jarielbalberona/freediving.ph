@@ -16,6 +16,10 @@ output "ecs_app_sg_id" {
   value = aws_security_group.ecs_app_sg.id
 }
 
+output "alb_sg_id" {
+  value = aws_security_group.alb_sg.id
+}
+
 output "lb_target_group_app_tg_id" {
   value = aws_lb_target_group.app_tg.id
 }

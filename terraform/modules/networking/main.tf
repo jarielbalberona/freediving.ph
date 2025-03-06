@@ -1,12 +1,19 @@
 
 # VPC
 resource "aws_vpc" "main" {
+
   cidr_block = "10.0.0.0/16"
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-vpc"
+  }
 }
 
 # Internet Gateway
 resource "aws_internet_gateway" "main_igw" {
   vpc_id = aws_vpc.main.id
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-main-igw"
+  }
 }
 
 # Route Table for Public Subnets
@@ -17,6 +24,9 @@ resource "aws_route_table" "public_rt" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.main_igw.id
   }
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-public-rt"
+  }
 }
 
 # Public Subnet 1
@@ -25,6 +35,9 @@ resource "aws_subnet" "subnet_1" {
   cidr_block              = "10.0.1.0/24"
   map_public_ip_on_launch = true
   availability_zone       = "ap-southeast-1a"
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-subnet-1"
+  }
 }
 
 # Public Subnet 2
@@ -33,6 +46,9 @@ resource "aws_subnet" "subnet_2" {
   cidr_block              = "10.0.2.0/24"
   map_public_ip_on_launch = true
   availability_zone       = "ap-southeast-1b"
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-subnet-2"
+  }
 }
 
 # Associate Public Subnets with the Route Table
@@ -49,6 +65,7 @@ resource "aws_route_table_association" "subnet_2_assoc" {
 
 # Security Group
 resource "aws_security_group" "alb_sg" {
+  name   = "${var.environment}-${var.aws_project_name}-alb-sg"
   vpc_id = aws_vpc.main.id
 
   # Allow HTTP traffic from the internet
@@ -73,6 +90,10 @@ resource "aws_security_group" "alb_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-alb-sg"
   }
 }
 
@@ -100,6 +121,9 @@ resource "aws_lb_listener" "http" {
       status_code = "HTTP_301"
     }
   }
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-alb-listener-http"
+  }
 }
 
 # API Load Balancer, Target Groups
@@ -121,6 +145,9 @@ resource "aws_security_group" "ecs_api_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-ecs-api-sg"
+  }
 }
 
 resource "aws_lb_target_group" "api_tg" {
@@ -137,6 +164,9 @@ resource "aws_lb_target_group" "api_tg" {
     healthy_threshold   = 3
     unhealthy_threshold = 3
   }
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-api-tg"
+  }
 }
 
 resource "aws_lb_listener" "https" {
@@ -149,6 +179,9 @@ resource "aws_lb_listener" "https" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.api_tg.arn
+  }
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-alb-listener-https"
   }
 }
 
@@ -165,11 +198,15 @@ resource "aws_lb_listener_rule" "api_rule" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.api_tg.arn
   }
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-api-rule"
+  }
 }
 
 
 # App Load Balancer, Target Groups
 resource "aws_security_group" "ecs_app_sg" {
+  name   = "${var.environment}-${var.aws_project_name}-ecs-app-sg"
   vpc_id = aws_vpc.main.id
 
   # Allow only ALB to access NextJS App (port 3000 or any API port)
@@ -187,6 +224,9 @@ resource "aws_security_group" "ecs_app_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-ecs-app-sg"
+  }
 }
 
 resource "aws_lb_target_group" "app_tg" {
@@ -195,6 +235,9 @@ resource "aws_lb_target_group" "app_tg" {
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-app-tg"
+  }
 }
 
 resource "aws_lb_listener_rule" "app_rule" {
@@ -209,5 +252,8 @@ resource "aws_lb_listener_rule" "app_rule" {
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.app_tg.arn
+  }
+  tags = {
+    Name = "${var.environment}-${var.aws_project_name}-app-rule"
   }
 }

@@ -9,5 +9,8 @@ variable "module_networking_subnet1_id" {}
 variable "module_networking_subnet2_id" {}
 variable "module_networking_ecs_api_sg_id" {}
 variable "module_networking_ecs_app_sg_id" {}
+variable "module_networking_alb_sg_id" {}
 variable "module_networking_lb_target_group_api_tg_id" {}
 variable "module_networking_lb_target_group_app_tg_id" {}
+variable "module_rds_aws_security_group" {}
+variable "module_rds_aws_security_group_id" {}
