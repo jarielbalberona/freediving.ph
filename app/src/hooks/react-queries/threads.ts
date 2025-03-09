@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { appAPICall } from "@/lib/api";
+import { apiCall } from "@/lib/api";
 
 export function useThreads(initialThreads?: any) {
   return useQuery({
     queryKey: ["threads"],
-    queryFn: () => appAPICall("/threads"),
+    queryFn: () => apiCall("/threads"),
     initialData: initialThreads,
   });
 }
