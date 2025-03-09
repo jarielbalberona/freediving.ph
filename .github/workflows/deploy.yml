@@ -17,6 +17,8 @@ on:
         required: true
       AWS_ECR_REGISTRY_URL:
         required: true
+      NEXT_PUBLIC_GOOGLE_MAP_API:
+        required: true
 
 env:
   AWS_REGION: ap-southeast-1
@@ -47,26 +49,45 @@ jobs:
 
       - name: Set Environment Variables
         run: |
+          # Set common variables
+          echo "NEXT_PUBLIC_GOOGLE_MAP_API=${{ secrets.NEXT_PUBLIC_GOOGLE_MAP_API }}" >> $GITHUB_ENV
+
           if [ "${{ inputs.environment }}" == "dev" ]; then
             echo "ENV=dev" >> $GITHUB_ENV
             echo "ECS_CLUSTER=dev-freediving-ph-cluster" >> $GITHUB_ENV
             echo "DATABASE_URL=${{ secrets.DATABASE_URL_DEV }}" >> $GITHUB_ENV
             echo "AWS_ECR_REGISTRY_APP=${{ secrets.AWS_ECR_REGISTRY_URL }}/dev-${{ env.ECR_REPO_APP }}:latest" >> $GITHUB_ENV
             echo "AWS_ECR_REGISTRY_API=${{ secrets.AWS_ECR_REGISTRY_URL }}/dev-${{ env.ECR_REPO_API }}:latest" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_API_URL=https://api-dev.freediving.ph" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_APP_URL=https://dev.freediving.ph" >> $GITHUB_ENV
+            echo "API_URL=https://api-dev.freediving.ph" >> $GITHUB_ENV
+            echo "APP_URL=https://dev.freediving.ph" >> $GITHUB_ENV
           else
             echo "ENV=prod" >> $GITHUB_ENV
             echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV
             echo "DATABASE_URL=${{ secrets.DATABASE_URL_PROD }}" >> $GITHUB_ENV
             echo "AWS_ECR_REGISTRY_APP=${{ secrets.AWS_ECR_REGISTRY_URL }}/prod-${{ env.ECR_REPO_APP }}:latest" >> $GITHUB_ENV
             echo "AWS_ECR_REGISTRY_API=${{ secrets.AWS_ECR_REGISTRY_URL }}/prod-${{ env.ECR_REPO_API }}:latest" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_API_URL=https://api.freediving.ph" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_APP_URL=https://freediving.ph" >> $GITHUB_ENV
+            echo "API_URL=https://api.freediving.ph" >> $GITHUB_ENV
+            echo "APP_URL=https://freediving.ph" >> $GITHUB_ENV
           fi
 
       - name: Build and Push Frontend Image
+        env:
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ env.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_GOOGLE_MAP_API: ${{ env.NEXT_PUBLIC_GOOGLE_MAP_API }}
+          API_URL: ${{ env.API_URL }}
+          APP_URL: ${{ env.APP_URL }}
         run: |
           docker build -t $AWS_ECR_REGISTRY_APP -f app/Dockerfile app
           docker push $AWS_ECR_REGISTRY_APP
 
       - name: Build and Push Backend Image
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: |
           docker build -t $AWS_ECR_REGISTRY_API -f api/Dockerfile api
           docker push $AWS_ECR_REGISTRY_API
