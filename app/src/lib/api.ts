@@ -7,10 +7,11 @@ export interface ApiResponse<T = any> {
 }
 
 const getBaseUrl = () => {
-  if (typeof window === 'undefined') {
-    return process.env.API_URL;
-  }
-  return process.env.NEXT_PUBLIC_API_URL;
+  return "https://api-dev.freediving.ph"
+  // if (typeof window === 'undefined') {
+  //   return process.env.API_URL;
+  // }
+  // return process.env.NEXT_PUBLIC_API_URL;
 };
 
 export async function apiCall<T>(
