@@ -9,7 +9,8 @@ export const corsOptions: CorsOptions = {
 		callback: (err: Error | null, allow?: boolean) => void
   ) {
     console.log("corsOptions origin", origin)
-    console.log("corsOptions process.env.ORIGIN_UR", process.env.ORIGIN_UR)
+    console.log("corsOptions process.env.ORIGIN_UR", process.env.ORIGIN_URL)
+    console.log("corsOptions process.env.ORIGIN_URL.split(",").includes(origin)", process.env.ORIGIN_URL.split(",").includes(origin || ""))
 		if (!origin || process.env.ORIGIN_URL.split(",").includes(origin)) {
       if (origin) {
         console.log("corsOptions originStore.setOriginUrl(origin)", origin)
