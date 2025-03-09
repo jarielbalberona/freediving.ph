@@ -19,9 +19,9 @@ const getBaseUrl = () => {
   });
 
   if (isServer) {
-    return serverUrl || 'http://localhost:4000';
+    return serverUrl || 'https://api-dev.freediving.ph';
   }
-  return clientUrl || 'http://localhost:4000';
+  return clientUrl || 'https://api-dev.freediving.ph';
 };
 
 export async function apiCall<T>(
