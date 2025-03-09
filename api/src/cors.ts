@@ -5,20 +5,13 @@ import originStore from "@/utils/originStore";
 // CORS configuration with options
 export const corsOptions: CorsOptions = {
 	origin: function (origin, callback) {
-		console.log("CORS origin:", origin);
-		console.log("Allowed origins:", process.env.ORIGIN_URL);
-
 		// Normalize both values by stripping 'https://' or 'http://'
 		const formattedOrigin = origin?.replace(/^https?:\/\//, "") || "";
 		const allowedOrigins = process.env.ORIGIN_URL.split(",").map(o => o.replace(/^https?:\/\//, ""));
 
-		console.log("Formatted request origin:", formattedOrigin);
-		console.log("Formatted allowed origins:", allowedOrigins);
-
 		if (!origin || allowedOrigins.includes(formattedOrigin)) {
 			callback(null, true);
 		} else {
-			console.log("CORS check result: false");
 			callback(new Error("Not allowed by CORS"));
 		}
 	},

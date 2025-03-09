@@ -25,10 +25,10 @@ dotenv.config();
 const app = express();
 
 app.use(helmet());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded());
 app.use(cookieParser());
-app.use(cors(corsOptions));
 app.use(`/${uploadDir}`, express.static(path.join(process.cwd(), "uploads")));
 
 /**
