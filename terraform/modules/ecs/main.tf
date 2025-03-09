@@ -16,6 +16,22 @@ resource "aws_security_group" "ecs_sg" {
     protocol        = "tcp"
     security_groups = [var.module_networking_alb_sg_id]
   }
+
+  # 🔹 Allow outbound connections to RDS on port 5432
+  egress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [var.module_rds_aws_security_group_id] # 🔹 RDS SG
+  }
+
+  # 🔹 Allow all other outbound traffic (optional but recommended)
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"] # 🔹 Allow internet access (for updates, logs, etc.)
+  }
   tags = {
     Name = "${var.environment}-${var.aws_project_name}-ecs-sg"
   }

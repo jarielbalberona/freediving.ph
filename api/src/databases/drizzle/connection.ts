@@ -35,10 +35,11 @@ const logDatabaseConnection = async (sql: postgres.Sql, type: 'main' | 'pool') =
   try {
     await sql`SELECT 1`;
     console.log(`✅ ${type === 'main' ? 'Main' : 'Pool'} database connection established successfully`);
-    console.log(`🔌 Connected to: ${process.env.DATABASE_URL?.split('@')[1] || 'database'}`);
+    console.log(`🔌 Connected to: ${process.env.DATABASE_URL || 'database'}`);
     console.log(`📅 Connection time: ${new Date().toISOString()}`);
     console.log('--------------------------------------------------');
   } catch (error) {
+    console.log(`❌🔌 Not connected to: ${process.env.DATABASE_URL || 'database'}`);
     console.error(`❌ ${type === 'main' ? 'Main' : 'Pool'} database connection failed:`, error);
     console.error('--------------------------------------------------');
     throw error;
