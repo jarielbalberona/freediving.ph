@@ -71,6 +71,7 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
       environment = [
+        { name = "ORIGIN_URL", value = "https://dev.freediving.ph" },
         { name = "API_URL", value = "https://api-dev.freediving.ph" },
         { name = "APP_URL", value = "https://dev.freediving.ph" },
         { name = "NEXT_PUBLIC_APP_URL", value = "https://dev.freediving.ph" },

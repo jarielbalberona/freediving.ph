@@ -5,9 +5,12 @@ import { redirect } from "next/navigation";
 import AuthForm from "./form"
 
 export default async function AuthPage() {
-  const session:any = await apiCall("/auth/session")
-  if (session?.status !== 401 && session?.status !== 403) {
+
+  const { status, data = null } = await apiCall("/auth/session");
+
+  if (status !== 401 && status !== 403) {
     // bug, wont redirect to home if authenticated already and tried to access login page
+    console.log("AuthPage: redirecting to home", data);
     redirect("/"); // Redirect to home page
   }
 

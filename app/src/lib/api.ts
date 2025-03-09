@@ -7,11 +7,21 @@ export interface ApiResponse<T = any> {
 }
 
 const getBaseUrl = () => {
-  return "https://api-dev.freediving.ph"
-  // if (typeof window === 'undefined') {
-  //   return process.env.API_URL;
-  // }
-  // return process.env.NEXT_PUBLIC_API_URL;
+  const serverUrl = process.env.API_URL;
+  const clientUrl = process.env.NEXT_PUBLIC_API_URL;
+  const isServer = typeof window === 'undefined';
+
+  console.log({
+    isServer,
+    serverUrl,
+    clientUrl,
+    finalUrl: isServer ? serverUrl : clientUrl
+  });
+
+  if (isServer) {
+    return serverUrl || 'http://localhost:4000';
+  }
+  return clientUrl || 'http://localhost:4000';
 };
 
 export async function apiCall<T>(
@@ -20,8 +30,9 @@ export async function apiCall<T>(
   isAuthPage = false
 ): Promise<ApiResponse<T>> {
   const baseUrl = getBaseUrl();
-
-  const res = await fetch(`${baseUrl}${url}`, {
+  const endpointUrl = `${baseUrl}${url}`
+  console.log("endpointUrl", endpointUrl);
+  const res = await fetch(endpointUrl, {
     ...options,
     headers: {
       "Content-Type": "application/json",

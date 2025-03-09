@@ -4,7 +4,10 @@ import { apiCall } from "@/lib/api";
 export function useProfile(data: any = {}) {
   return useQuery({
     queryKey: ["profile"],
-    queryFn: () => apiCall("/auth/me"),
+    queryFn: async () => {
+      const response = await apiCall<any[]>("/auth/me");
+      return response.data; // specifically return the data property
+    },
     initialData: data,
   });
 }

@@ -2,8 +2,7 @@ import { apiCall } from "@/lib/api";
 import Threads from "./threads";
 
 export default async function ChikaList() {
-  const threads = await apiCall("/threads")
-
+  const { status, data = null } = await apiCall("/threads");
   return (
     <>
       <main className="">
@@ -11,7 +10,7 @@ export default async function ChikaList() {
           <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
             <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
               <h1 className="mb-6 text-2xl font-bold">Latest Chika</h1>
-              <Threads initialThread={threads} />
+              <Threads initialThreads={data} />
             </div>
           </div>
         </div>

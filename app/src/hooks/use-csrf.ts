@@ -1,14 +1,19 @@
 import { useState, useEffect } from "react";
+import { apiCall } from "@/lib/api";
 
 export default function useCsrf() {
   const [csrfToken, setCsrfToken] = useState("");
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/csrf-token`, {
-      credentials: "include",
-    })
-      .then((res) => res.json())
-      .then((data) => setCsrfToken(data.data));
+    const fetchCsrfToken = async () => {
+      try {
+        const res = await apiCall<string>("/csrf-token");
+        setCsrfToken(res.data);
+      } catch (error) {
+        console.error("Error fetching CSRF token:", error);
+      }
+    };
+    fetchCsrfToken();
   }, []);
 
   return csrfToken;
