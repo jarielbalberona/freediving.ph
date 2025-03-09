@@ -4,25 +4,28 @@ import originStore from "@/utils/originStore";
 
 // CORS configuration with options
 export const corsOptions: CorsOptions = {
-  origin: (origin, callback) => {
-    const allowedOrigins = process.env.ORIGIN_URL?.split(",") || [];
-    const isAllowed = !origin || allowedOrigins.includes(origin);
+	origin: function (origin, callback) {
+		console.log("CORS origin:", origin);
+		console.log("Allowed origins:", process.env.ORIGIN_URL);
 
-    console.log("CORS origin:", origin);
-    console.log("Allowed origins:", allowedOrigins);
-    console.log("CORS check result:", isAllowed);
+		// Normalize both values by stripping 'https://' or 'http://'
+		const formattedOrigin = origin?.replace(/^https?:\/\//, "") || "";
+		const allowedOrigins = process.env.ORIGIN_URL.split(",").map(o => o.replace(/^https?:\/\//, ""));
 
-    if (isAllowed) {
-      if (origin) originStore.setOriginUrl(origin);
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token", "ngrok-skip-browser-warning"],
-  maxAge: 3600,
+		console.log("Formatted request origin:", formattedOrigin);
+		console.log("Formatted allowed origins:", allowedOrigins);
+
+		if (!origin || allowedOrigins.includes(formattedOrigin)) {
+			callback(null, true);
+		} else {
+			console.log("CORS check result: false");
+			callback(new Error("Not allowed by CORS"));
+		}
+	},
+	credentials: true,
+	methods: ["GET", "POST", "PUT", "DELETE"],
+	allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token", "ngrok-skip-browser-warning"],
+	maxAge: 3600,
 };
 
 export const socketCorsConfig = {
