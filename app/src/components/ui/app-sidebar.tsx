@@ -20,20 +20,33 @@ export async function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const cookieStore = await cookies();
-  const res = await fetch(`${process.env.API_URL}/auth/me`, {
+  const url = `${process.env.API_URL}/auth/me`;
+  console.log("process.env.API_URL", url);
+  const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
-      Cookie: cookieStore.toString()
+      Cookie: cookieStore.toString(),
     },
-    credentials: "include", // Include cookies
+    credentials: "include",
+    // Add this to handle self-signed/invalid certificates in development
+    ...(process.env.NODE_ENV === "development" && {
+      rejectUnauthorized: false,
+    }),
   });
 
-  const { status, data = null } = await res.json()
-  let filteredNav = navigation
+  // Add error handling
+  if (!res.ok) {
+    console.error("API Error:", await res.text());
+    return null;
+  }
+
+  const { status, data = null } = await res.json();
+
+  let filteredNav = navigation;
 
   // buggy, must hide protected nav items
   if (status === 401 || status === 403) {
-    filteredNav = navigation.filter((nav) => !nav.isProtected)
+    filteredNav = navigation.filter((nav) => !nav.isProtected);
   }
 
   console.log("AppSidebar status", status);
@@ -64,9 +77,7 @@ export async function AppSidebar({
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser initialData={data} />
-      </SidebarFooter>
+      <SidebarFooter><NavUser initialData={data} /></SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
