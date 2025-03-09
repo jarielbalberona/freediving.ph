@@ -2,7 +2,7 @@ import { apiCall } from "@/lib/api";
 import Threads from "./threads";
 
 export default async function ChikaList() {
-  const { status, data = null } = await apiCall("/threads");
+  const { data = null } = await apiCall("/threads");
   return (
     <>
       <main className="">
