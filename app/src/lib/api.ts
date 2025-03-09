@@ -1,47 +1,39 @@
-export async function appAPICall<T>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
-  console.log("appAPICall process.env.NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL);
-  console.log("appAPICall process.env.API_URL", process.env.API_URL);
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${url}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    credentials: "include", // Include cookies
-  });
-
-  if (!res.ok) {
-    throw new Error(`Error: ${res.status} ${res.statusText}`);
-  }
-  const { data } = await res.json();
-  return data;
+export interface ApiResponse<T = any> {
+  status: number;
+  data: T;
+  ok: boolean;
+  text(): Promise<string>;
+  json(): Promise<any>;
 }
 
-export async function serverAPICall<T>(
+const getBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return process.env.API_URL;
+  }
+  return process.env.NEXT_PUBLIC_API_URL;
+};
+
+export async function apiCall<T>(
   url: string,
   options: RequestInit = {},
   isAuthPage = false
-): Promise<T> {
-    console.log("serverAPICall process.env.NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL);
-  console.log("serverAPICall process.env.API_URL", process.env.API_URL);
-  const res = await fetch(`${process.env.API_URL}${url}`, {
+): Promise<ApiResponse> {
+  const baseUrl = getBaseUrl();
+
+  const res = await fetch(`${baseUrl}${url}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
-    credentials: "include", // Include cookies
+    credentials: "include",
   });
 
   if (!res.ok) {
-    if (!isAuthPage) {
-      if (res.status === 401 || res.status === 403) {
-        // redirect("/auth"); // Redirect to login page
-      }
+    if (!isAuthPage && (res.status === 401 || res.status === 403)) {
+      // Handle auth errors
     }
+    throw new Error(`Error: ${res.status} ${res.statusText}`);
   }
 
   return await res.json();

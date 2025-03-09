@@ -3,7 +3,7 @@ import Image from "next/image";
 import { cookies } from "next/headers";
 import { navigation } from "@/config/nav";
 import { NavUser } from "@/components/ui/nav-user";
-
+import { apiCall } from "@/lib/api";
 import {
   Sidebar,
   SidebarContent,
@@ -20,9 +20,8 @@ export async function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const cookieStore = await cookies();
-  const url = `${process.env.API_URL}/auth/me`;
-  console.log("process.env.API_URL", url);
-  const res = await fetch(url, {
+
+  const res = await apiCall("/auth/me", {
     headers: {
       "Content-Type": "application/json",
       Cookie: cookieStore.toString(),

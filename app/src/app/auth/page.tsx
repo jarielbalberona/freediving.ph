@@ -1,11 +1,11 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
-import { serverAPICall } from "@/lib/api";
+import { apiCall } from "@/lib/api";
 import { redirect } from "next/navigation";
 import AuthForm from "./form"
 
 export default async function AuthPage() {
-  const session:any = await serverAPICall("/auth/session")
+  const session:any = await apiCall("/auth/session")
   if (session?.status !== 401 && session?.status !== 403) {
     // bug, wont redirect to home if authenticated already and tried to access login page
     redirect("/"); // Redirect to home page

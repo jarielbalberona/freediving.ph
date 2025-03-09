@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { appAPICall } from "@/lib/api";
+import { apiCall } from "@/lib/api";
 
 export function useProfile(data: any = {}) {
   return useQuery({
     queryKey: ["profile"],
-    queryFn: () => appAPICall("/auth/me"),
+    queryFn: () => apiCall("/auth/me"),
     initialData: data,
   });
 }
@@ -19,7 +19,7 @@ export function useLogin(successCB: any) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: LoginRequest) =>
-      appAPICall("/auth/login", {
+      apiCall("/auth/login", {
         method: "POST",
         body: JSON.stringify(body),
         headers: { "x-csrf-token": body.csrfToken },
@@ -38,7 +38,7 @@ export function useRegister(successCB: any) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: LoginRequest) =>
-      appAPICall("/auth/register", {
+      apiCall("/auth/register", {
         method: "POST",
         body: JSON.stringify(body),
         headers: { "x-csrf-token": body.csrfToken },
@@ -56,7 +56,7 @@ export function useLogout(successCB: any) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (csrfToken: any) =>
-      appAPICall("/auth/logout", {
+      apiCall("/auth/logout", {
         method: "POST",
         headers: { "x-csrf-token": csrfToken },
       }),

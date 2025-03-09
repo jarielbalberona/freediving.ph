@@ -1,8 +1,8 @@
-import { serverAPICall } from "@/lib/api";
+import { apiCall } from "@/lib/api";
 import Threads from "./threads";
 
 export default async function ChikaList() {
-  const threads = await serverAPICall("/threads")
+  const threads = await apiCall("/threads")
 
   return (
     <>
