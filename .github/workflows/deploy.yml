@@ -55,6 +55,7 @@ jobs:
           if [ "${{ inputs.environment }}" == "dev" ]; then
             echo "ENV=dev" >> $GITHUB_ENV
             echo "ECS_CLUSTER=dev-freediving-ph-cluster" >> $GITHUB_ENV
+            echo "ORIGIN_URL=https://dev.freediving.ph" >> $GITHUB_ENV
             echo "DATABASE_URL=${{ secrets.DATABASE_URL_DEV }}" >> $GITHUB_ENV
             echo "AWS_ECR_REGISTRY_APP=${{ secrets.AWS_ECR_REGISTRY_URL }}/dev-${{ env.ECR_REPO_APP }}:latest" >> $GITHUB_ENV
             echo "AWS_ECR_REGISTRY_API=${{ secrets.AWS_ECR_REGISTRY_URL }}/dev-${{ env.ECR_REPO_API }}:latest" >> $GITHUB_ENV
@@ -65,6 +66,7 @@ jobs:
           else
             echo "ENV=prod" >> $GITHUB_ENV
             echo "ECS_CLUSTER=prod-freediving-ph-cluster" >> $GITHUB_ENV
+            echo "ORIGIN_URL=https://freediving.ph" >> $GITHUB_ENV
             echo "DATABASE_URL=${{ secrets.DATABASE_URL_PROD }}" >> $GITHUB_ENV
             echo "AWS_ECR_REGISTRY_APP=${{ secrets.AWS_ECR_REGISTRY_URL }}/prod-${{ env.ECR_REPO_APP }}:latest" >> $GITHUB_ENV
             echo "AWS_ECR_REGISTRY_API=${{ secrets.AWS_ECR_REGISTRY_URL }}/prod-${{ env.ECR_REPO_API }}:latest" >> $GITHUB_ENV
@@ -88,6 +90,7 @@ jobs:
       - name: Build and Push Backend Image
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
+          ORIGIN_URL: ${{ env.ORIGIN_URL }}
         run: |
           docker build -t $AWS_ECR_REGISTRY_API -f api/Dockerfile api
           docker push $AWS_ECR_REGISTRY_API

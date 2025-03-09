@@ -7,13 +7,18 @@ export const corsOptions: CorsOptions = {
 	origin: function (
 		origin: string | undefined,
 		callback: (err: Error | null, allow?: boolean) => void
-	) {
+  ) {
+    console.log("corsOptions origin", origin)
+    console.log("corsOptions process.env.ORIGIN_UR", process.env.ORIGIN_UR)
 		if (!origin || process.env.ORIGIN_URL.split(",").includes(origin)) {
-			if (origin) {
+      if (origin) {
+        console.log("corsOptions originStore.setOriginUrl(origin)", origin)
 				originStore.setOriginUrl(origin);
-			}
+      }
+      console.log("corsOptions callback true")
 			callback(null, true);
 		} else {
+      console.log("corsOptions callback false")
 			callback(new Error("Not allowed by CORS"));
 		}
 	},
