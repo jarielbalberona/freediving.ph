@@ -2,7 +2,9 @@ export async function appAPICall<T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${process.env.API_URL}${url}`, {
+  console.log("appAPICall process.env.NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL);
+  console.log("appAPICall process.env.API_URL", process.env.API_URL);
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${url}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -23,6 +25,8 @@ export async function serverAPICall<T>(
   options: RequestInit = {},
   isAuthPage = false
 ): Promise<T> {
+    console.log("serverAPICall process.env.NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL);
+  console.log("serverAPICall process.env.API_URL", process.env.API_URL);
   const res = await fetch(`${process.env.API_URL}${url}`, {
     ...options,
     headers: {
@@ -40,5 +44,5 @@ export async function serverAPICall<T>(
     }
   }
 
-  return await res.json();;
+  return await res.json();
 }
