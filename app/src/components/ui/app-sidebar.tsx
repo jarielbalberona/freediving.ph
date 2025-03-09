@@ -27,19 +27,10 @@ export async function AppSidebar({
       Cookie: cookieStore.toString(),
     },
     credentials: "include",
-    // Add this to handle self-signed/invalid certificates in development
-    ...(process.env.NODE_ENV === "development" && {
-      rejectUnauthorized: false,
-    }),
   });
 
-  // Add error handling
-  if (!res.ok) {
-    console.error("API Error:", await res.text());
-    return null;
-  }
-
-  const { status, data = null } = await res.json();
+  // Since apiCall already returns parsed JSON, don't call .json() again
+  const { status, data = null } = res;
 
   let filteredNav = navigation;
 

@@ -32,8 +32,9 @@ export async function apiCall<T>(
   if (!res.ok) {
     if (!isAuthPage && (res.status === 401 || res.status === 403)) {
       // Handle auth errors
+      console.log("API Error: Handle error");
     }
-    throw new Error(`Error: ${res.status} ${res.statusText}`);
+    console.log(`API Error: ${res.status} ${res.statusText}`);
   }
 
   return await res.json();
