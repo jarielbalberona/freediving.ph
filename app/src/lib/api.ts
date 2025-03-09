@@ -17,7 +17,7 @@ export async function apiCall<T>(
   url: string,
   options: RequestInit = {},
   isAuthPage = false
-): Promise<ApiResponse> {
+): Promise<ApiResponse<T>> {
   const baseUrl = getBaseUrl();
 
   const res = await fetch(`${baseUrl}${url}`, {
