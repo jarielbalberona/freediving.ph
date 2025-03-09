@@ -71,9 +71,11 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
       environment = [
-        { name = "NEXT_PUBLIC_API_URL", value = "https://api-dev.freediving.ph" },
-        { name = "NEXT_PUBLIC_GOOGLE_MAP_API", value = "AIzaSyCt8RQ54ZSo4Vh1EgUPQHQaYeB3P1oiRAQ" },
         { name = "API_URL", value = "https://api-dev.freediving.ph" },
+        { name = "APP_URL", value = "https://dev.freediving.ph" },
+        { name = "NEXT_PUBLIC_APP_URL", value = "https://dev.freediving.ph" },
+        { name = "NEXT_PUBLIC_API_URL", value = "https://api-dev.freediving.ph" },
+        { name = "NEXT_PUBLIC_GOOGLE_MAP_API", value = "AIzaSyCt8RQ54ZSo4Vh1EgUPQHQaYeB3P1oiRAQ" }
       ]
       logConfiguration = {
         logDriver = "awslogs"
