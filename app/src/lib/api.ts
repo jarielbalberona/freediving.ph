@@ -2,7 +2,7 @@ export async function appAPICall<T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${url}`, {
+  const res = await fetch(`${process.env.API_URL}${url}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
