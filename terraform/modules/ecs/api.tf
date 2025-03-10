@@ -68,7 +68,7 @@ resource "aws_ecs_task_definition" "api" {
         hostPort      = 4000
       }]
       environment = [
-        { name = "DATABASE_URL", value = "postgres://fphbuddiesdev:VbPZ6SdIth7Tx3FPH@dev-freediving-ph-rds.cji8vqdamzfa.ap-southeast-1.rds.amazonaws.com" },
+        { name = "DATABASE_URL", value = "postgres://fphbuddies:bPZ6SdIth7@dev-freediving-ph-rds.cji8vqdamzfa.ap-southeast-1.rds.amazonaws.com" },
         { name = "DATABASE_NAME", value = "freedivingph" },
         { name = "PORT", value = "4000" },
         { name = "NODE_ENV", value = "development" },
