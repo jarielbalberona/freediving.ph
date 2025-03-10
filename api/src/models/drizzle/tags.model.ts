@@ -5,7 +5,7 @@ import { users } from "./authentication.model"
 
 
 // Tags Table
-export const tags = pgTable("tag", {
+export const tags = pgTable("tags", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 50 }).unique().notNull(),
   category: varchar("category", { length: 50 }).notNull(),
