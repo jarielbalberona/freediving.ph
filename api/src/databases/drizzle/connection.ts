@@ -32,6 +32,7 @@ export const queryTracker = {
 };
 
 const logDatabaseConnection = async (sql: postgres.Sql, type: 'main' | 'pool') => {
+  console.log(`DBURL: ${process.env.DATABASE_URL}`);
   try {
     await sql`SELECT 1`;
     console.log(`✅ ${type === 'main' ? 'Main' : 'Pool'} database connection established successfully`);
