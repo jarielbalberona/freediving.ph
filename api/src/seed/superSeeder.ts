@@ -12,14 +12,14 @@ async function runSeeders() {
 		const isRDS = process.env.DATABASE_URL?.includes("rds.amazonaws.com");
 
 		await seedTags();
+    await seedDiveSpots();
 
 		if (!isRDS) {
       console.log("Seeding local data only");
-      await seedDiveSpots();
-      await seedDiveLogs();
-      await seedDiveLogBuddies();
-			await seedUsers();
-      await seedThreads();
+      // await seedDiveLogs();
+      // await seedDiveLogBuddies();
+			// await seedUsers();
+      // await seedThreads();
       console.log("Seeding local data only completed");
 		} else {
 			console.log("Skipping users and threads seeding (running on RDS)...");

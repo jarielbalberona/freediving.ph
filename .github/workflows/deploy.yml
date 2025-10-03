@@ -51,7 +51,7 @@ jobs:
         run: |
           # Set common variables
           echo "NEXT_PUBLIC_GOOGLE_MAP_API=${{ secrets.NEXT_PUBLIC_GOOGLE_MAP_API }}" >> $GITHUB_ENV
-
+          echo "DATABASE_NAME=freedivingph" >> $GITHUB_ENV
           if [ "${{ inputs.environment }}" == "dev" ]; then
             echo "ENV=dev" >> $GITHUB_ENV
             echo "ECS_CLUSTER=dev-freediving-ph-cluster" >> $GITHUB_ENV
@@ -90,6 +90,7 @@ jobs:
       - name: Build and Push Backend Image
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
+          DATABASE_NAME: ${{ env.DATABASE_NAME }}
           ORIGIN_URL: ${{ env.ORIGIN_URL }}
         run: |
           docker build -t $AWS_ECR_REGISTRY_API -f api/Dockerfile api

@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket  = "freediving.ph-tofu-state"
+    bucket  = "freediving-ph-tofu-state"
     key     = "production/terraform.tfstate"
     region  = "ap-southeast-1"
     encrypt = true

@@ -71,12 +71,11 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
       environment = [
-        { name = "ORIGIN_URL", value = "https://dev.freediving.ph" },
-        { name = "API_URL", value = "https://api-dev.freediving.ph" },
-        { name = "APP_URL", value = "https://dev.freediving.ph" },
-        { name = "NEXT_PUBLIC_APP_URL", value = "https://dev.freediving.ph" },
-        { name = "NEXT_PUBLIC_API_URL", value = "https://api-dev.freediving.ph" },
-        { name = "NEXT_PUBLIC_GOOGLE_MAP_API", value = "AIzaSyCt8RQ54ZSo4Vh1EgUPQHQaYeB3P1oiRAQ" }
+        { name = "ORIGIN_URL", value = "https://app.dev.freediving.ph" },
+        { name = "API_URL", value = "https://api.dev.freediving.ph" },
+        { name = "APP_URL", value = "https://app.dev.freediving.ph" },
+        { name = "NEXT_PUBLIC_APP_URL", value = "https://app.dev.freediving.ph" },
+        { name = "NEXT_PUBLIC_API_URL", value = "https://api.dev.freediving.ph" },
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -98,6 +97,8 @@ resource "aws_ecs_service" "app_service" {
   task_definition = aws_ecs_task_definition.app.arn
   launch_type     = "FARGATE"
 
+  health_check_grace_period_seconds = 60
+
   network_configuration {
     subnets          = [var.module_networking_subnet1_id, var.module_networking_subnet2_id]
     security_groups  = [var.module_networking_ecs_app_sg_id]
@@ -107,7 +108,7 @@ resource "aws_ecs_service" "app_service" {
   load_balancer {
     target_group_arn = var.module_networking_lb_target_group_app_tg_id
     container_name   = "${var.environment}-${var.aws_project_name}-app"
-    container_port   = 3000
+    container_port   = var.project_app_port
   }
 
   desired_count = 1

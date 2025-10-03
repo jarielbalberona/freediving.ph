@@ -14,3 +14,7 @@ variable "module_networking_lb_target_group_api_tg_id" {}
 variable "module_networking_lb_target_group_app_tg_id" {}
 variable "module_rds_aws_security_group" {}
 variable "module_rds_aws_security_group_id" {}
+variable "module_rds_db_user" {}
+variable "module_rds_db_password" {}
+variable "module_rds_endpoint" {}
+variable "module_rds_db_name" {}

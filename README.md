@@ -15,6 +15,7 @@ Freediving Philippines is an open-source social web app designed for the growing
 - **Messaging** – Connect with freedivers directly through private messaging.
 - **Buddies & Groups** – Find dive buddies and create/join freediving groups.
 - **Chika (Forum)** – Start and engage in discussions, including anonymous threads.
+- **Authentication** – Secure user authentication powered by Clerk.
 
 ### 🌍 **Diving-Specific Features**
 
@@ -27,9 +28,9 @@ Freediving Philippines is an open-source social web app designed for the growing
 
 - **Frontend:** Next.js 15, React Query, Zustand, Tailwind CSS
 - **Backend:** Node.js, Express, Drizzle ORM, PostgreSQL
-- **Authentication:** AWS Cognito
-- **Deployment:** CI/CD ~ Github Acitons
-- **Cloud Provider:** AWS, Cognito, ECS, RDS, Route53, & S3
+- **Authentication:** Clerk
+- **Deployment:** CI/CD ~ GitHub Actions
+- **Cloud Provider:** AWS, ECS, RDS, Route53, & S3
 - **Infrastructure:** Terraform (Multi-Environment)
 
 ## 👥 Multi-Environment Terraform Setup
@@ -38,11 +39,11 @@ The infrastructure is managed using Terraform with support for multiple environm
 
 ### **Terraform Services**
 
-- **Cognito** – Manages user authentication and authorization.
 - **ECS (Elastic Container Service)** – Hosts both the Express backend and Next.js frontend applications.
 - **RDS (Relational Database Service)** – PostgreSQL database instance for storing application data.
 - **Route 53** – Domain management for subdomains and DNS configurations.
 - **S3** – Used for storing images and assets.
+- **Secrets Manager** – Secure storage for database credentials and application secrets.
 
 ## 🚀 Getting Started
 
@@ -58,9 +59,10 @@ The infrastructure is managed using Terraform with support for multiple environm
 Create a `.env` file and add the following:
 
 ```env
-  NEXT_PUBLIC_API_URL=https://api.freedivingph.com
+  NEXT_PUBLIC_API_URL=https://api.dev.freediving.ph
   DATABASE_URL=your-database-url
-  JWT_SECRET=your-secret-key
+  CLERK_PUBLISHABLE_KEY=your-clerk-publishable-key
+  CLERK_SECRET_KEY=your-clerk-secret-key
   // check example envs
 ```
 
@@ -89,7 +91,7 @@ We're actively looking for **software developers** to help build and improve the
 
 ## 📬 Contact & Community
 
-- **Email:** jariel@saltandsun.life
+- **Email:** admin@freediving.ph
 - **Reddit:** [Join our subreddit](https://reddit.com/r/fredivingph)
 - **GitHub Issues:** [Report bugs & request features](https://github.com/jarielbalberona/freediving.ph/issues)
 
