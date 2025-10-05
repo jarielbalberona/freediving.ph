@@ -61,7 +61,7 @@ export default async function seedGroups() {
         description: faker.helpers.arrayElement(groupDescriptions),
         shortDescription: faker.lorem.sentence(10),
         type: faker.helpers.arrayElement(["PUBLIC", "PRIVATE", "INVITE_ONLY"]),
-        status: "ACTIVE",
+        status: "ACTIVE" as const,
         isPublic: faker.datatype.boolean({ probability: 0.8 }),
         allowMemberInvites: faker.datatype.boolean({ probability: 0.7 }),
         coverImage: faker.image.url({ width: 800, height: 400 }),

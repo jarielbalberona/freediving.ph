@@ -24,8 +24,8 @@ export const GroupsUpdateSchema = z.object({
 	type: z.enum(["PUBLIC", "PRIVATE", "INVITE_ONLY", "CLOSED"], {
 		invalid_type_error: "Group type must be one of: PUBLIC, PRIVATE, INVITE_ONLY, CLOSED"
 	}).optional(),
-	status: z.enum(["ACTIVE", "ARCHIVED", "DELETED"], {
-		invalid_type_error: "Status must be one of: ACTIVE, ARCHIVED, DELETED"
+	status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "ARCHIVED"], {
+		invalid_type_error: "Status must be one of: ACTIVE, INACTIVE, SUSPENDED, ARCHIVED"
 	}).optional(),
 	location: z.string().max(255, "Location must be less than 255 characters").optional(),
 	lat: z.number().min(-90).max(90, "Latitude must be between -90 and 90").optional(),
@@ -74,7 +74,7 @@ export const GroupQuerySchema = z.object({
 	page: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().int().min(1)).default("1"),
 	limit: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().int().min(1).max(100)).default("10"),
 	type: z.enum(["PUBLIC", "PRIVATE", "INVITE_ONLY", "CLOSED"]).optional(),
-	status: z.enum(["ACTIVE", "ARCHIVED", "DELETED"]).optional(),
+	status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "ARCHIVED"]).optional(),
 	location: z.string().optional(),
 	search: z.string().optional(),
 });

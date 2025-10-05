@@ -62,6 +62,7 @@ export const UserServicesUpdateSchema = z.object({
 export const ServiceBookingSchema = z.object({
 	serviceId: z.number().int().positive("Service ID must be a positive integer"),
 	clientId: z.number().int().positive("Client ID must be a positive integer"),
+	providerId: z.number().int().positive("Provider ID must be a positive integer"),
 	bookingDate: z.date({
 		required_error: "Booking date is required",
 		invalid_type_error: "Booking date must be a valid date"
@@ -88,6 +89,7 @@ export const ServiceBookingSchema = z.object({
 export const ServiceReviewSchema = z.object({
 	serviceId: z.number().int().positive("Service ID must be a positive integer"),
 	reviewerId: z.number().int().positive("Reviewer ID must be a positive integer"),
+	revieweeId: z.number().int().positive("Reviewee ID must be a positive integer"),
 	bookingId: z.number().int().positive("Booking ID must be a positive integer").optional(),
 	rating: z.number().int().min(1, "Rating must be at least 1").max(5, "Rating must be at most 5"),
 	review: z.string().max(1000, "Review must be less than 1000 characters").optional(),

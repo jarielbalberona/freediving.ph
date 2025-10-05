@@ -1,4 +1,4 @@
-import { http } from '@/lib/http';
+import { axiosInstance } from '@/lib/http/axios';
 import type {
   Group,
   GroupMember,
@@ -23,7 +23,7 @@ export const groupsApi = {
     const queryString = params.toString();
     const url = `/groups${queryString ? `?${queryString}` : ''}`;
 
-    return http.get<{
+    return axiosInstance.get<{
       success: boolean;
       data: {
         groups: Group[];
@@ -41,7 +41,7 @@ export const groupsApi = {
 
   // Get group by ID
   getGroupById: (groupId: number) => {
-    return http.get<{
+    return axiosInstance.get<{
       success: boolean;
       data: Group;
     }>(`/groups/${groupId}`);
@@ -49,7 +49,7 @@ export const groupsApi = {
 
   // Create new group
   createGroup: (data: CreateGroupRequest & { userId: number }) => {
-    return http.post<{
+    return axiosInstance.post<{
       success: boolean;
       data: Group;
     }>('/groups', data);
@@ -57,7 +57,7 @@ export const groupsApi = {
 
   // Update group
   updateGroup: (groupId: number, data: UpdateGroupRequest & { userId: number }) => {
-    return http.put<{
+    return axiosInstance.put<{
       success: boolean;
       data: Group;
     }>(`/groups/${groupId}`, data);
@@ -65,7 +65,7 @@ export const groupsApi = {
 
   // Join group
   joinGroup: (data: JoinGroupRequest) => {
-    return http.post<{
+    return axiosInstance.post<{
       success: boolean;
       data: GroupMember;
     }>('/groups/join', data);
@@ -73,7 +73,7 @@ export const groupsApi = {
 
   // Leave group
   leaveGroup: (groupId: number, userId: number) => {
-    return http.post<{
+    return axiosInstance.post<{
       success: boolean;
       message: string;
     }>(`/groups/${groupId}/leave`, { userId });
@@ -88,7 +88,7 @@ export const groupsApi = {
     const queryString = params.toString();
     const url = `/groups/${groupId}/members${queryString ? `?${queryString}` : ''}`;
 
-    return http.get<{
+    return axiosInstance.get<{
       success: boolean;
       data: {
         members: GroupMember[];
@@ -113,7 +113,7 @@ export const groupsApi = {
     const queryString = params.toString();
     const url = `/groups/${groupId}/posts${queryString ? `?${queryString}` : ''}`;
 
-    return http.get<{
+    return axiosInstance.get<{
       success: boolean;
       data: {
         posts: GroupPost[];
@@ -131,7 +131,7 @@ export const groupsApi = {
 
   // Create group post
   createGroupPost: (data: CreateGroupPostRequest) => {
-    return http.post<{
+    return axiosInstance.post<{
       success: boolean;
       data: GroupPost;
     }>('/groups/posts', data);
@@ -146,7 +146,7 @@ export const groupsApi = {
     const queryString = params.toString();
     const url = `/groups/users/${userId}/groups${queryString ? `?${queryString}` : ''}`;
 
-    return http.get<{
+    return axiosInstance.get<{
       success: boolean;
       data: {
         groups: Array<Group & { role: string; joinedAt: string }>;

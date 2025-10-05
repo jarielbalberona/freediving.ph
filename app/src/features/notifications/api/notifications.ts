@@ -1,4 +1,4 @@
-import { http } from '@/lib/http';
+import { axiosInstance } from '@/lib/http/axios';
 import type {
   Notification,
   NotificationSettings,
@@ -22,7 +22,7 @@ export const notificationsApi = {
     const queryString = params.toString();
     const url = `/users/${userId}/notifications${queryString ? `?${queryString}` : ''}`;
 
-    return http.get<{
+    return axiosInstance.get<{
       success: boolean;
       data: {
         notifications: Notification[];
@@ -40,7 +40,7 @@ export const notificationsApi = {
 
   // Get notification by ID
   getNotificationById: (userId: number, notificationId: number) => {
-    return http.get<{
+    return axiosInstance.get<{
       success: boolean;
       data: Notification;
     }>(`/users/${userId}/notifications/${notificationId}`);
@@ -48,7 +48,7 @@ export const notificationsApi = {
 
   // Create new notification
   createNotification: (data: CreateNotificationRequest) => {
-    return http.post<{
+    return axiosInstance.post<{
       success: boolean;
       data: Notification;
     }>('/notifications', data);
@@ -56,7 +56,7 @@ export const notificationsApi = {
 
   // Update notification
   updateNotification: (userId: number, notificationId: number, data: UpdateNotificationRequest) => {
-    return http.put<{
+    return axiosInstance.put<{
       success: boolean;
       data: Notification;
     }>(`/users/${userId}/notifications/${notificationId}`, data);
@@ -64,7 +64,7 @@ export const notificationsApi = {
 
   // Mark notification as read
   markAsRead: (userId: number, notificationId: number) => {
-    return http.patch<{
+    return axiosInstance.patch<{
       success: boolean;
       data: Notification;
     }>(`/users/${userId}/notifications/${notificationId}/read`);
@@ -72,7 +72,7 @@ export const notificationsApi = {
 
   // Mark all notifications as read
   markAllAsRead: (userId: number) => {
-    return http.patch<{
+    return axiosInstance.patch<{
       success: boolean;
       message: string;
     }>(`/users/${userId}/notifications/read-all`);
@@ -80,7 +80,7 @@ export const notificationsApi = {
 
   // Delete notification
   deleteNotification: (userId: number, notificationId: number) => {
-    return http.delete<{
+    return axiosInstance.delete<{
       success: boolean;
       message: string;
     }>(`/users/${userId}/notifications/${notificationId}`);
@@ -88,7 +88,7 @@ export const notificationsApi = {
 
   // Get notification settings
   getNotificationSettings: (userId: number) => {
-    return http.get<{
+    return axiosInstance.get<{
       success: boolean;
       data: NotificationSettings;
     }>(`/users/${userId}/notification-settings`);
@@ -96,7 +96,7 @@ export const notificationsApi = {
 
   // Update notification settings
   updateNotificationSettings: (userId: number, data: UpdateNotificationSettingsRequest) => {
-    return http.put<{
+    return axiosInstance.put<{
       success: boolean;
       data: NotificationSettings;
     }>(`/users/${userId}/notification-settings`, data);
@@ -104,7 +104,7 @@ export const notificationsApi = {
 
   // Get notification statistics
   getNotificationStats: (userId: number) => {
-    return http.get<{
+    return axiosInstance.get<{
       success: boolean;
       data: NotificationStats;
     }>(`/users/${userId}/notification-stats`);

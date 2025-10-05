@@ -1,6 +1,6 @@
 import { InferSelectModel, desc, eq, count, sql } from "drizzle-orm";
 
-import { GroupsServerSchemaType, GroupsUpdateSchemaType, GroupMemberSchemaType, GroupPostSchemaType } from "@/app/groups/groups.validators";
+import { GroupsServerSchemaType, GroupsUpdateSchemaType, GroupMemberSchemaType, GroupPostSchemaType } from "./groups.validators";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
 import { groups, groupMembers, groupPosts, groupPostComments, groupPostLikes } from "@/models/drizzle/groups.model";
@@ -12,7 +12,12 @@ export type GroupsSchemaType = InferSelectModel<typeof groups>;
 export default class GroupsService extends DrizzleService {
 	async create(data: GroupsServerSchemaType) {
 		try {
-			const createdData = await this.db.insert(groups).values(data).returning();
+			const insertData = {
+				...data,
+				lat: data.lat?.toString(),
+				lng: data.lng?.toString(),
+			};
+			const createdData = await this.db.insert(groups).values(insertData).returning();
 
 			if (!createdData.length) {
 				return ServiceResponse.createResponse(
@@ -78,7 +83,12 @@ export default class GroupsService extends DrizzleService {
 
 	async update(id: number, data: GroupsUpdateSchemaType) {
 		try {
-			const updatedData = await this.db.update(groups).set(data).where(eq(groups.id, id)).returning();
+			const updateData = {
+				...data,
+				lat: data.lat?.toString(),
+        lng: data.lng?.toString(),
+			};
+			const updatedData = await this.db.update(groups).set(updateData).where(eq(groups.id, id)).returning();
 
 			if (!updatedData.length) {
 				return ServiceResponse.createResponse(

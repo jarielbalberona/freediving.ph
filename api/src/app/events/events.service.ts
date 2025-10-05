@@ -1,6 +1,6 @@
 import { InferSelectModel, desc, eq, count, sql } from "drizzle-orm";
 
-import { EventsServerSchemaType, EventsUpdateSchemaType, EventAttendeeSchemaType } from "@/app/events/events.validators";
+import { EventsServerSchemaType, EventsUpdateSchemaType, EventAttendeeSchemaType } from "./events.validators";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
 import { events, eventAttendees } from "@/models/drizzle/events.model";
@@ -12,7 +12,13 @@ export type EventsSchemaType = InferSelectModel<typeof events>;
 export default class EventsService extends DrizzleService {
 	async create(data: EventsServerSchemaType) {
 		try {
-			const createdData = await this.db.insert(events).values(data).returning();
+			// Convert price to string for decimal field
+			const insertData = {
+				...data,
+				price: data.price?.toString(),
+				earlyBirdPrice: data.earlyBirdPrice?.toString(),
+			};
+			const createdData = await this.db.insert(events).values(insertData).returning();
 
 			if (!createdData.length) {
 				return ServiceResponse.createResponse(
@@ -37,12 +43,11 @@ export default class EventsService extends DrizzleService {
 			const retrieveData = await this.db.query.events.findFirst({
 				where: eq(events.id, id),
 				with: {
-					organizer: {
+					group: {
 						columns: {
 							id: true,
-							username: true,
-							email: true,
-							alias: true,
+							name: true,
+							description: true,
 						},
 					},
 					attendees: {
@@ -78,7 +83,13 @@ export default class EventsService extends DrizzleService {
 
 	async update(id: number, data: EventsUpdateSchemaType) {
 		try {
-			const updatedData = await this.db.update(events).set(data).where(eq(events.id, id)).returning();
+			// Convert price to string for decimal field
+			const updateData = {
+				...data,
+				price: data.price?.toString(),
+				earlyBirdPrice: data.earlyBirdPrice?.toString(),
+			};
+			const updatedData = await this.db.update(events).set(updateData).where(eq(events.id, id)).returning();
 
 			if (!updatedData.length) {
 				return ServiceResponse.createResponse(

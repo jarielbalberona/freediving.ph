@@ -59,11 +59,11 @@ src/features/
 ### **API Layer**
 ```typescript
 // features/notifications/api/notifications.ts
-import { http } from '@/lib/http';
+import { axiosInstance } from '@/lib/http/axios';
 
 export const notificationsApi = {
   getUserNotifications: (userId: number, filters?: NotificationFilters) => {
-    return http.get<NotificationResponse>(`/users/${userId}/notifications`, filters);
+    return axiosInstance.get<NotificationResponse>(`/users/${userId}/notifications`, { params: filters });
   },
   // ... other API methods
 };
@@ -119,6 +119,13 @@ export function NotificationCard({ notification, userId }: NotificationCardProps
 ```
 
 ## 🔄 HTTP Client Integration
+
+### **Direct Axios Usage**
+All features use `axiosInstance` directly from `@/lib/http/axios` instead of wrapper functions. This provides:
+- Direct access to axios features
+- Consistent error handling via interceptors
+- Better TypeScript support
+- Simplified debugging
 
 ### **Axios with Interceptors**
 ```typescript
@@ -183,11 +190,11 @@ export interface NewFeatureItem {
 ### **3. Create API Layer**
 ```typescript
 // features/newFeature/api/newFeature.ts
-import { http } from '@/lib/http';
+import { axiosInstance } from '@/lib/http/axios';
 
 export const newFeatureApi = {
-  getItems: () => http.get<NewFeatureItem[]>('/new-feature'),
-  createItem: (data: CreateItemRequest) => http.post('/new-feature', data),
+  getItems: () => axiosInstance.get<NewFeatureItem[]>('/new-feature'),
+  createItem: (data: CreateItemRequest) => axiosInstance.post('/new-feature', data),
   // ... other methods
 };
 ```

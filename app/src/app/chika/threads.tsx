@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { ArrowBigDown, ArrowBigUp, MessageSquare } from "lucide-react";
-import { useThreads, useAddReaction, useRemoveReaction, ThreadWithUser } from "@/hooks/react-queries/threads";
+import { useThreads, useAddReaction, useRemoveReaction } from "@/features/chika";
+import { ThreadWithUser } from "@/features/chika/types";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
 const Thread = ({ initialThreads }: { initialThreads: ThreadWithUser[] | null }) => {
-  const { data: threads, isLoading } = useThreads(initialThreads);
+  const { data: threads, isLoading } = useThreads(initialThreads || undefined);
   const { user } = useUser();
   const addReaction = useAddReaction();
   const removeReaction = useRemoveReaction();
@@ -19,10 +20,7 @@ const Thread = ({ initialThreads }: { initialThreads: ThreadWithUser[] | null })
     }
 
     try {
-      await addReaction.mutateAsync({
-        threadId,
-        data: { type }
-      });
+      await addReaction.mutateAsync(threadId);
       toast.success("Vote recorded!");
     } catch (error) {
       toast.error("Failed to vote");
@@ -65,7 +63,9 @@ const Thread = ({ initialThreads }: { initialThreads: ThreadWithUser[] | null })
 
   return (
     <>
-      {threads?.map(({ thread, user: threadUser, commentCount, upvotes, downvotes }) => (
+      {threads?.map((threadWithUser) => {
+        const { thread, user: threadUser, commentCount, upvotes, downvotes } = threadWithUser;
+        return (
         <div
           key={thread.id}
           className="block p-4 mb-2 transition-colors duration-200 rounded-lg bg-card hover:bg-accent"
@@ -114,7 +114,8 @@ const Thread = ({ initialThreads }: { initialThreads: ThreadWithUser[] | null })
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </>
   );
 };

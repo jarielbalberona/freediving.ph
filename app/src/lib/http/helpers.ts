@@ -1,21 +1,17 @@
-import { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { toast } from 'sonner';
+import { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { handleAxiosError } from '@/lib/error-reporting';
 
 // Auth token interceptor
-export const createAuthTokenInterceptor = async (config: AxiosRequestConfig): Promise<AxiosRequestConfig> => {
+export const createAuthTokenInterceptor = async (config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
   // Get Clerk token if available (client-side only)
   if (typeof window !== 'undefined') {
     try {
       const { getToken } = await import('@clerk/nextjs');
       const token = await getToken();
       if (token) {
-        config.headers = {
-          ...config.headers,
-          Authorization: `Bearer ${token}`,
-        };
+        config.headers.set('Authorization', `Bearer ${token}`);
       }
-    } catch (error) {
+    } catch (err) {
       console.log('No Clerk token available');
     }
   }
@@ -37,46 +33,46 @@ export const createErrorInterceptor = (error: AxiosError) => {
 
     switch (status) {
       case 401:
-        toast.error('Unauthorized. Please sign in again.');
+        console.error('Unauthorized. Please sign in again.');
         // Redirect to sign-in if needed
         if (typeof window !== 'undefined') {
           window.location.href = '/sign-in';
         }
         break;
       case 403:
-        toast.error('Access denied. You do not have permission.');
+        console.error('Access denied. You do not have permission.');
         break;
       case 404:
-        toast.error('Resource not found.');
+        console.error('Resource not found.');
         break;
       case 422:
         // Validation errors
         if (data && typeof data === 'object' && 'errors' in data) {
           const errors = (data as any).errors;
           if (Array.isArray(errors)) {
-            errors.forEach((err: any) => toast.error(err.message || 'Validation error'));
+            errors.forEach((err: any) => console.error(err.message || 'Validation error'));
           } else {
-            toast.error('Validation error');
+            console.error('Validation error');
           }
         } else {
-          toast.error('Invalid data provided.');
+          console.error('Invalid data provided.');
         }
         break;
       case 429:
-        toast.error('Too many requests. Please try again later.');
+        console.error('Too many requests. Please try again later.');
         break;
       case 500:
-        toast.error('Server error. Please try again later.');
+        console.error('Server error. Please try again later.');
         break;
       default:
-        toast.error(`Error ${status}: ${data?.message || 'Something went wrong'}`);
+        console.error(`Error ${status}: ${(data as any)?.message || 'Something went wrong'}`);
     }
   } else if (request) {
     // Network error
-    toast.error('Network error. Please check your connection.');
+    console.error('Network error. Please check your connection.');
   } else {
     // Something else happened
-    toast.error('An unexpected error occurred.');
+    console.error('An unexpected error occurred.');
   }
 
   return Promise.reject(error);

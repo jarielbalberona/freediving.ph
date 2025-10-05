@@ -40,7 +40,14 @@ export default async function seedComments() {
       return;
     }
 
-    const commentsData = [];
+    const commentsData: Array<{
+      threadId: number;
+      userId: number;
+      parentId: number | null;
+      content: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }> = [];
 
     // Create comments for each thread
     for (const thread of allThreads) {
@@ -49,12 +56,11 @@ export default async function seedComments() {
 
       for (let i = 0; i < commentCount; i++) {
         const isReply = faker.datatype.boolean({ probability: 0.3 }) && i > 0;
-        const parentComment = isReply ? commentsData[commentsData.length - 1] : null;
 
         commentsData.push({
           threadId: thread.id,
           userId: faker.helpers.arrayElement(allUsers).id,
-          parentId: parentComment ? parentComment.id : null,
+          parentId: null, // Will be updated after insertion
           content: faker.helpers.arrayElement(commentTemplates) + " " + faker.lorem.sentence(),
           createdAt: faker.date.recent({ days: 20 }),
           updatedAt: new Date()
@@ -67,7 +73,7 @@ export default async function seedComments() {
       threadId: faker.helpers.arrayElement(allThreads).id,
       userId: faker.helpers.arrayElement(allUsers).id,
       parentId: faker.datatype.boolean({ probability: 0.2 }) ?
-        faker.helpers.arrayElement(commentsData)?.id : null,
+        faker.helpers.arrayElement(commentsData)?.threadId : null,
       content: faker.lorem.paragraph(),
       createdAt: faker.date.recent({ days: 20 }),
       updatedAt: new Date()

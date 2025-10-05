@@ -57,7 +57,15 @@ export default async function seedEvents() {
     const eventsData = [];
     const attendeesData = [];
     const waitlistData = [];
-    const commentsData = [];
+    const commentsData: Array<{
+      eventId: number;
+      userId: number;
+      parentId: number | null;
+      content: string;
+      isPrivate: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    }> = [];
     const likesData = [];
 
     // Create events
@@ -97,9 +105,9 @@ export default async function seedEvents() {
         waitlistEnabled: faker.datatype.boolean({ probability: 0.3 }),
         waitlistCount: 0,
         isFree: faker.datatype.boolean({ probability: 0.7 }),
-        price: faker.helpers.maybe(() => faker.number.float({ min: 500, max: 5000, fractionDigits: 2 }), { probability: 0.3 }),
+        price: faker.helpers.maybe(() => faker.number.float({ min: 500, max: 5000, fractionDigits: 2 }).toString(), { probability: 0.3 }),
         currency: "PHP",
-        earlyBirdPrice: faker.helpers.maybe(() => faker.number.float({ min: 300, max: 3000, fractionDigits: 2 }), { probability: 0.2 }),
+        earlyBirdPrice: faker.helpers.maybe(() => faker.number.float({ min: 300, max: 3000, fractionDigits: 2 }).toString(), { probability: 0.2 }),
         earlyBirdDeadline: faker.helpers.maybe(() => faker.date.soon({ days: 14, refDate: startDate }), { probability: 0.2 }),
         skillLevel: faker.helpers.arrayElement(["BEGINNER", "INTERMEDIATE", "ADVANCED", "ALL"]),
         equipmentRequired: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.8 }),
@@ -160,7 +168,7 @@ export default async function seedEvents() {
           userId: user.id,
           status: faker.helpers.arrayElement(["registered", "attended", "cancelled"]),
           registrationDate: faker.date.recent({ days: 20 }),
-          amountPaid: event.isFree ? null : faker.number.float({ min: 500, max: 2000, fractionDigits: 2 }),
+          amountPaid: event.isFree ? null : faker.number.float({ min: 500, max: 2000, fractionDigits: 2 }).toString(),
           paymentStatus: faker.helpers.arrayElement(["pending", "paid", "refunded"]),
           paymentMethod: faker.helpers.maybe(() => faker.helpers.arrayElement(["cash", "bank_transfer", "gcash"]), { probability: 0.7 }),
           emergencyContact: faker.phone.number(),
@@ -201,7 +209,7 @@ export default async function seedEvents() {
         commentsData.push({
           eventId: event.id,
           userId: user.id,
-          parentId: faker.helpers.maybe(() => faker.helpers.arrayElement(commentsData)?.id, { probability: 0.2 }),
+          parentId: faker.helpers.maybe(() => faker.helpers.arrayElement(commentsData)?.eventId, { probability: 0.2 }) ?? null,
           content: faker.lorem.paragraph(),
           isPrivate: faker.datatype.boolean({ probability: 0.1 }),
           createdAt: faker.date.recent({ days: 15 }),

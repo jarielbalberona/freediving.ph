@@ -7,15 +7,15 @@ import { events } from "@/models/drizzle/events.model";
 import { groups } from "@/models/drizzle/groups.model";
 
 const notificationTypes = [
-  "THREAD_REPLY",
-  "THREAD_LIKE",
-  "EVENT_INVITE",
+  "MESSAGE",
+  "LIKE",
+  "EVENT",
   "EVENT_REMINDER",
   "GROUP_INVITE",
-  "GROUP_UPDATE",
+  "GROUP",
   "MENTION",
-  "SYSTEM_ANNOUNCEMENT"
-];
+  "SYSTEM"
+] as const;
 
 const notificationTitles = [
   "New reply to your thread",
@@ -83,7 +83,7 @@ export default async function seedNotifications() {
         }
 
         const finalMessage = relatedEntity ?
-          message.replace('{title}', relatedEntity.title || relatedEntity.name) :
+          message.replace('{title}', 'title' in relatedEntity ? relatedEntity.title : relatedEntity.name) :
           message.replace('{title}', faker.lorem.words(3));
 
         notificationsData.push({
@@ -91,11 +91,17 @@ export default async function seedNotifications() {
           type,
           title,
           message: finalMessage,
-          data: relatedEntityId ? JSON.stringify({
+          priority: faker.helpers.arrayElement(["LOW", "NORMAL", "HIGH", "URGENT"]),
+          status: faker.helpers.arrayElement(["UNREAD", "READ", "ARCHIVED"]),
+          relatedUserId: faker.helpers.maybe(() => faker.helpers.arrayElement(allUsers).id, { probability: 0.3 }),
+          relatedEntityType: relatedEntityId ? type.split('_')[0].toLowerCase() : null,
+          relatedEntityId,
+          imageUrl: faker.helpers.maybe(() => faker.image.url(), { probability: 0.2 }),
+          actionUrl: faker.helpers.maybe(() => faker.internet.url(), { probability: 0.3 }),
+          metadata: relatedEntityId ? JSON.stringify({
             entityType: type.split('_')[0].toLowerCase(),
             entityId: relatedEntityId
           }) : null,
-          isRead: faker.datatype.boolean({ probability: 0.6 }),
           readAt: faker.helpers.maybe(() => faker.date.recent({ days: 5 }), { probability: 0.6 }),
           createdAt: faker.date.recent({ days: 30 }),
           updatedAt: new Date()

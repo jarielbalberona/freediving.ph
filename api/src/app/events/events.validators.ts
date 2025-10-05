@@ -3,6 +3,7 @@ import { zodMessages } from "@/core/messages";
 
 export const EventsServerSchema = z.object({
 	title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters"),
+	slug: z.string().min(1, "Slug is required").max(200, "Slug must be less than 200 characters"),
 	description: z.string().min(1, "Description is required").max(2000, "Description must be less than 2000 characters").optional(),
 	location: z.string().min(1, "Location is required").max(200, "Location must be less than 200 characters"),
 	startDate: z.date({
@@ -35,6 +36,7 @@ export const EventsServerSchema = z.object({
 	requirements: z.string().max(1000, "Requirements must be less than 1000 characters").optional(),
 	equipment: z.string().max(1000, "Equipment must be less than 1000 characters").optional(),
 	price: z.number().min(0, "Price must be non-negative").optional(),
+	earlyBirdPrice: z.number().min(0, "Early bird price must be non-negative").optional(),
 	currency: z.string().length(3, "Currency must be a 3-letter code").optional(),
 });
 
@@ -62,6 +64,7 @@ export const EventsUpdateSchema = z.object({
 	requirements: z.string().max(1000, "Requirements must be less than 1000 characters").optional(),
 	equipment: z.string().max(1000, "Equipment must be less than 1000 characters").optional(),
 	price: z.number().min(0, "Price must be non-negative").optional(),
+	earlyBirdPrice: z.number().min(0, "Early bird price must be non-negative").optional(),
 	currency: z.string().length(3, "Currency must be a 3-letter code").optional(),
 });
 

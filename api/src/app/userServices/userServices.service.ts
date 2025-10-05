@@ -1,6 +1,6 @@
 import { InferSelectModel, desc, eq, count, sql } from "drizzle-orm";
 
-import { UserServicesServerSchemaType, UserServicesUpdateSchemaType, ServiceBookingSchemaType, ServiceReviewSchemaType } from "@/app/userServices/userServices.validators";
+import { UserServicesServerSchemaType, UserServicesUpdateSchemaType, ServiceBookingSchemaType, ServiceReviewSchemaType } from "./userServices.validators";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
 import { userServices, serviceBookings, serviceReviews } from "@/models/drizzle/userServices.model";
@@ -13,7 +13,13 @@ export type UserServicesSchemaType = InferSelectModel<typeof userServices>;
 export default class UserServicesService extends DrizzleService {
 	async create(data: UserServicesServerSchemaType) {
 		try {
-			const createdData = await this.db.insert(userServices).values(data).returning();
+			// Convert decimal fields to string
+			const insertData = {
+				...data,
+				rate: data.rate?.toString(),
+				defaultTravelFee: data.defaultTravelFee?.toString(),
+			};
+			const createdData = await this.db.insert(userServices).values(insertData).returning();
 
 			if (!createdData.length) {
 				return ServiceResponse.createResponse(
@@ -97,7 +103,13 @@ export default class UserServicesService extends DrizzleService {
 
 	async update(id: number, data: UserServicesUpdateSchemaType) {
 		try {
-			const updatedData = await this.db.update(userServices).set(data).where(eq(userServices.id, id)).returning();
+			// Convert decimal fields to string
+			const updateData = {
+				...data,
+				rate: data.rate?.toString(),
+				defaultTravelFee: data.defaultTravelFee?.toString(),
+			};
+			const updatedData = await this.db.update(userServices).set(updateData).where(eq(userServices.id, id)).returning();
 
 			if (!updatedData.length) {
 				return ServiceResponse.createResponse(
@@ -190,7 +202,12 @@ export default class UserServicesService extends DrizzleService {
 	// Service Bookings methods
 	async createBooking(data: ServiceBookingSchemaType) {
 		try {
-			const createdData = await this.db.insert(serviceBookings).values(data).returning();
+			// Convert decimal fields to string
+			const insertData = {
+				...data,
+				totalAmount: data.totalAmount?.toString(),
+			};
+			const createdData = await this.db.insert(serviceBookings).values(insertData).returning();
 
 			if (!createdData.length) {
 				return ServiceResponse.createResponse(
@@ -320,11 +337,11 @@ export default class UserServicesService extends DrizzleService {
 		}
 	}
 
-	async updateBookingStatus(bookingId: number, status: string) {
+	async updateBookingStatus(bookingId: number, bookingStatus: string) {
 		try {
 			const updatedData = await this.db
 				.update(serviceBookings)
-				.set({ status })
+				.set({ status: bookingStatus })
 				.where(eq(serviceBookings.id, bookingId))
 				.returning();
 

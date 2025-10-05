@@ -54,7 +54,7 @@ export default async function seedServiceAreas() {
           centerLng: area.lng.toString(),
           radius: area.radius,
           isPrimary,
-          travelFee: faker.helpers.maybe(() => faker.number.float({ min: 500, max: 2000, fractionDigits: 2 }), { probability: 0.3 }),
+          travelFee: faker.helpers.maybe(() => faker.number.float({ min: 500, max: 2000, fractionDigits: 2 }).toString(), { probability: 0.3 }),
           currency: "PHP",
           isActive: faker.datatype.boolean({ probability: 0.9 }),
           createdAt: faker.date.recent({ days: 30 }),

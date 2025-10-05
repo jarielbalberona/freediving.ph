@@ -57,7 +57,22 @@ export default async function seedUserServices() {
     }
 
     const userServicesData = [];
-    const serviceBookingsData = [];
+    const serviceBookingsData: Array<{
+      serviceId: number;
+      clientId: number;
+      providerId: number;
+      bookingDate: Date;
+      duration: number;
+      location?: string;
+      notes?: string;
+      rate: string;
+      totalAmount: string;
+      currency: string;
+      status: string;
+      paymentStatus: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }> = [];
     const serviceReviewsData = [];
 
     // Create user services
@@ -107,9 +122,7 @@ export default async function seedUserServices() {
           "Free cancellation up to 1 week",
           "No cancellation policy"
         ]),
-        equipmentProvided: faker.helpers.arrayElements([
-          "Fins", "Mask", "Snorkel", "Wetsuit", "Weight Belt", "Dive Computer"
-        ], { min: 0, max: 4 }),
+        equipmentProvided: faker.datatype.boolean({ probability: 0.6 }),
         equipmentRequired: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.7 }),
         specialRequirements: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.4 }),
         insuranceCoverage: faker.datatype.boolean({ probability: 0.7 }),
@@ -169,22 +182,18 @@ export default async function seedUserServices() {
         const endDate = faker.date.soon({ days: 1, refDate: startDate });
 
         serviceBookingsData.push({
-          userServiceId: service.id,
+          serviceId: service.id,
           clientId: user.id,
-          status: faker.helpers.arrayElement(["pending", "confirmed", "completed", "cancelled"]),
-          startDate,
-          endDate,
+          providerId: service.userId,
+          bookingDate: startDate,
           duration: faker.number.int({ min: 1, max: 8 }),
-          totalAmount: faker.number.float({ min: 1000, max: 10000, fractionDigits: 2 }),
+          location: faker.location.city() + ", Philippines",
+          notes: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.3 }),
+          rate: faker.number.float({ min: 500, max: 2000, fractionDigits: 2 }).toString(),
+          totalAmount: faker.number.float({ min: 1000, max: 10000, fractionDigits: 2 }).toString(),
           currency: "PHP",
-          paymentStatus: faker.helpers.arrayElement(["pending", "paid", "refunded"]),
-          paymentMethod: faker.helpers.arrayElement(["cash", "bank_transfer", "gcash", "paypal"]),
-          specialRequests: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.4 }),
-          clientNotes: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.3 }),
-          serviceProviderNotes: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.2 }),
-          cancellationReason: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.2 }),
-          cancelledAt: faker.helpers.maybe(() => faker.date.recent({ days: 10 }), { probability: 0.2 }),
-          completedAt: faker.helpers.maybe(() => faker.date.recent({ days: 5 }), { probability: 0.6 }),
+          status: faker.helpers.arrayElement(["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"]),
+          paymentStatus: faker.helpers.arrayElement(["PENDING", "PAID", "REFUNDED"]),
           createdAt: faker.date.recent({ days: 30 }),
           updatedAt: new Date()
         });
@@ -196,16 +205,15 @@ export default async function seedUserServices() {
 
       for (const user of reviewUsers) {
         serviceReviewsData.push({
-          userServiceId: service.id,
-          clientId: user.id,
-          bookingId: faker.helpers.maybe(() => faker.helpers.arrayElement(serviceBookingsData)?.id, { probability: 0.8 }),
+          serviceId: service.id,
+          reviewerId: user.id,
+          revieweeId: service.userId,
+          bookingId: null, // Will be set after bookings are inserted
           rating: faker.number.int({ min: 1, max: 5 }),
-          title: faker.lorem.sentence(5),
-          comment: faker.lorem.paragraphs(2),
-          isPublic: faker.datatype.boolean({ probability: 0.9 }),
-          serviceProviderResponse: faker.helpers.maybe(() => faker.lorem.sentence(), { probability: 0.3 }),
-          responseDate: faker.helpers.maybe(() => faker.date.recent({ days: 5 }), { probability: 0.3 }),
-          helpfulCount: faker.number.int({ min: 0, max: 10 }),
+          review: faker.lorem.paragraphs(2),
+          communicationRating: faker.number.int({ min: 1, max: 5 }),
+          punctualityRating: faker.number.int({ min: 1, max: 5 }),
+          skillRating: faker.number.int({ min: 1, max: 5 }),
           createdAt: faker.date.recent({ days: 20 }),
           updatedAt: new Date()
         });
@@ -221,19 +229,13 @@ export default async function seedUserServices() {
 
     // Update service statistics
     for (const service of insertedUserServices) {
-      const bookingCount = serviceBookingsData.filter(b => b.userServiceId === service.id).length;
-      const reviewCount = serviceReviewsData.filter(r => r.userServiceId === service.id).length;
+      const bookingCount = serviceBookingsData.filter(b => b.serviceId === service.id).length;
+      const reviewCount = serviceReviewsData.filter(r => r.serviceId === service.id).length;
       const avgRating = serviceReviewsData
-        .filter(r => r.userServiceId === service.id)
+        .filter(r => r.serviceId === service.id)
         .reduce((sum, r) => sum + r.rating, 0) / reviewCount || 0;
 
-      await db.update(userServices)
-        .set({
-          bookingCount,
-          reviewCount,
-          rating: avgRating
-        })
-        .where(eq(userServices.id, service.id));
+      // No fields to update in userServices table
     }
 
     console.log("✅ User services seeded successfully!");

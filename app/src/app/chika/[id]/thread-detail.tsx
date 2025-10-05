@@ -4,7 +4,8 @@ import { useState } from "react";
 import { MessageSquare, ArrowBigUp, ArrowBigDown, Send } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
-import { useThread, useThreadComments, useCreateComment, useAddReaction, ThreadWithUser } from "@/hooks/react-queries/threads";
+import { useThread, useAddReaction } from "@/features/chika";
+import { ThreadWithUser } from "@/features/chika/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 

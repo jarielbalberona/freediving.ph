@@ -58,8 +58,8 @@ class ErrorReporter implements ErrorReportingService {
       message: error.message,
       stack: error.stack,
       timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      url: window.location.href,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Server',
+      url: typeof window !== 'undefined' ? window.location.href : 'Server',
       level: 'component',
       ...context,
     };

@@ -1,6 +1,6 @@
 import { InferSelectModel, desc, eq, count, sql } from "drizzle-orm";
 
-import { NotificationsServerSchemaType, NotificationsUpdateSchemaType, NotificationSettingsSchemaType } from "@/app/notifications/notifications.validators";
+import { NotificationsServerSchemaType, NotificationsUpdateSchemaType, NotificationSettingsSchemaType } from "./notifications.validators";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
 import { notifications, notificationSettings, notificationTemplates } from "@/models/drizzle/notifications.model";
@@ -226,26 +226,11 @@ export default class NotificationsService extends DrizzleService {
 				// Create default settings if none exist
 				const defaultSettings = await this.db.insert(notificationSettings).values({
 					userId,
+					type: "SYSTEM",
+					enabled: true,
 					emailEnabled: true,
 					pushEnabled: true,
-					inAppEnabled: true,
-					systemNotifications: true,
-					messageNotifications: true,
-					eventNotifications: true,
-					groupNotifications: true,
-					serviceNotifications: true,
-					bookingNotifications: true,
-					reviewNotifications: true,
-					mentionNotifications: true,
-					likeNotifications: true,
-					commentNotifications: true,
-					friendRequestNotifications: true,
-					groupInviteNotifications: true,
-					eventReminderNotifications: true,
-					paymentNotifications: true,
-					securityNotifications: true,
-					digestFrequency: "DAILY",
-					timezone: "UTC"
+					smsEnabled: false
 				}).returning();
 
 				return ServiceResponse.createResponse(
@@ -277,7 +262,11 @@ export default class NotificationsService extends DrizzleService {
 				// Create settings if they don't exist
 				const createdData = await this.db.insert(notificationSettings).values({
 					userId,
-					...data
+					type: "SYSTEM",
+					enabled: true,
+					emailEnabled: data.emailEnabled ?? true,
+					pushEnabled: data.pushEnabled ?? true,
+					smsEnabled: false
 				}).returning();
 
 				return ServiceResponse.createResponse(
