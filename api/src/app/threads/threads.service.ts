@@ -1,9 +1,9 @@
-import { InferSelectModel, desc, eq } from "drizzle-orm";
+import { InferSelectModel, desc, eq, count, sql } from "drizzle-orm";
 
-import { ThreadsServerSchemaType } from "@/app/threads/threads.validators";
+import { ThreadsServerSchemaType, ThreadsUpdateSchemaType, CommentCreateSchemaType, ReactionSchemaType } from "@/app/threads/threads.validators";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
-import { threads } from "@/models/drizzle/threads.model";
+import { threads, comments, reactions } from "@/models/drizzle/threads.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
@@ -65,7 +65,7 @@ async retrieve(id: number): Promise<ServiceApiResponse<ThreadsSchemaType>> {
 }
 
 
-	async update(id: number, data: ThreadsServerSchemaType) {
+	async update(id: number, data: ThreadsUpdateSchemaType) {
 		try {
 			const updatedData = await this.db.update(threads).set(data).where(eq(threads.id, id)).returning();
 
@@ -79,7 +79,7 @@ async retrieve(id: number): Promise<ServiceApiResponse<ThreadsSchemaType>> {
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
-				"Dive spot updated successfully",
+				"Thread updated successfully",
 				updatedData[0]
 			);
 		} catch (error) {
@@ -92,16 +92,22 @@ async retrieveAll() {
   try {
     const retrieveData = await this.db
       .select({
-        thread: threads, // Select all thread fields
+        thread: threads,
         user: {
           id: users.id,
-          username: users.username, // Include necessary user details
+          username: users.username,
           email: users.email,
           alias: users.alias,
         },
+        commentCount: count(comments.id),
+        upvotes: sql<number>`COALESCE(SUM(CASE WHEN ${reactions.type} = '1' THEN 1 ELSE 0 END), 0)`,
+        downvotes: sql<number>`COALESCE(SUM(CASE WHEN ${reactions.type} = '0' THEN 1 ELSE 0 END), 0)`,
       })
       .from(threads)
-      .leftJoin(users, eq(threads.userId, users.id)) // Join with users table
+      .leftJoin(users, eq(threads.userId, users.id))
+      .leftJoin(comments, eq(threads.id, comments.threadId))
+      .leftJoin(reactions, eq(threads.id, reactions.threadId))
+      .groupBy(threads.id, users.id)
       .orderBy(desc(threads.createdAt));
 
     return ServiceResponse.createResponse(
@@ -115,11 +121,115 @@ async retrieveAll() {
 }
 
 
-	async testThreads(id: number) {
+	// Comments methods
+	async createComment(data: CommentCreateSchemaType) {
 		try {
-			return ServiceResponse.createRejectResponse(
-				status.HTTP_406_NOT_ACCEPTABLE,
-				"Dive spot not accept"
+			const createdData = await this.db.insert(comments).values(data).returning();
+
+			if (!createdData.length) {
+				return ServiceResponse.createResponse(
+					status.HTTP_406_NOT_ACCEPTABLE,
+					"Invalid comment data",
+					createdData[0]
+				);
+			}
+
+			return ServiceResponse.createResponse(
+				status.HTTP_201_CREATED,
+				"Comment created successfully",
+				createdData[0]
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async getComments(threadId: number) {
+		try {
+			const retrieveData = await this.db
+				.select({
+					comment: comments,
+					user: {
+						id: users.id,
+						username: users.username,
+						alias: users.alias,
+					},
+				})
+				.from(comments)
+				.leftJoin(users, eq(comments.userId, users.id))
+				.where(eq(comments.threadId, threadId))
+				.orderBy(desc(comments.createdAt));
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				"Comments retrieved successfully",
+				retrieveData
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	// Reactions methods
+	async addReaction(threadId: number, data: ReactionSchemaType) {
+		try {
+			// Check if user already reacted to this thread
+			const existingReaction = await this.db
+				.select()
+				.from(reactions)
+				.where(eq(reactions.threadId, threadId) && eq(reactions.userId, data.userId))
+				.limit(1);
+
+			if (existingReaction.length > 0) {
+				// Update existing reaction
+				const updatedData = await this.db
+					.update(reactions)
+					.set({ type: data.type })
+					.where(eq(reactions.threadId, threadId) && eq(reactions.userId, data.userId))
+					.returning();
+
+				return ServiceResponse.createResponse(
+					status.HTTP_200_OK,
+					"Reaction updated successfully",
+					updatedData[0]
+				);
+			} else {
+				// Create new reaction
+				const createdData = await this.db
+					.insert(reactions)
+					.values({ ...data, threadId })
+					.returning();
+
+				return ServiceResponse.createResponse(
+					status.HTTP_201_CREATED,
+					"Reaction added successfully",
+					createdData[0]
+				);
+			}
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async removeReaction(threadId: number, userId: number) {
+		try {
+			const deletedData = await this.db
+				.delete(reactions)
+				.where(eq(reactions.threadId, threadId) && eq(reactions.userId, userId))
+				.returning();
+
+			if (!deletedData.length) {
+				return ServiceResponse.createResponse(
+					status.HTTP_404_NOT_FOUND,
+					"Reaction not found",
+					null
+				);
+			}
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				"Reaction removed successfully",
+				deletedData[0]
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);

@@ -149,7 +149,7 @@ export const groupPostComments = pgTable("group_post_comments", {
   authorId: integer("author_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  parentId: integer("parent_id").references(() => groupPostComments.id), // For nested comments
+  parentId: integer("parent_id"), // For nested comments - will be set up in relations
 
   content: text("content").notNull(),
   likeCount: integer("like_count").default(0),

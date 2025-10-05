@@ -4,6 +4,10 @@ import { mediaRouter } from "@/app/media/media.routes";
 import { diveSpotRouter } from "@/app/diveSpot/diveSpot.routes";
 import { userRouter } from "@/app/user/user.routes";
 import { threadsRouter } from "@/app/threads/threads.routes";
+import { eventsRouter } from "@/app/events/events.routes";
+import { groupsRouter } from "@/app/groups/groups.routes";
+import { notificationsRouter } from "@/app/notifications/notifications.routes";
+import { userServicesRouter } from "@/app/userServices/userServices.routes";
 import clerkWebhookRouter from "@/routes/clerk-webhook";
 
 import { csrfRouter } from "@/routes/csrf.route";
@@ -26,5 +30,9 @@ export const routes: RouteConfig[] = [
   { path: "/csrf-token", router: csrfRouter },
   { path: "/dive-spots", router: diveSpotRouter },
   { path: "/threads", router: threadsRouter },
+  { path: "/events", router: eventsRouter },
+  { path: "/groups", router: groupsRouter },
+  { path: "/notifications", router: notificationsRouter },
+  { path: "/user-services", router: userServicesRouter },
   { path: "/webhooks", router: clerkWebhookRouter },
 ];

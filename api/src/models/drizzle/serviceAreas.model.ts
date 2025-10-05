@@ -1,35 +1,37 @@
 import { relations } from "drizzle-orm";
-import {
-  boolean,
-  decimal,
-  integer,
-  pgTable,
-  serial,
-  text,
-} from "drizzle-orm/pg-core";
-
+import { pgTable, serial, text, varchar, integer, decimal, boolean } from "drizzle-orm/pg-core";
+import { users } from "./authentication.model";
 import { timestamps } from "@/databases/drizzle/helpers";
-import { userServices } from "./userServices.model";
 
-// Service Areas Table (Multiple locations per service)
+// Service Areas Table - defines geographic areas where services are offered
 export const serviceAreas = pgTable("service_areas", {
   id: serial("id").primaryKey(),
-  serviceId: integer("service_id")
+  userId: integer("user_id")
     .notNull()
-    .references(() => userServices.id, { onDelete: "cascade" }),
-  name: text("name").notNull(), // "Anilao, Batangas"
-  lat: decimal("lat", { precision: 10, scale: 8 }),
-  lng: decimal("lng", { precision: 11, scale: 8 }),
-  isPrimary: boolean("is_primary").default(false), // Primary service location
-  travelFee: decimal("travel_fee", { precision: 10, scale: 2 }).default("0"), // Additional fee for this location
-  notes: text("notes"), // Special notes for this location
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 100 }).notNull(), // e.g., "Metro Manila", "Cebu City"
+  description: text("description"),
+
+  // Geographic boundaries
+  centerLat: decimal("center_lat", { precision: 10, scale: 8 }),
+  centerLng: decimal("center_lng", { precision: 11, scale: 8 }),
+  radius: integer("radius"), // km radius from center
+
+  // Service area settings
+  isPrimary: boolean("is_primary").default(false), // Primary service area
+  travelFee: decimal("travel_fee", { precision: 10, scale: 2 }), // Additional fee for this area
+  currency: varchar("currency", { length: 3 }).default("PHP"),
+
+  // Availability
+  isActive: boolean("is_active").default(true),
+
   ...timestamps
 });
 
-// Relationships
+// Relations
 export const serviceAreasRelations = relations(serviceAreas, ({ one }) => ({
-  service: one(userServices, {
-    fields: [serviceAreas.serviceId],
-    references: [userServices.id]
+  user: one(users, {
+    fields: [serviceAreas.userId],
+    references: [users.id]
   })
 }));

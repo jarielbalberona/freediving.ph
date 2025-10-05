@@ -1,3 +1,6 @@
+// Legacy API utility - kept for backward compatibility
+// New features should use the HTTP client from @/lib/http
+
 export interface ApiResponse<T = any> {
   status: number;
   data: T;
@@ -10,13 +13,6 @@ const getBaseUrl = () => {
   const serverUrl = process.env.API_URL;
   const clientUrl = process.env.NEXT_PUBLIC_API_URL;
   const isServer = typeof window === 'undefined';
-
-  console.log({
-    isServer,
-    serverUrl,
-    clientUrl,
-    finalUrl: isServer ? serverUrl : clientUrl
-  });
 
   if (isServer) {
     // Use Docker service name for server-side requests
@@ -32,8 +28,7 @@ export async function apiCall<T>(
   isAuthPage = false
 ): Promise<ApiResponse<T>> {
   const baseUrl = getBaseUrl();
-  const endpointUrl = `${baseUrl}${url}`
-  console.log("endpointUrl", endpointUrl);
+  const endpointUrl = `${baseUrl}${url}`;
 
   // Get Clerk token if available
   let authToken = '';

@@ -1,33 +1,60 @@
-import { Router } from "express";
-import {
-  getUserNotifications,
-  getNotificationById,
-  createNotification,
-  updateNotification,
-  markAsRead,
-  markAllAsRead,
-  deleteNotification,
-  getNotificationSettings,
-  updateNotificationSettings,
-  getNotificationStats,
-} from "./notifications.controller";
+import express, { Router } from "express";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
 
-const router = Router();
+import NotificationsController from "@/app/notifications/notifications.controller";
 
-// Notification routes
-router.get("/users/:userId/notifications", getUserNotifications);
-router.get("/users/:userId/notifications/:id", getNotificationById);
-router.post("/notifications", createNotification);
-router.put("/users/:userId/notifications/:id", updateNotification);
-router.patch("/users/:userId/notifications/:id/read", markAsRead);
-router.patch("/users/:userId/notifications/read-all", markAllAsRead);
-router.delete("/users/:userId/notifications/:id", deleteNotification);
+export const notificationsRouter: Router = (() => {
+	const router = express.Router();
 
-// Notification settings routes
-router.get("/users/:userId/notification-settings", getNotificationSettings);
-router.put("/users/:userId/notification-settings", updateNotificationSettings);
+	// Notification CRUD routes
+	router
+		.route("/")
+		.get(clerkAuthMiddleware, (req, res) => {
+			new NotificationsController(req, res).getAllNotifications();
+		})
+		.post(clerkAuthMiddleware, requireRole("ADMINISTRATOR"), async (req, res) => {
+			new NotificationsController(req, res).createNotification();
+		});
 
-// Notification statistics
-router.get("/users/:userId/notification-stats", getNotificationStats);
+	router
+		.route("/:id")
+		.get(clerkAuthMiddleware, (req, res) => {
+			new NotificationsController(req, res).getNotificationById();
+		})
+		.put(clerkAuthMiddleware, async (req, res) => {
+			new NotificationsController(req, res).updateNotification();
+		})
+		.delete(clerkAuthMiddleware, async (req, res) => {
+			new NotificationsController(req, res).deleteNotification();
+		});
 
-export default router;
+	// User notification routes
+	router.get("/users/:userId", clerkAuthMiddleware, (req, res) => {
+		new NotificationsController(req, res).getUserNotifications();
+	});
+
+	router.post("/users/:userId/mark-all-read", clerkAuthMiddleware, async (req, res) => {
+		new NotificationsController(req, res).markAllAsRead();
+	});
+
+	router.get("/users/:userId/unread-count", clerkAuthMiddleware, (req, res) => {
+		new NotificationsController(req, res).getUnreadCount();
+	});
+
+	// Notification actions
+	router.post("/:id/mark-read", clerkAuthMiddleware, async (req, res) => {
+		new NotificationsController(req, res).markAsRead();
+	});
+
+	// Notification settings routes
+	router
+		.route("/users/:userId/settings")
+		.get(clerkAuthMiddleware, (req, res) => {
+			new NotificationsController(req, res).getNotificationSettings();
+		})
+		.put(clerkAuthMiddleware, async (req, res) => {
+			new NotificationsController(req, res).updateNotificationSettings();
+		});
+
+	return router;
+})();

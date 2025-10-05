@@ -1,37 +1,20 @@
 import { relations } from "drizzle-orm";
-import {
-  boolean,
-  integer,
-  pgTable,
-  serial,
-  text,
-  varchar,
-} from "drizzle-orm/pg-core";
-
+import { pgTable, serial, text, varchar, boolean } from "drizzle-orm/pg-core";
 import { timestamps } from "@/databases/drizzle/helpers";
-import { users } from "./authentication.model";
+import { userServices } from "./userServices.model";
 
-// Service Types Table (Dynamic with approval workflow)
+// Service Types Table - defines what types of services can be offered
 export const serviceTypes = pgTable("service_types", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 50 }).unique().notNull(), // 'Buddy', 'Photographer', 'Videographer'
+  name: varchar("name", { length: 100 }).notNull(), // e.g., "Underwater Photography", "Dive Guide"
   description: text("description"),
-  emoji: varchar("emoji", { length: 10 }).notNull(),
-  isApproved: boolean("is_approved").default(false), // Admin approval
-  suggestedBy: integer("suggested_by").references(() => users.id), // Who suggested it
-  approvedBy: integer("approved_by").references(() => users.id), // Admin who approved
-  usageCount: integer("usage_count").default(0), // How many users offer this service
+  category: varchar("category", { length: 50 }), // e.g., "Photography", "Instruction", "Equipment"
+  icon: varchar("icon", { length: 50 }), // Icon name for UI
+  isActive: boolean("is_active").default(true),
   ...timestamps
 });
 
-// Relationships
-export const serviceTypesRelations = relations(serviceTypes, ({ one, many }) => ({
-  suggestedByUser: one(users, {
-    fields: [serviceTypes.suggestedBy],
-    references: [users.id]
-  }),
-  approvedByUser: one(users, {
-    fields: [serviceTypes.approvedBy],
-    references: [users.id]
-  })
+// Relations
+export const serviceTypesRelations = relations(serviceTypes, ({ many }) => ({
+  userServices: many(userServices)
 }));

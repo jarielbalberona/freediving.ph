@@ -4,7 +4,7 @@ import postgres from "postgres";
 
 import schema from "@/databases/drizzle/schema";
 
-const dbUrl = process.env.DATABASE_URL;
+const dbUrl = process.env.DATABASE_URL || "postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph";
 
 interface QueryDetails {
   query: string;

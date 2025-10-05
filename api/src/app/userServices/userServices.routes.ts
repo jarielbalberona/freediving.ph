@@ -1,35 +1,64 @@
-import { Router } from "express";
-import {
-  getUserServices,
-  getUserServiceById,
-  createUserService,
-  updateUserService,
-  deleteUserService,
-  getUserServicesByUserId,
-  createServiceBooking,
-  getServiceBookings,
-  createServiceReview,
-  getServiceReviews,
-} from "./userServices.controller";
+import express, { Router } from "express";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
 
-const router = Router();
+import UserServicesController from "@/app/userServices/userServices.controller";
 
-// User services routes
-router.get("/", getUserServices);
-router.get("/:id", getUserServiceById);
-router.post("/", createUserService);
-router.put("/:id", updateUserService);
-router.delete("/:id", deleteUserService);
+export const userServicesRouter: Router = (() => {
+	const router = express.Router();
 
-// User's services
-router.get("/users/:userId/services", getUserServicesByUserId);
+	// Service CRUD routes
+	router
+		.route("/")
+		.get((req, res) => {
+			new UserServicesController(req, res).getAllServices();
+		})
+		.post(clerkAuthMiddleware, async (req, res) => {
+			new UserServicesController(req, res).createService();
+		});
 
-// Service bookings
-router.post("/bookings", createServiceBooking);
-router.get("/users/:userId/bookings", getServiceBookings);
+	router
+		.route("/:id")
+		.get((req, res) => {
+			new UserServicesController(req, res).getServiceById();
+		})
+		.put(clerkAuthMiddleware, async (req, res) => {
+			new UserServicesController(req, res).updateService();
+		});
 
-// Service reviews
-router.post("/reviews", createServiceReview);
-router.get("/:id/reviews", getServiceReviews);
+	// User service routes
+	router.get("/users/:userId", (req, res) => {
+		new UserServicesController(req, res).getUserServices();
+	});
 
-export default router;
+	// Service booking routes
+	router
+		.route("/bookings")
+		.post(clerkAuthMiddleware, async (req, res) => {
+			new UserServicesController(req, res).createBooking();
+		});
+
+	router.get("/:id/bookings", clerkAuthMiddleware, (req, res) => {
+		new UserServicesController(req, res).getServiceBookings();
+	});
+
+	router.get("/users/:userId/bookings", clerkAuthMiddleware, (req, res) => {
+		new UserServicesController(req, res).getUserBookings();
+	});
+
+	router.put("/bookings/:id/status", clerkAuthMiddleware, async (req, res) => {
+		new UserServicesController(req, res).updateBookingStatus();
+	});
+
+	// Service review routes
+	router
+		.route("/reviews")
+		.post(clerkAuthMiddleware, async (req, res) => {
+			new UserServicesController(req, res).createReview();
+		});
+
+	router.get("/:id/reviews", (req, res) => {
+		new UserServicesController(req, res).getServiceReviews();
+	});
+
+	return router;
+})();

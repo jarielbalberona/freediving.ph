@@ -1,29 +1,43 @@
-import { Router } from "express";
-import {
-  getEvents,
-  getEventById,
-  createEvent,
-  updateEvent,
-  registerForEvent,
-  cancelEventRegistration,
-  getEventAttendees,
-  getUserEvents,
-} from "./events.controller";
+import express, { Router } from "express";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
 
-const router = Router();
+import EventsController from "@/app/events/events.controller";
 
-// Event routes
-router.get("/", getEvents);
-router.get("/:id", getEventById);
-router.post("/", createEvent);
-router.put("/:id", updateEvent);
+export const eventsRouter: Router = (() => {
+	const router = express.Router();
 
-// Event registration routes
-router.post("/register", registerForEvent);
-router.post("/:id/cancel", cancelEventRegistration);
-router.get("/:id/attendees", getEventAttendees);
+	// Event CRUD routes
+	router
+		.route("/")
+		.get((req, res) => {
+			new EventsController(req, res).getAllEvents();
+		})
+		.post(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
+			new EventsController(req, res).createEvent();
+		});
 
-// User events
-router.get("/users/:userId/events", getUserEvents);
+	router
+		.route("/:id")
+		.get((req, res) => {
+			new EventsController(req, res).getEventById();
+		})
+		.put(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
+			new EventsController(req, res).updateEvent();
+		});
 
-export default router;
+	// Event attendee routes
+	router
+		.route("/:id/attendees")
+		.get((req, res) => {
+			new EventsController(req, res).getEventAttendees();
+		})
+		.post(clerkAuthMiddleware, async (req, res) => {
+			new EventsController(req, res).addAttendee();
+		});
+
+	router.delete("/:id/attendees/:userId", clerkAuthMiddleware, async (req, res) => {
+		new EventsController(req, res).removeAttendee();
+	});
+
+	return router;
+})();

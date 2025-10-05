@@ -64,7 +64,12 @@ export default class UserController extends ApiController {
 				...check.data,
 				clerkId: "temp-clerk-id", // This should be provided by Clerk webhook
 				image: null,
-				emailVerified: check.data.emailVerified ? new Date() : null
+				emailVerified: check.data.emailVerified ? new Date() : null,
+				bio: null,
+				location: null,
+				phone: null,
+				website: null,
+				isServiceProvider: false
 			};
 
 			const data = await this.userService.createUser(mergedData);

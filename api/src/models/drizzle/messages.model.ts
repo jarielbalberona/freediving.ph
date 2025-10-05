@@ -94,8 +94,8 @@ export const messages = pgTable("messages", {
   status: MESSAGE_STATUS("status").default("SENT").notNull(),
 
   // Message threading/replies
-  parentMessageId: integer("parent_message_id").references(() => messages.id), // For replies
-  threadId: integer("thread_id").references(() => messages.id), // For message threads
+  parentMessageId: integer("parent_message_id"), // For replies - will be set up in relations
+  threadId: integer("thread_id"), // For message threads - will be set up in relations
 
   // Rich content
   metadata: jsonb("metadata"), // Additional message data (JSON)

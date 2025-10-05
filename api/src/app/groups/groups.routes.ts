@@ -1,35 +1,53 @@
-import { Router } from "express";
-import {
-  getGroups,
-  getGroupById,
-  createGroup,
-  updateGroup,
-  joinGroup,
-  leaveGroup,
-  getGroupMembers,
-  getGroupPosts,
-  createGroupPost,
-  getUserGroups,
-} from "./groups.controller";
+import express, { Router } from "express";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
 
-const router = Router();
+import GroupsController from "@/app/groups/groups.controller";
 
-// Group routes
-router.get("/", getGroups);
-router.get("/:id", getGroupById);
-router.post("/", createGroup);
-router.put("/:id", updateGroup);
+export const groupsRouter: Router = (() => {
+	const router = express.Router();
 
-// Group membership routes
-router.post("/join", joinGroup);
-router.post("/:id/leave", leaveGroup);
-router.get("/:id/members", getGroupMembers);
+	// Group CRUD routes
+	router
+		.route("/")
+		.get((req, res) => {
+			new GroupsController(req, res).getAllGroups();
+		})
+		.post(clerkAuthMiddleware, async (req, res) => {
+			new GroupsController(req, res).createGroup();
+		});
 
-// Group posts routes
-router.get("/:id/posts", getGroupPosts);
-router.post("/posts", createGroupPost);
+	router
+		.route("/:id")
+		.get((req, res) => {
+			new GroupsController(req, res).getGroupById();
+		})
+		.put(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
+			new GroupsController(req, res).updateGroup();
+		});
 
-// User groups
-router.get("/users/:userId/groups", getUserGroups);
+	// Group member routes
+	router
+		.route("/:id/members")
+		.get((req, res) => {
+			new GroupsController(req, res).getGroupMembers();
+		})
+		.post(clerkAuthMiddleware, async (req, res) => {
+			new GroupsController(req, res).addMember();
+		});
 
-export default router;
+	router.delete("/:id/members/:userId", clerkAuthMiddleware, async (req, res) => {
+		new GroupsController(req, res).removeMember();
+	});
+
+	// Group post routes
+	router
+		.route("/:id/posts")
+		.get((req, res) => {
+			new GroupsController(req, res).getGroupPosts();
+		})
+		.post(clerkAuthMiddleware, async (req, res) => {
+			new GroupsController(req, res).createPost();
+		});
+
+	return router;
+})();

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 
 import ThreadsService from "@/app/threads/threads.service";
-import { ThreadsServerSchema } from "@/app/threads/threads.validators";
+import { ThreadsServerSchema, ThreadsUpdateSchema, CommentCreateSchema, ReactionSchema } from "@/app/threads/threads.validators";
 
 import { ApiController } from "@/controllers/base/api.controller";
 import { ServiceApiResponse } from "@/utils/serviceApi";
@@ -51,7 +51,7 @@ export default class ThreadsController extends ApiController {
 		try {
 			const id = Number(this.request.params.id);
 			const body = this.request.body;
-			const check = ThreadsServerSchema.safeParse(body);
+			const check = ThreadsUpdateSchema.safeParse(body);
 			if (!check.success)
 				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
 
@@ -66,6 +66,63 @@ export default class ThreadsController extends ApiController {
 	async retrieveAllThreads() {
 		try {
 			const response = await this.threadsService.retrieveAll();
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	// Comments methods
+	async createComment() {
+		try {
+			const body = this.request.body;
+			const check = CommentCreateSchema.safeParse(body);
+			if (!check.success)
+				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+
+			const response = await this.threadsService.createComment(check.data);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async getComments() {
+		try {
+			const threadId = Number(this.request.params.id);
+			const response = await this.threadsService.getComments(threadId);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	// Reactions methods
+	async addReaction() {
+		try {
+			const threadId = Number(this.request.params.id);
+			const body = this.request.body;
+			const check = ReactionSchema.safeParse(body);
+			if (!check.success)
+				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+
+			const response = await this.threadsService.addReaction(threadId, check.data);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async removeReaction() {
+		try {
+			const threadId = Number(this.request.params.id);
+			const userId = Number(this.request.body.userId);
+
+			if (!userId) {
+				return this.apiResponse.badResponse("User ID is required");
+			}
+
+			const response = await this.threadsService.removeReaction(threadId, userId);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

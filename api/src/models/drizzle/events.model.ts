@@ -187,7 +187,7 @@ export const eventComments = pgTable("event_comments", {
   userId: integer("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  parentId: integer("parent_id").references(() => eventComments.id), // For nested comments
+  parentId: integer("parent_id"), // For nested comments - will be set up in relations
 
   content: text("content").notNull(),
   isPrivate: boolean("is_private").default(false), // Private comments (organizer only)
