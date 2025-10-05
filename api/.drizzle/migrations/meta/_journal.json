@@ -155,6 +155,20 @@
       "when": 1741565972322,
       "tag": "0021_hesitant_magma",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1759675949663,
+      "tag": "0022_add_notifications_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1759676180250,
+      "tag": "0023_add_messages_system",
+      "breakpoints": true
     }
   ]
 }

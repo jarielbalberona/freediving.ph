@@ -1,7 +1,7 @@
 import { and, count, ilike, inArray } from "drizzle-orm";
 import { Json2CsvOptions, json2csv } from "json-2-csv";
 
-import AuthenticationService from "@/app/authentication/authentication.service";
+// Authentication service removed - using Clerk now
 
 import PaginationManager from "@/core/pagination";
 import DrizzleService from "@/databases/drizzle/service";
@@ -13,25 +13,18 @@ import { status } from "@/utils/statusCodes";
 
 export default class UserService extends DrizzleService {
 	private sortingHelper: SortingHelper<typeof users>;
-	private authenticationService: AuthenticationService;
-
 	constructor() {
 		super();
 		this.sortingHelper = new SortingHelper(users);
-		this.authenticationService = new AuthenticationService();
 	}
 
 	async createUser(
 		data: Omit<UserSchemaType, "id" | "createdAt" | "updatedAt">
-	): Promise<ServiceApiResponse<Omit<UserSchemaType, "password">>> {
+	): Promise<ServiceApiResponse<Omit<UserSchemaType, "clerkId">>> {
 		try {
-			data.email && (await this.authenticationService.duplicateUserCheckByEmail(data.email));
-			data.username &&
-				(await this.authenticationService.duplicateUserCheckByUsername(data.username));
-
 			const user = await this.db.insert(users).values(data).returning();
 
-			const { password, ...userData } = user[0];
+			const { clerkId, ...userData } = user[0];
 
 			return ServiceResponse.createResponse(
 				status.HTTP_201_CREATED,
@@ -45,7 +38,7 @@ export default class UserService extends DrizzleService {
 
 	async retrieveUsers(
 		filter: UserFilter
-	): Promise<ServiceApiResponse<Omit<UserSchemaType, "password">[]>> {
+	): Promise<ServiceApiResponse<Omit<UserSchemaType, "clerkId">[]>> {
 		try {
 			const orderBy = this.sortingHelper.applySorting(filter.sortingMethod, filter.sortBy);
 
@@ -75,7 +68,7 @@ export default class UserService extends DrizzleService {
 			).createPagination();
 
 			const data = await this.db.query.users.findMany({
-				columns: { password: false },
+				columns: { clerkId: false },
 				where: whereClause,
 				limit: filter.limit ? filter.limit : undefined,
 				offset: filter.limit ? offset : undefined,
@@ -144,12 +137,12 @@ export default class UserService extends DrizzleService {
 	private async retrieveAllUsers(
 		sortingMethod?: string,
 		sortBy?: string
-	): Promise<ServiceApiResponse<Omit<UserSchemaType, "password">[]>> {
+	): Promise<ServiceApiResponse<Omit<UserSchemaType, "clerkId">[]>> {
 		try {
 			const orderBy = this.sortingHelper.applySorting(sortingMethod, sortBy);
 
 			const data = await this.db.query.users.findMany({
-				columns: { password: false },
+				columns: { clerkId: false },
 				orderBy
 			});
 

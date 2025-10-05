@@ -9,8 +9,35 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Grid, MessageCircle, UserPlus } from "lucide-react";
 
 export default function ProfileView() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
 
+  console.log("User:", user);
+  console.log("Is loaded:", isLoaded);
+
+  // Show loading state while user is being fetched
+  if (!isLoaded) {
+    return (
+      <div className="flex justify-center w-full min-h-screen bg-background">
+        <div className="flex items-center justify-center">
+          <div className="text-lg">Loading user data...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show sign-in prompt if no user
+  if (!user) {
+    return (
+      <div className="flex justify-center w-full min-h-screen bg-background">
+        <div className="flex flex-col items-center justify-center gap-4">
+          <div className="text-lg">Please sign in to view your profile</div>
+          <Button asChild>
+            <Link href="/sign-in">Sign In</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex justify-center w-full min-h-screen bg-background">
       <div className="w-full max-w-3xl px-4 py-8 mx-auto">

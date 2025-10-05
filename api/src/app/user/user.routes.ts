@@ -1,4 +1,5 @@
 import express, { Router } from "express";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
 
 import UserController from "@/app/user/user.controller";
 
@@ -7,14 +8,14 @@ export const userRouter: Router = (() => {
 
 	router
 		.route("/")
-		.get((req, res) => {
+		.get(clerkAuthMiddleware, requireRole("ADMINISTRATOR"), (req, res) => {
 			new UserController(req, res).index();
 		})
-		.delete((req, res) => {
+		.delete(clerkAuthMiddleware, (req, res) => {
 			new UserController(req, res).delete();
 		});
 
-	router.get("/export", (req, res) => {
+	router.get("/export", clerkAuthMiddleware, requireRole("ADMINISTRATOR"), (req, res) => {
 		new UserController(req, res).export();
 	});
 

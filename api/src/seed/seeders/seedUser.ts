@@ -1,5 +1,4 @@
 import { faker } from "@faker-js/faker";
-import { hash } from "bcryptjs";
 
 import db from "@/databases/drizzle/connection";
 import { ROLE_LIST } from "@/databases/drizzle/lists";
@@ -32,13 +31,10 @@ const seedUsers = async () => {
 		// Generate fake users
 		const seedData: SeedUser[] = generateFakeUsers(50);
 
-		// Hash the password
-		const hashedPassword = await hash("Bang@123", 10);
-
-		// Prepare user data
-		const userData = seedData.map(user => ({
+		// Prepare user data with Clerk IDs
+		const userData = seedData.map((user, index) => ({
 			...user,
-			password: hashedPassword,
+			clerkId: `clerk_${faker.string.alphanumeric(24)}`, // Generate fake Clerk ID
 			emailVerified: new Date(),
 			createdAt: new Date(),
 			updatedAt: new Date()

@@ -28,6 +28,8 @@ WORKDIR /usr/src/api
 # Copy built files from builder stage
 COPY --from=builder /usr/src/api/dist ./dist
 COPY --from=builder /usr/src/api/node_modules ./node_modules
+COPY --from=builder /usr/src/api/drizzle.config.ts ./
+COPY --from=builder /usr/src/api/src ./src
 COPY package.json ./
 
 # Expose the port

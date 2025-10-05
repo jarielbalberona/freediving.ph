@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+	boolean,
 	integer,
 	pgEnum,
 	pgTable,
@@ -17,14 +18,24 @@ export const TOKEN_TYPE = pgEnum("token_type", TOKEN_LIST.enumValues);
 
 export const users = pgTable("users", {
 	id: serial("id").primaryKey(),
+	clerkId: text("clerk_id").unique().notNull(),
 	name: text("name"),
 	username: text("username").unique(),
 	email: text("email").unique(),
-	password: text("password"),
 	emailVerified: timestamp("email_verified", { withTimezone: true }),
 	image: text("image"),
   role: ROLE_TYPE("role").default("USER"),
   alias: text("alias").unique(),
+
+  // Profile information
+  bio: text("bio"),
+  location: text("location"),
+  phone: text("phone"),
+  website: text("website"),
+
+  // Service provider status
+  isServiceProvider: boolean("is_service_provider").default(false),
+
 	...timestamps
 });
 

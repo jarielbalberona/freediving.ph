@@ -6,6 +6,15 @@ import * as ReviewsSchema from "@/models/drizzle/reviews.model";
 import * as MediaSchema from "@/models/drizzle/media.model"
 import * as TagsSchema from "@/models/drizzle/tags.model"
 import * as ThreadsSchema from "@/models/drizzle/threads.model"
+import * as UserServicesSchema from "@/models/drizzle/userServices.model"
+import * as ServiceTypesSchema from "@/models/drizzle/serviceTypes.model"
+import * as ServiceAreasSchema from "@/models/drizzle/serviceAreas.model"
+import * as TagSuggestionsSchema from "@/models/drizzle/tagSuggestions.model"
+import * as ServiceSuggestionsSchema from "@/models/drizzle/serviceSuggestions.model"
+import * as GroupsSchema from "@/models/drizzle/groups.model"
+import * as EventsSchema from "@/models/drizzle/events.model"
+import * as NotificationsSchema from "@/models/drizzle/notifications.model"
+import * as MessagesSchema from "@/models/drizzle/messages.model"
 
 const schema = {
 	...AuthenticationSchema,
@@ -15,7 +24,16 @@ const schema = {
   ...ReviewsSchema,
   ...MediaSchema,
   ...TagsSchema,
-  ...ThreadsSchema
+  ...ThreadsSchema,
+  ...UserServicesSchema,
+  ...ServiceTypesSchema,
+  ...ServiceAreasSchema,
+  ...TagSuggestionsSchema,
+  ...ServiceSuggestionsSchema,
+  ...GroupsSchema,
+  ...EventsSchema,
+  ...NotificationsSchema,
+  ...MessagesSchema
 };
 
 export default schema;

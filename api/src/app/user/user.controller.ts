@@ -62,6 +62,7 @@ export default class UserController extends ApiController {
 			}
 			const mergedData: Omit<UserSchemaType, "id" | "createdAt" | "updatedAt"> = {
 				...check.data,
+				clerkId: "temp-clerk-id", // This should be provided by Clerk webhook
 				image: null,
 				emailVerified: check.data.emailVerified ? new Date() : null
 			};

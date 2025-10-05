@@ -5,7 +5,7 @@ export function useProfile(data: any = {}) {
   return useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
-      const response = await apiCall<any[]>("/auth/me");
+      const response = await apiCall<any>("/auth/me");
       return response.data; // specifically return the data property
     },
     initialData: data,

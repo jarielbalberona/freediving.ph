@@ -1,4 +1,5 @@
 import express, { Router } from "express";
+import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
 
 import ThreadsController from "@/app/threads/threads.controller";
 
@@ -10,7 +11,7 @@ export const threadsRouter: Router = (() => {
     .get((req, res) => {
 			new ThreadsController(req, res).retrieveAllThreads();
 		})
-		.post(async (req, res) => {
+		.post(clerkAuthMiddleware, async (req, res) => {
 			new ThreadsController(req, res).createThreads();
 		});
 
@@ -19,7 +20,7 @@ export const threadsRouter: Router = (() => {
 		.get((req, res) => {
 			new ThreadsController(req, res).retrieveThreads();
 		})
-		.put(async (req, res) => {
+		.put(clerkAuthMiddleware, async (req, res) => {
 			new ThreadsController(req, res).updateThreads();
 		});
 

@@ -1,0 +1,78 @@
+import { NextFunction, Request, Response } from "express";
+import { verifyToken } from "@clerk/backend";
+import { eq } from "drizzle-orm";
+import db from "@/databases/drizzle/connection";
+import { users } from "@/models/drizzle/authentication.model";
+import { ApiResponse } from "@/utils/serviceApi";
+
+// Extend Express Request type to include user
+declare global {
+	namespace Express {
+		interface Request {
+			user?: any;
+		}
+	}
+}
+
+export const clerkAuthMiddleware = async (
+	req: Request,
+	res: Response,
+	next: NextFunction
+): Promise<void> => {
+	const apiResponse = new ApiResponse(res);
+
+	try {
+		// Get token from Authorization header
+		const authHeader = req.headers.authorization;
+		if (!authHeader || !authHeader.startsWith('Bearer ')) {
+			apiResponse.unauthorizedResponse("No token provided");
+			return;
+		}
+
+		const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+		// Verify the Clerk JWT token
+		const payload = await verifyToken(token, {
+			secretKey: process.env.CLERK_SECRET_KEY!
+		});
+
+		// Get user from database using Clerk ID
+		const user = await db
+			.select()
+			.from(users)
+			.where(eq(users.clerkId, payload.sub))
+			.limit(1);
+
+		if (!user || user.length === 0) {
+			apiResponse.unauthorizedResponse("User not found");
+			return;
+		}
+
+		// Attach user to request
+		req.user = user[0];
+		next();
+	} catch (error) {
+		console.error("Clerk auth middleware error:", error);
+		apiResponse.unauthorizedResponse("Invalid token");
+		return;
+	}
+};
+
+// Optional: Middleware to check if user has specific role
+export const requireRole = (role: string) => {
+	return (req: Request, res: Response, next: NextFunction) => {
+		const apiResponse = new ApiResponse(res);
+
+		if (!req.user) {
+			apiResponse.unauthorizedResponse("User not authenticated");
+			return;
+		}
+
+		if (req.user.role !== role && req.user.role !== 'SUPER_ADMIN') {
+			apiResponse.forbiddenResponse("Insufficient permissions");
+			return;
+		}
+
+		next();
+	};
+};

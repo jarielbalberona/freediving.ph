@@ -34,10 +34,24 @@ export async function apiCall<T>(
   const baseUrl = getBaseUrl();
   const endpointUrl = `${baseUrl}${url}`
   console.log("endpointUrl", endpointUrl);
+
+  // Get Clerk token if available
+  let authToken = '';
+  if (typeof window !== 'undefined') {
+    // Client-side: get token from Clerk
+    try {
+      const { getToken } = await import('@clerk/nextjs');
+      authToken = await getToken() || '';
+    } catch (error) {
+      console.log('No Clerk token available');
+    }
+  }
+
   const res = await fetch(endpointUrl, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(authToken && { "Authorization": `Bearer ${authToken}` }),
       ...(options.headers || {}),
     },
     credentials: "include",

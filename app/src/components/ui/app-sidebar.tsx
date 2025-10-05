@@ -22,11 +22,11 @@ export function AppSidebar({
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <Image
-          src="/images/freedivingph-blue-transparent.png"
+          src="/images/fph-logo-white.png"
           alt="Image"
-          className="object-cover p-4 rounded-md"
-          width={150}
-          height={100}
+          className="object-cover rounded-md"
+          width={60}
+          height={60}
         />
       </SidebarHeader>
       <SidebarContent>

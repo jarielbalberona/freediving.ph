@@ -1,4 +1,5 @@
 import express, { Router } from "express";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
 
 import DiveSpotController from "@/app/diveSpot/diveSpot.controller";
 
@@ -10,7 +11,7 @@ export const diveSpotRouter: Router = (() => {
 		.get((req, res) => {
 			new DiveSpotController(req, res).retrieveAllDiveSpot();
 		})
-		.post(async (req, res) => {
+		.post(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
 			new DiveSpotController(req, res).createDiveSpot();
 		});
 
@@ -19,7 +20,7 @@ export const diveSpotRouter: Router = (() => {
 		.get((req, res) => {
 			new DiveSpotController(req, res).retrieveDiveSpot();
 		})
-		.put(async (req, res) => {
+		.put(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
 			new DiveSpotController(req, res).updateDiveSpot();
 		});
 

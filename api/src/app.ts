@@ -3,20 +3,15 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import helmet from "helmet";
-import passport from "passport";
 import path from "path";
 
 import { corsOptions } from "@/cors";
 import analysis from "@/databases/drizzle/analysis";
 import appLogger from "@/logger";
 import { uploadDir } from "@/multer/globalConfig";
-// import "@/passport/passportGoogle";
-// import "@/passport/passportCustom";
-import "@/passport/passportLocal";
 import appRateLimiter from "@/rateLimiter";
 import indexRouter from "@/routes/index.route";
 import appRouter from "@/routes/routes.config";
-import sessionConfig from "@/session";
 import { doubleCsrfProtection } from "@/utils/csrf";
 import { notFoundHandler, serverErrorHandler } from "@/utils/errorHandler";
 
@@ -46,19 +41,9 @@ appLogger(app);
 // appRateLimiter(app);
 
 /**
- * Initialize session
- * This is used to store session data
- * This is used for authentication
+ * Trust proxy for proper IP detection
  */
 app.set("trust proxy", 1);
-app.use(sessionConfig);
-
-/**
- * Initialize passport
- * This is used for authentication
- */
-app.use(passport.initialize());
-app.use(passport.session());
 
 // Generate CSRF token for all routes
 app.use(doubleCsrfProtection);
