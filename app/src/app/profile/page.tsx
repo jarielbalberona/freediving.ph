@@ -1,22 +1,16 @@
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { apiCall } from "@/lib/api";
 import ProfileView from "@/components/profile/profile-view";
-import { cookies } from "next/headers";
 
 export default async function Profile() {
-  const cookieStore = await cookies();
-  const profile: any = await apiCall("/auth/me", {
-    headers: {
-      "Content-Type": "application/json",
-      Cookie: cookieStore.toString()
-    },
-    credentials: "include", // Include cookies
-  });
-  if (profile?.status === 401 || profile?.status === 403) {
-      redirect("/auth"); // Redirect to login page
-    }
+  const { userId } = await auth();
+
+  if (!userId) {
+    redirect("/sign-in");
+  }
+
   return (
-    <ProfileView initialData={profile?.data || {}} />
+    <ProfileView />
   );
 }
 

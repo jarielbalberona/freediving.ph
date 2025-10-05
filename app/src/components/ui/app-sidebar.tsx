@@ -1,9 +1,8 @@
 import * as React from "react";
 import Image from "next/image";
-import { cookies } from "next/headers";
 import { navigation } from "@/config/nav";
 import { NavUser } from "@/components/ui/nav-user";
-import { apiCall } from "@/lib/api";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 import {
   Sidebar,
   SidebarContent,
@@ -16,24 +15,9 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
-export async function AppSidebar({
+export function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
-  const cookieStore = await cookies();
-
-  const { status, data = null } = await apiCall("/auth/me", {
-    headers: {
-      Cookie: cookieStore.toString()
-    }
-  });
-
-  let filteredNav = navigation
-
-  if (status === 401 || status === 403) {
-    filteredNav = navigation.filter((nav) => !nav.isProtected)
-  }
-
-  console.log("AppSidebar status", status);
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -48,21 +32,35 @@ export async function AppSidebar({
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {filteredNav?.map((item) => (
-              <SidebarMenuItem key={item.title} className="">
-                <SidebarMenuButton asChild>
-                  <a href={item.url} className="p-6">
-                    <item.icon />
-                    <span className="text-base">{item.title}</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            <SignedIn>
+              {navigation.map((item) => (
+                <SidebarMenuItem key={item.title} className="">
+                  <SidebarMenuButton asChild>
+                    <a href={item.url} className="p-6">
+                      <item.icon />
+                      <span className="text-base">{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SignedIn>
+            <SignedOut>
+              {navigation.filter((nav) => !nav.isProtected).map((item) => (
+                <SidebarMenuItem key={item.title} className="">
+                  <SidebarMenuButton asChild>
+                    <a href={item.url} className="p-6">
+                      <item.icon />
+                      <span className="text-base">{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SignedOut>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser initialData={data} />
+        <NavUser />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

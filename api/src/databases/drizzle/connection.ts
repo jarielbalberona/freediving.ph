@@ -5,8 +5,6 @@ import postgres from "postgres";
 import schema from "@/databases/drizzle/schema";
 
 const dbUrl = process.env.DATABASE_URL;
-const dbName = process.env.DATABASE_NAME;
-const dbUrlWithName = `${dbUrl}:5432/${dbName}`;
 
 interface QueryDetails {
   query: string;
@@ -36,15 +34,15 @@ export const queryTracker = {
 };
 
 const logDatabaseConnection = async (sql: postgres.Sql, type: 'main' | 'pool') => {
-  console.log(`DBURL: ${dbUrlWithName}`);
+  console.log(`DBURL: ${dbUrl}`);
   try {
     await sql`SELECT 1`;
     console.log(`✅ ${type === 'main' ? 'Main' : 'Pool'} database connection established successfully`);
-    console.log(`🔌 Connected to: ${dbUrlWithName}`);
+    console.log(`🔌 Connected to: ${dbUrl}`);
     console.log(`📅 Connection time: ${new Date().toISOString()}`);
     console.log('--------------------------------------------------');
   } catch (error) {
-    console.log(`❌🔌 Not connected to: ${dbUrlWithName}`);
+    console.log(`❌🔌 Not connected to: ${dbUrl}`);
     console.error(`❌ ${type === 'main' ? 'Main' : 'Pool'} database connection failed:`, error);
     console.error('--------------------------------------------------');
     throw error;
@@ -52,7 +50,7 @@ const logDatabaseConnection = async (sql: postgres.Sql, type: 'main' | 'pool') =
 };
 
 // Main connection
-const sql = postgres(dbUrlWithName, {
+const sql = postgres(dbUrl, {
   debug: (query, params) => {
     queryTracker.add(String(query), params);
   },
@@ -70,7 +68,7 @@ logDatabaseConnection(sql, 'main');
 const db = drizzle(sql, { schema });
 
 // Connection pool
-const pool = postgres(dbUrlWithName, {
+const pool = postgres(dbUrl, {
   max: 1,
   onnotice: (notice) => {
     console.log('📢 Pool Notice:', notice.message);

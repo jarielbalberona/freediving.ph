@@ -19,9 +19,11 @@ const getBaseUrl = () => {
   });
 
   if (isServer) {
-    return serverUrl || 'https://api-dev.freediving.ph';
+    // Use Docker service name for server-side requests
+    return serverUrl || 'http://api:4000';
   }
-  return clientUrl || 'https://api-dev.freediving.ph';
+  // Use localhost for client-side requests
+  return clientUrl || 'http://localhost:4000';
 };
 
 export async function apiCall<T>(

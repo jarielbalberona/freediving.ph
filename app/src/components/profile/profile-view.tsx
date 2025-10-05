@@ -1,15 +1,15 @@
 "use client";
 import MoodBoardItem from "@/components/ui/mood-board";
 import { images } from "@/data/dummy";
-import { useProfile } from "@/hooks/react-queries/auth";
+import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Grid, MessageCircle, UserPlus } from "lucide-react";
 
-export default function ProfileView({ initialData }: any) {
-  const { data: user }: any = useProfile(initialData);
+export default function ProfileView() {
+  const { user } = useUser();
 
   return (
     <div className="flex justify-center w-full min-h-screen bg-background">
@@ -19,12 +19,12 @@ export default function ProfileView({ initialData }: any) {
           <div className="relative">
             <Avatar className="w-24 h-24 border-4 shadow-lg md:w-40 md:h-40 border-background">
               <AvatarImage
-                src="/placeholder.svg?height=150&width=150"
-                alt="@username"
+                src={user?.imageUrl || "/placeholder.svg?height=150&width=150"}
+                alt={user?.username || "User"}
                 width={150}
                 height={150}
               />
-              <AvatarFallback>UN</AvatarFallback>
+              <AvatarFallback>{user?.firstName?.charAt(0) || "U"}</AvatarFallback>
             </Avatar>
             <div className="absolute flex items-center justify-center w-6 h-6 bg-green-500 border-2 rounded-full -bottom-2 -right-2 border-background">
               <span className="sr-only">Online</span>
@@ -34,7 +34,7 @@ export default function ProfileView({ initialData }: any) {
           <div className="flex-1 space-y-6">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold">{user.username}</h1>
+                <h1 className="text-2xl font-bold">{user?.username || user?.firstName || "User"}</h1>
                 <span className="bg-blue-100 text-blue-800 text-xs px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
                   Pro
                 </span>

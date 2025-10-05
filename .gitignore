@@ -60,3 +60,5 @@ crash.*.log
 *.tfplan
 *.backup
 terraform.tfstate.d/
+
+.tool-versions
