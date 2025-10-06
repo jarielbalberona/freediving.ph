@@ -1,44 +1,25 @@
 "use client";
 
 import { useUser } from '@clerk/nextjs';
-import { useEvents, useJoinEvent, useLeaveEvent } from '@/features/events';
-import { EventList } from '@/features/events';
+import { useServices } from '@/features/userServices';
+import { ServiceList } from '@/features/userServices';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBoundary, FeatureErrorBoundary } from '@/components/error-boundary';
-import { Calendar, Plus, Filter, Search } from 'lucide-react';
+import { Briefcase, Plus, Filter, Search } from 'lucide-react';
 import { useState } from 'react';
 
-export default function EventsPage() {
+export default function ServicesPage() {
   const { user, isLoaded } = useUser();
   const [filters, setFilters] = useState({
-    status: 'PUBLISHED' as const,
+    isActive: true,
+    availability: 'AVAILABLE' as const,
     page: 1,
     limit: 20
   });
 
-  const { data: events, isLoading } = useEvents(filters);
-  const joinEventMutation = useJoinEvent();
-  const leaveEventMutation = useLeaveEvent();
-
-  const handleJoinEvent = (eventId: number) => {
-    if (user?.id) {
-      joinEventMutation.mutate({
-        eventId,
-        userId: parseInt(user.id)
-      });
-    }
-  };
-
-  const handleLeaveEvent = (eventId: number) => {
-    if (user?.id) {
-      leaveEventMutation.mutate({
-        eventId,
-        userId: parseInt(user.id)
-      });
-    }
-  };
+  const { data: services, isLoading } = useServices(filters);
 
   if (!isLoaded) {
     return (
@@ -55,35 +36,23 @@ export default function EventsPage() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8">
-          <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold mb-2">Sign in to view events</h2>
-          <p className="text-muted-foreground">
-            Please sign in to see and join events.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto p-6">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Events</h1>
+            <h1 className="text-3xl font-bold">Services</h1>
             <p className="text-muted-foreground">
-              Discover and join freediving events in your area.
+              Find and book freediving services from certified professionals.
             </p>
           </div>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Event
-          </Button>
+          {user && (
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Offer Service
+            </Button>
+          )}
         </div>
 
         {/* Search and Filters */}
@@ -92,7 +61,7 @@ export default function EventsPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search events..."
+              placeholder="Search services..."
               className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -102,18 +71,17 @@ export default function EventsPage() {
           </Button>
         </div>
 
-        {/* Events List */}
-        <FeatureErrorBoundary featureName="events">
+        {/* Services List */}
+        <FeatureErrorBoundary featureName="services">
           <Card>
             <CardHeader>
-              <CardTitle>Upcoming Events</CardTitle>
+              <CardTitle>Available Services</CardTitle>
             </CardHeader>
             <CardContent>
-              <EventList
+              <ServiceList
                 filters={filters}
-                onEventJoin={handleJoinEvent}
-                onEventLeave={handleLeaveEvent}
-                joinedEventIds={[]} // TODO: Get from user's joined events
+                onServiceBook={(id) => console.log('Book service:', id)}
+                onServiceView={(id) => console.log('View service:', id)}
               />
             </CardContent>
           </Card>
@@ -122,4 +90,3 @@ export default function EventsPage() {
     </div>
   );
 }
-

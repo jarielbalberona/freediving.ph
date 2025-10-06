@@ -179,9 +179,13 @@ export default function GroupsPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {allGroups?.data?.groups?.map((group) => (
+                  {Array.isArray(allGroups?.data?.data) ? allGroups.data.data.map((group) => (
                     <GroupCard key={group.id} group={group} />
-                  ))}
+                  )) : (
+                    <div className="col-span-full text-center py-8 text-muted-foreground">
+                      No groups found
+                    </div>
+                  )}
                 </div>
               )}
             </FeatureErrorBoundary>
@@ -197,9 +201,13 @@ export default function GroupsPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {userGroups?.data?.groups?.map((group) => (
+                  {Array.isArray(userGroups?.data?.data) ? userGroups.data.data.map((group) => (
                     <GroupCard key={group.id} group={group} showJoinButton={false} />
-                  ))}
+                  )) : (
+                    <div className="col-span-full text-center py-8 text-muted-foreground">
+                      You haven't joined any groups yet
+                    </div>
+                  )}
                 </div>
               )}
             </FeatureErrorBoundary>

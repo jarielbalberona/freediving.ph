@@ -9,6 +9,8 @@ import {
   CalendarHeart,
   Shapes,
   FishSymbol,
+  Briefcase,
+  Image,
 } from "lucide-react";
 
 export const navigation = [
@@ -72,6 +74,20 @@ export const navigation = [
     title: "Competitive Records",
     url: "/competitive-records",
     icon: ClipboardList,
+    isActive: false,
+    isProtected: false,
+  },
+  {
+    title: "Services",
+    url: "/services",
+    icon: Briefcase,
+    isActive: false,
+    isProtected: false,
+  },
+  {
+    title: "Media",
+    url: "/media",
+    icon: Image,
     isActive: false,
     isProtected: false,
   },

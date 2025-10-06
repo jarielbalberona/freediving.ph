@@ -2,9 +2,9 @@ import db from "@/databases/drizzle/connection";
 import { diveLogBuddies } from "@/models/drizzle/dives.model";
 
 const diveLogBuddyData = [
-  { diveLogId: 6, buddyId: 402 }, // User 2 was a buddy in dive log 1
-  { diveLogId: 7, buddyId: 402 }, // User 1 was a buddy in dive log 2
-  { diveLogId: 7, buddyId: 403 }, // Another buddy in the same dive log
+  { diveLogId: 1, buddyId: 3 }, // User 3 was a buddy in dive log 1
+  { diveLogId: 2, buddyId: 4 }, // User 4 was a buddy in dive log 2
+  { diveLogId: 2, buddyId: 5 }, // Another buddy in the same dive log
 ];
 
 export default async function seedDiveLogBuddies() {

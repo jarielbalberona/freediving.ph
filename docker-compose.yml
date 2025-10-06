@@ -50,5 +50,22 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # Database management service
+  db-manager:
+    container_name: db-manager
+    image: node:20.10.0
+    working_dir: /usr/src/app
+    volumes:
+      - ./api:/usr/src/app
+      - /usr/src/app/node_modules # Prevent overwriting node_modules
+    environment:
+      - DATABASE_URL=postgres://fphbuddies:fphbuddiespw@database:5432/freedivingph
+      - NODE_ENV=development
+    depends_on:
+      - database
+    profiles:
+      - tools
+    command: sh -c "npm install && tail -f /dev/null" # Install deps and keep running
+
 volumes:
   pgdata:

@@ -5,7 +5,7 @@ import { DIVE_TYPE } from "@/databases/drizzle/lists"
 const diveLogData = [
   {
     diveSpotId: 1,
-    userId: 402,
+    userId: 1, // Use valid user ID from seeded users (1-50)
     photoUrl: "https://example.com/dive1.jpg",
     caption: "Amazing dive with sea turtles!",
     maxDepth: 20,
@@ -18,7 +18,7 @@ const diveLogData = [
   },
   {
     diveSpotId: 2,
-    userId: 402,
+    userId: 2, // Use valid user ID from seeded users (1-50)
     photoUrl: "https://example.com/dive2.jpg",
     caption: "First deep dive at Balicasag!",
     maxDepth: 35,
