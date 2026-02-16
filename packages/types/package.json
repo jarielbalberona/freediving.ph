@@ -9,12 +9,13 @@
   "scripts": {
     "build": "tsc --noEmit",
     "type-check": "tsc --noEmit",
-    "test": "echo \"No tests yet for @freediving.ph/types\""
+    "test": "tsx --test test/**/*.test.ts"
   },
   "dependencies": {
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "tsx": "^4.19.3",
     "typescript": "^5.7.3"
   }
 }

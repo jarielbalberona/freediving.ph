@@ -11,6 +11,9 @@ importers:
       '@biomejs/biome':
         specifier: ^1.9.4
         version: 1.9.4
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
 
   apps/api:
     dependencies:
@@ -283,6 +286,9 @@ importers:
 
   packages/config:
     devDependencies:
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
@@ -299,6 +305,9 @@ importers:
       drizzle-kit:
         specifier: ^0.30.4
         version: 0.30.6
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
@@ -309,6 +318,9 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
@@ -328,12 +340,18 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.14)
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
 
   packages/utils:
     devDependencies:
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
       typescript:
         specifier: ^5.7.3
         version: 5.9.3

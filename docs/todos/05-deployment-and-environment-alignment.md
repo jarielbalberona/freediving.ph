@@ -1,11 +1,11 @@
 # 05 Deployment and Environment Alignment
 
-Status: Completed (Render-first alignment + env alias normalization)
+Status: Completed (Render-only alignment + env alias normalization)
 
 ## Issues
 
-- Repository currently contains mixed deployment directions:
-  - AWS ECS Terraform + GitHub Actions
+- Repository previously contained mixed deployment directions:
+  - AWS ECS Terraform + GitHub Actions (removed from active workflows)
   - Render migration docs + Render blueprints
 - API environment schema requires keys that do not align with Render config key names.
 - Mismatch risk between CI/CD variables, runtime env validation, and platform-specific configuration.
@@ -13,11 +13,11 @@ Status: Completed (Render-first alignment + env alias normalization)
 
 ## Fix
 
-- Choose and confirm the active deployment target (AWS or Render) for current phase.
+- Choose and confirm the active deployment target for current phase.
 - Align all env names across:
   - `apps/api/src/core/env.ts`
   - `render.yaml` and `apps/api/render.yaml`
-  - GitHub Actions deploy workflow
+  - GitHub Actions CI workflow
   - example env files
 - Remove or clearly deprecate inactive deploy flow docs/configs.
 - Add deployment matrix doc:

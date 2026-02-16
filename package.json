@@ -23,7 +23,8 @@
     "db:seed": "pnpm --filter @freediving.ph/api db:seed"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4"
+    "@biomejs/biome": "^1.9.4",
+    "tsx": "^4.19.3"
   },
   "pnpm": {
     "supportedArchitectures": {

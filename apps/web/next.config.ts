@@ -28,9 +28,7 @@ const nextConfig: NextConfig = {
   },
   // Render.com specific configuration
   output: 'standalone',
-  experimental: {
-    serverComponentsExternalPackages: ['sharp'],
-  },
+  serverExternalPackages: ['sharp'],
 };
 
 export default nextConfig;

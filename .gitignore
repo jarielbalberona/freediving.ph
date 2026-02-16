@@ -4,6 +4,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+apps/*/pnpm-lock.yaml
+packages/*/pnpm-lock.yaml
+**/package-lock.json
 
 # Logs & Debugging
 logs/
@@ -62,3 +65,4 @@ crash.*.log
 terraform.tfstate.d/
 
 .tool-versions
+er.email your-email-on-github@example.com
