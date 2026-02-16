@@ -1,13 +1,13 @@
 services:
   api:
     container_name: api
-    build: ./api
+    build: ./apps/api
     ports:
       - "4000:4000"
     env_file:
-      - ./api/.env
+      - ./apps/api/.env
     volumes:
-      - ./api:/usr/src/app # Sync project files (hot reload)
+      - ./apps/api:/usr/src/app # Sync project files (hot reload)
       - /usr/src/app/node_modules # Prevent overwriting node_modules (IMPORTANT)
     restart: unless-stopped
     environment:
@@ -18,14 +18,14 @@ services:
   app:
     container_name: app
     build:
-      context: ./app
+      context: ./apps/web
       dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
     env_file:
-      - ./app/.env
+      - ./apps/web/.env
     volumes:
-      - ./app:/usr/src/app # Sync local files to container
+      - ./apps/web:/usr/src/app # Sync local files to container
       - /usr/src/app/node_modules # Prevent overwriting node_modules
     depends_on:
       - api
@@ -56,7 +56,7 @@ services:
     image: node:20.10.0
     working_dir: /usr/src/app
     volumes:
-      - ./api:/usr/src/app
+      - ./apps/api:/usr/src/app
       - /usr/src/app/node_modules # Prevent overwriting node_modules
     environment:
       - DATABASE_URL=postgres://fphbuddies:fphbuddiespw@database:5432/freedivingph

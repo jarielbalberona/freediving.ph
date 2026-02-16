@@ -84,7 +84,7 @@ jobs:
           API_URL: ${{ env.API_URL }}
           APP_URL: ${{ env.APP_URL }}
         run: |
-          docker build -t $AWS_ECR_REGISTRY_APP -f app/Dockerfile app
+          docker build -t $AWS_ECR_REGISTRY_APP -f apps/web/Dockerfile apps/web
           docker push $AWS_ECR_REGISTRY_APP
 
       - name: Build and Push Backend Image
@@ -93,7 +93,7 @@ jobs:
           DATABASE_NAME: ${{ env.DATABASE_NAME }}
           ORIGIN_URL: ${{ env.ORIGIN_URL }}
         run: |
-          docker build -t $AWS_ECR_REGISTRY_API -f api/Dockerfile api
+          docker build -t $AWS_ECR_REGISTRY_API -f apps/api/Dockerfile apps/api
           docker push $AWS_ECR_REGISTRY_API
 
       - name: Deploy Frontend to ECS

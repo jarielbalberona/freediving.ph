@@ -26,8 +26,8 @@ This method deploys all services at once using the `render.yaml` configuration.
 
 2. **Verify the following files exist:**
    - `render.yaml` (root directory)
-   - `app/render.yaml` (frontend config)
-   - `api/render.yaml` (backend config)
+   - `apps/web/render.yaml` (frontend config)
+   - `apps/api/render.yaml` (backend config)
    - `env.render.example` (environment template)
 
 #### Step 2: Deploy via Render Dashboard
@@ -85,7 +85,7 @@ If you prefer to deploy services individually:
    - Click "New +" → "Web Service"
    - Connect GitHub repository
    - Select `freediving.ph` repository
-   - Root Directory: `api`
+   - Root Directory: `apps/api`
    - Build Command: `npm install && npm run build`
    - Start Command: `npm start`
    - Plan: Starter ($7/month)
@@ -116,7 +116,7 @@ If you prefer to deploy services individually:
    - Click "New +" → "Web Service"
    - Connect GitHub repository
    - Select `freediving.ph` repository
-   - Root Directory: `app`
+   - Root Directory: `apps/web`
    - Build Command: `npm install && npm run build`
    - Start Command: `npm start`
    - Plan: Starter ($7/month)
@@ -143,7 +143,7 @@ Once your API is deployed, you need to run database migrations:
 2. **Go to the "Shell" tab**
 3. **Run migration commands:**
    ```bash
-   cd api
+   cd apps/api
    npm run db:generate
    npm run db:migrate
    npm run db:seed

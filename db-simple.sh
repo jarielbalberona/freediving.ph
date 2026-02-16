@@ -32,7 +32,7 @@ print_error() {
 # Function to run database push
 db_push() {
     print_status "Pushing database schema..."
-    cd api
+    cd apps/api
     DATABASE_URL=postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph npm run db:push
     print_success "Database schema pushed successfully"
 }
@@ -40,7 +40,7 @@ db_push() {
 # Function to run database seed
 db_seed() {
     print_status "Seeding database..."
-    cd api
+    cd apps/api
     DATABASE_URL=postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph npm run db:seed
     print_success "Database seeded successfully"
 }
@@ -48,7 +48,7 @@ db_seed() {
 # Function to run both push and seed
 db_setup() {
     print_status "Setting up database (push + seed)..."
-    cd api
+    cd apps/api
     DATABASE_URL=postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph npm run db:push
     DATABASE_URL=postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph npm run db:seed
     print_success "Database setup completed"

@@ -20,8 +20,8 @@ services:
     env: node
     plan: starter
     region: oregon
-    buildCommand: cd api && npm install && npm run build
-    startCommand: cd api && npm start
+    buildCommand: cd apps/api && npm install && npm run build
+    startCommand: cd apps/api && npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -71,8 +71,8 @@ services:
     env: node
     plan: starter
     region: oregon
-    buildCommand: cd app && npm install && npm run build
-    startCommand: cd app && npm start
+    buildCommand: cd apps/web && npm install && npm run build
+    startCommand: cd apps/web && npm start
     healthCheckPath: /
     envVars:
       - key: NODE_ENV

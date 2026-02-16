@@ -1,6 +1,6 @@
 # Freediving Philippines Web App
 
-![Freediving Philippines Banner](https://raw.githubusercontent.com/jarielbalberona/freediving.ph/refs/heads/main/app/public/images/freedivingph-blue-transparent.png)
+![Freediving Philippines Banner](https://raw.githubusercontent.com/jarielbalberona/freediving.ph/refs/heads/main/apps/web/public/images/freedivingph-blue-transparent.png)
 _A social platform built for freedivers, by freedivers._
 
 ## 🌊 About the Project
@@ -66,12 +66,49 @@ Create a `.env` file and add the following:
   // check example envs
 ```
 
-### **3. Run the Development Server**
+### **3. Install Dependencies (Monorepo)**
+
+```sh
+  pnpm install
+```
+
+### **4. Run the Development Server**
 
 in the root folder
 
 ```sh
+  pnpm dev
+```
+
+Or run with Docker:
+
+```sh
   docker compose up
+```
+
+## 🧱 Monorepo Structure
+
+```txt
+apps/
+  api/     # Express API
+  web/     # Next.js app
+packages/
+  db/      # Shared DB package scaffold
+  types/   # Shared types/contracts
+  config/  # Shared configuration/constants
+  utils/   # Shared utility helpers
+  ui/      # Shared UI package scaffold
+```
+
+## 🛠️ Workspace Scripts
+
+```sh
+pnpm dev          # run apps in parallel
+pnpm build        # build packages then apps
+pnpm typecheck    # type-check all workspaces
+pnpm lint         # lint all workspaces
+pnpm dev:web      # run Next.js app only
+pnpm dev:api      # run API only
 ```
 
 ## 🤝 Contributing

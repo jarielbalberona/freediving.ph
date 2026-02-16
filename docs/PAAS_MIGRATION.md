@@ -132,7 +132,7 @@
 
 ### 1. Frontend Configuration (Next.js)
 ```yaml
-# render.yaml in app/ directory
+# render.yaml in apps/web/ directory
 services:
   - type: web
     name: freediving-ph-app
@@ -150,7 +150,7 @@ services:
 
 ### 2. Backend Configuration (Express)
 ```yaml
-# render.yaml in api/ directory
+# render.yaml in apps/api/ directory
 services:
   - type: web
     name: freediving-ph-api
