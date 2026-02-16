@@ -48,5 +48,13 @@ export const threadsRouter: Router = (() => {
 			new ThreadsController(req, res).removeReaction();
 		});
 
+	router.patch("/:id/mode", clerkAuthMiddleware, async (req, res) => {
+		new ThreadsController(req, res).setThreadMode();
+	});
+
+	router.get("/:id/pseudonym", clerkAuthMiddleware, async (req, res) => {
+		new ThreadsController(req, res).getOwnPseudonym();
+	});
+
 	return router;
 })();

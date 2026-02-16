@@ -1,13 +1,13 @@
+"use client";
+
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const contacts = [
-  { region: "NCR", number: "+63 2 8722 0650", source: "PCG" },
-  { region: "Cebu", number: "+63 32 232 6651", source: "PCG" },
-  { region: "Davao", number: "+63 82 285 2387", source: "PCG" },
-];
+import { useSafetyContacts, useSafetyPages } from "@/features/safetyResources";
 
 export default function SafetyPage() {
+  const { data: pages = [] } = useSafetyPages();
+  const { data: contacts = [] } = useSafetyContacts();
+
   return (
     <main className="container mx-auto space-y-6 p-6">
       <section className="space-y-2">
@@ -21,14 +21,28 @@ export default function SafetyPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Safety Pages</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {pages.map((page) => (
+            <article key={page.id} className="rounded-md border p-3">
+              <p className="font-semibold">{page.title}</p>
+              <p className="text-sm text-muted-foreground">/{page.slug}</p>
+            </article>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Emergency Contacts</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {contacts.map((contact) => (
-            <article key={contact.region} className="rounded-md border p-3">
-              <p className="font-semibold">{contact.region}</p>
+            <article key={contact.id} className="rounded-md border p-3">
+              <p className="font-semibold">{contact.region} - {contact.label}</p>
               <p className="text-sm text-muted-foreground">
-                {contact.number} • Source: {contact.source}
+                {contact.phone} • Source: {contact.source}
               </p>
             </article>
           ))}

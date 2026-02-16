@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 
 import DiveSpotService from "@/app/diveSpot/diveSpot.service";
-import { DiveSpotServerSchema } from "@/app/diveSpot/diveSpot.validators";
+import { DiveSpotReviewSchema, DiveSpotServerSchema } from "@/app/diveSpot/diveSpot.validators";
 
 import { ApiController } from "@/controllers/base/api.controller";
 import { ServiceApiResponse } from "@/utils/serviceApi";
@@ -66,6 +66,20 @@ export default class DiveSpotController extends ApiController {
 	async retrieveAllDiveSpot() {
 		try {
 			const response = await this.diveSpotService.retrieveAllDiveSpot();
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async reviewDiveSpot() {
+		try {
+			const id = Number(this.request.params.id);
+			const check = DiveSpotReviewSchema.safeParse(this.request.body);
+			if (!check.success)
+				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+
+			const response = await this.diveSpotService.reviewDiveSpot(id, check.data.state, this.request.user?.id);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

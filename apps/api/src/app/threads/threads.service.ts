@@ -4,6 +4,7 @@ import { ThreadsServerSchemaType, ThreadsUpdateSchemaType, CommentCreateSchemaTy
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
 import { threads, comments, reactions } from "@/models/drizzle/threads.model";
+import { chikaPseudonyms, threadCategoryModes } from "@/models/drizzle/chika.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
@@ -25,6 +26,13 @@ type ThreadCommentInput = CommentCreateSchemaType & { userId: number };
 type ReactionInput = ReactionSchemaType & { userId: number };
 
 export default class ThreadsService extends DrizzleService {
+	private buildPseudonymHandle(userId: number, threadId: number) {
+		const seed = Math.abs((userId * 97 + threadId * 131) % 10000)
+			.toString()
+			.padStart(4, "0");
+		return `Diver-${seed}`;
+	}
+
 	async create(data: ThreadCreateInput) {
 		try {
 			const createdData = await this.db.insert(threads).values(data).returning();
@@ -143,6 +151,45 @@ export default class ThreadsService extends DrizzleService {
 	// Comments methods
 	async createComment(data: ThreadCommentInput) {
 		try {
+			const modeRows = await this.db
+				.select({ mode: threadCategoryModes.mode })
+				.from(threadCategoryModes)
+				.where(eq(threadCategoryModes.threadId, data.threadId))
+				.limit(1);
+
+			if (modeRows[0]?.mode === "PSEUDONYMOUS_CHIKA") {
+				const userRows = await this.db
+					.select({ createdAt: users.createdAt })
+					.from(users)
+					.where(eq(users.id, data.userId))
+					.limit(1);
+
+				const createdAt = userRows[0]?.createdAt;
+				if (createdAt) {
+					const ageHours = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+					if (ageHours < 24) {
+						return ServiceResponse.createRejectResponse(
+							status.HTTP_403_FORBIDDEN,
+							"Posting in pseudonymous mode requires account age >= 24 hours"
+						);
+					}
+				}
+
+				const existingPseudo = await this.db
+					.select({ id: chikaPseudonyms.id })
+					.from(chikaPseudonyms)
+					.where(and(eq(chikaPseudonyms.threadId, data.threadId), eq(chikaPseudonyms.userId, data.userId)))
+					.limit(1);
+
+				if (!existingPseudo[0]) {
+					await this.db.insert(chikaPseudonyms).values({
+						threadId: data.threadId,
+						userId: data.userId,
+						displayHandle: this.buildPseudonymHandle(data.userId, data.threadId)
+					});
+				}
+			}
+
 			const createdData = await this.db.insert(comments).values(data).returning();
 
 			if (!createdData.length) {
@@ -158,6 +205,58 @@ export default class ThreadsService extends DrizzleService {
 				"Comment created successfully",
 				createdData[0]
 			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async setThreadMode(threadId: number, mode: "NORMAL" | "PSEUDONYMOUS_CHIKA") {
+		try {
+			const existing = await this.db
+				.select({ id: threadCategoryModes.id })
+				.from(threadCategoryModes)
+				.where(eq(threadCategoryModes.threadId, threadId))
+				.limit(1);
+
+			if (existing[0]) {
+				const updated = await this.db
+					.update(threadCategoryModes)
+					.set({ mode })
+					.where(eq(threadCategoryModes.threadId, threadId))
+					.returning();
+
+				return ServiceResponse.createResponse(status.HTTP_200_OK, "Thread mode updated", updated[0]);
+			}
+
+			const created = await this.db.insert(threadCategoryModes).values({ threadId, mode }).returning();
+			return ServiceResponse.createResponse(status.HTTP_201_CREATED, "Thread mode created", created[0]);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async getOrCreatePseudonym(threadId: number, userId: number) {
+		try {
+			const existing = await this.db
+				.select()
+				.from(chikaPseudonyms)
+				.where(and(eq(chikaPseudonyms.threadId, threadId), eq(chikaPseudonyms.userId, userId)))
+				.limit(1);
+
+			if (existing[0]) {
+				return ServiceResponse.createResponse(status.HTTP_200_OK, "Pseudonym retrieved", existing[0]);
+			}
+
+			const created = await this.db
+				.insert(chikaPseudonyms)
+				.values({
+					threadId,
+					userId,
+					displayHandle: this.buildPseudonymHandle(userId, threadId)
+				})
+				.returning();
+
+			return ServiceResponse.createResponse(status.HTTP_201_CREATED, "Pseudonym created", created[0]);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
 		}

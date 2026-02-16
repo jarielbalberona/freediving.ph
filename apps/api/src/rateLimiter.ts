@@ -12,3 +12,14 @@ export default function appRateLimiter(app: Express) {
 	// Apply to all requests to the server
 	app.use(limiter);
 }
+
+export const createFeatureRateLimiter = (options: {
+	windowMs: number;
+	max: number;
+	message: string;
+}) =>
+	rateLimit({
+		windowMs: options.windowMs,
+		max: options.max,
+		message: options.message
+	});

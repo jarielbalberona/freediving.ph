@@ -17,6 +17,9 @@ import * as NotificationsSchema from "@/models/drizzle/notifications.model"
 import * as MessagesSchema from "@/models/drizzle/messages.model"
 import * as ModerationSchema from "@/models/drizzle/moderation.model"
 import * as ProfilesSchema from "@/models/drizzle/profiles.model"
+import * as BuddiesSchema from "@/models/drizzle/buddies.model"
+import * as ChikaSchema from "@/models/drizzle/chika.model"
+import * as FutureModulesSchema from "@/models/drizzle/futureModules.model"
 
 const schema = {
 	...AuthenticationSchema,
@@ -38,6 +41,9 @@ const schema = {
   ...MessagesSchema,
   ...ModerationSchema,
   ...ProfilesSchema,
+  ...BuddiesSchema,
+  ...ChikaSchema,
+  ...FutureModulesSchema,
 };
 
 export default schema;

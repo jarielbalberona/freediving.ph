@@ -21,7 +21,7 @@ export default class EventsController extends ApiController {
 			if (!check.success)
 				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
 
-			const response = await this.eventsService.create(check.data);
+			const response = await this.eventsService.create(check.data, this.request.user.id, this.request.user.role);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -55,7 +55,17 @@ export default class EventsController extends ApiController {
 			if (!check.success)
 				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
 
-			const response = await this.eventsService.update(id, check.data);
+			const response = await this.eventsService.update(id, check.data, this.request.user.id, this.request.user.role);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async moderateRemoveEvent() {
+		try {
+			const id = Number(this.request.params.id);
+			const response = await this.eventsService.moderateRemove(id, this.request.user.id);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

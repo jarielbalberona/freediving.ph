@@ -19,4 +19,9 @@ export const DiveSpotServerSchema = z.object({
 	imageUrl: z.string().optional(),
 });
 
+export const DiveSpotReviewSchema = z.object({
+	state: z.enum(["PUBLISHED", "FLAGGED", "REMOVED"])
+});
+
 export type DiveSpotServerSchemaType = z.infer<typeof DiveSpotServerSchema>;
+export type DiveSpotReviewSchemaType = z.infer<typeof DiveSpotReviewSchema>;

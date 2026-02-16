@@ -12,7 +12,7 @@ export const eventsRouter: Router = (() => {
 		.get((req, res) => {
 			new EventsController(req, res).getAllEvents();
 		})
-		.post(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
+		.post(clerkAuthMiddleware, async (req, res) => {
 			new EventsController(req, res).createEvent();
 		});
 
@@ -21,9 +21,13 @@ export const eventsRouter: Router = (() => {
 		.get((req, res) => {
 			new EventsController(req, res).getEventById();
 		})
-		.put(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
+		.put(clerkAuthMiddleware, async (req, res) => {
 			new EventsController(req, res).updateEvent();
 		});
+
+	router.patch("/:id/moderate-remove", clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
+		new EventsController(req, res).moderateRemoveEvent();
+	});
 
 	// Event attendee routes
 	router

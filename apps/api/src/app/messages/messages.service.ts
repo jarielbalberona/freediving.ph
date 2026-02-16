@@ -3,7 +3,7 @@ import { and, count, desc, eq, gt, gte, inArray, ne, or, sql } from "drizzle-orm
 import DrizzleService from "@/databases/drizzle/service";
 import { users } from "@/models/drizzle/authentication.model";
 import { conversationParticipants, conversations, messages } from "@/models/drizzle/messages.model";
-import { blocks } from "@/models/drizzle/moderation.model";
+import { auditLogs, blocks } from "@/models/drizzle/moderation.model";
 import { ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
@@ -517,6 +517,18 @@ export default class MessagesService extends DrizzleService {
       if (!updated) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Message not found");
       }
+
+      await this.db.insert(auditLogs).values({
+        actorUserId: moderatorUserId,
+        action: "MESSAGE_MODERATED_REMOVE",
+        targetType: "MESSAGE",
+        targetId: String(messageId),
+        metadata: {
+          conversationId,
+          reasonCode: payload.reasonCode,
+          note: payload.note ?? null,
+        },
+      });
 
       return ServiceResponse.createResponse(status.HTTP_200_OK, "Message removed by moderator", updated);
     } catch (error) {

@@ -11,6 +11,13 @@ import { userServicesRouter } from "@/app/userServices/userServices.routes";
 import { messagesRouter } from "@/app/messages/messages.routes";
 import { reportsRouter } from "@/app/reports/reports.routes";
 import { profilesRouter } from "@/app/profiles/profiles.routes";
+import { buddiesRouter } from "@/app/buddies/buddies.routes";
+import { competitiveRecordsRouter } from "@/app/competitiveRecords/competitiveRecords.routes";
+import { trainingLogsRouter } from "@/app/trainingLogs/trainingLogs.routes";
+import { safetyResourcesRouter } from "@/app/safetyResources/safetyResources.routes";
+import { awarenessRouter } from "@/app/awareness/awareness.routes";
+import { marketplaceRouter } from "@/app/marketplace/marketplace.routes";
+import { collaborationRouter } from "@/app/collaboration/collaboration.routes";
 import clerkWebhookRouter from "@/routes/clerk-webhook";
 
 import { csrfRouter } from "@/routes/csrf.route";
@@ -39,6 +46,13 @@ export const routes: RouteConfig[] = [
   { path: "/messages", router: messagesRouter },
   { path: "/reports", router: reportsRouter },
   { path: "/profiles", router: profilesRouter },
+  { path: "/buddies", router: buddiesRouter },
+  { path: "/competitive-records", router: competitiveRecordsRouter },
+  { path: "/training-logs", router: trainingLogsRouter },
+  { path: "/safety-resources", router: safetyResourcesRouter },
+  { path: "/awareness", router: awarenessRouter },
+  { path: "/marketplace", router: marketplaceRouter },
+  { path: "/collaboration", router: collaborationRouter },
   { path: "/user-services", router: userServicesRouter },
   { path: "/webhooks", router: clerkWebhookRouter },
 ];

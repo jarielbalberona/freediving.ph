@@ -1,194 +1,134 @@
 "use client";
 
-import { useUser } from '@clerk/nextjs';
-import { useCurrentUser } from '@/features/user';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ErrorBoundary, FeatureErrorBoundary } from '@/components/error-boundary';
-import { Users, Search, Filter, MapPin, Calendar, MessageSquare, UserPlus } from 'lucide-react';
-import { useState } from 'react';
+import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
+import { MapPin, Search, UserPlus } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useAcceptBuddyRequest,
+  useActiveBuddies,
+  useBuddyFinderSearch,
+  useBuddyRequests,
+  useRejectBuddyRequest,
+  useSendBuddyRequest,
+} from "@/features/buddies";
 
 export default function BuddiesPage() {
   const { user, isLoaded } = useUser();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [search, setSearch] = useState("");
+
+  const { data: requests } = useBuddyRequests();
+  const { data: buddies = [], isLoading: isBuddiesLoading } = useActiveBuddies();
+  const { data: finderResults = [], isLoading: isFinderLoading } = useBuddyFinderSearch({ search, limit: 20, offset: 0 });
+
+  const sendRequest = useSendBuddyRequest();
+  const acceptRequest = useAcceptBuddyRequest();
+  const rejectRequest = useRejectBuddyRequest();
 
   if (!isLoaded) {
     return (
       <div className="container mx-auto p-6">
-        <div className="space-y-6">
-          <Skeleton className="h-8 w-48" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-48 w-full" />
-            ))}
-          </div>
-        </div>
+        <Skeleton className="h-10 w-48" />
       </div>
     );
   }
 
   if (!user) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8">
-          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold mb-2">Sign in to find buddies</h2>
-          <p className="text-muted-foreground">
-            Please sign in to connect with other freedivers.
-          </p>
-        </div>
-      </div>
-    );
+    return <div className="container mx-auto p-6">Sign in to access buddies.</div>;
   }
 
-  // Mock data for now - in a real app, this would come from an API
-  const buddies = [
-    {
-      id: 1,
-      name: "Alex Johnson",
-      username: "alex_j",
-      avatar: "/images/samples/alex.jpg",
-      location: "Manila, Philippines",
-      experience: "INTERMEDIATE",
-      maxDepth: 25,
-      totalDives: 45,
-      isOnline: true,
-      lastActive: "2 hours ago"
-    },
-    {
-      id: 2,
-      name: "Maria Santos",
-      username: "maria_s",
-      avatar: "/images/samples/maria.jpg",
-      location: "Cebu, Philippines",
-      experience: "ADVANCED",
-      maxDepth: 35,
-      totalDives: 78,
-      isOnline: false,
-      lastActive: "1 day ago"
-    },
-    {
-      id: 3,
-      name: "David Chen",
-      username: "david_c",
-      avatar: "/images/samples/david.jpg",
-      location: "Batangas, Philippines",
-      experience: "BEGINNER",
-      maxDepth: 15,
-      totalDives: 12,
-      isOnline: true,
-      lastActive: "30 minutes ago"
-    }
-  ];
-
-  const filteredBuddies = buddies.filter(buddy =>
-    buddy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    buddy.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    buddy.location.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const BuddyCard = ({ buddy }: { buddy: any }) => (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="relative">
-              <Avatar className="h-12 w-12">
-                <AvatarImage src={buddy.avatar} alt={buddy.name} />
-                <AvatarFallback>{buddy.name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              {buddy.isOnline && (
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full" />
-              )}
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold">{buddy.name}</h3>
-                <Badge variant="outline" className="text-xs">
-                  {buddy.experience}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">@{buddy.username}</p>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                {buddy.location}
-              </div>
-            </div>
-          </div>
-          <Button size="sm" variant="outline">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Connect
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <div className="text-muted-foreground">Max Depth</div>
-            <div className="font-semibold">{buddy.maxDepth}m</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Total Dives</div>
-            <div className="font-semibold">{buddy.totalDives}</div>
-          </div>
-        </div>
-        <div className="mt-3 pt-3 border-t">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>Last active: {buddy.lastActive}</span>
-            <div className="flex items-center gap-1">
-              <MessageSquare className="h-4 w-4" />
-              <span>Message</span>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
   return (
-    <div className="container mx-auto p-6">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Find Buddies</h1>
-            <p className="text-muted-foreground">
-              Connect with fellow freedivers and find dive partners.
-            </p>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search buddies..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
-          </Button>
-        </div>
-
-        {/* Buddies List */}
-        <FeatureErrorBoundary featureName="buddies">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredBuddies.map((buddy) => (
-              <BuddyCard key={buddy.id} buddy={buddy} />
-            ))}
-          </div>
-        </FeatureErrorBoundary>
+    <div className="container mx-auto space-y-6 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">Buddy System</h1>
+        <p className="text-muted-foreground">Manage requests, active buddies, and discover new buddies.</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Incoming Requests</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(requests?.incoming ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No incoming requests.</p>
+          ) : (
+            (requests?.incoming ?? []).map((item) => (
+              <div className="flex items-center justify-between rounded-md border p-3" key={item.request.id}>
+                <div>
+                  <p className="font-medium">{item.fromUser?.alias || item.fromUser?.username || "Unknown diver"}</p>
+                  <p className="text-xs text-muted-foreground">Request #{item.request.id}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => acceptRequest.mutate(item.request.id)}>
+                    Accept
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => rejectRequest.mutate({ requestId: item.request.id })}>
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Active Buddies</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {isBuddiesLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : buddies.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active buddies yet.</p>
+          ) : (
+            buddies.map((buddy) => (
+              <div className="rounded-md border p-3" key={buddy.id}>
+                <p className="font-medium">{buddy.alias || buddy.username || `Diver #${buddy.id}`}</p>
+                <p className="text-xs text-muted-foreground">
+                  {buddy.experienceLevel || "Experience n/a"} • {buddy.location || buddy.homeDiveArea || "Location n/a"}
+                </p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Buddy Finder</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-10" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or alias" />
+          </div>
+
+          {isFinderLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            finderResults.map((candidate) => (
+              <div className="flex items-center justify-between rounded-md border p-3" key={candidate.id}>
+                <div>
+                  <p className="font-medium">{candidate.alias || candidate.username || `Diver #${candidate.id}`}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {candidate.location || candidate.homeDiveArea || "Coarse location unavailable"}
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => sendRequest.mutate(candidate.id)}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Request
+                </Button>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-

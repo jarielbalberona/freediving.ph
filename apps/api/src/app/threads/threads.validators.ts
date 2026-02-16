@@ -27,7 +27,12 @@ export const ReactionSchema = z.object({
 	})
 });
 
+export const ThreadModeSchema = z.object({
+	mode: z.enum(["NORMAL", "PSEUDONYMOUS_CHIKA"])
+});
+
 export type ThreadsServerSchemaType = z.infer<typeof ThreadsServerSchema>;
 export type ThreadsUpdateSchemaType = z.infer<typeof ThreadsUpdateSchema>;
 export type CommentCreateSchemaType = z.infer<typeof CommentCreateSchema>;
 export type ReactionSchemaType = z.infer<typeof ReactionSchema>;
+export type ThreadModeSchemaType = z.infer<typeof ThreadModeSchema>;

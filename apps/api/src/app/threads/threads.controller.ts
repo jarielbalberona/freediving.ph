@@ -1,7 +1,13 @@
 import { Request, Response } from "express";
 
 import ThreadsService from "@/app/threads/threads.service";
-import { ThreadsServerSchema, ThreadsUpdateSchema, CommentCreateSchema, ReactionSchema } from "@/app/threads/threads.validators";
+import {
+	ThreadsServerSchema,
+	ThreadsUpdateSchema,
+	CommentCreateSchema,
+	ReactionSchema,
+	ThreadModeSchema
+} from "@/app/threads/threads.validators";
 
 import { ApiController } from "@/controllers/base/api.controller";
 import { ServiceApiResponse } from "@/utils/serviceApi";
@@ -142,6 +148,30 @@ export default class ThreadsController extends ApiController {
 			}
 
 			const response = await this.threadsService.removeReaction(threadId, userId);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async setThreadMode() {
+		try {
+			const threadId = Number(this.request.params.id);
+			const check = ThreadModeSchema.safeParse(this.request.body);
+			if (!check.success)
+				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+
+			const response = await this.threadsService.setThreadMode(threadId, check.data.mode);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async getOwnPseudonym() {
+		try {
+			const threadId = Number(this.request.params.id);
+			const response = await this.threadsService.getOrCreatePseudonym(threadId, this.request.user.id);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

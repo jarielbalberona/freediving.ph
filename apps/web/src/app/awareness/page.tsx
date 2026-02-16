@@ -1,26 +1,17 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+"use client";
 
-const awarenessPosts = [
-  {
-    title: "Avoid touching reef surfaces",
-    type: "Reminder",
-    source: "https://www.noaa.gov/",
-  },
-  {
-    title: "Bring reusable water containers on trips",
-    type: "Etiquette",
-    source: "https://www.unep.org/",
-  },
-];
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ReportAction } from "@/components/report/report-action";
+import { useAwarenessPosts } from "@/features/awareness";
 
 export default function AwarenessPage() {
+  const { data: posts = [] } = useAwarenessPosts();
+
   return (
     <main className="container mx-auto space-y-6 p-6">
       <section className="space-y-2">
         <h1 className="text-3xl font-bold">Ocean Awareness Wall</h1>
-        <p className="text-muted-foreground">
-          Awareness reminders and advisories with visible sources for factual claims.
-        </p>
+        <p className="text-muted-foreground">Awareness reminders and advisories with visible sources for factual claims.</p>
       </section>
 
       <Card>
@@ -28,13 +19,20 @@ export default function AwarenessPage() {
           <CardTitle>Awareness Feed</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {awarenessPosts.map((post) => (
-            <article key={post.title} className="rounded-md border p-3">
-              <p className="font-semibold">{post.title}</p>
-              <p className="text-sm text-muted-foreground">{post.type}</p>
-              <a className="text-sm underline" href={post.source} rel="noreferrer" target="_blank">
-                Source link
-              </a>
+          {posts.map((post) => (
+            <article key={post.id} className="rounded-md border p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{post.title}</p>
+                  <p className="text-sm text-muted-foreground">{post.topicType}</p>
+                  {post.sourceUrl ? (
+                    <a className="text-sm underline" href={post.sourceUrl} rel="noreferrer" target="_blank">
+                      Source link
+                    </a>
+                  ) : null}
+                </div>
+                <ReportAction targetType="POST" targetId={String(post.id)} />
+              </div>
             </article>
           ))}
         </CardContent>

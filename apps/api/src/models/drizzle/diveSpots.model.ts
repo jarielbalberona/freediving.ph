@@ -16,6 +16,9 @@ export const diveSpots = pgTable("dive_spots", {
   bestSeason: text("best_season"),
   imageUrl: text("image_url"), // Optional: Dive photo
   directions: text("directions"),
+  visibility: text("visibility").default("PUBLIC"),
+  source: text("source").default("COMMUNITY"),
+  state: text("state").default("DRAFT"),
   ...timestamps
 });
 

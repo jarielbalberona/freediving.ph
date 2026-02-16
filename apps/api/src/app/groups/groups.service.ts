@@ -27,6 +27,17 @@ export default class GroupsService extends DrizzleService {
 				);
 			}
 
+			await this.db.insert(groupMembers).values({
+				groupId: createdData[0].id,
+				userId: data.createdBy,
+				role: "owner",
+				status: "active",
+				canPost: true,
+				canCreateEvents: true,
+				canInviteMembers: true,
+				canModerate: true,
+			});
+
 			return ServiceResponse.createResponse(
 				status.HTTP_201_CREATED,
 				"Group created successfully",
@@ -138,6 +149,102 @@ export default class GroupsService extends DrizzleService {
 	}
 
 	// Group Members methods
+	async joinGroup(groupId: number, userId: number) {
+		try {
+			const group = await this.db.query.groups.findFirst({ where: eq(groups.id, groupId) });
+			if (!group) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Group not found");
+			}
+
+			if (group.type === "INVITE_ONLY") {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"This group is invite-only"
+				);
+			}
+
+			const existingMember = await this.db
+				.select()
+				.from(groupMembers)
+				.where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+				.limit(1);
+			if (existingMember[0]) {
+				return ServiceResponse.createRejectResponse(status.HTTP_409_CONFLICT, "Membership already exists");
+			}
+
+			const memberStatus = group.joinApprovalRequired ? "pending" : "active";
+			const created = await this.db
+				.insert(groupMembers)
+				.values({
+					groupId,
+					userId,
+					role: "member",
+					status: memberStatus,
+					canPost: true,
+					canCreateEvents: false,
+					canInviteMembers: false,
+					canModerate: false
+				})
+				.returning();
+
+			return ServiceResponse.createResponse(
+				status.HTTP_201_CREATED,
+				memberStatus === "pending" ? "Join request submitted" : "Joined group successfully",
+				created[0]
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async reviewJoinRequest(
+		groupId: number,
+		memberUserId: number,
+		actorUserId: number,
+		action: "approve" | "reject"
+	) {
+		try {
+			const actorMembership = await this.db
+				.select()
+				.from(groupMembers)
+				.where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, actorUserId)))
+				.limit(1);
+
+			const actor = actorMembership[0];
+			if (!actor || !["owner", "admin", "moderator"].includes(String(actor.role))) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Only group owner/admin/moderator can review join requests"
+				);
+			}
+
+			const nextStatus = action === "approve" ? "active" : "banned";
+			const updated = await this.db
+				.update(groupMembers)
+				.set({ status: nextStatus })
+				.where(
+					and(
+						eq(groupMembers.groupId, groupId),
+						eq(groupMembers.userId, memberUserId),
+						eq(groupMembers.status, "pending")
+					)
+				)
+				.returning();
+
+			if (!updated[0]) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Pending membership request not found");
+			}
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				action === "approve" ? "Join request approved" : "Join request rejected",
+				updated[0]
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
 	async addMember(data: GroupMemberSchemaType) {
 		try {
 			// Check if user is already a member
@@ -177,6 +284,25 @@ export default class GroupsService extends DrizzleService {
 
 	async removeMember(groupId: number, userId: number) {
 		try {
+			const ownerMember = await this.db
+				.select({ id: groupMembers.id })
+				.from(groupMembers)
+				.where(
+					and(
+						eq(groupMembers.groupId, groupId),
+						eq(groupMembers.userId, userId),
+						eq(groupMembers.role, "owner")
+					)
+				)
+				.limit(1);
+
+			if (ownerMember.length > 0) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Group owner cannot be removed"
+				);
+			}
+
 			const deletedData = await this.db
 				.delete(groupMembers)
 				.where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))

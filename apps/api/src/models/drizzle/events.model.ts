@@ -33,7 +33,8 @@ export const EVENT_STATUS = pgEnum("event_status", [
   "PUBLISHED",
   "CANCELLED",
   "COMPLETED",
-  "POSTPONED"
+  "POSTPONED",
+  "REMOVED"
 ]);
 
 // Event visibility enum

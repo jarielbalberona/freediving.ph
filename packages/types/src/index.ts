@@ -734,6 +734,131 @@ export interface CreatePersonalBestRequest {
   visibility?: ProfileItemVisibility;
 }
 
+export type BuddyRequestState = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED' | 'EXPIRED';
+
+export interface BuddyRequest {
+  id: number;
+  fromUserId: number;
+  toUserId: number;
+  state: BuddyRequestState;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BuddyUserCard {
+  id: number;
+  username: string | null;
+  alias: string | null;
+  image: string | null;
+  location: string | null;
+  homeDiveArea?: string | null;
+  experienceLevel: string | null;
+}
+
+export interface BuddyRequestListResponse {
+  incoming: Array<{ request: BuddyRequest; fromUser: BuddyUserCard | null }>;
+  outgoing: Array<{ request: BuddyRequest; toUser: BuddyUserCard | null }>;
+}
+
+export interface BuddyFinderQuery {
+  search?: string;
+  experienceLevel?: string;
+  location?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CompetitiveRecord {
+  id: number;
+  athleteName: string;
+  discipline: string;
+  resultValue: string;
+  resultUnit: string;
+  eventName: string;
+  eventDate: string;
+  sourceUrl?: string | null;
+  verificationState: 'UNVERIFIED' | 'VERIFIED' | 'REJECTED';
+  verificationNote?: string | null;
+}
+
+export interface CreateCompetitiveRecordRequest {
+  athleteName: string;
+  discipline: string;
+  resultValue: string;
+  resultUnit: string;
+  eventName: string;
+  eventDate: string;
+  sourceUrl?: string;
+}
+
+export interface TrainingLogSession {
+  id: number;
+  userId: number;
+  title: string;
+  notes?: string | null;
+  sessionDate: string;
+  visibility: 'PRIVATE' | 'BUDDIES_ONLY' | 'PUBLIC';
+}
+
+export interface CreateTrainingLogRequest {
+  title: string;
+  notes?: string;
+  sessionDate: string;
+  visibility?: 'PRIVATE' | 'BUDDIES_ONLY' | 'PUBLIC';
+  metrics?: Array<{ metricKey: string; metricValue: string; metricUnit?: string }>;
+}
+
+export interface SafetyPage {
+  id: number;
+  slug: string;
+  title: string;
+  content: string;
+  isPublished: number;
+  lastReviewedAt?: string | null;
+}
+
+export interface SafetyContact {
+  id: number;
+  region: string;
+  label: string;
+  phone: string;
+  source: string;
+  isPublished: number;
+}
+
+export interface AwarenessPost {
+  id: number;
+  title: string;
+  body: string;
+  topicType: 'REMINDER' | 'ETIQUETTE' | 'ADVISORY' | 'TOURISM_NOTE';
+  sourceUrl?: string | null;
+  isPublished: number;
+}
+
+export interface MarketplaceListing {
+  id: number;
+  sellerUserId: number;
+  item: string;
+  condition: string;
+  price: string;
+  region: string;
+  description?: string | null;
+  photos?: string[] | null;
+  state: 'ACTIVE' | 'FLAGGED' | 'REMOVED';
+}
+
+export interface CollaborationPost {
+  id: number;
+  authorUserId: number;
+  postType: 'LOOKING_FOR' | 'OFFERING';
+  title: string;
+  body: string;
+  region?: string | null;
+  specialty?: string | null;
+  isActive: number;
+}
+
 export interface User {
   id: number;
   clerkId: string;

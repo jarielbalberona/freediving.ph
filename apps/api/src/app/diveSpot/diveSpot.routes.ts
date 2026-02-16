@@ -11,7 +11,7 @@ export const diveSpotRouter: Router = (() => {
 		.get((req, res) => {
 			new DiveSpotController(req, res).retrieveAllDiveSpot();
 		})
-		.post(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
+		.post(clerkAuthMiddleware, async (req, res) => {
 			new DiveSpotController(req, res).createDiveSpot();
 		});
 
@@ -23,6 +23,10 @@ export const diveSpotRouter: Router = (() => {
 		.put(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
 			new DiveSpotController(req, res).updateDiveSpot();
 		});
+
+	router.patch("/:id/review", clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
+		new DiveSpotController(req, res).reviewDiveSpot();
+	});
 
 	return router;
 })();

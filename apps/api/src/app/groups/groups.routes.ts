@@ -35,6 +35,14 @@ export const groupsRouter: Router = (() => {
 			new GroupsController(req, res).addMember();
 		});
 
+	router.post("/:id/join", clerkAuthMiddleware, async (req, res) => {
+		new GroupsController(req, res).joinGroup();
+	});
+
+	router.post("/:id/members/:userId/:action", clerkAuthMiddleware, async (req, res) => {
+		new GroupsController(req, res).reviewJoinRequest();
+	});
+
 	router.delete("/:id/members/:userId", clerkAuthMiddleware, async (req, res) => {
 		new GroupsController(req, res).removeMember();
 	});

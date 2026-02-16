@@ -16,7 +16,10 @@ export default class GroupsController extends ApiController {
 
 	async createGroup() {
 		try {
-			const body = this.request.body;
+			const body = {
+				...this.request.body,
+				createdBy: this.request.user.id
+			};
 			const check = GroupsServerSchema.safeParse(body);
 			if (!check.success)
 				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
@@ -92,6 +95,32 @@ export default class GroupsController extends ApiController {
 		try {
 			const id = Number(this.request.params.id);
 			const response = await this.groupsService.getMembers(id);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async joinGroup() {
+		try {
+			const id = Number(this.request.params.id);
+			const response = await this.groupsService.joinGroup(id, this.request.user.id);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async reviewJoinRequest() {
+		try {
+			const groupId = Number(this.request.params.id);
+			const userId = Number(this.request.params.userId);
+			const actionParam = String(this.request.params.action || "").toLowerCase();
+			if (actionParam !== "approve" && actionParam !== "reject") {
+				return this.apiResponse.badResponse("Action must be either approve or reject");
+			}
+			const action = actionParam as "approve" | "reject";
+			const response = await this.groupsService.reviewJoinRequest(groupId, userId, this.request.user.id, action);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

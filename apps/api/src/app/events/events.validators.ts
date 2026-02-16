@@ -28,9 +28,9 @@ export const EventsServerSchema = z.object({
 		required_error: "Event type is required",
 		invalid_type_error: "Event type must be one of: DIVE, TRAINING, SOCIAL, COMPETITION, WORKSHOP"
 	}),
-	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"], {
+	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED", "REMOVED"], {
 		required_error: "Status is required",
-		invalid_type_error: "Status must be one of: DRAFT, PUBLISHED, CANCELLED, COMPLETED"
+		invalid_type_error: "Status must be one of: DRAFT, PUBLISHED, CANCELLED, COMPLETED, REMOVED"
 	}).default("DRAFT"),
 	imageUrl: z.string().url("Image URL must be a valid URL").optional(),
 	requirements: z.string().max(1000, "Requirements must be less than 1000 characters").optional(),
@@ -57,8 +57,8 @@ export const EventsUpdateSchema = z.object({
 	eventType: z.enum(["DIVE", "TRAINING", "SOCIAL", "COMPETITION", "WORKSHOP"], {
 		invalid_type_error: "Event type must be one of: DIVE, TRAINING, SOCIAL, COMPETITION, WORKSHOP"
 	}).optional(),
-	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"], {
-		invalid_type_error: "Status must be one of: DRAFT, PUBLISHED, CANCELLED, COMPLETED"
+	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED", "REMOVED"], {
+		invalid_type_error: "Status must be one of: DRAFT, PUBLISHED, CANCELLED, COMPLETED, REMOVED"
 	}).optional(),
 	imageUrl: z.string().url("Image URL must be a valid URL").optional(),
 	requirements: z.string().max(1000, "Requirements must be less than 1000 characters").optional(),
@@ -83,7 +83,7 @@ export const EventQuerySchema = z.object({
 	page: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().int().min(1)).default("1"),
 	limit: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().int().min(1).max(100)).default("10"),
 	eventType: z.enum(["DIVE", "TRAINING", "SOCIAL", "COMPETITION", "WORKSHOP"]).optional(),
-	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"]).optional(),
+	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED", "REMOVED"]).optional(),
 	organizerId: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().int().positive()).optional(),
 	location: z.string().optional(),
 	startDate: z.string().transform((val) => new Date(val)).pipe(z.date()).optional(),

@@ -220,51 +220,51 @@ Implement plan items in strict numerical order, completing each module baseline 
 
 ### Milestone 03: Buddy System
 - Goal: implement request lifecycle and rejection cooldown.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 04: Groups
 - Goal: implement join policy matrix and moderation queue actions.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 05: Chika
 - Goal: implement pseudonymous policy controls and moderation actions.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 06: Explore
 - Goal: implement moderation states and submission review.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 07: Buddy Finder
 - Goal: implement visibility/block-aware finder search.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 08: Events
 - Goal: enforce lifecycle/organizer edit boundaries with moderation controls.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 09: Competitive Records
 - Goal: records browse/submit/verify/reject/remove workflow.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 10: Training Logs
 - Goal: private-first logs with controlled sharing.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 11: Safety and Rescue
 - Goal: curated safety content + role-gated publishing.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 12: Ocean Awareness
 - Goal: awareness feed with citation-aware posting policy.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 13: Marketplace
 - Goal: policy-gated listing MVP with moderation hooks.
-- Status: `pending`
+- Status: `done`
 
 ### Milestone 14: Collaboration Hub
 - Goal: collaboration board MVP with anti-spam moderation baseline.
-- Status: `pending`
+- Status: `done`
 
 ## 9. Verification Plan
 - `pnpm --filter @freediving.ph/api type-check`
@@ -282,10 +282,17 @@ Implement plan items in strict numerical order, completing each module baseline 
 - 2026-02-16: Started `02` hardening by enforcing DM daily send limits and block checks in messaging service.
 - 2026-02-16: Completed `02` with sender-delete placeholders, moderator remove flow, account-age gating (`<24h`), and conversation/message-level reporting actions.
 - 2026-02-16: Moved messaging/report contracts to `packages/types` and validated package + app consumers.
+- 2026-02-16: Completed `03` + `07` with buddy request lifecycle, rejection cooldown, daily limits, active buddy graph, and block-aware buddy finder API + web integration.
+- 2026-02-16: Completed `04` by enforcing owner non-removability and owner membership bootstrap on group creation.
+- 2026-02-16: Completed `05` by adding pseudonymous Chika support with per-thread pseudonym generation and pseudonymous account-age gating.
+- 2026-02-16: Completed `06` by adding dive-spot moderation state lifecycle and review endpoint with published-only public reads.
+- 2026-02-16: Completed `08` by enforcing organizer update boundaries after start time and moderator removal path.
+- 2026-02-16: Completed `09` through `14` backend MVP modules (competitive records, training logs, safety resources, awareness, marketplace, collaboration) and wired matching web data integrations.
+- 2026-02-16: Validated `packages/types`, API, and web type-checks after all sequential milestones.
 
 ## 11. Outcomes And Follow-Ups
-- `00`, `01`, and `02` are locked and verified.
-- Proceed to `03` next.
+- `00` through `14` sequential milestones are implemented and type-check verified.
+- Follow-up: add integration tests and DB migrations for all new models/endpoints before release.
 
 ---
 

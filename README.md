@@ -1,133 +1,183 @@
-# Freediving Philippines Web App
+# Freediving.ph Monorepo
 
-![Freediving Philippines Banner](https://raw.githubusercontent.com/jarielbalberona/freediving.ph/refs/heads/main/apps/web/public/images/freedivingph-blue-transparent.png)
-_A social platform built for freedivers, by freedivers._
+Monorepo for the Freediving Philippines platform.
 
-## 🌊 About the Project
+## What this repo contains
 
-Freediving Philippines is an open-source social web app designed for the growing freediving community in the Philippines. Inspired by Instagram, Pinterest, and Reddit, this platform provides a space for divers to connect, share experiences, and explore new dive sites across the country.
+- `apps/api`: Express 5 + TypeScript API, route modules, middleware, Drizzle models/migrations, seeding.
+- `apps/web`: Next.js 15 (App Router) frontend.
+- `packages/types`: shared DTO/envelope contracts used by API and web.
+- `packages/config`: shared runtime constants/config helpers.
+- `packages/utils`: shared utility functions.
+- `packages/db`: shared DB tooling surface (Drizzle scripts).
+- `packages/ui`: shared UI package shell.
 
-## ✨ Features
+## Tech stack
 
-### 🏠 **Social Features**
+- Frontend: Next.js 15, React 19, TypeScript, TanStack Query, Tailwind.
+- Backend: Express 5, TypeScript, Drizzle ORM, PostgreSQL.
+- Auth: Clerk.
+- Tooling: pnpm workspaces, Biome, Node test runner, tsx tests.
 
-- **Profiles** – Showcase your dives, share your best records, and post your freediving adventures.
-- **Messaging** – Connect with freedivers directly through private messaging.
-- **Buddies & Groups** – Find dive buddies and create/join freediving groups.
-- **Chika (Forum)** – Start and engage in discussions, including pseudonymous threads.
-- **Authentication** – Secure user authentication powered by Clerk.
+## Prerequisites
 
-### 🌍 **Diving-Specific Features**
+- Node.js 20+
+- pnpm 10+
+- PostgreSQL 15+ (or Docker)
 
-- **Explore** – Discover and contribute dive sites on an interactive map.
-- **Buddy Finder** – See available dive buddies at specific locations.
-- **Events** – Organize and join public freediving events.
-- **Competitive Records** – Show off your PBs and national records in competitions like AIDA.
+## Quick start
 
-## 🔧 Tech Stack
-
-- **Frontend:** Next.js 15, React Query, Zustand, Tailwind CSS
-- **Backend:** Node.js, Express, Drizzle ORM, PostgreSQL
-- **Authentication:** Clerk
-- **Deployment:** Render (active)
-- **CI/CD:** GitHub Actions (`CI` quality workflow for PRs/pushes)
-
-## 🚀 Getting Started
-
-### **1. Clone the Repository**
-
-```sh
- git clone https://github.com/jarielbalberona/freediving.ph.git
- cd freediving.ph
+```bash
+git clone https://github.com/jarielbalberona/freediving.ph.git
+cd freediving.ph
+pnpm install
 ```
 
-### **2. Set Up Environment Variables**
+Set environment variables:
 
-Create a `.env` file and add the following:
+- API env: `apps/api/.env`
+- Web env: `apps/web/.env`
 
-```env
-  NEXT_PUBLIC_API_URL=https://api.dev.freediving.ph
-  DATABASE_URL=your-database-url
-  CLERK_PUBLISHABLE_KEY=your-clerk-publishable-key
-  CLERK_SECRET_KEY=your-clerk-secret-key
-  // check example envs
+Then run both apps:
+
+```bash
+pnpm dev
 ```
 
-### **3. Install Dependencies (Monorepo)**
+Default local URLs:
 
-```sh
-  pnpm install
-```
+- Web: `http://localhost:3000`
+- API: `http://localhost:4000`
 
-### **3.5 Verify Workspace Health**
+## Environment variables
 
-```sh
-  pnpm typecheck
-  pnpm lint
-  pnpm test
-```
+Canonical API env keys are validated in `apps/api/src/core/env.ts`:
 
-### **4. Run the Development Server**
+- `DATABASE_URL`
+- `PORT`
+- `CSRF_SECRET`
+- `NODE_ENV` (`development` or `production`)
+- `ORIGIN_URL`
+- `APP_URL`
+- `API_URL`
+- `AWS_REGION`
+- `AWS_ACCESS_KEY`
+- `AWS_SECRET_KEY`
+- `AWS_S3_FPH_BUCKET_NAME`
+- `EMAIL_SERVER_HOST`
+- `EMAIL_SERVER_PORT`
+- `EMAIL_SERVER_USER`
+- `EMAIL_SERVER_PASSWORD`
+- `EMAIL_FROM`
 
-in the root folder
+The API also supports deployment aliases and normalizes them automatically:
 
-```sh
-  pnpm dev
-```
+- `CORS_ORIGIN` -> `ORIGIN_URL`
+- `NEXT_PUBLIC_APP_URL` -> `APP_URL`
+- `NEXT_PUBLIC_API_URL` -> `API_URL`
+- `AWS_ACCESS_KEY_ID` -> `AWS_ACCESS_KEY`
+- `AWS_SECRET_ACCESS_KEY` -> `AWS_SECRET_KEY`
+- `AWS_S3_BUCKET` -> `AWS_S3_FPH_BUCKET_NAME`
+- `EMAIL_HOST` -> `EMAIL_SERVER_HOST`
+- `EMAIL_PORT` -> `EMAIL_SERVER_PORT`
+- `EMAIL_USER` -> `EMAIL_SERVER_USER`
+- `EMAIL_PASS` -> `EMAIL_SERVER_PASSWORD`
 
-Or run with Docker:
+Minimum web env:
 
-```sh
-  docker compose up
-```
+- `NEXT_PUBLIC_API_URL`
+- `NEXT_PUBLIC_APP_URL`
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
 
-## 🧱 Monorepo Structure
+## Root scripts
 
-```txt
-apps/
-  api/     # Express API
-  web/     # Next.js app
-packages/
-  db/      # Shared DB package scaffold
-  types/   # Shared types/contracts
-  config/  # Shared configuration/constants
-  utils/   # Shared utility helpers
-  ui/      # Shared UI package scaffold
-```
-
-## 🛠️ Workspace Scripts
-
-```sh
+```bash
 pnpm dev          # run apps in parallel
-pnpm build        # build packages + API + web
-pnpm build:all    # alias of pnpm build
+pnpm build        # build packages, then API and web
 pnpm typecheck    # type-check all workspaces
 pnpm lint         # lint all workspaces
-pnpm test         # run test suites in all workspaces
-pnpm preflight    # run typecheck + lint + test + build
-pnpm dev:web      # run Next.js app only
-pnpm dev:api      # run API only
+pnpm test         # run all workspace tests
+pnpm preflight    # typecheck + lint + test + build
 ```
 
-## 🤝 Contributing
+Single-app shortcuts:
 
-Freediving Philippines is **open source** and welcomes contributions from the community! If you're a **developer**, feel free to fork the repo and submit PRs. We're also open to **feature suggestions**—just create an issue in the GitHub repo.
+```bash
+pnpm dev:api
+pnpm dev:web
+pnpm build:api
+pnpm build:web
+```
 
-### **How to Contribute**
+## Workspace commands
 
-1. **Fork** the repository.
-2. Create a **new branch** for your feature.
-3. Commit your changes with a meaningful message.
-4. Submit a **pull request** for review.
+Run scripts in one workspace via either pattern:
 
-## 📢 Looking for Developers!
+```bash
+pnpm -C <dir> <script>
+pnpm --filter <package-name> <script>
+```
 
-We're actively looking for **software developers** to help build and improve the platform. If you're interested in contributing, reach out or start contributing right away!
+Examples:
 
-## 📬 Contact & Community
+```bash
+pnpm -C apps/api dev
+pnpm --filter @freediving.ph/api test
+pnpm -C apps/web build
+pnpm --filter @freediving.ph/web type-check
+pnpm --filter @freediving.ph/types test
+```
 
-- **Email:** admin@freediving.ph
-- **Reddit:** [Join our subreddit](https://reddit.com/r/fredivingph)
-- **GitHub Issues:** [Report bugs & request features](https://github.com/jarielbalberona/freediving.ph/issues)
+## Database workflows
 
-**Let's build the best freediving platform in the Philippines together! 🌊🐬**
+From repo root:
+
+```bash
+pnpm db:generate
+pnpm db:migrate
+pnpm db:push
+pnpm db:studio
+pnpm db:seed
+```
+
+Schema and migrations are under:
+
+- `apps/api/src/models/drizzle`
+- `apps/api/.drizzle/migrations`
+
+## Docker (local)
+
+Run API + web + Postgres with Docker Compose:
+
+```bash
+docker compose up
+```
+
+## Deployment
+
+Render blueprint is in `render.yaml` and env template is in `env.render.example`.
+
+## Quality gate before PRs
+
+For changed workspace(s):
+
+```bash
+pnpm --filter <package-name> type-check
+pnpm --filter <package-name> lint
+pnpm --filter <package-name> test
+```
+
+For cross-workspace changes:
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+```
+
+## Contribution notes
+
+- Keep shared contracts in `packages/types/src` and update API/web together when DTOs change.
+- Do not create feature-local `types.ts` files in `apps/web/src/features/*`; use `@freediving.ph/types`.
+- Avoid adding workspace-specific env assumptions into shared packages.

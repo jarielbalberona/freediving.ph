@@ -1,9 +1,10 @@
-import { InferSelectModel, desc, eq } from "drizzle-orm";
+import { InferSelectModel, and, desc, eq } from "drizzle-orm";
 
 import { DiveSpotServerSchemaType } from "@/app/diveSpot/diveSpot.validators";
 
 import DrizzleService from "@/databases/drizzle/service";
 import { diveSpots } from "@/models/drizzle/diveSpots.model";
+import { auditLogs } from "@/models/drizzle/moderation.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
@@ -12,7 +13,14 @@ export type DiveSpotSchemaType = InferSelectModel<typeof diveSpots>;
 export default class DiveSpotService extends DrizzleService {
 	async createDiveSpot(data: DiveSpotServerSchemaType) {
 		try {
-			const createdData = await this.db.insert(diveSpots).values(data).returning();
+			const createdData = await this.db
+				.insert(diveSpots)
+				.values({
+					...data,
+					state: "DRAFT",
+					source: "COMMUNITY"
+				})
+				.returning();
 
 			if (!createdData.length) {
 				return ServiceResponse.createResponse(
@@ -34,7 +42,9 @@ export default class DiveSpotService extends DrizzleService {
 
 	async retrieveDiveSpot(id: number): Promise<ServiceApiResponse<DiveSpotSchemaType>> {
 		try {
-			const retrieveData = await this.db.query.diveSpots.findFirst({ where: eq(diveSpots.id, id) });
+			const retrieveData = await this.db.query.diveSpots.findFirst({
+				where: and(eq(diveSpots.id, id), eq(diveSpots.state, "PUBLISHED"))
+			});
 
 			if (!retrieveData) {
 				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
@@ -75,6 +85,7 @@ export default class DiveSpotService extends DrizzleService {
 	async retrieveAllDiveSpot() {
 		try {
 			const retrieveData = await this.db.query.diveSpots.findMany({
+				where: eq(diveSpots.state, "PUBLISHED"),
 				orderBy: desc(diveSpots.createdAt)
 			});
 
@@ -83,6 +94,32 @@ export default class DiveSpotService extends DrizzleService {
 				"Dive spots retrieved successfully",
 				retrieveData
 			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async reviewDiveSpot(id: number, state: "PUBLISHED" | "FLAGGED" | "REMOVED", actorUserId?: number) {
+		try {
+			const updatedData = await this.db
+				.update(diveSpots)
+				.set({ state })
+				.where(eq(diveSpots.id, id))
+				.returning();
+
+			if (!updatedData.length) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
+			}
+
+			await this.db.insert(auditLogs).values({
+				actorUserId: actorUserId ?? null,
+				action: "DIVE_SPOT_REVIEW_UPDATED",
+				targetType: "DIVE_SITE",
+				targetId: String(id),
+				metadata: { state }
+			});
+
+			return ServiceResponse.createResponse(status.HTTP_200_OK, "Dive spot review updated", updatedData[0]);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
 		}

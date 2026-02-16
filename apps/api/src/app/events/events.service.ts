@@ -4,14 +4,23 @@ import { EventsServerSchemaType, EventsUpdateSchemaType, EventAttendeeSchemaType
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
 import { events, eventAttendees } from "@/models/drizzle/events.model";
+import { auditLogs } from "@/models/drizzle/moderation.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
 export type EventsSchemaType = InferSelectModel<typeof events>;
 
 export default class EventsService extends DrizzleService {
-	async create(data: EventsServerSchemaType) {
+	async create(data: EventsServerSchemaType, actorUserId: number, actorRole: string) {
 		try {
+			const isModerator = ["EDITOR", "ADMINISTRATOR", "SUPER_ADMIN"].includes(actorRole);
+			if (data.organizerType === "USER" && data.organizerId !== actorUserId && !isModerator) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Cannot create event for another user"
+				);
+			}
+
 			// Convert price to string for decimal field
 			const insertData = {
 				...data,
@@ -81,8 +90,32 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async update(id: number, data: EventsUpdateSchemaType) {
+	async update(id: number, data: EventsUpdateSchemaType, actorUserId: number, actorRole: string) {
 		try {
+			const existingEvent = await this.db.query.events.findFirst({ where: eq(events.id, id) });
+			if (!existingEvent) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Event not found");
+			}
+
+			const isModerator = ["EDITOR", "ADMINISTRATOR", "SUPER_ADMIN"].includes(actorRole);
+			const isOrganizer = existingEvent.organizerType === "USER" && existingEvent.organizerId === actorUserId;
+			if (!isModerator && !isOrganizer) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Only organizer or moderator can update this event"
+				);
+			}
+
+			if (!isModerator && existingEvent.startDate && existingEvent.startDate.getTime() <= Date.now()) {
+				const allowedAfterStart = data.status === "CANCELLED" && Object.keys(data).length === 1;
+				if (!allowedAfterStart) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						"After event start, only cancellation is allowed"
+					);
+				}
+			}
+
 			// Convert price to string for decimal field
 			const updateData = {
 				...data,
@@ -104,6 +137,41 @@ export default class EventsService extends DrizzleService {
 				"Event updated successfully",
 				updatedData[0]
 			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async moderateRemove(id: number, moderatorUserId: number) {
+		try {
+			const updatedData = await this.db
+				.update(events)
+				.set({
+					status: "REMOVED",
+					settings: JSON.stringify({
+						moderated: true,
+						moderatedByUserId: moderatorUserId,
+						moderatedAt: new Date().toISOString()
+					})
+				})
+				.where(eq(events.id, id))
+				.returning();
+
+			if (!updatedData.length) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Event not found");
+			}
+
+			await this.db.insert(auditLogs).values({
+				actorUserId: moderatorUserId,
+				action: "EVENT_MODERATED_REMOVE",
+				targetType: "EVENT",
+				targetId: String(id),
+				metadata: {
+					previousStatus: updatedData[0]?.status ?? null
+				}
+			});
+
+			return ServiceResponse.createResponse(status.HTTP_200_OK, "Event removed by moderator", updatedData[0]);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
 		}
