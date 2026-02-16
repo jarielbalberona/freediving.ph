@@ -19,7 +19,7 @@ services:
         fromDatabase:
           name: freediving-ph-db
           property: connectionString
-      - key: SECRET
+      - key: CSRF_SECRET
         generateValue: true
       - key: CLERK_SECRET_KEY
         sync: false

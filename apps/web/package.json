@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "test": "echo \"No tests yet for @freediving.ph/web\""
+    "test": "node --test test/**/*.test.mjs"
   },
   "dependencies": {
     "@freediving.ph/config": "workspace:*",

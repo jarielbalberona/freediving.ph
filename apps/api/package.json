@@ -11,7 +11,7 @@
 		"format": "prettier --write .",
 		"lint": "eslint .",
 		"type-check": "tsc --noEmit",
-		"test": "echo \"No tests yet for @freediving.ph/api\"",
+		"test": "node --test test/**/*.test.mjs",
 		"db:studio": "drizzle-kit studio",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",

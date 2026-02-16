@@ -49,6 +49,8 @@ export const reactions = pgTable("reactions",
     ...timestamps,
   },
   (table) => ({
+    userThreadReactionUniqueIdx: uniqueIndex("reactions_user_thread_unique_idx").on(table.userId, table.threadId),
+    userCommentReactionUniqueIdx: uniqueIndex("reactions_user_comment_unique_idx").on(table.userId, table.commentId),
     checkThreadOrComment: check(
       "check_thread_or_comment", // ✅ Constraint name
       sql`${table.threadId} IS NOT NULL OR ${table.commentId} IS NOT NULL` // ✅ SQL condition

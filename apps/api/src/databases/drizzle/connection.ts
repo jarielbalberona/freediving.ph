@@ -5,6 +5,8 @@ import postgres from "postgres";
 import schema from "@/databases/drizzle/schema";
 
 const dbUrl = process.env.DATABASE_URL || "postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph";
+const shouldProbeOnBoot =
+	process.env.NODE_ENV !== "test" && process.env.DB_PROBE_ON_BOOT === "true";
 
 interface QueryDetails {
   query: string;
@@ -62,9 +64,6 @@ const sql = postgres(dbUrl, {
   }
 });
 
-// Test and log main connection
-logDatabaseConnection(sql, 'main');
-
 const db = drizzle(sql, { schema });
 
 // Connection pool
@@ -75,8 +74,10 @@ const pool = postgres(dbUrl, {
   }
 });
 
-// Test and log pool connection
-logDatabaseConnection(pool, 'pool');
+if (shouldProbeOnBoot) {
+	void logDatabaseConnection(sql, "main");
+	void logDatabaseConnection(pool, "pool");
+}
 
 export const dbPool = drizzle(pool);
 

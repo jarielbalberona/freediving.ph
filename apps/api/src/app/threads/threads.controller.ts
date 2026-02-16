@@ -75,6 +75,16 @@ export default class ThreadsController extends ApiController {
 		}
 	}
 
+	async deleteThreads() {
+		try {
+			const id = Number(this.request.params.id);
+			const response = await this.threadsService.delete(id);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
 	// Comments methods
 	async createComment() {
 		try {

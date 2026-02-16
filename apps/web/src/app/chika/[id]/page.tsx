@@ -1,10 +1,13 @@
 "use client";
 
+import { use as usePromise } from "react";
+
 import { ThreadDetail } from "@/features/chika";
 import { useThread } from "@/features/chika";
 
-export default function Chika({ params }: { params: { id: string } }) {
-  const { data: thread, isLoading, error } = useThread(Number(params.id));
+export default function Chika({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = usePromise(params);
+  const { data: thread, isLoading, error } = useThread(Number(id));
 
   if (isLoading) {
     return (

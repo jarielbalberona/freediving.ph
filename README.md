@@ -14,7 +14,7 @@ Freediving Philippines is an open-source social web app designed for the growing
 - **Profiles** – Showcase your dives, share your best records, and post your freediving adventures.
 - **Messaging** – Connect with freedivers directly through private messaging.
 - **Buddies & Groups** – Find dive buddies and create/join freediving groups.
-- **Chika (Forum)** – Start and engage in discussions, including anonymous threads.
+- **Chika (Forum)** – Start and engage in discussions, including pseudonymous threads.
 - **Authentication** – Secure user authentication powered by Clerk.
 
 ### 🌍 **Diving-Specific Features**
@@ -29,8 +29,9 @@ Freediving Philippines is an open-source social web app designed for the growing
 - **Frontend:** Next.js 15, React Query, Zustand, Tailwind CSS
 - **Backend:** Node.js, Express, Drizzle ORM, PostgreSQL
 - **Authentication:** Clerk
-- **Deployment:** Render (active), AWS ECS/Terraform (legacy/in-transition)
-- **CI/CD:** GitHub Actions
+- **Deployment:** Render (active)
+- **Legacy Infrastructure:** AWS ECS/Terraform (archived/manual only)
+- **CI/CD:** GitHub Actions (`CI` quality workflow for PRs/pushes)
 - **Infrastructure:** Terraform (Multi-Environment)
 
 ## 👥 Multi-Environment Terraform Setup

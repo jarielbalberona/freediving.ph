@@ -64,7 +64,7 @@ analysis(app);
 /**
  * Initialize all routes are handled in the api.ts file
  * All routes will start with /api
- * Example: http://localhost:3000/api/auth/login
+ * Example: http://localhost:3000/api/auth/me
  */
 appRouter(app);
 

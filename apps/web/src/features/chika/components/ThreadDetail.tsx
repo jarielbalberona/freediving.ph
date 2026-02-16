@@ -24,19 +24,6 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
         <p className="text-gray-700 whitespace-pre-wrap">{thread.thread.content}</p>
       </div>
 
-      {thread.thread.tags && thread.thread.tags.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {thread.thread.tags.map((tag, index) => (
-            <span
-              key={index}
-              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-
       <div className="mt-6 flex items-center justify-between border-t pt-4">
         <div className="flex items-center space-x-4 text-sm text-gray-500">
           <span>{thread.upvotes - thread.downvotes} likes</span>

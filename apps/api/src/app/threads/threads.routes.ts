@@ -23,6 +23,9 @@ export const threadsRouter: Router = (() => {
 		})
 		.put(clerkAuthMiddleware, async (req, res) => {
 			new ThreadsController(req, res).updateThreads();
+		})
+		.delete(clerkAuthMiddleware, async (req, res) => {
+			new ThreadsController(req, res).deleteThreads();
 		});
 
 	// Comments routes

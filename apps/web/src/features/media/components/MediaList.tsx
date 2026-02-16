@@ -5,7 +5,7 @@ import { MediaCard } from './MediaCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Upload, Image } from 'lucide-react';
+import { Upload, ImageIcon } from 'lucide-react';
 import type { MediaFilters } from '../types';
 
 interface MediaListProps {
@@ -52,7 +52,7 @@ export function MediaList({
   if (media.length === 0) {
     return (
       <div className="text-center py-8">
-        <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
         <h3 className="text-lg font-medium text-muted-foreground mb-2">
           No media found
         </h3>

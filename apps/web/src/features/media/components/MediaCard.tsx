@@ -1,10 +1,11 @@
 "use client";
 
 import { Media } from '../types';
+import NextImage from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, Eye, Edit, Trash2, Image, Video, File, Music } from 'lucide-react';
+import { Download, Eye, Edit, Trash2, ImageIcon, Video, File, Music } from 'lucide-react';
 import { useState } from 'react';
 
 interface MediaCardProps {
@@ -29,7 +30,7 @@ export function MediaCard({
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'IMAGE':
-        return <Image className="h-4 w-4" />;
+        return <ImageIcon className="h-4 w-4" />;
       case 'VIDEO':
         return <Video className="h-4 w-4" />;
       case 'AUDIO':
@@ -134,9 +135,12 @@ export function MediaCard({
         {/* Media Preview */}
         {media.category === 'IMAGE' && media.thumbnailUrl && !imageError ? (
           <div className="mb-4">
-            <img
+            <NextImage
               src={media.thumbnailUrl}
-              alt={media.altText || media.originalName}
+              alt={media.altText ?? media.originalName}
+              width={640}
+              height={128}
+              unoptimized
               className="w-full h-32 object-cover rounded-md"
               onError={() => setImageError(true)}
             />

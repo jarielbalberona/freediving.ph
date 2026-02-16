@@ -9,7 +9,7 @@ const {
 	doubleCsrfProtection, // This is the express middleware
 	invalidCsrfTokenError // This is the error thrown when the token is invalid
 } = doubleCsrf({
-	getSecret: () => process.env.SECRET, // Secret for generating tokens
+	getSecret: () => process.env.CSRF_SECRET, // Secret for generating tokens
 	cookieName: "csrf-token", // Cookie name for the token
 	cookieOptions: {
 		maxAge: csrfTimeout,

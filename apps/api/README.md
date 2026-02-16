@@ -29,7 +29,7 @@ The loader now supports aliases used by deployment platforms (Render/AWS), but c
 
 - `DATABASE_URL`
 - `PORT`
-- `SECRET`
+- `CSRF_SECRET`
 - `NODE_ENV`
 - `ORIGIN_URL`
 - `APP_URL`

@@ -5,12 +5,12 @@
   "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
   "scripts": {
     "dev": "pnpm -r --parallel --filter './apps/*' dev",
-    "build": "pnpm -r --if-present --filter './packages/*' build && pnpm build:api",
-    "build:all": "pnpm build && pnpm build:web",
+    "build": "pnpm -r --if-present --filter './packages/*' build && pnpm build:api && pnpm build:web",
+    "build:all": "pnpm build",
     "typecheck": "pnpm -r --if-present type-check",
     "lint": "pnpm -r --if-present lint",
     "test": "pnpm -r --if-present test",
-    "preflight": "pnpm typecheck && pnpm lint && pnpm test && pnpm build:api",
+    "preflight": "pnpm typecheck && pnpm --filter @freediving.ph/api exec eslint . --max-warnings=0 && pnpm --filter @freediving.ph/web exec eslint . --max-warnings=0 && pnpm test && pnpm build",
     "dev:web": "pnpm --filter @freediving.ph/web dev",
     "dev:api": "pnpm --filter @freediving.ph/api dev",
     "build:web": "pnpm --filter @freediving.ph/web build",
@@ -22,6 +22,16 @@
     "db:seed": "pnpm --filter @freediving.ph/api db:seed"
   },
   "pnpm": {
+    "supportedArchitectures": {
+      "os": [
+        "darwin",
+        "linux"
+      ],
+      "cpu": [
+        "x64",
+        "arm64"
+      ]
+    },
     "onlyBuiltDependencies": [
       "@clerk/shared",
       "bcryptjs",

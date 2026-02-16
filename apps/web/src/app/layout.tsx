@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
-import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 
 import ReactQueryProvider from "@/providers/react-query";
@@ -18,16 +17,6 @@ import {
 import { ModeSwitcher } from "@/components/ui/mode-switcher";
 
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: {
@@ -67,9 +56,7 @@ export default async function RootLayout({
         </head>
         <body
           className={cn(
-            "bg-background overscroll-none font-sans antialiased",
-            geistSans.variable,
-            geistMono.variable
+            "bg-background overscroll-none font-sans antialiased"
           )}
         >
           <ThemeProvider

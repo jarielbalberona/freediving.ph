@@ -40,7 +40,7 @@ export default function indexRouter(app: Express) {
 						<div class="container">
 								<h1>Welcome to the Application</h1>
 								<p>All the API routes start with <code>/api</code></p>
-								<p>For example: <code>/api/auth/login</code></p>
+								<p>For example: <code>/api/auth/me</code></p>
 						</div>
 				</body>
 				</html>

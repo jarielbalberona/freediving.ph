@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowBigDown, ArrowBigUp, MessageSquare } from "lucide-react";
-import { useThreads, useAddReaction, useRemoveReaction } from "@/features/chika";
+import { useThreads, useAddReaction } from "@/features/chika";
 import { ThreadWithUser } from "@/features/chika/types";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
@@ -17,8 +17,6 @@ const Thread = ({
   const { data: threads, isLoading } = useThreads(initialThreads || undefined);
   const { user } = useUser();
   const addReaction = useAddReaction();
-  const removeReaction = useRemoveReaction();
-
   const handleVote = async (threadId: number, type: "1" | "0") => {
     if (!user) {
       toast.error("Please sign in to vote");
