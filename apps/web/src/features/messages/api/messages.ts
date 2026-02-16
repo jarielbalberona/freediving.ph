@@ -7,6 +7,7 @@ import type {
   ConversationMessagesFilters,
   CreateDirectConversationPayload,
   MessageConversationSummary,
+  ModerateRemoveMessagePayload,
   SendMessagePayload,
 } from '@freediving.ph/types';
 
@@ -40,6 +41,25 @@ export const messagesApi = {
   sendMessage: async (conversationId: number, payload: SendMessagePayload): Promise<ConversationMessage> => {
     const response = await axiosInstance.post<ApiEnvelope<ConversationMessage>>(
       `/messages/conversations/${conversationId}/messages`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  deleteOwnMessage: async (conversationId: number, messageId: number): Promise<ConversationMessage> => {
+    const response = await axiosInstance.delete<ApiEnvelope<ConversationMessage>>(
+      `/messages/conversations/${conversationId}/messages/${messageId}`,
+    );
+    return response.data.data;
+  },
+
+  moderateRemoveMessage: async (
+    conversationId: number,
+    messageId: number,
+    payload: ModerateRemoveMessagePayload,
+  ): Promise<ConversationMessage> => {
+    const response = await axiosInstance.patch<ApiEnvelope<ConversationMessage>>(
+      `/messages/conversations/${conversationId}/messages/${messageId}/moderate-remove`,
       payload,
     );
     return response.data.data;

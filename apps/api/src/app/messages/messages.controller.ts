@@ -7,6 +7,7 @@ import MessagesService from "./messages.service";
 import {
   ConversationMessagesQuerySchema,
   CreateDirectConversationSchema,
+  ModerateRemoveMessageSchema,
   SendMessageSchema,
 } from "./messages.validators";
 
@@ -73,6 +74,42 @@ export default class MessagesController extends ApiController {
       }
 
       const response = await this.messagesService.sendMessage(currentUserId, conversationId, bodyCheck.data);
+      return this.apiResponse.sendResponse(response);
+    } catch (error: unknown) {
+      return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+    }
+  }
+
+  async deleteOwnMessage() {
+    try {
+      const currentUserId = this.request.user?.id;
+      const conversationId = Number(this.request.params.conversationId);
+      const messageId = Number(this.request.params.messageId);
+
+      const response = await this.messagesService.deleteOwnMessage(currentUserId, conversationId, messageId);
+      return this.apiResponse.sendResponse(response);
+    } catch (error: unknown) {
+      return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+    }
+  }
+
+  async moderateRemoveMessage() {
+    try {
+      const currentUserId = this.request.user?.id;
+      const conversationId = Number(this.request.params.conversationId);
+      const messageId = Number(this.request.params.messageId);
+      const check = ModerateRemoveMessageSchema.safeParse(this.request.body);
+
+      if (!check.success) {
+        return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      }
+
+      const response = await this.messagesService.moderateRemoveMessage(
+        currentUserId,
+        conversationId,
+        messageId,
+        check.data,
+      );
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

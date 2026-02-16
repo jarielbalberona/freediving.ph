@@ -15,3 +15,16 @@ export const useSendMessage = () => {
     },
   });
 };
+
+export const useDeleteOwnMessage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ conversationId, messageId }: { conversationId: number; messageId: number }) =>
+      messagesApi.deleteOwnMessage(conversationId, messageId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["messages", "conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["messages", "conversation", variables.conversationId] });
+    },
+  });
+};

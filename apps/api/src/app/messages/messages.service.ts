@@ -10,6 +10,7 @@ import { status } from "@/utils/statusCodes";
 import type {
   ConversationMessagesQuerySchemaType,
   CreateDirectConversationSchemaType,
+  ModerateRemoveMessageSchemaType,
   SendMessageSchemaType,
 } from "./messages.validators";
 
@@ -34,6 +35,48 @@ type ConversationSummary = {
 
 export default class MessagesService extends DrizzleService {
   private readonly dailyDirectMessageLimit = 200;
+  private readonly minimumAccountAgeHours = 24;
+
+  private async enforceAccountAgeGate(userId: number) {
+    const accountRows = await this.db
+      .select({ createdAt: users.createdAt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const createdAt = accountRows[0]?.createdAt;
+    if (!createdAt) {
+      return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "User account not found");
+    }
+
+    const ageMs = Date.now() - createdAt.getTime();
+    const minAgeMs = this.minimumAccountAgeHours * 60 * 60 * 1000;
+
+    if (ageMs < minAgeMs) {
+      return ServiceResponse.createRejectResponse(
+        status.HTTP_403_FORBIDDEN,
+        `Messaging is available after ${this.minimumAccountAgeHours} hours of account age`,
+      );
+    }
+  }
+
+  private async hasMessagingBlockBetween(userIdA: number, userIdB: number) {
+    const blockRows = await this.db
+      .select({ id: blocks.id })
+      .from(blocks)
+      .where(
+        and(
+          or(eq(blocks.scope, "PLATFORM"), eq(blocks.scope, "MESSAGING_ONLY")),
+          or(
+            and(eq(blocks.blockerUserId, userIdA), eq(blocks.blockedUserId, userIdB)),
+            and(eq(blocks.blockerUserId, userIdB), eq(blocks.blockedUserId, userIdA)),
+          ),
+        ),
+      )
+      .limit(1);
+
+    return blockRows.length > 0;
+  }
 
   private async ensureMembership(conversationId: number, userId: number) {
     const membership = await this.db
@@ -148,8 +191,18 @@ export default class MessagesService extends DrizzleService {
 
   async createOrGetDirectConversation(currentUserId: number, payload: CreateDirectConversationSchemaType) {
     try {
+      await this.enforceAccountAgeGate(currentUserId);
+
       if (currentUserId === payload.participantId) {
         return ServiceResponse.createRejectResponse(status.HTTP_400_BAD_REQUEST, "Cannot start a conversation with yourself");
+      }
+
+      const isBlocked = await this.hasMessagingBlockBetween(currentUserId, payload.participantId);
+      if (isBlocked) {
+        return ServiceResponse.createRejectResponse(
+          status.HTTP_403_FORBIDDEN,
+          "Cannot create conversation because one participant has blocked the other",
+        );
       }
 
       const participantRows = await this.db
@@ -276,6 +329,8 @@ export default class MessagesService extends DrizzleService {
 
   async sendMessage(currentUserId: number, conversationId: number, payload: SendMessageSchemaType) {
     try {
+      await this.enforceAccountAgeGate(currentUserId);
+
       const membership = await this.ensureMembership(conversationId, currentUserId);
       if (!membership) {
         return ServiceResponse.createRejectResponse(status.HTTP_403_FORBIDDEN, "You are not a participant of this conversation");
@@ -372,6 +427,98 @@ export default class MessagesService extends DrizzleService {
         .where(eq(conversations.id, conversationId));
 
       return ServiceResponse.createResponse(status.HTTP_201_CREATED, "Message sent successfully", createdMessage);
+    } catch (error) {
+      return ServiceResponse.createErrorResponse(error);
+    }
+  }
+
+  async deleteOwnMessage(currentUserId: number, conversationId: number, messageId: number) {
+    try {
+      const membership = await this.ensureMembership(conversationId, currentUserId);
+      if (!membership) {
+        return ServiceResponse.createRejectResponse(status.HTTP_403_FORBIDDEN, "You are not a participant of this conversation");
+      }
+
+      const updatedRows = await this.db
+        .update(messages)
+        .set({
+          content: "[message deleted by sender]",
+          type: "SYSTEM",
+          metadata: {
+            deletedBySender: true,
+            deletedByUserId: currentUserId,
+            deletedAt: new Date().toISOString(),
+          },
+          editedAt: new Date(),
+          editedBy: currentUserId,
+        })
+        .where(
+          and(
+            eq(messages.id, messageId),
+            eq(messages.conversationId, conversationId),
+            eq(messages.senderId, currentUserId),
+          ),
+        )
+        .returning({
+          id: messages.id,
+          conversationId: messages.conversationId,
+          senderId: messages.senderId,
+          content: messages.content,
+          type: messages.type,
+          status: messages.status,
+          createdAt: messages.createdAt,
+        });
+
+      const updated = updatedRows[0];
+      if (!updated) {
+        return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Message not found");
+      }
+
+      return ServiceResponse.createResponse(status.HTTP_200_OK, "Message deleted by sender", updated);
+    } catch (error) {
+      return ServiceResponse.createErrorResponse(error);
+    }
+  }
+
+  async moderateRemoveMessage(
+    moderatorUserId: number,
+    conversationId: number,
+    messageId: number,
+    payload: ModerateRemoveMessageSchemaType,
+  ) {
+    try {
+      const updatedRows = await this.db
+        .update(messages)
+        .set({
+          content: "[message removed by moderator]",
+          type: "SYSTEM",
+          metadata: {
+            removedByModerator: true,
+            moderatedByUserId: moderatorUserId,
+            reasonCode: payload.reasonCode,
+            note: payload.note ?? null,
+            removedAt: new Date().toISOString(),
+          },
+          editedAt: new Date(),
+          editedBy: moderatorUserId,
+        })
+        .where(and(eq(messages.id, messageId), eq(messages.conversationId, conversationId)))
+        .returning({
+          id: messages.id,
+          conversationId: messages.conversationId,
+          senderId: messages.senderId,
+          content: messages.content,
+          type: messages.type,
+          status: messages.status,
+          createdAt: messages.createdAt,
+        });
+
+      const updated = updatedRows[0];
+      if (!updated) {
+        return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Message not found");
+      }
+
+      return ServiceResponse.createResponse(status.HTTP_200_OK, "Message removed by moderator", updated);
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);
     }

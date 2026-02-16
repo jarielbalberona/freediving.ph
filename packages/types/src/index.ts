@@ -520,6 +520,43 @@ export interface SendMessagePayload {
   type?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'LOCATION' | 'SYSTEM';
 }
 
+export interface ModerateRemoveMessagePayload {
+  reasonCode: ReportReasonCode;
+  note?: string;
+}
+
+export type ReportTargetType =
+  | 'USER'
+  | 'THREAD'
+  | 'POST'
+  | 'CONVERSATION'
+  | 'MESSAGE'
+  | 'GROUP'
+  | 'EVENT'
+  | 'DIVE_SITE'
+  | 'COMPETITIVE_RECORD'
+  | 'OTHER';
+
+export type ReportReasonCode = 'SPAM' | 'HARASSMENT' | 'HATE' | 'MISINFORMATION' | 'SCAM' | 'SAFETY' | 'OTHER';
+
+export interface CreateReportRequest {
+  targetType: ReportTargetType;
+  targetId: string;
+  reasonCode: ReportReasonCode;
+  text?: string;
+}
+
+export interface ReportItem {
+  id: number;
+  targetType: ReportTargetType;
+  targetId: string;
+  reasonCode: ReportReasonCode;
+  text?: string | null;
+  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED';
+  resolutionNote?: string | null;
+  createdAt: string;
+}
+
 export interface Notification {
   id: number;
   userId: number;
@@ -695,37 +732,6 @@ export interface CreatePersonalBestRequest {
   resultUnit: string;
   recordedAt?: string;
   visibility?: ProfileItemVisibility;
-}
-
-export type ReportTargetType =
-  | 'USER'
-  | 'THREAD'
-  | 'POST'
-  | 'MESSAGE'
-  | 'GROUP'
-  | 'EVENT'
-  | 'DIVE_SITE'
-  | 'COMPETITIVE_RECORD'
-  | 'OTHER';
-
-export type ReportReasonCode = 'SPAM' | 'HARASSMENT' | 'HATE' | 'MISINFORMATION' | 'SCAM' | 'SAFETY' | 'OTHER';
-
-export interface CreateReportRequest {
-  targetType: ReportTargetType;
-  targetId: string;
-  reasonCode: ReportReasonCode;
-  text?: string;
-}
-
-export interface ReportItem {
-  id: number;
-  targetType: ReportTargetType;
-  targetId: string;
-  reasonCode: ReportReasonCode;
-  text?: string | null;
-  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED';
-  resolutionNote?: string | null;
-  createdAt: string;
 }
 
 export interface User {

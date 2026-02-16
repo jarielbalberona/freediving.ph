@@ -216,7 +216,7 @@ Implement plan items in strict numerical order, completing each module baseline 
 
 ### Milestone 02: Messaging
 - Goal: extend DM rules to cover plan acceptance items.
-- Status: `in_progress`
+- Status: `done`
 
 ### Milestone 03: Buddy System
 - Goal: implement request lifecycle and rejection cooldown.
@@ -280,10 +280,12 @@ Implement plan items in strict numerical order, completing each module baseline 
 - 2026-02-16: Started `01` with profile visibility fields and Personal Bests model + profile API endpoints.
 - 2026-02-16: Added web profile integration for visibility and personal best management.
 - 2026-02-16: Started `02` hardening by enforcing DM daily send limits and block checks in messaging service.
+- 2026-02-16: Completed `02` with sender-delete placeholders, moderator remove flow, account-age gating (`<24h`), and conversation/message-level reporting actions.
+- 2026-02-16: Moved messaging/report contracts to `packages/types` and validated package + app consumers.
 
 ## 11. Outcomes And Follow-Ups
-- `00` and `01` are locked and verified.
-- Continue `02`, then proceed sequentially to `03`.
+- `00`, `01`, and `02` are locked and verified.
+- Proceed to `03` next.
 
 ---
 

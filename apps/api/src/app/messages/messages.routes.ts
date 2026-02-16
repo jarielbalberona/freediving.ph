@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import MessagesController from "@/app/messages/messages.controller";
-import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, requirePolicy } from "@/middlewares/clerk.middleware";
 
 export const messagesRouter: Router = (() => {
   const router = express.Router();
@@ -24,6 +24,18 @@ export const messagesRouter: Router = (() => {
     .post((req, res) => {
       new MessagesController(req, res).sendMessage();
     });
+
+  router.delete("/conversations/:conversationId/messages/:messageId", (req, res) => {
+    new MessagesController(req, res).deleteOwnMessage();
+  });
+
+  router.patch(
+    "/conversations/:conversationId/messages/:messageId/moderate-remove",
+    requirePolicy("reports.moderate"),
+    (req, res) => {
+      new MessagesController(req, res).moderateRemoveMessage();
+    },
+  );
 
   return router;
 })();

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
+import { AxiosError } from "axios";
 import { MessageCircleMore, Send } from "lucide-react";
 
 import type { MessageConversationParticipant } from "@freediving.ph/types";
@@ -9,9 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ReportAction } from "@/components/report/report-action";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useConversationMessages,
+  useDeleteOwnMessage,
   useMessageConversations,
   useSendMessage,
 } from "@/features/messages";
@@ -32,6 +35,7 @@ export default function MessagesPage() {
   const hasNumericUserId = Number.isInteger(numericUserId);
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
   const [composerValue, setComposerValue] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const { data: conversations = [], isLoading: isConversationsLoading } = useMessageConversations();
   const { data: messages = [], isLoading: isMessagesLoading } = useConversationMessages(selectedConversationId, {
@@ -39,6 +43,7 @@ export default function MessagesPage() {
     offset: 0,
   });
   const sendMessageMutation = useSendMessage();
+  const deleteOwnMessageMutation = useDeleteOwnMessage();
 
   useEffect(() => {
     if (!selectedConversationId && conversations.length > 0) {
@@ -53,6 +58,7 @@ export default function MessagesPage() {
 
   const handleSendMessage = () => {
     if (!selectedConversationId || !composerValue.trim()) return;
+    setSendError(null);
 
     sendMessageMutation.mutate(
       {
@@ -64,6 +70,13 @@ export default function MessagesPage() {
       {
         onSuccess: () => {
           setComposerValue("");
+        },
+        onError: (error) => {
+          if (error instanceof AxiosError) {
+            setSendError(error.response?.data?.message || "Failed to send message");
+            return;
+          }
+          setSendError("Failed to send message");
         },
       },
     );
@@ -149,7 +162,12 @@ export default function MessagesPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>{selectedConversation ? "Conversation" : "Select a conversation"}</CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>{selectedConversation ? "Conversation" : "Select a conversation"}</CardTitle>
+                {selectedConversation ? (
+                  <ReportAction targetType="CONVERSATION" targetId={String(selectedConversation.conversationId)} />
+                ) : null}
+              </div>
             </CardHeader>
             <CardContent>
               {!selectedConversation ? (
@@ -176,6 +194,29 @@ export default function MessagesPage() {
                             }`}
                           >
                             <p>{message.content}</p>
+                            <div className="mt-2 flex items-center gap-2">
+                              {isMine ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  className="h-6 px-2 text-[11px]"
+                                  onClick={() => {
+                                    if (!selectedConversationId) return;
+                                    deleteOwnMessageMutation.mutate({
+                                      conversationId: selectedConversationId,
+                                      messageId: message.id,
+                                    });
+                                  }}
+                                >
+                                  Delete
+                                </Button>
+                              ) : null}
+                              <ReportAction
+                                targetType="MESSAGE"
+                                targetId={`${selectedConversation?.conversationId ?? "0"}:${message.id}`}
+                              />
+                            </div>
                             <p className={`mt-1 text-[11px] ${isMine ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                               {formatMessageTime(message.createdAt)}
                             </p>
@@ -202,6 +243,7 @@ export default function MessagesPage() {
                       Send
                     </Button>
                   </div>
+                  {sendError ? <p className="text-sm text-destructive">{sendError}</p> : null}
                 </div>
               )}
             </CardContent>

@@ -18,6 +18,7 @@ export const REPORT_TARGET_TYPE = pgEnum("report_target_type", [
   "USER",
   "THREAD",
   "POST",
+  "CONVERSATION",
   "MESSAGE",
   "GROUP",
   "EVENT",

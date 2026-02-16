@@ -5,6 +5,7 @@ export const CreateReportSchema = z.object({
     "USER",
     "THREAD",
     "POST",
+    "CONVERSATION",
     "MESSAGE",
     "GROUP",
     "EVENT",
@@ -20,7 +21,18 @@ export const CreateReportSchema = z.object({
 export const ReportQuerySchema = z.object({
   status: z.enum(["OPEN", "UNDER_REVIEW", "RESOLVED", "DISMISSED"]).optional(),
   targetType: z
-    .enum(["USER", "THREAD", "POST", "MESSAGE", "GROUP", "EVENT", "DIVE_SITE", "COMPETITIVE_RECORD", "OTHER"])
+    .enum([
+      "USER",
+      "THREAD",
+      "POST",
+      "CONVERSATION",
+      "MESSAGE",
+      "GROUP",
+      "EVENT",
+      "DIVE_SITE",
+      "COMPETITIVE_RECORD",
+      "OTHER",
+    ])
     .optional(),
   reasonCode: z.enum(["SPAM", "HARASSMENT", "HATE", "MISINFORMATION", "SCAM", "SAFETY", "OTHER"]).optional(),
   limit: z.coerce.number().int().positive().max(100).default(20),
