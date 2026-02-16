@@ -1,6 +1,6 @@
 "use client";
 
-import { UserProfile } from '../types';
+import { UserProfile } from '@freediving.ph/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

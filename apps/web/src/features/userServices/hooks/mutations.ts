@@ -6,7 +6,7 @@ import type {
   CreateBookingRequest,
   UpdateBookingStatusRequest,
   CreateReviewRequest
-} from '../types';
+} from '@freediving.ph/types';
 
 export const useCreateService = () => {
   const queryClient = useQueryClient();

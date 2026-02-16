@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useMarkAsRead, useDeleteNotification } from '../hooks';
-import type { Notification } from '../types';
+import type { Notification } from '@freediving.ph/types';
 
 interface NotificationCardProps {
   notification: Notification;

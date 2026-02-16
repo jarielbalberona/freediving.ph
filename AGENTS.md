@@ -44,7 +44,8 @@ Verified examples:
   - `pnpm --filter <package-name> lint` (if present)
   - `pnpm --filter <package-name> test` (if present)
 - For cross-workspace changes, run repo-level checks: `pnpm typecheck && pnpm lint && pnpm test`.
-- Keep shared contracts in `packages/types` backward-compatible when possible; update API and web together when DTOs change.
+- Keep shared contracts in `packages/types/src` backward-compatible when possible; update API and web together when DTOs change.
+- Do not create feature-local `types.ts` in `apps/web/src/features/*`; define shared contracts in `packages/types/src` and import from `@freediving.ph/types`.
 - API DB schema + migrations are driven from `apps/api/src/models/drizzle` and `apps/api/.drizzle/migrations`; verify DB scripts after model changes.
 - Do not add workspace-only env assumptions into shared packages.
 

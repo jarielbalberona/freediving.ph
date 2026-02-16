@@ -4,7 +4,7 @@ import type {
   CreateEventRequest,
   UpdateEventRequest,
   JoinEventRequest
-} from '../types';
+} from '@freediving.ph/types';
 
 export const useCreateEvent = () => {
   const queryClient = useQueryClient();

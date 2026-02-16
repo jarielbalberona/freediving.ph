@@ -1,6 +1,6 @@
 "use client";
 
-import { Thread } from "../types";
+import { Thread } from '@freediving.ph/types';
 import ThreadCard from "./ThreadCard";
 
 interface ThreadListProps {

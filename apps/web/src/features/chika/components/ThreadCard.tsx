@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Thread } from "../types";
+import { Thread } from '@freediving.ph/types';
 import { useLikeThread, useUnlikeThread } from "../hooks";
 
 interface ThreadCardProps {

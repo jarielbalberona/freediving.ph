@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { mediaApi } from '../api/media';
-import type { MediaFilters } from '../types';
+import type { MediaFilters } from '@freediving.ph/types';
 
 export const useMedia = (filters?: MediaFilters) => {
   return useQuery({

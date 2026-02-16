@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Bell, CheckCircle } from 'lucide-react';
-import type { NotificationFilters } from '../types';
+import type { NotificationFilters } from '@freediving.ph/types';
 
 interface NotificationListProps {
   userId: number;

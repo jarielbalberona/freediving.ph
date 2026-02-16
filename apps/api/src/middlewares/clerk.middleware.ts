@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import db from "@/databases/drizzle/connection";
 import { users } from "@/models/drizzle/authentication.model";
 import { ApiResponse } from "@/utils/serviceApi";
+import { canPerformPolicyAction, type PolicyAction } from "@/core/policies";
 
 // Extend Express Request type to include user
 declare global {
@@ -48,6 +49,11 @@ export const clerkAuthMiddleware = async (
 			return;
 		}
 
+		if (user[0].accountStatus !== "ACTIVE") {
+			apiResponse.forbiddenResponse("Account is not active");
+			return;
+		}
+
 		// Attach user to request
 		req.user = user[0];
 		next();
@@ -69,6 +75,42 @@ export const requireRole = (role: string) => {
 		}
 
 		if (req.user.role !== role && req.user.role !== 'SUPER_ADMIN') {
+			apiResponse.forbiddenResponse("Insufficient permissions");
+			return;
+		}
+
+		next();
+	};
+};
+
+export const requireAnyRole = (roles: string[]) => {
+	return (req: Request, res: Response, next: NextFunction) => {
+		const apiResponse = new ApiResponse(res);
+
+		if (!req.user) {
+			apiResponse.unauthorizedResponse("User not authenticated");
+			return;
+		}
+
+		if (!roles.includes(req.user.role)) {
+			apiResponse.forbiddenResponse("Insufficient permissions");
+			return;
+		}
+
+		next();
+	};
+};
+
+export const requirePolicy = (action: PolicyAction) => {
+	return (req: Request, res: Response, next: NextFunction) => {
+		const apiResponse = new ApiResponse(res);
+
+		if (!req.user) {
+			apiResponse.unauthorizedResponse("User not authenticated");
+			return;
+		}
+
+		if (!canPerformPolicyAction(req.user.role, action)) {
 			apiResponse.forbiddenResponse("Insufficient permissions");
 			return;
 		}

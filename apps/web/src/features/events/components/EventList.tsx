@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar, Plus } from 'lucide-react';
 import { useState } from 'react';
-import type { EventFilters } from '../types';
+import type { EventFilters } from '@freediving.ph/types';
 
 interface EventListProps {
   filters?: EventFilters;

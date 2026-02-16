@@ -5,7 +5,7 @@ import type {
   UserProfile,
   UpdateUserRequest,
   UserFilters
-} from '../types';
+} from '@freediving.ph/types';
 
 export const userApi = {
   getUsers: async (filters?: UserFilters): Promise<User[]> => {

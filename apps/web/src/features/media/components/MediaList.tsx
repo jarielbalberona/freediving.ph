@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, ImageIcon } from 'lucide-react';
-import type { MediaFilters } from '../types';
+import type { MediaFilters } from '@freediving.ph/types';
 
 interface MediaListProps {
   filters?: MediaFilters;

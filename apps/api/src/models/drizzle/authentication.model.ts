@@ -15,6 +15,9 @@ import { ROLE_LIST, TOKEN_LIST } from "@/databases/drizzle/lists";
 
 export const ROLE_TYPE = pgEnum("role_type", ROLE_LIST.enumValues);
 export const TOKEN_TYPE = pgEnum("token_type", TOKEN_LIST.enumValues);
+export const ACCOUNT_STATUS = pgEnum("account_status", ["ACTIVE", "SUSPENDED", "DELETED"]);
+export const PROFILE_VISIBILITY = pgEnum("profile_visibility", ["PUBLIC", "MEMBERS_ONLY"]);
+export const BUDDY_FINDER_VISIBILITY = pgEnum("buddy_finder_visibility", ["VISIBLE", "HIDDEN"]);
 
 export const users = pgTable("users", {
 	id: serial("id").primaryKey(),
@@ -25,6 +28,7 @@ export const users = pgTable("users", {
 	emailVerified: timestamp("email_verified", { withTimezone: true }),
 	image: text("image"),
   role: ROLE_TYPE("role").default("USER"),
+  accountStatus: ACCOUNT_STATUS("account_status").default("ACTIVE").notNull(),
   alias: text("alias").unique(),
 
   // Profile information
@@ -32,6 +36,10 @@ export const users = pgTable("users", {
   location: text("location"),
   phone: text("phone"),
   website: text("website"),
+  homeDiveArea: text("home_dive_area"),
+  experienceLevel: text("experience_level"),
+  visibility: PROFILE_VISIBILITY("visibility").default("PUBLIC").notNull(),
+  buddyFinderVisibility: BUDDY_FINDER_VISIBILITY("buddy_finder_visibility").default("VISIBLE").notNull(),
 
   // Service provider status
   isServiceProvider: boolean("is_service_provider").default(false),

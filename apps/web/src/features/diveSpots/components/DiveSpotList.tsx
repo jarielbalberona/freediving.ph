@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MapPin, Plus } from 'lucide-react';
-import type { DiveSpotFilters } from '../types';
+import type { DiveSpotFilters } from '@freediving.ph/types';
 
 interface DiveSpotListProps {
   filters?: DiveSpotFilters;

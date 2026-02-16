@@ -1,6 +1,6 @@
 "use client";
 
-import { Media } from '../types';
+import { Media } from '@freediving.ph/types';
 import NextImage from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { groupsApi } from '../api/groups';
-import type { GroupFilters } from '../types';
+import type { GroupFilters } from '@freediving.ph/types';
 
 export const useGroups = (filters?: GroupFilters) => {
   return useQuery({

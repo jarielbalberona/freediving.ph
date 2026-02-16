@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Users, UserPlus } from 'lucide-react';
-import type { UserFilters } from '../types';
+import type { UserFilters } from '@freediving.ph/types';
 
 interface UserListProps {
   filters?: UserFilters;

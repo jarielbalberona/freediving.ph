@@ -177,9 +177,9 @@ mkdir src/features/newFeature
 mkdir src/features/newFeature/{api,components,hooks}
 ```
 
-### **2. Define Types**
+### **2. Define Shared Types**
 ```typescript
-// features/newFeature/types.ts
+// packages/types/src/index.ts
 export interface NewFeatureItem {
   id: number;
   name: string;
@@ -222,7 +222,6 @@ export function NewFeatureList() {
 ### **6. Export Everything**
 ```typescript
 // features/newFeature/index.ts
-export * from './types';
 export * from './api/newFeature';
 export * from './hooks';
 export * from './components';
@@ -257,7 +256,7 @@ export * from './components';
 
 ## 🔧 Development Workflow
 
-1. **Start with Types**: Define your data structures first
+1. **Start with Shared Contracts**: Define shared data structures in `packages/types/src` first
 2. **Create API Layer**: Implement your API calls
 3. **Add React Query Hooks**: Create data fetching hooks
 4. **Build Components**: Create UI components

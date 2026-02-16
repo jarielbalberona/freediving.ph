@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { threadsApi } from "../api/threads";
-import { CreateThreadData, UpdateThreadData } from "../types";
+import { CreateThreadData, UpdateThreadData } from '@freediving.ph/types';
 
 export const useCreateThread = () => {
   const queryClient = useQueryClient();

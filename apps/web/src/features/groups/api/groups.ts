@@ -8,7 +8,7 @@ import type {
   JoinGroupRequest,
   CreateGroupPostRequest,
   GroupFilters
-} from '../types';
+} from '@freediving.ph/types';
 
 export const groupsApi = {
   // Get all groups with pagination and filtering

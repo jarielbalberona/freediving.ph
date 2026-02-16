@@ -6,6 +6,9 @@ export * from './userServices';
 export * from './diveSpots';
 export * from './media';
 export * from './user';
+export * from './messages';
+export * from './reports';
+export * from './profiles';
 
 // You can add more features here as they are created:
 // export * from './events';

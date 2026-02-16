@@ -3,7 +3,7 @@ import { mediaApi } from '../api/media';
 import type {
   CreateMediaRequest,
   UpdateMediaRequest
-} from '../types';
+} from '@freediving.ph/types';
 
 export const useUploadMedia = () => {
   const queryClient = useQueryClient();

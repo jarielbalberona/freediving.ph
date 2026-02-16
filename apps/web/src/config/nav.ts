@@ -11,6 +11,11 @@ import {
   FishSymbol,
   Briefcase,
   Image,
+  Dumbbell,
+  ShieldAlert,
+  Leaf,
+  Store,
+  Handshake,
 } from "lucide-react";
 
 export const navigation = [
@@ -74,6 +79,41 @@ export const navigation = [
     title: "Competitive Records",
     url: "/competitive-records",
     icon: ClipboardList,
+    isActive: false,
+    isProtected: false,
+  },
+  {
+    title: "Training Logs",
+    url: "/training-logs",
+    icon: Dumbbell,
+    isActive: false,
+    isProtected: true,
+  },
+  {
+    title: "Safety",
+    url: "/safety",
+    icon: ShieldAlert,
+    isActive: false,
+    isProtected: false,
+  },
+  {
+    title: "Awareness",
+    url: "/awareness",
+    icon: Leaf,
+    isActive: false,
+    isProtected: false,
+  },
+  {
+    title: "Marketplace",
+    url: "/marketplace",
+    icon: Store,
+    isActive: false,
+    isProtected: false,
+  },
+  {
+    title: "Collaboration",
+    url: "/collaboration",
+    icon: Handshake,
     isActive: false,
     isProtected: false,
   },

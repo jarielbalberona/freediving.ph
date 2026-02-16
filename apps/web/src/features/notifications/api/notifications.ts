@@ -8,7 +8,7 @@ import type {
   UpdateNotificationRequest,
   UpdateNotificationSettingsRequest,
   NotificationFilters
-} from '../types';
+} from '@freediving.ph/types';
 
 export const notificationsApi = {
   getUserNotifications: async (userId: number, filters?: NotificationFilters): Promise<Notification[]> => {

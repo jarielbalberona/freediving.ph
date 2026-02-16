@@ -5,7 +5,7 @@ import type {
   UpdateGroupRequest,
   JoinGroupRequest,
   CreateGroupPostRequest
-} from '../types';
+} from '@freediving.ph/types';
 
 export const useCreateGroup = () => {
   const queryClient = useQueryClient();

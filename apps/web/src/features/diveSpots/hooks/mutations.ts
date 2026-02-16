@@ -4,7 +4,7 @@ import type {
   CreateDiveSpotRequest,
   UpdateDiveSpotRequest,
   CreateDiveSpotReviewRequest
-} from '../types';
+} from '@freediving.ph/types';
 
 export const useCreateDiveSpot = () => {
   const queryClient = useQueryClient();

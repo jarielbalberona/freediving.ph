@@ -7,7 +7,7 @@ import type {
   UpdateEventRequest,
   JoinEventRequest,
   EventFilters
-} from '../types';
+} from '@freediving.ph/types';
 
 export const eventsApi = {
   getEvents: async (filters?: EventFilters): Promise<Event[]> => {

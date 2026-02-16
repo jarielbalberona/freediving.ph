@@ -6,7 +6,8 @@
 ## Structure And Where To Add Changes
 - Pages/routes/layouts: `src/app/` (App Router)
 - Reusable UI primitives/components: `src/components/` and `src/components/ui/`
-- Feature-level contracts/selectors/types: `src/features/`
+- Feature-level hooks/components/api modules: `src/features/`
+- Shared feature contracts/types: `packages/types/src` (consume in web via `@freediving.ph/types`)
 - API/http client code: `src/lib/http/` (preferred) and `src/lib/`
 - Shared hooks/providers/state:
   - Hooks: `src/hooks/`
@@ -24,3 +25,4 @@
 ## Visible Footguns
 - `src/lib/api.ts` is marked legacy; prefer new integrations via `src/lib/http/*` for new work.
 - `next dev --turbopack` is used in `dev`; verify behavior parity with production `next build` for non-trivial changes.
+- Do not add `src/features/*/types.ts`; put API/shared contracts in `packages/types/src` and import from `@freediving.ph/types`.

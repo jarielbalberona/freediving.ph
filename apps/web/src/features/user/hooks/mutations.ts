@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { userApi } from '../api/user';
-import type { UpdateUserRequest } from '../types';
+import type { UpdateUserRequest } from '@freediving.ph/types';
 
 export const useUpdateCurrentUser = () => {
   const queryClient = useQueryClient();

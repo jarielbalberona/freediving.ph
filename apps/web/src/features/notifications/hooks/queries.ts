@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { notificationsApi } from '../api/notifications';
-import type { NotificationFilters } from '../types';
+import type { NotificationFilters } from '@freediving.ph/types';
 
 export const useNotifications = (userId: number, filters?: NotificationFilters) => {
   return useQuery({

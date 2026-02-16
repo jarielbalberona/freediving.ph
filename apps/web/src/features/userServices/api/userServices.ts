@@ -10,7 +10,7 @@ import type {
   UpdateBookingStatusRequest,
   CreateReviewRequest,
   ServiceFilters
-} from '../types';
+} from '@freediving.ph/types';
 
 export const userServicesApi = {
   getServices: async (filters?: ServiceFilters): Promise<UserService[]> => {

@@ -4,7 +4,7 @@ import type {
   CreateNotificationRequest,
   UpdateNotificationRequest,
   UpdateNotificationSettingsRequest
-} from '../types';
+} from '@freediving.ph/types';
 
 export const useCreateNotification = () => {
   const queryClient = useQueryClient();

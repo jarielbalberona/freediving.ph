@@ -8,6 +8,9 @@ import { eventsRouter } from "@/app/events/events.routes";
 import { groupsRouter } from "@/app/groups/groups.routes";
 import { notificationsRouter } from "@/app/notifications/notifications.routes";
 import { userServicesRouter } from "@/app/userServices/userServices.routes";
+import { messagesRouter } from "@/app/messages/messages.routes";
+import { reportsRouter } from "@/app/reports/reports.routes";
+import { profilesRouter } from "@/app/profiles/profiles.routes";
 import clerkWebhookRouter from "@/routes/clerk-webhook";
 
 import { csrfRouter } from "@/routes/csrf.route";
@@ -33,6 +36,9 @@ export const routes: RouteConfig[] = [
   { path: "/events", router: eventsRouter },
   { path: "/groups", router: groupsRouter },
   { path: "/notifications", router: notificationsRouter },
+  { path: "/messages", router: messagesRouter },
+  { path: "/reports", router: reportsRouter },
+  { path: "/profiles", router: profilesRouter },
   { path: "/user-services", router: userServicesRouter },
   { path: "/webhooks", router: clerkWebhookRouter },
 ];

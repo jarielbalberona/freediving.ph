@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useCreateThread } from "../hooks";
-import { CreateThreadData } from "../types";
+import { CreateThreadData } from '@freediving.ph/types';
 
 interface CreateThreadModalProps {
   isOpen: boolean;

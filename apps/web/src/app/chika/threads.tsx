@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowBigDown, ArrowBigUp, MessageSquare } from "lucide-react";
 import { useThreads, useAddReaction } from "@/features/chika";
-import { ThreadWithUser } from "@/features/chika/types";
+import { ThreadWithUser } from '@freediving.ph/types';
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 

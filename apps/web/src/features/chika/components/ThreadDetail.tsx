@@ -1,4 +1,4 @@
-import { ThreadWithUser } from "../types";
+import { ThreadWithUser } from '@freediving.ph/types';
 
 interface ThreadDetailProps {
   thread: ThreadWithUser;

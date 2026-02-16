@@ -7,7 +7,7 @@ import type {
   UpdateDiveSpotRequest,
   CreateDiveSpotReviewRequest,
   DiveSpotFilters
-} from '../types';
+} from '@freediving.ph/types';
 
 export const diveSpotsApi = {
   getDiveSpots: async (filters?: DiveSpotFilters): Promise<DiveSpot[]> => {

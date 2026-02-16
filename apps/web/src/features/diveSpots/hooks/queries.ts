@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { diveSpotsApi } from '../api/diveSpots';
-import type { DiveSpotFilters } from '../types';
+import type { DiveSpotFilters } from '@freediving.ph/types';
 
 export const useDiveSpots = (filters?: DiveSpotFilters) => {
   return useQuery({

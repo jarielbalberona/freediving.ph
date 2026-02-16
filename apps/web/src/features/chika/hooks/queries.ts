@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { threadsApi } from "../api/threads";
-import { ThreadFilters, ThreadWithUser } from "../types";
+import { ThreadFilters, ThreadWithUser } from '@freediving.ph/types';
 
 export const useThreads = (initialData?: ThreadWithUser[], filters?: ThreadFilters) => {
   return useQuery({

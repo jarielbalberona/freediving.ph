@@ -7,7 +7,7 @@ import type {
   PresignedUrlRequest,
   PresignedUrlResponse,
   MediaFilters
-} from '../types';
+} from '@freediving.ph/types';
 
 export const mediaApi = {
   getPresignedUrl: async (data: PresignedUrlRequest): Promise<PresignedUrlResponse> => {

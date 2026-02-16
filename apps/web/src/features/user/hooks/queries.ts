@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { userApi } from '../api/user';
-import type { UserFilters } from '../types';
+import type { UserFilters } from '@freediving.ph/types';
 
 export const useUsers = (filters?: UserFilters) => {
   return useQuery({

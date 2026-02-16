@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { eventsApi } from '../api/events';
-import type { EventFilters } from '../types';
+import type { EventFilters } from '@freediving.ph/types';
 
 export const useEvents = (filters?: EventFilters) => {
   return useQuery({

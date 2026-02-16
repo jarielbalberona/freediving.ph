@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Briefcase, Plus } from 'lucide-react';
-import type { ServiceFilters } from '../types';
+import type { ServiceFilters } from '@freediving.ph/types';
 
 interface ServiceListProps {
   filters?: ServiceFilters;

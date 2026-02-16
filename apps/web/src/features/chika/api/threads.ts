@@ -1,5 +1,5 @@
 import { axiosInstance } from "@/lib/http/axios";
-import { Thread, CreateThreadData, UpdateThreadData, ThreadWithUser, ThreadComment } from "../types";
+import { Thread, CreateThreadData, UpdateThreadData, ThreadWithUser, ThreadComment } from '@freediving.ph/types';
 import type { ApiEnvelope } from "@freediving.ph/types";
 
 export const threadsApi = {

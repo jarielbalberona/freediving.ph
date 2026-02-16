@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { userServicesApi } from '../api/userServices';
-import type { ServiceFilters } from '../types';
+import type { ServiceFilters } from '@freediving.ph/types';
 
 export const useServices = (filters?: ServiceFilters) => {
   return useQuery({

@@ -69,7 +69,12 @@ export default class UserController extends ApiController {
 				location: null,
 				phone: null,
 				website: null,
-				isServiceProvider: false
+				homeDiveArea: null,
+				experienceLevel: null,
+				visibility: "PUBLIC",
+				buddyFinderVisibility: "VISIBLE",
+				isServiceProvider: false,
+				accountStatus: "ACTIVE"
 			};
 
 			const data = await this.userService.createUser(mergedData);
