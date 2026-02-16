@@ -26,7 +26,10 @@ export default class ThreadsController extends ApiController {
 			if (!check.success)
 				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
 
-			const response = await this.threadsService.create(check.data);
+			const response = await this.threadsService.create({
+				...check.data,
+				userId: this.request.user.id
+			});
 
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
@@ -80,7 +83,10 @@ export default class ThreadsController extends ApiController {
 			if (!check.success)
 				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
 
-			const response = await this.threadsService.createComment(check.data);
+			const response = await this.threadsService.createComment({
+				...check.data,
+				userId: this.request.user.id
+			});
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -106,7 +112,10 @@ export default class ThreadsController extends ApiController {
 			if (!check.success)
 				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
 
-			const response = await this.threadsService.addReaction(threadId, check.data);
+			const response = await this.threadsService.addReaction(threadId, {
+				...check.data,
+				userId: this.request.user.id
+			});
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -116,7 +125,7 @@ export default class ThreadsController extends ApiController {
 	async removeReaction() {
 		try {
 			const threadId = Number(this.request.params.id);
-			const userId = Number(this.request.body.userId);
+			const userId = this.request.user?.id;
 
 			if (!userId) {
 				return this.apiResponse.badResponse("User ID is required");

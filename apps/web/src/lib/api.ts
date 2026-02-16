@@ -9,6 +9,16 @@ export interface ApiResponse<T = any> {
   json(): Promise<any>;
 }
 
+declare global {
+  interface Window {
+    Clerk?: {
+      session?: {
+        getToken(): Promise<string | null>;
+      };
+    };
+  }
+}
+
 const getBaseUrl = () => {
   const serverUrl = process.env.API_URL;
   const clientUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -33,10 +43,8 @@ export async function apiCall<T>(
   // Get Clerk token if available
   let authToken = '';
   if (typeof window !== 'undefined') {
-    // Client-side: get token from Clerk
     try {
-      const { getToken } = await import('@clerk/nextjs');
-      authToken = await getToken() || '';
+      authToken = (await window.Clerk?.session?.getToken()) || '';
     } catch (error) {
       console.log('No Clerk token available');
     }

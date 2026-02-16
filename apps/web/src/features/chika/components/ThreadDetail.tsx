@@ -1,7 +1,7 @@
-import { Thread } from "../types";
+import { ThreadWithUser } from "../types";
 
 interface ThreadDetailProps {
-  thread: Thread;
+  thread: ThreadWithUser;
 }
 
 export default function ThreadDetail({ thread }: ThreadDetailProps) {
@@ -12,21 +12,21 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
   return (
     <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{thread.title}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{thread.thread.title}</h1>
         <div className="flex items-center text-sm text-gray-500 mb-4">
-          <span>By {thread.author.alias || thread.author.username}</span>
+          <span>By {thread.user.alias || thread.user.username}</span>
           <span className="mx-2">•</span>
-          <span>{new Date(thread.createdAt).toLocaleDateString()}</span>
+          <span>{new Date(thread.thread.createdAt).toLocaleDateString()}</span>
         </div>
       </div>
 
       <div className="prose max-w-none">
-        <p className="text-gray-700 whitespace-pre-wrap">{thread.content}</p>
+        <p className="text-gray-700 whitespace-pre-wrap">{thread.thread.content}</p>
       </div>
 
-      {thread.tags && thread.tags.length > 0 && (
+      {thread.thread.tags && thread.thread.tags.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {thread.tags.map((tag, index) => (
+          {thread.thread.tags.map((tag, index) => (
             <span
               key={index}
               className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
@@ -39,7 +39,7 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
 
       <div className="mt-6 flex items-center justify-between border-t pt-4">
         <div className="flex items-center space-x-4 text-sm text-gray-500">
-          <span>{thread.likeCount} likes</span>
+          <span>{thread.upvotes - thread.downvotes} likes</span>
           <span>{thread.commentCount} comments</span>
         </div>
       </div>

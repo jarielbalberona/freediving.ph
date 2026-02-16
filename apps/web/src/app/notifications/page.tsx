@@ -73,7 +73,7 @@ export default function NotificationsPage() {
                 <Bell className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.data?.total || 0}</div>
+                <div className="text-2xl font-bold">{stats?.total || 0}</div>
                 <p className="text-xs text-muted-foreground">All notifications</p>
               </CardContent>
             </Card>
@@ -85,7 +85,7 @@ export default function NotificationsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">
-                  {stats?.data?.unread || 0}
+                  {stats?.unread || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Need attention</p>
               </CardContent>
@@ -98,7 +98,7 @@ export default function NotificationsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  {stats?.data?.read || 0}
+                  {stats?.read || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Already seen</p>
               </CardContent>
@@ -111,7 +111,7 @@ export default function NotificationsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-gray-600">
-                  {stats?.data?.archived || 0}
+                  {stats?.archived || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Stored away</p>
               </CardContent>

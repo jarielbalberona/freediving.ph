@@ -50,7 +50,7 @@ export function EventList({
     );
   }
 
-  const events = Array.isArray(data?.data?.data) ? data.data.data : [];
+  const events = Array.isArray(data) ? data : [];
 
   if (events.length === 0) {
     return (

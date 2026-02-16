@@ -83,17 +83,41 @@ export const useUnlikeThread = () => {
   });
 };
 
-// Alias for compatibility with existing code
-export const useAddReaction = useLikeThread;
-export const useRemoveReaction = useUnlikeThread;
+export const useAddReaction = () => {
+  const queryClient = useQueryClient();
 
-// Placeholder hooks for missing functionality
-export const useThreadComments = () => {
-  // TODO: Implement comments functionality
-  return { data: [], isLoading: false };
+  return useMutation({
+    mutationFn: ({ threadId, type }: { threadId: number; type: "1" | "0" }) =>
+      type === "1" ? threadsApi.like(threadId) : threadsApi.unlike(threadId),
+    onSuccess: (_, { threadId }) => {
+      queryClient.invalidateQueries({ queryKey: ["threads"] });
+      queryClient.invalidateQueries({ queryKey: ["threads", threadId] });
+    },
+  });
+};
+
+export const useRemoveReaction = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (threadId: number) => threadsApi.removeReaction(threadId),
+    onSuccess: (_, threadId) => {
+      queryClient.invalidateQueries({ queryKey: ["threads"] });
+      queryClient.invalidateQueries({ queryKey: ["threads", threadId] });
+    },
+  });
 };
 
 export const useCreateComment = () => {
-  // TODO: Implement comment creation
-  return { mutateAsync: async () => {}, isPending: false };
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ threadId, content }: { threadId: number; content: string }) =>
+      threadsApi.createComment(threadId, content),
+    onSuccess: (_, { threadId }) => {
+      queryClient.invalidateQueries({ queryKey: ["threads"] });
+      queryClient.invalidateQueries({ queryKey: ["threads", threadId] });
+      queryClient.invalidateQueries({ queryKey: ["threads", threadId, "comments"] });
+    },
+  });
 };

@@ -7,8 +7,8 @@ services:
     env: node
     plan: starter
     region: oregon
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @freediving.ph/web build
+    startCommand: pnpm --filter @freediving.ph/web start
     healthCheckPath: /
     envVars:
       - key: NODE_ENV

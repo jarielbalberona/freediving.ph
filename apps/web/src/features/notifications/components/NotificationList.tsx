@@ -6,14 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Bell, CheckCircle } from 'lucide-react';
+import type { NotificationFilters } from '../types';
 
 interface NotificationListProps {
   userId: number;
-  filters?: {
-    status?: 'UNREAD' | 'READ' | 'ARCHIVED' | 'DELETED';
-    type?: string;
-    priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
-  };
+  filters?: NotificationFilters;
 }
 
 export function NotificationList({ userId, filters }: NotificationListProps) {
@@ -48,7 +45,7 @@ export function NotificationList({ userId, filters }: NotificationListProps) {
     );
   }
 
-  const notifications = data?.data?.notifications || [];
+  const notifications = data ?? [];
   const unreadCount = notifications.filter(n => n.status === 'UNREAD').length;
 
   if (notifications.length === 0) {

@@ -14,17 +14,11 @@ export const useCreateService = () => {
   return useMutation({
     mutationFn: (data: CreateServiceRequest) =>
       userServicesApi.createService(data),
-    onSuccess: (response, variables) => {
+    onSuccess: () => {
       // Invalidate services list
       queryClient.invalidateQueries({
         queryKey: ['services']
       });
-      // Invalidate user services if providerId is available
-      if (variables.providerId) {
-        queryClient.invalidateQueries({
-          queryKey: ['user-services', variables.providerId]
-        });
-      }
     },
   });
 };

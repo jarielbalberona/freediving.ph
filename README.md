@@ -29,8 +29,8 @@ Freediving Philippines is an open-source social web app designed for the growing
 - **Frontend:** Next.js 15, React Query, Zustand, Tailwind CSS
 - **Backend:** Node.js, Express, Drizzle ORM, PostgreSQL
 - **Authentication:** Clerk
-- **Deployment:** CI/CD ~ GitHub Actions
-- **Cloud Provider:** AWS, ECS, RDS, Route53, & S3
+- **Deployment:** Render (active), AWS ECS/Terraform (legacy/in-transition)
+- **CI/CD:** GitHub Actions
 - **Infrastructure:** Terraform (Multi-Environment)
 
 ## 👥 Multi-Environment Terraform Setup
@@ -72,6 +72,14 @@ Create a `.env` file and add the following:
   pnpm install
 ```
 
+### **3.5 Verify Workspace Health**
+
+```sh
+  pnpm typecheck
+  pnpm lint
+  pnpm test
+```
+
 ### **4. Run the Development Server**
 
 in the root folder
@@ -104,7 +112,8 @@ packages/
 
 ```sh
 pnpm dev          # run apps in parallel
-pnpm build        # build packages then apps
+pnpm build        # build packages + API
+pnpm build:all    # build packages + API + web
 pnpm typecheck    # type-check all workspaces
 pnpm lint         # lint all workspaces
 pnpm dev:web      # run Next.js app only

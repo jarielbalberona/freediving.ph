@@ -7,11 +7,11 @@
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
-    "type-check": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"No tests yet for @freediving.ph/utils\""
   },
   "devDependencies": {
-    "tsup": "^8.3.6",
     "typescript": "^5.7.3"
   }
 }

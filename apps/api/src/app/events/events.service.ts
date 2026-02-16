@@ -1,4 +1,4 @@
-import { InferSelectModel, desc, eq, count, sql } from "drizzle-orm";
+import { InferSelectModel, and, desc, eq, count, sql } from "drizzle-orm";
 
 import { EventsServerSchemaType, EventsUpdateSchemaType, EventAttendeeSchemaType } from "./events.validators";
 import { users } from "@/models/drizzle/authentication.model";
@@ -145,7 +145,7 @@ export default class EventsService extends DrizzleService {
 			const existingAttendee = await this.db
 				.select()
 				.from(eventAttendees)
-				.where(eq(eventAttendees.eventId, data.eventId) && eq(eventAttendees.userId, data.userId))
+				.where(and(eq(eventAttendees.eventId, data.eventId), eq(eventAttendees.userId, data.userId)))
 				.limit(1);
 
 			if (existingAttendee.length > 0) {
@@ -180,7 +180,7 @@ export default class EventsService extends DrizzleService {
 		try {
 			const deletedData = await this.db
 				.delete(eventAttendees)
-				.where(eq(eventAttendees.eventId, eventId) && eq(eventAttendees.userId, userId))
+				.where(and(eq(eventAttendees.eventId, eventId), eq(eventAttendees.userId, userId)))
 				.returning();
 
 			if (!deletedData.length) {

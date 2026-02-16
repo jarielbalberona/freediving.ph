@@ -1,4 +1,4 @@
-import { InferSelectModel, desc, eq, count, sql } from "drizzle-orm";
+import { InferSelectModel, and, desc, eq, count, sql } from "drizzle-orm";
 
 import { NotificationsServerSchemaType, NotificationsUpdateSchemaType, NotificationSettingsSchemaType } from "./notifications.validators";
 import { users } from "@/models/drizzle/authentication.model";
@@ -291,7 +291,7 @@ export default class NotificationsService extends DrizzleService {
 			const result = await this.db
 				.select({ count: count() })
 				.from(notifications)
-				.where(eq(notifications.userId, userId) && eq(notifications.status, "UNREAD"));
+				.where(and(eq(notifications.userId, userId), eq(notifications.status, "UNREAD")));
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,

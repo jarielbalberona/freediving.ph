@@ -1,4 +1,5 @@
 import { axiosInstance } from '@/lib/http/axios';
+import type { ApiEnvelope } from '@freediving.ph/types';
 import type {
   Event,
   EventAttendee,
@@ -9,8 +10,7 @@ import type {
 } from '../types';
 
 export const eventsApi = {
-  // Get all events with pagination and filtering
-  getEvents: (filters?: EventFilters) => {
+  getEvents: async (filters?: EventFilters): Promise<Event[]> => {
     const params = new URLSearchParams();
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
@@ -27,70 +27,45 @@ export const eventsApi = {
     const queryString = params.toString();
     const url = `/events${queryString ? `?${queryString}` : ''}`;
 
-    return axiosInstance.get<{
-      success: boolean;
-      data: {
-        events: Event[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-      };
-    }>(url);
+    const response = await axiosInstance.get<ApiEnvelope<Event[]>>(url);
+    return response.data.data;
   },
 
   // Get event by ID
-  getEventById: (eventId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: Event;
-    }>(`/events/${eventId}`);
+  getEventById: async (eventId: number): Promise<Event> => {
+    const response = await axiosInstance.get<ApiEnvelope<Event>>(`/events/${eventId}`);
+    return response.data.data;
   },
 
   // Create new event
-  createEvent: (data: CreateEventRequest) => {
-    return axiosInstance.post<{
-      success: boolean;
-      data: Event;
-    }>('/events', data);
+  createEvent: async (data: CreateEventRequest): Promise<Event> => {
+    const response = await axiosInstance.post<ApiEnvelope<Event>>('/events', data);
+    return response.data.data;
   },
 
   // Update event
-  updateEvent: (eventId: number, data: UpdateEventRequest) => {
-    return axiosInstance.put<{
-      success: boolean;
-      data: Event;
-    }>(`/events/${eventId}`, data);
+  updateEvent: async (eventId: number, data: UpdateEventRequest): Promise<Event> => {
+    const response = await axiosInstance.put<ApiEnvelope<Event>>(`/events/${eventId}`, data);
+    return response.data.data;
   },
 
   // Get event attendees
-  getEventAttendees: (eventId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: EventAttendee[];
-    }>(`/events/${eventId}/attendees`);
+  getEventAttendees: async (eventId: number): Promise<EventAttendee[]> => {
+    const response = await axiosInstance.get<ApiEnvelope<EventAttendee[]>>(`/events/${eventId}/attendees`);
+    return response.data.data;
   },
 
   // Join event
-  joinEvent: (data: JoinEventRequest) => {
-    return axiosInstance.post<{
-      success: boolean;
-      data: EventAttendee;
-    }>(`/events/${data.eventId}/attendees`, {
+  joinEvent: async (data: JoinEventRequest): Promise<EventAttendee> => {
+    const response = await axiosInstance.post<ApiEnvelope<EventAttendee>>(`/events/${data.eventId}/attendees`, {
       userId: data.userId,
       notes: data.notes
     });
+    return response.data.data;
   },
 
   // Leave event
-  leaveEvent: (eventId: number, userId: number) => {
-    return axiosInstance.delete<{
-      success: boolean;
-      message: string;
-    }>(`/events/${eventId}/attendees/${userId}`);
+  leaveEvent: async (eventId: number, userId: number): Promise<void> => {
+    await axiosInstance.delete(`/events/${eventId}/attendees/${userId}`);
   },
 };

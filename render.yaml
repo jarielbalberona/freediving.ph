@@ -20,8 +20,8 @@ services:
     env: node
     plan: starter
     region: oregon
-    buildCommand: cd apps/api && npm install && npm run build
-    startCommand: cd apps/api && npm start
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @freediving.ph/api build
+    startCommand: pnpm --filter @freediving.ph/api start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -32,7 +32,7 @@ services:
         fromDatabase:
           name: freediving-ph-db
           property: connectionString
-      - key: JWT_SECRET
+      - key: SECRET
         generateValue: true
       - key: CLERK_SECRET_KEY
         sync: false
@@ -48,17 +48,33 @@ services:
         value: us-east-1
       - key: AWS_S3_BUCKET
         sync: false
+      - key: AWS_S3_FPH_BUCKET_NAME
+        sync: false
       - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_SERVER_HOST
         sync: false
       - key: EMAIL_PORT
         value: 587
+      - key: EMAIL_SERVER_PORT
+        value: 587
       - key: EMAIL_USER
         sync: false
+      - key: EMAIL_SERVER_USER
+        sync: false
       - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_SERVER_PASSWORD
         sync: false
       - key: EMAIL_FROM
         sync: false
       - key: CORS_ORIGIN
+        value: https://freediving-ph-app.onrender.com
+      - key: ORIGIN_URL
+        value: https://freediving-ph-app.onrender.com
+      - key: API_URL
+        value: https://freediving-ph-api.onrender.com
+      - key: APP_URL
         value: https://freediving-ph-app.onrender.com
       - key: RATE_LIMIT_WINDOW_MS
         value: 900000
@@ -71,8 +87,8 @@ services:
     env: node
     plan: starter
     region: oregon
-    buildCommand: cd apps/web && npm install && npm run build
-    startCommand: cd apps/web && npm start
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @freediving.ph/web build
+    startCommand: pnpm --filter @freediving.ph/web start
     healthCheckPath: /
     envVars:
       - key: NODE_ENV

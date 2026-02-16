@@ -126,7 +126,7 @@ export default function ProfileView() {
             {/* Bio Section */}
             <div className="p-4 space-y-2 rounded-lg bg-background">
               <h2 className="flex items-center gap-2 font-bold">
-                <span>{user.name}</span>
+                <span>{user.fullName ?? user.username ?? user.firstName ?? "User"}</span>
                 <svg
                   width="16"
                   height="16"

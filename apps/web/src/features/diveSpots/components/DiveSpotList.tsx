@@ -50,7 +50,7 @@ export function DiveSpotList({
     );
   }
 
-  const diveSpots = Array.isArray(data?.data?.data) ? data.data.data : [];
+  const diveSpots = Array.isArray(data) ? data : [];
 
   if (diveSpots.length === 0) {
     return (

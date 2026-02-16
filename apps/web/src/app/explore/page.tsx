@@ -96,7 +96,7 @@ export default function ExplorePage() {
 
             <TabsContent value="map" className="mt-6">
               <div className="h-[850px] rounded-lg overflow-hidden">
-                <ExploreView initialDiveSpots={diveSpots?.data?.data} />
+                <ExploreView initialDiveSpots={diveSpots ?? []} />
               </div>
             </TabsContent>
           </Tabs>

@@ -1,4 +1,4 @@
-import { InferSelectModel, desc, eq, count, sql } from "drizzle-orm";
+import { InferSelectModel, and, desc, eq, count, sql } from "drizzle-orm";
 
 import { ThreadsServerSchemaType, ThreadsUpdateSchemaType, CommentCreateSchemaType, ReactionSchemaType } from "@/app/threads/threads.validators";
 import { users } from "@/models/drizzle/authentication.model";
@@ -8,9 +8,12 @@ import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
 export type ThreadsSchemaType = InferSelectModel<typeof threads>;
+type ThreadCreateInput = ThreadsServerSchemaType & { userId: number };
+type ThreadCommentInput = CommentCreateSchemaType & { userId: number };
+type ReactionInput = ReactionSchemaType & { userId: number };
 
 export default class ThreadsService extends DrizzleService {
-	async create(data: ThreadsServerSchemaType) {
+	async create(data: ThreadCreateInput) {
 		try {
 			const createdData = await this.db.insert(threads).values(data).returning();
 
@@ -122,7 +125,7 @@ async retrieveAll() {
 
 
 	// Comments methods
-	async createComment(data: CommentCreateSchemaType) {
+	async createComment(data: ThreadCommentInput) {
 		try {
 			const createdData = await this.db.insert(comments).values(data).returning();
 
@@ -171,22 +174,22 @@ async retrieveAll() {
 	}
 
 	// Reactions methods
-	async addReaction(threadId: number, data: ReactionSchemaType) {
+	async addReaction(threadId: number, data: ReactionInput) {
 		try {
 			// Check if user already reacted to this thread
-			const existingReaction = await this.db
-				.select()
-				.from(reactions)
-				.where(eq(reactions.threadId, threadId) && eq(reactions.userId, data.userId))
-				.limit(1);
+				const existingReaction = await this.db
+					.select()
+					.from(reactions)
+					.where(and(eq(reactions.threadId, threadId), eq(reactions.userId, data.userId)))
+					.limit(1);
 
 			if (existingReaction.length > 0) {
 				// Update existing reaction
-				const updatedData = await this.db
-					.update(reactions)
-					.set({ type: data.type })
-					.where(eq(reactions.threadId, threadId) && eq(reactions.userId, data.userId))
-					.returning();
+					const updatedData = await this.db
+						.update(reactions)
+						.set({ type: data.type })
+						.where(and(eq(reactions.threadId, threadId), eq(reactions.userId, data.userId)))
+						.returning();
 
 				return ServiceResponse.createResponse(
 					status.HTTP_200_OK,
@@ -215,7 +218,7 @@ async retrieveAll() {
 		try {
 			const deletedData = await this.db
 				.delete(reactions)
-				.where(eq(reactions.threadId, threadId) && eq(reactions.userId, userId))
+				.where(and(eq(reactions.threadId, threadId), eq(reactions.userId, userId)))
 				.returning();
 
 			if (!deletedData.length) {

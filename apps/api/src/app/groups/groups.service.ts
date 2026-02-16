@@ -1,4 +1,4 @@
-import { InferSelectModel, desc, eq, count, sql } from "drizzle-orm";
+import { InferSelectModel, and, desc, eq, count, sql } from "drizzle-orm";
 
 import { GroupsServerSchemaType, GroupsUpdateSchemaType, GroupMemberSchemaType, GroupPostSchemaType } from "./groups.validators";
 import { users } from "@/models/drizzle/authentication.model";
@@ -144,7 +144,7 @@ export default class GroupsService extends DrizzleService {
 			const existingMember = await this.db
 				.select()
 				.from(groupMembers)
-				.where(eq(groupMembers.groupId, data.groupId) && eq(groupMembers.userId, data.userId))
+				.where(and(eq(groupMembers.groupId, data.groupId), eq(groupMembers.userId, data.userId)))
 				.limit(1);
 
 			if (existingMember.length > 0) {
@@ -179,7 +179,7 @@ export default class GroupsService extends DrizzleService {
 		try {
 			const deletedData = await this.db
 				.delete(groupMembers)
-				.where(eq(groupMembers.groupId, groupId) && eq(groupMembers.userId, userId))
+				.where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
 				.returning();
 
 			if (!deletedData.length) {

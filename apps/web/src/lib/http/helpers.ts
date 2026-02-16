@@ -1,13 +1,22 @@
 import { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { handleAxiosError } from '@/lib/error-reporting';
 
+declare global {
+  interface Window {
+    Clerk?: {
+      session?: {
+        getToken(): Promise<string | null>;
+      };
+    };
+  }
+}
+
 // Auth token interceptor
 export const createAuthTokenInterceptor = async (config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
   // Get Clerk token if available (client-side only)
   if (typeof window !== 'undefined') {
     try {
-      const { getToken } = await import('@clerk/nextjs');
-      const token = await getToken();
+      const token = await window.Clerk?.session?.getToken();
       if (token) {
         config.headers.set('Authorization', `Bearer ${token}`);
       }

@@ -6,6 +6,9 @@ export interface DiveSpot {
   locationName?: string;
   depth?: number;
   difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  visibility?: 'POOR' | 'FAIR' | 'GOOD' | 'EXCELLENT';
+  current?: 'NONE' | 'LIGHT' | 'MODERATE' | 'STRONG';
+  isVerified?: boolean;
   description?: string;
   bestSeason?: string;
   imageUrl?: string;

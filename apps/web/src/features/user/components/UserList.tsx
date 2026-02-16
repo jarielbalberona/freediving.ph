@@ -43,7 +43,7 @@ export function UserList({
     );
   }
 
-  const users = data?.data?.users || [];
+  const users = data ?? [];
 
   if (users.length === 0) {
     return (

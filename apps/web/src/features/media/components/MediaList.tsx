@@ -47,7 +47,7 @@ export function MediaList({
     );
   }
 
-  const media = data?.data?.media || [];
+  const media = data ?? [];
 
   if (media.length === 0) {
     return (

@@ -34,7 +34,24 @@ export const envSchema = z.object({
 	...emailEnvSchema.shape
 });
 
-const Env = envSchema.safeParse(process.env);
+const normalizedEnv = {
+	...process.env,
+	SECRET: process.env.SECRET ?? process.env.JWT_SECRET,
+	JWT_COOKIE_NAME: process.env.JWT_COOKIE_NAME ?? "fph_jwt",
+	SESSION_COOKIE_NAME: process.env.SESSION_COOKIE_NAME ?? "fph_session",
+	ORIGIN_URL: process.env.ORIGIN_URL ?? process.env.CORS_ORIGIN,
+	APP_URL: process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
+	API_URL: process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL,
+	AWS_ACCESS_KEY: process.env.AWS_ACCESS_KEY ?? process.env.AWS_ACCESS_KEY_ID,
+	AWS_SECRET_KEY: process.env.AWS_SECRET_KEY ?? process.env.AWS_SECRET_ACCESS_KEY,
+	AWS_S3_FPH_BUCKET_NAME: process.env.AWS_S3_FPH_BUCKET_NAME ?? process.env.AWS_S3_BUCKET,
+	EMAIL_SERVER_HOST: process.env.EMAIL_SERVER_HOST ?? process.env.EMAIL_HOST,
+	EMAIL_SERVER_PORT: process.env.EMAIL_SERVER_PORT ?? process.env.EMAIL_PORT,
+	EMAIL_SERVER_USER: process.env.EMAIL_SERVER_USER ?? process.env.EMAIL_USER,
+	EMAIL_SERVER_PASSWORD: process.env.EMAIL_SERVER_PASSWORD ?? process.env.EMAIL_PASS,
+};
+
+const Env = envSchema.safeParse(normalizedEnv);
 
 if (!Env.success) {
 	const errorMessages = Env.error.errors.map(e => e.message).join("\n");

@@ -19,3 +19,12 @@ export const useThread = (id: number) => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
+
+export const useThreadComments = (threadId: number) => {
+  return useQuery({
+    queryKey: ["threads", threadId, "comments"],
+    queryFn: () => threadsApi.getComments(threadId),
+    enabled: !!threadId,
+    staleTime: 2 * 60 * 1000,
+  });
+};

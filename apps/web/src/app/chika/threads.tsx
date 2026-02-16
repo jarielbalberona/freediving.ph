@@ -7,7 +7,13 @@ import { ThreadWithUser } from "@/features/chika/types";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
-const Thread = ({ initialThreads }: { initialThreads: ThreadWithUser[] | null }) => {
+const Thread = ({
+  initialThreads,
+  error,
+}: {
+  initialThreads: ThreadWithUser[] | null;
+  error?: string | null;
+}) => {
   const { data: threads, isLoading } = useThreads(initialThreads || undefined);
   const { user } = useUser();
   const addReaction = useAddReaction();
@@ -20,7 +26,7 @@ const Thread = ({ initialThreads }: { initialThreads: ThreadWithUser[] | null })
     }
 
     try {
-      await addReaction.mutateAsync(threadId);
+      await addReaction.mutateAsync({ threadId, type });
       toast.success("Vote recorded!");
     } catch (error) {
       toast.error("Failed to vote");
@@ -63,6 +69,9 @@ const Thread = ({ initialThreads }: { initialThreads: ThreadWithUser[] | null })
 
   return (
     <>
+      {error ? (
+        <div className="mb-4 text-sm text-red-600">{error}</div>
+      ) : null}
       {threads?.map((threadWithUser) => {
         const { thread, user: threadUser, commentCount, upvotes, downvotes } = threadWithUser;
         return (

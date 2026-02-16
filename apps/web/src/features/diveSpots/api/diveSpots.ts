@@ -1,4 +1,5 @@
 import { axiosInstance } from '@/lib/http/axios';
+import type { ApiEnvelope } from '@freediving.ph/types';
 import type {
   DiveSpot,
   DiveSpotReview,
@@ -9,8 +10,7 @@ import type {
 } from '../types';
 
 export const diveSpotsApi = {
-  // Get all dive spots with pagination and filtering
-  getDiveSpots: (filters?: DiveSpotFilters) => {
+  getDiveSpots: async (filters?: DiveSpotFilters): Promise<DiveSpot[]> => {
     const params = new URLSearchParams();
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
@@ -32,55 +32,36 @@ export const diveSpotsApi = {
     const queryString = params.toString();
     const url = `/dive-spots${queryString ? `?${queryString}` : ''}`;
 
-    return axiosInstance.get<{
-      status: number;
-      message: string;
-      data: DiveSpot[];
-    }>(url);
+    const response = await axiosInstance.get<ApiEnvelope<DiveSpot[]>>(url);
+    return response.data.data;
   },
 
-  // Get dive spot by ID
-  getDiveSpotById: (diveSpotId: number) => {
-    return axiosInstance.get<{
-      status: number;
-      message: string;
-      data: DiveSpot;
-    }>(`/dive-spots/${diveSpotId}`);
+  getDiveSpotById: async (diveSpotId: number): Promise<DiveSpot> => {
+    const response = await axiosInstance.get<ApiEnvelope<DiveSpot>>(`/dive-spots/${diveSpotId}`);
+    return response.data.data;
   },
 
   // Create new dive spot
-  createDiveSpot: (data: CreateDiveSpotRequest) => {
-    return axiosInstance.post<{
-      status: number;
-      message: string;
-      data: DiveSpot;
-    }>('/dive-spots', data);
+  createDiveSpot: async (data: CreateDiveSpotRequest): Promise<DiveSpot> => {
+    const response = await axiosInstance.post<ApiEnvelope<DiveSpot>>('/dive-spots', data);
+    return response.data.data;
   },
 
   // Update dive spot
-  updateDiveSpot: (diveSpotId: number, data: UpdateDiveSpotRequest) => {
-    return axiosInstance.put<{
-      status: number;
-      message: string;
-      data: DiveSpot;
-    }>(`/dive-spots/${diveSpotId}`, data);
+  updateDiveSpot: async (diveSpotId: number, data: UpdateDiveSpotRequest): Promise<DiveSpot> => {
+    const response = await axiosInstance.put<ApiEnvelope<DiveSpot>>(`/dive-spots/${diveSpotId}`, data);
+    return response.data.data;
   },
 
   // Get dive spot reviews
-  getDiveSpotReviews: (diveSpotId: number) => {
-    return axiosInstance.get<{
-      status: number;
-      message: string;
-      data: DiveSpotReview[];
-    }>(`/dive-spots/${diveSpotId}/reviews`);
+  getDiveSpotReviews: async (diveSpotId: number): Promise<DiveSpotReview[]> => {
+    const response = await axiosInstance.get<ApiEnvelope<DiveSpotReview[]>>(`/dive-spots/${diveSpotId}/reviews`);
+    return response.data.data;
   },
 
   // Create dive spot review
-  createDiveSpotReview: (data: CreateDiveSpotReviewRequest) => {
-    return axiosInstance.post<{
-      status: number;
-      message: string;
-      data: DiveSpotReview;
-    }>(`/dive-spots/${data.diveSpotId}/reviews`, data);
+  createDiveSpotReview: async (data: CreateDiveSpotReviewRequest): Promise<DiveSpotReview> => {
+    const response = await axiosInstance.post<ApiEnvelope<DiveSpotReview>>(`/dive-spots/${data.diveSpotId}/reviews`, data);
+    return response.data.data;
   },
 };

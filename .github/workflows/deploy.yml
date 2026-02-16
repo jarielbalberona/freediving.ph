@@ -1,4 +1,4 @@
-name: Reusable Deploy Workflow
+name: Reusable AWS ECS Deploy Workflow (Legacy)
 
 on:
   workflow_call:

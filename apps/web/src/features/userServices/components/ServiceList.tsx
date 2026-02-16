@@ -47,7 +47,7 @@ export function ServiceList({
     );
   }
 
-  const services = data?.data?.services || [];
+  const services = data ?? [];
 
   if (services.length === 0) {
     return (

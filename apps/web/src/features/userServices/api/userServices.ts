@@ -1,4 +1,5 @@
 import { axiosInstance } from '@/lib/http/axios';
+import type { ApiEnvelope } from '@freediving.ph/types';
 import type {
   UserService,
   ServiceBooking,
@@ -12,8 +13,7 @@ import type {
 } from '../types';
 
 export const userServicesApi = {
-  // Get all services with pagination and filtering
-  getServices: (filters?: ServiceFilters) => {
+  getServices: async (filters?: ServiceFilters): Promise<UserService[]> => {
     const params = new URLSearchParams();
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
@@ -29,99 +29,57 @@ export const userServicesApi = {
     const queryString = params.toString();
     const url = `/user-services${queryString ? `?${queryString}` : ''}`;
 
-    return axiosInstance.get<{
-      success: boolean;
-      data: {
-        services: UserService[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-      };
-    }>(url);
+    const response = await axiosInstance.get<ApiEnvelope<UserService[]>>(url);
+    return response.data.data;
   },
 
-  // Get service by ID
-  getServiceById: (serviceId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: UserService;
-    }>(`/user-services/${serviceId}`);
+  getServiceById: async (serviceId: number): Promise<UserService> => {
+    const response = await axiosInstance.get<ApiEnvelope<UserService>>(`/user-services/${serviceId}`);
+    return response.data.data;
   },
 
-  // Create new service
-  createService: (data: CreateServiceRequest) => {
-    return axiosInstance.post<{
-      success: boolean;
-      data: UserService;
-    }>('/user-services', data);
+  createService: async (data: CreateServiceRequest): Promise<UserService> => {
+    const response = await axiosInstance.post<ApiEnvelope<UserService>>('/user-services', data);
+    return response.data.data;
   },
 
-  // Update service
-  updateService: (serviceId: number, data: UpdateServiceRequest) => {
-    return axiosInstance.put<{
-      success: boolean;
-      data: UserService;
-    }>(`/user-services/${serviceId}`, data);
+  updateService: async (serviceId: number, data: UpdateServiceRequest): Promise<UserService> => {
+    const response = await axiosInstance.put<ApiEnvelope<UserService>>(`/user-services/${serviceId}`, data);
+    return response.data.data;
   },
 
-  // Get user services
-  getUserServices: (userId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: UserService[];
-    }>(`/user-services/users/${userId}`);
+  getUserServices: async (userId: number): Promise<UserService[]> => {
+    const response = await axiosInstance.get<ApiEnvelope<UserService[]>>(`/user-services/users/${userId}`);
+    return response.data.data;
   },
 
-  // Create booking
-  createBooking: (data: CreateBookingRequest) => {
-    return axiosInstance.post<{
-      success: boolean;
-      data: ServiceBooking;
-    }>('/user-services/bookings', data);
+  createBooking: async (data: CreateBookingRequest): Promise<ServiceBooking> => {
+    const response = await axiosInstance.post<ApiEnvelope<ServiceBooking>>('/user-services/bookings', data);
+    return response.data.data;
   },
 
-  // Get service bookings
-  getServiceBookings: (serviceId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: ServiceBooking[];
-    }>(`/user-services/${serviceId}/bookings`);
+  getServiceBookings: async (serviceId: number): Promise<ServiceBooking[]> => {
+    const response = await axiosInstance.get<ApiEnvelope<ServiceBooking[]>>(`/user-services/${serviceId}/bookings`);
+    return response.data.data;
   },
 
-  // Get user bookings
-  getUserBookings: (userId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: ServiceBooking[];
-    }>(`/user-services/users/${userId}/bookings`);
+  getUserBookings: async (userId: number): Promise<ServiceBooking[]> => {
+    const response = await axiosInstance.get<ApiEnvelope<ServiceBooking[]>>(`/user-services/users/${userId}/bookings`);
+    return response.data.data;
   },
 
-  // Update booking status
-  updateBookingStatus: (bookingId: number, data: UpdateBookingStatusRequest) => {
-    return axiosInstance.put<{
-      success: boolean;
-      data: ServiceBooking;
-    }>(`/user-services/bookings/${bookingId}/status`, data);
+  updateBookingStatus: async (bookingId: number, data: UpdateBookingStatusRequest): Promise<ServiceBooking> => {
+    const response = await axiosInstance.put<ApiEnvelope<ServiceBooking>>(`/user-services/bookings/${bookingId}/status`, data);
+    return response.data.data;
   },
 
-  // Create review
-  createReview: (data: CreateReviewRequest) => {
-    return axiosInstance.post<{
-      success: boolean;
-      data: ServiceReview;
-    }>('/user-services/reviews', data);
+  createReview: async (data: CreateReviewRequest): Promise<ServiceReview> => {
+    const response = await axiosInstance.post<ApiEnvelope<ServiceReview>>('/user-services/reviews', data);
+    return response.data.data;
   },
 
-  // Get service reviews
-  getServiceReviews: (serviceId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: ServiceReview[];
-    }>(`/user-services/${serviceId}/reviews`);
+  getServiceReviews: async (serviceId: number): Promise<ServiceReview[]> => {
+    const response = await axiosInstance.get<ApiEnvelope<ServiceReview[]>>(`/user-services/${serviceId}/reviews`);
+    return response.data.data;
   },
 };

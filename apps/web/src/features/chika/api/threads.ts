@@ -1,17 +1,53 @@
 import { axiosInstance } from "@/lib/http/axios";
 import { Thread, CreateThreadData, UpdateThreadData, ThreadWithUser } from "../types";
+import type { ApiEnvelope } from "@freediving.ph/types";
+
+interface ThreadComment {
+  comment: {
+    id: number;
+    content: string;
+    createdAt: string;
+  };
+  user: {
+    id: number;
+    username: string;
+    alias: string | null;
+  };
+}
 
 export const threadsApi = {
   // Get all threads
   getAll: async (): Promise<ThreadWithUser[]> => {
-    const response = await axiosInstance.get<{ data: ThreadWithUser[] }>("/threads");
+    const response = await axiosInstance.get<ApiEnvelope<ThreadWithUser[]>>("/threads");
     return response.data.data;
   },
 
   // Get thread by ID
-  getById: async (id: number): Promise<Thread> => {
-    const response = await axiosInstance.get<{ data: Thread }>(`/threads/${id}`);
-    return response.data.data;
+  getById: async (id: number): Promise<ThreadWithUser> => {
+    const response = await axiosInstance.get<ApiEnvelope<any>>(`/threads/${id}`);
+    const data = response.data.data;
+
+    if (data.thread && data.user) {
+      return {
+        thread: data.thread,
+        user: data.user,
+        commentCount: data.commentCount ?? 0,
+        upvotes: data.upvotes ?? 0,
+        downvotes: data.downvotes ?? 0,
+      } as ThreadWithUser;
+    }
+
+    return {
+      thread: data as Thread,
+      user: {
+        id: data.user?.id ?? 0,
+        username: data.user?.username ?? "unknown",
+        alias: data.user?.alias ?? "",
+      },
+      commentCount: data.commentCount ?? 0,
+      upvotes: data.upvotes ?? 0,
+      downvotes: data.downvotes ?? 0,
+    };
   },
 
   // Create new thread
@@ -33,11 +69,27 @@ export const threadsApi = {
 
   // Like thread
   like: async (id: number): Promise<void> => {
-    await axiosInstance.post(`/threads/${id}/like`);
+    await axiosInstance.post(`/threads/${id}/reactions`, { type: "1" });
   },
 
   // Unlike thread
   unlike: async (id: number): Promise<void> => {
-    await axiosInstance.delete(`/threads/${id}/like`);
+    await axiosInstance.post(`/threads/${id}/reactions`, { type: "0" });
+  },
+
+  removeReaction: async (id: number): Promise<void> => {
+    await axiosInstance.delete(`/threads/${id}/reactions`);
+  },
+
+  getComments: async (threadId: number): Promise<ThreadComment[]> => {
+    const response = await axiosInstance.get<ApiEnvelope<ThreadComment[]>>(`/threads/${threadId}/comments`);
+    return response.data.data;
+  },
+
+  createComment: async (threadId: number, content: string): Promise<void> => {
+    await axiosInstance.post(`/threads/${threadId}/comments`, {
+      threadId,
+      content,
+    });
   },
 };

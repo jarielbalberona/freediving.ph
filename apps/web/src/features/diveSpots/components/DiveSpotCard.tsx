@@ -82,14 +82,14 @@ export function DiveSpotCard({
           <div className="space-y-2">
             <CardTitle className="text-lg line-clamp-2">{diveSpot.name}</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(diveSpot.difficulty)}`}>
-                {diveSpot.difficulty}
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(diveSpot.difficulty ?? 'BEGINNER')}`}>
+                {diveSpot.difficulty ?? 'BEGINNER'}
               </span>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getVisibilityColor(diveSpot.visibility)}`}>
-                {diveSpot.visibility}
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getVisibilityColor(diveSpot.visibility ?? 'GOOD')}`}>
+                {diveSpot.visibility ?? 'GOOD'}
               </span>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCurrentColor(diveSpot.current)}`}>
-                {diveSpot.current}
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCurrentColor(diveSpot.current ?? 'LIGHT')}`}>
+                {diveSpot.current ?? 'LIGHT'}
               </span>
               {diveSpot.isVerified && (
                 <Badge variant="outline" className="text-xs">

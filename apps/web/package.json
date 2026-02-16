@@ -6,8 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"No tests yet for @freediving.ph/web\""
   },
   "dependencies": {
     "@freediving.ph/config": "workspace:*",

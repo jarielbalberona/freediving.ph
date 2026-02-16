@@ -1,8 +1,8 @@
 # Render Migration Plan - Freediving.ph
 
-**Status:** ACTIVE
-**Target Completion:** 2 weeks
-**Decision Date:** 2025-01-03
+**Status:** IN PROGRESS (Render is primary target, AWS workflow is manual legacy fallback)
+**Decision Date:** January 3, 2025
+**Last Updated:** February 16, 2026
 **Reason:** Single platform solution with better integration and cost efficiency.
 
 ---

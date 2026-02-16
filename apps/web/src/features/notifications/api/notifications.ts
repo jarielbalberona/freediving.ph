@@ -1,4 +1,5 @@
 import { axiosInstance } from '@/lib/http/axios';
+import type { ApiEnvelope } from '@freediving.ph/types';
 import type {
   Notification,
   NotificationSettings,
@@ -10,103 +11,69 @@ import type {
 } from '../types';
 
 export const notificationsApi = {
-  // Get user notifications with pagination and filtering
-  getUserNotifications: (userId: number, filters?: NotificationFilters) => {
-    const params = new URLSearchParams();
-    if (filters?.page) params.append('page', filters.page.toString());
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    if (filters?.status) params.append('status', filters.status);
-    if (filters?.type) params.append('type', filters.type);
-    if (filters?.priority) params.append('priority', filters.priority);
+  getUserNotifications: async (userId: number, filters?: NotificationFilters): Promise<Notification[]> => {
+    const response = await axiosInstance.get<ApiEnvelope<Array<{ notification: Notification }>>>(`/notifications/users/${userId}`);
+    let notifications = response.data.data.map((item) => item.notification);
 
-    const queryString = params.toString();
-    const url = `/users/${userId}/notifications${queryString ? `?${queryString}` : ''}`;
+    if (filters?.status) {
+      notifications = notifications.filter((n) => n.status === filters.status);
+    }
+    if (filters?.type) {
+      notifications = notifications.filter((n) => n.type === filters.type);
+    }
+    if (filters?.priority) {
+      notifications = notifications.filter((n) => n.priority === filters.priority);
+    }
 
-    return axiosInstance.get<{
-      success: boolean;
-      data: {
-        notifications: Notification[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-      };
-    }>(url);
+    return notifications;
   },
 
-  // Get notification by ID
-  getNotificationById: (userId: number, notificationId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: Notification;
-    }>(`/users/${userId}/notifications/${notificationId}`);
+  getNotificationById: async (_userId: number, notificationId: number): Promise<Notification> => {
+    const response = await axiosInstance.get<ApiEnvelope<Notification>>(`/notifications/${notificationId}`);
+    return response.data.data;
   },
 
-  // Create new notification
-  createNotification: (data: CreateNotificationRequest) => {
-    return axiosInstance.post<{
-      success: boolean;
-      data: Notification;
-    }>('/notifications', data);
+  createNotification: async (data: CreateNotificationRequest): Promise<Notification> => {
+    const response = await axiosInstance.post<ApiEnvelope<Notification>>('/notifications', data);
+    return response.data.data;
   },
 
-  // Update notification
-  updateNotification: (userId: number, notificationId: number, data: UpdateNotificationRequest) => {
-    return axiosInstance.put<{
-      success: boolean;
-      data: Notification;
-    }>(`/users/${userId}/notifications/${notificationId}`, data);
+  updateNotification: async (_userId: number, notificationId: number, data: UpdateNotificationRequest): Promise<Notification> => {
+    const response = await axiosInstance.put<ApiEnvelope<Notification>>(`/notifications/${notificationId}`, data);
+    return response.data.data;
   },
 
-  // Mark notification as read
-  markAsRead: (userId: number, notificationId: number) => {
-    return axiosInstance.patch<{
-      success: boolean;
-      data: Notification;
-    }>(`/users/${userId}/notifications/${notificationId}/read`);
+  markAsRead: async (_userId: number, notificationId: number): Promise<Notification> => {
+    const response = await axiosInstance.post<ApiEnvelope<Notification>>(`/notifications/${notificationId}/mark-read`);
+    return response.data.data;
   },
 
-  // Mark all notifications as read
-  markAllAsRead: (userId: number) => {
-    return axiosInstance.patch<{
-      success: boolean;
-      message: string;
-    }>(`/users/${userId}/notifications/read-all`);
+  markAllAsRead: async (userId: number): Promise<{ count: number }> => {
+    const response = await axiosInstance.post<ApiEnvelope<{ count: number }>>(`/notifications/users/${userId}/mark-all-read`);
+    return response.data.data;
   },
 
-  // Delete notification
-  deleteNotification: (userId: number, notificationId: number) => {
-    return axiosInstance.delete<{
-      success: boolean;
-      message: string;
-    }>(`/users/${userId}/notifications/${notificationId}`);
+  deleteNotification: async (_userId: number, notificationId: number): Promise<void> => {
+    await axiosInstance.delete(`/notifications/${notificationId}`);
   },
 
-  // Get notification settings
-  getNotificationSettings: (userId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: NotificationSettings;
-    }>(`/users/${userId}/notification-settings`);
+  getNotificationSettings: async (userId: number): Promise<NotificationSettings> => {
+    const response = await axiosInstance.get<ApiEnvelope<NotificationSettings>>(`/notifications/users/${userId}/settings`);
+    return response.data.data;
   },
 
-  // Update notification settings
-  updateNotificationSettings: (userId: number, data: UpdateNotificationSettingsRequest) => {
-    return axiosInstance.put<{
-      success: boolean;
-      data: NotificationSettings;
-    }>(`/users/${userId}/notification-settings`, data);
+  updateNotificationSettings: async (userId: number, data: UpdateNotificationSettingsRequest): Promise<NotificationSettings> => {
+    const response = await axiosInstance.put<ApiEnvelope<NotificationSettings>>(`/notifications/users/${userId}/settings`, data);
+    return response.data.data;
   },
 
-  // Get notification statistics
-  getNotificationStats: (userId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: NotificationStats;
-    }>(`/users/${userId}/notification-stats`);
+  getNotificationStats: async (userId: number): Promise<NotificationStats> => {
+    const notifications = await notificationsApi.getUserNotifications(userId);
+    return {
+      total: notifications.length,
+      unread: notifications.filter((n) => n.status === 'UNREAD').length,
+      read: notifications.filter((n) => n.status === 'READ').length,
+      archived: notifications.filter((n) => n.status === 'ARCHIVED').length,
+    };
   },
 };

@@ -1,4 +1,5 @@
 import { axiosInstance } from '@/lib/http/axios';
+import type { ApiEnvelope } from '@freediving.ph/types';
 import type {
   User,
   UserProfile,
@@ -7,8 +8,7 @@ import type {
 } from '../types';
 
 export const userApi = {
-  // Get all users (admin only)
-  getUsers: (filters?: UserFilters) => {
+  getUsers: async (filters?: UserFilters): Promise<User[]> => {
     const params = new URLSearchParams();
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
@@ -22,62 +22,31 @@ export const userApi = {
     const queryString = params.toString();
     const url = `/users${queryString ? `?${queryString}` : ''}`;
 
-    return axiosInstance.get<{
-      success: boolean;
-      data: {
-        users: User[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-      };
-    }>(url);
+    const response = await axiosInstance.get<ApiEnvelope<User[]>>(url);
+    return response.data.data;
   },
 
-  // Get current user profile
-  getCurrentUser: () => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: UserProfile;
-    }>('/users/me');
+  getCurrentUser: async (): Promise<UserProfile> => {
+    const response = await axiosInstance.get<ApiEnvelope<UserProfile>>('/auth/me');
+    return response.data.data;
   },
 
-  // Get user by ID
-  getUserById: (userId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: UserProfile;
-    }>(`/users/${userId}`);
+  getUserById: async (userId: number): Promise<UserProfile> => {
+    const response = await axiosInstance.get<ApiEnvelope<UserProfile>>(`/auth/${userId}`);
+    return response.data.data;
   },
 
-  // Update current user
-  updateCurrentUser: (data: UpdateUserRequest) => {
-    return axiosInstance.put<{
-      success: boolean;
-      data: UserProfile;
-    }>('/users/me', data);
+  updateCurrentUser: async (data: UpdateUserRequest): Promise<UserProfile> => {
+    const response = await axiosInstance.put<ApiEnvelope<UserProfile>>('/auth/profile', data);
+    return response.data.data;
   },
 
-  // Delete current user
-  deleteCurrentUser: () => {
-    return axiosInstance.delete<{
-      success: boolean;
-      message: string;
-    }>('/users/me');
+  deleteCurrentUser: async (): Promise<void> => {
+    await axiosInstance.delete('/users');
   },
 
-  // Export users (admin only)
-  exportUsers: () => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: {
-        downloadUrl: string;
-        expiresAt: string;
-      };
-    }>('/users/export');
+  exportUsers: async (): Promise<string> => {
+    const response = await axiosInstance.get<ApiEnvelope<string>>('/users/export');
+    return response.data.data;
   },
 };
