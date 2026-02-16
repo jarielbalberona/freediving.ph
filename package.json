@@ -9,8 +9,9 @@
     "build:all": "pnpm build",
     "typecheck": "pnpm -r --if-present type-check",
     "lint": "pnpm -r --if-present lint",
+    "format": "biome format --write .",
     "test": "pnpm -r --if-present test",
-    "preflight": "pnpm typecheck && pnpm --filter @freediving.ph/api exec eslint . --max-warnings=0 && pnpm --filter @freediving.ph/web exec eslint . --max-warnings=0 && pnpm test && pnpm build",
+    "preflight": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
     "dev:web": "pnpm --filter @freediving.ph/web dev",
     "dev:api": "pnpm --filter @freediving.ph/api dev",
     "build:web": "pnpm --filter @freediving.ph/web build",
@@ -20,6 +21,9 @@
     "db:push": "pnpm --filter @freediving.ph/db db:push",
     "db:studio": "pnpm --filter @freediving.ph/db db:studio",
     "db:seed": "pnpm --filter @freediving.ph/api db:seed"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
   },
   "pnpm": {
     "supportedArchitectures": {
