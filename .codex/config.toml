@@ -1,0 +1,6 @@
+# schema: codex-project-config-v1
+
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+# Prefer cached web search/results by default; request fresh retrieval only when recency is required.
