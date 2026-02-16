@@ -32,9 +32,9 @@ COPY --from=builder /usr/src/api/drizzle.config.ts ./
 COPY --from=builder /usr/src/api/src ./src
 COPY package.json ./
 
-# Expose the port
-EXPOSE 4000
+# Expose the port (Render uses port 10000)
+EXPOSE 10000
 
 # Run in production mode
-CMD ["node", "dist/src/server.js"]
+CMD ["node", "dist/src/server.cjs"]
 

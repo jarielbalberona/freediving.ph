@@ -37,8 +37,8 @@ COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY --from=builder /usr/src/app/package.json ./package.json
 COPY --from=builder /usr/src/app/public ./public
 
-# Expose the port Next.js runs on
-EXPOSE 3000
+# Expose the port (Render uses port 10000)
+EXPOSE 10000
 
 # Start Next.js in production mode
 CMD ["pnpm", "start"]

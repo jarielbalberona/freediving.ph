@@ -1,0 +1,29 @@
+# Frontend-specific Render configuration
+# This file is for the Next.js frontend service only
+
+services:
+  - type: web
+    name: freediving-ph-app
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: NEXT_PUBLIC_API_URL
+        value: https://freediving-ph-api.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://freediving-ph-app.onrender.com
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        sync: false

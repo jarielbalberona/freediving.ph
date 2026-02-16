@@ -1,0 +1,93 @@
+# Render Blueprint Configuration for Freediving.ph
+# This file defines all services for the freediving.ph application
+
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: freediving-ph-db
+    env: postgresql
+    plan: starter
+    region: oregon
+    maxConnections: 20
+    disk:
+      name: freediving-ph-disk
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 1
+
+  # Express.js API Backend
+  - type: web
+    name: freediving-ph-api
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: cd api && npm install && npm run build
+    startCommand: cd api && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: freediving-ph-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_WEBHOOK_SECRET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: us-east-1
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://freediving-ph-app.onrender.com
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+
+  # Next.js Frontend
+  - type: web
+    name: freediving-ph-app
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: cd app && npm install && npm run build
+    startCommand: cd app && npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: NEXT_PUBLIC_API_URL
+        value: https://freediving-ph-api.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://freediving-ph-app.onrender.com
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        sync: false
