@@ -1,11 +1,13 @@
-import { InferSelectModel, and, count, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { InferSelectModel, and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 
 import { ABUSE_LIMITS } from "@/core/abuseControls";
+import { isModeratorDbRole } from "@/core/authorization";
 import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
 import { isThreadLockedOrRemoved, isUserFeatureRestricted } from "@/core/moderationGuards";
 import { ThreadsServerSchemaType, ThreadsUpdateSchemaType, CommentCreateSchemaType, ReactionSchemaType } from "@/app/threads/threads.validators";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
+import { auditLogs } from "@/models/drizzle/moderation.model";
 import { threads, comments, reactions } from "@/models/drizzle/threads.model";
 import { chikaPseudonyms, threadCategoryModes } from "@/models/drizzle/chika.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
@@ -17,7 +19,7 @@ export type ThreadsSchemaType = InferSelectModel<typeof threads>;
 type ThreadWithUserRow = {
 	thread: InferSelectModel<typeof threads>;
 	user: {
-		id: number;
+		id: number | null;
 		username: string | null;
 		email: string | null;
 		alias: string | null;
@@ -31,6 +33,10 @@ type ThreadCommentInput = CommentCreateSchemaType & { userId: number };
 type ReactionInput = ReactionSchemaType & { userId: number };
 
 export default class ThreadsService extends DrizzleService {
+	private isModeratorRole(role: string | null | undefined) {
+		return isModeratorDbRole(role);
+	}
+
 	private buildPseudonymHandle(userId: number, threadId: number) {
 		const seed = Math.abs((userId * 97 + threadId * 131) % 10000)
 			.toString()
@@ -48,6 +54,44 @@ export default class ThreadsService extends DrizzleService {
 		const createdAt = userRows[0]?.createdAt;
 		if (!createdAt) return 0;
 		return (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+	}
+
+	private async getThreadMode(threadId: number): Promise<"NORMAL" | "PSEUDONYMOUS_CHIKA"> {
+		const rows = await this.db
+			.select({ mode: threadCategoryModes.mode })
+			.from(threadCategoryModes)
+			.where(eq(threadCategoryModes.threadId, threadId))
+			.limit(1);
+		return rows[0]?.mode ?? "NORMAL";
+	}
+
+	private async redactThreadAuthorForPseudonymous(
+		row: ThreadWithUserRow,
+		isModerator: boolean
+	): Promise<ThreadWithUserRow> {
+		if (isModerator || !row.user) return row;
+		const mode = await this.getThreadMode(row.thread.id);
+		if (mode !== "PSEUDONYMOUS_CHIKA") return row;
+
+		const pseudoRows = await this.db
+			.select({ displayHandle: chikaPseudonyms.displayHandle })
+			.from(chikaPseudonyms)
+			.where(and(eq(chikaPseudonyms.threadId, row.thread.id), eq(chikaPseudonyms.userId, row.thread.userId)))
+			.limit(1);
+
+		return {
+			...row,
+			thread: {
+				...row.thread,
+				userId: 0
+			},
+			user: {
+				id: 0,
+				username: pseudoRows[0]?.displayHandle ?? this.buildPseudonymHandle(row.thread.userId, row.thread.id),
+				email: null,
+				alias: null
+			}
+		};
 	}
 
 	async create(data: ThreadCreateInput) {
@@ -92,7 +136,11 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async retrieve(id: number, viewerUserId: number | null = null): Promise<ServiceApiResponse<ThreadWithUserRow>> {
+	async retrieve(
+		id: number,
+		viewerUserId: number | null = null,
+		viewerRole: string | null = null
+	): Promise<ServiceApiResponse<ThreadWithUserRow>> {
 		try {
 			const retrieveData = await this.db
 				.select({
@@ -126,10 +174,15 @@ export default class ThreadsService extends DrizzleService {
 				}
 			}
 
+			const data = await this.redactThreadAuthorForPseudonymous(
+				retrieveData[0],
+				this.isModeratorRole(viewerRole)
+			);
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Thread retrieved successfully",
-				retrieveData[0]
+				data
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
@@ -137,8 +190,26 @@ export default class ThreadsService extends DrizzleService {
 	}
 
 
-	async update(id: number, data: ThreadsUpdateSchemaType) {
+	async update(id: number, actorUserId: number, actorRole: string, data: ThreadsUpdateSchemaType) {
 		try {
+			const existingRows = await this.db
+				.select({ userId: threads.userId })
+				.from(threads)
+				.where(and(eq(threads.id, id), isNull(threads.deletedAt)))
+				.limit(1);
+
+			const existing = existingRows[0];
+			if (!existing) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");
+			}
+
+			if (!this.isModeratorRole(actorRole) && existing.userId !== actorUserId) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Only thread owner or moderator can update this thread"
+				);
+			}
+
 			const updatedData = await this.db.update(threads).set(data).where(eq(threads.id, id)).returning();
 
 			if (!updatedData.length) {
@@ -148,6 +219,16 @@ export default class ThreadsService extends DrizzleService {
 					updatedData[0]
 				);
 			}
+
+			await this.db.insert(auditLogs).values({
+				actorUserId: actorUserId,
+				action: "THREAD_UPDATED",
+				targetType: "THREAD",
+				targetId: String(id),
+				metadata: {
+					isModeratorAction: this.isModeratorRole(actorRole)
+				}
+			});
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
@@ -159,7 +240,11 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async retrieveAll(query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
+	async retrieveAll(
+		query: PaginationQuerySchemaType,
+		viewerUserId: number | null = null,
+		viewerRole: string | null = null
+	) {
 		try {
 			const totalRows = await this.db
 				.select({ count: sql<number>`count(*)` })
@@ -194,6 +279,46 @@ export default class ThreadsService extends DrizzleService {
 			const filteredData = blockedUserIds
 				? retrieveData.filter(row => !blockedUserIds.has(row.thread.userId))
 				: retrieveData;
+
+			if (!this.isModeratorRole(viewerRole)) {
+				const threadIds = filteredData.map((row) => row.thread.id);
+				if (threadIds.length > 0) {
+					const modeRows = await this.db
+						.select({ threadId: threadCategoryModes.threadId })
+						.from(threadCategoryModes)
+						.where(and(eq(threadCategoryModes.mode, "PSEUDONYMOUS_CHIKA"), inArray(threadCategoryModes.threadId, threadIds)));
+					const pseudoThreadIds = new Set(modeRows.map((row) => row.threadId));
+
+					if (pseudoThreadIds.size > 0) {
+						const pseudoRows = await this.db
+							.select({
+								threadId: chikaPseudonyms.threadId,
+								userId: chikaPseudonyms.userId,
+								displayHandle: chikaPseudonyms.displayHandle
+							})
+							.from(chikaPseudonyms)
+							.where(inArray(chikaPseudonyms.threadId, Array.from(pseudoThreadIds)));
+
+						const pseudoMap = new Map<string, string>();
+						for (const row of pseudoRows) {
+							pseudoMap.set(`${row.threadId}:${row.userId}`, row.displayHandle);
+						}
+
+						for (const row of filteredData) {
+							if (!pseudoThreadIds.has(row.thread.id) || !row.user) continue;
+							row.thread.userId = 0;
+							row.user = {
+								id: 0,
+								username:
+									pseudoMap.get(`${row.thread.id}:${row.thread.userId}`) ??
+									this.buildPseudonymHandle(row.thread.userId, row.thread.id),
+								email: null,
+								alias: null
+							};
+						}
+					}
+				}
+			}
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
@@ -232,13 +357,8 @@ export default class ThreadsService extends DrizzleService {
 			const todayStart = new Date();
 			todayStart.setUTCHours(0, 0, 0, 0);
 
-			const modeRows = await this.db
-				.select({ mode: threadCategoryModes.mode })
-				.from(threadCategoryModes)
-				.where(eq(threadCategoryModes.threadId, data.threadId))
-				.limit(1);
-
-			if (modeRows[0]?.mode === "PSEUDONYMOUS_CHIKA") {
+				const mode = await this.getThreadMode(data.threadId);
+				if (mode === "PSEUDONYMOUS_CHIKA") {
 				const ageHours = await this.getAccountAgeHours(data.userId);
 				if (ageHours < ABUSE_LIMITS.minimumAccountAgeHoursForPseudonymousChika) {
 					return ServiceResponse.createRejectResponse(
@@ -250,7 +370,14 @@ export default class ThreadsService extends DrizzleService {
 				const pseudoRepliesRows = await this.db
 					.select({ total: count(comments.id) })
 					.from(comments)
-					.where(and(eq(comments.userId, data.userId), gte(comments.createdAt, todayStart)));
+					.innerJoin(threadCategoryModes, eq(threadCategoryModes.threadId, comments.threadId))
+					.where(
+						and(
+							eq(comments.userId, data.userId),
+							eq(threadCategoryModes.mode, "PSEUDONYMOUS_CHIKA"),
+							gte(comments.createdAt, todayStart)
+						)
+					);
 				if ((pseudoRepliesRows[0]?.total ?? 0) >= ABUSE_LIMITS.pseudonymousPostsPerDay) {
 					return ServiceResponse.createRejectResponse(
 						status.HTTP_429_TOO_MANY_REQUESTS,
@@ -322,7 +449,7 @@ export default class ThreadsService extends DrizzleService {
 				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");
 			}
 
-			const isModerator = ["EDITOR", "ADMINISTRATOR", "SUPER_ADMIN"].includes(actorRole);
+			const isModerator = this.isModeratorRole(actorRole);
 			if (!isModerator && targetThread.userId !== actorUserId) {
 				return ServiceResponse.createRejectResponse(
 					status.HTTP_403_FORBIDDEN,
@@ -413,7 +540,8 @@ export default class ThreadsService extends DrizzleService {
 	async getComments(
 		threadId: number,
 		query: PaginationQuerySchemaType,
-		viewerUserId: number | null = null
+		viewerUserId: number | null = null,
+		viewerRole: string | null = null
 	) {
 		try {
 			const totalRows = await this.db
@@ -442,6 +570,37 @@ export default class ThreadsService extends DrizzleService {
 			const filteredData = blockedUserIds
 				? retrieveData.filter(row => !blockedUserIds.has(row.comment.userId))
 				: retrieveData;
+
+			if (!this.isModeratorRole(viewerRole)) {
+				const mode = await this.getThreadMode(threadId);
+				if (mode === "PSEUDONYMOUS_CHIKA") {
+					const userIds = Array.from(new Set(filteredData.map((row) => row.comment.userId)));
+					if (userIds.length > 0) {
+						const pseudoRows = await this.db
+							.select({
+								userId: chikaPseudonyms.userId,
+								displayHandle: chikaPseudonyms.displayHandle
+							})
+							.from(chikaPseudonyms)
+							.where(and(eq(chikaPseudonyms.threadId, threadId), inArray(chikaPseudonyms.userId, userIds)));
+
+						const pseudoMap = new Map<number, string>();
+						for (const row of pseudoRows) {
+							pseudoMap.set(row.userId, row.displayHandle);
+						}
+
+						for (const row of filteredData) {
+							if (!row.user) continue;
+							row.comment.userId = 0;
+							row.user = {
+								id: 0,
+								username: pseudoMap.get(row.comment.userId) ?? this.buildPseudonymHandle(row.comment.userId, threadId),
+								alias: null
+							};
+						}
+					}
+				}
+			}
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
@@ -531,9 +690,9 @@ export default class ThreadsService extends DrizzleService {
 				);
 			}
 
-			return ServiceResponse.createResponse(
-				status.HTTP_200_OK,
-				"Reaction removed successfully",
+				return ServiceResponse.createResponse(
+					status.HTTP_200_OK,
+					"Reaction removed successfully",
 				deletedData[0]
 			);
 		} catch (error) {
@@ -541,8 +700,26 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async delete(id: number) {
+	async delete(id: number, actorUserId: number, actorRole: string) {
 		try {
+			const existingRows = await this.db
+				.select({ userId: threads.userId })
+				.from(threads)
+				.where(and(eq(threads.id, id), isNull(threads.deletedAt)))
+				.limit(1);
+
+			const existing = existingRows[0];
+			if (!existing) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");
+			}
+
+			if (!this.isModeratorRole(actorRole) && existing.userId !== actorUserId) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Only thread owner or moderator can delete this thread"
+				);
+			}
+
 			const deletedData = await this.db
 				.update(threads)
 				.set({
@@ -553,11 +730,21 @@ export default class ThreadsService extends DrizzleService {
 				.where(and(eq(threads.id, id), isNull(threads.deletedAt)))
 				.returning();
 
-			if (!deletedData.length) {
-				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");
-			}
+				if (!deletedData.length) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");
+				}
 
-			return ServiceResponse.createResponse(
+				await this.db.insert(auditLogs).values({
+					actorUserId: actorUserId,
+					action: "THREAD_DELETED",
+					targetType: "THREAD",
+					targetId: String(id),
+					metadata: {
+						isModeratorAction: this.isModeratorRole(actorRole)
+					}
+				});
+
+				return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Thread deleted successfully",
 				deletedData[0]

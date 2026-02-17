@@ -36,15 +36,16 @@ export const queryTracker = {
 };
 
 const logDatabaseConnection = async (sql: postgres.Sql, type: 'main' | 'pool') => {
-  console.log(`DBURL: ${dbUrl}`);
+  const safeDbUrl = dbUrl.replace(/:\/\/([^:]+):([^@]+)@/, "://$1:****@");
+  console.log(`DBURL: ${safeDbUrl}`);
   try {
     await sql`SELECT 1`;
     console.log(`✅ ${type === 'main' ? 'Main' : 'Pool'} database connection established successfully`);
-    console.log(`🔌 Connected to: ${dbUrl}`);
+    console.log(`🔌 Connected to: ${safeDbUrl}`);
     console.log(`📅 Connection time: ${new Date().toISOString()}`);
     console.log('--------------------------------------------------');
   } catch (error) {
-    console.log(`❌🔌 Not connected to: ${dbUrl}`);
+    console.log(`❌🔌 Not connected to: ${safeDbUrl}`);
     console.error(`❌ ${type === 'main' ? 'Main' : 'Pool'} database connection failed:`, error);
     console.error('--------------------------------------------------');
     throw error;

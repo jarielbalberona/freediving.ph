@@ -1,5 +1,5 @@
 export type PlatformRole = "guest" | "member" | "moderator" | "admin";
-export type GroupRole = "owner" | "moderator" | "member";
+export type GroupRole = "owner" | "admin" | "moderator" | "member";
 
 const PLATFORM_RANK: Record<PlatformRole, number> = {
 	guest: 0,
@@ -11,6 +11,10 @@ const PLATFORM_RANK: Record<PlatformRole, number> = {
 const MODERATOR_ROLES = new Set(["EDITOR"]);
 const ADMIN_ROLES = new Set(["ADMINISTRATOR", "SUPER_ADMIN"]);
 const MEMBER_ROLES = new Set(["USER", "SUBSCRIBER", "CONTRIBUTOR", "AUTHOR"]);
+const MODERATOR_ALIASES = new Set(["moderator", "mod", "editor"]);
+const ADMIN_ALIASES = new Set(["admin", "administrator", "super_admin"]);
+const MEMBER_ALIASES = new Set(["member", "user", "subscriber", "contributor", "author"]);
+const GUEST_ALIASES = new Set(["guest", "anonymous", "anon"]);
 
 export const mapDbRoleToPlatformRole = (dbRole?: string | null): PlatformRole => {
 	if (!dbRole) return "guest";
@@ -18,6 +22,18 @@ export const mapDbRoleToPlatformRole = (dbRole?: string | null): PlatformRole =>
 	if (MODERATOR_ROLES.has(dbRole)) return "moderator";
 	if (MEMBER_ROLES.has(dbRole)) return "member";
 	return "guest";
+};
+
+export const mapAnyRoleToPlatformRole = (role?: string | null): PlatformRole => {
+	if (!role) return "guest";
+
+	const normalized = role.trim().toLowerCase();
+	if (ADMIN_ALIASES.has(normalized)) return "admin";
+	if (MODERATOR_ALIASES.has(normalized)) return "moderator";
+	if (MEMBER_ALIASES.has(normalized)) return "member";
+	if (GUEST_ALIASES.has(normalized)) return "guest";
+
+	return mapDbRoleToPlatformRole(role.toUpperCase());
 };
 
 export const hasMinimumPlatformRole = (
@@ -28,10 +44,26 @@ export const hasMinimumPlatformRole = (
 	return PLATFORM_RANK[userRole] >= PLATFORM_RANK[requiredRole];
 };
 
+export const hasMinimumRole = (
+	userRole: string | null | undefined,
+	requiredRole: string | null | undefined
+): boolean => {
+	const userPlatformRole = mapAnyRoleToPlatformRole(userRole);
+	const requiredPlatformRole = mapAnyRoleToPlatformRole(requiredRole);
+	return PLATFORM_RANK[userPlatformRole] >= PLATFORM_RANK[requiredPlatformRole];
+};
+
+export const isModeratorDbRole = (role: string | null | undefined): boolean =>
+	hasMinimumRole(role, "moderator");
+
+export const isAdminDbRole = (role: string | null | undefined): boolean =>
+	hasMinimumRole(role, "admin");
+
 const GROUP_ROLE_RANK: Record<GroupRole, number> = {
 	member: 1,
 	moderator: 2,
-	owner: 3
+	admin: 3,
+	owner: 4
 };
 
 export const hasMinimumGroupRole = (

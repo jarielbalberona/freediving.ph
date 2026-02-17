@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, optionalClerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
 
 import GroupsController from "@/app/groups/groups.controller";
 
@@ -9,7 +9,7 @@ export const groupsRouter: Router = (() => {
 	// Group CRUD routes
 	router
 		.route("/")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new GroupsController(req, res).getAllGroups();
 		})
 		.post(clerkAuthMiddleware, async (req, res) => {
@@ -18,7 +18,7 @@ export const groupsRouter: Router = (() => {
 
 	router
 		.route("/:id")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new GroupsController(req, res).getGroupById();
 		})
 		.put(clerkAuthMiddleware, requireRole("EDITOR"), async (req, res) => {
@@ -28,7 +28,7 @@ export const groupsRouter: Router = (() => {
 	// Group member routes
 	router
 		.route("/:id/members")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new GroupsController(req, res).getGroupMembers();
 		})
 		.post(clerkAuthMiddleware, async (req, res) => {
@@ -50,7 +50,7 @@ export const groupsRouter: Router = (() => {
 	// Group post routes
 	router
 		.route("/:id/posts")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new GroupsController(req, res).getGroupPosts();
 		})
 		.post(clerkAuthMiddleware, async (req, res) => {

@@ -32,7 +32,7 @@ export default class EventsController extends ApiController {
 	async getEventById() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.eventsService.retrieve(id);
+			const response = await this.eventsService.retrieve(id, this.request.user?.id ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -44,7 +44,7 @@ export default class EventsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.eventsService.retrieveAll(queryCheck.data);
+			const response = await this.eventsService.retrieveAll(queryCheck.data, this.request.user?.id ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -79,12 +79,11 @@ export default class EventsController extends ApiController {
 	async addAttendee() {
 		try {
 			const id = Number(this.request.params.id);
-			const body = this.request.body;
-			const check = EventAttendeeSchema.safeParse({ ...body, eventId: id });
+			const check = EventAttendeeSchema.safeParse(this.request.body);
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.eventsService.addAttendee(check.data);
+			const response = await this.eventsService.addAttendee(id, this.request.user.id, check.data);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -95,7 +94,12 @@ export default class EventsController extends ApiController {
 		try {
 			const eventId = Number(this.request.params.id);
 			const userId = Number(this.request.params.userId);
-			const response = await this.eventsService.removeAttendee(eventId, userId);
+			const response = await this.eventsService.removeAttendee(
+				eventId,
+				userId,
+				this.request.user.id,
+				this.request.user.role
+			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -108,7 +112,7 @@ export default class EventsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.eventsService.getAttendees(id, queryCheck.data);
+			const response = await this.eventsService.getAttendees(id, queryCheck.data, this.request.user?.id ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { S3Client, GetObjectCommand, S3ClientConfig } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, S3ClientConfig } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import MediaService from "@/app/media/media.service";
 
@@ -50,17 +50,37 @@ export default class MediaController extends ApiController {
 
   async createPresignedS3URL() {
     try {
-    const username = this.request.params.username;
-    const { type, ext } = this.request.query
+    const username = String(this.request.params.username || "");
+    const requestedType = String(this.request.query.type || "").toLowerCase();
+    const requestedExt = String(this.request.query.ext || "").toLowerCase();
+
+    if (!this.request.user) {
+      return this.apiResponse.unauthorizedResponse("User not authenticated");
+    }
+
+    const expectedUsername = this.request.user.username || String(this.request.user.id);
+    if (username !== expectedUsername) {
+      return this.apiResponse.forbiddenResponse("Cannot request upload URL for another user");
+    }
+
+    const allowedTypeToExt: Record<string, { exts: string[]; contentType: string }> = {
+      images: { exts: [".jpg", ".jpeg", ".png", ".webp"], contentType: "image/jpeg" },
+      videos: { exts: [".mp4", ".webm"], contentType: "video/mp4" }
+    };
+
+    const typeConfig = allowedTypeToExt[requestedType];
+    if (!typeConfig || !typeConfig.exts.includes(requestedExt)) {
+      return this.apiResponse.badResponse("Invalid upload type or extension");
+    }
 
     const params = {
       // media/presigned-url/jarielbalberona/?type=videos?&ext=.png
       Bucket: process.env.AWS_S3_FPH_BUCKET_NAME,
-      Key: `media/${username}/${type}/${Date.now()}${ext}`,
-      ContentType: "image/png", // "image/png" or "video/mp4"
+      Key: `media/${expectedUsername}/${requestedType}/${Date.now()}${requestedExt}`,
+      ContentType: typeConfig.contentType,
     };
 
-    const command = new GetObjectCommand(params);
+    const command = new PutObjectCommand(params);
     const url = await withTimeout(
       () => getSignedUrl(s3, command, { expiresIn: 12 * 60 }),
       5000,

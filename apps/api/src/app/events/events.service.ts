@@ -1,6 +1,8 @@
 import { InferSelectModel, and, desc, eq, count, isNull, sql } from "drizzle-orm";
 
 import { EventsServerSchemaType, EventsUpdateSchemaType, EventAttendeeSchemaType } from "./events.validators";
+import { isModeratorDbRole } from "@/core/authorization";
+import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
 import { events, eventAttendees } from "@/models/drizzle/events.model";
@@ -13,9 +15,13 @@ import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
 export type EventsSchemaType = InferSelectModel<typeof events>;
 
 export default class EventsService extends DrizzleService {
+	private isModeratorRole(role: string | null | undefined) {
+		return isModeratorDbRole(role);
+	}
+
 	async create(data: EventsServerSchemaType, actorUserId: number, actorRole: string) {
 		try {
-			const isModerator = ["EDITOR", "ADMINISTRATOR", "SUPER_ADMIN"].includes(actorRole);
+			const isModerator = this.isModeratorRole(actorRole);
 			if (data.organizerType === "USER" && data.organizerId !== actorUserId && !isModerator) {
 				return ServiceResponse.createRejectResponse(
 					status.HTTP_403_FORBIDDEN,
@@ -49,7 +55,7 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async retrieve(id: number): Promise<ServiceApiResponse<EventsSchemaType>> {
+	async retrieve(id: number, viewerUserId: number | null = null): Promise<ServiceApiResponse<EventsSchemaType>> {
 		try {
 			const retrieveData = await this.db.query.events.findFirst({
 				where: and(eq(events.id, id), isNull(events.deletedAt)),
@@ -82,6 +88,13 @@ export default class EventsService extends DrizzleService {
 				);
 			}
 
+			if (viewerUserId && retrieveData.organizerType === "USER") {
+				const blocked = await isPlatformBlockedBetween(this.db, viewerUserId, retrieveData.organizerId);
+				if (blocked) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Event not found");
+				}
+			}
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Event retrieved successfully",
@@ -101,7 +114,7 @@ export default class EventsService extends DrizzleService {
 				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Event not found");
 			}
 
-			const isModerator = ["EDITOR", "ADMINISTRATOR", "SUPER_ADMIN"].includes(actorRole);
+			const isModerator = this.isModeratorRole(actorRole);
 			const isOrganizer = existingEvent.organizerType === "USER" && existingEvent.organizerId === actorUserId;
 			if (!isModerator && !isOrganizer) {
 				return ServiceResponse.createRejectResponse(
@@ -181,7 +194,7 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async retrieveAll(query: PaginationQuerySchemaType) {
+	async retrieveAll(query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
 		try {
 			const totalRows = await this.db.select({ count: sql<number>`count(*)` }).from(events);
 			const totalItems = Number(totalRows[0]?.count ?? 0);
@@ -206,10 +219,15 @@ export default class EventsService extends DrizzleService {
 				.limit(query.limit)
 				.offset(query.offset);
 
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter((row) => row.event.organizerType !== "USER" || !blockedUserIds.has(row.event.organizerId))
+				: retrieveData;
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Events retrieved successfully",
-				retrieveData,
+				filteredData,
 				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
@@ -218,13 +236,20 @@ export default class EventsService extends DrizzleService {
 	}
 
 	// Event Attendees methods
-	async addAttendee(data: EventAttendeeSchemaType) {
+	async addAttendee(eventId: number, actorUserId: number, data: EventAttendeeSchemaType) {
 		try {
+			const event = await this.db.query.events.findFirst({
+				where: and(eq(events.id, eventId), isNull(events.deletedAt))
+			});
+			if (!event) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Event not found");
+			}
+
 			// Check if user is already attending
 			const existingAttendee = await this.db
 				.select()
 				.from(eventAttendees)
-				.where(and(eq(eventAttendees.eventId, data.eventId), eq(eventAttendees.userId, data.userId)))
+				.where(and(eq(eventAttendees.eventId, eventId), eq(eventAttendees.userId, actorUserId)))
 				.limit(1);
 
 			if (existingAttendee.length > 0) {
@@ -235,7 +260,16 @@ export default class EventsService extends DrizzleService {
 				);
 			}
 
-			const createdData = await this.db.insert(eventAttendees).values(data).returning();
+			const createdData = await this.db
+				.insert(eventAttendees)
+				.values({
+					eventId,
+					userId: actorUserId,
+					status: data.status,
+					emergencyContact: data.emergencyContact,
+					notes: data.notes
+				})
+				.returning();
 
 			if (!createdData.length) {
 				return ServiceResponse.createResponse(
@@ -255,8 +289,34 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async removeAttendee(eventId: number, userId: number) {
+	async removeAttendee(eventId: number, userId: number, actorUserId: number, actorRole: string) {
 		try {
+			if (actorUserId !== userId) {
+				const event = await this.db.query.events.findFirst({
+					where: and(eq(events.id, eventId), isNull(events.deletedAt))
+				});
+				if (!event) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Event not found");
+				}
+				if (event.organizerType === "USER") {
+					const blocked = await isPlatformBlockedBetween(this.db, actorUserId, event.organizerId);
+					if (blocked) {
+						return ServiceResponse.createRejectResponse(
+							status.HTTP_403_FORBIDDEN,
+							"Cannot join event due to block relationship"
+						);
+					}
+				}
+
+				const isOrganizer = event.organizerType === "USER" && event.organizerId === actorUserId;
+				if (!isOrganizer && !this.isModeratorRole(actorRole)) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						"Only attendee, organizer, or moderator can remove attendance"
+					);
+				}
+			}
+
 			const deletedData = await this.db
 				.delete(eventAttendees)
 				.where(and(eq(eventAttendees.eventId, eventId), eq(eventAttendees.userId, userId)))
@@ -280,7 +340,7 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async getAttendees(eventId: number, query: PaginationQuerySchemaType) {
+	async getAttendees(eventId: number, query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
 		try {
 			const totalRows = await this.db
 				.select({ count: sql<number>`count(*)` })
@@ -305,10 +365,15 @@ export default class EventsService extends DrizzleService {
 				.limit(query.limit)
 				.offset(query.offset);
 
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter((row) => !blockedUserIds.has(row.attendee.userId))
+				: retrieveData;
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Event attendees retrieved successfully",
-				retrieveData,
+				filteredData,
 				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {

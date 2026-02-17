@@ -35,7 +35,7 @@ export default class GroupsController extends ApiController {
 	async getGroupById() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.groupsService.retrieve(id);
+			const response = await this.groupsService.retrieve(id, this.request.user?.id ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -47,7 +47,7 @@ export default class GroupsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.groupsService.retrieveAll(queryCheck.data);
+			const response = await this.groupsService.retrieveAll(queryCheck.data, this.request.user?.id ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -77,7 +77,7 @@ export default class GroupsController extends ApiController {
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.groupsService.addMember(check.data);
+			const response = await this.groupsService.addMember(check.data, this.request.user.id, this.request.user.role);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -88,7 +88,12 @@ export default class GroupsController extends ApiController {
 		try {
 			const groupId = Number(this.request.params.id);
 			const userId = Number(this.request.params.userId);
-			const response = await this.groupsService.removeMember(groupId, userId);
+			const response = await this.groupsService.removeMember(
+				groupId,
+				userId,
+				this.request.user.id,
+				this.request.user.role
+			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -101,7 +106,7 @@ export default class GroupsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.groupsService.getMembers(id, queryCheck.data);
+			const response = await this.groupsService.getMembers(id, queryCheck.data, this.request.user?.id ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -137,12 +142,11 @@ export default class GroupsController extends ApiController {
 	async createPost() {
 		try {
 			const id = Number(this.request.params.id);
-			const body = this.request.body;
-			const check = GroupPostSchema.safeParse({ ...body, groupId: id });
+			const check = GroupPostSchema.safeParse({ ...this.request.body, groupId: id });
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.groupsService.createPost(check.data);
+			const response = await this.groupsService.createPost(check.data, this.request.user.id, this.request.user.role);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -155,7 +159,7 @@ export default class GroupsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.groupsService.getPosts(id, queryCheck.data);
+			const response = await this.groupsService.getPosts(id, queryCheck.data, this.request.user?.id ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

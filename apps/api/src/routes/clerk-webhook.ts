@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { Webhook } from "svix";
 import { eq } from "drizzle-orm";
 import db from "@/databases/drizzle/connection";
@@ -8,12 +8,16 @@ import { ApiResponse } from "@/utils/serviceApi";
 const router = Router();
 
 // Clerk webhook endpoint
-router.post("/clerk-webhook", async (req, res) => {
+router.post("/clerk-webhook", express.raw({ type: "application/json" }), async (req, res) => {
 	const apiResponse = new ApiResponse(res);
 
 	try {
 		const webhook = new Webhook(process.env.CLERK_WEBHOOK_SECRET!);
-		const payload = await webhook.verify(req.body, req.headers as any);
+		const payloadBody =
+			Buffer.isBuffer(req.body) || req.body instanceof Uint8Array
+				? Buffer.from(req.body).toString("utf8")
+				: JSON.stringify(req.body);
+		const payload = await webhook.verify(payloadBody, req.headers as any);
 
 		const { type, data } = payload as { type: string; data: any };
 
@@ -89,9 +93,35 @@ async function handleUserDeleted(userData: any) {
 	try {
 		const { id } = userData;
 
+		const existing = await db
+			.select({ id: users.id })
+			.from(users)
+			.where(eq(users.clerkId, id))
+			.limit(1);
+
+		const user = existing[0];
+		if (!user) return;
+
 		await db
-			.delete(users)
-			.where(eq(users.clerkId, id));
+			.update(users)
+			.set({
+				accountStatus: "DELETED",
+				name: null,
+				username: `deleted-user-${user.id}`,
+				alias: `deleted_${user.id}`,
+				email: null,
+				emailVerified: null,
+				image: null,
+				bio: null,
+				location: null,
+				phone: null,
+				website: null,
+				homeDiveArea: null,
+				experienceLevel: null,
+				buddyFinderVisibility: "HIDDEN",
+				visibility: "MEMBERS_ONLY"
+			})
+			.where(eq(users.id, user.id));
 
 		console.log(`User deleted: ${id}`);
 	} catch (error) {

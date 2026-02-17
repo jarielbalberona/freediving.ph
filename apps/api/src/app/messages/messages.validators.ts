@@ -11,7 +11,7 @@ export const ConversationMessagesQuerySchema = z.object({
 
 export const SendMessageSchema = z.object({
   content: z.string().trim().min(1).max(5000),
-  type: z.enum(["TEXT", "IMAGE", "VIDEO", "AUDIO", "FILE", "LOCATION", "SYSTEM"]).default("TEXT"),
+  type: z.enum(["TEXT", "IMAGE", "VIDEO", "AUDIO", "FILE", "LOCATION"]).default("TEXT"),
 });
 
 export const ModerateRemoveMessageSchema = z.object({

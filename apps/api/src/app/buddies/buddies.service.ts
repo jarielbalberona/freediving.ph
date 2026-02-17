@@ -5,6 +5,7 @@ import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/bloc
 import DrizzleService from "@/databases/drizzle/service";
 import { users } from "@/models/drizzle/authentication.model";
 import { buddyRelationships, buddyRequests } from "@/models/drizzle/buddies.model";
+import { auditLogs } from "@/models/drizzle/moderation.model";
 import { ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
@@ -103,6 +104,14 @@ export default class BuddiesService extends DrizzleService {
         })
         .returning();
 
+      await this.db.insert(auditLogs).values({
+        actorUserId: currentUserId,
+        action: "BUDDY_REQUEST_SENT",
+        targetType: "USER",
+        targetId: String(payload.toUserId),
+        metadata: { requestId: created[0]?.id ?? null }
+      });
+
       return ServiceResponse.createResponse(status.HTTP_201_CREATED, "Buddy request sent", created[0]);
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);
@@ -120,6 +129,13 @@ export default class BuddiesService extends DrizzleService {
       if (!updated[0]) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Pending request not found");
       }
+
+      await this.db.insert(auditLogs).values({
+        actorUserId: currentUserId,
+        action: "BUDDY_REQUEST_CANCELED",
+        targetType: "OTHER",
+        targetId: String(requestId),
+      });
 
       return ServiceResponse.createResponse(status.HTTP_200_OK, "Buddy request canceled", updated[0]);
     } catch (error) {
@@ -162,6 +178,13 @@ export default class BuddiesService extends DrizzleService {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Pending request not found");
       }
 
+      await this.db.insert(auditLogs).values({
+        actorUserId: currentUserId,
+        action: "BUDDY_REQUEST_ACCEPTED",
+        targetType: "OTHER",
+        targetId: String(requestId),
+      });
+
       return ServiceResponse.createResponse(status.HTTP_200_OK, "Buddy request accepted", result);
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);
@@ -182,6 +205,14 @@ export default class BuddiesService extends DrizzleService {
       if (!updated[0]) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Pending request not found");
       }
+
+      await this.db.insert(auditLogs).values({
+        actorUserId: currentUserId,
+        action: "BUDDY_REQUEST_REJECTED",
+        targetType: "OTHER",
+        targetId: String(requestId),
+        metadata: { reason: payload.reason ?? null }
+      });
 
       return ServiceResponse.createResponse(status.HTTP_200_OK, "Buddy request rejected", updated[0]);
     } catch (error) {
@@ -287,6 +318,13 @@ export default class BuddiesService extends DrizzleService {
       if (!deleted[0]) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Buddy relationship not found");
       }
+
+      await this.db.insert(auditLogs).values({
+        actorUserId: currentUserId,
+        action: "BUDDY_REMOVED",
+        targetType: "USER",
+        targetId: String(buddyUserId),
+      });
 
       return ServiceResponse.createResponse(status.HTTP_200_OK, "Buddy removed", deleted[0]);
     } catch (error) {

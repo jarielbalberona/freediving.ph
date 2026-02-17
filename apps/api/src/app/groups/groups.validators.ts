@@ -50,7 +50,6 @@ export const GroupMemberSchema = z.object({
 
 export const GroupPostSchema = z.object({
 	groupId: z.number().int().positive("Group ID must be a positive integer"),
-	authorId: z.number().int().positive("Author ID must be a positive integer"),
 	title: z.string().max(200, "Title must be less than 200 characters").optional(),
 	content: z.string().min(1, "Content is required").max(5000, "Content must be less than 5000 characters"),
 	postType: z.enum(["text", "image", "video", "link", "poll"], {

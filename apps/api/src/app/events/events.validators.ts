@@ -6,11 +6,11 @@ export const EventsServerSchema = z.object({
 	slug: z.string().min(1, "Slug is required").max(200, "Slug must be less than 200 characters"),
 	description: z.string().min(1, "Description is required").max(2000, "Description must be less than 2000 characters").optional(),
 	location: z.string().min(1, "Location is required").max(200, "Location must be less than 200 characters"),
-	startDate: z.date({
+	startDate: z.coerce.date({
 		required_error: "Start date is required",
 		invalid_type_error: "Start date must be a valid date"
 	}),
-	endDate: z.date({
+	endDate: z.coerce.date({
 		required_error: "End date is required",
 		invalid_type_error: "End date must be a valid date"
 	}).optional(),
@@ -20,13 +20,13 @@ export const EventsServerSchema = z.object({
 		invalid_type_error: "Organizer type must be either USER or GROUP"
 	}),
 	maxAttendees: z.number().int().positive("Max attendees must be a positive integer").optional(),
-	registrationDeadline: z.date({
+	registrationDeadline: z.coerce.date({
 		required_error: "Registration deadline is required",
 		invalid_type_error: "Registration deadline must be a valid date"
 	}).optional(),
-	eventType: z.enum(["DIVE", "TRAINING", "SOCIAL", "COMPETITION", "WORKSHOP"], {
-		required_error: "Event type is required",
-		invalid_type_error: "Event type must be one of: DIVE, TRAINING, SOCIAL, COMPETITION, WORKSHOP"
+	type: z.enum(["DIVE_SESSION", "TRAINING", "COMPETITION", "SOCIAL", "WORKSHOP", "MEETUP", "TOURNAMENT", "FUNDRAISER"], {
+		required_error: "Type is required",
+		invalid_type_error: "Type must be a supported event type"
 	}),
 	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED", "REMOVED"], {
 		required_error: "Status is required",
@@ -44,18 +44,18 @@ export const EventsUpdateSchema = z.object({
 	title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters").optional(),
 	description: z.string().min(1, "Description is required").max(2000, "Description must be less than 2000 characters").optional(),
 	location: z.string().min(1, "Location is required").max(200, "Location must be less than 200 characters").optional(),
-	startDate: z.date({
+	startDate: z.coerce.date({
 		invalid_type_error: "Start date must be a valid date"
 	}).optional(),
-	endDate: z.date({
+	endDate: z.coerce.date({
 		invalid_type_error: "End date must be a valid date"
 	}).optional(),
 	maxAttendees: z.number().int().positive("Max attendees must be a positive integer").optional(),
-	registrationDeadline: z.date({
+	registrationDeadline: z.coerce.date({
 		invalid_type_error: "Registration deadline must be a valid date"
 	}).optional(),
-	eventType: z.enum(["DIVE", "TRAINING", "SOCIAL", "COMPETITION", "WORKSHOP"], {
-		invalid_type_error: "Event type must be one of: DIVE, TRAINING, SOCIAL, COMPETITION, WORKSHOP"
+	type: z.enum(["DIVE_SESSION", "TRAINING", "COMPETITION", "SOCIAL", "WORKSHOP", "MEETUP", "TOURNAMENT", "FUNDRAISER"], {
+		invalid_type_error: "Type must be a supported event type"
 	}).optional(),
 	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED", "REMOVED"], {
 		invalid_type_error: "Status must be one of: DRAFT, PUBLISHED, CANCELLED, COMPLETED, REMOVED"
@@ -69,12 +69,10 @@ export const EventsUpdateSchema = z.object({
 });
 
 export const EventAttendeeSchema = z.object({
-	userId: z.number().int().positive("User ID must be a positive integer"),
-	eventId: z.number().int().positive("Event ID must be a positive integer"),
-	status: z.enum(["REGISTERED", "CONFIRMED", "CANCELLED", "WAITLISTED"], {
+	status: z.enum(["registered", "attended", "cancelled", "no_show"], {
 		required_error: "Status is required",
-		invalid_type_error: "Status must be one of: REGISTERED, CONFIRMED, CANCELLED, WAITLISTED"
-	}).default("REGISTERED"),
+		invalid_type_error: "Status must be one of: registered, attended, cancelled, no_show"
+	}).default("registered"),
 	emergencyContact: z.string().max(200, "Emergency contact must be less than 200 characters").optional(),
 	notes: z.string().max(500, "Notes must be less than 500 characters").optional(),
 });
@@ -82,7 +80,7 @@ export const EventAttendeeSchema = z.object({
 export const EventQuerySchema = z.object({
 	page: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().int().min(1)).default("1"),
 	limit: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().int().min(1).max(100)).default("10"),
-	eventType: z.enum(["DIVE", "TRAINING", "SOCIAL", "COMPETITION", "WORKSHOP"]).optional(),
+	type: z.enum(["DIVE_SESSION", "TRAINING", "COMPETITION", "SOCIAL", "WORKSHOP", "MEETUP", "TOURNAMENT", "FUNDRAISER"]).optional(),
 	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED", "REMOVED"]).optional(),
 	organizerId: z.string().transform((val) => parseInt(val, 10)).pipe(z.number().int().positive()).optional(),
 	location: z.string().optional(),

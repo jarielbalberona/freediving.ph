@@ -1,8 +1,9 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 
 import DrizzleService from "@/databases/drizzle/service";
 import { users } from "@/models/drizzle/authentication.model";
 import { auditLogs, reports } from "@/models/drizzle/moderation.model";
+import { buildOffsetPagination } from "@/utils/pagination";
 import { ServiceResponse, type ServiceApiResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
@@ -90,7 +91,18 @@ export default class ReportsService extends DrizzleService {
         .limit(query.limit)
         .offset(query.offset);
 
-      return ServiceResponse.createResponse(status.HTTP_200_OK, "Reports retrieved successfully", rows);
+      const totalRows = await this.db
+        .select({ total: count(reports.id) })
+        .from(reports)
+        .where(conditions.length ? and(...conditions) : undefined);
+      const totalItems = Number(totalRows[0]?.total ?? 0);
+
+      return ServiceResponse.createResponse(
+        status.HTTP_200_OK,
+        "Reports retrieved successfully",
+        rows,
+        buildOffsetPagination(totalItems, query.limit, query.offset)
+      );
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);
     }

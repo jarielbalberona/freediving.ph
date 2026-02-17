@@ -5,6 +5,7 @@ import { UserCreateSchema, UserDeleteSchema, UserQuerySchema } from "@/app/user/
 
 import { ApiController } from "@/controllers/base/api.controller";
 import { UserSchemaType } from "@/databases/drizzle/types";
+import { isAdminDbRole } from "@/core/authorization";
 import { users } from "@/models/drizzle/authentication.model";
 import { ServiceApiResponse } from "@/utils/serviceApi";
 import { SortingHelper } from "@/utils/sortingHelper";
@@ -91,7 +92,7 @@ export default class UserController extends ApiController {
 			}
 
 			if (check.data.ids.length > 0) {
-				const isAdmin = ["ADMINISTRATOR", "SUPER_ADMIN"].includes(this.request.user.role);
+				const isAdmin = isAdminDbRole(this.request.user.role);
 				if (!isAdmin) {
 					return this.apiResponse.forbiddenResponse("Only admins can anonymize other users");
 				}

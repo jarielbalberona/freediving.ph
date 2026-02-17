@@ -1,6 +1,8 @@
 import { InferSelectModel, and, desc, eq, count, isNull, sql } from "drizzle-orm";
 
 import { GroupsServerSchemaType, GroupsUpdateSchemaType, GroupMemberSchemaType, GroupPostSchemaType } from "./groups.validators";
+import { hasMinimumGroupRole, isModeratorDbRole } from "@/core/authorization";
+import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
 import { groups, groupMembers, groupPosts, groupPostComments, groupPostLikes } from "@/models/drizzle/groups.model";
@@ -12,6 +14,23 @@ import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
 export type GroupsSchemaType = InferSelectModel<typeof groups>;
 
 export default class GroupsService extends DrizzleService {
+	private isModeratorRole(role: string | null | undefined) {
+		return isModeratorDbRole(role);
+	}
+
+	private async getMembership(groupId: number, userId: number) {
+		const rows = await this.db
+			.select()
+			.from(groupMembers)
+			.where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+			.limit(1);
+		return rows[0] ?? null;
+	}
+
+	private canManageGroupMembers(role: string | null | undefined) {
+		return hasMinimumGroupRole(role, "moderator");
+	}
+
 	async create(data: GroupsServerSchemaType) {
 		try {
 			const insertData = {
@@ -50,7 +69,7 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async retrieve(id: number): Promise<ServiceApiResponse<GroupsSchemaType>> {
+	async retrieve(id: number, viewerUserId: number | null = null): Promise<ServiceApiResponse<GroupsSchemaType>> {
 		try {
 			const retrieveData = await this.db.query.groups.findFirst({
 				where: eq(groups.id, id),
@@ -82,6 +101,13 @@ export default class GroupsService extends DrizzleService {
 					status.HTTP_404_NOT_FOUND,
 					"Group not found"
 				);
+			}
+
+			if (viewerUserId) {
+				const creatorBlocked = await isPlatformBlockedBetween(this.db, viewerUserId, retrieveData.createdBy);
+				if (creatorBlocked) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Group not found");
+				}
 			}
 
 			return ServiceResponse.createResponse(
@@ -121,7 +147,7 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async retrieveAll(query: PaginationQuerySchemaType) {
+	async retrieveAll(query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
 		try {
 			const totalRows = await this.db.select({ count: sql<number>`count(*)` }).from(groups);
 			const totalItems = Number(totalRows[0]?.count ?? 0);
@@ -145,10 +171,15 @@ export default class GroupsService extends DrizzleService {
 				.limit(query.limit)
 				.offset(query.offset);
 
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter((row) => !blockedUserIds.has(row.group.createdBy))
+				: retrieveData;
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Groups retrieved successfully",
-				retrieveData,
+				filteredData,
 				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
@@ -162,6 +193,14 @@ export default class GroupsService extends DrizzleService {
 			const group = await this.db.query.groups.findFirst({ where: eq(groups.id, groupId) });
 			if (!group) {
 				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Group not found");
+			}
+
+			const blockedCreator = await isPlatformBlockedBetween(this.db, userId, group.createdBy);
+			if (blockedCreator) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Cannot join group due to block relationship"
+				);
 			}
 
 			if (group.type === "INVITE_ONLY") {
@@ -219,7 +258,7 @@ export default class GroupsService extends DrizzleService {
 				.limit(1);
 
 			const actor = actorMembership[0];
-			if (!actor || !["owner", "admin", "moderator"].includes(String(actor.role))) {
+			if (!actor || !hasMinimumGroupRole(actor.role, "moderator")) {
 				return ServiceResponse.createRejectResponse(
 					status.HTTP_403_FORBIDDEN,
 					"Only group owner/admin/moderator can review join requests"
@@ -253,8 +292,18 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async addMember(data: GroupMemberSchemaType) {
+	async addMember(data: GroupMemberSchemaType, actorUserId: number, actorRole: string) {
 		try {
+			if (!this.isModeratorRole(actorRole)) {
+				const actorMembership = await this.getMembership(data.groupId, actorUserId);
+				if (!actorMembership || actorMembership.status !== "active" || !this.canManageGroupMembers(actorMembership.role)) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						"Only group owner/admin/moderator can add members"
+					);
+				}
+			}
+
 			// Check if user is already a member
 			const existingMember = await this.db
 				.select()
@@ -270,7 +319,14 @@ export default class GroupsService extends DrizzleService {
 				);
 			}
 
-			const createdData = await this.db.insert(groupMembers).values(data).returning();
+			const createdData = await this.db
+				.insert(groupMembers)
+				.values({
+					...data,
+					role: String(data.role).toLowerCase(),
+					status: String(data.status).toLowerCase()
+				})
+				.returning();
 
 			if (!createdData.length) {
 				return ServiceResponse.createResponse(
@@ -290,8 +346,19 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async removeMember(groupId: number, userId: number) {
+	async removeMember(groupId: number, userId: number, actorUserId: number, actorRole: string) {
 		try {
+			const isSelfRemoval = actorUserId === userId;
+			if (!isSelfRemoval && !this.isModeratorRole(actorRole)) {
+				const actorMembership = await this.getMembership(groupId, actorUserId);
+				if (!actorMembership || actorMembership.status !== "active" || !this.canManageGroupMembers(actorMembership.role)) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						"Only group owner/admin/moderator can remove members"
+					);
+				}
+			}
+
 			const ownerMember = await this.db
 				.select({ id: groupMembers.id })
 				.from(groupMembers)
@@ -334,7 +401,7 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async getMembers(groupId: number, query: PaginationQuerySchemaType) {
+	async getMembers(groupId: number, query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
 		try {
 			const totalRows = await this.db
 				.select({ count: sql<number>`count(*)` })
@@ -359,10 +426,15 @@ export default class GroupsService extends DrizzleService {
 				.limit(query.limit)
 				.offset(query.offset);
 
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter((row) => !blockedUserIds.has(row.member.userId))
+				: retrieveData;
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Group members retrieved successfully",
-				retrieveData,
+				filteredData,
 				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
@@ -371,9 +443,25 @@ export default class GroupsService extends DrizzleService {
 	}
 
 	// Group Posts methods
-	async createPost(data: GroupPostSchemaType) {
+	async createPost(data: GroupPostSchemaType, actorUserId: number, actorRole: string) {
 		try {
-			const createdData = await this.db.insert(groupPosts).values(data).returning();
+			if (!this.isModeratorRole(actorRole)) {
+				const actorMembership = await this.getMembership(data.groupId, actorUserId);
+				if (!actorMembership || actorMembership.status !== "active" || !actorMembership.canPost) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						"You must be an active member with posting permission to create posts"
+					);
+				}
+			}
+
+			const createdData = await this.db
+				.insert(groupPosts)
+				.values({
+					...data,
+					authorId: actorUserId
+				})
+				.returning();
 
 			if (!createdData.length) {
 				return ServiceResponse.createResponse(
@@ -393,7 +481,7 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async getPosts(groupId: number, query: PaginationQuerySchemaType) {
+	async getPosts(groupId: number, query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
 		try {
 			const totalRows = await this.db
 				.select({ count: sql<number>`count(*)` })
@@ -422,10 +510,15 @@ export default class GroupsService extends DrizzleService {
 				.limit(query.limit)
 				.offset(query.offset);
 
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter((row) => !blockedUserIds.has(row.post.authorId))
+				: retrieveData;
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Group posts retrieved successfully",
-				retrieveData,
+				filteredData,
 				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {

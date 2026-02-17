@@ -8,6 +8,7 @@ import DrizzleService from "@/databases/drizzle/service";
 import { RoleType, UserSchemaType } from "@/databases/drizzle/types";
 import { users } from "@/models/drizzle/authentication.model";
 import { messages } from "@/models/drizzle/messages.model";
+import { auditLogs } from "@/models/drizzle/moderation.model";
 import { profileActivityItems, personalBests } from "@/models/drizzle/profiles.model";
 import { comments, threads } from "@/models/drizzle/threads.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
@@ -163,6 +164,13 @@ export default class UserService extends DrizzleService {
 				.update(profileActivityItems)
 				.set({ deletedAt: new Date(), text: "[removed]" })
 				.where(eq(profileActivityItems.userId, userId));
+
+			await this.db.insert(auditLogs).values({
+				actorUserId: userId,
+				action: "USER_ACCOUNT_ANONYMIZED",
+				targetType: "USER",
+				targetId: String(userId)
+			});
 
 			return ServiceResponse.createResponse(status.HTTP_200_OK, "User account anonymized successfully", true);
 		} catch (error) {

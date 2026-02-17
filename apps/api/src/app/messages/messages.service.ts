@@ -7,6 +7,7 @@ import { users } from "@/models/drizzle/authentication.model";
 import { buddyRelationships } from "@/models/drizzle/buddies.model";
 import { conversationParticipants, conversations, messages } from "@/models/drizzle/messages.model";
 import { auditLogs, blocks } from "@/models/drizzle/moderation.model";
+import { buildOffsetPagination } from "@/utils/pagination";
 import { ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
@@ -329,6 +330,12 @@ export default class MessagesService extends DrizzleService {
         return ServiceResponse.createRejectResponse(status.HTTP_403_FORBIDDEN, "You are not a participant of this conversation");
       }
 
+      const totalRows = await this.db
+        .select({ total: count(messages.id) })
+        .from(messages)
+        .where(eq(messages.conversationId, conversationId));
+      const totalItems = Number(totalRows[0]?.total ?? 0);
+
       const messageRows = await this.db
         .select({
           id: messages.id,
@@ -370,6 +377,7 @@ export default class MessagesService extends DrizzleService {
         status.HTTP_200_OK,
         "Messages retrieved successfully",
         messageRows.reverse(),
+        buildOffsetPagination(totalItems, query.limit, query.offset),
       );
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);

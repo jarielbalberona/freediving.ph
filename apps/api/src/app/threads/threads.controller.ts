@@ -48,7 +48,11 @@ export default class ThreadsController extends ApiController {
 	async retrieveThreads() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.threadsService.retrieve(id, this.request.user?.id ?? null);
+			const response = await this.threadsService.retrieve(
+				id,
+				this.request.user?.id ?? null,
+				this.request.user?.role ?? null
+			);
 
 			// await this.threadsService.testThreads(response.data.id);
 
@@ -66,7 +70,12 @@ export default class ThreadsController extends ApiController {
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.threadsService.update(id, check.data);
+			const response = await this.threadsService.update(
+				id,
+				this.request.user.id,
+				this.request.user.role,
+				check.data
+			);
 
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
@@ -79,7 +88,11 @@ export default class ThreadsController extends ApiController {
 			const queryCheck = ThreadListQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.threadsService.retrieveAll(queryCheck.data, this.request.user?.id ?? null);
+			const response = await this.threadsService.retrieveAll(
+				queryCheck.data,
+				this.request.user?.id ?? null,
+				this.request.user?.role ?? null
+			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -89,7 +102,7 @@ export default class ThreadsController extends ApiController {
 	async deleteThreads() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.threadsService.delete(id);
+			const response = await this.threadsService.delete(id, this.request.user.id, this.request.user.role);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -123,7 +136,8 @@ export default class ThreadsController extends ApiController {
 			const response = await this.threadsService.getComments(
 				threadId,
 				queryCheck.data,
-				this.request.user?.id ?? null
+				this.request.user?.id ?? null,
+				this.request.user?.role ?? null
 			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {

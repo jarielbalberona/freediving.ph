@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import db from "@/databases/drizzle/connection";
 import { users } from "@/models/drizzle/authentication.model";
 import { ApiResponse } from "@/utils/serviceApi";
-import { hasMinimumPlatformRole, type PlatformRole } from "@/core/authorization";
+import { hasMinimumPlatformRole, hasMinimumRole, type PlatformRole } from "@/core/authorization";
 import { canPerformPolicyAction, type PolicyAction } from "@/core/policies";
 import { withTimeout } from "@/utils/resilience";
 
@@ -122,7 +122,7 @@ export const requireRole = (role: string) => {
 			return;
 		}
 
-		if (req.user.role !== role && req.user.role !== 'SUPER_ADMIN') {
+		if (!hasMinimumRole(req.user.role, role)) {
 			apiResponse.forbiddenResponse("Insufficient permissions");
 			return;
 		}
@@ -140,7 +140,8 @@ export const requireAnyRole = (roles: string[]) => {
 			return;
 		}
 
-		if (!roles.includes(req.user.role)) {
+		const hasAnyRole = roles.some((requiredRole) => hasMinimumRole(req.user.role, requiredRole));
+		if (!hasAnyRole) {
 			apiResponse.forbiddenResponse("Insufficient permissions");
 			return;
 		}

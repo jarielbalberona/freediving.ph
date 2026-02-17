@@ -37,7 +37,7 @@ export function serverErrorHandler(app: Express) {
 			}
 
 			// Handle CSRF errors
-			if (invalidCsrfTokenError) {
+			if (err instanceof Error && err.message === invalidCsrfTokenError.message) {
 				apiResponse.forbiddenResponse(invalidCsrfTokenError.message);
 				return;
 			}

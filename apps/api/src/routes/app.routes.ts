@@ -22,6 +22,7 @@ import { awarenessRouter } from "@/app/awareness/awareness.routes";
 import { marketplaceRouter } from "@/app/marketplace/marketplace.routes";
 import { collaborationRouter } from "@/app/collaboration/collaboration.routes";
 import { moderationRouter } from "@/app/moderation/moderation.routes";
+import { blocksRouter } from "@/app/blocks/blocks.routes";
 import clerkWebhookRouter from "@/routes/clerk-webhook";
 
 import { csrfRouter } from "@/routes/csrf.route";
@@ -80,5 +81,6 @@ export const routes: RouteConfig[] = [
   { path: "/collaboration", router: collaborationRouter },
   { path: "/user-services", router: userServicesRouter },
   { path: "/moderation", router: moderationRouter },
+  { path: "/blocks", router: blocksRouter },
   { path: "/webhooks", router: clerkWebhookRouter },
 ];

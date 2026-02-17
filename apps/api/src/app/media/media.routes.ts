@@ -13,7 +13,7 @@ export const mediaRouter: Router = (() => {
 
   router
     .route("/presigned-url/:username")
-    .get((req, res) => {
+    .get(clerkAuthMiddleware, (req, res) => {
       new MediaController(req, res).createPresignedS3URL();
     })
 

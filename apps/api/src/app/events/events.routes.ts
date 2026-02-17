@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, optionalClerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
 
 import EventsController from "@/app/events/events.controller";
 
@@ -9,7 +9,7 @@ export const eventsRouter: Router = (() => {
 	// Event CRUD routes
 	router
 		.route("/")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new EventsController(req, res).getAllEvents();
 		})
 		.post(clerkAuthMiddleware, async (req, res) => {
@@ -18,7 +18,7 @@ export const eventsRouter: Router = (() => {
 
 	router
 		.route("/:id")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new EventsController(req, res).getEventById();
 		})
 		.put(clerkAuthMiddleware, async (req, res) => {
@@ -32,7 +32,7 @@ export const eventsRouter: Router = (() => {
 	// Event attendee routes
 	router
 		.route("/:id/attendees")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new EventsController(req, res).getEventAttendees();
 		})
 		.post(clerkAuthMiddleware, async (req, res) => {

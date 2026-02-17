@@ -13,12 +13,19 @@ import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
 export type DiveSpotSchemaType = InferSelectModel<typeof diveSpots>;
 
 export default class DiveSpotService extends DrizzleService {
+	private toCoarseCoordinate(value: number | undefined) {
+		if (typeof value !== "number" || Number.isNaN(value)) return undefined;
+		return Math.round(value * 10) / 10;
+	}
+
 	async createDiveSpot(data: DiveSpotServerSchemaType) {
 		try {
 			const createdData = await this.db
 				.insert(diveSpots)
 				.values({
 					...data,
+					lat: this.toCoarseCoordinate(data.lat),
+					lng: this.toCoarseCoordinate(data.lng),
 					state: "DRAFT",
 					source: "COMMUNITY"
 				})
@@ -52,10 +59,16 @@ export default class DiveSpotService extends DrizzleService {
 				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
 			}
 
+			const coarseData = {
+				...retrieveData,
+				lat: this.toCoarseCoordinate(retrieveData.lat ?? undefined) ?? null,
+				lng: this.toCoarseCoordinate(retrieveData.lng ?? undefined) ?? null
+			};
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Dive spots retrieved successfully",
-				retrieveData
+				coarseData
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
@@ -64,20 +77,33 @@ export default class DiveSpotService extends DrizzleService {
 
 	async updateDiveSpot(id: number, data: DiveSpotServerSchemaType) {
 		try {
-			const updatedData = await this.db.update(diveSpots).set(data).where(eq(diveSpots.id, id)).returning();
+			const updatedData = await this.db
+				.update(diveSpots)
+				.set({
+					...data,
+					lat: this.toCoarseCoordinate(data.lat),
+					lng: this.toCoarseCoordinate(data.lng)
+				})
+				.where(eq(diveSpots.id, id))
+				.returning();
+			const updatedCoarse = updatedData.map((row) => ({
+				...row,
+				lat: this.toCoarseCoordinate(row.lat ?? undefined) ?? null,
+				lng: this.toCoarseCoordinate(row.lng ?? undefined) ?? null
+			}));
 
-			if (!updatedData.length) {
+			if (!updatedCoarse.length) {
 				return ServiceResponse.createResponse(
 					status.HTTP_406_NOT_ACCEPTABLE,
 					"Invalid dive spot id",
-					updatedData[0]
+					updatedCoarse[0]
 				);
 			}
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Dive spot updated successfully",
-				updatedData[0]
+				updatedCoarse[0]
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
@@ -98,11 +124,16 @@ export default class DiveSpotService extends DrizzleService {
 				limit: query.limit,
 				offset: query.offset
 			});
+			const coarseData = retrieveData.map((row) => ({
+				...row,
+				lat: this.toCoarseCoordinate(row.lat ?? undefined) ?? null,
+				lng: this.toCoarseCoordinate(row.lng ?? undefined) ?? null
+			}));
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Dive spots retrieved successfully",
-				retrieveData,
+				coarseData,
 				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
