@@ -4,7 +4,7 @@ import { DiveSpot } from '@freediving.ph/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, Thermometer, Waves, Eye, Anchor } from 'lucide-react';
+import { MapPin, Waves, Eye } from 'lucide-react';
 
 interface DiveSpotCardProps {
   diveSpot: DiveSpot;
@@ -22,65 +22,54 @@ export function DiveSpotCard({
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'BEGINNER':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/15 text-success-foreground';
       case 'INTERMEDIATE':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-info/15 text-info-foreground';
       case 'ADVANCED':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-warning/15 text-warning-foreground';
       case 'EXPERT':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/15 text-destructive';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
   const getVisibilityColor = (visibility: string) => {
     switch (visibility) {
       case 'POOR':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/15 text-destructive';
       case 'FAIR':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-warning/15 text-warning-foreground';
       case 'GOOD':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-info/15 text-info-foreground';
       case 'EXCELLENT':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/15 text-success-foreground';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
   const getCurrentColor = (current: string) => {
     switch (current) {
       case 'NONE':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/15 text-success-foreground';
       case 'LIGHT':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-info/15 text-info-foreground';
       case 'MODERATE':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-warning/15 text-warning-foreground';
       case 'STRONG':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/15 text-destructive';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
-  const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star
-        key={i}
-        className={`h-4 w-4 ${
-          i < Math.floor(rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'
-        }`}
-      />
-    ));
-  };
-
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-lg line-clamp-2">{diveSpot.name}</CardTitle>
+            <CardTitle>{diveSpot.name}</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(diveSpot.difficulty ?? 'BEGINNER')}`}>
                 {diveSpot.difficulty ?? 'BEGINNER'}
@@ -92,7 +81,7 @@ export function DiveSpotCard({
                 {diveSpot.current ?? 'LIGHT'}
               </span>
               {diveSpot.isVerified && (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline">
                   Verified
                 </Badge>
               )}
@@ -135,22 +124,22 @@ export function DiveSpotCard({
               <span className="line-clamp-1">{diveSpot.locationName}</span>
             </div>
           )}
-          
+
           {diveSpot.depth && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Waves className="h-4 w-4" />
               <span>{diveSpot.depth}m depth</span>
             </div>
           )}
-          
+
           {diveSpot.bestSeason && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Eye className="h-4 w-4" />
               <span>Best season: {diveSpot.bestSeason}</span>
             </div>
           )}
-        </div>
 
+        </div>
       </CardContent>
     </Card>
   );

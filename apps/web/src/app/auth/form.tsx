@@ -168,10 +168,10 @@ const AuthForm = ({ isSignIn }: { isSignIn: boolean }) => {
                 aria-hidden="true"
                 className="absolute inset-0 flex items-center"
               >
-                <div className="w-full border-t border-gray-200" />
+                <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center font-medium text-sm/6">
-                <span className="px-6 text-gray-900 bg-white">
+                <span className="px-6 text-foreground bg-background">
                   Or continue with
                 </span>
               </div>
@@ -180,7 +180,7 @@ const AuthForm = ({ isSignIn }: { isSignIn: boolean }) => {
             <div className="grid grid-cols-1 gap-4 mt-6">
               <a
                 href="#"
-                className="flex items-center justify-center w-full gap-3 px-3 py-2 text-sm font-semibold text-gray-900 bg-white rounded-md shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent"
+                className="flex items-center justify-center w-full gap-3 px-3 py-2 text-sm font-semibold text-foreground bg-background rounded-md shadow-sm ring-1 ring-inset ring-border hover:bg-muted focus-visible:ring-transparent"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true" className="w-5 h-5">
                   <path
@@ -192,7 +192,7 @@ const AuthForm = ({ isSignIn }: { isSignIn: boolean }) => {
               </a>
               <a
                 href="#"
-                className="flex items-center justify-center w-full gap-3 px-3 py-2 text-sm font-semibold text-gray-900 bg-white rounded-md shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent"
+                className="flex items-center justify-center w-full gap-3 px-3 py-2 text-sm font-semibold text-foreground bg-background rounded-md shadow-sm ring-1 ring-inset ring-border hover:bg-muted focus-visible:ring-transparent"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true" className="w-5 h-5">
                   <path

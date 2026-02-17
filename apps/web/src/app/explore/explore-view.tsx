@@ -55,7 +55,7 @@ export default function Explore({ initialDiveSpots }: any) {
           </div>
 
           <div className="relative flex-1">
-            <div className="h-full w-full bg-[#e5e3df]">
+            <div className="h-full w-full bg-muted">
               <MapComponent freedivingSpots={diveSpots} />
             </div>
 

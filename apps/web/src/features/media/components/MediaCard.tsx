@@ -68,22 +68,22 @@ export function MediaCard({
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-lg line-clamp-2">{media.originalName}</CardTitle>
+            <CardTitle>{media.originalName}</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant={getCategoryColor(media.category)}>
                 {getCategoryIcon(media.category)}
                 <span className="ml-1">{media.category}</span>
               </Badge>
               {media.isPublic ? (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline">
                   Public
                 </Badge>
               ) : (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary">
                   Private
                 </Badge>
               )}
@@ -147,13 +147,13 @@ export function MediaCard({
           </div>
         ) : media.category === 'VIDEO' && media.thumbnailUrl ? (
           <div className="mb-4">
-            <div className="relative w-full h-32 bg-gray-100 rounded-md flex items-center justify-center">
-              <Video className="h-8 w-8 text-gray-400" />
+            <div className="relative w-full h-32 bg-muted rounded-md flex items-center justify-center">
+              <Video className="h-8 w-8 text-muted-foreground" />
             </div>
           </div>
         ) : (
           <div className="mb-4">
-            <div className="w-full h-32 bg-gray-100 rounded-md flex items-center justify-center">
+            <div className="w-full h-32 bg-muted rounded-md flex items-center justify-center">
               {getCategoryIcon(media.category)}
             </div>
           </div>
@@ -193,12 +193,12 @@ export function MediaCard({
         {media.tags && media.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-3">
             {media.tags.slice(0, 3).map((tag, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
+              <Badge key={index} variant="outline">
                 {tag}
               </Badge>
             ))}
             {media.tags.length > 3 && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline">
                 +{media.tags.length - 3} more
               </Badge>
             )}

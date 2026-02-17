@@ -69,7 +69,7 @@ const Thread = ({
   return (
     <>
       {error ? (
-        <div className="mb-4 text-sm text-red-600">{error}</div>
+        <div className="mb-4 text-sm text-destructive">{error}</div>
       ) : null}
       {threads?.map((threadWithUser) => {
         const { thread, user: threadUser, commentCount, upvotes, downvotes } = threadWithUser;

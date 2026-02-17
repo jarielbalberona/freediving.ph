@@ -55,15 +55,15 @@ export function EventCard({
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'BEGINNER':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/15 text-success-foreground';
       case 'INTERMEDIATE':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-info/15 text-info-foreground';
       case 'ADVANCED':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-warning/15 text-warning-foreground';
       case 'EXPERT':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/15 text-destructive';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -82,11 +82,11 @@ export function EventCard({
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-lg line-clamp-2">{event.title}</CardTitle>
+            <CardTitle>{event.title}</CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant={getStatusColor(event.status)}>
                 {event.status}
@@ -165,12 +165,12 @@ export function EventCard({
         {event.tags && event.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-3">
             {event.tags.slice(0, 3).map((tag, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
+              <Badge key={index} variant="outline">
                 {tag}
               </Badge>
             ))}
             {event.tags.length > 3 && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline">
                 +{event.tags.length - 3} more
               </Badge>
             )}

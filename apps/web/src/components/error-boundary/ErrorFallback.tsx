@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, RefreshCw, Home, Bug, Wifi, WifiOff } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home, Bug, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -56,26 +56,30 @@ export function ErrorFallback({
 
   const getIcon = () => {
     if (isNetworkError) {
-      return <WifiOff className="h-6 w-6 text-orange-600" />;
+      return <WifiOff className="h-6 w-6 text-warning" />;
     }
-    return <AlertTriangle className="h-6 w-6 text-red-600" />;
+    return <AlertTriangle className="h-6 w-6 text-destructive" />;
   };
 
   const getIconBg = () => {
     if (isNetworkError) {
-      return 'bg-orange-100';
+      return 'bg-warning/15';
     }
-    return 'bg-red-100';
+    return 'bg-destructive/15';
   };
 
   return (
     <div className="min-h-[300px] flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+        <CardHeader>
+          <div className="text-center">
           <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${getIconBg()}`}>
             {getIcon()}
           </div>
-          <CardTitle className="text-xl">{getErrorTitle()}</CardTitle>
+          <CardTitle>
+            <span className="text-xl">{getErrorTitle()}</span>
+          </CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert variant={isNetworkError ? 'default' : 'destructive'}>
@@ -91,11 +95,11 @@ export function ErrorFallback({
                 Error Details (Development)
               </summary>
               <div className="mt-2 rounded-md bg-muted p-3">
-                <p className="text-xs font-mono text-red-600">
+                <p className="text-xs font-mono text-destructive">
                   {error.message}
                 </p>
                 {error.stack && (
-                  <pre className="mt-2 text-xs font-mono text-muted-foreground overflow-auto max-h-32">
+                  <pre className="mt-2 max-h-32 overflow-auto text-xs font-mono text-muted-foreground">
                     {error.stack}
                   </pre>
                 )}

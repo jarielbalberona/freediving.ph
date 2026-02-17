@@ -1,5 +1,6 @@
 import { ThreadWithUser } from '@freediving.ph/types';
 import { getRemovedContentLabel, isRemovedContent } from '@/lib/content/moderation';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface ThreadDetailProps {
   thread: ThreadWithUser;
@@ -13,30 +14,32 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
   const removedLabel = getRemovedContentLabel(thread.thread.content) ?? getRemovedContentLabel(thread.thread.title);
 
   return (
-    <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          {isRemoved ? "Content unavailable" : thread.thread.title}
-        </h1>
-        <div className="flex items-center text-sm text-gray-500 mb-4">
-          <span>By {thread.user.alias || thread.user.username}</span>
-          <span className="mx-2">•</span>
-          <span>{new Date(thread.thread.createdAt).toLocaleDateString()}</span>
+    <Card>
+      <CardContent className="p-6">
+        <div className="mb-4">
+          <h1 className="mb-2 text-2xl font-bold text-foreground">
+            {isRemoved ? "Content unavailable" : thread.thread.title}
+          </h1>
+          <div className="mb-4 flex items-center text-sm text-muted-foreground">
+            <span>By {thread.user.alias || thread.user.username}</span>
+            <span className="mx-2">•</span>
+            <span>{new Date(thread.thread.createdAt).toLocaleDateString()}</span>
+          </div>
         </div>
-      </div>
 
-      <div className="prose max-w-none">
-        <p className="text-gray-700 whitespace-pre-wrap">
-          {isRemoved ? removedLabel || "This content has been removed." : thread.thread.content}
-        </p>
-      </div>
-
-      <div className="mt-6 flex items-center justify-between border-t pt-4">
-        <div className="flex items-center space-x-4 text-sm text-gray-500">
-          <span>{thread.upvotes - thread.downvotes} likes</span>
-          <span>{thread.commentCount} comments</span>
+        <div className="prose max-w-none">
+          <p className="whitespace-pre-wrap text-foreground">
+            {isRemoved ? removedLabel || "This content has been removed." : thread.thread.content}
+          </p>
         </div>
-      </div>
-    </div>
+
+        <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
+          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+            <span>{thread.upvotes - thread.downvotes} likes</span>
+            <span>{thread.commentCount} comments</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

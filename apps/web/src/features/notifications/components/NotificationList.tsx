@@ -65,10 +65,10 @@ export function NotificationList({ userId, filters }: NotificationListProps) {
   return (
     <div className="space-y-4">
       {unreadCount > 0 && (
-        <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="flex items-center justify-between p-4 bg-info/10 rounded-lg border border-info/30">
           <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-blue-600" />
-            <span className="text-sm font-medium text-blue-900">
+            <Bell className="h-5 w-5 text-info" />
+            <span className="text-sm font-medium text-info-foreground">
               {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
             </span>
           </div>
@@ -77,7 +77,7 @@ export function NotificationList({ userId, filters }: NotificationListProps) {
             variant="outline"
             onClick={handleMarkAllAsRead}
             disabled={markAllAsReadMutation.isPending}
-            className="border-blue-300 text-blue-700 hover:bg-blue-100"
+            className="border-info/40 text-info-foreground hover:bg-info/20"
           >
             <CheckCircle className="h-4 w-4 mr-2" />
             Mark All as Read

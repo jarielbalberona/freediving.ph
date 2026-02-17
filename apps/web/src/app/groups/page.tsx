@@ -70,11 +70,11 @@ export default function GroupsPage() {
   };
 
   const GroupCard = ({ group, showJoinButton = true }: { group: any; showJoinButton?: boolean }) => (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-lg">{group.name}</CardTitle>
+            <CardTitle>{group.name}</CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant={getTypeColor(group.type)}>
                 {group.type}

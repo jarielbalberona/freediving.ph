@@ -60,7 +60,7 @@ export default async function RootLayout({
           )}
         >
           <ThemeProvider
-            attribute="class"
+            attribute="data-theme"
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange

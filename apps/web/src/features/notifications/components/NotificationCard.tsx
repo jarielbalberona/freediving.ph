@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Clock, AlertCircle, CheckCircle, Archive } from 'lucide-react';
+import { Bell, Clock, CheckCircle, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,11 +34,11 @@ export function NotificationCard({ notification, userId }: NotificationCardProps
   const getStatusIcon = (status: Notification['status']) => {
     switch (status) {
       case 'UNREAD':
-        return <Bell className="h-4 w-4 text-blue-500" />;
+        return <Bell className="h-4 w-4 text-info" />;
       case 'READ':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-success" />;
       case 'ARCHIVED':
-        return <Archive className="h-4 w-4 text-gray-500" />;
+        return <Archive className="h-4 w-4 text-muted-foreground" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -56,7 +56,7 @@ export function NotificationCard({ notification, userId }: NotificationCardProps
 
   return (
     <Card className={`transition-all duration-200 hover:shadow-md ${
-      notification.status === 'UNREAD' ? 'border-l-4 border-l-blue-500 bg-blue-50/50' : ''
+      notification.status === 'UNREAD' ? 'border-l-4 border-l-info bg-info/10' : ''
     }`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">

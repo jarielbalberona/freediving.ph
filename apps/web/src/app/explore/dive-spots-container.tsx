@@ -88,7 +88,7 @@ export function DiveSpotsContainerMobile({
         onTouchEnd={handleTouchEnd}
       >
         <div className="flex items-center justify-center p-2">
-          <div className="w-16 h-1 bg-gray-300 rounded-full"></div>
+          <div className="w-16 h-1 bg-border rounded-full"></div>
         </div>
         <div className="flex items-center justify-between p-2 border-b">
           <h2 className="text-lg font-semibold">Places</h2>

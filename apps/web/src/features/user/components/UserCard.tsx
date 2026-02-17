@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Star, Award, Users, Calendar } from 'lucide-react';
+import { MapPin, Star, Award, Calendar } from 'lucide-react';
 
 interface UserCardProps {
   user: UserProfile;
@@ -23,15 +23,15 @@ export function UserCard({
   const getExperienceColor = (experience: string) => {
     switch (experience) {
       case 'BEGINNER':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/15 text-success-foreground';
       case 'INTERMEDIATE':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-info/15 text-info-foreground';
       case 'ADVANCED':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-warning/15 text-warning-foreground';
       case 'EXPERT':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/15 text-destructive';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -57,7 +57,7 @@ export function UserCard({
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
@@ -66,18 +66,18 @@ export function UserCard({
               <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
             </Avatar>
             <div className="space-y-1">
-              <CardTitle className="text-lg">{user.firstName} {user.lastName}</CardTitle>
+              <CardTitle>{user.firstName} {user.lastName}</CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">@{user.username}</span>
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getExperienceColor(user.experience)}`}>
                   {user.experience}
                 </span>
                 {user.isVerified && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline">
                     Verified
                   </Badge>
                 )}
-                <Badge variant={getRoleColor(user.role)} className="text-xs">
+                <Badge variant={getRoleColor(user.role)}>
                   {user.role}
                 </Badge>
               </div>
@@ -128,11 +128,11 @@ export function UserCard({
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <Star className="h-4 w-4 text-yellow-500" />
+              <Star className="h-4 w-4 text-warning" />
               <span>{user.stats.totalDives} dives</span>
             </div>
             <div className="flex items-center gap-2">
-              <Award className="h-4 w-4 text-blue-500" />
+              <Award className="h-4 w-4 text-info" />
               <span>{user.stats.maxDepth}m max depth</span>
             </div>
           </div>
@@ -143,12 +143,12 @@ export function UserCard({
             <div className="text-xs font-medium text-muted-foreground mb-1">Certifications:</div>
             <div className="flex flex-wrap gap-1">
               {user.certifications.slice(0, 3).map((cert, index) => (
-                <Badge key={index} variant="outline" className="text-xs">
+                <Badge key={index} variant="outline">
                   {cert}
                 </Badge>
               ))}
               {user.certifications.length > 3 && (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline">
                   +{user.certifications.length - 3} more
                 </Badge>
               )}
@@ -161,12 +161,12 @@ export function UserCard({
             <div className="text-xs font-medium text-muted-foreground mb-1">Specialties:</div>
             <div className="flex flex-wrap gap-1">
               {user.specialties.slice(0, 3).map((specialty, index) => (
-                <Badge key={index} variant="secondary" className="text-xs">
+                <Badge key={index} variant="secondary">
                   {specialty}
                 </Badge>
               ))}
               {user.specialties.length > 3 && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary">
                   +{user.specialties.length - 3} more
                 </Badge>
               )}

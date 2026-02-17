@@ -35,10 +35,12 @@ export function AuthGuard({
     return (
       <div className="container mx-auto p-6">
         <Card>
-          <CardContent className="py-12 text-center">
-            <ShieldAlert className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-            <h2 className="text-xl font-semibold">{title}</h2>
-            <p className="text-muted-foreground">{description}</p>
+          <CardContent>
+            <div className="py-12 text-center">
+              <ShieldAlert className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+              <h2 className="text-xl font-semibold">{title}</h2>
+              <p className="text-muted-foreground">{description}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -53,10 +55,12 @@ export function AuthGuard({
     return (
       <div className="container mx-auto p-6">
         <Card>
-          <CardContent className="py-12 text-center">
-            <ShieldAlert className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-            <h2 className="text-xl font-semibold">Access denied</h2>
-            <p className="text-muted-foreground">Your role does not allow access to this page.</p>
+          <CardContent>
+            <div className="py-12 text-center">
+              <ShieldAlert className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+              <h2 className="text-xl font-semibold">Access denied</h2>
+              <p className="text-muted-foreground">Your role does not allow access to this page.</p>
+            </div>
           </CardContent>
         </Card>
       </div>

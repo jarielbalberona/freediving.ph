@@ -12,12 +12,12 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
 
   if (isLoading) {
     return (
-      <main className="">
+      <main>
         <div className="xl:pr-96">
           <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
-            <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
+            <div className="container mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-center py-12">
-                <div className="text-gray-500">Loading thread...</div>
+                <div className="text-muted-foreground">Loading thread...</div>
               </div>
             </div>
           </div>
@@ -28,10 +28,10 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
 
   if (error) {
     return (
-      <main className="">
+      <main>
         <div className="xl:pr-96">
           <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
-            <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
+            <div className="container mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8">
               <h1>{getApiErrorMessage(error, "Thread not found")}</h1>
             </div>
           </div>
@@ -41,16 +41,14 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
   }
 
   return (
-    <>
-      <main className="">
-        <div className="xl:pr-96">
-          <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
-            <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
-              {thread && <ThreadDetail thread={thread} />}
-            </div>
+    <main>
+      <div className="xl:pr-96">
+        <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
+          <div className="container mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8">
+            {thread && <ThreadDetail thread={thread} />}
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

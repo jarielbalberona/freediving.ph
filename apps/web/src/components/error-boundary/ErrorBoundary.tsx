@@ -160,11 +160,15 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="min-h-[400px] flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
+          <CardHeader>
+            <div className="text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
             </div>
-            <CardTitle className="text-xl">{getErrorTitle()}</CardTitle>
+            <CardTitle>
+              <span className="text-xl">{getErrorTitle()}</span>
+            </CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert variant="destructive">
@@ -180,7 +184,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   Error Details (Development)
                 </summary>
                 <div className="mt-2 rounded-md bg-muted p-3">
-                  <p className="text-xs font-mono text-red-600">
+                  <p className="text-xs font-mono text-destructive">
                     {error.message}
                   </p>
                   {error.stack && (
