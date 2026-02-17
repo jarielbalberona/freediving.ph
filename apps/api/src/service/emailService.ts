@@ -1,6 +1,7 @@
 import ejs from "ejs";
 import nodemailer from "nodemailer";
 import path from "path";
+import { retryAsync, withTimeout } from "@/utils/resilience";
 
 const __dirname = process.cwd();
 const templatesPath = path.join(__dirname, "public/templates");
@@ -50,7 +51,19 @@ const sendEmail = async ({
 
 	// Send the email
 	try {
-		const report = await transporter.sendMail(mailOptions);
+		const report = await retryAsync(
+			() =>
+				withTimeout(
+					() => transporter.sendMail(mailOptions),
+					10000,
+					"Email provider timed out while sending message"
+				),
+			{
+				attempts: 3,
+				backoffMs: 250,
+				retryIf: () => true
+			}
+		);
 		console.log("Email sent: %s", report.messageId);
 		return Promise.resolve(report);
 	} catch (error) {

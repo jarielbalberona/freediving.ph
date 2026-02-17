@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, text, doublePrecision } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, serial, text, doublePrecision, timestamp } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { DIVE_DIFFICULTY } from "@/databases/drizzle/lists";
 import { timestamps } from "@/databases/drizzle/helpers";
@@ -19,8 +19,11 @@ export const diveSpots = pgTable("dive_spots", {
   visibility: text("visibility").default("PUBLIC"),
   source: text("source").default("COMMUNITY"),
   state: text("state").default("DRAFT"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   ...timestamps
-});
+}, (table) => ({
+  stateLocationIdx: index("dive_spots_state_location_idx").on(table.state, table.locationName),
+}));
 
 export const diveSpotComments = pgTable("dive_spot_comments", {
   id: serial("id").primaryKey(),

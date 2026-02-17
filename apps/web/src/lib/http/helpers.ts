@@ -43,10 +43,6 @@ export const createErrorInterceptor = (error: AxiosError) => {
     switch (status) {
       case 401:
         console.error('Unauthorized. Please sign in again.');
-        // Redirect to sign-in if needed
-        if (typeof window !== 'undefined') {
-          window.location.href = '/sign-in';
-        }
         break;
       case 403:
         console.error('Access denied. You do not have permission.');

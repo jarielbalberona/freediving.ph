@@ -1,4 +1,4 @@
-import { InferSelectModel, and, desc, eq, count, sql } from "drizzle-orm";
+import { InferSelectModel, and, desc, eq, count, isNull, sql } from "drizzle-orm";
 
 import { GroupsServerSchemaType, GroupsUpdateSchemaType, GroupMemberSchemaType, GroupPostSchemaType } from "./groups.validators";
 import { users } from "@/models/drizzle/authentication.model";
@@ -416,7 +416,7 @@ export default class GroupsService extends DrizzleService {
 				.leftJoin(users, eq(groupPosts.authorId, users.id))
 				.leftJoin(groupPostComments, eq(groupPosts.id, groupPostComments.postId))
 				.leftJoin(groupPostLikes, eq(groupPosts.id, groupPostLikes.postId))
-				.where(eq(groupPosts.groupId, groupId))
+				.where(and(eq(groupPosts.groupId, groupId), isNull(groupPosts.deletedAt)))
 				.groupBy(groupPosts.id, users.id)
 				.orderBy(desc(groupPosts.createdAt))
 				.limit(query.limit)

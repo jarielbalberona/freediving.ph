@@ -3,52 +3,24 @@
 import { useUser } from '@clerk/nextjs';
 import { NotificationList } from '@/features/notifications';
 import { useNotificationStats } from '@/features/notifications';
+import { AuthGuard } from '@/components/auth/guard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ErrorBoundary, FeatureErrorBoundary } from '@/components/error-boundary';
-import { Bell, Users, Calendar, MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FeatureErrorBoundary } from '@/components/error-boundary';
+import { Bell, Calendar, MessageSquare } from 'lucide-react';
+import { getNumericUserId } from '@/lib/auth/user-id';
 
 export default function NotificationsPage() {
-  const { user, isLoaded } = useUser();
-  const { data: stats, isLoading: statsLoading } = useNotificationStats(
-    user?.id ? parseInt(user.id) : 0
+  const { user } = useUser();
+  const numericUserId = getNumericUserId(user);
+  const { data: stats, isLoading: statsLoading, error: statsError } = useNotificationStats(
+    numericUserId ?? 0
   );
 
-  if (!isLoaded) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="space-y-6">
-          <Skeleton className="h-8 w-48" />
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full" />
-            ))}
-          </div>
-          <Skeleton className="h-96 w-full" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8">
-          <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold mb-2">Sign in to view notifications</h2>
-          <p className="text-muted-foreground">
-            Please sign in to see your notifications.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const userId = parseInt(user.id);
-
   return (
-    <div className="container mx-auto p-6">
+    <AuthGuard title="Sign in to view notifications" description="Please sign in to access your notifications.">
+      <div className="container mx-auto p-6">
       <div className="space-y-6">
         {/* Header */}
         <div>
@@ -66,6 +38,19 @@ export default function NotificationsPage() {
             ))}
           </div>
         ) : (
+          !numericUserId ? (
+            <Card>
+              <CardContent className="py-6 text-sm text-muted-foreground">
+                Account setup incomplete. Please refresh and try again.
+              </CardContent>
+            </Card>
+          ) : statsError ? (
+            <Card>
+              <CardContent className="py-6 text-sm text-destructive">
+                Unable to load notification stats.
+              </CardContent>
+            </Card>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -117,6 +102,7 @@ export default function NotificationsPage() {
               </CardContent>
             </Card>
           </div>
+          )
         )}
 
         {/* Notifications List */}
@@ -126,11 +112,16 @@ export default function NotificationsPage() {
               <CardTitle>Recent Notifications</CardTitle>
             </CardHeader>
             <CardContent>
-              <NotificationList userId={userId} />
+              {numericUserId ? (
+                <NotificationList userId={numericUserId} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Cannot load notifications for this account.</p>
+              )}
             </CardContent>
           </Card>
         </FeatureErrorBoundary>
       </div>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

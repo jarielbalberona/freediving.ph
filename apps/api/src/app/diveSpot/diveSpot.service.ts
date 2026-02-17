@@ -1,4 +1,4 @@
-import { InferSelectModel, and, desc, eq, sql } from "drizzle-orm";
+import { InferSelectModel, and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { DiveSpotServerSchemaType } from "@/app/diveSpot/diveSpot.validators";
 
@@ -45,7 +45,7 @@ export default class DiveSpotService extends DrizzleService {
 	async retrieveDiveSpot(id: number): Promise<ServiceApiResponse<DiveSpotSchemaType>> {
 		try {
 			const retrieveData = await this.db.query.diveSpots.findFirst({
-				where: and(eq(diveSpots.id, id), eq(diveSpots.state, "PUBLISHED"))
+				where: and(eq(diveSpots.id, id), eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt))
 			});
 
 			if (!retrieveData) {
@@ -89,11 +89,11 @@ export default class DiveSpotService extends DrizzleService {
 			const totalRows = await this.db
 				.select({ count: sql<number>`count(*)` })
 				.from(diveSpots)
-				.where(eq(diveSpots.state, "PUBLISHED"));
+				.where(and(eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)));
 			const totalItems = Number(totalRows[0]?.count ?? 0);
 
 			const retrieveData = await this.db.query.diveSpots.findMany({
-				where: eq(diveSpots.state, "PUBLISHED"),
+				where: and(eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
 				orderBy: desc(diveSpots.createdAt),
 				limit: query.limit,
 				offset: query.offset

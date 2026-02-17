@@ -1,4 +1,7 @@
 import { Router } from "express";
+import db from "@/databases/drizzle/connection";
+import { getMetricsSnapshot } from "@/observability/metrics";
+import { withTimeout } from "@/utils/resilience";
 import { authRouter } from "@/routes/auth.routes";
 import { mediaRouter } from "@/app/media/media.routes";
 import { diveSpotRouter } from "@/app/diveSpot/diveSpot.routes";
@@ -18,6 +21,7 @@ import { safetyResourcesRouter } from "@/app/safetyResources/safetyResources.rou
 import { awarenessRouter } from "@/app/awareness/awareness.routes";
 import { marketplaceRouter } from "@/app/marketplace/marketplace.routes";
 import { collaborationRouter } from "@/app/collaboration/collaboration.routes";
+import { moderationRouter } from "@/app/moderation/moderation.routes";
 import clerkWebhookRouter from "@/routes/clerk-webhook";
 
 import { csrfRouter } from "@/routes/csrf.route";
@@ -28,12 +32,33 @@ interface RouteConfig {
 }
 
 const healthRouter = Router();
-healthRouter.get("/", (req, res) => {
-  res.status(200).send("ok");
+healthRouter.get("/", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+healthRouter.get("/live", (_req, res) => {
+  res.status(200).json({ status: "live" });
+});
+healthRouter.get("/ready", async (_req, res) => {
+  try {
+    await withTimeout(
+      () => db.execute("select 1"),
+      2000,
+      "Database readiness check timed out"
+    );
+    res.status(200).json({ status: "ready", checks: { database: "ok" } });
+  } catch {
+    res.status(503).json({ status: "not_ready", checks: { database: "unavailable" } });
+  }
+});
+
+const metricsRouter = Router();
+metricsRouter.get("/", (_req, res) => {
+  res.status(200).json(getMetricsSnapshot());
 });
 
 export const routes: RouteConfig[] = [
   { path: "/health", router: healthRouter },
+  { path: "/metrics", router: metricsRouter },
   { path: "/media", router: mediaRouter },
   { path: "/auth", router: authRouter },
   { path: "/users", router: userRouter },
@@ -54,5 +79,6 @@ export const routes: RouteConfig[] = [
   { path: "/marketplace", router: marketplaceRouter },
   { path: "/collaboration", router: collaborationRouter },
   { path: "/user-services", router: userServicesRouter },
+  { path: "/moderation", router: moderationRouter },
   { path: "/webhooks", router: clerkWebhookRouter },
 ];

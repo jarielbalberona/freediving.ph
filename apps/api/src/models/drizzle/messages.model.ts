@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -108,9 +109,12 @@ export const messages = pgTable("messages", {
 
   // Message reactions
   reactionsCount: integer("reactions_count").default(0),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 
   ...timestamps
-});
+}, (table) => ({
+  conversationCreatedAtIdx: index("messages_conversation_created_at_idx").on(table.conversationId, table.createdAt),
+}));
 
 // Message Attachments Table
 export const messageAttachments = pgTable("message_attachments", {

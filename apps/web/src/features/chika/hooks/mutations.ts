@@ -47,17 +47,8 @@ export const useLikeThread = () => {
   return useMutation({
     mutationFn: (id: number) => threadsApi.like(id),
     onSuccess: (_, id) => {
-      // Optimistically update the thread
-      queryClient.setQueryData(["threads", id], (old: any) => {
-        if (old) {
-          return {
-            ...old,
-            likeCount: old.likeCount + 1,
-          };
-        }
-        return old;
-      });
       queryClient.invalidateQueries({ queryKey: ["threads"] });
+      queryClient.invalidateQueries({ queryKey: ["threads", id] });
     },
   });
 };
@@ -68,17 +59,8 @@ export const useUnlikeThread = () => {
   return useMutation({
     mutationFn: (id: number) => threadsApi.unlike(id),
     onSuccess: (_, id) => {
-      // Optimistically update the thread
-      queryClient.setQueryData(["threads", id], (old: any) => {
-        if (old) {
-          return {
-            ...old,
-            likeCount: Math.max(0, old.likeCount - 1),
-          };
-        }
-        return old;
-      });
       queryClient.invalidateQueries({ queryKey: ["threads"] });
+      queryClient.invalidateQueries({ queryKey: ["threads", id] });
     },
   });
 };

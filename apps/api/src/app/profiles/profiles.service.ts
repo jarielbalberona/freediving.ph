@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { isPlatformBlockedBetween } from "@/core/blocking";
 import DrizzleService from "@/databases/drizzle/service";
@@ -54,7 +54,7 @@ export default class ProfilesService extends DrizzleService {
       const pbVisibility = isOwner ? undefined : viewerUserId ? ["PUBLIC", "MEMBERS_ONLY"] : ["PUBLIC"];
 
       const pbs = await this.db.query.personalBests.findMany({
-        where: eq(personalBests.userId, profile.id),
+        where: and(eq(personalBests.userId, profile.id), isNull(personalBests.deletedAt)),
         orderBy: desc(personalBests.createdAt),
       });
 
@@ -126,7 +126,7 @@ export default class ProfilesService extends DrizzleService {
       const updatedRows = await this.db
         .update(personalBests)
         .set(payload)
-        .where(and(eq(personalBests.id, personalBestId), eq(personalBests.userId, userId)))
+        .where(and(eq(personalBests.id, personalBestId), eq(personalBests.userId, userId), isNull(personalBests.deletedAt)))
         .returning();
 
       const updated = updatedRows[0];
@@ -143,8 +143,9 @@ export default class ProfilesService extends DrizzleService {
   async deletePersonalBest(userId: number, personalBestId: number) {
     try {
       const deletedRows = await this.db
-        .delete(personalBests)
-        .where(and(eq(personalBests.id, personalBestId), eq(personalBests.userId, userId)))
+        .update(personalBests)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(personalBests.id, personalBestId), eq(personalBests.userId, userId), isNull(personalBests.deletedAt)))
         .returning();
 
       if (!deletedRows[0]) {

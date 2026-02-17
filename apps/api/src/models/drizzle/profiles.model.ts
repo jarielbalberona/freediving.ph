@@ -17,6 +17,7 @@ export const personalBests = pgTable("personal_bests", {
   resultUnit: varchar("result_unit", { length: 20 }).notNull(),
   recordedAt: timestamp("recorded_at", { withTimezone: true }),
   visibility: PROFILE_ITEM_VISIBILITY("visibility").default("PUBLIC").notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   ...timestamps,
 });
 
@@ -30,6 +31,7 @@ export const profileActivityItems = pgTable("profile_activity_items", {
   targetId: varchar("target_id", { length: 120 }).notNull(),
   visibility: PROFILE_ITEM_VISIBILITY("visibility").default("PUBLIC").notNull(),
   text: text("text"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   ...timestamps,
 });
 

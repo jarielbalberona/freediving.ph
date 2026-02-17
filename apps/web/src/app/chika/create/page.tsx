@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { useCreateThread } from "@/features/chika";
+import { AuthGuard } from "@/components/auth/guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getApiErrorMessage } from "@/lib/http/api-error";
 
 export default function CreateThread() {
   const router = useRouter();
@@ -37,7 +39,7 @@ export default function CreateThread() {
       toast.success("Thread created successfully!");
       router.push("/chika");
     } catch (error) {
-      toast.error("Failed to create thread");
+      toast.error(getApiErrorMessage(error, "Failed to create thread"));
     }
   };
 
@@ -48,22 +50,9 @@ export default function CreateThread() {
     }));
   };
 
-  if (!user) {
-    return (
-      <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              Please sign in to create a thread.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
+    <AuthGuard title="Sign in to post in Chika" description="Posting in Chika requires an authenticated member account.">
+      <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
       <Card>
         <CardHeader>
           <CardTitle>Create New Chika</CardTitle>
@@ -128,6 +117,7 @@ export default function CreateThread() {
           </form>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

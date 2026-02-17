@@ -6,12 +6,14 @@ import { users } from "@/models/drizzle/authentication.model";
 import { ApiResponse } from "@/utils/serviceApi";
 import { hasMinimumPlatformRole, type PlatformRole } from "@/core/authorization";
 import { canPerformPolicyAction, type PolicyAction } from "@/core/policies";
+import { withTimeout } from "@/utils/resilience";
 
 // Extend Express Request type to include user
 declare global {
 	namespace Express {
 		interface Request {
 			user?: any;
+			requestId?: string;
 		}
 	}
 }
@@ -34,9 +36,14 @@ try {
 		const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
 		// Verify the Clerk JWT token
-		const payload = await verifyToken(token, {
-			secretKey: process.env.CLERK_SECRET_KEY!
-		});
+		const payload = await withTimeout(
+			() =>
+				verifyToken(token, {
+					secretKey: process.env.CLERK_SECRET_KEY!
+				}),
+			3000,
+			"Clerk token verification timed out"
+		);
 
 		// Get user from database using Clerk ID
 		const user = await db
@@ -78,9 +85,14 @@ export const optionalClerkAuthMiddleware = async (
 		}
 
 		const token = authHeader.substring(7);
-		const payload = await verifyToken(token, {
-			secretKey: process.env.CLERK_SECRET_KEY!
-		});
+		const payload = await withTimeout(
+			() =>
+				verifyToken(token, {
+					secretKey: process.env.CLERK_SECRET_KEY!
+				}),
+			3000,
+			"Clerk token verification timed out"
+		);
 
 		const user = await db
 			.select()

@@ -7,6 +7,7 @@ import { ApiController } from "@/controllers/base/api.controller";
 import { processImage } from "@/multer/processImage";
 import { ServiceApiResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
+import { withTimeout } from "@/utils/resilience";
 
 const S3Configuration: S3ClientConfig = {
     credentials: {
@@ -60,7 +61,11 @@ export default class MediaController extends ApiController {
     };
 
     const command = new GetObjectCommand(params);
-    const url = await getSignedUrl(s3, command, { expiresIn: 12 * 60 });
+    const url = await withTimeout(
+      () => getSignedUrl(s3, command, { expiresIn: 12 * 60 }),
+      5000,
+      "S3 presigned URL generation timed out"
+    );
 
     return this.apiResponse.sendResponse({
       status: status.HTTP_200_OK,

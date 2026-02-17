@@ -1,4 +1,4 @@
-import { InferSelectModel, and, desc, eq, count, sql } from "drizzle-orm";
+import { InferSelectModel, and, desc, eq, count, isNull, sql } from "drizzle-orm";
 
 import { EventsServerSchemaType, EventsUpdateSchemaType, EventAttendeeSchemaType } from "./events.validators";
 import { users } from "@/models/drizzle/authentication.model";
@@ -52,7 +52,7 @@ export default class EventsService extends DrizzleService {
 	async retrieve(id: number): Promise<ServiceApiResponse<EventsSchemaType>> {
 		try {
 			const retrieveData = await this.db.query.events.findFirst({
-				where: eq(events.id, id),
+				where: and(eq(events.id, id), isNull(events.deletedAt)),
 				with: {
 					group: {
 						columns: {
@@ -94,7 +94,9 @@ export default class EventsService extends DrizzleService {
 
 	async update(id: number, data: EventsUpdateSchemaType, actorUserId: number, actorRole: string) {
 		try {
-			const existingEvent = await this.db.query.events.findFirst({ where: eq(events.id, id) });
+			const existingEvent = await this.db.query.events.findFirst({
+				where: and(eq(events.id, id), isNull(events.deletedAt))
+			});
 			if (!existingEvent) {
 				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Event not found");
 			}
@@ -198,6 +200,7 @@ export default class EventsService extends DrizzleService {
 				.from(events)
 				.leftJoin(users, eq(events.organizerId, users.id))
 				.leftJoin(eventAttendees, eq(events.id, eventAttendees.eventId))
+				.where(isNull(events.deletedAt))
 				.groupBy(events.id, users.id)
 				.orderBy(desc(events.startDate))
 				.limit(query.limit)

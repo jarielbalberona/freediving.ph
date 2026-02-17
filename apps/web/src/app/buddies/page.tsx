@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuthGuard } from "@/components/auth/guard";
 import {
   useAcceptBuddyRequest,
   useActiveBuddies,
@@ -16,33 +17,23 @@ import {
   useRejectBuddyRequest,
   useSendBuddyRequest,
 } from "@/features/buddies";
+import { getApiErrorMessage } from "@/lib/http/api-error";
 
 export default function BuddiesPage() {
   const { user, isLoaded } = useUser();
   const [search, setSearch] = useState("");
 
-  const { data: requests } = useBuddyRequests();
-  const { data: buddies = [], isLoading: isBuddiesLoading } = useActiveBuddies();
-  const { data: finderResults = [], isLoading: isFinderLoading } = useBuddyFinderSearch({ search, limit: 20, offset: 0 });
+  const { data: requests, error: requestsError } = useBuddyRequests();
+  const { data: buddies = [], isLoading: isBuddiesLoading, error: buddiesError } = useActiveBuddies();
+  const { data: finderResults = [], isLoading: isFinderLoading, error: finderError } = useBuddyFinderSearch({ search, limit: 20, offset: 0 });
 
   const sendRequest = useSendBuddyRequest();
   const acceptRequest = useAcceptBuddyRequest();
   const rejectRequest = useRejectBuddyRequest();
 
-  if (!isLoaded) {
-    return (
-      <div className="container mx-auto p-6">
-        <Skeleton className="h-10 w-48" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <div className="container mx-auto p-6">Sign in to access buddies.</div>;
-  }
-
   return (
-    <div className="container mx-auto space-y-6 p-6">
+    <AuthGuard title="Sign in to access buddies" description="Buddy tools are available to authenticated members only.">
+      <div className="container mx-auto space-y-6 p-6">
       <div>
         <h1 className="text-3xl font-bold">Buddy System</h1>
         <p className="text-muted-foreground">Manage requests, active buddies, and discover new buddies.</p>
@@ -53,7 +44,9 @@ export default function BuddiesPage() {
           <CardTitle>Incoming Requests</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {(requests?.incoming ?? []).length === 0 ? (
+          {requestsError ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(requestsError, "Failed to load buddy requests")}</p>
+          ) : (requests?.incoming ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">No incoming requests.</p>
           ) : (
             (requests?.incoming ?? []).map((item) => (
@@ -81,7 +74,9 @@ export default function BuddiesPage() {
           <CardTitle>Active Buddies</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {isBuddiesLoading ? (
+          {buddiesError ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(buddiesError, "Failed to load buddies")}</p>
+          ) : isBuddiesLoading ? (
             <Skeleton className="h-16 w-full" />
           ) : buddies.length === 0 ? (
             <p className="text-sm text-muted-foreground">No active buddies yet.</p>
@@ -108,7 +103,9 @@ export default function BuddiesPage() {
             <Input className="pl-10" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or alias" />
           </div>
 
-          {isFinderLoading ? (
+          {finderError ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(finderError, "Failed to load finder results")}</p>
+          ) : isFinderLoading ? (
             <Skeleton className="h-16 w-full" />
           ) : (
             finderResults.map((candidate) => (
@@ -129,6 +126,7 @@ export default function BuddiesPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

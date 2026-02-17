@@ -1,43 +1,23 @@
 "use client";
 
-import { useUser } from '@clerk/nextjs';
-import { useServices } from '@/features/userServices';
 import { ServiceList } from '@/features/userServices';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AuthGuard } from '@/components/auth/guard';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorBoundary, FeatureErrorBoundary } from '@/components/error-boundary';
-import { Briefcase, Plus, Filter, Search } from 'lucide-react';
-import { useState } from 'react';
+import { FeatureErrorBoundary } from '@/components/error-boundary';
+import { Plus, Filter, Search } from 'lucide-react';
 
 export default function ServicesPage() {
-  const { user, isLoaded } = useUser();
-  const [filters, setFilters] = useState({
+  const filters = {
     isActive: true,
     availability: 'AVAILABLE' as const,
     page: 1,
     limit: 20
-  });
-
-  const { data: services, isLoading } = useServices(filters);
-
-  if (!isLoaded) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="space-y-6">
-          <Skeleton className="h-8 w-48" />
-          <div className="space-y-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-48 w-full" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  };
 
   return (
-    <div className="container mx-auto p-6">
+    <AuthGuard title="Sign in to view services" description="Please sign in to discover services.">
+      <div className="container mx-auto p-6">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -47,12 +27,10 @@ export default function ServicesPage() {
               Find and book freediving services from certified professionals.
             </p>
           </div>
-          {user && (
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Offer Service
-            </Button>
-          )}
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Offer Service
+          </Button>
         </div>
 
         {/* Search and Filters */}
@@ -77,16 +55,17 @@ export default function ServicesPage() {
             <CardHeader>
               <CardTitle>Available Services</CardTitle>
             </CardHeader>
-            <CardContent>
+            <div className="px-6 pb-6">
               <ServiceList
                 filters={filters}
                 onServiceBook={(id) => console.log('Book service:', id)}
                 onServiceView={(id) => console.log('View service:', id)}
               />
-            </CardContent>
+            </div>
           </Card>
         </FeatureErrorBoundary>
       </div>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

@@ -1,76 +1,75 @@
 "use client";
 
 import { useUser } from '@clerk/nextjs';
-import { useEvents, useJoinEvent, useLeaveEvent } from '@/features/events';
 import { EventList } from '@/features/events';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useJoinEvent, useLeaveEvent } from '@/features/events';
+import { AuthGuard } from '@/components/auth/guard';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorBoundary, FeatureErrorBoundary } from '@/components/error-boundary';
-import { Calendar, Plus, Filter, Search } from 'lucide-react';
-import { useState } from 'react';
+import { FeatureErrorBoundary } from '@/components/error-boundary';
+import { Plus, Filter, Search } from 'lucide-react';
+import { toast } from 'sonner';
+import { getApiErrorMessage, getApiErrorStatus } from '@/lib/http/api-error';
+import { getNumericUserId } from '@/lib/auth/user-id';
 
 export default function EventsPage() {
-  const { user, isLoaded } = useUser();
-  const [filters, setFilters] = useState({
+  const { user } = useUser();
+  const filters = {
     status: 'PUBLISHED' as const,
     page: 1,
     limit: 20
-  });
+  };
 
-  const { data: events, isLoading } = useEvents(filters);
   const joinEventMutation = useJoinEvent();
   const leaveEventMutation = useLeaveEvent();
+  const numericUserId = getNumericUserId(user);
 
   const handleJoinEvent = (eventId: number) => {
-    if (user?.id) {
-      joinEventMutation.mutate({
-        eventId,
-        userId: parseInt(user.id)
-      });
+    if (!numericUserId) {
+      toast.error("Account setup incomplete. Please refresh and try again.");
+      return;
     }
+
+    joinEventMutation.mutate(
+      { eventId, userId: numericUserId },
+      {
+        onError: (error) => {
+          const status = getApiErrorStatus(error);
+          if (status === 401 || status === 403) {
+            toast.error("You do not have permission to join this event.");
+            return;
+          }
+          toast.error(getApiErrorMessage(error, "Failed to join event"));
+        },
+      },
+    );
   };
 
   const handleLeaveEvent = (eventId: number) => {
-    if (user?.id) {
-      leaveEventMutation.mutate({
-        eventId,
-        userId: parseInt(user.id)
-      });
+    if (!numericUserId) {
+      toast.error("Account setup incomplete. Please refresh and try again.");
+      return;
     }
-  };
 
-  if (!isLoaded) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="space-y-6">
-          <Skeleton className="h-8 w-48" />
-          <div className="space-y-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-48 w-full" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8">
-          <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold mb-2">Sign in to view events</h2>
-          <p className="text-muted-foreground">
-            Please sign in to see and join events.
-          </p>
-        </div>
-      </div>
+    leaveEventMutation.mutate(
+      { eventId, userId: numericUserId },
+      {
+        onError: (error) => {
+          const status = getApiErrorStatus(error);
+          if (status === 401 || status === 403) {
+            toast.error("You do not have permission to leave this event.");
+            return;
+          }
+          toast.error(getApiErrorMessage(error, "Failed to leave event"));
+        },
+      },
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <AuthGuard title="Sign in to view events" description="Please sign in to see and join events.">
+      <div className="container mx-auto p-6">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -108,18 +107,18 @@ export default function EventsPage() {
             <CardHeader>
               <CardTitle>Upcoming Events</CardTitle>
             </CardHeader>
-            <CardContent>
+            <div className="px-6 pb-6">
               <EventList
                 filters={filters}
                 onEventJoin={handleJoinEvent}
                 onEventLeave={handleLeaveEvent}
                 joinedEventIds={[]} // TODO: Get from user's joined events
               />
-            </CardContent>
+            </div>
           </Card>
         </FeatureErrorBoundary>
       </div>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }
-

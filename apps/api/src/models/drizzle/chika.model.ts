@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { integer, pgEnum, pgTable, serial, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { index, integer, pgEnum, pgTable, serial, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 
 import { timestamps } from "@/databases/drizzle/helpers";
 import { users } from "./authentication.model";
@@ -14,7 +14,9 @@ export const threadCategoryModes = pgTable("thread_category_modes", {
     .references(() => threads.id, { onDelete: "cascade" }),
   mode: CHIKA_CATEGORY_MODE("mode").default("NORMAL").notNull(),
   ...timestamps,
-});
+}, (table) => ({
+  modeThreadIdx: index("thread_category_modes_mode_thread_idx").on(table.mode, table.threadId),
+}));
 
 export const chikaPseudonyms = pgTable(
   "chika_pseudonyms",

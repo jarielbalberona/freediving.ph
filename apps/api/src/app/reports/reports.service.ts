@@ -32,6 +32,18 @@ export default class ReportsService extends DrizzleService {
         return ServiceResponse.createRejectResponse(status.HTTP_500_INTERNAL_SERVER_ERROR, "Failed to create report");
       }
 
+      await this.db.insert(auditLogs).values({
+        actorUserId: currentUserId,
+        action: "REPORT_CREATED",
+        targetType: "REPORT",
+        targetId: String(created.id),
+        metadata: {
+          reportTargetType: payload.targetType,
+          reportTargetId: payload.targetId,
+          reasonCode: payload.reasonCode,
+        },
+      });
+
       return ServiceResponse.createResponse(status.HTTP_201_CREATED, "Report submitted successfully", created);
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);

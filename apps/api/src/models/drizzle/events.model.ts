@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   boolean,
   decimal,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -125,9 +126,12 @@ export const events = pgTable("events", {
 
   // Event settings
   settings: text("settings"), // JSON for additional event settings
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 
   ...timestamps
-});
+}, (table) => ({
+  startDateStatusIdx: index("events_start_date_status_idx").on(table.startDate, table.status),
+}));
 
 // Event Attendees Table
 export const eventAttendees = pgTable("event_attendees", {

@@ -1,6 +1,7 @@
 import { and, count, desc, eq, gt, gte, inArray, ne, or, sql } from "drizzle-orm";
 
 import { ABUSE_LIMITS } from "@/core/abuseControls";
+import { isUserFeatureRestricted } from "@/core/moderationGuards";
 import DrizzleService from "@/databases/drizzle/service";
 import { users } from "@/models/drizzle/authentication.model";
 import { buddyRelationships } from "@/models/drizzle/buddies.model";
@@ -210,6 +211,11 @@ export default class MessagesService extends DrizzleService {
 
   async createOrGetDirectConversation(currentUserId: number, payload: CreateDirectConversationSchemaType) {
     try {
+      const isDmDisabled = await isUserFeatureRestricted(this.db, currentUserId, "DM_DISABLED");
+      if (isDmDisabled) {
+        return ServiceResponse.createRejectResponse(status.HTTP_403_FORBIDDEN, "Direct messaging is disabled for this account");
+      }
+
       await this.enforceAccountAgeGate(currentUserId);
 
       if (currentUserId === payload.participantId) {
@@ -372,6 +378,11 @@ export default class MessagesService extends DrizzleService {
 
   async sendMessage(currentUserId: number, conversationId: number, payload: SendMessageSchemaType) {
     try {
+      const isDmDisabled = await isUserFeatureRestricted(this.db, currentUserId, "DM_DISABLED");
+      if (isDmDisabled) {
+        return ServiceResponse.createRejectResponse(status.HTTP_403_FORBIDDEN, "Direct messaging is disabled for this account");
+      }
+
       await this.enforceAccountAgeGate(currentUserId);
 
       const membership = await this.ensureMembership(conversationId, currentUserId);

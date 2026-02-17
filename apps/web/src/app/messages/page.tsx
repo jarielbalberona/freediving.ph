@@ -12,12 +12,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ReportAction } from "@/components/report/report-action";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuthGuard } from "@/components/auth/guard";
 import {
   useConversationMessages,
   useDeleteOwnMessage,
   useMessageConversations,
   useSendMessage,
 } from "@/features/messages";
+import { getApiErrorMessage } from "@/lib/http/api-error";
 
 const formatMessageTime = (value: string) => {
   const date = new Date(value);
@@ -29,6 +31,14 @@ const getParticipantName = (participant: MessageConversationParticipant | undefi
   return participant.alias || participant.username || `Diver #${participant.id}`;
 };
 
+const getMessageState = (content: string) => {
+  const normalized = content.toLowerCase();
+  if (normalized.includes("removed by moderator")) return "removed";
+  if (normalized.includes("deleted by sender")) return "deleted";
+  if (normalized.includes("deleted user content")) return "deleted";
+  return "normal";
+};
+
 export default function MessagesPage() {
   const { user, isLoaded } = useUser();
   const numericUserId = Number.parseInt(user?.id ?? "", 10);
@@ -37,8 +47,8 @@ export default function MessagesPage() {
   const [composerValue, setComposerValue] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
 
-  const { data: conversations = [], isLoading: isConversationsLoading } = useMessageConversations();
-  const { data: messages = [], isLoading: isMessagesLoading } = useConversationMessages(selectedConversationId, {
+  const { data: conversations = [], isLoading: isConversationsLoading, error: conversationsError } = useMessageConversations();
+  const { data: messages = [], isLoading: isMessagesLoading, error: messagesError } = useConversationMessages(selectedConversationId, {
     limit: 50,
     offset: 0,
   });
@@ -82,34 +92,10 @@ export default function MessagesPage() {
     );
   };
 
-  if (!isLoaded) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-[520px] w-full" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="py-16 text-center space-y-3">
-            <MessageCircleMore className="mx-auto h-10 w-10 text-muted-foreground" />
-            <h2 className="text-2xl font-semibold">Sign in to access messages</h2>
-            <p className="text-muted-foreground">Direct conversations are available to authenticated members only.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto p-6">
-      <div className="space-y-6">
+    <AuthGuard title="Sign in to access messages" description="Direct conversations are available to authenticated members only.">
+      <div className="container mx-auto p-6">
+        <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Messages</h1>
           <p className="text-muted-foreground">Secure direct conversations with your buddies and community contacts.</p>
@@ -129,6 +115,8 @@ export default function MessagesPage() {
                 </>
               ) : conversations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No conversations yet.</p>
+              ) : conversationsError ? (
+                <p className="text-sm text-destructive">{getApiErrorMessage(conversationsError, "Failed to load conversations")}</p>
               ) : (
                 conversations.map((conversation) => {
                   const otherParticipant =
@@ -183,9 +171,12 @@ export default function MessagesPage() {
                       </>
                     ) : messages.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No messages yet. Start the conversation below.</p>
+                    ) : messagesError ? (
+                      <p className="text-sm text-destructive">{getApiErrorMessage(messagesError, "Failed to load messages")}</p>
                     ) : (
                       messages.map((message) => {
                         const isMine = hasNumericUserId ? message.senderId === numericUserId : false;
+                        const messageState = getMessageState(message.content);
                         return (
                           <div
                             key={message.id}
@@ -194,6 +185,11 @@ export default function MessagesPage() {
                             }`}
                           >
                             <p>{message.content}</p>
+                            {messageState !== "normal" ? (
+                              <p className={`mt-1 text-[11px] ${isMine ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                                {messageState === "removed" ? "Removed by moderator" : "Deleted message placeholder"}
+                              </p>
+                            ) : null}
                             <div className="mt-2 flex items-center gap-2">
                               {isMine ? (
                                 <Button
@@ -212,10 +208,12 @@ export default function MessagesPage() {
                                   Delete
                                 </Button>
                               ) : null}
-                              <ReportAction
-                                targetType="MESSAGE"
-                                targetId={`${selectedConversation?.conversationId ?? "0"}:${message.id}`}
-                              />
+                              {messageState === "normal" ? (
+                                <ReportAction
+                                  targetType="MESSAGE"
+                                  targetId={`${selectedConversation?.conversationId ?? "0"}:${message.id}`}
+                                />
+                              ) : null}
                             </div>
                             <p className={`mt-1 text-[11px] ${isMine ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                               {formatMessageTime(message.createdAt)}
@@ -250,6 +248,7 @@ export default function MessagesPage() {
           </Card>
         </div>
       </div>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

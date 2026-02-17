@@ -1,7 +1,8 @@
-import { InferSelectModel, and, count, desc, eq, gte, sql } from "drizzle-orm";
+import { InferSelectModel, and, count, desc, eq, gte, isNull, sql } from "drizzle-orm";
 
 import { ABUSE_LIMITS } from "@/core/abuseControls";
 import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
+import { isThreadLockedOrRemoved, isUserFeatureRestricted } from "@/core/moderationGuards";
 import { ThreadsServerSchemaType, ThreadsUpdateSchemaType, CommentCreateSchemaType, ReactionSchemaType } from "@/app/threads/threads.validators";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
@@ -51,6 +52,11 @@ export default class ThreadsService extends DrizzleService {
 
 	async create(data: ThreadCreateInput) {
 		try {
+			const isChikaDisabled = await isUserFeatureRestricted(this.db, data.userId, "CHIKA_POSTING_DISABLED");
+			if (isChikaDisabled) {
+				return ServiceResponse.createRejectResponse(status.HTTP_403_FORBIDDEN, "Chika posting is disabled for this account");
+			}
+
 			const todayStart = new Date();
 			todayStart.setUTCHours(0, 0, 0, 0);
 
@@ -105,7 +111,7 @@ export default class ThreadsService extends DrizzleService {
 				.leftJoin(users, eq(threads.userId, users.id))
 				.leftJoin(comments, eq(threads.id, comments.threadId))
 				.leftJoin(reactions, eq(threads.id, reactions.threadId))
-				.where(eq(threads.id, id))
+				.where(and(eq(threads.id, id), isNull(threads.deletedAt)))
 				.groupBy(threads.id, users.id)
 				.limit(1);
 
@@ -155,7 +161,10 @@ export default class ThreadsService extends DrizzleService {
 
 	async retrieveAll(query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
 		try {
-			const totalRows = await this.db.select({ count: sql<number>`count(*)` }).from(threads);
+			const totalRows = await this.db
+				.select({ count: sql<number>`count(*)` })
+				.from(threads)
+				.where(isNull(threads.deletedAt));
 			const totalItems = Number(totalRows[0]?.count ?? 0);
 
 			const retrieveData = await this.db
@@ -175,6 +184,7 @@ export default class ThreadsService extends DrizzleService {
 				.leftJoin(users, eq(threads.userId, users.id))
 				.leftJoin(comments, eq(threads.id, comments.threadId))
 				.leftJoin(reactions, eq(threads.id, reactions.threadId))
+				.where(isNull(threads.deletedAt))
 				.groupBy(threads.id, users.id)
 				.orderBy(desc(threads.createdAt))
 				.limit(query.limit)
@@ -200,6 +210,25 @@ export default class ThreadsService extends DrizzleService {
 	// Comments methods
 	async createComment(data: ThreadCommentInput) {
 		try {
+			const isChikaDisabled = await isUserFeatureRestricted(this.db, data.userId, "CHIKA_POSTING_DISABLED");
+			if (isChikaDisabled) {
+				return ServiceResponse.createRejectResponse(status.HTTP_403_FORBIDDEN, "Chika posting is disabled for this account");
+			}
+
+			const isLockedOrRemoved = await isThreadLockedOrRemoved(this.db, data.threadId);
+			if (isLockedOrRemoved) {
+				return ServiceResponse.createRejectResponse(status.HTTP_403_FORBIDDEN, "Thread is locked or removed");
+			}
+
+			const activeThread = await this.db
+				.select({ id: threads.id })
+				.from(threads)
+				.where(and(eq(threads.id, data.threadId), isNull(threads.deletedAt)))
+				.limit(1);
+			if (!activeThread[0]) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");
+			}
+
 			const todayStart = new Date();
 			todayStart.setUTCHours(0, 0, 0, 0);
 
@@ -390,7 +419,7 @@ export default class ThreadsService extends DrizzleService {
 			const totalRows = await this.db
 				.select({ count: sql<number>`count(*)` })
 				.from(comments)
-				.where(eq(comments.threadId, threadId));
+				.where(and(eq(comments.threadId, threadId), isNull(comments.deletedAt)));
 			const totalItems = Number(totalRows[0]?.count ?? 0);
 
 			const retrieveData = await this.db
@@ -404,7 +433,7 @@ export default class ThreadsService extends DrizzleService {
 				})
 				.from(comments)
 				.leftJoin(users, eq(comments.userId, users.id))
-				.where(eq(comments.threadId, threadId))
+				.where(and(eq(comments.threadId, threadId), isNull(comments.deletedAt)))
 				.orderBy(desc(comments.createdAt))
 				.limit(query.limit)
 				.offset(query.offset);
@@ -514,7 +543,15 @@ export default class ThreadsService extends DrizzleService {
 
 	async delete(id: number) {
 		try {
-			const deletedData = await this.db.delete(threads).where(eq(threads.id, id)).returning();
+			const deletedData = await this.db
+				.update(threads)
+				.set({
+					title: "[deleted thread]",
+					content: "[deleted thread]",
+					deletedAt: new Date()
+				})
+				.where(and(eq(threads.id, id), isNull(threads.deletedAt)))
+				.returning();
 
 			if (!deletedData.length) {
 				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");

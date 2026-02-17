@@ -2,6 +2,7 @@
 
 import { useUser } from '@clerk/nextjs';
 import { useGroups, useUserGroups } from '@/features/groups';
+import { AuthGuard } from '@/components/auth/guard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,18 +20,21 @@ import {
   Settings
 } from 'lucide-react';
 import { useState } from 'react';
+import { getApiErrorMessage } from '@/lib/http/api-error';
+import { getNumericUserId } from '@/lib/auth/user-id';
 
 export default function GroupsPage() {
   const { user, isLoaded } = useUser();
+  const numericUserId = getNumericUserId(user);
   const [activeTab, setActiveTab] = useState('all');
 
-  const { data: allGroups, isLoading: allGroupsLoading } = useGroups({
+  const { data: allGroups, isLoading: allGroupsLoading, error: allGroupsError } = useGroups({
     page: 1,
     limit: 20
   });
 
-  const { data: userGroups, isLoading: userGroupsLoading } = useUserGroups(
-    user?.id ? parseInt(user.id) : 0,
+  const { data: userGroups, isLoading: userGroupsLoading, error: userGroupsError } = useUserGroups(
+    numericUserId ?? 0,
     1,
     20
   );
@@ -45,20 +49,6 @@ export default function GroupsPage() {
               <Skeleton key={i} className="h-48 w-full" />
             ))}
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8">
-          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold mb-2">Sign in to view groups</h2>
-          <p className="text-muted-foreground">
-            Please sign in to see and join groups.
-          </p>
         </div>
       </div>
     );
@@ -130,7 +120,8 @@ export default function GroupsPage() {
   );
 
   return (
-    <div className="container mx-auto p-6">
+    <AuthGuard title="Sign in to view groups" description="Please sign in to see and join groups.">
+      <div className="container mx-auto p-6">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -177,6 +168,10 @@ export default function GroupsPage() {
                     <Skeleton key={i} className="h-48 w-full" />
                   ))}
                 </div>
+              ) : allGroupsError ? (
+                <div className="col-span-full text-center py-8 text-destructive">
+                  {getApiErrorMessage(allGroupsError, "Failed to load groups")}
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Array.isArray(allGroups?.data?.data) ? allGroups.data.data.map((group) => (
@@ -199,6 +194,10 @@ export default function GroupsPage() {
                     <Skeleton key={i} className="h-48 w-full" />
                   ))}
                 </div>
+              ) : userGroupsError ? (
+                <div className="col-span-full text-center py-8 text-destructive">
+                  {getApiErrorMessage(userGroupsError, "Failed to load your groups")}
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Array.isArray(userGroups?.data?.data) ? userGroups.data.data.map((group) => (
@@ -214,6 +213,7 @@ export default function GroupsPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

@@ -30,9 +30,7 @@ export default class UserController extends ApiController {
 
 			const check = UserQuerySchema(this.sortingHelper).safeParse(query);
 			if (!check.success) {
-				return this.apiResponse.badResponse(
-					check.error.errors.map(error => error.message).join(", ")
-				);
+				return this.validationError(check.error);
 			}
 
 			const data = await this.userService.retrieveUsers({
@@ -56,9 +54,7 @@ export default class UserController extends ApiController {
 
 			const check = UserCreateSchema.safeParse(body);
 			if (!check.success) {
-				return this.apiResponse.badResponse(
-					check.error.errors.map(error => error.message).join(", ")
-				);
+				return this.validationError(check.error);
 			}
 			const mergedData: Omit<UserSchemaType, "id" | "createdAt" | "updatedAt"> = {
 				...check.data,
@@ -91,17 +87,20 @@ export default class UserController extends ApiController {
 
 			const check = UserDeleteSchema.safeParse(body);
 			if (!check.success) {
-				return this.apiResponse.badResponse(
-					check.error.errors.map(error => error.message).join(", ")
-				);
+				return this.validationError(check.error);
 			}
 
 			if (check.data.ids.length > 0) {
+				const isAdmin = ["ADMINISTRATOR", "SUPER_ADMIN"].includes(this.request.user.role);
+				if (!isAdmin) {
+					return this.apiResponse.forbiddenResponse("Only admins can anonymize other users");
+				}
+
 				const data = await this.userService.deleteUserByIds(body.ids);
 
 				return this.apiResponse.sendResponse(data);
 			} else {
-				const data = await this.userService.deleteAllUsers();
+				const data = await this.userService.anonymizeUserAccount(this.request.user.id);
 
 				return this.apiResponse.sendResponse(data);
 			}

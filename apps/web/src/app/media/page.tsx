@@ -1,42 +1,22 @@
 "use client";
 
-import { useUser } from '@clerk/nextjs';
-import { useMedia } from '@/features/media';
 import { MediaList } from '@/features/media';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AuthGuard } from '@/components/auth/guard';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorBoundary, FeatureErrorBoundary } from '@/components/error-boundary';
-import { Image, Upload, Filter, Search } from 'lucide-react';
-import { useState } from 'react';
+import { FeatureErrorBoundary } from '@/components/error-boundary';
+import { Upload, Filter, Search } from 'lucide-react';
 
 export default function MediaPage() {
-  const { user, isLoaded } = useUser();
-  const [filters, setFilters] = useState({
+  const filters = {
     isPublic: true,
     page: 1,
     limit: 20
-  });
-
-  const { data: media, isLoading } = useMedia(filters);
-
-  if (!isLoaded) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="space-y-6">
-          <Skeleton className="h-8 w-48" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-64 w-full" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  };
 
   return (
-    <div className="container mx-auto p-6">
+    <AuthGuard title="Sign in to view media" description="Please sign in to browse the media gallery.">
+      <div className="container mx-auto p-6">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -46,12 +26,10 @@ export default function MediaPage() {
               Browse and share freediving photos and videos.
             </p>
           </div>
-          {user && (
-            <Button>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Media
-            </Button>
-          )}
+          <Button>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Media
+          </Button>
         </div>
 
         {/* Search and Filters */}
@@ -76,7 +54,7 @@ export default function MediaPage() {
             <CardHeader>
               <CardTitle>Recent Media</CardTitle>
             </CardHeader>
-            <CardContent>
+            <div className="px-6 pb-6">
               <MediaList
                 filters={filters}
                 onMediaView={(id) => console.log('View media:', id)}
@@ -84,10 +62,11 @@ export default function MediaPage() {
                 onMediaDelete={(id) => console.log('Delete media:', id)}
                 onMediaDownload={(id) => console.log('Download media:', id)}
               />
-            </CardContent>
+            </div>
           </Card>
         </FeatureErrorBoundary>
       </div>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

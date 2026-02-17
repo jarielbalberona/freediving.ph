@@ -29,12 +29,16 @@ const startServer = async () => {
 		const port = await findAvailablePort(Number(initialPort));
 		const ipAddress = ip.address();
 
-		app.listen(port, () => {
+		const server = app.listen(port, () => {
 			console.log(`- Local:        http://localhost:${port}`);
 			console.log(`- Network:      http://${ipAddress}:${port}`);
 			console.log(`- Environment:  ${ENV}`);
 			console.log();
 		});
+
+		server.requestTimeout = Number(process.env.HTTP_REQUEST_TIMEOUT_MS || 15000);
+		server.headersTimeout = Number(process.env.HTTP_HEADERS_TIMEOUT_MS || 16000);
+		server.keepAliveTimeout = Number(process.env.HTTP_KEEP_ALIVE_TIMEOUT_MS || 5000);
 	} catch (error) {
 		console.error("Failed to start server:", error);
 		process.exit(1);

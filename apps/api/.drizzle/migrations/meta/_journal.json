@@ -176,6 +176,20 @@
       "when": 1771272235886,
       "tag": "0024_productive_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1771308676321,
+      "tag": "0025_red_mattie_franklin",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1771309122153,
+      "tag": "0026_good_riptide",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { use as usePromise } from "react";
 
 import { ThreadDetail } from "@/features/chika";
 import { useThread } from "@/features/chika";
+import { getApiErrorMessage } from "@/lib/http/api-error";
 
 export default function Chika({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params);
@@ -31,7 +32,7 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
         <div className="xl:pr-96">
           <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
             <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
-              <h1>Thread not found</h1>
+              <h1>{getApiErrorMessage(error, "Thread not found")}</h1>
             </div>
           </div>
         </div>

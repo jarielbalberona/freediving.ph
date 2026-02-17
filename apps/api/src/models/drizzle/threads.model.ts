@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import { check } from "drizzle-orm/pg-core";
 import {
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -24,8 +25,12 @@ export const threads = pgTable("threads", {
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   content: text("content").notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   ...timestamps
-});
+}, (table) => ({
+  createdAtIdx: index("threads_created_at_idx").on(table.createdAt),
+  userCreatedAtIdx: index("threads_user_created_at_idx").on(table.userId, table.createdAt),
+}));
 
 // Comments Table
 export const comments = pgTable("comments", {
@@ -34,8 +39,11 @@ export const comments = pgTable("comments", {
   threadId: integer("thread_id").notNull().references(() => threads.id, { onDelete: "cascade" }),
   parentId: integer("parent_id").references((): any => comments.id, { onDelete: "cascade" }), // Explicit type annotation
   content: text("content").notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   ...timestamps
-});
+}, (table) => ({
+  threadCreatedAtIdx: index("comments_thread_created_at_idx").on(table.threadId, table.createdAt),
+}));
 
 export const reactions = pgTable("reactions",
   {

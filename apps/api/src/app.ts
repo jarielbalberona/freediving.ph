@@ -8,6 +8,8 @@ import path from "path";
 import { corsOptions } from "@/cors";
 import analysis from "@/databases/drizzle/analysis";
 import appLogger from "@/logger";
+import { metricsMiddleware } from "@/observability/metrics";
+import { requestContextMiddleware } from "@/observability/requestContext";
 import { uploadDir } from "@/multer/globalConfig";
 import appRateLimiter from "@/rateLimiter";
 import indexRouter from "@/routes/index.route";
@@ -25,6 +27,8 @@ app.use(express.json());
 app.use(express.urlencoded());
 app.use(cookieParser());
 app.use(`/${uploadDir}`, express.static(path.join(process.cwd(), "uploads")));
+app.use(requestContextMiddleware);
+app.use(metricsMiddleware);
 
 /**
  * Initialize logger

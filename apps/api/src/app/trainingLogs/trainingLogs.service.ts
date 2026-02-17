@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 import DrizzleService from "@/databases/drizzle/service";
 import { trainingLogMetrics, trainingLogSessions } from "@/models/drizzle/futureModules.model";
@@ -69,6 +69,7 @@ export default class TrainingLogsService extends DrizzleService {
       const rows = await this.db.query.trainingLogSessions.findMany({
         where: and(
           eq(trainingLogSessions.userId, ownerId),
+          isNull(trainingLogSessions.deletedAt),
           query.visibility
             ? eq(trainingLogSessions.visibility, query.visibility)
             : isOwner
@@ -97,7 +98,7 @@ export default class TrainingLogsService extends DrizzleService {
       const updated = await this.db
         .update(trainingLogSessions)
         .set(payload)
-        .where(and(eq(trainingLogSessions.id, sessionId), eq(trainingLogSessions.userId, currentUserId)))
+        .where(and(eq(trainingLogSessions.id, sessionId), eq(trainingLogSessions.userId, currentUserId), isNull(trainingLogSessions.deletedAt)))
         .returning();
       if (!updated[0]) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Training session not found");
@@ -111,8 +112,9 @@ export default class TrainingLogsService extends DrizzleService {
   async deleteSession(currentUserId: number, sessionId: number) {
     try {
       const deleted = await this.db
-        .delete(trainingLogSessions)
-        .where(and(eq(trainingLogSessions.id, sessionId), eq(trainingLogSessions.userId, currentUserId)))
+        .update(trainingLogSessions)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(trainingLogSessions.id, sessionId), eq(trainingLogSessions.userId, currentUserId), isNull(trainingLogSessions.deletedAt)))
         .returning();
       if (!deleted[0]) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Training session not found");
@@ -126,7 +128,7 @@ export default class TrainingLogsService extends DrizzleService {
   async listMetrics(currentUserId: number, sessionId: number) {
     try {
       const session = await this.db.query.trainingLogSessions.findFirst({
-        where: and(eq(trainingLogSessions.id, sessionId), eq(trainingLogSessions.userId, currentUserId)),
+        where: and(eq(trainingLogSessions.id, sessionId), eq(trainingLogSessions.userId, currentUserId), isNull(trainingLogSessions.deletedAt)),
       });
       if (!session) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Training session not found");
@@ -141,7 +143,7 @@ export default class TrainingLogsService extends DrizzleService {
   async upsertMetric(currentUserId: number, sessionId: number, payload: TrainingMetricUpsertSchemaType) {
     try {
       const session = await this.db.query.trainingLogSessions.findFirst({
-        where: and(eq(trainingLogSessions.id, sessionId), eq(trainingLogSessions.userId, currentUserId)),
+        where: and(eq(trainingLogSessions.id, sessionId), eq(trainingLogSessions.userId, currentUserId), isNull(trainingLogSessions.deletedAt)),
       });
       if (!session) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Training session not found");

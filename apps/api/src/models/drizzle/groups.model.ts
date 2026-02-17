@@ -1,11 +1,13 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   pgEnum,
   pgTable,
   serial,
   text,
+  timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
 
@@ -119,6 +121,7 @@ export const groupPosts = pgTable("group_posts", {
   title: varchar("title", { length: 200 }),
   content: text("content").notNull(),
   postType: text("post_type").default("text"), // 'text', 'image', 'video', 'link', 'event'
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 
   // Post settings
   isPinned: boolean("is_pinned").default(false),
@@ -138,7 +141,9 @@ export const groupPosts = pgTable("group_posts", {
   visibility: text("visibility").default("public"), // 'public', 'members_only', 'admins_only'
 
   ...timestamps
-});
+}, (table) => ({
+  groupCreatedAtIdx: index("group_posts_group_created_at_idx").on(table.groupId, table.createdAt),
+}));
 
 // Group Post Comments Table
 export const groupPostComments = pgTable("group_post_comments", {
@@ -153,6 +158,7 @@ export const groupPostComments = pgTable("group_post_comments", {
 
   content: text("content").notNull(),
   likeCount: integer("like_count").default(0),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 
   ...timestamps
 });

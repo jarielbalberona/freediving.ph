@@ -1,4 +1,5 @@
 import { ThreadWithUser } from '@freediving.ph/types';
+import { getRemovedContentLabel, isRemovedContent } from '@/lib/content/moderation';
 
 interface ThreadDetailProps {
   thread: ThreadWithUser;
@@ -8,11 +9,15 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
   if (!thread) {
     return <h1>Thread not found</h1>;
   }
+  const isRemoved = isRemovedContent(thread.thread.content) || isRemovedContent(thread.thread.title);
+  const removedLabel = getRemovedContentLabel(thread.thread.content) ?? getRemovedContentLabel(thread.thread.title);
 
   return (
     <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{thread.thread.title}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          {isRemoved ? "Content unavailable" : thread.thread.title}
+        </h1>
         <div className="flex items-center text-sm text-gray-500 mb-4">
           <span>By {thread.user.alias || thread.user.username}</span>
           <span className="mx-2">•</span>
@@ -21,7 +26,9 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
       </div>
 
       <div className="prose max-w-none">
-        <p className="text-gray-700 whitespace-pre-wrap">{thread.thread.content}</p>
+        <p className="text-gray-700 whitespace-pre-wrap">
+          {isRemoved ? removedLabel || "This content has been removed." : thread.thread.content}
+        </p>
       </div>
 
       <div className="mt-6 flex items-center justify-between border-t pt-4">

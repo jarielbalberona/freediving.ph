@@ -40,6 +40,7 @@ export const trainingLogSessions = pgTable(
     notes: text("notes"),
     sessionDate: timestamp("session_date", { withTimezone: true }).notNull(),
     visibility: TRAINING_LOG_VISIBILITY("visibility").default("PRIVATE").notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => ({

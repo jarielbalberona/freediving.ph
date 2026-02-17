@@ -6,6 +6,7 @@ import { useThreads, useAddReaction } from "@/features/chika";
 import { ThreadWithUser } from '@freediving.ph/types';
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
+import { getRemovedContentLabel, isRemovedContent } from "@/lib/content/moderation";
 
 const Thread = ({
   initialThreads,
@@ -72,6 +73,8 @@ const Thread = ({
       ) : null}
       {threads?.map((threadWithUser) => {
         const { thread, user: threadUser, commentCount, upvotes, downvotes } = threadWithUser;
+        const isRemoved = isRemovedContent(thread.content) || isRemovedContent(thread.title);
+        const removedLabel = getRemovedContentLabel(thread.content) ?? getRemovedContentLabel(thread.title);
         return (
         <div
           key={thread.id}
@@ -102,10 +105,10 @@ const Thread = ({
             <div className="flex-1">
               <Link href={`/chika/${thread.id}`} className="block">
                 <h2 className="mb-1 text-lg font-semibold text-foreground hover:text-primary transition-colors">
-                  {thread.title}
+                  {isRemoved ? "Content unavailable" : thread.title}
                 </h2>
                 <p className="mb-2 text-sm text-muted-foreground line-clamp-2">
-                  {thread.content}
+                  {isRemoved ? removedLabel || "This thread was removed." : thread.content}
                 </p>
               </Link>
               <div className="flex items-center text-xs text-muted-foreground">
