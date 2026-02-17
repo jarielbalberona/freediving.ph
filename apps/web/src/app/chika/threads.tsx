@@ -32,8 +32,10 @@ const Thread = ({
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Unknown date";
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "Unknown date";
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
 

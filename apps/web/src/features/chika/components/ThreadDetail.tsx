@@ -12,6 +12,9 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
   }
   const isRemoved = isRemovedContent(thread.thread.content) || isRemovedContent(thread.thread.title);
   const removedLabel = getRemovedContentLabel(thread.thread.content) ?? getRemovedContentLabel(thread.thread.title);
+  const createdAtLabel = thread.thread.createdAt
+    ? new Date(thread.thread.createdAt).toLocaleDateString()
+    : "Unknown date";
 
   return (
     <Card>
@@ -23,7 +26,7 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
           <div className="mb-4 flex items-center text-sm text-muted-foreground">
             <span>By {thread.user.alias || thread.user.username}</span>
             <span className="mx-2">•</span>
-            <span>{new Date(thread.thread.createdAt).toLocaleDateString()}</span>
+            <span>{createdAtLabel}</span>
           </div>
         </div>
 
