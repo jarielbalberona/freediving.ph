@@ -17,7 +17,7 @@ export default class MarketplaceController extends ApiController {
   async list() {
     try {
       const check = MarketplaceQuerySchema.safeParse(this.request.query);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.list(check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -27,7 +27,7 @@ export default class MarketplaceController extends ApiController {
   async create() {
     try {
       const check = MarketplaceCreateSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.create(this.request.user.id, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -38,7 +38,7 @@ export default class MarketplaceController extends ApiController {
     try {
       const id = Number(this.request.params.id);
       const check = MarketplaceModerateSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.moderate(id, check.data, this.request.user.id));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

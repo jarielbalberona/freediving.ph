@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { zodMessages } from "@/core/messages";
+import { PaginationQuerySchema } from "@/validators/pagination.schema";
 
 export const ThreadsServerSchema = z.object({
 	userId: z.number().int().positive().optional(),
@@ -31,8 +32,13 @@ export const ThreadModeSchema = z.object({
 	mode: z.enum(["NORMAL", "PSEUDONYMOUS_CHIKA"])
 });
 
+export const ThreadListQuerySchema = PaginationQuerySchema;
+export const ThreadCommentsQuerySchema = PaginationQuerySchema;
+
 export type ThreadsServerSchemaType = z.infer<typeof ThreadsServerSchema>;
 export type ThreadsUpdateSchemaType = z.infer<typeof ThreadsUpdateSchema>;
 export type CommentCreateSchemaType = z.infer<typeof CommentCreateSchema>;
 export type ReactionSchemaType = z.infer<typeof ReactionSchema>;
 export type ThreadModeSchemaType = z.infer<typeof ThreadModeSchema>;
+export type ThreadListQuerySchemaType = z.infer<typeof ThreadListQuerySchema>;
+export type ThreadCommentsQuerySchemaType = z.infer<typeof ThreadCommentsQuerySchema>;

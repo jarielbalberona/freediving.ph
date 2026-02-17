@@ -19,7 +19,7 @@ export default class NotificationsController extends ApiController {
 			const body = this.request.body;
 			const check = NotificationsServerSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.notificationsService.create(check.data);
 			return this.apiResponse.sendResponse(response);
@@ -63,7 +63,7 @@ export default class NotificationsController extends ApiController {
 			const body = this.request.body;
 			const check = NotificationsUpdateSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.notificationsService.update(id, check.data);
 			return this.apiResponse.sendResponse(response);
@@ -118,7 +118,7 @@ export default class NotificationsController extends ApiController {
 			const body = this.request.body;
 			const check = NotificationSettingsSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.notificationsService.updateNotificationSettings(userId, check.data);
 			return this.apiResponse.sendResponse(response);

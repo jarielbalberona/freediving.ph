@@ -22,7 +22,7 @@ export default class TrainingLogsController extends ApiController {
   async create() {
     try {
       const check = TrainingLogCreateSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.create(this.request.user.id, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -32,7 +32,7 @@ export default class TrainingLogsController extends ApiController {
   async list() {
     try {
       const check = TrainingLogQuerySchema.safeParse(this.request.query);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.list(this.request.user.id, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -45,7 +45,7 @@ export default class TrainingLogsController extends ApiController {
       if (!Number.isInteger(sessionId) || sessionId <= 0) return this.apiResponse.badResponse("Invalid session id");
 
       const check = TrainingLogUpdateSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
 
       return this.apiResponse.sendResponse(await this.service.updateSession(this.request.user.id, sessionId, check.data));
     } catch (error: unknown) {
@@ -81,7 +81,7 @@ export default class TrainingLogsController extends ApiController {
       if (!Number.isInteger(sessionId) || sessionId <= 0) return this.apiResponse.badResponse("Invalid session id");
 
       const check = TrainingMetricUpsertSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
 
       return this.apiResponse.sendResponse(await this.service.upsertMetric(this.request.user.id, sessionId, check.data));
     } catch (error: unknown) {

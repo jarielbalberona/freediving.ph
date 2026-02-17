@@ -21,7 +21,7 @@ export default class CompetitiveRecordsController extends ApiController {
   async list() {
     try {
       const check = CompetitiveRecordQuerySchema.safeParse(this.request.query);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.list(check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -31,7 +31,7 @@ export default class CompetitiveRecordsController extends ApiController {
   async create() {
     try {
       const check = CompetitiveRecordCreateSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.create(this.request.user.id, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -42,7 +42,7 @@ export default class CompetitiveRecordsController extends ApiController {
     try {
       const recordId = Number(this.request.params.id);
       const check = CompetitiveRecordVerifySchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.verify(recordId, this.request.user.id, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

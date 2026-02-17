@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { z } from "zod";
 
 import { ApiResponse } from "@/utils/serviceApi";
 
@@ -32,6 +33,16 @@ export abstract class ApiController {
 			}
 		};
 		return new Proxy(queryParams, handler) as QueryParamsProxy;
+	}
+
+	protected validationError(error: z.ZodError) {
+		return this.apiResponse.validationErrorResponse(
+			"Validation failed",
+			error.errors.map(issue => ({
+				field: issue.path.join(".") || "root",
+				message: issue.message
+			}))
+		);
 	}
 }
 

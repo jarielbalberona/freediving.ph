@@ -38,7 +38,7 @@ export default class SafetyResourcesController extends ApiController {
   async createPage() {
     try {
       const check = SafetyPageCreateSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.createPage(this.request.user.id, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -48,7 +48,7 @@ export default class SafetyResourcesController extends ApiController {
   async createContact() {
     try {
       const check = SafetyContactCreateSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.createContact(check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -59,7 +59,7 @@ export default class SafetyResourcesController extends ApiController {
     try {
       const id = Number(this.request.params.id);
       const check = SafetyPageUpdateSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.updatePage(this.request.user.id, id, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -70,7 +70,7 @@ export default class SafetyResourcesController extends ApiController {
     try {
       const id = Number(this.request.params.id);
       const check = SafetyPageRollbackSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
       return this.apiResponse.sendResponse(await this.service.rollbackPage(this.request.user.id, id, check.data.versionId));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

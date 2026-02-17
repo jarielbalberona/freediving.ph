@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 
 import DiveSpotService from "@/app/diveSpot/diveSpot.service";
-import { DiveSpotReviewSchema, DiveSpotServerSchema } from "@/app/diveSpot/diveSpot.validators";
+import {
+	DiveSpotListQuerySchema,
+	DiveSpotReviewSchema,
+	DiveSpotServerSchema
+} from "@/app/diveSpot/diveSpot.validators";
 
 import { ApiController } from "@/controllers/base/api.controller";
 import { ServiceApiResponse } from "@/utils/serviceApi";
@@ -24,7 +28,7 @@ export default class DiveSpotController extends ApiController {
 			const body = this.request.body;
 			const check = DiveSpotServerSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.diveSpotService.createDiveSpot(check.data);
 
@@ -53,7 +57,7 @@ export default class DiveSpotController extends ApiController {
 			const body = this.request.body;
 			const check = DiveSpotServerSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.diveSpotService.updateDiveSpot(id, check.data);
 
@@ -65,7 +69,10 @@ export default class DiveSpotController extends ApiController {
 
 	async retrieveAllDiveSpot() {
 		try {
-			const response = await this.diveSpotService.retrieveAllDiveSpot();
+			const queryCheck = DiveSpotListQuerySchema.safeParse(this.request.query);
+			if (!queryCheck.success) return this.validationError(queryCheck.error);
+
+			const response = await this.diveSpotService.retrieveAllDiveSpot(queryCheck.data);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -77,7 +84,7 @@ export default class DiveSpotController extends ApiController {
 			const id = Number(this.request.params.id);
 			const check = DiveSpotReviewSchema.safeParse(this.request.body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.diveSpotService.reviewDiveSpot(id, check.data.state, this.request.user?.id);
 			return this.apiResponse.sendResponse(response);

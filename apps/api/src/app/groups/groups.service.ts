@@ -6,6 +6,8 @@ import DrizzleService from "@/databases/drizzle/service";
 import { groups, groupMembers, groupPosts, groupPostComments, groupPostLikes } from "@/models/drizzle/groups.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
+import { buildOffsetPagination } from "@/utils/pagination";
+import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
 
 export type GroupsSchemaType = InferSelectModel<typeof groups>;
 
@@ -119,8 +121,11 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async retrieveAll() {
+	async retrieveAll(query: PaginationQuerySchemaType) {
 		try {
+			const totalRows = await this.db.select({ count: sql<number>`count(*)` }).from(groups);
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
 			const retrieveData = await this.db
 				.select({
 					group: groups,
@@ -136,12 +141,15 @@ export default class GroupsService extends DrizzleService {
 				.leftJoin(users, eq(groups.createdBy, users.id))
 				.leftJoin(groupMembers, eq(groups.id, groupMembers.groupId))
 				.groupBy(groups.id, users.id)
-				.orderBy(desc(groups.createdAt));
+				.orderBy(desc(groups.createdAt))
+				.limit(query.limit)
+				.offset(query.offset);
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Groups retrieved successfully",
-				retrieveData
+				retrieveData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
@@ -326,8 +334,14 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async getMembers(groupId: number) {
+	async getMembers(groupId: number, query: PaginationQuerySchemaType) {
 		try {
+			const totalRows = await this.db
+				.select({ count: sql<number>`count(*)` })
+				.from(groupMembers)
+				.where(eq(groupMembers.groupId, groupId));
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
 			const retrieveData = await this.db
 				.select({
 					member: groupMembers,
@@ -341,12 +355,15 @@ export default class GroupsService extends DrizzleService {
 				.from(groupMembers)
 				.leftJoin(users, eq(groupMembers.userId, users.id))
 				.where(eq(groupMembers.groupId, groupId))
-				.orderBy(desc(groupMembers.createdAt));
+				.orderBy(desc(groupMembers.createdAt))
+				.limit(query.limit)
+				.offset(query.offset);
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Group members retrieved successfully",
-				retrieveData
+				retrieveData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
@@ -376,8 +393,14 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async getPosts(groupId: number) {
+	async getPosts(groupId: number, query: PaginationQuerySchemaType) {
 		try {
+			const totalRows = await this.db
+				.select({ count: sql<number>`count(*)` })
+				.from(groupPosts)
+				.where(eq(groupPosts.groupId, groupId));
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
 			const retrieveData = await this.db
 				.select({
 					post: groupPosts,
@@ -395,12 +418,15 @@ export default class GroupsService extends DrizzleService {
 				.leftJoin(groupPostLikes, eq(groupPosts.id, groupPostLikes.postId))
 				.where(eq(groupPosts.groupId, groupId))
 				.groupBy(groupPosts.id, users.id)
-				.orderBy(desc(groupPosts.createdAt));
+				.orderBy(desc(groupPosts.createdAt))
+				.limit(query.limit)
+				.offset(query.offset);
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Group posts retrieved successfully",
-				retrieveData
+				retrieveData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);

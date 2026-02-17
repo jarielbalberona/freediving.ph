@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import db from "@/databases/drizzle/connection";
 import { users } from "@/models/drizzle/authentication.model";
 import { ApiResponse } from "@/utils/serviceApi";
+import { hasMinimumPlatformRole, type PlatformRole } from "@/core/authorization";
 import { canPerformPolicyAction, type PolicyAction } from "@/core/policies";
 
 // Extend Express Request type to include user
@@ -93,6 +94,24 @@ export const requireAnyRole = (roles: string[]) => {
 		}
 
 		if (!roles.includes(req.user.role)) {
+			apiResponse.forbiddenResponse("Insufficient permissions");
+			return;
+		}
+
+		next();
+	};
+};
+
+export const requirePlatformRole = (role: PlatformRole) => {
+	return (req: Request, res: Response, next: NextFunction) => {
+		const apiResponse = new ApiResponse(res);
+
+		if (!req.user) {
+			apiResponse.unauthorizedResponse("User not authenticated");
+			return;
+		}
+
+		if (!hasMinimumPlatformRole(req.user.role, role)) {
 			apiResponse.forbiddenResponse("Insufficient permissions");
 			return;
 		}

@@ -33,7 +33,7 @@ export default class ProfilesController extends ApiController {
     try {
       const check = UpdateOwnProfileSchema.safeParse(this.request.body);
       if (!check.success) {
-        return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+        return this.validationError(check.error);
       }
 
       const response = await this.profilesService.updateOwnProfile(this.request.user.id, check.data);
@@ -47,7 +47,7 @@ export default class ProfilesController extends ApiController {
     try {
       const check = CreatePersonalBestSchema.safeParse(this.request.body);
       if (!check.success) {
-        return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+        return this.validationError(check.error);
       }
 
       const response = await this.profilesService.createPersonalBest(this.request.user.id, check.data);
@@ -62,7 +62,7 @@ export default class ProfilesController extends ApiController {
       const personalBestId = Number(this.request.params.id);
       const check = UpdatePersonalBestSchema.safeParse(this.request.body);
       if (!check.success) {
-        return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+        return this.validationError(check.error);
       }
 
       const response = await this.profilesService.updatePersonalBest(this.request.user.id, personalBestId, check.data);

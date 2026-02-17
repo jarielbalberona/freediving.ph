@@ -1,4 +1,4 @@
-import { InferSelectModel, and, desc, eq } from "drizzle-orm";
+import { InferSelectModel, and, desc, eq, sql } from "drizzle-orm";
 
 import { DiveSpotServerSchemaType } from "@/app/diveSpot/diveSpot.validators";
 
@@ -7,6 +7,8 @@ import { diveSpots } from "@/models/drizzle/diveSpots.model";
 import { auditLogs } from "@/models/drizzle/moderation.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
+import { buildOffsetPagination } from "@/utils/pagination";
+import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
 
 export type DiveSpotSchemaType = InferSelectModel<typeof diveSpots>;
 
@@ -82,17 +84,26 @@ export default class DiveSpotService extends DrizzleService {
 		}
 	}
 
-	async retrieveAllDiveSpot() {
+	async retrieveAllDiveSpot(query: PaginationQuerySchemaType) {
 		try {
+			const totalRows = await this.db
+				.select({ count: sql<number>`count(*)` })
+				.from(diveSpots)
+				.where(eq(diveSpots.state, "PUBLISHED"));
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
 			const retrieveData = await this.db.query.diveSpots.findMany({
 				where: eq(diveSpots.state, "PUBLISHED"),
-				orderBy: desc(diveSpots.createdAt)
+				orderBy: desc(diveSpots.createdAt),
+				limit: query.limit,
+				offset: query.offset
 			});
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Dive spots retrieved successfully",
-				retrieveData
+				retrieveData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);

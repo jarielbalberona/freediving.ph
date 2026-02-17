@@ -35,7 +35,7 @@ export default class MessagesController extends ApiController {
       const check = CreateDirectConversationSchema.safeParse(body);
 
       if (!check.success) {
-        return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+        return this.validationError(check.error);
       }
 
       const currentUserId = this.request.user?.id;
@@ -101,7 +101,7 @@ export default class MessagesController extends ApiController {
       const check = ModerateRemoveMessageSchema.safeParse(this.request.body);
 
       if (!check.success) {
-        return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+        return this.validationError(check.error);
       }
 
       const response = await this.messagesService.moderateRemoveMessage(

@@ -33,6 +33,13 @@ export interface ServiceApiResponse<T> extends BaseApiResponse {
 export interface ServiceSendApiResponse<T> extends BaseApiResponse {
 	data?: T;
 	pagination?: Pagination;
+	error?: {
+		code: string;
+		details?: Array<{
+			field: string;
+			message: string;
+		}>;
+	};
 }
 
 // Error type definitions
@@ -104,32 +111,52 @@ export class ApiResponse {
 	unauthorizedResponse(message: string) {
 		return this.sendResponse({
 			status: status.HTTP_401_UNAUTHORIZED,
-			message
+			message,
+			error: { code: "UNAUTHORIZED" }
 		});
 	}
 
 	forbiddenResponse(message: string) {
 		return this.sendResponse({
 			status: status.HTTP_403_FORBIDDEN,
-			message
+			message,
+			error: { code: "FORBIDDEN" }
 		});
 	}
 
-	badResponse(message: string) {
+	badResponse(
+		message: string,
+		error?: {
+			code: string;
+			details?: Array<{ field: string; message: string }>;
+		}
+	) {
 		return this.sendResponse({
 			status: status.HTTP_400_BAD_REQUEST,
-			message
+			message,
+			error
 		});
+	}
+
+	validationErrorResponse(
+		message: string,
+		details: Array<{
+			field: string;
+			message: string;
+		}>
+	) {
+		return this.badResponse(message, { code: "VALIDATION_ERROR", details });
 	}
 
 	internalServerError(message: string = "Internal Server Error") {
 		return this.sendResponse({
 			status: status.HTTP_500_INTERNAL_SERVER_ERROR,
-			message
+			message,
+			error: { code: "INTERNAL_SERVER_ERROR" }
 		});
 	}
 
-	sendResponse<T>({ status, message, data, pagination }: ServiceSendApiResponse<T>): Response {
+	sendResponse<T>({ status, message, data, pagination, error }: ServiceSendApiResponse<T>): Response {
 		if (NO_CONTENT_STATUSES.has(status)) {
 			return this.response.status(status).json({});
 		}
@@ -142,6 +169,10 @@ export class ApiResponse {
 
 		if (pagination) {
 			responseBody.pagination = pagination;
+		}
+
+		if (error) {
+			responseBody.error = error;
 		}
 
 		return this.response.status(status).json(responseBody);

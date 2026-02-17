@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { zodMessages } from "@/core/messages";
 import { validateString } from "@/validators/commonRules";
+import { PaginationQuerySchema } from "@/validators/pagination.schema";
 import { DIVE_DIFFICULTY } from "@/databases/drizzle/lists";
 
 export const DiveSpotServerSchema = z.object({
@@ -23,5 +24,8 @@ export const DiveSpotReviewSchema = z.object({
 	state: z.enum(["PUBLISHED", "FLAGGED", "REMOVED"])
 });
 
+export const DiveSpotListQuerySchema = PaginationQuerySchema;
+
 export type DiveSpotServerSchemaType = z.infer<typeof DiveSpotServerSchema>;
 export type DiveSpotReviewSchemaType = z.infer<typeof DiveSpotReviewSchema>;
+export type DiveSpotListQuerySchemaType = z.infer<typeof DiveSpotListQuerySchema>;

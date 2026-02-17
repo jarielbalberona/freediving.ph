@@ -6,7 +6,9 @@ import {
 	ThreadsUpdateSchema,
 	CommentCreateSchema,
 	ReactionSchema,
-	ThreadModeSchema
+	ThreadModeSchema,
+	ThreadListQuerySchema,
+	ThreadCommentsQuerySchema
 } from "@/app/threads/threads.validators";
 
 import { ApiController } from "@/controllers/base/api.controller";
@@ -30,7 +32,7 @@ export default class ThreadsController extends ApiController {
 			const body = this.request.body;
 			const check = ThreadsServerSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.threadsService.create({
 				...check.data,
@@ -62,7 +64,7 @@ export default class ThreadsController extends ApiController {
 			const body = this.request.body;
 			const check = ThreadsUpdateSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.threadsService.update(id, check.data);
 
@@ -74,7 +76,10 @@ export default class ThreadsController extends ApiController {
 
 	async retrieveAllThreads() {
 		try {
-			const response = await this.threadsService.retrieveAll();
+			const queryCheck = ThreadListQuerySchema.safeParse(this.request.query);
+			if (!queryCheck.success) return this.validationError(queryCheck.error);
+
+			const response = await this.threadsService.retrieveAll(queryCheck.data);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -97,7 +102,7 @@ export default class ThreadsController extends ApiController {
 			const body = this.request.body;
 			const check = CommentCreateSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.threadsService.createComment({
 				...check.data,
@@ -112,7 +117,10 @@ export default class ThreadsController extends ApiController {
 	async getComments() {
 		try {
 			const threadId = Number(this.request.params.id);
-			const response = await this.threadsService.getComments(threadId);
+			const queryCheck = ThreadCommentsQuerySchema.safeParse(this.request.query);
+			if (!queryCheck.success) return this.validationError(queryCheck.error);
+
+			const response = await this.threadsService.getComments(threadId, queryCheck.data);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -126,7 +134,7 @@ export default class ThreadsController extends ApiController {
 			const body = this.request.body;
 			const check = ReactionSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.threadsService.addReaction(threadId, {
 				...check.data,
@@ -159,7 +167,7 @@ export default class ThreadsController extends ApiController {
 			const threadId = Number(this.request.params.id);
 			const check = ThreadModeSchema.safeParse(this.request.body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.threadsService.setThreadMode(threadId, check.data.mode);
 			return this.apiResponse.sendResponse(response);

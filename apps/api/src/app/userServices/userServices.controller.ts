@@ -19,7 +19,7 @@ export default class UserServicesController extends ApiController {
 			const body = this.request.body;
 			const check = UserServicesServerSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.userServicesService.create(check.data);
 			return this.apiResponse.sendResponse(response);
@@ -63,7 +63,7 @@ export default class UserServicesController extends ApiController {
 			const body = this.request.body;
 			const check = UserServicesUpdateSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.userServicesService.update(id, check.data);
 			return this.apiResponse.sendResponse(response);
@@ -77,7 +77,7 @@ export default class UserServicesController extends ApiController {
 			const body = this.request.body;
 			const check = ServiceBookingSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.userServicesService.createBooking(check.data);
 			return this.apiResponse.sendResponse(response);
@@ -111,7 +111,7 @@ export default class UserServicesController extends ApiController {
 			const body = this.request.body;
 			const check = ServiceReviewSchema.safeParse(body);
 			if (!check.success)
-				return this.apiResponse.badResponse(check.error.errors.map(err => err.message).join("\n"));
+				return this.validationError(check.error);
 
 			const response = await this.userServicesService.createReview(check.data);
 			return this.apiResponse.sendResponse(response);

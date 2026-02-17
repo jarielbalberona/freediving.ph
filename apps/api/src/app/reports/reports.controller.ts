@@ -22,7 +22,7 @@ export default class ReportsController extends ApiController {
     try {
       const check = CreateReportSchema.safeParse(this.request.body);
       if (!check.success) {
-        return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+        return this.validationError(check.error);
       }
 
       const response = await this.reportsService.create(this.request.user.id, check.data);
@@ -36,7 +36,7 @@ export default class ReportsController extends ApiController {
     try {
       const check = ReportQuerySchema.safeParse(this.request.query);
       if (!check.success) {
-        return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+        return this.validationError(check.error);
       }
 
       const response = await this.reportsService.list(check.data);
@@ -51,7 +51,7 @@ export default class ReportsController extends ApiController {
       const reportId = Number(this.request.params.id);
       const check = UpdateReportStatusSchema.safeParse(this.request.body);
       if (!check.success) {
-        return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+        return this.validationError(check.error);
       }
 
       const response = await this.reportsService.updateStatus(this.request.user.id, reportId, check.data);

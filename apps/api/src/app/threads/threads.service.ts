@@ -7,6 +7,8 @@ import { threads, comments, reactions } from "@/models/drizzle/threads.model";
 import { chikaPseudonyms, threadCategoryModes } from "@/models/drizzle/chika.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
+import { buildOffsetPagination } from "@/utils/pagination";
+import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
 
 export type ThreadsSchemaType = InferSelectModel<typeof threads>;
 type ThreadWithUserRow = {
@@ -115,8 +117,11 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async retrieveAll() {
+	async retrieveAll(query: PaginationQuerySchemaType) {
 		try {
+			const totalRows = await this.db.select({ count: sql<number>`count(*)` }).from(threads);
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
 			const retrieveData = await this.db
 				.select({
 					thread: threads,
@@ -135,12 +140,15 @@ export default class ThreadsService extends DrizzleService {
 				.leftJoin(comments, eq(threads.id, comments.threadId))
 				.leftJoin(reactions, eq(threads.id, reactions.threadId))
 				.groupBy(threads.id, users.id)
-				.orderBy(desc(threads.createdAt));
+				.orderBy(desc(threads.createdAt))
+				.limit(query.limit)
+				.offset(query.offset);
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Threads retrieved successfully",
-				retrieveData
+				retrieveData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
@@ -262,8 +270,14 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async getComments(threadId: number) {
+	async getComments(threadId: number, query: PaginationQuerySchemaType) {
 		try {
+			const totalRows = await this.db
+				.select({ count: sql<number>`count(*)` })
+				.from(comments)
+				.where(eq(comments.threadId, threadId));
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
 			const retrieveData = await this.db
 				.select({
 					comment: comments,
@@ -276,12 +290,15 @@ export default class ThreadsService extends DrizzleService {
 				.from(comments)
 				.leftJoin(users, eq(comments.userId, users.id))
 				.where(eq(comments.threadId, threadId))
-				.orderBy(desc(comments.createdAt));
+				.orderBy(desc(comments.createdAt))
+				.limit(query.limit)
+				.offset(query.offset);
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Comments retrieved successfully",
-				retrieveData
+				retrieveData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);

@@ -17,7 +17,7 @@ export default class BuddiesController extends ApiController {
   async sendRequest() {
     try {
       const check = SendBuddyRequestSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
 
       const response = await this.buddiesService.sendRequest(this.request.user.id, check.data);
       return this.apiResponse.sendResponse(response);
@@ -50,7 +50,7 @@ export default class BuddiesController extends ApiController {
     try {
       const requestId = Number(this.request.params.requestId);
       const check = RejectBuddyRequestSchema.safeParse(this.request.body);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
 
       const response = await this.buddiesService.rejectRequest(this.request.user.id, requestId, check.data);
       return this.apiResponse.sendResponse(response);
@@ -90,7 +90,7 @@ export default class BuddiesController extends ApiController {
   async finder() {
     try {
       const check = BuddyFinderQuerySchema.safeParse(this.request.query);
-      if (!check.success) return this.apiResponse.badResponse(check.error.errors.map((err) => err.message).join("\n"));
+      if (!check.success) return this.validationError(check.error);
 
       const response = await this.buddiesService.finder(this.request.user.id, check.data);
       return this.apiResponse.sendResponse(response);

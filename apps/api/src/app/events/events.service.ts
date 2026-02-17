@@ -7,6 +7,8 @@ import { events, eventAttendees } from "@/models/drizzle/events.model";
 import { auditLogs } from "@/models/drizzle/moderation.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
+import { buildOffsetPagination } from "@/utils/pagination";
+import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
 
 export type EventsSchemaType = InferSelectModel<typeof events>;
 
@@ -177,8 +179,11 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async retrieveAll() {
+	async retrieveAll(query: PaginationQuerySchemaType) {
 		try {
+			const totalRows = await this.db.select({ count: sql<number>`count(*)` }).from(events);
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
 			const retrieveData = await this.db
 				.select({
 					event: events,
@@ -194,12 +199,15 @@ export default class EventsService extends DrizzleService {
 				.leftJoin(users, eq(events.organizerId, users.id))
 				.leftJoin(eventAttendees, eq(events.id, eventAttendees.eventId))
 				.groupBy(events.id, users.id)
-				.orderBy(desc(events.startDate));
+				.orderBy(desc(events.startDate))
+				.limit(query.limit)
+				.offset(query.offset);
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Events retrieved successfully",
-				retrieveData
+				retrieveData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
@@ -269,8 +277,14 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async getAttendees(eventId: number) {
+	async getAttendees(eventId: number, query: PaginationQuerySchemaType) {
 		try {
+			const totalRows = await this.db
+				.select({ count: sql<number>`count(*)` })
+				.from(eventAttendees)
+				.where(eq(eventAttendees.eventId, eventId));
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
 			const retrieveData = await this.db
 				.select({
 					attendee: eventAttendees,
@@ -284,12 +298,15 @@ export default class EventsService extends DrizzleService {
 				.from(eventAttendees)
 				.leftJoin(users, eq(eventAttendees.userId, users.id))
 				.where(eq(eventAttendees.eventId, eventId))
-				.orderBy(desc(eventAttendees.createdAt));
+				.orderBy(desc(eventAttendees.createdAt))
+				.limit(query.limit)
+				.offset(query.offset);
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Event attendees retrieved successfully",
-				retrieveData
+				retrieveData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
 			return ServiceResponse.createErrorResponse(error);
