@@ -225,6 +225,13 @@
       "when": 1771344000000,
       "tag": "0031_spot_list_shape_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1771344694242,
+      "tag": "0032_loud_chronomancer",
+      "breakpoints": true
     }
   ]
 }
