@@ -24,7 +24,16 @@ export const DiveSpotReviewSchema = z.object({
 	state: z.enum(["PUBLISHED", "FLAGGED", "REMOVED"])
 });
 
-export const DiveSpotListQuerySchema = PaginationQuerySchema;
+export const DiveSpotListQuerySchema = PaginationQuerySchema.extend({
+	search: z.string().trim().max(120).optional(),
+	location: z.string().trim().max(120).optional(),
+	difficulty: z.enum(DIVE_DIFFICULTY.enumValues).optional(),
+	north: z.coerce.number().min(-90).max(90).optional(),
+	south: z.coerce.number().min(-90).max(90).optional(),
+	east: z.coerce.number().min(-180).max(180).optional(),
+	west: z.coerce.number().min(-180).max(180).optional(),
+	sort: z.enum(["newest", "oldest", "name"]).default("newest")
+});
 
 export type DiveSpotServerSchemaType = z.infer<typeof DiveSpotServerSchema>;
 export type DiveSpotReviewSchemaType = z.infer<typeof DiveSpotReviewSchema>;

@@ -6,13 +6,26 @@ import Filters from "./filters";
 
 export function DiveSpotsContainer({
   diveSpots,
+  search,
+  setSearch,
+  difficulty,
+  setDifficulty,
+  sort,
+  setSort,
   selectedPlace,
   setSelectedPlace,
   togglePlaces,
 }: any) {
   return (
     <>
-      <Filters />
+      <Filters
+        search={search}
+        onSearchChange={setSearch}
+        difficulty={difficulty}
+        onDifficultyChange={setDifficulty}
+        sort={sort}
+        onSortChange={setSort}
+      />
       <div className="flex-1 overflow-y-auto">
         <div className="grid gap-3">
           {diveSpots?.map((diveSpot: any) => (
@@ -40,6 +53,12 @@ export function DiveSpotsContainer({
 }
 export function DiveSpotsContainerMobile({
   diveSpots,
+  search,
+  setSearch,
+  difficulty,
+  setDifficulty,
+  sort,
+  setSort,
   selectedPlace,
   setSelectedPlace,
 }: any) {
@@ -107,7 +126,14 @@ export function DiveSpotsContainerMobile({
           </Button>
         </div>
         <div className="h-full px-2 pb-2 mt-3 overflow-y-auto">
-          <Filters />
+          <Filters
+            search={search}
+            onSearchChange={setSearch}
+            difficulty={difficulty}
+            onDifficultyChange={setDifficulty}
+            sort={sort}
+            onSortChange={setSort}
+          />
           <div className="grid gap-3">
             {diveSpots?.map((diveSpot: any) => (
               <DiveSpotCard

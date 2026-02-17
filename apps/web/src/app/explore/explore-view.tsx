@@ -2,34 +2,64 @@
 import { MapProvider } from "@/providers/map-provider";
 import * as React from "react";
 import { Compass, Info, Layers, Menu } from "lucide-react";
-import { useDiveSpots } from "@/hooks/react-queries/dives"
+import { useDiveSpots } from "@/features/diveSpots";
 import { Button } from "@/components/ui/button";
 import { MapComponent } from "./maps/map-container"
 import {
   DiveSpotsContainerMobile,
   DiveSpotsContainer,
 } from "./dive-spots-container";
+import type { DiveSpotFilters } from "@freediving.ph/types";
 
+type Bounds = {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+};
 
-export default function Explore({ initialDiveSpots }: any) {
-  const { data: diveSpots }: any = useDiveSpots(initialDiveSpots);
+const DEFAULT_BOUNDS: Bounds = {
+  north: 19,
+  south: 4.5,
+  east: 127,
+  west: 116,
+};
+
+export default function Explore() {
   const [placesOpen, setPlacesOpen] = React.useState(true);
-  const [selectedPlace, setSelectedPlace] = React.useState<string | null>(null);
-  console.log("diveSpots", diveSpots);
+  const [selectedPlace, setSelectedPlace] = React.useState<number | null>(null);
+  const [search, setSearch] = React.useState("");
+  const [difficulty, setDifficulty] = React.useState("ALL");
+  const [sort, setSort] = React.useState<"newest" | "oldest" | "name">("newest");
+  const [bounds, setBounds] = React.useState<Bounds>(DEFAULT_BOUNDS);
 
-  // Sample place data
-  const places = [
-    {
-      id: "1",
-      name: "Central Park",
-      rating: 4.8,
-      reviews: 15243,
-      type: "Park",
-      address: "New York, NY 10022",
-      image: "/placeholder.svg?height=120&width=240",
-      distance: "1.2 miles away",
-    },
-  ];
+  const filters = React.useMemo<DiveSpotFilters>(() => ({
+    limit: 100,
+    offset: 0,
+    search: search.trim() || undefined,
+    difficulty: difficulty === "ALL" ? undefined : (difficulty as DiveSpotFilters["difficulty"]),
+    north: bounds.north,
+    south: bounds.south,
+    east: bounds.east,
+    west: bounds.west,
+    sort,
+  }), [bounds, difficulty, search, sort]);
+
+  const { data: diveSpots = [] } = useDiveSpots(filters);
+
+  React.useEffect(() => {
+    if (!selectedPlace && diveSpots.length > 0) {
+      setSelectedPlace(diveSpots[0]?.id ?? null);
+    }
+  }, [diveSpots, selectedPlace]);
+
+  const handleBoundsChange = React.useMemo(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    return (nextBounds: Bounds) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => setBounds(nextBounds), 300);
+    };
+  }, []);
 
   const togglePlaces = () => {
     setPlacesOpen(!placesOpen);
@@ -47,6 +77,12 @@ export default function Explore({ initialDiveSpots }: any) {
             {placesOpen && (
               <DiveSpotsContainer
                 diveSpots={diveSpots}
+                search={search}
+                setSearch={setSearch}
+                difficulty={difficulty}
+                setDifficulty={setDifficulty}
+                sort={sort}
+                setSort={setSort}
                 selectedPlace={selectedPlace}
                 setSelectedPlace={setSelectedPlace}
                 togglePlaces={togglePlaces}
@@ -56,7 +92,12 @@ export default function Explore({ initialDiveSpots }: any) {
 
           <div className="relative flex-1">
             <div className="h-full w-full bg-muted">
-              <MapComponent freedivingSpots={diveSpots} />
+              <MapComponent
+                freedivingSpots={diveSpots}
+                selectedSpotId={selectedPlace}
+                onSpotSelect={setSelectedPlace}
+                onBoundsChange={handleBoundsChange}
+              />
             </div>
 
             <div className="absolute flex flex-col hidden gap-2 bottom-6 right-6">
@@ -96,7 +137,13 @@ export default function Explore({ initialDiveSpots }: any) {
           </div>
         </div>
         <DiveSpotsContainerMobile
-          places={places}
+          diveSpots={diveSpots}
+          search={search}
+          setSearch={setSearch}
+          difficulty={difficulty}
+          setDifficulty={setDifficulty}
+          sort={sort}
+          setSort={setSort}
           selectedPlace={selectedPlace}
           setSelectedPlace={setSelectedPlace}
         />

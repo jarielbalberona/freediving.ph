@@ -12,8 +12,11 @@ import type {
 export const diveSpotsApi = {
   getDiveSpots: async (filters?: DiveSpotFilters): Promise<DiveSpot[]> => {
     const params = new URLSearchParams();
-    if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset !== undefined) params.append('offset', filters.offset.toString());
+    if (filters?.page && filters?.limit && filters?.offset === undefined) {
+      params.append('offset', Math.max((filters.page - 1) * filters.limit, 0).toString());
+    }
     if (filters?.location) params.append('location', filters.location);
     if (filters?.minDepth) params.append('minDepth', filters.minDepth.toString());
     if (filters?.maxDepth) params.append('maxDepth', filters.maxDepth.toString());
@@ -28,6 +31,11 @@ export const diveSpotsApi = {
     if (filters?.latitude) params.append('latitude', filters.latitude.toString());
     if (filters?.longitude) params.append('longitude', filters.longitude.toString());
     if (filters?.radius) params.append('radius', filters.radius.toString());
+    if (filters?.north !== undefined) params.append('north', filters.north.toString());
+    if (filters?.south !== undefined) params.append('south', filters.south.toString());
+    if (filters?.east !== undefined) params.append('east', filters.east.toString());
+    if (filters?.west !== undefined) params.append('west', filters.west.toString());
+    if (filters?.sort) params.append('sort', filters.sort);
 
     const queryString = params.toString();
     const url = `/dive-spots${queryString ? `?${queryString}` : ''}`;

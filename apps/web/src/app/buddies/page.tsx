@@ -20,12 +20,20 @@ import {
 import { getApiErrorMessage } from "@/lib/http/api-error";
 
 export default function BuddiesPage() {
-  const { user, isLoaded } = useUser();
+  const { user } = useUser();
   const [search, setSearch] = useState("");
+  const [location, setLocation] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState("");
 
   const { data: requests, error: requestsError } = useBuddyRequests();
   const { data: buddies = [], isLoading: isBuddiesLoading, error: buddiesError } = useActiveBuddies();
-  const { data: finderResults = [], isLoading: isFinderLoading, error: finderError } = useBuddyFinderSearch({ search, limit: 20, offset: 0 });
+  const { data: finderResults = [], isLoading: isFinderLoading, error: finderError } = useBuddyFinderSearch({
+    search: search || undefined,
+    location: location || undefined,
+    experienceLevel: experienceLevel || undefined,
+    limit: 20,
+    offset: 0,
+  });
 
   const sendRequest = useSendBuddyRequest();
   const acceptRequest = useAcceptBuddyRequest();
@@ -101,6 +109,10 @@ export default function BuddiesPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-10" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or alias" />
+          </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Filter by area" />
+            <Input value={experienceLevel} onChange={(event) => setExperienceLevel(event.target.value)} placeholder="Filter by experience" />
           </div>
 
           {finderError ? (

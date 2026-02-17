@@ -373,3 +373,73 @@ Make `packages/types/src/index.ts` the single source of truth for shared contrac
 ## 11. Outcomes And Follow-Ups
 - Completed type-contract consolidation and web-local type-file removal.
 - Follow-up: run `pnpm --filter @freediving.ph/types test` in an environment that allows `tsx` IPC socket creation.
+
+---
+
+# ExecPlan: Diving Modules Production Pass + vis.gl Map Migration
+
+## 1. Title
+Implement diving modules production pass with `@vis.gl/react-google-maps`
+
+## 2. Objective
+Replace legacy map integration and harden Explore, Buddy Finder, Events, and Competitive Records flows to match production-ready behavior in the current stack.
+
+## 3. Scope
+- Replace web map implementation from `@react-google-maps/api` to `@vis.gl/react-google-maps`.
+- Add viewport/search/difficulty filtering support for dive spots API and web Explore flow.
+- Improve web Buddy Finder and Events filters wiring.
+- Improve Competitive Records query wiring and list filtering.
+- Keep existing DB schema intact for this pass.
+
+## 4. Constraints And Non-Goals
+- No destructive migration rewrite in this pass.
+- No full PostGIS migration in this coding pass.
+- No third-party federation integration (AIDA/CMAS).
+
+## 5. Acceptance Criteria
+- Explore map renders via `@vis.gl/react-google-maps` and marker selection syncs with list cards.
+- Dive spot list endpoint supports search + bounds + difficulty filtering.
+- Buddy Finder UI supports search, location, and experience filters via API.
+- Events page search/filter state drives API list requests.
+- Competitive Records list supports user-provided filter params.
+
+## 6. Repo Evidence
+- Existing map provider: `apps/web/src/providers/map-provider.tsx`
+- Existing Explore map components: `apps/web/src/app/explore/maps/*`
+- Existing dive spot API module: `apps/api/src/app/diveSpot/*`
+- Existing buddy/events/records web features: `apps/web/src/features/{buddies,events,competitiveRecords}`
+
+## 7. Risks And Rollback
+- Risk: new map package not installed in local lockfile.
+- Risk: strict TS mismatch across shared DTOs.
+- Rollback: revert map provider and Explore component files + API query changes.
+
+## 8. Milestones
+### Milestone 1: Map migration + Explore query hardening
+- Goal: `@vis.gl` map rendering and filterable dive spot retrieval.
+- Status: `done`
+
+### Milestone 2: Buddy, events, and records UI filter wiring
+- Goal: production-friendly filter/search behavior for module pages.
+- Status: `done`
+
+### Milestone 3: Validation and cleanup
+- Goal: run targeted type-checks and resolve regressions.
+- Status: `done`
+
+## 9. Verification Plan
+- `pnpm --filter @freediving.ph/api type-check`
+- `pnpm --filter @freediving.ph/web type-check`
+
+## 10. Progress Log
+- 2026-02-17: Audited current module implementations and identified map and contract gaps.
+- 2026-02-17: Replaced web map provider and map container to `@vis.gl/react-google-maps` API surface.
+- 2026-02-17: Added Explore viewport, search, difficulty, and sort-driven list/map query behavior.
+- 2026-02-17: Extended dive spot backend query schema and service filtering for bounds and text search.
+- 2026-02-17: Added buddy finder location/experience filters and events search wiring.
+- 2026-02-17: Added competitive records list filtering in web feature hooks.
+- 2026-02-17: Verified `@freediving.ph/api` and `@freediving.ph/web` type-check pass.
+
+## 11. Outcomes And Follow-Ups
+- Map integration is migrated in source code, with an ambient type shim to keep compile green until dependency installation is refreshed.
+- Follow-up: run `pnpm install` to update lockfile and fetch `@vis.gl/react-google-maps` package before production build/deploy.

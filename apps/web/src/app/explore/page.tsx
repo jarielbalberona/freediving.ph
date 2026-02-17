@@ -1,20 +1,17 @@
 "use client";
 
 import { useUser } from '@clerk/nextjs';
-import { useDiveSpots } from '@/features/diveSpots';
 import { DiveSpotList } from '@/features/diveSpots';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorBoundary, FeatureErrorBoundary } from '@/components/error-boundary';
+import { FeatureErrorBoundary } from '@/components/error-boundary';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Plus, Filter, Search, List, Map } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Filter, Search, List, Map } from 'lucide-react';
 import ExploreView from './explore-view';
 
 export default function ExplorePage() {
   const { user, isLoaded } = useUser();
-  const { data: diveSpots, isLoading } = useDiveSpots();
 
   if (!isLoaded) {
     return (
@@ -96,7 +93,7 @@ export default function ExplorePage() {
 
             <TabsContent value="map" className="mt-6">
               <div className="h-[850px] rounded-lg overflow-hidden">
-                <ExploreView initialDiveSpots={diveSpots ?? []} />
+                <ExploreView />
               </div>
             </TabsContent>
           </Tabs>

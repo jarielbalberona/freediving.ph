@@ -6,18 +6,12 @@ import {
 } from "lucide-react";
 
 interface DiveSpot {
-  id: string;
+  id: number;
   name: string;
-  latitude: string;
-  longitude: string,
-  locationName: string,
-  location: string;
-  depth: number;
-  difficulty: string;
-  description: string;
-  bestSeason: string;
-  directions: string;
-  imageUrl: string;
+  locationName?: string;
+  depth?: number;
+  difficulty?: string;
+  imageUrl?: string;
 }
 
 
@@ -28,8 +22,8 @@ function DiveSpotCard({
   setSelectedPlace,
 }: {
   diveSpot: DiveSpot;
-  selectedPlace: string | null;
-  setSelectedPlace: (id: string | null) => void;
+  selectedPlace: number | null;
+  setSelectedPlace: (id: number | null) => void;
 }) {
   return (
     <Card

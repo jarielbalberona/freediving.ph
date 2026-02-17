@@ -6,20 +6,24 @@ import { useJoinEvent, useLeaveEvent } from '@/features/events';
 import { AuthGuard } from '@/components/auth/guard';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { FeatureErrorBoundary } from '@/components/error-boundary';
 import { Plus, Filter, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { getApiErrorMessage, getApiErrorStatus } from '@/lib/http/api-error';
 import { getNumericUserId } from '@/lib/auth/user-id';
+import { useMemo, useState } from 'react';
 
 export default function EventsPage() {
   const { user } = useUser();
-  const filters = {
+  const [search, setSearch] = useState('');
+  const [location, setLocation] = useState('');
+  const filters = useMemo(() => ({
     status: 'PUBLISHED' as const,
     page: 1,
-    limit: 20
-  };
+    limit: 20,
+    search: search || undefined,
+    location: location || undefined,
+  }), [search, location]);
 
   const joinEventMutation = useJoinEvent();
   const leaveEventMutation = useLeaveEvent();
@@ -92,12 +96,14 @@ export default function EventsPage() {
             <input
               type="text"
               placeholder="Search events..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setLocation((current) => (current ? '' : 'Philippines'))}>
             <Filter className="h-4 w-4 mr-2" />
-            Filters
+            {location ? 'Clear Area Filter' : 'Area: Philippines'}
           </Button>
         </div>
 

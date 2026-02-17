@@ -1,4 +1,4 @@
-import { InferSelectModel, and, desc, eq, isNull, sql } from "drizzle-orm";
+import { InferSelectModel, and, asc, desc, eq, gte, ilike, isNull, lte, or, sql } from "drizzle-orm";
 
 import { DiveSpotServerSchemaType } from "@/app/diveSpot/diveSpot.validators";
 
@@ -110,17 +110,50 @@ export default class DiveSpotService extends DrizzleService {
 		}
 	}
 
-	async retrieveAllDiveSpot(query: PaginationQuerySchemaType) {
+	async retrieveAllDiveSpot(query: PaginationQuerySchemaType & {
+		search?: string;
+		location?: string;
+		difficulty?: string;
+		north?: number;
+		south?: number;
+		east?: number;
+		west?: number;
+		sort?: "newest" | "oldest" | "name";
+	}) {
 		try {
+			const filters = [
+				eq(diveSpots.state, "PUBLISHED"),
+				isNull(diveSpots.deletedAt),
+				query.search
+					? or(
+						ilike(diveSpots.name, `%${query.search}%`),
+						ilike(diveSpots.locationName, `%${query.search}%`)
+					)
+					: undefined,
+				query.location ? ilike(diveSpots.locationName, `%${query.location}%`) : undefined,
+				query.difficulty ? eq(diveSpots.difficulty, query.difficulty as any) : undefined,
+				typeof query.north === "number" ? lte(diveSpots.lat, query.north) : undefined,
+				typeof query.south === "number" ? gte(diveSpots.lat, query.south) : undefined,
+				typeof query.east === "number" ? lte(diveSpots.lng, query.east) : undefined,
+				typeof query.west === "number" ? gte(diveSpots.lng, query.west) : undefined,
+			].filter(Boolean) as any[];
+
+			const whereClause = filters.length > 0 ? and(...filters) : undefined;
+
 			const totalRows = await this.db
 				.select({ count: sql<number>`count(*)` })
 				.from(diveSpots)
-				.where(and(eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)));
+				.where(whereClause);
 			const totalItems = Number(totalRows[0]?.count ?? 0);
 
 			const retrieveData = await this.db.query.diveSpots.findMany({
-				where: and(eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
-				orderBy: desc(diveSpots.createdAt),
+				where: whereClause,
+				orderBy:
+					query.sort === "name"
+						? asc(diveSpots.name)
+						: query.sort === "oldest"
+							? asc(diveSpots.createdAt)
+							: desc(diveSpots.createdAt),
 				limit: query.limit,
 				offset: query.offset
 			});

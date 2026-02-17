@@ -188,6 +188,7 @@ export interface CreateDiveSpotReviewRequest {
 export interface DiveSpotFilters {
   page?: number;
   limit?: number;
+  offset?: number;
   location?: string;
   minDepth?: number;
   maxDepth?: number;
@@ -202,6 +203,11 @@ export interface DiveSpotFilters {
   latitude?: number;
   longitude?: number;
   radius?: number;
+  north?: number;
+  south?: number;
+  east?: number;
+  west?: number;
+  sort?: 'newest' | 'oldest' | 'name';
 }
 
 export interface Event {
@@ -792,6 +798,14 @@ export interface CreateCompetitiveRecordRequest {
   eventName: string;
   eventDate: string;
   sourceUrl?: string;
+}
+
+export interface CompetitiveRecordFilters {
+  discipline?: string;
+  athlete?: string;
+  eventName?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface TrainingLogSession {

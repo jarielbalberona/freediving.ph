@@ -7,18 +7,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ReportAction } from "@/components/report/report-action";
-import { useCompetitiveRecords, useCreateCompetitiveRecord } from "@/features/competitiveRecords";
+import { useCompetitiveRecordsFiltered, useCreateCompetitiveRecord } from "@/features/competitiveRecords";
 
 export default function CompetitiveRecordsPage() {
-  const { data: records = [] } = useCompetitiveRecords();
-  const createRecord = useCreateCompetitiveRecord();
-
+  const [queryAthlete, setQueryAthlete] = useState("");
+  const [queryDiscipline, setQueryDiscipline] = useState("");
+  const [queryEvent, setQueryEvent] = useState("");
   const [athleteName, setAthleteName] = useState("");
   const [discipline, setDiscipline] = useState("CWT");
   const [resultValue, setResultValue] = useState("");
   const [resultUnit, setResultUnit] = useState("m");
   const [eventName, setEventName] = useState("");
   const [eventDate, setEventDate] = useState("");
+  const { data: records = [] } = useCompetitiveRecordsFiltered({
+    athlete: queryAthlete || undefined,
+    discipline: queryDiscipline || undefined,
+    eventName: queryEvent || undefined,
+    limit: 50,
+    offset: 0,
+  });
+  const createRecord = useCreateCompetitiveRecord();
 
   return (
     <main className="container mx-auto space-y-6 p-6">
@@ -56,6 +64,11 @@ export default function CompetitiveRecordsPage() {
           <CardTitle>Latest Records</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="grid gap-2 md:grid-cols-3">
+            <Input placeholder="Filter athlete" value={queryAthlete} onChange={(e) => setQueryAthlete(e.target.value)} />
+            <Input placeholder="Filter discipline" value={queryDiscipline} onChange={(e) => setQueryDiscipline(e.target.value)} />
+            <Input placeholder="Filter event" value={queryEvent} onChange={(e) => setQueryEvent(e.target.value)} />
+          </div>
           {records.map((record) => (
             <article key={record.id} className="rounded-md border p-3">
               <div className="flex items-center justify-between gap-3">
