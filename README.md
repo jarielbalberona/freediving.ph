@@ -86,6 +86,7 @@ The API also supports deployment aliases and normalizes them automatically:
 Minimum web env:
 
 - `NEXT_PUBLIC_API_URL`
+- `API_URL` (for server-side calls; usually same value as `NEXT_PUBLIC_API_URL`)
 - `NEXT_PUBLIC_APP_URL`
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
@@ -148,10 +149,16 @@ Schema and migrations are under:
 
 ## Docker (local)
 
-Run API + web + Postgres with Docker Compose:
+Run only PostgreSQL in Docker (API and web run locally with `pnpm dev`):
 
 ```bash
-docker compose up
+docker compose up -d database
+```
+
+Use this database URL in `apps/api/.env`:
+
+```bash
+DATABASE_URL=postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph
 ```
 
 ## Deployment

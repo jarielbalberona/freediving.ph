@@ -25,8 +25,18 @@ export const envSchema = z.object({
 	...emailEnvSchema.shape
 });
 
+const defaultDatabaseUrl = (() => {
+	const host = process.env.POSTGRES_HOST ?? process.env.PGHOST ?? "localhost";
+	const port = process.env.POSTGRES_PORT ?? process.env.PGPORT ?? "5432";
+	const user = process.env.POSTGRES_USER ?? process.env.PGUSER ?? "fphbuddies";
+	const password = process.env.POSTGRES_PASSWORD ?? process.env.PGPASSWORD ?? "fphbuddiespw";
+	const database = process.env.POSTGRES_DB ?? process.env.PGDATABASE ?? "freedivingph";
+	return `postgres://${user}:${password}@${host}:${port}/${database}`;
+})();
+
 const normalizedEnv = {
 	...process.env,
+	DATABASE_URL: process.env.DATABASE_URL ?? defaultDatabaseUrl,
 	CSRF_SECRET: process.env.CSRF_SECRET,
 	ORIGIN_URL: process.env.ORIGIN_URL ?? process.env.CORS_ORIGIN,
 	APP_URL: process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,

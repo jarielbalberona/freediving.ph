@@ -1,42 +1,4 @@
 services:
-  api:
-    container_name: api
-    build: ./apps/api
-    ports:
-      - "4000:4000"
-    env_file:
-      - ./apps/api/.env
-    volumes:
-      - ./apps/api:/usr/src/app # Sync project files (hot reload)
-      - /usr/src/app/node_modules # Prevent overwriting node_modules (IMPORTANT)
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=development
-      - PORT=4000
-      - DATABASE_URL=postgres://fphbuddies:fphbuddiespw@database:5432/freedivingph
-
-  app:
-    container_name: app
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile.dev
-    ports:
-      - "3000:3000"
-    env_file:
-      - ./apps/web/.env
-    volumes:
-      - ./apps/web:/usr/src/app # Sync local files to container
-      - /usr/src/app/node_modules # Prevent overwriting node_modules
-    depends_on:
-      - api
-      - database
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=development
-      - API_URL=http://api:4000
-      - NEXT_PUBLIC_API_URL=http://localhost:4000
-      - DATABASE_URL=postgres://fphbuddies:fphbuddiespw@database:5432/freedivingph
-
   database:
     container_name: database
     image: postgres:15-alpine
@@ -49,23 +11,6 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-
-  # Database management service
-  db-manager:
-    container_name: db-manager
-    image: node:20.10.0
-    working_dir: /usr/src/app
-    volumes:
-      - ./apps/api:/usr/src/app
-      - /usr/src/app/node_modules # Prevent overwriting node_modules
-    environment:
-      - DATABASE_URL=postgres://fphbuddies:fphbuddiespw@database:5432/freedivingph
-      - NODE_ENV=development
-    depends_on:
-      - database
-    profiles:
-      - tools
-    command: sh -c "npm install && tail -f /dev/null" # Install deps and keep running
 
 volumes:
   pgdata:

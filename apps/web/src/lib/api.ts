@@ -25,10 +25,10 @@ const getBaseUrl = () => {
   const isServer = typeof window === 'undefined';
 
   if (isServer) {
-    // Use Docker service name for server-side requests
-    return serverUrl || 'http://api:4000';
+    // Server-side calls should use explicit API host when provided.
+    return serverUrl || clientUrl || 'http://localhost:4000';
   }
-  // Use localhost for client-side requests
+  // Browser calls use the public API host.
   return clientUrl || 'http://localhost:4000';
 };
 

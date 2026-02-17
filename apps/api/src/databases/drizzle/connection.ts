@@ -4,6 +4,8 @@ import postgres from "postgres";
 
 import schema from "@/databases/drizzle/schema";
 
+dotenv.config();
+
 const dbUrl = process.env.DATABASE_URL || "postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph";
 const shouldProbeOnBoot =
 	process.env.NODE_ENV !== "test" && process.env.DB_PROBE_ON_BOOT === "true";
@@ -14,8 +16,6 @@ interface QueryDetails {
   params?: any[];
   timestamp: Date;
 }
-
-dotenv.config();
 
 export const queryTracker = {
   queries: new Map<string, QueryDetails>(),

@@ -24,6 +24,7 @@ Next.js 15 frontend for the Freediving Philippines platform.
 Minimum required frontend env:
 
 ```env
+API_URL=http://localhost:4000
 NEXT_PUBLIC_API_URL=http://localhost:4000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...

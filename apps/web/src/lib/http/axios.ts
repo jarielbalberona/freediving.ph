@@ -2,7 +2,7 @@ import axios from 'axios';
 import { createAuthTokenInterceptor, createErrorInterceptor } from "./helpers";
 
 // Get API base URL from environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 // Create an Axios instance
 export const axiosInstance = axios.create({
