@@ -1,8 +1,9 @@
-import { and, desc, eq, ilike } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
 
 import DrizzleService from "@/databases/drizzle/service";
 import { competitiveRecords } from "@/models/drizzle/futureModules.model";
 import { auditLogs } from "@/models/drizzle/moderation.model";
+import { diveSpots } from "@/models/drizzle/diveSpots.model";
 import { ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 
@@ -13,12 +14,33 @@ import type {
 } from "./competitiveRecords.validators";
 
 export default class CompetitiveRecordsService extends DrizzleService {
-  async list(query: CompetitiveRecordQuerySchemaType) {
-    try {
-      const rows = await this.db.query.competitiveRecords.findMany({
-        where: and(
-          query.discipline ? ilike(competitiveRecords.discipline, `%${query.discipline}%`) : undefined,
-          query.athlete ? ilike(competitiveRecords.athleteName, `%${query.athlete}%`) : undefined,
+	async list(query: CompetitiveRecordQuerySchemaType) {
+		try {
+			let diveSpotEventFilter:
+				| ReturnType<typeof or>
+				| undefined;
+			if (query.diveSpotId) {
+				const diveSpot = await this.db.query.diveSpots.findFirst({
+					where: and(eq(diveSpots.id, query.diveSpotId), eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
+					columns: {
+						name: true,
+						locationName: true
+					}
+				});
+				if (!diveSpot) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
+				}
+				diveSpotEventFilter = or(
+					ilike(competitiveRecords.eventName, `%${diveSpot.name}%`),
+					diveSpot.locationName ? ilike(competitiveRecords.eventName, `%${diveSpot.locationName}%`) : undefined
+				);
+			}
+
+			const rows = await this.db.query.competitiveRecords.findMany({
+				where: and(
+					diveSpotEventFilter,
+					query.discipline ? ilike(competitiveRecords.discipline, `%${query.discipline}%`) : undefined,
+					query.athlete ? ilike(competitiveRecords.athleteName, `%${query.athlete}%`) : undefined,
           query.eventName ? ilike(competitiveRecords.eventName, `%${query.eventName}%`) : undefined,
         ),
         orderBy: desc(competitiveRecords.eventDate),

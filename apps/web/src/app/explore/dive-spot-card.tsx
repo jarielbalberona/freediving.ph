@@ -12,6 +12,9 @@ interface DiveSpot {
   depth?: number;
   difficulty?: string;
   imageUrl?: string;
+  avgRating?: number;
+  ratingCount?: number;
+  commentCount?: number;
 }
 
 
@@ -25,6 +28,10 @@ function DiveSpotCard({
   selectedPlace: number | null;
   setSelectedPlace: (id: number | null) => void;
 }) {
+  const avgRating = typeof diveSpot.avgRating === "number" ? diveSpot.avgRating.toFixed(1) : "0.0";
+  const ratingCount = diveSpot.ratingCount ?? 0;
+  const commentCount = diveSpot.commentCount ?? 0;
+
   return (
     <Card
       className={`cursor-pointer transition-all hover:shadow-md ${
@@ -38,11 +45,11 @@ function DiveSpotCard({
             <h3 className="font-semibold">{diveSpot.name}</h3>
             <div className="flex items-center gap-1 text-sm">
               <span className="flex items-center">
-                {4.5}{" "}
+                {avgRating}{" "}
                 <Star className="w-3 h-3 ml-1 fill-amber-400 text-amber-400" />
               </span>
               <span className="text-muted-foreground">
-                (12)
+                ({ratingCount} ratings{commentCount > 0 ? `, ${commentCount} comments` : ""})
               </span>
             </div>
             <div className="text-sm text-muted-foreground">{diveSpot.difficulty}</div>

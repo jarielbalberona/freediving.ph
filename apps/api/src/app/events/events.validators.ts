@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { zodMessages } from "@/core/messages";
+import { PaginationQuerySchema } from "@/validators/pagination.schema";
 
 export const EventsServerSchema = z.object({
 	title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters"),
@@ -88,7 +89,15 @@ export const EventQuerySchema = z.object({
 	endDate: z.string().transform((val) => new Date(val)).pipe(z.date()).optional(),
 });
 
+export const EventsListQuerySchema = PaginationQuerySchema.extend({
+	diveSpotId: z.coerce.number().int().positive().optional(),
+	location: z.string().trim().max(120).optional(),
+	search: z.string().trim().max(120).optional(),
+	status: z.enum(["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED", "POSTPONED", "REMOVED"]).optional()
+});
+
 export type EventsServerSchemaType = z.infer<typeof EventsServerSchema>;
 export type EventsUpdateSchemaType = z.infer<typeof EventsUpdateSchema>;
 export type EventAttendeeSchemaType = z.infer<typeof EventAttendeeSchema>;
 export type EventQuerySchemaType = z.infer<typeof EventQuerySchema>;
+export type EventsListQuerySchemaType = z.infer<typeof EventsListQuerySchema>;

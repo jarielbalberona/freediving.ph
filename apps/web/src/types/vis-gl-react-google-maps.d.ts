@@ -9,6 +9,11 @@ declare module "@vis.gl/react-google-maps" {
         east: number;
         west: number;
       };
+      center?: {
+        lat: number;
+        lng: number;
+      };
+      zoom?: number;
     };
   };
 
@@ -31,5 +36,6 @@ declare module "@vis.gl/react-google-maps" {
     position: { lat: number; lng: number };
     onClick?: () => void;
     zIndex?: number;
+    label?: string;
   }): JSX.Element;
 }

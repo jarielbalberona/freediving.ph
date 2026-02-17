@@ -218,6 +218,13 @@
       "when": 1771329582077,
       "tag": "0030_chunky_dark_phoenix",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1771344000000,
+      "tag": "0031_spot_list_shape_indexes",
+      "breakpoints": true
     }
   ]
 }

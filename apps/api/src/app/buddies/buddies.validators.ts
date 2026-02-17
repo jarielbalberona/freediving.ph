@@ -19,7 +19,12 @@ export const BuddyFinderQuerySchema = z.object({
 
 export const BuddyListQuerySchema = PaginationQuerySchema;
 
+export const BuddyAvailabilityQuerySchema = PaginationQuerySchema.extend({
+  diveSpotId: z.coerce.number().int().positive(),
+});
+
 export type SendBuddyRequestSchemaType = z.infer<typeof SendBuddyRequestSchema>;
 export type RejectBuddyRequestSchemaType = z.infer<typeof RejectBuddyRequestSchema>;
 export type BuddyFinderQuerySchemaType = z.infer<typeof BuddyFinderQuerySchema>;
 export type BuddyListQuerySchemaType = z.infer<typeof BuddyListQuerySchema>;
+export type BuddyAvailabilityQuerySchemaType = z.infer<typeof BuddyAvailabilityQuerySchema>;

@@ -44,12 +44,18 @@ export const useCreateDiveSpotReview = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateDiveSpotReviewRequest) =>
-      diveSpotsApi.createDiveSpotReview(data),
+    mutationFn: ({ diveSpotId, data }: { diveSpotId: number; data: CreateDiveSpotReviewRequest }) =>
+      diveSpotsApi.createDiveSpotReview(diveSpotId, data),
     onSuccess: (response, variables) => {
       // Invalidate dive spot reviews
       queryClient.invalidateQueries({
         queryKey: ['dive-spot-reviews', variables.diveSpotId]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['dive-spot-review-summary', variables.diveSpotId]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['dive-spots']
       });
       // Invalidate specific dive spot to update rating
       queryClient.invalidateQueries({

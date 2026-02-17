@@ -27,6 +27,7 @@ export const buddiesRouter: Router = (() => {
   router.post("/requests/:requestId/cancel", (req, res) => new BuddiesController(req, res).cancelRequest());
 
   router.get("/", (req, res) => new BuddiesController(req, res).listBuddies());
+  router.get("/available", (req, res) => new BuddiesController(req, res).availableNearDiveSpot());
   router.delete("/:buddyUserId", (req, res) => new BuddiesController(req, res).removeBuddy());
 
   router.get("/finder/search", finderLimiter, (req, res) => new BuddiesController(req, res).finder());

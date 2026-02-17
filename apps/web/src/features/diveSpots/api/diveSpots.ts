@@ -6,7 +6,8 @@ import type {
   CreateDiveSpotRequest,
   UpdateDiveSpotRequest,
   CreateDiveSpotReviewRequest,
-  DiveSpotFilters
+  DiveSpotFilters,
+  DiveSpotReviewSummary
 } from '@freediving.ph/types';
 
 export const diveSpotsApi = {
@@ -35,6 +36,7 @@ export const diveSpotsApi = {
     if (filters?.south !== undefined) params.append('south', filters.south.toString());
     if (filters?.east !== undefined) params.append('east', filters.east.toString());
     if (filters?.west !== undefined) params.append('west', filters.west.toString());
+    if (filters?.shape) params.append('shape', filters.shape);
     if (filters?.sort) params.append('sort', filters.sort);
 
     const queryString = params.toString();
@@ -62,14 +64,21 @@ export const diveSpotsApi = {
   },
 
   // Get dive spot reviews
-  getDiveSpotReviews: async (diveSpotId: number): Promise<DiveSpotReview[]> => {
-    const response = await axiosInstance.get<ApiEnvelope<DiveSpotReview[]>>(`/dive-spots/${diveSpotId}/reviews`);
+  getDiveSpotReviews: async (diveSpotId: number, limit = 20, offset = 0): Promise<DiveSpotReview[]> => {
+    const response = await axiosInstance.get<ApiEnvelope<DiveSpotReview[]>>(
+      `/dive-spots/${diveSpotId}/reviews?limit=${limit}&offset=${offset}`
+    );
+    return response.data.data;
+  },
+
+  getDiveSpotReviewSummary: async (diveSpotId: number): Promise<DiveSpotReviewSummary> => {
+    const response = await axiosInstance.get<ApiEnvelope<DiveSpotReviewSummary>>(`/dive-spots/${diveSpotId}/reviews/summary`);
     return response.data.data;
   },
 
   // Create dive spot review
-  createDiveSpotReview: async (data: CreateDiveSpotReviewRequest): Promise<DiveSpotReview> => {
-    const response = await axiosInstance.post<ApiEnvelope<DiveSpotReview>>(`/dive-spots/${data.diveSpotId}/reviews`, data);
+  createDiveSpotReview: async (diveSpotId: number, data: CreateDiveSpotReviewRequest): Promise<DiveSpotReview> => {
+    const response = await axiosInstance.post<ApiEnvelope<DiveSpotReview>>(`/dive-spots/${diveSpotId}/reviews`, data);
     return response.data.data;
   },
 };

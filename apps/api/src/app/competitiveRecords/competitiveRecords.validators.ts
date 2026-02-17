@@ -16,6 +16,7 @@ export const CompetitiveRecordVerifySchema = z.object({
 });
 
 export const CompetitiveRecordQuerySchema = z.object({
+  diveSpotId: z.coerce.number().int().positive().optional(),
   discipline: z.string().trim().max(30).optional(),
   athlete: z.string().trim().max(120).optional(),
   eventName: z.string().trim().max(200).optional(),

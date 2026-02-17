@@ -6,11 +6,13 @@ import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/bloc
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
 import { events, eventAttendees } from "@/models/drizzle/events.model";
+import { diveSpots } from "@/models/drizzle/diveSpots.model";
 import { auditLogs } from "@/models/drizzle/moderation.model";
 import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
 import { buildOffsetPagination } from "@/utils/pagination";
 import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
+import type { EventsListQuerySchemaType } from "./events.validators";
 
 export type EventsSchemaType = InferSelectModel<typeof events>;
 
@@ -195,9 +197,37 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async retrieveAll(query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
+	async retrieveAll(query: EventsListQuerySchemaType, viewerUserId: number | null = null) {
 		try {
-			const totalRows = await this.db.select({ count: sql<number>`count(*)` }).from(events);
+			let derivedLocationTerms: string[] = [];
+			if (query.diveSpotId) {
+				const diveSpot = await this.db.query.diveSpots.findFirst({
+					where: and(eq(diveSpots.id, query.diveSpotId), eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
+					columns: {
+						name: true,
+						locationName: true
+					}
+				});
+				if (!diveSpot) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
+				}
+				derivedLocationTerms = [diveSpot.name, diveSpot.locationName].filter((value): value is string => Boolean(value));
+			}
+
+			const whereConditions = and(
+				isNull(events.deletedAt),
+				query.status ? eq(events.status, query.status) : eq(events.status, "PUBLISHED"),
+				query.search ? sql`${events.title} ILIKE ${`%${query.search}%`}` : undefined,
+				query.location ? sql`${events.location} ILIKE ${`%${query.location}%`}` : undefined,
+				derivedLocationTerms.length > 0
+					? sql`(${events.location} ILIKE ${`%${derivedLocationTerms[0]}%`} OR ${events.location} ILIKE ${`%${derivedLocationTerms[1] ?? derivedLocationTerms[0]}%`})`
+					: undefined
+			);
+
+			const totalRows = await this.db
+				.select({ count: sql<number>`count(*)` })
+				.from(events)
+				.where(whereConditions);
 			const totalItems = Number(totalRows[0]?.count ?? 0);
 
 			const retrieveData = await this.db
@@ -214,7 +244,7 @@ export default class EventsService extends DrizzleService {
 				.from(events)
 				.leftJoin(users, eq(events.organizerId, users.id))
 				.leftJoin(eventAttendees, eq(events.id, eventAttendees.eventId))
-				.where(isNull(events.deletedAt))
+				.where(whereConditions)
 				.groupBy(events.id, users.id)
 				.orderBy(desc(events.startDate))
 				.limit(query.limit)

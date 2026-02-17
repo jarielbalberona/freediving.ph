@@ -25,8 +25,8 @@ export interface ThreadDto {
   userId: number;
   title: string;
   content: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ThreadAuthorDto {
@@ -113,6 +113,9 @@ export interface DiveSpot {
   bestSeason?: string;
   imageUrl?: string;
   directions?: string;
+  avgRating?: number;
+  ratingCount?: number;
+  commentCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -121,16 +124,20 @@ export interface DiveSpotReview {
   id: number;
   diveSpotId: number;
   userId: number;
-  userName: string;
+  userName?: string | null;
+  userAlias?: string | null;
+  userImage?: string | null;
   rating: number;
   comment?: string;
-  diveDate: string;
-  visibility: 'POOR' | 'FAIR' | 'GOOD' | 'EXCELLENT';
-  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-  waterTemperature: number;
-  current: 'NONE' | 'LIGHT' | 'MODERATE' | 'STRONG';
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DiveSpotReviewSummary {
+  diveSpotId: number;
+  avgRating: number;
+  ratingCount: number;
+  commentCount: number;
 }
 
 export interface CreateDiveSpotRequest {
@@ -174,15 +181,8 @@ export interface UpdateDiveSpotRequest {
 }
 
 export interface CreateDiveSpotReviewRequest {
-  diveSpotId: number;
-  userId: number;
   rating: number;
   comment?: string;
-  diveDate: string;
-  visibility: 'POOR' | 'FAIR' | 'GOOD' | 'EXCELLENT';
-  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-  waterTemperature: number;
-  current: 'NONE' | 'LIGHT' | 'MODERATE' | 'STRONG';
 }
 
 export interface DiveSpotFilters {
@@ -207,6 +207,7 @@ export interface DiveSpotFilters {
   south?: number;
   east?: number;
   west?: number;
+  shape?: 'map' | 'list';
   sort?: 'newest' | 'oldest' | 'name';
 }
 

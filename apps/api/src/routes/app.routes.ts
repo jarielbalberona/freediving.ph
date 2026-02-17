@@ -74,6 +74,7 @@ export const routes: RouteConfig[] = [
   { path: "/profiles", router: profilesRouter },
   { path: "/buddies", router: buddiesRouter },
   { path: "/competitive-records", router: competitiveRecordsRouter },
+  { path: "/records", router: competitiveRecordsRouter },
   { path: "/training-logs", router: trainingLogsRouter },
   { path: "/safety-resources", router: safetyResourcesRouter },
   { path: "/awareness", router: awarenessRouter },

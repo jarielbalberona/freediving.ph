@@ -28,5 +28,18 @@ export const diveSpotRouter: Router = (() => {
 		new DiveSpotController(req, res).reviewDiveSpot();
 	});
 
+	router
+		.route("/:id/reviews")
+		.get((req, res) => {
+			new DiveSpotController(req, res).retrieveDiveSpotReviews();
+		})
+		.post(clerkAuthMiddleware, (req, res) => {
+			new DiveSpotController(req, res).createDiveSpotReview();
+		});
+
+	router.get("/:id/reviews/summary", (req, res) => {
+		new DiveSpotController(req, res).retrieveDiveSpotReviewSummary();
+	});
+
 	return router;
 })();

@@ -23,6 +23,12 @@ export const diveSpots = pgTable("dive_spots", {
   ...timestamps
 }, (table) => ({
   stateLocationIdx: index("dive_spots_state_location_idx").on(table.state, table.locationName),
+  stateDeletedLatLngIdx: index("dive_spots_state_deleted_lat_lng_idx").on(
+    table.state,
+    table.deletedAt,
+    table.lat,
+    table.lng
+  ),
 }));
 
 export const diveSpotComments = pgTable("dive_spot_comments", {
@@ -38,7 +44,9 @@ export const diveSpotComments = pgTable("dive_spot_comments", {
   content: text("content").notNull(),
   imageUrl: text("image_url"), // Optional: Dive photo
   ...timestamps
-});
+}, (table) => ({
+  diveSpotIdIdx: index("dive_spot_comments_spot_id_idx").on(table.diveSpotId),
+}));
 
 export const diveSpotRatings = pgTable("dive_spot_ratings", {
   id: serial("id").primaryKey(),
@@ -48,7 +56,9 @@ export const diveSpotRatings = pgTable("dive_spot_ratings", {
   imageUrl: text("image_url"), // Optional: Dive photo
   review: text("review"), // Optional review text
   ...timestamps
-});
+}, (table) => ({
+  diveSpotIdIdx: index("dive_spot_ratings_spot_id_idx").on(table.diveSpotId),
+}));
 
 
 

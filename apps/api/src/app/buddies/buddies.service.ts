@@ -1,10 +1,11 @@
-import { and, count, desc, eq, gte, ilike, inArray, ne, not, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNull, ne, not, or } from "drizzle-orm";
 
 import { ABUSE_LIMITS } from "@/core/abuseControls";
 import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
 import DrizzleService from "@/databases/drizzle/service";
 import { users } from "@/models/drizzle/authentication.model";
 import { buddyRelationships, buddyRequests } from "@/models/drizzle/buddies.model";
+import { diveSpots } from "@/models/drizzle/diveSpots.model";
 import { auditLogs } from "@/models/drizzle/moderation.model";
 import { ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
@@ -15,6 +16,7 @@ import type {
   BuddyFinderQuerySchemaType,
   RejectBuddyRequestSchemaType,
   SendBuddyRequestSchemaType,
+  BuddyAvailabilityQuerySchemaType,
 } from "./buddies.validators";
 
 const normalizePair = (a: number, b: number) => (a < b ? { userIdA: a, userIdB: b } : { userIdA: b, userIdB: a });
@@ -470,6 +472,80 @@ export default class BuddiesService extends DrizzleService {
         status.HTTP_200_OK,
         "Buddy finder results retrieved",
         filtered,
+        buildOffsetPagination(totalRows[0]?.total ?? 0, query.limit, query.offset),
+      );
+    } catch (error) {
+      return ServiceResponse.createErrorResponse(error);
+    }
+  }
+
+  async availableNearDiveSpot(currentUserId: number, query: BuddyAvailabilityQuerySchemaType) {
+    try {
+      const diveSpot = await this.db.query.diveSpots.findFirst({
+        where: and(eq(diveSpots.id, query.diveSpotId), eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
+        columns: {
+          locationName: true,
+          name: true
+        }
+      });
+      if (!diveSpot) {
+        return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
+      }
+
+      const locationTerm = (diveSpot.locationName ?? diveSpot.name ?? "").trim();
+      if (!locationTerm) {
+        return ServiceResponse.createResponse(
+          status.HTTP_200_OK,
+          "No dive spot location available for buddy matching",
+          [],
+          buildOffsetPagination(0, query.limit, query.offset),
+        );
+      }
+
+      const blockedUserIds = await getPlatformBlockedUserIds(this.db, currentUserId);
+      const blockedIds = Array.from(blockedUserIds);
+      const notBlockedFilter = blockedIds.length ? not(inArray(users.id, blockedIds)) : undefined;
+
+      const totalRows = await this.db
+        .select({ total: count(users.id) })
+        .from(users)
+        .where(
+          and(
+            ne(users.id, currentUserId),
+            eq(users.accountStatus, "ACTIVE"),
+            eq(users.buddyFinderVisibility, "VISIBLE"),
+            or(ilike(users.location, `%${locationTerm}%`), ilike(users.homeDiveArea, `%${locationTerm}%`)),
+            notBlockedFilter,
+          ),
+        );
+
+      const results = await this.db
+        .select({
+          id: users.id,
+          username: users.username,
+          alias: users.alias,
+          image: users.image,
+          location: users.location,
+          homeDiveArea: users.homeDiveArea,
+          experienceLevel: users.experienceLevel,
+        })
+        .from(users)
+        .where(
+          and(
+            ne(users.id, currentUserId),
+            eq(users.accountStatus, "ACTIVE"),
+            eq(users.buddyFinderVisibility, "VISIBLE"),
+            or(ilike(users.location, `%${locationTerm}%`), ilike(users.homeDiveArea, `%${locationTerm}%`)),
+            notBlockedFilter,
+          ),
+        )
+        .limit(query.limit)
+        .offset(query.offset);
+
+      return ServiceResponse.createResponse(
+        status.HTTP_200_OK,
+        "Nearby buddy availability retrieved",
+        results.map((user) => this.sanitizeBuddyProfileLocation(user)),
         buildOffsetPagination(totalRows[0]?.total ?? 0, query.limit, query.offset),
       );
     } catch (error) {

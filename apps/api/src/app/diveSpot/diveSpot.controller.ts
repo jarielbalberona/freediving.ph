@@ -3,6 +3,8 @@ import { Request, Response } from "express";
 import DiveSpotService from "@/app/diveSpot/diveSpot.service";
 import {
 	DiveSpotListQuerySchema,
+	DiveSpotReviewCreateSchema,
+	DiveSpotReviewListQuerySchema,
 	DiveSpotReviewSchema,
 	DiveSpotServerSchema
 } from "@/app/diveSpot/diveSpot.validators";
@@ -90,6 +92,46 @@ export default class DiveSpotController extends ApiController {
 				id,
 				check.data.state,
 				this.request.context?.appUserId ?? undefined
+			);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async retrieveDiveSpotReviews() {
+		try {
+			const id = Number(this.request.params.id);
+			const queryCheck = DiveSpotReviewListQuerySchema.safeParse(this.request.query);
+			if (!queryCheck.success) return this.validationError(queryCheck.error);
+
+			const response = await this.diveSpotService.retrieveDiveSpotReviews(id, queryCheck.data);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async retrieveDiveSpotReviewSummary() {
+		try {
+			const id = Number(this.request.params.id);
+			const response = await this.diveSpotService.retrieveDiveSpotReviewSummary(id);
+			return this.apiResponse.sendResponse(response);
+		} catch (error: unknown) {
+			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+		}
+	}
+
+	async createDiveSpotReview() {
+		try {
+			const id = Number(this.request.params.id);
+			const check = DiveSpotReviewCreateSchema.safeParse(this.request.body);
+			if (!check.success) return this.validationError(check.error);
+
+			const response = await this.diveSpotService.createOrUpdateDiveSpotReview(
+				id,
+				this.request.context!.appUserId!,
+				check.data
 			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 
 import EventsService from "@/app/events/events.service";
-import { EventsServerSchema, EventsUpdateSchema, EventAttendeeSchema } from "@/app/events/events.validators";
+import { EventAttendeeSchema, EventsListQuerySchema, EventsServerSchema, EventsUpdateSchema } from "@/app/events/events.validators";
 import { PaginationQuerySchema } from "@/validators/pagination.schema";
 
 import { ApiController } from "@/controllers/base/api.controller";
@@ -41,7 +41,7 @@ export default class EventsController extends ApiController {
 
 	async getAllEvents() {
 		try {
-			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
+			const queryCheck = EventsListQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
 			const response = await this.eventsService.retrieveAll(queryCheck.data, this.request.context?.appUserId ?? null);

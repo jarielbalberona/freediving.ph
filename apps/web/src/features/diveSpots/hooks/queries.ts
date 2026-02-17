@@ -12,6 +12,34 @@ export const useDiveSpots = (filters?: DiveSpotFilters) => {
   });
 };
 
+export const useDiveSpotsMapQuery = (filters?: DiveSpotFilters, enabled = true) => {
+  return useQuery({
+    queryKey: ['dive-spots', 'map', filters],
+    queryFn: () => diveSpotsApi.getDiveSpots({
+      ...filters,
+      shape: 'map',
+    }),
+    staleTime: 60 * 1000,
+    enabled,
+    retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 5000),
+  });
+};
+
+export const useDiveSpotsListQuery = (filters?: DiveSpotFilters, enabled = true) => {
+  return useQuery({
+    queryKey: ['dive-spots', 'list', filters],
+    queryFn: () => diveSpotsApi.getDiveSpots({
+      ...filters,
+      shape: 'list',
+    }),
+    staleTime: 2 * 60 * 1000,
+    enabled,
+    retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 5000),
+  });
+};
+
 export const useDiveSpot = (diveSpotId: number) => {
   return useQuery({
     queryKey: ['dive-spot', diveSpotId],
@@ -27,5 +55,14 @@ export const useDiveSpotReviews = (diveSpotId: number) => {
     queryFn: () => diveSpotsApi.getDiveSpotReviews(diveSpotId),
     enabled: !!diveSpotId,
     staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+};
+
+export const useDiveSpotReviewSummary = (diveSpotId: number) => {
+  return useQuery({
+    queryKey: ['dive-spot-review-summary', diveSpotId],
+    queryFn: () => diveSpotsApi.getDiveSpotReviewSummary(diveSpotId),
+    enabled: !!diveSpotId,
+    staleTime: 5 * 60 * 1000,
   });
 };

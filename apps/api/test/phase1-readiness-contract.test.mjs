@@ -58,5 +58,5 @@ test("events, groups, and dive spots list endpoints paginate with metadata", asy
 	assert.match(groupsSource, /buildOffsetPagination/);
 	assert.match(groupsSource, /\.offset\(query\.offset\)/);
 	assert.match(diveSpotSource, /buildOffsetPagination/);
-	assert.match(diveSpotSource, /findMany\(\{/);
+	assert.match(diveSpotSource, /\.select\(columns\)/);
 });

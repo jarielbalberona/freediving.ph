@@ -5,6 +5,7 @@ import type { ServiceApiResponse } from "@/utils/serviceApi";
 
 import BuddiesService from "./buddies.service";
 import {
+  BuddyAvailabilityQuerySchema,
   BuddyFinderQuerySchema,
   BuddyListQuerySchema,
   RejectBuddyRequestSchema,
@@ -102,6 +103,18 @@ export default class BuddiesController extends ApiController {
       if (!check.success) return this.validationError(check.error);
 
       const response = await this.buddiesService.finder(this.request.context!.appUserId!, check.data);
+      return this.apiResponse.sendResponse(response);
+    } catch (error: unknown) {
+      return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+    }
+  }
+
+  async availableNearDiveSpot() {
+    try {
+      const check = BuddyAvailabilityQuerySchema.safeParse(this.request.query);
+      if (!check.success) return this.validationError(check.error);
+
+      const response = await this.buddiesService.availableNearDiveSpot(this.request.context!.appUserId!, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

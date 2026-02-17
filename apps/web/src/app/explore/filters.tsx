@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 interface FiltersProps {
   search: string;
   onSearchChange: (value: string) => void;
+  location?: string;
+  onLocationChange?: (value: string) => void;
   difficulty: string;
   onDifficultyChange: (value: string) => void;
   sort: "newest" | "oldest" | "name";
@@ -13,6 +15,8 @@ interface FiltersProps {
 export default function Filters({
   search,
   onSearchChange,
+  location = "",
+  onLocationChange,
   difficulty,
   onDifficultyChange,
   sort,
@@ -32,7 +36,13 @@ export default function Filters({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <Input
+          placeholder="Filter by location"
+          className="h-10"
+          value={location}
+          onChange={(event) => onLocationChange?.(event.target.value)}
+        />
         <select
           value={difficulty}
           onChange={(event) => onDifficultyChange(event.target.value)}
