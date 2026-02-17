@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 
+import { isPlatformBlockedBetween } from "@/core/blocking";
 import DrizzleService from "@/databases/drizzle/service";
 import { users } from "@/models/drizzle/authentication.model";
 import { personalBests } from "@/models/drizzle/profiles.model";
@@ -33,6 +34,13 @@ export default class ProfilesService extends DrizzleService {
 
       if (!profile) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Profile not found");
+      }
+
+      if (viewerUserId && viewerUserId !== profile.id) {
+        const blocked = await isPlatformBlockedBetween(this.db, viewerUserId, profile.id);
+        if (blocked) {
+          return ServiceResponse.createRejectResponse(status.HTTP_403_FORBIDDEN, "Profile is not visible");
+        }
       }
 
       const isOwner = viewerUserId === profile.id;

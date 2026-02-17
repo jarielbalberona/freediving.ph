@@ -48,7 +48,7 @@ export default class ThreadsController extends ApiController {
 	async retrieveThreads() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.threadsService.retrieve(id);
+			const response = await this.threadsService.retrieve(id, this.request.user?.id ?? null);
 
 			// await this.threadsService.testThreads(response.data.id);
 
@@ -79,7 +79,7 @@ export default class ThreadsController extends ApiController {
 			const queryCheck = ThreadListQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.threadsService.retrieveAll(queryCheck.data);
+			const response = await this.threadsService.retrieveAll(queryCheck.data, this.request.user?.id ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -120,7 +120,11 @@ export default class ThreadsController extends ApiController {
 			const queryCheck = ThreadCommentsQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.threadsService.getComments(threadId, queryCheck.data);
+			const response = await this.threadsService.getComments(
+				threadId,
+				queryCheck.data,
+				this.request.user?.id ?? null
+			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -169,7 +173,12 @@ export default class ThreadsController extends ApiController {
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.threadsService.setThreadMode(threadId, check.data.mode);
+			const response = await this.threadsService.setThreadMode(
+				threadId,
+				check.data.mode,
+				this.request.user.id,
+				this.request.user.role
+			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

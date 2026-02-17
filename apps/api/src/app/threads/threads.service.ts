@@ -1,5 +1,7 @@
-import { InferSelectModel, and, desc, eq, sql } from "drizzle-orm";
+import { InferSelectModel, and, count, desc, eq, gte, sql } from "drizzle-orm";
 
+import { ABUSE_LIMITS } from "@/core/abuseControls";
+import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
 import { ThreadsServerSchemaType, ThreadsUpdateSchemaType, CommentCreateSchemaType, ReactionSchemaType } from "@/app/threads/threads.validators";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
@@ -35,8 +37,35 @@ export default class ThreadsService extends DrizzleService {
 		return `Diver-${seed}`;
 	}
 
+	private async getAccountAgeHours(userId: number) {
+		const userRows = await this.db
+			.select({ createdAt: users.createdAt })
+			.from(users)
+			.where(eq(users.id, userId))
+			.limit(1);
+
+		const createdAt = userRows[0]?.createdAt;
+		if (!createdAt) return 0;
+		return (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+	}
+
 	async create(data: ThreadCreateInput) {
 		try {
+			const todayStart = new Date();
+			todayStart.setUTCHours(0, 0, 0, 0);
+
+			const dailyThreadsRows = await this.db
+				.select({ total: count(threads.id) })
+				.from(threads)
+				.where(and(eq(threads.userId, data.userId), gte(threads.createdAt, todayStart)));
+
+			if ((dailyThreadsRows[0]?.total ?? 0) >= ABUSE_LIMITS.threadsPerDay) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_429_TOO_MANY_REQUESTS,
+					`Daily thread creation limit reached (${ABUSE_LIMITS.threadsPerDay})`
+				);
+			}
+
 			const createdData = await this.db.insert(threads).values(data).returning();
 
 			if (!createdData.length) {
@@ -57,7 +86,7 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async retrieve(id: number): Promise<ServiceApiResponse<ThreadWithUserRow>> {
+	async retrieve(id: number, viewerUserId: number | null = null): Promise<ServiceApiResponse<ThreadWithUserRow>> {
 		try {
 			const retrieveData = await this.db
 				.select({
@@ -82,6 +111,13 @@ export default class ThreadsService extends DrizzleService {
 
 			if (!retrieveData.length) {
 				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");
+			}
+
+			if (viewerUserId && retrieveData[0].thread.userId) {
+				const blocked = await isPlatformBlockedBetween(this.db, viewerUserId, retrieveData[0].thread.userId);
+				if (blocked) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");
+				}
 			}
 
 			return ServiceResponse.createResponse(
@@ -117,7 +153,7 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async retrieveAll(query: PaginationQuerySchemaType) {
+	async retrieveAll(query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
 		try {
 			const totalRows = await this.db.select({ count: sql<number>`count(*)` }).from(threads);
 			const totalItems = Number(totalRows[0]?.count ?? 0);
@@ -144,10 +180,15 @@ export default class ThreadsService extends DrizzleService {
 				.limit(query.limit)
 				.offset(query.offset);
 
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter(row => !blockedUserIds.has(row.thread.userId))
+				: retrieveData;
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Threads retrieved successfully",
-				retrieveData,
+				filteredData,
 				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {
@@ -159,6 +200,9 @@ export default class ThreadsService extends DrizzleService {
 	// Comments methods
 	async createComment(data: ThreadCommentInput) {
 		try {
+			const todayStart = new Date();
+			todayStart.setUTCHours(0, 0, 0, 0);
+
 			const modeRows = await this.db
 				.select({ mode: threadCategoryModes.mode })
 				.from(threadCategoryModes)
@@ -166,21 +210,23 @@ export default class ThreadsService extends DrizzleService {
 				.limit(1);
 
 			if (modeRows[0]?.mode === "PSEUDONYMOUS_CHIKA") {
-				const userRows = await this.db
-					.select({ createdAt: users.createdAt })
-					.from(users)
-					.where(eq(users.id, data.userId))
-					.limit(1);
+				const ageHours = await this.getAccountAgeHours(data.userId);
+				if (ageHours < ABUSE_LIMITS.minimumAccountAgeHoursForPseudonymousChika) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						`Posting in pseudonymous mode requires account age >= ${ABUSE_LIMITS.minimumAccountAgeHoursForPseudonymousChika} hours`
+					);
+				}
 
-				const createdAt = userRows[0]?.createdAt;
-				if (createdAt) {
-					const ageHours = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
-					if (ageHours < 24) {
-						return ServiceResponse.createRejectResponse(
-							status.HTTP_403_FORBIDDEN,
-							"Posting in pseudonymous mode requires account age >= 24 hours"
-						);
-					}
+				const pseudoRepliesRows = await this.db
+					.select({ total: count(comments.id) })
+					.from(comments)
+					.where(and(eq(comments.userId, data.userId), gte(comments.createdAt, todayStart)));
+				if ((pseudoRepliesRows[0]?.total ?? 0) >= ABUSE_LIMITS.pseudonymousPostsPerDay) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_429_TOO_MANY_REQUESTS,
+						`Daily pseudonymous reply limit reached (${ABUSE_LIMITS.pseudonymousPostsPerDay})`
+					);
 				}
 
 				const existingPseudo = await this.db
@@ -195,6 +241,17 @@ export default class ThreadsService extends DrizzleService {
 						userId: data.userId,
 						displayHandle: this.buildPseudonymHandle(data.userId, data.threadId)
 					});
+				}
+			} else {
+				const dailyRepliesRows = await this.db
+					.select({ total: count(comments.id) })
+					.from(comments)
+					.where(and(eq(comments.userId, data.userId), gte(comments.createdAt, todayStart)));
+				if ((dailyRepliesRows[0]?.total ?? 0) >= ABUSE_LIMITS.postsPerDay) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_429_TOO_MANY_REQUESTS,
+						`Daily post limit reached (${ABUSE_LIMITS.postsPerDay})`
+					);
 				}
 			}
 
@@ -218,8 +275,62 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async setThreadMode(threadId: number, mode: "NORMAL" | "PSEUDONYMOUS_CHIKA") {
+	async setThreadMode(
+		threadId: number,
+		mode: "NORMAL" | "PSEUDONYMOUS_CHIKA",
+		actorUserId: number,
+		actorRole: string
+	) {
 		try {
+			const threadRows = await this.db
+				.select({ id: threads.id, userId: threads.userId, createdAt: threads.createdAt })
+				.from(threads)
+				.where(eq(threads.id, threadId))
+				.limit(1);
+
+			const targetThread = threadRows[0];
+			if (!targetThread) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Thread not found");
+			}
+
+			const isModerator = ["EDITOR", "ADMINISTRATOR", "SUPER_ADMIN"].includes(actorRole);
+			if (!isModerator && targetThread.userId !== actorUserId) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Only thread owner or moderator can change thread mode"
+				);
+			}
+
+			if (mode === "PSEUDONYMOUS_CHIKA") {
+				const ageHours = await this.getAccountAgeHours(targetThread.userId);
+				if (ageHours < ABUSE_LIMITS.minimumAccountAgeHoursForPseudonymousChika) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						`Pseudonymous mode requires account age >= ${ABUSE_LIMITS.minimumAccountAgeHoursForPseudonymousChika} hours`
+					);
+				}
+
+				const todayStart = new Date();
+				todayStart.setUTCHours(0, 0, 0, 0);
+				const pseudoThreadRows = await this.db
+					.select({ total: count(threadCategoryModes.id) })
+					.from(threadCategoryModes)
+					.innerJoin(threads, eq(threadCategoryModes.threadId, threads.id))
+					.where(
+						and(
+							eq(threadCategoryModes.mode, "PSEUDONYMOUS_CHIKA"),
+							eq(threads.userId, targetThread.userId),
+							gte(threads.createdAt, todayStart)
+						)
+					);
+				if ((pseudoThreadRows[0]?.total ?? 0) >= ABUSE_LIMITS.pseudonymousThreadsPerDay) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_429_TOO_MANY_REQUESTS,
+						`Daily pseudonymous thread limit reached (${ABUSE_LIMITS.pseudonymousThreadsPerDay})`
+					);
+				}
+			}
+
 			const existing = await this.db
 				.select({ id: threadCategoryModes.id })
 				.from(threadCategoryModes)
@@ -270,7 +381,11 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async getComments(threadId: number, query: PaginationQuerySchemaType) {
+	async getComments(
+		threadId: number,
+		query: PaginationQuerySchemaType,
+		viewerUserId: number | null = null
+	) {
 		try {
 			const totalRows = await this.db
 				.select({ count: sql<number>`count(*)` })
@@ -294,10 +409,15 @@ export default class ThreadsService extends DrizzleService {
 				.limit(query.limit)
 				.offset(query.offset);
 
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter(row => !blockedUserIds.has(row.comment.userId))
+				: retrieveData;
+
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,
 				"Comments retrieved successfully",
-				retrieveData,
+				filteredData,
 				buildOffsetPagination(totalItems, query.limit, query.offset)
 			);
 		} catch (error) {

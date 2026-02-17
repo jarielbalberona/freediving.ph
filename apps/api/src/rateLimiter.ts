@@ -4,8 +4,8 @@ import rateLimit from "express-rate-limit";
 export default function appRateLimiter(app: Express) {
 	// Rate limit all requests
 	const limiter = rateLimit({
-		windowMs: 15 * 60 * 1000,
-		max: 100,
+		windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+		max: Number(process.env.RATE_LIMIT_MAX_REQUESTS || 100),
 		message: "Too many requests, please try again later."
 	});
 

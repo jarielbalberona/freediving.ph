@@ -1,12 +1,12 @@
 import express, { Router } from "express";
 
 import ProfilesController from "@/app/profiles/profiles.controller";
-import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, optionalClerkAuthMiddleware } from "@/middlewares/clerk.middleware";
 
 export const profilesRouter: Router = (() => {
   const router = express.Router();
 
-  router.get("/:username", (req, res) => {
+  router.get("/:username", optionalClerkAuthMiddleware, (req, res) => {
     new ProfilesController(req, res).getProfileByUsername();
   });
 

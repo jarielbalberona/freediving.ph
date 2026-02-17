@@ -1,24 +1,36 @@
 import express, { Router } from "express";
-import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, optionalClerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { ROUTE_RATE_LIMITS } from "@/core/abuseControls";
+import { createFeatureRateLimiter } from "@/rateLimiter";
 
 import ThreadsController from "@/app/threads/threads.controller";
 
 export const threadsRouter: Router = (() => {
 	const router = express.Router();
+	const threadCreateLimiter = createFeatureRateLimiter({
+		windowMs: 60 * 60 * 1000,
+		max: ROUTE_RATE_LIMITS.threadCreatesPerHour,
+		message: "Too many thread creation attempts. Please try again later."
+	});
+	const threadReplyLimiter = createFeatureRateLimiter({
+		windowMs: 60 * 60 * 1000,
+		max: ROUTE_RATE_LIMITS.threadRepliesPerHour,
+		message: "Too many replies. Please slow down."
+	});
 
 	// Thread routes
 	router
 		.route("/")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new ThreadsController(req, res).retrieveAllThreads();
 		})
-		.post(clerkAuthMiddleware, async (req, res) => {
+		.post(clerkAuthMiddleware, threadCreateLimiter, async (req, res) => {
 			new ThreadsController(req, res).createThreads();
 		});
 
 	router
 		.route("/:id")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new ThreadsController(req, res).retrieveThreads();
 		})
 		.put(clerkAuthMiddleware, async (req, res) => {
@@ -31,10 +43,10 @@ export const threadsRouter: Router = (() => {
 	// Comments routes
 	router
 		.route("/:id/comments")
-		.get((req, res) => {
+		.get(optionalClerkAuthMiddleware, (req, res) => {
 			new ThreadsController(req, res).getComments();
 		})
-		.post(clerkAuthMiddleware, async (req, res) => {
+		.post(clerkAuthMiddleware, threadReplyLimiter, async (req, res) => {
 			new ThreadsController(req, res).createComment();
 		});
 

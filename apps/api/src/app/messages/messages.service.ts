@@ -1,7 +1,9 @@
 import { and, count, desc, eq, gt, gte, inArray, ne, or, sql } from "drizzle-orm";
 
+import { ABUSE_LIMITS } from "@/core/abuseControls";
 import DrizzleService from "@/databases/drizzle/service";
 import { users } from "@/models/drizzle/authentication.model";
+import { buddyRelationships } from "@/models/drizzle/buddies.model";
 import { conversationParticipants, conversations, messages } from "@/models/drizzle/messages.model";
 import { auditLogs, blocks } from "@/models/drizzle/moderation.model";
 import { ServiceResponse } from "@/utils/serviceApi";
@@ -35,7 +37,24 @@ type ConversationSummary = {
 
 export default class MessagesService extends DrizzleService {
   private readonly dailyDirectMessageLimit = 200;
-  private readonly minimumAccountAgeHours = 24;
+  private readonly minimumAccountAgeHours = ABUSE_LIMITS.minimumAccountAgeHoursForMessaging;
+
+  private async areActiveBuddies(userA: number, userB: number) {
+    const pair = userA < userB ? { userIdA: userA, userIdB: userB } : { userIdA: userB, userIdB: userA };
+    const rows = await this.db
+      .select({ id: buddyRelationships.id })
+      .from(buddyRelationships)
+      .where(
+        and(
+          eq(buddyRelationships.userIdA, pair.userIdA),
+          eq(buddyRelationships.userIdB, pair.userIdB),
+          eq(buddyRelationships.state, "ACTIVE")
+        )
+      )
+      .limit(1);
+
+    return rows.length > 0;
+  }
 
   private async enforceAccountAgeGate(userId: number) {
     const accountRows = await this.db
@@ -213,6 +232,30 @@ export default class MessagesService extends DrizzleService {
 
       if (!participantRows.length) {
         return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Participant not found");
+      }
+
+      const isBuddy = await this.areActiveBuddies(currentUserId, payload.participantId);
+      if (!isBuddy) {
+        const todayStart = new Date();
+        todayStart.setUTCHours(0, 0, 0, 0);
+
+        const dailyCreateRows = await this.db
+          .select({ total: count(conversations.id) })
+          .from(conversations)
+          .where(
+            and(
+              eq(conversations.type, "DIRECT"),
+              eq(conversations.createdBy, currentUserId),
+              gte(conversations.createdAt, todayStart)
+            )
+          );
+
+        if ((dailyCreateRows[0]?.total ?? 0) >= ABUSE_LIMITS.newDirectConversationsWithNonBuddiesPerDay) {
+          return ServiceResponse.createRejectResponse(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            `Daily new direct-message limit reached for non-buddies (${ABUSE_LIMITS.newDirectConversationsWithNonBuddiesPerDay})`
+          );
+        }
       }
 
       const existingConversationRows = await this.db

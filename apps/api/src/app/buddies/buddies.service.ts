@@ -1,8 +1,9 @@
 import { and, count, desc, eq, gte, ilike, ne, or } from "drizzle-orm";
 
+import { ABUSE_LIMITS } from "@/core/abuseControls";
+import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
 import DrizzleService from "@/databases/drizzle/service";
 import { users } from "@/models/drizzle/authentication.model";
-import { blocks } from "@/models/drizzle/moderation.model";
 import { buddyRelationships, buddyRequests } from "@/models/drizzle/buddies.model";
 import { ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
@@ -13,25 +14,11 @@ import type {
   SendBuddyRequestSchemaType,
 } from "./buddies.validators";
 
-const BUDDY_REJECTION_COOLDOWN_DAYS = 14;
-const DAILY_BUDDY_REQUEST_LIMIT = 20;
-
 const normalizePair = (a: number, b: number) => (a < b ? { userIdA: a, userIdB: b } : { userIdA: b, userIdB: a });
 
 export default class BuddiesService extends DrizzleService {
   private async hasBlockingRelationship(userA: number, userB: number) {
-    const rows = await this.db
-      .select({ id: blocks.id })
-      .from(blocks)
-      .where(
-        or(
-          and(eq(blocks.blockerUserId, userA), eq(blocks.blockedUserId, userB)),
-          and(eq(blocks.blockerUserId, userB), eq(blocks.blockedUserId, userA)),
-        ),
-      )
-      .limit(1);
-
-    return rows.length > 0;
+    return isPlatformBlockedBetween(this.db, userA, userB);
   }
 
   async sendRequest(currentUserId: number, payload: SendBuddyRequestSchemaType) {
@@ -53,19 +40,21 @@ export default class BuddiesService extends DrizzleService {
         .from(buddyRequests)
         .where(and(eq(buddyRequests.fromUserId, currentUserId), gte(buddyRequests.createdAt, todayStart)));
 
-      if ((dailyCountRows[0]?.total ?? 0) >= DAILY_BUDDY_REQUEST_LIMIT) {
+      if ((dailyCountRows[0]?.total ?? 0) >= ABUSE_LIMITS.buddyRequestsPerDay) {
         return ServiceResponse.createRejectResponse(status.HTTP_429_TOO_MANY_REQUESTS, "Daily buddy request limit reached");
       }
 
-      const cooldownThreshold = new Date(Date.now() - BUDDY_REJECTION_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+      const cooldownThreshold = new Date(
+        Date.now() - ABUSE_LIMITS.buddyRequestRejectionCooldownDays * 24 * 60 * 60 * 1000
+      );
       const rejectedRows = await this.db
         .select({ id: buddyRequests.id })
         .from(buddyRequests)
         .where(
           and(
             eq(buddyRequests.fromUserId, currentUserId),
-            eq(buddyRequests.toUserId, payload.toUserId),
-            eq(buddyRequests.state, "REJECTED"),
+          eq(buddyRequests.toUserId, payload.toUserId),
+          eq(buddyRequests.state, "REJECTED"),
             gte(buddyRequests.updatedAt, cooldownThreshold),
           ),
         )
@@ -74,7 +63,7 @@ export default class BuddiesService extends DrizzleService {
       if (rejectedRows.length > 0) {
         return ServiceResponse.createRejectResponse(
           status.HTTP_409_CONFLICT,
-          `Cannot resend request until ${BUDDY_REJECTION_COOLDOWN_DAYS} days after rejection`,
+          `Cannot resend request until ${ABUSE_LIMITS.buddyRequestRejectionCooldownDays} days after rejection`,
         );
       }
 
@@ -307,16 +296,7 @@ export default class BuddiesService extends DrizzleService {
 
   async finder(currentUserId: number, query: BuddyFinderQuerySchemaType) {
     try {
-      const blockedRows = await this.db
-        .select({ blockerUserId: blocks.blockerUserId, blockedUserId: blocks.blockedUserId })
-        .from(blocks)
-        .where(or(eq(blocks.blockerUserId, currentUserId), eq(blocks.blockedUserId, currentUserId)));
-
-      const blockedUserIds = new Set<number>();
-      for (const row of blockedRows) {
-        if (row.blockerUserId === currentUserId) blockedUserIds.add(row.blockedUserId);
-        if (row.blockedUserId === currentUserId) blockedUserIds.add(row.blockerUserId);
-      }
+      const blockedUserIds = await getPlatformBlockedUserIds(this.db, currentUserId);
 
       const results = await this.db
         .select({

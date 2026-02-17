@@ -1,6 +1,7 @@
 import express, { Router } from "express";
 
 import BuddiesController from "@/app/buddies/buddies.controller";
+import { ROUTE_RATE_LIMITS } from "@/core/abuseControls";
 import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
 import { createFeatureRateLimiter } from "@/rateLimiter";
 
@@ -8,12 +9,12 @@ export const buddiesRouter: Router = (() => {
   const router = express.Router();
   const requestLimiter = createFeatureRateLimiter({
     windowMs: 60 * 60 * 1000,
-    max: 60,
+    max: ROUTE_RATE_LIMITS.buddyActionsPerHour,
     message: "Too many buddy actions. Please try again later."
   });
   const finderLimiter = createFeatureRateLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 80,
+    max: ROUTE_RATE_LIMITS.buddyFinderPer15Minutes,
     message: "Too many finder queries. Please try again later."
   });
 

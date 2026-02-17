@@ -21,9 +21,9 @@ export const clerkAuthMiddleware = async (
 	res: Response,
 	next: NextFunction
 ): Promise<void> => {
-	const apiResponse = new ApiResponse(res);
+const apiResponse = new ApiResponse(res);
 
-	try {
+try {
 		// Get token from Authorization header
 		const authHeader = req.headers.authorization;
 		if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -61,6 +61,41 @@ export const clerkAuthMiddleware = async (
 	} catch (error) {
 		console.error("Clerk auth middleware error:", error);
 		apiResponse.unauthorizedResponse("Invalid token");
+		return;
+	}
+};
+
+export const optionalClerkAuthMiddleware = async (
+	req: Request,
+	_res: Response,
+	next: NextFunction
+): Promise<void> => {
+	try {
+		const authHeader = req.headers.authorization;
+		if (!authHeader || !authHeader.startsWith("Bearer ")) {
+			next();
+			return;
+		}
+
+		const token = authHeader.substring(7);
+		const payload = await verifyToken(token, {
+			secretKey: process.env.CLERK_SECRET_KEY!
+		});
+
+		const user = await db
+			.select()
+			.from(users)
+			.where(eq(users.clerkId, payload.sub))
+			.limit(1);
+
+		if (user?.[0] && user[0].accountStatus === "ACTIVE") {
+			req.user = user[0];
+		}
+
+		next();
+		return;
+	} catch {
+		next();
 		return;
 	}
 };
