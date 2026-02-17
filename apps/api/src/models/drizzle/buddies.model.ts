@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 import { integer, pgEnum, pgTable, serial, text, uniqueIndex } from "drizzle-orm/pg-core";
 
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model";
 
 export const BUDDY_REQUEST_STATE = pgEnum("buddy_request_state", [

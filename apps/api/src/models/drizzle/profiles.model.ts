@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 import { integer, pgEnum, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model";
 
 export const PROFILE_ITEM_VISIBILITY = pgEnum("profile_item_visibility", ["PUBLIC", "MEMBERS_ONLY", "PRIVATE"]);

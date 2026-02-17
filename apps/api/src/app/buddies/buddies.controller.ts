@@ -24,7 +24,7 @@ export default class BuddiesController extends ApiController {
       const check = SendBuddyRequestSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
 
-      const response = await this.buddiesService.sendRequest(this.request.user.id, check.data);
+      const response = await this.buddiesService.sendRequest(this.request.context!.appUserId!, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -34,7 +34,7 @@ export default class BuddiesController extends ApiController {
   async cancelRequest() {
     try {
       const requestId = Number(this.request.params.requestId);
-      const response = await this.buddiesService.cancelRequest(this.request.user.id, requestId);
+      const response = await this.buddiesService.cancelRequest(this.request.context!.appUserId!, requestId);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -44,7 +44,7 @@ export default class BuddiesController extends ApiController {
   async acceptRequest() {
     try {
       const requestId = Number(this.request.params.requestId);
-      const response = await this.buddiesService.acceptRequest(this.request.user.id, requestId);
+      const response = await this.buddiesService.acceptRequest(this.request.context!.appUserId!, requestId);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -57,7 +57,7 @@ export default class BuddiesController extends ApiController {
       const check = RejectBuddyRequestSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
 
-      const response = await this.buddiesService.rejectRequest(this.request.user.id, requestId, check.data);
+      const response = await this.buddiesService.rejectRequest(this.request.context!.appUserId!, requestId, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -68,7 +68,7 @@ export default class BuddiesController extends ApiController {
     try {
       const check = BuddyListQuerySchema.safeParse(this.request.query);
       if (!check.success) return this.validationError(check.error);
-      const response = await this.buddiesService.listRequests(this.request.user.id, check.data);
+      const response = await this.buddiesService.listRequests(this.request.context!.appUserId!, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -79,7 +79,7 @@ export default class BuddiesController extends ApiController {
     try {
       const check = BuddyListQuerySchema.safeParse(this.request.query);
       if (!check.success) return this.validationError(check.error);
-      const response = await this.buddiesService.listActiveBuddies(this.request.user.id, check.data);
+      const response = await this.buddiesService.listActiveBuddies(this.request.context!.appUserId!, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -89,7 +89,7 @@ export default class BuddiesController extends ApiController {
   async removeBuddy() {
     try {
       const buddyUserId = Number(this.request.params.buddyUserId);
-      const response = await this.buddiesService.removeBuddy(this.request.user.id, buddyUserId);
+      const response = await this.buddiesService.removeBuddy(this.request.context!.appUserId!, buddyUserId);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -101,7 +101,7 @@ export default class BuddiesController extends ApiController {
       const check = BuddyFinderQuerySchema.safeParse(this.request.query);
       if (!check.success) return this.validationError(check.error);
 
-      const response = await this.buddiesService.finder(this.request.user.id, check.data);
+      const response = await this.buddiesService.finder(this.request.context!.appUserId!, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

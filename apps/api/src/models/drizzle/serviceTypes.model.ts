@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { pgTable, serial, text, varchar, boolean } from "drizzle-orm/pg-core";
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { userServices } from "./userServices.model";
 
 // Service Types Table - defines what types of services can be offered

@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 import { pgTable, serial, text, varchar, integer, decimal, boolean } from "drizzle-orm/pg-core";
 import { users } from "./authentication.model";
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 
 // Service Areas Table - defines geographic areas where services are offered
 export const serviceAreas = pgTable("service_areas", {

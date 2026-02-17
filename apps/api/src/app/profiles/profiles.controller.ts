@@ -21,7 +21,7 @@ export default class ProfilesController extends ApiController {
   async getProfileByUsername() {
     try {
       const username = String(this.request.params.username);
-      const viewerUserId = this.request.user?.id ?? null;
+      const viewerUserId = this.request.context?.appUserId ?? null;
       const response = await this.profilesService.getByUsername(viewerUserId, username);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
@@ -36,7 +36,7 @@ export default class ProfilesController extends ApiController {
         return this.validationError(check.error);
       }
 
-      const response = await this.profilesService.updateOwnProfile(this.request.user.id, check.data);
+      const response = await this.profilesService.updateOwnProfile(this.request.context!.appUserId!, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -50,7 +50,7 @@ export default class ProfilesController extends ApiController {
         return this.validationError(check.error);
       }
 
-      const response = await this.profilesService.createPersonalBest(this.request.user.id, check.data);
+      const response = await this.profilesService.createPersonalBest(this.request.context!.appUserId!, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -65,7 +65,7 @@ export default class ProfilesController extends ApiController {
         return this.validationError(check.error);
       }
 
-      const response = await this.profilesService.updatePersonalBest(this.request.user.id, personalBestId, check.data);
+      const response = await this.profilesService.updatePersonalBest(this.request.context!.appUserId!, personalBestId, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -75,7 +75,7 @@ export default class ProfilesController extends ApiController {
   async deletePersonalBest() {
     try {
       const personalBestId = Number(this.request.params.id);
-      const response = await this.profilesService.deletePersonalBest(this.request.user.id, personalBestId);
+      const response = await this.profilesService.deletePersonalBest(this.request.context!.appUserId!, personalBestId);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

@@ -1,9 +1,11 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
+  serial,
   text,
   timestamp,
   uniqueIndex,
@@ -37,9 +39,26 @@ export const MOD_ACTION_ENUM = pgEnum("mod_action_type", [
 export const appUsers = pgTable(
   "app_users",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: serial("id").primaryKey(),
+    clerkId: text("clerk_id").unique(),
     clerkUserId: text("clerk_user_id").notNull().unique(),
+    name: text("name"),
+    username: text("username").unique(),
+    alias: text("alias").unique(),
     email: text("email").unique(),
+    emailVerified: timestamp("email_verified", { withTimezone: true }),
+    image: text("image"),
+    role: text("role"),
+    accountStatus: text("account_status").default("ACTIVE").notNull(),
+    bio: text("bio"),
+    location: text("location"),
+    phone: text("phone"),
+    website: text("website"),
+    homeDiveArea: text("home_dive_area"),
+    experienceLevel: text("experience_level"),
+    visibility: text("visibility").default("PUBLIC").notNull(),
+    buddyFinderVisibility: text("buddy_finder_visibility").default("VISIBLE").notNull(),
+    isServiceProvider: boolean("is_service_provider").default(false),
     displayName: text("display_name"),
     globalRole: GLOBAL_ROLE_ENUM("global_role").default("member").notNull(),
     trustScore: integer("trust_score").default(0).notNull(),
@@ -54,7 +73,7 @@ export const appUsers = pgTable(
 );
 
 export const userPermissionOverrides = pgTable("user_permission_overrides", {
-  userId: uuid("user_id")
+  userId: integer("user_id")
     .notNull()
     .primaryKey()
     .references(() => appUsers.id, { onDelete: "cascade" }),
@@ -67,7 +86,7 @@ export const groupMemberships = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     groupId: integer("group_id").notNull(),
-    userId: uuid("user_id")
+    userId: integer("user_id")
       .notNull()
       .references(() => appUsers.id, { onDelete: "cascade" }),
     role: GROUP_ROLE_ENUM("role").default("group_member").notNull(),
@@ -83,7 +102,7 @@ export const eventMemberships = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     eventId: integer("event_id").notNull(),
-    userId: uuid("user_id")
+    userId: integer("user_id")
       .notNull()
       .references(() => appUsers.id, { onDelete: "cascade" }),
     role: EVENT_ROLE_ENUM("role").default("event_attendee").notNull(),
@@ -98,10 +117,10 @@ export const appBlocks = pgTable(
   "app_blocks",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    blockerUserId: uuid("blocker_user_id")
+    blockerUserId: integer("blocker_user_id")
       .notNull()
       .references(() => appUsers.id, { onDelete: "cascade" }),
-    blockedUserId: uuid("blocked_user_id")
+    blockedUserId: integer("blocked_user_id")
       .notNull()
       .references(() => appUsers.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
@@ -113,7 +132,7 @@ export const appBlocks = pgTable(
 
 export const appReports = pgTable("app_reports", {
   id: uuid("id").defaultRandom().primaryKey(),
-  reporterUserId: uuid("reporter_user_id")
+  reporterUserId: integer("reporter_user_id")
     .notNull()
     .references(() => appUsers.id, { onDelete: "cascade" }),
   targetType: text("target_type").notNull(),
@@ -127,8 +146,8 @@ export const appReports = pgTable("app_reports", {
 
 export const moderationActions = pgTable("moderation_actions", {
   id: uuid("id").defaultRandom().primaryKey(),
-  actorUserId: uuid("actor_user_id").references(() => appUsers.id, { onDelete: "set null" }),
-  targetUserId: uuid("target_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+  actorUserId: integer("actor_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+  targetUserId: integer("target_user_id").references(() => appUsers.id, { onDelete: "set null" }),
   actionType: MOD_ACTION_ENUM("action_type").notNull(),
   reason: text("reason").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
@@ -139,7 +158,7 @@ export const auditLog = pgTable(
   "audit_log",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    actorUserId: uuid("actor_user_id").references(() => appUsers.id, { onDelete: "set null" }),
+    actorUserId: integer("actor_user_id").references(() => appUsers.id, { onDelete: "set null" }),
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id").notNull(),

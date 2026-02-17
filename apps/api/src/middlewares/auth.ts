@@ -16,7 +16,7 @@ import {
 
 import db from "@/databases/drizzle/connection";
 import { writeAuditLog } from "@/core/audit";
-import { users as legacyUsers } from "@/models/drizzle/authentication.model";
+import { LEGACY_ROLE_TO_GLOBAL_ROLES } from "@/core/legacyRoleMapping";
 import {
   appUsers,
   eventMemberships,
@@ -32,7 +32,8 @@ type AuthPayload = {
 
 interface AuthenticatedContext {
   clerkUserId: string;
-  appUserId: string;
+  appUserId: number;
+  username: string | null;
   email: string | null;
   globalRole: GlobalRole;
   status: "active" | "read_only" | "suspended";
@@ -47,17 +48,9 @@ const LEGACY_POLICY_TO_PERMISSION: Record<LegacyPolicyAction, PermissionFlag> = 
   "reports.moderate": "reports.review"
 };
 
-const LEGACY_ROLE_TO_GLOBAL_ROLES: Record<string, GlobalRole[]> = {
-  SUPER_ADMIN: ["super_admin"],
-  ADMINISTRATOR: ["admin", "super_admin"],
-  EDITOR: ["moderator", "admin", "super_admin"],
-  USER: ["member", "trusted_member", "support", "moderator", "explore_curator", "records_verifier", "admin", "super_admin"]
-};
-
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
       requestId?: string;
       auth?: {
         clerkUserId: string;
@@ -102,6 +95,35 @@ const getClientIp = (req: Request): string | null => {
   return req.ip ?? null;
 };
 
+const writeAuthorizationDecisionAudit = async (
+  req: Request,
+  action: string,
+  allowed: boolean,
+  metadata: Record<string, unknown> = {}
+) => {
+  await writeAuditLog({
+    actorUserId: req.context?.appUserId ?? null,
+    action,
+    entityType: "authorization",
+    entityId: req.originalUrl || req.path || "unknown",
+    metadata: {
+      requestId: req.requestId ?? null,
+      method: req.method,
+      ip: getClientIp(req),
+      actorGlobalRole: req.context?.globalRole ?? null,
+      targetIds: {
+        userId: req.params?.userId ?? null,
+        groupId: req.params?.groupId ?? null,
+        eventId: req.params?.eventId ?? null,
+        threadId: req.params?.threadId ?? null,
+        id: req.params?.id ?? null
+      },
+      decision: allowed ? "allow" : "deny",
+      ...metadata
+    }
+  });
+};
+
 const verifyBearerToken = async (token: string): Promise<AuthPayload> => {
   const secretKey = process.env.CLERK_SECRET_KEY;
   if (!secretKey) {
@@ -120,6 +142,7 @@ const getAppUserByClerkId = async (clerkUserId: string) => {
     .select({
       id: appUsers.id,
       clerkUserId: appUsers.clerkUserId,
+      username: appUsers.username,
       email: appUsers.email,
       globalRole: appUsers.globalRole,
       status: appUsers.status,
@@ -209,22 +232,13 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     req.context = {
       clerkUserId: payload.sub,
       appUserId: appUser.id,
+      username: appUser.username ?? null,
       email: payload.email ?? appUser.email ?? null,
       globalRole: appUser.globalRole,
       status: appUser.status,
       overrides: appUser.overrides,
       effectivePermissions: appUser.effectivePermissions
     };
-
-    const [legacyUser] = await db
-      .select()
-      .from(legacyUsers)
-      .where(eq(legacyUsers.clerkId, payload.sub))
-      .limit(1);
-
-    if (legacyUser) {
-      req.user = legacyUser;
-    }
 
     next();
   } catch {
@@ -259,11 +273,19 @@ export const requirePermission = (permission: PermissionFlag) => {
     const apiResponse = new ApiResponse(res);
 
     if (!req.context) {
+      await writeAuthorizationDecisionAudit(req, "PERMISSION_CHECK", false, {
+        permission,
+        reason: "missing_auth_context"
+      });
       apiResponse.forbiddenResponse("Missing auth context");
       return;
     }
 
     if (req.context.status === "read_only" && WRITE_METHODS.has(req.method.toUpperCase())) {
+      await writeAuthorizationDecisionAudit(req, "PERMISSION_CHECK", false, {
+        permission,
+        reason: "read_only_write_attempt"
+      });
       apiResponse.forbiddenResponse("Account is read-only");
       return;
     }
@@ -276,28 +298,46 @@ export const requirePermission = (permission: PermissionFlag) => {
     });
 
     if (!allowed) {
+      await writeAuthorizationDecisionAudit(req, "PERMISSION_CHECK", false, {
+        permission,
+        reason: "insufficient_permission"
+      });
       apiResponse.forbiddenResponse("Insufficient permissions");
       return;
     }
 
+    await writeAuthorizationDecisionAudit(req, "PERMISSION_CHECK", true, {
+      permission
+    });
     next();
   };
 };
 
 export const requireGlobalRole = (roles: GlobalRole[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const apiResponse = new ApiResponse(res);
 
     if (!req.context) {
+      await writeAuthorizationDecisionAudit(req, "GLOBAL_ROLE_CHECK", false, {
+        requiredRoles: roles,
+        reason: "missing_auth_context"
+      });
       apiResponse.forbiddenResponse("Missing auth context");
       return;
     }
 
     if (!roles.includes(req.context.globalRole)) {
+      await writeAuthorizationDecisionAudit(req, "GLOBAL_ROLE_CHECK", false, {
+        requiredRoles: roles,
+        reason: "insufficient_role"
+      });
       apiResponse.forbiddenResponse("Insufficient role");
       return;
     }
 
+    await writeAuthorizationDecisionAudit(req, "GLOBAL_ROLE_CHECK", true, {
+      requiredRoles: roles
+    });
     next();
   };
 };

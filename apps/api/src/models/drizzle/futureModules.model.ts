@@ -1,6 +1,6 @@
 import { index, integer, pgEnum, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model";
 
 export const COMPETITIVE_RECORD_VERIFICATION = pgEnum("competitive_record_verification", ["UNVERIFIED", "VERIFIED", "REJECTED"]);

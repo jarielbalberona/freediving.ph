@@ -11,7 +11,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model";
 import { serviceTypes } from "./serviceTypes.model";
 import { serviceAreas } from "./serviceAreas.model";

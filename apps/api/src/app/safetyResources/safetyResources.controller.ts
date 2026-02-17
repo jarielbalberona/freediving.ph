@@ -39,7 +39,7 @@ export default class SafetyResourcesController extends ApiController {
     try {
       const check = SafetyPageCreateSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
-      return this.apiResponse.sendResponse(await this.service.createPage(this.request.user.id, check.data));
+      return this.apiResponse.sendResponse(await this.service.createPage(this.request.context!.appUserId!, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
@@ -60,7 +60,7 @@ export default class SafetyResourcesController extends ApiController {
       const id = Number(this.request.params.id);
       const check = SafetyPageUpdateSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
-      return this.apiResponse.sendResponse(await this.service.updatePage(this.request.user.id, id, check.data));
+      return this.apiResponse.sendResponse(await this.service.updatePage(this.request.context!.appUserId!, id, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
@@ -71,7 +71,7 @@ export default class SafetyResourcesController extends ApiController {
       const id = Number(this.request.params.id);
       const check = SafetyPageRollbackSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
-      return this.apiResponse.sendResponse(await this.service.rollbackPage(this.request.user.id, id, check.data.versionId));
+      return this.apiResponse.sendResponse(await this.service.rollbackPage(this.request.context!.appUserId!, id, check.data.versionId));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }

@@ -59,7 +59,9 @@ const handleUserCreated = async (data: ClerkWebhookPayload["data"]): Promise<voi
   await db
     .insert(appUsers)
     .values({
+      clerkId: data.id,
       clerkUserId: data.id,
+      username: data.username ?? null,
       email,
       displayName,
       globalRole: "member",
@@ -68,6 +70,8 @@ const handleUserCreated = async (data: ClerkWebhookPayload["data"]): Promise<voi
     .onConflictDoUpdate({
       target: appUsers.clerkUserId,
       set: {
+        clerkId: data.id,
+        username: data.username ?? null,
         email,
         displayName,
         status: "active",
@@ -83,6 +87,8 @@ const handleUserUpdated = async (data: ClerkWebhookPayload["data"]): Promise<voi
   await db
     .update(appUsers)
     .set({
+      clerkId: data.id,
+      username: data.username ?? null,
       email,
       displayName,
       updatedAt: sql`now()`
@@ -95,7 +101,9 @@ const handleUserDeleted = async (data: ClerkWebhookPayload["data"]): Promise<voi
     .update(appUsers)
     .set({
       clerkUserId: sql`concat('deleted:', ${appUsers.id}::text)`,
+      clerkId: null,
       status: "read_only",
+      username: null,
       email: null,
       displayName: "Deleted user",
       updatedAt: sql`now()`

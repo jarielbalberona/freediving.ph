@@ -2,7 +2,7 @@ import { integer, pgEnum, pgTable, serial, text } from "drizzle-orm/pg-core";
 
 import { diveShops } from "./diveShops.model";
 import { diveSpots } from "./diveSpots.model";
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 
 export const ratingEnum = pgEnum("rating_enum", ["1", "2", "3", "4", "5"]);
 

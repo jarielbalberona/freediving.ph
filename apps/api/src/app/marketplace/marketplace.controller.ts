@@ -28,7 +28,7 @@ export default class MarketplaceController extends ApiController {
     try {
       const check = MarketplaceCreateSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
-      return this.apiResponse.sendResponse(await this.service.create(this.request.user.id, check.data));
+      return this.apiResponse.sendResponse(await this.service.create(this.request.context!.appUserId!, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
@@ -39,7 +39,7 @@ export default class MarketplaceController extends ApiController {
       const id = Number(this.request.params.id);
       const check = MarketplaceModerateSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
-      return this.apiResponse.sendResponse(await this.service.moderate(id, check.data, this.request.user.id));
+      return this.apiResponse.sendResponse(await this.service.moderate(id, check.data, this.request.context!.appUserId!));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }

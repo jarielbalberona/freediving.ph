@@ -1,11 +1,12 @@
-import { and, count, eq, ilike, inArray } from "drizzle-orm";
+import { and, count, eq, getTableColumns, ilike, inArray } from "drizzle-orm";
 import { Json2CsvOptions, json2csv } from "json-2-csv";
 
 // Authentication service removed - using Clerk now
 
 import PaginationManager from "@/core/pagination";
+import { LEGACY_ROLE_TO_GLOBAL_ROLES } from "@/core/legacyRoleMapping";
 import DrizzleService from "@/databases/drizzle/service";
-import { RoleType, UserSchemaType } from "@/databases/drizzle/types";
+import { UserSchemaType } from "@/databases/drizzle/types";
 import { users } from "@/models/drizzle/authentication.model";
 import { messages } from "@/models/drizzle/messages.model";
 import { auditLogs } from "@/models/drizzle/moderation.model";
@@ -50,12 +51,18 @@ export default class UserService extends DrizzleService {
 				return await this.retrieveAllUsers(filter.sortingMethod, filter.sortBy);
 			}
 
+			const mappedGlobalRoles = Array.from(
+				new Set(
+					(filter.roleQuery ?? [])
+						.flatMap((role) => LEGACY_ROLE_TO_GLOBAL_ROLES[String(role).toUpperCase()] ?? [])
+				)
+			);
+
 			const conditions = [
 				filter.search ? ilike(users.name, `%${filter.search}%`) : undefined,
-				filter.roleQuery ? inArray(users.role, filter.roleQuery as RoleType[]) : undefined
+				mappedGlobalRoles.length ? inArray(users.globalRole, mappedGlobalRoles) : undefined
 			].filter(Boolean);
-
-			const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+			const whereClause = conditions.length > 0 ? and(...conditions as any[]) : undefined;
 
 			const totalItems = await this.db
 				.select({
@@ -63,7 +70,7 @@ export default class UserService extends DrizzleService {
 				})
 				.from(users)
 				.where(whereClause)
-				.then(result => result[0].count);
+				.then(result => Number(result[0]?.count ?? 0));
 
 			const { pagination, offset } = new PaginationManager(
 				filter.page,
@@ -71,13 +78,15 @@ export default class UserService extends DrizzleService {
 				totalItems
 			).createPagination();
 
-			const data = await this.db.query.users.findMany({
-				columns: { clerkId: false },
-				where: whereClause,
-				limit: filter.limit ? filter.limit : undefined,
-				offset: filter.limit ? offset : undefined,
-				orderBy
-			});
+			const { clerkId: _clerkId, ...userColumns } = getTableColumns(users);
+			const dataQuery = this.db
+				.select(userColumns)
+				.from(users)
+				.where(whereClause);
+
+			const data = await (orderBy ? dataQuery.orderBy(orderBy) : dataQuery)
+				.limit(filter.limit)
+				.offset(offset);
 
 			return ServiceResponse.createResponse(
 				status.HTTP_200_OK,

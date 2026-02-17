@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 import { pgTable, serial, text, timestamp, varchar, integer, jsonb, boolean, pgEnum } from "drizzle-orm/pg-core";
 import { users } from "./authentication.model";
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 
 // Notification Types Enum
 export const NOTIFICATION_TYPE = pgEnum("notification_type", [

@@ -23,7 +23,7 @@ export default class TrainingLogsController extends ApiController {
     try {
       const check = TrainingLogCreateSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
-      return this.apiResponse.sendResponse(await this.service.create(this.request.user.id, check.data));
+      return this.apiResponse.sendResponse(await this.service.create(this.request.context!.appUserId!, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
@@ -33,7 +33,7 @@ export default class TrainingLogsController extends ApiController {
     try {
       const check = TrainingLogQuerySchema.safeParse(this.request.query);
       if (!check.success) return this.validationError(check.error);
-      return this.apiResponse.sendResponse(await this.service.list(this.request.user.id, check.data));
+      return this.apiResponse.sendResponse(await this.service.list(this.request.context!.appUserId!, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
@@ -47,7 +47,7 @@ export default class TrainingLogsController extends ApiController {
       const check = TrainingLogUpdateSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
 
-      return this.apiResponse.sendResponse(await this.service.updateSession(this.request.user.id, sessionId, check.data));
+      return this.apiResponse.sendResponse(await this.service.updateSession(this.request.context!.appUserId!, sessionId, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
@@ -58,7 +58,7 @@ export default class TrainingLogsController extends ApiController {
       const sessionId = Number(this.request.params.id);
       if (!Number.isInteger(sessionId) || sessionId <= 0) return this.apiResponse.badResponse("Invalid session id");
 
-      return this.apiResponse.sendResponse(await this.service.deleteSession(this.request.user.id, sessionId));
+      return this.apiResponse.sendResponse(await this.service.deleteSession(this.request.context!.appUserId!, sessionId));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
@@ -69,7 +69,7 @@ export default class TrainingLogsController extends ApiController {
       const sessionId = Number(this.request.params.id);
       if (!Number.isInteger(sessionId) || sessionId <= 0) return this.apiResponse.badResponse("Invalid session id");
 
-      return this.apiResponse.sendResponse(await this.service.listMetrics(this.request.user.id, sessionId));
+      return this.apiResponse.sendResponse(await this.service.listMetrics(this.request.context!.appUserId!, sessionId));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
@@ -83,7 +83,7 @@ export default class TrainingLogsController extends ApiController {
       const check = TrainingMetricUpsertSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
 
-      return this.apiResponse.sendResponse(await this.service.upsertMetric(this.request.user.id, sessionId, check.data));
+      return this.apiResponse.sendResponse(await this.service.upsertMetric(this.request.context!.appUserId!, sessionId, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }

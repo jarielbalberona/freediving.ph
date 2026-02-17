@@ -7,7 +7,7 @@ import {
   json,
 } from "drizzle-orm/pg-core";
 import { users } from "./authentication.model";
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 
 export const userSettings = pgTable("user_settings", {
   id: serial("id").primaryKey(),

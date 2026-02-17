@@ -1,16 +1,17 @@
 import { Request, Response } from "express";
+import { hasMinimumGlobalRole, type GlobalRole } from "@freediving.ph/config";
 
 import NotificationsService from "@/app/notifications/notifications.service";
 import { NotificationsServerSchema, NotificationsUpdateSchema, NotificationSettingsSchema } from "@/app/notifications/notifications.validators";
-import { isAdminDbRole } from "@/core/authorization";
 
 import { ApiController } from "@/controllers/base/api.controller";
 import { ServiceApiResponse } from "@/utils/serviceApi";
 
 export default class NotificationsController extends ApiController {
 	protected notificationsService: NotificationsService;
-	private isAdminRole(role: string | null | undefined) {
-		return isAdminDbRole(role);
+	private isAdminRole(role: GlobalRole | null | undefined) {
+		if (!role) return false;
+		return hasMinimumGlobalRole(role, "admin");
 	}
 
 	constructor(request: Request, response: Response) {
@@ -36,9 +37,9 @@ export default class NotificationsController extends ApiController {
 		try {
 			const id = Number(this.request.params.id);
 			const response = await this.notificationsService.retrieve(id);
-			if (response.data && !this.isAdminRole(this.request.user.role)) {
+			if (response.data && !this.isAdminRole(this.request.context!.globalRole)) {
 				const ownerUserId = (response.data as { userId?: number }).userId;
-				if (ownerUserId !== this.request.user.id) {
+				if (ownerUserId !== this.request.context!.appUserId!) {
 					return this.apiResponse.forbiddenResponse("Cannot access another user's notifications");
 				}
 			}
@@ -60,7 +61,7 @@ export default class NotificationsController extends ApiController {
 	async getUserNotifications() {
 		try {
 			const userId = Number(this.request.params.userId);
-			if (userId !== this.request.user.id && !this.isAdminRole(this.request.user.role)) {
+			if (userId !== this.request.context!.appUserId! && !this.isAdminRole(this.request.context!.globalRole)) {
 				return this.apiResponse.forbiddenResponse("Cannot access another user's notifications");
 			}
 			const response = await this.notificationsService.getUserNotifications(userId);
@@ -74,9 +75,9 @@ export default class NotificationsController extends ApiController {
 		try {
 			const id = Number(this.request.params.id);
 			const existing = await this.notificationsService.retrieve(id);
-			if (existing.data && !this.isAdminRole(this.request.user.role)) {
+			if (existing.data && !this.isAdminRole(this.request.context!.globalRole)) {
 				const ownerUserId = (existing.data as { userId?: number }).userId;
-				if (ownerUserId !== this.request.user.id) {
+				if (ownerUserId !== this.request.context!.appUserId!) {
 					return this.apiResponse.forbiddenResponse("Cannot modify another user's notification");
 				}
 			}
@@ -96,9 +97,9 @@ export default class NotificationsController extends ApiController {
 		try {
 			const id = Number(this.request.params.id);
 			const existing = await this.notificationsService.retrieve(id);
-			if (existing.data && !this.isAdminRole(this.request.user.role)) {
+			if (existing.data && !this.isAdminRole(this.request.context!.globalRole)) {
 				const ownerUserId = (existing.data as { userId?: number }).userId;
-				if (ownerUserId !== this.request.user.id) {
+				if (ownerUserId !== this.request.context!.appUserId!) {
 					return this.apiResponse.forbiddenResponse("Cannot modify another user's notification");
 				}
 			}
@@ -112,7 +113,7 @@ export default class NotificationsController extends ApiController {
 	async markAllAsRead() {
 		try {
 			const userId = Number(this.request.params.userId);
-			if (userId !== this.request.user.id && !this.isAdminRole(this.request.user.role)) {
+			if (userId !== this.request.context!.appUserId! && !this.isAdminRole(this.request.context!.globalRole)) {
 				return this.apiResponse.forbiddenResponse("Cannot modify another user's notifications");
 			}
 			const response = await this.notificationsService.markAllAsRead(userId);
@@ -126,9 +127,9 @@ export default class NotificationsController extends ApiController {
 		try {
 			const id = Number(this.request.params.id);
 			const existing = await this.notificationsService.retrieve(id);
-			if (existing.data && !this.isAdminRole(this.request.user.role)) {
+			if (existing.data && !this.isAdminRole(this.request.context!.globalRole)) {
 				const ownerUserId = (existing.data as { userId?: number }).userId;
-				if (ownerUserId !== this.request.user.id) {
+				if (ownerUserId !== this.request.context!.appUserId!) {
 					return this.apiResponse.forbiddenResponse("Cannot delete another user's notification");
 				}
 			}
@@ -142,7 +143,7 @@ export default class NotificationsController extends ApiController {
 	async getNotificationSettings() {
 		try {
 			const userId = Number(this.request.params.userId);
-			if (userId !== this.request.user.id && !this.isAdminRole(this.request.user.role)) {
+			if (userId !== this.request.context!.appUserId! && !this.isAdminRole(this.request.context!.globalRole)) {
 				return this.apiResponse.forbiddenResponse("Cannot access another user's settings");
 			}
 			const response = await this.notificationsService.getNotificationSettings(userId);
@@ -155,7 +156,7 @@ export default class NotificationsController extends ApiController {
 	async updateNotificationSettings() {
 		try {
 			const userId = Number(this.request.params.userId);
-			if (userId !== this.request.user.id && !this.isAdminRole(this.request.user.role)) {
+			if (userId !== this.request.context!.appUserId! && !this.isAdminRole(this.request.context!.globalRole)) {
 				return this.apiResponse.forbiddenResponse("Cannot modify another user's settings");
 			}
 			const body = this.request.body;
@@ -173,7 +174,7 @@ export default class NotificationsController extends ApiController {
 	async getUnreadCount() {
 		try {
 			const userId = Number(this.request.params.userId);
-			if (userId !== this.request.user.id && !this.isAdminRole(this.request.user.role)) {
+			if (userId !== this.request.context!.appUserId! && !this.isAdminRole(this.request.context!.globalRole)) {
 				return this.apiResponse.forbiddenResponse("Cannot access another user's unread count");
 			}
 			const response = await this.notificationsService.getUnreadCount(userId);

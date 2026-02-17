@@ -1,7 +1,7 @@
 import { InferSelectModel, and, desc, eq, count, isNull, sql } from "drizzle-orm";
+import { hasMinimumGlobalRole, type GlobalRole } from "@freediving.ph/config";
 
 import { EventsServerSchemaType, EventsUpdateSchemaType, EventAttendeeSchemaType } from "./events.validators";
-import { isModeratorDbRole } from "@/core/authorization";
 import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
@@ -15,11 +15,12 @@ import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
 export type EventsSchemaType = InferSelectModel<typeof events>;
 
 export default class EventsService extends DrizzleService {
-	private isModeratorRole(role: string | null | undefined) {
-		return isModeratorDbRole(role);
+	private isModeratorRole(role: GlobalRole | null | undefined) {
+		if (!role) return false;
+		return hasMinimumGlobalRole(role, "moderator");
 	}
 
-	async create(data: EventsServerSchemaType, actorUserId: number, actorRole: string) {
+	async create(data: EventsServerSchemaType, actorUserId: number, actorRole: GlobalRole) {
 		try {
 			const isModerator = this.isModeratorRole(actorRole);
 			if (data.organizerType === "USER" && data.organizerId !== actorUserId && !isModerator) {
@@ -105,7 +106,7 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async update(id: number, data: EventsUpdateSchemaType, actorUserId: number, actorRole: string) {
+	async update(id: number, data: EventsUpdateSchemaType, actorUserId: number, actorRole: GlobalRole) {
 		try {
 			const existingEvent = await this.db.query.events.findFirst({
 				where: and(eq(events.id, id), isNull(events.deletedAt))
@@ -289,7 +290,7 @@ export default class EventsService extends DrizzleService {
 		}
 	}
 
-	async removeAttendee(eventId: number, userId: number, actorUserId: number, actorRole: string) {
+	async removeAttendee(eventId: number, userId: number, actorUserId: number, actorRole: GlobalRole) {
 		try {
 			if (actorUserId !== userId) {
 				const event = await this.db.query.events.findFirst({

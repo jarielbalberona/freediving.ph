@@ -19,7 +19,7 @@ export default class GroupsController extends ApiController {
 		try {
 			const body = {
 				...this.request.body,
-				createdBy: this.request.user.id
+				createdBy: this.request.context!.appUserId!
 			};
 			const check = GroupsServerSchema.safeParse(body);
 			if (!check.success)
@@ -35,7 +35,7 @@ export default class GroupsController extends ApiController {
 	async getGroupById() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.groupsService.retrieve(id, this.request.user?.id ?? null);
+			const response = await this.groupsService.retrieve(id, this.request.context?.appUserId ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -47,7 +47,7 @@ export default class GroupsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.groupsService.retrieveAll(queryCheck.data, this.request.user?.id ?? null);
+			const response = await this.groupsService.retrieveAll(queryCheck.data, this.request.context?.appUserId ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -77,7 +77,7 @@ export default class GroupsController extends ApiController {
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.groupsService.addMember(check.data, this.request.user.id, this.request.user.role);
+			const response = await this.groupsService.addMember(check.data, this.request.context!.appUserId!, this.request.context!.globalRole);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -91,8 +91,8 @@ export default class GroupsController extends ApiController {
 			const response = await this.groupsService.removeMember(
 				groupId,
 				userId,
-				this.request.user.id,
-				this.request.user.role
+				this.request.context!.appUserId!,
+				this.request.context!.globalRole
 			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
@@ -106,7 +106,7 @@ export default class GroupsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.groupsService.getMembers(id, queryCheck.data, this.request.user?.id ?? null);
+			const response = await this.groupsService.getMembers(id, queryCheck.data, this.request.context?.appUserId ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -116,7 +116,7 @@ export default class GroupsController extends ApiController {
 	async joinGroup() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.groupsService.joinGroup(id, this.request.user.id);
+			const response = await this.groupsService.joinGroup(id, this.request.context!.appUserId!);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -132,7 +132,7 @@ export default class GroupsController extends ApiController {
 				return this.apiResponse.badResponse("Action must be either approve or reject");
 			}
 			const action = actionParam as "approve" | "reject";
-			const response = await this.groupsService.reviewJoinRequest(groupId, userId, this.request.user.id, action);
+			const response = await this.groupsService.reviewJoinRequest(groupId, userId, this.request.context!.appUserId!, action);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -146,7 +146,7 @@ export default class GroupsController extends ApiController {
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.groupsService.createPost(check.data, this.request.user.id, this.request.user.role);
+			const response = await this.groupsService.createPost(check.data, this.request.context!.appUserId!, this.request.context!.globalRole);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -159,7 +159,7 @@ export default class GroupsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.groupsService.getPosts(id, queryCheck.data, this.request.user?.id ?? null);
+			const response = await this.groupsService.getPosts(id, queryCheck.data, this.request.context?.appUserId ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

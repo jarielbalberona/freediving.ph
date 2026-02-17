@@ -22,7 +22,7 @@ export default class EventsController extends ApiController {
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.eventsService.create(check.data, this.request.user.id, this.request.user.role);
+			const response = await this.eventsService.create(check.data, this.request.context!.appUserId!, this.request.context!.globalRole);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -32,7 +32,7 @@ export default class EventsController extends ApiController {
 	async getEventById() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.eventsService.retrieve(id, this.request.user?.id ?? null);
+			const response = await this.eventsService.retrieve(id, this.request.context?.appUserId ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -44,7 +44,7 @@ export default class EventsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.eventsService.retrieveAll(queryCheck.data, this.request.user?.id ?? null);
+			const response = await this.eventsService.retrieveAll(queryCheck.data, this.request.context?.appUserId ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -59,7 +59,7 @@ export default class EventsController extends ApiController {
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.eventsService.update(id, check.data, this.request.user.id, this.request.user.role);
+			const response = await this.eventsService.update(id, check.data, this.request.context!.appUserId!, this.request.context!.globalRole);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -69,7 +69,7 @@ export default class EventsController extends ApiController {
 	async moderateRemoveEvent() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.eventsService.moderateRemove(id, this.request.user.id);
+			const response = await this.eventsService.moderateRemove(id, this.request.context!.appUserId!);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -83,7 +83,7 @@ export default class EventsController extends ApiController {
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.eventsService.addAttendee(id, this.request.user.id, check.data);
+			const response = await this.eventsService.addAttendee(id, this.request.context!.appUserId!, check.data);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -97,8 +97,8 @@ export default class EventsController extends ApiController {
 			const response = await this.eventsService.removeAttendee(
 				eventId,
 				userId,
-				this.request.user.id,
-				this.request.user.role
+				this.request.context!.appUserId!,
+				this.request.context!.globalRole
 			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
@@ -112,7 +112,7 @@ export default class EventsController extends ApiController {
 			const queryCheck = PaginationQuerySchema.safeParse(this.request.query);
 			if (!queryCheck.success) return this.validationError(queryCheck.error);
 
-			const response = await this.eventsService.getAttendees(id, queryCheck.data, this.request.user?.id ?? null);
+			const response = await this.eventsService.getAttendees(id, queryCheck.data, this.request.context?.appUserId ?? null);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

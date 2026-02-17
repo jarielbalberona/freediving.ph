@@ -1,7 +1,8 @@
 import { InferSelectModel, and, desc, eq, count, isNull, sql } from "drizzle-orm";
+import { hasMinimumGlobalRole, type GlobalRole } from "@freediving.ph/config";
 
 import { GroupsServerSchemaType, GroupsUpdateSchemaType, GroupMemberSchemaType, GroupPostSchemaType } from "./groups.validators";
-import { hasMinimumGroupRole, isModeratorDbRole } from "@/core/authorization";
+import { hasMinimumGroupRole } from "@/core/authorization";
 import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
 import { users } from "@/models/drizzle/authentication.model";
 import DrizzleService from "@/databases/drizzle/service";
@@ -14,8 +15,9 @@ import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
 export type GroupsSchemaType = InferSelectModel<typeof groups>;
 
 export default class GroupsService extends DrizzleService {
-	private isModeratorRole(role: string | null | undefined) {
-		return isModeratorDbRole(role);
+	private isModeratorRole(role: GlobalRole | null | undefined) {
+		if (!role) return false;
+		return hasMinimumGlobalRole(role, "moderator");
 	}
 
 	private async getMembership(groupId: number, userId: number) {
@@ -292,7 +294,7 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async addMember(data: GroupMemberSchemaType, actorUserId: number, actorRole: string) {
+	async addMember(data: GroupMemberSchemaType, actorUserId: number, actorRole: GlobalRole) {
 		try {
 			if (!this.isModeratorRole(actorRole)) {
 				const actorMembership = await this.getMembership(data.groupId, actorUserId);
@@ -346,7 +348,7 @@ export default class GroupsService extends DrizzleService {
 		}
 	}
 
-	async removeMember(groupId: number, userId: number, actorUserId: number, actorRole: string) {
+	async removeMember(groupId: number, userId: number, actorUserId: number, actorRole: GlobalRole) {
 		try {
 			const isSelfRemoval = actorUserId === userId;
 			if (!isSelfRemoval && !this.isModeratorRole(actorRole)) {
@@ -443,7 +445,7 @@ export default class GroupsService extends DrizzleService {
 	}
 
 	// Group Posts methods
-	async createPost(data: GroupPostSchemaType, actorUserId: number, actorRole: string) {
+	async createPost(data: GroupPostSchemaType, actorUserId: number, actorRole: GlobalRole) {
 		try {
 			if (!this.isModeratorRole(actorRole)) {
 				const actorMembership = await this.getMembership(data.groupId, actorUserId);

@@ -86,7 +86,11 @@ export default class DiveSpotController extends ApiController {
 			if (!check.success)
 				return this.validationError(check.error);
 
-			const response = await this.diveSpotService.reviewDiveSpot(id, check.data.state, this.request.user?.id);
+			const response = await this.diveSpotService.reviewDiveSpot(
+				id,
+				check.data.state,
+				this.request.context?.appUserId ?? undefined
+			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

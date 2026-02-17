@@ -3,7 +3,7 @@ import { integer, numeric, pgTable, serial, text, timestamp, doublePrecision } f
 
 import { diveShops } from "./diveShops.model";
 import { diveSpots } from "./diveSpots.model";
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 
 export const diveTours = pgTable("dive_tours", {
 	id: serial("id").primaryKey(),

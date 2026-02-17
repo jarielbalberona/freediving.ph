@@ -19,9 +19,20 @@ export default class MessagesController extends ApiController {
     this.messagesService = new MessagesService();
   }
 
+  private requireAppUserId() {
+    const appUserId = this.request.context?.appUserId;
+    if (!appUserId) {
+      this.apiResponse.forbiddenResponse("User identity not provisioned");
+      return null;
+    }
+
+    return appUserId;
+  }
+
   async listConversations() {
     try {
-      const currentUserId = this.request.user?.id;
+      const currentUserId = this.requireAppUserId();
+      if (!currentUserId) return;
       const response = await this.messagesService.listConversations(currentUserId);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
@@ -38,7 +49,8 @@ export default class MessagesController extends ApiController {
         return this.validationError(check.error);
       }
 
-      const currentUserId = this.request.user?.id;
+      const currentUserId = this.requireAppUserId();
+      if (!currentUserId) return;
       const response = await this.messagesService.createOrGetDirectConversation(currentUserId, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
@@ -48,7 +60,8 @@ export default class MessagesController extends ApiController {
 
   async listMessages() {
     try {
-      const currentUserId = this.request.user?.id;
+      const currentUserId = this.requireAppUserId();
+      if (!currentUserId) return;
       const conversationId = Number(this.request.params.conversationId);
       const queryCheck = ConversationMessagesQuerySchema.safeParse(this.request.query);
 
@@ -65,7 +78,8 @@ export default class MessagesController extends ApiController {
 
   async sendMessage() {
     try {
-      const currentUserId = this.request.user?.id;
+      const currentUserId = this.requireAppUserId();
+      if (!currentUserId) return;
       const conversationId = Number(this.request.params.conversationId);
       const bodyCheck = SendMessageSchema.safeParse(this.request.body);
 
@@ -82,7 +96,8 @@ export default class MessagesController extends ApiController {
 
   async deleteOwnMessage() {
     try {
-      const currentUserId = this.request.user?.id;
+      const currentUserId = this.requireAppUserId();
+      if (!currentUserId) return;
       const conversationId = Number(this.request.params.conversationId);
       const messageId = Number(this.request.params.messageId);
 
@@ -95,7 +110,8 @@ export default class MessagesController extends ApiController {
 
   async moderateRemoveMessage() {
     try {
-      const currentUserId = this.request.user?.id;
+      const currentUserId = this.requireAppUserId();
+      if (!currentUserId) return;
       const conversationId = Number(this.request.params.conversationId);
       const messageId = Number(this.request.params.messageId);
       const check = ModerateRemoveMessageSchema.safeParse(this.request.body);

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { jsonb, pgTable, serial, text, doublePrecision} from "drizzle-orm/pg-core";
 
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 
 export const diveShops = pgTable("dive_shops", {
 	id: serial("id").primaryKey(),

@@ -53,12 +53,13 @@ export default class MediaController extends ApiController {
     const username = String(this.request.params.username || "");
     const requestedType = String(this.request.query.type || "").toLowerCase();
     const requestedExt = String(this.request.query.ext || "").toLowerCase();
+    const context = this.request.context;
 
-    if (!this.request.user) {
+    if (!context) {
       return this.apiResponse.unauthorizedResponse("User not authenticated");
     }
 
-    const expectedUsername = this.request.user.username || String(this.request.user.id);
+    const expectedUsername = context.username || String(context.appUserId ?? context.appUserId);
     if (username !== expectedUsername) {
       return this.apiResponse.forbiddenResponse("Cannot request upload URL for another user");
     }

@@ -1,7 +1,7 @@
 import { InferSelectModel, and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { hasMinimumGlobalRole, type GlobalRole } from "@freediving.ph/config";
 
 import { ABUSE_LIMITS } from "@/core/abuseControls";
-import { isModeratorDbRole } from "@/core/authorization";
 import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
 import { isThreadLockedOrRemoved, isUserFeatureRestricted } from "@/core/moderationGuards";
 import { ThreadsServerSchemaType, ThreadsUpdateSchemaType, CommentCreateSchemaType, ReactionSchemaType } from "@/app/threads/threads.validators";
@@ -33,8 +33,9 @@ type ThreadCommentInput = CommentCreateSchemaType & { userId: number };
 type ReactionInput = ReactionSchemaType & { userId: number };
 
 export default class ThreadsService extends DrizzleService {
-	private isModeratorRole(role: string | null | undefined) {
-		return isModeratorDbRole(role);
+	private isModeratorRole(role: GlobalRole | null | undefined) {
+		if (!role) return false;
+		return hasMinimumGlobalRole(role, "moderator");
 	}
 
 	private buildPseudonymHandle(userId: number, threadId: number) {
@@ -139,7 +140,7 @@ export default class ThreadsService extends DrizzleService {
 	async retrieve(
 		id: number,
 		viewerUserId: number | null = null,
-		viewerRole: string | null = null
+		viewerRole: GlobalRole | null = null
 	): Promise<ServiceApiResponse<ThreadWithUserRow>> {
 		try {
 			const retrieveData = await this.db
@@ -190,7 +191,7 @@ export default class ThreadsService extends DrizzleService {
 	}
 
 
-	async update(id: number, actorUserId: number, actorRole: string, data: ThreadsUpdateSchemaType) {
+	async update(id: number, actorUserId: number, actorRole: GlobalRole, data: ThreadsUpdateSchemaType) {
 		try {
 			const existingRows = await this.db
 				.select({ userId: threads.userId })
@@ -243,7 +244,7 @@ export default class ThreadsService extends DrizzleService {
 	async retrieveAll(
 		query: PaginationQuerySchemaType,
 		viewerUserId: number | null = null,
-		viewerRole: string | null = null
+		viewerRole: GlobalRole | null = null
 	) {
 		try {
 			const totalRows = await this.db
@@ -435,7 +436,7 @@ export default class ThreadsService extends DrizzleService {
 		threadId: number,
 		mode: "NORMAL" | "PSEUDONYMOUS_CHIKA",
 		actorUserId: number,
-		actorRole: string
+		actorRole: GlobalRole
 	) {
 		try {
 			const threadRows = await this.db
@@ -541,7 +542,7 @@ export default class ThreadsService extends DrizzleService {
 		threadId: number,
 		query: PaginationQuerySchemaType,
 		viewerUserId: number | null = null,
-		viewerRole: string | null = null
+		viewerRole: GlobalRole | null = null
 	) {
 		try {
 			const totalRows = await this.db
@@ -700,7 +701,7 @@ export default class ThreadsService extends DrizzleService {
 		}
 	}
 
-	async delete(id: number, actorUserId: number, actorRole: string) {
+	async delete(id: number, actorUserId: number, actorRole: GlobalRole) {
 		try {
 			const existingRows = await this.db
 				.select({ userId: threads.userId })

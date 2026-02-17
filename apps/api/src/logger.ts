@@ -15,7 +15,8 @@ export default function appLogger(app: Express) {
 				url,
 				statusCode: res.statusCode,
 				durationMs: duration,
-				userId: req.user?.id ?? null
+				appUserId: req.context?.appUserId ?? null,
+				globalRole: req.context?.globalRole ?? null
 			};
 
 			console.log(JSON.stringify(logLine));

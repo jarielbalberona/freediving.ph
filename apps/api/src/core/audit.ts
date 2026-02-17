@@ -8,7 +8,7 @@ interface AuditMetadata {
 }
 
 export interface WriteAuditLogInput {
-  actorUserId?: string | null;
+  actorUserId?: number | null;
   action: string;
   entityType: string;
   entityId: string;

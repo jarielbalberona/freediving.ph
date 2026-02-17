@@ -98,6 +98,7 @@ const seedUsers = async () => {
     const additionalUserData = additionalUsers.map((user) => ({
       ...user,
       clerkId: `clerk_${faker.string.alphanumeric(24)}`,
+      clerkUserId: `clerk_${faker.string.alphanumeric(24)}`,
       emailVerified: new Date(),
       createdAt: new Date(),
       updatedAt: new Date()
@@ -105,10 +106,14 @@ const seedUsers = async () => {
 
     // Combine specific and generated users
     const allUsers = [...specificUsers, ...additionalUserData];
+    const allUsersWithClerkUserId = allUsers.map((user) => ({
+      ...user,
+      clerkUserId: "clerkUserId" in user ? (user as any).clerkUserId : user.clerkId,
+    }));
 
     // Insert users into database
-    await db.insert(users).values(allUsers);
-    console.log(`✅ ${allUsers.length} users seeded successfully!`);
+    await db.insert(users).values(allUsersWithClerkUserId);
+    console.log(`✅ ${allUsersWithClerkUserId.length} users seeded successfully!`);
 	} catch (error) {
 		console.error("Error seeding users:", error);
 	}

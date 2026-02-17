@@ -25,7 +25,7 @@ export default class ReportsController extends ApiController {
         return this.validationError(check.error);
       }
 
-      const response = await this.reportsService.create(this.request.user.id, check.data);
+      const response = await this.reportsService.create(this.request.context!.appUserId!, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -54,7 +54,7 @@ export default class ReportsController extends ApiController {
         return this.validationError(check.error);
       }
 
-      const response = await this.reportsService.updateStatus(this.request.user.id, reportId, check.data);
+      const response = await this.reportsService.updateStatus(this.request.context!.appUserId!, reportId, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 import { index, integer, pgEnum, pgTable, serial, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model";
 import { threads } from "./threads.model";
 

@@ -12,10 +12,10 @@ import {
 } from "drizzle-orm/pg-core";
 
 
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { users, sessions, accounts } from "./authentication.model"
 
-import { REACTION_LIST } from "@/databases/drizzle/lists";
+import { REACTION_LIST } from "../../databases/drizzle/lists";
 
 export const REACTION_TYPE = pgEnum("reaction_type", ["1", "0"]);// Convert numbers to strings
 

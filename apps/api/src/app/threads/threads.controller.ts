@@ -36,7 +36,7 @@ export default class ThreadsController extends ApiController {
 
 			const response = await this.threadsService.create({
 				...check.data,
-				userId: this.request.user.id
+				userId: this.request.context!.appUserId!
 			});
 
 			return this.apiResponse.sendResponse(response);
@@ -50,8 +50,8 @@ export default class ThreadsController extends ApiController {
 			const id = Number(this.request.params.id);
 			const response = await this.threadsService.retrieve(
 				id,
-				this.request.user?.id ?? null,
-				this.request.user?.role ?? null
+				this.request.context?.appUserId ?? null,
+				this.request.context?.globalRole ?? null
 			);
 
 			// await this.threadsService.testThreads(response.data.id);
@@ -72,8 +72,8 @@ export default class ThreadsController extends ApiController {
 
 			const response = await this.threadsService.update(
 				id,
-				this.request.user.id,
-				this.request.user.role,
+				this.request.context!.appUserId!,
+				this.request.context!.globalRole,
 				check.data
 			);
 
@@ -90,8 +90,8 @@ export default class ThreadsController extends ApiController {
 
 			const response = await this.threadsService.retrieveAll(
 				queryCheck.data,
-				this.request.user?.id ?? null,
-				this.request.user?.role ?? null
+				this.request.context?.appUserId ?? null,
+				this.request.context?.globalRole ?? null
 			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
@@ -102,7 +102,7 @@ export default class ThreadsController extends ApiController {
 	async deleteThreads() {
 		try {
 			const id = Number(this.request.params.id);
-			const response = await this.threadsService.delete(id, this.request.user.id, this.request.user.role);
+			const response = await this.threadsService.delete(id, this.request.context!.appUserId!, this.request.context!.globalRole);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -119,7 +119,7 @@ export default class ThreadsController extends ApiController {
 
 			const response = await this.threadsService.createComment({
 				...check.data,
-				userId: this.request.user.id
+				userId: this.request.context!.appUserId!
 			});
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
@@ -136,8 +136,8 @@ export default class ThreadsController extends ApiController {
 			const response = await this.threadsService.getComments(
 				threadId,
 				queryCheck.data,
-				this.request.user?.id ?? null,
-				this.request.user?.role ?? null
+				this.request.context?.appUserId ?? null,
+				this.request.context?.globalRole ?? null
 			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
@@ -156,7 +156,7 @@ export default class ThreadsController extends ApiController {
 
 			const response = await this.threadsService.addReaction(threadId, {
 				...check.data,
-				userId: this.request.user.id
+				userId: this.request.context!.appUserId!
 			});
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
@@ -167,7 +167,7 @@ export default class ThreadsController extends ApiController {
 	async removeReaction() {
 		try {
 			const threadId = Number(this.request.params.id);
-			const userId = this.request.user?.id;
+			const userId = this.request.context?.appUserId;
 
 			if (!userId) {
 				return this.apiResponse.badResponse("User ID is required");
@@ -190,8 +190,8 @@ export default class ThreadsController extends ApiController {
 			const response = await this.threadsService.setThreadMode(
 				threadId,
 				check.data.mode,
-				this.request.user.id,
-				this.request.user.role
+				this.request.context!.appUserId!,
+				this.request.context!.globalRole
 			);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
@@ -202,7 +202,7 @@ export default class ThreadsController extends ApiController {
 	async getOwnPseudonym() {
 		try {
 			const threadId = Number(this.request.params.id);
-			const response = await this.threadsService.getOrCreatePseudonym(threadId, this.request.user.id);
+			const response = await this.threadsService.getOrCreatePseudonym(threadId, this.request.context!.appUserId!);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

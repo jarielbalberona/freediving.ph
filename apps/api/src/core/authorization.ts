@@ -53,12 +53,6 @@ export const hasMinimumRole = (
 	return PLATFORM_RANK[userPlatformRole] >= PLATFORM_RANK[requiredPlatformRole];
 };
 
-export const isModeratorDbRole = (role: string | null | undefined): boolean =>
-	hasMinimumRole(role, "moderator");
-
-export const isAdminDbRole = (role: string | null | undefined): boolean =>
-	hasMinimumRole(role, "admin");
-
 const GROUP_ROLE_RANK: Record<GroupRole, number> = {
 	member: 1,
 	moderator: 2,

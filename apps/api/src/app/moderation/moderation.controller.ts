@@ -24,7 +24,7 @@ export default class ModerationController extends ApiController {
 			const check = ModerateThreadActionSchema.safeParse(this.request.body);
 			if (!check.success) return this.validationError(check.error);
 
-			const response = await this.moderationService.lockThread(this.request.user.id, threadId, check.data);
+			const response = await this.moderationService.lockThread(this.request.context!.appUserId!, threadId, check.data);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -37,7 +37,7 @@ export default class ModerationController extends ApiController {
 			const check = ModerateThreadActionSchema.safeParse(this.request.body);
 			if (!check.success) return this.validationError(check.error);
 
-			const response = await this.moderationService.removeThread(this.request.user.id, threadId, check.data);
+			const response = await this.moderationService.removeThread(this.request.context!.appUserId!, threadId, check.data);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -50,7 +50,7 @@ export default class ModerationController extends ApiController {
 			const check = ModerateUserSuspensionSchema.safeParse(this.request.body);
 			if (!check.success) return this.validationError(check.error);
 
-			const response = await this.moderationService.setUserSuspension(this.request.user.id, userId, check.data);
+			const response = await this.moderationService.setUserSuspension(this.request.context!.appUserId!, userId, check.data);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -63,7 +63,7 @@ export default class ModerationController extends ApiController {
 			const check = ModerateFeatureRestrictionSchema.safeParse(this.request.body);
 			if (!check.success) return this.validationError(check.error);
 
-			const response = await this.moderationService.setFeatureRestriction(this.request.user.id, userId, check.data);
+			const response = await this.moderationService.setFeatureRestriction(this.request.context!.appUserId!, userId, check.data);
 			return this.apiResponse.sendResponse(response);
 		} catch (error: unknown) {
 			return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

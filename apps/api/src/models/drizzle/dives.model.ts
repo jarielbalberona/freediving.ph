@@ -1,8 +1,8 @@
 import { integer, pgTable, serial, text, timestamp, decimal, doublePrecision } from "drizzle-orm/pg-core";
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model"
 import { diveSpots } from "./diveSpots.model"
-import { DIVE_TYPE } from "@/databases/drizzle/lists";
+import { DIVE_TYPE } from "../../databases/drizzle/lists";
 
 export const diveLogs = pgTable("dive_logs", {
   id: serial("id").primaryKey(),

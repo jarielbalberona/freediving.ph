@@ -10,7 +10,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { timestamps } from "@/databases/drizzle/helpers";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model";
 
 export const BLOCK_SCOPE = pgEnum("block_scope", ["PLATFORM", "MESSAGING_ONLY"]);

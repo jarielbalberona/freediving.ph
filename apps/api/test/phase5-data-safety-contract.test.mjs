@@ -43,5 +43,5 @@ test("phase 5 user deletion path anonymizes account and blocks destructive bulk 
   assert.match(userService, /anonymizeUserAccount/);
   assert.match(userService, /accountStatus: "DELETED"/);
   assert.match(userController, /Only admins can anonymize other users/);
-  assert.match(userController, /anonymizeUserAccount\(this\.request\.user\.id\)/);
+  assert.match(userController, /anonymizeUserAccount\(this\.request\.context!\.appUserId!\)/);
 });

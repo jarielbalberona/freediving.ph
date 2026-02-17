@@ -1,7 +1,7 @@
 import { index, integer, pgTable, serial, text, doublePrecision, timestamp } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { DIVE_DIFFICULTY } from "@/databases/drizzle/lists";
-import { timestamps } from "@/databases/drizzle/helpers";
+import { DIVE_DIFFICULTY } from "../../databases/drizzle/lists";
+import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model"
 
 export const diveSpots = pgTable("dive_spots", {

@@ -32,7 +32,7 @@ export default class CompetitiveRecordsController extends ApiController {
     try {
       const check = CompetitiveRecordCreateSchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
-      return this.apiResponse.sendResponse(await this.service.create(this.request.user.id, check.data));
+      return this.apiResponse.sendResponse(await this.service.create(this.request.context!.appUserId!, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
@@ -43,7 +43,7 @@ export default class CompetitiveRecordsController extends ApiController {
       const recordId = Number(this.request.params.id);
       const check = CompetitiveRecordVerifySchema.safeParse(this.request.body);
       if (!check.success) return this.validationError(check.error);
-      return this.apiResponse.sendResponse(await this.service.verify(recordId, this.request.user.id, check.data));
+      return this.apiResponse.sendResponse(await this.service.verify(recordId, this.request.context!.appUserId!, check.data));
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
     }
