@@ -18,6 +18,8 @@ export const MarketplaceQuerySchema = z.object({
 
 export const MarketplaceModerateSchema = z.object({
   state: z.enum(["ACTIVE", "FLAGGED", "REMOVED"]),
+  reasonCode: z.enum(["SPAM", "HARASSMENT", "DOXXING", "IMPERSONATION", "HATE", "MISINFORMATION", "SCAM", "SAFETY", "OTHER"]),
+  note: z.string().trim().max(500).optional(),
 });
 
 export type MarketplaceCreateSchemaType = z.infer<typeof MarketplaceCreateSchema>;

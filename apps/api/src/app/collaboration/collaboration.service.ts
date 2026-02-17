@@ -88,7 +88,7 @@ export default class CollaborationService extends DrizzleService {
         action: "COLLABORATION_POST_MODERATED",
         targetType: "OTHER",
         targetId: `collaboration:${id}`,
-        metadata: { isActive: payload.isActive },
+        metadata: { isActive: payload.isActive, reasonCode: payload.reasonCode, note: payload.note ?? null },
       });
       return ServiceResponse.createResponse(status.HTTP_200_OK, "Collaboration moderation updated", updated[0]);
     } catch (error) {

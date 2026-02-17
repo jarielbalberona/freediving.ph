@@ -18,6 +18,8 @@ export const CollaborationQuerySchema = z.object({
 
 export const CollaborationModerateSchema = z.object({
   isActive: z.boolean(),
+  reasonCode: z.enum(["SPAM", "HARASSMENT", "DOXXING", "IMPERSONATION", "HATE", "MISINFORMATION", "SCAM", "SAFETY", "OTHER"]),
+  note: z.string().trim().max(500).optional(),
 });
 
 export type CollaborationCreateSchemaType = z.infer<typeof CollaborationCreateSchema>;

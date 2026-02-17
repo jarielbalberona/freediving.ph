@@ -11,8 +11,8 @@ export const DiveSpotServerSchema = z.object({
 		required_error: zodMessages.error.required.fieldIsRequired("difficulty"),
 		invalid_type_error: zodMessages.error.invalid.invalidEnum("difficulty", DIVE_DIFFICULTY.enumValues)
 	}),
-	lat: z.number().optional(),
-	lng: z.number().optional(),
+	lat: z.number().min(-90).max(90).optional(),
+	lng: z.number().min(-180).max(180).optional(),
 	locationName: z.string().optional(),
 	description: z.string().optional(),
 	bestSeason: z.string().optional(),

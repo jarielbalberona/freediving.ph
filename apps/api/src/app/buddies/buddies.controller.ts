@@ -4,7 +4,12 @@ import { ApiController } from "@/controllers/base/api.controller";
 import type { ServiceApiResponse } from "@/utils/serviceApi";
 
 import BuddiesService from "./buddies.service";
-import { BuddyFinderQuerySchema, RejectBuddyRequestSchema, SendBuddyRequestSchema } from "./buddies.validators";
+import {
+  BuddyFinderQuerySchema,
+  BuddyListQuerySchema,
+  RejectBuddyRequestSchema,
+  SendBuddyRequestSchema,
+} from "./buddies.validators";
 
 export default class BuddiesController extends ApiController {
   protected buddiesService: BuddiesService;
@@ -61,7 +66,9 @@ export default class BuddiesController extends ApiController {
 
   async listRequests() {
     try {
-      const response = await this.buddiesService.listRequests(this.request.user.id);
+      const check = BuddyListQuerySchema.safeParse(this.request.query);
+      if (!check.success) return this.validationError(check.error);
+      const response = await this.buddiesService.listRequests(this.request.user.id, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
@@ -70,7 +77,9 @@ export default class BuddiesController extends ApiController {
 
   async listBuddies() {
     try {
-      const response = await this.buddiesService.listActiveBuddies(this.request.user.id);
+      const check = BuddyListQuerySchema.safeParse(this.request.query);
+      if (!check.success) return this.validationError(check.error);
+      const response = await this.buddiesService.listActiveBuddies(this.request.user.id, check.data);
       return this.apiResponse.sendResponse(response);
     } catch (error: unknown) {
       return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);

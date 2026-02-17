@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PaginationQuerySchema } from "@/validators/pagination.schema";
 
 export const SendBuddyRequestSchema = z.object({
   toUserId: z.number().int().positive(),
@@ -16,6 +17,9 @@ export const BuddyFinderQuerySchema = z.object({
   offset: z.coerce.number().int().nonnegative().default(0),
 });
 
+export const BuddyListQuerySchema = PaginationQuerySchema;
+
 export type SendBuddyRequestSchemaType = z.infer<typeof SendBuddyRequestSchema>;
 export type RejectBuddyRequestSchemaType = z.infer<typeof RejectBuddyRequestSchema>;
 export type BuddyFinderQuerySchemaType = z.infer<typeof BuddyFinderQuerySchema>;
+export type BuddyListQuerySchemaType = z.infer<typeof BuddyListQuerySchema>;

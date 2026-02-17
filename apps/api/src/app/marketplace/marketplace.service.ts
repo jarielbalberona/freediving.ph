@@ -88,7 +88,7 @@ export default class MarketplaceService extends DrizzleService {
         action: "MARKETPLACE_LISTING_MODERATED",
         targetType: "OTHER",
         targetId: `marketplace:${id}`,
-        metadata: { state: payload.state },
+        metadata: { state: payload.state, reasonCode: payload.reasonCode, note: payload.note ?? null },
       });
       return ServiceResponse.createResponse(status.HTTP_200_OK, "Listing moderation state updated", updated[0]);
     } catch (error) {

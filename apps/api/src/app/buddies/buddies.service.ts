@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, ilike, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, ne, not, or } from "drizzle-orm";
 
 import { ABUSE_LIMITS } from "@/core/abuseControls";
 import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
@@ -8,8 +8,10 @@ import { buddyRelationships, buddyRequests } from "@/models/drizzle/buddies.mode
 import { auditLogs } from "@/models/drizzle/moderation.model";
 import { ServiceResponse } from "@/utils/serviceApi";
 import { status } from "@/utils/statusCodes";
+import { buildOffsetPagination } from "@/utils/pagination";
 
 import type {
+  BuddyListQuerySchemaType,
   BuddyFinderQuerySchemaType,
   RejectBuddyRequestSchemaType,
   SendBuddyRequestSchemaType,
@@ -18,6 +20,27 @@ import type {
 const normalizePair = (a: number, b: number) => (a < b ? { userIdA: a, userIdB: b } : { userIdA: b, userIdB: a });
 
 export default class BuddiesService extends DrizzleService {
+  private toCoarseLocation(value: string | null | undefined) {
+    if (!value) return null;
+    const normalized = value.trim().replace(/\s+/g, " ");
+    if (!normalized) return null;
+    const segments = normalized
+      .split(",")
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+    const coarse = segments.slice(0, 2).join(", ");
+    return coarse.slice(0, 120);
+  }
+
+  private sanitizeBuddyProfileLocation<T extends { location?: string | null; homeDiveArea?: string | null }>(profile: T) {
+    const coarseLocation = this.toCoarseLocation(profile.homeDiveArea ?? profile.location ?? null);
+    return {
+      ...profile,
+      location: coarseLocation,
+      homeDiveArea: coarseLocation,
+    };
+  }
+
   private async hasBlockingRelationship(userA: number, userB: number) {
     return isPlatformBlockedBetween(this.db, userA, userB);
   }
@@ -220,8 +243,22 @@ export default class BuddiesService extends DrizzleService {
     }
   }
 
-  async listRequests(currentUserId: number) {
+  async listRequests(currentUserId: number, query: BuddyListQuerySchemaType) {
     try {
+      const [incomingCountRows, outgoingCountRows] = await Promise.all([
+        this.db
+          .select({ total: count(buddyRequests.id) })
+          .from(buddyRequests)
+          .where(and(eq(buddyRequests.toUserId, currentUserId), eq(buddyRequests.state, "PENDING"))),
+        this.db
+          .select({ total: count(buddyRequests.id) })
+          .from(buddyRequests)
+          .where(and(eq(buddyRequests.fromUserId, currentUserId), eq(buddyRequests.state, "PENDING"))),
+      ]);
+
+      const incomingTotal = incomingCountRows[0]?.total ?? 0;
+      const outgoingTotal = outgoingCountRows[0]?.total ?? 0;
+
       const incoming = await this.db
         .select({
           request: buddyRequests,
@@ -230,12 +267,16 @@ export default class BuddiesService extends DrizzleService {
             username: users.username,
             alias: users.alias,
             image: users.image,
+            location: users.location,
+            homeDiveArea: users.homeDiveArea,
           },
         })
         .from(buddyRequests)
         .leftJoin(users, eq(buddyRequests.fromUserId, users.id))
         .where(and(eq(buddyRequests.toUserId, currentUserId), eq(buddyRequests.state, "PENDING")))
-        .orderBy(desc(buddyRequests.createdAt));
+        .orderBy(desc(buddyRequests.createdAt))
+        .limit(query.limit)
+        .offset(query.offset);
 
       const outgoing = await this.db
         .select({
@@ -245,45 +286,65 @@ export default class BuddiesService extends DrizzleService {
             username: users.username,
             alias: users.alias,
             image: users.image,
+            location: users.location,
+            homeDiveArea: users.homeDiveArea,
           },
         })
         .from(buddyRequests)
         .leftJoin(users, eq(buddyRequests.toUserId, users.id))
         .where(and(eq(buddyRequests.fromUserId, currentUserId), eq(buddyRequests.state, "PENDING")))
-        .orderBy(desc(buddyRequests.createdAt));
+        .orderBy(desc(buddyRequests.createdAt))
+        .limit(query.limit)
+        .offset(query.offset);
 
-      return ServiceResponse.createResponse(status.HTTP_200_OK, "Buddy requests retrieved", { incoming, outgoing });
+      return ServiceResponse.createResponse(status.HTTP_200_OK, "Buddy requests retrieved", {
+        incoming: incoming.map((row) => ({
+          ...row,
+          fromUser: row.fromUser ? this.sanitizeBuddyProfileLocation(row.fromUser) : null,
+        })),
+        outgoing: outgoing.map((row) => ({
+          ...row,
+          toUser: row.toUser ? this.sanitizeBuddyProfileLocation(row.toUser) : null,
+        })),
+        incomingPagination: buildOffsetPagination(incomingTotal, query.limit, query.offset),
+        outgoingPagination: buildOffsetPagination(outgoingTotal, query.limit, query.offset),
+      });
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);
     }
   }
 
-  async listActiveBuddies(currentUserId: number) {
+  async listActiveBuddies(currentUserId: number, query: BuddyListQuerySchemaType) {
     try {
-      const rows = await this.db
+      const totalRows = await this.db
+        .select({ total: count(buddyRelationships.id) })
+        .from(buddyRelationships)
+        .where(
+          and(
+            eq(buddyRelationships.state, "ACTIVE"),
+            or(eq(buddyRelationships.userIdA, currentUserId), eq(buddyRelationships.userIdB, currentUserId)),
+          ),
+        );
+      const totalItems = totalRows[0]?.total ?? 0;
+
+      const relationships = await this.db
         .select({
-          relationship: buddyRelationships,
-          userA: {
-            id: users.id,
-            username: users.username,
-            alias: users.alias,
-            image: users.image,
-            location: users.location,
-            experienceLevel: users.experienceLevel,
-          },
+          userIdA: buddyRelationships.userIdA,
+          userIdB: buddyRelationships.userIdB,
         })
         .from(buddyRelationships)
-        .leftJoin(users, eq(buddyRelationships.userIdA, users.id))
         .where(
           and(
             eq(buddyRelationships.state, "ACTIVE"),
             or(eq(buddyRelationships.userIdA, currentUserId), eq(buddyRelationships.userIdB, currentUserId)),
           ),
         )
-        .orderBy(desc(buddyRelationships.createdAt));
+        .orderBy(desc(buddyRelationships.createdAt))
+        .limit(query.limit)
+        .offset(query.offset);
 
-      const buddyIds = rows.map((row) =>
-        row.relationship.userIdA === currentUserId ? row.relationship.userIdB : row.relationship.userIdA,
+      const buddyIds = relationships.map((row) =>
+        row.userIdA === currentUserId ? row.userIdB : row.userIdA,
       );
 
       const buddies = buddyIds.length
@@ -301,7 +362,12 @@ export default class BuddiesService extends DrizzleService {
             .where(or(...buddyIds.map((id) => eq(users.id, id))))
         : [];
 
-      return ServiceResponse.createResponse(status.HTTP_200_OK, "Active buddies retrieved", buddies);
+      return ServiceResponse.createResponse(
+        status.HTTP_200_OK,
+        "Active buddies retrieved",
+        buddies.map((buddy) => this.sanitizeBuddyProfileLocation(buddy)),
+        buildOffsetPagination(totalItems, query.limit, query.offset),
+      );
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);
     }
@@ -335,6 +401,30 @@ export default class BuddiesService extends DrizzleService {
   async finder(currentUserId: number, query: BuddyFinderQuerySchemaType) {
     try {
       const blockedUserIds = await getPlatformBlockedUserIds(this.db, currentUserId);
+      const blockedIds = Array.from(blockedUserIds);
+      const notBlockedFilter = blockedIds.length ? not(inArray(users.id, blockedIds)) : undefined;
+      const totalRows = await this.db
+        .select({ total: count(users.id) })
+        .from(users)
+        .where(
+          and(
+            ne(users.id, currentUserId),
+            eq(users.accountStatus, "ACTIVE"),
+            eq(users.buddyFinderVisibility, "VISIBLE"),
+            query.search
+              ? or(
+                  ilike(users.username, `%${query.search}%`),
+                  ilike(users.alias, `%${query.search}%`),
+                  ilike(users.name, `%${query.search}%`),
+                )
+              : undefined,
+            query.experienceLevel ? ilike(users.experienceLevel, `%${query.experienceLevel}%`) : undefined,
+            query.location
+              ? or(ilike(users.location, `%${query.location}%`), ilike(users.homeDiveArea, `%${query.location}%`))
+              : undefined,
+            notBlockedFilter,
+          ),
+        );
 
       const results = await this.db
         .select({
@@ -363,14 +453,20 @@ export default class BuddiesService extends DrizzleService {
             query.location
               ? or(ilike(users.location, `%${query.location}%`), ilike(users.homeDiveArea, `%${query.location}%`))
               : undefined,
+            notBlockedFilter,
           ),
         )
         .limit(query.limit)
         .offset(query.offset);
 
-      const filtered = results.filter((user) => !blockedUserIds.has(user.id));
+      const filtered = results.map((user) => this.sanitizeBuddyProfileLocation(user));
 
-      return ServiceResponse.createResponse(status.HTTP_200_OK, "Buddy finder results retrieved", filtered);
+      return ServiceResponse.createResponse(
+        status.HTTP_200_OK,
+        "Buddy finder results retrieved",
+        filtered,
+        buildOffsetPagination(totalRows[0]?.total ?? 0, query.limit, query.offset),
+      );
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);
     }

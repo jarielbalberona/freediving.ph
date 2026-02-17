@@ -213,8 +213,8 @@ export interface Event {
   endDate: string;
   maxAttendees?: number;
   currentAttendees: number;
-  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
-  type: 'WORKSHOP' | 'COMPETITION' | 'SOCIAL' | 'TRAINING' | 'OTHER';
+  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED' | 'POSTPONED' | 'REMOVED';
+  type: 'DIVE_SESSION' | 'TRAINING' | 'COMPETITION' | 'SOCIAL' | 'WORKSHOP' | 'MEETUP' | 'TOURNAMENT' | 'FUNDRAISER';
   difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
   price?: number;
   currency?: string;
@@ -238,7 +238,7 @@ export interface EventAttendee {
   userId: number;
   userName: string;
   userEmail: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'WAITLISTED';
+  status: 'registered' | 'attended' | 'cancelled' | 'no_show';
   joinedAt: string;
   notes?: string;
 }
@@ -250,7 +250,7 @@ export interface CreateEventRequest {
   startDate: string;
   endDate: string;
   maxAttendees?: number;
-  type: 'WORKSHOP' | 'COMPETITION' | 'SOCIAL' | 'TRAINING' | 'OTHER';
+  type: 'DIVE_SESSION' | 'TRAINING' | 'COMPETITION' | 'SOCIAL' | 'WORKSHOP' | 'MEETUP' | 'TOURNAMENT' | 'FUNDRAISER';
   difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
   price?: number;
   currency?: string;
@@ -270,8 +270,8 @@ export interface UpdateEventRequest {
   startDate?: string;
   endDate?: string;
   maxAttendees?: number;
-  status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
-  type?: 'WORKSHOP' | 'COMPETITION' | 'SOCIAL' | 'TRAINING' | 'OTHER';
+  status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED' | 'POSTPONED' | 'REMOVED';
+  type?: 'DIVE_SESSION' | 'TRAINING' | 'COMPETITION' | 'SOCIAL' | 'WORKSHOP' | 'MEETUP' | 'TOURNAMENT' | 'FUNDRAISER';
   difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
   price?: number;
   currency?: string;
@@ -293,8 +293,8 @@ export interface JoinEventRequest {
 export interface EventFilters {
   page?: number;
   limit?: number;
-  status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
-  type?: 'WORKSHOP' | 'COMPETITION' | 'SOCIAL' | 'TRAINING' | 'OTHER';
+  status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED' | 'POSTPONED' | 'REMOVED';
+  type?: 'DIVE_SESSION' | 'TRAINING' | 'COMPETITION' | 'SOCIAL' | 'WORKSHOP' | 'MEETUP' | 'TOURNAMENT' | 'FUNDRAISER';
   difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
   location?: string;
   startDate?: string;
