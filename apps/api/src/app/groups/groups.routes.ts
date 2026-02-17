@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import { clerkAuthMiddleware, optionalClerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, optionalClerkAuthMiddleware, requireRole } from "@/middlewares/auth";
 
 import GroupsController from "@/app/groups/groups.controller";
 

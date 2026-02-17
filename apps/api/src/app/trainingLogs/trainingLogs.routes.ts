@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import TrainingLogsController from "@/app/trainingLogs/trainingLogs.controller";
-import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware } from "@/middlewares/auth";
 
 export const trainingLogsRouter: Router = (() => {
   const router = express.Router();

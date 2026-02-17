@@ -1,132 +1,132 @@
-import express, { Router } from "express";
+import { Router, type Request, type Response } from "express";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Webhook } from "svix";
-import { eq } from "drizzle-orm";
+
 import db from "@/databases/drizzle/connection";
-import { users } from "@/models/drizzle/authentication.model";
-import { ApiResponse } from "@/utils/serviceApi";
+import { appUsers } from "@/models/drizzle/rbac.model";
 
 const router = Router();
 
-// Clerk webhook endpoint
-router.post("/clerk-webhook", express.raw({ type: "application/json" }), async (req, res) => {
-	const apiResponse = new ApiResponse(res);
+interface ClerkWebhookPayload {
+  type: string;
+  data: {
+    id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    username?: string | null;
+    primary_email_address_id?: string | null;
+    email_addresses?: Array<{ id: string; email_address: string }>;
+  };
+}
 
-	try {
-		const webhook = new Webhook(process.env.CLERK_WEBHOOK_SECRET!);
-		const payloadBody =
-			Buffer.isBuffer(req.body) || req.body instanceof Uint8Array
-				? Buffer.from(req.body).toString("utf8")
-				: JSON.stringify(req.body);
-		const payload = await webhook.verify(payloadBody, req.headers as any);
+const getDisplayName = (data: ClerkWebhookPayload["data"]): string | null => {
+  const combined = [data.first_name, data.last_name].filter(Boolean).join(" ").trim();
+  if (combined.length > 0) {
+    return combined;
+  }
 
-		const { type, data } = payload as { type: string; data: any };
+  return data.username ?? null;
+};
 
-		switch (type) {
-			case "user.created":
-				await handleUserCreated(data);
-				break;
-			case "user.updated":
-				await handleUserUpdated(data);
-				break;
-			case "user.deleted":
-				await handleUserDeleted(data);
-				break;
-			default:
-				console.log(`Unhandled webhook event: ${type}`);
-		}
+const getEmail = (data: ClerkWebhookPayload["data"]): string | null => {
+  if (!data.primary_email_address_id || !data.email_addresses?.length) {
+    return null;
+  }
 
-		apiResponse.successResponse("Webhook processed successfully");
-	} catch (error) {
-		console.error("Webhook error:", error);
-		apiResponse.badResponse("Invalid webhook signature");
-	}
+  const primary = data.email_addresses.find(
+    (email) => email.id === data.primary_email_address_id
+  );
+
+  return primary?.email_address ?? null;
+};
+
+const verifyWebhook = async (req: Request): Promise<ClerkWebhookPayload> => {
+  const secret = process.env.CLERK_WEBHOOK_SECRET;
+  if (!secret) {
+    throw new Error("Missing CLERK_WEBHOOK_SECRET");
+  }
+
+  const body = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : String(req.body);
+  const webhook = new Webhook(secret);
+  const payload = (await webhook.verify(body, req.headers as Record<string, string>)) as ClerkWebhookPayload;
+  return payload;
+};
+
+const handleUserCreated = async (data: ClerkWebhookPayload["data"]): Promise<void> => {
+  const email = getEmail(data);
+  const displayName = getDisplayName(data);
+
+  await db
+    .insert(appUsers)
+    .values({
+      clerkUserId: data.id,
+      email,
+      displayName,
+      globalRole: "member",
+      status: "active"
+    })
+    .onConflictDoUpdate({
+      target: appUsers.clerkUserId,
+      set: {
+        email,
+        displayName,
+        status: "active",
+        updatedAt: sql`now()`
+      }
+    });
+};
+
+const handleUserUpdated = async (data: ClerkWebhookPayload["data"]): Promise<void> => {
+  const email = getEmail(data);
+  const displayName = getDisplayName(data);
+
+  await db
+    .update(appUsers)
+    .set({
+      email,
+      displayName,
+      updatedAt: sql`now()`
+    })
+    .where(eq(appUsers.clerkUserId, data.id));
+};
+
+const handleUserDeleted = async (data: ClerkWebhookPayload["data"]): Promise<void> => {
+  await db
+    .update(appUsers)
+    .set({
+      clerkUserId: sql`concat('deleted:', ${appUsers.id}::text)`,
+      status: "read_only",
+      email: null,
+      displayName: "Deleted user",
+      updatedAt: sql`now()`
+    })
+    .where(and(eq(appUsers.clerkUserId, data.id), isNotNull(appUsers.clerkUserId)));
+};
+
+export const handleClerkWebhook = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const payload = await verifyWebhook(req);
+
+    if (payload.type === "user.created") {
+      await handleUserCreated(payload.data);
+    }
+
+    if (payload.type === "user.updated") {
+      await handleUserUpdated(payload.data);
+    }
+
+    if (payload.type === "user.deleted") {
+      await handleUserDeleted(payload.data);
+    }
+
+    res.status(200).json({ status: 200, message: "Webhook processed" });
+  } catch {
+    res.status(400).json({ status: 400, message: "Invalid webhook signature" });
+  }
+};
+
+router.post("/clerk", async (req, res) => {
+  await handleClerkWebhook(req, res);
 });
-
-async function handleUserCreated(userData: any) {
-	try {
-		const { id, first_name, last_name, username, email_addresses, image_url, created_at } = userData;
-
-		// Get primary email
-		const primaryEmail = email_addresses?.find((email: any) => email.id === userData.primary_email_address_id);
-
-		await db.insert(users).values({
-			clerkId: id,
-			name: `${first_name || ''} ${last_name || ''}`.trim() || null,
-			username: username || null,
-			email: primaryEmail?.email_address || null,
-			emailVerified: primaryEmail?.verification?.status === 'verified' ? new Date() : null,
-			image: image_url || null,
-			role: "USER"
-		});
-
-		console.log(`User created: ${id}`);
-	} catch (error) {
-		console.error("Error creating user:", error);
-	}
-}
-
-async function handleUserUpdated(userData: any) {
-	try {
-		const { id, first_name, last_name, username, email_addresses, image_url } = userData;
-
-		// Get primary email
-		const primaryEmail = email_addresses?.find((email: any) => email.id === userData.primary_email_address_id);
-
-		await db
-			.update(users)
-			.set({
-				name: `${first_name || ''} ${last_name || ''}`.trim() || null,
-				username: username || null,
-				email: primaryEmail?.email_address || null,
-				emailVerified: primaryEmail?.verification?.status === 'verified' ? new Date() : null,
-				image: image_url || null,
-			})
-			.where(eq(users.clerkId, id));
-
-		console.log(`User updated: ${id}`);
-	} catch (error) {
-		console.error("Error updating user:", error);
-	}
-}
-
-async function handleUserDeleted(userData: any) {
-	try {
-		const { id } = userData;
-
-		const existing = await db
-			.select({ id: users.id })
-			.from(users)
-			.where(eq(users.clerkId, id))
-			.limit(1);
-
-		const user = existing[0];
-		if (!user) return;
-
-		await db
-			.update(users)
-			.set({
-				accountStatus: "DELETED",
-				name: null,
-				username: `deleted-user-${user.id}`,
-				alias: `deleted_${user.id}`,
-				email: null,
-				emailVerified: null,
-				image: null,
-				bio: null,
-				location: null,
-				phone: null,
-				website: null,
-				homeDiveArea: null,
-				experienceLevel: null,
-				buddyFinderVisibility: "HIDDEN",
-				visibility: "MEMBERS_ONLY"
-			})
-			.where(eq(users.id, user.id));
-
-		console.log(`User deleted: ${id}`);
-	} catch (error) {
-		console.error("Error deleting user:", error);
-	}
-}
 
 export default router;

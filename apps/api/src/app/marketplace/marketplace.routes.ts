@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import MarketplaceController from "@/app/marketplace/marketplace.controller";
-import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/auth";
 import { createFeatureRateLimiter } from "@/rateLimiter";
 
 export const marketplaceRouter: Router = (() => {

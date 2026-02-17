@@ -1,114 +1,71 @@
 import { Router } from "express";
-import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
-import { eq } from "drizzle-orm";
+
 import db from "@/databases/drizzle/connection";
-import { users } from "@/models/drizzle/authentication.model";
-import { ApiResponse } from "@/utils/serviceApi";
+import { optionalAuth, requireAuth } from "@/middlewares/auth";
+import { appUsers } from "@/models/drizzle/rbac.model";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
-// Get current user
-router.get("/me", clerkAuthMiddleware, (req, res) => {
-	const apiResponse = new ApiResponse(res);
+router.get("/health", optionalAuth, async (req, res) => {
+  if (!req.auth) {
+    res.status(200).json({
+      status: 200,
+      message: "No bearer token supplied",
+      data: { authenticated: false }
+    });
+    return;
+  }
 
-	try {
-		// Remove sensitive data
-		const { password, ...userWithoutPassword } = req.user;
-		apiResponse.successResponse("User retrieved successfully", userWithoutPassword);
-	} catch (error) {
-		console.error("Get user error:", error);
-		apiResponse.internalServerError("Failed to get user");
-	}
+  const [user] = await db
+    .select({ id: appUsers.id })
+    .from(appUsers)
+    .where(eq(appUsers.clerkUserId, req.auth.clerkUserId))
+    .limit(1);
+
+  res.status(200).json({
+    status: 200,
+    message: "Token parsed",
+    data: {
+      authenticated: true,
+      provisioned: Boolean(user),
+      clerkUserId: req.auth.clerkUserId
+    }
+  });
 });
 
-// Update user profile
-router.put("/profile", clerkAuthMiddleware, async (req, res) => {
-	const apiResponse = new ApiResponse(res);
+router.get("/me", requireAuth, async (req, res) => {
+  if (!req.context) {
+    res.status(403).json({ status: 403, message: "Missing auth context" });
+    return;
+  }
 
-	try {
-		const { name, username, alias } = req.body;
+  const [user] = await db
+    .select({
+      id: appUsers.id,
+      displayName: appUsers.displayName,
+      globalRole: appUsers.globalRole,
+      status: appUsers.status,
+      trustScore: appUsers.trustScore
+    })
+    .from(appUsers)
+    .where(eq(appUsers.id, req.context.appUserId))
+    .limit(1);
 
-		// Check if username is already taken by another user
-		if (username) {
-			const existingUser = await db
-				.select()
-				.from(users)
-				.where(eq(users.username, username))
-				.limit(1);
+  if (!user) {
+    res.status(401).json({ status: 401, message: "User not provisioned" });
+    return;
+  }
 
-			if (existingUser.length > 0 && existingUser[0].id !== req.user.id) {
-				apiResponse.badResponse("Username already taken");
-				return;
-			}
-		}
-
-		// Check if alias is already taken by another user
-		if (alias) {
-			const existingAlias = await db
-				.select()
-				.from(users)
-				.where(eq(users.alias, alias))
-				.limit(1);
-
-			if (existingAlias.length > 0 && existingAlias[0].id !== req.user.id) {
-				apiResponse.badResponse("Alias already taken");
-				return;
-			}
-		}
-
-		const updatedUser = await db
-			.update(users)
-			.set({
-				name: name || req.user.name,
-				username: username || req.user.username,
-				alias: alias || req.user.alias,
-			})
-			.where(eq(users.id, req.user.id))
-			.returning();
-
-		apiResponse.successResponse("Profile updated successfully", updatedUser[0]);
-	} catch (error) {
-		console.error("Update profile error:", error);
-		apiResponse.internalServerError("Failed to update profile");
-	}
-});
-
-// Get user by ID (public profile)
-router.get("/:id", async (req, res) => {
-	const apiResponse = new ApiResponse(res);
-
-	try {
-		const userId = parseInt(req.params.id);
-
-		if (isNaN(userId)) {
-			apiResponse.badResponse("Invalid user ID");
-			return;
-		}
-
-		const user = await db
-			.select({
-				id: users.id,
-				name: users.name,
-				username: users.username,
-				alias: users.alias,
-				image: users.image,
-				role: users.role,
-				createdAt: users.createdAt,
-			})
-			.from(users)
-			.where(eq(users.id, userId))
-			.limit(1);
-
-		if (!user || user.length === 0) {
-			apiResponse.badResponse("User not found");
-			return;
-		}
-
-		apiResponse.successResponse("User retrieved successfully", user[0]);
-	} catch (error) {
-		console.error("Get user by ID error:", error);
-		apiResponse.internalServerError("Failed to get user");
-	}
+  res.status(200).json({
+    status: 200,
+    message: "User retrieved",
+    data: {
+      user,
+      permissions: req.context.effectivePermissions,
+      scopes: {}
+    }
+  });
 });
 
 export { router as authRouter };

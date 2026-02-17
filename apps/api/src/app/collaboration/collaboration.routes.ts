@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import CollaborationController from "@/app/collaboration/collaboration.controller";
-import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/auth";
 import { createFeatureRateLimiter } from "@/rateLimiter";
 
 export const collaborationRouter: Router = (() => {

@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import { clerkAuthMiddleware, optionalClerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, optionalClerkAuthMiddleware } from "@/middlewares/auth";
 import { ROUTE_RATE_LIMITS } from "@/core/abuseControls";
 import { createFeatureRateLimiter } from "@/rateLimiter";
 

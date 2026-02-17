@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware } from "@/middlewares/auth";
 import MediaController from "@/app/media/media.controller";
 
 import globalUpload from "@/multer/globalConfig";

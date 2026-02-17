@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import { handleClerkWebhook } from "@/routes/clerk-webhook";
 import helmet from "helmet";
 import path from "path";
 
@@ -23,6 +24,7 @@ const app = express();
 
 app.use(helmet());
 app.use(cors(corsOptions));
+app.post("/api/v1/webhooks/clerk", express.raw({ type: "application/json" }), handleClerkWebhook);
 app.use(express.json());
 app.use(express.urlencoded());
 app.use(cookieParser());

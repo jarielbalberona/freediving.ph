@@ -2,7 +2,7 @@ import express, { Router } from "express";
 
 import BuddiesController from "@/app/buddies/buddies.controller";
 import { ROUTE_RATE_LIMITS } from "@/core/abuseControls";
-import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware } from "@/middlewares/auth";
 import { createFeatureRateLimiter } from "@/rateLimiter";
 
 export const buddiesRouter: Router = (() => {

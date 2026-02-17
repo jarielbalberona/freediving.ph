@@ -1,16 +1,56 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClerk } from "@clerk/nextjs";
+import { hasMinimumGlobalRole, type GlobalRole, type PermissionFlag, type PermissionMatrix } from "@freediving.ph/config";
+
 import { apiCall } from "@/lib/api";
 
-export function useProfile(data: any = {}) {
+interface MeUser {
+  id: string;
+  displayName: string | null;
+  globalRole: GlobalRole;
+  status: "active" | "read_only" | "suspended";
+  trustScore: number;
+}
+
+interface MePayload {
+  user: MeUser;
+  permissions: PermissionMatrix;
+  scopes: Record<string, unknown>;
+}
+
+interface Envelope<T> {
+  status: number;
+  message: string;
+  data: T;
+}
+
+export function useMe(initialData?: MePayload) {
   return useQuery({
-    queryKey: ["profile"],
+    queryKey: ["auth", "me"],
     queryFn: async () => {
-      const response = await apiCall<any>("/auth/me");
-      return response.data; // specifically return the data property
+      const response = await apiCall<Envelope<MePayload>>("/api/v1/auth/me");
+      return response.data.data;
     },
-    initialData: data,
+    retry: false,
+    initialData
   });
+}
+
+export function usePermissions() {
+  const { data } = useMe();
+  const permissions = data?.permissions;
+  const role = data?.user.globalRole;
+
+  return {
+    role,
+    permissions,
+    hasPermission: (permission: PermissionFlag) => Boolean(permissions?.[permission]),
+    hasRole: (minimumRole: GlobalRole) => (role ? hasMinimumGlobalRole(role, minimumRole) : false)
+  };
+}
+
+export function useProfile(data: MePayload | undefined = undefined) {
+  return useMe(data);
 }
 
 interface LoginRequest {
@@ -19,7 +59,7 @@ interface LoginRequest {
   csrfToken: string;
 }
 
-export function useLogin(successCB: any) {
+export function useLogin(successCB: (data: unknown) => void) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (_body: LoginRequest) => {
@@ -29,16 +69,13 @@ export function useLogin(successCB: any) {
       return { status: 302, data: null };
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["profile"], data);
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       successCB(data);
-    },
-    onError: (error: any) => {
-      console.error("Login failed:", error?.message);
-    },
+    }
   });
 }
 
-export function useRegister(successCB: any) {
+export function useRegister(successCB: (data: unknown) => void) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (_body: LoginRequest) => {
@@ -48,15 +85,13 @@ export function useRegister(successCB: any) {
       return { status: 302, data: null };
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["profile"], data);
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       successCB(data);
-    },
-    onError: (error: any) => {
-      console.error("Register failed:", error?.message);
-    },
+    }
   });
 }
-export function useLogout(successCB: any) {
+
+export function useLogout(successCB: (data: unknown) => void) {
   const queryClient = useQueryClient();
   const { signOut } = useClerk();
   return useMutation({
@@ -65,11 +100,8 @@ export function useLogout(successCB: any) {
       return { status: 200, data: null };
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["profile"], undefined);
+      queryClient.setQueryData(["auth", "me"], undefined);
       successCB(data);
-    },
-    onError: (error: any) => {
-      console.error("Logout failed:", error?.message);
-    },
+    }
   });
 }

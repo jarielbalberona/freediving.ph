@@ -2,7 +2,7 @@ import express, { Router } from "express";
 
 import MessagesController from "@/app/messages/messages.controller";
 import { ROUTE_RATE_LIMITS } from "@/core/abuseControls";
-import { clerkAuthMiddleware, requirePolicy } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, requirePolicy } from "@/middlewares/auth";
 import { createFeatureRateLimiter } from "@/rateLimiter";
 
 export const messagesRouter: Router = (() => {

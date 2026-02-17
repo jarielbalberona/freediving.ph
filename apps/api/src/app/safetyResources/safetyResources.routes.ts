@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import SafetyResourcesController from "@/app/safetyResources/safetyResources.controller";
-import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/auth";
 
 export const safetyResourcesRouter: Router = (() => {
   const router = express.Router();

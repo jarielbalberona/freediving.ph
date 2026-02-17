@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import CompetitiveRecordsController from "@/app/competitiveRecords/competitiveRecords.controller";
-import { clerkAuthMiddleware, requireRole } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, requireRole } from "@/middlewares/auth";
 
 export const competitiveRecordsRouter: Router = (() => {
   const router = express.Router();

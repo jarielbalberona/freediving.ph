@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import ReportsController from "@/app/reports/reports.controller";
-import { clerkAuthMiddleware, requirePolicy } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, requirePolicy } from "@/middlewares/auth";
 
 export const reportsRouter: Router = (() => {
   const router = express.Router();

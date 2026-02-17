@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import ProfilesController from "@/app/profiles/profiles.controller";
-import { clerkAuthMiddleware, optionalClerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware, optionalClerkAuthMiddleware } from "@/middlewares/auth";
 
 export const profilesRouter: Router = (() => {
   const router = express.Router();

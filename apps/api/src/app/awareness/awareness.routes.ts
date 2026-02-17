@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import AwarenessController from "@/app/awareness/awareness.controller";
-import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware } from "@/middlewares/auth";
 import { createFeatureRateLimiter } from "@/rateLimiter";
 
 export const awarenessRouter: Router = (() => {

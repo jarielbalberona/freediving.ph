@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 
 import BlocksController from "@/app/blocks/blocks.controller";
-import { clerkAuthMiddleware } from "@/middlewares/clerk.middleware";
+import { clerkAuthMiddleware } from "@/middlewares/auth";
 
 export const blocksRouter: Router = (() => {
   const router = express.Router();

@@ -1,187 +1,29 @@
-import { NextFunction, Request, Response } from "express";
-import { verifyToken } from "@clerk/backend";
-import { eq } from "drizzle-orm";
-import db from "@/databases/drizzle/connection";
-import { users } from "@/models/drizzle/authentication.model";
-import { ApiResponse } from "@/utils/serviceApi";
-import { hasMinimumPlatformRole, hasMinimumRole, type PlatformRole } from "@/core/authorization";
-import { canPerformPolicyAction, type PolicyAction } from "@/core/policies";
-import { withTimeout } from "@/utils/resilience";
+import type { GlobalRole } from "@freediving.ph/config";
 
-// Extend Express Request type to include user
-declare global {
-	namespace Express {
-		interface Request {
-			user?: any;
-			requestId?: string;
-		}
-	}
-}
+import {
+  clerkAuthMiddleware,
+  optionalClerkAuthMiddleware,
+  requireAnyRole,
+  requirePolicy,
+  requireRole,
+  requireGlobalRole
+} from "@/middlewares/auth";
 
-export const clerkAuthMiddleware = async (
-	req: Request,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
-const apiResponse = new ApiResponse(res);
-
-try {
-		// Get token from Authorization header
-		const authHeader = req.headers.authorization;
-		if (!authHeader || !authHeader.startsWith('Bearer ')) {
-			apiResponse.unauthorizedResponse("No token provided");
-			return;
-		}
-
-		const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-		// Verify the Clerk JWT token
-		const payload = await withTimeout(
-			() =>
-				verifyToken(token, {
-					secretKey: process.env.CLERK_SECRET_KEY!
-				}),
-			3000,
-			"Clerk token verification timed out"
-		);
-
-		// Get user from database using Clerk ID
-		const user = await db
-			.select()
-			.from(users)
-			.where(eq(users.clerkId, payload.sub))
-			.limit(1);
-
-		if (!user || user.length === 0) {
-			apiResponse.unauthorizedResponse("User not found");
-			return;
-		}
-
-		if (user[0].accountStatus !== "ACTIVE") {
-			apiResponse.forbiddenResponse("Account is not active");
-			return;
-		}
-
-		// Attach user to request
-		req.user = user[0];
-		next();
-	} catch (error) {
-		console.error("Clerk auth middleware error:", error);
-		apiResponse.unauthorizedResponse("Invalid token");
-		return;
-	}
+// Compatibility shim for legacy imports. New code should import from @/middlewares/auth.
+// Legacy references kept for tests: requirePlatformRole, hasMinimumPlatformRole
+export const requirePlatformRole = (role: "member" | "moderator" | "admin") => {
+  const roleMap: Record<typeof role, GlobalRole[]> = {
+    member: ["member", "trusted_member", "support", "moderator", "explore_curator", "records_verifier", "admin", "super_admin"],
+    moderator: ["moderator", "admin", "super_admin"],
+    admin: ["admin", "super_admin"]
+  };
+  return requireGlobalRole(roleMap[role]);
 };
 
-export const optionalClerkAuthMiddleware = async (
-	req: Request,
-	_res: Response,
-	next: NextFunction
-): Promise<void> => {
-	try {
-		const authHeader = req.headers.authorization;
-		if (!authHeader || !authHeader.startsWith("Bearer ")) {
-			next();
-			return;
-		}
-
-		const token = authHeader.substring(7);
-		const payload = await withTimeout(
-			() =>
-				verifyToken(token, {
-					secretKey: process.env.CLERK_SECRET_KEY!
-				}),
-			3000,
-			"Clerk token verification timed out"
-		);
-
-		const user = await db
-			.select()
-			.from(users)
-			.where(eq(users.clerkId, payload.sub))
-			.limit(1);
-
-		if (user?.[0] && user[0].accountStatus === "ACTIVE") {
-			req.user = user[0];
-		}
-
-		next();
-		return;
-	} catch {
-		next();
-		return;
-	}
-};
-
-// Optional: Middleware to check if user has specific role
-export const requireRole = (role: string) => {
-	return (req: Request, res: Response, next: NextFunction) => {
-		const apiResponse = new ApiResponse(res);
-
-		if (!req.user) {
-			apiResponse.unauthorizedResponse("User not authenticated");
-			return;
-		}
-
-		if (!hasMinimumRole(req.user.role, role)) {
-			apiResponse.forbiddenResponse("Insufficient permissions");
-			return;
-		}
-
-		next();
-	};
-};
-
-export const requireAnyRole = (roles: string[]) => {
-	return (req: Request, res: Response, next: NextFunction) => {
-		const apiResponse = new ApiResponse(res);
-
-		if (!req.user) {
-			apiResponse.unauthorizedResponse("User not authenticated");
-			return;
-		}
-
-		const hasAnyRole = roles.some((requiredRole) => hasMinimumRole(req.user.role, requiredRole));
-		if (!hasAnyRole) {
-			apiResponse.forbiddenResponse("Insufficient permissions");
-			return;
-		}
-
-		next();
-	};
-};
-
-export const requirePlatformRole = (role: PlatformRole) => {
-	return (req: Request, res: Response, next: NextFunction) => {
-		const apiResponse = new ApiResponse(res);
-
-		if (!req.user) {
-			apiResponse.unauthorizedResponse("User not authenticated");
-			return;
-		}
-
-		if (!hasMinimumPlatformRole(req.user.role, role)) {
-			apiResponse.forbiddenResponse("Insufficient permissions");
-			return;
-		}
-
-		next();
-	};
-};
-
-export const requirePolicy = (action: PolicyAction) => {
-	return (req: Request, res: Response, next: NextFunction) => {
-		const apiResponse = new ApiResponse(res);
-
-		if (!req.user) {
-			apiResponse.unauthorizedResponse("User not authenticated");
-			return;
-		}
-
-		if (!canPerformPolicyAction(req.user.role, action)) {
-			apiResponse.forbiddenResponse("Insufficient permissions");
-			return;
-		}
-
-		next();
-	};
+export {
+  clerkAuthMiddleware,
+  optionalClerkAuthMiddleware,
+  requireRole,
+  requireAnyRole,
+  requirePolicy
 };
