@@ -36,6 +36,12 @@ jobs:
       - name: Check migrations
         run: pnpm --filter @freediving.ph/api db:check-migrations
 
+      - name: Explain hot queries
+        if: ${{ secrets.CI_DATABASE_URL != '' }}
+        env:
+          DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
+        run: pnpm --filter @freediving.ph/api db:explain-hot-queries -- --strict
+
       - name: Typecheck
         run: pnpm typecheck
 

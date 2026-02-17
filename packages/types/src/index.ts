@@ -759,6 +759,8 @@ export interface BuddyUserCard {
 export interface BuddyRequestListResponse {
   incoming: Array<{ request: BuddyRequest; fromUser: BuddyUserCard | null }>;
   outgoing: Array<{ request: BuddyRequest; toUser: BuddyUserCard | null }>;
+  incomingPagination: PaginationMeta;
+  outgoingPagination: PaginationMeta;
 }
 
 export interface BuddyFinderQuery {

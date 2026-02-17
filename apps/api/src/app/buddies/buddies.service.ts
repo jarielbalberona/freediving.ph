@@ -297,18 +297,23 @@ export default class BuddiesService extends DrizzleService {
         .limit(query.limit)
         .offset(query.offset);
 
-      return ServiceResponse.createResponse(status.HTTP_200_OK, "Buddy requests retrieved", {
-        incoming: incoming.map((row) => ({
-          ...row,
-          fromUser: row.fromUser ? this.sanitizeBuddyProfileLocation(row.fromUser) : null,
-        })),
-        outgoing: outgoing.map((row) => ({
-          ...row,
-          toUser: row.toUser ? this.sanitizeBuddyProfileLocation(row.toUser) : null,
-        })),
-        incomingPagination: buildOffsetPagination(incomingTotal, query.limit, query.offset),
-        outgoingPagination: buildOffsetPagination(outgoingTotal, query.limit, query.offset),
-      });
+      return ServiceResponse.createResponse(
+        status.HTTP_200_OK,
+        "Buddy requests retrieved",
+        {
+          incoming: incoming.map((row) => ({
+            ...row,
+            fromUser: row.fromUser ? this.sanitizeBuddyProfileLocation(row.fromUser) : null,
+          })),
+          outgoing: outgoing.map((row) => ({
+            ...row,
+            toUser: row.toUser ? this.sanitizeBuddyProfileLocation(row.toUser) : null,
+          })),
+          incomingPagination: buildOffsetPagination(incomingTotal, query.limit, query.offset),
+          outgoingPagination: buildOffsetPagination(outgoingTotal, query.limit, query.offset),
+        },
+        buildOffsetPagination(incomingTotal + outgoingTotal, query.limit, query.offset),
+      );
     } catch (error) {
       return ServiceResponse.createErrorResponse(error);
     }

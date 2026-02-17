@@ -1,11 +1,22 @@
+import { hasMinimumRole, type PlatformRole } from "@/core/authorization";
+
 export type PolicyAction = "reports.read" | "reports.moderate" | "reports.create";
 
-export const policyRoleMap: Record<PolicyAction, string[]> = {
-  "reports.create": ["USER", "CONTRIBUTOR", "AUTHOR", "EDITOR", "ADMINISTRATOR", "SUPER_ADMIN"],
-  "reports.read": ["EDITOR", "ADMINISTRATOR", "SUPER_ADMIN"],
-  "reports.moderate": ["EDITOR", "ADMINISTRATOR", "SUPER_ADMIN"],
+export const policyMinimumRoleMap: Record<PolicyAction, PlatformRole> = {
+	"reports.create": "member",
+	"reports.read": "moderator",
+	"reports.moderate": "moderator",
 };
 
-export const canPerformPolicyAction = (role: string, action: PolicyAction): boolean => {
-  return policyRoleMap[action].includes(role);
+export const policyRoleMap: Record<PolicyAction, PlatformRole[]> = {
+	"reports.create": ["member", "moderator", "admin"],
+	"reports.read": ["moderator", "admin"],
+	"reports.moderate": ["moderator", "admin"],
+};
+
+export const canPerformPolicyAction = (
+	role: string | null | undefined,
+	action: PolicyAction
+): boolean => {
+	return hasMinimumRole(role, policyMinimumRoleMap[action]);
 };

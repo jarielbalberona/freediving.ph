@@ -1,257 +1,122 @@
-# Findings
+# Findings (Current Status)
 
-## Security
+## Open
 
-### F-SEC-001
-- Severity: Blocker
-- Likelihood: High
-- Impact: High (unauthorized content modification/deletion)
+None.
+
+## Closed
+
+### F-AUTH-001 (Closed)
 - Evidence:
-  - `apps/api/src/app/threads/threads.routes.ts` exposes `PUT /threads/:id` and `DELETE /threads/:id` for any authenticated user.
-  - `apps/api/src/app/threads/threads.service.ts` methods `update` and `delete` do not verify actor owns thread or has moderator role.
-- Recommendation: In `ThreadsService.update/delete`, fetch thread owner and enforce `owner || moderator/admin`. Return `403` otherwise.
-- Test coverage needed: API tests for non-owner update/delete denied, owner allowed, moderator allowed.
+  - Policy minimum-role matrix now uses canonical platform roles in `apps/api/src/core/policies.ts`.
+  - `canPerformPolicyAction` now evaluates role hierarchy through `hasMinimumRole` (which maps DB roles to platform roles in `apps/api/src/core/authorization.ts`).
 
-### F-SEC-002
-- Severity: Blocker
-- Likelihood: High
-- Impact: High (group membership and post impersonation abuse)
+### F-SEC-001 (Closed)
 - Evidence:
-  - `apps/api/src/app/groups/groups.routes.ts` allows authenticated `POST /groups/:id/members`, `DELETE /groups/:id/members/:userId`, `POST /groups/:id/posts`.
-  - `apps/api/src/app/groups/groups.service.ts` methods `addMember`, `removeMember`, `createPost` have no actor authorization check.
-  - `apps/api/src/app/groups/groups.validators.ts` `GroupPostSchema` accepts client-supplied `authorId`.
-- Recommendation: Remove trust of body `authorId` (set from `req.user.id`), enforce group-role checks (`owner/admin/moderator`) for membership changes, require active membership with posting rights for posts.
-- Test coverage needed: IDOR tests for group membership/post APIs and role matrix tests.
+  - Ownership/moderator checks enforced in `apps/api/src/app/threads/threads.service.ts` (`update`, `delete`).
 
-### F-SEC-003
-- Severity: High
-- Likelihood: High
-- Impact: High (event attendee spoofing/removal)
+### F-SEC-002 (Closed)
 - Evidence:
-  - `apps/api/src/app/events/events.controller.ts` `addAttendee` validates body-supplied `userId` via `EventAttendeeSchema`.
-  - `apps/api/src/app/events/events.service.ts` `addAttendee` uses provided `userId` without actor check.
-  - `apps/api/src/app/events/events.routes.ts` `DELETE /events/:id/attendees/:userId` has no organizer/mod self-only guard.
-- Recommendation: Force attendee user to `req.user.id` for self-join/leave endpoints; add organizer/moderator-only paths for managing others.
-- Test coverage needed: attendee spoof attempts rejected; organizer moderation flows allowed.
+  - Group member/post authorization checks enforced in `apps/api/src/app/groups/groups.service.ts`.
+  - Request-body `authorId` no longer trusted from client in group posting flow.
 
-### F-SEC-004
-- Severity: High
-- Likelihood: High
-- Impact: High (cross-user notification data exposure/modification)
+### F-SEC-003 (Closed)
 - Evidence:
-  - `apps/api/src/app/notifications/notifications.routes.ts` exposes `/notifications/users/:userId*` endpoints.
-  - `apps/api/src/app/notifications/notifications.controller.ts` methods pass param `userId` directly to service.
-  - No check in service/controller that param userId equals authenticated user (or admin).
-- Recommendation: enforce `userId === req.user.id` unless elevated role; audit all notification endpoints for object-level auth.
-- Test coverage needed: unauthorized userId access blocked for read/write actions.
+  - Event attendee spoofing prevented in `apps/api/src/app/events/events.controller.ts` and `apps/api/src/app/events/events.service.ts`.
 
-### F-SEC-005
-- Severity: High
-- Likelihood: Medium
-- Impact: High (upload abuse / incorrect object access)
+### F-SEC-004 (Closed)
 - Evidence:
-  - `apps/api/src/app/media/media.routes.ts` exposes `GET /media/presigned-url/:username` without auth.
-  - `apps/api/src/app/media/media.controller.ts` `createPresignedS3URL` uses `GetObjectCommand` for upload URL flow and does not validate `type/ext` query.
-- Recommendation: require auth, bind key prefix to authenticated user, validate mime/ext whitelist, switch to `PutObjectCommand`, include size/type constraints and short expiry.
-- Test coverage needed: unauth access denied, invalid ext rejected, signed URL allows upload-only for actor prefix.
+  - Notification object-level checks enforced in `apps/api/src/app/notifications/notifications.controller.ts`.
 
-### F-SEC-006
-- Severity: High
-- Likelihood: Medium
-- Impact: Medium/High (webhook forgery handling + account lifecycle integrity)
+### F-SEC-005 (Closed)
 - Evidence:
-  - `apps/api/src/routes/clerk-webhook.ts` uses `webhook.verify(req.body, req.headers)` but app uses parsed JSON middleware globally (`apps/api/src/app.ts`), not raw body capture.
-  - `handleUserDeleted` hard deletes user row.
-- Recommendation: use raw-body verification path for webhook route; replace hard delete with anonymization/suspension workflow.
-- Test coverage needed: signature verification tests (valid/invalid), user deletion event preserves anonymized placeholder record.
+  - Presigned upload route requires auth and uses upload-safe behavior in `apps/api/src/app/media/media.routes.ts` and `apps/api/src/app/media/media.controller.ts`.
 
-## Auth / RBAC
-
-### F-AUTH-001
-- Severity: High
-- Likelihood: High
-- Impact: High (inconsistent authorization policy)
+### F-SEC-006 (Closed)
 - Evidence:
-  - Role taxonomy in code: `USER/EDITOR/ADMINISTRATOR/SUPER_ADMIN` (`apps/api/src/core/authorization.ts`, `apps/api/src/core/policies.ts`).
-  - Spec taxonomy: guest/member/moderator/admin (`docs/specs/main.md`).
-- Recommendation: define canonical role-to-permission matrix in one module and consume it in all route guards/service checks.
-- Test coverage needed: table-driven authorization tests per route/action.
+  - Clerk webhook raw verification path and anonymize-on-delete behavior in `apps/api/src/routes/clerk-webhook.ts`.
 
-### F-AUTH-002
-- Severity: Medium
-- Likelihood: Medium
-- Impact: Medium (client assumptions diverge from server auth)
+### F-AUTH-002 (Closed)
 - Evidence:
-  - frontend legacy auth hooks call `/auth/login`, `/auth/register`, `/auth/logout` (`apps/web/src/hooks/react-queries/auth.ts`)
-  - server has Clerk-based auth and no such handlers in `apps/api/src/routes/auth.routes.ts`.
-- Recommendation: remove dead auth flows in web, centralize Clerk token/session strategy.
-- Test coverage needed: frontend integration tests for auth guard + API token flow only.
+  - Legacy auth flow removed from `/auth` page in `apps/web/src/app/auth/page.tsx`.
+  - Legacy login/register/logout API calls replaced with Clerk redirects/sign-out in `apps/web/src/hooks/react-queries/auth.ts`.
 
-## Privacy
-
-### F-PRIV-001
-- Severity: Blocker
-- Likelihood: High
-- Impact: High (identity leak in pseudonymous Chika)
+### F-PRIV-001 (Closed)
 - Evidence:
-  - Thread retrieval always returns `user.username/email/alias`: `apps/api/src/app/threads/threads.service.ts` (`retrieve`, `retrieveAll`).
-  - Comment retrieval returns `user.username/alias`: `apps/api/src/app/threads/threads.service.ts` (`getComments`).
-  - No mode-aware redaction in these methods despite pseudonym tables (`apps/api/src/models/drizzle/chika.model.ts`).
-- Recommendation: in pseudonymous mode, serialize only pseudonym handle publicly; keep real identity only in moderation endpoint (`apps/api/src/app/moderation/moderation.service.ts` `revealThreadPseudonyms`).
-- Test coverage needed: pseudonymous thread/comment APIs never expose userId/username/alias to non-mod users.
+  - Pseudonymous identity redaction in thread/comment read paths in `apps/api/src/app/threads/threads.service.ts`.
 
-### F-PRIV-002
-- Severity: High
-- Likelihood: High
-- Impact: High (spec violation: coarse location default)
+### F-PRIV-002 (Closed)
 - Evidence:
-  - precise coordinates stored/exposed for dive spots: `lat/lng` in `apps/api/src/models/drizzle/diveSpots.model.ts` and accepted by `DiveSpotServerSchema` (`apps/api/src/app/diveSpot/diveSpot.validators.ts`).
-  - buddy finder returns raw `users.location/homeDiveArea` (`apps/api/src/app/buddies/buddies.service.ts` `finder`).
-- Recommendation: enforce coarse-location schema (city/region) for public surfaces; keep precise coordinates restricted or omitted by default.
-- Test coverage needed: serialization tests to ensure no precise lat/lng in default public endpoints.
+  - Dive spot lat/lng coarse handling and bounded validation in `apps/api/src/app/diveSpot/diveSpot.service.ts` and `apps/api/src/app/diveSpot/diveSpot.validators.ts`.
+  - Buddy location outputs sanitized to coarse values in `apps/api/src/app/buddies/buddies.service.ts`.
 
-### F-PRIV-003
-- Severity: High
-- Likelihood: Medium
-- Impact: High (blocking policy not universal)
+### F-PRIV-003 (Closed)
 - Evidence:
-  - blocking helpers used in profiles/threads/buddies/messages (`apps/api/src/core/blocking.ts`, services).
-  - no block checks in groups/events/notifications/read paths.
-  - no block-management API found (no route for creating/deleting `blocks`).
-- Recommendation: add block/unblock endpoints and shared policy middleware applied to all user-to-user visibility/read/write paths.
-- Test coverage needed: block matrix tests across messaging, buddy requests/finder, profiles, groups/events visibility.
+  - Block CRUD and cross-feature block checks in `apps/api/src/app/blocks/*`, `apps/api/src/app/events/events.service.ts`, `apps/api/src/app/groups/groups.service.ts`, `apps/api/src/app/messages/messages.service.ts`, `apps/api/src/app/threads/threads.service.ts`.
 
-## Moderation / Abuse
-
-### F-MOD-001
-- Severity: High
-- Likelihood: High
-- Impact: High (rate limits not correctly scoped)
+### F-MOD-001 (Closed)
 - Evidence:
-  - pseudonymous post limit counts all comments by user, regardless of thread mode (`apps/api/src/app/threads/threads.service.ts` `createComment`, query `count(comments.id)` only).
-- Recommendation: count only comments in pseudonymous threads (join with `thread_category_modes` mode = `PSEUDONYMOUS_CHIKA`).
-- Test coverage needed: separate counters for normal vs pseudonymous replies.
+  - Pseudonymous rate counting scoped correctly in `apps/api/src/app/threads/threads.service.ts`.
 
-### F-MOD-002
-- Severity: Medium
-- Likelihood: Medium
-- Impact: Medium (moderation consistency drift)
+### F-MOD-002 (Closed)
 - Evidence:
-  - reason-code enums strong in reports/moderation (`apps/api/src/app/reports/reports.validators.ts`, `apps/api/src/app/moderation/moderation.validators.ts`).
-  - marketplace/collaboration moderation payloads have no reason code (`apps/api/src/app/marketplace/marketplace.validators.ts`, `apps/api/src/app/collaboration/collaboration.validators.ts`).
-- Recommendation: require reasonCode/note on all moderation state transitions.
-- Test coverage needed: reject moderation actions missing reason codes.
+  - `reasonCode` required for moderation payloads in `apps/api/src/app/marketplace/marketplace.validators.ts` and `apps/api/src/app/collaboration/collaboration.validators.ts`.
+  - Reason metadata logged in moderation actions in `apps/api/src/app/marketplace/marketplace.service.ts` and `apps/api/src/app/collaboration/collaboration.service.ts`.
 
-## Data Integrity
-
-### F-DATA-001
-- Severity: High
-- Likelihood: Medium
-- Impact: High (spec conflict on account deletion)
+### F-DATA-001 (Closed)
 - Evidence:
-  - soft/anonymize flow exists: `UserService.anonymizeUserAccount` (`apps/api/src/app/user/user.service.ts`).
-  - Clerk webhook hard deletes user: `handleUserDeleted` in `apps/api/src/routes/clerk-webhook.ts`.
-- Recommendation: webhook delete should call anonymization path, not hard delete.
-- Test coverage needed: user deletion event retains anonymized community data placeholders.
+  - Webhook delete path anonymizes account in `apps/api/src/routes/clerk-webhook.ts`.
 
-### F-DATA-002
-- Severity: Medium
-- Likelihood: High
-- Impact: Medium (contract/runtime mismatches)
+### F-DATA-002 (Closed)
 - Evidence:
-  - event validator enum uses `eventType` values (`DIVE`, `TRAINING`, etc.) in `apps/api/src/app/events/events.validators.ts`.
-  - DB enum `EVENT_TYPE` values differ (`DIVE_SESSION`, `TRAINING`, etc.) in `apps/api/src/models/drizzle/events.model.ts`.
-- Recommendation: align request schema with DB enum and shared `@freediving.ph/types` contracts.
-- Test coverage needed: validator-model compatibility test and end-to-end event create/update tests.
+  - Event validator enums aligned in `apps/api/src/app/events/events.validators.ts`.
+  - Shared types aligned in `packages/types/src/index.ts` with compile-time checks in `packages/types/test/event-contracts.test.ts`.
 
-### F-DATA-003
-- Severity: Medium
-- Likelihood: Medium
-- Impact: Medium (migration discipline risk)
+### F-DATA-003 (Closed)
 - Evidence:
-  - migration folder has duplicate sequence numbers (`0002_*.sql`, `0022_*.sql`, `0023_*.sql`, `0024_*.sql`) in `apps/api/.drizzle/migrations`.
-- Recommendation: enforce migration naming/version policy and CI check for duplicates/order integrity.
-- Test coverage needed: CI script validating monotonic migration ordering and uniqueness.
+  - Migration discipline check in `apps/api/scripts/check-migrations.mjs` and CI step in `.github/workflows/ci.yml`.
 
-## Reliability
-
-### F-REL-001
-- Severity: High
-- Likelihood: High
-- Impact: High (error handling regression)
+### F-REL-001 (Closed)
 - Evidence:
-  - in `apps/api/src/utils/errorHandler.ts`, CSRF branch checks `if (invalidCsrfTokenError)` (module constant), not `err instanceof invalidCsrfTokenError`; this condition is always truthy and can misclassify errors.
-- Recommendation: perform proper instance/type check against incoming `err`.
-- Test coverage needed: error handler tests for CSRF vs non-CSRF errors.
+  - CSRF error classification fixed in `apps/api/src/utils/errorHandler.ts`.
 
-### F-REL-002
-- Severity: Medium
-- Likelihood: High
-- Impact: Medium (API shape inconsistency)
+### F-REL-002 (Closed)
 - Evidence:
-  - pagination metadata present in some services (threads/events/dive spots via `buildOffsetPagination`).
-  - missing in others returning lists (`messages.listMessages`, `reports.list`, buddies list endpoints).
-- Recommendation: standardize list response envelope with pagination across all UGC collections.
-- Test coverage needed: contract tests for paginated endpoints.
+  - Pagination metadata present in messages/reports/buddies list endpoints:
+    - `apps/api/src/app/messages/messages.service.ts`
+    - `apps/api/src/app/reports/reports.service.ts`
+    - `apps/api/src/app/buddies/buddies.service.ts`
 
-### F-REL-003
-- Severity: Low
-- Likelihood: Medium
-- Impact: Medium (route contract ambiguity)
+### F-REL-003 (Closed)
 - Evidence:
-  - comments/docs mention `/api/...` base (`apps/api/src/app.ts`, `apps/api/src/routes/index.route.ts`).
-  - router mount in `apps/api/src/routes/routes.config.ts` uses direct paths (`/auth`, `/threads`, etc.).
-- Recommendation: choose one API base path and enforce consistently in app, docs, and frontend clients.
-- Test coverage needed: smoke tests against canonical base path.
+  - Base-path messaging corrected to root-mounted routes in `apps/api/src/app.ts` and `apps/api/src/routes/index.route.ts`.
 
-## Performance
-
-### F-PERF-001
-- Severity: Medium
-- Likelihood: Medium
-- Impact: Medium (slow scans under load)
+### F-PERF-001 (Closed)
 - Evidence:
-  - many list endpoints filter/sort on fields lacking explicit indexes in models (e.g., reports status/reason createdAt in `apps/api/src/models/drizzle/moderation.model.ts`; thread/comment deleted filters in `apps/api/src/models/drizzle/threads.model.ts`).
-- Recommendation: add compound indexes for hot moderation, messaging, and forum queries based on observed where/order patterns.
-- Test coverage needed: explain-plan baseline scripts + regression checks for key queries.
+  - Hot-query explain baseline script added in `apps/api/scripts/explain-hot-queries.mjs`.
+  - CI hook added (conditional on `CI_DATABASE_URL`) in `.github/workflows/ci.yml`.
 
-## Observability
-
-### F-OBS-001
-- Severity: Medium
-- Likelihood: Medium
-- Impact: Medium (insufficient auditability for sensitive flows)
+### F-OBS-001 (Closed)
 - Evidence:
-  - audit logs inserted only in selected services (`rg insert(auditLogs)` across `apps/api/src/app/**`).
-  - no audit entries for anonymization path (`apps/api/src/app/user/user.service.ts`), buddy actions (`apps/api/src/app/buddies/buddies.service.ts`), or thread owner delete (`apps/api/src/app/threads/threads.service.ts`).
-- Recommendation: define mandatory audit events list and instrument all sensitive actions.
-- Test coverage needed: unit tests verifying audit insert calls for each protected action.
+  - Audit logging expanded to sensitive actions including buddies/thread/user anonymize flows in:
+    - `apps/api/src/app/buddies/buddies.service.ts`
+    - `apps/api/src/app/threads/threads.service.ts`
+    - `apps/api/src/app/user/user.service.ts`
 
-### F-OBS-002
-- Severity: Low
-- Likelihood: Medium
-- Impact: Medium (sensitive config leakage)
+### F-OBS-002 (Closed)
 - Evidence:
-  - DB URL logged in plain text in `apps/api/src/databases/drizzle/connection.ts` (`logDatabaseConnection`).
-- Recommendation: remove secrets from logs; use masked DSN.
-- Test coverage needed: logging tests/assertions for redaction.
+  - DB connection logging redacts sensitive URL components in `apps/api/src/databases/drizzle/connection.ts`.
 
-## DX
-
-### F-DX-001
-- Severity: Medium
-- Likelihood: High
-- Impact: Medium (contract drift between app and shared types)
+### F-DX-001 (Closed)
 - Evidence:
-  - shared `packages/types/src/index.ts` shapes diverge from API response shapes in multiple modules (threads/events/groups/message fields).
-- Recommendation: generate shared DTOs from backend schemas or enforce type contract tests between API responses and `@freediving.ph/types`.
-- Test coverage needed: consumer-driven contract tests in `apps/web/test` against API envelopes.
+  - Shared type alignment updates in `packages/types/src/index.ts`.
+  - Contract tests added in:
+    - `packages/types/test/event-contracts.test.ts`
+    - `packages/types/test/buddies-contracts.test.ts`
 
-### F-DX-002
-- Severity: Low
-- Likelihood: Medium
-- Impact: Medium
+### F-DX-002 (Closed)
 - Evidence:
-  - no `docs/audit` or operational runbooks were present before this audit; no backup/restore or moderation incident SOP found (`Unknown` after checking `docs/`, `terraform/`, `.github/`).
-- Recommendation: add minimal runbooks (backup/restore, moderation operations, incident triage).
-- Test coverage needed: n/a (process/documentation control).
+  - Runbooks added:
+    - `docs/runbooks/backup-restore.md`
+    - `docs/runbooks/moderation-ops.md`
+    - `docs/runbooks/incident-basics.md`
