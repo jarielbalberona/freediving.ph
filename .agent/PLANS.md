@@ -695,3 +695,101 @@ Replace legacy map integration and harden Explore, Buddy Finder, Events, and Com
 
 - Map integration is migrated in source code, with an ambient type shim to keep compile green until dependency installation is refreshed.
 - Follow-up: run `pnpm install` to update lockfile and fetch `@vis.gl/react-google-maps` package before production build/deploy.
+
+---
+
+# ExecPlan: Web Alignment To FPHGO (Base URL, Versioned Routes, Unified Session Guard)
+
+## 1. Title
+
+Align `apps/web` API and auth/session behavior to `services/fphgo`.
+
+## 2. Objective
+
+Eliminate route/base URL/auth drift by centralizing FPHGO base URL and route construction, moving messages/chika/session calls to v1 routes, and enforcing one session source with safe loading behavior in guards.
+
+## 3. Scope
+
+- `apps/web` only.
+- New centralized modules:
+  - `src/lib/api/fphgo-base-url.ts`
+  - `src/lib/api/fphgo-routes.ts`
+  - `src/lib/api/fphgo-fetch.ts`
+- Migrate messages/chika/auth-session call sites to use centralized route + fetch paths.
+- Replace split auth session layers with `useSession`.
+- Update env/docs/tests for FPHGO integration.
+
+## 4. Constraints And Non-Goals
+
+- Do not modify `apps/api/*`.
+- Do not modify `services/fphgo` routes to match web.
+- Keep Clerk + React Query + Next.js architecture.
+- Non-goal: full messages domain parity where FPHGO does not yet expose legacy endpoints.
+
+## 5. Acceptance Criteria
+
+- Web uses one authoritative FPHGO base URL helper.
+- Go-feature calls are `/v1`-prefixed and route-built centrally.
+- `AuthGuard` never denies while authz/session data is still loading.
+- Session query key is unified (`["session"]`).
+- Tests cover base URL, `/v1` route discipline, and guard behavior.
+
+## 6. Repo Evidence
+
+- API clients: `apps/web/src/lib/api/client.ts`, `apps/web/src/lib/api/server.ts`, `apps/web/src/lib/http/axios.ts`
+- Feature endpoints: `apps/web/src/features/messages/api/messages.ts`, `apps/web/src/features/chika/api/threads.ts`
+- Auth/session split: `apps/web/src/hooks/react-queries/auth.ts`, `apps/web/src/features/auth/auth-gate.tsx`, `apps/web/src/components/auth/guard.tsx`
+- FPHGO routes source of truth (read-only): `services/fphgo/internal/app/routes.go`, `services/fphgo/internal/features/messaging/http/routes.go`, `services/fphgo/internal/features/chika/http/routes.go`, `services/fphgo/internal/features/auth/http/routes.go`
+
+## 7. Risks And Rollback
+
+- Risk: messages/chika payload model mismatch because FPHGO schemas differ from legacy TS DTO assumptions.
+- Risk: hidden call sites may still use older axios path strings outside touched features.
+- Rollback: revert `apps/web` files listed under milestones and restore previous API clients/hooks.
+
+## 8. Milestones
+
+### Milestone 1: Audit and route/auth truth map
+
+- Goal: inventory non-v1 paths, client layers, and auth/session duplication.
+- Status: `done`
+
+### Milestone 2: Base URL + route centralization
+
+- Goal: add reusable base URL and v1 route builder modules and migrate high-risk call sites.
+- Status: `done`
+
+### Milestone 3: Fetch wrapper + client/server delegation
+
+- Goal: centralize token/header/error behavior and `/v1` dev assertion.
+- Status: `done`
+
+### Milestone 4: Unified session source + guard loading safety
+
+- Goal: collapse to one session hook and prevent early deny while loading.
+- Status: `done`
+
+### Milestone 5: Docs + regression tests + verification
+
+- Goal: codify env/run steps and add tests for route/authz guardrails.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `pnpm -C apps/web test`
+- `pnpm -C apps/web type-check`
+- `rg -n 'axiosInstance\.(get|post|put|patch|delete)\("/(messages|threads)' apps/web/src`
+- `rg -n 'queryKey:\s*\["auth",\s*"session"\]|\["auth",\s*"session"\]' apps/web/src`
+
+## 10. Progress Log
+
+- 2026-02-27: Added centralized base URL, route builders, and shared FPHGO fetch wrapper.
+- 2026-02-27: Rewired auth/session to `useSession` and updated `AuthGuard` to defer denial while loading.
+- 2026-02-27: Migrated messages/chika API modules to v1 route builders and centralized fetch.
+- 2026-02-27: Added env/docs updates and regression contract tests for base URL/routes/fetch/guard behavior.
+- 2026-02-27: `pnpm -C apps/web test` passed; `pnpm -C apps/web type-check` failed on pre-existing UI `asChild` typing issues in nav components.
+
+## 11. Outcomes And Follow-Ups
+
+- Follow-up: reconcile TS DTOs in `@freediving.ph/types` with FPHGO response models for stronger runtime correctness (especially messages/chika IDs/payload shape).
+- Follow-up: migrate remaining legacy axios feature modules to centralized route builders once corresponding FPHGO endpoints are confirmed.
