@@ -31,10 +31,15 @@ func RequestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			rec := &statusRecorder{ResponseWriter: w}
+			requestID := RequestIDFromContext(r.Context())
 
 			next.ServeHTTP(rec, r)
+			if rec.status == 0 {
+				rec.status = http.StatusOK
+			}
 
 			logger.Info("http_request",
+				slog.String("request_id", requestID),
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
 				slog.Int("status", rec.status),

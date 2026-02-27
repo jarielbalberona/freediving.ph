@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -18,11 +19,12 @@ func testLogger() *slog.Logger {
 }
 
 func TestHealthz(t *testing.T) {
-	router := NewRouter(
+	router := NewRouterWithBuildInfo(
 		config.Config{CORSOrigins: []string{"*"}},
 		&Dependencies{ReadyCheck: func(_ context.Context) error { return nil }},
 		testLogger(),
 		middleware.Recover(testLogger()),
+		BuildInfo{Version: "v1.2.3", Commit: "abc123", BuildTime: "2026-02-27T10:00:00Z"},
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -31,6 +33,17 @@ func TestHealthz(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("expected valid JSON payload, got %v", err)
+	}
+	if payload["version"] != "v1.2.3" {
+		t.Fatalf("expected version in healthz payload, got %q", payload["version"])
+	}
+	if payload["commit"] != "abc123" {
+		t.Fatalf("expected commit in healthz payload, got %q", payload["commit"])
 	}
 }
 

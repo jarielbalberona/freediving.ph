@@ -19,6 +19,12 @@ import (
 	platformlogger "fphgo/internal/platform/logger"
 )
 
+var (
+	Version   = "dev"
+	Commit    = "unknown"
+	BuildTime = "unknown"
+)
+
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -28,10 +34,10 @@ func main() {
 		clerk.SetKey(cfg.ClerkSecretKey)
 	}
 
-	logger := platformlogger.New(cfg.Env)
+	logger := platformlogger.New(cfg.Env, cfg.LogLevel)
 	ctx := context.Background()
 
-	pool, err := platformdb.NewPool(ctx, cfg.DBDSN)
+	pool, err := platformdb.NewPool(ctx, cfg.DBDSN, cfg.DBMaxConns, cfg.DBMinConns, cfg.DBConnMaxLife)
 	if err != nil {
 		logger.Error("failed to init db", "error", err)
 		os.Exit(1)
@@ -39,9 +45,15 @@ func main() {
 	defer pool.Close()
 
 	deps := app.BuildDependencies(logger, pool)
-	go deps.Hub.Run(ctx)
+	hubCtx, cancelHub := context.WithCancel(ctx)
+	defer cancelHub()
+	go deps.Hub.Run(hubCtx)
 
-	router := app.NewRouter(cfg, deps, logger, mid.Recover(logger))
+	router := app.NewRouterWithBuildInfo(cfg, deps, logger, mid.Recover(logger), app.BuildInfo{
+		Version:   Version,
+		Commit:    Commit,
+		BuildTime: BuildTime,
+	})
 	server := app.NewServer(cfg, router)
 
 	errCh := make(chan error, 1)
@@ -71,5 +83,6 @@ func main() {
 		logger.Error("server shutdown failed", "error", err)
 		os.Exit(1)
 	}
+	cancelHub()
 	logger.Info("server stopped")
 }

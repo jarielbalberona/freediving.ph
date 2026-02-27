@@ -3,15 +3,22 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
 	Env              string
+	LogLevel         string
 	DBDSN            string
+	DBMaxConns       int32
+	DBMinConns       int32
+	DBConnMaxLife    time.Duration
 	Port             string
 	APIBaseURL       string
 	CORSOrigins      []string
+	RateLimitPerMin  int
 	DevAuth          bool
 	ClerkSecretKey   string
 	ClerkJWTKey      string
@@ -50,27 +57,65 @@ func Load() (Config, error) {
 	if env == "" {
 		env = "development"
 	}
+	logLevel := strings.TrimSpace(strings.ToLower(os.Getenv("LOG_LEVEL")))
+	switch logLevel {
+	case "", "debug", "info", "warn", "error":
+	default:
+		return Config{}, fmt.Errorf("LOG_LEVEL must be one of: debug, info, warn, error")
+	}
 
 	devAuth := parseBoolEnv(os.Getenv("DEV_AUTH"))
+	rateLimitPerMin, err := parsePositiveIntEnv("RATE_LIMIT_PER_MINUTE", 300)
+	if err != nil {
+		return Config{}, err
+	}
+	dbMaxConns, err := parsePositiveIntEnv("DB_MAX_CONNS", 20)
+	if err != nil {
+		return Config{}, err
+	}
+	dbMinConns, err := parsePositiveIntEnv("DB_MIN_CONNS", 2)
+	if err != nil {
+		return Config{}, err
+	}
+	dbConnMaxLife, err := parseDurationEnv("DB_CONN_MAX_LIFETIME", 30*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
 	apiBaseURL := strings.TrimSpace(os.Getenv("API_BASE_URL"))
 	clerkSecretKey := strings.TrimSpace(os.Getenv("CLERK_SECRET_KEY"))
 	clerkJWTKey := strings.TrimSpace(os.Getenv("CLERK_JWT_KEY"))
 	clerkJWTIssuer := strings.TrimSpace(os.Getenv("CLERK_JWT_ISSUER"))
 	clerkJWTAudience := splitCSV(os.Getenv("CLERK_JWT_AUDIENCE"))
 
-	if strings.EqualFold(env, "production") && clerkSecretKey == "" {
-		return Config{}, fmt.Errorf("CLERK_SECRET_KEY is required in production")
+	if strings.EqualFold(env, "production") {
+		if clerkSecretKey == "" {
+			return Config{}, fmt.Errorf("CLERK_SECRET_KEY is required in production")
+		}
+		if devAuth {
+			return Config{}, fmt.Errorf("DEV_AUTH cannot be enabled in production")
+		}
+		if containsWildcardOrigin(origins) {
+			return Config{}, fmt.Errorf("CORS_ORIGINS cannot include '*' in production")
+		}
 	}
 	if clerkSecretKey == "" && !devAuth {
 		return Config{}, fmt.Errorf("CLERK_SECRET_KEY is required unless DEV_AUTH=true")
 	}
+	if dbMinConns > dbMaxConns {
+		return Config{}, fmt.Errorf("DB_MIN_CONNS cannot be greater than DB_MAX_CONNS")
+	}
 
 	return Config{
 		Env:              env,
+		LogLevel:         logLevel,
 		DBDSN:            dsn,
+		DBMaxConns:       int32(dbMaxConns),
+		DBMinConns:       int32(dbMinConns),
+		DBConnMaxLife:    dbConnMaxLife,
 		Port:             port,
 		APIBaseURL:       apiBaseURL,
 		CORSOrigins:      origins,
+		RateLimitPerMin:  rateLimitPerMin,
 		DevAuth:          devAuth,
 		ClerkSecretKey:   clerkSecretKey,
 		ClerkJWTKey:      clerkJWTKey,
@@ -99,4 +144,39 @@ func splitCSV(raw string) []string {
 		}
 	}
 	return values
+}
+
+func containsWildcardOrigin(origins []string) bool {
+	for _, origin := range origins {
+		if strings.TrimSpace(origin) == "*" {
+			return true
+		}
+	}
+	return false
+}
+
+func parsePositiveIntEnv(key string, fallback int) (int, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback, nil
+	}
+
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer", key)
+	}
+	return value, nil
+}
+
+func parseDurationEnv(key string, fallback time.Duration) (time.Duration, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback, nil
+	}
+
+	value, err := time.ParseDuration(raw)
+	if err != nil || value <= 0 {
+		return 0, fmt.Errorf("%s must be a positive duration (e.g. 30m)", key)
+	}
+	return value, nil
 }

@@ -31,13 +31,22 @@ await fetch("/v1/messages/inbox", {
 - `DB_DSN` (required)
 - `PORT` (optional, default `4000`)
 - `APP_ENV` (optional, default `development`)
+- `LOG_LEVEL` (optional: `debug|info|warn|error`; defaults to env-based behavior)
 - `CORS_ORIGINS` (optional, CSV)
+- `RATE_LIMIT_PER_MINUTE` (optional, default `300`)
+- `DB_MAX_CONNS` (optional, default `20`)
+- `DB_MIN_CONNS` (optional, default `2`, must be <= `DB_MAX_CONNS`)
+- `DB_CONN_MAX_LIFETIME` (optional duration, default `30m`)
 - `CLERK_SECRET_KEY` (required unless `DEV_AUTH=true`)
 - `CLERK_JWT_KEY` (optional, JSON web key string for local JWT verification)
 - `CLERK_JWT_ISSUER` (optional, exact `iss` claim expected)
 - `CLERK_JWT_AUDIENCE` (optional, CSV list, requires token `aud` overlap)
 - `DEV_AUTH` (optional, local dev fallback only)
 - `API_BASE_URL` (optional, public API origin metadata)
+
+Production guards:
+- `APP_ENV=production` rejects `DEV_AUTH=true`.
+- `APP_ENV=production` rejects wildcard `CORS_ORIGINS=*`.
 
 ## Example curl
 

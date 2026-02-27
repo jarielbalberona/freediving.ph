@@ -16,7 +16,7 @@ func TestNewPoolWithDatabase(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	pool, err := NewPool(ctx, dsn)
+	pool, err := NewPool(ctx, dsn, 20, 2, 30*time.Minute)
 	if err != nil {
 		t.Fatalf("expected pool to initialize, got error: %v", err)
 	}

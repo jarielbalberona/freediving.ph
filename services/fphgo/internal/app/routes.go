@@ -20,16 +20,39 @@ import (
 )
 
 func NewRouter(cfg config.Config, deps *Dependencies, logger *slog.Logger, recoverMW func(http.Handler) http.Handler) chi.Router {
+	return NewRouterWithBuildInfo(cfg, deps, logger, recoverMW, BuildInfo{})
+}
+
+func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.Logger, recoverMW func(http.Handler) http.Handler, build BuildInfo) chi.Router {
+	if cfg.RateLimitPerMin <= 0 {
+		cfg.RateLimitPerMin = 300
+	}
+	if build.Version == "" {
+		build.Version = "dev"
+	}
+	if build.Commit == "" {
+		build.Commit = "unknown"
+	}
+	if build.BuildTime == "" {
+		build.BuildTime = "unknown"
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RequestLogger(logger))
 	r.Use(recoverMW)
+	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.CORS(cfg.CORSOrigins, logger))
-	r.Use(middleware.RateLimit(300, time.Minute))
+	r.Use(middleware.RateLimit(cfg.RateLimitPerMin, time.Minute))
 
 	// Health checks: no auth so load balancers and Docker can hit them
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		httpx.JSON(w, http.StatusOK, map[string]string{
+			"status":     "ok",
+			"version":    build.Version,
+			"commit":     build.Commit,
+			"build_time": build.BuildTime,
+		})
 	})
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		if deps == nil || deps.ReadyCheck == nil {
