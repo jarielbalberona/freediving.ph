@@ -46,6 +46,9 @@ type ThreadResponse struct {
 	Title           string `json:"title"`
 	Mode            string `json:"mode"`
 	CreatedByUserID string `json:"createdByUserId"`
+	IsHidden        bool   `json:"is_hidden"`
+	HiddenAt        string `json:"hidden_at,omitempty"`
+	HiddenReason    string `json:"hidden_reason,omitempty"`
 	CreatedAt       string `json:"createdAt"`
 	UpdatedAt       string `json:"updatedAt"`
 }
@@ -59,11 +62,14 @@ type PostResponse struct {
 }
 
 type CommentResponse struct {
-	ID        int64  `json:"id"`
-	ThreadID  string `json:"threadId"`
-	Pseudonym string `json:"pseudonym"`
-	Content   string `json:"content"`
-	CreatedAt string `json:"createdAt"`
+	ID           int64  `json:"id"`
+	ThreadID     string `json:"threadId"`
+	Pseudonym    string `json:"pseudonym"`
+	Content      string `json:"content"`
+	IsHidden     bool   `json:"is_hidden"`
+	HiddenAt     string `json:"hidden_at,omitempty"`
+	HiddenReason string `json:"hidden_reason,omitempty"`
+	CreatedAt    string `json:"createdAt"`
 }
 
 type ReactionResponse struct {
@@ -85,6 +91,7 @@ type MediaAssetResponse struct {
 type ListThreadsResponse struct {
 	Items      []ThreadResponse `json:"items"`
 	Pagination Pagination       `json:"pagination"`
+	NextCursor string           `json:"nextCursor,omitempty"`
 }
 
 type ListPostsResponse struct {
@@ -95,6 +102,7 @@ type ListPostsResponse struct {
 type ListCommentsResponse struct {
 	Items      []CommentResponse `json:"items"`
 	Pagination Pagination        `json:"pagination"`
+	NextCursor string            `json:"nextCursor,omitempty"`
 }
 
 type ListMediaResponse struct {

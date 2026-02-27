@@ -1,59 +1,55 @@
 # Authz Permissions V1
 
-This document defines the feature-scoped permission baseline for `services/fphgo` and the staged migration away from broad `content.write` defaults.
+Last updated: 2026-02-27
 
-## Permission Catalog
+This defines the minimal feature-scoped permissions for currently implemented protected features and the staged migration away from broad member grants.
 
-### Messaging
-- `messaging.read`: read inbox/requests and websocket message feed
-- `messaging.write`: send/accept/reject conversation actions
-
-### Chika
-- `chika.read`: list/read threads, comments, media
-- `chika.write`: create/update/delete own threads/comments/reactions/media
-- `chika.moderate`: moderator-level moderation actions (reserved; service role checks still apply)
-
-### Explore
-- `explore.read`: browse explore resources
-- `explore.submit`: submit explore content
+## Minimal Permissions Per Feature
 
 ### Profiles
-- `profiles.read`: read profile resources
-- `profiles.write`: update own profile resources
+- `profiles.read`: `GET /v1/me/profile`, `GET /v1/profiles/{userID}`, `GET /v1/users/search`
+- `profiles.write`: `PATCH /v1/me/profile`
 
-### Existing Cross-Feature/System Permissions (kept for compatibility)
-- `users.read`, `users.manage`
-- `groups.read`, `groups.manage`
-- `events.read`, `events.manage`
-- `reports.read`, `reports.write`
-- `content.read`, `content.write` (legacy compatibility only; new route enforcement should use feature-scoped permissions)
+### Blocks
+- `blocks.read`: `GET /v1/blocks`
+- `blocks.write`: `POST /v1/blocks`, `DELETE /v1/blocks/{blockedUserId}`
 
-## Route Enforcement Baseline (Current)
+### Reports
+- `reports.write`: `POST /v1/reports`
+- `reports.read`: `GET /v1/reports`, `GET /v1/reports/{reportId}` (moderation read)
+- `reports.moderate`: `PATCH /v1/reports/{reportId}/status`
 
-- Messaging read routes use `messaging.read`.
-- Messaging write routes use `messaging.write`.
-- Chika read routes use `chika.read`.
-- Chika write routes use `chika.write`.
-- WebSocket endpoint uses `messaging.read`.
+### Messaging
+- `messaging.read`: `GET /v1/messages/inbox`, `GET /v1/messages/requests`, `GET /ws`
+- `messaging.write`: `POST /v1/messages/send`, `POST /v1/messages/{conversationId}/accept`, `POST /v1/messages/{conversationId}/reject`
 
-## Safe Migration Plan
+### Chika
+- `chika.read`: list/read threads/posts/comments/media endpoints
+- `chika.write`: create/update/delete threads/comments/reactions/media endpoints
+- `chika.moderate`: reserved moderator capability
 
-### Stage 1: Add granular permissions alongside broad permissions
-- Add permission constants and role mapping for granular permissions.
-- Keep legacy `content.*` constants for compatibility.
+## Where Default Grants Come From
 
-### Stage 2: Backfill existing users
-- Goose migration writes explicit granular permission overrides into `user_permission_overrides` based on current role.
-- Backfill ensures existing users retain access even if role defaults tighten later.
+- New/local users default to `users.global_role = 'member'`.
+- Effective permissions are computed in identity resolution:
+  - base role map from `internal/shared/authz.RolePermissions`
+  - merged with `user_permission_overrides` from DB
 
-### Stage 3: Remove broad default grants
-- Remove `content.write` from default role grants for `member` and enforce granular route checks.
-- New members no longer inherit broad write permission by default.
+## Staged Migration
 
-### Stage 4: Tighten enforcement
-- Route middleware checks granular permissions (`messaging.*`, `chika.*`, etc.) for protected endpoints.
+### Stage 1: Granular permissions introduced
+- Feature-scoped permission constants and route guards are used (`profiles.*`, `blocks.*`, `reports.*`, `messaging.*`, `chika.*`).
+- Legacy `content.*` constants remain for compatibility, but route guards should not depend on them.
 
-## Lockout Guardrail
+### Stage 2: Existing-user backfill
+- `0005_authz_granular_permissions.sql`: backfills messaging/chika/profiles/explore granular grants.
+- `0008_authz_blocks_reports_backfill.sql`: backfills blocks/reports granular grants.
+- Backfill writes explicit granular values into `user_permission_overrides` based on current role.
 
-- Elevated roles (`admin`, `super_admin`) retain management permissions.
-- Migration has a reversible `Down` section to remove added granular override keys if rollback is required.
+### Stage 3: Tighten member defaults
+- Broad `content.write` is not part of `member` default role grants.
+- New members rely on explicit feature-scoped defaults only.
+
+### Stage 4: Broad permission removed from enforcement
+- Protected routes are guarded by feature-scoped permissions only.
+- No route guard depends on `content.write`.

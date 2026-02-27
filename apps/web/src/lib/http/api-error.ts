@@ -1,5 +1,5 @@
 import { AxiosError } from "axios";
-import type { ApiError, ApiErrorIssue } from "@freediving.ph/types";
+import type { ApiError, ApiErrorIssue, RateLimitDetails } from "@freediving.ph/types";
 
 const toIssuePath = (value: unknown): string => {
   if (typeof value === "string") return value;
@@ -25,6 +25,11 @@ const toIssue = (value: unknown): ApiErrorIssue | null => {
     message,
     ...(code ? { code } : {}),
   };
+};
+
+const toDetails = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
 };
 
 const fallbackFromStatus = (status: number | null | undefined): Pick<ApiError, "code" | "message"> => {
@@ -55,11 +60,12 @@ export const toApiError = (payload: unknown, status?: number | null): ApiError =
     const issues = rawIssues
       ?.map(toIssue)
       .filter((issue): issue is ApiErrorIssue => issue !== null);
+    const details = toDetails(nested.details);
 
     return {
       code: code.toLowerCase(),
       message,
-      ...("details" in nested ? { details: nested.details } : {}),
+      ...(details ? { details } : {}),
       ...(issues && issues.length > 0 ? { issues } : {}),
     };
   }
@@ -115,4 +121,25 @@ export const getApiErrorStatus = (error: unknown): number | null => {
     return error.response?.status ?? null;
   }
   return null;
+};
+
+export const getRateLimitDetails = (error: unknown): RateLimitDetails | null => {
+  const parsed = getApiError(error);
+  if (parsed.code !== "rate_limited" || !parsed.details || typeof parsed.details !== "object") return null;
+  const details = parsed.details as Record<string, unknown>;
+  const windowSeconds = Number(details.window_seconds);
+  const retryAfterSeconds = Number(details.retry_after_seconds);
+  if (!Number.isFinite(windowSeconds) || !Number.isFinite(retryAfterSeconds)) return null;
+  return {
+    window_seconds: Math.max(1, Math.floor(windowSeconds)),
+    retry_after_seconds: Math.max(1, Math.floor(retryAfterSeconds)),
+  };
+};
+
+export const getRateLimitMessage = (error: unknown, fallback: string): string => {
+  const parsed = getApiError(error);
+  if (parsed.code !== "rate_limited") return getApiErrorMessage(error, fallback);
+  const details = getRateLimitDetails(error);
+  if (!details) return parsed.message || fallback;
+  return `Rate limit reached. Try again in ${details.retry_after_seconds}s.`;
 };

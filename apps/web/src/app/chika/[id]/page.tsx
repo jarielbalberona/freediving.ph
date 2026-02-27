@@ -40,12 +40,26 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
     );
   }
 
+  if (!thread) {
+    return (
+      <main>
+        <div className="xl:pr-96">
+          <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
+            <div className="container mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8">
+              <h1>Thread is no longer available.</h1>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main>
       <div className="xl:pr-96">
         <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
           <div className="container mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8">
-            {thread && <ThreadDetail thread={thread} />}
+            <ThreadDetail thread={thread} />
           </div>
         </div>
       </div>

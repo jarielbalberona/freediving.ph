@@ -55,7 +55,7 @@ func TestChikaWriteEndpointsRequireAuth(t *testing.T) {
 	}
 }
 
-func TestChikaWriteEndpointsRejectWithoutContentWrite(t *testing.T) {
+func TestChikaWriteEndpointsRejectWithoutChikaWrite(t *testing.T) {
 	v := validatex.New()
 	basePerms := authz.RolePermissions("member")
 	overrides := map[authz.Permission]bool{authz.PermissionChikaWrite: false}
@@ -75,7 +75,7 @@ func TestChikaWriteEndpointsRejectWithoutContentWrite(t *testing.T) {
 	router.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 without content.write, got %d", rec.Code)
+		t.Fatalf("expected 403 without chika.write, got %d", rec.Code)
 	}
 }
 

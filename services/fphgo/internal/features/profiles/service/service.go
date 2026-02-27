@@ -2,17 +2,47 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	profilesrepo "fphgo/internal/features/profiles/repo"
 	apperrors "fphgo/internal/shared/errors"
+	sharedratelimit "fphgo/internal/shared/ratelimit"
 )
 
 type Service struct {
-	repo *profilesrepo.Repo
+	repo    repository
+	limiter rateLimiter
+}
+
+type repository interface {
+	GetProfileByUserID(ctx context.Context, userID string) (profilesrepo.Profile, error)
+	UpsertMyProfile(ctx context.Context, input profilesrepo.UpsertProfileInput) (profilesrepo.Profile, error)
+	SearchUsers(ctx context.Context, viewerID, q string, limit int32) ([]profilesrepo.SearchUser, error)
+}
+
+type rateLimiter interface {
+	Allow(ctx context.Context, scope, key string, maxEvents int, window time.Duration) (sharedratelimit.Result, error)
+}
+
+type noopLimiter struct{}
+
+func (noopLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
+	return sharedratelimit.Result{Allowed: true}, nil
+}
+
+type Option func(*Service)
+
+func WithLimiter(limiter rateLimiter) Option {
+	return func(s *Service) {
+		if limiter != nil {
+			s.limiter = limiter
+		}
+	}
 }
 
 type Profile struct {
@@ -34,8 +64,14 @@ type UpdateMyProfileInput struct {
 	Socials     *map[string]string
 }
 
-func New(repo *profilesrepo.Repo) *Service {
-	return &Service{repo: repo}
+func New(repo repository, opts ...Option) *Service {
+	svc := &Service{repo: repo, limiter: noopLimiter{}}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func (s *Service) GetProfileByUserID(ctx context.Context, userID string) (Profile, error) {
@@ -57,6 +93,9 @@ func (s *Service) GetProfileByUserID(ctx context.Context, userID string) (Profil
 func (s *Service) UpdateMyProfile(ctx context.Context, input UpdateMyProfileInput) (Profile, error) {
 	if _, err := uuid.Parse(input.ActorID); err != nil {
 		return Profile{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if err := s.enforceRateLimit(ctx, "profiles.update", input.ActorID, 10, time.Minute, "profile update rate exceeded"); err != nil {
+		return Profile{}, err
 	}
 
 	current, err := s.repo.GetProfileByUserID(ctx, input.ActorID)
@@ -172,4 +211,19 @@ func trimSocials(input map[string]string) map[string]string {
 		result[strings.TrimSpace(key)] = trimmedValue
 	}
 	return result
+}
+
+func (s *Service) enforceRateLimit(ctx context.Context, scope, key string, maxEvents int, window time.Duration, message string) error {
+	result, err := s.limiter.Allow(ctx, scope, key, maxEvents, window)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "rate_limit_failed", "failed to enforce rate limit", err)
+	}
+	if result.Allowed {
+		return nil
+	}
+	retry := int(result.RetryAfter.Seconds())
+	if retry < 1 {
+		retry = 1
+	}
+	return apperrors.NewRateLimited(fmt.Sprintf("%s; retry after %ds", message, retry), int(window.Seconds()), retry)
 }

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getApiErrorMessage } from "@/lib/http/api-error";
+import { getApiErrorMessage, getRateLimitMessage } from "@/lib/http/api-error";
 
 export default function CreateThread() {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function CreateThread() {
       toast.success("Thread created successfully!");
       router.push("/chika");
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to create thread"));
+      toast.error(getRateLimitMessage(error, getApiErrorMessage(error, "Failed to create thread")));
     }
   };
 

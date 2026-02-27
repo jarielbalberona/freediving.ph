@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,30 +13,54 @@ import (
 	messagingrepo "fphgo/internal/features/messaging/repo"
 	"fphgo/internal/realtime/ws"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/pagination"
+	sharedratelimit "fphgo/internal/shared/ratelimit"
 )
 
 type Service struct {
-	repo messagingRepository
-	hub  messageBroadcaster
-
-	mu       sync.Mutex
-	cooldown map[string]time.Time
+	repo    messagingRepository
+	hub     messageBroadcaster
+	block   blockChecker
+	limiter rateLimiter
 }
 
 type messagingRepository interface {
-	IsBlockedEither(ctx context.Context, a, b string) (bool, error)
 	AreBuddies(ctx context.Context, a, b string) (bool, error)
 	UpsertDMConversation(ctx context.Context, senderID, recipientID, status string) (messagingrepo.Conversation, error)
 	InsertMessage(ctx context.Context, conversationID, senderID, content string) (int64, error)
 	GetConversation(ctx context.Context, conversationID string) (messagingrepo.Conversation, error)
 	IsParticipant(ctx context.Context, conversationID, userID string) (bool, error)
 	UpdateConversationStatus(ctx context.Context, conversationID, status string) error
-	Inbox(ctx context.Context, userID string) ([]messagingrepo.MessageItem, error)
+	Inbox(ctx context.Context, input messagingrepo.ListInboxInput) ([]messagingrepo.MessageItem, error)
 	Requests(ctx context.Context, userID string) ([]messagingrepo.MessageItem, error)
 }
 
 type messageBroadcaster interface {
 	BroadcastEnvelope(ws.Envelope)
+}
+
+type blockChecker interface {
+	IsBlockedEitherDirection(ctx context.Context, a, b string) (bool, error)
+}
+
+type rateLimiter interface {
+	Allow(ctx context.Context, scope, key string, maxEvents int, window time.Duration) (sharedratelimit.Result, error)
+}
+
+type noopLimiter struct{}
+
+func (noopLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
+	return sharedratelimit.Result{Allowed: true}, nil
+}
+
+type Option func(*Service)
+
+func WithLimiter(limiter rateLimiter) Option {
+	return func(s *Service) {
+		if limiter != nil {
+			s.limiter = limiter
+		}
+	}
 }
 
 type SendMessageInput struct {
@@ -51,8 +75,30 @@ type ConversationAction struct {
 	Status         string
 }
 
-func New(repo messagingRepository, hub messageBroadcaster) *Service {
-	return &Service{repo: repo, hub: hub, cooldown: map[string]time.Time{}}
+type InboxInput struct {
+	UserID string
+	Limit  int32
+	Cursor string
+}
+
+type InboxResult struct {
+	Items      []messagingrepo.MessageItem
+	NextCursor string
+}
+
+func New(repo messagingRepository, hub messageBroadcaster, blockService blockChecker, opts ...Option) *Service {
+	svc := &Service{
+		repo:    repo,
+		hub:     hub,
+		block:   blockService,
+		limiter: noopLimiter{},
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (ConversationAction, error) {
@@ -68,11 +114,11 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (Conv
 	if input.SenderID == input.RecipientID {
 		return ConversationAction{}, apperrors.New(http.StatusBadRequest, "invalid_recipient", "cannot message yourself", nil)
 	}
-	if err := s.enforceCooldown(input.SenderID); err != nil {
+	if err := s.enforceRateLimit(ctx, "messages.send", input.SenderID, 30, time.Minute, "sender message rate exceeded"); err != nil {
 		return ConversationAction{}, err
 	}
 
-	blocked, err := s.repo.IsBlockedEither(ctx, input.SenderID, input.RecipientID)
+	blocked, err := s.isBlockedEither(ctx, input.SenderID, input.RecipientID)
 	if err != nil {
 		return ConversationAction{}, apperrors.New(http.StatusInternalServerError, "block_check_failed", "failed to validate block state", err)
 	}
@@ -83,6 +129,12 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (Conv
 	areBuddies, err := s.repo.AreBuddies(ctx, input.SenderID, input.RecipientID)
 	if err != nil {
 		return ConversationAction{}, apperrors.New(http.StatusInternalServerError, "buddy_check_failed", "failed to validate buddy relationship", err)
+	}
+	if !areBuddies {
+		requestPairKey := input.SenderID + ":" + input.RecipientID
+		if err := s.enforceRateLimit(ctx, "messages.request_initiation", requestPairKey, 1, 2*time.Minute, "recipient initiation cooldown active"); err != nil {
+			return ConversationAction{}, err
+		}
 	}
 
 	status := "pending"
@@ -122,6 +174,10 @@ func (s *Service) Reject(ctx context.Context, conversationID, actorID string) (C
 }
 
 func (s *Service) transition(ctx context.Context, conversationID, actorID, action string) (ConversationAction, error) {
+	if err := s.enforceRateLimit(ctx, "messages.transition", actorID, 60, time.Minute, "conversation action rate exceeded"); err != nil {
+		return ConversationAction{}, err
+	}
+
 	conv, err := s.repo.GetConversation(ctx, conversationID)
 	if err != nil {
 		if messagingrepo.IsNoRows(err) {
@@ -142,6 +198,15 @@ func (s *Service) transition(ctx context.Context, conversationID, actorID, actio
 	if conv.Status != "pending" {
 		return ConversationAction{}, apperrors.New(http.StatusConflict, "invalid_state", "conversation is not pending", nil)
 	}
+	if action == "accepted" {
+		blocked, checkErr := s.isBlockedEither(ctx, actorID, conv.InitiatorUserID)
+		if checkErr != nil {
+			return ConversationAction{}, apperrors.New(http.StatusInternalServerError, "block_check_failed", "failed to validate block state", checkErr)
+		}
+		if blocked {
+			return ConversationAction{}, apperrors.New(http.StatusForbidden, "blocked", "messaging is blocked between users", nil)
+		}
+	}
 
 	nextStatus := "active"
 	if action == "rejected" {
@@ -156,12 +221,38 @@ func (s *Service) transition(ctx context.Context, conversationID, actorID, actio
 	return ConversationAction{ConversationID: conversationID, Status: nextStatus}, nil
 }
 
-func (s *Service) Inbox(ctx context.Context, userID string) ([]messagingrepo.MessageItem, error) {
-	items, err := s.repo.Inbox(ctx, userID)
-	if err != nil {
-		return nil, apperrors.New(http.StatusInternalServerError, "inbox_failed", "failed to fetch inbox", err)
+func (s *Service) Inbox(ctx context.Context, input InboxInput) (InboxResult, error) {
+	if input.Limit <= 0 || input.Limit > pagination.MaxLimit {
+		input.Limit = pagination.DefaultLimit
 	}
-	return items, nil
+	cursorCreated, cursorMessageID := pagination.DefaultInt64Cursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		createdAt, messageID, err := pagination.DecodeInt64(input.Cursor)
+		if err != nil {
+			return InboxResult{}, apperrors.New(http.StatusBadRequest, "validation_error", "invalid cursor", err)
+		}
+		cursorCreated = createdAt
+		cursorMessageID = messageID
+	}
+
+	items, err := s.repo.Inbox(ctx, messagingrepo.ListInboxInput{
+		UserID:          input.UserID,
+		CursorCreated:   cursorCreated,
+		CursorMessageID: cursorMessageID,
+		Limit:           input.Limit + 1,
+	})
+	if err != nil {
+		return InboxResult{}, apperrors.New(http.StatusInternalServerError, "inbox_failed", "failed to fetch inbox", err)
+	}
+
+	nextCursor := ""
+	if int32(len(items)) > input.Limit {
+		next := items[input.Limit-1]
+		nextCursor = pagination.Encode(next.CreatedAt, strconv.FormatInt(next.MessageID, 10))
+		items = items[:input.Limit]
+	}
+
+	return InboxResult{Items: items, NextCursor: nextCursor}, nil
 }
 
 func (s *Service) Requests(ctx context.Context, userID string) ([]messagingrepo.MessageItem, error) {
@@ -172,14 +263,24 @@ func (s *Service) Requests(ctx context.Context, userID string) ([]messagingrepo.
 	return items, nil
 }
 
-func (s *Service) enforceCooldown(senderID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	now := time.Now()
-	if until, exists := s.cooldown[senderID]; exists && now.Before(until) {
-		return apperrors.New(http.StatusTooManyRequests, "cooldown_active", "sender cooldown active", nil)
+func (s *Service) enforceRateLimit(ctx context.Context, scope, key string, maxEvents int, window time.Duration, message string) error {
+	result, err := s.limiter.Allow(ctx, scope, key, maxEvents, window)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "rate_limit_failed", "failed to enforce rate limit", err)
 	}
-	s.cooldown[senderID] = now.Add(250 * time.Millisecond)
-	return nil
+	if result.Allowed {
+		return nil
+	}
+	retry := int(result.RetryAfter.Seconds())
+	if retry < 1 {
+		retry = 1
+	}
+	return apperrors.NewRateLimited(fmt.Sprintf("%s; retry after %ds", message, retry), int(window.Seconds()), retry)
+}
+
+func (s *Service) isBlockedEither(ctx context.Context, a, b string) (bool, error) {
+	if s.block == nil {
+		return false, nil
+	}
+	return s.block.IsBlockedEitherDirection(ctx, a, b)
 }

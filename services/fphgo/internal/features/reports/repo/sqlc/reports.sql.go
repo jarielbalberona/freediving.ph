@@ -72,21 +72,23 @@ const createReport = `-- name: CreateReport :one
 INSERT INTO reports (
   reporter_app_user_id,
   target_type,
-  target_id,
+  target_uuid,
+  target_bigint,
   target_app_user_id,
   reason_code,
   details,
   evidence_urls,
   status
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, 'open')
-RETURNING id, reporter_app_user_id, target_type, target_id, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'open')
+RETURNING id, reporter_app_user_id, target_type, target_uuid, target_bigint, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
 `
 
 type CreateReportParams struct {
 	ReporterAppUserID pgtype.UUID `db:"reporter_app_user_id" json:"reporter_app_user_id"`
 	TargetType        string      `db:"target_type" json:"target_type"`
-	TargetID          string      `db:"target_id" json:"target_id"`
+	TargetUuid        pgtype.UUID `db:"target_uuid" json:"target_uuid"`
+	TargetBigint      *int64      `db:"target_bigint" json:"target_bigint"`
 	TargetAppUserID   pgtype.UUID `db:"target_app_user_id" json:"target_app_user_id"`
 	ReasonCode        string      `db:"reason_code" json:"reason_code"`
 	Details           *string     `db:"details" json:"details"`
@@ -97,7 +99,8 @@ func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) (Rep
 	row := q.db.QueryRow(ctx, createReport,
 		arg.ReporterAppUserID,
 		arg.TargetType,
-		arg.TargetID,
+		arg.TargetUuid,
+		arg.TargetBigint,
 		arg.TargetAppUserID,
 		arg.ReasonCode,
 		arg.Details,
@@ -108,7 +111,8 @@ func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) (Rep
 		&i.ID,
 		&i.ReporterAppUserID,
 		&i.TargetType,
-		&i.TargetID,
+		&i.TargetUuid,
+		&i.TargetBigint,
 		&i.TargetAppUserID,
 		&i.ReasonCode,
 		&i.Details,
@@ -120,43 +124,78 @@ func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) (Rep
 	return i, err
 }
 
-const findRecentReportByReporterAndTarget = `-- name: FindRecentReportByReporterAndTarget :one
+const findRecentReportByReporterAndTargetBigint = `-- name: FindRecentReportByReporterAndTargetBigint :one
 SELECT id, created_at
 FROM reports
 WHERE reporter_app_user_id = $1
   AND target_type = $2
-  AND target_id = $3
+  AND target_bigint = $3
   AND created_at >= $4
 ORDER BY created_at DESC
 LIMIT 1
 `
 
-type FindRecentReportByReporterAndTargetParams struct {
+type FindRecentReportByReporterAndTargetBigintParams struct {
 	ReporterAppUserID pgtype.UUID        `db:"reporter_app_user_id" json:"reporter_app_user_id"`
 	TargetType        string             `db:"target_type" json:"target_type"`
-	TargetID          string             `db:"target_id" json:"target_id"`
+	TargetBigint      *int64             `db:"target_bigint" json:"target_bigint"`
 	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-type FindRecentReportByReporterAndTargetRow struct {
+type FindRecentReportByReporterAndTargetBigintRow struct {
 	ID        pgtype.UUID        `db:"id" json:"id"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-func (q *Queries) FindRecentReportByReporterAndTarget(ctx context.Context, arg FindRecentReportByReporterAndTargetParams) (FindRecentReportByReporterAndTargetRow, error) {
-	row := q.db.QueryRow(ctx, findRecentReportByReporterAndTarget,
+func (q *Queries) FindRecentReportByReporterAndTargetBigint(ctx context.Context, arg FindRecentReportByReporterAndTargetBigintParams) (FindRecentReportByReporterAndTargetBigintRow, error) {
+	row := q.db.QueryRow(ctx, findRecentReportByReporterAndTargetBigint,
 		arg.ReporterAppUserID,
 		arg.TargetType,
-		arg.TargetID,
+		arg.TargetBigint,
 		arg.CreatedAt,
 	)
-	var i FindRecentReportByReporterAndTargetRow
+	var i FindRecentReportByReporterAndTargetBigintRow
+	err := row.Scan(&i.ID, &i.CreatedAt)
+	return i, err
+}
+
+const findRecentReportByReporterAndTargetUUID = `-- name: FindRecentReportByReporterAndTargetUUID :one
+SELECT id, created_at
+FROM reports
+WHERE reporter_app_user_id = $1
+  AND target_type = $2
+  AND target_uuid = $3
+  AND created_at >= $4
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type FindRecentReportByReporterAndTargetUUIDParams struct {
+	ReporterAppUserID pgtype.UUID        `db:"reporter_app_user_id" json:"reporter_app_user_id"`
+	TargetType        string             `db:"target_type" json:"target_type"`
+	TargetUuid        pgtype.UUID        `db:"target_uuid" json:"target_uuid"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type FindRecentReportByReporterAndTargetUUIDRow struct {
+	ID        pgtype.UUID        `db:"id" json:"id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) FindRecentReportByReporterAndTargetUUID(ctx context.Context, arg FindRecentReportByReporterAndTargetUUIDParams) (FindRecentReportByReporterAndTargetUUIDRow, error) {
+	row := q.db.QueryRow(ctx, findRecentReportByReporterAndTargetUUID,
+		arg.ReporterAppUserID,
+		arg.TargetType,
+		arg.TargetUuid,
+		arg.CreatedAt,
+	)
+	var i FindRecentReportByReporterAndTargetUUIDRow
 	err := row.Scan(&i.ID, &i.CreatedAt)
 	return i, err
 }
 
 const getReportByID = `-- name: GetReportByID :one
-SELECT id, reporter_app_user_id, target_type, target_id, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
+SELECT id, reporter_app_user_id, target_type, target_uuid, target_bigint, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
 FROM reports
 WHERE id = $1
 `
@@ -168,7 +207,8 @@ func (q *Queries) GetReportByID(ctx context.Context, id pgtype.UUID) (Report, er
 		&i.ID,
 		&i.ReporterAppUserID,
 		&i.TargetType,
-		&i.TargetID,
+		&i.TargetUuid,
+		&i.TargetBigint,
 		&i.TargetAppUserID,
 		&i.ReasonCode,
 		&i.Details,
@@ -217,7 +257,7 @@ func (q *Queries) ListReportEventsByReportID(ctx context.Context, reportID pgtyp
 }
 
 const listReportsForModeration = `-- name: ListReportsForModeration :many
-SELECT id, reporter_app_user_id, target_type, target_id, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
+SELECT id, reporter_app_user_id, target_type, target_uuid, target_bigint, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
 FROM reports r
 WHERE ($4::text IS NULL OR r.status = $4::text)
   AND ($5::text IS NULL OR r.target_type = $5::text)
@@ -256,7 +296,8 @@ func (q *Queries) ListReportsForModeration(ctx context.Context, arg ListReportsF
 			&i.ID,
 			&i.ReporterAppUserID,
 			&i.TargetType,
-			&i.TargetID,
+			&i.TargetUuid,
+			&i.TargetBigint,
 			&i.TargetAppUserID,
 			&i.ReasonCode,
 			&i.Details,
@@ -330,7 +371,7 @@ const updateReportStatus = `-- name: UpdateReportStatus :one
 UPDATE reports
 SET status = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, reporter_app_user_id, target_type, target_id, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
+RETURNING id, reporter_app_user_id, target_type, target_uuid, target_bigint, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
 `
 
 type UpdateReportStatusParams struct {
@@ -345,7 +386,8 @@ func (q *Queries) UpdateReportStatus(ctx context.Context, arg UpdateReportStatus
 		&i.ID,
 		&i.ReporterAppUserID,
 		&i.TargetType,
-		&i.TargetID,
+		&i.TargetUuid,
+		&i.TargetBigint,
 		&i.TargetAppUserID,
 		&i.ReasonCode,
 		&i.Details,

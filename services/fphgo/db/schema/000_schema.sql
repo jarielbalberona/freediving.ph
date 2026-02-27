@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS chika_threads (
   created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  hidden_at TIMESTAMPTZ,
   deleted_at TIMESTAMPTZ,
   CHECK (mode IN ('normal', 'pseudonymous'))
 );
@@ -109,6 +110,7 @@ CREATE TABLE IF NOT EXISTS chika_comments (
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  hidden_at TIMESTAMPTZ,
   deleted_at TIMESTAMPTZ
 );
 
@@ -167,7 +169,8 @@ CREATE TABLE IF NOT EXISTS reports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   target_type TEXT NOT NULL,
-  target_id TEXT NOT NULL,
+  target_uuid UUID,
+  target_bigint BIGINT,
   target_app_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   reason_code TEXT NOT NULL,
   details TEXT,
@@ -176,6 +179,11 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (target_type IN ('user', 'message', 'chika_thread', 'chika_comment')),
+  CHECK (
+    (target_type IN ('user', 'chika_thread') AND target_uuid IS NOT NULL AND target_bigint IS NULL)
+    OR
+    (target_type IN ('message', 'chika_comment') AND target_bigint IS NOT NULL AND target_uuid IS NULL)
+  ),
   CHECK (reason_code IN ('spam', 'harassment', 'impersonation', 'unsafe', 'other')),
   CHECK (status IN ('open', 'reviewing', 'resolved', 'rejected'))
 );
@@ -190,6 +198,44 @@ CREATE TABLE IF NOT EXISTS report_events (
   note TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (event_type IN ('created', 'status_changed', 'note_added'))
+);
+
+CREATE TABLE IF NOT EXISTS moderation_actions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL,
+  target_uuid UUID,
+  target_bigint BIGINT,
+  action TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  report_id UUID REFERENCES reports(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (target_type IN ('user', 'chika_thread', 'chika_comment')),
+  CHECK (
+    (target_type IN ('user', 'chika_thread') AND target_uuid IS NOT NULL AND target_bigint IS NULL)
+    OR
+    (target_type = 'chika_comment' AND target_bigint IS NOT NULL AND target_uuid IS NULL)
+  ),
+  CHECK (action IN (
+    'suspend_user',
+    'unsuspend_user',
+    'set_user_read_only',
+    'clear_user_read_only',
+    'hide_chika_thread',
+    'unhide_chika_thread',
+    'hide_chika_comment',
+    'unhide_chika_comment'
+  )),
+  CHECK (length(trim(reason)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS rate_limit_events (
+  id BIGSERIAL PRIMARY KEY,
+  scope TEXT NOT NULL,
+  key_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  window_seconds INTEGER NOT NULL,
+  CHECK (window_seconds > 0)
 );
 
 CREATE TABLE IF NOT EXISTS group_memberships (
@@ -232,10 +278,19 @@ CREATE INDEX IF NOT EXISTS idx_group_memberships_user ON group_memberships (user
 CREATE INDEX IF NOT EXISTS idx_event_memberships_user ON event_memberships (user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_status_created_at ON reports (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_reporter_app_user ON reports (reporter_app_user_id);
-CREATE INDEX IF NOT EXISTS idx_reports_target_lookup ON reports (target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_reports_target_uuid_lookup ON reports (target_type, target_uuid) WHERE target_uuid IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_reports_target_bigint_lookup ON reports (target_type, target_bigint) WHERE target_bigint IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_report_events_report_id ON report_events (report_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_report_events_actor_app_user ON report_events (actor_app_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_moderation_actions_actor_created_at ON moderation_actions (actor_app_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_moderation_actions_target_uuid_created_at ON moderation_actions (target_type, target_uuid, created_at DESC) WHERE target_uuid IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_moderation_actions_target_bigint_created_at ON moderation_actions (target_type, target_bigint, created_at DESC) WHERE target_bigint IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_moderation_actions_report_created_at ON moderation_actions (report_id, created_at DESC) WHERE report_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_rate_limit_events_scope_key_created_at ON rate_limit_events (scope, key_hash, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rate_limit_events_created_at ON rate_limit_events (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chika_threads_created_at ON chika_threads (created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_chika_threads_visible_created_at ON chika_threads (created_at DESC) WHERE deleted_at IS NULL AND hidden_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_posts_thread_created_at ON chika_posts (thread_id, created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_comments_thread_created_at ON chika_comments (thread_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_chika_comments_visible_thread_created_at ON chika_comments (thread_id, created_at DESC) WHERE deleted_at IS NULL AND hidden_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_assets_entity ON media_assets (entity_type, entity_id, created_at DESC);

@@ -45,7 +45,11 @@ func RateLimit(limit int, window time.Duration) func(http.Handler) http.Handler 
 			mu.Unlock()
 
 			if blocked {
-				httpx.Error(w, RequestIDFromContext(r.Context()), apperrors.New(http.StatusTooManyRequests, "rate_limited", "Too many requests", nil))
+				retryAfter := int(time.Until(b.windowEnd).Seconds())
+				if retryAfter < 1 {
+					retryAfter = 1
+				}
+				httpx.Error(w, RequestIDFromContext(r.Context()), apperrors.NewRateLimited("Too many requests", int(window.Seconds()), retryAfter))
 				return
 			}
 

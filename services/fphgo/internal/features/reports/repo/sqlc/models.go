@@ -30,6 +30,7 @@ type ChikaComment struct {
 	Content      string             `db:"content" json:"content"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	HiddenAt     pgtype.Timestamptz `db:"hidden_at" json:"hidden_at"`
 	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
@@ -51,6 +52,7 @@ type ChikaThread struct {
 	CreatedByUserID pgtype.UUID        `db:"created_by_user_id" json:"created_by_user_id"`
 	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	HiddenAt        pgtype.Timestamptz `db:"hidden_at" json:"hidden_at"`
 	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
@@ -138,6 +140,18 @@ type Message struct {
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ModerationAction struct {
+	ID             pgtype.UUID        `db:"id" json:"id"`
+	ActorAppUserID pgtype.UUID        `db:"actor_app_user_id" json:"actor_app_user_id"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetUuid     pgtype.UUID        `db:"target_uuid" json:"target_uuid"`
+	TargetBigint   *int64             `db:"target_bigint" json:"target_bigint"`
+	Action         string             `db:"action" json:"action"`
+	Reason         string             `db:"reason" json:"reason"`
+	ReportID       pgtype.UUID        `db:"report_id" json:"report_id"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type Profile struct {
 	UserID              pgtype.UUID        `db:"user_id" json:"user_id"`
 	Bio                 string             `db:"bio" json:"bio"`
@@ -153,7 +167,8 @@ type Report struct {
 	ID                pgtype.UUID        `db:"id" json:"id"`
 	ReporterAppUserID pgtype.UUID        `db:"reporter_app_user_id" json:"reporter_app_user_id"`
 	TargetType        string             `db:"target_type" json:"target_type"`
-	TargetID          string             `db:"target_id" json:"target_id"`
+	TargetUuid        pgtype.UUID        `db:"target_uuid" json:"target_uuid"`
+	TargetBigint      *int64             `db:"target_bigint" json:"target_bigint"`
 	TargetAppUserID   pgtype.UUID        `db:"target_app_user_id" json:"target_app_user_id"`
 	ReasonCode        string             `db:"reason_code" json:"reason_code"`
 	Details           *string            `db:"details" json:"details"`

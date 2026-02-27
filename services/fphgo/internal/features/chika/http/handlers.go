@@ -55,18 +55,19 @@ func (h *Handlers) ListThreads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, offset := parsePagination(r)
-	items, err := h.service.ListThreads(r.Context(), chikaservice.ListThreadsInput{
-		ViewerID: actor.ID,
-		Limit:    limit,
-		Offset:   offset,
+	result, err := h.service.ListThreads(r.Context(), chikaservice.ListThreadsInput{
+		ViewerID:   actor.ID,
+		ViewerRole: actor.Role,
+		Limit:      limit,
+		Cursor:     r.URL.Query().Get("cursor"),
 	})
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
 
-	resp := make([]ThreadResponse, 0, len(items))
-	for _, item := range items {
+	resp := make([]ThreadResponse, 0, len(result.Items))
+	for _, item := range result.Items {
 		resp = append(resp, threadResponse(item))
 	}
 
@@ -76,6 +77,7 @@ func (h *Handlers) ListThreads(w http.ResponseWriter, r *http.Request) {
 			Limit:  limit,
 			Offset: offset,
 		},
+		NextCursor: result.NextCursor,
 	})
 }
 
@@ -231,19 +233,20 @@ func (h *Handlers) ListComments(w http.ResponseWriter, r *http.Request) {
 	}
 	threadID := chi.URLParam(r, "threadId")
 	limit, offset := parsePagination(r)
-	items, err := h.service.ListComments(r.Context(), chikaservice.ListThreadCommentsInput{
-		ThreadID: threadID,
-		ViewerID: actor.ID,
-		Limit:    limit,
-		Offset:   offset,
+	result, err := h.service.ListComments(r.Context(), chikaservice.ListThreadCommentsInput{
+		ThreadID:   threadID,
+		ViewerID:   actor.ID,
+		ViewerRole: actor.Role,
+		Limit:      limit,
+		Cursor:     r.URL.Query().Get("cursor"),
 	})
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
 
-	resp := make([]CommentResponse, 0, len(items))
-	for _, item := range items {
+	resp := make([]CommentResponse, 0, len(result.Items))
+	for _, item := range result.Items {
 		resp = append(resp, commentResponse(item))
 	}
 
@@ -253,6 +256,7 @@ func (h *Handlers) ListComments(w http.ResponseWriter, r *http.Request) {
 			Limit:  limit,
 			Offset: offset,
 		},
+		NextCursor: result.NextCursor,
 	})
 }
 
@@ -439,11 +443,17 @@ func parsePagination(r *http.Request) (int32, int32) {
 }
 
 func threadResponse(input chikaservice.Thread) ThreadResponse {
+	hiddenAt := ""
+	if input.HiddenAt != nil {
+		hiddenAt = input.HiddenAt.UTC().Format(time.RFC3339)
+	}
 	return ThreadResponse{
 		ID:              input.ID,
 		Title:           input.Title,
 		Mode:            input.Mode,
 		CreatedByUserID: input.CreatedByUserID,
+		IsHidden:        input.HiddenAt != nil,
+		HiddenAt:        hiddenAt,
 		CreatedAt:       input.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       input.UpdatedAt.Format(time.RFC3339),
 	}
@@ -460,11 +470,17 @@ func postResponse(input chikaservice.Post) PostResponse {
 }
 
 func commentResponse(input chikaservice.Comment) CommentResponse {
+	hiddenAt := ""
+	if input.HiddenAt != nil {
+		hiddenAt = input.HiddenAt.UTC().Format(time.RFC3339)
+	}
 	return CommentResponse{
 		ID:        input.ID,
 		ThreadID:  input.ThreadID,
 		Pseudonym: input.Pseudonym,
 		Content:   input.Content,
+		IsHidden:  input.HiddenAt != nil,
+		HiddenAt:  hiddenAt,
 		CreatedAt: input.CreatedAt.Format(time.RFC3339),
 	}
 }

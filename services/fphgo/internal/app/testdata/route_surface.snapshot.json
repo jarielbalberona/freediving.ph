@@ -1,0 +1,48 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "pattern": "/healthz"
+    },
+    {
+      "method": "GET",
+      "pattern": "/readyz"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/auth/session"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/blocks/"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/me"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/me/profile"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/messages/inbox"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/reports/"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/users/search"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/threads"
+    }
+  ]
+}

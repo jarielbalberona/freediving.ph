@@ -218,6 +218,98 @@ Deliver thread/post/comment/reaction/media-metadata write and read APIs with ser
   - thread reactions
   - media asset metadata
 
+---
+
+# ExecPlan: Abuse Surface Audit and Write Guardrail Expansion
+
+## 1. Title
+
+Abuse surface audit and guardrail expansion for migrated write endpoints
+
+## 2. Objective
+
+Ensure no obvious migrated write endpoint in profiles/blocks/reports/messaging/chika is left without at least one abuse control (rate limit or cooldown), and verify with integration tests + updated rate-limit documentation.
+
+## 3. Scope
+
+- Audit all migrated write endpoints across:
+  - `profiles.write`
+  - `blocks.write`
+  - `reports.write`
+  - messaging write endpoints
+  - chika write endpoints
+- Add missing service-layer rate limits/cooldowns.
+- Add/expand integration tests for high-risk write endpoints.
+- Update `services/fphgo/docs/rate-limits-v1.md`.
+
+## 4. Constraints And Non-Goals
+
+- Keep existing authz behavior unchanged; only add abuse controls.
+- Keep limiter implementation on existing shared Postgres limiter.
+- Non-goal: introduce Redis/external distributed throttling in this pass.
+
+## 5. Acceptance Criteria
+
+- Every obvious migrated write endpoint has rate limit/cooldown coverage.
+- Rate-limit docs reflect actual enforced policy.
+- Integration tests cover at least five high-risk write endpoints with 429 contract assertions.
+
+## 6. Repo Evidence
+
+- App wiring: `services/fphgo/internal/app/app.go`
+- Feature routes:
+  - `services/fphgo/internal/features/profiles/http/routes.go`
+  - `services/fphgo/internal/features/blocks/http/routes.go`
+  - `services/fphgo/internal/features/reports/http/routes.go`
+  - `services/fphgo/internal/features/messaging/http/routes.go`
+  - `services/fphgo/internal/features/chika/http/routes.go`
+- Existing limiter infra: `services/fphgo/internal/shared/ratelimit/ratelimit.go`
+- Existing contract doc: `services/fphgo/docs/rate-limits-v1.md`
+
+## 7. Risks And Rollback
+
+- Risk: limits too aggressive for legitimate bursts.
+- Risk: constructor signature changes break dependency wiring/tests.
+- Rollback: revert service-level limiter hooks and policy table; keep previous endpoint behavior.
+
+## 8. Milestones
+
+### Milestone 1: Endpoint audit and policy map
+
+- Goal: identify write endpoints without guardrails.
+- Status: `done`
+
+### Milestone 2: Service-layer protection expansion
+
+- Goal: add missing rate-limit/cooldown checks in profiles/blocks/messaging/chika writes.
+- Status: `done`
+
+### Milestone 3: Integration coverage expansion
+
+- Goal: add HTTP integration assertions for missing high-risk writes.
+- Status: `done`
+
+### Milestone 4: Documentation and verification
+
+- Goal: update `rate-limits-v1.md` and run targeted tests.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `go test ./internal/features/profiles/http ./internal/features/blocks/http ./internal/features/reports/http ./internal/features/messaging/http ./internal/features/chika/http ./internal/app`
+
+## 10. Progress Log
+
+- 2026-02-27: Audited all migrated write routes and identified uncovered writes.
+- 2026-02-27: Added service-level limits for profiles patch, blocks write, messaging transitions, and remaining chika writes.
+- 2026-02-27: Added/expanded integration tests to assert 429 contract on high-risk endpoints.
+- 2026-02-27: Updated rate-limits doc with full endpoint coverage.
+
+## 11. Outcomes And Follow-Ups
+
+- Outcome: migrated write surface now has explicit abuse controls and documented policy coverage.
+- Follow-up: tune thresholds with production telemetry after first rollout window.
+
 ## 4. Constraints And Non-Goals
 
 - Non-goal: full feed/ranking implementation.
@@ -996,3 +1088,355 @@ Ship the first real profile feature set on `services/fphgo` with `/v1` contracts
 
 - Follow-up: evaluate migration off legacy `/profiles/{username}` route after all web callers are `/v1`.
 - Follow-up: decide whether to retire legacy `blocks` table after `user_blocks` rollout stabilizes.
+
+---
+
+# ExecPlan: Blocks v1 Enforcement (Messaging + Chika)
+
+## 1. Title
+
+Enforce block policy in messaging/chika read-write paths with integration proof and web guardrails
+
+## 2. Objective
+
+Guarantee that block relationships are enforced consistently in messaging and chika service paths, documented in compatibility docs, and verified by tests that exercise auth-protected routes.
+
+## 3. Scope
+
+- `services/fphgo/internal/features/messaging/*`
+- `services/fphgo/internal/features/chika/*`
+- `services/fphgo/docs/blocks-v1.md`
+- `services/fphgo/docs/api-compatibility-matrix.md`
+- `apps/web/src/app/messages/page.tsx`
+- `apps/web/src/app/chika/[id]/page.tsx`
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api/*`.
+- Keep policy logic in services/repo layers, not handlers.
+- Prefer SQL list filtering; use service-level block helper for write gating.
+
+## 5. Acceptance Criteria
+
+- Messaging send/request acceptance blocked both directions with `code: "blocked"`.
+- Messaging inbox/requests hide blocked relationships.
+- Chika thread/comment lists hide blocked authors both directions.
+- Chika writes keep blocked enforcement with `code: "blocked"`.
+- Integration tests cover enforcement behavior.
+
+## 6. Milestones
+
+### Milestone 1: Inventory and docs update
+
+- Goal: record affected endpoints and enforcement coverage.
+- Status: `done`
+
+### Milestone 2: Shared helper enforcement
+
+- Goal: use `IsBlockedEitherDirection` helper in messaging and chika services.
+- Status: `done`
+
+### Milestone 3: Test coverage
+
+- Goal: add integration tests for messaging/chika enforcement and repo filtering.
+- Status: `done`
+
+### Milestone 4: Web guardrails
+
+- Goal: blocked-send UX clarity and resilient UI when filtered items disappear.
+- Status: `done`
+
+## 7. Verification Plan
+
+- `cd services/fphgo && go test ./internal/features/messaging/... ./internal/features/chika/...`
+- `cd services/fphgo && go test ./...`
+
+## 8. Progress Log
+
+- 2026-02-27: Switched messaging block checks to shared `IsBlockedEitherDirection` helper and enforced accept transition.
+- 2026-02-27: Added messaging/chika enforcement integration tests and repo-level filtering tests.
+- 2026-02-27: Updated blocks/compatibility docs with explicit endpoint-level enforcement matrix.
+- 2026-02-27: Hardened web messages/chika pages for blocked or disappearing conversation/thread scenarios.
+
+# ExecPlan: Moderation Actions v1 (Audit-Backed Report Resolution)
+
+## 1. Title
+
+Implement Moderation Actions v1 in `services/fphgo` with minimal `apps/web` wiring.
+
+## 2. Objective
+
+Allow moderators to resolve reports through concrete account/content actions with immutable audit logging and permission-gated endpoints.
+
+## 3. Scope
+
+- `services/fphgo`:
+  - new feature package `internal/features/moderation_actions` (repo/sqlc + service + http routes)
+  - new migration + schema sync for `moderation_actions` and Chika `hidden_at` columns
+  - route wiring under `/v1/moderation/*`
+  - permission model updates (`moderation.read`, `moderation.write`)
+  - chika read-path filtering: hidden items suppressed for members, visible to moderators
+  - integration tests for authz, audit writes, and hidden-content visibility rules
+  - docs: `docs/moderation-actions-v1.md` + compatibility matrix update
+- `apps/web`:
+  - minimal FPHGO route/client wiring for moderation action calls
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api/*`.
+- Follow `services/fphgo/AGENTS.md` layering/validation rules.
+- No Redis/external service additions.
+- Non-goal: building a full moderation dashboard UI in this task.
+
+## 5. Acceptance Criteria
+
+- Endpoints exist and are permission-protected with `RequireMember` + `RequirePermission`.
+- Account actions (`suspend`, `unsuspend`, `read_only`, `clear`) and content actions (thread/comment `hide`/`unhide`) execute atomically with audit write.
+- Hidden thread/comment list behavior differs by role (member filtered, moderator visible).
+- Integration tests cover 401/403, audit record creation, and hidden-content visibility behavior.
+
+## 6. Repo Evidence
+
+- Router wiring and guards: `services/fphgo/internal/app/routes.go`, `services/fphgo/internal/middleware/clerk_auth.go`
+- Permission model: `services/fphgo/internal/shared/authz/authz.go`
+- Reports/chika feature patterns: `services/fphgo/internal/features/reports/*`, `services/fphgo/internal/features/chika/*`
+- Schema and migration drift checks: `services/fphgo/db/schema/000_schema.sql`, `services/fphgo/db/schema_drift_test.go`
+- Web FPHGO route wiring: `apps/web/src/lib/api/fphgo-routes.ts`, `apps/web/src/features/reports/api/reports.ts`
+
+## 7. Risks And Rollback
+
+- Risk: schema drift if migration and schema snapshot diverge.
+- Risk: hidden filtering could unintentionally hide moderator-visible content.
+- Risk: permission updates could overgrant/undergrant moderator access.
+- Rollback:
+  - revert new migration and schema updates
+  - unmount moderation routes and revert authz constants
+  - revert chika list filtering changes
+
+## 8. Milestones
+
+### Milestone 1: Data model and sqlc foundation
+
+- Goal: add `moderation_actions` table, add chika hidden columns, generate feature sqlc.
+- Status: `done`
+
+### Milestone 2: Feature implementation and route wiring
+
+- Goal: implement moderation_actions repo/service/http and mount `/v1/moderation` endpoints with permissions.
+- Status: `done`
+
+### Milestone 3: Hidden-content enforcement hooks
+
+- Goal: ensure hidden thread/comment list filtering for members with moderator visibility preserved.
+- Status: `done`
+
+### Milestone 4: Integration tests
+
+- Goal: cover 401/403, audit writes, and visibility behavior.
+- Status: `done`
+
+### Milestone 5: Docs and web wiring
+
+- Goal: add moderation actions docs, compatibility update, and minimal web route/api wiring.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && make sqlc`
+- `cd services/fphgo && go test ./internal/features/moderation_actions/... ./internal/features/chika/http/... ./internal/app/... ./db/...`
+- `cd services/fphgo && go test ./...`
+- `pnpm -C apps/web type-check` (or narrow checks if full type-check has known unrelated failures)
+
+## 10. Progress Log
+
+- 2026-02-27: Captured scope, constraints, and implementation milestones.
+- 2026-02-27: Added migration `0009_moderation_actions_v1.sql`, schema snapshot updates, and sqlc generation target for moderation actions.
+- 2026-02-27: Implemented `internal/features/moderation_actions` repo/service/http and mounted `/v1/moderation` routes behind `moderation.write`.
+- 2026-02-27: Added `moderation.read`/`moderation.write` to authz role permissions for moderator/admin/super_admin.
+- 2026-02-27: Updated Chika list filtering to hide `hidden_at` rows for members and include for moderator/admin/super_admin.
+- 2026-02-27: Added integration tests for moderation authz + audit behavior and chika hidden-content visibility behavior.
+- 2026-02-27: Updated docs (`moderation-actions-v1.md`, compatibility matrix addendum) and minimal web route/client wiring.
+- 2026-02-27: Verified `go test ./...` passes in `services/fphgo`; `pnpm -C apps/web type-check` fails only on pre-existing `asChild` typing errors in nav components.
+
+## 11. Outcomes And Follow-Ups
+
+- Moderation Actions v1 is implemented with permissioned, auditable account/content actions and hidden-content list enforcement by role.
+- Follow-up: add a moderation read endpoint for audit browsing if moderator timeline UI is prioritized.
+- Follow-up: resolve existing `apps/web` `asChild` typing errors in nav components to restore clean workspace-wide type-check.
+
+# ExecPlan: Operational Guardrails v1 (Rate Limits + Cursor Pagination)
+
+## 1. Title
+
+Implement operational guardrails in `services/fphgo` and minimal compatibility wiring in `apps/web`.
+
+## 2. Objective
+
+Throttle abusive write behavior and standardize list pagination semantics before scale traffic.
+
+## 3. Scope
+
+- `services/fphgo`:
+  - shared rate limit utility (`internal/shared/ratelimit`) backed by PostgreSQL
+  - migration + schema sync for rate limit table
+  - service-layer abuse controls for messaging and chika writes
+  - preserve and document reports cooldown/cap policy
+  - shared pagination helper (`internal/shared/pagination`) for limit clamp and cursor handling
+  - cursor-based standardization for: messages inbox, chika threads, chika comments, reports list, blocks list
+  - integration tests for `429 rate_limited` and stable cursor/ordering behavior
+  - docs: `docs/rate-limits-v1.md`
+- `apps/web`:
+  - no API break wiring changes required in this task unless needed for compatibility.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api/*`.
+- Follow `services/fphgo/AGENTS.md` layering and validation rules.
+- No Redis or external rate-limit infrastructure.
+- Non-goal: distributed global throttling across regions.
+
+## 5. Acceptance Criteria
+
+- Messaging and chika write bursts are throttled with HTTP `429` and `code: rate_limited`.
+- Reports abuse controls remain active and documented.
+- Cursor format/order semantics are consistent across targeted list endpoints.
+- Stable `nextCursor` behavior verified by tests.
+
+## 6. Repo Evidence
+
+- Messaging service/repo/http: `services/fphgo/internal/features/messaging/*`
+- Chika service/repo/http: `services/fphgo/internal/features/chika/*`
+- Reports list/cooldown: `services/fphgo/internal/features/reports/*`
+- Blocks list pagination: `services/fphgo/internal/features/blocks/*`
+- Current schema and migration checks: `services/fphgo/db/schema/000_schema.sql`, `services/fphgo/db/schema_drift_test.go`
+
+## 7. Risks And Rollback
+
+- Risk: over-aggressive limits could degrade normal UX.
+- Risk: pagination contract drift could break consumers expecting old offset shape.
+- Rollback:
+  - revert limiter integration in services
+  - revert cursor handler/service/repo changes
+  - revert migration/schema additions
+
+## 8. Milestones
+
+### Milestone 1: Shared foundations
+
+- Goal: add `ratelimit` + `pagination` shared packages and DB migration/table.
+- Status: `done`
+
+### Milestone 2: Abuse controls
+
+- Goal: enforce service-layer limits for messaging/chika; validate reports policy and error semantics.
+- Status: `done`
+
+### Milestone 3: Cursor pagination standardization
+
+- Goal: move targeted list endpoints to unified cursor/limit behavior.
+- Status: `done`
+
+### Milestone 4: Tests and docs
+
+- Goal: add integration coverage and `docs/rate-limits-v1.md`.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && go test ./internal/features/messaging/... ./internal/features/chika/... ./internal/features/reports/... ./internal/features/blocks/... ./internal/shared/... ./db/...`
+- `cd services/fphgo && go test ./...`
+
+## 10. Progress Log
+
+- 2026-02-27: Audited current cooldown/limit and pagination implementations and identified per-feature drift.
+- 2026-02-27: Added migration `0010_operational_guardrails_v1.sql` and schema snapshot updates for `rate_limit_events`.
+- 2026-02-27: Added `internal/shared/ratelimit` (PostgreSQL-backed event limiter) and `internal/shared/pagination` (limit clamp + cursor encode/decode).
+- 2026-02-27: Enforced service-layer rate limits for messaging send/initiation and chika thread/post/comment create paths.
+- 2026-02-27: Standardized cursor pagination behavior for messages inbox, chika threads/comments, reports list, and blocks list.
+- 2026-02-27: Added integration tests for `429 rate_limited` and stable cursor pagination behavior, and documented policies in `docs/rate-limits-v1.md`.
+- 2026-02-27: Verified with `go test ./internal/shared/... ./internal/features/messaging/... ./internal/features/chika/... ./internal/features/reports/... ./internal/features/blocks/... ./internal/app ./db` and `go test ./...`.
+
+## 11. Outcomes And Follow-Ups
+
+- Operational guardrails v1 are in place with documented, service-layer enforced abuse limits and standardized cursor semantics.
+- Follow-up: add periodic cleanup/TTL compaction for `rate_limit_events` if table growth becomes material in production.
+
+# ExecPlan: Contract and CI Gates v1 (Route Drift + Auth Regression)
+
+## 1. Title
+
+Implement CI and contract gates for `services/fphgo` to prevent route/auth regressions.
+
+## 2. Objective
+
+Fail PRs early when API route prefixes, authz behavior, or compatibility docs drift from expected contracts.
+
+## 3. Scope
+
+- GitHub Actions workflow updates for `services/fphgo` with Postgres-backed test run.
+- Contract tests in Go for `/v1` route invariants and key endpoint JSON/error shapes.
+- Auth-state regression tests for unauthenticated, no-permission, read_only, suspended behavior.
+- Lightweight docs gate test for compatibility matrix required entries.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api/*`.
+- Follow `services/fphgo/AGENTS.md` architecture and validation rules.
+- Non-goal: full web-side contract coverage beyond minimal gate support.
+
+## 5. Acceptance Criteria
+
+- CI boots Postgres, applies migrations, runs sqlc/vet/tests for `services/fphgo`.
+- Route/auth regressions fail via Go tests.
+- Compatibility matrix drift for required migrated features fails via docs gate test.
+
+## 6. Repo Evidence
+
+- Existing workflow: `.github/workflows/ci.yml`
+- Existing contract tests: `services/fphgo/internal/app/routes_contract_test.go`
+- Existing auth middleware tests: `services/fphgo/internal/middleware/clerk_auth_test.go`
+- Compatibility matrix doc: `services/fphgo/docs/api-compatibility-matrix.md`
+
+## 7. Risks And Rollback
+
+- Risk: strict route invariant checks may initially fail due known intentional exceptions.
+- Risk: CI runtime increase from DB-backed tests.
+- Rollback:
+  - revert workflow job additions
+  - loosen/adjust invariant allowlist in tests
+
+## 8. Milestones
+
+### Milestone 1: CI workflow hardening
+
+- Goal: add dedicated `services/fphgo` CI job with Postgres, migrations, sqlc, vet, tests.
+- Status: `pending`
+
+### Milestone 2: Contract and auth regression tests
+
+- Goal: add focused route/auth state contract tests in `internal/app`.
+- Status: `pending`
+
+### Milestone 3: Route surface + docs gate checks
+
+- Goal: add route invariant and compatibility-matrix content checks.
+- Status: `pending`
+
+### Milestone 4: Verification
+
+- Goal: run targeted and full Go tests.
+- Status: `pending`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && go test ./internal/app ./internal/middleware ./...`
+- `cd services/fphgo && go vet ./...`
+- `cd services/fphgo && go test ./...`
+
+## 10. Progress Log
+
+- 2026-02-27: Audited existing CI workflow and current contract/auth test coverage.
+
+## 11. Outcomes And Follow-Ups
+
+- Pending implementation.

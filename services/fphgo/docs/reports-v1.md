@@ -19,7 +19,9 @@ Reports v1 provides a minimum moderation pipeline for member-submitted abuse rep
 - `id` UUID PK
 - `reporter_app_user_id` UUID FK (`users.id`)
 - `target_type` (`user | message | chika_thread | chika_comment`)
-- `target_id` text (UUID for user/thread, numeric string for message/comment)
+- `target_uuid` UUID nullable (used for `user | chika_thread`)
+- `target_bigint` BIGINT nullable (used for `message | chika_comment`)
+- DB CHECK ensures exactly one typed target column is set based on `target_type`
 - `target_app_user_id` UUID nullable (resolved real author/subject)
 - `reason_code` (`spam | harassment | impersonation | unsafe | other`)
 - `details` text nullable
@@ -78,6 +80,7 @@ Reports v1 provides a minimum moderation pipeline for member-submitted abuse rep
   - `chika_comment`: resolve `chika_comments.author_user_id`
 - Self-reporting is rejected for `targetType=user`.
 - Cooldown: same reporter + same target can be reported once every 24 hours.
+  - cooldown window is configurable in service constructor config.
 - Daily cap: max 20 reports/day per reporter.
 - Status transitions:
   - `open -> reviewing | resolved | rejected`
@@ -105,4 +108,3 @@ Key codes:
 - `forbidden` (`403`)
 - `not_found` (`404`)
 - `rate_limited` (`429`) for cooldown/cap
-

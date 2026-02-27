@@ -47,7 +47,8 @@ type ReportEvent struct {
 type CreateReportInput struct {
 	ReporterUserID  string
 	TargetType      string
-	TargetID        string
+	TargetUUID      *string
+	TargetBigint    *int64
 	TargetAppUserID string
 	ReasonCode      string
 	Details         string
@@ -81,7 +82,8 @@ func (r *Repo) CreateReport(ctx context.Context, input CreateReportInput) (Repor
 	row, err := r.queries.CreateReport(ctx, reportsqlc.CreateReportParams{
 		ReporterAppUserID: toUUID(input.ReporterUserID),
 		TargetType:        input.TargetType,
-		TargetID:          input.TargetID,
+		TargetUuid:        toUUIDPtr(input.TargetUUID),
+		TargetBigint:      input.TargetBigint,
 		TargetAppUserID:   toUUIDNullable(input.TargetAppUserID),
 		ReasonCode:        input.ReasonCode,
 		Details:           details,
@@ -184,20 +186,44 @@ func (r *Repo) UpdateReportStatus(ctx context.Context, reportID, status string) 
 	return mapReport(row)
 }
 
-func (r *Repo) FindRecentReportByReporterAndTarget(ctx context.Context, reporterID, targetType, targetID string, since time.Time) (bool, time.Time, error) {
-	row, err := r.queries.FindRecentReportByReporterAndTarget(ctx, reportsqlc.FindRecentReportByReporterAndTargetParams{
-		ReporterAppUserID: toUUID(reporterID),
-		TargetType:        targetType,
-		TargetID:          targetID,
-		CreatedAt:         toTimestamptz(since),
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, time.Time{}, nil
+func (r *Repo) FindRecentReportByReporterAndTarget(
+	ctx context.Context,
+	reporterID, targetType string,
+	targetUUID *string,
+	targetBigint *int64,
+	since time.Time,
+) (bool, time.Time, error) {
+	if targetUUID != nil {
+		row, err := r.queries.FindRecentReportByReporterAndTargetUUID(ctx, reportsqlc.FindRecentReportByReporterAndTargetUUIDParams{
+			ReporterAppUserID: toUUID(reporterID),
+			TargetType:        targetType,
+			TargetUuid:        toUUID(*targetUUID),
+			CreatedAt:         toTimestamptz(since),
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return false, time.Time{}, nil
+			}
+			return false, time.Time{}, err
 		}
-		return false, time.Time{}, err
+		return true, row.CreatedAt.Time.UTC(), nil
 	}
-	return true, row.CreatedAt.Time.UTC(), nil
+	if targetBigint != nil {
+		row, err := r.queries.FindRecentReportByReporterAndTargetBigint(ctx, reportsqlc.FindRecentReportByReporterAndTargetBigintParams{
+			ReporterAppUserID: toUUID(reporterID),
+			TargetType:        targetType,
+			TargetBigint:      targetBigint,
+			CreatedAt:         toTimestamptz(since),
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return false, time.Time{}, nil
+			}
+			return false, time.Time{}, err
+		}
+		return true, row.CreatedAt.Time.UTC(), nil
+	}
+	return false, time.Time{}, errors.New("missing typed target id")
 }
 
 func (r *Repo) CountReportsByReporterSince(ctx context.Context, reporterID string, since time.Time) (int64, error) {
@@ -207,36 +233,40 @@ func (r *Repo) CountReportsByReporterSince(ctx context.Context, reporterID strin
 	})
 }
 
-func (r *Repo) ResolveTargetAuthor(ctx context.Context, targetType, targetID string) (string, error) {
+func (r *Repo) ResolveTargetAuthor(ctx context.Context, targetType string, targetUUID *string, targetBigint *int64) (string, error) {
 	switch targetType {
 	case "user":
-		id, err := r.queries.ResolveUserExists(ctx, toUUID(targetID))
+		if targetUUID == nil {
+			return "", errors.New("missing target uuid")
+		}
+		id, err := r.queries.ResolveUserExists(ctx, toUUID(*targetUUID))
 		if err != nil {
 			return "", err
 		}
 		return id.String(), nil
 	case "message":
-		messageID, err := strconv.ParseInt(targetID, 10, 64)
-		if err != nil {
-			return "", err
+		if targetBigint == nil {
+			return "", errors.New("missing target bigint")
 		}
-		authorID, err := r.queries.ResolveMessageAuthor(ctx, messageID)
+		authorID, err := r.queries.ResolveMessageAuthor(ctx, *targetBigint)
 		if err != nil {
 			return "", err
 		}
 		return authorID.String(), nil
 	case "chika_thread":
-		id, err := r.queries.ResolveChikaThreadAuthor(ctx, toUUID(targetID))
+		if targetUUID == nil {
+			return "", errors.New("missing target uuid")
+		}
+		id, err := r.queries.ResolveChikaThreadAuthor(ctx, toUUID(*targetUUID))
 		if err != nil {
 			return "", err
 		}
 		return id.String(), nil
 	case "chika_comment":
-		commentID, err := strconv.ParseInt(targetID, 10, 64)
-		if err != nil {
-			return "", err
+		if targetBigint == nil {
+			return "", errors.New("missing target bigint")
 		}
-		authorID, err := r.queries.ResolveChikaCommentAuthor(ctx, commentID)
+		authorID, err := r.queries.ResolveChikaCommentAuthor(ctx, *targetBigint)
 		if err != nil {
 			return "", err
 		}
@@ -257,11 +287,16 @@ func mapReport(row reportsqlc.Report) (Report, error) {
 			return Report{}, err
 		}
 	}
+	targetID, err := toTargetID(row.TargetType, row.TargetUuid, row.TargetBigint)
+	if err != nil {
+		return Report{}, err
+	}
+
 	return Report{
 		ID:              row.ID.String(),
 		ReporterUserID:  row.ReporterAppUserID.String(),
 		TargetType:      row.TargetType,
-		TargetID:        row.TargetID,
+		TargetID:        targetID,
 		TargetAppUserID: uuidOrEmpty(row.TargetAppUserID),
 		ReasonCode:      row.ReasonCode,
 		Details:         valueOrEmpty(row.Details),
@@ -278,11 +313,35 @@ func toUUID(value string) pgtype.UUID {
 	return id
 }
 
+func toUUIDPtr(value *string) pgtype.UUID {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return pgtype.UUID{}
+	}
+	return toUUID(*value)
+}
+
 func toUUIDNullable(value string) pgtype.UUID {
 	if strings.TrimSpace(value) == "" {
 		return pgtype.UUID{}
 	}
 	return toUUID(value)
+}
+
+func toTargetID(targetType string, targetUUID pgtype.UUID, targetBigint *int64) (string, error) {
+	switch targetType {
+	case "user", "chika_thread":
+		if !targetUUID.Valid {
+			return "", errors.New("missing target_uuid for uuid target type")
+		}
+		return targetUUID.String(), nil
+	case "message", "chika_comment":
+		if targetBigint == nil || *targetBigint <= 0 {
+			return "", errors.New("missing target_bigint for bigint target type")
+		}
+		return strconv.FormatInt(*targetBigint, 10), nil
+	default:
+		return "", errors.New("unsupported target type")
+	}
 }
 
 func toTimestamptz(value time.Time) pgtype.Timestamptz {

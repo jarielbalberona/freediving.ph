@@ -9,13 +9,13 @@ import { apiClient } from "@/lib/api/client";
 import { routes } from "@/lib/api/fphgo-routes";
 
 export type SessionStatus = "signed_out" | "loading" | "signed_in";
-export type MeResponse = SharedMeResponse;
+export type { MeResponse } from "@freediving.ph/types";
 
 export const SESSION_QUERY_KEY = ["session"] as const;
 
 export type SessionState = {
   status: SessionStatus;
-  me: MeResponse | null;
+  me: SharedMeResponse | null;
   permissions: string[];
   roles: GlobalRole[];
   hasPermission: (permission: string) => boolean;
@@ -29,7 +29,7 @@ export function useSession(): SessionState {
     queryKey: SESSION_QUERY_KEY,
     enabled: isLoaded && Boolean(isSignedIn),
     retry: false,
-    queryFn: () => apiClient<MeResponse>(routes.v1.me()),
+    queryFn: () => apiClient<SharedMeResponse>(routes.v1.me()),
   });
 
   if (!isLoaded) {

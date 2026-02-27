@@ -39,7 +39,7 @@ Web usage:
 - Caller: `useSession()` (`apps/web/src/features/auth/session/use-session.ts:34`)
 - Endpoint: `GET /v1/auth/session` via `routes.v1.me()` (`apps/web/src/lib/api/fphgo-routes.ts:5`)
 - Request body type: none
-- Expected response type (TS): local `MeResponse` in `apps/web/src/features/auth/session/use-session.ts`
+- Expected response type (TS): shared `MeResponse` from `@freediving.ph/types` in `apps/web/src/features/auth/session/use-session.ts`
 
 Go route:
 - Route: mounted as `/v1/auth/session` in `services/fphgo/internal/features/auth/http/routes.go:7`
@@ -299,14 +299,27 @@ Derived from `services/fphgo/internal/app/routes.go` and per-feature route files
 
 ## Profiles And Blocks v1 Addendum (2026-02-27)
 
-### New `/v1` Endpoints
+### Profiles v1 Truth Map
 
 | Endpoint | Method | Web caller | Go handler | Status |
 |---|---|---|---|---|
-| `/v1/me/profile` | `GET` | `profilesApi.getMyProfile()` in `apps/web/src/features/profiles/api/profiles.ts` | `GetMeProfile` in `services/fphgo/internal/features/profiles/http/handlers.go` | `OK` |
-| `/v1/me/profile` | `PATCH` | `profilesApi.updateMyProfile()` in `apps/web/src/features/profiles/api/profiles.ts` | `PatchMyProfile` in `services/fphgo/internal/features/profiles/http/handlers.go` | `OK` |
-| `/v1/profiles/{userID}` | `GET` | `profilesApi.getProfileByUserId()` in `apps/web/src/features/profiles/api/profiles.ts` | `GetProfileByUserID` in `services/fphgo/internal/features/profiles/http/handlers.go` | `OK` |
-| `/v1/users/search` | `GET` | `profilesApi.searchUsers()` in `apps/web/src/features/profiles/api/profiles.ts` | `SearchUsers` in `services/fphgo/internal/features/profiles/http/handlers.go` | `OK` |
+| `/v1/me/profile` | `GET` | `profilesApi.getMyProfile()` (`apps/web/src/features/profiles/api/profiles.ts:12`) via `routes.v1.profiles.me()` (`apps/web/src/lib/api/fphgo-routes.ts:26`) | `GetMeProfile` (`services/fphgo/internal/features/profiles/http/handlers.go:31`) mounted by `read.Get("/me/profile")` (`services/fphgo/internal/features/profiles/http/routes.go:15`) | `OK` |
+| `/v1/me/profile` | `PATCH` | `profilesApi.updateMyProfile()` (`apps/web/src/features/profiles/api/profiles.ts:20`) via `routes.v1.profiles.me()` (`apps/web/src/lib/api/fphgo-routes.ts:26`) | `PatchMyProfile` (`services/fphgo/internal/features/profiles/http/handlers.go:47`) mounted by `write.Patch("/me/profile")` (`services/fphgo/internal/features/profiles/http/routes.go:22`) | `OK` |
+| `/v1/profiles/{userID}` | `GET` | `profilesApi.getProfileByUserId()` (`apps/web/src/features/profiles/api/profiles.ts:16`) via `routes.v1.profiles.byUserId()` (`apps/web/src/lib/api/fphgo-routes.ts:27`) | `GetProfileByUserID` (`services/fphgo/internal/features/profiles/http/handlers.go:99`) mounted by `read.Get("/profiles/{userID}")` (`services/fphgo/internal/features/profiles/http/routes.go:16`) | `OK` |
+| `/v1/users/search` | `GET` | `profilesApi.searchUsers()` (`apps/web/src/features/profiles/api/profiles.ts:27`) via `routes.v1.profiles.searchUsers()` (`apps/web/src/lib/api/fphgo-routes.ts:28`) | `SearchUsers` (`services/fphgo/internal/features/profiles/http/handlers.go:110`) mounted by `read.Get("/users/search")` (`services/fphgo/internal/features/profiles/http/routes.go:17`) | `OK` |
+
+### Go Profile/Me Route Inventory
+
+| Endpoint | Method | Source | Auth/Permission |
+|---|---|---|---|
+| `/v1/me` | `GET` | Mounted in `services/fphgo/internal/app/routes.go` to `auth.http.Handlers.GetSession` | `RequireMember` |
+| `/v1/auth/session` | `GET` | Mounted in `services/fphgo/internal/app/routes.go:128` | `RequireMember` |
+| `/v1/me/profile` | `GET` | Mounted from profiles router at `services/fphgo/internal/app/routes.go:115` and `services/fphgo/internal/features/profiles/http/routes.go:15` | `RequireMember` + `profiles.read` |
+| `/v1/me/profile` | `PATCH` | Mounted from profiles router at `services/fphgo/internal/app/routes.go:115` and `services/fphgo/internal/features/profiles/http/routes.go:22` | `RequireMember` + `profiles.write` |
+| `/v1/profiles/{userID}` | `GET` | Mounted from profiles router at `services/fphgo/internal/app/routes.go:115` and `services/fphgo/internal/features/profiles/http/routes.go:16` | `RequireMember` + `profiles.read` |
+| `/v1/users/search` | `GET` | Mounted from profiles router at `services/fphgo/internal/app/routes.go:115` and `services/fphgo/internal/features/profiles/http/routes.go:17` | `RequireMember` + `profiles.read` |
+
+### Blocks v1 Endpoints
 | `/v1/blocks` | `GET` | `blocksApi.list()` in `apps/web/src/features/blocks/api/blocks.ts` | `ListBlocks` in `services/fphgo/internal/features/blocks/http/handlers.go` | `OK` |
 | `/v1/blocks` | `POST` | `blocksApi.block()` in `apps/web/src/features/blocks/api/blocks.ts` | `CreateBlock` in `services/fphgo/internal/features/blocks/http/handlers.go` | `OK` |
 | `/v1/blocks/{blockedUserId}` | `DELETE` | `blocksApi.unblock()` in `apps/web/src/features/blocks/api/blocks.ts` | `DeleteBlock` in `services/fphgo/internal/features/blocks/http/handlers.go` | `OK` |
@@ -315,7 +328,19 @@ Derived from `services/fphgo/internal/app/routes.go` and per-feature route files
 
 - Profiles endpoints are scoped to `profiles.read`/`profiles.write` permissions.
 - Blocks endpoints are scoped to `blocks.read`/`blocks.write` permissions.
-- Messaging and chika now enforce user block policy in service-driven read/write paths using `user_blocks`.
+- Messaging and chika enforce user block policy in service-driven read/write paths using `user_blocks`.
+- Blocked write actions return `403` with `error.code = "blocked"` for:
+  - `POST /v1/messages/send`
+  - `POST /v1/messages/{conversationId}/accept`
+  - `POST /v1/chika/threads/{threadId}/posts`
+  - `POST /v1/chika/threads/{threadId}/comments`
+  - `POST /v1/chika/threads/{threadId}/reactions`
+- Blocked-read filtering is applied for:
+  - `GET /v1/messages/inbox`
+  - `GET /v1/messages/requests`
+  - `GET /v1/chika/threads`
+  - `GET /v1/chika/threads/{threadId}/posts`
+  - `GET /v1/chika/threads/{threadId}/comments`
 - Blocks list endpoint supports cursor pagination (`limit`, `cursor`) with stable ordering.
 
 ## Reports v1 Addendum (2026-02-27)
@@ -336,3 +361,31 @@ Derived from `services/fphgo/internal/app/routes.go` and per-feature route files
 - Status updates are scoped to `reports.moderate`.
 - Report create/status changes write audit events in `report_events`.
 - Service layer enforces same-target cooldown (24h) and daily per-reporter cap.
+
+## Moderation Actions v1 Addendum (2026-02-27)
+
+### Web Route Wiring
+
+- Route helpers added in `apps/web/src/lib/api/fphgo-routes.ts` under `routes.v1.moderation.*`.
+- API caller wiring added in `apps/web/src/features/reports/api/reports.ts`:
+  - `suspendUser`
+  - `unsuspendUser`
+  - `setUserReadOnly`
+  - `clearUserReadOnly`
+  - `hideThread`
+  - `unhideThread`
+  - `hideComment`
+  - `unhideComment`
+
+### Go Endpoint Inventory (Moderation)
+
+| Method | Path | Handler | Auth requirement |
+|---|---|---|---|
+| `POST` | `/v1/moderation/users/{appUserId}/suspend` | `moderation_actions.http.Handlers.SuspendUser` | `RequireMember` + `RequirePermission(moderation.write)` |
+| `POST` | `/v1/moderation/users/{appUserId}/unsuspend` | `moderation_actions.http.Handlers.UnsuspendUser` | `RequireMember` + `RequirePermission(moderation.write)` |
+| `POST` | `/v1/moderation/users/{appUserId}/read-only` | `moderation_actions.http.Handlers.SetUserReadOnly` | `RequireMember` + `RequirePermission(moderation.write)` |
+| `POST` | `/v1/moderation/users/{appUserId}/read-only/clear` | `moderation_actions.http.Handlers.ClearUserReadOnly` | `RequireMember` + `RequirePermission(moderation.write)` |
+| `POST` | `/v1/moderation/chika/threads/{threadId}/hide` | `moderation_actions.http.Handlers.HideThread` | `RequireMember` + `RequirePermission(moderation.write)` |
+| `POST` | `/v1/moderation/chika/threads/{threadId}/unhide` | `moderation_actions.http.Handlers.UnhideThread` | `RequireMember` + `RequirePermission(moderation.write)` |
+| `POST` | `/v1/moderation/chika/comments/{commentId}/hide` | `moderation_actions.http.Handlers.HideComment` | `RequireMember` + `RequirePermission(moderation.write)` |
+| `POST` | `/v1/moderation/chika/comments/{commentId}/unhide` | `moderation_actions.http.Handlers.UnhideComment` | `RequireMember` + `RequirePermission(moderation.write)` |

@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 
 	"fphgo/internal/config"
+	authhttp "fphgo/internal/features/auth/http"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/authz"
 	"fphgo/internal/shared/httpx"
@@ -33,6 +35,7 @@ func TestV1CoreEndpointsRequireAuth(t *testing.T) {
 	router := buildContractRouter()
 
 	paths := []string{
+		"/v1/me",
 		"/v1/auth/session",
 		"/v1/messages/inbox",
 		"/v1/chika/threads",
@@ -100,6 +103,27 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		if _, ok := scopes["event"]; !ok {
 			t.Fatal("expected scopes.event")
 		}
+	})
+
+	t.Run("GET /v1/me", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/me", nil)
+		req.Header.Set("Authorization", "Bearer contract-ok")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		assertStringField(t, payload, "userId")
+		assertStringField(t, payload, "clerkSubject")
+		assertStringField(t, payload, "globalRole")
+		assertStringField(t, payload, "accountStatus")
+		assertArrayField(t, payload, "permissions")
 	})
 
 	t.Run("GET /v1/messages/inbox", func(t *testing.T) {
@@ -270,6 +294,83 @@ func TestValidationErrorContractIncludesIssues(t *testing.T) {
 	}
 }
 
+func TestAuthStateGuardsOnProtectedAndWriteRoutes(t *testing.T) {
+	router := buildContractRouter()
+
+	t.Run("signed out is 401", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/reports", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d", rec.Code)
+		}
+		assertErrorCode(t, rec.Body.Bytes(), "unauthenticated")
+	})
+
+	t.Run("missing permission is 403", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/messages/inbox", nil)
+		req.Header.Set("Authorization", "Bearer contract-no-messaging-read")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403, got %d", rec.Code)
+		}
+		assertErrorCode(t, rec.Body.Bytes(), "forbidden")
+	})
+
+	t.Run("read_only cannot write", func(t *testing.T) {
+		body := strings.NewReader(`{"title":"blocked write","mode":"normal"}`)
+		req := httptest.NewRequest(http.MethodPost, "/v1/chika/threads", body)
+		req.Header.Set("Authorization", "Bearer contract-read-only")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403, got %d", rec.Code)
+		}
+		assertErrorCode(t, rec.Body.Bytes(), "forbidden")
+	})
+
+	t.Run("suspended cannot write", func(t *testing.T) {
+		body := strings.NewReader(`{"recipientId":"550e8400-e29b-41d4-a716-446655440003","content":"hello"}`)
+		req := httptest.NewRequest(http.MethodPost, "/v1/messages/send", body)
+		req.Header.Set("Authorization", "Bearer contract-suspended")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403, got %d", rec.Code)
+		}
+		assertErrorCode(t, rec.Body.Bytes(), "forbidden")
+	})
+}
+
+func TestRouteSurfaceInvariants(t *testing.T) {
+	router := buildContractRouter()
+
+	seen := map[string]struct{}{}
+	allowNonV1 := map[string]bool{
+		"/healthz": true,
+		"/readyz":  true,
+	}
+
+	walkErr := chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		key := method + " " + route
+		if _, ok := seen[key]; ok {
+			t.Fatalf("duplicate route registered: %s", key)
+		}
+		seen[key] = struct{}{}
+
+		if !allowNonV1[route] && !strings.HasPrefix(route, "/v1/") {
+			t.Fatalf("route must be under /v1: %s", key)
+		}
+		return nil
+	})
+	if walkErr != nil {
+		t.Fatalf("walk routes: %v", walkErr)
+	}
+}
+
 func buildContractRouter() chi.Router {
 	authRoutes := chi.NewRouter()
 	authRoutes.Get("/session", func(w http.ResponseWriter, r *http.Request) {
@@ -383,6 +484,7 @@ func buildContractRouter() chi.Router {
 	})
 
 	deps := &Dependencies{
+		AuthHandler:     authhttp.New(),
 		AuthRoutes:      authRoutes,
 		MessagingRoutes: messagesRoutes,
 		ChikaRoutes:     chikaRoutes,
@@ -399,33 +501,62 @@ func buildContractRouter() chi.Router {
 func contractAuthMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get("Authorization") != "Bearer contract-ok" {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			identity := authz.Identity{
-				UserID:        "550e8400-e29b-41d4-a716-446655440000",
-				ClerkUserID:   "user_contract",
-				GlobalRole:    "member",
-				AccountStatus: "active",
-				Permissions: map[authz.Permission]bool{
-					authz.PermissionMessagingRead:   true,
-					authz.PermissionMessagingWrite:  true,
-					authz.PermissionChikaRead:       true,
-					authz.PermissionChikaWrite:      true,
-					authz.PermissionProfilesRead:    true,
-					authz.PermissionProfilesWrite:   true,
-					authz.PermissionBlocksRead:      true,
-					authz.PermissionBlocksWrite:     true,
-					authz.PermissionReportsRead:     true,
-					authz.PermissionReportsWrite:    true,
-					authz.PermissionReportsModerate: true,
-				},
+			identity, ok := contractIdentity(authHeader)
+			if !ok {
+				next.ServeHTTP(w, r)
+				return
 			}
+
 			ctx := middleware.WithIdentity(r.Context(), identity)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+func contractIdentity(authHeader string) (authz.Identity, bool) {
+	base := authz.Identity{
+		UserID:        "550e8400-e29b-41d4-a716-446655440000",
+		ClerkUserID:   "user_contract",
+		GlobalRole:    "member",
+		AccountStatus: "active",
+		Permissions:   authz.RolePermissions("moderator"),
+	}
+
+	switch authHeader {
+	case "Bearer contract-ok":
+		return base, true
+	case "Bearer contract-no-messaging-read":
+		delete(base.Permissions, authz.PermissionMessagingRead)
+		return base, true
+	case "Bearer contract-read-only":
+		base.AccountStatus = "read_only"
+		return base, true
+	case "Bearer contract-suspended":
+		base.AccountStatus = "suspended"
+		return base, true
+	default:
+		return authz.Identity{}, false
+	}
+}
+
+func assertErrorCode(t *testing.T, body []byte, want string) {
+	t.Helper()
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("expected JSON error payload: %v", err)
+	}
+	errorMap, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatal("expected error object")
+	}
+	if got := errorMap["code"]; got != want {
+		t.Fatalf("expected error code %s, got %v", want, got)
 	}
 }
 

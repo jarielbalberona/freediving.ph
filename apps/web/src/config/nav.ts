@@ -16,6 +16,7 @@ import {
   Leaf,
   Store,
   Handshake,
+  Gavel,
 } from "lucide-react";
 
 export const navigation = [
@@ -95,6 +96,13 @@ export const navigation = [
     icon: ShieldAlert,
     isActive: false,
     isProtected: false,
+  },
+  {
+    title: "Moderation",
+    url: "/moderation/reports",
+    icon: Gavel,
+    isActive: false,
+    isProtected: true,
   },
   {
     title: "Awareness",

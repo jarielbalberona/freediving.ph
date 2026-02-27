@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -48,11 +49,18 @@ func (m *memoryReportsRepo) CreateReport(_ context.Context, input reportsrepo.Cr
 	now := m.nextCreatedAt
 	m.nextCreatedAt = m.nextCreatedAt.Add(time.Second)
 	id := uuid.NewString()
+	targetID := ""
+	if input.TargetUUID != nil {
+		targetID = *input.TargetUUID
+	}
+	if input.TargetBigint != nil {
+		targetID = strconv.FormatInt(*input.TargetBigint, 10)
+	}
 	report := reportsrepo.Report{
 		ID:              id,
 		ReporterUserID:  input.ReporterUserID,
 		TargetType:      input.TargetType,
-		TargetID:        input.TargetID,
+		TargetID:        targetID,
 		TargetAppUserID: input.TargetAppUserID,
 		ReasonCode:      input.ReasonCode,
 		Details:         input.Details,
@@ -142,7 +150,14 @@ func (m *memoryReportsRepo) UpdateReportStatus(_ context.Context, reportID, stat
 	return report, nil
 }
 
-func (m *memoryReportsRepo) FindRecentReportByReporterAndTarget(_ context.Context, reporterID, targetType, targetID string, since time.Time) (bool, time.Time, error) {
+func (m *memoryReportsRepo) FindRecentReportByReporterAndTarget(_ context.Context, reporterID, targetType string, targetUUID *string, targetBigint *int64, since time.Time) (bool, time.Time, error) {
+	targetID := ""
+	if targetUUID != nil {
+		targetID = *targetUUID
+	}
+	if targetBigint != nil {
+		targetID = strconv.FormatInt(*targetBigint, 10)
+	}
 	var latest time.Time
 	found := false
 	for _, report := range m.reports {
@@ -170,7 +185,14 @@ func (m *memoryReportsRepo) CountReportsByReporterSince(_ context.Context, repor
 	return count, nil
 }
 
-func (m *memoryReportsRepo) ResolveTargetAuthor(_ context.Context, targetType, targetID string) (string, error) {
+func (m *memoryReportsRepo) ResolveTargetAuthor(_ context.Context, targetType string, targetUUID *string, targetBigint *int64) (string, error) {
+	targetID := ""
+	if targetUUID != nil {
+		targetID = *targetUUID
+	}
+	if targetBigint != nil {
+		targetID = strconv.FormatInt(*targetBigint, 10)
+	}
 	switch targetType {
 	case "user":
 		if m.users[targetID] {
@@ -276,6 +298,10 @@ func TestCreateReportCooldown(t *testing.T) {
 			if rec.Code != http.StatusTooManyRequests {
 				t.Fatalf("second create expected 429, got %d", rec.Code)
 			}
+			retryAfterHeader := rec.Header().Get("Retry-After")
+			if retryAfterHeader == "" {
+				t.Fatal("expected Retry-After header for 429 response")
+			}
 			var payload map[string]any
 			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 				t.Fatalf("decode response: %v", err)
@@ -284,7 +310,97 @@ func TestCreateReportCooldown(t *testing.T) {
 			if errorObj["code"] != "rate_limited" {
 				t.Fatalf("expected rate_limited code, got %v", errorObj["code"])
 			}
+			details, _ := errorObj["details"].(map[string]any)
+			windowSeconds, windowOK := details["window_seconds"].(float64)
+			retryAfterSeconds, retryOK := details["retry_after_seconds"].(float64)
+			if !windowOK || windowSeconds < 1 {
+				t.Fatalf("expected positive details.window_seconds, got %+v", details)
+			}
+			if !retryOK || retryAfterSeconds < 1 {
+				t.Fatalf("expected positive details.retry_after_seconds, got %+v", details)
+			}
+			if retryAfterHeader != strconv.Itoa(int(retryAfterSeconds)) {
+				t.Fatalf("expected Retry-After=%v to match details.retry_after_seconds=%v", retryAfterHeader, retryAfterSeconds)
+			}
 		}
+	}
+}
+
+func TestCreateReportInvalidTargetIDType(t *testing.T) {
+	reporterID := "550e8400-e29b-41d4-a716-446655440000"
+	repo := newMemoryReportsRepo()
+
+	svc := reportsservice.New(repo)
+	h := New(svc, validatex.New())
+	router := buildReportsRouter(h, authz.Identity{
+		UserID:        reporterID,
+		GlobalRole:    "member",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionReportsWrite: true,
+		},
+	})
+
+	body := `{"targetType":"message","targetId":"550e8400-e29b-41d4-a716-446655440001","reasonCode":"spam"}`
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	errorObj, ok := payload["error"].(map[string]any)
+	if !ok || errorObj["code"] != "validation_error" {
+		t.Fatalf("expected validation_error, got %v", payload)
+	}
+	issues, ok := errorObj["issues"].([]any)
+	if !ok || len(issues) == 0 {
+		t.Fatalf("expected issues in payload, got %v", payload)
+	}
+}
+
+func TestCreateReportCreatesAuditEvent(t *testing.T) {
+	reporterID := "550e8400-e29b-41d4-a716-446655440000"
+	targetID := "550e8400-e29b-41d4-a716-446655440001"
+	repo := newMemoryReportsRepo()
+	repo.users[targetID] = true
+
+	svc := reportsservice.New(repo)
+	h := New(svc, validatex.New())
+	router := buildReportsRouter(h, authz.Identity{
+		UserID:        reporterID,
+		GlobalRole:    "member",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionReportsWrite: true,
+			authz.PermissionReportsRead:  true,
+		},
+	})
+
+	reportID := createReport(t, router, `{"targetType":"user","targetId":"`+targetID+`","reasonCode":"spam"}`)
+	detailReq := httptest.NewRequest(http.MethodGet, "/"+reportID, nil)
+	detailRec := httptest.NewRecorder()
+	router.ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 detail, got %d", detailRec.Code)
+	}
+
+	var detailPayload map[string]any
+	if err := json.Unmarshal(detailRec.Body.Bytes(), &detailPayload); err != nil {
+		t.Fatalf("decode detail payload: %v", err)
+	}
+	events, ok := detailPayload["events"].([]any)
+	if !ok || len(events) == 0 {
+		t.Fatalf("expected events, got %v", detailPayload["events"])
+	}
+	first, _ := events[0].(map[string]any)
+	if first["eventType"] != "created" {
+		t.Fatalf("expected created event, got %v", first["eventType"])
 	}
 }
 

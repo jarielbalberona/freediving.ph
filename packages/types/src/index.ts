@@ -3,6 +3,7 @@ import type { ReportReasonCode } from "./reports";
 export * from "./api/authz";
 export * from "./api/error";
 export * from "./api/me";
+export * from "./api/profile";
 export * from "./reports";
 
 export interface ApiEnvelope<T> {
@@ -668,39 +669,6 @@ export interface NotificationFilters {
   status?: Notification['status'];
   type?: Notification['type'];
   priority?: Notification['priority'];
-}
-
-export interface ProfileResponse {
-  profile: Profile;
-}
-
-export interface Profile {
-  userId: string;
-  username: string;
-  displayName: string;
-  bio?: string;
-  avatarUrl?: string;
-  location?: string;
-  socials?: Record<string, string>;
-}
-
-export interface UpdateMyProfileRequest {
-  displayName?: string;
-  bio?: string;
-  avatarUrl?: string;
-  location?: string;
-  socials?: {
-    website?: string;
-    instagram?: string;
-    x?: string;
-    facebook?: string;
-    tiktok?: string;
-    youtube?: string;
-  };
-}
-
-export interface SearchUsersResponse {
-  items: Profile[];
 }
 
 export type BuddyRequestState = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED' | 'EXPIRED';

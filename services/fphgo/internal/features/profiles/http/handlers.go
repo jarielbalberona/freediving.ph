@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -13,11 +14,17 @@ import (
 )
 
 type Handlers struct {
-	service   *profilesservice.Service
+	service   profileService
 	validator httpx.Validator
 }
 
-func New(service *profilesservice.Service, validator httpx.Validator) *Handlers {
+type profileService interface {
+	GetProfileByUserID(ctx context.Context, userID string) (profilesservice.Profile, error)
+	UpdateMyProfile(ctx context.Context, input profilesservice.UpdateMyProfileInput) (profilesservice.Profile, error)
+	SearchUsers(ctx context.Context, actorID, query string, limit int32) ([]profilesservice.Profile, error)
+}
+
+func New(service profileService, validator httpx.Validator) *Handlers {
 	return &Handlers{service: service, validator: validator}
 }
 

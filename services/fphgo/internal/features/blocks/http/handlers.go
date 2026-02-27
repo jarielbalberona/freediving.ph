@@ -3,7 +3,6 @@ package http
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -11,6 +10,7 @@ import (
 	"fphgo/internal/middleware"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
+	"fphgo/internal/shared/pagination"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -82,18 +82,14 @@ func (h *Handlers) ListBlocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := int32(20)
-	if raw := r.URL.Query().Get("limit"); raw != "" {
-		parsed, parseErr := strconv.ParseInt(raw, 10, 32)
-		if parseErr != nil || parsed <= 0 {
-			httpx.WriteValidationError(w, []validatex.Issue{{
-				Path:    []any{"limit"},
-				Code:    "custom",
-				Message: "limit must be a positive integer",
-			}})
-			return
-		}
-		limit = int32(parsed)
+	limit, err := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if err != nil {
+		httpx.WriteValidationError(w, []validatex.Issue{{
+			Path:    []any{"limit"},
+			Code:    "custom",
+			Message: "limit must be a positive integer",
+		}})
+		return
 	}
 
 	result, err := h.service.ListBlocks(r.Context(), actorID, limit, r.URL.Query().Get("cursor"))

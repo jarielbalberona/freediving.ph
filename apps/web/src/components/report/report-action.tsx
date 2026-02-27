@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { ReportReasonCode, ReportTargetType } from "@freediving.ph/types";
 import { useCreateReport } from "@/features/reports";
+import { getRateLimitMessage, getApiErrorMessage } from "@/lib/http/api-error";
 
 interface ReportActionProps {
   targetType: ReportTargetType | string;
@@ -21,6 +22,7 @@ export function ReportAction({ targetType, targetId }: ReportActionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [reasonCode, setReasonCode] = useState<ReportReasonCode>("spam");
   const [details, setDetails] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const createReport = useCreateReport();
   const isSupported = supportedTargetTypes.has(targetType as ReportTargetType);
 
@@ -78,6 +80,7 @@ export function ReportAction({ targetType, targetId }: ReportActionProps) {
           size="sm"
           disabled={createReport.isPending || !isSupported}
           onClick={() => {
+            setSubmitError(null);
             createReport.mutate(
               {
                 targetType: targetType as ReportTargetType,
@@ -88,7 +91,11 @@ export function ReportAction({ targetType, targetId }: ReportActionProps) {
               {
                 onSuccess: () => {
                   setDetails("");
+                  setSubmitError(null);
                   setIsOpen(false);
+                },
+                onError: (error) => {
+                  setSubmitError(getRateLimitMessage(error, getApiErrorMessage(error, "Failed to submit report")));
                 },
               },
             );
@@ -100,6 +107,7 @@ export function ReportAction({ targetType, targetId }: ReportActionProps) {
           Cancel
         </Button>
       </div>
+      {submitError ? <p className="text-xs text-destructive">{submitError}</p> : null}
     </div>
   );
 }

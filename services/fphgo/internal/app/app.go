@@ -22,6 +22,9 @@ import (
 	messaginghttp "fphgo/internal/features/messaging/http"
 	messagingrepo "fphgo/internal/features/messaging/repo"
 	messagingservice "fphgo/internal/features/messaging/service"
+	moderationhttp "fphgo/internal/features/moderation_actions/http"
+	moderationrepo "fphgo/internal/features/moderation_actions/repo"
+	moderationservice "fphgo/internal/features/moderation_actions/service"
 	profileshttp "fphgo/internal/features/profiles/http"
 	profilesrepo "fphgo/internal/features/profiles/repo"
 	profilesservice "fphgo/internal/features/profiles/service"
@@ -32,6 +35,7 @@ import (
 	usersrepo "fphgo/internal/features/users/repo"
 	usersservice "fphgo/internal/features/users/service"
 	"fphgo/internal/realtime/ws"
+	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -41,31 +45,34 @@ type App struct {
 }
 
 type Dependencies struct {
-	AuthHandler      *authhttp.Handlers
-	UsersHandler     *usershttp.Handlers
-	MessagingHandler *messaginghttp.Handlers
-	ChikaHandler     *chikahttp.Handlers
-	ExploreHandler   *explorehttp.Handlers
-	ProfilesHandler  *profileshttp.Handlers
-	BlocksHandler    *blockshttp.Handlers
-	ReportsHandler   *reportshttp.Handlers
-	AuthRoutes       chi.Router
-	UsersRoutes      chi.Router
-	MessagingRoutes  chi.Router
-	ChikaRoutes      chi.Router
-	ExploreRoutes    chi.Router
-	ProfilesRoutes   chi.Router
-	BlocksRoutes     chi.Router
-	ReportsRoutes    chi.Router
-	IdentityService  *identityservice.Service
-	WSHandler        *ws.Handler
-	Hub              *ws.Hub
-	ReadyCheck       func(context.Context) error
+	AuthHandler       *authhttp.Handlers
+	UsersHandler      *usershttp.Handlers
+	MessagingHandler  *messaginghttp.Handlers
+	ChikaHandler      *chikahttp.Handlers
+	ExploreHandler    *explorehttp.Handlers
+	ProfilesHandler   *profileshttp.Handlers
+	BlocksHandler     *blockshttp.Handlers
+	ReportsHandler    *reportshttp.Handlers
+	ModerationHandler *moderationhttp.Handlers
+	AuthRoutes        chi.Router
+	UsersRoutes       chi.Router
+	MessagingRoutes   chi.Router
+	ChikaRoutes       chi.Router
+	ExploreRoutes     chi.Router
+	ProfilesRoutes    chi.Router
+	BlocksRoutes      chi.Router
+	ReportsRoutes     chi.Router
+	ModerationRoutes  chi.Router
+	IdentityService   *identityservice.Service
+	WSHandler         *ws.Handler
+	Hub               *ws.Hub
+	ReadyCheck        func(context.Context) error
 }
 
 func BuildDependencies(logger *slog.Logger, pool *pgxpool.Pool) *Dependencies {
 	hub := ws.NewHub(logger)
 	v := validatex.New()
+	limiter := sharedratelimit.New(pool)
 
 	userRepo := usersrepo.New(pool)
 	userService := usersservice.New(userRepo)
@@ -74,21 +81,24 @@ func BuildDependencies(logger *slog.Logger, pool *pgxpool.Pool) *Dependencies {
 
 	messagingRepo := messagingrepo.New(pool)
 	blocksRepo := blocksrepo.New(pool)
-	blocksService := blocksservice.New(blocksRepo)
-	messagingService := messagingservice.New(messagingRepo, hub)
+	blocksService := blocksservice.New(blocksRepo, blocksservice.WithLimiter(limiter))
+	messagingService := messagingservice.New(messagingRepo, hub, blocksService, messagingservice.WithLimiter(limiter))
 	messagingHandler := messaginghttp.New(messagingService, userService, v)
 
 	chikaRepo := chikarepo.New(pool)
-	chikaService := chikaservice.New(chikaRepo, blocksService)
+	chikaService := chikaservice.New(chikaRepo, blocksService, chikaservice.WithLimiter(limiter))
 	chikaHandler := chikahttp.New(chikaService, v)
 
 	profilesRepo := profilesrepo.New(pool)
-	profilesService := profilesservice.New(profilesRepo)
+	profilesService := profilesservice.New(profilesRepo, profilesservice.WithLimiter(limiter))
 	profilesHandler := profileshttp.New(profilesService, v)
 	blocksHandler := blockshttp.New(blocksService, v)
 	reportsRepo := reportsrepo.New(pool)
 	reportsService := reportsservice.New(reportsRepo)
 	reportsHandler := reportshttp.New(reportsService, v)
+	moderationRepo := moderationrepo.New(pool)
+	moderationService := moderationservice.New(moderationRepo)
+	moderationHandler := moderationhttp.New(moderationService, v)
 
 	exploreRepo := explorerepo.New(pool)
 	exploreService := exploreservice.New(exploreRepo)
@@ -100,17 +110,18 @@ func BuildDependencies(logger *slog.Logger, pool *pgxpool.Pool) *Dependencies {
 	wsHandler := ws.NewHandler(logger, hub, userService)
 
 	return &Dependencies{
-		AuthHandler:      authHandler,
-		UsersHandler:     usersHandler,
-		MessagingHandler: messagingHandler,
-		ChikaHandler:     chikaHandler,
-		ExploreHandler:   exploreHandler,
-		ProfilesHandler:  profilesHandler,
-		BlocksHandler:    blocksHandler,
-		ReportsHandler:   reportsHandler,
-		IdentityService:  identityService,
-		WSHandler:        wsHandler,
-		Hub:              hub,
-		ReadyCheck:       pool.Ping,
+		AuthHandler:       authHandler,
+		UsersHandler:      usersHandler,
+		MessagingHandler:  messagingHandler,
+		ChikaHandler:      chikaHandler,
+		ExploreHandler:    exploreHandler,
+		ProfilesHandler:   profilesHandler,
+		BlocksHandler:     blocksHandler,
+		ReportsHandler:    reportsHandler,
+		ModerationHandler: moderationHandler,
+		IdentityService:   identityService,
+		WSHandler:         wsHandler,
+		Hub:               hub,
+		ReadyCheck:        pool.Ping,
 	}
 }

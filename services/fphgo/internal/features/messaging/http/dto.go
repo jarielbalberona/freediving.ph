@@ -18,3 +18,8 @@ type MessageItem struct {
 	Status         string `json:"status"`
 	CreatedAt      string `json:"createdAt"`
 }
+
+type ListMessagesResponse struct {
+	Items      []MessageItem `json:"items"`
+	NextCursor string        `json:"nextCursor,omitempty"`
+}

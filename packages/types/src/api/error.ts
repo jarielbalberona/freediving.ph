@@ -1,14 +1,19 @@
 export type ApiErrorIssue = {
-  path: string;
+  path: string | string[];
   message: string;
   code?: string;
+};
+
+export type RateLimitDetails = {
+  window_seconds: number;
+  retry_after_seconds: number;
 };
 
 export type ApiError = {
   code: string;
   message: string;
-  details?: unknown;
   issues?: ApiErrorIssue[];
+  details?: Record<string, unknown> | RateLimitDetails;
 };
 
 export type ApiErrorEnvelope = {

@@ -31,6 +31,13 @@ type MessageItem struct {
 	CreatedAt      time.Time
 }
 
+type ListInboxInput struct {
+	UserID          string
+	CursorCreated   time.Time
+	CursorMessageID int64
+	Limit           int32
+}
+
 func New(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
 func sortedPairKey(a, b string) string {
@@ -141,7 +148,7 @@ func (r *Repo) UpdateConversationStatus(ctx context.Context, conversationID, sta
 	return err
 }
 
-func (r *Repo) Inbox(ctx context.Context, userID string) ([]MessageItem, error) {
+func (r *Repo) Inbox(ctx context.Context, input ListInboxInput) ([]MessageItem, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT
 			m.conversation_id,
@@ -156,15 +163,16 @@ func (r *Repo) Inbox(ctx context.Context, userID string) ([]MessageItem, error) 
 		JOIN conversation_participants other_cp ON other_cp.conversation_id = c.id AND other_cp.user_id <> $1
 		WHERE cp.user_id = $1
 		  AND c.status = 'active'
+		  AND (m.created_at < $2 OR (m.created_at = $2 AND m.id < $3))
 		  AND NOT EXISTS (
 			SELECT 1
 			FROM user_blocks b
 			WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = other_cp.user_id)
 			   OR (b.blocker_app_user_id = other_cp.user_id AND b.blocked_app_user_id = $1)
 		  )
-		ORDER BY m.created_at DESC
-		LIMIT 100
-	`, userID)
+		ORDER BY m.created_at DESC, m.id DESC
+		LIMIT $4
+	`, input.UserID, input.CursorCreated, input.CursorMessageID, input.Limit)
 	if err != nil {
 		return nil, err
 	}

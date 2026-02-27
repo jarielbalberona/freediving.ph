@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { getApiErrorMessage, getRateLimitMessage } from "@/lib/http/api-error";
 
 interface CreateThreadModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export default function CreateThreadModal({ isOpen, onClose }: CreateThreadModal
     tags: [],
   });
   const [tagInput, setTagInput] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const createThread = useCreateThread();
 
@@ -31,12 +33,14 @@ export default function CreateThreadModal({ isOpen, onClose }: CreateThreadModal
     }
 
     try {
+      setSubmitError(null);
       await createThread.mutateAsync(formData);
       setFormData({ title: "", content: "", tags: [] });
       setTagInput("");
+      setSubmitError(null);
       onClose();
     } catch (error) {
-      console.error("Failed to create thread:", error);
+      setSubmitError(getRateLimitMessage(error, getApiErrorMessage(error, "Failed to create thread")));
     }
   };
 
@@ -163,6 +167,7 @@ export default function CreateThreadModal({ isOpen, onClose }: CreateThreadModal
                 {createThread.isPending ? "Creating..." : "Create Thread"}
               </Button>
             </div>
+            {submitError ? <p className="text-sm text-destructive">{submitError}</p> : null}
           </form>
         </div>
       </div>

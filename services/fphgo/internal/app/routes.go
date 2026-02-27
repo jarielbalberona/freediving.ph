@@ -13,6 +13,7 @@ import (
 	chikahttp "fphgo/internal/features/chika/http"
 	explorehttp "fphgo/internal/features/explore/http"
 	messaginghttp "fphgo/internal/features/messaging/http"
+	moderationhttp "fphgo/internal/features/moderation_actions/http"
 	profileshttp "fphgo/internal/features/profiles/http"
 	reportshttp "fphgo/internal/features/reports/http"
 	usershttp "fphgo/internal/features/users/http"
@@ -125,8 +126,16 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 					reports.Mount("/v1/reports", reportsRouter)
 				}
 			})
+			member.Group(func(moderation chi.Router) {
+				if moderationRouter := resolveModerationRouter(deps); moderationRouter != nil {
+					moderation.Mount("/v1/moderation", moderationRouter)
+				}
+			})
 			if authRouter := resolveAuthRouter(deps); authRouter != nil {
 				member.Mount("/v1/auth", authRouter)
+			}
+			if deps.AuthHandler != nil {
+				member.Get("/v1/me", deps.AuthHandler.GetSession)
 			}
 			member.Group(func(messages chi.Router) {
 				messages.Use(middleware.RequirePermission(authz.PermissionMessagingRead))
@@ -233,4 +242,14 @@ func resolveReportsRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return reportshttp.Routes(deps.ReportsHandler)
+}
+
+func resolveModerationRouter(deps *Dependencies) chi.Router {
+	if deps.ModerationRoutes != nil {
+		return deps.ModerationRoutes
+	}
+	if deps.ModerationHandler == nil {
+		return nil
+	}
+	return moderationhttp.Routes(deps.ModerationHandler)
 }

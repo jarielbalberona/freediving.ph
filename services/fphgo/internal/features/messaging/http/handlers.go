@@ -11,6 +11,8 @@ import (
 	"fphgo/internal/middleware"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
+	"fphgo/internal/shared/pagination"
+	"fphgo/internal/shared/validatex"
 )
 
 type Handlers struct {
@@ -85,14 +87,27 @@ func (h *Handlers) Inbox(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	items, err := h.service.Inbox(r.Context(), actorID)
+	limit, parseErr := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if parseErr != nil {
+		httpx.WriteValidationError(w, []validatex.Issue{{
+			Path:    []any{"limit"},
+			Code:    "custom",
+			Message: "limit must be a positive integer",
+		}})
+		return
+	}
+	result, err := h.service.Inbox(r.Context(), messagingservice.InboxInput{
+		UserID: actorID,
+		Limit:  limit,
+		Cursor: r.URL.Query().Get("cursor"),
+	})
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
 
-	response := make([]MessageItem, 0, len(items))
-	for _, item := range items {
+	response := make([]MessageItem, 0, len(result.Items))
+	for _, item := range result.Items {
 		response = append(response, MessageItem{
 			ConversationID: item.ConversationID,
 			MessageID:      item.MessageID,
@@ -102,7 +117,7 @@ func (h *Handlers) Inbox(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
 		})
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": response})
+	httpx.JSON(w, http.StatusOK, ListMessagesResponse{Items: response, NextCursor: result.NextCursor})
 }
 
 func (h *Handlers) Requests(w http.ResponseWriter, r *http.Request) {
@@ -132,8 +147,15 @@ func (h *Handlers) Requests(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) requireLocalActorID(r *http.Request) (string, error) {
+	if identity, ok := middleware.CurrentIdentity(r.Context()); ok && identity.UserID != "" {
+		return identity.UserID, nil
+	}
+
 	clerkUserID, ok := middleware.CurrentAuth(r.Context())
 	if !ok || clerkUserID == "" {
+		return "", apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
+	}
+	if h.userResolver == nil {
 		return "", apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
 	}
 	user, err := h.userResolver.EnsureLocalUserForClerk(r.Context(), clerkUserID)

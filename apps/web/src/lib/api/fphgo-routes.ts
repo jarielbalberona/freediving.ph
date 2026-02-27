@@ -38,5 +38,23 @@ export const routes = {
       byId: (reportId: string | number) => `/v1/reports/${toPathId(reportId)}`,
       status: (reportId: string | number) => `/v1/reports/${toPathId(reportId)}/status`,
     },
+    moderation: {
+      users: {
+        suspend: (appUserId: string | number) => `/v1/moderation/users/${toPathId(appUserId)}/suspend`,
+        unsuspend: (appUserId: string | number) => `/v1/moderation/users/${toPathId(appUserId)}/unsuspend`,
+        readOnly: (appUserId: string | number) => `/v1/moderation/users/${toPathId(appUserId)}/read-only`,
+        clearReadOnly: (appUserId: string | number) => `/v1/moderation/users/${toPathId(appUserId)}/read-only/clear`,
+      },
+      chika: {
+        threads: {
+          hide: (threadId: string | number) => `/v1/moderation/chika/threads/${toPathId(threadId)}/hide`,
+          unhide: (threadId: string | number) => `/v1/moderation/chika/threads/${toPathId(threadId)}/unhide`,
+        },
+        comments: {
+          hide: (commentId: string | number) => `/v1/moderation/chika/comments/${toPathId(commentId)}/hide`,
+          unhide: (commentId: string | number) => `/v1/moderation/chika/comments/${toPathId(commentId)}/unhide`,
+        },
+      },
+    },
   },
 } as const;

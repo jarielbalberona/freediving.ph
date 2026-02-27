@@ -17,7 +17,7 @@ type chikaRepoStub struct {
 func (s *chikaRepoStub) CreateThread(context.Context, string, string, string) (chikarepo.Thread, error) {
 	return chikarepo.Thread{}, nil
 }
-func (s *chikaRepoStub) ListThreads(context.Context, string, int32, int32) ([]chikarepo.Thread, error) {
+func (s *chikaRepoStub) ListThreads(context.Context, string, bool, time.Time, string, int32) ([]chikarepo.Thread, error) {
 	return []chikarepo.Thread{}, nil
 }
 func (s *chikaRepoStub) GetThread(context.Context, string) (chikarepo.Thread, error) {
@@ -36,7 +36,7 @@ func (s *chikaRepoStub) ListPosts(context.Context, string, string, int32, int32)
 func (s *chikaRepoStub) CreateComment(context.Context, string, string, string, string) (chikarepo.Comment, error) {
 	return chikarepo.Comment{}, nil
 }
-func (s *chikaRepoStub) ListComments(context.Context, string, string, int32, int32) ([]chikarepo.Comment, error) {
+func (s *chikaRepoStub) ListComments(context.Context, string, string, bool, time.Time, int64, int32) ([]chikarepo.Comment, error) {
 	return []chikarepo.Comment{}, nil
 }
 func (s *chikaRepoStub) GetComment(context.Context, int64) (chikarepo.Comment, error) {
@@ -88,6 +88,9 @@ func TestCreatePostBlockedReturnsForbidden(t *testing.T) {
 	if appErr.Status != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", appErr.Status)
 	}
+	if appErr.Code != "blocked" {
+		t.Fatalf("expected blocked code, got %q", appErr.Code)
+	}
 }
 
 func TestSetThreadReactionBlockedReturnsForbidden(t *testing.T) {
@@ -109,5 +112,33 @@ func TestSetThreadReactionBlockedReturnsForbidden(t *testing.T) {
 	}
 	if appErr.Status != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", appErr.Status)
+	}
+	if appErr.Code != "blocked" {
+		t.Fatalf("expected blocked code, got %q", appErr.Code)
+	}
+}
+
+func TestCreateCommentBlockedReturnsForbidden(t *testing.T) {
+	repo := &chikaRepoStub{thread: chikarepo.Thread{ID: "550e8400-e29b-41d4-a716-446655440002", CreatedByUserID: "550e8400-e29b-41d4-a716-446655440001", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	svc := New(repo, blockCheckerStub{blocked: true})
+
+	_, err := svc.CreateComment(context.Background(), CreateCommentInput{
+		ThreadID: "550e8400-e29b-41d4-a716-446655440002",
+		UserID:   "550e8400-e29b-41d4-a716-446655440000",
+		Content:  "hello",
+	})
+	if err == nil {
+		t.Fatal("expected blocked error")
+	}
+
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok {
+		t.Fatalf("expected AppError, got %T", err)
+	}
+	if appErr.Status != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", appErr.Status)
+	}
+	if appErr.Code != "blocked" {
+		t.Fatalf("expected blocked code, got %q", appErr.Code)
 	}
 }

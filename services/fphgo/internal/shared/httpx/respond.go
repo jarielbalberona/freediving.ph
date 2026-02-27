@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -14,9 +15,10 @@ type errorPayload struct {
 }
 
 type errorDetail struct {
-	Code      string `json:"code"`
-	Message   string `json:"message"`
-	RequestID string `json:"requestId,omitempty"`
+	Code      string         `json:"code"`
+	Message   string         `json:"message"`
+	RequestID string         `json:"requestId,omitempty"`
+	Details   map[string]any `json:"details,omitempty"`
 }
 
 type validationErrorPayload struct {
@@ -40,22 +42,27 @@ func Error(w http.ResponseWriter, requestID string, err error) {
 	status := http.StatusInternalServerError
 	code := "internal_error"
 	message := "Internal server error"
+	payload := errorPayload{}
 
 	if appErr, ok := err.(*apperrors.AppError); ok {
 		status = appErr.Status
 		code = appErr.Code
 		message = appErr.Message
+		if len(appErr.Details) > 0 {
+			payload.Error.Details = appErr.Details
+		}
 	}
 
 	code = normalizeErrorCode(status, code)
-
-	payload := errorPayload{
-		Error: errorDetail{
-			Code:      code,
-			Message:   message,
-			RequestID: requestID,
-		},
+	if status == http.StatusTooManyRequests && code == "rate_limited" {
+		if retryAfter := retryAfterFromDetails(payload.Error.Details); retryAfter > 0 {
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
+		}
 	}
+
+	payload.Error.Code = code
+	payload.Error.Message = message
+	payload.Error.RequestID = requestID
 	JSON(w, status, payload)
 }
 
@@ -64,6 +71,9 @@ func normalizeErrorCode(status int, code string) string {
 	case http.StatusUnauthorized:
 		return "unauthenticated"
 	case http.StatusForbidden:
+		if strings.EqualFold(strings.TrimSpace(code), "blocked") {
+			return "blocked"
+		}
 		return "forbidden"
 	case http.StatusNotFound:
 		return "not_found"
@@ -95,4 +105,26 @@ func WriteValidationError(w http.ResponseWriter, issues []validatex.Issue) {
 		},
 	}
 	JSON(w, http.StatusBadRequest, payload)
+}
+
+func retryAfterFromDetails(details map[string]any) int {
+	if len(details) == 0 {
+		return 0
+	}
+	value, ok := details["retry_after_seconds"]
+	if !ok {
+		return 0
+	}
+	switch v := value.(type) {
+	case int:
+		return v
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	default:
+		return 0
+	}
 }

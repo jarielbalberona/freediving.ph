@@ -19,6 +19,7 @@ type Thread struct {
 	Title           string
 	Mode            string
 	CreatedByUserID string
+	HiddenAt        *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -38,6 +39,7 @@ type Comment struct {
 	AuthorUserID string
 	Pseudonym    string
 	Content      string
+	HiddenAt     *time.Time
 	CreatedAt    time.Time
 }
 
@@ -90,26 +92,28 @@ func (r *Repo) CreateThread(ctx context.Context, title, mode, actorID string) (T
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO chika_threads (title, mode, created_by_user_id)
 		VALUES ($1, $2, $3)
-		RETURNING id, title, mode, created_by_user_id, created_at, updated_at
-	`, title, mode, actorID).Scan(&thread.ID, &thread.Title, &thread.Mode, &thread.CreatedByUserID, &thread.CreatedAt, &thread.UpdatedAt)
+		RETURNING id, title, mode, created_by_user_id, hidden_at, created_at, updated_at
+	`, title, mode, actorID).Scan(&thread.ID, &thread.Title, &thread.Mode, &thread.CreatedByUserID, &thread.HiddenAt, &thread.CreatedAt, &thread.UpdatedAt)
 	return thread, err
 }
 
 func (r *Repo) GetThread(ctx context.Context, threadID string) (Thread, error) {
 	var thread Thread
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, title, mode, COALESCE(created_by_user_id::text, ''), created_at, updated_at
+		SELECT id, title, mode, COALESCE(created_by_user_id::text, ''), hidden_at, created_at, updated_at
 		FROM chika_threads
 		WHERE id = $1 AND deleted_at IS NULL
-	`, threadID).Scan(&thread.ID, &thread.Title, &thread.Mode, &thread.CreatedByUserID, &thread.CreatedAt, &thread.UpdatedAt)
+	`, threadID).Scan(&thread.ID, &thread.Title, &thread.Mode, &thread.CreatedByUserID, &thread.HiddenAt, &thread.CreatedAt, &thread.UpdatedAt)
 	return thread, err
 }
 
-func (r *Repo) ListThreads(ctx context.Context, viewerID string, limit, offset int32) ([]Thread, error) {
+func (r *Repo) ListThreads(ctx context.Context, viewerID string, includeHidden bool, cursorCreated time.Time, cursorThreadID string, limit int32) ([]Thread, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, title, mode, COALESCE(created_by_user_id::text, ''), created_at, updated_at
+		SELECT id, title, mode, COALESCE(created_by_user_id::text, ''), hidden_at, created_at, updated_at
 		FROM chika_threads
 		WHERE deleted_at IS NULL
+		  AND ($2::boolean OR hidden_at IS NULL)
+		  AND (created_at < $3 OR (created_at = $3 AND id < $4))
 		  AND NOT EXISTS (
 			SELECT 1
 			FROM user_blocks b
@@ -117,8 +121,8 @@ func (r *Repo) ListThreads(ctx context.Context, viewerID string, limit, offset i
 			   OR (b.blocker_app_user_id = chika_threads.created_by_user_id AND b.blocked_app_user_id = $1)
 		  )
 		ORDER BY created_at DESC, id DESC
-		LIMIT $2 OFFSET $3
-	`, viewerID, limit, offset)
+		LIMIT $5
+	`, viewerID, includeHidden, cursorCreated, cursorThreadID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +131,7 @@ func (r *Repo) ListThreads(ctx context.Context, viewerID string, limit, offset i
 	items := make([]Thread, 0)
 	for rows.Next() {
 		var item Thread
-		if err := rows.Scan(&item.ID, &item.Title, &item.Mode, &item.CreatedByUserID, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Title, &item.Mode, &item.CreatedByUserID, &item.HiddenAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -141,8 +145,8 @@ func (r *Repo) UpdateThread(ctx context.Context, threadID, title string) (Thread
 		UPDATE chika_threads
 		SET title = $2, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id, title, mode, COALESCE(created_by_user_id::text, ''), created_at, updated_at
-	`, threadID, title).Scan(&thread.ID, &thread.Title, &thread.Mode, &thread.CreatedByUserID, &thread.CreatedAt, &thread.UpdatedAt)
+		RETURNING id, title, mode, COALESCE(created_by_user_id::text, ''), hidden_at, created_at, updated_at
+	`, threadID, title).Scan(&thread.ID, &thread.Title, &thread.Mode, &thread.CreatedByUserID, &thread.HiddenAt, &thread.CreatedAt, &thread.UpdatedAt)
 	return thread, err
 }
 
@@ -202,18 +206,20 @@ func (r *Repo) CreateComment(ctx context.Context, threadID, userID, pseudonym, c
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO chika_comments (thread_id, author_user_id, pseudonym, content)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, thread_id, author_user_id, pseudonym, content, created_at
+		RETURNING id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at
 	`, threadID, userID, pseudonym, content).Scan(
-		&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.CreatedAt,
+		&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt,
 	)
 	return comment, err
 }
 
-func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, limit, offset int32) ([]Comment, error) {
+func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, includeHidden bool, cursorCreated time.Time, cursorCommentID int64, limit int32) ([]Comment, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, thread_id, author_user_id, pseudonym, content, created_at
+		SELECT id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at
 		FROM chika_comments
 		WHERE thread_id = $1 AND deleted_at IS NULL
+		  AND ($3::boolean OR hidden_at IS NULL)
+		  AND (created_at < $4 OR (created_at = $4 AND id < $5))
 		  AND NOT EXISTS (
 			SELECT 1
 			FROM user_blocks b
@@ -221,8 +227,8 @@ func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, limi
 			   OR (b.blocker_app_user_id = chika_comments.author_user_id AND b.blocked_app_user_id = $2)
 		  )
 		ORDER BY created_at DESC, id DESC
-		LIMIT $3 OFFSET $4
-	`, threadID, viewerID, limit, offset)
+		LIMIT $6
+	`, threadID, viewerID, includeHidden, cursorCreated, cursorCommentID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +237,7 @@ func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, limi
 	items := make([]Comment, 0)
 	for rows.Next() {
 		var item Comment
-		if err := rows.Scan(&item.ID, &item.ThreadID, &item.AuthorUserID, &item.Pseudonym, &item.Content, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.ThreadID, &item.AuthorUserID, &item.Pseudonym, &item.Content, &item.HiddenAt, &item.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -242,10 +248,10 @@ func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, limi
 func (r *Repo) GetComment(ctx context.Context, commentID int64) (Comment, error) {
 	var comment Comment
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, thread_id, author_user_id, pseudonym, content, created_at
+		SELECT id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at
 		FROM chika_comments
 		WHERE id = $1 AND deleted_at IS NULL
-	`, commentID).Scan(&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.CreatedAt)
+	`, commentID).Scan(&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt)
 	return comment, err
 }
 
@@ -255,8 +261,8 @@ func (r *Repo) UpdateComment(ctx context.Context, commentID int64, content strin
 		UPDATE chika_comments
 		SET content = $2, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id, thread_id, author_user_id, pseudonym, content, created_at
-	`, commentID, content).Scan(&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.CreatedAt)
+		RETURNING id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at
+	`, commentID, content).Scan(&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt)
 	return comment, err
 }
 

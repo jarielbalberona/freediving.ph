@@ -3,7 +3,6 @@ package http
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -12,6 +11,7 @@ import (
 	"fphgo/internal/middleware"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
+	"fphgo/internal/shared/pagination"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -170,18 +170,13 @@ func parseListInput(r *http.Request) (reportsservice.ListReportsInput, []validat
 	query := r.URL.Query()
 	issues := []validatex.Issue{}
 
-	limit := int32(20)
-	if raw := strings.TrimSpace(query.Get("limit")); raw != "" {
-		parsed, err := strconv.ParseInt(raw, 10, 32)
-		if err != nil || parsed <= 0 || parsed > 100 {
-			issues = append(issues, validatex.Issue{
-				Path:    []any{"limit"},
-				Code:    "custom",
-				Message: "limit must be an integer between 1 and 100",
-			})
-		} else {
-			limit = int32(parsed)
-		}
+	limit, err := pagination.ParseLimit(strings.TrimSpace(query.Get("limit")), pagination.DefaultLimit, pagination.MaxLimit)
+	if err != nil {
+		issues = append(issues, validatex.Issue{
+			Path:    []any{"limit"},
+			Code:    "custom",
+			Message: "limit must be a positive integer",
+		})
 	}
 
 	var reporterID *string

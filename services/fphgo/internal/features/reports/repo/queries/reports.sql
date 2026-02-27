@@ -2,23 +2,24 @@
 INSERT INTO reports (
   reporter_app_user_id,
   target_type,
-  target_id,
+  target_uuid,
+  target_bigint,
   target_app_user_id,
   reason_code,
   details,
   evidence_urls,
   status
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, 'open')
-RETURNING id, reporter_app_user_id, target_type, target_id, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at;
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'open')
+RETURNING id, reporter_app_user_id, target_type, target_uuid, target_bigint, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at;
 
 -- name: GetReportByID :one
-SELECT id, reporter_app_user_id, target_type, target_id, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
+SELECT id, reporter_app_user_id, target_type, target_uuid, target_bigint, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
 FROM reports
 WHERE id = $1;
 
 -- name: ListReportsForModeration :many
-SELECT id, reporter_app_user_id, target_type, target_id, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
+SELECT id, reporter_app_user_id, target_type, target_uuid, target_bigint, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at
 FROM reports r
 WHERE (sqlc.narg(status_filter)::text IS NULL OR r.status = sqlc.narg(status_filter)::text)
   AND (sqlc.narg(target_type_filter)::text IS NULL OR r.target_type = sqlc.narg(target_type_filter)::text)
@@ -42,14 +43,24 @@ RETURNING id, report_id, actor_app_user_id, event_type, from_status, to_status, 
 UPDATE reports
 SET status = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, reporter_app_user_id, target_type, target_id, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at;
+RETURNING id, reporter_app_user_id, target_type, target_uuid, target_bigint, target_app_user_id, reason_code, details, evidence_urls, status, created_at, updated_at;
 
--- name: FindRecentReportByReporterAndTarget :one
+-- name: FindRecentReportByReporterAndTargetUUID :one
 SELECT id, created_at
 FROM reports
 WHERE reporter_app_user_id = $1
   AND target_type = $2
-  AND target_id = $3
+  AND target_uuid = $3
+  AND created_at >= $4
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: FindRecentReportByReporterAndTargetBigint :one
+SELECT id, created_at
+FROM reports
+WHERE reporter_app_user_id = $1
+  AND target_type = $2
+  AND target_bigint = $3
   AND created_at >= $4
 ORDER BY created_at DESC
 LIMIT 1;

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { AxiosError } from "axios";
 import { MessageCircleMore, Send } from "lucide-react";
 
 import type { MessageConversationParticipant } from "@freediving.ph/types";
@@ -19,7 +18,7 @@ import {
   useMessageConversations,
   useSendMessage,
 } from "@/features/messages";
-import { getApiError, getApiErrorMessage } from "@/lib/http/api-error";
+import { getApiError, getApiErrorMessage, getRateLimitMessage } from "@/lib/http/api-error";
 
 const formatMessageTime = (value: string) => {
   const date = new Date(value);
@@ -63,6 +62,14 @@ export default function MessagesPage() {
   }, [conversations, selectedConversationId]);
 
   useEffect(() => {
+    if (selectedConversationId === null) return;
+    const stillVisible = conversations.some((conversation) => conversation.conversationId === selectedConversationId);
+    if (!stillVisible) {
+      setSelectedConversationId(conversations[0]?.conversationId ?? null);
+    }
+  }, [conversations, selectedConversationId]);
+
+  useEffect(() => {
     setIsBlockedConversation(false);
     setSendError(null);
   }, [selectedConversationId]);
@@ -94,11 +101,7 @@ export default function MessagesPage() {
             setSendError("You cannot send messages in this conversation because one party has blocked the other.");
             return;
           }
-          if (error instanceof AxiosError) {
-            setSendError(error.response?.data?.message || "Failed to send message");
-            return;
-          }
-          setSendError("Failed to send message");
+          setSendError(getRateLimitMessage(error, getApiErrorMessage(error, "Failed to send message")));
         },
       },
     );

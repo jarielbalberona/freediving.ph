@@ -38,6 +38,23 @@ func TestRolePermissions_MemberUsesGranularWritePermissions(t *testing.T) {
 	if !perms[PermissionChikaWrite] {
 		t.Fatal("member should get chika.write")
 	}
+	if !perms[PermissionBlocksRead] || !perms[PermissionBlocksWrite] {
+		t.Fatal("member should get blocks.read and blocks.write")
+	}
+	if !perms[PermissionReportsWrite] {
+		t.Fatal("member should get reports.write")
+	}
+}
+
+func TestRolePermissions_ModeratorGetsReportModerationAndBlocks(t *testing.T) {
+	perms := RolePermissions("moderator")
+
+	if !perms[PermissionReportsRead] || !perms[PermissionReportsModerate] {
+		t.Fatal("moderator should get reports.read and reports.moderate")
+	}
+	if !perms[PermissionBlocksRead] || !perms[PermissionBlocksWrite] {
+		t.Fatal("moderator should get blocks.read and blocks.write")
+	}
 }
 
 func TestApplyOverrides(t *testing.T) {

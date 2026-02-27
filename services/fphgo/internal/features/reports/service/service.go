@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -14,16 +12,19 @@ import (
 
 	reportsrepo "fphgo/internal/features/reports/repo"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/pagination"
 	"fphgo/internal/shared/validatex"
 )
 
 const (
-	reportCooldownWindow = 24 * time.Hour
-	dailyReportCap       = int64(20)
+	defaultReportCooldownWindow = 24 * time.Hour
+	defaultDailyReportCap       = int64(20)
 )
 
 type Service struct {
-	repo repository
+	repo           repository
+	cooldownWindow time.Duration
+	dailyReportCap int64
 }
 
 type repository interface {
@@ -33,9 +34,9 @@ type repository interface {
 	ListReportEventsByReportID(ctx context.Context, reportID string) ([]reportsrepo.ReportEvent, error)
 	AddReportEvent(ctx context.Context, reportID, actorID, eventType string, fromStatus, toStatus, note *string) (reportsrepo.ReportEvent, error)
 	UpdateReportStatus(ctx context.Context, reportID, status string) (reportsrepo.Report, error)
-	FindRecentReportByReporterAndTarget(ctx context.Context, reporterID, targetType, targetID string, since time.Time) (bool, time.Time, error)
+	FindRecentReportByReporterAndTarget(ctx context.Context, reporterID, targetType string, targetUUID *string, targetBigint *int64, since time.Time) (bool, time.Time, error)
 	CountReportsByReporterSince(ctx context.Context, reporterID string, since time.Time) (int64, error)
-	ResolveTargetAuthor(ctx context.Context, targetType, targetID string) (string, error)
+	ResolveTargetAuthor(ctx context.Context, targetType string, targetUUID *string, targetBigint *int64) (string, error)
 }
 
 type ValidationFailure struct {
@@ -103,8 +104,29 @@ type ReportListResult struct {
 	NextCursor string
 }
 
-func New(repo repository) *Service {
-	return &Service{repo: repo}
+type Config struct {
+	CooldownWindow time.Duration
+	DailyReportCap int64
+}
+
+func New(repo repository, cfgs ...Config) *Service {
+	cfg := Config{
+		CooldownWindow: defaultReportCooldownWindow,
+		DailyReportCap: defaultDailyReportCap,
+	}
+	if len(cfgs) > 0 {
+		if cfgs[0].CooldownWindow > 0 {
+			cfg.CooldownWindow = cfgs[0].CooldownWindow
+		}
+		if cfgs[0].DailyReportCap > 0 {
+			cfg.DailyReportCap = cfgs[0].DailyReportCap
+		}
+	}
+	return &Service{
+		repo:           repo,
+		cooldownWindow: cfg.CooldownWindow,
+		dailyReportCap: cfg.DailyReportCap,
+	}
 }
 
 func (s *Service) CreateReport(ctx context.Context, input CreateReportInput) (Report, error) {
@@ -114,8 +136,12 @@ func (s *Service) CreateReport(ctx context.Context, input CreateReportInput) (Re
 	if issues := validateCreateInput(input); len(issues) > 0 {
 		return Report{}, ValidationFailure{Issues: issues}
 	}
+	targetUUID, targetBigint, issues := parseTypedTargetID(input.TargetType, input.TargetID)
+	if len(issues) > 0 {
+		return Report{}, ValidationFailure{Issues: issues}
+	}
 
-	targetAuthorID, err := s.repo.ResolveTargetAuthor(ctx, input.TargetType, input.TargetID)
+	targetAuthorID, err := s.repo.ResolveTargetAuthor(ctx, input.TargetType, targetUUID, targetBigint)
 	if err != nil {
 		if reportsrepo.IsNoRows(err) {
 			return Report{}, apperrors.New(http.StatusNotFound, "not_found", "target not found", err)
@@ -136,27 +162,41 @@ func (s *Service) CreateReport(ctx context.Context, input CreateReportInput) (Re
 	}
 
 	now := time.Now().UTC()
-	recentExists, recentAt, err := s.repo.FindRecentReportByReporterAndTarget(ctx, input.ReporterUserID, input.TargetType, input.TargetID, now.Add(-reportCooldownWindow))
+	recentExists, recentAt, err := s.repo.FindRecentReportByReporterAndTarget(
+		ctx,
+		input.ReporterUserID,
+		input.TargetType,
+		targetUUID,
+		targetBigint,
+		now.Add(-s.cooldownWindow),
+	)
 	if err != nil {
 		return Report{}, apperrors.New(http.StatusInternalServerError, "report_cooldown_check_failed", "failed to check report cooldown", err)
 	}
 	if recentExists {
-		retryAt := recentAt.Add(reportCooldownWindow)
-		return Report{}, apperrors.New(http.StatusTooManyRequests, "rate_limited", fmt.Sprintf("report cooldown active; retry after %s", retryAt.Format(time.RFC3339)), nil)
+		retryAt := recentAt.Add(s.cooldownWindow)
+		retryAfterSeconds := secondsUntil(now, retryAt)
+		return Report{}, apperrors.NewRateLimited(
+			fmt.Sprintf("report cooldown active; retry after %s", retryAt.Format(time.RFC3339)),
+			int(s.cooldownWindow.Seconds()),
+			retryAfterSeconds,
+		)
 	}
 
 	dailyCount, err := s.repo.CountReportsByReporterSince(ctx, input.ReporterUserID, beginningOfDay(now))
 	if err != nil {
 		return Report{}, apperrors.New(http.StatusInternalServerError, "report_cap_check_failed", "failed to check daily report cap", err)
 	}
-	if dailyCount >= dailyReportCap {
-		return Report{}, apperrors.New(http.StatusTooManyRequests, "rate_limited", "daily report cap reached", nil)
+	if dailyCount >= s.dailyReportCap {
+		retryAt := nextDayStart(now)
+		return Report{}, apperrors.NewRateLimited("daily report cap reached", 86400, secondsUntil(now, retryAt))
 	}
 
 	created, err := s.repo.CreateReport(ctx, reportsrepo.CreateReportInput{
 		ReporterUserID:  input.ReporterUserID,
 		TargetType:      input.TargetType,
-		TargetID:        input.TargetID,
+		TargetUUID:      targetUUID,
+		TargetBigint:    targetBigint,
 		TargetAppUserID: targetAuthorID,
 		ReasonCode:      input.ReasonCode,
 		Details:         strings.TrimSpace(input.Details),
@@ -198,13 +238,12 @@ func (s *Service) ListReportsForModeration(ctx context.Context, input ListReport
 		}}}
 	}
 	if input.Limit <= 0 || input.Limit > 100 {
-		input.Limit = 20
+		input.Limit = pagination.DefaultLimit
 	}
 
-	cursorCreated := time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
-	cursorID := "ffffffff-ffff-ffff-ffff-ffffffffffff"
+	cursorCreated, cursorID := pagination.DefaultUUIDCursor()
 	if strings.TrimSpace(input.Cursor) != "" {
-		createdAt, id, err := decodeCursor(input.Cursor)
+		createdAt, id, err := pagination.DecodeUUID(input.Cursor)
 		if err != nil {
 			return ReportListResult{}, ValidationFailure{Issues: []validatex.Issue{{
 				Path:    []any{"cursor"},
@@ -232,7 +271,7 @@ func (s *Service) ListReportsForModeration(ctx context.Context, input ListReport
 	if int32(len(rows)) > input.Limit {
 		cutoff := int(input.Limit)
 		next := rows[cutoff-1]
-		nextCursor = encodeCursor(next.CreatedAt, next.ID)
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
 		rows = rows[:cutoff]
 	}
 
@@ -335,18 +374,6 @@ func validateCreateInput(input CreateReportInput) []validatex.Issue {
 	}
 	if strings.TrimSpace(input.TargetID) == "" {
 		issues = append(issues, validatex.Issue{Path: []any{"targetId"}, Code: "required", Message: "This field is required"})
-	} else {
-		switch input.TargetType {
-		case "user", "chika_thread":
-			if _, err := uuid.Parse(strings.TrimSpace(input.TargetID)); err != nil {
-				issues = append(issues, validatex.Issue{Path: []any{"targetId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"})
-			}
-		case "message", "chika_comment":
-			id, err := strconv.ParseInt(strings.TrimSpace(input.TargetID), 10, 64)
-			if err != nil || id <= 0 {
-				issues = append(issues, validatex.Issue{Path: []any{"targetId"}, Code: "custom", Message: "Must be a valid numeric id"})
-			}
-		}
 	}
 
 	for index, url := range input.EvidenceURLs {
@@ -356,6 +383,34 @@ func validateCreateInput(input CreateReportInput) []validatex.Issue {
 	}
 
 	return issues
+}
+
+func parseTypedTargetID(targetType, targetID string) (*string, *int64, []validatex.Issue) {
+	trimmed := strings.TrimSpace(targetID)
+	if trimmed == "" {
+		return nil, nil, []validatex.Issue{{
+			Path:    []any{"targetId"},
+			Code:    "required",
+			Message: "This field is required",
+		}}
+	}
+	switch strings.TrimSpace(targetType) {
+	case "user", "chika_thread":
+		parsed, err := uuid.Parse(trimmed)
+		if err != nil {
+			return nil, nil, []validatex.Issue{{Path: []any{"targetId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"}}
+		}
+		value := parsed.String()
+		return &value, nil, nil
+	case "message", "chika_comment":
+		parsed, err := strconv.ParseInt(trimmed, 10, 64)
+		if err != nil || parsed <= 0 {
+			return nil, nil, []validatex.Issue{{Path: []any{"targetId"}, Code: "invalid_type", Message: "Must be a valid int64 id"}}
+		}
+		return nil, &parsed, nil
+	default:
+		return nil, nil, []validatex.Issue{{Path: []any{"targetType"}, Code: "invalid_enum", Message: "Must be one of: user message chika_thread chika_comment"}}
+	}
 }
 
 func isValidTargetType(value string) bool {
@@ -437,28 +492,16 @@ func beginningOfDay(now time.Time) time.Time {
 	return time.Date(y, m, d, 0, 0, 0, 0, now.Location())
 }
 
-func encodeCursor(createdAt time.Time, reportID string) string {
-	payload := fmt.Sprintf("%d|%s", createdAt.UnixNano(), reportID)
-	return base64.RawURLEncoding.EncodeToString([]byte(payload))
+func nextDayStart(now time.Time) time.Time {
+	return beginningOfDay(now).Add(24 * time.Hour)
 }
 
-func decodeCursor(cursor string) (time.Time, string, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(cursor)
-	if err != nil {
-		return time.Time{}, "", err
+func secondsUntil(now, then time.Time) int {
+	seconds := int(then.Sub(now).Seconds())
+	if seconds < 1 {
+		return 1
 	}
-	parts := strings.Split(string(raw), "|")
-	if len(parts) != 2 {
-		return time.Time{}, "", errors.New("invalid cursor format")
-	}
-	nanos, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return time.Time{}, "", err
-	}
-	if _, err := uuid.Parse(parts[1]); err != nil {
-		return time.Time{}, "", err
-	}
-	return time.Unix(0, nanos).UTC(), parts[1], nil
+	return seconds
 }
 
 func ptr(value string) *string {

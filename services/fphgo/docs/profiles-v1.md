@@ -25,7 +25,7 @@ Last updated: 2026-02-27
 
 ## Privacy Notes
 
-- Location output is coarse by default in service (`coarseLocation`), even when stored text is more detailed.
+- Location output is coarse by default in all profile responses (`GET /v1/me/profile`, `GET /v1/profiles/{userID}`, `GET /v1/users/search`) via service `coarseLocation`, even when stored text is more detailed.
 - Search responses return profile-safe fields only.
 
 ## Permissions

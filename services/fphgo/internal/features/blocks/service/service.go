@@ -2,10 +2,8 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,11 +11,14 @@ import (
 
 	blocksrepo "fphgo/internal/features/blocks/repo"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/pagination"
+	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
 )
 
 type Service struct {
-	repo repository
+	repo    repository
+	limiter rateLimiter
 }
 
 type repository interface {
@@ -25,6 +26,26 @@ type repository interface {
 	DeleteBlock(ctx context.Context, blockerID, blockedID string) error
 	ListBlocksByBlocker(ctx context.Context, input blocksrepo.ListBlocksInput) ([]blocksrepo.Block, error)
 	IsBlockedEitherDirection(ctx context.Context, a, b string) (bool, error)
+}
+
+type rateLimiter interface {
+	Allow(ctx context.Context, scope, key string, maxEvents int, window time.Duration) (sharedratelimit.Result, error)
+}
+
+type noopLimiter struct{}
+
+func (noopLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
+	return sharedratelimit.Result{Allowed: true}, nil
+}
+
+type Option func(*Service)
+
+func WithLimiter(limiter rateLimiter) Option {
+	return func(s *Service) {
+		if limiter != nil {
+			s.limiter = limiter
+		}
+	}
 }
 
 type Block struct {
@@ -46,8 +67,14 @@ type ValidationFailure struct {
 
 func (e ValidationFailure) Error() string { return "validation failed" }
 
-func New(repo repository) *Service {
-	return &Service{repo: repo}
+func New(repo repository, opts ...Option) *Service {
+	svc := &Service{repo: repo, limiter: noopLimiter{}}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func (s *Service) BlockUser(ctx context.Context, blockerID, blockedID string) error {
@@ -68,6 +95,9 @@ func (s *Service) BlockUser(ctx context.Context, blockerID, blockedID string) er
 			Message: "cannot block yourself",
 		}}}
 	}
+	if err := s.enforceRateLimit(ctx, "blocks.write", blockerID, 40, time.Minute, "block write rate exceeded"); err != nil {
+		return err
+	}
 
 	if err := s.repo.CreateBlock(ctx, blockerID, blockedID); err != nil {
 		return apperrors.New(http.StatusInternalServerError, "block_create_failed", "failed to block user", err)
@@ -86,6 +116,9 @@ func (s *Service) UnblockUser(ctx context.Context, blockerID, blockedID string) 
 			Message: "Must be a valid UUID",
 		}}}
 	}
+	if err := s.enforceRateLimit(ctx, "blocks.write", blockerID, 40, time.Minute, "block write rate exceeded"); err != nil {
+		return err
+	}
 
 	if err := s.repo.DeleteBlock(ctx, blockerID, blockedID); err != nil {
 		return apperrors.New(http.StatusInternalServerError, "block_delete_failed", "failed to unblock user", err)
@@ -98,14 +131,13 @@ func (s *Service) ListBlocks(ctx context.Context, blockerID string, limit int32,
 		return ListResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
 	}
 
-	if limit <= 0 || limit > 100 {
-		limit = 20
+	if limit <= 0 || limit > pagination.MaxLimit {
+		limit = pagination.DefaultLimit
 	}
 
-	cursorCreated := time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
-	cursorUserID := "ffffffff-ffff-ffff-ffff-ffffffffffff"
+	cursorCreated, cursorUserID := pagination.DefaultUUIDCursor()
 	if strings.TrimSpace(cursor) != "" {
-		createdAt, blockedUserID, err := decodeCursor(cursor)
+		createdAt, blockedUserID, err := pagination.DecodeUUID(cursor)
 		if err != nil {
 			return ListResult{}, ValidationFailure{Issues: []validatex.Issue{{
 				Path:    []any{"cursor"},
@@ -130,7 +162,7 @@ func (s *Service) ListBlocks(ctx context.Context, blockerID string, limit int32,
 	nextCursor := ""
 	if int32(len(rows)) > limit {
 		next := rows[limit-1]
-		nextCursor = encodeCursor(next.CreatedAt, next.BlockedUserID)
+		nextCursor = pagination.Encode(next.CreatedAt, next.BlockedUserID)
 		rows = rows[:limit]
 	}
 
@@ -162,27 +194,17 @@ func (s *Service) IsBlockedEitherDirection(ctx context.Context, a, b string) (bo
 	return blocked, nil
 }
 
-func encodeCursor(createdAt time.Time, blockedUserID string) string {
-	payload := fmt.Sprintf("%d|%s", createdAt.UnixNano(), blockedUserID)
-	return base64.RawURLEncoding.EncodeToString([]byte(payload))
-}
-
-func decodeCursor(cursor string) (time.Time, string, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(cursor)
+func (s *Service) enforceRateLimit(ctx context.Context, scope, key string, maxEvents int, window time.Duration, message string) error {
+	result, err := s.limiter.Allow(ctx, scope, key, maxEvents, window)
 	if err != nil {
-		return time.Time{}, "", err
+		return apperrors.New(http.StatusInternalServerError, "rate_limit_failed", "failed to enforce rate limit", err)
 	}
-	parts := strings.Split(string(raw), "|")
-	if len(parts) != 2 {
-		return time.Time{}, "", fmt.Errorf("invalid cursor format")
+	if result.Allowed {
+		return nil
 	}
-	nanos, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return time.Time{}, "", err
+	retry := int(result.RetryAfter.Seconds())
+	if retry < 1 {
+		retry = 1
 	}
-	blocked := parts[1]
-	if _, err := uuid.Parse(blocked); err != nil {
-		return time.Time{}, "", err
-	}
-	return time.Unix(0, nanos).UTC(), blocked, nil
+	return apperrors.NewRateLimited(fmt.Sprintf("%s; retry after %ds", message, retry), int(window.Seconds()), retry)
 }

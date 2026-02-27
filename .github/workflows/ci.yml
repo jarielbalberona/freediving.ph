@@ -53,3 +53,137 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  fphgo-contract:
+    name: fphgo Contract and Auth Gates
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fphgo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DB_DSN: postgres://postgres:postgres@localhost:5432/fphgo?sslmode=disable
+      TEST_DB_DSN: postgres://postgres:postgres@localhost:5432/fphgo?sslmode=disable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/fphgo/go.mod
+
+      - name: Install sqlc
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Run migrations
+        run: make migrate-up
+        working-directory: services/fphgo
+
+      - name: Generate sqlc
+        run: make sqlc
+        working-directory: services/fphgo
+
+      - name: Check gofmt
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then
+            echo "Unformatted files:"
+            echo "$files"
+            exit 1
+          fi
+        working-directory: services/fphgo
+
+      - name: Go vet
+        run: go vet ./...
+        working-directory: services/fphgo
+
+      - name: Go tests
+        run: go test ./...
+        working-directory: services/fphgo
+
+  web-fphgo-smoke:
+    name: Web to fphgo Smoke
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fphgo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DB_DSN: postgres://postgres:postgres@localhost:5432/fphgo?sslmode=disable
+      TEST_DB_DSN: postgres://postgres:postgres@localhost:5432/fphgo?sslmode=disable
+      DEV_AUTH: "true"
+      APP_ENV: ci
+      PORT: "4000"
+      FPHGO_BASE_URL: http://localhost:4000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/fphgo/go.mod
+
+      - name: Run migrations
+        run: make migrate-up
+        working-directory: services/fphgo
+
+      - name: Start fphgo
+        working-directory: services/fphgo
+        run: |
+          go run ./cmd/api > /tmp/fphgo.log 2>&1 &
+          echo $! > /tmp/fphgo.pid
+
+      - name: Wait for fphgo
+        run: |
+          for i in {1..30}; do
+            if curl -fsS "http://localhost:4000/healthz" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "fphgo failed to become ready"
+          cat /tmp/fphgo.log || true
+          exit 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run web smoke test
+        working-directory: apps/web
+        run: node --test test/fphgo-ci-smoke.test.mjs
+
+      - name: Stop fphgo
+        if: always()
+        run: |
+          if [ -f /tmp/fphgo.pid ]; then
+            kill "$(cat /tmp/fphgo.pid)" || true
+          fi
+          cat /tmp/fphgo.log || true

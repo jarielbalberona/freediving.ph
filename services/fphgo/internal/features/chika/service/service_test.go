@@ -45,4 +45,3 @@ func TestIsModeratorRole(t *testing.T) {
 		}
 	}
 }
-
