@@ -1,22 +1,28 @@
 import { useQuery } from "@tanstack/react-query";
-import type { BuddyFinderQuery } from "@freediving.ph/types";
 
 import { buddiesApi } from "../api/buddies";
 
-export const useBuddyRequests = () =>
+export const useIncomingBuddyRequests = () =>
   useQuery({
-    queryKey: ["buddies", "requests"],
-    queryFn: buddiesApi.getRequests,
+    queryKey: ["buddies", "requests", "incoming"],
+    queryFn: buddiesApi.getIncomingRequests,
   });
 
-export const useActiveBuddies = () =>
+export const useOutgoingBuddyRequests = () =>
   useQuery({
-    queryKey: ["buddies", "active"],
-    queryFn: buddiesApi.getActiveBuddies,
+    queryKey: ["buddies", "requests", "outgoing"],
+    queryFn: buddiesApi.getOutgoingRequests,
   });
 
-export const useBuddyFinderSearch = (query: BuddyFinderQuery) =>
+export const useBuddies = () =>
   useQuery({
-    queryKey: ["buddies", "finder", query],
-    queryFn: () => buddiesApi.finderSearch(query),
+    queryKey: ["buddies", "list"],
+    queryFn: buddiesApi.listBuddies,
+  });
+
+export const useBuddyPreview = (userId: string | undefined) =>
+  useQuery({
+    queryKey: ["buddies", "preview", userId],
+    queryFn: () => buddiesApi.preview(userId!),
+    enabled: !!userId,
   });

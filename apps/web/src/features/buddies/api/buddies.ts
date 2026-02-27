@@ -1,40 +1,63 @@
-import type { ApiEnvelope, BuddyFinderQuery, BuddyRequestListResponse, BuddyUserCard } from "@freediving.ph/types";
+import type {
+  BuddyListResponse,
+  BuddyPreviewResponse,
+  BuddyRequest,
+  IncomingBuddyRequestsResponse,
+  OutgoingBuddyRequestsResponse,
+} from "@freediving.ph/types";
 
-import { axiosInstance } from "@/lib/http/axios";
+import { fphgoFetchClient } from "@/lib/api/fphgo-fetch";
+import { routes } from "@/lib/api/fphgo-routes";
+
+type BuddyRequestResponse = {
+  request: BuddyRequest;
+};
 
 export const buddiesApi = {
-  getRequests: async (): Promise<BuddyRequestListResponse> => {
-    const response = await axiosInstance.get<ApiEnvelope<BuddyRequestListResponse>>("/buddies/requests");
-    return response.data.data;
+  getIncomingRequests: async (): Promise<IncomingBuddyRequestsResponse> => {
+    return fphgoFetchClient<IncomingBuddyRequestsResponse>(routes.v1.buddies.incomingRequests());
   },
 
-  sendRequest: async (toUserId: number) => {
-    const response = await axiosInstance.post<ApiEnvelope<unknown>>("/buddies/requests", { toUserId });
-    return response.data.data;
+  getOutgoingRequests: async (): Promise<OutgoingBuddyRequestsResponse> => {
+    return fphgoFetchClient<OutgoingBuddyRequestsResponse>(routes.v1.buddies.outgoingRequests());
   },
 
-  acceptRequest: async (requestId: number) => {
-    const response = await axiosInstance.post<ApiEnvelope<unknown>>(`/buddies/requests/${requestId}/accept`);
-    return response.data.data;
+  sendRequest: async (targetUserId: string): Promise<BuddyRequestResponse> => {
+    return fphgoFetchClient<BuddyRequestResponse>(routes.v1.buddies.createRequest(), {
+      method: "POST",
+      body: { targetUserId },
+    });
   },
 
-  rejectRequest: async (requestId: number, reason?: string) => {
-    const response = await axiosInstance.post<ApiEnvelope<unknown>>(`/buddies/requests/${requestId}/reject`, { reason });
-    return response.data.data;
+  acceptRequest: async (requestId: string): Promise<BuddyRequestResponse> => {
+    return fphgoFetchClient<BuddyRequestResponse>(routes.v1.buddies.acceptRequest(requestId), {
+      method: "POST",
+    });
   },
 
-  getActiveBuddies: async (): Promise<BuddyUserCard[]> => {
-    const response = await axiosInstance.get<ApiEnvelope<BuddyUserCard[]>>("/buddies");
-    return response.data.data;
+  declineRequest: async (requestId: string): Promise<BuddyRequestResponse> => {
+    return fphgoFetchClient<BuddyRequestResponse>(routes.v1.buddies.declineRequest(requestId), {
+      method: "POST",
+    });
   },
 
-  removeBuddy: async (buddyUserId: number) => {
-    const response = await axiosInstance.delete<ApiEnvelope<unknown>>(`/buddies/${buddyUserId}`);
-    return response.data.data;
+  cancelRequest: async (requestId: string): Promise<BuddyRequestResponse> => {
+    return fphgoFetchClient<BuddyRequestResponse>(routes.v1.buddies.cancelRequest(requestId), {
+      method: "DELETE",
+    });
   },
 
-  finderSearch: async (query: BuddyFinderQuery): Promise<BuddyUserCard[]> => {
-    const response = await axiosInstance.get<ApiEnvelope<BuddyUserCard[]>>("/buddies/finder/search", { params: query });
-    return response.data.data;
+  listBuddies: async (): Promise<BuddyListResponse> => {
+    return fphgoFetchClient<BuddyListResponse>(routes.v1.buddies.list());
+  },
+
+  removeBuddy: async (buddyUserId: string): Promise<void> => {
+    await fphgoFetchClient<void>(routes.v1.buddies.byUserId(buddyUserId), {
+      method: "DELETE",
+    });
+  },
+
+  preview: async (userId: string): Promise<BuddyPreviewResponse> => {
+    return fphgoFetchClient<BuddyPreviewResponse>(routes.v1.buddies.preview(userId));
   },
 };

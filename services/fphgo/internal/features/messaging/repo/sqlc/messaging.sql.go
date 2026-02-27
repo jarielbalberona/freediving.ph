@@ -29,19 +29,20 @@ func (q *Queries) AddConversationParticipant(ctx context.Context, arg AddConvers
 
 const areBuddies = `-- name: AreBuddies :one
 SELECT EXISTS (
-  SELECT 1 FROM buddy_relationships
-  WHERE status = 'accepted'
-    AND ((user_id = $1 AND buddy_id = $2) OR (user_id = $2 AND buddy_id = $1))
+  SELECT 1
+  FROM buddies
+  WHERE app_user_id_a = LEAST($1, $2)
+    AND app_user_id_b = GREATEST($1, $2)
 )
 `
 
 type AreBuddiesParams struct {
-	UserID  pgtype.UUID `db:"user_id" json:"user_id"`
-	BuddyID pgtype.UUID `db:"buddy_id" json:"buddy_id"`
+	AppUserIDA   pgtype.UUID `db:"app_user_id_a" json:"app_user_id_a"`
+	AppUserIDA_2 pgtype.UUID `db:"app_user_id_a_2" json:"app_user_id_a_2"`
 }
 
 func (q *Queries) AreBuddies(ctx context.Context, arg AreBuddiesParams) (bool, error) {
-	row := q.db.QueryRow(ctx, areBuddies, arg.UserID, arg.BuddyID)
+	row := q.db.QueryRow(ctx, areBuddies, arg.AppUserIDA, arg.AppUserIDA_2)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -68,103 +69,56 @@ func (q *Queries) GetConversation(ctx context.Context, id pgtype.UUID) (Conversa
 	return i, err
 }
 
-const inbox = `-- name: Inbox :many
-SELECT
-  m.conversation_id,
-  m.id,
-  m.sender_user_id,
-  m.content,
-  c.status,
-  m.created_at
-FROM messages m
-JOIN conversations c ON c.id = m.conversation_id
-JOIN conversation_participants cp ON cp.conversation_id = c.id
-JOIN conversation_participants other_cp ON other_cp.conversation_id = c.id AND other_cp.user_id <> $1
-WHERE cp.user_id = $1
-  AND c.status = 'active'
-  AND NOT EXISTS (
-    SELECT 1
-    FROM user_blocks b
-    WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = other_cp.user_id)
-       OR (b.blocker_app_user_id = other_cp.user_id AND b.blocked_app_user_id = $1)
-  )
-ORDER BY m.created_at DESC
-LIMIT 100
+const getOtherParticipantID = `-- name: GetOtherParticipantID :one
+SELECT cp.user_id
+FROM conversation_participants cp
+WHERE cp.conversation_id = $1
+  AND cp.user_id <> $2
+LIMIT 1
 `
 
-type InboxRow struct {
-	ConversationID pgtype.UUID        `db:"conversation_id" json:"conversation_id"`
-	ID             int64              `db:"id" json:"id"`
-	SenderUserID   pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
-	Content        string             `db:"content" json:"content"`
-	Status         string             `db:"status" json:"status"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+type GetOtherParticipantIDParams struct {
+	ConversationID pgtype.UUID `db:"conversation_id" json:"conversation_id"`
+	UserID         pgtype.UUID `db:"user_id" json:"user_id"`
 }
 
-func (q *Queries) Inbox(ctx context.Context, userID pgtype.UUID) ([]InboxRow, error) {
-	rows, err := q.db.Query(ctx, inbox, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []InboxRow{}
-	for rows.Next() {
-		var i InboxRow
-		if err := rows.Scan(
-			&i.ConversationID,
-			&i.ID,
-			&i.SenderUserID,
-			&i.Content,
-			&i.Status,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetOtherParticipantID(ctx context.Context, arg GetOtherParticipantIDParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getOtherParticipantID, arg.ConversationID, arg.UserID)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
 }
 
 const insertMessage = `-- name: InsertMessage :one
-INSERT INTO messages (conversation_id, sender_user_id, content)
-VALUES ($1, $2, $3)
-RETURNING id
+INSERT INTO messages (conversation_id, sender_user_id, content, idempotency_key)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (conversation_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+DO UPDATE SET content = messages.content
+RETURNING id, created_at
 `
 
 type InsertMessageParams struct {
 	ConversationID pgtype.UUID `db:"conversation_id" json:"conversation_id"`
 	SenderUserID   pgtype.UUID `db:"sender_user_id" json:"sender_user_id"`
 	Content        string      `db:"content" json:"content"`
+	IdempotencyKey *string     `db:"idempotency_key" json:"idempotency_key"`
 }
 
-func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (int64, error) {
-	row := q.db.QueryRow(ctx, insertMessage, arg.ConversationID, arg.SenderUserID, arg.Content)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
+type InsertMessageRow struct {
+	ID        int64              `db:"id" json:"id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-const isBlockedEither = `-- name: IsBlockedEither :one
-SELECT EXISTS (
-  SELECT 1 FROM user_blocks
-  WHERE (blocker_app_user_id = $1 AND blocked_app_user_id = $2)
-     OR (blocker_app_user_id = $2 AND blocked_app_user_id = $1)
-)
-`
-
-type IsBlockedEitherParams struct {
-	BlockerAppUserID pgtype.UUID `db:"blocker_app_user_id" json:"blocker_app_user_id"`
-	BlockedAppUserID pgtype.UUID `db:"blocked_app_user_id" json:"blocked_app_user_id"`
-}
-
-func (q *Queries) IsBlockedEither(ctx context.Context, arg IsBlockedEitherParams) (bool, error) {
-	row := q.db.QueryRow(ctx, isBlockedEither, arg.BlockerAppUserID, arg.BlockedAppUserID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
+func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (InsertMessageRow, error) {
+	row := q.db.QueryRow(ctx, insertMessage,
+		arg.ConversationID,
+		arg.SenderUserID,
+		arg.Content,
+		arg.IdempotencyKey,
+	)
+	var i InsertMessageRow
+	err := row.Scan(&i.ID, &i.CreatedAt)
+	return i, err
 }
 
 const isParticipant = `-- name: IsParticipant :one
@@ -186,55 +140,66 @@ func (q *Queries) IsParticipant(ctx context.Context, arg IsParticipantParams) (b
 	return exists, err
 }
 
-const requests = `-- name: Requests :many
+const listConversationMessages = `-- name: ListConversationMessages :many
 SELECT
   m.conversation_id,
   m.id,
   m.sender_user_id,
   m.content,
-  c.status,
   m.created_at
 FROM messages m
 JOIN conversations c ON c.id = m.conversation_id
 JOIN conversation_participants cp ON cp.conversation_id = c.id
-JOIN conversation_participants other_cp ON other_cp.conversation_id = c.id AND other_cp.user_id <> $1
-WHERE cp.user_id = $1
-  AND c.status = 'pending'
-  AND c.initiator_user_id <> $1
+JOIN conversation_participants other_cp ON other_cp.conversation_id = c.id AND other_cp.user_id <> $2
+WHERE m.conversation_id = $1
+  AND cp.user_id = $2
+  AND (m.created_at < $3 OR (m.created_at = $3 AND m.id < $4))
   AND NOT EXISTS (
     SELECT 1
     FROM user_blocks b
-    WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = other_cp.user_id)
-       OR (b.blocker_app_user_id = other_cp.user_id AND b.blocked_app_user_id = $1)
+    WHERE (b.blocker_app_user_id = $2 AND b.blocked_app_user_id = other_cp.user_id)
+       OR (b.blocker_app_user_id = other_cp.user_id AND b.blocked_app_user_id = $2)
   )
-ORDER BY m.created_at DESC
-LIMIT 100
+ORDER BY m.created_at DESC, m.id DESC
+LIMIT $5
 `
 
-type RequestsRow struct {
+type ListConversationMessagesParams struct {
+	ConversationID pgtype.UUID        `db:"conversation_id" json:"conversation_id"`
+	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID             int64              `db:"id" json:"id"`
+	Limit          int32              `db:"limit" json:"limit"`
+}
+
+type ListConversationMessagesRow struct {
 	ConversationID pgtype.UUID        `db:"conversation_id" json:"conversation_id"`
 	ID             int64              `db:"id" json:"id"`
 	SenderUserID   pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
 	Content        string             `db:"content" json:"content"`
-	Status         string             `db:"status" json:"status"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-func (q *Queries) Requests(ctx context.Context, userID pgtype.UUID) ([]RequestsRow, error) {
-	rows, err := q.db.Query(ctx, requests, userID)
+func (q *Queries) ListConversationMessages(ctx context.Context, arg ListConversationMessagesParams) ([]ListConversationMessagesRow, error) {
+	rows, err := q.db.Query(ctx, listConversationMessages,
+		arg.ConversationID,
+		arg.UserID,
+		arg.CreatedAt,
+		arg.ID,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []RequestsRow{}
+	items := []ListConversationMessagesRow{}
 	for rows.Next() {
-		var i RequestsRow
+		var i ListConversationMessagesRow
 		if err := rows.Scan(
 			&i.ConversationID,
 			&i.ID,
 			&i.SenderUserID,
 			&i.Content,
-			&i.Status,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -245,6 +210,188 @@ func (q *Queries) Requests(ctx context.Context, userID pgtype.UUID) ([]RequestsR
 		return nil, err
 	}
 	return items, nil
+}
+
+const listInboxConversations = `-- name: ListInboxConversations :many
+SELECT
+  c.id,
+  c.status,
+  c.initiator_user_id,
+  c.updated_at,
+  other_cp.user_id AS other_user_id,
+  u.username AS other_username,
+  u.display_name AS other_display_name,
+  p.avatar_url AS other_avatar_url,
+  last_message.id AS last_message_id,
+  last_message.sender_user_id AS last_message_sender_id,
+  last_message.content AS last_message_content,
+  last_message.created_at AS last_message_created_at,
+  first_message.id AS first_message_id,
+  first_message.sender_user_id AS first_message_sender_id,
+  first_message.content AS first_message_content,
+  first_message.created_at AS first_message_created_at,
+  unread.unread_count,
+  pending_msgs.pending_count
+FROM conversations c
+JOIN conversation_participants cp ON cp.conversation_id = c.id
+JOIN conversation_participants other_cp ON other_cp.conversation_id = c.id AND other_cp.user_id <> $1
+JOIN users u ON u.id = other_cp.user_id
+LEFT JOIN profiles p ON p.user_id = other_cp.user_id
+LEFT JOIN LATERAL (
+  SELECT m.id, m.sender_user_id, m.content, m.created_at
+  FROM messages m
+  WHERE m.conversation_id = c.id
+  ORDER BY m.created_at DESC, m.id DESC
+  LIMIT 1
+) last_message ON TRUE
+LEFT JOIN LATERAL (
+  SELECT m.id, m.sender_user_id, m.content, m.created_at
+  FROM messages m
+  WHERE m.conversation_id = c.id
+  ORDER BY m.created_at ASC, m.id ASC
+  LIMIT 1
+) first_message ON TRUE
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS unread_count
+  FROM messages m
+  WHERE m.conversation_id = c.id
+    AND m.sender_user_id <> $1
+    AND (
+      cp.last_read_at IS NULL
+      OR m.created_at > cp.last_read_at
+    )
+) unread ON TRUE
+LEFT JOIN LATERAL (
+  SELECT CASE WHEN c.status = 'pending' THEN COUNT(*)::bigint ELSE 0 END AS pending_count
+  FROM messages m
+  WHERE m.conversation_id = c.id
+) pending_msgs ON TRUE
+WHERE cp.user_id = $1
+  AND (c.updated_at < $2 OR (c.updated_at = $2 AND c.id < $3))
+  AND NOT EXISTS (
+    SELECT 1
+    FROM user_blocks b
+    WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = other_cp.user_id)
+       OR (b.blocker_app_user_id = other_cp.user_id AND b.blocked_app_user_id = $1)
+  )
+ORDER BY c.updated_at DESC, c.id DESC
+LIMIT $4
+`
+
+type ListInboxConversationsParams struct {
+	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID        pgtype.UUID        `db:"id" json:"id"`
+	Limit     int32              `db:"limit" json:"limit"`
+}
+
+type ListInboxConversationsRow struct {
+	ID                    pgtype.UUID        `db:"id" json:"id"`
+	Status                string             `db:"status" json:"status"`
+	InitiatorUserID       pgtype.UUID        `db:"initiator_user_id" json:"initiator_user_id"`
+	UpdatedAt             pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	OtherUserID           pgtype.UUID        `db:"other_user_id" json:"other_user_id"`
+	OtherUsername         string             `db:"other_username" json:"other_username"`
+	OtherDisplayName      string             `db:"other_display_name" json:"other_display_name"`
+	OtherAvatarUrl        *string            `db:"other_avatar_url" json:"other_avatar_url"`
+	LastMessageID         int64              `db:"last_message_id" json:"last_message_id"`
+	LastMessageSenderID   pgtype.UUID        `db:"last_message_sender_id" json:"last_message_sender_id"`
+	LastMessageContent    string             `db:"last_message_content" json:"last_message_content"`
+	LastMessageCreatedAt  pgtype.Timestamptz `db:"last_message_created_at" json:"last_message_created_at"`
+	FirstMessageID        int64              `db:"first_message_id" json:"first_message_id"`
+	FirstMessageSenderID  pgtype.UUID        `db:"first_message_sender_id" json:"first_message_sender_id"`
+	FirstMessageContent   string             `db:"first_message_content" json:"first_message_content"`
+	FirstMessageCreatedAt pgtype.Timestamptz `db:"first_message_created_at" json:"first_message_created_at"`
+	UnreadCount           int64              `db:"unread_count" json:"unread_count"`
+	PendingCount          int32              `db:"pending_count" json:"pending_count"`
+}
+
+func (q *Queries) ListInboxConversations(ctx context.Context, arg ListInboxConversationsParams) ([]ListInboxConversationsRow, error) {
+	rows, err := q.db.Query(ctx, listInboxConversations,
+		arg.UserID,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListInboxConversationsRow{}
+	for rows.Next() {
+		var i ListInboxConversationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.InitiatorUserID,
+			&i.UpdatedAt,
+			&i.OtherUserID,
+			&i.OtherUsername,
+			&i.OtherDisplayName,
+			&i.OtherAvatarUrl,
+			&i.LastMessageID,
+			&i.LastMessageSenderID,
+			&i.LastMessageContent,
+			&i.LastMessageCreatedAt,
+			&i.FirstMessageID,
+			&i.FirstMessageSenderID,
+			&i.FirstMessageContent,
+			&i.FirstMessageCreatedAt,
+			&i.UnreadCount,
+			&i.PendingCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markConversationReadByMessageID = `-- name: MarkConversationReadByMessageID :exec
+UPDATE conversation_participants cp
+SET last_read_at = GREATEST(
+  COALESCE(cp.last_read_at, 'epoch'::timestamptz),
+  (SELECT m.created_at FROM messages m WHERE m.id = $3 AND m.conversation_id = $1)
+)
+WHERE cp.conversation_id = $1
+  AND cp.user_id = $2
+  AND EXISTS (
+    SELECT 1
+    FROM messages m
+    WHERE m.id = $3
+      AND m.conversation_id = $1
+  )
+`
+
+type MarkConversationReadByMessageIDParams struct {
+	ConversationID pgtype.UUID `db:"conversation_id" json:"conversation_id"`
+	UserID         pgtype.UUID `db:"user_id" json:"user_id"`
+	ID             int64       `db:"id" json:"id"`
+}
+
+func (q *Queries) MarkConversationReadByMessageID(ctx context.Context, arg MarkConversationReadByMessageIDParams) error {
+	_, err := q.db.Exec(ctx, markConversationReadByMessageID, arg.ConversationID, arg.UserID, arg.ID)
+	return err
+}
+
+const markConversationReadNow = `-- name: MarkConversationReadNow :exec
+UPDATE conversation_participants
+SET last_read_at = NOW()
+WHERE conversation_id = $1
+  AND user_id = $2
+`
+
+type MarkConversationReadNowParams struct {
+	ConversationID pgtype.UUID `db:"conversation_id" json:"conversation_id"`
+	UserID         pgtype.UUID `db:"user_id" json:"user_id"`
+}
+
+func (q *Queries) MarkConversationReadNow(ctx context.Context, arg MarkConversationReadNowParams) error {
+	_, err := q.db.Exec(ctx, markConversationReadNow, arg.ConversationID, arg.UserID)
+	return err
 }
 
 const setConversationStatus = `-- name: SetConversationStatus :exec
@@ -263,12 +410,24 @@ func (q *Queries) SetConversationStatus(ctx context.Context, arg SetConversation
 	return err
 }
 
+const touchConversation = `-- name: TouchConversation :exec
+UPDATE conversations
+SET updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) TouchConversation(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, touchConversation, id)
+	return err
+}
+
 const upsertDMConversation = `-- name: UpsertDMConversation :one
 INSERT INTO conversations (id, kind, dm_pair_key, initiator_user_id, status)
 VALUES ($1, 'dm', $2, $3, $4)
 ON CONFLICT (dm_pair_key)
-DO UPDATE SET status = CASE WHEN conversations.status = 'active' THEN 'active' ELSE EXCLUDED.status END,
-              updated_at = NOW()
+DO UPDATE SET
+  status = CASE WHEN conversations.status = 'active' THEN 'active' ELSE EXCLUDED.status END,
+  updated_at = NOW()
 RETURNING id, kind, dm_pair_key, initiator_user_id, status, created_at, updated_at
 `
 

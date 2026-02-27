@@ -1440,3 +1440,102 @@ Fail PRs early when API route prefixes, authz behavior, or compatibility docs dr
 ## 11. Outcomes And Follow-Ups
 
 - Pending implementation.
+
+---
+
+# ExecPlan: Media Upload and Signed CDN Delivery v1
+
+## 1. Title
+
+Media upload and signed CDN delivery v1 across `services/fphgo`, `apps/web`, and Cloudflare Worker
+
+## 2. Objective
+
+Implement private-original upload to R2, DB metadata persistence, batch signed URL minting, and edge signature/expiry enforcement with cache normalization.
+
+## 3. Scope
+
+- Add `media_objects` migration/schema/sqlc/repo in `services/fphgo`.
+- Add media service + HTTP routes for `POST /v1/media/upload` and `POST /v1/media/urls`.
+- Add R2 client using AWS SDK v2 S3-compatible client.
+- Add signing canonicalization and HMAC URL minting.
+- Add worker implementation/tests for signature verification and cache-key normalization.
+- Add shared media contract types in `packages/types`.
+- Replace `apps/web` media feature client/hooks to use `/v1/media/upload` and `/v1/media/urls`.
+
+## 4. Constraints And Non-Goals
+
+- Keep handlers thin, policy in service, DB access in repo.
+- Use validator/httpx DecodeAndValidate for JSON route.
+- Non-goal: immediate URL revocation in worker denylist.
+- Non-goal: EXIF stripping implementation (documented limitation from source doc remains).
+
+## 5. Acceptance Criteria
+
+- Originals stored in private R2 bucket by context-aware object key.
+- Media rows persisted with `object_key` metadata.
+- Web mints signed CDN URLs via batch API, no permanent URL construction.
+- Worker rejects missing/invalid signatures and expired URLs.
+- Worker cache key excludes `sig` and `exp`.
+
+## 6. Repo Evidence
+
+- Source spec: `docs/media/media-v1.md`
+- Service feature path: `services/fphgo/internal/features/media/*`
+- Worker: `services/cdn-worker/worker.mjs`
+- Web client/hooks: `apps/web/src/features/media/*`
+- Shared contracts: `packages/types/src/media.ts`
+
+## 7. Risks And Rollback
+
+- Risk: signing format mismatch between Go and Worker.
+- Risk: missing env config disables media upload/signing at runtime.
+- Rollback: remove `0014_media_objects_v1.sql`, unmount `/v1/media`, revert media feature modules.
+
+## 8. Milestones
+
+### Milestone 1: DB + sqlc foundation
+
+- Goal: add migration/schema/sqlc for media objects.
+- Status: `done`
+
+### Milestone 2: Go media service + routes + storage
+
+- Goal: upload + mint endpoints with R2 upload and HMAC signing.
+- Status: `done`
+
+### Milestone 3: Worker validation and cache normalization
+
+- Goal: implement edge signature verification, expiry checks, and normalized cache key.
+- Status: `done`
+
+### Milestone 4: Web + shared types
+
+- Goal: implement web API client/hooks and media contracts.
+- Status: `done`
+
+### Milestone 5: Validation
+
+- Goal: run targeted tests for Go service/routes, worker, and types.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && go test ./internal/features/media/service -v`
+- `cd services/fphgo && go test ./internal/features/media/... ./internal/shared/storage/r2 ./internal/app -run 'TestRouteSurfaceSnapshot|TestRouteSurfaceInvariantsFullSurface'`
+- `node --test services/cdn-worker/worker.test.mjs`
+- `pnpm --filter @freediving.ph/types test`
+
+## 10. Progress Log
+
+- 2026-02-27: Added media schema/migration/sqlc generation target and media feature package.
+- 2026-02-27: Added R2 client, media upload flow, URL minting and canonical signing.
+- 2026-02-27: Mounted `/v1/media` routes and added media authz permissions.
+- 2026-02-27: Added worker signature/cache normalization and worker tests.
+- 2026-02-27: Added shared media contracts and new web media API/hooks.
+
+## 11. Outcomes And Follow-Ups
+
+- Follow-up: enforce moderator override policy for hidden/deleted media minting.
+- Follow-up: implement EXIF/GPS stripping in upload pipeline.
+- Follow-up: integrate `useMintMediaUrls` into feed/grid surfaces to replace legacy media feature usage.

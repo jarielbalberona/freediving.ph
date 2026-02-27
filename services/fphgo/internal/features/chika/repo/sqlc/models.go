@@ -14,12 +14,36 @@ type Block struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type Buddy struct {
+	AppUserIDA pgtype.UUID        `db:"app_user_id_a" json:"app_user_id_a"`
+	AppUserIDB pgtype.UUID        `db:"app_user_id_b" json:"app_user_id_b"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type BuddyRelationship struct {
 	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
 	BuddyID   pgtype.UUID        `db:"buddy_id" json:"buddy_id"`
 	Status    string             `db:"status" json:"status"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type BuddyRequest struct {
+	ID                 pgtype.UUID        `db:"id" json:"id"`
+	RequesterAppUserID pgtype.UUID        `db:"requester_app_user_id" json:"requester_app_user_id"`
+	TargetAppUserID    pgtype.UUID        `db:"target_app_user_id" json:"target_app_user_id"`
+	Status             string             `db:"status" json:"status"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type ChikaCategory struct {
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	Slug         string             `db:"slug" json:"slug"`
+	Name         string             `db:"name" json:"name"`
+	Pseudonymous bool               `db:"pseudonymous" json:"pseudonymous"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type ChikaComment struct {
@@ -49,6 +73,7 @@ type ChikaThread struct {
 	ID              pgtype.UUID        `db:"id" json:"id"`
 	Title           string             `db:"title" json:"title"`
 	Mode            string             `db:"mode" json:"mode"`
+	CategoryID      pgtype.UUID        `db:"category_id" json:"category_id"`
 	CreatedByUserID pgtype.UUID        `db:"created_by_user_id" json:"created_by_user_id"`
 	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -132,11 +157,26 @@ type MediaAsset struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type MediaObject struct {
+	ID             pgtype.UUID        `db:"id" json:"id"`
+	OwnerAppUserID pgtype.UUID        `db:"owner_app_user_id" json:"owner_app_user_id"`
+	ContextType    string             `db:"context_type" json:"context_type"`
+	ContextID      pgtype.UUID        `db:"context_id" json:"context_id"`
+	ObjectKey      string             `db:"object_key" json:"object_key"`
+	MimeType       string             `db:"mime_type" json:"mime_type"`
+	SizeBytes      int64              `db:"size_bytes" json:"size_bytes"`
+	Width          int32              `db:"width" json:"width"`
+	Height         int32              `db:"height" json:"height"`
+	State          string             `db:"state" json:"state"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type Message struct {
 	ID             int64              `db:"id" json:"id"`
 	ConversationID pgtype.UUID        `db:"conversation_id" json:"conversation_id"`
 	SenderUserID   pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
 	Content        string             `db:"content" json:"content"`
+	IdempotencyKey *string            `db:"idempotency_key" json:"idempotency_key"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -161,6 +201,14 @@ type Profile struct {
 	PseudonymousEnabled bool               `db:"pseudonymous_enabled" json:"pseudonymous_enabled"`
 	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type RateLimitEvent struct {
+	ID            int64              `db:"id" json:"id"`
+	Scope         string             `db:"scope" json:"scope"`
+	KeyHash       string             `db:"key_hash" json:"key_hash"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	WindowSeconds int32              `db:"window_seconds" json:"window_seconds"`
 }
 
 type Report struct {

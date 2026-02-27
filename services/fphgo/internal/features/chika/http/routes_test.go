@@ -30,7 +30,7 @@ func TestChikaWriteEndpointsRequireAuth(t *testing.T) {
 		path   string
 		body   any
 	}{
-		{"POST threads", http.MethodPost, "/threads", CreateThreadRequest{Title: "t", Mode: "normal"}},
+		{"POST threads", http.MethodPost, "/threads", CreateThreadRequest{Title: "t", CategoryID: "550e8400-e29b-41d4-a716-446655440099"}},
 		{"POST threads/{id}/posts", http.MethodPost, "/threads/550e8400-e29b-41d4-a716-446655440000/posts", CreatePostRequest{Content: "c"}},
 		{"POST threads/{id}/comments", http.MethodPost, "/threads/550e8400-e29b-41d4-a716-446655440000/comments", CreateCommentRequest{Content: "c"}},
 		{"POST threads/{id}/reactions", http.MethodPost, "/threads/550e8400-e29b-41d4-a716-446655440000/reactions", SetReactionRequest{Type: "upvote"}},
@@ -69,7 +69,7 @@ func TestChikaWriteEndpointsRejectWithoutChikaWrite(t *testing.T) {
 	}
 
 	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
-	req := httptest.NewRequest(http.MethodPost, "/threads", bytes.NewReader([]byte(`{"title":"t","mode":"normal"}`)))
+	req := httptest.NewRequest(http.MethodPost, "/threads", bytes.NewReader([]byte(`{"title":"t","categoryId":"550e8400-e29b-41d4-a716-446655440099"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -89,7 +89,7 @@ func TestChikaWriteRejectsReadOnly(t *testing.T) {
 	}
 
 	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
-	req := httptest.NewRequest(http.MethodPost, "/threads", bytes.NewReader([]byte(`{"title":"t","mode":"normal"}`)))
+	req := httptest.NewRequest(http.MethodPost, "/threads", bytes.NewReader([]byte(`{"title":"t","categoryId":"550e8400-e29b-41d4-a716-446655440099"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -109,7 +109,7 @@ func TestChikaWriteRejectsSuspended(t *testing.T) {
 	}
 
 	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
-	req := httptest.NewRequest(http.MethodPost, "/threads", bytes.NewReader([]byte(`{"title":"t","mode":"normal"}`)))
+	req := httptest.NewRequest(http.MethodPost, "/threads", bytes.NewReader([]byte(`{"title":"t","categoryId":"550e8400-e29b-41d4-a716-446655440099"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -129,7 +129,7 @@ func TestChikaCreateThreadValidation_UnknownField(t *testing.T) {
 	}
 
 	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
-	body := `{"title":"t","mode":"normal","bogus":"value"}`
+	body := `{"title":"t","categoryId":"550e8400-e29b-41d4-a716-446655440099","bogus":"value"}`
 	req := httptest.NewRequest(http.MethodPost, "/threads", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -170,7 +170,7 @@ func TestChikaCreateThreadValidation_MissingRequired(t *testing.T) {
 	}
 
 	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
-	body := `{"mode":"normal"}`
+	body := `{"categoryId":"550e8400-e29b-41d4-a716-446655440099"}`
 	req := httptest.NewRequest(http.MethodPost, "/threads", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()

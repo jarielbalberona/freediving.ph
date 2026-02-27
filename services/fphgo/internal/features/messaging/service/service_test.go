@@ -12,41 +12,49 @@ import (
 	apperrors "fphgo/internal/shared/errors"
 )
 
-type messagingRepoStub struct {
-	buddies      bool
-	inboxItems   []messagingrepo.MessageItem
-	requestItems []messagingrepo.MessageItem
-	conversation messagingrepo.Conversation
-	participant  bool
+type repoStub struct {
+	buddies bool
+	conv    messagingrepo.Conversation
+	otherID string
 }
 
-func (s *messagingRepoStub) AreBuddies(_ context.Context, _, _ string) (bool, error) {
-	return s.buddies, nil
-}
-func (s *messagingRepoStub) UpsertDMConversation(_ context.Context, senderID, _ string, status string) (messagingrepo.Conversation, error) {
-	return messagingrepo.Conversation{ID: "conv-1", InitiatorUserID: senderID, Status: status}, nil
-}
-func (s *messagingRepoStub) InsertMessage(_ context.Context, _, _, _ string) (int64, error) {
-	return 1, nil
-}
-func (s *messagingRepoStub) GetConversation(_ context.Context, _ string) (messagingrepo.Conversation, error) {
-	if s.conversation.ID == "" {
-		return messagingrepo.Conversation{}, errors.New("not implemented")
+func (s *repoStub) AreBuddies(_ context.Context, _, _ string) (bool, error) { return s.buddies, nil }
+func (s *repoStub) UpsertDMConversation(_ context.Context, senderID, _ string, status string) (messagingrepo.Conversation, error) {
+	if s.conv.ID == "" {
+		s.conv = messagingrepo.Conversation{ID: "conv-1", InitiatorUserID: senderID, Status: status, UpdatedAt: time.Now().UTC()}
 	}
-	return s.conversation, nil
+	if s.conv.Status != "active" {
+		s.conv.Status = status
+	}
+	return s.conv, nil
 }
-func (s *messagingRepoStub) IsParticipant(_ context.Context, _, _ string) (bool, error) {
-	return s.participant, nil
+func (s *repoStub) InsertMessage(_ context.Context, conversationID, senderID, content string, _ *string) (messagingrepo.Message, error) {
+	return messagingrepo.Message{ID: 1, ConversationID: conversationID, SenderID: senderID, Content: content, CreatedAt: time.Now().UTC()}, nil
 }
-func (s *messagingRepoStub) UpdateConversationStatus(_ context.Context, _, _ string) error {
+func (s *repoStub) GetConversation(_ context.Context, _ string) (messagingrepo.Conversation, error) {
+	if s.conv.ID == "" {
+		return messagingrepo.Conversation{}, errors.New("missing")
+	}
+	return s.conv, nil
+}
+func (s *repoStub) IsParticipant(_ context.Context, _, _ string) (bool, error) { return true, nil }
+func (s *repoStub) GetOtherParticipantID(_ context.Context, _, _ string) (string, error) {
+	if s.otherID == "" {
+		return "550e8400-e29b-41d4-a716-446655440009", nil
+	}
+	return s.otherID, nil
+}
+func (s *repoStub) UpdateConversationStatus(_ context.Context, _ string, status string) error {
+	s.conv.Status = status
 	return nil
 }
-func (s *messagingRepoStub) Inbox(_ context.Context, _ messagingrepo.ListInboxInput) ([]messagingrepo.MessageItem, error) {
-	return s.inboxItems, nil
+func (s *repoStub) ListInboxConversations(_ context.Context, _ messagingrepo.ListInboxInput) ([]messagingrepo.ConversationItem, error) {
+	return []messagingrepo.ConversationItem{}, nil
 }
-func (s *messagingRepoStub) Requests(_ context.Context, _ string) ([]messagingrepo.MessageItem, error) {
-	return s.requestItems, nil
+func (s *repoStub) ListConversationMessages(_ context.Context, _ messagingrepo.ListConversationMessagesInput) ([]messagingrepo.Message, error) {
+	return []messagingrepo.Message{}, nil
 }
+func (s *repoStub) MarkConversationRead(_ context.Context, _, _ string, _ *int64) error { return nil }
 
 type hubStub struct{}
 
@@ -61,11 +69,11 @@ func (b blockCheckerStub) IsBlockedEitherDirection(context.Context, string, stri
 	return b.blocked, b.err
 }
 
-func TestSendMessageBlockedReturnsForbidden(t *testing.T) {
-	repo := &messagingRepoStub{}
+func TestCreateRequestBlockedReturnsForbidden(t *testing.T) {
+	repo := &repoStub{}
 	svc := New(repo, hubStub{}, blockCheckerStub{blocked: true})
 
-	_, err := svc.SendMessage(context.Background(), SendMessageInput{
+	_, err := svc.CreateRequest(context.Background(), CreateRequestInput{
 		SenderID:    "550e8400-e29b-41d4-a716-446655440000",
 		RecipientID: "550e8400-e29b-41d4-a716-446655440001",
 		Content:     "hello",
@@ -73,59 +81,40 @@ func TestSendMessageBlockedReturnsForbidden(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected blocked error")
 	}
-
 	appErr, ok := err.(*apperrors.AppError)
-	if !ok {
-		t.Fatalf("expected AppError, got %T", err)
-	}
-	if appErr.Status != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", appErr.Status)
-	}
-	if appErr.Code != "blocked" {
-		t.Fatalf("expected blocked code, got %q", appErr.Code)
+	if !ok || appErr.Status != http.StatusForbidden || appErr.Code != "blocked" {
+		t.Fatalf("expected blocked 403, got %#v", err)
 	}
 }
 
-func TestInboxReturnsRepoItems(t *testing.T) {
-	now := time.Now().UTC()
-	repo := &messagingRepoStub{inboxItems: []messagingrepo.MessageItem{{ConversationID: "c1", MessageID: 1, CreatedAt: now}}}
-	svc := New(repo, hubStub{}, blockCheckerStub{})
-
-	result, err := svc.Inbox(context.Background(), InboxInput{
-		UserID: "550e8400-e29b-41d4-a716-446655440000",
-		Limit:  20,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(result.Items) != 1 {
-		t.Fatalf("expected 1 item, got %d", len(result.Items))
-	}
-}
-
-func TestAcceptBlockedReturnsForbidden(t *testing.T) {
-	repo := &messagingRepoStub{
-		conversation: messagingrepo.Conversation{
-			ID:              "550e8400-e29b-41d4-a716-446655440055",
-			InitiatorUserID: "550e8400-e29b-41d4-a716-446655440001",
-			Status:          "pending",
-		},
-		participant: true,
-	}
+func TestAcceptRequestBlockedReturnsForbidden(t *testing.T) {
+	repo := &repoStub{conv: messagingrepo.Conversation{ID: "550e8400-e29b-41d4-a716-446655440055", InitiatorUserID: "550e8400-e29b-41d4-a716-446655440001", Status: "pending"}}
 	svc := New(repo, hubStub{}, blockCheckerStub{blocked: true})
 
-	_, err := svc.Accept(context.Background(), "550e8400-e29b-41d4-a716-446655440055", "550e8400-e29b-41d4-a716-446655440000")
+	_, err := svc.AcceptRequest(context.Background(), repo.conv.ID, "550e8400-e29b-41d4-a716-446655440000", "")
 	if err == nil {
 		t.Fatal("expected blocked error")
 	}
 	appErr, ok := err.(*apperrors.AppError)
-	if !ok {
-		t.Fatalf("expected AppError, got %T", err)
+	if !ok || appErr.Status != http.StatusForbidden || appErr.Code != "blocked" {
+		t.Fatalf("expected blocked 403, got %#v", err)
 	}
-	if appErr.Status != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", appErr.Status)
+}
+
+func TestPendingConversationRecipientCannotSendBeforeAccept(t *testing.T) {
+	repo := &repoStub{conv: messagingrepo.Conversation{ID: "conv-1", InitiatorUserID: "550e8400-e29b-41d4-a716-446655440001", Status: "pending"}}
+	svc := New(repo, hubStub{}, blockCheckerStub{})
+
+	_, err := svc.SendConversationMessage(context.Background(), SendConversationMessageInput{
+		ActorID:        "550e8400-e29b-41d4-a716-446655440000",
+		ConversationID: "conv-1",
+		Content:        "reply",
+	})
+	if err == nil {
+		t.Fatal("expected forbidden error")
 	}
-	if appErr.Code != "blocked" {
-		t.Fatalf("expected blocked code, got %q", appErr.Code)
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok || appErr.Status != http.StatusForbidden {
+		t.Fatalf("expected forbidden error, got %#v", err)
 	}
 }

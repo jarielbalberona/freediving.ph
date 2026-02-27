@@ -1,135 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowBigDown, ArrowBigUp, MessageSquare } from "lucide-react";
-import { useThreads, useAddReaction } from "@/features/chika";
-import { ThreadWithUser } from '@freediving.ph/types';
-import { useUser } from "@clerk/nextjs";
-import { toast } from "sonner";
-import { getRemovedContentLabel, isRemovedContent } from "@/lib/content/moderation";
 
-const Thread = ({
+import { useThreads } from "@/features/chika";
+import type { ChikaThreadView } from "@/features/chika";
+import { Badge } from "@/components/ui/badge";
+
+const ThreadListClient = ({
   initialThreads,
   error,
 }: {
-  initialThreads: ThreadWithUser[] | null;
+  initialThreads: ChikaThreadView[] | null;
   error?: string | null;
 }) => {
   const { data: threads, isLoading } = useThreads(initialThreads || undefined);
-  const { user } = useUser();
-  const addReaction = useAddReaction();
-  const handleVote = async (threadId: number, type: "1" | "0") => {
-    if (!user) {
-      toast.error("Please sign in to vote");
-      return;
-    }
-
-    try {
-      await addReaction.mutateAsync({ threadId, type });
-      toast.success("Vote recorded!");
-    } catch (error) {
-      toast.error("Failed to vote");
-    }
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "Unknown date";
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return "Unknown date";
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-
-    if (diffInHours < 1) return "Just now";
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    return date.toLocaleDateString();
-  };
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="p-4 rounded-lg bg-card animate-pulse">
-            <div className="flex items-start space-x-4">
-              <div className="flex flex-col items-center space-y-2">
-                <div className="w-6 h-6 bg-muted rounded"></div>
-                <div className="w-4 h-4 bg-muted rounded"></div>
-                <div className="w-6 h-6 bg-muted rounded"></div>
-              </div>
-              <div className="flex-1 space-y-2">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-3 bg-muted rounded w-full"></div>
-                <div className="h-3 bg-muted rounded w-1/2"></div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+    return <div className="text-sm text-muted-foreground">Loading threads...</div>;
   }
 
   return (
     <>
-      {error ? (
-        <div className="mb-4 text-sm text-destructive">{error}</div>
-      ) : null}
-      {threads?.map((threadWithUser) => {
-        const { thread, user: threadUser, commentCount, upvotes, downvotes } = threadWithUser;
-        const isRemoved = isRemovedContent(thread.content) || isRemovedContent(thread.title);
-        const removedLabel = getRemovedContentLabel(thread.content) ?? getRemovedContentLabel(thread.title);
-        return (
-        <div
+      {error ? <div className="mb-4 text-sm text-destructive">{error}</div> : null}
+      {(threads ?? []).map((thread) => (
+        <Link
           key={thread.id}
-          className="block p-4 mb-2 transition-colors duration-200 rounded-lg bg-card hover:bg-accent"
+          href={`/chika/${thread.id}`}
+          className={`mb-2 block rounded-lg bg-card p-4 transition-colors hover:bg-accent ${thread.isHidden ? "border border-dashed opacity-60" : ""}`}
         >
-          <div className="flex items-start space-x-4">
-            <div className="flex flex-col items-center space-y-1 text-muted-foreground">
-              <button
-                className="hover:text-primary transition-colors"
-                aria-label="Upvote"
-                onClick={() => handleVote(thread.id, "1")}
-                disabled={addReaction.isPending}
-              >
-                <ArrowBigUp className="w-6 h-6" />
-              </button>
-              <span className="text-sm font-medium">
-                {upvotes - downvotes}
-              </span>
-              <button
-                className="hover:text-primary transition-colors"
-                aria-label="Downvote"
-                onClick={() => handleVote(thread.id, "0")}
-                disabled={addReaction.isPending}
-              >
-                <ArrowBigDown className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="flex-1">
-              <Link href={`/chika/${thread.id}`} className="block">
-                <h2 className="mb-1 text-lg font-semibold text-foreground hover:text-primary transition-colors">
-                  {isRemoved ? "Content unavailable" : thread.title}
-                </h2>
-                <p className="mb-2 text-sm text-muted-foreground line-clamp-2">
-                  {isRemoved ? removedLabel || "This thread was removed." : thread.content}
-                </p>
-              </Link>
-              <div className="flex items-center text-xs text-muted-foreground">
-                <span>Posted by {threadUser.username}</span>
-                <span className="mx-2">•</span>
-                <span>{formatDate(thread.createdAt)}</span>
-                <span className="mx-2">•</span>
-                <span className="flex items-center">
-                  <MessageSquare className="w-4 h-4 mr-1" />
-                  {commentCount} comments
-                </span>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-foreground">{thread.title}</h2>
+            {thread.categoryPseudonymous ? (
+              <Badge variant="secondary" className="text-xs">Anon</Badge>
+            ) : null}
+            {thread.isHidden ? (
+              <Badge variant="destructive" className="text-xs">Hidden</Badge>
+            ) : null}
           </div>
-        </div>
-        );
-      })}
+          <p className="text-xs text-muted-foreground">
+            {thread.authorDisplayName} · {new Date(thread.createdAt).toLocaleString()}
+          </p>
+        </Link>
+      ))}
     </>
   );
 };
 
-export default Thread;
+export default ThreadListClient;

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -23,8 +25,11 @@ type Service struct {
 }
 
 type chikaRepository interface {
-	CreateThread(ctx context.Context, title, mode, actorID string) (chikarepo.Thread, error)
+	ListCategories(ctx context.Context) ([]chikarepo.Category, error)
+	GetCategoryByID(ctx context.Context, categoryID string) (chikarepo.Category, error)
+	CreateThread(ctx context.Context, title, mode, categoryID, actorID string) (chikarepo.Thread, error)
 	ListThreads(ctx context.Context, viewerID string, includeHidden bool, cursorCreated time.Time, cursorThreadID string, limit int32) ([]chikarepo.Thread, error)
+	ListThreadsByCategory(ctx context.Context, viewerID string, includeHidden bool, categorySlug string, cursorCreated time.Time, cursorThreadID string, limit int32) ([]chikarepo.Thread, error)
 	GetThread(ctx context.Context, threadID string) (chikarepo.Thread, error)
 	UpdateThread(ctx context.Context, threadID, title string) (chikarepo.Thread, error)
 	SoftDeleteThread(ctx context.Context, threadID string) error
@@ -69,15 +74,16 @@ func WithLimiter(limiter rateLimiter) Option {
 }
 
 type Thread = chikarepo.Thread
+type Category = chikarepo.Category
 type Post = chikarepo.Post
 type Comment = chikarepo.Comment
 type Reaction = chikarepo.Reaction
 type MediaAsset = chikarepo.MediaAsset
 
 type CreateThreadInput struct {
-	ActorID string
-	Title   string
-	Mode    string
+	ActorID    string
+	Title      string
+	CategoryID string
 }
 
 type UpdateThreadInput struct {
@@ -96,6 +102,7 @@ type DeleteThreadInput struct {
 type ListThreadsInput struct {
 	ViewerID   string
 	ViewerRole string
+	Category   string
 	Limit      int32
 	Cursor     string
 }
@@ -106,11 +113,18 @@ type CreatePostInput struct {
 	Content  string
 }
 
+type GetThreadInput struct {
+	ViewerID   string
+	ThreadID   string
+	ViewerRole string
+}
+
 type ListThreadPostsInput struct {
-	ThreadID string
-	ViewerID string
-	Limit    int32
-	Offset   int32
+	ThreadID   string
+	ViewerID   string
+	ViewerRole string
+	Limit      int32
+	Offset     int32
 }
 
 type CreateCommentInput struct {
@@ -195,22 +209,37 @@ func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Th
 	if title == "" {
 		return Thread{}, apperrors.New(http.StatusBadRequest, "invalid_title", "title is required", nil)
 	}
-	mode := strings.TrimSpace(strings.ToLower(input.Mode))
-	if mode == "" {
-		mode = "normal"
-	}
-	if mode != "normal" && mode != "pseudonymous" {
-		return Thread{}, apperrors.New(http.StatusBadRequest, "invalid_mode", "mode must be normal or pseudonymous", nil)
+	if _, err := uuid.Parse(input.CategoryID); err != nil {
+		return Thread{}, apperrors.New(http.StatusBadRequest, "invalid_category_id", "invalid category id", err)
 	}
 	if err := s.enforceRateLimit(ctx, "chika.create_thread", input.ActorID, 5, time.Hour, "thread creation rate exceeded"); err != nil {
 		return Thread{}, err
 	}
+	category, err := s.repo.GetCategoryByID(ctx, input.CategoryID)
+	if err != nil {
+		if chikarepo.IsNoRows(err) {
+			return Thread{}, apperrors.New(http.StatusBadRequest, "invalid_category_id", "invalid category id", err)
+		}
+		return Thread{}, apperrors.New(http.StatusInternalServerError, "category_lookup_failed", "failed to resolve category", err)
+	}
+	mode := "normal"
+	if category.Pseudonymous {
+		mode = "pseudonymous"
+	}
 
-	created, err := s.repo.CreateThread(ctx, title, mode, input.ActorID)
+	created, err := s.repo.CreateThread(ctx, title, mode, input.CategoryID, input.ActorID)
 	if err != nil {
 		return Thread{}, apperrors.New(http.StatusInternalServerError, "thread_create_failed", "failed to create thread", err)
 	}
 	return created, nil
+}
+
+func (s *Service) ListCategories(ctx context.Context) ([]Category, error) {
+	items, err := s.repo.ListCategories(ctx)
+	if err != nil {
+		return nil, apperrors.New(http.StatusInternalServerError, "category_list_failed", "failed to list categories", err)
+	}
+	return items, nil
 }
 
 func (s *Service) ListThreads(ctx context.Context, input ListThreadsInput) (ListThreadsResult, error) {
@@ -229,7 +258,16 @@ func (s *Service) ListThreads(ctx context.Context, input ListThreadsInput) (List
 		cursorCreated = createdAt
 		cursorThreadID = threadID
 	}
-	items, err := s.repo.ListThreads(ctx, input.ViewerID, isModeratorRole(input.ViewerRole), cursorCreated, cursorThreadID, input.Limit+1)
+	var (
+		items []Thread
+		err   error
+	)
+	categorySlug := strings.TrimSpace(strings.ToLower(input.Category))
+	if categorySlug != "" {
+		items, err = s.repo.ListThreadsByCategory(ctx, input.ViewerID, isModeratorRole(input.ViewerRole), categorySlug, cursorCreated, cursorThreadID, input.Limit+1)
+	} else {
+		items, err = s.repo.ListThreads(ctx, input.ViewerID, isModeratorRole(input.ViewerRole), cursorCreated, cursorThreadID, input.Limit+1)
+	}
 	if err != nil {
 		return ListThreadsResult{}, apperrors.New(http.StatusInternalServerError, "thread_list_failed", "failed to list threads", err)
 	}
@@ -252,6 +290,29 @@ func (s *Service) GetThread(ctx context.Context, threadID string) (Thread, error
 			return Thread{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
 		}
 		return Thread{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
+	}
+	return thread, nil
+}
+
+func (s *Service) GetThreadForViewer(ctx context.Context, input GetThreadInput) (Thread, error) {
+	if _, err := uuid.Parse(input.ViewerID); err != nil {
+		return Thread{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+	}
+	thread, err := s.GetThread(ctx, input.ThreadID)
+	if err != nil {
+		return Thread{}, err
+	}
+	if input.ViewerID != thread.CreatedByUserID {
+		blocked, checkErr := s.isBlockedEither(ctx, input.ViewerID, thread.CreatedByUserID)
+		if checkErr != nil {
+			return Thread{}, apperrors.New(http.StatusInternalServerError, "block_check_failed", "failed to validate block state", checkErr)
+		}
+		if blocked {
+			return Thread{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", nil)
+		}
+	}
+	if thread.HiddenAt != nil && !isModeratorRole(input.ViewerRole) {
+		return Thread{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", nil)
 	}
 	return thread, nil
 }
@@ -367,11 +428,8 @@ func (s *Service) ListPosts(ctx context.Context, input ListThreadPostsInput) ([]
 	if _, err := uuid.Parse(input.ViewerID); err != nil {
 		return nil, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
 	}
-	if _, err := s.repo.GetThread(ctx, input.ThreadID); err != nil {
-		if chikarepo.IsNoRows(err) {
-			return nil, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
-		}
-		return nil, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
+	if _, err := s.GetThreadForViewer(ctx, GetThreadInput{ViewerID: input.ViewerID, ThreadID: input.ThreadID, ViewerRole: input.ViewerRole}); err != nil {
+		return nil, err
 	}
 	limit, offset := normalizePagination(input.Limit, input.Offset)
 	items, err := s.repo.ListPosts(ctx, input.ThreadID, input.ViewerID, limit, offset)
@@ -432,11 +490,8 @@ func (s *Service) ListComments(ctx context.Context, input ListThreadCommentsInpu
 	if _, err := uuid.Parse(input.ViewerID); err != nil {
 		return ListCommentsResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
 	}
-	if _, err := s.repo.GetThread(ctx, input.ThreadID); err != nil {
-		if chikarepo.IsNoRows(err) {
-			return ListCommentsResult{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
-		}
-		return ListCommentsResult{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
+	if _, err := s.GetThreadForViewer(ctx, GetThreadInput{ViewerID: input.ViewerID, ThreadID: input.ThreadID, ViewerRole: input.ViewerRole}); err != nil {
+		return ListCommentsResult{}, err
 	}
 	if input.Limit <= 0 || input.Limit > pagination.MaxLimit {
 		input.Limit = pagination.DefaultLimit
@@ -651,12 +706,10 @@ func (s *Service) ListMediaByEntity(ctx context.Context, entityType, entityID st
 }
 
 func (s *Service) resolvePseudonym(ctx context.Context, userID, threadMode, threadID string) (string, error) {
-	enabled, err := s.repo.PseudonymEnabled(ctx, userID)
-	if err != nil {
-		return "", apperrors.New(http.StatusInternalServerError, "pseudonym_policy_failed", "failed to resolve pseudonym settings", err)
-	}
-	if enabled || threadMode == "pseudonymous" {
-		return "anon-" + userID[:8] + "-" + threadID[:6], nil
+	if threadMode == "pseudonymous" {
+		// Stable pseudonym identity is scoped per thread and user.
+		sum := sha1.Sum([]byte(threadID + ":" + userID))
+		return "anon-" + strings.ToUpper(hex.EncodeToString(sum[:3])), nil
 	}
 	username, err := s.repo.Username(ctx, userID)
 	if err != nil {

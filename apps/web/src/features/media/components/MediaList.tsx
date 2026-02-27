@@ -1,87 +1,117 @@
 "use client";
 
-import { useMedia } from '../hooks';
-import { MediaCard } from './MediaCard';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Upload, ImageIcon } from 'lucide-react';
-import type { MediaFilters } from '@freediving.ph/types';
+import type { MediaUploadResponse } from "@freediving.ph/types";
+import { useMemo, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+
+import { MediaCard } from "./MediaCard";
+import { useListMyMedia, useMintMediaUrls } from "../hooks";
 
 interface MediaListProps {
-  filters?: MediaFilters;
-  showUploadButton?: boolean;
-  onMediaView?: (mediaId: number) => void;
-  onMediaEdit?: (mediaId: number) => void;
-  onMediaDelete?: (mediaId: number) => void;
-  onMediaDownload?: (mediaId: number) => void;
+  contextType?:
+    | "profile_avatar"
+    | "profile_feed"
+    | "chika_attachment"
+    | "event_attachment"
+    | "dive_spot_attachment"
+    | "group_cover";
 }
 
-export function MediaList({
-  filters,
-  showUploadButton = false,
-  onMediaView,
-  onMediaEdit,
-  onMediaDelete,
-  onMediaDownload
-}: MediaListProps) {
-  const { data, isLoading, error } = useMedia(filters);
+export function MediaList({ contextType }: MediaListProps) {
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [items, setItems] = useState<MediaUploadResponse[]>([]);
+  const [selected, setSelected] = useState<MediaUploadResponse | null>(null);
 
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-64 w-full" />
-        ))}
-      </div>
-    );
+  const listQuery = useListMyMedia({ limit: 30, cursor, contextType });
+
+  const pageItems = listQuery.data?.items ?? [];
+  const allItems = useMemo(() => {
+    if (cursor === undefined) {
+      return pageItems;
+    }
+    return [...items, ...pageItems];
+  }, [cursor, items, pageItems]);
+
+  const cardMintQuery = useMintMediaUrls(
+    allItems.map((item) => ({ mediaId: item.id, preset: "card" as const })),
+    allItems.length > 0,
+  );
+
+  const dialogMintQuery = useMintMediaUrls(
+    selected ? [{ mediaId: selected.id, preset: "dialog" as const }] : [],
+    !!selected,
+  );
+
+  const cardUrlMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of cardMintQuery.data?.items ?? []) {
+      map.set(item.mediaId, item.url);
+    }
+    return map;
+  }, [cardMintQuery.data?.items]);
+
+  const dialogUrl = dialogMintQuery.data?.items?.[0]?.url;
+
+  const loadMore = () => {
+    const nextCursor = listQuery.data?.nextCursor;
+    if (!nextCursor) return;
+    setItems(allItems);
+    setCursor(nextCursor);
+  };
+
+  if (listQuery.isLoading && allItems.length === 0) {
+    return <p className="text-sm text-muted-foreground">Loading media...</p>;
   }
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          Failed to load media. Please try again.
-        </AlertDescription>
-      </Alert>
-    );
+  if (listQuery.error) {
+    return <p className="text-sm text-destructive">Failed to load media.</p>;
   }
 
-  const media = data ?? [];
-
-  if (media.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-muted-foreground mb-2">
-          No media found
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          {filters?.search ? 'Try adjusting your search criteria.' : 'No media files are currently available.'}
-        </p>
-        {showUploadButton && (
-          <Button>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Media
-          </Button>
-        )}
-      </div>
-    );
+  if (allItems.length === 0) {
+    return <p className="text-sm text-muted-foreground">No media uploaded yet.</p>;
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {media.map((mediaItem) => (
-        <MediaCard
-          key={mediaItem.id}
-          media={mediaItem}
-          onView={onMediaView}
-          onEdit={onMediaEdit}
-          onDelete={onMediaDelete}
-          onDownload={onMediaDownload}
-          showActions={!!onMediaView || !!onMediaEdit || !!onMediaDelete || !!onMediaDownload}
-        />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {allItems.map((media) => (
+          <MediaCard
+            key={media.id}
+            media={media}
+            imageUrl={cardUrlMap.get(media.id)}
+            onSelect={setSelected}
+          />
+        ))}
+      </div>
+
+      {listQuery.data?.nextCursor ? (
+        <div className="mt-4 flex justify-center">
+          <Button onClick={loadMore} disabled={listQuery.isFetching} variant="outline">
+            {listQuery.isFetching ? "Loading..." : "Load More"}
+          </Button>
+        </div>
+      ) : null}
+
+      {selected ? (
+        <div className="mt-6 rounded-lg border p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">{selected.contextType}</h3>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
+              Close
+            </Button>
+          </div>
+          {dialogUrl ? (
+            <img
+              src={dialogUrl}
+              alt={selected.objectKey}
+              className="max-h-[70vh] w-full rounded-md object-contain"
+            />
+          ) : (
+            <div className="h-72 w-full animate-pulse rounded-md bg-muted" />
+          )}
+        </div>
+      ) : null}
+    </>
   );
 }

@@ -18,7 +18,12 @@ type Thread struct {
 	ID              string
 	Title           string
 	Mode            string
+	CategoryID      string
+	CategorySlug    string
+	CategoryName    string
+	Pseudonymous    bool
 	CreatedByUserID string
+	AuthorUsername  string
 	HiddenAt        *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
@@ -41,6 +46,7 @@ type Comment struct {
 	Content      string
 	HiddenAt     *time.Time
 	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 type Reaction struct {
@@ -57,6 +63,13 @@ type MediaAsset struct {
 	URL        string
 	MimeType   string
 	SizeBytes  int64
+}
+
+type Category struct {
+	ID           string
+	Slug         string
+	Name         string
+	Pseudonymous bool
 }
 
 type CreateMediaAssetInput struct {
@@ -87,40 +100,115 @@ func (r *Repo) Username(ctx context.Context, userID string) (string, error) {
 	return username, nil
 }
 
-func (r *Repo) CreateThread(ctx context.Context, title, mode, actorID string) (Thread, error) {
+func (r *Repo) ListCategories(ctx context.Context) ([]Category, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, slug, name, pseudonymous
+		FROM chika_categories
+		ORDER BY name ASC, slug ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]Category, 0)
+	for rows.Next() {
+		var item Category
+		if err := rows.Scan(&item.ID, &item.Slug, &item.Name, &item.Pseudonymous); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repo) GetCategoryByID(ctx context.Context, categoryID string) (Category, error) {
+	var item Category
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, slug, name, pseudonymous
+		FROM chika_categories
+		WHERE id = $1
+	`, categoryID).Scan(&item.ID, &item.Slug, &item.Name, &item.Pseudonymous)
+	return item, err
+}
+
+func (r *Repo) CreateThread(ctx context.Context, title, mode, categoryID, actorID string) (Thread, error) {
 	var thread Thread
 	err := r.pool.QueryRow(ctx, `
-		INSERT INTO chika_threads (title, mode, created_by_user_id)
-		VALUES ($1, $2, $3)
-		RETURNING id, title, mode, created_by_user_id, hidden_at, created_at, updated_at
-	`, title, mode, actorID).Scan(&thread.ID, &thread.Title, &thread.Mode, &thread.CreatedByUserID, &thread.HiddenAt, &thread.CreatedAt, &thread.UpdatedAt)
-	return thread, err
+		INSERT INTO chika_threads (title, mode, category_id, created_by_user_id)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, title, mode, category_id, created_by_user_id, hidden_at, created_at, updated_at
+	`, title, mode, categoryID, actorID).Scan(
+		&thread.ID,
+		&thread.Title,
+		&thread.Mode,
+		&thread.CategoryID,
+		&thread.CreatedByUserID,
+		&thread.HiddenAt,
+		&thread.CreatedAt,
+		&thread.UpdatedAt,
+	)
+	if err != nil {
+		return thread, err
+	}
+	if err := r.pool.QueryRow(ctx, `
+		SELECT slug, name, pseudonymous
+		FROM chika_categories
+		WHERE id = $1
+	`, thread.CategoryID).Scan(&thread.CategorySlug, &thread.CategoryName, &thread.Pseudonymous); err != nil {
+		return thread, err
+	}
+	if err := r.pool.QueryRow(ctx, `SELECT COALESCE(username, '') FROM users WHERE id = $1`, thread.CreatedByUserID).Scan(&thread.AuthorUsername); err != nil {
+		thread.AuthorUsername = ""
+	}
+	return thread, nil
 }
 
 func (r *Repo) GetThread(ctx context.Context, threadID string) (Thread, error) {
 	var thread Thread
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, title, mode, COALESCE(created_by_user_id::text, ''), hidden_at, created_at, updated_at
-		FROM chika_threads
-		WHERE id = $1 AND deleted_at IS NULL
-	`, threadID).Scan(&thread.ID, &thread.Title, &thread.Mode, &thread.CreatedByUserID, &thread.HiddenAt, &thread.CreatedAt, &thread.UpdatedAt)
+		SELECT t.id, t.title, t.mode, t.category_id, c.slug, c.name, c.pseudonymous,
+		       COALESCE(t.created_by_user_id::text, ''), COALESCE(u.username, ''),
+		       t.hidden_at, t.created_at, t.updated_at
+		FROM chika_threads t
+		JOIN chika_categories c ON c.id = t.category_id
+		LEFT JOIN users u ON u.id = t.created_by_user_id
+		WHERE t.id = $1 AND t.deleted_at IS NULL
+	`, threadID).Scan(
+		&thread.ID,
+		&thread.Title,
+		&thread.Mode,
+		&thread.CategoryID,
+		&thread.CategorySlug,
+		&thread.CategoryName,
+		&thread.Pseudonymous,
+		&thread.CreatedByUserID,
+		&thread.AuthorUsername,
+		&thread.HiddenAt,
+		&thread.CreatedAt,
+		&thread.UpdatedAt,
+	)
 	return thread, err
 }
 
 func (r *Repo) ListThreads(ctx context.Context, viewerID string, includeHidden bool, cursorCreated time.Time, cursorThreadID string, limit int32) ([]Thread, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, title, mode, COALESCE(created_by_user_id::text, ''), hidden_at, created_at, updated_at
-		FROM chika_threads
-		WHERE deleted_at IS NULL
-		  AND ($2::boolean OR hidden_at IS NULL)
-		  AND (created_at < $3 OR (created_at = $3 AND id < $4))
+		SELECT t.id, t.title, t.mode, t.category_id, c.slug, c.name, c.pseudonymous,
+		       COALESCE(t.created_by_user_id::text, ''), COALESCE(u.username, ''),
+		       t.hidden_at, t.created_at, t.updated_at
+		FROM chika_threads t
+		JOIN chika_categories c ON c.id = t.category_id
+		LEFT JOIN users u ON u.id = t.created_by_user_id
+		WHERE t.deleted_at IS NULL
+		  AND ($2::boolean OR t.hidden_at IS NULL)
+		  AND (t.created_at < $3 OR (t.created_at = $3 AND t.id < $4))
 		  AND NOT EXISTS (
 			SELECT 1
 			FROM user_blocks b
-			WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = chika_threads.created_by_user_id)
-			   OR (b.blocker_app_user_id = chika_threads.created_by_user_id AND b.blocked_app_user_id = $1)
+			WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = t.created_by_user_id)
+			   OR (b.blocker_app_user_id = t.created_by_user_id AND b.blocked_app_user_id = $1)
 		  )
-		ORDER BY created_at DESC, id DESC
+		ORDER BY t.created_at DESC, t.id DESC
 		LIMIT $5
 	`, viewerID, includeHidden, cursorCreated, cursorThreadID, limit)
 	if err != nil {
@@ -131,7 +219,70 @@ func (r *Repo) ListThreads(ctx context.Context, viewerID string, includeHidden b
 	items := make([]Thread, 0)
 	for rows.Next() {
 		var item Thread
-		if err := rows.Scan(&item.ID, &item.Title, &item.Mode, &item.CreatedByUserID, &item.HiddenAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.Mode,
+			&item.CategoryID,
+			&item.CategorySlug,
+			&item.CategoryName,
+			&item.Pseudonymous,
+			&item.CreatedByUserID,
+			&item.AuthorUsername,
+			&item.HiddenAt,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repo) ListThreadsByCategory(ctx context.Context, viewerID string, includeHidden bool, categorySlug string, cursorCreated time.Time, cursorThreadID string, limit int32) ([]Thread, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT t.id, t.title, t.mode, t.category_id, c.slug, c.name, c.pseudonymous,
+		       COALESCE(t.created_by_user_id::text, ''), COALESCE(u.username, ''),
+		       t.hidden_at, t.created_at, t.updated_at
+		FROM chika_threads t
+		JOIN chika_categories c ON c.id = t.category_id
+		LEFT JOIN users u ON u.id = t.created_by_user_id
+		WHERE t.deleted_at IS NULL
+		  AND ($2::boolean OR t.hidden_at IS NULL)
+		  AND (t.created_at < $3 OR (t.created_at = $3 AND t.id < $4))
+		  AND c.slug = $6
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM user_blocks b
+			WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = t.created_by_user_id)
+			   OR (b.blocker_app_user_id = t.created_by_user_id AND b.blocked_app_user_id = $1)
+		  )
+		ORDER BY t.created_at DESC, t.id DESC
+		LIMIT $5
+	`, viewerID, includeHidden, cursorCreated, cursorThreadID, limit, categorySlug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]Thread, 0)
+	for rows.Next() {
+		var item Thread
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.Mode,
+			&item.CategoryID,
+			&item.CategorySlug,
+			&item.CategoryName,
+			&item.Pseudonymous,
+			&item.CreatedByUserID,
+			&item.AuthorUsername,
+			&item.HiddenAt,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -142,11 +293,28 @@ func (r *Repo) ListThreads(ctx context.Context, viewerID string, includeHidden b
 func (r *Repo) UpdateThread(ctx context.Context, threadID, title string) (Thread, error) {
 	var thread Thread
 	err := r.pool.QueryRow(ctx, `
-		UPDATE chika_threads
+		UPDATE chika_threads t
 		SET title = $2, updated_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id, title, mode, COALESCE(created_by_user_id::text, ''), hidden_at, created_at, updated_at
-	`, threadID, title).Scan(&thread.ID, &thread.Title, &thread.Mode, &thread.CreatedByUserID, &thread.HiddenAt, &thread.CreatedAt, &thread.UpdatedAt)
+		FROM chika_categories c
+		LEFT JOIN users u ON u.id = t.created_by_user_id
+		WHERE t.id = $1 AND t.deleted_at IS NULL AND c.id = t.category_id
+		RETURNING t.id, t.title, t.mode, t.category_id, c.slug, c.name, c.pseudonymous,
+		          COALESCE(t.created_by_user_id::text, ''), COALESCE(u.username, ''),
+		          t.hidden_at, t.created_at, t.updated_at
+	`, threadID, title).Scan(
+		&thread.ID,
+		&thread.Title,
+		&thread.Mode,
+		&thread.CategoryID,
+		&thread.CategorySlug,
+		&thread.CategoryName,
+		&thread.Pseudonymous,
+		&thread.CreatedByUserID,
+		&thread.AuthorUsername,
+		&thread.HiddenAt,
+		&thread.CreatedAt,
+		&thread.UpdatedAt,
+	)
 	return thread, err
 }
 
@@ -206,16 +374,16 @@ func (r *Repo) CreateComment(ctx context.Context, threadID, userID, pseudonym, c
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO chika_comments (thread_id, author_user_id, pseudonym, content)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at
+		RETURNING id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at, updated_at
 	`, threadID, userID, pseudonym, content).Scan(
-		&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt,
+		&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt, &comment.UpdatedAt,
 	)
 	return comment, err
 }
 
 func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, includeHidden bool, cursorCreated time.Time, cursorCommentID int64, limit int32) ([]Comment, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at
+		SELECT id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at, updated_at
 		FROM chika_comments
 		WHERE thread_id = $1 AND deleted_at IS NULL
 		  AND ($3::boolean OR hidden_at IS NULL)
@@ -237,7 +405,7 @@ func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, incl
 	items := make([]Comment, 0)
 	for rows.Next() {
 		var item Comment
-		if err := rows.Scan(&item.ID, &item.ThreadID, &item.AuthorUserID, &item.Pseudonym, &item.Content, &item.HiddenAt, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.ThreadID, &item.AuthorUserID, &item.Pseudonym, &item.Content, &item.HiddenAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -248,10 +416,10 @@ func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, incl
 func (r *Repo) GetComment(ctx context.Context, commentID int64) (Comment, error) {
 	var comment Comment
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at
+		SELECT id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at, updated_at
 		FROM chika_comments
 		WHERE id = $1 AND deleted_at IS NULL
-	`, commentID).Scan(&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt)
+	`, commentID).Scan(&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt, &comment.UpdatedAt)
 	return comment, err
 }
 
@@ -261,8 +429,8 @@ func (r *Repo) UpdateComment(ctx context.Context, commentID int64, content strin
 		UPDATE chika_comments
 		SET content = $2, updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at
-	`, commentID, content).Scan(&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt)
+		RETURNING id, thread_id, author_user_id, pseudonym, content, hidden_at, created_at, updated_at
+	`, commentID, content).Scan(&comment.ID, &comment.ThreadID, &comment.AuthorUserID, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt, &comment.UpdatedAt)
 	return comment, err
 }
 

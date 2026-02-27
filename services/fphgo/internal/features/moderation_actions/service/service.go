@@ -2,13 +2,16 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	moderationrepo "fphgo/internal/features/moderation_actions/repo"
 	apperrors "fphgo/internal/shared/errors"
+	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -28,7 +31,28 @@ type repository interface {
 }
 
 type Service struct {
-	repo repository
+	repo    repository
+	limiter rateLimiter
+}
+
+type rateLimiter interface {
+	Allow(ctx context.Context, scope, key string, maxEvents int, window time.Duration) (sharedratelimit.Result, error)
+}
+
+type noopLimiter struct{}
+
+func (noopLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
+	return sharedratelimit.Result{Allowed: true}, nil
+}
+
+type Option func(*Service)
+
+func WithLimiter(limiter rateLimiter) Option {
+	return func(s *Service) {
+		if limiter != nil {
+			s.limiter = limiter
+		}
+	}
 }
 
 type ValidationFailure struct {
@@ -54,8 +78,29 @@ type ModerationAction struct {
 	CreatedAt   string
 }
 
-func New(repo repository) *Service {
-	return &Service{repo: repo}
+func New(repo repository, opts ...Option) *Service {
+	svc := &Service{repo: repo, limiter: noopLimiter{}}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
+}
+
+func (s *Service) enforceRateLimit(ctx context.Context, scope, key string, maxEvents int, window time.Duration, message string) error {
+	result, err := s.limiter.Allow(ctx, scope, key, maxEvents, window)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "rate_limit_failed", "failed to enforce rate limit", err)
+	}
+	if result.Allowed {
+		return nil
+	}
+	retry := int(result.RetryAfter.Seconds())
+	if retry < 1 {
+		retry = 1
+	}
+	return apperrors.NewRateLimited(fmt.Sprintf("%s; retry after %ds", message, retry), int(window.Seconds()), retry)
 }
 
 func (s *Service) SuspendUser(ctx context.Context, appUserID string, input ActionInput) (ModerationAction, error) {
@@ -79,6 +124,9 @@ func (s *Service) HideThread(ctx context.Context, threadID string, input ActionI
 		return ModerationAction{}, invalidUUIDIssue("threadId")
 	}
 	if err := s.validateActionInput(ctx, input); err != nil {
+		return ModerationAction{}, err
+	}
+	if err := s.enforceRateLimit(ctx, "moderation.action", input.ActorUserID, 60, time.Minute, "moderation action rate exceeded"); err != nil {
 		return ModerationAction{}, err
 	}
 
@@ -106,6 +154,9 @@ func (s *Service) UnhideThread(ctx context.Context, threadID string, input Actio
 		return ModerationAction{}, invalidUUIDIssue("threadId")
 	}
 	if err := s.validateActionInput(ctx, input); err != nil {
+		return ModerationAction{}, err
+	}
+	if err := s.enforceRateLimit(ctx, "moderation.action", input.ActorUserID, 60, time.Minute, "moderation action rate exceeded"); err != nil {
 		return ModerationAction{}, err
 	}
 
@@ -139,6 +190,9 @@ func (s *Service) HideComment(ctx context.Context, commentID int64, input Action
 	if err := s.validateActionInput(ctx, input); err != nil {
 		return ModerationAction{}, err
 	}
+	if err := s.enforceRateLimit(ctx, "moderation.action", input.ActorUserID, 60, time.Minute, "moderation action rate exceeded"); err != nil {
+		return ModerationAction{}, err
+	}
 
 	created, err := s.repo.HideCommentAndAudit(ctx, commentID, moderationrepo.ActionInput{
 		ActorUserID: input.ActorUserID,
@@ -170,6 +224,9 @@ func (s *Service) UnhideComment(ctx context.Context, commentID int64, input Acti
 	if err := s.validateActionInput(ctx, input); err != nil {
 		return ModerationAction{}, err
 	}
+	if err := s.enforceRateLimit(ctx, "moderation.action", input.ActorUserID, 60, time.Minute, "moderation action rate exceeded"); err != nil {
+		return ModerationAction{}, err
+	}
 
 	created, err := s.repo.UnhideCommentAndAudit(ctx, commentID, moderationrepo.ActionInput{
 		ActorUserID: input.ActorUserID,
@@ -195,6 +252,9 @@ func (s *Service) applyUserAction(ctx context.Context, appUserID, accountStatus,
 		return ModerationAction{}, invalidUUIDIssue("appUserId")
 	}
 	if err := s.validateActionInput(ctx, input); err != nil {
+		return ModerationAction{}, err
+	}
+	if err := s.enforceRateLimit(ctx, "moderation.action", input.ActorUserID, 60, time.Minute, "moderation action rate exceeded"); err != nil {
 		return ModerationAction{}, err
 	}
 

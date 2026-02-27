@@ -44,7 +44,7 @@ func main() {
 	}
 	defer pool.Close()
 
-	deps := app.BuildDependencies(logger, pool)
+	deps := app.BuildDependencies(cfg, logger, pool)
 	hubCtx, cancelHub := context.WithCancel(ctx)
 	defer cancelHub()
 	go deps.Hub.Run(hubCtx)

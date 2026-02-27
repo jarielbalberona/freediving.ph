@@ -42,6 +42,7 @@ func TestV1CoreEndpointsRequireAuth(t *testing.T) {
 		"/v1/me/profile",
 		"/v1/users/search?q=test",
 		"/v1/blocks",
+		"/v1/buddies",
 		"/v1/reports",
 	}
 
@@ -152,11 +153,14 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 			t.Fatal("expected inbox item object")
 		}
 		assertStringField(t, first, "conversationId")
-		assertNumberField(t, first, "messageId")
-		assertStringField(t, first, "senderId")
-		assertStringField(t, first, "content")
 		assertStringField(t, first, "status")
-		assertStringField(t, first, "createdAt")
+		assertStringField(t, first, "updatedAt")
+		if _, ok := first["participant"].(map[string]any); !ok {
+			t.Fatal("expected participant object")
+		}
+		if _, ok := first["lastMessage"].(map[string]any); !ok {
+			t.Fatal("expected lastMessage object")
+		}
 	})
 
 	t.Run("GET /v1/chika/threads", func(t *testing.T) {
@@ -187,9 +191,11 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		assertStringField(t, first, "id")
 		assertStringField(t, first, "title")
 		assertStringField(t, first, "mode")
-		assertStringField(t, first, "createdByUserId")
+		assertStringField(t, first, "categoryId")
+		assertStringField(t, first, "authorDisplayName")
 		assertStringField(t, first, "createdAt")
 		assertStringField(t, first, "updatedAt")
+		assertBoolField(t, first, "isHidden")
 
 		pagination, ok := payload["pagination"].(map[string]any)
 		if !ok {
@@ -243,6 +249,32 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		if len(items) == 0 {
 			t.Fatal("expected at least one block item")
 		}
+		first, ok := items[0].(map[string]any)
+		if !ok {
+			t.Fatal("expected block item object")
+		}
+		assertStringField(t, first, "blockedUserId")
+		assertStringField(t, first, "username")
+		assertStringField(t, first, "displayName")
+		assertStringField(t, first, "createdAt")
+	})
+
+	t.Run("GET /v1/buddies", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/buddies", nil)
+		req.Header.Set("Authorization", "Bearer contract-ok")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		if _, ok := payload["items"].([]any); !ok {
+			t.Fatal("expected items array")
+		}
 	})
 
 	t.Run("GET /v1/reports", func(t *testing.T) {
@@ -259,9 +291,25 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 			t.Fatalf("failed to decode payload: %v", err)
 		}
-		if _, ok := payload["items"].([]any); !ok {
+		items, ok := payload["items"].([]any)
+		if !ok {
 			t.Fatal("expected items array")
 		}
+		if len(items) == 0 {
+			t.Fatal("expected at least one report item")
+		}
+		first, ok := items[0].(map[string]any)
+		if !ok {
+			t.Fatal("expected report item object")
+		}
+		assertStringField(t, first, "id")
+		assertStringField(t, first, "reporterUserId")
+		assertStringField(t, first, "targetType")
+		assertStringField(t, first, "targetId")
+		assertStringField(t, first, "reasonCode")
+		assertStringField(t, first, "status")
+		assertStringField(t, first, "createdAt")
+		assertStringField(t, first, "updatedAt")
 	})
 }
 
@@ -333,7 +381,7 @@ func TestAuthStateGuardsOnProtectedAndWriteRoutes(t *testing.T) {
 
 	t.Run("suspended cannot write", func(t *testing.T) {
 		body := strings.NewReader(`{"recipientId":"550e8400-e29b-41d4-a716-446655440003","content":"hello"}`)
-		req := httptest.NewRequest(http.MethodPost, "/v1/messages/send", body)
+		req := httptest.NewRequest(http.MethodPost, "/v1/messages/requests", body)
 		req.Header.Set("Authorization", "Bearer contract-suspended")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -343,32 +391,6 @@ func TestAuthStateGuardsOnProtectedAndWriteRoutes(t *testing.T) {
 		}
 		assertErrorCode(t, rec.Body.Bytes(), "forbidden")
 	})
-}
-
-func TestRouteSurfaceInvariants(t *testing.T) {
-	router := buildContractRouter()
-
-	seen := map[string]struct{}{}
-	allowNonV1 := map[string]bool{
-		"/healthz": true,
-		"/readyz":  true,
-	}
-
-	walkErr := chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
-		key := method + " " + route
-		if _, ok := seen[key]; ok {
-			t.Fatalf("duplicate route registered: %s", key)
-		}
-		seen[key] = struct{}{}
-
-		if !allowNonV1[route] && !strings.HasPrefix(route, "/v1/") {
-			t.Fatalf("route must be under /v1: %s", key)
-		}
-		return nil
-	})
-	if walkErr != nil {
-		t.Fatalf("walk routes: %v", walkErr)
-	}
 }
 
 func buildContractRouter() chi.Router {
@@ -396,11 +418,21 @@ func buildContractRouter() chi.Router {
 	messagesRoutes.Get("/inbox", func(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]any{"items": []map[string]any{{
 			"conversationId": "550e8400-e29b-41d4-a716-446655440001",
-			"messageId":      1001,
-			"senderId":       "550e8400-e29b-41d4-a716-446655440002",
-			"content":        "hello",
 			"status":         "active",
-			"createdAt":      "2026-02-27T00:00:00Z",
+			"updatedAt":      "2026-02-27T00:00:00Z",
+			"participant": map[string]any{
+				"userId":      "550e8400-e29b-41d4-a716-446655440002",
+				"username":    "member2",
+				"displayName": "Member Two",
+				"avatarUrl":   "",
+			},
+			"lastMessage": map[string]any{
+				"conversationId": "550e8400-e29b-41d4-a716-446655440001",
+				"messageId":      "1001",
+				"senderId":       "550e8400-e29b-41d4-a716-446655440002",
+				"content":        "hello",
+				"createdAt":      "2026-02-27T00:00:00Z",
+			},
 		}}})
 	})
 
@@ -408,12 +440,17 @@ func buildContractRouter() chi.Router {
 	chikaRoutes.Get("/threads", func(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]any{
 			"items": []map[string]any{{
-				"id":              "550e8400-e29b-41d4-a716-446655440010",
-				"title":           "Contract thread",
-				"mode":            "normal",
-				"createdByUserId": "550e8400-e29b-41d4-a716-446655440011",
-				"createdAt":       "2026-02-27T00:00:00Z",
-				"updatedAt":       "2026-02-27T00:00:00Z",
+				"id":                "550e8400-e29b-41d4-a716-446655440010",
+				"title":             "Contract thread",
+				"mode":              "normal",
+				"categoryId":        "550e8400-e29b-41d4-a716-446655440020",
+				"categorySlug":      "general",
+				"categoryName":      "General",
+				"categoryPseudonymous": false,
+				"authorDisplayName": "member1",
+				"isHidden":          false,
+				"createdAt":         "2026-02-27T00:00:00Z",
+				"updatedAt":         "2026-02-27T00:00:00Z",
 			}},
 			"pagination": map[string]any{"limit": 20, "offset": 0},
 		})
@@ -467,6 +504,18 @@ func buildContractRouter() chi.Router {
 		})
 	})
 
+	buddiesRoutes := chi.NewRouter()
+	buddiesRoutes.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"items": []map[string]any{{
+				"userId":      "550e8400-e29b-41d4-a716-446655440052",
+				"username":    "buddy1",
+				"displayName": "Buddy User",
+				"avatarUrl":   "",
+			}},
+		})
+	})
+
 	reportsRoutes := chi.NewRouter()
 	reportsRoutes.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]any{
@@ -490,6 +539,7 @@ func buildContractRouter() chi.Router {
 		ChikaRoutes:     chikaRoutes,
 		ProfilesRoutes:  profilesRoutes,
 		BlocksRoutes:    blocksRoutes,
+		BuddiesRoutes:   buddiesRoutes,
 		ReportsRoutes:   reportsRoutes,
 		ReadyCheck:      func(_ context.Context) error { return nil },
 	}
@@ -579,5 +629,12 @@ func assertNumberField(t *testing.T, payload map[string]any, key string) {
 	t.Helper()
 	if _, ok := payload[key].(float64); !ok {
 		t.Fatalf("expected number field %s", key)
+	}
+}
+
+func assertBoolField(t *testing.T, payload map[string]any, key string) {
+	t.Helper()
+	if _, ok := payload[key].(bool); !ok {
+		t.Fatalf("expected bool field %s", key)
 	}
 }

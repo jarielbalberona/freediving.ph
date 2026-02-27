@@ -9,21 +9,29 @@ import (
 )
 
 type Config struct {
-	Env              string
-	LogLevel         string
-	DBDSN            string
-	DBMaxConns       int32
-	DBMinConns       int32
-	DBConnMaxLife    time.Duration
-	Port             string
-	APIBaseURL       string
-	CORSOrigins      []string
-	RateLimitPerMin  int
-	DevAuth          bool
-	ClerkSecretKey   string
-	ClerkJWTKey      string
-	ClerkJWTIssuer   string
-	ClerkJWTAudience []string
+	Env                    string
+	LogLevel               string
+	DBDSN                  string
+	DBMaxConns             int32
+	DBMinConns             int32
+	DBConnMaxLife          time.Duration
+	Port                   string
+	APIBaseURL             string
+	CORSOrigins            []string
+	RateLimitPerMin        int
+	DevAuth                bool
+	ClerkSecretKey         string
+	ClerkJWTKey            string
+	ClerkJWTIssuer         string
+	ClerkJWTAudience       []string
+	R2AccountID            string
+	R2AccessKeyID          string
+	R2SecretAccessKey      string
+	R2BucketName           string
+	R2Region               string
+	MediaCDNBaseURL        string
+	MediaSigningSecretV1   string
+	MediaSigningKeyVersion int
 }
 
 func Load() (Config, error) {
@@ -86,6 +94,17 @@ func Load() (Config, error) {
 	clerkJWTKey := strings.TrimSpace(os.Getenv("CLERK_JWT_KEY"))
 	clerkJWTIssuer := strings.TrimSpace(os.Getenv("CLERK_JWT_ISSUER"))
 	clerkJWTAudience := splitCSV(os.Getenv("CLERK_JWT_AUDIENCE"))
+	r2AccountID := strings.TrimSpace(os.Getenv("R2_ACCOUNT_ID"))
+	r2AccessKeyID := strings.TrimSpace(os.Getenv("R2_ACCESS_KEY_ID"))
+	r2SecretAccessKey := strings.TrimSpace(os.Getenv("R2_SECRET_ACCESS_KEY"))
+	r2BucketName := strings.TrimSpace(os.Getenv("R2_BUCKET_NAME"))
+	r2Region := strings.TrimSpace(os.Getenv("R2_REGION"))
+	mediaCDNBaseURL := strings.TrimSpace(os.Getenv("CDN_BASE_URL"))
+	mediaSigningSecretV1 := strings.TrimSpace(os.Getenv("MEDIA_SIGNING_SECRET_V1"))
+	mediaSigningKeyVersion, err := parsePositiveIntEnv("MEDIA_SIGNING_KEY_VERSION", 1)
+	if err != nil {
+		return Config{}, err
+	}
 
 	if strings.EqualFold(env, "production") {
 		if clerkSecretKey == "" {
@@ -106,21 +125,29 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		Env:              env,
-		LogLevel:         logLevel,
-		DBDSN:            dsn,
-		DBMaxConns:       int32(dbMaxConns),
-		DBMinConns:       int32(dbMinConns),
-		DBConnMaxLife:    dbConnMaxLife,
-		Port:             port,
-		APIBaseURL:       apiBaseURL,
-		CORSOrigins:      origins,
-		RateLimitPerMin:  rateLimitPerMin,
-		DevAuth:          devAuth,
-		ClerkSecretKey:   clerkSecretKey,
-		ClerkJWTKey:      clerkJWTKey,
-		ClerkJWTIssuer:   clerkJWTIssuer,
-		ClerkJWTAudience: clerkJWTAudience,
+		Env:                    env,
+		LogLevel:               logLevel,
+		DBDSN:                  dsn,
+		DBMaxConns:             int32(dbMaxConns),
+		DBMinConns:             int32(dbMinConns),
+		DBConnMaxLife:          dbConnMaxLife,
+		Port:                   port,
+		APIBaseURL:             apiBaseURL,
+		CORSOrigins:            origins,
+		RateLimitPerMin:        rateLimitPerMin,
+		DevAuth:                devAuth,
+		ClerkSecretKey:         clerkSecretKey,
+		ClerkJWTKey:            clerkJWTKey,
+		ClerkJWTIssuer:         clerkJWTIssuer,
+		ClerkJWTAudience:       clerkJWTAudience,
+		R2AccountID:            r2AccountID,
+		R2AccessKeyID:          r2AccessKeyID,
+		R2SecretAccessKey:      r2SecretAccessKey,
+		R2BucketName:           r2BucketName,
+		R2Region:               r2Region,
+		MediaCDNBaseURL:        mediaCDNBaseURL,
+		MediaSigningSecretV1:   mediaSigningSecretV1,
+		MediaSigningKeyVersion: mediaSigningKeyVersion,
 	}, nil
 }
 

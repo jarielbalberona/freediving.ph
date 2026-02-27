@@ -3,6 +3,7 @@ package http
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	moderationservice "fphgo/internal/features/moderation_actions/service"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/authz"
+	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -202,4 +204,111 @@ func buildModerationRouter(h *Handlers, identity authz.Identity) chi.Router {
 	r.Use(middleware.RequireMember)
 	r.Mount("/", Routes(h))
 	return r
+}
+
+type denyAfterLimiter struct {
+	limit int
+	count int
+}
+
+func (l *denyAfterLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
+	l.count++
+	if l.count > l.limit {
+		return sharedratelimit.Result{Allowed: false, RetryAfter: time.Second}, nil
+	}
+	return sharedratelimit.Result{Allowed: true}, nil
+}
+
+func TestModerationSuspendUserRateLimitedContract(t *testing.T) {
+	moderatorID := "550e8400-e29b-41d4-a716-446655440000"
+	targetUserID := "550e8400-e29b-41d4-a716-446655440001"
+	target2UserID := "550e8400-e29b-41d4-a716-446655440002"
+
+	repo := newMemoryModerationRepo()
+	repo.userStatuses[targetUserID] = "active"
+	repo.userStatuses[target2UserID] = "active"
+	limiter := &denyAfterLimiter{limit: 1}
+	svc := moderationservice.New(repo, moderationservice.WithLimiter(limiter))
+	h := New(svc, validatex.New())
+
+	router := buildModerationRouter(h, authz.Identity{
+		UserID:        moderatorID,
+		GlobalRole:    "moderator",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionModerationWrite: true,
+		},
+	})
+
+	body := []byte(`{"reason":"confirmed abuse"}`)
+
+	firstReq := httptest.NewRequest(http.MethodPost, "/users/"+targetUserID+"/suspend", bytes.NewReader(body))
+	firstReq.Header.Set("Content-Type", "application/json")
+	firstRec := httptest.NewRecorder()
+	router.ServeHTTP(firstRec, firstReq)
+	if firstRec.Code != http.StatusOK {
+		t.Fatalf("first suspend expected 200, got %d body=%s", firstRec.Code, firstRec.Body.String())
+	}
+
+	secondReq := httptest.NewRequest(http.MethodPost, "/users/"+target2UserID+"/suspend", bytes.NewReader(body))
+	secondReq.Header.Set("Content-Type", "application/json")
+	secondRec := httptest.NewRecorder()
+	router.ServeHTTP(secondRec, secondReq)
+	if secondRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second suspend expected 429, got %d body=%s", secondRec.Code, secondRec.Body.String())
+	}
+	if secondRec.Header().Get("Retry-After") == "" {
+		t.Fatal("expected Retry-After header for 429 response")
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(secondRec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	errObj, _ := payload["error"].(map[string]any)
+	if errObj["code"] != "rate_limited" {
+		t.Fatalf("expected rate_limited code, got %v", errObj["code"])
+	}
+}
+
+func TestModerationHideThreadRateLimitedContract(t *testing.T) {
+	moderatorID := "550e8400-e29b-41d4-a716-446655440000"
+	threadID := "550e8400-e29b-41d4-a716-446655440010"
+	thread2ID := "550e8400-e29b-41d4-a716-446655440011"
+
+	repo := newMemoryModerationRepo()
+	repo.threads[threadID] = true
+	repo.threads[thread2ID] = true
+	limiter := &denyAfterLimiter{limit: 1}
+	svc := moderationservice.New(repo, moderationservice.WithLimiter(limiter))
+	h := New(svc, validatex.New())
+
+	router := buildModerationRouter(h, authz.Identity{
+		UserID:        moderatorID,
+		GlobalRole:    "moderator",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionModerationWrite: true,
+		},
+	})
+
+	body := []byte(`{"reason":"policy violation"}`)
+
+	firstReq := httptest.NewRequest(http.MethodPost, "/chika/threads/"+threadID+"/hide", bytes.NewReader(body))
+	firstReq.Header.Set("Content-Type", "application/json")
+	firstRec := httptest.NewRecorder()
+	router.ServeHTTP(firstRec, firstReq)
+	if firstRec.Code != http.StatusOK {
+		t.Fatalf("first hide expected 200, got %d body=%s", firstRec.Code, firstRec.Body.String())
+	}
+
+	secondReq := httptest.NewRequest(http.MethodPost, "/chika/threads/"+thread2ID+"/hide", bytes.NewReader(body))
+	secondReq.Header.Set("Content-Type", "application/json")
+	secondRec := httptest.NewRecorder()
+	router.ServeHTTP(secondRec, secondReq)
+	if secondRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second hide expected 429, got %d body=%s", secondRec.Code, secondRec.Body.String())
+	}
+	if secondRec.Header().Get("Retry-After") == "" {
+		t.Fatal("expected Retry-After header for 429 response")
+	}
 }

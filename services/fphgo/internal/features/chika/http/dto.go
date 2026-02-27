@@ -6,8 +6,8 @@ type Pagination struct {
 }
 
 type CreateThreadRequest struct {
-	Title string `json:"title" validate:"required,min=1,max=200"`
-	Mode  string `json:"mode"  validate:"required"`
+	Title      string `json:"title" validate:"required,min=1,max=200"`
+	CategoryID string `json:"categoryId" validate:"required,uuid"`
 }
 
 type UpdateThreadRequest struct {
@@ -42,15 +42,20 @@ type CreateMediaAssetRequest struct {
 }
 
 type ThreadResponse struct {
-	ID              string `json:"id"`
-	Title           string `json:"title"`
-	Mode            string `json:"mode"`
-	CreatedByUserID string `json:"createdByUserId"`
-	IsHidden        bool   `json:"is_hidden"`
-	HiddenAt        string `json:"hidden_at,omitempty"`
-	HiddenReason    string `json:"hidden_reason,omitempty"`
-	CreatedAt       string `json:"createdAt"`
-	UpdatedAt       string `json:"updatedAt"`
+	ID               string `json:"id"`
+	Title            string `json:"title"`
+	Mode             string `json:"mode"`
+	CategoryID       string `json:"categoryId"`
+	CategorySlug     string `json:"categorySlug"`
+	CategoryName     string `json:"categoryName"`
+	CategoryPseudo   bool   `json:"categoryPseudonymous"`
+	AuthorDisplay    string `json:"authorDisplayName"`
+	RealAuthorUserID string `json:"realAuthorUserId,omitempty"`
+	IsHidden         bool   `json:"isHidden"`
+	HiddenAt         string `json:"hiddenAt,omitempty"`
+	HiddenReason     string `json:"hiddenReason,omitempty"`
+	CreatedAt        string `json:"createdAt"`
+	UpdatedAt        string `json:"updatedAt"`
 }
 
 type PostResponse struct {
@@ -62,14 +67,23 @@ type PostResponse struct {
 }
 
 type CommentResponse struct {
-	ID           int64  `json:"id"`
-	ThreadID     string `json:"threadId"`
-	Pseudonym    string `json:"pseudonym"`
-	Content      string `json:"content"`
-	IsHidden     bool   `json:"is_hidden"`
-	HiddenAt     string `json:"hidden_at,omitempty"`
-	HiddenReason string `json:"hidden_reason,omitempty"`
-	CreatedAt    string `json:"createdAt"`
+	ID               string `json:"id"`
+	ThreadID         string `json:"threadId"`
+	AuthorDisplay    string `json:"authorDisplayName"`
+	RealAuthorUserID string `json:"realAuthorUserId,omitempty"`
+	Content          string `json:"content"`
+	IsHidden         bool   `json:"isHidden"`
+	HiddenAt         string `json:"hiddenAt,omitempty"`
+	HiddenReason     string `json:"hiddenReason,omitempty"`
+	CreatedAt        string `json:"createdAt"`
+	UpdatedAt        string `json:"updatedAt"`
+}
+
+type CategoryResponse struct {
+	ID           string `json:"id"`
+	Slug         string `json:"slug"`
+	Name         string `json:"name"`
+	Pseudonymous bool   `json:"pseudonymous"`
 }
 
 type ReactionResponse struct {
@@ -107,4 +121,8 @@ type ListCommentsResponse struct {
 
 type ListMediaResponse struct {
 	Items []MediaAssetResponse `json:"items"`
+}
+
+type ListCategoriesResponse struct {
+	Items []CategoryResponse `json:"items"`
 }

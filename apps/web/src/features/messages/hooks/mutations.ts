@@ -1,30 +1,65 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import type { ConversationMessagesResponse, SendMessageResponse } from "@freediving.ph/types";
 import { messagesApi } from "../api/messages";
-import type { SendMessagePayload } from '@freediving.ph/types';
 
-export const useSendMessage = () => {
+export const useCreateMessageRequest = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: ({ conversationId, payload }: { conversationId: number; payload: SendMessagePayload }) =>
-      messagesApi.sendMessage(conversationId, payload),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["messages", "conversations"] });
-      queryClient.invalidateQueries({ queryKey: ["messages", "conversation", variables.conversationId] });
+    mutationFn: ({ recipientId, content }: { recipientId: string; content: string }) =>
+      messagesApi.createRequest(recipientId, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages", "inbox"] });
     },
   });
 };
 
-export const useDeleteOwnMessage = () => {
+export const useAcceptMessageRequest = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: ({ conversationId, messageId }: { conversationId: number; messageId: number }) =>
-      messagesApi.deleteOwnMessage(conversationId, messageId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["messages", "conversations"] });
-      queryClient.invalidateQueries({ queryKey: ["messages", "conversation", variables.conversationId] });
+    mutationFn: (requestId: string) => messagesApi.acceptRequest(requestId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages", "inbox"] });
+    },
+  });
+};
+
+export const useDeclineMessageRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (requestId: string) => messagesApi.declineRequest(requestId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages", "inbox"] });
+    },
+  });
+};
+
+export const useSendMessage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ conversationId, content }: { conversationId: string; content: string }) =>
+      messagesApi.sendConversationMessage(conversationId, { content }),
+    onSuccess: (data: SendMessageResponse, variables) => {
+      queryClient.setQueryData<ConversationMessagesResponse | undefined>(
+        ["messages", "conversation", variables.conversationId],
+        (current) => {
+          if (!current) return current;
+          const exists = current.items.some((m) => m.messageId === data.message.messageId);
+          if (exists) return current;
+          return { ...current, items: [data.message, ...current.items] };
+        },
+      );
+    },
+  });
+};
+
+export const useMarkConversationRead = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ conversationId, messageId }: { conversationId: string; messageId?: string }) =>
+      messagesApi.markRead({ conversationId, messageId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages", "inbox"] });
     },
   });
 };

@@ -20,6 +20,7 @@ import (
 	reportsservice "fphgo/internal/features/reports/service"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/authz"
+	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -591,4 +592,82 @@ func value(v *string) string {
 		return ""
 	}
 	return *v
+}
+
+type denyAfterLimiter struct {
+	limit int
+	count int
+}
+
+func (l *denyAfterLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
+	l.count++
+	if l.count > l.limit {
+		return sharedratelimit.Result{Allowed: false, RetryAfter: time.Second}, nil
+	}
+	return sharedratelimit.Result{Allowed: true}, nil
+}
+
+func TestReportUpdateStatusRateLimitedContract(t *testing.T) {
+	moderatorID := "550e8400-e29b-41d4-a716-446655440000"
+	reporterID := "550e8400-e29b-41d4-a716-446655440001"
+	targetID := "550e8400-e29b-41d4-a716-446655440002"
+
+	repo := newMemoryReportsRepo()
+	repo.users[targetID] = true
+	repo.users[reporterID] = true
+
+	limiter := &denyAfterLimiter{limit: 1}
+	svc := reportsservice.New(repo, reportsservice.WithLimiter(limiter))
+	h := New(svc, validatex.New())
+
+	reporterRouter := buildReportsRouter(h, authz.Identity{
+		UserID:        reporterID,
+		GlobalRole:    "member",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionReportsWrite: true,
+		},
+	})
+
+	report1Body := `{"targetType":"user","targetId":"` + targetID + `","reasonCode":"spam"}`
+	report1ID := createReport(t, reporterRouter, report1Body)
+
+	moderatorRouter := buildReportsRouter(h, authz.Identity{
+		UserID:        moderatorID,
+		GlobalRole:    "moderator",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionReportsRead:     true,
+			authz.PermissionReportsModerate: true,
+		},
+	})
+
+	statusBody := []byte(`{"status":"reviewing"}`)
+	firstReq := httptest.NewRequest(http.MethodPatch, "/"+report1ID+"/status", bytes.NewReader(statusBody))
+	firstReq.Header.Set("Content-Type", "application/json")
+	firstRec := httptest.NewRecorder()
+	moderatorRouter.ServeHTTP(firstRec, firstReq)
+	if firstRec.Code != http.StatusOK {
+		t.Fatalf("first update expected 200, got %d body=%s", firstRec.Code, firstRec.Body.String())
+	}
+
+	resolveBody := []byte(`{"status":"resolved"}`)
+	secondReq := httptest.NewRequest(http.MethodPatch, "/"+report1ID+"/status", bytes.NewReader(resolveBody))
+	secondReq.Header.Set("Content-Type", "application/json")
+	secondRec := httptest.NewRecorder()
+	moderatorRouter.ServeHTTP(secondRec, secondReq)
+	if secondRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second update expected 429, got %d body=%s", secondRec.Code, secondRec.Body.String())
+	}
+	if secondRec.Header().Get("Retry-After") == "" {
+		t.Fatal("expected Retry-After header for 429 response")
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(secondRec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	errObj, _ := payload["error"].(map[string]any)
+	if errObj["code"] != "rate_limited" {
+		t.Fatalf("expected rate_limited code, got %v", errObj["code"])
+	}
 }

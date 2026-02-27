@@ -6,6 +6,10 @@
     },
     {
       "method": "GET",
+      "pattern": "/profiles/{username}"
+    },
+    {
+      "method": "GET",
       "pattern": "/readyz"
     },
     {
@@ -17,8 +21,116 @@
       "pattern": "/v1/blocks/"
     },
     {
+      "method": "POST",
+      "pattern": "/v1/blocks/"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/blocks/{blockedUserId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/buddies/"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/buddies/preview/{userId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/buddies/requests"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/buddies/requests/incoming"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/buddies/requests/outgoing"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/buddies/requests/{requestId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/buddies/requests/{requestId}/accept"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/buddies/requests/{requestId}/decline"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/buddies/{buddyUserId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/categories"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/chika/comments/{commentId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/chika/comments/{commentId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/media"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/chika/threads"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/threads"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/chika/threads/{threadId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads/{threadId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/chika/threads/{threadId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads/{threadId}/comments"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/threads/{threadId}/comments"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads/{threadId}/media"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads/{threadId}/posts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/threads/{threadId}/posts"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/chika/threads/{threadId}/reactions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/threads/{threadId}/reactions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/dive-sites"
     },
     {
       "method": "GET",
@@ -29,20 +141,120 @@
       "pattern": "/v1/me/profile"
     },
     {
+      "method": "PATCH",
+      "pattern": "/v1/me/profile"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/media/mine"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/upload"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/upload-multiple"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/urls"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/messages/conversations/{conversationId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/conversations/{conversationId}"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/messages/inbox"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/read"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/requests"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/requests/{requestId}/accept"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/requests/{requestId}/decline"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/chika/comments/{commentId}/hide"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/chika/comments/{commentId}/unhide"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/chika/threads/{threadId}/hide"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/chika/threads/{threadId}/unhide"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/users/{appUserId}/read-only"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/users/{appUserId}/read-only/clear"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/users/{appUserId}/suspend"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/users/{appUserId}/unsuspend"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/{userID}"
     },
     {
       "method": "GET",
       "pattern": "/v1/reports/"
     },
     {
+      "method": "POST",
+      "pattern": "/v1/reports/"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/reports/{reportId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/reports/{reportId}/status"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/users/"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/users/me"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/users/search"
     },
     {
-      "method": "POST",
-      "pattern": "/v1/chika/threads"
+      "method": "GET",
+      "pattern": "/v1/users/{id}"
     }
   ]
 }

@@ -5,14 +5,17 @@ export const routes = {
     me: () => "/v1/auth/session",
     messages: {
       inbox: () => "/v1/messages/inbox",
-      requests: () => "/v1/messages/requests",
-      send: () => "/v1/messages/send",
-      accept: (conversationId: string | number) =>
-        `/v1/messages/${toPathId(conversationId)}/accept`,
-      reject: (conversationId: string | number) =>
-        `/v1/messages/${toPathId(conversationId)}/reject`,
+      createRequest: () => "/v1/messages/requests",
+      requestAccept: (requestId: string | number) =>
+        `/v1/messages/requests/${toPathId(requestId)}/accept`,
+      requestDecline: (requestId: string | number) =>
+        `/v1/messages/requests/${toPathId(requestId)}/decline`,
+      conversationById: (conversationId: string | number) =>
+        `/v1/messages/conversations/${toPathId(conversationId)}`,
+      read: () => "/v1/messages/read",
     },
     chika: {
+      categories: () => "/v1/chika/categories",
       threads: {
         list: () => "/v1/chika/threads",
         byId: (id: string | number) => `/v1/chika/threads/${toPathId(id)}`,
@@ -31,6 +34,17 @@ export const routes = {
       list: () => "/v1/blocks",
       create: () => "/v1/blocks",
       byUserId: (blockedUserId: string | number) => `/v1/blocks/${toPathId(blockedUserId)}`,
+    },
+    buddies: {
+      list: () => "/v1/buddies",
+      createRequest: () => "/v1/buddies/requests",
+      incomingRequests: () => "/v1/buddies/requests/incoming",
+      outgoingRequests: () => "/v1/buddies/requests/outgoing",
+      acceptRequest: (requestId: string | number) => `/v1/buddies/requests/${toPathId(requestId)}/accept`,
+      declineRequest: (requestId: string | number) => `/v1/buddies/requests/${toPathId(requestId)}/decline`,
+      cancelRequest: (requestId: string | number) => `/v1/buddies/requests/${toPathId(requestId)}`,
+      byUserId: (buddyUserId: string | number) => `/v1/buddies/${toPathId(buddyUserId)}`,
+      preview: (userId: string | number) => `/v1/buddies/preview/${toPathId(userId)}`,
     },
     reports: {
       create: () => "/v1/reports",
@@ -55,6 +69,12 @@ export const routes = {
           unhide: (commentId: string | number) => `/v1/moderation/chika/comments/${toPathId(commentId)}/unhide`,
         },
       },
+    },
+    media: {
+      upload: () => "/v1/media/upload",
+      uploadMultiple: () => "/v1/media/upload-multiple",
+      mine: () => "/v1/media/mine",
+      urls: () => "/v1/media/urls",
     },
   },
 } as const;

@@ -30,6 +30,7 @@ Go route sources scanned:
 | `/v1/chika/threads/{id}/reactions` | `DELETE` | `threadsApi.removeReaction()` in `apps/web/src/features/chika/api/threads.ts` | `RemoveThreadReaction` in `services/fphgo/internal/features/chika/http/handlers.go` | `Shape mismatch` |
 | `/v1/chika/threads/{id}/comments` | `GET` | `threadsApi.getComments()` in `apps/web/src/features/chika/api/threads.ts` | `ListComments` in `services/fphgo/internal/features/chika/http/handlers.go` | `OK` |
 | `/v1/chika/threads/{id}/comments` | `POST` | `threadsApi.createComment()` in `apps/web/src/features/chika/api/threads.ts` | `CreateComment` in `services/fphgo/internal/features/chika/http/handlers.go` | `OK` |
+| `/v1/chika/categories` | `GET` | `threadsApi.getCategories()` in `apps/web/src/features/chika/api/threads.ts` | `ListCategories` in `services/fphgo/internal/features/chika/http/handlers.go` | `OK` |
 
 ## Per-Feature Breakdown
 
@@ -132,7 +133,7 @@ Go route:
 - Required auth: `RequireMember` + `RequirePermission(chika.read)` + `RequirePermission(chika.write)`
 
 Compatibility notes:
-- Body includes no `content`; web is already compensating by storing content client-side only.
+- Body uses `categoryId` to drive category-based pseudonymity policy.
 
 #### `PATCH /v1/chika/threads/{id}`
 
@@ -205,6 +206,21 @@ Web usage:
 Go route:
 - Route: `/threads/{threadId}/comments` in `services/fphgo/internal/features/chika/http/routes.go:15`
 - Handler: `ListComments` in `services/fphgo/internal/features/chika/http/handlers.go:200`
+- Required auth: `RequireMember` + `RequirePermission(chika.read)`
+
+Compatibility notes:
+- `id` is string (BIGSERIAL serialized for web safety).
+
+#### `GET /v1/chika/categories`
+
+Web usage:
+- Caller: `threadsApi.getCategories()` (`apps/web/src/features/chika/api/threads.ts`)
+- Request body type: none
+- Expected response type (TS): `ChikaCategoryListResponse`
+
+Go route:
+- Route: `/categories` in `services/fphgo/internal/features/chika/http/routes.go`
+- Handler: `ListCategories` in `services/fphgo/internal/features/chika/http/handlers.go`
 - Required auth: `RequireMember` + `RequirePermission(chika.read)`
 
 Compatibility notes:
@@ -389,3 +405,44 @@ Derived from `services/fphgo/internal/app/routes.go` and per-feature route files
 | `POST` | `/v1/moderation/chika/threads/{threadId}/unhide` | `moderation_actions.http.Handlers.UnhideThread` | `RequireMember` + `RequirePermission(moderation.write)` |
 | `POST` | `/v1/moderation/chika/comments/{commentId}/hide` | `moderation_actions.http.Handlers.HideComment` | `RequireMember` + `RequirePermission(moderation.write)` |
 | `POST` | `/v1/moderation/chika/comments/{commentId}/unhide` | `moderation_actions.http.Handlers.UnhideComment` | `RequireMember` + `RequirePermission(moderation.write)` |
+
+## Buddies v1 Addendum
+
+Web callers (`apps/web/src/features/buddies/api/buddies.ts`) now target Go handlers under `/v1/buddies`:
+- `GET /v1/buddies`
+- `POST /v1/buddies/requests`
+- `GET /v1/buddies/requests/incoming`
+- `GET /v1/buddies/requests/outgoing`
+- `POST /v1/buddies/requests/{requestId}/accept`
+- `POST /v1/buddies/requests/{requestId}/decline`
+- `DELETE /v1/buddies/{buddyUserId}`
+
+Go handler package: `services/fphgo/internal/features/buddies/http`
+
+Auth requirements:
+- `RequireMember` on all buddies routes
+- `buddies.read` for list/read endpoints
+- `buddies.write` for create/accept/decline/remove endpoints
+
+Compatibility notes:
+- Web buddies API uses `fphgoFetchClient` and UUID string IDs.
+- Response contracts are backed by shared types in `packages/types` (`BuddyRequest`, `IncomingBuddyRequestsResponse`, `OutgoingBuddyRequestsResponse`, `BuddyListResponse`).
+
+## Messaging v1 Addendum
+
+Web callers (`apps/web/src/features/messages/api/messages.ts`) now target:
+- `GET /v1/messages/inbox`
+- `POST /v1/messages/requests`
+- `POST /v1/messages/requests/{requestId}/accept`
+- `POST /v1/messages/requests/{requestId}/decline`
+- `GET /v1/messages/conversations/{conversationId}`
+- `POST /v1/messages/conversations/{conversationId}`
+- `POST /v1/messages/read`
+
+Go handler package: `services/fphgo/internal/features/messaging/http`
+
+Compatibility notes:
+- Conversation IDs are UUID strings.
+- Message IDs are BIGSERIAL in Postgres but returned to web as strings.
+- Inbox returns conversation-level items with status and pending request preview support.
+- WebSocket event envelope is versioned (`v: 1`).

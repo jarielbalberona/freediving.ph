@@ -18,6 +18,8 @@ const (
 	PermissionProfilesWrite   Permission = "profiles.write"
 	PermissionBlocksRead      Permission = "blocks.read"
 	PermissionBlocksWrite     Permission = "blocks.write"
+	PermissionBuddiesRead     Permission = "buddies.read"
+	PermissionBuddiesWrite    Permission = "buddies.write"
 	PermissionGroupsRead      Permission = "groups.read"
 	PermissionGroupsManage    Permission = "groups.manage"
 	PermissionEventsRead      Permission = "events.read"
@@ -27,6 +29,8 @@ const (
 	PermissionReportsModerate Permission = "reports.moderate"
 	PermissionModerationRead  Permission = "moderation.read"
 	PermissionModerationWrite Permission = "moderation.write"
+	PermissionMediaRead       Permission = "media.read"
+	PermissionMediaWrite      Permission = "media.write"
 )
 
 type Identity struct {
@@ -53,6 +57,7 @@ func RolePermissions(role string) map[Permission]bool {
 		PermissionExploreRead:   true,
 		PermissionProfilesRead:  true,
 		PermissionBlocksRead:    true,
+		PermissionBuddiesRead:   true,
 	}
 
 	switch role {
@@ -62,7 +67,10 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionExploreSubmit] = true
 		permissions[PermissionProfilesWrite] = true
 		permissions[PermissionBlocksWrite] = true
+		permissions[PermissionBuddiesWrite] = true
 		permissions[PermissionReportsWrite] = true
+		permissions[PermissionMediaRead] = true
+		permissions[PermissionMediaWrite] = true
 	case "moderator":
 		permissions[PermissionMessagingWrite] = true
 		permissions[PermissionChikaWrite] = true
@@ -70,12 +78,15 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionExploreSubmit] = true
 		permissions[PermissionProfilesWrite] = true
 		permissions[PermissionBlocksWrite] = true
+		permissions[PermissionBuddiesWrite] = true
 		permissions[PermissionReportsWrite] = true
 		permissions[PermissionUsersRead] = true
 		permissions[PermissionReportsRead] = true
 		permissions[PermissionReportsModerate] = true
 		permissions[PermissionModerationRead] = true
 		permissions[PermissionModerationWrite] = true
+		permissions[PermissionMediaRead] = true
+		permissions[PermissionMediaWrite] = true
 	case "admin":
 		permissions[PermissionMessagingWrite] = true
 		permissions[PermissionChikaWrite] = true
@@ -83,6 +94,7 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionExploreSubmit] = true
 		permissions[PermissionProfilesWrite] = true
 		permissions[PermissionBlocksWrite] = true
+		permissions[PermissionBuddiesWrite] = true
 		permissions[PermissionReportsWrite] = true
 		permissions[PermissionUsersRead] = true
 		permissions[PermissionUsersManage] = true
@@ -94,6 +106,8 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionReportsModerate] = true
 		permissions[PermissionModerationRead] = true
 		permissions[PermissionModerationWrite] = true
+		permissions[PermissionMediaRead] = true
+		permissions[PermissionMediaWrite] = true
 	case "super_admin":
 		permissions[PermissionMessagingWrite] = true
 		permissions[PermissionChikaWrite] = true
@@ -101,6 +115,7 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionExploreSubmit] = true
 		permissions[PermissionProfilesWrite] = true
 		permissions[PermissionBlocksWrite] = true
+		permissions[PermissionBuddiesWrite] = true
 		permissions[PermissionReportsWrite] = true
 		permissions[PermissionUsersRead] = true
 		permissions[PermissionUsersManage] = true
@@ -112,6 +127,8 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionReportsModerate] = true
 		permissions[PermissionModerationRead] = true
 		permissions[PermissionModerationWrite] = true
+		permissions[PermissionMediaRead] = true
+		permissions[PermissionMediaWrite] = true
 	}
 
 	return permissions

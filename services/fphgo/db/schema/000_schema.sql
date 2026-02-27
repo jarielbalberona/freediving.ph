@@ -35,6 +35,25 @@ CREATE TABLE IF NOT EXISTS buddy_relationships (
   CHECK (status IN ('pending', 'accepted', 'rejected'))
 );
 
+CREATE TABLE IF NOT EXISTS buddy_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (requester_app_user_id <> target_app_user_id),
+  CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled'))
+);
+
+CREATE TABLE IF NOT EXISTS buddies (
+  app_user_id_a UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  app_user_id_b UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (app_user_id_a, app_user_id_b),
+  CHECK (app_user_id_a < app_user_id_b)
+);
+
 CREATE TABLE IF NOT EXISTS blocks (
   blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   blocked_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -76,13 +95,24 @@ CREATE TABLE IF NOT EXISTS messages (
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   sender_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
+  idempotency_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS chika_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  pseudonymous BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS chika_threads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL DEFAULT '',
   mode TEXT NOT NULL DEFAULT 'normal',
+  category_id UUID NOT NULL REFERENCES chika_categories(id) ON DELETE RESTRICT,
   created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -229,6 +259,29 @@ CREATE TABLE IF NOT EXISTS moderation_actions (
   CHECK (length(trim(reason)) > 0)
 );
 
+CREATE TABLE IF NOT EXISTS media_objects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  context_type TEXT NOT NULL,
+  context_id UUID,
+  object_key TEXT NOT NULL UNIQUE,
+  mime_type TEXT NOT NULL,
+  size_bytes BIGINT NOT NULL,
+  width INTEGER NOT NULL,
+  height INTEGER NOT NULL,
+  state TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (context_type IN (
+    'profile_avatar',
+    'profile_feed',
+    'chika_attachment',
+    'event_attachment',
+    'dive_spot_attachment',
+    'group_cover'
+  )),
+  CHECK (state IN ('active', 'hidden', 'deleted'))
+);
+
 CREATE TABLE IF NOT EXISTS rate_limit_events (
   id BIGSERIAL PRIMARY KEY,
   scope TEXT NOT NULL,
@@ -263,6 +316,7 @@ CREATE TABLE IF NOT EXISTS event_memberships (
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at ON messages (conversation_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_idempotency_key ON messages (conversation_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_user ON conversation_participants (user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations (status);
 CREATE INDEX IF NOT EXISTS idx_dive_sites_name ON dive_sites (name);
@@ -290,7 +344,11 @@ CREATE INDEX IF NOT EXISTS idx_rate_limit_events_scope_key_created_at ON rate_li
 CREATE INDEX IF NOT EXISTS idx_rate_limit_events_created_at ON rate_limit_events (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chika_threads_created_at ON chika_threads (created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_threads_visible_created_at ON chika_threads (created_at DESC) WHERE deleted_at IS NULL AND hidden_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_chika_threads_category_created_at ON chika_threads (category_id, created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_posts_thread_created_at ON chika_posts (thread_id, created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_comments_thread_created_at ON chika_comments (thread_id, created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_comments_visible_thread_created_at ON chika_comments (thread_id, created_at DESC) WHERE deleted_at IS NULL AND hidden_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_assets_entity ON media_assets (entity_type, entity_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_media_objects_owner_created_at ON media_objects (owner_app_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_media_objects_context_created_at ON media_objects (context_type, context_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_media_objects_state ON media_objects (state);

@@ -7,7 +7,7 @@ import type { ReportStatus, ReportTargetType } from "@freediving.ph/types";
 import { AuthGuard, RequirePermission } from "@/components/auth/guard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useReports } from "@/features/reports";
 import { getApiError } from "@/lib/http/api-error";
 import { cn } from "@/lib/utils";
+
+const PAGE_SIZE = 25;
 
 const STATUS_OPTIONS: Array<{ value: "all" | ReportStatus; label: string }> = [
   { value: "all", label: "All statuses" },
@@ -55,6 +57,12 @@ const inDateRange = (createdAt: string, fromDate: string, toDate: string): boole
   return true;
 };
 
+const statusBadgeVariant = (status: string) =>
+  status === "open" ? "default" as const :
+  status === "reviewing" ? "secondary" as const :
+  status === "resolved" ? "outline" as const :
+  "destructive" as const;
+
 export default function ModerationReportsPage() {
   const [status, setStatus] = useState<"all" | ReportStatus>("all");
   const [targetType, setTargetType] = useState<"all" | ReportTargetType>("all");
@@ -66,7 +74,7 @@ export default function ModerationReportsPage() {
     targetType: targetType === "all" ? undefined : targetType,
     createdFrom: fromDate || undefined,
     createdTo: toDate || undefined,
-    limit: 100,
+    limit: PAGE_SIZE,
   });
 
   const filteredItems = useMemo(() => {
@@ -75,7 +83,17 @@ export default function ModerationReportsPage() {
     return items.filter((item) => inDateRange(item.createdAt, fromDate, toDate));
   }, [reportsQuery.data?.items, fromDate, toDate]);
 
+  const nextCursor = reportsQuery.data?.nextCursor;
   const queryError = reportsQuery.error ? getApiError(reportsQuery.error) : null;
+
+  const handleClearFilters = () => {
+    setStatus("all");
+    setTargetType("all");
+    setFromDate("");
+    setToDate("");
+  };
+
+  const hasActiveFilters = status !== "all" || targetType !== "all" || fromDate || toDate;
 
   return (
     <AuthGuard
@@ -95,9 +113,15 @@ export default function ModerationReportsPage() {
               <p className="text-muted-foreground">Review reports and move them to resolution.</p>
             </div>
 
+            {/* Filters */}
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Filters</CardTitle>
+                {hasActiveFilters ? (
+                  <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+                    Clear filters
+                  </Button>
+                ) : null}
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
@@ -151,10 +175,16 @@ export default function ModerationReportsPage() {
               </CardContent>
             </Card>
 
+            {/* Reports list */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Reports</CardTitle>
-                <Badge variant="outline">{filteredItems.length} shown</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{filteredItems.length} shown</Badge>
+                  {reportsQuery.isFetching && !reportsQuery.isPending ? (
+                    <Badge variant="secondary">Refreshing…</Badge>
+                  ) : null}
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {reportsQuery.isPending ? (
@@ -180,24 +210,24 @@ export default function ModerationReportsPage() {
 
                 {!reportsQuery.isPending && !queryError
                   ? filteredItems.map((report) => (
-                      <div key={report.id} className="rounded-md border p-4">
+                      <div key={report.id} className="rounded-md border p-4 transition-colors hover:bg-muted/50">
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="font-medium">Report #{report.id}</span>
-                              <Badge variant="outline">{report.status}</Badge>
+                              <Badge variant={statusBadgeVariant(report.status)}>{report.status}</Badge>
                               <Badge variant="secondary">{report.targetType}</Badge>
                             </div>
                             <p className="text-sm text-muted-foreground">
                               Target: <span className="font-mono">{report.targetId}</span>
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              Created: {toDateValue(report.createdAt)} | Reason: {report.reasonCode}
+                              {toDateValue(report.createdAt)} · {report.reasonCode}
                             </p>
                           </div>
                           <Link
                             href={`/moderation/reports/${report.id}`}
-                            className={cn(buttonVariants({ variant: "default" }))}
+                            className={cn(buttonVariants({ variant: "default", size: "sm" }))}
                           >
                             Open report
                           </Link>
@@ -205,6 +235,14 @@ export default function ModerationReportsPage() {
                       </div>
                     ))
                   : null}
+
+                {!reportsQuery.isPending && !queryError && nextCursor ? (
+                  <div className="pt-2 text-center">
+                    <p className="mb-2 text-xs text-muted-foreground">
+                      More reports available. Adjust filters or load the next page.
+                    </p>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </div>

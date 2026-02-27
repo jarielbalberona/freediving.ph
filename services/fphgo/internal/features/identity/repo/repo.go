@@ -38,6 +38,10 @@ func (r *Repo) EnsureUserForClerk(ctx context.Context, clerkUserID, username, di
 		return fmt.Errorf("clerk user id is required")
 	}
 
+	if strings.TrimSpace(username) == "" {
+		username = "user_" + clerkUserID
+	}
+
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)

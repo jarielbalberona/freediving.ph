@@ -43,7 +43,7 @@ func TestMessagingRoutesRequireReadAndWritePermissions(t *testing.T) {
 			},
 		}, h)
 
-		req := httptest.NewRequest(http.MethodPost, "/send", strings.NewReader(`{"recipientId":"550e8400-e29b-41d4-a716-446655440001","content":"hello"}`))
+		req := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"550e8400-e29b-41d4-a716-446655440001","content":"hello"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)

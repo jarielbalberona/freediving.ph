@@ -9,6 +9,7 @@ import (
 
 func Routes(h *Handlers) chi.Router {
 	r := chi.NewRouter()
+	r.Get("/categories", h.ListCategories)
 	r.Get("/threads", h.ListThreads)
 	r.Get("/threads/{threadId}", h.GetThread)
 	r.Get("/threads/{threadId}/posts", h.ListPosts)

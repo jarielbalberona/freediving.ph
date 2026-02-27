@@ -1,19 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { BuddyRequestListResponse, BuddyUserCard, PaginatedApiEnvelope } from "../src/index.ts";
+import type {
+  BuddyListResponse,
+  BuddyPreviewResponse,
+  BuddyProfile,
+  IncomingBuddyRequestsResponse,
+  OutgoingBuddyRequestsResponse,
+} from "../src/index.ts";
 
 type Assert<T extends true> = T;
 type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 
-type IncomingItem = BuddyRequestListResponse["incoming"][number];
-type OutgoingItem = BuddyRequestListResponse["outgoing"][number];
+type IncomingItem = IncomingBuddyRequestsResponse["items"][number];
+type OutgoingItem = OutgoingBuddyRequestsResponse["items"][number];
+type BuddyItem = BuddyListResponse["items"][number];
+type PreviewItem = BuddyPreviewResponse["items"][number];
 
-type _incomingFromUserMatches = Assert<IsEqual<IncomingItem["fromUser"], BuddyUserCard | null>>;
-type _outgoingToUserMatches = Assert<IsEqual<OutgoingItem["toUser"], BuddyUserCard | null>>;
-type _requestsArePaginatable = Assert<IsEqual<PaginatedApiEnvelope<BuddyRequestListResponse>["data"], BuddyRequestListResponse>>;
+type _incomingRequesterMatches = Assert<IsEqual<IncomingItem["requester"], BuddyProfile>>;
+type _outgoingTargetMatches = Assert<IsEqual<OutgoingItem["target"], BuddyProfile>>;
+type _buddyListShape = Assert<IsEqual<BuddyItem, BuddyProfile>>;
+type _previewItemShape = Assert<IsEqual<PreviewItem, BuddyProfile>>;
+type _previewHasCount = Assert<IsEqual<BuddyPreviewResponse["count"], number>>;
 
-test("buddy contracts are compatible with paginated envelopes", () => {
+test("buddy contracts align with v1 responses", () => {
   assert.equal(true, true);
 });

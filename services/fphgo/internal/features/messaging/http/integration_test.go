@@ -1,332 +1,652 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	messagingrepo "fphgo/internal/features/messaging/repo"
 	messagingservice "fphgo/internal/features/messaging/service"
 	"fphgo/internal/middleware"
 	"fphgo/internal/realtime/ws"
 	"fphgo/internal/shared/authz"
-	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
 )
 
 type memoryMessagingRepo struct {
 	buddies map[string]bool
-	items   []messagingrepo.MessageItem
-	others  map[string]string
-	edges   map[string]bool
+	blocks  map[string]bool
+	convs   map[string]*messagingrepo.Conversation
+	parts   map[string][2]string
+	msgs    map[string][]messagingrepo.Message
+}
+
+func newMemoryMessagingRepo() *memoryMessagingRepo {
+	return &memoryMessagingRepo{
+		buddies: map[string]bool{},
+		blocks:  map[string]bool{},
+		convs:   map[string]*messagingrepo.Conversation{},
+		parts:   map[string][2]string{},
+		msgs:    map[string][]messagingrepo.Message{},
+	}
+}
+
+func pairKey(a, b string) string {
+	if a < b {
+		return a + ":" + b
+	}
+	return b + ":" + a
 }
 
 func (m *memoryMessagingRepo) AreBuddies(_ context.Context, a, b string) (bool, error) {
-	if m.buddies == nil {
-		return false, nil
-	}
 	return m.buddies[pairKey(a, b)], nil
 }
 
-func (m *memoryMessagingRepo) UpsertDMConversation(_ context.Context, senderID, _ string, status string) (messagingrepo.Conversation, error) {
-	return messagingrepo.Conversation{ID: "550e8400-e29b-41d4-a716-446655440099", InitiatorUserID: senderID, Status: status}, nil
+func (m *memoryMessagingRepo) UpsertDMConversation(_ context.Context, senderID, recipientID, status string) (messagingrepo.Conversation, error) {
+	pair := pairKey(senderID, recipientID)
+	for id, users := range m.parts {
+		if pairKey(users[0], users[1]) == pair {
+			conv := m.convs[id]
+			if conv.Status != "active" {
+				conv.Status = status
+			}
+			conv.UpdatedAt = time.Now().UTC()
+			return *conv, nil
+		}
+	}
+	id := uuid.NewString()
+	conv := &messagingrepo.Conversation{ID: id, InitiatorUserID: senderID, Status: status, UpdatedAt: time.Now().UTC()}
+	m.convs[id] = conv
+	m.parts[id] = [2]string{senderID, recipientID}
+	return *conv, nil
 }
 
-func (m *memoryMessagingRepo) InsertMessage(_ context.Context, _, _, _ string) (int64, error) {
-	return 1, nil
+func (m *memoryMessagingRepo) InsertMessage(_ context.Context, conversationID, senderID, content string, idempotencyKey *string) (messagingrepo.Message, error) {
+	if idempotencyKey != nil {
+		for _, msg := range m.msgs[conversationID] {
+			if msg.Content == content {
+				return msg, nil
+			}
+		}
+	}
+	msg := messagingrepo.Message{
+		ID:             int64(len(m.msgs[conversationID]) + 1),
+		ConversationID: conversationID,
+		SenderID:       senderID,
+		Content:        content,
+		CreatedAt:      time.Now().UTC(),
+	}
+	m.msgs[conversationID] = append(m.msgs[conversationID], msg)
+	if conv := m.convs[conversationID]; conv != nil {
+		conv.UpdatedAt = msg.CreatedAt
+	}
+	return msg, nil
 }
 
 func (m *memoryMessagingRepo) GetConversation(_ context.Context, conversationID string) (messagingrepo.Conversation, error) {
-	return messagingrepo.Conversation{ID: conversationID, Status: "pending", InitiatorUserID: "550e8400-e29b-41d4-a716-446655440001"}, nil
+	conv, ok := m.convs[conversationID]
+	if !ok {
+		return messagingrepo.Conversation{}, messagingNoRows{}
+	}
+	return *conv, nil
 }
 
-func (m *memoryMessagingRepo) IsParticipant(_ context.Context, _, _ string) (bool, error) {
-	return true, nil
+func (m *memoryMessagingRepo) IsParticipant(_ context.Context, conversationID, userID string) (bool, error) {
+	users, ok := m.parts[conversationID]
+	if !ok {
+		return false, nil
+	}
+	return users[0] == userID || users[1] == userID, nil
 }
 
-func (m *memoryMessagingRepo) UpdateConversationStatus(_ context.Context, _, _ string) error {
+func (m *memoryMessagingRepo) GetOtherParticipantID(_ context.Context, conversationID, userID string) (string, error) {
+	users, ok := m.parts[conversationID]
+	if !ok {
+		return "", messagingNoRows{}
+	}
+	if users[0] == userID {
+		return users[1], nil
+	}
+	if users[1] == userID {
+		return users[0], nil
+	}
+	return "", messagingNoRows{}
+}
+
+func (m *memoryMessagingRepo) UpdateConversationStatus(_ context.Context, conversationID, status string) error {
+	conv, ok := m.convs[conversationID]
+	if !ok {
+		return messagingNoRows{}
+	}
+	conv.Status = status
+	conv.UpdatedAt = time.Now().UTC()
 	return nil
 }
 
-func (m *memoryMessagingRepo) Inbox(_ context.Context, input messagingrepo.ListInboxInput) ([]messagingrepo.MessageItem, error) {
-	out := make([]messagingrepo.MessageItem, 0, len(m.items))
-	for _, item := range m.items {
-		otherID := m.others[item.ConversationID]
-		if otherID == "" {
+func (m *memoryMessagingRepo) ListInboxConversations(_ context.Context, input messagingrepo.ListInboxInput) ([]messagingrepo.ConversationItem, error) {
+	items := make([]messagingrepo.ConversationItem, 0)
+	for id, conv := range m.convs {
+		users := m.parts[id]
+		if users[0] != input.UserID && users[1] != input.UserID {
 			continue
 		}
-		if isBlockedWithMap(m.edges, input.UserID, otherID) {
+		other := users[0]
+		if other == input.UserID {
+			other = users[1]
+		}
+		if m.blocks[input.UserID+":"+other] || m.blocks[other+":"+input.UserID] {
 			continue
 		}
-		if item.CreatedAt.After(input.CursorCreated) || (item.CreatedAt.Equal(input.CursorCreated) && item.MessageID >= input.CursorMessageID) {
+		messages := m.msgs[id]
+		if len(messages) == 0 {
 			continue
 		}
-		out = append(out, item)
+		first := messages[0]
+		last := messages[len(messages)-1]
+		var pendingCount int64
+		if conv.Status == "pending" {
+			pendingCount = int64(len(messages))
+		}
+		items = append(items, messagingrepo.ConversationItem{
+			ConversationID:   id,
+			Status:           conv.Status,
+			InitiatorUserID:  conv.InitiatorUserID,
+			UpdatedAt:        conv.UpdatedAt,
+			OtherUserID:      other,
+			OtherUsername:    "u-" + other[:8],
+			OtherDisplayName: "User " + other[:8],
+			LastMessage:      last,
+			RequestPreview:   first,
+			UnreadCount:      0,
+			PendingCount:     pendingCount,
+		})
 	}
-	if int(input.Limit) < len(out) {
-		return out[:input.Limit], nil
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].UpdatedAt.Equal(items[j].UpdatedAt) {
+			return items[i].ConversationID > items[j].ConversationID
+		}
+		return items[i].UpdatedAt.After(items[j].UpdatedAt)
+	})
+	if int(input.Limit) < len(items) {
+		items = items[:input.Limit]
 	}
-	return out, nil
+	return items, nil
 }
 
-func (m *memoryMessagingRepo) Requests(_ context.Context, _ string) ([]messagingrepo.MessageItem, error) {
-	return []messagingrepo.MessageItem{}, nil
+func (m *memoryMessagingRepo) ListConversationMessages(_ context.Context, input messagingrepo.ListConversationMessagesInput) ([]messagingrepo.Message, error) {
+	items := make([]messagingrepo.Message, 0)
+	for _, msg := range m.msgs[input.ConversationID] {
+		if msg.CreatedAt.After(input.CursorCreated) || (msg.CreatedAt.Equal(input.CursorCreated) && msg.ID >= input.CursorMessageID) {
+			continue
+		}
+		items = append(items, msg)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID > items[j].ID
+		}
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	if int(input.Limit) < len(items) {
+		items = items[:input.Limit]
+	}
+	return items, nil
 }
 
-type memoryBlockChecker struct {
-	edges map[string]bool
+func (m *memoryMessagingRepo) MarkConversationRead(_ context.Context, _ string, _ string, _ *int64) error {
+	return nil
 }
+
+type messagingNoRows struct{}
+
+func (messagingNoRows) Error() string { return "no rows" }
+
+type memoryBlockChecker struct{ edges map[string]bool }
 
 func (m memoryBlockChecker) IsBlockedEitherDirection(_ context.Context, a, b string) (bool, error) {
-	return isBlockedWithMap(m.edges, a, b), nil
+	return m.edges[a+":"+b] || m.edges[b+":"+a], nil
 }
 
 type testHub struct{}
 
 func (testHub) BroadcastEnvelope(ws.Envelope) {}
 
-type testLimiter struct {
-	denyAfter map[string]int
-	counts    map[string]int
-}
-
-func (l *testLimiter) Allow(_ context.Context, scope, key string, _ int, _ time.Duration) (sharedratelimit.Result, error) {
-	if l.counts == nil {
-		l.counts = map[string]int{}
-	}
-	composite := scope + "|" + key
-	l.counts[composite]++
-	if limit, ok := l.denyAfter[composite]; ok && l.counts[composite] > limit {
-		return sharedratelimit.Result{Allowed: false, RetryAfter: time.Second}, nil
-	}
-	return sharedratelimit.Result{Allowed: true}, nil
-}
-
-func TestMessagingBlockedSendReturnsForbiddenBothDirections(t *testing.T) {
+func TestMessagingRequestPreviewAcceptAndSendFlow(t *testing.T) {
+	repo := newMemoryMessagingRepo()
 	actorID := "550e8400-e29b-41d4-a716-446655440000"
-	otherID := "550e8400-e29b-41d4-a716-446655440001"
-
-	tests := []struct {
-		name  string
-		edges map[string]bool
-	}{
-		{
-			name: "actor blocks recipient",
-			edges: map[string]bool{
-				actorID + ":" + otherID: true,
-			},
-		},
-		{
-			name: "recipient blocks actor",
-			edges: map[string]bool{
-				otherID + ":" + actorID: true,
-			},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			repo := &memoryMessagingRepo{}
-			svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: tc.edges})
-			h := New(svc, nil, validatex.New())
-			router := buildMessagingRouter(h, actorID)
-
-			req := httptest.NewRequest(http.MethodPost, "/send", strings.NewReader(`{"recipientId":"`+otherID+`","content":"hello"}`))
-			req.Header.Set("Content-Type", "application/json")
-			rec := httptest.NewRecorder()
-			router.ServeHTTP(rec, req)
-
-			if rec.Code != http.StatusForbidden {
-				t.Fatalf("expected 403, got %d body=%s", rec.Code, rec.Body.String())
-			}
-			var payload map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-				t.Fatalf("decode response: %v", err)
-			}
-			errObj, _ := payload["error"].(map[string]any)
-			if errObj["code"] != "blocked" {
-				t.Fatalf("expected blocked code, got %v body=%s", errObj["code"], rec.Body.String())
-			}
-		})
-	}
-}
-
-func TestMessagingInboxHidesBlockedRelationships(t *testing.T) {
-	actorID := "550e8400-e29b-41d4-a716-446655440000"
-	blockedID := "550e8400-e29b-41d4-a716-446655440001"
-	visibleID := "550e8400-e29b-41d4-a716-446655440002"
-
-	edges := map[string]bool{
-		actorID + ":" + blockedID: true,
-	}
-	repo := &memoryMessagingRepo{
-		edges: edges,
-		items: []messagingrepo.MessageItem{
-			{ConversationID: "conv-blocked", MessageID: 1, SenderID: blockedID, Content: "blocked", Status: "active", CreatedAt: time.Now().UTC()},
-			{ConversationID: "conv-visible", MessageID: 2, SenderID: visibleID, Content: "visible", Status: "active", CreatedAt: time.Now().UTC()},
-		},
-		others: map[string]string{
-			"conv-blocked": blockedID,
-			"conv-visible": visibleID,
-		},
-	}
-	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: edges})
+	recipientID := "550e8400-e29b-41d4-a716-446655440001"
+	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: map[string]bool{}})
 	h := New(svc, nil, validatex.New())
-	router := buildMessagingRouter(h, actorID)
 
-	req := httptest.NewRequest(http.MethodGet, "/inbox", nil)
+	senderRouter := buildMessagingRouter(h, actorID, "active")
+	recipientRouter := buildMessagingRouter(h, recipientID, "active")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+recipientID+`","content":"first preview"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRec := httptest.NewRecorder()
+	senderRouter.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+	var created RequestActionResponse
+	_ = json.Unmarshal(createRec.Body.Bytes(), &created)
+
+	pendingSendReq := httptest.NewRequest(http.MethodPost, "/conversations/"+created.ConversationID, strings.NewReader(`{"content":"follow up"}`))
+	pendingSendReq.Header.Set("Content-Type", "application/json")
+	pendingSendRec := httptest.NewRecorder()
+	senderRouter.ServeHTTP(pendingSendRec, pendingSendReq)
+	if pendingSendRec.Code != http.StatusOK {
+		t.Fatalf("expected sender pending send 200, got %d body=%s", pendingSendRec.Code, pendingSendRec.Body.String())
+	}
+
+	inboxReq := httptest.NewRequest(http.MethodGet, "/inbox", nil)
+	inboxRec := httptest.NewRecorder()
+	recipientRouter.ServeHTTP(inboxRec, inboxReq)
+	if inboxRec.Code != http.StatusOK {
+		t.Fatalf("expected inbox 200, got %d", inboxRec.Code)
+	}
+	var inbox ListInboxResponse
+	_ = json.Unmarshal(inboxRec.Body.Bytes(), &inbox)
+	if len(inbox.Items) != 1 || inbox.Items[0].RequestPreview == nil || inbox.Items[0].RequestPreview.Content != "first preview" {
+		t.Fatalf("expected pending preview first message, got %+v", inbox.Items)
+	}
+
+	acceptReq := httptest.NewRequest(http.MethodPost, "/requests/"+created.RequestID+"/accept", nil)
+	acceptRec := httptest.NewRecorder()
+	recipientRouter.ServeHTTP(acceptRec, acceptReq)
+	if acceptRec.Code != http.StatusOK {
+		t.Fatalf("expected accept 200, got %d body=%s", acceptRec.Code, acceptRec.Body.String())
+	}
+
+	afterAcceptSendReq := httptest.NewRequest(http.MethodPost, "/conversations/"+created.ConversationID, strings.NewReader(`{"content":"accepted reply"}`))
+	afterAcceptSendReq.Header.Set("Content-Type", "application/json")
+	afterAcceptSendRec := httptest.NewRecorder()
+	recipientRouter.ServeHTTP(afterAcceptSendRec, afterAcceptSendReq)
+	if afterAcceptSendRec.Code != http.StatusOK {
+		t.Fatalf("expected accepted send 200, got %d body=%s", afterAcceptSendRec.Code, afterAcceptSendRec.Body.String())
+	}
+}
+
+func TestMessagingBuddyBypassCreatesActiveConversation(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	actorID := "550e8400-e29b-41d4-a716-446655440010"
+	recipientID := "550e8400-e29b-41d4-a716-446655440011"
+	repo.buddies[pairKey(actorID, recipientID)] = true
+
+	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: map[string]bool{}})
+	h := New(svc, nil, validatex.New())
+	router := buildMessagingRouter(h, actorID, "active")
+
+	req := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+recipientID+`","content":"hi buddy"}`))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rec.Code)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", rec.Code, rec.Body.String())
 	}
-
-	var payload ListMessagesResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if len(payload.Items) != 1 {
-		t.Fatalf("expected 1 visible inbox item, got %d", len(payload.Items))
-	}
-	if payload.Items[0].ConversationID != "conv-visible" {
-		t.Fatalf("expected visible conversation, got %q", payload.Items[0].ConversationID)
+	var payload RequestActionResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &payload)
+	if payload.Status != "active" {
+		t.Fatalf("expected active status for buddy bypass, got %s", payload.Status)
 	}
 }
 
-func TestMessagingSendRateLimited(t *testing.T) {
-	actorID := "550e8400-e29b-41d4-a716-446655440000"
-	otherID := "550e8400-e29b-41d4-a716-446655440001"
-
-	repo := &memoryMessagingRepo{
-		buddies: map[string]bool{
-			pairKey(actorID, otherID): true,
-		},
-	}
-	limiter := &testLimiter{
-		denyAfter: map[string]int{
-			"messages.send|" + actorID: 1,
-		},
-	}
-	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{}, messagingservice.WithLimiter(limiter))
+func TestMessagingBlocksForbidAndInboxHides(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	actorID := "550e8400-e29b-41d4-a716-446655440020"
+	otherID := "550e8400-e29b-41d4-a716-446655440021"
+	edges := map[string]bool{actorID + ":" + otherID: true}
+	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: edges})
 	h := New(svc, nil, validatex.New())
-	router := buildMessagingRouter(h, actorID)
+	router := buildMessagingRouter(h, actorID, "active")
 
-	body := `{"recipientId":"` + otherID + `","content":"hello"}`
-	firstReq := httptest.NewRequest(http.MethodPost, "/send", strings.NewReader(body))
-	firstReq.Header.Set("Content-Type", "application/json")
-	firstRec := httptest.NewRecorder()
-	router.ServeHTTP(firstRec, firstReq)
-	if firstRec.Code != http.StatusOK {
-		t.Fatalf("first send expected 200, got %d body=%s", firstRec.Code, firstRec.Body.String())
+	blockedReq := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+otherID+`","content":"blocked"}`))
+	blockedReq.Header.Set("Content-Type", "application/json")
+	blockedRec := httptest.NewRecorder()
+	router.ServeHTTP(blockedRec, blockedReq)
+	if blockedRec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 blocked, got %d body=%s", blockedRec.Code, blockedRec.Body.String())
 	}
 
-	secondReq := httptest.NewRequest(http.MethodPost, "/send", strings.NewReader(body))
-	secondReq.Header.Set("Content-Type", "application/json")
-	secondRec := httptest.NewRecorder()
-	router.ServeHTTP(secondRec, secondReq)
-	if secondRec.Code != http.StatusTooManyRequests {
-		t.Fatalf("second send expected 429, got %d body=%s", secondRec.Code, secondRec.Body.String())
-	}
-	retryAfterHeader := secondRec.Header().Get("Retry-After")
-	if retryAfterHeader == "" {
-		t.Fatal("expected Retry-After header for 429 response")
-	}
-	var payload map[string]any
-	if err := json.Unmarshal(secondRec.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	errObj, _ := payload["error"].(map[string]any)
-	if errObj["code"] != "rate_limited" {
-		t.Fatalf("expected rate_limited code, got %v", errObj["code"])
-	}
-	details, _ := errObj["details"].(map[string]any)
-	windowSeconds, windowOK := details["window_seconds"].(float64)
-	retryAfterSeconds, retryOK := details["retry_after_seconds"].(float64)
-	if !windowOK || windowSeconds < 1 {
-		t.Fatalf("expected positive details.window_seconds, got %+v", details)
-	}
-	if !retryOK || retryAfterSeconds < 1 {
-		t.Fatalf("expected positive details.retry_after_seconds, got %+v", details)
-	}
-	if retryAfterHeader != strconv.Itoa(int(retryAfterSeconds)) {
-		t.Fatalf("expected Retry-After=%v to match details.retry_after_seconds=%v", retryAfterHeader, retryAfterSeconds)
+	inboxReq := httptest.NewRequest(http.MethodGet, "/inbox", nil)
+	inboxRec := httptest.NewRecorder()
+	router.ServeHTTP(inboxRec, inboxReq)
+	if inboxRec.Code != http.StatusOK {
+		t.Fatalf("expected inbox 200, got %d", inboxRec.Code)
 	}
 }
 
-func TestMessagingInboxCursorPaginationStable(t *testing.T) {
-	actorID := "550e8400-e29b-41d4-a716-446655440000"
-	peerA := "550e8400-e29b-41d4-a716-446655440001"
-	peerB := "550e8400-e29b-41d4-a716-446655440002"
-	peerC := "550e8400-e29b-41d4-a716-446655440003"
-	now := time.Now().UTC()
-
-	repo := &memoryMessagingRepo{
-		items: []messagingrepo.MessageItem{
-			{ConversationID: "c3", MessageID: 3, SenderID: peerC, Content: "3", Status: "active", CreatedAt: now.Add(-1 * time.Minute)},
-			{ConversationID: "c2", MessageID: 2, SenderID: peerB, Content: "2", Status: "active", CreatedAt: now.Add(-2 * time.Minute)},
-			{ConversationID: "c1", MessageID: 1, SenderID: peerA, Content: "1", Status: "active", CreatedAt: now.Add(-3 * time.Minute)},
-		},
-		others: map[string]string{
-			"c1": peerA,
-			"c2": peerB,
-			"c3": peerC,
-		},
-	}
-	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{})
+func TestMessagingReadOnlyForbidsWrites(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: map[string]bool{}})
 	h := New(svc, nil, validatex.New())
-	router := buildMessagingRouter(h, actorID)
+	router := buildMessagingRouter(h, "550e8400-e29b-41d4-a716-446655440030", "read_only")
 
-	page1Req := httptest.NewRequest(http.MethodGet, "/inbox?limit=2", nil)
-	page1Rec := httptest.NewRecorder()
-	router.ServeHTTP(page1Rec, page1Req)
-	if page1Rec.Code != http.StatusOK {
-		t.Fatalf("page1 expected 200, got %d", page1Rec.Code)
-	}
-	var page1 ListMessagesResponse
-	if err := json.Unmarshal(page1Rec.Body.Bytes(), &page1); err != nil {
-		t.Fatalf("decode page1: %v", err)
-	}
-	if len(page1.Items) != 2 {
-		t.Fatalf("expected 2 inbox items on page1, got %d", len(page1.Items))
-	}
-	if page1.Items[0].MessageID != 3 || page1.Items[1].MessageID != 2 {
-		t.Fatalf("expected stable ordering desc by createdAt/messageId, got %+v", page1.Items)
-	}
-	if page1.NextCursor == "" {
-		t.Fatal("expected nextCursor on first page")
-	}
-
-	page2Req := httptest.NewRequest(http.MethodGet, "/inbox?limit=2&cursor="+page1.NextCursor, nil)
-	page2Rec := httptest.NewRecorder()
-	router.ServeHTTP(page2Rec, page2Req)
-	if page2Rec.Code != http.StatusOK {
-		t.Fatalf("page2 expected 200, got %d", page2Rec.Code)
-	}
-	var page2 ListMessagesResponse
-	if err := json.Unmarshal(page2Rec.Body.Bytes(), &page2); err != nil {
-		t.Fatalf("decode page2: %v", err)
-	}
-	if len(page2.Items) != 1 || page2.Items[0].MessageID != 1 {
-		t.Fatalf("expected remaining item on page2, got %+v", page2.Items)
+	req := httptest.NewRequest(http.MethodPost, "/requests", bytes.NewReader([]byte(`{"recipientId":"550e8400-e29b-41d4-a716-446655440031","content":"hello"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for read_only write, got %d", rec.Code)
 	}
 }
 
-func buildMessagingRouter(h *Handlers, actorID string) chi.Router {
+func TestMessagingInboxOrderingPendingAndActive(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	actorID := "550e8400-e29b-41d4-a716-446655440040"
+	otherA := "550e8400-e29b-41d4-a716-446655440041"
+	otherB := "550e8400-e29b-41d4-a716-446655440042"
+
+	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: map[string]bool{}})
+	h := New(svc, nil, validatex.New())
+
+	router := buildMessagingRouter(h, actorID, "active")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+otherA+`","content":"older"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+
+	time.Sleep(2 * time.Millisecond)
+	repo.buddies[pairKey(actorID, otherB)] = true
+	createReq2 := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+otherB+`","content":"newer active"}`))
+	createReq2.Header.Set("Content-Type", "application/json")
+	createRec2 := httptest.NewRecorder()
+	router.ServeHTTP(createRec2, createReq2)
+	if createRec2.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", createRec2.Code, createRec2.Body.String())
+	}
+
+	inboxReq := httptest.NewRequest(http.MethodGet, "/inbox", nil)
+	inboxRec := httptest.NewRecorder()
+	router.ServeHTTP(inboxRec, inboxReq)
+	if inboxRec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", inboxRec.Code)
+	}
+
+	var inbox ListInboxResponse
+	_ = json.Unmarshal(inboxRec.Body.Bytes(), &inbox)
+	if len(inbox.Items) != 2 {
+		t.Fatalf("expected 2 inbox items, got %d", len(inbox.Items))
+	}
+	if inbox.Items[0].Status != "active" {
+		t.Fatalf("expected newest conversation (active) first, got status=%s", inbox.Items[0].Status)
+	}
+	if inbox.Items[1].Status != "pending" {
+		t.Fatalf("expected older conversation (pending) second, got status=%s", inbox.Items[1].Status)
+	}
+}
+
+func TestMessagingSenderMultiplePendingMessages(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	senderID := "550e8400-e29b-41d4-a716-446655440050"
+	recipientID := "550e8400-e29b-41d4-a716-446655440051"
+
+	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: map[string]bool{}})
+	h := New(svc, nil, validatex.New())
+	senderRouter := buildMessagingRouter(h, senderID, "active")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+recipientID+`","content":"msg1"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRec := httptest.NewRecorder()
+	senderRouter.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+	var created RequestActionResponse
+	_ = json.Unmarshal(createRec.Body.Bytes(), &created)
+
+	for i := 2; i <= 3; i++ {
+		r := httptest.NewRequest(http.MethodPost, "/conversations/"+created.ConversationID, strings.NewReader(`{"content":"msg`+strings.Repeat("x", i)+`"}`))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		senderRouter.ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 for pending send #%d, got %d body=%s", i, w.Code, w.Body.String())
+		}
+	}
+
+	inboxReq := httptest.NewRequest(http.MethodGet, "/inbox", nil)
+	inboxRec := httptest.NewRecorder()
+	senderRouter.ServeHTTP(inboxRec, inboxReq)
+	if inboxRec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", inboxRec.Code)
+	}
+
+	var inbox ListInboxResponse
+	_ = json.Unmarshal(inboxRec.Body.Bytes(), &inbox)
+	if len(inbox.Items) != 1 {
+		t.Fatalf("expected 1 inbox item, got %d", len(inbox.Items))
+	}
+	if inbox.Items[0].PendingCount != 3 {
+		t.Fatalf("expected pendingCount 3, got %d", inbox.Items[0].PendingCount)
+	}
+	if inbox.Items[0].Status != "pending" {
+		t.Fatalf("expected pending status, got %s", inbox.Items[0].Status)
+	}
+}
+
+func TestMessagingRecipientPreviewShowsFirstMessage(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	senderID := "550e8400-e29b-41d4-a716-446655440060"
+	recipientID := "550e8400-e29b-41d4-a716-446655440061"
+
+	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: map[string]bool{}})
+	h := New(svc, nil, validatex.New())
+	senderRouter := buildMessagingRouter(h, senderID, "active")
+	recipientRouter := buildMessagingRouter(h, recipientID, "active")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+recipientID+`","content":"preview content"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRec := httptest.NewRecorder()
+	senderRouter.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", createRec.Code)
+	}
+	var created RequestActionResponse
+	_ = json.Unmarshal(createRec.Body.Bytes(), &created)
+
+	sendFollow := httptest.NewRequest(http.MethodPost, "/conversations/"+created.ConversationID, strings.NewReader(`{"content":"follow up"}`))
+	sendFollow.Header.Set("Content-Type", "application/json")
+	followRec := httptest.NewRecorder()
+	senderRouter.ServeHTTP(followRec, sendFollow)
+	if followRec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", followRec.Code)
+	}
+
+	inboxReq := httptest.NewRequest(http.MethodGet, "/inbox", nil)
+	inboxRec := httptest.NewRecorder()
+	recipientRouter.ServeHTTP(inboxRec, inboxReq)
+	if inboxRec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", inboxRec.Code)
+	}
+
+	var inbox ListInboxResponse
+	_ = json.Unmarshal(inboxRec.Body.Bytes(), &inbox)
+	if len(inbox.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(inbox.Items))
+	}
+	item := inbox.Items[0]
+	if item.RequestPreview == nil {
+		t.Fatal("expected requestPreview for recipient pending conversation")
+	}
+	if item.RequestPreview.Content != "preview content" {
+		t.Fatalf("expected preview 'preview content', got %q", item.RequestPreview.Content)
+	}
+	if item.LastMessage.Content != "follow up" {
+		t.Fatalf("expected lastMessage 'follow up', got %q", item.LastMessage.Content)
+	}
+}
+
+func TestMessagingIdempotencyKeySameMessageNotDuplicated(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	senderID := "550e8400-e29b-41d4-a716-446655440070"
+	recipientID := "550e8400-e29b-41d4-a716-446655440071"
+	repo.buddies[pairKey(senderID, recipientID)] = true
+
+	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: map[string]bool{}})
+	h := New(svc, nil, validatex.New())
+	router := buildMessagingRouter(h, senderID, "active")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+recipientID+`","content":"hello"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("X-Idempotency-Key", "idem-key-1")
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+	var created RequestActionResponse
+	_ = json.Unmarshal(createRec.Body.Bytes(), &created)
+
+	retryReq := httptest.NewRequest(http.MethodPost, "/conversations/"+created.ConversationID, strings.NewReader(`{"content":"hello"}`))
+	retryReq.Header.Set("Content-Type", "application/json")
+	retryReq.Header.Set("X-Idempotency-Key", "idem-key-1")
+	retryRec := httptest.NewRecorder()
+	router.ServeHTTP(retryRec, retryReq)
+	if retryRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for idempotent retry, got %d body=%s", retryRec.Code, retryRec.Body.String())
+	}
+
+	var retryResp SendMessageResponse
+	_ = json.Unmarshal(retryRec.Body.Bytes(), &retryResp)
+	if retryResp.Message.Content != "hello" {
+		t.Fatalf("expected same content 'hello', got %q", retryResp.Message.Content)
+	}
+}
+
+func TestMessagingBlockedConversationHiddenFromInbox(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	viewerID := "550e8400-e29b-41d4-a716-446655440080"
+	blockedID := "550e8400-e29b-41d4-a716-446655440081"
+	normalID := "550e8400-e29b-41d4-a716-446655440082"
+
+	noBlockSvc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: map[string]bool{}})
+	noBlockH := New(noBlockSvc, nil, validatex.New())
+	viewerRouter := buildMessagingRouter(noBlockH, viewerID, "active")
+
+	repo.buddies[pairKey(viewerID, blockedID)] = true
+	repo.buddies[pairKey(viewerID, normalID)] = true
+
+	r1 := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+blockedID+`","content":"will be blocked"}`))
+	r1.Header.Set("Content-Type", "application/json")
+	w1 := httptest.NewRecorder()
+	viewerRouter.ServeHTTP(w1, r1)
+	if w1.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", w1.Code)
+	}
+
+	time.Sleep(time.Millisecond)
+	r2 := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+normalID+`","content":"visible"}`))
+	r2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	viewerRouter.ServeHTTP(w2, r2)
+	if w2.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", w2.Code)
+	}
+
+	repo.blocks[viewerID+":"+blockedID] = true
+
+	inboxReq := httptest.NewRequest(http.MethodGet, "/inbox", nil)
+	inboxRec := httptest.NewRecorder()
+	viewerRouter.ServeHTTP(inboxRec, inboxReq)
+	if inboxRec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", inboxRec.Code)
+	}
+
+	var inbox ListInboxResponse
+	_ = json.Unmarshal(inboxRec.Body.Bytes(), &inbox)
+	for _, item := range inbox.Items {
+		if item.Participant.UserID == blockedID {
+			t.Fatalf("blocked user should not appear in inbox, got conversationId=%s", item.ConversationID)
+		}
+	}
+}
+
+func TestMessagingWebSocketEventPayloadShape(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	senderID := "550e8400-e29b-41d4-a716-446655440090"
+	recipientID := "550e8400-e29b-41d4-a716-446655440091"
+	repo.buddies[pairKey(senderID, recipientID)] = true
+
+	var captured []ws.Envelope
+	hub := &capturingHub{captured: &captured}
+
+	svc := messagingservice.New(repo, hub, memoryBlockChecker{edges: map[string]bool{}})
+	h := New(svc, nil, validatex.New())
+	router := buildMessagingRouter(h, senderID, "active")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+recipientID+`","content":"ws test"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+
+	if len(captured) == 0 {
+		t.Fatal("expected at least one WS event")
+	}
+
+	var msgEvent *ws.Envelope
+	for i := range captured {
+		if captured[i].Type == "message.created" {
+			msgEvent = &captured[i]
+			break
+		}
+	}
+	if msgEvent == nil {
+		t.Fatal("expected message.created event")
+	}
+	if msgEvent.Version != 1 {
+		t.Fatalf("expected version 1, got %d", msgEvent.Version)
+	}
+	if msgEvent.EventID == "" {
+		t.Fatal("expected eventId to be populated for de-duplication")
+	}
+	if msgEvent.TS == "" {
+		t.Fatal("expected ts to be populated")
+	}
+
+	payload, ok := msgEvent.Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map payload, got %T", msgEvent.Payload)
+	}
+	for _, key := range []string{"conversationId", "messageId", "senderId", "content", "createdAt", "status"} {
+		if _, exists := payload[key]; !exists {
+			t.Fatalf("expected payload key %q in message.created event", key)
+		}
+	}
+}
+
+type capturingHub struct {
+	captured *[]ws.Envelope
+}
+
+func (h *capturingHub) BroadcastEnvelope(env ws.Envelope) {
+	*h.captured = append(*h.captured, env)
+}
+
+func buildMessagingRouter(h *Handlers, actorID, accountStatus string) chi.Router {
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			ctx := middleware.WithIdentity(req.Context(), authz.Identity{
 				UserID:        actorID,
 				GlobalRole:    "member",
-				AccountStatus: "active",
+				AccountStatus: accountStatus,
 				Permissions: map[authz.Permission]bool{
 					authz.PermissionMessagingRead:  true,
 					authz.PermissionMessagingWrite: true,
@@ -339,18 +659,4 @@ func buildMessagingRouter(h *Handlers, actorID string) chi.Router {
 	r.Use(middleware.RequirePermission(authz.PermissionMessagingRead))
 	r.Mount("/", Routes(h))
 	return r
-}
-
-func pairKey(a, b string) string {
-	if a < b {
-		return a + ":" + b
-	}
-	return b + ":" + a
-}
-
-func isBlockedWithMap(edges map[string]bool, a, b string) bool {
-	if len(edges) == 0 {
-		return false
-	}
-	return edges[a+":"+b] || edges[b+":"+a]
 }

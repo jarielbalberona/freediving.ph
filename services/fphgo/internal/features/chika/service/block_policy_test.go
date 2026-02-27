@@ -14,10 +14,19 @@ type chikaRepoStub struct {
 	thread chikarepo.Thread
 }
 
-func (s *chikaRepoStub) CreateThread(context.Context, string, string, string) (chikarepo.Thread, error) {
+func (s *chikaRepoStub) ListCategories(context.Context) ([]chikarepo.Category, error) {
+	return []chikarepo.Category{}, nil
+}
+func (s *chikaRepoStub) GetCategoryByID(context.Context, string) (chikarepo.Category, error) {
+	return chikarepo.Category{}, nil
+}
+func (s *chikaRepoStub) CreateThread(context.Context, string, string, string, string) (chikarepo.Thread, error) {
 	return chikarepo.Thread{}, nil
 }
 func (s *chikaRepoStub) ListThreads(context.Context, string, bool, time.Time, string, int32) ([]chikarepo.Thread, error) {
+	return []chikarepo.Thread{}, nil
+}
+func (s *chikaRepoStub) ListThreadsByCategory(context.Context, string, bool, string, time.Time, string, int32) ([]chikarepo.Thread, error) {
 	return []chikarepo.Thread{}, nil
 }
 func (s *chikaRepoStub) GetThread(context.Context, string) (chikarepo.Thread, error) {
@@ -69,7 +78,7 @@ func (b blockCheckerStub) IsBlockedEitherDirection(context.Context, string, stri
 }
 
 func TestCreatePostBlockedReturnsForbidden(t *testing.T) {
-	repo := &chikaRepoStub{thread: chikarepo.Thread{ID: "550e8400-e29b-41d4-a716-446655440002", CreatedByUserID: "550e8400-e29b-41d4-a716-446655440001", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	repo := &chikaRepoStub{thread: chikarepo.Thread{ID: "550e8400-e29b-41d4-a716-446655440002", CreatedByUserID: "550e8400-e29b-41d4-a716-446655440001", AuthorUsername: "user1", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	svc := New(repo, blockCheckerStub{blocked: true})
 
 	_, err := svc.CreatePost(context.Background(), CreatePostInput{
@@ -94,7 +103,7 @@ func TestCreatePostBlockedReturnsForbidden(t *testing.T) {
 }
 
 func TestSetThreadReactionBlockedReturnsForbidden(t *testing.T) {
-	repo := &chikaRepoStub{thread: chikarepo.Thread{ID: "550e8400-e29b-41d4-a716-446655440002", CreatedByUserID: "550e8400-e29b-41d4-a716-446655440001", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	repo := &chikaRepoStub{thread: chikarepo.Thread{ID: "550e8400-e29b-41d4-a716-446655440002", CreatedByUserID: "550e8400-e29b-41d4-a716-446655440001", AuthorUsername: "user1", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	svc := New(repo, blockCheckerStub{blocked: true})
 
 	_, err := svc.SetThreadReaction(context.Background(), SetThreadReactionInput{
@@ -119,7 +128,7 @@ func TestSetThreadReactionBlockedReturnsForbidden(t *testing.T) {
 }
 
 func TestCreateCommentBlockedReturnsForbidden(t *testing.T) {
-	repo := &chikaRepoStub{thread: chikarepo.Thread{ID: "550e8400-e29b-41d4-a716-446655440002", CreatedByUserID: "550e8400-e29b-41d4-a716-446655440001", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	repo := &chikaRepoStub{thread: chikarepo.Thread{ID: "550e8400-e29b-41d4-a716-446655440002", CreatedByUserID: "550e8400-e29b-41d4-a716-446655440001", AuthorUsername: "user1", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	svc := New(repo, blockCheckerStub{blocked: true})
 
 	_, err := svc.CreateComment(context.Background(), CreateCommentInput{

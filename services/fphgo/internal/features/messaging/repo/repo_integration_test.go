@@ -57,11 +57,11 @@ func TestInboxExcludesBlockedRelationships(t *testing.T) {
 		t.Skipf("insert user_blocks: %v (ensure migrations applied)", err)
 	}
 
-	items, err := repo.Inbox(ctx, messagingrepo.ListInboxInput{
-		UserID:          viewerID,
-		CursorCreated:   time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
-		CursorMessageID: 1<<63 - 1,
-		Limit:           100,
+	items, err := repo.ListInboxConversations(ctx, messagingrepo.ListInboxInput{
+		UserID:        viewerID,
+		CursorUpdated: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:      "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:         100,
 	})
 	if err != nil {
 		t.Fatalf("inbox: %v", err)
@@ -75,7 +75,7 @@ func TestInboxExcludesBlockedRelationships(t *testing.T) {
 		}
 	}
 
-	seenVisible := slices.ContainsFunc(items, func(item messagingrepo.MessageItem) bool {
+	seenVisible := slices.ContainsFunc(items, func(item messagingrepo.ConversationItem) bool {
 		return item.ConversationID == visibleConversationID
 	})
 	if !seenVisible {

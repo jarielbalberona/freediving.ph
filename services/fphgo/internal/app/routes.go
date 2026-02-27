@@ -10,8 +10,10 @@ import (
 	"fphgo/internal/config"
 	authhttp "fphgo/internal/features/auth/http"
 	blockshttp "fphgo/internal/features/blocks/http"
+	buddieshttp "fphgo/internal/features/buddies/http"
 	chikahttp "fphgo/internal/features/chika/http"
 	explorehttp "fphgo/internal/features/explore/http"
+	mediahttp "fphgo/internal/features/media/http"
 	messaginghttp "fphgo/internal/features/messaging/http"
 	moderationhttp "fphgo/internal/features/moderation_actions/http"
 	profileshttp "fphgo/internal/features/profiles/http"
@@ -121,6 +123,11 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 					blocks.Mount("/v1/blocks", blocksRouter)
 				}
 			})
+			member.Group(func(buddies chi.Router) {
+				if buddiesRouter := resolveBuddiesRouter(deps); buddiesRouter != nil {
+					buddies.Mount("/v1/buddies", buddiesRouter)
+				}
+			})
 			member.Group(func(reports chi.Router) {
 				if reportsRouter := resolveReportsRouter(deps); reportsRouter != nil {
 					reports.Mount("/v1/reports", reportsRouter)
@@ -129,6 +136,11 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 			member.Group(func(moderation chi.Router) {
 				if moderationRouter := resolveModerationRouter(deps); moderationRouter != nil {
 					moderation.Mount("/v1/moderation", moderationRouter)
+				}
+			})
+			member.Group(func(media chi.Router) {
+				if mediaRouter := resolveMediaRouter(deps); mediaRouter != nil {
+					media.Mount("/v1/media", mediaRouter)
 				}
 			})
 			if authRouter := resolveAuthRouter(deps); authRouter != nil {
@@ -242,6 +254,26 @@ func resolveReportsRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return reportshttp.Routes(deps.ReportsHandler)
+}
+
+func resolveBuddiesRouter(deps *Dependencies) chi.Router {
+	if deps.BuddiesRoutes != nil {
+		return deps.BuddiesRoutes
+	}
+	if deps.BuddiesHandler == nil {
+		return nil
+	}
+	return buddieshttp.Routes(deps.BuddiesHandler)
+}
+
+func resolveMediaRouter(deps *Dependencies) chi.Router {
+	if deps.MediaRoutes != nil {
+		return deps.MediaRoutes
+	}
+	if deps.MediaHandler == nil {
+		return nil
+	}
+	return mediahttp.Routes(deps.MediaHandler)
 }
 
 func resolveModerationRouter(deps *Dependencies) chi.Router {

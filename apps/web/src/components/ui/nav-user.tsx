@@ -3,7 +3,6 @@ import { User } from "lucide-react";
 import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import {
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
@@ -23,14 +22,17 @@ export function NavUser() {
           </div>
         </SignedIn>
         <SignedOut>
-          <SidebarMenuButton asChild>
+          <div className="w-full">
             <SignInButton mode="modal">
-              <div className="flex items-center gap-2 p-6">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
                 <User />
                 <span className="text-base">Sign In</span>
-              </div>
+              </button>
             </SignInButton>
-          </SidebarMenuButton>
+          </div>
         </SignedOut>
       </SidebarMenuItem>
     </SidebarMenu>

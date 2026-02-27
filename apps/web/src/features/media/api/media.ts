@@ -1,71 +1,78 @@
-import { axiosInstance } from '@/lib/http/axios';
-import type { ApiEnvelope } from '@freediving.ph/types';
 import type {
-  Media,
-  CreateMediaRequest,
-  UpdateMediaRequest,
-  PresignedUrlRequest,
-  PresignedUrlResponse,
-  MediaFilters
-} from '@freediving.ph/types';
+  ListMyMediaResponse,
+  MediaContextType,
+  MediaUploadResponse,
+  MintMediaUrlItemRequest,
+  MintMediaUrlsResponse,
+} from "@freediving.ph/types";
+
+import { fphgoFetchClient } from "@/lib/api/fphgo-fetch";
+import { routes } from "@/lib/api/fphgo-routes";
+
+export interface ListMineParams {
+  limit?: number;
+  cursor?: string;
+  contextType?: MediaContextType;
+  contextId?: string;
+}
 
 export const mediaApi = {
-  getPresignedUrl: async (data: PresignedUrlRequest): Promise<PresignedUrlResponse> => {
-    const response = await axiosInstance.get<ApiEnvelope<PresignedUrlResponse>>(`/media/presigned-url/${data.username}`, {
-      params: {
-        filename: data.filename,
-        mimeType: data.mimeType,
-        size: data.size
-      }
-    });
-    return response.data.data;
-  },
-
-  uploadMedia: async (data: CreateMediaRequest): Promise<Media> => {
+  upload: async (
+    file: File,
+    contextType: MediaContextType,
+    contextId?: string,
+  ): Promise<MediaUploadResponse> => {
     const formData = new FormData();
-    formData.append('file', data.file);
-    if (data.altText) formData.append('altText', data.altText);
-    if (data.caption) formData.append('caption', data.caption);
-    if (data.tags) formData.append('tags', JSON.stringify(data.tags));
-    formData.append('category', data.category);
-    formData.append('isPublic', data.isPublic.toString());
+    formData.append("file", file);
+    formData.append("contextType", contextType);
+    if (contextId) {
+      formData.append("contextId", contextId);
+    }
 
-    const response = await axiosInstance.post<ApiEnvelope<Media>>('/media', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    return fphgoFetchClient<MediaUploadResponse>(routes.v1.media.upload(), {
+      method: "POST",
+      body: formData,
     });
-    return response.data.data;
   },
 
-  getMedia: async (filters?: MediaFilters): Promise<Media[]> => {
-    const params = new URLSearchParams();
-    if (filters?.page) params.append('page', filters.page.toString());
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    if (filters?.category) params.append('category', filters.category);
-    if (filters?.uploadedBy) params.append('uploadedBy', filters.uploadedBy.toString());
-    if (filters?.isPublic !== undefined) params.append('isPublic', filters.isPublic.toString());
-    if (filters?.search) params.append('search', filters.search);
-    if (filters?.tags) params.append('tags', filters.tags.join(','));
+  uploadMultiple: async (
+    files: File[],
+    contextType: MediaContextType,
+    contextId?: string,
+  ): Promise<{ items: MediaUploadResponse[]; errors?: Array<{ index: number; code: string; message: string }> }> => {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append("files", file);
+    }
+    formData.append("contextType", contextType);
+    if (contextId) {
+      formData.append("contextId", contextId);
+    }
 
-    const queryString = params.toString();
-    const url = `/media${queryString ? `?${queryString}` : ''}`;
-
-    const response = await axiosInstance.get<ApiEnvelope<Media[]>>(url);
-    return response.data.data;
+    return fphgoFetchClient<{ items: MediaUploadResponse[]; errors?: Array<{ index: number; code: string; message: string }> }>(
+      routes.v1.media.uploadMultiple(),
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
   },
 
-  getMediaById: async (mediaId: number): Promise<Media> => {
-    const response = await axiosInstance.get<ApiEnvelope<Media>>(`/media/${mediaId}`);
-    return response.data.data;
+  listMine: async (params: ListMineParams = {}): Promise<ListMyMediaResponse> => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set("limit", String(params.limit));
+    if (params.cursor) query.set("cursor", params.cursor);
+    if (params.contextType) query.set("contextType", params.contextType);
+    if (params.contextId) query.set("contextId", params.contextId);
+
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return fphgoFetchClient<ListMyMediaResponse>(`${routes.v1.media.mine()}${suffix}`);
   },
 
-  updateMedia: async (mediaId: number, data: UpdateMediaRequest): Promise<Media> => {
-    const response = await axiosInstance.put<ApiEnvelope<Media>>(`/media/${mediaId}`, data);
-    return response.data.data;
-  },
-
-  deleteMedia: async (mediaId: number): Promise<void> => {
-    await axiosInstance.delete(`/media/${mediaId}`);
+  mintUrls: async (items: MintMediaUrlItemRequest[]): Promise<MintMediaUrlsResponse> => {
+    return fphgoFetchClient<MintMediaUrlsResponse>(routes.v1.media.urls(), {
+      method: "POST",
+      body: { items },
+    });
   },
 };

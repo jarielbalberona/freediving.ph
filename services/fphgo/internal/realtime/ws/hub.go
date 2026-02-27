@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"sync"
+	"time"
 )
 
 type Hub struct {
@@ -67,6 +68,12 @@ func (h *Hub) Unregister(c *Client) {
 }
 
 func (h *Hub) BroadcastEnvelope(env Envelope) {
+	if env.Version == 0 {
+		env.Version = 1
+	}
+	if env.TS == "" {
+		env.TS = time.Now().UTC().Format(time.RFC3339)
+	}
 	data, err := json.Marshal(env)
 	if err != nil {
 		h.logger.Error("ws marshal failed", "error", err)

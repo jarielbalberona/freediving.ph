@@ -2,10 +2,13 @@ package http
 
 import (
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	messagingrepo "fphgo/internal/features/messaging/repo"
 	messagingservice "fphgo/internal/features/messaging/service"
 	usersservice "fphgo/internal/features/users/service"
 	"fphgo/internal/middleware"
@@ -25,60 +28,63 @@ func New(service *messagingservice.Service, userResolver *usersservice.Service, 
 	return &Handlers{service: service, userResolver: userResolver, validator: validator}
 }
 
-func (h *Handlers) Send(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) CreateRequest(w http.ResponseWriter, r *http.Request) {
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-
-	req, issues, ok := httpx.DecodeAndValidate[SendMessageRequest](r, h.validator)
+	req, issues, ok := httpx.DecodeAndValidate[CreateRequestRequest](r, h.validator)
 	if !ok {
 		httpx.WriteValidationError(w, issues)
 		return
 	}
 
-	result, err := h.service.SendMessage(r.Context(), messagingservice.SendMessageInput{
-		SenderID:    actorID,
-		RecipientID: req.RecipientID,
-		Content:     req.Content,
-		RequestID:   middleware.RequestIDFromContext(r.Context()),
+	result, err := h.service.CreateRequest(r.Context(), messagingservice.CreateRequestInput{
+		SenderID:       actorID,
+		RecipientID:    req.RecipientID,
+		Content:        req.Content,
+		RequestID:      middleware.RequestIDFromContext(r.Context()),
+		IdempotencyKey: idempotencyKeyFromHeader(r),
 	})
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, ConversationActionResponse(result))
+	httpx.JSON(w, http.StatusCreated, RequestActionResponse(result))
 }
 
-func (h *Handlers) Accept(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) AcceptRequest(w http.ResponseWriter, r *http.Request) {
+	h.resolveRequest(w, r, true)
+}
+
+func (h *Handlers) DeclineRequest(w http.ResponseWriter, r *http.Request) {
+	h.resolveRequest(w, r, false)
+}
+
+func (h *Handlers) resolveRequest(w http.ResponseWriter, r *http.Request, accept bool) {
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	conversationID := chi.URLParam(r, "conversationId")
-	result, err := h.service.Accept(r.Context(), conversationID, actorID)
-	if err != nil {
-		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+	requestID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "requestId"), "requestId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, ConversationActionResponse(result))
-}
 
-func (h *Handlers) Reject(w http.ResponseWriter, r *http.Request) {
-	actorID, err := h.requireLocalActorID(r)
+	var result messagingservice.RequestAction
+	if accept {
+		result, err = h.service.AcceptRequest(r.Context(), requestID, actorID, middleware.RequestIDFromContext(r.Context()))
+	} else {
+		result, err = h.service.DeclineRequest(r.Context(), requestID, actorID, middleware.RequestIDFromContext(r.Context()))
+	}
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	conversationID := chi.URLParam(r, "conversationId")
-	result, err := h.service.Reject(r.Context(), conversationID, actorID)
-	if err != nil {
-		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, ConversationActionResponse(result))
+	httpx.JSON(w, http.StatusOK, RequestActionResponse(result))
 }
 
 func (h *Handlers) Inbox(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +102,8 @@ func (h *Handlers) Inbox(w http.ResponseWriter, r *http.Request) {
 		}})
 		return
 	}
-	result, err := h.service.Inbox(r.Context(), messagingservice.InboxInput{
+
+	result, err := h.service.Inbox(r.Context(), messagingservice.ConversationListInput{
 		UserID: actorID,
 		Limit:  limit,
 		Cursor: r.URL.Query().Get("cursor"),
@@ -106,51 +113,143 @@ func (h *Handlers) Inbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := make([]MessageItem, 0, len(result.Items))
+	items := make([]ConversationItem, 0, len(result.Items))
 	for _, item := range result.Items {
-		response = append(response, MessageItem{
-			ConversationID: item.ConversationID,
-			MessageID:      item.MessageID,
-			SenderID:       item.SenderID,
-			Content:        item.Content,
-			Status:         item.Status,
-			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
-		})
+		mapped := ConversationItem{
+			ConversationID:  item.ConversationID,
+			Status:          item.Status,
+			InitiatorUserID: item.InitiatorUserID,
+			UpdatedAt:       item.UpdatedAt.Format(time.RFC3339),
+			Participant: ConversationParticipant{
+				UserID:      item.OtherUserID,
+				Username:    item.OtherUsername,
+				DisplayName: item.OtherDisplayName,
+				AvatarURL:   item.OtherAvatarURL,
+			},
+			LastMessage:  mapMessage(item.LastMessage),
+			UnreadCount:  item.UnreadCount,
+			PendingCount: item.PendingCount,
+		}
+		if item.Status == "pending" && item.InitiatorUserID != actorID {
+			preview := mapMessage(item.RequestPreview)
+			mapped.RequestPreview = &preview
+		}
+		items = append(items, mapped)
 	}
-	httpx.JSON(w, http.StatusOK, ListMessagesResponse{Items: response, NextCursor: result.NextCursor})
+
+	httpx.JSON(w, http.StatusOK, ListInboxResponse{Items: items, NextCursor: result.NextCursor})
 }
 
-func (h *Handlers) Requests(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) ConversationMessages(w http.ResponseWriter, r *http.Request) {
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	items, err := h.service.Requests(r.Context(), actorID)
+	conversationID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "conversationId"), "conversationId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	limit, parseErr := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if parseErr != nil {
+		httpx.WriteValidationError(w, []validatex.Issue{{
+			Path:    []any{"limit"},
+			Code:    "custom",
+			Message: "limit must be a positive integer",
+		}})
+		return
+	}
+
+	result, err := h.service.ConversationMessages(r.Context(), messagingservice.ConversationMessagesInput{
+		ActorID:        actorID,
+		ConversationID: conversationID,
+		Limit:          limit,
+		Cursor:         r.URL.Query().Get("cursor"),
+	})
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-
-	response := make([]MessageItem, 0, len(items))
-	for _, item := range items {
-		response = append(response, MessageItem{
-			ConversationID: item.ConversationID,
-			MessageID:      item.MessageID,
-			SenderID:       item.SenderID,
-			Content:        item.Content,
-			Status:         item.Status,
-			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
-		})
+	items := make([]MessageItem, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, mapMessage(item))
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": response})
+	httpx.JSON(w, http.StatusOK, ListConversationMessagesResponse{Items: items, NextCursor: result.NextCursor})
+}
+
+func (h *Handlers) SendConversationMessage(w http.ResponseWriter, r *http.Request) {
+	actorID, err := h.requireLocalActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	conversationID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "conversationId"), "conversationId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[SendConversationMessageRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+
+	msg, err := h.service.SendConversationMessage(r.Context(), messagingservice.SendConversationMessageInput{
+		ActorID:        actorID,
+		ConversationID: conversationID,
+		Content:        req.Content,
+		RequestID:      middleware.RequestIDFromContext(r.Context()),
+		IdempotencyKey: idempotencyKeyFromHeader(r),
+	})
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SendMessageResponse{Message: mapMessage(msg)})
+}
+
+func (h *Handlers) MarkRead(w http.ResponseWriter, r *http.Request) {
+	actorID, err := h.requireLocalActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[MarkReadRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	var messageID *int64
+	if req.MessageID != nil {
+		parsed, parseErr := strconv.ParseInt(*req.MessageID, 10, 64)
+		if parseErr != nil {
+			httpx.WriteValidationError(w, []validatex.Issue{{
+				Path:    []any{"messageId"},
+				Code:    "custom",
+				Message: "messageId must be a numeric string",
+			}})
+			return
+		}
+		messageID = &parsed
+	}
+
+	if err := h.service.MarkRead(r.Context(), messagingservice.MarkReadInput{
+		ActorID:        actorID,
+		ConversationID: req.ConversationID,
+		MessageID:      messageID,
+		RequestID:      middleware.RequestIDFromContext(r.Context()),
+	}); err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, MarkReadResponse{ConversationID: req.ConversationID, Marked: true})
 }
 
 func (h *Handlers) requireLocalActorID(r *http.Request) (string, error) {
 	if identity, ok := middleware.CurrentIdentity(r.Context()); ok && identity.UserID != "" {
 		return identity.UserID, nil
 	}
-
 	clerkUserID, ok := middleware.CurrentAuth(r.Context())
 	if !ok || clerkUserID == "" {
 		return "", apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
@@ -163,4 +262,22 @@ func (h *Handlers) requireLocalActorID(r *http.Request) (string, error) {
 		return "", err
 	}
 	return user.ID, nil
+}
+
+func mapMessage(input messagingrepo.Message) MessageItem {
+	return MessageItem{
+		ConversationID: input.ConversationID,
+		MessageID:      strconv.FormatInt(input.ID, 10),
+		SenderID:       input.SenderID,
+		Content:        input.Content,
+		CreatedAt:      input.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+func idempotencyKeyFromHeader(r *http.Request) *string {
+	key := strings.TrimSpace(r.Header.Get("X-Idempotency-Key"))
+	if key == "" {
+		return nil
+	}
+	return &key
 }

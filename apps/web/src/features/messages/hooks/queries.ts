@@ -1,21 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { messagesApi } from "../api/messages";
-import type { ConversationMessagesFilters } from '@freediving.ph/types';
 
-export const useMessageConversations = () => {
+export const useMessageInbox = () => {
   return useQuery({
-    queryKey: ["messages", "conversations"],
-    queryFn: () => messagesApi.getConversations(),
-    staleTime: 60_000,
+    queryKey: ["messages", "inbox"],
+    queryFn: () => messagesApi.getInbox(50),
+    staleTime: 30_000,
   });
 };
 
-export const useConversationMessages = (conversationId: number | null, filters?: ConversationMessagesFilters) => {
+export const useConversationMessages = (conversationId: string | null) => {
   return useQuery({
-    queryKey: ["messages", "conversation", conversationId, filters],
-    queryFn: () => messagesApi.getMessages(Number(conversationId), filters),
-    enabled: conversationId !== null,
-    staleTime: 15_000,
+    queryKey: ["messages", "conversation", conversationId],
+    queryFn: () => messagesApi.getConversationMessages(conversationId as string, 50),
+    enabled: !!conversationId,
+    staleTime: 10_000,
   });
 };

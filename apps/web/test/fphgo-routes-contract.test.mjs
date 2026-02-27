@@ -17,12 +17,19 @@ test("all FPHGO route literals are versioned with /v1", async () => {
   }
 });
 
-test("messages and chika builders map to fphgo v1 prefixes", async () => {
+test("messages, chika, and buddies builders map to fphgo v1 prefixes", async () => {
   const source = await readFile(routesPath, "utf8");
 
   assert.match(source, /me: \(\) => "\/v1\/auth\/session"/);
   assert.match(source, /inbox: \(\) => "\/v1\/messages\/inbox"/);
-  assert.match(source, /send: \(\) => "\/v1\/messages\/send"/);
+  assert.match(source, /createRequest: \(\) => "\/v1\/messages\/requests"/);
+  assert.match(source, /requestAccept: \(requestId: string \| number\) =>/);
+  assert.match(source, /conversationById: \(conversationId: string \| number\) =>/);
+  assert.match(source, /read: \(\) => "\/v1\/messages\/read"/);
+  assert.match(source, /categories: \(\) => "\/v1\/chika\/categories"/);
   assert.match(source, /list: \(\) => "\/v1\/chika\/threads"/);
+  assert.match(source, /list: \(\) => "\/v1\/buddies"/);
+  assert.match(source, /createRequest: \(\) => "\/v1\/buddies\/requests"/);
+  assert.match(source, /incomingRequests: \(\) => "\/v1\/buddies\/requests\/incoming"/);
+  assert.match(source, /outgoingRequests: \(\) => "\/v1\/buddies\/requests\/outgoing"/);
 });
-

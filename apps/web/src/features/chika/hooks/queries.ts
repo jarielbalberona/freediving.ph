@@ -1,30 +1,38 @@
 import { useQuery } from "@tanstack/react-query";
 import { threadsApi } from "../api/threads";
-import { ThreadFilters, ThreadWithUser } from '@freediving.ph/types';
+import type { ChikaThreadView } from "../api/threads";
 
-export const useThreads = (initialData?: ThreadWithUser[], filters?: ThreadFilters) => {
+export const useThreads = (initialData?: ChikaThreadView[], category?: string) => {
   return useQuery({
-    queryKey: ["threads", filters],
-    queryFn: () => threadsApi.getAll(),
+    queryKey: ["chika", "threads", category],
+    queryFn: () => threadsApi.getAll(category),
     initialData: initialData,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 };
 
-export const useThread = (id: number) => {
+export const useThread = (id: string) => {
   return useQuery({
-    queryKey: ["threads", id],
+    queryKey: ["chika", "threads", id],
     queryFn: () => threadsApi.getById(id),
     enabled: !!id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 };
 
-export const useThreadComments = (threadId: number) => {
+export const useThreadComments = (threadId: string) => {
   return useQuery({
-    queryKey: ["threads", threadId, "comments"],
+    queryKey: ["chika", "threads", threadId, "comments"],
     queryFn: () => threadsApi.getComments(threadId),
     enabled: !!threadId,
     staleTime: 2 * 60 * 1000,
+  });
+};
+
+export const useChikaCategories = () => {
+  return useQuery({
+    queryKey: ["chika", "categories"],
+    queryFn: () => threadsApi.getCategories(),
+    staleTime: 5 * 60 * 1000,
   });
 };

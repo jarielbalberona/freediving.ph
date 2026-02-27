@@ -1,48 +1,47 @@
-import { ThreadWithUser } from '@freediving.ph/types';
-import { getRemovedContentLabel, isRemovedContent } from '@/lib/content/moderation';
-import { Card, CardContent } from '@/components/ui/card';
+import type { ChikaThreadView } from "../api/threads";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface ThreadDetailProps {
-  thread: ThreadWithUser;
+  thread: ChikaThreadView;
 }
 
 export default function ThreadDetail({ thread }: ThreadDetailProps) {
-  if (!thread) {
-    return <h1>Thread not found</h1>;
-  }
-  const isRemoved = isRemovedContent(thread.thread.content) || isRemovedContent(thread.thread.title);
-  const removedLabel = getRemovedContentLabel(thread.thread.content) ?? getRemovedContentLabel(thread.thread.title);
-  const createdAtLabel = thread.thread.createdAt
-    ? new Date(thread.thread.createdAt).toLocaleDateString()
-    : "Unknown date";
-
   return (
-    <Card>
+    <Card className={thread.isHidden ? "border-dashed opacity-60" : ""}>
       <CardContent className="p-6">
-        <div className="mb-4">
-          <h1 className="mb-2 text-2xl font-bold text-foreground">
-            {isRemoved ? "Content unavailable" : thread.thread.title}
-          </h1>
-          <div className="mb-4 flex items-center text-sm text-muted-foreground">
-            <span>By {thread.user.alias || thread.user.username}</span>
-            <span className="mx-2">•</span>
-            <span>{createdAtLabel}</span>
-          </div>
+        <div className="mb-2 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground">{thread.title}</h1>
+          {thread.categoryPseudonymous ? (
+            <Badge variant="secondary" className="text-xs">Anonymous</Badge>
+          ) : null}
+          {thread.isHidden ? (
+            <Badge variant="destructive" className="text-xs">Hidden</Badge>
+          ) : null}
         </div>
-
-        <div className="prose max-w-none">
-          <p className="whitespace-pre-wrap text-foreground">
-            {isRemoved ? removedLabel || "This content has been removed." : thread.thread.content}
+        <div className="text-sm text-muted-foreground">
+          <span>{thread.authorDisplayName}</span>
+          <span className="mx-2">·</span>
+          <span>{new Date(thread.createdAt).toLocaleString()}</span>
+          {thread.categoryName ? (
+            <>
+              <span className="mx-2">·</span>
+              <span>{thread.categoryName}</span>
+            </>
+          ) : null}
+        </div>
+        {thread.realAuthorUserId ? (
+          <p className="mt-1 text-xs text-muted-foreground/70">
+            Real author: {thread.realAuthorUserId}
           </p>
-        </div>
-
-        <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-            <span>{thread.upvotes - thread.downvotes} likes</span>
-            <span>{thread.commentCount} comments</span>
-          </div>
-        </div>
+        ) : null}
+        {thread.isHidden && thread.hiddenAt ? (
+          <p className="mt-2 text-xs text-destructive">
+            Hidden since {new Date(thread.hiddenAt).toLocaleString()}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
 }
+

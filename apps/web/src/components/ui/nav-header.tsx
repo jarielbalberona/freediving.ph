@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import {
@@ -17,23 +16,23 @@ export function NavHeader() {
     <NavigationMenu>
       <NavigationMenuList className="gap-2 *:data-[slot=navigation-menu-item]:h-7 **:data-[slot=navigation-menu-link]:py-1 **:data-[slot=navigation-menu-link]:font-medium">
         <NavigationMenuItem>
-          <NavigationMenuLink asChild data-active={pathname === "/"}>
-            <Link href="/">Home</Link>
+          <NavigationMenuLink href="/" data-active={pathname === "/"}>
+            Home
           </NavigationMenuLink>
         </NavigationMenuItem>
         <NavigationMenuItem>
-          <NavigationMenuLink asChild data-active={pathname === "/charts"}>
-            <Link href="/charts">Charts</Link>
+          <NavigationMenuLink href="/charts" data-active={pathname === "/charts"}>
+            Charts
           </NavigationMenuLink>
         </NavigationMenuItem>
         <NavigationMenuItem>
-          <NavigationMenuLink asChild data-active={pathname === "/forms"}>
-            <Link href="/forms">Forms</Link>
+          <NavigationMenuLink href="/forms" data-active={pathname === "/forms"}>
+            Forms
           </NavigationMenuLink>
         </NavigationMenuItem>
         <NavigationMenuItem>
-          <NavigationMenuLink asChild data-active={pathname === "/login"}>
-            <Link href="/login">Login</Link>
+          <NavigationMenuLink href="/login" data-active={pathname === "/login"}>
+            Login
           </NavigationMenuLink>
         </NavigationMenuItem>
       </NavigationMenuList>

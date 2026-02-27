@@ -22,6 +22,7 @@ import (
 )
 
 type filteredChikaRepo struct {
+	categories       []chikarepo.Category
 	threads          []chikarepo.Thread
 	comments         []chikarepo.Comment
 	hiddenThreadIDs  map[string]bool
@@ -29,7 +30,18 @@ type filteredChikaRepo struct {
 	blocks           map[string]bool
 }
 
-func (r *filteredChikaRepo) CreateThread(context.Context, string, string, string) (chikarepo.Thread, error) {
+func (r *filteredChikaRepo) ListCategories(context.Context) ([]chikarepo.Category, error) {
+	return r.categories, nil
+}
+func (r *filteredChikaRepo) GetCategoryByID(_ context.Context, id string) (chikarepo.Category, error) {
+	for _, item := range r.categories {
+		if item.ID == id {
+			return item, nil
+		}
+	}
+	return chikarepo.Category{}, nil
+}
+func (r *filteredChikaRepo) CreateThread(context.Context, string, string, string, string) (chikarepo.Thread, error) {
 	return chikarepo.Thread{}, nil
 }
 func (r *filteredChikaRepo) ListThreads(_ context.Context, viewerID string, includeHidden bool, cursorCreated time.Time, cursorThreadID string, limit int32) ([]chikarepo.Thread, error) {
@@ -57,8 +69,41 @@ func (r *filteredChikaRepo) ListThreads(_ context.Context, viewerID string, incl
 	}
 	return out, nil
 }
-func (r *filteredChikaRepo) GetThread(context.Context, string) (chikarepo.Thread, error) {
-	return chikarepo.Thread{ID: "550e8400-e29b-41d4-a716-446655440099", CreatedByUserID: "550e8400-e29b-41d4-a716-446655440003", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+func (r *filteredChikaRepo) ListThreadsByCategory(_ context.Context, viewerID string, includeHidden bool, categorySlug string, cursorCreated time.Time, cursorThreadID string, limit int32) ([]chikarepo.Thread, error) {
+	out := make([]chikarepo.Thread, 0, len(r.threads))
+	for _, item := range r.threads {
+		if item.CategorySlug != categorySlug {
+			continue
+		}
+		if r.isBlocked(viewerID, item.CreatedByUserID) {
+			continue
+		}
+		if !includeHidden && r.hiddenThreadIDs[item.ID] {
+			continue
+		}
+		if item.CreatedAt.After(cursorCreated) || (item.CreatedAt.Equal(cursorCreated) && item.ID >= cursorThreadID) {
+			continue
+		}
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID > out[j].ID
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	if int(limit) < len(out) {
+		out = out[:limit]
+	}
+	return out, nil
+}
+func (r *filteredChikaRepo) GetThread(_ context.Context, id string) (chikarepo.Thread, error) {
+	for _, t := range r.threads {
+		if t.ID == id {
+			return t, nil
+		}
+	}
+	return chikarepo.Thread{ID: id, CreatedByUserID: "550e8400-e29b-41d4-a716-446655440003", AuthorUsername: "user", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
 }
 func (r *filteredChikaRepo) UpdateThread(context.Context, string, string) (chikarepo.Thread, error) {
 	return chikarepo.Thread{}, nil
@@ -162,7 +207,7 @@ func TestChikaReadFiltersBlockedAuthors(t *testing.T) {
 	if err := json.Unmarshal(threadsRec.Body.Bytes(), &threadsPayload); err != nil {
 		t.Fatalf("decode threads response: %v", err)
 	}
-	if len(threadsPayload.Items) != 1 || threadsPayload.Items[0].CreatedByUserID != visibleID {
+	if len(threadsPayload.Items) != 1 || threadsPayload.Items[0].AuthorDisplay != visibleID {
 		t.Fatalf("expected only visible thread author, got %+v", threadsPayload.Items)
 	}
 
@@ -178,7 +223,7 @@ func TestChikaReadFiltersBlockedAuthors(t *testing.T) {
 	if err := json.Unmarshal(commentsRec.Body.Bytes(), &commentsPayload); err != nil {
 		t.Fatalf("decode comments response: %v", err)
 	}
-	if len(commentsPayload.Items) != 1 || commentsPayload.Items[0].Pseudonym != "p2" {
+	if len(commentsPayload.Items) != 1 || commentsPayload.Items[0].AuthorDisplay != "p2" {
 		t.Fatalf("expected only visible author comment, got %+v", commentsPayload.Items)
 	}
 }
@@ -270,7 +315,7 @@ func TestChikaReadHiddenContentMemberVsModerator(t *testing.T) {
 	if err := json.Unmarshal(memberCommentsRec.Body.Bytes(), &memberCommentsPayload); err != nil {
 		t.Fatalf("decode member comments: %v", err)
 	}
-	if len(memberCommentsPayload.Items) != 1 || memberCommentsPayload.Items[0].Pseudonym != "visible" {
+	if len(memberCommentsPayload.Items) != 1 || memberCommentsPayload.Items[0].AuthorDisplay != "visible" {
 		t.Fatalf("expected only visible comment for member, got %+v", memberCommentsPayload.Items)
 	}
 	if memberCommentsPayload.Items[0].IsHidden || memberCommentsPayload.Items[0].HiddenAt != "" {
@@ -294,7 +339,7 @@ func TestChikaReadHiddenContentMemberVsModerator(t *testing.T) {
 	}
 	commentsByPseudonym := map[string]CommentResponse{}
 	for _, item := range modCommentsPayload.Items {
-		commentsByPseudonym[item.Pseudonym] = item
+		commentsByPseudonym[item.AuthorDisplay] = item
 	}
 	if !commentsByPseudonym["hidden"].IsHidden || commentsByPseudonym["hidden"].HiddenAt == "" {
 		t.Fatalf("expected moderator hidden marker for comment, got %+v", commentsByPseudonym["hidden"])
@@ -302,6 +347,104 @@ func TestChikaReadHiddenContentMemberVsModerator(t *testing.T) {
 	if commentsByPseudonym["visible"].IsHidden || commentsByPseudonym["visible"].HiddenAt != "" {
 		t.Fatalf("expected visible marker for non-hidden comment, got %+v", commentsByPseudonym["visible"])
 	}
+}
+
+func TestChikaGetThreadHiddenVisibilityExtended(t *testing.T) {
+	viewerID := "550e8400-e29b-41d4-a716-446655440000"
+	authorID := "550e8400-e29b-41d4-a716-446655440002"
+	hiddenThreadID := "550e8400-e29b-41d4-a716-446655440010"
+	visibleThreadID := "550e8400-e29b-41d4-a716-446655440011"
+	hiddenAt := time.Now().UTC().Add(-10 * time.Minute)
+
+	repo := &filteredChikaRepo{
+		blocks: map[string]bool{},
+		threads: []chikarepo.Thread{
+			{ID: hiddenThreadID, Title: "hidden", Mode: "normal", CreatedByUserID: authorID, HiddenAt: &hiddenAt, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			{ID: visibleThreadID, Title: "visible", Mode: "normal", CreatedByUserID: authorID, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		},
+		comments:         []chikarepo.Comment{},
+		hiddenThreadIDs:  map[string]bool{hiddenThreadID: true},
+		hiddenCommentIDs: map[int64]bool{},
+	}
+
+	svc := chikaservice.New(repo, nil)
+	h := New(svc, validatex.New())
+	memberRouter := buildChikaReadRouter(h, viewerID, "member")
+	modRouter := buildChikaReadRouter(h, viewerID, "moderator")
+
+	t.Run("member gets 404 for hidden thread", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadID, nil)
+		rec := httptest.NewRecorder()
+		memberRouter.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected member to get 404 for hidden thread, got %d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("member gets 200 for visible thread", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/threads/"+visibleThreadID, nil)
+		rec := httptest.NewRecorder()
+		memberRouter.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected member to get 200 for visible thread, got %d body=%s", rec.Code, rec.Body.String())
+		}
+		var payload ThreadResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if payload.IsHidden || payload.HiddenAt != "" {
+			t.Fatalf("expected visible thread to have is_hidden=false, got %+v", payload)
+		}
+	})
+
+	t.Run("moderator gets 200 for hidden thread with markers", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadID, nil)
+		rec := httptest.NewRecorder()
+		modRouter.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected moderator to get 200 for hidden thread, got %d body=%s", rec.Code, rec.Body.String())
+		}
+		var payload ThreadResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if !payload.IsHidden || payload.HiddenAt == "" {
+			t.Fatalf("expected hidden markers for moderator, got %+v", payload)
+		}
+	})
+
+	t.Run("member gets 404 for hidden thread sub-resources", func(t *testing.T) {
+		postsReq := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadID+"/posts", nil)
+		postsRec := httptest.NewRecorder()
+		memberRouter.ServeHTTP(postsRec, postsReq)
+		if postsRec.Code != http.StatusNotFound {
+			t.Fatalf("expected member to get 404 for posts on hidden thread, got %d", postsRec.Code)
+		}
+
+		commentsReq := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadID+"/comments", nil)
+		commentsRec := httptest.NewRecorder()
+		memberRouter.ServeHTTP(commentsRec, commentsReq)
+		if commentsRec.Code != http.StatusNotFound {
+			t.Fatalf("expected member to get 404 for comments on hidden thread, got %d", commentsRec.Code)
+		}
+
+		mediaReq := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadID+"/media", nil)
+		mediaRec := httptest.NewRecorder()
+		memberRouter.ServeHTTP(mediaRec, mediaReq)
+		if mediaRec.Code != http.StatusNotFound {
+			t.Fatalf("expected member to get 404 for media on hidden thread, got %d", mediaRec.Code)
+		}
+	})
+
+	t.Run("admin sees hidden content like moderator", func(t *testing.T) {
+		adminRouter := buildChikaReadRouter(h, viewerID, "admin")
+		req := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadID, nil)
+		rec := httptest.NewRecorder()
+		adminRouter.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected admin to get 200 for hidden thread, got %d", rec.Code)
+		}
+	})
 }
 
 type denyAfterLimiter struct {
@@ -485,18 +628,338 @@ func TestChikaThreadsCursorPaginationStable(t *testing.T) {
 	}
 }
 
+func TestChikaPseudonymousCategoryVisibility(t *testing.T) {
+	viewerID := "550e8400-e29b-41d4-a716-446655440000"
+	authorID := "550e8400-e29b-41d4-a716-446655440002"
+	threadID := "550e8400-e29b-41d4-a716-446655440010"
+	now := time.Now().UTC()
+
+	repo := &filteredChikaRepo{
+		categories: []chikarepo.Category{
+			{ID: "550e8400-e29b-41d4-a716-446655440090", Slug: "confessions", Name: "Confessions", Pseudonymous: true},
+		},
+		blocks: map[string]bool{},
+		threads: []chikarepo.Thread{
+			{
+				ID:              threadID,
+				Title:           "Anon thread",
+				Mode:            "pseudonymous",
+				CategoryID:      "550e8400-e29b-41d4-a716-446655440090",
+				CategorySlug:    "confessions",
+				CategoryName:    "Confessions",
+				Pseudonymous:    true,
+				CreatedByUserID: authorID,
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			},
+		},
+		comments: []chikarepo.Comment{
+			{
+				ID:           1,
+				ThreadID:     threadID,
+				AuthorUserID: authorID,
+				Pseudonym:    "anon-ABC123",
+				Content:      "test",
+				CreatedAt:    now,
+			},
+		},
+		hiddenThreadIDs:  map[string]bool{},
+		hiddenCommentIDs: map[int64]bool{},
+	}
+
+	svc := chikaservice.New(repo, nil)
+	h := New(svc, validatex.New())
+	memberRouter := buildChikaReadRouter(h, viewerID, "member")
+	modRouter := buildChikaReadRouter(h, viewerID, "moderator")
+
+	memberThreadReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	memberThreadRec := httptest.NewRecorder()
+	memberRouter.ServeHTTP(memberThreadRec, memberThreadReq)
+	if memberThreadRec.Code != http.StatusOK {
+		t.Fatalf("expected member thread 200, got %d body=%s", memberThreadRec.Code, memberThreadRec.Body.String())
+	}
+	var memberThread ThreadResponse
+	if err := json.Unmarshal(memberThreadRec.Body.Bytes(), &memberThread); err != nil {
+		t.Fatalf("decode member thread: %v", err)
+	}
+	if memberThread.RealAuthorUserID != "" {
+		t.Fatalf("expected member realAuthorUserId empty, got %q", memberThread.RealAuthorUserID)
+	}
+	if !strings.HasPrefix(memberThread.AuthorDisplay, "anon-") {
+		t.Fatalf("expected pseudonymous author display, got %q", memberThread.AuthorDisplay)
+	}
+
+	modThreadReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	modThreadRec := httptest.NewRecorder()
+	modRouter.ServeHTTP(modThreadRec, modThreadReq)
+	if modThreadRec.Code != http.StatusOK {
+		t.Fatalf("expected moderator thread 200, got %d body=%s", modThreadRec.Code, modThreadRec.Body.String())
+	}
+	var modThread ThreadResponse
+	if err := json.Unmarshal(modThreadRec.Body.Bytes(), &modThread); err != nil {
+		t.Fatalf("decode mod thread: %v", err)
+	}
+	if modThread.RealAuthorUserID != authorID {
+		t.Fatalf("expected moderator realAuthorUserId=%s, got %q", authorID, modThread.RealAuthorUserID)
+	}
+
+	memberCommentReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID+"/comments", nil)
+	memberCommentRec := httptest.NewRecorder()
+	memberRouter.ServeHTTP(memberCommentRec, memberCommentReq)
+	if memberCommentRec.Code != http.StatusOK {
+		t.Fatalf("expected member comments 200, got %d body=%s", memberCommentRec.Code, memberCommentRec.Body.String())
+	}
+	var memberComments ListCommentsResponse
+	if err := json.Unmarshal(memberCommentRec.Body.Bytes(), &memberComments); err != nil {
+		t.Fatalf("decode member comments: %v", err)
+	}
+	if len(memberComments.Items) != 1 {
+		t.Fatalf("expected 1 member comment, got %d", len(memberComments.Items))
+	}
+	if memberComments.Items[0].RealAuthorUserID != "" {
+		t.Fatalf("expected member comment realAuthorUserId empty, got %q", memberComments.Items[0].RealAuthorUserID)
+	}
+
+	modCommentReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID+"/comments", nil)
+	modCommentRec := httptest.NewRecorder()
+	modRouter.ServeHTTP(modCommentRec, modCommentReq)
+	if modCommentRec.Code != http.StatusOK {
+		t.Fatalf("expected moderator comments 200, got %d body=%s", modCommentRec.Code, modCommentRec.Body.String())
+	}
+	var modComments ListCommentsResponse
+	if err := json.Unmarshal(modCommentRec.Body.Bytes(), &modComments); err != nil {
+		t.Fatalf("decode mod comments: %v", err)
+	}
+	if len(modComments.Items) != 1 {
+		t.Fatalf("expected 1 mod comment, got %d", len(modComments.Items))
+	}
+	if modComments.Items[0].RealAuthorUserID != authorID {
+		t.Fatalf("expected moderator comment realAuthorUserId=%s, got %q", authorID, modComments.Items[0].RealAuthorUserID)
+	}
+}
+
+func TestChikaPseudonymStability(t *testing.T) {
+	viewerID := "550e8400-e29b-41d4-a716-446655440000"
+	authorID := "550e8400-e29b-41d4-a716-446655440002"
+	threadID := "550e8400-e29b-41d4-a716-446655440010"
+	now := time.Now().UTC()
+
+	repo := &filteredChikaRepo{
+		blocks: map[string]bool{},
+		threads: []chikarepo.Thread{
+			{ID: threadID, Title: "Anon", Mode: "pseudonymous", CategoryID: "c1", CategorySlug: "confessions", CategoryName: "Confessions", Pseudonymous: true, CreatedByUserID: authorID, AuthorUsername: "hidden_user", CreatedAt: now, UpdatedAt: now},
+		},
+		comments:         []chikarepo.Comment{},
+		hiddenThreadIDs:  map[string]bool{},
+		hiddenCommentIDs: map[int64]bool{},
+	}
+	svc := chikaservice.New(repo, nil)
+	h := New(svc, validatex.New())
+	router := buildChikaReadRouter(h, viewerID, "member")
+
+	first := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	firstRec := httptest.NewRecorder()
+	router.ServeHTTP(firstRec, first)
+	if firstRec.Code != http.StatusOK {
+		t.Fatalf("first call expected 200, got %d", firstRec.Code)
+	}
+	var r1 ThreadResponse
+	if err := json.Unmarshal(firstRec.Body.Bytes(), &r1); err != nil {
+		t.Fatal(err)
+	}
+
+	second := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	secondRec := httptest.NewRecorder()
+	router.ServeHTTP(secondRec, second)
+	var r2 ThreadResponse
+	if err := json.Unmarshal(secondRec.Body.Bytes(), &r2); err != nil {
+		t.Fatal(err)
+	}
+
+	if r1.AuthorDisplay != r2.AuthorDisplay {
+		t.Fatalf("pseudonym not stable: %q vs %q", r1.AuthorDisplay, r2.AuthorDisplay)
+	}
+	if !strings.HasPrefix(r1.AuthorDisplay, "anon-") {
+		t.Fatalf("expected anon- prefix, got %q", r1.AuthorDisplay)
+	}
+	if r1.RealAuthorUserID != "" {
+		t.Fatalf("member must not receive realAuthorUserId, got %q", r1.RealAuthorUserID)
+	}
+}
+
+func TestChikaDeletedContentExcludedFromLists(t *testing.T) {
+	viewerID := "550e8400-e29b-41d4-a716-446655440000"
+	authorID := "550e8400-e29b-41d4-a716-446655440002"
+	now := time.Now().UTC()
+	deletedAt := now.Add(-5 * time.Minute)
+
+	repo := &filteredChikaRepo{
+		blocks: map[string]bool{},
+		threads: []chikarepo.Thread{
+			{ID: "550e8400-e29b-41d4-a716-446655440011", Title: "visible thread", Mode: "normal", CreatedByUserID: authorID, AuthorUsername: "author", CreatedAt: now, UpdatedAt: now},
+		},
+		comments: []chikarepo.Comment{
+			{ID: 2, ThreadID: "550e8400-e29b-41d4-a716-446655440099", AuthorUserID: authorID, Pseudonym: "author", Content: "visible comment", CreatedAt: now, UpdatedAt: now},
+		},
+		hiddenThreadIDs:  map[string]bool{},
+		hiddenCommentIDs: map[int64]bool{},
+	}
+	_ = deletedAt
+
+	svc := chikaservice.New(repo, nil)
+	h := New(svc, validatex.New())
+
+	t.Run("deleted threads excluded for member", func(t *testing.T) {
+		router := buildChikaReadRouter(h, viewerID, "member")
+		req := httptest.NewRequest(http.MethodGet, "/threads", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+		var payload ListThreadsResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		if len(payload.Items) != 1 {
+			t.Fatalf("expected 1 visible thread, got %d", len(payload.Items))
+		}
+		if payload.Items[0].Title != "visible thread" {
+			t.Fatalf("expected visible thread title, got %q", payload.Items[0].Title)
+		}
+	})
+
+	t.Run("deleted threads excluded for moderator", func(t *testing.T) {
+		router := buildChikaReadRouter(h, viewerID, "moderator")
+		req := httptest.NewRequest(http.MethodGet, "/threads", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+		var payload ListThreadsResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		if len(payload.Items) != 1 {
+			t.Fatalf("deleted content must be excluded even for moderator, got %d items", len(payload.Items))
+		}
+	})
+
+	t.Run("deleted comments excluded from list", func(t *testing.T) {
+		router := buildChikaReadRouter(h, viewerID, "member")
+		req := httptest.NewRequest(http.MethodGet, "/threads/550e8400-e29b-41d4-a716-446655440099/comments", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+		var payload ListCommentsResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		if len(payload.Items) != 1 {
+			t.Fatalf("expected 1 visible comment, got %d", len(payload.Items))
+		}
+	})
+}
+
+func TestChikaNonPseudonymousThreadUsesUsername(t *testing.T) {
+	viewerID := "550e8400-e29b-41d4-a716-446655440000"
+	authorID := "550e8400-e29b-41d4-a716-446655440002"
+	threadID := "550e8400-e29b-41d4-a716-446655440010"
+	now := time.Now().UTC()
+
+	repo := &filteredChikaRepo{
+		blocks: map[string]bool{},
+		threads: []chikarepo.Thread{
+			{ID: threadID, Title: "Normal thread", Mode: "normal", CreatedByUserID: authorID, AuthorUsername: "diver42", CreatedAt: now, UpdatedAt: now},
+		},
+		comments:         []chikarepo.Comment{},
+		hiddenThreadIDs:  map[string]bool{},
+		hiddenCommentIDs: map[int64]bool{},
+	}
+	svc := chikaservice.New(repo, nil)
+	h := New(svc, validatex.New())
+	router := buildChikaReadRouter(h, viewerID, "member")
+
+	req := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var payload ThreadResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.AuthorDisplay != "diver42" {
+		t.Fatalf("expected authorDisplayName='diver42' for non-pseudonymous thread, got %q", payload.AuthorDisplay)
+	}
+	if payload.RealAuthorUserID != "" {
+		t.Fatalf("member should not receive realAuthorUserId, got %q", payload.RealAuthorUserID)
+	}
+}
+
+func TestChikaCommentResponseIncludesUpdatedAt(t *testing.T) {
+	viewerID := "550e8400-e29b-41d4-a716-446655440000"
+	authorID := "550e8400-e29b-41d4-a716-446655440002"
+	now := time.Now().UTC()
+
+	repo := &filteredChikaRepo{
+		blocks: map[string]bool{},
+		threads: []chikarepo.Thread{
+			{ID: "550e8400-e29b-41d4-a716-446655440099", Title: "t", Mode: "normal", CreatedByUserID: authorID, AuthorUsername: "author", CreatedAt: now, UpdatedAt: now},
+		},
+		comments: []chikarepo.Comment{
+			{ID: 1, ThreadID: "550e8400-e29b-41d4-a716-446655440099", AuthorUserID: authorID, Pseudonym: "author", Content: "hello", CreatedAt: now, UpdatedAt: now.Add(5 * time.Minute)},
+		},
+		hiddenThreadIDs:  map[string]bool{},
+		hiddenCommentIDs: map[int64]bool{},
+	}
+	svc := chikaservice.New(repo, nil)
+	h := New(svc, validatex.New())
+	router := buildChikaReadRouter(h, viewerID, "member")
+
+	req := httptest.NewRequest(http.MethodGet, "/threads/550e8400-e29b-41d4-a716-446655440099/comments", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var payload ListCommentsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected 1 comment, got %d", len(payload.Items))
+	}
+	if payload.Items[0].CreatedAt == "" {
+		t.Fatal("expected createdAt to be set")
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	items := raw["items"].([]any)
+	item := items[0].(map[string]any)
+	updatedAt, ok := item["updatedAt"].(string)
+	if !ok || updatedAt == "" {
+		t.Fatalf("expected updatedAt in comment response, got %v", item["updatedAt"])
+	}
+}
+
 func buildChikaReadRouter(h *Handlers, actorID, role string) chi.Router {
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			perms := authz.RolePermissions(role)
 			ctx := middleware.WithIdentity(req.Context(), authz.Identity{
 				UserID:        actorID,
 				GlobalRole:    role,
 				AccountStatus: "active",
-				Permissions: map[authz.Permission]bool{
-					authz.PermissionChikaRead:  true,
-					authz.PermissionChikaWrite: true,
-				},
+				Permissions:   perms,
 			})
 			next.ServeHTTP(w, req.WithContext(ctx))
 		})

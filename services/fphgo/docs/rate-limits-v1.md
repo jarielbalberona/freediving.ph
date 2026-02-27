@@ -1,6 +1,6 @@
 # Rate Limits v1
 
-Last updated: 2026-02-27
+Last updated: 2026-02-28
 
 ## Scope
 
@@ -33,25 +33,100 @@ Global baseline:
 - IP middleware guardrail (`internal/middleware/ratelimit`): configurable per deployment (`RateLimitPerMin`, default 300/min).
 - Feature write endpoints below have service-level actor-scoped limits/cooldowns.
 
-| Domain | Scope Key | Limit | Window | Applies To |
-|---|---|---:|---:|---|
-| Profiles write | `profiles.update` per actor | 10 | 1 minute | `PATCH /v1/me/profile` |
-| Blocks write | `blocks.write` per actor | 40 | 1 minute | `POST /v1/blocks`, `DELETE /v1/blocks/{blockedUserId}` |
-| Reports target cooldown | report target pair cooldown | 1 | 24 hours | `POST /v1/reports` |
-| Reports daily cap | reporter daily cap | 20 | 1 day | `POST /v1/reports` |
-| Messaging send burst | `messages.send` per sender | 30 | 1 minute | `POST /v1/messages/send` |
-| Messaging request initiation cooldown | `messages.request_initiation` per sender+recipient | 1 | 2 minutes | non-buddy `POST /v1/messages/send` |
-| Messaging request actions | `messages.transition` per actor | 60 | 1 minute | `POST /v1/messages/{conversationId}/accept`, `POST /v1/messages/{conversationId}/reject` |
-| Chika thread create | `chika.create_thread` per actor | 5 | 1 hour | `POST /v1/chika/threads` |
-| Chika thread update | `chika.update_thread` per actor | 30 | 1 minute | `PATCH /v1/chika/threads/{threadId}` |
-| Chika thread delete | `chika.delete_thread` per actor | 20 | 1 minute | `DELETE /v1/chika/threads/{threadId}` |
-| Chika post create | `chika.create_post` per actor | 40 | 1 minute | `POST /v1/chika/threads/{threadId}/posts` |
-| Chika comment create | `chika.create_comment` per actor | 60 | 1 minute | `POST /v1/chika/threads/{threadId}/comments` |
-| Chika comment update | `chika.update_comment` per actor | 40 | 1 minute | `PATCH /v1/chika/comments/{commentId}` |
-| Chika comment delete | `chika.delete_comment` per actor | 30 | 1 minute | `DELETE /v1/chika/comments/{commentId}` |
-| Chika reaction set | `chika.set_reaction` per actor | 120 | 1 minute | `POST /v1/chika/threads/{threadId}/reactions` |
-| Chika reaction remove | `chika.remove_reaction` per actor | 120 | 1 minute | `DELETE /v1/chika/threads/{threadId}/reactions` |
-| Chika media create | `chika.create_media` per actor | 30 | 1 minute | `POST /v1/chika/media` |
+### Chika
+
+| Scope Key | Limit | Window | Applies To |
+|---|---:|---:|---|
+| `chika.create_thread` per actor | 5 | 1 hour | `POST /v1/chika/threads` |
+| `chika.update_thread` per actor | 30 | 1 minute | `PATCH /v1/chika/threads/{threadId}` |
+| `chika.delete_thread` per actor | 20 | 1 minute | `DELETE /v1/chika/threads/{threadId}` |
+| `chika.create_post` per actor | 40 | 1 minute | `POST /v1/chika/threads/{threadId}/posts` |
+| `chika.create_comment` per actor | 60 | 1 minute | `POST /v1/chika/threads/{threadId}/comments` |
+| `chika.update_comment` per actor | 40 | 1 minute | `PATCH /v1/chika/comments/{commentId}` |
+| `chika.delete_comment` per actor | 30 | 1 minute | `DELETE /v1/chika/comments/{commentId}` |
+| `chika.set_reaction` per actor | 120 | 1 minute | `POST /v1/chika/threads/{threadId}/reactions` |
+| `chika.remove_reaction` per actor | 120 | 1 minute | `DELETE /v1/chika/threads/{threadId}/reactions` |
+| `chika.create_media` per actor | 30 | 1 minute | `POST /v1/chika/media` |
+
+### Profiles
+
+| Scope Key | Limit | Window | Applies To |
+|---|---:|---:|---|
+| `profiles.update` per actor | 10 | 1 minute | `PATCH /v1/me/profile` |
+
+### Blocks
+
+| Scope Key | Limit | Window | Applies To |
+|---|---:|---:|---|
+| `blocks.write` per actor | 40 | 1 minute | `POST /v1/blocks`, `DELETE /v1/blocks/{blockedUserId}` |
+
+### Buddies
+
+| Scope Key | Limit | Window | Applies To |
+|---|---:|---:|---|
+| `buddies.create_request` per actor | 20 | 1 hour | `POST /v1/buddies/requests` |
+| `buddies.transition` per actor | 60 | 1 minute | `POST /v1/buddies/requests/{requestId}/accept`, `POST /v1/buddies/requests/{requestId}/decline` |
+| `buddies.remove` per actor | 30 | 1 minute | `DELETE /v1/buddies/{buddyUserId}` |
+
+### Messaging
+
+| Scope Key | Limit | Window | Applies To |
+|---|---:|---:|---|
+| `messages.send` per sender | 30 | 1 minute | `POST /v1/messages/requests`, `POST /v1/messages/conversations/{id}` |
+| `messages.request_initiation` per sender+recipient | 1 | 2 minutes | Non-buddy `POST /v1/messages/requests` |
+| `messages.transition` per actor | 60 | 1 minute | `POST /v1/messages/requests/{id}/accept`, `POST /v1/messages/requests/{id}/decline` |
+
+### Reports
+
+| Scope Key | Limit | Window | Applies To |
+|---|---:|---:|---|
+| Report target cooldown (custom) | 1 per target | 24 hours | `POST /v1/reports` |
+| Reporter daily cap (custom) | 20 | 1 day | `POST /v1/reports` |
+| `reports.update_status` per actor | 60 | 1 minute | `PATCH /v1/reports/{reportId}/status` |
+
+### Moderation Actions
+
+| Scope Key | Limit | Window | Applies To |
+|---|---:|---:|---|
+| `moderation.action` per actor | 60 | 1 minute | All moderation write endpoints (suspend, unsuspend, set read-only, clear read-only, hide/unhide thread, hide/unhide comment) |
+
+### Users
+
+| Scope Key | Limit | Window | Applies To |
+|---|---:|---:|---|
+| (global IP middleware) | 300 | 1 minute | `POST /v1/users` — no actor-level limit (unauthenticated registration endpoint) |
+
+## Coverage Summary
+
+| Feature | Write Endpoints | Rate Limited | Notes |
+|---|---:|---:|---|
+| Chika | 10 | 10 | Full coverage |
+| Profiles | 1 | 1 | Full coverage |
+| Blocks | 2 | 2 | Full coverage |
+| Buddies | 4 | 4 | Full coverage |
+| Messaging | 5 | 4 | `MarkRead` excluded (idempotent read-state) |
+| Reports | 2 | 2 | CreateReport uses custom cooldown; UpdateStatus uses shared limiter |
+| Moderation Actions | 8 | 8 | All share `moderation.action` scope |
+| Users | 1 | 1 | Global IP middleware only (no actor available) |
+
+**Total: 33 write endpoints, 32 with actor-scoped limits, 1 with IP-only guardrail.**
+
+## Test Coverage
+
+Rate limit contract tests verify 429 status, `Retry-After` header, and `rate_limited` error code:
+
+| Test | Feature | File |
+|---|---|---|
+| `TestChikaCreateCommentRateLimited` | Chika | `chika/http/integration_blocks_test.go` |
+| `TestChikaCreatePostRateLimitedContract` | Chika | `chika/http/integration_blocks_test.go` |
+| `TestPatchProfileRateLimitedContract` | Profiles | `profiles/http/integration_test.go` |
+| `TestBlocksCreateRateLimitedContract` | Blocks | `blocks/http/integration_test.go` |
+| `TestBuddiesCreateRequestRateLimitedContract` | Buddies | `buddies/http/integration_test.go` |
+| `TestBuddiesRemoveBuddyRateLimitedContract` | Buddies | `buddies/http/integration_test.go` |
+| `TestModerationSuspendUserRateLimitedContract` | Moderation | `moderation_actions/http/integration_test.go` |
+| `TestModerationHideThreadRateLimitedContract` | Moderation | `moderation_actions/http/integration_test.go` |
+| `TestCreateReportCooldown` | Reports | `reports/http/integration_test.go` |
+| `TestReportUpdateStatusRateLimitedContract` | Reports | `reports/http/integration_test.go` |
 
 ## Pagination Guardrail Standard
 

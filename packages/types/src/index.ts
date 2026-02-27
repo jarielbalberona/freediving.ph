@@ -4,6 +4,7 @@ export * from "./api/authz";
 export * from "./api/error";
 export * from "./api/me";
 export * from "./api/profile";
+export * from "./media";
 export * from "./reports";
 
 export interface ApiEnvelope<T> {
@@ -71,6 +72,59 @@ export interface ThreadCommentDto {
 
 export type ThreadWithUser = ThreadWithUserDto;
 export type ThreadComment = ThreadCommentDto;
+
+export interface ChikaThreadResponse {
+  id: string;
+  title: string;
+  mode: string;
+  categoryId: string;
+  categorySlug: string;
+  categoryName: string;
+  categoryPseudonymous: boolean;
+  authorDisplayName: string;
+  realAuthorUserId?: string;
+  isHidden: boolean;
+  hiddenAt?: string;
+  hiddenReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChikaCommentResponse {
+  id: string;
+  threadId: string;
+  authorDisplayName: string;
+  realAuthorUserId?: string;
+  content: string;
+  isHidden: boolean;
+  hiddenAt?: string;
+  hiddenReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChikaCategoryResponse {
+  id: string;
+  slug: string;
+  name: string;
+  pseudonymous: boolean;
+}
+
+export interface ChikaThreadListResponse {
+  items: ChikaThreadResponse[];
+  pagination: { limit: number; offset: number };
+  nextCursor?: string;
+}
+
+export interface ChikaCommentListResponse {
+  items: ChikaCommentResponse[];
+  pagination: { limit: number; offset: number };
+  nextCursor?: string;
+}
+
+export interface ChikaCategoryListResponse {
+  items: ChikaCategoryResponse[];
+}
 
 export interface Thread {
   id: number;
@@ -487,60 +541,85 @@ export interface MediaFilters {
   tags?: string[];
 }
 
-export type MessageConversationType = 'DIRECT' | 'GROUP' | 'CHANNEL';
+export type ConversationStatus = "pending" | "active" | "rejected";
 
-export interface MessageConversationParticipant {
-  id: number;
-  username: string | null;
-  alias: string | null;
-  image: string | null;
+export interface MessageParticipant {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string;
 }
 
-export interface MessageConversationSummary {
-  conversationId: number;
-  type: MessageConversationType;
-  participants: MessageConversationParticipant[];
-  lastMessage: {
-    id: number;
-    content: string;
-    createdAt: string;
-    senderId: number;
-    senderName: string | null;
-  } | null;
-  unreadCount: number;
-}
-
-export interface ConversationMessage {
-  id: number;
-  conversationId: number;
-  senderId: number;
-  senderName: string | null;
-  senderAlias: string | null;
-  senderImage: string | null;
+export interface MessageItem {
+  conversationId: string;
+  messageId: string;
+  senderId: string;
   content: string;
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'LOCATION' | 'SYSTEM';
-  status: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
   createdAt: string;
+}
+
+export interface ConversationListItem {
+  conversationId: string;
+  status: ConversationStatus;
+  initiatorUserId: string;
   updatedAt: string;
+  participant: MessageParticipant;
+  lastMessage: MessageItem;
+  requestPreview?: MessageItem;
+  unreadCount: number;
+  pendingCount: number;
 }
 
-export interface ConversationMessagesFilters {
-  limit?: number;
-  offset?: number;
+export interface ConversationListResponse {
+  items: ConversationListItem[];
+  nextCursor?: string;
 }
 
-export interface CreateDirectConversationPayload {
-  participantId: number;
+export interface ConversationMessagesResponse {
+  items: MessageItem[];
+  nextCursor?: string;
 }
 
-export interface SendMessagePayload {
+export interface MessageRequestActionResponse {
+  requestId: string;
+  conversationId: string;
+  status: ConversationStatus;
+}
+
+export interface SendMessageRequest {
   content: string;
-  type?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' | 'LOCATION' | 'SYSTEM';
 }
 
-export interface ModerateRemoveMessagePayload {
-  reasonCode: ReportReasonCode;
-  note?: string;
+export interface SendMessageResponse {
+  message: MessageItem;
+}
+
+export interface MarkReadRequest {
+  conversationId: string;
+  messageId?: string;
+}
+
+export interface MarkReadResponse {
+  conversationId: string;
+  marked: boolean;
+}
+
+export interface MessageWebSocketEnvelope<T = unknown> {
+  v: 1;
+  type: "message.created" | "conversation.updated" | "request.created" | "request.accepted" | "request.declined";
+  ts: string;
+  eventId?: string;
+  requestId?: string;
+  payload: T;
+}
+
+export interface MessageCreatedPayload {
+  conversationId: string;
+  messageId: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+  status: ConversationStatus;
 }
 
 export interface Notification {
@@ -671,41 +750,53 @@ export interface NotificationFilters {
   priority?: Notification['priority'];
 }
 
-export type BuddyRequestState = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED' | 'EXPIRED';
+export type BuddyRequestStatus = "pending" | "accepted" | "declined" | "cancelled";
 
 export interface BuddyRequest {
-  id: number;
-  fromUserId: number;
-  toUserId: number;
-  state: BuddyRequestState;
-  rejectionReason?: string | null;
+  id: string;
+  requesterUserId: string;
+  targetUserId: string;
+  status: BuddyRequestStatus;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface BuddyUserCard {
-  id: number;
-  username: string | null;
-  alias: string | null;
-  image: string | null;
-  location: string | null;
-  homeDiveArea?: string | null;
-  experienceLevel: string | null;
+export interface BuddyProfile {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string;
 }
 
-export interface BuddyRequestListResponse {
-  incoming: Array<{ request: BuddyRequest; fromUser: BuddyUserCard | null }>;
-  outgoing: Array<{ request: BuddyRequest; toUser: BuddyUserCard | null }>;
-  incomingPagination: PaginationMeta;
-  outgoingPagination: PaginationMeta;
+export interface IncomingBuddyRequest {
+  request: BuddyRequest;
+  requester: BuddyProfile;
 }
 
-export interface BuddyFinderQuery {
-  search?: string;
-  experienceLevel?: string;
-  location?: string;
-  limit?: number;
-  offset?: number;
+export interface OutgoingBuddyRequest {
+  request: BuddyRequest;
+  target: BuddyProfile;
+}
+
+export interface BuddyRequestsResponse {
+  items: IncomingBuddyRequest[] | OutgoingBuddyRequest[];
+}
+
+export interface IncomingBuddyRequestsResponse {
+  items: IncomingBuddyRequest[];
+}
+
+export interface OutgoingBuddyRequestsResponse {
+  items: OutgoingBuddyRequest[];
+}
+
+export interface BuddyListResponse {
+  items: BuddyProfile[];
+}
+
+export interface BuddyPreviewResponse {
+  count: number;
+  items: BuddyProfile[];
 }
 
 export interface CompetitiveRecord {

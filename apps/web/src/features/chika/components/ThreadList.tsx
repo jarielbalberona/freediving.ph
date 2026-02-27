@@ -1,11 +1,11 @@
 "use client";
 
-import { Thread } from '@freediving.ph/types';
+import type { ChikaThreadView } from "../api/threads";
 import { Card, CardContent } from '@/components/ui/card';
 import ThreadCard from "./ThreadCard";
 
 interface ThreadListProps {
-  threads: Thread[];
+  threads: ChikaThreadView[];
   isLoading?: boolean;
 }
 

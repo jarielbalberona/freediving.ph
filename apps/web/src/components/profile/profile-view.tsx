@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useMyProfile, useUpdateMyProfile } from "@/features/profiles";
 import { useBlockUser, useBlockedUsers, useUnblockUser } from "@/features/blocks";
+import { useSendBuddyRequest } from "@/features/buddies";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 
 export default function ProfileView() {
@@ -15,6 +16,7 @@ export default function ProfileView() {
   const updateProfile = useUpdateMyProfile();
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
+  const sendBuddyRequest = useSendBuddyRequest();
   const { data: blockedUsers } = useBlockedUsers();
 
   const profile = data?.profile;
@@ -22,6 +24,7 @@ export default function ProfileView() {
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [blockedUserId, setBlockedUserId] = useState("");
+  const [buddyTargetUserId, setBuddyTargetUserId] = useState("");
 
   if (isLoading) {
     return <div className="container mx-auto p-6">Loading profile...</div>;
@@ -81,6 +84,36 @@ export default function ProfileView() {
           >
             Save Profile
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Buddies</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="User ID to add as buddy"
+              value={buddyTargetUserId}
+              onChange={(event) => setBuddyTargetUserId(event.target.value)}
+            />
+            <Button
+              disabled={!buddyTargetUserId.trim() || sendBuddyRequest.isPending}
+              onClick={() => {
+                sendBuddyRequest.mutate(buddyTargetUserId.trim(), {
+                  onSuccess: () => setBuddyTargetUserId(""),
+                });
+              }}
+            >
+              Add Buddy
+            </Button>
+          </div>
+          {sendBuddyRequest.error ? (
+            <p className="text-sm text-destructive">
+              {getApiErrorMessage(sendBuddyRequest.error, "Failed to send buddy request")}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

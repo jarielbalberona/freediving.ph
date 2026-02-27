@@ -13,6 +13,7 @@ import (
 	reportsrepo "fphgo/internal/features/reports/repo"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/pagination"
+	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -23,8 +24,29 @@ const (
 
 type Service struct {
 	repo           repository
+	limiter        rateLimiter
 	cooldownWindow time.Duration
 	dailyReportCap int64
+}
+
+type rateLimiter interface {
+	Allow(ctx context.Context, scope, key string, maxEvents int, window time.Duration) (sharedratelimit.Result, error)
+}
+
+type noopLimiter struct{}
+
+func (noopLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
+	return sharedratelimit.Result{Allowed: true}, nil
+}
+
+type Option func(*Service)
+
+func WithLimiter(limiter rateLimiter) Option {
+	return func(s *Service) {
+		if limiter != nil {
+			s.limiter = limiter
+		}
+	}
 }
 
 type repository interface {
@@ -109,24 +131,45 @@ type Config struct {
 	DailyReportCap int64
 }
 
-func New(repo repository, cfgs ...Config) *Service {
-	cfg := Config{
-		CooldownWindow: defaultReportCooldownWindow,
-		DailyReportCap: defaultDailyReportCap,
-	}
-	if len(cfgs) > 0 {
-		if cfgs[0].CooldownWindow > 0 {
-			cfg.CooldownWindow = cfgs[0].CooldownWindow
-		}
-		if cfgs[0].DailyReportCap > 0 {
-			cfg.DailyReportCap = cfgs[0].DailyReportCap
-		}
-	}
-	return &Service{
+func New(repo repository, opts ...Option) *Service {
+	svc := &Service{
 		repo:           repo,
-		cooldownWindow: cfg.CooldownWindow,
-		dailyReportCap: cfg.DailyReportCap,
+		limiter:        noopLimiter{},
+		cooldownWindow: defaultReportCooldownWindow,
+		dailyReportCap: defaultDailyReportCap,
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
+}
+
+func WithConfig(cfg Config) Option {
+	return func(s *Service) {
+		if cfg.CooldownWindow > 0 {
+			s.cooldownWindow = cfg.CooldownWindow
+		}
+		if cfg.DailyReportCap > 0 {
+			s.dailyReportCap = cfg.DailyReportCap
+		}
+	}
+}
+
+func (s *Service) enforceRateLimit(ctx context.Context, scope, key string, maxEvents int, window time.Duration, message string) error {
+	result, err := s.limiter.Allow(ctx, scope, key, maxEvents, window)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "rate_limit_failed", "failed to enforce rate limit", err)
+	}
+	if result.Allowed {
+		return nil
+	}
+	retry := int(result.RetryAfter.Seconds())
+	if retry < 1 {
+		retry = 1
+	}
+	return apperrors.NewRateLimited(fmt.Sprintf("%s; retry after %ds", message, retry), int(window.Seconds()), retry)
 }
 
 func (s *Service) CreateReport(ctx context.Context, input CreateReportInput) (Report, error) {
@@ -315,6 +358,9 @@ func (s *Service) GetReportDetail(ctx context.Context, reportID string) (ReportD
 func (s *Service) UpdateStatus(ctx context.Context, input StatusUpdateInput) (ReportDetail, error) {
 	if _, err := uuid.Parse(input.ActorUserID); err != nil {
 		return ReportDetail{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if err := s.enforceRateLimit(ctx, "reports.update_status", input.ActorUserID, 60, time.Minute, "report status update rate exceeded"); err != nil {
+		return ReportDetail{}, err
 	}
 	if _, err := uuid.Parse(input.ReportID); err != nil {
 		return ReportDetail{}, ValidationFailure{Issues: []validatex.Issue{{
