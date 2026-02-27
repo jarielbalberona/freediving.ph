@@ -3,23 +3,13 @@
 import { useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { hasMinimumGlobalRole, type GlobalRole } from "@freediving.ph/config";
+import type { MeResponse as SharedMeResponse } from "@freediving.ph/types";
 
 import { apiClient } from "@/lib/api/client";
 import { routes } from "@/lib/api/fphgo-routes";
 
-export type MeResponse = {
-  userId: string;
-  clerkSubject: string;
-  globalRole: GlobalRole;
-  accountStatus: "active" | "read_only" | "suspended";
-  permissions: string[];
-  scopes: {
-    group: { groupId: string; role: string } | null;
-    event: { eventId: string; role: string } | null;
-  };
-};
-
 export type SessionStatus = "signed_out" | "loading" | "signed_in";
+export type MeResponse = SharedMeResponse;
 
 export const SESSION_QUERY_KEY = ["session"] as const;
 
@@ -87,4 +77,3 @@ export function useSession(): SessionState {
       role ? hasMinimumGlobalRole(role, minimumRole) : false,
   };
 }
-

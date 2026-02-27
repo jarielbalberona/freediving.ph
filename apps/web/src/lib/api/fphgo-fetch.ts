@@ -2,6 +2,8 @@ import {
   getFphgoBaseUrlClient,
   getFphgoBaseUrlServer,
 } from "@/lib/api/fphgo-base-url";
+import { toApiError } from "@/lib/http/api-error";
+import type { ApiError } from "@freediving.ph/types";
 
 type JsonObject = Record<string, unknown>;
 
@@ -23,12 +25,19 @@ export type FphgoFetchInit = Omit<RequestInit, "body"> & {
 export class FphgoFetchError extends Error {
   readonly status: number;
   readonly body: unknown;
+  readonly apiError: ApiError;
 
-  constructor(params: { status: number; body: unknown; message: string }) {
+  constructor(params: {
+    status: number;
+    body: unknown;
+    message: string;
+    apiError: ApiError;
+  }) {
     super(params.message);
     this.name = "FphgoFetchError";
     this.status = params.status;
     this.body = params.body;
+    this.apiError = params.apiError;
   }
 }
 
@@ -52,23 +61,6 @@ const assertV1Path = (path: string): void => {
   if (process.env.NODE_ENV === "development" && !path.startsWith("/v1/")) {
     throw new Error(`FPHGO path must start with /v1/: ${path}`);
   }
-};
-
-const toMessage = (status: number, body: unknown): string => {
-  if (
-    body &&
-    typeof body === "object" &&
-    "error" in body &&
-    body.error &&
-    typeof body.error === "object" &&
-    "message" in body.error &&
-    typeof body.error.message === "string"
-  ) {
-    return body.error.message;
-  }
-  if (status === 401) return "authentication required";
-  if (status === 403) return "request forbidden";
-  return "request failed";
 };
 
 const resolveBody = (
@@ -109,10 +101,12 @@ const createFphgoFetcher = ({ baseUrlProvider, tokenProvider, fetchImpl = fetch 
 
     if (response.status === 204) {
       if (!response.ok) {
+        const apiError = toApiError(null, response.status);
         throw new FphgoFetchError({
           status: response.status,
           body: null,
-          message: toMessage(response.status, null),
+          message: apiError.message,
+          apiError,
         });
       }
       return undefined as T;
@@ -124,10 +118,12 @@ const createFphgoFetcher = ({ baseUrlProvider, tokenProvider, fetchImpl = fetch 
       : await response.text().catch(() => null);
 
     if (!response.ok) {
+      const apiError = toApiError(body, response.status);
       throw new FphgoFetchError({
         status: response.status,
         body,
-        message: toMessage(response.status, body),
+        message: apiError.message,
+        apiError,
       });
     }
 

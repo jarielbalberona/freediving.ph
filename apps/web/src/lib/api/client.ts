@@ -24,6 +24,7 @@ export async function apiClient<T>(
         status: error.status,
         body: error.body,
         message: error.message,
+        apiError: error.apiError,
       });
     }
     throw error;
@@ -31,4 +32,3 @@ export async function apiClient<T>(
 }
 
 export { getAuthToken };
-
