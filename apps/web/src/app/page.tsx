@@ -4,9 +4,9 @@ import { images } from "@/data/dummy"
 
 export default function Home() {
   console.log("ORIGIN_URL", process.env.ORIGIN_URL)
-  console.log("API_URL", process.env.API_URL)
+  console.log("FPHGO_BASE_URL", process.env.FPHGO_BASE_URL)
   console.log("APP_URL", process.env.APP_URL)
-  console.log("NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL)
+  console.log("NEXT_PUBLIC_FPHGO_BASE_URL", process.env.NEXT_PUBLIC_FPHGO_BASE_URL)
   console.log("NEXT_PUBLIC_APP_URL", process.env.NEXT_PUBLIC_APP_URL)
   console.log("NEXT_PUBLIC_GOOGLE_MAP_API", process.env.NEXT_PUBLIC_GOOGLE_MAP_API)
   return (
@@ -19,4 +19,3 @@ export default function Home() {
     </div>
   )
 }
-

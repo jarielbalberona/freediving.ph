@@ -15,7 +15,9 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: NEXT_PUBLIC_API_URL
+      - key: NEXT_PUBLIC_FPHGO_BASE_URL
+        value: https://freediving-ph-api.onrender.com
+      - key: FPHGO_BASE_URL
         value: https://freediving-ph-api.onrender.com
       - key: NEXT_PUBLIC_APP_URL
         value: https://freediving-ph-app.onrender.com

@@ -1,11 +1,10 @@
 import "server-only";
 
-import { auth } from "@clerk/nextjs/server";
+import { fphgoFetchServer, type FphgoFetchInit } from "@/lib/api/fphgo-fetch";
 
-import { apiClient, type ApiClientOptions } from "@/lib/api/client";
-
-export async function apiServerClient<T>(path: string, options: Omit<ApiClientOptions, "token"> = {}) {
-  const authState = await auth();
-  const token = await authState.getToken();
-  return apiClient<T>(path, { ...options, token });
+export async function apiServerClient<T>(
+  path: string,
+  options: Omit<FphgoFetchInit, "token"> = {},
+) {
+  return fphgoFetchServer<T>(path, options);
 }

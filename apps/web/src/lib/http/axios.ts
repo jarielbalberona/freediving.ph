@@ -1,12 +1,14 @@
 import axios from "axios";
 import { createAuthTokenInterceptor, createErrorInterceptor } from "./helpers";
+import {
+  getFphgoBaseUrlClient,
+  getFphgoBaseUrlServer,
+} from "@/lib/api/fphgo-base-url";
 
 const API_BASE_URL =
   typeof window === "undefined"
-    ? process.env.API_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      "http://localhost:4000"
-    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    ? getFphgoBaseUrlServer()
+    : getFphgoBaseUrlClient();
 
 // Create an Axios instance
 export const axiosInstance = axios.create({
