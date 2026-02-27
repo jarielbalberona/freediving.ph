@@ -12,7 +12,7 @@ func Routes(h *Handlers) chi.Router {
 	r.Get("/inbox", h.Inbox)
 	r.Get("/requests", h.Requests)
 	r.Group(func(write chi.Router) {
-		write.Use(middleware.RequirePermission(authz.PermissionContentWrite))
+		write.Use(middleware.RequirePermission(authz.PermissionMessagingWrite))
 		write.Post("/send", h.Send)
 		write.Post("/{conversationId}/accept", h.Accept)
 		write.Post("/{conversationId}/reject", h.Reject)

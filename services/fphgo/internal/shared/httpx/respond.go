@@ -3,6 +3,7 @@ package httpx
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/validatex"
@@ -46,6 +47,8 @@ func Error(w http.ResponseWriter, requestID string, err error) {
 		message = appErr.Message
 	}
 
+	code = normalizeErrorCode(status, code)
+
 	payload := errorPayload{
 		Error: errorDetail{
 			Code:      code,
@@ -54,6 +57,21 @@ func Error(w http.ResponseWriter, requestID string, err error) {
 		},
 	}
 	JSON(w, status, payload)
+}
+
+func normalizeErrorCode(status int, code string) string {
+	switch status {
+	case http.StatusUnauthorized:
+		return "unauthenticated"
+	case http.StatusForbidden:
+		return "forbidden"
+	case http.StatusNotFound:
+		return "not_found"
+	}
+	if strings.TrimSpace(code) == "" {
+		return "internal_error"
+	}
+	return strings.ToLower(code)
 }
 
 // WriteError writes a simple error response with explicit status, code, and message.

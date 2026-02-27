@@ -31,7 +31,7 @@ func AttachClerkAuth(cfg config.Config) func(http.Handler) http.Handler {
 
 	options := []clerkhttp.AuthorizationOption{
 		clerkhttp.AuthorizationFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			writeAuthError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "invalid or expired bearer token", map[string]any{
+			writeAuthError(w, http.StatusUnauthorized, "unauthenticated", "invalid or expired bearer token", map[string]any{
 				"reason": "invalid_or_expired_token",
 			})
 		})),
@@ -88,14 +88,14 @@ func EnforceTokenClaims(cfg config.Config) func(http.Handler) http.Handler {
 			}
 
 			if cfg.ClerkJWTIssuer != "" && strings.TrimSpace(claims.Issuer) != cfg.ClerkJWTIssuer {
-				writeAuthError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "invalid token issuer", map[string]any{
+				writeAuthError(w, http.StatusUnauthorized, "unauthenticated", "invalid token issuer", map[string]any{
 					"expectedIssuer": cfg.ClerkJWTIssuer,
 				})
 				return
 			}
 
 			if len(cfg.ClerkJWTAudience) > 0 && !audienceMatch(claims.Audience, cfg.ClerkJWTAudience) {
-				writeAuthError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "invalid token audience", map[string]any{
+				writeAuthError(w, http.StatusUnauthorized, "unauthenticated", "invalid token audience", map[string]any{
 					"expectedAudience": cfg.ClerkJWTAudience,
 				})
 				return
@@ -110,17 +110,20 @@ func RequireMember(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := CurrentIdentity(r.Context())
 		if !ok || !identity.IsAuthenticated() {
-			writeAuthError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "authentication required", nil)
+			writeAuthError(w, http.StatusUnauthorized, "unauthenticated", "authentication required", nil)
 			return
 		}
 
 		if identity.AccountStatus == "suspended" {
-			writeAuthError(w, http.StatusForbidden, "SUSPENDED", "account is suspended", nil)
+			writeAuthError(w, http.StatusForbidden, "forbidden", "account is suspended", map[string]any{
+				"reason": "suspended",
+			})
 			return
 		}
 
 		if identity.IsReadOnly() && isWriteMethod(r.Method) {
-			writeAuthError(w, http.StatusForbidden, "READ_ONLY", "account is read-only", map[string]any{
+			writeAuthError(w, http.StatusForbidden, "forbidden", "account is read-only", map[string]any{
+				"reason": "read_only",
 				"method": r.Method,
 			})
 			return
@@ -136,13 +139,13 @@ func RequirePermission(permission authz.Permission) func(http.Handler) http.Hand
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			identity, ok := CurrentIdentity(r.Context())
 			if !ok || !identity.IsAuthenticated() {
-				writeAuthError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "authentication required", nil)
+				writeAuthError(w, http.StatusUnauthorized, "unauthenticated", "authentication required", nil)
 				return
 			}
 
 			scope, _ := CurrentScope(r.Context())
 			if !identity.Can(permission, scope) {
-				writeAuthError(w, http.StatusForbidden, "FORBIDDEN", "insufficient permission", map[string]any{
+				writeAuthError(w, http.StatusForbidden, "forbidden", "insufficient permission", map[string]any{
 					"requiredPermission": permission,
 				})
 				return

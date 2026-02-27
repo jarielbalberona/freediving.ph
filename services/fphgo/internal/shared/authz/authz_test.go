@@ -26,6 +26,20 @@ func TestRolePermissions(t *testing.T) {
 	}
 }
 
+func TestRolePermissions_MemberUsesGranularWritePermissions(t *testing.T) {
+	perms := RolePermissions("member")
+
+	if perms[PermissionContentWrite] {
+		t.Fatal("member should not get broad content.write by default")
+	}
+	if !perms[PermissionMessagingWrite] {
+		t.Fatal("member should get messaging.write")
+	}
+	if !perms[PermissionChikaWrite] {
+		t.Fatal("member should get chika.write")
+	}
+}
+
 func TestApplyOverrides(t *testing.T) {
 	base := map[Permission]bool{
 		PermissionUsersRead:   true,

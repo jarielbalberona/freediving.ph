@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	authhttp "fphgo/internal/features/auth/http"
@@ -36,6 +37,11 @@ type Dependencies struct {
 	MessagingHandler *messaginghttp.Handlers
 	ChikaHandler     *chikahttp.Handlers
 	ExploreHandler   *explorehttp.Handlers
+	AuthRoutes       chi.Router
+	UsersRoutes      chi.Router
+	MessagingRoutes  chi.Router
+	ChikaRoutes      chi.Router
+	ExploreRoutes    chi.Router
 	IdentityService  *identityservice.Service
 	WSHandler        *ws.Handler
 	Hub              *ws.Hub

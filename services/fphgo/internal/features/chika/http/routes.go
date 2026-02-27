@@ -16,7 +16,7 @@ func Routes(h *Handlers) chi.Router {
 	r.Get("/threads/{threadId}/media", h.ListThreadMedia)
 
 	r.Group(func(write chi.Router) {
-		write.Use(middleware.RequirePermission(authz.PermissionContentWrite))
+		write.Use(middleware.RequirePermission(authz.PermissionChikaWrite))
 		write.Post("/threads", h.CreateThread)
 		write.Patch("/threads/{threadId}", h.UpdateThread)
 		write.Delete("/threads/{threadId}", h.DeleteThread)

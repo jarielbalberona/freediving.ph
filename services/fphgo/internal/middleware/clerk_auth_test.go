@@ -28,8 +28,8 @@ func TestRequireMemberRejectsMissingClaims(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("expected JSON error payload, got decode error: %v", err)
 	}
-	if got := extractErrorCode(t, payload); got != "UNAUTHENTICATED" {
-		t.Fatalf("expected error code UNAUTHENTICATED, got %s", got)
+	if got := extractErrorCode(t, payload); got != "unauthenticated" {
+		t.Fatalf("expected error code unauthenticated, got %s", got)
 	}
 }
 
@@ -81,8 +81,8 @@ func TestRequireMemberRejectsSuspended(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("expected JSON error payload, got decode error: %v", err)
 	}
-	if got := extractErrorCode(t, payload); got != "SUSPENDED" {
-		t.Fatalf("expected error code SUSPENDED, got %s", got)
+	if got := extractErrorCode(t, payload); got != "forbidden" {
+		t.Fatalf("expected error code forbidden, got %s", got)
 	}
 }
 
@@ -114,8 +114,8 @@ func TestRequireMemberRejectsReadOnlyOnWrite(t *testing.T) {
 			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 				t.Fatalf("expected JSON error payload, got decode error: %v", err)
 			}
-			if got := extractErrorCode(t, payload); got != "READ_ONLY" {
-				t.Fatalf("expected error code READ_ONLY, got %s", got)
+			if got := extractErrorCode(t, payload); got != "forbidden" {
+				t.Fatalf("expected error code forbidden, got %s", got)
 			}
 		})
 	}
@@ -160,8 +160,8 @@ func TestRequirePermissionRejectsWithoutIdentity(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("expected JSON error payload, got decode error: %v", err)
 	}
-	if got := extractErrorCode(t, payload); got != "UNAUTHENTICATED" {
-		t.Fatalf("expected error code UNAUTHENTICATED, got %s", got)
+	if got := extractErrorCode(t, payload); got != "unauthenticated" {
+		t.Fatalf("expected error code unauthenticated, got %s", got)
 	}
 }
 
@@ -189,8 +189,8 @@ func TestRequirePermissionRejectsWithoutPermission(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("expected JSON error payload, got decode error: %v", err)
 	}
-	if got := extractErrorCode(t, payload); got != "FORBIDDEN" {
-		t.Fatalf("expected error code FORBIDDEN, got %s", got)
+	if got := extractErrorCode(t, payload); got != "forbidden" {
+		t.Fatalf("expected error code forbidden, got %s", got)
 	}
 }
 
@@ -284,8 +284,8 @@ func TestEnforceTokenClaimsRejectsIssuerMismatch(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("expected JSON error payload, got decode error: %v", err)
 	}
-	if got := extractErrorCode(t, payload); got != "UNAUTHENTICATED" {
-		t.Fatalf("expected error code UNAUTHENTICATED, got %s", got)
+	if got := extractErrorCode(t, payload); got != "unauthenticated" {
+		t.Fatalf("expected error code unauthenticated, got %s", got)
 	}
 }
 
@@ -315,7 +315,7 @@ func TestEnforceTokenClaimsRejectsAudienceMismatch(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("expected JSON error payload, got decode error: %v", err)
 	}
-	if got := extractErrorCode(t, payload); got != "UNAUTHENTICATED" {
-		t.Fatalf("expected error code UNAUTHENTICATED, got %s", got)
+	if got := extractErrorCode(t, payload); got != "unauthenticated" {
+		t.Fatalf("expected error code unauthenticated, got %s", got)
 	}
 }

@@ -20,7 +20,7 @@ func (h *Handlers) GetSession(w http.ResponseWriter, r *http.Request) {
 	if !ok || !identity.IsAuthenticated() {
 		httpx.JSON(w, http.StatusUnauthorized, map[string]any{
 			"error": map[string]any{
-				"code":    "UNAUTHENTICATED",
+				"code":    "unauthenticated",
 				"message": "authentication required",
 			},
 		})

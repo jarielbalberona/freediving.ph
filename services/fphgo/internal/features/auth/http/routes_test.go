@@ -30,8 +30,8 @@ func TestSessionRouteRequiresAuth(t *testing.T) {
 		t.Fatalf("expected JSON error payload, got decode error: %v", err)
 	}
 	errorMap := payload["error"].(map[string]any)
-	if errorMap["code"] != "UNAUTHENTICATED" {
-		t.Fatalf("expected UNAUTHENTICATED code, got %v", errorMap["code"])
+	if errorMap["code"] != "unauthenticated" {
+		t.Fatalf("expected unauthenticated code, got %v", errorMap["code"])
 	}
 }
 

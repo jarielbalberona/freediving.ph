@@ -19,11 +19,25 @@ import (
 	"fphgo/internal/shared/httpx"
 )
 
-func NewRouter(cfg config.Config, deps *Dependencies, logger *slog.Logger, recoverMW func(http.Handler) http.Handler) chi.Router {
-	return NewRouterWithBuildInfo(cfg, deps, logger, recoverMW, BuildInfo{})
+type RouterOption func(*routerOptions)
+
+type routerOptions struct {
+	authMiddleware        func(http.Handler) http.Handler
+	tokenClaimsMiddleware func(http.Handler) http.Handler
+	identityMiddleware    func(http.Handler) http.Handler
 }
 
-func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.Logger, recoverMW func(http.Handler) http.Handler, build BuildInfo) chi.Router {
+func WithAuthMiddleware(mw func(http.Handler) http.Handler) RouterOption {
+	return func(opts *routerOptions) {
+		opts.authMiddleware = mw
+	}
+}
+
+func NewRouter(cfg config.Config, deps *Dependencies, logger *slog.Logger, recoverMW func(http.Handler) http.Handler, opts ...RouterOption) chi.Router {
+	return NewRouterWithBuildInfo(cfg, deps, logger, recoverMW, BuildInfo{}, opts...)
+}
+
+func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.Logger, recoverMW func(http.Handler) http.Handler, build BuildInfo, opts ...RouterOption) chi.Router {
 	if cfg.RateLimitPerMin <= 0 {
 		cfg.RateLimitPerMin = 300
 	}
@@ -35,6 +49,20 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 	}
 	if build.BuildTime == "" {
 		build.BuildTime = "unknown"
+	}
+	if deps == nil {
+		deps = &Dependencies{}
+	}
+
+	routerOpts := routerOptions{
+		authMiddleware:        middleware.AttachClerkAuth(cfg),
+		tokenClaimsMiddleware: middleware.EnforceTokenClaims(cfg),
+		identityMiddleware:    middleware.AttachIdentityContext(deps.IdentityService),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&routerOpts)
+		}
 	}
 
 	r := chi.NewRouter()
@@ -68,23 +96,93 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 
 	// API routes: attach Clerk auth (optional; protected routes use RequireMember)
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.AttachClerkAuth(cfg))
-		r.Use(middleware.EnforceTokenClaims(cfg))
-		r.Use(middleware.AttachIdentityContext(deps.IdentityService))
-		r.Get("/profiles/{username}", deps.UsersHandler.GetProfileByUsername)
-		r.Mount("/v1/users", usershttp.Routes(deps.UsersHandler))
-		r.Mount("/v1/explore", explorehttp.Routes(deps.ExploreHandler))
+		r.Use(routerOpts.authMiddleware)
+		r.Use(routerOpts.tokenClaimsMiddleware)
+		r.Use(routerOpts.identityMiddleware)
+		if deps.UsersHandler != nil {
+			r.Get("/profiles/{username}", deps.UsersHandler.GetProfileByUsername)
+		}
+		if usersRouter := resolveUsersRouter(deps); usersRouter != nil {
+			r.Mount("/v1/users", usersRouter)
+		}
+		if exploreRouter := resolveExploreRouter(deps); exploreRouter != nil {
+			r.Mount("/v1/explore", exploreRouter)
+		}
 		r.Group(func(member chi.Router) {
 			member.Use(middleware.RequireMember)
-			member.Mount("/v1/auth", authhttp.Routes(deps.AuthHandler))
-			member.Group(func(content chi.Router) {
-				content.Use(middleware.RequirePermission(authz.PermissionContentRead))
-				content.Mount("/v1/messages", messaginghttp.Routes(deps.MessagingHandler))
-				content.Mount("/v1/chika", chikahttp.Routes(deps.ChikaHandler))
-				content.Get("/ws", deps.WSHandler.ServeHTTP)
+			if authRouter := resolveAuthRouter(deps); authRouter != nil {
+				member.Mount("/v1/auth", authRouter)
+			}
+			member.Group(func(messages chi.Router) {
+				messages.Use(middleware.RequirePermission(authz.PermissionMessagingRead))
+				if messagingRouter := resolveMessagingRouter(deps); messagingRouter != nil {
+					messages.Mount("/v1/messages", messagingRouter)
+				}
+			})
+			member.Group(func(chika chi.Router) {
+				chika.Use(middleware.RequirePermission(authz.PermissionChikaRead))
+				if chikaRouter := resolveChikaRouter(deps); chikaRouter != nil {
+					chika.Mount("/v1/chika", chikaRouter)
+				}
+			})
+			member.Group(func(ws chi.Router) {
+				ws.Use(middleware.RequirePermission(authz.PermissionMessagingRead))
+				if deps.WSHandler != nil {
+					ws.Get("/ws", deps.WSHandler.ServeHTTP)
+				}
 			})
 		})
 	})
 
 	return r
+}
+
+func resolveAuthRouter(deps *Dependencies) chi.Router {
+	if deps.AuthRoutes != nil {
+		return deps.AuthRoutes
+	}
+	if deps.AuthHandler == nil {
+		return nil
+	}
+	return authhttp.Routes(deps.AuthHandler)
+}
+
+func resolveUsersRouter(deps *Dependencies) chi.Router {
+	if deps.UsersRoutes != nil {
+		return deps.UsersRoutes
+	}
+	if deps.UsersHandler == nil {
+		return nil
+	}
+	return usershttp.Routes(deps.UsersHandler)
+}
+
+func resolveMessagingRouter(deps *Dependencies) chi.Router {
+	if deps.MessagingRoutes != nil {
+		return deps.MessagingRoutes
+	}
+	if deps.MessagingHandler == nil {
+		return nil
+	}
+	return messaginghttp.Routes(deps.MessagingHandler)
+}
+
+func resolveChikaRouter(deps *Dependencies) chi.Router {
+	if deps.ChikaRoutes != nil {
+		return deps.ChikaRoutes
+	}
+	if deps.ChikaHandler == nil {
+		return nil
+	}
+	return chikahttp.Routes(deps.ChikaHandler)
+}
+
+func resolveExploreRouter(deps *Dependencies) chi.Router {
+	if deps.ExploreRoutes != nil {
+		return deps.ExploreRoutes
+	}
+	if deps.ExploreHandler == nil {
+		return nil
+	}
+	return explorehttp.Routes(deps.ExploreHandler)
 }

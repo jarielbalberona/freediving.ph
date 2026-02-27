@@ -21,7 +21,7 @@ func TestChikaWriteEndpointsRequireAuth(t *testing.T) {
 	v := validatex.New()
 	router := chi.NewRouter()
 	router.Use(middleware.RequireMember)
-	router.Use(middleware.RequirePermission(authz.PermissionContentRead))
+	router.Use(middleware.RequirePermission(authz.PermissionChikaRead))
 	router.Mount("/", Routes(New(chikaservice.New(nil), v)))
 
 	tests := []struct {
@@ -58,7 +58,7 @@ func TestChikaWriteEndpointsRequireAuth(t *testing.T) {
 func TestChikaWriteEndpointsRejectWithoutContentWrite(t *testing.T) {
 	v := validatex.New()
 	basePerms := authz.RolePermissions("member")
-	overrides := map[authz.Permission]bool{authz.PermissionContentWrite: false}
+	overrides := map[authz.Permission]bool{authz.PermissionChikaWrite: false}
 	perms := authz.ApplyOverrides(basePerms, overrides)
 
 	identity := authz.Identity{
@@ -217,7 +217,7 @@ func buildTestRouter(identity authz.Identity, svc *chikaservice.Service, v httpx
 		})
 	})
 	r.Use(middleware.RequireMember)
-	r.Use(middleware.RequirePermission(authz.PermissionContentRead))
+	r.Use(middleware.RequirePermission(authz.PermissionChikaRead))
 	r.Mount("/", Routes(New(svc, v)))
 	return r
 }
