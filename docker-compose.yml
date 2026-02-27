@@ -12,20 +12,20 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  fph-api-go:
-    container_name: fph-api-go
+  fphgo:
+    container_name: fphgo
     build:
-      context: ./services/fph-api-go
+      context: ./services/fphgo
       dockerfile: Dockerfile.dev
     depends_on:
       - database
     env_file:
-      - ./services/fph-api-go/.env
+      - ./services/fphgo/.env
     environment:
       DB_DSN: postgres://postgres:postgres@database:5432/fph?sslmode=disable
     ports:
       - "4000:4000"
     volumes:
-      - ./services/fph-api-go:/app
+      - ./services/fphgo:/app
 volumes:
   pgdata:

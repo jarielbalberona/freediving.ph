@@ -120,11 +120,11 @@ pnpm migrate:go
 
 Go and other non-Node services live under `services/`. The first service is:
 
-- `services/fph-api-go`
+- `services/fphgo`
 
 `pnpm` does not manage Go dependencies for this folder. It only proxies Make targets via root scripts.
 
-### Run `fph-api-go` locally
+### Run `fphgo` locally
 
 From repo root:
 
@@ -140,7 +140,7 @@ pnpm sqlc:go
 pnpm migrate:go
 ```
 
-### Prerequisites for `fph-api-go`
+### Prerequisites for `fphgo`
 
 - Go 1.26
 - `sqlc`
@@ -189,7 +189,7 @@ Schema and migrations are under:
 Run PostgreSQL and the Go API in Docker:
 
 ```bash
-docker compose up -d database fph-api-go
+docker compose up -d database fphgo
 ```
 
 For local Node API development (`apps/api/.env`) with Docker Postgres:
@@ -198,7 +198,7 @@ For local Node API development (`apps/api/.env`) with Docker Postgres:
 DATABASE_URL=postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph
 ```
 
-For local Go API development (`services/fph-api-go/.env`):
+For local Go API development (`services/fphgo/.env`):
 
 ```bash
 DB_DSN=postgres://postgres:postgres@localhost:5432/fph?sslmode=disable

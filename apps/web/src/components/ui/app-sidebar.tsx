@@ -33,13 +33,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenu>
             <SignedIn>
               {navigation.map((item) => (
-                <SidebarMenuItem key={item.title} className="">
-                  <SidebarMenuButton>
-                    <Link href={item.url} className="flex items-center gap-2">
+                <SidebarMenuItem key={item.title} >
+                  <Link
+                    href={item.url}
+                    className="flex items-center gap-2 w-full "
+                  >
+                    <SidebarMenuButton className="cursor-pointer!">
                       <item.icon />
                       <span className="text-sm">{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
               ))}
             </SignedIn>
@@ -47,13 +50,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               {navigation
                 .filter((nav) => !nav.isProtected)
                 .map((item) => (
-                  <SidebarMenuItem key={item.title} className="">
-                    <SidebarMenuButton>
-                      <Link href={item.url} className="flex items-center gap-2">
+                  <SidebarMenuItem key={item.title}>
+                    <Link href={item.url} className="flex items-center gap-2">
+                      <SidebarMenuButton className="cursor-pointer!">
                         <item.icon />
                         <span className="text-sm">{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
+                      </SidebarMenuButton>
+                    </Link>
                   </SidebarMenuItem>
                 ))}
             </SignedOut>

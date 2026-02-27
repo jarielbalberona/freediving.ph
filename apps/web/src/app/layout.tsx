@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig, META_THEME_COLORS } from "@/config/site";
 import { AppSidebar } from "@/components/ui/app-sidebar";
+import { AuthGate } from "@/features/auth/auth-gate";
 import {
   SidebarInset,
   SidebarProvider,
@@ -68,10 +69,11 @@ export default async function RootLayout({
           >
             <ReactQueryProvider>
               <TooltipProvider>
-              <SidebarProvider defaultOpen={defaultOpen}>
-                <AppSidebar />
-                <SidebarInset>
-                  <header className="sticky inset-x-0 top-0 z-10 flex items-center gap-2 bg-background isolate shrink-0">
+	              <SidebarProvider defaultOpen={defaultOpen}>
+	                <AppSidebar />
+	                <SidebarInset>
+	                  <AuthGate />
+	                  <header className="sticky inset-x-0 top-0 z-10 flex items-center gap-2 bg-background isolate shrink-0">
                     <div className="flex items-center w-full gap-2 px-4 h-14">
                       <SidebarTrigger className="-ml-1.5" />
                       <div className="flex items-center gap-2 ml-auto">
