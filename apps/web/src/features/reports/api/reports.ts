@@ -10,7 +10,7 @@ import type {
   UpdateReportStatusResponse,
 } from "@freediving.ph/types";
 
-import { fphgoFetchClient } from "@/lib/api/fphgo-fetch";
+import { fphgoFetchClient } from "@/lib/api/fphgo-fetch-client";
 import { routes } from "@/lib/api/fphgo-routes";
 
 const buildReportsQueryString = (query?: ListReportsQuery): string => {

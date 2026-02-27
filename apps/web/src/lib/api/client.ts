@@ -3,7 +3,7 @@ import {
   fphgoFetchClient,
   getAuthToken,
   type FphgoFetchInit,
-} from "@/lib/api/fphgo-fetch";
+} from "@/lib/api/fphgo-fetch-client";
 import { getFphgoBaseUrlClient } from "@/lib/api/fphgo-base-url";
 
 export type ApiClientOptions = FphgoFetchInit;

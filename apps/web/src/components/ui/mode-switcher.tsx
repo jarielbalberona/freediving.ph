@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button"
 export function ModeSwitcher() {
   const { setTheme, resolvedTheme } = useTheme()
   const { setMetaColor } = useMetaColor()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => setMounted(true), [])
+
   const isDark = resolvedTheme === "dark"
 
   const toggleTheme = React.useCallback(() => {
@@ -28,7 +32,15 @@ export function ModeSwitcher() {
       className="group/toggle h-8 w-8 px-0 pointer-events-auto"
       onClick={toggleTheme}
     >
-      {isDark ? <SunIcon /> : <MoonIcon />}
+      {mounted ? (
+        isDark ? (
+          <SunIcon />
+        ) : (
+          <MoonIcon />
+        )
+      ) : (
+        <span className="size-6" aria-hidden />
+      )}
       <span className="sr-only">Toggle theme</span>
     </Button>
   )

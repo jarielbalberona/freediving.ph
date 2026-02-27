@@ -1,7 +1,4 @@
-import {
-  getFphgoBaseUrlClient,
-  getFphgoBaseUrlServer,
-} from "@/lib/api/fphgo-base-url";
+import { getFphgoBaseUrlClient } from "@/lib/api/fphgo-base-url";
 import { toApiError } from "@/lib/http/api-error";
 import type { ApiError } from "@freediving.ph/types";
 
@@ -75,7 +72,11 @@ const resolveBody = (
   return JSON.stringify(body);
 };
 
-const createFphgoFetcher = ({ baseUrlProvider, tokenProvider, fetchImpl = fetch }: FetchDeps) => {
+export const createFphgoFetcher = ({
+  baseUrlProvider,
+  tokenProvider,
+  fetchImpl = fetch,
+}: FetchDeps) => {
   return async <T>(path: string, init: FphgoFetchInit = {}): Promise<T> => {
     if (path.startsWith("http://") || path.startsWith("https://")) {
       throw new Error("fphgoFetch only accepts relative API paths");
@@ -140,30 +141,12 @@ const getClerkTokenFromWindow = async (): Promise<string | null> => {
   }
 };
 
-const getClerkTokenFromServer = async (): Promise<string | null> => {
-  const { auth } = await import("@clerk/nextjs/server");
-  const authState = await auth();
-  return authState.getToken();
-};
-
 const clientFetcher = createFphgoFetcher({
   baseUrlProvider: getFphgoBaseUrlClient,
   tokenProvider: getClerkTokenFromWindow,
 });
 
-const serverFetcher = createFphgoFetcher({
-  baseUrlProvider: getFphgoBaseUrlServer,
-  tokenProvider: getClerkTokenFromServer,
-});
-
-export const __internal = {
-  createFphgoFetcher,
-};
-
 export const fphgoFetchClient = <T>(path: string, init?: FphgoFetchInit) =>
   clientFetcher<T>(path, init);
-
-export const fphgoFetchServer = <T>(path: string, init?: FphgoFetchInit) =>
-  serverFetcher<T>(path, init);
 
 export const getAuthToken = getClerkTokenFromWindow;

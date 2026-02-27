@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 const repoRoot = path.resolve(globalThis.process.cwd());
-const fetchPath = path.join(repoRoot, "src/lib/api/fphgo-fetch.ts");
+const fetchPath = path.join(repoRoot, "src/lib/api/fphgo-fetch-client.ts");
 
 test("fphgo fetch attaches bearer token when present", async () => {
   const source = await readFile(fetchPath, "utf8");

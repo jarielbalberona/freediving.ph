@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig, META_THEME_COLORS } from "@/config/site";
 import { AppSidebar } from "@/components/ui/app-sidebar";
+import { MobileNavWithDrawers } from "@/components/nav/mobile-nav-with-drawers";
 import { AuthGate } from "@/features/auth/auth-gate";
 import {
   SidebarInset,
@@ -62,7 +63,7 @@ export default async function RootLayout({
           )}
         >
           <ThemeProvider
-            attribute="data-theme"
+            attribute="class"
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange
@@ -81,8 +82,11 @@ export default async function RootLayout({
                       </div>
                     </div>
                   </header>
-                  {children}
-                </SidebarInset>
+                  <div className="pb-20 md:pb-0 min-h-[calc(100vh-3.5rem)]">
+                    {children}
+                  </div>
+	                </SidebarInset>
+	                <MobileNavWithDrawers />
               </SidebarProvider>
               </TooltipProvider>
               <Toaster />
