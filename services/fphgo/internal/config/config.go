@@ -45,7 +45,7 @@ func Load() (Config, error) {
 		port = "4000"
 	}
 
-	originsRaw := strings.TrimSpace(os.Getenv("CORS_ORIGINS"))
+	originsRaw := firstNonEmptyEnv("CORS_ORIGINS", "CORS_ORIGIN")
 	origins := []string{"*"}
 	if originsRaw != "" {
 		parts := strings.Split(originsRaw, ",")
@@ -61,7 +61,7 @@ func Load() (Config, error) {
 		}
 	}
 
-	env := strings.TrimSpace(os.Getenv("APP_ENV"))
+	env := firstNonEmptyEnv("APP_ENV", "NODE_ENV")
 	if env == "" {
 		env = "development"
 	}
@@ -89,7 +89,7 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	apiBaseURL := strings.TrimSpace(os.Getenv("API_BASE_URL"))
+	apiBaseURL := firstNonEmptyEnv("API_BASE_URL", "API_URL")
 	clerkSecretKey := strings.TrimSpace(os.Getenv("CLERK_SECRET_KEY"))
 	clerkJWTKey := strings.TrimSpace(os.Getenv("CLERK_JWT_KEY"))
 	clerkJWTIssuer := strings.TrimSpace(os.Getenv("CLERK_JWT_ISSUER"))
@@ -154,6 +154,15 @@ func Load() (Config, error) {
 func parseBoolEnv(raw string) bool {
 	value := strings.TrimSpace(strings.ToLower(raw))
 	return value == "1" || value == "true" || value == "yes" || value == "on"
+}
+
+func firstNonEmptyEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func splitCSV(raw string) []string {

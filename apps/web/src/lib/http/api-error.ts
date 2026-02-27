@@ -1,15 +1,15 @@
 import { AxiosError } from "axios";
 import type { ApiError, ApiErrorIssue, RateLimitDetails } from "@freediving.ph/types";
 
-const toIssuePath = (value: unknown): string => {
-  if (typeof value === "string") return value;
+const toIssuePath = (value: unknown): (string | number)[] => {
   if (Array.isArray(value)) {
-    return value
-      .map((segment) => (typeof segment === "string" || typeof segment === "number" ? String(segment) : ""))
-      .filter(Boolean)
-      .join(".");
+    return value.filter(
+      (segment): segment is string | number =>
+        typeof segment === "string" || typeof segment === "number",
+    );
   }
-  return "";
+  if (typeof value === "string" && value.length > 0) return [value];
+  return [];
 };
 
 const toIssue = (value: unknown): ApiErrorIssue | null => {
@@ -18,13 +18,9 @@ const toIssue = (value: unknown): ApiErrorIssue | null => {
   const record = value as Record<string, unknown>;
   const message = typeof record.message === "string" ? record.message : "Invalid value";
   const path = toIssuePath(record.path);
-  const code = typeof record.code === "string" ? record.code : undefined;
+  const code = typeof record.code === "string" ? record.code : "unknown";
 
-  return {
-    path,
-    message,
-    ...(code ? { code } : {}),
-  };
+  return { path, code, message };
 };
 
 const toDetails = (value: unknown): Record<string, unknown> | undefined => {

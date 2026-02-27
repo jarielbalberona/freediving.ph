@@ -1,7 +1,7 @@
 export type ApiErrorIssue = {
-  path: string | string[];
+  path: (string | number)[];
+  code: string;
   message: string;
-  code?: string;
 };
 
 export type RateLimitDetails = {
@@ -12,6 +12,7 @@ export type RateLimitDetails = {
 export type ApiError = {
   code: string;
   message: string;
+  requestId?: string;
   issues?: ApiErrorIssue[];
   details?: Record<string, unknown> | RateLimitDetails;
 };

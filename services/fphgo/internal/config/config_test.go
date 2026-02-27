@@ -59,3 +59,26 @@ func TestLoadReadsTuningEnv(t *testing.T) {
 		t.Fatalf("expected log level warn, got %s", cfg.LogLevel)
 	}
 }
+
+func TestLoadReadsRenderCompatEnv(t *testing.T) {
+	t.Setenv("DB_DSN", "postgres://example")
+	t.Setenv("NODE_ENV", "production")
+	t.Setenv("CLERK_SECRET_KEY", "sk_test")
+	t.Setenv("CORS_ORIGIN", "https://app.example.com")
+	t.Setenv("API_URL", "https://api.example.com")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("expected config to load from Render-compatible env vars, got %v", err)
+	}
+
+	if cfg.Env != "production" {
+		t.Fatalf("expected env production, got %s", cfg.Env)
+	}
+	if len(cfg.CORSOrigins) != 1 || cfg.CORSOrigins[0] != "https://app.example.com" {
+		t.Fatalf("expected CORS origin fallback to load, got %#v", cfg.CORSOrigins)
+	}
+	if cfg.APIBaseURL != "https://api.example.com" {
+		t.Fatalf("expected API base URL fallback to load, got %s", cfg.APIBaseURL)
+	}
+}

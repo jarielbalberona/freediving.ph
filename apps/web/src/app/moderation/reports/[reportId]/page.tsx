@@ -72,7 +72,7 @@ const formatDateTime = (value: string): string => {
 const toIssueText = (issues?: ApiErrorIssue[]): string[] => {
   if (!issues || issues.length === 0) return [];
   return issues.map((issue) => {
-    const path = Array.isArray(issue.path) ? issue.path.join(".") : issue.path;
+    const path = issue.path.join(".");
     return `${path || "field"}: ${issue.message}`;
   });
 };

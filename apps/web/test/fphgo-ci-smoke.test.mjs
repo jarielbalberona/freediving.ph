@@ -114,3 +114,39 @@ test("GET /v1/me/profile — own profile", async () => {
   assert.equal(typeof body.profile.userId, "string");
   assert.equal(typeof body.profile.username, "string");
 });
+
+// ── Migrated feature: reports ───────────────────────────────────────
+
+test("POST /v1/reports — validation error on empty body", async () => {
+  const { response, body } = await authedRequest("/v1/reports", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(response.status, 400);
+  assert.equal(body.error?.code, "validation_error");
+  assert.equal(Array.isArray(body.error?.issues), true);
+  assert.ok(body.error.issues.length > 0, "expected at least one validation issue");
+  const issue = body.error.issues[0];
+  assert.equal(Array.isArray(issue.path), true, "issue.path must be an array");
+  assert.equal(typeof issue.code, "string", "issue.code must be a string");
+  assert.equal(typeof issue.message, "string", "issue.message must be a string");
+});
+
+// ── Migrated feature: media ─────────────────────────────────────────
+
+test("GET /v1/media/mine — media list", async () => {
+  const { response, body } = await authedRequest("/v1/media/mine");
+  assert.equal(response.status, 200);
+  assert.equal(Array.isArray(body.items), true);
+});
+
+test("POST /v1/media/urls — validation error on empty body", async () => {
+  const { response, body } = await authedRequest("/v1/media/urls", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(response.status, 400);
+  assert.equal(body.error?.code, "validation_error");
+});
