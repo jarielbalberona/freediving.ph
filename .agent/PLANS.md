@@ -793,3 +793,100 @@ Eliminate route/base URL/auth drift by centralizing FPHGO base URL and route con
 
 - Follow-up: reconcile TS DTOs in `@freediving.ph/types` with FPHGO response models for stronger runtime correctness (especially messages/chika IDs/payload shape).
 - Follow-up: migrate remaining legacy axios feature modules to centralized route builders once corresponding FPHGO endpoints are confirmed.
+
+---
+
+# ExecPlan: Web-Go API Compatibility And Authz Hardening
+
+## 1. Title
+
+Close API contract gaps between `apps/web` and `services/fphgo`, standardize shared TS contracts, tighten authz defaults, and add contract tests.
+
+## 2. Objective
+
+Align web API consumers to the active Go `/v1` surface, remove broad member write defaults, and gate core contracts with tests that catch routing/auth/shape regressions.
+
+## 3. Scope
+
+- Build and maintain a compatibility matrix document with file-level evidence.
+- Add shared contracts in `packages/types` for `MeResponse`, `Permission`, `Role`, `ApiError`.
+- Normalize web error parsing to shared `ApiError`.
+- Normalize Go auth/error contract codes and add router-level contract tests.
+- Introduce granular permission constants, granular route enforcement, and staged backfill migration.
+
+## 4. Constraints And Non-Goals
+
+- Do not change `apps/api/*`.
+- Web must conform to Go routes; do not redesign Go around legacy web assumptions.
+- Non-goal: full redesign of messaging conversation domain model.
+
+## 5. Acceptance Criteria
+
+- Matrix exists at `services/fphgo/docs/api-compatibility-matrix.md` with exact web+go file references.
+- `packages/types` exports shared `MeResponse`, `Permission`, `Role`, and `ApiError`.
+- Web session/error consumers use shared contracts.
+- `member` no longer gets broad `content.write` by default.
+- Go tests include app-level contract checks for `/v1` prefix, auth enforcement, and core response shapes.
+
+## 6. Repo Evidence
+
+- Web route helpers and callers: `apps/web/src/lib/api/fphgo-routes.ts`, `apps/web/src/features/{auth,messages,chika}/api/*.ts`
+- Go router wiring: `services/fphgo/internal/app/routes.go`
+- Go feature route files: `services/fphgo/internal/features/*/http/routes.go`
+- Authz model: `services/fphgo/internal/shared/authz/authz.go`
+- Error writer: `services/fphgo/internal/shared/httpx/respond.go`
+
+## 7. Risks And Rollback
+
+- Risk: tightened permissions could deny expected writes.
+- Risk: error code normalization could break clients expecting legacy uppercase codes.
+- Rollback:
+  - Revert `0005_authz_granular_permissions.sql` via goose down.
+  - Revert granular route checks back to legacy content permissions if needed.
+  - Revert web shared-type imports to previous local types if emergency rollback is required.
+
+## 8. Milestones
+
+### Milestone 1: Compatibility matrix baseline
+
+- Goal: produce web-vs-go route truth document with priorities.
+- Status: `done`
+
+### Milestone 2: Shared TS contract standardization
+
+- Goal: centralize session/authz/error types in `packages/types` and wire web consumers.
+- Status: `done`
+
+### Milestone 3: Authz tightening + migration
+
+- Goal: introduce granular permissions, remove broad member write default, and add backfill migration/docs.
+- Status: `done`
+
+### Milestone 4: Contract-level integration tests
+
+- Goal: test `/v1` prefix, auth middleware enforcement, and P0 response shapes.
+- Status: `done`
+
+### Milestone 5: Verification
+
+- Goal: run targeted workspace checks and Go tests.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `pnpm -C packages/types type-check`
+- `pnpm -C apps/web type-check` (known pre-existing UI typing failures outside this change set)
+- `go test ./...` from `services/fphgo`
+
+## 10. Progress Log
+
+- 2026-02-27: Added compatibility matrix with endpoint-level web/go mapping and priorities.
+- 2026-02-27: Added shared API types in `packages/types/src/api/*` and rewired web session/error parsing.
+- 2026-02-27: Switched Go route auth checks from broad `content.*` to granular `messaging.*`/`chika.*`.
+- 2026-02-27: Added `0005_authz_granular_permissions.sql` and `docs/authz-permissions-v1.md`.
+- 2026-02-27: Added app-level contract tests using injected test auth middleware and stub `/v1` routers.
+
+## 11. Outcomes And Follow-Ups
+
+- Open gap: `POST /v1/messages/send` request shape mismatch from web numeric conversation IDs to Go UUID recipient contract.
+- Follow-up: decide whether web should carry recipient UUID through conversation state or introduce a dedicated conversation-message send route contract.
