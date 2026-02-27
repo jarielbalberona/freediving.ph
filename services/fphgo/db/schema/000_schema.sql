@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   bio TEXT NOT NULL DEFAULT '',
   avatar_url TEXT NOT NULL DEFAULT '',
+  location TEXT NOT NULL DEFAULT '',
+  socials JSONB NOT NULL DEFAULT '{}'::jsonb,
   pseudonymous_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -39,6 +41,14 @@ CREATE TABLE IF NOT EXISTS blocks (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (blocker_id, blocked_id),
   CHECK (blocker_id <> blocked_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_blocks (
+  blocker_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blocked_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (blocker_app_user_id, blocked_app_user_id),
+  CHECK (blocker_app_user_id <> blocked_app_user_id)
 );
 
 CREATE TABLE IF NOT EXISTS conversations (
@@ -153,6 +163,35 @@ CREATE TABLE IF NOT EXISTS user_permission_overrides (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  target_app_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  reason_code TEXT NOT NULL,
+  details TEXT,
+  evidence_urls JSONB,
+  status TEXT NOT NULL DEFAULT 'open',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (target_type IN ('user', 'message', 'chika_thread', 'chika_comment')),
+  CHECK (reason_code IN ('spam', 'harassment', 'impersonation', 'unsafe', 'other')),
+  CHECK (status IN ('open', 'reviewing', 'resolved', 'rejected'))
+);
+
+CREATE TABLE IF NOT EXISTS report_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+  actor_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  from_status TEXT,
+  to_status TEXT,
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (event_type IN ('created', 'status_changed', 'note_added'))
+);
+
 CREATE TABLE IF NOT EXISTS group_memberships (
   group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -182,10 +221,20 @@ CREATE INDEX IF NOT EXISTS idx_conversation_participants_user ON conversation_pa
 CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations (status);
 CREATE INDEX IF NOT EXISTS idx_dive_sites_name ON dive_sites (name);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth_provider_subject ON users (auth_provider, auth_provider_user_id) WHERE auth_provider_user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_display_name_search ON users (lower(display_name));
+CREATE INDEX IF NOT EXISTS idx_users_username_search ON users (lower(username));
 CREATE INDEX IF NOT EXISTS idx_users_global_role ON users (global_role);
 CREATE INDEX IF NOT EXISTS idx_users_account_status ON users (account_status);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker_app_user_id ON user_blocks (blocker_app_user_id);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked_app_user_id ON user_blocks (blocked_app_user_id);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker_created_at ON user_blocks (blocker_app_user_id, created_at DESC, blocked_app_user_id DESC);
 CREATE INDEX IF NOT EXISTS idx_group_memberships_user ON group_memberships (user_id);
 CREATE INDEX IF NOT EXISTS idx_event_memberships_user ON event_memberships (user_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status_created_at ON reports (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_reporter_app_user ON reports (reporter_app_user_id);
+CREATE INDEX IF NOT EXISTS idx_reports_target_lookup ON reports (target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_report_events_report_id ON report_events (report_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_report_events_actor_app_user ON report_events (actor_app_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chika_threads_created_at ON chika_threads (created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_posts_thread_created_at ON chika_posts (thread_id, created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_comments_thread_created_at ON chika_comments (thread_id, created_at DESC) WHERE deleted_at IS NULL;

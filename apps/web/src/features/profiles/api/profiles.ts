@@ -1,37 +1,35 @@
-import type { ApiEnvelope } from "@freediving.ph/types";
+import {
+  type Profile,
+  type ProfileResponse,
+  type SearchUsersResponse,
+  type UpdateMyProfileRequest,
+} from "@freediving.ph/types";
 
-import { axiosInstance } from "@/lib/http/axios";
-
-import type {
-  CreatePersonalBestRequest,
-  PersonalBest,
-  ProfileResponse,
-  UpdateOwnProfileRequest,
-} from '@freediving.ph/types';
+import { fphgoFetchClient } from "@/lib/api/fphgo-fetch";
+import { routes } from "@/lib/api/fphgo-routes";
 
 export const profilesApi = {
-  getByUsername: async (username: string): Promise<ProfileResponse> => {
-    const response = await axiosInstance.get<ApiEnvelope<ProfileResponse>>(`/profiles/${username}`);
-    return response.data.data;
+  getMyProfile: async (): Promise<ProfileResponse> => {
+    return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.me());
   },
 
-  updateOwnProfile: async (payload: UpdateOwnProfileRequest): Promise<ProfileResponse["profile"]> => {
-    const response = await axiosInstance.put<ApiEnvelope<ProfileResponse["profile"]>>(`/profiles/me`, payload);
-    return response.data.data;
+  getProfileByUserId: async (userId: string): Promise<ProfileResponse> => {
+    return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.byUserId(userId));
   },
 
-  createPersonalBest: async (payload: CreatePersonalBestRequest): Promise<PersonalBest> => {
-    const response = await axiosInstance.post<ApiEnvelope<PersonalBest>>(`/profiles/me/personal-bests`, payload);
-    return response.data.data;
+  updateMyProfile: async (payload: UpdateMyProfileRequest): Promise<ProfileResponse> => {
+    return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.me(), {
+      method: "PATCH",
+      body: payload as Record<string, unknown>,
+    });
   },
 
-  updatePersonalBest: async (id: number, payload: Partial<CreatePersonalBestRequest>): Promise<PersonalBest> => {
-    const response = await axiosInstance.put<ApiEnvelope<PersonalBest>>(`/profiles/me/personal-bests/${id}`, payload);
-    return response.data.data;
-  },
-
-  deletePersonalBest: async (id: number): Promise<PersonalBest> => {
-    const response = await axiosInstance.delete<ApiEnvelope<PersonalBest>>(`/profiles/me/personal-bests/${id}`);
-    return response.data.data;
+  searchUsers: async (query: string, limit = 10): Promise<Profile[]> => {
+    if (!query.trim()) return [];
+    const encoded = encodeURIComponent(query.trim());
+    const response = await fphgoFetchClient<SearchUsersResponse>(
+      `${routes.v1.profiles.searchUsers()}?q=${encoded}&limit=${limit}`,
+    );
+    return response.items ?? [];
   },
 };

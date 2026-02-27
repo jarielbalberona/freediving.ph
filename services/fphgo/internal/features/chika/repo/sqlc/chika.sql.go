@@ -24,14 +24,23 @@ type CreatePostParams struct {
 	Content      string      `db:"content" json:"content"`
 }
 
-func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (ChikaPost, error) {
+type CreatePostRow struct {
+	ID           int64              `db:"id" json:"id"`
+	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	AuthorUserID pgtype.UUID        `db:"author_user_id" json:"author_user_id"`
+	Pseudonym    string             `db:"pseudonym" json:"pseudonym"`
+	Content      string             `db:"content" json:"content"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CreatePost(ctx context.Context, arg CreatePostParams) (CreatePostRow, error) {
 	row := q.db.QueryRow(ctx, createPost,
 		arg.ThreadID,
 		arg.AuthorUserID,
 		arg.Pseudonym,
 		arg.Content,
 	)
-	var i ChikaPost
+	var i CreatePostRow
 	err := row.Scan(
 		&i.ID,
 		&i.ThreadID,

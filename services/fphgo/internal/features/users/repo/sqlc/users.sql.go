@@ -22,9 +22,18 @@ type CreateProfileParams struct {
 	Bio    string      `db:"bio" json:"bio"`
 }
 
-func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
+type CreateProfileRow struct {
+	UserID              pgtype.UUID        `db:"user_id" json:"user_id"`
+	Bio                 string             `db:"bio" json:"bio"`
+	AvatarUrl           string             `db:"avatar_url" json:"avatar_url"`
+	PseudonymousEnabled bool               `db:"pseudonymous_enabled" json:"pseudonymous_enabled"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (CreateProfileRow, error) {
 	row := q.db.QueryRow(ctx, createProfile, arg.UserID, arg.Bio)
-	var i Profile
+	var i CreateProfileRow
 	err := row.Scan(
 		&i.UserID,
 		&i.Bio,

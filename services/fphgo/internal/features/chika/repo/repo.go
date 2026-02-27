@@ -105,14 +105,20 @@ func (r *Repo) GetThread(ctx context.Context, threadID string) (Thread, error) {
 	return thread, err
 }
 
-func (r *Repo) ListThreads(ctx context.Context, limit, offset int32) ([]Thread, error) {
+func (r *Repo) ListThreads(ctx context.Context, viewerID string, limit, offset int32) ([]Thread, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, title, mode, COALESCE(created_by_user_id::text, ''), created_at, updated_at
 		FROM chika_threads
 		WHERE deleted_at IS NULL
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM user_blocks b
+			WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = chika_threads.created_by_user_id)
+			   OR (b.blocker_app_user_id = chika_threads.created_by_user_id AND b.blocked_app_user_id = $1)
+		  )
 		ORDER BY created_at DESC, id DESC
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+		LIMIT $2 OFFSET $3
+	`, viewerID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -161,14 +167,20 @@ func (r *Repo) CreatePost(ctx context.Context, threadID, userID, pseudonym, cont
 	return post, err
 }
 
-func (r *Repo) ListPosts(ctx context.Context, threadID string, limit, offset int32) ([]Post, error) {
+func (r *Repo) ListPosts(ctx context.Context, threadID, viewerID string, limit, offset int32) ([]Post, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, thread_id, author_user_id, pseudonym, content, created_at
 		FROM chika_posts
 		WHERE thread_id = $1 AND deleted_at IS NULL
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM user_blocks b
+			WHERE (b.blocker_app_user_id = $2 AND b.blocked_app_user_id = chika_posts.author_user_id)
+			   OR (b.blocker_app_user_id = chika_posts.author_user_id AND b.blocked_app_user_id = $2)
+		  )
 		ORDER BY created_at DESC, id DESC
-		LIMIT $2 OFFSET $3
-	`, threadID, limit, offset)
+		LIMIT $3 OFFSET $4
+	`, threadID, viewerID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -197,14 +209,20 @@ func (r *Repo) CreateComment(ctx context.Context, threadID, userID, pseudonym, c
 	return comment, err
 }
 
-func (r *Repo) ListComments(ctx context.Context, threadID string, limit, offset int32) ([]Comment, error) {
+func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, limit, offset int32) ([]Comment, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, thread_id, author_user_id, pseudonym, content, created_at
 		FROM chika_comments
 		WHERE thread_id = $1 AND deleted_at IS NULL
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM user_blocks b
+			WHERE (b.blocker_app_user_id = $2 AND b.blocked_app_user_id = chika_comments.author_user_id)
+			   OR (b.blocker_app_user_id = chika_comments.author_user_id AND b.blocked_app_user_id = $2)
+		  )
 		ORDER BY created_at DESC, id DESC
-		LIMIT $2 OFFSET $3
-	`, threadID, limit, offset)
+		LIMIT $3 OFFSET $4
+	`, threadID, viewerID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -269,6 +287,19 @@ func (r *Repo) RemoveThreadReaction(ctx context.Context, threadID, userID string
 		WHERE thread_id = $1 AND user_id = $2
 	`, threadID, userID)
 	return err
+}
+
+func (r *Repo) IsBlockedEither(ctx context.Context, a, b string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM user_blocks
+			WHERE (blocker_app_user_id = $1 AND blocked_app_user_id = $2)
+			   OR (blocker_app_user_id = $2 AND blocked_app_user_id = $1)
+		)
+	`, a, b).Scan(&exists)
+	return exists, err
 }
 
 func (r *Repo) CreateMediaAsset(ctx context.Context, input CreateMediaAssetInput) (MediaAsset, error) {

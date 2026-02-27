@@ -16,11 +16,27 @@ import (
 )
 
 type Service struct {
-	repo *messagingrepo.Repo
-	hub  *ws.Hub
+	repo messagingRepository
+	hub  messageBroadcaster
 
 	mu       sync.Mutex
 	cooldown map[string]time.Time
+}
+
+type messagingRepository interface {
+	IsBlockedEither(ctx context.Context, a, b string) (bool, error)
+	AreBuddies(ctx context.Context, a, b string) (bool, error)
+	UpsertDMConversation(ctx context.Context, senderID, recipientID, status string) (messagingrepo.Conversation, error)
+	InsertMessage(ctx context.Context, conversationID, senderID, content string) (int64, error)
+	GetConversation(ctx context.Context, conversationID string) (messagingrepo.Conversation, error)
+	IsParticipant(ctx context.Context, conversationID, userID string) (bool, error)
+	UpdateConversationStatus(ctx context.Context, conversationID, status string) error
+	Inbox(ctx context.Context, userID string) ([]messagingrepo.MessageItem, error)
+	Requests(ctx context.Context, userID string) ([]messagingrepo.MessageItem, error)
+}
+
+type messageBroadcaster interface {
+	BroadcastEnvelope(ws.Envelope)
 }
 
 type SendMessageInput struct {
@@ -35,7 +51,7 @@ type ConversationAction struct {
 	Status         string
 }
 
-func New(repo *messagingrepo.Repo, hub *ws.Hub) *Service {
+func New(repo messagingRepository, hub messageBroadcaster) *Service {
 	return &Service{repo: repo, hub: hub, cooldown: map[string]time.Time{}}
 }
 

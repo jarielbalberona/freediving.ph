@@ -22,7 +22,7 @@ func TestChikaWriteEndpointsRequireAuth(t *testing.T) {
 	router := chi.NewRouter()
 	router.Use(middleware.RequireMember)
 	router.Use(middleware.RequirePermission(authz.PermissionChikaRead))
-	router.Mount("/", Routes(New(chikaservice.New(nil), v)))
+	router.Mount("/", Routes(New(chikaservice.New(nil, nil), v)))
 
 	tests := []struct {
 		name   string
@@ -68,7 +68,7 @@ func TestChikaWriteEndpointsRejectWithoutContentWrite(t *testing.T) {
 		Permissions:   perms,
 	}
 
-	router := buildTestRouter(identity, chikaservice.New(nil), v)
+	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
 	req := httptest.NewRequest(http.MethodPost, "/threads", bytes.NewReader([]byte(`{"title":"t","mode":"normal"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -88,7 +88,7 @@ func TestChikaWriteRejectsReadOnly(t *testing.T) {
 		Permissions:   authz.RolePermissions("member"),
 	}
 
-	router := buildTestRouter(identity, chikaservice.New(nil), v)
+	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
 	req := httptest.NewRequest(http.MethodPost, "/threads", bytes.NewReader([]byte(`{"title":"t","mode":"normal"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -108,7 +108,7 @@ func TestChikaWriteRejectsSuspended(t *testing.T) {
 		Permissions:   authz.RolePermissions("member"),
 	}
 
-	router := buildTestRouter(identity, chikaservice.New(nil), v)
+	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
 	req := httptest.NewRequest(http.MethodPost, "/threads", bytes.NewReader([]byte(`{"title":"t","mode":"normal"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -128,7 +128,7 @@ func TestChikaCreateThreadValidation_UnknownField(t *testing.T) {
 		Permissions:   authz.RolePermissions("member"),
 	}
 
-	router := buildTestRouter(identity, chikaservice.New(nil), v)
+	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
 	body := `{"title":"t","mode":"normal","bogus":"value"}`
 	req := httptest.NewRequest(http.MethodPost, "/threads", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -169,7 +169,7 @@ func TestChikaCreateThreadValidation_MissingRequired(t *testing.T) {
 		Permissions:   authz.RolePermissions("member"),
 	}
 
-	router := buildTestRouter(identity, chikaservice.New(nil), v)
+	router := buildTestRouter(identity, chikaservice.New(nil, nil), v)
 	body := `{"mode":"normal"}`
 	req := httptest.NewRequest(http.MethodPost, "/threads", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

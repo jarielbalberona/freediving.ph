@@ -84,3 +84,59 @@ func TestSetThreadReactionIdempotent(t *testing.T) {
 		t.Errorf("expected 1 reaction row, got %d", count)
 	}
 }
+
+func TestListThreadsExcludesBlockedAuthorsBothDirections(t *testing.T) {
+	pool := testPool(t)
+	repo := chikarepo.New(pool)
+	ctx := context.Background()
+
+	viewerID := uuid.New().String()
+	authorBlockedByViewer := uuid.New().String()
+	authorWhoBlockedViewer := uuid.New().String()
+	visibleAuthor := uuid.New().String()
+
+	for idx, id := range []string{viewerID, authorBlockedByViewer, authorWhoBlockedViewer, visibleAuthor} {
+		username := fmt.Sprintf("chika_blocks_%d_%d", idx, time.Now().UnixNano())
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name)
+			VALUES ($1, $2, 'Test')
+		`, id, username); err != nil {
+			t.Skipf("insert user: %v (ensure migrations applied)", err)
+		}
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO user_blocks (blocker_app_user_id, blocked_app_user_id)
+		VALUES ($1, $2), ($3, $4)
+	`, viewerID, authorBlockedByViewer, authorWhoBlockedViewer, viewerID); err != nil {
+		t.Skipf("insert user_blocks: %v (ensure migrations applied)", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO chika_threads (title, mode, created_by_user_id)
+		VALUES
+		  ('blocked by viewer', 'normal', $1),
+		  ('blocked viewer', 'normal', $2),
+		  ('visible', 'normal', $3)
+	`, authorBlockedByViewer, authorWhoBlockedViewer, visibleAuthor); err != nil {
+		t.Fatalf("insert threads: %v", err)
+	}
+
+	items, err := repo.ListThreads(ctx, viewerID, 20, 0)
+	if err != nil {
+		t.Fatalf("list threads: %v", err)
+	}
+
+	foundVisible := false
+	for _, item := range items {
+		if item.CreatedByUserID == visibleAuthor {
+			foundVisible = true
+		}
+		if item.CreatedByUserID == authorBlockedByViewer || item.CreatedByUserID == authorWhoBlockedViewer {
+			t.Fatalf("expected blocked author thread to be excluded, got %+v", item)
+		}
+	}
+	if !foundVisible {
+		t.Fatal("expected visible author thread in list")
+	}
+}

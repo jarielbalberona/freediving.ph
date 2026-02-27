@@ -36,6 +36,10 @@ func TestV1CoreEndpointsRequireAuth(t *testing.T) {
 		"/v1/auth/session",
 		"/v1/messages/inbox",
 		"/v1/chika/threads",
+		"/v1/me/profile",
+		"/v1/users/search?q=test",
+		"/v1/blocks",
+		"/v1/reports",
 	}
 
 	for _, path := range paths {
@@ -170,6 +174,71 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		assertNumberField(t, pagination, "limit")
 		assertNumberField(t, pagination, "offset")
 	})
+
+	t.Run("GET /v1/me/profile", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/me/profile", nil)
+		req.Header.Set("Authorization", "Bearer contract-ok")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		profile, ok := payload["profile"].(map[string]any)
+		if !ok {
+			t.Fatal("expected profile object")
+		}
+		assertStringField(t, profile, "userId")
+		assertStringField(t, profile, "username")
+		assertStringField(t, profile, "displayName")
+	})
+
+	t.Run("GET /v1/blocks", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/blocks", nil)
+		req.Header.Set("Authorization", "Bearer contract-ok")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		items, ok := payload["items"].([]any)
+		if !ok {
+			t.Fatal("expected items array")
+		}
+		if len(items) == 0 {
+			t.Fatal("expected at least one block item")
+		}
+	})
+
+	t.Run("GET /v1/reports", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/reports", nil)
+		req.Header.Set("Authorization", "Bearer contract-ok")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		if _, ok := payload["items"].([]any); !ok {
+			t.Fatal("expected items array")
+		}
+	})
 }
 
 func TestValidationErrorContractIncludesIssues(t *testing.T) {
@@ -256,10 +325,70 @@ func buildContractRouter() chi.Router {
 		}})
 	})
 
+	profilesRoutes := chi.NewRouter()
+	profilesRoutes.Get("/me/profile", func(w http.ResponseWriter, r *http.Request) {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"profile": map[string]any{
+				"userId":      "550e8400-e29b-41d4-a716-446655440000",
+				"username":    "member",
+				"displayName": "Member User",
+				"bio":         "Bio",
+				"avatarUrl":   "",
+				"location":    "Metro Manila",
+				"socials":     map[string]string{},
+			},
+		})
+	})
+	profilesRoutes.Get("/users/search", func(w http.ResponseWriter, r *http.Request) {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"items": []map[string]any{{
+				"userId":      "550e8400-e29b-41d4-a716-446655440050",
+				"username":    "diver1",
+				"displayName": "Diver One",
+				"bio":         "",
+				"avatarUrl":   "",
+				"location":    "Cebu",
+				"socials":     map[string]string{},
+			}},
+		})
+	})
+
+	blocksRoutes := chi.NewRouter()
+	blocksRoutes.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"items": []map[string]any{{
+				"blockedUserId": "550e8400-e29b-41d4-a716-446655440051",
+				"username":      "blocked1",
+				"displayName":   "Blocked User",
+				"avatarUrl":     "",
+				"createdAt":     "2026-02-27T00:00:00Z",
+			}},
+		})
+	})
+
+	reportsRoutes := chi.NewRouter()
+	reportsRoutes.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"items": []map[string]any{{
+				"id":             "550e8400-e29b-41d4-a716-446655440070",
+				"reporterUserId": "550e8400-e29b-41d4-a716-446655440000",
+				"targetType":     "user",
+				"targetId":       "550e8400-e29b-41d4-a716-446655440051",
+				"reasonCode":     "spam",
+				"status":         "open",
+				"createdAt":      "2026-02-27T00:00:00Z",
+				"updatedAt":      "2026-02-27T00:00:00Z",
+			}},
+		})
+	})
+
 	deps := &Dependencies{
 		AuthRoutes:      authRoutes,
 		MessagingRoutes: messagesRoutes,
 		ChikaRoutes:     chikaRoutes,
+		ProfilesRoutes:  profilesRoutes,
+		BlocksRoutes:    blocksRoutes,
+		ReportsRoutes:   reportsRoutes,
 		ReadyCheck:      func(_ context.Context) error { return nil },
 	}
 
@@ -281,10 +410,17 @@ func contractAuthMiddleware() func(http.Handler) http.Handler {
 				GlobalRole:    "member",
 				AccountStatus: "active",
 				Permissions: map[authz.Permission]bool{
-					authz.PermissionMessagingRead:  true,
-					authz.PermissionMessagingWrite: true,
-					authz.PermissionChikaRead:      true,
-					authz.PermissionChikaWrite:     true,
+					authz.PermissionMessagingRead:   true,
+					authz.PermissionMessagingWrite:  true,
+					authz.PermissionChikaRead:       true,
+					authz.PermissionChikaWrite:      true,
+					authz.PermissionProfilesRead:    true,
+					authz.PermissionProfilesWrite:   true,
+					authz.PermissionBlocksRead:      true,
+					authz.PermissionBlocksWrite:     true,
+					authz.PermissionReportsRead:     true,
+					authz.PermissionReportsWrite:    true,
+					authz.PermissionReportsModerate: true,
 				},
 			}
 			ctx := middleware.WithIdentity(r.Context(), identity)

@@ -10,17 +10,19 @@ import type { ReportReasonCode, ReportTargetType } from "@freediving.ph/types";
 import { useCreateReport } from "@/features/reports";
 
 interface ReportActionProps {
-  targetType: ReportTargetType;
+  targetType: ReportTargetType | string;
   targetId: string;
 }
 
-const reasonOptions: ReportReasonCode[] = ["SPAM", "HARASSMENT", "HATE", "MISINFORMATION", "SCAM", "SAFETY", "OTHER"];
+const reasonOptions: ReportReasonCode[] = ["spam", "harassment", "impersonation", "unsafe", "other"];
+const supportedTargetTypes = new Set<ReportTargetType>(["user", "message", "chika_thread", "chika_comment"]);
 
 export function ReportAction({ targetType, targetId }: ReportActionProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [reasonCode, setReasonCode] = useState<ReportReasonCode>("SPAM");
-  const [text, setText] = useState("");
+  const [reasonCode, setReasonCode] = useState<ReportReasonCode>("spam");
+  const [details, setDetails] = useState("");
   const createReport = useCreateReport();
+  const isSupported = supportedTargetTypes.has(targetType as ReportTargetType);
 
   if (!isOpen) {
     return (
@@ -59,28 +61,33 @@ export function ReportAction({ targetType, targetId }: ReportActionProps) {
         <Textarea
           id="report-text"
           placeholder="Describe the issue"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
+          value={details}
+          onChange={(event) => setDetails(event.target.value)}
           disabled={createReport.isPending}
         />
       </div>
+      {!isSupported && (
+        <p className="text-xs text-destructive">
+          This item type is not reportable in v1.
+        </p>
+      )}
 
       <div className="flex gap-2">
         <Button
           type="button"
           size="sm"
-          disabled={createReport.isPending}
+          disabled={createReport.isPending || !isSupported}
           onClick={() => {
             createReport.mutate(
               {
-                targetType,
+                targetType: targetType as ReportTargetType,
                 targetId,
                 reasonCode,
-                text: text.trim() || undefined,
+                details: details.trim() || undefined,
               },
               {
                 onSuccess: () => {
-                  setText("");
+                  setDetails("");
                   setIsOpen(false);
                 },
               },

@@ -12,7 +12,34 @@ import (
 )
 
 type Service struct {
-	repo *chikarepo.Repo
+	repo         chikaRepository
+	blockService blockChecker
+}
+
+type chikaRepository interface {
+	CreateThread(ctx context.Context, title, mode, actorID string) (chikarepo.Thread, error)
+	ListThreads(ctx context.Context, viewerID string, limit, offset int32) ([]chikarepo.Thread, error)
+	GetThread(ctx context.Context, threadID string) (chikarepo.Thread, error)
+	UpdateThread(ctx context.Context, threadID, title string) (chikarepo.Thread, error)
+	SoftDeleteThread(ctx context.Context, threadID string) error
+	CreatePost(ctx context.Context, threadID, userID, pseudonym, content string) (chikarepo.Post, error)
+	ListPosts(ctx context.Context, threadID, viewerID string, limit, offset int32) ([]chikarepo.Post, error)
+	CreateComment(ctx context.Context, threadID, userID, pseudonym, content string) (chikarepo.Comment, error)
+	ListComments(ctx context.Context, threadID, viewerID string, limit, offset int32) ([]chikarepo.Comment, error)
+	GetComment(ctx context.Context, commentID int64) (chikarepo.Comment, error)
+	UpdateComment(ctx context.Context, commentID int64, content string) (chikarepo.Comment, error)
+	SoftDeleteComment(ctx context.Context, commentID int64) error
+	SetThreadReaction(ctx context.Context, threadID, userID, reactionType string) (chikarepo.Reaction, error)
+	RemoveThreadReaction(ctx context.Context, threadID, userID string) error
+	CreateMediaAsset(ctx context.Context, input chikarepo.CreateMediaAssetInput) (chikarepo.MediaAsset, error)
+	ListMediaByEntity(ctx context.Context, entityType, entityID string) ([]chikarepo.MediaAsset, error)
+	EntityExists(ctx context.Context, entityType, entityID string) (bool, error)
+	PseudonymEnabled(ctx context.Context, userID string) (bool, error)
+	Username(ctx context.Context, userID string) (string, error)
+}
+
+type blockChecker interface {
+	IsBlockedEitherDirection(ctx context.Context, a, b string) (bool, error)
 }
 
 type Thread = chikarepo.Thread
@@ -41,8 +68,9 @@ type DeleteThreadInput struct {
 }
 
 type ListThreadsInput struct {
-	Limit  int32
-	Offset int32
+	ViewerID string
+	Limit    int32
+	Offset   int32
 }
 
 type CreatePostInput struct {
@@ -53,6 +81,7 @@ type CreatePostInput struct {
 
 type ListThreadPostsInput struct {
 	ThreadID string
+	ViewerID string
 	Limit    int32
 	Offset   int32
 }
@@ -65,6 +94,7 @@ type CreateCommentInput struct {
 
 type ListThreadCommentsInput struct {
 	ThreadID string
+	ViewerID string
 	Limit    int32
 	Offset   int32
 }
@@ -105,7 +135,9 @@ type CreateMediaAssetInput struct {
 	Height      *int32
 }
 
-func New(repo *chikarepo.Repo) *Service { return &Service{repo: repo} }
+func New(repo chikaRepository, blockService blockChecker) *Service {
+	return &Service{repo: repo, blockService: blockService}
+}
 
 func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Thread, error) {
 	if _, err := uuid.Parse(input.ActorID); err != nil {
@@ -131,8 +163,11 @@ func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Th
 }
 
 func (s *Service) ListThreads(ctx context.Context, input ListThreadsInput) ([]Thread, error) {
+	if _, err := uuid.Parse(input.ViewerID); err != nil {
+		return nil, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+	}
 	limit, offset := normalizePagination(input.Limit, input.Offset)
-	items, err := s.repo.ListThreads(ctx, limit, offset)
+	items, err := s.repo.ListThreads(ctx, input.ViewerID, limit, offset)
 	if err != nil {
 		return nil, apperrors.New(http.StatusInternalServerError, "thread_list_failed", "failed to list threads", err)
 	}
@@ -226,6 +261,15 @@ func (s *Service) CreatePost(ctx context.Context, input CreatePostInput) (Post, 
 		}
 		return Post{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
 	}
+	if input.UserID != thread.CreatedByUserID {
+		blocked, checkErr := s.isBlockedEither(ctx, input.UserID, thread.CreatedByUserID)
+		if checkErr != nil {
+			return Post{}, apperrors.New(http.StatusInternalServerError, "block_check_failed", "failed to validate block state", checkErr)
+		}
+		if blocked {
+			return Post{}, apperrors.New(http.StatusForbidden, "blocked", "interaction is blocked between users", nil)
+		}
+	}
 
 	pseudonym, err := s.resolvePseudonym(ctx, input.UserID, thread.Mode, thread.ID)
 	if err != nil {
@@ -243,6 +287,9 @@ func (s *Service) ListPosts(ctx context.Context, input ListThreadPostsInput) ([]
 	if _, err := uuid.Parse(input.ThreadID); err != nil {
 		return nil, apperrors.New(http.StatusBadRequest, "invalid_thread_id", "invalid thread id", err)
 	}
+	if _, err := uuid.Parse(input.ViewerID); err != nil {
+		return nil, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+	}
 	if _, err := s.repo.GetThread(ctx, input.ThreadID); err != nil {
 		if chikarepo.IsNoRows(err) {
 			return nil, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
@@ -250,7 +297,7 @@ func (s *Service) ListPosts(ctx context.Context, input ListThreadPostsInput) ([]
 		return nil, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
 	}
 	limit, offset := normalizePagination(input.Limit, input.Offset)
-	items, err := s.repo.ListPosts(ctx, input.ThreadID, limit, offset)
+	items, err := s.repo.ListPosts(ctx, input.ThreadID, input.ViewerID, limit, offset)
 	if err != nil {
 		return nil, apperrors.New(http.StatusInternalServerError, "post_list_failed", "failed to list posts", err)
 	}
@@ -276,6 +323,15 @@ func (s *Service) CreateComment(ctx context.Context, input CreateCommentInput) (
 		}
 		return Comment{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
 	}
+	if input.UserID != thread.CreatedByUserID {
+		blocked, checkErr := s.isBlockedEither(ctx, input.UserID, thread.CreatedByUserID)
+		if checkErr != nil {
+			return Comment{}, apperrors.New(http.StatusInternalServerError, "block_check_failed", "failed to validate block state", checkErr)
+		}
+		if blocked {
+			return Comment{}, apperrors.New(http.StatusForbidden, "blocked", "interaction is blocked between users", nil)
+		}
+	}
 
 	pseudonym, err := s.resolvePseudonym(ctx, input.UserID, thread.Mode, thread.ID)
 	if err != nil {
@@ -293,6 +349,9 @@ func (s *Service) ListComments(ctx context.Context, input ListThreadCommentsInpu
 	if _, err := uuid.Parse(input.ThreadID); err != nil {
 		return nil, apperrors.New(http.StatusBadRequest, "invalid_thread_id", "invalid thread id", err)
 	}
+	if _, err := uuid.Parse(input.ViewerID); err != nil {
+		return nil, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+	}
 	if _, err := s.repo.GetThread(ctx, input.ThreadID); err != nil {
 		if chikarepo.IsNoRows(err) {
 			return nil, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
@@ -300,7 +359,7 @@ func (s *Service) ListComments(ctx context.Context, input ListThreadCommentsInpu
 		return nil, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
 	}
 	limit, offset := normalizePagination(input.Limit, input.Offset)
-	items, err := s.repo.ListComments(ctx, input.ThreadID, limit, offset)
+	items, err := s.repo.ListComments(ctx, input.ThreadID, input.ViewerID, limit, offset)
 	if err != nil {
 		return nil, apperrors.New(http.StatusInternalServerError, "comment_list_failed", "failed to list comments", err)
 	}
@@ -368,11 +427,21 @@ func (s *Service) SetThreadReaction(ctx context.Context, input SetThreadReaction
 	if _, err := uuid.Parse(input.UserID); err != nil {
 		return Reaction{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid user id", err)
 	}
-	if _, err := s.repo.GetThread(ctx, input.ThreadID); err != nil {
+	thread, err := s.repo.GetThread(ctx, input.ThreadID)
+	if err != nil {
 		if chikarepo.IsNoRows(err) {
 			return Reaction{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
 		}
 		return Reaction{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
+	}
+	if input.UserID != thread.CreatedByUserID {
+		blocked, checkErr := s.isBlockedEither(ctx, input.UserID, thread.CreatedByUserID)
+		if checkErr != nil {
+			return Reaction{}, apperrors.New(http.StatusInternalServerError, "block_check_failed", "failed to validate block state", checkErr)
+		}
+		if blocked {
+			return Reaction{}, apperrors.New(http.StatusForbidden, "blocked", "interaction is blocked between users", nil)
+		}
 	}
 	reactionType := strings.TrimSpace(strings.ToLower(input.Type))
 	if reactionType != "upvote" && reactionType != "downvote" {
@@ -496,4 +565,11 @@ func normalizePagination(limit, offset int32) (int32, int32) {
 		offset = 0
 	}
 	return limit, offset
+}
+
+func (s *Service) isBlockedEither(ctx context.Context, a, b string) (bool, error) {
+	if s.blockService == nil {
+		return false, nil
+	}
+	return s.blockService.IsBlockedEitherDirection(ctx, a, b)
 }

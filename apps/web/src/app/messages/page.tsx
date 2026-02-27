@@ -19,7 +19,7 @@ import {
   useMessageConversations,
   useSendMessage,
 } from "@/features/messages";
-import { getApiErrorMessage } from "@/lib/http/api-error";
+import { getApiError, getApiErrorMessage } from "@/lib/http/api-error";
 
 const formatMessageTime = (value: string) => {
   const date = new Date(value);
@@ -46,6 +46,7 @@ export default function MessagesPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
   const [composerValue, setComposerValue] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [isBlockedConversation, setIsBlockedConversation] = useState(false);
 
   const { data: conversations = [], isLoading: isConversationsLoading, error: conversationsError } = useMessageConversations();
   const { data: messages = [], isLoading: isMessagesLoading, error: messagesError } = useConversationMessages(selectedConversationId, {
@@ -60,6 +61,11 @@ export default function MessagesPage() {
       setSelectedConversationId(conversations[0].conversationId);
     }
   }, [conversations, selectedConversationId]);
+
+  useEffect(() => {
+    setIsBlockedConversation(false);
+    setSendError(null);
+  }, [selectedConversationId]);
 
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.conversationId === selectedConversationId) ?? null,
@@ -82,6 +88,12 @@ export default function MessagesPage() {
           setComposerValue("");
         },
         onError: (error) => {
+          const apiError = getApiError(error);
+          if (apiError.code === "blocked") {
+            setIsBlockedConversation(true);
+            setSendError("You cannot send messages in this conversation because one party has blocked the other.");
+            return;
+          }
           if (error instanceof AxiosError) {
             setSendError(error.response?.data?.message || "Failed to send message");
             return;
@@ -152,8 +164,8 @@ export default function MessagesPage() {
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>{selectedConversation ? "Conversation" : "Select a conversation"}</CardTitle>
-                {selectedConversation ? (
-                  <ReportAction targetType="CONVERSATION" targetId={String(selectedConversation.conversationId)} />
+                {selectedConversation?.lastMessage ? (
+                  <ReportAction targetType="message" targetId={String(selectedConversation.lastMessage.id)} />
                 ) : null}
               </div>
             </CardHeader>
@@ -210,7 +222,7 @@ export default function MessagesPage() {
                               ) : null}
                               {messageState === "normal" ? (
                                 <ReportAction
-                                  targetType="MESSAGE"
+                                  targetType="message"
                                   targetId={`${selectedConversation?.conversationId ?? "0"}:${message.id}`}
                                 />
                               ) : null}
@@ -228,6 +240,7 @@ export default function MessagesPage() {
                     <Input
                       placeholder="Type a message"
                       value={composerValue}
+                      disabled={isBlockedConversation}
                       onChange={(event) => setComposerValue(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
@@ -236,7 +249,7 @@ export default function MessagesPage() {
                         }
                       }}
                     />
-                    <Button onClick={handleSendMessage} disabled={!composerValue.trim() || sendMessageMutation.isPending}>
+                    <Button onClick={handleSendMessage} disabled={isBlockedConversation || !composerValue.trim() || sendMessageMutation.isPending}>
                       <Send className="mr-2 h-4 w-4" />
                       Send
                     </Button>

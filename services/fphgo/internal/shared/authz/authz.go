@@ -3,25 +3,28 @@ package authz
 type Permission string
 
 const (
-	PermissionUsersRead      Permission = "users.read"
-	PermissionUsersManage    Permission = "users.manage"
-	PermissionContentWrite   Permission = "content.write"
-	PermissionContentRead    Permission = "content.read"
-	PermissionMessagingRead  Permission = "messaging.read"
-	PermissionMessagingWrite Permission = "messaging.write"
-	PermissionChikaRead      Permission = "chika.read"
-	PermissionChikaWrite     Permission = "chika.write"
-	PermissionChikaModerate  Permission = "chika.moderate"
-	PermissionExploreRead    Permission = "explore.read"
-	PermissionExploreSubmit  Permission = "explore.submit"
-	PermissionProfilesRead   Permission = "profiles.read"
-	PermissionProfilesWrite  Permission = "profiles.write"
-	PermissionGroupsRead     Permission = "groups.read"
-	PermissionGroupsManage   Permission = "groups.manage"
-	PermissionEventsRead     Permission = "events.read"
-	PermissionEventsManage   Permission = "events.manage"
-	PermissionReportsRead    Permission = "reports.read"
-	PermissionReportsWrite   Permission = "reports.write"
+	PermissionUsersRead       Permission = "users.read"
+	PermissionUsersManage     Permission = "users.manage"
+	PermissionContentWrite    Permission = "content.write"
+	PermissionContentRead     Permission = "content.read"
+	PermissionMessagingRead   Permission = "messaging.read"
+	PermissionMessagingWrite  Permission = "messaging.write"
+	PermissionChikaRead       Permission = "chika.read"
+	PermissionChikaWrite      Permission = "chika.write"
+	PermissionChikaModerate   Permission = "chika.moderate"
+	PermissionExploreRead     Permission = "explore.read"
+	PermissionExploreSubmit   Permission = "explore.submit"
+	PermissionProfilesRead    Permission = "profiles.read"
+	PermissionProfilesWrite   Permission = "profiles.write"
+	PermissionBlocksRead      Permission = "blocks.read"
+	PermissionBlocksWrite     Permission = "blocks.write"
+	PermissionGroupsRead      Permission = "groups.read"
+	PermissionGroupsManage    Permission = "groups.manage"
+	PermissionEventsRead      Permission = "events.read"
+	PermissionEventsManage    Permission = "events.manage"
+	PermissionReportsRead     Permission = "reports.read"
+	PermissionReportsWrite    Permission = "reports.write"
+	PermissionReportsModerate Permission = "reports.moderate"
 )
 
 type Identity struct {
@@ -65,6 +68,7 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionReportsWrite] = true
 		permissions[PermissionUsersRead] = true
 		permissions[PermissionReportsRead] = true
+		permissions[PermissionReportsModerate] = true
 	case "admin":
 		permissions[PermissionMessagingWrite] = true
 		permissions[PermissionChikaWrite] = true
@@ -79,6 +83,7 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionEventsRead] = true
 		permissions[PermissionEventsManage] = true
 		permissions[PermissionReportsRead] = true
+		permissions[PermissionReportsModerate] = true
 	case "super_admin":
 		permissions[PermissionMessagingWrite] = true
 		permissions[PermissionChikaWrite] = true
@@ -93,6 +98,7 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionEventsRead] = true
 		permissions[PermissionEventsManage] = true
 		permissions[PermissionReportsRead] = true
+		permissions[PermissionReportsModerate] = true
 	}
 
 	return permissions

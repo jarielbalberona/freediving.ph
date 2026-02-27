@@ -296,3 +296,43 @@ Derived from `services/fphgo/internal/app/routes.go` and per-feature route files
 2. `GET /v1/messages/inbox` contract test and response DTO lock (completed).
 3. `GET /v1/chika/threads` contract test and response DTO lock (completed).
 4. `POST /v1/messages/send` request/validation compatibility fix (open).
+
+## Profiles And Blocks v1 Addendum (2026-02-27)
+
+### New `/v1` Endpoints
+
+| Endpoint | Method | Web caller | Go handler | Status |
+|---|---|---|---|---|
+| `/v1/me/profile` | `GET` | `profilesApi.getMyProfile()` in `apps/web/src/features/profiles/api/profiles.ts` | `GetMeProfile` in `services/fphgo/internal/features/profiles/http/handlers.go` | `OK` |
+| `/v1/me/profile` | `PATCH` | `profilesApi.updateMyProfile()` in `apps/web/src/features/profiles/api/profiles.ts` | `PatchMyProfile` in `services/fphgo/internal/features/profiles/http/handlers.go` | `OK` |
+| `/v1/profiles/{userID}` | `GET` | `profilesApi.getProfileByUserId()` in `apps/web/src/features/profiles/api/profiles.ts` | `GetProfileByUserID` in `services/fphgo/internal/features/profiles/http/handlers.go` | `OK` |
+| `/v1/users/search` | `GET` | `profilesApi.searchUsers()` in `apps/web/src/features/profiles/api/profiles.ts` | `SearchUsers` in `services/fphgo/internal/features/profiles/http/handlers.go` | `OK` |
+| `/v1/blocks` | `GET` | `blocksApi.list()` in `apps/web/src/features/blocks/api/blocks.ts` | `ListBlocks` in `services/fphgo/internal/features/blocks/http/handlers.go` | `OK` |
+| `/v1/blocks` | `POST` | `blocksApi.block()` in `apps/web/src/features/blocks/api/blocks.ts` | `CreateBlock` in `services/fphgo/internal/features/blocks/http/handlers.go` | `OK` |
+| `/v1/blocks/{blockedUserId}` | `DELETE` | `blocksApi.unblock()` in `apps/web/src/features/blocks/api/blocks.ts` | `DeleteBlock` in `services/fphgo/internal/features/blocks/http/handlers.go` | `OK` |
+
+### Policy Notes
+
+- Profiles endpoints are scoped to `profiles.read`/`profiles.write` permissions.
+- Blocks endpoints are scoped to `blocks.read`/`blocks.write` permissions.
+- Messaging and chika now enforce user block policy in service-driven read/write paths using `user_blocks`.
+- Blocks list endpoint supports cursor pagination (`limit`, `cursor`) with stable ordering.
+
+## Reports v1 Addendum (2026-02-27)
+
+### New `/v1` Endpoints
+
+| Endpoint | Method | Web caller | Go handler | Status |
+|---|---|---|---|---|
+| `/v1/reports` | `POST` | `reportsApi.createReport()` in `apps/web/src/features/reports/api/reports.ts` | `CreateReport` in `services/fphgo/internal/features/reports/http/handlers.go` | `OK` |
+| `/v1/reports` | `GET` | Moderator triage (no web screen yet) | `ListReports` in `services/fphgo/internal/features/reports/http/handlers.go` | `OK` |
+| `/v1/reports/{reportId}` | `GET` | Moderator triage (no web screen yet) | `GetReport` in `services/fphgo/internal/features/reports/http/handlers.go` | `OK` |
+| `/v1/reports/{reportId}/status` | `PATCH` | Moderator triage (no web screen yet) | `UpdateStatus` in `services/fphgo/internal/features/reports/http/handlers.go` | `OK` |
+
+### Policy Notes
+
+- Submission endpoint is scoped to `reports.write`.
+- Moderator list/detail is scoped to `reports.read`.
+- Status updates are scoped to `reports.moderate`.
+- Report create/status changes write audit events in `report_events`.
+- Service layer enforces same-target cooldown (24h) and daily per-reporter cap.

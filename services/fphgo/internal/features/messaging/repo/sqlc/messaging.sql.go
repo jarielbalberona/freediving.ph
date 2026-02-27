@@ -79,8 +79,15 @@ SELECT
 FROM messages m
 JOIN conversations c ON c.id = m.conversation_id
 JOIN conversation_participants cp ON cp.conversation_id = c.id
+JOIN conversation_participants other_cp ON other_cp.conversation_id = c.id AND other_cp.user_id <> $1
 WHERE cp.user_id = $1
   AND c.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM user_blocks b
+    WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = other_cp.user_id)
+       OR (b.blocker_app_user_id = other_cp.user_id AND b.blocked_app_user_id = $1)
+  )
 ORDER BY m.created_at DESC
 LIMIT 100
 `
@@ -142,19 +149,19 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (i
 
 const isBlockedEither = `-- name: IsBlockedEither :one
 SELECT EXISTS (
-  SELECT 1 FROM blocks
-  WHERE (blocker_id = $1 AND blocked_id = $2)
-     OR (blocker_id = $2 AND blocked_id = $1)
+  SELECT 1 FROM user_blocks
+  WHERE (blocker_app_user_id = $1 AND blocked_app_user_id = $2)
+     OR (blocker_app_user_id = $2 AND blocked_app_user_id = $1)
 )
 `
 
 type IsBlockedEitherParams struct {
-	BlockerID pgtype.UUID `db:"blocker_id" json:"blocker_id"`
-	BlockedID pgtype.UUID `db:"blocked_id" json:"blocked_id"`
+	BlockerAppUserID pgtype.UUID `db:"blocker_app_user_id" json:"blocker_app_user_id"`
+	BlockedAppUserID pgtype.UUID `db:"blocked_app_user_id" json:"blocked_app_user_id"`
 }
 
 func (q *Queries) IsBlockedEither(ctx context.Context, arg IsBlockedEitherParams) (bool, error) {
-	row := q.db.QueryRow(ctx, isBlockedEither, arg.BlockerID, arg.BlockedID)
+	row := q.db.QueryRow(ctx, isBlockedEither, arg.BlockerAppUserID, arg.BlockedAppUserID)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -190,9 +197,16 @@ SELECT
 FROM messages m
 JOIN conversations c ON c.id = m.conversation_id
 JOIN conversation_participants cp ON cp.conversation_id = c.id
+JOIN conversation_participants other_cp ON other_cp.conversation_id = c.id AND other_cp.user_id <> $1
 WHERE cp.user_id = $1
   AND c.status = 'pending'
   AND c.initiator_user_id <> $1
+  AND NOT EXISTS (
+    SELECT 1
+    FROM user_blocks b
+    WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = other_cp.user_id)
+       OR (b.blocker_app_user_id = other_cp.user_id AND b.blocked_app_user_id = $1)
+  )
 ORDER BY m.created_at DESC
 LIMIT 100
 `

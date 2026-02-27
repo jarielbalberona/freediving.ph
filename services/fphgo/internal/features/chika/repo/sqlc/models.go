@@ -22,6 +22,17 @@ type BuddyRelationship struct {
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type ChikaComment struct {
+	ID           int64              `db:"id" json:"id"`
+	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	AuthorUserID pgtype.UUID        `db:"author_user_id" json:"author_user_id"`
+	Pseudonym    string             `db:"pseudonym" json:"pseudonym"`
+	Content      string             `db:"content" json:"content"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
 type ChikaPost struct {
 	ID           int64              `db:"id" json:"id"`
 	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
@@ -29,12 +40,25 @@ type ChikaPost struct {
 	Pseudonym    string             `db:"pseudonym" json:"pseudonym"`
 	Content      string             `db:"content" json:"content"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
 type ChikaThread struct {
-	ID        pgtype.UUID        `db:"id" json:"id"`
-	Title     string             `db:"title" json:"title"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	Title           string             `db:"title" json:"title"`
+	Mode            string             `db:"mode" json:"mode"`
+	CreatedByUserID pgtype.UUID        `db:"created_by_user_id" json:"created_by_user_id"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+type ChikaThreadReaction struct {
+	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	UserID       pgtype.UUID        `db:"user_id" json:"user_id"`
+	ReactionType string             `db:"reaction_type" json:"reaction_type"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type Conversation struct {
@@ -62,6 +86,50 @@ type DiveSite struct {
 	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type Event struct {
+	ID        pgtype.UUID        `db:"id" json:"id"`
+	Title     string             `db:"title" json:"title"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type EventMembership struct {
+	EventID   pgtype.UUID        `db:"event_id" json:"event_id"`
+	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
+	Role      string             `db:"role" json:"role"`
+	Status    string             `db:"status" json:"status"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type Group struct {
+	ID        pgtype.UUID        `db:"id" json:"id"`
+	Name      string             `db:"name" json:"name"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type GroupMembership struct {
+	GroupID   pgtype.UUID        `db:"group_id" json:"group_id"`
+	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
+	Role      string             `db:"role" json:"role"`
+	Status    string             `db:"status" json:"status"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type MediaAsset struct {
+	ID          pgtype.UUID        `db:"id" json:"id"`
+	OwnerUserID pgtype.UUID        `db:"owner_user_id" json:"owner_user_id"`
+	EntityType  string             `db:"entity_type" json:"entity_type"`
+	EntityID    string             `db:"entity_id" json:"entity_id"`
+	StorageKey  string             `db:"storage_key" json:"storage_key"`
+	Url         string             `db:"url" json:"url"`
+	MimeType    string             `db:"mime_type" json:"mime_type"`
+	SizeBytes   int64              `db:"size_bytes" json:"size_bytes"`
+	Width       *int32             `db:"width" json:"width"`
+	Height      *int32             `db:"height" json:"height"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type Message struct {
 	ID             int64              `db:"id" json:"id"`
 	ConversationID pgtype.UUID        `db:"conversation_id" json:"conversation_id"`
@@ -74,9 +142,36 @@ type Profile struct {
 	UserID              pgtype.UUID        `db:"user_id" json:"user_id"`
 	Bio                 string             `db:"bio" json:"bio"`
 	AvatarUrl           string             `db:"avatar_url" json:"avatar_url"`
+	Location            string             `db:"location" json:"location"`
+	Socials             []byte             `db:"socials" json:"socials"`
 	PseudonymousEnabled bool               `db:"pseudonymous_enabled" json:"pseudonymous_enabled"`
 	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type Report struct {
+	ID                pgtype.UUID        `db:"id" json:"id"`
+	ReporterAppUserID pgtype.UUID        `db:"reporter_app_user_id" json:"reporter_app_user_id"`
+	TargetType        string             `db:"target_type" json:"target_type"`
+	TargetID          string             `db:"target_id" json:"target_id"`
+	TargetAppUserID   pgtype.UUID        `db:"target_app_user_id" json:"target_app_user_id"`
+	ReasonCode        string             `db:"reason_code" json:"reason_code"`
+	Details           *string            `db:"details" json:"details"`
+	EvidenceUrls      []byte             `db:"evidence_urls" json:"evidence_urls"`
+	Status            string             `db:"status" json:"status"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type ReportEvent struct {
+	ID             pgtype.UUID        `db:"id" json:"id"`
+	ReportID       pgtype.UUID        `db:"report_id" json:"report_id"`
+	ActorAppUserID pgtype.UUID        `db:"actor_app_user_id" json:"actor_app_user_id"`
+	EventType      string             `db:"event_type" json:"event_type"`
+	FromStatus     *string            `db:"from_status" json:"from_status"`
+	ToStatus       *string            `db:"to_status" json:"to_status"`
+	Note           *string            `db:"note" json:"note"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type User struct {
@@ -85,5 +180,19 @@ type User struct {
 	DisplayName        string             `db:"display_name" json:"display_name"`
 	AuthProvider       string             `db:"auth_provider" json:"auth_provider"`
 	AuthProviderUserID *string            `db:"auth_provider_user_id" json:"auth_provider_user_id"`
+	GlobalRole         string             `db:"global_role" json:"global_role"`
+	AccountStatus      string             `db:"account_status" json:"account_status"`
 	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type UserBlock struct {
+	BlockerAppUserID pgtype.UUID        `db:"blocker_app_user_id" json:"blocker_app_user_id"`
+	BlockedAppUserID pgtype.UUID        `db:"blocked_app_user_id" json:"blocked_app_user_id"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type UserPermissionOverride struct {
+	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
+	Overrides []byte             `db:"overrides" json:"overrides"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }

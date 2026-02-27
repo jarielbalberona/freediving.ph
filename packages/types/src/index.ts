@@ -1,6 +1,9 @@
+import type { ReportReasonCode } from "./reports";
+
 export * from "./api/authz";
 export * from "./api/error";
 export * from "./api/me";
+export * from "./reports";
 
 export interface ApiEnvelope<T> {
   status: number;
@@ -539,38 +542,6 @@ export interface ModerateRemoveMessagePayload {
   note?: string;
 }
 
-export type ReportTargetType =
-  | 'USER'
-  | 'THREAD'
-  | 'POST'
-  | 'CONVERSATION'
-  | 'MESSAGE'
-  | 'GROUP'
-  | 'EVENT'
-  | 'DIVE_SITE'
-  | 'COMPETITIVE_RECORD'
-  | 'OTHER';
-
-export type ReportReasonCode = 'SPAM' | 'HARASSMENT' | 'HATE' | 'MISINFORMATION' | 'SCAM' | 'SAFETY' | 'OTHER';
-
-export interface CreateReportRequest {
-  targetType: ReportTargetType;
-  targetId: string;
-  reasonCode: ReportReasonCode;
-  text?: string;
-}
-
-export interface ReportItem {
-  id: number;
-  targetType: ReportTargetType;
-  targetId: string;
-  reasonCode: ReportReasonCode;
-  text?: string | null;
-  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED';
-  resolutionNote?: string | null;
-  createdAt: string;
-}
-
 export interface Notification {
   id: number;
   userId: number;
@@ -699,53 +670,37 @@ export interface NotificationFilters {
   priority?: Notification['priority'];
 }
 
-export type ProfileVisibility = 'PUBLIC' | 'MEMBERS_ONLY';
-export type ProfileItemVisibility = 'PUBLIC' | 'MEMBERS_ONLY' | 'PRIVATE';
-
-export interface PersonalBest {
-  id: number;
-  userId: number;
-  discipline: 'STA' | 'DYN' | 'DYNB' | 'DNF' | 'CWT' | 'CWTB' | 'FIM' | 'CNF' | 'VWT' | 'OTHER';
-  resultValue: string;
-  resultUnit: string;
-  recordedAt?: string | null;
-  visibility: ProfileItemVisibility;
-}
-
-export interface ProfileDetails {
-  id: number;
-  username: string | null;
-  alias: string | null;
-  name: string | null;
-  image: string | null;
-  bio: string | null;
-  location: string | null;
-  homeDiveArea: string | null;
-  experienceLevel: string | null;
-  visibility: ProfileVisibility;
-}
-
 export interface ProfileResponse {
-  profile: ProfileDetails;
-  personalBests: PersonalBest[];
+  profile: Profile;
 }
 
-export interface UpdateOwnProfileRequest {
-  name?: string;
+export interface Profile {
+  userId: string;
+  username: string;
+  displayName: string;
   bio?: string;
+  avatarUrl?: string;
   location?: string;
-  homeDiveArea?: string;
-  experienceLevel?: string;
-  visibility?: ProfileVisibility;
-  buddyFinderVisibility?: 'VISIBLE' | 'HIDDEN';
+  socials?: Record<string, string>;
 }
 
-export interface CreatePersonalBestRequest {
-  discipline: PersonalBest['discipline'];
-  resultValue: string;
-  resultUnit: string;
-  recordedAt?: string;
-  visibility?: ProfileItemVisibility;
+export interface UpdateMyProfileRequest {
+  displayName?: string;
+  bio?: string;
+  avatarUrl?: string;
+  location?: string;
+  socials?: {
+    website?: string;
+    instagram?: string;
+    x?: string;
+    facebook?: string;
+    tiktok?: string;
+    youtube?: string;
+  };
+}
+
+export interface SearchUsersResponse {
+  items: Profile[];
 }
 
 export type BuddyRequestState = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED' | 'EXPIRED';

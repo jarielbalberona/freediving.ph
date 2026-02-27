@@ -56,3 +56,45 @@ sql:
         emit_db_tags: true
         emit_empty_slices: true
         emit_pointers_for_null_types: true
+  - engine: "postgresql"
+    schema:
+      - "db/schema/*.sql"
+    queries:
+      - "internal/features/profiles/repo/queries/*.sql"
+    gen:
+      go:
+        package: "profilesqlc"
+        out: "internal/features/profiles/repo/sqlc"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+  - engine: "postgresql"
+    schema:
+      - "db/schema/*.sql"
+    queries:
+      - "internal/features/blocks/repo/queries/*.sql"
+    gen:
+      go:
+        package: "blocksqlc"
+        out: "internal/features/blocks/repo/sqlc"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+  - engine: "postgresql"
+    schema:
+      - "db/schema/*.sql"
+    queries:
+      - "internal/features/reports/repo/queries/*.sql"
+    gen:
+      go:
+        package: "reportsqlc"
+        out: "internal/features/reports/repo/sqlc"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true

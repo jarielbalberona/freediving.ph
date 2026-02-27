@@ -890,3 +890,109 @@ Align web API consumers to the active Go `/v1` surface, remove broad member writ
 
 - Open gap: `POST /v1/messages/send` request shape mismatch from web numeric conversation IDs to Go UUID recipient contract.
 - Follow-up: decide whether web should carry recipient UUID through conversation state or introduce a dedicated conversation-message send route contract.
+
+---
+
+# ExecPlan: Profiles v1 + Blocks v1 (Go + Web)
+
+## 1. Title
+
+Implement Profiles v1 and Blocks v1 with service-layer enforcement across Messaging and Chika
+
+## 2. Objective
+
+Ship the first real profile feature set on `services/fphgo` with `/v1` contracts used by `apps/web`, and introduce user blocking with enforcement in messaging and chika read/write paths.
+
+## 3. Scope
+
+- `services/fphgo`:
+  - Profiles routes: `GET /v1/me/profile`, `PATCH /v1/me/profile`, `GET /v1/profiles/{userID}`, `GET /v1/users/search`
+  - Blocks routes: `POST /v1/blocks`, `DELETE /v1/blocks/{blockedUserId}`, `GET /v1/blocks`
+  - Service policy enforcement for blocks in messaging and chika.
+  - Per-feature `sqlc` packages for profiles and blocks.
+  - Goose migration updates for profile fields/search and `user_blocks`.
+- `packages/types`:
+  - Shared profile and error/session contract alignment.
+- `apps/web`:
+  - Wire profile APIs/hooks/components to `/v1` Go routes and shared types.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api/*`.
+- Keep handlers thin; business policy in services; repos DB-only.
+- No Redis or new validation libraries.
+- Non-goal: full legacy personal-bests migration in Go.
+
+## 5. Acceptance Criteria
+
+- Web profile screens call `/v1` only and work against `fphgo`.
+- No duplicate profile/api-error types in web feature code.
+- Profiles endpoints enforce `profiles.read`/`profiles.write`.
+- Blocks endpoints exist and block policy is enforced in messaging/chika service paths.
+- Tests cover unauthenticated/forbidden/success/validation and block policy behavior.
+
+## 6. Repo Evidence
+
+- Router/auth wiring: `services/fphgo/internal/app/routes.go`
+- Existing identity/profile data model: `services/fphgo/db/schema/000_schema.sql`, `services/fphgo/internal/features/identity/*`
+- Messaging/chika policy paths: `services/fphgo/internal/features/messaging/service/service.go`, `services/fphgo/internal/features/chika/service/service.go`
+- Web profile caller surface: `apps/web/src/features/profiles/**/*`
+- Shared contracts: `packages/types/src/index.ts`, `packages/types/src/api/*.ts`
+
+## 7. Risks And Rollback
+
+- Risk: migration and schema drift between legacy `blocks`/`profiles` and new contracts.
+- Risk: route overlap with existing `/v1/users/*` paths.
+- Risk: block filters accidentally over-hide content.
+- Rollback:
+  - revert new migration + schema updates
+  - disable new mounts in app router
+  - revert web profiles API calls to prior state
+
+## 8. Milestones
+
+### Milestone 1: Data + sqlc foundations
+
+- Goal: add migration/schema and per-feature sqlc packages for profiles/blocks.
+- Status: `done`
+
+### Milestone 2: Profiles feature implementation
+
+- Goal: implement repo/service/http and route guards for Profiles v1.
+- Status: `done`
+
+### Milestone 3: Blocks feature + enforcement
+
+- Goal: implement blocks endpoints and enforce policy in messaging/chika service paths.
+- Status: `done`
+
+### Milestone 4: Web + shared contracts alignment
+
+- Goal: wire `apps/web` profiles to `/v1` routes and shared package types.
+- Status: `done`
+
+### Milestone 5: Tests and docs
+
+- Goal: add/adjust tests and update compatibility/docs.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && make sqlc`
+- `cd services/fphgo && go test ./...`
+- `pnpm --filter @freediving.ph/types typecheck`
+- `pnpm --filter @freediving.ph/web typecheck`
+
+## 10. Progress Log
+
+- 2026-02-27: Audited schema, authz, routes, users/profile web callers, and compatibility docs.
+- 2026-02-27: Started milestone 1 implementation.
+- 2026-02-27: Added migration `0006_profiles_blocks_v1.sql`, schema sync, sqlc packages, and generated code.
+- 2026-02-27: Implemented profiles and blocks feature modules, app wiring, and block policy enforcement updates for messaging/chika.
+- 2026-02-27: Updated web profiles API/hooks/view to `/v1` and shared types.
+- 2026-02-27: Added tests and docs (`profiles-v1.md`, `blocks-v1.md`) and updated compatibility matrix.
+
+## 11. Outcomes And Follow-Ups
+
+- Follow-up: evaluate migration off legacy `/profiles/{username}` route after all web callers are `/v1`.
+- Follow-up: decide whether to retire legacy `blocks` table after `user_blocks` rollout stabilizes.

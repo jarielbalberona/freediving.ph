@@ -9,9 +9,12 @@ import (
 
 	"fphgo/internal/config"
 	authhttp "fphgo/internal/features/auth/http"
+	blockshttp "fphgo/internal/features/blocks/http"
 	chikahttp "fphgo/internal/features/chika/http"
 	explorehttp "fphgo/internal/features/explore/http"
 	messaginghttp "fphgo/internal/features/messaging/http"
+	profileshttp "fphgo/internal/features/profiles/http"
+	reportshttp "fphgo/internal/features/reports/http"
 	usershttp "fphgo/internal/features/users/http"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/authz"
@@ -102,14 +105,26 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		if deps.UsersHandler != nil {
 			r.Get("/profiles/{username}", deps.UsersHandler.GetProfileByUsername)
 		}
-		if usersRouter := resolveUsersRouter(deps); usersRouter != nil {
-			r.Mount("/v1/users", usersRouter)
-		}
 		if exploreRouter := resolveExploreRouter(deps); exploreRouter != nil {
 			r.Mount("/v1/explore", exploreRouter)
 		}
 		r.Group(func(member chi.Router) {
 			member.Use(middleware.RequireMember)
+			member.Group(func(profiles chi.Router) {
+				if profilesRouter := resolveProfilesRouter(deps); profilesRouter != nil {
+					profiles.Mount("/v1", profilesRouter)
+				}
+			})
+			member.Group(func(blocks chi.Router) {
+				if blocksRouter := resolveBlocksRouter(deps); blocksRouter != nil {
+					blocks.Mount("/v1/blocks", blocksRouter)
+				}
+			})
+			member.Group(func(reports chi.Router) {
+				if reportsRouter := resolveReportsRouter(deps); reportsRouter != nil {
+					reports.Mount("/v1/reports", reportsRouter)
+				}
+			})
 			if authRouter := resolveAuthRouter(deps); authRouter != nil {
 				member.Mount("/v1/auth", authRouter)
 			}
@@ -132,6 +147,9 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 				}
 			})
 		})
+		if usersRouter := resolveUsersRouter(deps); usersRouter != nil {
+			r.Mount("/v1/users", usersRouter)
+		}
 	})
 
 	return r
@@ -185,4 +203,34 @@ func resolveExploreRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return explorehttp.Routes(deps.ExploreHandler)
+}
+
+func resolveProfilesRouter(deps *Dependencies) chi.Router {
+	if deps.ProfilesRoutes != nil {
+		return deps.ProfilesRoutes
+	}
+	if deps.ProfilesHandler == nil {
+		return nil
+	}
+	return profileshttp.Routes(deps.ProfilesHandler)
+}
+
+func resolveBlocksRouter(deps *Dependencies) chi.Router {
+	if deps.BlocksRoutes != nil {
+		return deps.BlocksRoutes
+	}
+	if deps.BlocksHandler == nil {
+		return nil
+	}
+	return blockshttp.Routes(deps.BlocksHandler)
+}
+
+func resolveReportsRouter(deps *Dependencies) chi.Router {
+	if deps.ReportsRoutes != nil {
+		return deps.ReportsRoutes
+	}
+	if deps.ReportsHandler == nil {
+		return nil
+	}
+	return reportshttp.Routes(deps.ReportsHandler)
 }

@@ -7,6 +7,7 @@ export * from './diveSpots';
 export * from './media';
 export * from './user';
 export * from './messages';
+export * from './blocks';
 export * from './reports';
 export * from './profiles';
 export * from './buddies';

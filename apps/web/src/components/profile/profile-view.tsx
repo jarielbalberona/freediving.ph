@@ -1,44 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { useUser } from "@clerk/nextjs";
 
-import { VisibilitySelector, type VisibilityValue } from "@/components/common/visibility-selector";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { CreatePersonalBestRequest } from "@freediving.ph/types";
-import {
-  useCreatePersonalBest,
-  useDeletePersonalBest,
-  useProfileByUsername,
-  useUpdateOwnProfile,
-} from "@/features/profiles";
+import { Textarea } from "@/components/ui/textarea";
+import { useMyProfile, useUpdateMyProfile } from "@/features/profiles";
+import { useBlockUser, useBlockedUsers, useUnblockUser } from "@/features/blocks";
+import { getApiErrorMessage } from "@/lib/http/api-error";
 
 export default function ProfileView() {
-  const { user, isLoaded } = useUser();
-  const username = user?.username ?? null;
+  const { data, isLoading } = useMyProfile();
+  const updateProfile = useUpdateMyProfile();
+  const blockUser = useBlockUser();
+  const unblockUser = useUnblockUser();
+  const { data: blockedUsers } = useBlockedUsers();
 
-  const { data, isLoading } = useProfileByUsername(username);
-  const createPersonalBest = useCreatePersonalBest(username);
-  const deletePersonalBest = useDeletePersonalBest(username);
-  const updateOwnProfile = useUpdateOwnProfile(username);
+  const profile = data?.profile;
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [location, setLocation] = useState("");
+  const [blockedUserId, setBlockedUserId] = useState("");
 
-  const [newPbDiscipline, setNewPbDiscipline] = useState<CreatePersonalBestRequest["discipline"]>("CWT");
-  const [newPbValue, setNewPbValue] = useState("");
-  const [newPbUnit, setNewPbUnit] = useState("m");
-  const [profileVisibility, setProfileVisibility] = useState<VisibilityValue>("public");
-
-  if (!isLoaded || isLoading) {
+  if (isLoading) {
     return <div className="container mx-auto p-6">Loading profile...</div>;
   }
 
-  if (!user || !username) {
-    return <div className="container mx-auto p-6">Sign in to view your profile.</div>;
+  if (!profile) {
+    return <div className="container mx-auto p-6">Profile unavailable.</div>;
   }
 
-  const profile = data?.profile;
-  const personalBests = data?.personalBests ?? [];
+  const currentDisplayName = displayName || profile.displayName;
+  const currentBio = bio || profile.bio || "";
+  const currentLocation = location || profile.location || "";
 
   return (
     <div className="container mx-auto space-y-6 p-6">
@@ -46,78 +41,97 @@ export default function ProfileView() {
         <CardHeader>
           <CardTitle>Profile</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1">
-            <p className="text-lg font-semibold">{profile?.name || username}</p>
-            <p className="text-sm text-muted-foreground">@{profile?.username || username}</p>
-            <p className="text-sm text-muted-foreground">{profile?.bio || "No bio yet."}</p>
-          </div>
-
-          <VisibilitySelector
-            value={profileVisibility}
-            onChange={(value) => {
-              setProfileVisibility(value);
-              updateOwnProfile.mutate({
-                visibility: value === "public" ? "PUBLIC" : "MEMBERS_ONLY",
-              });
-            }}
-          />
+        <CardContent className="space-y-2">
+          <p className="text-lg font-semibold">{profile.displayName || profile.username}</p>
+          <p className="text-sm text-muted-foreground">@{profile.username}</p>
+          <p className="text-sm text-muted-foreground">{profile.bio || "No bio yet."}</p>
+          <p className="text-sm text-muted-foreground">{profile.location || "No location yet."}</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Personal Bests</CardTitle>
+          <CardTitle>Edit Profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {personalBests.map((pb) => (
-            <div key={pb.id} className="flex items-center justify-between rounded-md border p-3">
-              <div>
-                <p className="font-semibold">{pb.discipline}</p>
-                <p className="text-sm text-muted-foreground">
-                  {pb.resultValue} {pb.resultUnit} • {pb.visibility}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  deletePersonalBest.mutate(pb.id);
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          ))}
+          <Input
+            placeholder="Display name"
+            value={currentDisplayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+          />
+          <Textarea
+            placeholder="Bio"
+            value={currentBio}
+            onChange={(event) => setBio(event.target.value)}
+          />
+          <Input
+            placeholder="Coarse location"
+            value={currentLocation}
+            onChange={(event) => setLocation(event.target.value)}
+          />
+          <Button
+            disabled={updateProfile.isPending}
+            onClick={() => {
+              updateProfile.mutate({
+                displayName: currentDisplayName,
+                bio: currentBio,
+                location: currentLocation,
+              });
+            }}
+          >
+            Save Profile
+          </Button>
+        </CardContent>
+      </Card>
 
-          <div className="grid gap-2 md:grid-cols-4">
-            <select
-              className="rounded-md border bg-background px-3 py-2 text-sm"
-              value={newPbDiscipline}
-              onChange={(event) => setNewPbDiscipline(event.target.value as CreatePersonalBestRequest["discipline"])}
-            >
-              {["STA", "DYN", "DYNB", "DNF", "CWT", "CWTB", "FIM", "CNF", "VWT", "OTHER"].map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-            <Input value={newPbValue} onChange={(event) => setNewPbValue(event.target.value)} placeholder="Value" />
-            <Input value={newPbUnit} onChange={(event) => setNewPbUnit(event.target.value)} placeholder="Unit" />
+      <Card>
+        <CardHeader>
+          <CardTitle>Safety: Blocks</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="User ID to block"
+              value={blockedUserId}
+              onChange={(event) => setBlockedUserId(event.target.value)}
+            />
             <Button
+              disabled={!blockedUserId.trim() || blockUser.isPending}
               onClick={() => {
-                if (!newPbValue.trim()) return;
-                createPersonalBest.mutate({
-                  discipline: newPbDiscipline,
-                  resultValue: newPbValue,
-                  resultUnit: newPbUnit,
-                  visibility: "PUBLIC",
+                blockUser.mutate(blockedUserId.trim(), {
+                  onSuccess: () => setBlockedUserId(""),
                 });
-                setNewPbValue("");
               }}
             >
-              Add PB
+              Block
             </Button>
+          </div>
+          {blockUser.error ? (
+            <p className="text-sm text-destructive">{getApiErrorMessage(blockUser.error, "Failed to block user")}</p>
+          ) : null}
+
+          <div className="space-y-2">
+            {blockedUsers?.items?.length ? (
+              blockedUsers.items.map((item) => (
+                <div key={item.blockedUserId} className="flex items-center justify-between rounded-md border p-2">
+                  <div>
+                    <p className="text-sm font-medium">{item.displayName || item.username}</p>
+                    <p className="text-xs text-muted-foreground">{item.blockedUserId}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      unblockUser.mutate(item.blockedUserId);
+                    }}
+                  >
+                    Unblock
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No blocked users yet.</p>
+            )}
           </div>
         </CardContent>
       </Card>

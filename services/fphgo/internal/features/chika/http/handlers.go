@@ -49,10 +49,16 @@ func (h *Handlers) CreateThread(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListThreads(w http.ResponseWriter, r *http.Request) {
+	actor, err := requireActor(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
 	limit, offset := parsePagination(r)
 	items, err := h.service.ListThreads(r.Context(), chikaservice.ListThreadsInput{
-		Limit:  limit,
-		Offset: offset,
+		ViewerID: actor.ID,
+		Limit:    limit,
+		Offset:   offset,
 	})
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
@@ -159,10 +165,16 @@ func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListPosts(w http.ResponseWriter, r *http.Request) {
+	actor, err := requireActor(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
 	threadID := chi.URLParam(r, "threadId")
 	limit, offset := parsePagination(r)
 	items, err := h.service.ListPosts(r.Context(), chikaservice.ListThreadPostsInput{
 		ThreadID: threadID,
+		ViewerID: actor.ID,
 		Limit:    limit,
 		Offset:   offset,
 	})
@@ -212,10 +224,16 @@ func (h *Handlers) CreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListComments(w http.ResponseWriter, r *http.Request) {
+	actor, err := requireActor(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
 	threadID := chi.URLParam(r, "threadId")
 	limit, offset := parsePagination(r)
 	items, err := h.service.ListComments(r.Context(), chikaservice.ListThreadCommentsInput{
 		ThreadID: threadID,
+		ViewerID: actor.ID,
 		Limit:    limit,
 		Offset:   offset,
 	})
