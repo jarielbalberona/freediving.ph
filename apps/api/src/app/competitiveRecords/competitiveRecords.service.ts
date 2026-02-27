@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull } from "drizzle-orm";
 
 import DrizzleService from "@/databases/drizzle/service";
 import { competitiveRecords } from "@/models/drizzle/futureModules.model";
@@ -16,29 +16,19 @@ import type {
 export default class CompetitiveRecordsService extends DrizzleService {
 	async list(query: CompetitiveRecordQuerySchemaType) {
 		try {
-			let diveSpotEventFilter:
-				| ReturnType<typeof or>
-				| undefined;
 			if (query.diveSpotId) {
 				const diveSpot = await this.db.query.diveSpots.findFirst({
 					where: and(eq(diveSpots.id, query.diveSpotId), eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
-					columns: {
-						name: true,
-						locationName: true
-					}
+					columns: { id: true }
 				});
 				if (!diveSpot) {
 					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
 				}
-				diveSpotEventFilter = or(
-					ilike(competitiveRecords.eventName, `%${diveSpot.name}%`),
-					diveSpot.locationName ? ilike(competitiveRecords.eventName, `%${diveSpot.locationName}%`) : undefined
-				);
 			}
 
 			const rows = await this.db.query.competitiveRecords.findMany({
 				where: and(
-					diveSpotEventFilter,
+					query.diveSpotId ? eq(competitiveRecords.diveSpotId, query.diveSpotId) : undefined,
 					query.discipline ? ilike(competitiveRecords.discipline, `%${query.discipline}%`) : undefined,
 					query.athlete ? ilike(competitiveRecords.athleteName, `%${query.athlete}%`) : undefined,
           query.eventName ? ilike(competitiveRecords.eventName, `%${query.eventName}%`) : undefined,
@@ -54,9 +44,19 @@ export default class CompetitiveRecordsService extends DrizzleService {
     }
   }
 
-  async create(userId: number, payload: CompetitiveRecordCreateSchemaType) {
-    try {
-      const unitByDiscipline: Record<string, string[]> = {
+	async create(userId: number, payload: CompetitiveRecordCreateSchemaType) {
+		try {
+			if (payload.diveSpotId) {
+				const diveSpot = await this.db.query.diveSpots.findFirst({
+					where: and(eq(diveSpots.id, payload.diveSpotId), eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
+					columns: { id: true }
+				});
+				if (!diveSpot) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
+				}
+			}
+
+			const unitByDiscipline: Record<string, string[]> = {
         STA: ["sec", "s"],
         DYN: ["m"],
         DYNB: ["m"],
@@ -102,6 +102,7 @@ export default class CompetitiveRecordsService extends DrizzleService {
           resultUnit: payload.resultUnit,
           eventName: payload.eventName,
           eventDate: payload.eventDate,
+          diveSpotId: payload.diveSpotId ?? null,
           sourceUrl: payload.sourceUrl,
           verificationState: "UNVERIFIED",
         })

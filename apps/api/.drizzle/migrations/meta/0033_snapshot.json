@@ -1,5 +1,5 @@
 {
-  "id": "857196b2-633c-4148-8e9a-7f24e70d9ce2",
+  "id": "738e7456-4194-4af5-9ed4-56c9c82e35ba",
   "prevId": "bfe0d0b6-4a97-4efd-b5bf-a546b95c7395",
   "version": "7",
   "dialect": "postgresql",
@@ -2468,6 +2468,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "dive_spot_id": {
+          "name": "dive_spot_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "settings": {
           "name": "settings",
           "type": "text",
@@ -2516,6 +2522,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "events_dive_spot_idx": {
+          "name": "events_dive_spot_idx",
+          "columns": [
+            {
+              "expression": "dive_spot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -2525,6 +2546,19 @@
           "tableTo": "groups",
           "columnsFrom": [
             "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "events_dive_spot_id_dive_spots_id_fk": {
+          "name": "events_dive_spot_id_dive_spots_id_fk",
+          "tableFrom": "events",
+          "tableTo": "dive_spots",
+          "columnsFrom": [
+            "dive_spot_id"
           ],
           "columnsTo": [
             "id"
@@ -2826,6 +2860,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "dive_spot_id": {
+          "name": "dive_spot_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "verification_state": {
           "name": "verification_state",
           "type": "competitive_record_verification",
@@ -2906,6 +2946,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "competitive_records_dive_spot_idx": {
+          "name": "competitive_records_dive_spot_idx",
+          "columns": [
+            {
+              "expression": "dive_spot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -2915,6 +2970,19 @@
           "tableTo": "app_users",
           "columnsFrom": [
             "submitted_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "competitive_records_dive_spot_id_dive_spots_id_fk": {
+          "name": "competitive_records_dive_spot_id_dive_spots_id_fk",
+          "tableFrom": "competitive_records",
+          "tableTo": "dive_spots",
+          "columnsFrom": [
+            "dive_spot_id"
           ],
           "columnsTo": [
             "id"
@@ -6613,97 +6681,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.reviews": {
-      "name": "reviews",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "spot_id": {
-          "name": "spot_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "shop_id": {
-          "name": "shop_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rating": {
-          "name": "rating",
-          "type": "rating_enum",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "comment": {
-          "name": "comment",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "reviews_spot_id_dive_spots_id_fk": {
-          "name": "reviews_spot_id_dive_spots_id_fk",
-          "tableFrom": "reviews",
-          "tableTo": "dive_spots",
-          "columnsFrom": [
-            "spot_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "reviews_shop_id_dive_shops_id_fk": {
-          "name": "reviews_shop_id_dive_shops_id_fk",
-          "tableFrom": "reviews",
-          "tableTo": "dive_shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.service_areas": {
       "name": "service_areas",
       "schema": "",
@@ -8753,17 +8730,6 @@
         "reviewing",
         "resolved",
         "rejected"
-      ]
-    },
-    "public.rating_enum": {
-      "name": "rating_enum",
-      "schema": "public",
-      "values": [
-        "1",
-        "2",
-        "3",
-        "4",
-        "5"
       ]
     },
     "public.reaction_type": {

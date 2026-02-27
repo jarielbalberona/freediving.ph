@@ -6,6 +6,7 @@ Monorepo for the Freediving Philippines platform.
 
 - `apps/api`: Express 5 + TypeScript API, route modules, middleware, Drizzle models/migrations, seeding.
 - `apps/web`: Next.js 15 (App Router) frontend.
+- `services/*`: non-Node services (for example Go backends).
 - `packages/types`: shared DTO/envelope contracts used by API and web.
 - `packages/config`: shared runtime constants/config helpers.
 - `packages/utils`: shared utility functions.
@@ -109,7 +110,43 @@ pnpm dev:api
 pnpm dev:web
 pnpm build:api
 pnpm build:web
+pnpm dev:go
+pnpm test:go
+pnpm sqlc:go
+pnpm migrate:go
 ```
+
+## Go services (`services/`)
+
+Go and other non-Node services live under `services/`. The first service is:
+
+- `services/fph-api-go`
+
+`pnpm` does not manage Go dependencies for this folder. It only proxies Make targets via root scripts.
+
+### Run `fph-api-go` locally
+
+From repo root:
+
+```bash
+pnpm dev:go
+```
+
+Other convenience commands:
+
+```bash
+pnpm test:go
+pnpm sqlc:go
+pnpm migrate:go
+```
+
+### Prerequisites for `fph-api-go`
+
+- Go 1.26
+- `sqlc`
+- PostgreSQL
+
+`goose` is executed via `go run` from the service Makefile, so no global `goose` binary install is required.
 
 ## Workspace commands
 
@@ -149,16 +186,25 @@ Schema and migrations are under:
 
 ## Docker (local)
 
-Run only PostgreSQL in Docker (API and web run locally with `pnpm dev`):
+Run PostgreSQL and the Go API in Docker:
 
 ```bash
-docker compose up -d database
+docker compose up -d database fph-api-go
 ```
 
-Use this database URL in `apps/api/.env`:
+For local Node API development (`apps/api/.env`) with Docker Postgres:
 
 ```bash
 DATABASE_URL=postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph
+```
+
+For local Go API development (`services/fph-api-go/.env`):
+
+```bash
+DB_DSN=postgres://postgres:postgres@localhost:5432/fph?sslmode=disable
+PORT=4000
+APP_ENV=development
+CORS_ORIGINS=http://localhost:3000
 ```
 
 ## Deployment

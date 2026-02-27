@@ -17,6 +17,7 @@ import {
 import { ModeSwitcher } from "@/components/ui/mode-switcher";
 
 import "./globals.css";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const metadata: Metadata = {
   title: {
@@ -66,6 +67,7 @@ export default async function RootLayout({
             disableTransitionOnChange
           >
             <ReactQueryProvider>
+              <TooltipProvider>
               <SidebarProvider defaultOpen={defaultOpen}>
                 <AppSidebar />
                 <SidebarInset>
@@ -80,6 +82,7 @@ export default async function RootLayout({
                   {children}
                 </SidebarInset>
               </SidebarProvider>
+              </TooltipProvider>
               <Toaster />
               <Analytics />
             </ReactQueryProvider>

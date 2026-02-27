@@ -370,7 +370,7 @@ export default class DiveSpotService extends DrizzleService {
 
 			const [savedReview] = await this.db.transaction(async (tx) => {
 				const existing = await tx
-					.select({ id: diveSpotRatings.id })
+					.select({ id: diveSpotRatings.id, review: diveSpotRatings.review })
 					.from(diveSpotRatings)
 					.where(and(eq(diveSpotRatings.diveSpotId, id), eq(diveSpotRatings.userId, userId)))
 					.limit(1);
@@ -380,17 +380,36 @@ export default class DiveSpotService extends DrizzleService {
 						.update(diveSpotRatings)
 						.set({
 							rating: payload.rating,
-							review: payload.comment ?? null
+							review: payload.comment?.trim() ?? existing[0].review ?? null
 						})
 						.where(eq(diveSpotRatings.id, existing[0].id))
 						.returning();
+					const trimmedComment = payload.comment?.trim();
+					if (trimmedComment) {
+						const existingTopLevelComment = await tx
+							.select({ id: diveSpotComments.id })
+							.from(diveSpotComments)
+							.where(
+								and(
+									eq(diveSpotComments.diveSpotId, id),
+									eq(diveSpotComments.userId, userId),
+									isNull(diveSpotComments.parentId)
+								)
+							)
+							.limit(1);
 
-					if (payload.comment?.trim()) {
-						await tx.insert(diveSpotComments).values({
-							diveSpotId: id,
-							userId,
-							content: payload.comment.trim()
-						});
+						if (existingTopLevelComment[0]) {
+							await tx
+								.update(diveSpotComments)
+								.set({ content: trimmedComment })
+								.where(eq(diveSpotComments.id, existingTopLevelComment[0].id));
+						} else {
+							await tx.insert(diveSpotComments).values({
+								diveSpotId: id,
+								userId,
+								content: trimmedComment
+							});
+						}
 					}
 
 					return updated;
@@ -406,11 +425,12 @@ export default class DiveSpotService extends DrizzleService {
 					})
 					.returning();
 
-				if (payload.comment?.trim()) {
+				const trimmedComment = payload.comment?.trim();
+				if (trimmedComment) {
 					await tx.insert(diveSpotComments).values({
 						diveSpotId: id,
 						userId,
-						content: payload.comment.trim()
+						content: trimmedComment
 					});
 				}
 

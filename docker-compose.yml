@@ -1,16 +1,31 @@
 services:
   database:
     container_name: database
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     restart: always
     environment:
-      POSTGRES_USER: fphbuddies
-      POSTGRES_PASSWORD: fphbuddiespw
-      POSTGRES_DB: freedivingph
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fph
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  fph-api-go:
+    container_name: fph-api-go
+    build:
+      context: ./services/fph-api-go
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - database
+    env_file:
+      - ./services/fph-api-go/.env
+    environment:
+      DB_DSN: postgres://postgres:postgres@database:5432/fph?sslmode=disable
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./services/fph-api-go:/app
 volumes:
   pgdata:

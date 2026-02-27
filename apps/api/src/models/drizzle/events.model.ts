@@ -15,6 +15,7 @@ import {
 import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model";
 import { groups } from "./groups.model";
+import { diveSpots } from "./diveSpots.model";
 
 // Event types enum
 export const EVENT_TYPE = pgEnum("event_type", [
@@ -123,6 +124,7 @@ export const events = pgTable("events", {
 
   // Group association (if event is created by a group)
   groupId: integer("group_id").references(() => groups.id, { onDelete: "set null" }),
+  diveSpotId: integer("dive_spot_id").references(() => diveSpots.id, { onDelete: "set null" }),
 
   // Event settings
   settings: text("settings"), // JSON for additional event settings
@@ -131,6 +133,7 @@ export const events = pgTable("events", {
   ...timestamps
 }, (table) => ({
   startDateStatusIdx: index("events_start_date_status_idx").on(table.startDate, table.status),
+  diveSpotIdx: index("events_dive_spot_idx").on(table.diveSpotId),
 }));
 
 // Event Attendees Table

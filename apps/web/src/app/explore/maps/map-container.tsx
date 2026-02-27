@@ -50,11 +50,43 @@ const toBounds = (event: MapCameraChangedEvent): Bounds | null => {
 const hasCoordinates = (spot: DiveSpotMarker): spot is DiveSpotMarker & { lat: number; lng: number } =>
   typeof spot.lat === "number" && typeof spot.lng === "number";
 
-const getMarkerLimit = (zoom: number) => {
-  if (zoom < 7) return 80;
-  if (zoom < 8) return 150;
-  if (zoom < 9) return 300;
-  return 600;
+type ClusterNode = {
+  lat: number;
+  lng: number;
+  spotIds: number[];
+};
+
+const toWorld = (lat: number, lng: number, zoom: number) => {
+  const scale = 256 * 2 ** zoom;
+  const sinLat = Math.sin((lat * Math.PI) / 180);
+  const x = ((lng + 180) / 360) * scale;
+  const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale;
+  return { x, y };
+};
+
+const clusterSpots = (spots: Array<DiveSpotMarker & { lat: number; lng: number }>, zoom: number): ClusterNode[] => {
+  const gridSize = zoom >= 11 ? 42 : zoom >= 9 ? 54 : zoom >= 8 ? 64 : 72;
+  const buckets = new globalThis.Map<string, ClusterNode>();
+
+  for (const spot of spots) {
+    const world = toWorld(spot.lat, spot.lng, zoom);
+    const key = `${Math.floor(world.x / gridSize)}:${Math.floor(world.y / gridSize)}`;
+    const existing = buckets.get(key);
+    if (!existing) {
+      buckets.set(key, {
+        lat: spot.lat,
+        lng: spot.lng,
+        spotIds: [spot.id],
+      });
+      continue;
+    }
+    const nextCount = existing.spotIds.length + 1;
+    existing.lat = (existing.lat * existing.spotIds.length + spot.lat) / nextCount;
+    existing.lng = (existing.lng * existing.spotIds.length + spot.lng) / nextCount;
+    existing.spotIds.push(spot.id);
+  }
+
+  return Array.from(buckets.values());
 };
 
 const MapComponent = ({
@@ -89,25 +121,18 @@ const MapRenderer = ({
   const resolvedCenter = center ?? defaultMapCenter;
   const resolvedZoom = zoom ?? 6.4;
 
-  const renderableSpots = React.useMemo(() => {
+  const clusteredSpots = React.useMemo(() => {
     const spots = freedivingSpots.filter(hasCoordinates);
-    const markerLimit = getMarkerLimit(resolvedZoom);
-    if (spots.length <= markerLimit) return spots;
-
-    const step = Math.max(Math.ceil(spots.length / markerLimit), 1);
-    const sampled = spots.filter((_, index) => index % step === 0);
-    if (selectedSpotId && !sampled.some((spot) => spot.id === selectedSpotId)) {
-      const selected = spots.find((spot) => spot.id === selectedSpotId);
-      if (selected) sampled.unshift(selected);
-    }
-    return sampled.slice(0, markerLimit);
-  }, [freedivingSpots, resolvedZoom, selectedSpotId]);
+    return clusterSpots(spots, Math.max(resolvedZoom, 6));
+  }, [freedivingSpots, resolvedZoom]);
 
   return (
     <div className="h-full w-full">
       <Map
         defaultCenter={resolvedCenter}
         defaultZoom={resolvedZoom}
+        center={resolvedCenter}
+        zoom={resolvedZoom}
         minZoom={6.2}
         gestureHandling="greedy"
         disableDefaultUI={false}
@@ -134,15 +159,29 @@ const MapRenderer = ({
           }
         }}
       >
-        {renderableSpots.map((spot) => (
+        {clusteredSpots.map((cluster, index) => {
+          const primarySpotId = cluster.spotIds[0];
+          const isSingle = cluster.spotIds.length === 1;
+          const isSelected = selectedSpotId !== null && cluster.spotIds.includes(selectedSpotId);
+          return (
           <Marker
-            key={spot.id}
-            position={{ lat: spot.lat, lng: spot.lng }}
-            onClick={() => onSpotSelect(spot.id)}
-            zIndex={spot.id === selectedSpotId ? 3 : 1}
-            label={spot.id === selectedSpotId ? "★" : undefined}
+            key={`${index}-${primarySpotId}`}
+            position={{ lat: cluster.lat, lng: cluster.lng }}
+            onClick={() => {
+              if (isSingle) {
+                onSpotSelect(primarySpotId);
+                return;
+              }
+              onCameraStateChange?.({
+                center: { lat: cluster.lat, lng: cluster.lng },
+                zoom: Math.min(resolvedZoom + 1.2, 14),
+              });
+            }}
+            zIndex={isSelected ? 3 : isSingle ? 2 : 1}
+            label={isSelected ? "★" : isSingle ? undefined : String(cluster.spotIds.length)}
           />
-        ))}
+          );
+        })}
       </Map>
     </div>
   );

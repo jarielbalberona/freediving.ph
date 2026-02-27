@@ -7,6 +7,7 @@ export const CompetitiveRecordCreateSchema = z.object({
   resultUnit: z.string().trim().min(1).max(20),
   eventName: z.string().trim().min(2).max(200),
   eventDate: z.coerce.date(),
+  diveSpotId: z.coerce.number().int().positive().optional(),
   sourceUrl: z.string().url().optional(),
 });
 

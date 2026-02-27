@@ -229,8 +229,15 @@
     {
       "idx": 32,
       "version": "7",
-      "when": 1771344694242,
-      "tag": "0032_loud_chronomancer",
+      "when": 1771401600000,
+      "tag": "0032_events_records_dive_spot_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1771347903367,
+      "tag": "0033_careful_longshot",
       "breakpoints": true
     }
   ]

@@ -1,6 +1,8 @@
 import type { Config } from "drizzle-kit";
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString =
+  process.env.DATABASE_URL ??
+  "postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph";
 
 export default {
   dialect: "postgresql",
@@ -8,5 +10,5 @@ export default {
   out: "../../apps/api/.drizzle/migrations/",
   dbCredentials: { url: connectionString },
   verbose: true,
-  strict: true
+  strict: true,
 } as Config;

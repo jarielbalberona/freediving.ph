@@ -47,8 +47,8 @@ export const useExploreUrlState = () => {
     initialize({
       viewMode: urlView === "map" || urlView === "list" ? urlView : undefined,
       filters: {
-        search: urlSearch ?? undefined,
-        location: urlLocation ?? undefined,
+        search: urlSearch ?? "",
+        location: urlLocation ?? "",
         difficulty:
           urlDifficulty === "ALL" ||
           urlDifficulty === "BEGINNER" ||
@@ -78,8 +78,8 @@ export const useExploreUrlState = () => {
     timeoutRef.current = setTimeout(() => {
       const nextParams = new URLSearchParams();
       nextParams.set("view", viewMode);
-      if (filters.search.trim()) nextParams.set("search", filters.search.trim());
-      if (filters.location.trim()) nextParams.set("location", filters.location.trim());
+      if ((filters.search ?? "").trim()) nextParams.set("search", (filters.search ?? "").trim());
+      if ((filters.location ?? "").trim()) nextParams.set("location", (filters.location ?? "").trim());
       if (filters.difficulty !== "ALL") nextParams.set("difficulty", filters.difficulty);
       if (filters.sort !== "newest") nextParams.set("sort", filters.sort);
       if (selectedSpotId) nextParams.set("spotId", String(selectedSpotId));

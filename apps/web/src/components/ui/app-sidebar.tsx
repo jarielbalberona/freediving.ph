@@ -14,10 +14,9 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import Link from "next/link";
 
-export function AppSidebar({
-  ...props
-}: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -35,26 +34,28 @@ export function AppSidebar({
             <SignedIn>
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.title} className="">
-                  <SidebarMenuButton asChild>
-                    <a href={item.url} className="p-6">
+                  <SidebarMenuButton>
+                    <Link href={item.url} className="flex items-center gap-2">
                       <item.icon />
-                      <span className="text-base">{item.title}</span>
-                    </a>
+                      <span className="text-sm">{item.title}</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SignedIn>
             <SignedOut>
-              {navigation.filter((nav) => !nav.isProtected).map((item) => (
-                <SidebarMenuItem key={item.title} className="">
-                  <SidebarMenuButton asChild>
-                    <a href={item.url} className="p-6">
-                      <item.icon />
-                      <span className="text-base">{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {navigation
+                .filter((nav) => !nav.isProtected)
+                .map((item) => (
+                  <SidebarMenuItem key={item.title} className="">
+                    <SidebarMenuButton>
+                      <Link href={item.url} className="flex items-center gap-2">
+                        <item.icon />
+                        <span className="text-sm">{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
             </SignedOut>
           </SidebarMenu>
         </SidebarGroup>

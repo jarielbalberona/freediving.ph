@@ -29,9 +29,9 @@ test("phase 2 introduces centralized explore store and URL sync hook", async () 
 test("phase 3 hardens map marker rendering for high-density payloads", async () => {
   const source = await readFile(mapContainerPath, "utf8");
 
-  assert.match(source, /getMarkerLimit/);
-  assert.match(source, /spots\.length <= markerLimit/);
-  assert.match(source, /label=\{spot\.id === selectedSpotId \? "★" : undefined\}/);
+  assert.match(source, /clusterSpots/);
+  assert.match(source, /gridSize/);
+  assert.match(source, /label=\{isSelected \? "★" : isSingle \? undefined : String\(cluster\.spotIds\.length\)\}/);
 });
 
 test("phase 4 and 5 wire detail sheet and review APIs", async () => {

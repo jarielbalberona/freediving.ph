@@ -24,6 +24,8 @@ declare module "@vis.gl/react-google-maps" {
     className?: string;
     defaultCenter?: { lat: number; lng: number };
     defaultZoom?: number;
+    center?: { lat: number; lng: number };
+    zoom?: number;
     minZoom?: number;
     gestureHandling?: string;
     disableDefaultUI?: boolean;

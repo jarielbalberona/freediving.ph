@@ -21,12 +21,27 @@ type DiveSpotDetailSheetProps = {
 };
 
 export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: DiveSpotDetailSheetProps) {
+  const parseQueryError = (error: unknown) => {
+    if (typeof error === "object" && error !== null && "response" in error) {
+      const response = (error as { response?: { status?: number } }).response;
+      if (response?.status === 401) return "Sign in required for this section.";
+      if (response?.status === 403) return "You do not have access to this section.";
+      if (response?.status === 404) return "No linked data found.";
+    }
+    return "Unable to load data.";
+  };
+
   const { isSignedIn } = useUser();
   const { data, isLoading, isError } = useDiveSpot(spotId ?? 0);
   const { data: reviewSummary } = useDiveSpotReviewSummary(spotId ?? 0);
   const { data: reviews = [], isLoading: isReviewsLoading } = useDiveSpotReviews(spotId ?? 0);
   const createReview = useCreateDiveSpotReview();
-  const { data: relatedEvents = [], isLoading: isRelatedEventsLoading } = useQuery({
+  const {
+    data: relatedEvents = [],
+    isLoading: isRelatedEventsLoading,
+    isError: isRelatedEventsError,
+    error: relatedEventsError,
+  } = useQuery({
     queryKey: ["dive-spot-related-events", spotId],
     queryFn: async () => {
       const response = await axiosInstance.get(`/events?diveSpotId=${spotId}&limit=5&offset=0`);
@@ -35,7 +50,12 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
     enabled: open && !!spotId,
     staleTime: 60 * 1000,
   });
-  const { data: relatedBuddies = [], isLoading: isRelatedBuddiesLoading } = useQuery({
+  const {
+    data: relatedBuddies = [],
+    isLoading: isRelatedBuddiesLoading,
+    isError: isRelatedBuddiesError,
+    error: relatedBuddiesError,
+  } = useQuery({
     queryKey: ["dive-spot-related-buddies", spotId],
     queryFn: async () => {
       const response = await axiosInstance.get(`/buddies/available?diveSpotId=${spotId}&limit=5&offset=0`);
@@ -45,7 +65,12 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
     staleTime: 60 * 1000,
     retry: false,
   });
-  const { data: relatedRecords = [], isLoading: isRelatedRecordsLoading } = useQuery({
+  const {
+    data: relatedRecords = [],
+    isLoading: isRelatedRecordsLoading,
+    isError: isRelatedRecordsError,
+    error: relatedRecordsError,
+  } = useQuery({
     queryKey: ["dive-spot-related-records", spotId],
     queryFn: async () => {
       const response = await axiosInstance.get(`/records?diveSpotId=${spotId}&limit=5&offset=0`);
@@ -208,6 +233,8 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
                 <p className="text-sm text-muted-foreground">Sign in to see nearby buddy availability.</p>
               ) : isRelatedBuddiesLoading ? (
                 <p className="text-sm text-muted-foreground">Loading buddy availability...</p>
+              ) : isRelatedBuddiesError ? (
+                <p className="text-sm text-muted-foreground">{parseQueryError(relatedBuddiesError)}</p>
               ) : relatedBuddies.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No buddy availability data for this spot yet.</p>
               ) : (
@@ -226,6 +253,8 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
               <h3 className="text-sm font-semibold">Upcoming Events</h3>
               {isRelatedEventsLoading ? (
                 <p className="text-sm text-muted-foreground">Loading related events...</p>
+              ) : isRelatedEventsError ? (
+                <p className="text-sm text-muted-foreground">{parseQueryError(relatedEventsError)}</p>
               ) : relatedEvents.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No event data linked to this spot yet.</p>
               ) : (
@@ -244,6 +273,8 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
               <h3 className="text-sm font-semibold">Notable Records</h3>
               {isRelatedRecordsLoading ? (
                 <p className="text-sm text-muted-foreground">Loading related records...</p>
+              ) : isRelatedRecordsError ? (
+                <p className="text-sm text-muted-foreground">{parseQueryError(relatedRecordsError)}</p>
               ) : relatedRecords.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No competitive records linked to this spot yet.</p>
               ) : (

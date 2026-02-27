@@ -29,6 +29,9 @@ out/
 dist/
 build/
 
+# Go / Air build output
+**/tmp/
+
 # Miscellaneous
 .DS_Store
 .vscode/

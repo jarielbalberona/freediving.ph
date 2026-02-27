@@ -2,6 +2,7 @@ import { index, integer, pgEnum, pgTable, serial, text, timestamp, varchar } fro
 
 import { timestamps } from "../../databases/drizzle/helpers";
 import { users } from "./authentication.model";
+import { diveSpots } from "./diveSpots.model";
 
 export const COMPETITIVE_RECORD_VERIFICATION = pgEnum("competitive_record_verification", ["UNVERIFIED", "VERIFIED", "REJECTED"]);
 
@@ -17,6 +18,7 @@ export const competitiveRecords = pgTable(
     eventName: varchar("event_name", { length: 200 }).notNull(),
     eventDate: timestamp("event_date", { withTimezone: true }).notNull(),
     sourceUrl: text("source_url"),
+    diveSpotId: integer("dive_spot_id").references(() => diveSpots.id, { onDelete: "set null" }),
     verificationState: COMPETITIVE_RECORD_VERIFICATION("verification_state").default("UNVERIFIED").notNull(),
     verificationNote: text("verification_note"),
     verifiedByUserId: integer("verified_by_user_id").references(() => users.id, { onDelete: "set null" }),
@@ -26,6 +28,7 @@ export const competitiveRecords = pgTable(
     athleteIdx: index("competitive_records_athlete_idx").on(table.athleteName),
     eventIdx: index("competitive_records_event_idx").on(table.eventName),
     disciplineIdx: index("competitive_records_discipline_idx").on(table.discipline),
+    diveSpotIdx: index("competitive_records_dive_spot_idx").on(table.diveSpotId),
   }),
 );
 

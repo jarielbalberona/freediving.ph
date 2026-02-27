@@ -32,6 +32,16 @@ export default class EventsService extends DrizzleService {
 				);
 			}
 
+			if (data.diveSpotId) {
+				const diveSpot = await this.db.query.diveSpots.findFirst({
+					where: and(eq(diveSpots.id, data.diveSpotId), eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
+					columns: { id: true }
+				});
+				if (!diveSpot) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
+				}
+			}
+
 			// Convert price to string for decimal field
 			const insertData = {
 				...data,
@@ -136,6 +146,16 @@ export default class EventsService extends DrizzleService {
 				}
 			}
 
+			if (data.diveSpotId) {
+				const diveSpot = await this.db.query.diveSpots.findFirst({
+					where: and(eq(diveSpots.id, data.diveSpotId), eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
+					columns: { id: true }
+				});
+				if (!diveSpot) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
+				}
+			}
+
 			// Convert price to string for decimal field
 			const updateData = {
 				...data,
@@ -199,29 +219,22 @@ export default class EventsService extends DrizzleService {
 
 	async retrieveAll(query: EventsListQuerySchemaType, viewerUserId: number | null = null) {
 		try {
-			let derivedLocationTerms: string[] = [];
 			if (query.diveSpotId) {
 				const diveSpot = await this.db.query.diveSpots.findFirst({
 					where: and(eq(diveSpots.id, query.diveSpotId), eq(diveSpots.state, "PUBLISHED"), isNull(diveSpots.deletedAt)),
-					columns: {
-						name: true,
-						locationName: true
-					}
+					columns: { id: true }
 				});
 				if (!diveSpot) {
 					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Dive spot not found");
 				}
-				derivedLocationTerms = [diveSpot.name, diveSpot.locationName].filter((value): value is string => Boolean(value));
 			}
 
 			const whereConditions = and(
 				isNull(events.deletedAt),
+				query.diveSpotId ? eq(events.diveSpotId, query.diveSpotId) : undefined,
 				query.status ? eq(events.status, query.status) : eq(events.status, "PUBLISHED"),
 				query.search ? sql`${events.title} ILIKE ${`%${query.search}%`}` : undefined,
-				query.location ? sql`${events.location} ILIKE ${`%${query.location}%`}` : undefined,
-				derivedLocationTerms.length > 0
-					? sql`(${events.location} ILIKE ${`%${derivedLocationTerms[0]}%`} OR ${events.location} ILIKE ${`%${derivedLocationTerms[1] ?? derivedLocationTerms[0]}%`})`
-					: undefined
+				query.location ? sql`${events.location} ILIKE ${`%${query.location}%`}` : undefined
 			);
 
 			const totalRows = await this.db

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { zodMessages } from "@/core/messages";
 import { PaginationQuerySchema } from "@/validators/pagination.schema";
 
 export const EventsServerSchema = z.object({
@@ -20,6 +19,7 @@ export const EventsServerSchema = z.object({
 		required_error: "Organizer type is required",
 		invalid_type_error: "Organizer type must be either USER or GROUP"
 	}),
+	diveSpotId: z.number().int().positive("Dive spot ID must be a positive integer").optional(),
 	maxAttendees: z.number().int().positive("Max attendees must be a positive integer").optional(),
 	registrationDeadline: z.coerce.date({
 		required_error: "Registration deadline is required",
@@ -67,6 +67,7 @@ export const EventsUpdateSchema = z.object({
 	price: z.number().min(0, "Price must be non-negative").optional(),
 	earlyBirdPrice: z.number().min(0, "Early bird price must be non-negative").optional(),
 	currency: z.string().length(3, "Currency must be a 3-letter code").optional(),
+	diveSpotId: z.number().int().positive("Dive spot ID must be a positive integer").optional(),
 });
 
 export const EventAttendeeSchema = z.object({

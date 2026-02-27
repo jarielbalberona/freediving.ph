@@ -227,6 +227,7 @@ export interface Event {
   currency?: string;
   imageUrl?: string;
   organizerId: number;
+  diveSpotId?: number;
   organizerName: string;
   organizerEmail: string;
   requirements?: string;
@@ -266,6 +267,7 @@ export interface CreateEventRequest {
   equipment?: string;
   contactInfo?: string;
   tags?: string[];
+  diveSpotId?: number;
   isPublic: boolean;
   allowWaitlist: boolean;
 }
@@ -287,6 +289,7 @@ export interface UpdateEventRequest {
   equipment?: string;
   contactInfo?: string;
   tags?: string[];
+  diveSpotId?: number;
   isPublic?: boolean;
   allowWaitlist?: boolean;
 }
