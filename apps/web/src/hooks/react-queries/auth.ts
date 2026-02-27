@@ -1,40 +1,36 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClerk } from "@clerk/nextjs";
 import { hasMinimumGlobalRole, type GlobalRole } from "@freediving.ph/config";
 
-import { createApiQuery } from "@/lib/api/query";
+import {
+  SESSION_QUERY_KEY,
+  useSession,
+  type MeResponse as SessionMeResponse,
+} from "@/features/auth/session";
 
-interface MePayload {
-  userId: string;
-  clerkSubject: string;
-  globalRole: GlobalRole;
-  accountStatus: "active" | "read_only" | "suspended";
-  permissions: string[];
-  scopes: {
-    group: { groupId: string; role: string } | null;
-    event: { eventId: string; role: string } | null;
+type MePayload = SessionMeResponse;
+
+export function useMe(initialData?: MePayload) {
+  const session = useSession();
+  return {
+    data: session.me ?? initialData,
+    isLoading: session.status === "loading",
+    error: null,
   };
 }
 
-export function useMe(initialData?: MePayload) {
-  return useQuery({
-    queryKey: ["auth", "session"],
-    queryFn: createApiQuery<MePayload>("/v1/auth/session"),
-    retry: false,
-    initialData
-  });
-}
-
 export function usePermissions() {
-  const { data } = useMe();
-  const permissions = data?.permissions ?? [];
-  const role = data?.globalRole;
+  const session = useSession();
+  const permissions = session.permissions;
+  const role = session.me?.globalRole;
 
   return {
     role,
     permissions,
-    hasPermission: (permission: string) => permissions.includes(permission),
-    hasRole: (minimumRole: GlobalRole) => (role ? hasMinimumGlobalRole(role, minimumRole) : false)
+    status: session.status,
+    hasPermission: session.hasPermission,
+    hasRole: (minimumRole: GlobalRole) =>
+      role ? hasMinimumGlobalRole(role, minimumRole) : false
   };
 }
 
@@ -58,7 +54,7 @@ export function useLogin(successCB: (data: unknown) => void) {
       return { status: 302, data: null };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["auth", "session"] });
+      queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
       successCB(data);
     }
   });
@@ -74,7 +70,7 @@ export function useRegister(successCB: (data: unknown) => void) {
       return { status: 302, data: null };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["auth", "session"] });
+      queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
       successCB(data);
     }
   });
@@ -89,7 +85,7 @@ export function useLogout(successCB: (data: unknown) => void) {
       return { status: 200, data: null };
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["auth", "session"], undefined);
+      queryClient.setQueryData(SESSION_QUERY_KEY, undefined);
       successCB(data);
     }
   });

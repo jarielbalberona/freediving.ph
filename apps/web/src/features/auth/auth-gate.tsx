@@ -2,9 +2,8 @@
 
 import { useMemo } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useQuery } from "@tanstack/react-query";
 
-import { apiClient, ApiClientError } from "@/lib/api/client";
+import { useSession } from "@/features/auth/session";
 
 const GLOBAL_ROLE_RANK: Record<string, number> = {
   member: 1,
@@ -13,60 +12,33 @@ const GLOBAL_ROLE_RANK: Record<string, number> = {
   super_admin: 4,
 };
 
-export type SessionContext = {
-  userId: string;
-  clerkSubject: string;
-  globalRole: "member" | "moderator" | "admin" | "super_admin";
-  accountStatus: "active" | "read_only" | "suspended";
-  permissions: string[];
-  scopes: {
-    group: { groupId: string; role: string } | null;
-    event: { eventId: string; role: string } | null;
-  };
-};
-
-export function useAuthSessionContext() {
-  const { user, isLoaded } = useUser();
-
-  return useQuery({
-    queryKey: ["auth", "session"],
-    enabled: isLoaded && !!user,
-    retry: false,
-    queryFn: () => apiClient<SessionContext>("/v1/auth/session"),
-  });
-}
-
 export function useAuthGate() {
-  const sessionQuery = useAuthSessionContext();
-  const session = sessionQuery.data;
+  const session = useSession();
 
   return useMemo(
     () => ({
-      session,
-      isLoading: sessionQuery.isLoading,
-      error: sessionQuery.error,
-      can: (permission: string) => Boolean(session?.permissions.includes(permission)),
-      roleIsAtLeast: (requiredRole: SessionContext["globalRole"]) => {
-        if (!session?.globalRole) {
+      session: session.me,
+      isLoading: session.status === "loading",
+      error: null,
+      can: (permission: string) => Boolean(session.permissions.includes(permission)),
+      roleIsAtLeast: (requiredRole: "member" | "moderator" | "admin" | "super_admin") => {
+        if (!session.me?.globalRole) {
           return false;
         }
-        return GLOBAL_ROLE_RANK[session.globalRole] >= GLOBAL_ROLE_RANK[requiredRole];
+        return GLOBAL_ROLE_RANK[session.me.globalRole] >= GLOBAL_ROLE_RANK[requiredRole];
       },
-      isReadOnly: session?.accountStatus === "read_only",
-      isSuspended: session?.accountStatus === "suspended",
+      isReadOnly: session.me?.accountStatus === "read_only",
+      isSuspended: session.me?.accountStatus === "suspended",
     }),
-    [session, sessionQuery.error, sessionQuery.isLoading],
+    [session],
   );
 }
 
 export function AuthGate() {
   const { user, isLoaded } = useUser();
-  const { isReadOnly, isSuspended, error } = useAuthGate();
+  const { isReadOnly, isSuspended } = useAuthGate();
 
   if (!isLoaded || !user) {
-    return null;
-  }
-  if (error instanceof ApiClientError && error.status === 401) {
     return null;
   }
   if (isSuspended) {

@@ -2,10 +2,12 @@
 
 import type { ReactNode } from "react";
 import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { ShieldAlert } from "lucide-react";
 import type { GlobalRole, PermissionFlag } from "@freediving.ph/config";
 
-import { usePermissions } from "@/hooks/react-queries/auth";
+import { useSession } from "@/features/auth/session";
 import { hasRequiredRole, type AppRole } from "@/lib/auth/roles";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,10 +54,21 @@ export function AuthGuard({
   title = "Sign in required",
   description = "You need to sign in to access this page."
 }: GuardProps) {
+  const router = useRouter();
   const { user, isLoaded } = useUser();
-  const { role } = usePermissions();
+  const session = useSession();
 
-  if (!isLoaded) {
+  const isSessionLoading = !isLoaded || session.status === "loading";
+  const shouldRedirectToSignIn =
+    session.status === "signed_out" || (isLoaded && !user);
+
+  useEffect(() => {
+    if (shouldRedirectToSignIn) {
+      router.replace("/sign-in");
+    }
+  }, [router, shouldRedirectToSignIn]);
+
+  if (shouldRedirectToSignIn) {
     return (
       <div className="container mx-auto p-6">
         <Skeleton className="h-10 w-64" />
@@ -63,11 +76,24 @@ export function AuthGuard({
     );
   }
 
-  if (!user) {
-    return <Blocked title={title} description={description} />;
+  if (isSessionLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <Skeleton className="h-10 w-64" />
+      </div>
+    );
   }
 
-  const appRole = mapGlobalRoleToAppRole(role);
+  if (!session.me) {
+    return (
+      <Blocked
+        title={title}
+        description={description}
+      />
+    );
+  }
+
+  const appRole = mapGlobalRoleToAppRole(session.me.globalRole);
   if (!hasRequiredRole(appRole, requiredRole)) {
     return <Blocked title="Access denied" description="Your role does not allow access to this page." />;
   }
@@ -81,7 +107,12 @@ export function RequireRole({
   title = "Access denied",
   description = "Your role does not allow access to this page."
 }: RoleGuardProps) {
-  const { role } = usePermissions();
+  const session = useSession();
+  const role = session.me?.globalRole;
+
+  if (session.status === "loading") {
+    return null;
+  }
 
   if (!role || !roles.includes(role)) {
     return <Blocked title={title} description={description} />;
@@ -96,9 +127,13 @@ export function RequirePermission({
   title = "Access denied",
   description = "You do not have the required permission for this action."
 }: PermissionGuardProps) {
-  const { hasPermission } = usePermissions();
+  const session = useSession();
 
-  if (!hasPermission(perm)) {
+  if (session.status === "loading") {
+    return null;
+  }
+
+  if (!session.hasPermission(perm)) {
     return <Blocked title={title} description={description} />;
   }
 
