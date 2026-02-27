@@ -109,10 +109,11 @@ export default function MessagesPage() {
             <CardContent className="space-y-2">
               {active.length === 0 ? <p className="text-sm text-muted-foreground">No active conversations.</p> : null}
               {active.map((item) => (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   key={item.conversationId}
-                  className={`w-full rounded-md border p-3 text-left transition-colors ${
+                  className={`w-full rounded-md border p-3 text-left transition-colors h-auto ${
                     item.conversationId === selectedConversationId ? "border-primary bg-accent" : ""
                   }`}
                   onClick={() => {
@@ -125,7 +126,7 @@ export default function MessagesPage() {
                     {item.unreadCount > 0 ? <Badge variant="destructive" className="text-xs">{item.unreadCount}</Badge> : null}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{item.lastMessage?.content}</p>
-                </button>
+                </Button>
               ))}
             </CardContent>
           </Card>

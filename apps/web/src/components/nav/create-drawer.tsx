@@ -7,6 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type CreateDrawerProps = {
@@ -38,15 +39,16 @@ export function CreateDrawer({ open, onOpenChange }: CreateDrawerProps) {
         <ul className="mt-4 flex flex-col gap-0.5">
           {CREATE_OPTIONS.map(({ id, label }) => (
             <li key={id}>
-              <button
+              <Button
                 type="button"
-                onClick={() => handleOption(id)}
+                variant="ghost"
                 className={cn(
-                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full rounded-lg px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full justify-start rounded-lg px-3 py-2.5 text-sm"
                 )}
+                onClick={() => handleOption(id)}
               >
                 {label}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

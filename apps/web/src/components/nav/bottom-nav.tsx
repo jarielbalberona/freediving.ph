@@ -7,6 +7,7 @@ import { useAuth } from "@clerk/nextjs";
 import { Lock } from "lucide-react";
 import { getMainNavItems, isActiveRoute } from "@/config/nav";
 import { useSidebar } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type BottomNavProps = {
@@ -52,32 +53,34 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
 
         if (item.kind === "action") {
           return (
-            <button
+            <Button
               key={item.id}
               type="button"
+              variant="ghost"
+              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex min-w-0 flex-1 flex-col items-center justify-center py-5 transition-colors rounded-none h-auto"
+              aria-label={item.title}
               onClick={() => {
                 if (item.actionId === "create") onOpenCreate();
                 if (item.actionId === "more") setOpenMobile(true);
               }}
-              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex min-w-0 flex-1 flex-col items-center justify-center py-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-              aria-label={item.title}
             >
               {item.icon != null && (
                 <item.icon className="size-6 shrink-0" aria-hidden />
               )}
-            </button>
+            </Button>
           );
         }
 
         if (isProtectedLink) {
           return (
-            <button
+            <Button
               key={item.id}
               type="button"
-              onClick={() => handleItemClick(item)}
-              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex min-w-0 flex-1 flex-col items-center justify-center py-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              variant="ghost"
+              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex min-w-0 flex-1 flex-col items-center justify-center py-5 transition-colors rounded-none h-auto"
               aria-label={`${item.title} (sign in required)`}
               title="Sign in to access"
+              onClick={() => handleItemClick(item)}
             >
               <span className="relative inline-block">
                 {item.icon != null && (
@@ -85,7 +88,7 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
                 )}
                 <Lock className="absolute -right-1.5 -top-0.5 size-3 shrink-0 opacity-80" aria-hidden />
               </span>
-            </button>
+            </Button>
           );
         }
 

@@ -203,9 +203,10 @@ export default function ExploreView() {
               </div>
 
               {selectedSpot && (
-                <button
+                <Button
                   type="button"
-                  className="absolute bottom-4 left-4 max-w-[320px] rounded-lg border bg-background p-3 text-left shadow-lg"
+                  variant="outline"
+                  className="absolute bottom-4 left-4 max-w-[320px] rounded-lg border bg-background p-3 text-left shadow-lg h-auto font-normal"
                   onClick={() => handleSelectSpot(selectedSpot.id)}
                 >
                   <p className="text-sm font-semibold">{selectedSpot.name}</p>
@@ -214,7 +215,7 @@ export default function ExploreView() {
                     Rating {selectedSpot.avgRating?.toFixed(1) ?? "0.0"} ({selectedSpot.ratingCount ?? 0})
                   </p>
                   <p className="mt-1 text-xs font-medium text-primary">Open details</p>
-                </button>
+                </Button>
               )}
 
               <div className="absolute bottom-6 right-6 hidden flex-col gap-2">

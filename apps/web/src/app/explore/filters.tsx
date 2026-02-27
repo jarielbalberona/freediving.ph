@@ -1,5 +1,13 @@
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface FiltersProps {
   search: string;
@@ -43,27 +51,51 @@ export default function Filters({
           value={location}
           onChange={(event) => onLocationChange?.(event.target.value)}
         />
-        <select
+        <Select
           value={difficulty}
-          onChange={(event) => onDifficultyChange(event.target.value)}
-          className="h-10 rounded-md border bg-background px-3 text-sm"
+          onValueChange={(v) => onDifficultyChange(v ?? "ALL")}
+          items={[
+            { value: "ALL", label: "All difficulty" },
+            { value: "BEGINNER", label: "Beginner" },
+            { value: "INTERMEDIATE", label: "Intermediate" },
+            { value: "ADVANCED", label: "Advanced" },
+            { value: "EXPERT", label: "Expert" },
+          ]}
         >
-          <option value="ALL">All difficulty</option>
-          <option value="BEGINNER">Beginner</option>
-          <option value="INTERMEDIATE">Intermediate</option>
-          <option value="ADVANCED">Advanced</option>
-          <option value="EXPERT">Expert</option>
-        </select>
+          <SelectTrigger className="h-10 w-full">
+            <SelectValue placeholder="All difficulty" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="ALL">All difficulty</SelectItem>
+              <SelectItem value="BEGINNER">Beginner</SelectItem>
+              <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
+              <SelectItem value="ADVANCED">Advanced</SelectItem>
+              <SelectItem value="EXPERT">Expert</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
 
-        <select
+        <Select
           value={sort}
-          onChange={(event) => onSortChange(event.target.value as "newest" | "oldest" | "name")}
-          className="h-10 rounded-md border bg-background px-3 text-sm"
+          onValueChange={(v) => onSortChange((v ?? "newest") as "newest" | "oldest" | "name")}
+          items={[
+            { value: "newest", label: "Newest" },
+            { value: "oldest", label: "Oldest" },
+            { value: "name", label: "Name" },
+          ]}
         >
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="name">Name</option>
-        </select>
+          <SelectTrigger className="h-10 w-full">
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="newest">Newest</SelectItem>
+              <SelectItem value="oldest">Oldest</SelectItem>
+              <SelectItem value="name">Name</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );

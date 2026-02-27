@@ -3,6 +3,7 @@
 import type { MediaUploadResponse } from "@freediving.ph/types";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface MediaCardProps {
   media: MediaUploadResponse;
@@ -19,9 +20,10 @@ const formatSize = (bytes: number) => {
 export function MediaCard({ media, imageUrl, onSelect }: MediaCardProps) {
   return (
     <Card className="overflow-hidden">
-      <button
+      <Button
         type="button"
-        className="block w-full text-left"
+        variant="ghost"
+        className="block w-full text-left h-auto p-0 hover:bg-transparent"
         onClick={() => onSelect?.(media)}
       >
         {imageUrl ? (
@@ -42,7 +44,7 @@ export function MediaCard({ media, imageUrl, onSelect }: MediaCardProps) {
             {media.width}x{media.height} • {formatSize(media.sizeBytes)}
           </p>
         </CardContent>
-      </button>
+      </Button>
     </Card>
   );
 }

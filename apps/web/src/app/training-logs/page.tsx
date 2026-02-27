@@ -1,19 +1,47 @@
 "use client";
 
-import { useState } from "react";
-
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCreateTrainingLog, useTrainingLogs } from "@/features/trainingLogs";
+import { createTrainingLogSchema, type CreateTrainingLogValues } from "@/features/trainingLogs/schemas/createLog.schema";
 
 export default function TrainingLogsPage() {
   const { data: logs = [] } = useTrainingLogs();
   const createLog = useCreateTrainingLog();
-  const [title, setTitle] = useState("");
-  const [sessionDate, setSessionDate] = useState("");
-  const [visibility, setVisibility] = useState<"PRIVATE" | "BUDDIES_ONLY" | "PUBLIC">("PRIVATE");
+
+  const form = useForm<CreateTrainingLogValues>({
+    resolver: zodResolver(createTrainingLogSchema),
+    defaultValues: {
+      title: "",
+      sessionDate: "",
+      visibility: "PRIVATE",
+    },
+  });
+
+  const onSubmit = (values: CreateTrainingLogValues) => {
+    createLog.mutate({ title: values.title, sessionDate: values.sessionDate, visibility: values.visibility, metrics: [] });
+    form.reset({ title: "", sessionDate: "", visibility: "PRIVATE" });
+  };
 
   return (
     <main className="container mx-auto space-y-6 p-6">
@@ -26,28 +54,77 @@ export default function TrainingLogsPage() {
         <CardHeader>
           <CardTitle>Create Session</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-2 md:grid-cols-3">
-          <Input placeholder="Session title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <Input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
-          <select
-            className="rounded-md border bg-background px-3 py-2 text-sm"
-            value={visibility}
-            onChange={(e) => setVisibility(e.target.value as "PRIVATE" | "BUDDIES_ONLY" | "PUBLIC")}
-          >
-            <option value="PRIVATE">PRIVATE</option>
-            <option value="BUDDIES_ONLY">BUDDIES_ONLY</option>
-            <option value="PUBLIC">PUBLIC</option>
-          </select>
-          <div className="md:col-span-3">
-            <Button
-              onClick={() => {
-                if (!title || !sessionDate) return;
-                createLog.mutate({ title, sessionDate, visibility, metrics: [] });
-              }}
-            >
-              Save Session
-            </Button>
-          </div>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-2 md:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Session title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Session title" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="sessionDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="visibility"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Visibility</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      items={[
+                        { value: "PRIVATE", label: "PRIVATE" },
+                        { value: "BUDDIES_ONLY", label: "BUDDIES_ONLY" },
+                        { value: "PUBLIC", label: "PUBLIC" },
+                      ]}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="PRIVATE">PRIVATE</SelectItem>
+                          <SelectItem value="BUDDIES_ONLY">BUDDIES_ONLY</SelectItem>
+                          <SelectItem value="PUBLIC">PUBLIC</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="md:col-span-3">
+                <Button
+                  type="submit"
+                  disabled={form.formState.isSubmitting || createLog.isPending}
+                >
+                  Save Session
+                </Button>
+              </div>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 

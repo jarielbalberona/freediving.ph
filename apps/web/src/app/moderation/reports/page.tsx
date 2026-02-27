@@ -11,6 +11,14 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useReports } from "@/features/reports";
 import { getApiError } from "@/lib/http/api-error";
@@ -126,33 +134,45 @@ export default function ModerationReportsPage() {
               <CardContent className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
                   <Label htmlFor="report-status-filter">Status</Label>
-                  <select
-                    id="report-status-filter"
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  <Select
                     value={status}
-                    onChange={(event) => setStatus(event.target.value as "all" | ReportStatus)}
+                    onValueChange={(v) => setStatus(v as "all" | ReportStatus)}
+                    items={STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                   >
-                    {STATUS_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="report-status-filter" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {STATUS_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="report-target-filter">Target type</Label>
-                  <select
-                    id="report-target-filter"
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  <Select
                     value={targetType}
-                    onChange={(event) => setTargetType(event.target.value as "all" | ReportTargetType)}
+                    onValueChange={(v) => setTargetType(v as "all" | ReportTargetType)}
+                    items={TARGET_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                   >
-                    {TARGET_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="report-target-filter" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {TARGET_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="report-date-from">From date</Label>

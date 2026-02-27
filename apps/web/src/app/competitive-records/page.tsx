@@ -1,32 +1,70 @@
 "use client";
 
-import { useState } from "react";
-
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 import { ReportAction } from "@/components/report/report-action";
 import { useCompetitiveRecordsFiltered, useCreateCompetitiveRecord } from "@/features/competitiveRecords";
+import {
+  createRecordSchema,
+  recordFilterSchema,
+  type CreateRecordValues,
+  type RecordFilterValues,
+} from "@/features/competitiveRecords/schemas/record.schema";
 
 export default function CompetitiveRecordsPage() {
-  const [queryAthlete, setQueryAthlete] = useState("");
-  const [queryDiscipline, setQueryDiscipline] = useState("");
-  const [queryEvent, setQueryEvent] = useState("");
-  const [athleteName, setAthleteName] = useState("");
-  const [discipline, setDiscipline] = useState("CWT");
-  const [resultValue, setResultValue] = useState("");
-  const [resultUnit, setResultUnit] = useState("m");
-  const [eventName, setEventName] = useState("");
-  const [eventDate, setEventDate] = useState("");
+  const createRecord = useCreateCompetitiveRecord();
+
+  const createForm = useForm<CreateRecordValues>({
+    resolver: zodResolver(createRecordSchema),
+    defaultValues: {
+      athleteName: "",
+      discipline: "CWT",
+      resultValue: "",
+      resultUnit: "m",
+      eventName: "",
+      eventDate: "",
+    },
+  });
+
+  const filterForm = useForm<RecordFilterValues>({
+    resolver: zodResolver(recordFilterSchema),
+    defaultValues: {
+      athlete: "",
+      discipline: "",
+      eventName: "",
+    },
+  });
+
   const { data: records = [] } = useCompetitiveRecordsFiltered({
-    athlete: queryAthlete || undefined,
-    discipline: queryDiscipline || undefined,
-    eventName: queryEvent || undefined,
+    athlete: filterForm.watch("athlete") || undefined,
+    discipline: filterForm.watch("discipline") || undefined,
+    eventName: filterForm.watch("eventName") || undefined,
     limit: 50,
     offset: 0,
   });
-  const createRecord = useCreateCompetitiveRecord();
+
+  const onSubmitRecord = (values: CreateRecordValues) => {
+    createRecord.mutate({
+      athleteName: values.athleteName,
+      discipline: values.discipline,
+      resultValue: values.resultValue,
+      resultUnit: values.resultUnit,
+      eventName: values.eventName,
+      eventDate: values.eventDate,
+    });
+    createForm.reset();
+  };
 
   return (
     <main className="container mx-auto space-y-6 p-6">
@@ -39,23 +77,91 @@ export default function CompetitiveRecordsPage() {
         <CardHeader>
           <CardTitle>Submit Record</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-2 md:grid-cols-3">
-          <Input placeholder="Athlete name" value={athleteName} onChange={(e) => setAthleteName(e.target.value)} />
-          <Input placeholder="Discipline" value={discipline} onChange={(e) => setDiscipline(e.target.value)} />
-          <Input placeholder="Result value" value={resultValue} onChange={(e) => setResultValue(e.target.value)} />
-          <Input placeholder="Result unit" value={resultUnit} onChange={(e) => setResultUnit(e.target.value)} />
-          <Input placeholder="Event name" value={eventName} onChange={(e) => setEventName(e.target.value)} />
-          <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
-          <div className="md:col-span-3">
-            <Button
-              onClick={() => {
-                if (!athleteName || !resultValue || !eventName || !eventDate) return;
-                createRecord.mutate({ athleteName, discipline, resultValue, resultUnit, eventName, eventDate });
-              }}
-            >
-              Submit
-            </Button>
-          </div>
+        <CardContent>
+          <Form {...createForm}>
+            <form onSubmit={createForm.handleSubmit(onSubmitRecord)} className="grid gap-2 md:grid-cols-3">
+              <FormField
+                control={createForm.control}
+                name="athleteName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Athlete name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="discipline"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Discipline" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="resultValue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Result value" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="resultUnit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Result unit" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="eventName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Event name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="eventDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="md:col-span-3">
+                <Button
+                  type="submit"
+                  disabled={createForm.formState.isSubmitting || createRecord.isPending}
+                >
+                  Submit
+                </Button>
+              </div>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 
@@ -64,11 +170,43 @@ export default function CompetitiveRecordsPage() {
           <CardTitle>Latest Records</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid gap-2 md:grid-cols-3">
-            <Input placeholder="Filter athlete" value={queryAthlete} onChange={(e) => setQueryAthlete(e.target.value)} />
-            <Input placeholder="Filter discipline" value={queryDiscipline} onChange={(e) => setQueryDiscipline(e.target.value)} />
-            <Input placeholder="Filter event" value={queryEvent} onChange={(e) => setQueryEvent(e.target.value)} />
-          </div>
+          <Form {...filterForm}>
+            <form className="grid gap-2 md:grid-cols-3">
+              <FormField
+                control={filterForm.control}
+                name="athlete"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Filter athlete" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={filterForm.control}
+                name="discipline"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Filter discipline" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={filterForm.control}
+                name="eventName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Filter event" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
           {records.map((record) => (
             <article key={record.id} className="rounded-md border p-3">
               <div className="flex items-center justify-between gap-3">

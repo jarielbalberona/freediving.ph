@@ -1,4 +1,12 @@
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export type VisibilityValue = "public" | "members_only" | "private";
 
@@ -20,17 +28,27 @@ export function VisibilitySelector({
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
-      <select
-        id={id}
-        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+      <Select
         value={value}
-        onChange={(event) => onChange(event.target.value as VisibilityValue)}
+        onValueChange={(v) => v && onChange(v as VisibilityValue)}
         disabled={disabled}
+        items={[
+          { value: "public", label: "Public" },
+          { value: "members_only", label: "Members Only" },
+          { value: "private", label: "Private" },
+        ]}
       >
-        <option value="public">Public</option>
-        <option value="members_only">Members Only</option>
-        <option value="private">Private</option>
-      </select>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value="public">Public</SelectItem>
+            <SelectItem value="members_only">Members Only</SelectItem>
+            <SelectItem value="private">Private</SelectItem>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

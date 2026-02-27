@@ -4,6 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { useGroups, useUserGroups } from '@/features/groups';
 import { AuthGuard } from '@/components/auth/guard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -141,10 +142,10 @@ export default function GroupsPage() {
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
+            <Input
               type="text"
               placeholder="Search groups..."
-              className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full pl-10 pr-4 py-2"
             />
           </div>
           <Button variant="outline">

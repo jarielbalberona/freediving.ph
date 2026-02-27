@@ -1,13 +1,31 @@
 "use client";
 
 import { useState } from "react";
-
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ReportReasonCode, ReportTargetType } from "@freediving.ph/types";
 import { useCreateReport } from "@/features/reports";
+import { reportSchema, type ReportValues } from "@/features/reports/schemas/report.schema";
 import { getRateLimitMessage, getApiErrorMessage } from "@/lib/http/api-error";
 
 interface ReportActionProps {
@@ -20,11 +38,38 @@ const supportedTargetTypes = new Set<ReportTargetType>(["user", "message", "chik
 
 export function ReportAction({ targetType, targetId }: ReportActionProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [reasonCode, setReasonCode] = useState<ReportReasonCode>("spam");
-  const [details, setDetails] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const createReport = useCreateReport();
   const isSupported = supportedTargetTypes.has(targetType as ReportTargetType);
+
+  const form = useForm<ReportValues>({
+    resolver: zodResolver(reportSchema),
+    defaultValues: {
+      reasonCode: "spam",
+      details: "",
+    },
+  });
+
+  const onSubmit = (values: ReportValues) => {
+    setSubmitError(null);
+    createReport.mutate(
+      {
+        targetType: targetType as ReportTargetType,
+        targetId,
+        reasonCode: values.reasonCode,
+        details: values.details?.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          form.reset({ reasonCode: "spam", details: "" });
+          setIsOpen(false);
+        },
+        onError: (error) => {
+          setSubmitError(getRateLimitMessage(error, getApiErrorMessage(error, "Failed to submit report")));
+        },
+      },
+    );
+  };
 
   if (!isOpen) {
     return (
@@ -36,78 +81,84 @@ export function ReportAction({ targetType, targetId }: ReportActionProps) {
 
   return (
     <div className="space-y-3 rounded-md border p-3">
-      <div className="space-y-2">
-        <Label htmlFor="report-reason">Reason</Label>
-        <select
-          id="report-reason"
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-          value={reasonCode}
-          onChange={(event) => setReasonCode(event.target.value as ReportReasonCode)}
-          disabled={createReport.isPending}
-        >
-          {reasonOptions.map((reason) => (
-            <option value={reason} key={reason}>
-              {reason}
-            </option>
-          ))}
-        </select>
-      </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+          <FormField
+            control={form.control}
+            name="reasonCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Reason</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={createReport.isPending}
+                  items={reasonOptions.map((r) => ({ value: r, label: r }))}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectGroup>
+                      {reasonOptions.map((reason) => (
+                        <SelectItem key={reason} value={reason}>
+                          {reason}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-      <div className="space-y-2">
-        <Label htmlFor="report-target">Target ID</Label>
-        <Input id="report-target" value={targetId} readOnly />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="report-target">Target ID</Label>
+            <Input id="report-target" value={targetId} readOnly />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="report-text">Details</Label>
-        <Textarea
-          id="report-text"
-          placeholder="Describe the issue"
-          value={details}
-          onChange={(event) => setDetails(event.target.value)}
-          disabled={createReport.isPending}
-        />
-      </div>
-      {!isSupported && (
-        <p className="text-xs text-destructive">
-          This item type is not reportable in v1.
-        </p>
-      )}
+          <FormField
+            control={form.control}
+            name="details"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Details</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Describe the issue"
+                    disabled={createReport.isPending}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          size="sm"
-          disabled={createReport.isPending || !isSupported}
-          onClick={() => {
-            setSubmitError(null);
-            createReport.mutate(
-              {
-                targetType: targetType as ReportTargetType,
-                targetId,
-                reasonCode,
-                details: details.trim() || undefined,
-              },
-              {
-                onSuccess: () => {
-                  setDetails("");
-                  setSubmitError(null);
-                  setIsOpen(false);
-                },
-                onError: (error) => {
-                  setSubmitError(getRateLimitMessage(error, getApiErrorMessage(error, "Failed to submit report")));
-                },
-              },
-            );
-          }}
-        >
-          Submit Report
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => setIsOpen(false)}>
-          Cancel
-        </Button>
-      </div>
-      {submitError ? <p className="text-xs text-destructive">{submitError}</p> : null}
+          {!isSupported && (
+            <p className="text-xs text-destructive">
+              This item type is not reportable in v1.
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={form.formState.isSubmitting || createReport.isPending || !isSupported}
+            >
+              Submit Report
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setIsOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+          {submitError ? <p className="text-xs text-destructive">{submitError}</p> : null}
+        </form>
+      </Form>
     </div>
   );
 }

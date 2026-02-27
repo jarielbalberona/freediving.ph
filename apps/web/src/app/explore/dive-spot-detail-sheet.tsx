@@ -3,6 +3,8 @@
 import * as React from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { MapPin, MessageSquare, Star, Waves } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +13,16 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { useCreateDiveSpotReview, useDiveSpot, useDiveSpotReviewSummary, useDiveSpotReviews } from "@/features/diveSpots";
+import { diveSpotReviewSchema, type DiveSpotReviewValues } from "@/features/diveSpots/schemas/review.schema";
 import { axiosInstance } from "@/lib/http/axios";
 
 type DiveSpotDetailSheetProps = {
@@ -80,15 +91,16 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
     staleTime: 60 * 1000,
   });
 
-  const [rating, setRating] = React.useState("5");
-  const [comment, setComment] = React.useState("");
+  const form = useForm<DiveSpotReviewValues>({
+    resolver: zodResolver(diveSpotReviewSchema),
+    defaultValues: { rating: 5, comment: "" },
+  });
 
   React.useEffect(() => {
     if (!open) {
-      setRating("5");
-      setComment("");
+      form.reset({ rating: 5, comment: "" });
     }
-  }, [open]);
+  }, [open, form]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -163,47 +175,68 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
               <h3 className="text-sm font-semibold">Reviews</h3>
 
               {isSignedIn ? (
-                <form
-                  className="space-y-2 rounded-md border p-3"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!spotId) return;
-
-                    const ratingValue = Number(rating);
-                    if (!Number.isFinite(ratingValue) || ratingValue < 1 || ratingValue > 5) return;
-
-                    createReview.mutate({
-                      diveSpotId: spotId,
-                      data: {
-                        rating: ratingValue,
-                        comment: comment.trim() || undefined,
-                      },
-                    });
-                    setComment("");
-                  }}
-                >
-                  <div className="grid grid-cols-[120px_1fr] items-center gap-2">
-                    <label htmlFor="review-rating" className="text-xs text-muted-foreground">
-                      Rating (1-5)
-                    </label>
-                    <Input
-                      id="review-rating"
-                      type="number"
-                      min={1}
-                      max={5}
-                      value={rating}
-                      onChange={(event) => setRating(event.target.value)}
+                <Form {...form}>
+                  <form
+                    className="space-y-2 rounded-md border p-3"
+                    onSubmit={form.handleSubmit((values) => {
+                      if (!spotId) return;
+                      createReview.mutate({
+                        diveSpotId: spotId,
+                        data: {
+                          rating: values.rating,
+                          comment: values.comment?.trim() || undefined,
+                        },
+                      });
+                      form.reset({ rating: 5, comment: "" });
+                    })}
+                  >
+                    <FormField
+                      control={form.control}
+                      name="rating"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="grid grid-cols-[120px_1fr] items-center gap-2">
+                            <FormLabel className="text-xs text-muted-foreground">
+                              Rating (1-5)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={5}
+                                value={field.value}
+                                onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+                              />
+                            </FormControl>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
-                  <Textarea
-                    placeholder="Share what divers should know about this spot."
-                    value={comment}
-                    onChange={(event) => setComment(event.target.value)}
-                  />
-                  <Button size="sm" type="submit" disabled={createReview.isPending}>
-                    {createReview.isPending ? "Saving..." : "Submit review"}
-                  </Button>
-                </form>
+                    <FormField
+                      control={form.control}
+                      name="comment"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Share what divers should know about this spot."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      size="sm"
+                      type="submit"
+                      disabled={form.formState.isSubmitting || createReview.isPending}
+                    >
+                      {form.formState.isSubmitting || createReview.isPending ? "Saving..." : "Submit review"}
+                    </Button>
+                  </form>
+                </Form>
               ) : (
                 <p className="text-xs text-muted-foreground">Sign in to leave a review.</p>
               )}

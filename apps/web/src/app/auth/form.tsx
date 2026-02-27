@@ -67,22 +67,17 @@ const AuthForm = ({ isSignIn }: { isSignIn: boolean }) => {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    const body: any = {
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    const body = {
       username: values.username,
       password: values.password,
-      csrfToken: csrfToken
+      csrfToken: csrfToken,
     };
     if (!isSignIn) {
-      body.name = values.name;
-      body.email = values.email;
-      registerMutation.mutate(body);
+      registerMutation.mutate({ ...body, name: values.name, email: values.email } as never);
     } else {
-      loginMutation.mutate(body);
+      loginMutation.mutate(body as never);
     }
-
-
-
   };
 
   return (

@@ -1,21 +1,39 @@
 "use client";
 
-import { use as usePromise, useState } from "react";
-
+import { use as usePromise } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { ThreadDetail } from "@/features/chika";
 import { useThread, useThreadComments, useCreateComment } from "@/features/chika";
+import { commentSchema, type CommentValues } from "@/features/chika/schemas/comment.schema";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 
 export default function Chika({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params);
   const { data: thread, isLoading, error } = useThread(id);
   const { data: comments } = useThreadComments(id);
   const createComment = useCreateComment();
-  const [commentContent, setCommentContent] = useState("");
+
+  const form = useForm<CommentValues>({
+    resolver: zodResolver(commentSchema),
+    defaultValues: { content: "" },
+  });
+
+  const onSubmit = async (values: CommentValues) => {
+    await createComment.mutateAsync({ threadId: id, content: values.content.trim() });
+    form.reset({ content: "" });
+  };
 
   if (isLoading) {
     return (
@@ -72,13 +90,6 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
     );
   }
 
-  const handleSubmitComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentContent.trim()) return;
-    await createComment.mutateAsync({ threadId: id, content: commentContent });
-    setCommentContent("");
-  };
-
   return (
     <main>
       <div className="xl:pr-96">
@@ -114,19 +125,34 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
               ))}
             </div>
 
-            <form onSubmit={handleSubmitComment} className="space-y-2">
-              <Textarea
-                value={commentContent}
-                onChange={(e) => setCommentContent(e.target.value)}
-                placeholder="Write a comment..."
-                rows={3}
-              />
-              <div className="flex justify-end">
-                <Button type="submit" disabled={createComment.isPending || !commentContent.trim()}>
-                  {createComment.isPending ? "Posting..." : "Post Comment"}
-                </Button>
-              </div>
-            </form>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
+                <FormField
+                  control={form.control}
+                  name="content"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Write a comment..."
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    disabled={form.formState.isSubmitting || createComment.isPending}
+                  >
+                    {form.formState.isSubmitting || createComment.isPending ? "Posting..." : "Post Comment"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 
 export function NavUser() {
   return (
@@ -24,13 +25,14 @@ export function NavUser() {
         <SignedOut>
           <div className="w-full">
             <SignInButton mode="modal">
-              <button
+              <Button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                variant="ghost"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
                 <User />
                 <span className="text-base">Sign In</span>
-              </button>
+              </Button>
             </SignInButton>
           </div>
         </SignedOut>

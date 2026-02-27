@@ -11,6 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -329,18 +337,24 @@ export default function ReportDetailPage({
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="next-status">Next status</Label>
-                    <select
-                      id="next-status"
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm md:w-72"
+                    <Select
                       value={nextStatus}
-                      onChange={(event) => setNextStatus(event.target.value as Exclude<ReportStatus, "open">)}
+                      onValueChange={(v) => setNextStatus(v as Exclude<ReportStatus, "open">)}
+                      items={STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                     >
-                      {STATUS_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="next-status" className="w-full md:w-72">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {STATUS_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status-note">Audit note (optional)</Label>
