@@ -100,3 +100,168 @@ func TestListLatestUpdatesExcludesHiddenRows(t *testing.T) {
 		}
 	}
 }
+
+func TestSiteSubmissionWorkflowVisibility(t *testing.T) {
+	pool := testExplorePool(t)
+	repo := explorerepo.New(pool)
+	ctx := context.Background()
+
+	submitterID := "42000000-0000-0000-0000-000000000001"
+	reviewerID := "42000000-0000-0000-0000-000000000002"
+	submitterUsername := fmt.Sprintf("explore_submitter_%d", time.Now().UnixNano())
+	reviewerUsername := fmt.Sprintf("explore_reviewer_%d", time.Now().UnixNano())
+
+	for _, user := range []struct {
+		id       string
+		username string
+		name     string
+	}{
+		{id: submitterID, username: submitterUsername, name: "Explore Submitter"},
+		{id: reviewerID, username: reviewerUsername, name: "Explore Reviewer"},
+	} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (id) DO NOTHING
+		`, user.id, user.username, user.name); err != nil {
+			t.Skipf("insert user: %v", err)
+		}
+	}
+
+	submission, err := repo.CreateSiteSubmission(ctx, explorerepo.CreateSiteSubmissionInput{
+		Name:                 "Secret Reef",
+		Slug:                 fmt.Sprintf("pending-%d", time.Now().UnixNano()),
+		Area:                 "Puerto Galera, Mindoro",
+		Difficulty:           "moderate",
+		Hazards:              []string{"surge"},
+		SubmittedByAppUserID: submitterID,
+	})
+	if err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	if got := submission.ModerationState; got != "pending" {
+		t.Fatalf("expected pending submission, got %q", got)
+	}
+
+	publicItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
+		CursorUpdatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           100,
+	})
+	if err != nil {
+		t.Fatalf("list public sites: %v", err)
+	}
+	for _, item := range publicItems {
+		if item.ID == submission.ID {
+			t.Fatalf("pending submission leaked into public list: %+v", item)
+		}
+	}
+
+	myItems, err := repo.ListMySiteSubmissions(ctx, explorerepo.ListSiteSubmissionsInput{
+		SubmittedByAppUserID: submitterID,
+		CursorCreatedAt:      time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:             "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:                20,
+	})
+	if err != nil {
+		t.Fatalf("list my submissions: %v", err)
+	}
+	foundMine := false
+	for _, item := range myItems {
+		if item.ID == submission.ID {
+			foundMine = true
+			break
+		}
+	}
+	if !foundMine {
+		t.Fatalf("expected submission in owner list")
+	}
+
+	pendingItems, err := repo.ListPendingSites(ctx, explorerepo.ListPendingSitesInput{
+		CursorCreatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           20,
+	})
+	if err != nil {
+		t.Fatalf("list pending sites: %v", err)
+	}
+	foundPending := false
+	for _, item := range pendingItems {
+		if item.ID == submission.ID {
+			foundPending = true
+			break
+		}
+	}
+	if !foundPending {
+		t.Fatalf("expected submission in pending moderation list")
+	}
+
+	approved, err := repo.ApproveSite(ctx, submission.ID, fmt.Sprintf("secret-reef-%d", time.Now().UnixNano()), reviewerID, time.Now().UTC(), nil)
+	if err != nil {
+		t.Fatalf("approve site: %v", err)
+	}
+	if got := approved.ModerationState; got != "approved" {
+		t.Fatalf("expected approved state, got %q", got)
+	}
+
+	publicItems, err = repo.ListSites(ctx, explorerepo.ListSitesInput{
+		CursorUpdatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           100,
+	})
+	if err != nil {
+		t.Fatalf("list public sites after approval: %v", err)
+	}
+	foundPublic := false
+	for _, item := range publicItems {
+		if item.ID == submission.ID {
+			foundPublic = true
+			break
+		}
+	}
+	if !foundPublic {
+		t.Fatalf("approved submission did not appear in public list")
+	}
+
+	rejectedSubmission, err := repo.CreateSiteSubmission(ctx, explorerepo.CreateSiteSubmissionInput{
+		Name:                 "Rejected Reef",
+		Slug:                 fmt.Sprintf("pending-rejected-%d", time.Now().UnixNano()),
+		Area:                 "Moalboal, Cebu",
+		Difficulty:           "easy",
+		Hazards:              []string{"crowds"},
+		SubmittedByAppUserID: submitterID,
+	})
+	if err != nil {
+		t.Fatalf("create rejected submission: %v", err)
+	}
+	reason := "Insufficient detail"
+	rejected, err := repo.RejectOrHideSite(ctx, rejectedSubmission.ID, reviewerID, time.Now().UTC(), &reason)
+	if err != nil {
+		t.Fatalf("reject site: %v", err)
+	}
+	if got := rejected.ModerationState; got != "hidden" {
+		t.Fatalf("expected hidden state after rejection, got %q", got)
+	}
+
+	publicItems, err = repo.ListSites(ctx, explorerepo.ListSitesInput{
+		CursorUpdatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           100,
+	})
+	if err != nil {
+		t.Fatalf("list public sites after rejection: %v", err)
+	}
+	for _, item := range publicItems {
+		if item.ID == rejectedSubmission.ID {
+			t.Fatalf("rejected submission leaked into public list")
+		}
+	}
+
+	ownerDetail, err := repo.GetMySiteSubmissionByID(ctx, rejectedSubmission.ID, submitterID)
+	if err != nil {
+		t.Fatalf("get owner submission detail: %v", err)
+	}
+	if ownerDetail.ModerationState != "hidden" || ownerDetail.ModerationReason != reason {
+		t.Fatalf("expected hidden owner detail with moderation reason, got %+v", ownerDetail)
+	}
+}

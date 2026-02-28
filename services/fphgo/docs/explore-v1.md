@@ -59,6 +59,53 @@ Base path: `/v1/explore`
   - validation: `httpx.DecodeAndValidate`
   - rate limit: service-level cooldown on update creation
 
+- `POST /v1/explore/sites/submit`
+  - auth: member + `explore.submit`
+  - body: proposed site fields (`name`, `area`, `entryDifficulty`, optional location/conditions/access metadata)
+  - validation: `httpx.DecodeAndValidate`
+  - behavior:
+    1. inserts into `dive_sites`
+    2. forces `moderation_state='pending'`
+    3. stores `submitted_by_app_user_id`
+  - rate limits:
+    - 1 submission per hour per actor
+    - 5 submissions per day per actor
+  - dedupe:
+    - rejects a submission when an approved site already exists with the same `name + area`
+
+- `GET /v1/explore/sites/submissions`
+  - auth: member + `explore.submit`
+  - response: current actor's submissions, including `pending` and `hidden`
+
+- `GET /v1/explore/sites/submissions/{id}`
+  - auth: member + `explore.submit`
+  - response: actor-owned submission detail with moderation status and optional moderation reason
+
+- `GET /v1/explore/moderation/sites/pending`
+  - auth: member + `explore.moderate`
+  - response: pending site submissions for moderator review
+
+- `GET /v1/explore/moderation/sites/{id}`
+  - auth: member + `explore.moderate`
+  - response: full submission detail regardless of moderation state
+
+- `POST /v1/explore/moderation/sites/{id}/approve`
+  - auth: member + `explore.moderate`
+  - body: optional `reason`
+  - behavior:
+    1. requires current state `pending`
+    2. generates a public slug
+    3. stores `reviewed_by_app_user_id`, `reviewed_at`, and optional `moderation_reason`
+    4. flips `moderation_state` to `approved`
+
+- `POST /v1/explore/moderation/sites/{id}/reject`
+  - auth: member + `explore.moderate`
+  - body: optional `reason`
+  - behavior:
+    1. requires current state `pending`
+    2. stores reviewer metadata
+    3. flips `moderation_state` to `hidden`
+
 - `POST /v1/explore/sites/{siteId}/save`
   - auth: member + `explore.submit`
 
@@ -77,6 +124,16 @@ Base path: `/v1/explore`
   - `verification_status`
   - `verified_by_app_user_id`
   - `last_updated_at`
+- moderation workflow fields:
+  - `submitted_by_app_user_id`
+  - `reviewed_by_app_user_id`
+  - `reviewed_at`
+  - `moderation_reason`
+  - `updated_at`
+- moderation meanings:
+  - `pending`: member-submitted and awaiting review
+  - `approved`: public and queryable by public Explore reads
+  - `hidden`: rejected or moderator-removed from public Explore
 
 ### `dive_site_updates`
 
@@ -98,6 +155,8 @@ Base path: `/v1/explore`
 ## Safety and quality rules
 
 - Public read only exposes approved sites.
+- Submitters can see their own pending and hidden submissions by ID and list endpoints.
+- Moderators can review pending submissions through `explore.moderate` routes.
 - Site updates stay coarse and conditions-focused.
 - Site update reads exclude hidden moderation state rows.
 - Update responses include derived trust ladder signals for the author:
@@ -109,6 +168,7 @@ Base path: `/v1/explore`
 - Site buddy preview is redacted server-side, not by client convention.
 - Write routes require auth and permission.
 - Update creation is rate-limited in the service layer.
+- Site submission creation is rate-limited and duplicate-checked in the service layer.
 - Share URLs are slug-based and stable for Messenger/social preview pages.
 
 ## Conditions Pulse add-on

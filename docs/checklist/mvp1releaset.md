@@ -83,7 +83,7 @@ notes:
 ### 1.1 Scope boundaries (no P2 Diving Core)
 
 - [ ] Out of scope modules are identified and excluded from MVP v1 release. Candidates: Events, Competitive Records, Groups, Training Logs, Marketplace, Collaborations.
-- [x] Explore (`/v1/explore`) ships in MVP v1. It is mounted in the router with `explore.read` (all roles) and `explore.submit` (member+). No gating required.
+- [x] Explore (`/v1/explore`) ships in MVP v1. It is mounted in the router with `explore.read` (all roles), `explore.submit` (member+), and `explore.moderate` (moderator+).
 - [x] Buddy Finder public preview ships in MVP v1 under `/v1/buddy-finder/preview`, and member intent routes are gated behind auth and existing buddy permissions.
 - [ ] A written list of in-scope migrated modules exists and is agreed by owners.
 - [ ] For migrated modules, `apps/web` calls only `services/fphgo`.
@@ -105,6 +105,9 @@ notes:
 - [ ] Dive site pages show buddy intents with site-linked intents first and area fallback second.
 - [ ] Signed-out dive site pages show only redacted buddy preview cards; full notes and message entry require sign-in.
 - [ ] Save-site and message-buddy actions trigger sign-in naturally.
+- [ ] Members can submit a dive site into a pending moderation queue.
+- [ ] Submitters can view their own submission list/detail and moderation status.
+- [ ] Moderators can review pending dive sites and approve or reject them.
 - [ ] Trust ladder appears on buddy cards, profile header, and messaging request preview without leaking precise last-seen or location data.
 - [ ] Saved hub ships with saved sites and saved buddies tabs, and blocked users are excluded from saved people results.
 - [ ] Buddy share pages use redacted public preview only and do not leak contact or exact location.

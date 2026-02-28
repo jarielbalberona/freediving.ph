@@ -35,11 +35,18 @@ export const routes = {
     explore: {
       listSites: () => "/v1/explore/sites",
       latestUpdates: () => "/v1/explore/updates",
+      submitSite: () => "/v1/explore/sites/submit",
+      mySubmissions: () => "/v1/explore/sites/submissions",
+      mySubmissionById: (id: string | number) => `/v1/explore/sites/submissions/${toPathId(id)}`,
       siteBySlug: (slug: string | number) => `/v1/explore/sites/${toPathId(slug)}`,
       siteBuddyPreview: (slug: string | number) => `/v1/explore/sites/${toPathId(slug)}/buddy-preview`,
       siteBuddyIntents: (slug: string | number) => `/v1/explore/sites/${toPathId(slug)}/buddy-intents`,
       saveSite: (siteId: string | number) => `/v1/explore/sites/${toPathId(siteId)}/save`,
       createUpdate: (siteId: string | number) => `/v1/explore/sites/${toPathId(siteId)}/updates`,
+      moderationPendingSites: () => "/v1/explore/moderation/sites/pending",
+      moderationSiteById: (id: string | number) => `/v1/explore/moderation/sites/${toPathId(id)}`,
+      approveSite: (id: string | number) => `/v1/explore/moderation/sites/${toPathId(id)}/approve`,
+      rejectSite: (id: string | number) => `/v1/explore/moderation/sites/${toPathId(id)}/reject`,
     },
     buddyFinder: {
       preview: () => "/v1/buddy-finder/preview",

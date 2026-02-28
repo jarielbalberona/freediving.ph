@@ -35,7 +35,7 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
   const parseQueryError = (error: unknown) => {
     if (typeof error === "object" && error !== null && "response" in error) {
       const response = (error as { response?: { status?: number } }).response;
-      if (response?.status === 401) return "Sign in required for this section.";
+      if (response?.status === 401) return "Create an account to view this section.";
       if (response?.status === 403) return "You do not have access to this section.";
       if (response?.status === 404) return "No linked data found.";
     }
@@ -237,9 +237,7 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
                     </Button>
                   </form>
                 </Form>
-              ) : (
-                <p className="text-xs text-muted-foreground">Sign in to leave a review.</p>
-              )}
+              ) : null}
 
               {isReviewsLoading ? (
                 <div className="text-sm text-muted-foreground">Loading reviews...</div>
@@ -260,11 +258,10 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
               )}
             </section>
 
+            {isSignedIn ? (
             <section className="space-y-2 border-t pt-4">
               <h3 className="text-sm font-semibold">Buddies Available Nearby</h3>
-              {!isSignedIn ? (
-                <p className="text-sm text-muted-foreground">Sign in to see nearby buddy availability.</p>
-              ) : isRelatedBuddiesLoading ? (
+              {isRelatedBuddiesLoading ? (
                 <p className="text-sm text-muted-foreground">Loading buddy availability...</p>
               ) : isRelatedBuddiesError ? (
                 <p className="text-sm text-muted-foreground">{parseQueryError(relatedBuddiesError)}</p>
@@ -281,6 +278,7 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
                 </div>
               )}
             </section>
+            ) : null}
 
             <section className="space-y-2 border-t pt-4">
               <h3 className="text-sm font-semibold">Upcoming Events</h3>

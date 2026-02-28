@@ -27,6 +27,13 @@ type exploreService interface {
 	ListSites(ctx context.Context, input exploreservice.ListSitesInput) (exploreservice.ListSitesResult, error)
 	ListLatestUpdates(ctx context.Context, input exploreservice.ListLatestUpdatesInput) (exploreservice.ListLatestUpdatesResult, error)
 	GetSiteBySlug(ctx context.Context, slug, updatesCursor string, updatesLimit int32) (exploreservice.SiteDetailResult, error)
+	CreateSiteSubmission(ctx context.Context, input exploreservice.CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error)
+	ListMySiteSubmissions(ctx context.Context, input exploreservice.SubmissionListInput) (exploreservice.SubmissionListResult, error)
+	GetMySiteSubmissionByID(ctx context.Context, actorID, submissionID string) (explorerepo.SiteSubmission, error)
+	ListPendingSites(ctx context.Context, input exploreservice.SubmissionListInput) (exploreservice.SubmissionListResult, error)
+	GetSiteByIDForModeration(ctx context.Context, siteID string) (explorerepo.SiteSubmission, error)
+	ApproveSite(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error)
+	RejectSite(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error)
 	GetBuddyPreviewBySlug(ctx context.Context, slug string, limit int32) (exploreservice.SiteBuddyPreviewResult, error)
 	GetBuddyIntentsBySlug(ctx context.Context, viewerID, slug, cursor string, limit int32) (exploreservice.SiteBuddyIntentsResult, error)
 	CreateUpdate(ctx context.Context, input exploreservice.CreateUpdateInput) (explorerepo.SiteUpdate, error)
@@ -110,24 +117,150 @@ func (h *Handlers) ListLatestUpdates(w http.ResponseWriter, r *http.Request) {
 	items := make([]LatestUpdate, 0, len(result.Items))
 	for _, item := range result.Items {
 		items = append(items, LatestUpdate{
-			ID:                item.ID,
-			DiveSiteID:        item.DiveSiteID,
-			SiteSlug:          item.SiteSlug,
-			SiteName:          item.SiteName,
-			SiteArea:          item.SiteArea,
-			AuthorAppUserID:   item.AuthorAppUserID,
-			AuthorDisplayName: item.AuthorDisplayName,
-			AuthorTrust:       mapTrustCard(item.AuthorTrust),
-			Note:              item.Note,
+			ID:                   item.ID,
+			DiveSiteID:           item.DiveSiteID,
+			SiteSlug:             item.SiteSlug,
+			SiteName:             item.SiteName,
+			SiteArea:             item.SiteArea,
+			AuthorAppUserID:      item.AuthorAppUserID,
+			AuthorDisplayName:    item.AuthorDisplayName,
+			AuthorTrust:          mapTrustCard(item.AuthorTrust),
+			Note:                 item.Note,
 			ConditionVisibilityM: item.ConditionVisibilityM,
-			ConditionCurrent:  item.ConditionCurrent,
-			ConditionWaves:    item.ConditionWaves,
-			ConditionTempC:    item.ConditionTempC,
-			OccurredAt:        item.OccurredAt.Format(time.RFC3339),
-			CreatedAt:         item.CreatedAt.Format(time.RFC3339),
+			ConditionCurrent:     item.ConditionCurrent,
+			ConditionWaves:       item.ConditionWaves,
+			ConditionTempC:       item.ConditionTempC,
+			OccurredAt:           item.OccurredAt.Format(time.RFC3339),
+			CreatedAt:            item.CreatedAt.Format(time.RFC3339),
 		})
 	}
 	httpx.JSON(w, http.StatusOK, ListLatestUpdatesResponse{Items: items, NextCursor: result.NextCursor})
+}
+
+func (h *Handlers) CreateSiteSubmission(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[CreateSiteSubmissionRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	submission, svcErr := h.service.CreateSiteSubmission(r.Context(), exploreservice.CreateSiteSubmissionInput{
+		ActorID:           actorID,
+		Name:              req.Name,
+		Lat:               req.Lat,
+		Lng:               req.Lng,
+		Difficulty:        req.EntryDifficulty,
+		DepthMinM:         req.DepthMinM,
+		DepthMaxM:         req.DepthMaxM,
+		Hazards:           req.Hazards,
+		BestSeason:        req.BestSeason,
+		TypicalConditions: req.TypicalConditions,
+		Access:            req.Access,
+		Fees:              req.Fees,
+		ContactInfo:       req.ContactInfo,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, SiteSubmissionResponse{Submission: mapSiteSubmission(submission)})
+}
+
+func (h *Handlers) ListMySiteSubmissions(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	limit, parseErr := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if parseErr != nil {
+		httpx.WriteValidationError(w, anyIssue("limit", "custom", "limit must be a positive integer"))
+		return
+	}
+	result, svcErr := h.service.ListMySiteSubmissions(r.Context(), exploreservice.SubmissionListInput{
+		ActorID: actorID,
+		Cursor:  r.URL.Query().Get("cursor"),
+		Limit:   limit,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	items := make([]SiteSubmission, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, mapSiteSubmission(item))
+	}
+	httpx.JSON(w, http.StatusOK, SiteSubmissionListResponse{Items: items, NextCursor: result.NextCursor})
+}
+
+func (h *Handlers) GetMySiteSubmissionByID(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	submissionID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "id"), "id")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, svcErr := h.service.GetMySiteSubmissionByID(r.Context(), actorID, submissionID)
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SiteSubmissionResponse{Submission: mapSiteSubmission(item)})
+}
+
+func (h *Handlers) ListPendingSites(w http.ResponseWriter, r *http.Request) {
+	limit, parseErr := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if parseErr != nil {
+		httpx.WriteValidationError(w, anyIssue("limit", "custom", "limit must be a positive integer"))
+		return
+	}
+	result, svcErr := h.service.ListPendingSites(r.Context(), exploreservice.SubmissionListInput{
+		Cursor: r.URL.Query().Get("cursor"),
+		Limit:  limit,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	items := make([]SiteSubmission, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, mapSiteSubmission(item))
+	}
+	httpx.JSON(w, http.StatusOK, SiteSubmissionListResponse{Items: items, NextCursor: result.NextCursor})
+}
+
+func (h *Handlers) GetSiteByIDForModeration(w http.ResponseWriter, r *http.Request) {
+	siteID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "id"), "id")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, svcErr := h.service.GetSiteByIDForModeration(r.Context(), siteID)
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SiteSubmissionResponse{Submission: mapSiteSubmission(item)})
+}
+
+func (h *Handlers) ApproveSite(w http.ResponseWriter, r *http.Request) {
+	h.handleModerationAction(w, r, func(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error) {
+		return h.service.ApproveSite(ctx, input)
+	})
+}
+
+func (h *Handlers) RejectSite(w http.ResponseWriter, r *http.Request) {
+	h.handleModerationAction(w, r, func(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error) {
+		return h.service.RejectSite(ctx, input)
+	})
 }
 
 func (h *Handlers) GetBuddyPreviewBySlug(w http.ResponseWriter, r *http.Request) {
@@ -316,6 +449,38 @@ func (h *Handlers) writeError(w http.ResponseWriter, r *http.Request, err error)
 	httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 }
 
+func (h *Handlers) handleModerationAction(
+	w http.ResponseWriter,
+	r *http.Request,
+	run func(context.Context, exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error),
+) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	siteID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "id"), "id")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[ModerateSiteRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, svcErr := run(r.Context(), exploreservice.ModerateSiteInput{
+		ActorID: actorID,
+		SiteID:  siteID,
+		Reason:  req.Reason,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SiteSubmissionResponse{Submission: mapSiteSubmission(item)})
+}
+
 func requireActorID(r *http.Request) (string, error) {
 	identity, ok := middleware.CurrentIdentity(r.Context())
 	if !ok || identity.UserID == "" {
@@ -393,6 +558,41 @@ func mapSiteUpdate(input explorerepo.SiteUpdate) SiteUpdate {
 		ConditionTempC:       input.ConditionTempC,
 		OccurredAt:           input.OccurredAt.Format(time.RFC3339),
 		CreatedAt:            input.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+func mapSiteSubmission(input explorerepo.SiteSubmission) SiteSubmission {
+	reviewedAt := ""
+	if input.ReviewedAt != nil && !input.ReviewedAt.IsZero() {
+		reviewedAt = input.ReviewedAt.Format(time.RFC3339)
+	}
+	return SiteSubmission{
+		ID:                     input.ID,
+		Slug:                   input.Slug,
+		Name:                   input.Name,
+		Area:                   input.Area,
+		Latitude:               input.Latitude,
+		Longitude:              input.Longitude,
+		Difficulty:             input.Difficulty,
+		DepthMinM:              input.DepthMinM,
+		DepthMaxM:              input.DepthMaxM,
+		Hazards:                input.Hazards,
+		BestSeason:             input.BestSeason,
+		TypicalConditions:      input.TypicalConditions,
+		Access:                 input.Access,
+		Fees:                   input.Fees,
+		ContactInfo:            input.ContactInfo,
+		VerificationStatus:     input.VerificationStatus,
+		SubmittedByAppUserID:   input.SubmittedByAppUserID,
+		SubmittedByDisplayName: input.SubmittedByDisplayName,
+		ReviewedByAppUserID:    input.ReviewedByAppUserID,
+		ReviewedByDisplayName:  input.ReviewedByDisplayName,
+		ReviewedAt:             reviewedAt,
+		ModerationReason:       input.ModerationReason,
+		ModerationState:        input.ModerationState,
+		LastUpdatedAt:          input.LastUpdatedAt.Format(time.RFC3339),
+		UpdatedAt:              input.UpdatedAt.Format(time.RFC3339),
+		CreatedAt:              input.CreatedAt.Format(time.RFC3339),
 	}
 }
 

@@ -8,6 +8,7 @@ import { Lock } from "lucide-react";
 import { getMainNavItems, isActiveRoute } from "@/config/nav";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { cn } from "@/lib/utils";
 
 type BottomNavProps = {
@@ -22,6 +23,7 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const effectiveSignedIn = mounted && isLoaded && isSignedIn;
+  const profileHref = useCurrentProfileHref();
 
   const mainItems = getMainNavItems({ isSignedIn: effectiveSignedIn ?? false });
 
@@ -44,10 +46,10 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
       aria-label="Main navigation"
     >
       {mainItems.map((item) => {
+        const href = item.id === "profile" ? profileHref : item.href ?? "#";
         const active =
           item.kind === "link" &&
-          item.href != null &&
-          isActiveRoute(pathname ?? "", item.href);
+          isActiveRoute(pathname ?? "", href);
         const isProtectedLink =
           item.kind === "link" && item.isProtected && !effectiveSignedIn;
 
@@ -95,7 +97,7 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
         return (
           <Link
             key={item.id}
-            href={item.href ?? "#"}
+            href={href}
             className={cn(
               "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex min-w-0 flex-1 flex-col items-center justify-center py-5 transition-colors",
               active && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"

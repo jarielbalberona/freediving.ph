@@ -55,6 +55,17 @@ func TestRolePermissions_ModeratorGetsReportModerationAndBlocks(t *testing.T) {
 	if !perms[PermissionBlocksRead] || !perms[PermissionBlocksWrite] {
 		t.Fatal("moderator should get blocks.read and blocks.write")
 	}
+	if !perms[PermissionExploreModerate] {
+		t.Fatal("moderator should get explore.moderate")
+	}
+}
+
+func TestRolePermissions_MemberCannotModerateExplore(t *testing.T) {
+	perms := RolePermissions("member")
+
+	if perms[PermissionExploreModerate] {
+		t.Fatal("member should not get explore.moderate")
+	}
 }
 
 func TestApplyOverrides(t *testing.T) {

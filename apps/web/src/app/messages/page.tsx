@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import type { MessageMetadata } from "@freediving.ph/types";
 
@@ -26,6 +27,7 @@ import {
 } from "@/features/messages";
 import { useSavedHub } from "@/features/profiles/hooks/queries";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { getProfileRoute } from "@/lib/routes";
 
 export default function MessagesPage() {
   useMessagesRealtime();
@@ -79,6 +81,17 @@ export default function MessagesPage() {
 
   const totalUnread = useMemo(() => items.reduce((sum, item) => sum + (item.unreadCount ?? 0), 0), [items]);
   const attachedSite = siteOptions.find((site) => site.id === attachedSiteId);
+  const renderParticipantLink = (username: string | undefined, label: string) =>
+    username ? (
+      <Link
+        href={getProfileRoute(username)}
+        className="transition-colors hover:text-primary hover:underline"
+      >
+        {label}
+      </Link>
+    ) : (
+      label
+    );
 
   const composerMetadata: MessageMetadata | undefined = attachSpot && attachedSite
     ? {
@@ -95,7 +108,7 @@ export default function MessagesPage() {
     : undefined;
 
   return (
-    <AuthGuard title="Sign in to access messages" description="Direct messages are available to authenticated members only.">
+    <AuthGuard title="Create an account to access messages" description="Direct messages are available to members.">
       <div className="container mx-auto space-y-6 p-6">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold">Messages</h1>
@@ -132,7 +145,12 @@ export default function MessagesPage() {
               {pending.length === 0 ? <p className="text-sm text-muted-foreground">No pending requests.</p> : null}
               {pending.map((item) => (
                 <div key={item.conversationId} className="rounded-md border p-3 space-y-2">
-                  <p className="font-medium">{item.participant.displayName || item.participant.username}</p>
+                  <p className="font-medium">
+                    {renderParticipantLink(
+                      item.participant.username,
+                      item.participant.displayName || item.participant.username,
+                    )}
+                  </p>
                   <p className="text-xs text-muted-foreground">{item.participant.userId}</p>
                   <TrustCard
                     emailVerified={item.participant.trust.emailVerified}
@@ -174,7 +192,12 @@ export default function MessagesPage() {
                   }}
                 >
                   <div className="flex items-center justify-between">
-                    <p className="font-medium">{item.participant.displayName || item.participant.username}</p>
+                    <p className="font-medium">
+                      {renderParticipantLink(
+                        item.participant.username,
+                        item.participant.displayName || item.participant.username,
+                      )}
+                    </p>
                     {item.unreadCount > 0 ? <Badge variant="destructive" className="text-xs">{item.unreadCount}</Badge> : null}
                   </div>
                   <div className="mt-2">
@@ -200,7 +223,12 @@ export default function MessagesPage() {
               {declined.length === 0 ? <p className="text-sm text-muted-foreground">No declined requests.</p> : null}
               {declined.map((item) => (
                 <div key={item.conversationId} className="rounded-md border border-dashed p-3 opacity-60">
-                  <p className="font-medium">{item.participant.displayName || item.participant.username}</p>
+                  <p className="font-medium">
+                    {renderParticipantLink(
+                      item.participant.username,
+                      item.participant.displayName || item.participant.username,
+                    )}
+                  </p>
                   <p className="text-xs text-muted-foreground">Request declined</p>
                 </div>
               ))}

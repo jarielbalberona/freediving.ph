@@ -1,10 +1,14 @@
 import type {
+  CreateExploreSiteSubmissionRequest,
   CreateExploreSiteUpdateRequest,
   ExploreLatestUpdatesResponse,
   ExploreListResponse,
+  ExploreSiteSubmissionListResponse,
+  ExploreSiteSubmissionResponse,
   ExploreSiteBuddyIntentsResponse,
   ExploreSiteBuddyPreviewResponse,
   ExploreSiteDetailResponse,
+  ModerateExploreSiteRequest,
 } from "@freediving.ph/types";
 
 import { fphgoFetchClient } from "@/lib/api/fphgo-fetch-client";
@@ -81,4 +85,38 @@ export const exploreApi = {
         body: payload as Record<string, unknown>,
       },
     ),
+
+  submitSite: (payload: CreateExploreSiteSubmissionRequest) =>
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.submitSite(), {
+      method: "POST",
+      body: payload as Record<string, unknown>,
+    }),
+
+  listMySubmissions: (cursor?: string, limit = 20) =>
+    fphgoFetchClient<ExploreSiteSubmissionListResponse>(
+      withQuery(routes.v1.explore.mySubmissions(), { cursor, limit }),
+    ),
+
+  getMySubmissionById: (id: string) =>
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.mySubmissionById(id)),
+
+  listPendingSites: (cursor?: string, limit = 20) =>
+    fphgoFetchClient<ExploreSiteSubmissionListResponse>(
+      withQuery(routes.v1.explore.moderationPendingSites(), { cursor, limit }),
+    ),
+
+  getModerationSiteById: (id: string) =>
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.moderationSiteById(id)),
+
+  approveSite: (id: string, payload: ModerateExploreSiteRequest) =>
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.approveSite(id), {
+      method: "POST",
+      body: payload as Record<string, unknown>,
+    }),
+
+  rejectSite: (id: string, payload: ModerateExploreSiteRequest) =>
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.rejectSite(id), {
+      method: "POST",
+      body: payload as Record<string, unknown>,
+    }),
 };

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,11 +103,13 @@ export default function ProfileForm({ defaultValues }: any) {
       <div className="flex justify-end gap-4">
         <Button
           variant="outline"
-          className="hover:bg-muted"
+          render={<Link href="/profile" />}
         >
           Cancel
         </Button>
-        <Button>
+        <Button
+          className="hover:bg-muted"
+        >
           Save Changes
         </Button>
       </div>

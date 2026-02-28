@@ -122,26 +122,31 @@ type ConversationParticipant struct {
 }
 
 type DiveSite struct {
-	ID                  pgtype.UUID        `db:"id" json:"id"`
-	Name                string             `db:"name" json:"name"`
-	Slug                string             `db:"slug" json:"slug"`
-	Area                string             `db:"area" json:"area"`
-	Latitude            *float64           `db:"latitude" json:"latitude"`
-	Longitude           *float64           `db:"longitude" json:"longitude"`
-	EntryDifficulty     string             `db:"entry_difficulty" json:"entry_difficulty"`
-	DepthMinM           pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
-	DepthMaxM           pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
-	Hazards             []string           `db:"hazards" json:"hazards"`
-	BestSeason          *string            `db:"best_season" json:"best_season"`
-	TypicalConditions   *string            `db:"typical_conditions" json:"typical_conditions"`
-	Access              *string            `db:"access" json:"access"`
-	Fees                *string            `db:"fees" json:"fees"`
-	ContactInfo         *string            `db:"contact_info" json:"contact_info"`
-	VerificationStatus  string             `db:"verification_status" json:"verification_status"`
-	VerifiedByAppUserID pgtype.UUID        `db:"verified_by_app_user_id" json:"verified_by_app_user_id"`
-	ModerationState     string             `db:"moderation_state" json:"moderation_state"`
-	LastUpdatedAt       pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
-	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID                   pgtype.UUID        `db:"id" json:"id"`
+	Name                 string             `db:"name" json:"name"`
+	Slug                 string             `db:"slug" json:"slug"`
+	Area                 string             `db:"area" json:"area"`
+	Latitude             *float64           `db:"latitude" json:"latitude"`
+	Longitude            *float64           `db:"longitude" json:"longitude"`
+	EntryDifficulty      string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM            pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM            pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards              []string           `db:"hazards" json:"hazards"`
+	BestSeason           *string            `db:"best_season" json:"best_season"`
+	TypicalConditions    *string            `db:"typical_conditions" json:"typical_conditions"`
+	Access               *string            `db:"access" json:"access"`
+	Fees                 *string            `db:"fees" json:"fees"`
+	ContactInfo          *string            `db:"contact_info" json:"contact_info"`
+	VerificationStatus   string             `db:"verification_status" json:"verification_status"`
+	VerifiedByAppUserID  pgtype.UUID        `db:"verified_by_app_user_id" json:"verified_by_app_user_id"`
+	SubmittedByAppUserID pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	ReviewedByAppUserID  pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedAt           pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason     *string            `db:"moderation_reason" json:"moderation_reason"`
+	ModerationState      string             `db:"moderation_state" json:"moderation_state"`
+	LastUpdatedAt        pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type DiveSiteSafe struct {

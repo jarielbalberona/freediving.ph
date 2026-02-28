@@ -4,6 +4,7 @@ export * from "./api/authz";
 export * from "./api/error";
 export * from "./api/me";
 export * from "./api/profile";
+export * from "./api/public-profile";
 export * from "./media";
 export * from "./reports";
 
@@ -157,7 +158,7 @@ export interface UpdateThreadData {
 export interface ThreadFilters {
   search?: string;
   authorId?: number;
-  sortBy?: 'newest' | 'oldest' | 'most_liked' | 'most_commented';
+  sortBy?: "newest" | "oldest" | "most_liked" | "most_commented";
 }
 
 export interface DiveSpot {
@@ -167,9 +168,9 @@ export interface DiveSpot {
   lng?: number;
   locationName?: string;
   depth?: number;
-  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-  visibility?: 'POOR' | 'FAIR' | 'GOOD' | 'EXCELLENT';
-  current?: 'NONE' | 'LIGHT' | 'MODERATE' | 'STRONG';
+  difficulty?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+  visibility?: "POOR" | "FAIR" | "GOOD" | "EXCELLENT";
+  current?: "NONE" | "LIGHT" | "MODERATE" | "STRONG";
   isVerified?: boolean;
   description?: string;
   bestSeason?: string;
@@ -209,12 +210,12 @@ export interface CreateDiveSpotRequest {
   latitude: number;
   longitude: number;
   depth: number;
-  visibility: 'POOR' | 'FAIR' | 'GOOD' | 'EXCELLENT';
-  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-  waterType: 'FRESH' | 'SALT' | 'BRACKISH';
+  visibility: "POOR" | "FAIR" | "GOOD" | "EXCELLENT";
+  difficulty: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+  waterType: "FRESH" | "SALT" | "BRACKISH";
   temperature: number;
-  current: 'NONE' | 'LIGHT' | 'MODERATE' | 'STRONG';
-  entryType: 'SHORE' | 'BOAT' | 'PLATFORM' | 'LADDER';
+  current: "NONE" | "LIGHT" | "MODERATE" | "STRONG";
+  entryType: "SHORE" | "BOAT" | "PLATFORM" | "LADDER";
   facilities: string[];
   restrictions: string[];
   bestTime: string;
@@ -229,12 +230,12 @@ export interface UpdateDiveSpotRequest {
   latitude?: number;
   longitude?: number;
   depth?: number;
-  visibility?: 'POOR' | 'FAIR' | 'GOOD' | 'EXCELLENT';
-  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-  waterType?: 'FRESH' | 'SALT' | 'BRACKISH';
+  visibility?: "POOR" | "FAIR" | "GOOD" | "EXCELLENT";
+  difficulty?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+  waterType?: "FRESH" | "SALT" | "BRACKISH";
   temperature?: number;
-  current?: 'NONE' | 'LIGHT' | 'MODERATE' | 'STRONG';
-  entryType?: 'SHORE' | 'BOAT' | 'PLATFORM' | 'LADDER';
+  current?: "NONE" | "LIGHT" | "MODERATE" | "STRONG";
+  entryType?: "SHORE" | "BOAT" | "PLATFORM" | "LADDER";
   facilities?: string[];
   restrictions?: string[];
   bestTime?: string;
@@ -254,11 +255,11 @@ export interface DiveSpotFilters {
   location?: string;
   minDepth?: number;
   maxDepth?: number;
-  visibility?: 'POOR' | 'FAIR' | 'GOOD' | 'EXCELLENT';
-  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-  waterType?: 'FRESH' | 'SALT' | 'BRACKISH';
-  current?: 'NONE' | 'LIGHT' | 'MODERATE' | 'STRONG';
-  entryType?: 'SHORE' | 'BOAT' | 'PLATFORM' | 'LADDER';
+  visibility?: "POOR" | "FAIR" | "GOOD" | "EXCELLENT";
+  difficulty?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+  waterType?: "FRESH" | "SALT" | "BRACKISH";
+  current?: "NONE" | "LIGHT" | "MODERATE" | "STRONG";
+  entryType?: "SHORE" | "BOAT" | "PLATFORM" | "LADDER";
   search?: string;
   isPublic?: boolean;
   isVerified?: boolean;
@@ -269,8 +270,8 @@ export interface DiveSpotFilters {
   south?: number;
   east?: number;
   west?: number;
-  shape?: 'map' | 'list';
-  sort?: 'newest' | 'oldest' | 'name';
+  shape?: "map" | "list";
+  sort?: "newest" | "oldest" | "name";
 }
 
 export interface Event {
@@ -282,9 +283,23 @@ export interface Event {
   endDate: string;
   maxAttendees?: number;
   currentAttendees: number;
-  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED' | 'POSTPONED' | 'REMOVED';
-  type: 'DIVE_SESSION' | 'TRAINING' | 'COMPETITION' | 'SOCIAL' | 'WORKSHOP' | 'MEETUP' | 'TOURNAMENT' | 'FUNDRAISER';
-  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  status:
+    | "DRAFT"
+    | "PUBLISHED"
+    | "CANCELLED"
+    | "COMPLETED"
+    | "POSTPONED"
+    | "REMOVED";
+  type:
+    | "DIVE_SESSION"
+    | "TRAINING"
+    | "COMPETITION"
+    | "SOCIAL"
+    | "WORKSHOP"
+    | "MEETUP"
+    | "TOURNAMENT"
+    | "FUNDRAISER";
+  difficulty: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
   price?: number;
   currency?: string;
   imageUrl?: string;
@@ -308,7 +323,7 @@ export interface EventAttendee {
   userId: number;
   userName: string;
   userEmail: string;
-  status: 'registered' | 'attended' | 'cancelled' | 'no_show';
+  status: "registered" | "attended" | "cancelled" | "no_show";
   joinedAt: string;
   notes?: string;
 }
@@ -320,8 +335,16 @@ export interface CreateEventRequest {
   startDate: string;
   endDate: string;
   maxAttendees?: number;
-  type: 'DIVE_SESSION' | 'TRAINING' | 'COMPETITION' | 'SOCIAL' | 'WORKSHOP' | 'MEETUP' | 'TOURNAMENT' | 'FUNDRAISER';
-  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  type:
+    | "DIVE_SESSION"
+    | "TRAINING"
+    | "COMPETITION"
+    | "SOCIAL"
+    | "WORKSHOP"
+    | "MEETUP"
+    | "TOURNAMENT"
+    | "FUNDRAISER";
+  difficulty: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
   price?: number;
   currency?: string;
   imageUrl?: string;
@@ -341,9 +364,23 @@ export interface UpdateEventRequest {
   startDate?: string;
   endDate?: string;
   maxAttendees?: number;
-  status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED' | 'POSTPONED' | 'REMOVED';
-  type?: 'DIVE_SESSION' | 'TRAINING' | 'COMPETITION' | 'SOCIAL' | 'WORKSHOP' | 'MEETUP' | 'TOURNAMENT' | 'FUNDRAISER';
-  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  status?:
+    | "DRAFT"
+    | "PUBLISHED"
+    | "CANCELLED"
+    | "COMPLETED"
+    | "POSTPONED"
+    | "REMOVED";
+  type?:
+    | "DIVE_SESSION"
+    | "TRAINING"
+    | "COMPETITION"
+    | "SOCIAL"
+    | "WORKSHOP"
+    | "MEETUP"
+    | "TOURNAMENT"
+    | "FUNDRAISER";
+  difficulty?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
   price?: number;
   currency?: string;
   imageUrl?: string;
@@ -365,9 +402,23 @@ export interface JoinEventRequest {
 export interface EventFilters {
   page?: number;
   limit?: number;
-  status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED' | 'POSTPONED' | 'REMOVED';
-  type?: 'DIVE_SESSION' | 'TRAINING' | 'COMPETITION' | 'SOCIAL' | 'WORKSHOP' | 'MEETUP' | 'TOURNAMENT' | 'FUNDRAISER';
-  difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  status?:
+    | "DRAFT"
+    | "PUBLISHED"
+    | "CANCELLED"
+    | "COMPLETED"
+    | "POSTPONED"
+    | "REMOVED";
+  type?:
+    | "DIVE_SESSION"
+    | "TRAINING"
+    | "COMPETITION"
+    | "SOCIAL"
+    | "WORKSHOP"
+    | "MEETUP"
+    | "TOURNAMENT"
+    | "FUNDRAISER";
+  difficulty?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
   location?: string;
   startDate?: string;
   endDate?: string;
@@ -381,8 +432,8 @@ export interface Group {
   name: string;
   slug: string;
   description?: string;
-  type: 'PUBLIC' | 'PRIVATE' | 'INVITE_ONLY' | 'CLOSED';
-  status: 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+  type: "PUBLIC" | "PRIVATE" | "INVITE_ONLY" | "CLOSED";
+  status: "ACTIVE" | "ARCHIVED" | "DELETED";
   memberCount: number;
   eventCount: number;
   postCount: number;
@@ -398,7 +449,7 @@ export interface GroupMember {
   id: number;
   groupId: number;
   userId: number;
-  role: 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
+  role: "OWNER" | "ADMIN" | "MODERATOR" | "MEMBER";
   joinedAt: string;
   leftAt?: string;
   isActive: boolean;
@@ -421,7 +472,7 @@ export interface GroupPost {
   authorId: number;
   title?: string;
   content: string;
-  postType: 'text' | 'image' | 'video' | 'link';
+  postType: "text" | "image" | "video" | "link";
   likeCount: number;
   commentCount: number;
   createdAt: string;
@@ -438,7 +489,7 @@ export interface CreateGroupRequest {
   name: string;
   slug: string;
   description?: string;
-  type?: 'PUBLIC' | 'PRIVATE' | 'INVITE_ONLY' | 'CLOSED';
+  type?: "PUBLIC" | "PRIVATE" | "INVITE_ONLY" | "CLOSED";
   location?: string;
   lat?: number;
   lng?: number;
@@ -447,8 +498,8 @@ export interface CreateGroupRequest {
 export interface UpdateGroupRequest {
   name?: string;
   description?: string;
-  type?: 'PUBLIC' | 'PRIVATE' | 'INVITE_ONLY' | 'CLOSED';
-  status?: 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+  type?: "PUBLIC" | "PRIVATE" | "INVITE_ONLY" | "CLOSED";
+  status?: "ACTIVE" | "ARCHIVED" | "DELETED";
   location?: string;
   lat?: number;
   lng?: number;
@@ -457,7 +508,7 @@ export interface UpdateGroupRequest {
 export interface JoinGroupRequest {
   groupId: number;
   userId: number;
-  role?: 'MEMBER' | 'MODERATOR' | 'ADMIN';
+  role?: "MEMBER" | "MODERATOR" | "ADMIN";
 }
 
 export interface CreateGroupPostRequest {
@@ -465,14 +516,14 @@ export interface CreateGroupPostRequest {
   authorId: number;
   title?: string;
   content: string;
-  postType?: 'text' | 'image' | 'video' | 'link';
+  postType?: "text" | "image" | "video" | "link";
 }
 
 export interface GroupFilters {
   page?: number;
   limit?: number;
-  type?: 'PUBLIC' | 'PRIVATE' | 'INVITE_ONLY' | 'CLOSED';
-  status?: 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+  type?: "PUBLIC" | "PRIVATE" | "INVITE_ONLY" | "CLOSED";
+  status?: "ACTIVE" | "ARCHIVED" | "DELETED";
   search?: string;
 }
 
@@ -487,7 +538,7 @@ export interface Media {
   altText?: string;
   caption?: string;
   tags?: string[];
-  category: 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'AUDIO' | 'OTHER';
+  category: "IMAGE" | "VIDEO" | "DOCUMENT" | "AUDIO" | "OTHER";
   uploadedBy: number;
   uploadedByName: string;
   isPublic: boolean;
@@ -507,7 +558,7 @@ export interface CreateMediaRequest {
   altText?: string;
   caption?: string;
   tags?: string[];
-  category: 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'AUDIO' | 'OTHER';
+  category: "IMAGE" | "VIDEO" | "DOCUMENT" | "AUDIO" | "OTHER";
   isPublic: boolean;
 }
 
@@ -534,7 +585,7 @@ export interface PresignedUrlResponse {
 export interface MediaFilters {
   page?: number;
   limit?: number;
-  category?: 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'AUDIO' | 'OTHER';
+  category?: "IMAGE" | "VIDEO" | "DOCUMENT" | "AUDIO" | "OTHER";
   uploadedBy?: number;
   isPublic?: boolean;
   search?: string;
@@ -629,7 +680,12 @@ export interface MarkReadResponse {
 
 export interface MessageWebSocketEnvelope<T = unknown> {
   v: 1;
-  type: "message.created" | "conversation.updated" | "request.created" | "request.accepted" | "request.declined";
+  type:
+    | "message.created"
+    | "conversation.updated"
+    | "request.created"
+    | "request.accepted"
+    | "request.declined";
   ts: string;
   eventId?: string;
   requestId?: string;
@@ -649,25 +705,25 @@ export interface Notification {
   id: number;
   userId: number;
   type:
-    | 'SYSTEM'
-    | 'MESSAGE'
-    | 'EVENT'
-    | 'GROUP'
-    | 'SERVICE'
-    | 'BOOKING'
-    | 'REVIEW'
-    | 'MENTION'
-    | 'LIKE'
-    | 'COMMENT'
-    | 'FRIEND_REQUEST'
-    | 'GROUP_INVITE'
-    | 'EVENT_REMINDER'
-    | 'PAYMENT'
-    | 'SECURITY';
+    | "SYSTEM"
+    | "MESSAGE"
+    | "EVENT"
+    | "GROUP"
+    | "SERVICE"
+    | "BOOKING"
+    | "REVIEW"
+    | "MENTION"
+    | "LIKE"
+    | "COMMENT"
+    | "FRIEND_REQUEST"
+    | "GROUP_INVITE"
+    | "EVENT_REMINDER"
+    | "PAYMENT"
+    | "SECURITY";
   title: string;
   message: string;
-  status: 'UNREAD' | 'READ' | 'ARCHIVED' | 'DELETED';
-  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  status: "UNREAD" | "READ" | "ARCHIVED" | "DELETED";
+  priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
   relatedUserId?: number;
   relatedEntityType?: string;
   relatedEntityId?: number;
@@ -705,7 +761,7 @@ export interface NotificationSettings {
   eventReminderNotifications: boolean;
   paymentNotifications: boolean;
   securityNotifications: boolean;
-  digestFrequency: 'IMMEDIATE' | 'DAILY' | 'WEEKLY' | 'NEVER';
+  digestFrequency: "IMMEDIATE" | "DAILY" | "WEEKLY" | "NEVER";
   quietHoursStart?: string;
   quietHoursEnd?: string;
   timezone: string;
@@ -722,10 +778,10 @@ export interface NotificationStats {
 
 export interface CreateNotificationRequest {
   userId: number;
-  type: Notification['type'];
+  type: Notification["type"];
   title: string;
   message: string;
-  priority?: Notification['priority'];
+  priority?: Notification["priority"];
   relatedUserId?: number;
   relatedEntityType?: string;
   relatedEntityId?: number;
@@ -735,7 +791,7 @@ export interface CreateNotificationRequest {
 }
 
 export interface UpdateNotificationRequest {
-  status?: Notification['status'];
+  status?: Notification["status"];
   readAt?: string;
   archivedAt?: string;
 }
@@ -759,7 +815,7 @@ export interface UpdateNotificationSettingsRequest {
   eventReminderNotifications?: boolean;
   paymentNotifications?: boolean;
   securityNotifications?: boolean;
-  digestFrequency?: NotificationSettings['digestFrequency'];
+  digestFrequency?: NotificationSettings["digestFrequency"];
   quietHoursStart?: string;
   quietHoursEnd?: string;
   timezone?: string;
@@ -768,12 +824,16 @@ export interface UpdateNotificationSettingsRequest {
 export interface NotificationFilters {
   page?: number;
   limit?: number;
-  status?: Notification['status'];
-  type?: Notification['type'];
-  priority?: Notification['priority'];
+  status?: Notification["status"];
+  type?: Notification["type"];
+  priority?: Notification["priority"];
 }
 
-export type BuddyRequestStatus = "pending" | "accepted" | "declined" | "cancelled";
+export type BuddyRequestStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "cancelled";
 
 export interface BuddyRequest {
   id: string;
@@ -831,7 +891,7 @@ export interface CompetitiveRecord {
   eventName: string;
   eventDate: string;
   sourceUrl?: string | null;
-  verificationState: 'UNVERIFIED' | 'VERIFIED' | 'REJECTED';
+  verificationState: "UNVERIFIED" | "VERIFIED" | "REJECTED";
   verificationNote?: string | null;
 }
 
@@ -859,15 +919,19 @@ export interface TrainingLogSession {
   title: string;
   notes?: string | null;
   sessionDate: string;
-  visibility: 'PRIVATE' | 'BUDDIES_ONLY' | 'PUBLIC';
+  visibility: "PRIVATE" | "BUDDIES_ONLY" | "PUBLIC";
 }
 
 export interface CreateTrainingLogRequest {
   title: string;
   notes?: string;
   sessionDate: string;
-  visibility?: 'PRIVATE' | 'BUDDIES_ONLY' | 'PUBLIC';
-  metrics?: Array<{ metricKey: string; metricValue: string; metricUnit?: string }>;
+  visibility?: "PRIVATE" | "BUDDIES_ONLY" | "PUBLIC";
+  metrics?: Array<{
+    metricKey: string;
+    metricValue: string;
+    metricUnit?: string;
+  }>;
 }
 
 export interface SafetyPage {
@@ -892,7 +956,7 @@ export interface AwarenessPost {
   id: number;
   title: string;
   body: string;
-  topicType: 'REMINDER' | 'ETIQUETTE' | 'ADVISORY' | 'TOURISM_NOTE';
+  topicType: "REMINDER" | "ETIQUETTE" | "ADVISORY" | "TOURISM_NOTE";
   sourceUrl?: string | null;
   isPublished: number;
 }
@@ -906,13 +970,13 @@ export interface MarketplaceListing {
   region: string;
   description?: string | null;
   photos?: string[] | null;
-  state: 'ACTIVE' | 'FLAGGED' | 'REMOVED';
+  state: "ACTIVE" | "FLAGGED" | "REMOVED";
 }
 
 export interface CollaborationPost {
   id: number;
   authorUserId: number;
-  postType: 'LOOKING_FOR' | 'OFFERING';
+  postType: "LOOKING_FOR" | "OFFERING";
   title: string;
   body: string;
   region?: string | null;
@@ -932,13 +996,13 @@ export interface User {
   location?: string;
   phone?: string;
   dateOfBirth?: string;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
-  experience: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
+  experience: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
   certifications: string[];
   specialties: string[];
   isActive: boolean;
   isVerified: boolean;
-  role: 'USER' | 'EDITOR' | 'ADMINISTRATOR';
+  role: "USER" | "EDITOR" | "ADMINISTRATOR";
   preferences: {
     notifications: boolean;
     emailUpdates: boolean;
@@ -967,13 +1031,13 @@ export interface UserProfile {
   location?: string;
   phone?: string;
   dateOfBirth?: string;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
-  experience: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
+  experience: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
   certifications: string[];
   specialties: string[];
   isActive: boolean;
   isVerified: boolean;
-  role: 'USER' | 'EDITOR' | 'ADMINISTRATOR';
+  role: "USER" | "EDITOR" | "ADMINISTRATOR";
   preferences: {
     notifications: boolean;
     emailUpdates: boolean;
@@ -999,8 +1063,8 @@ export interface UpdateUserRequest {
   location?: string;
   phone?: string;
   dateOfBirth?: string;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
-  experience?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
+  gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
+  experience?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
   certifications?: string[];
   specialties?: string[];
   preferences?: {
@@ -1016,8 +1080,8 @@ export interface UserFilters {
   limit?: number;
   search?: string;
   location?: string;
-  experience?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-  role?: 'USER' | 'EDITOR' | 'ADMINISTRATOR';
+  experience?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+  role?: "USER" | "EDITOR" | "ADMINISTRATOR";
   isActive?: boolean;
   isVerified?: boolean;
 }
@@ -1026,11 +1090,17 @@ export interface UserService {
   id: number;
   title: string;
   description: string;
-  category: 'INSTRUCTION' | 'EQUIPMENT' | 'GUIDE' | 'PHOTOGRAPHY' | 'TRANSPORT' | 'OTHER';
+  category:
+    | "INSTRUCTION"
+    | "EQUIPMENT"
+    | "GUIDE"
+    | "PHOTOGRAPHY"
+    | "TRANSPORT"
+    | "OTHER";
   price: number;
   currency: string;
   location: string;
-  availability: 'AVAILABLE' | 'BUSY' | 'UNAVAILABLE';
+  availability: "AVAILABLE" | "BUSY" | "UNAVAILABLE";
   rating: number;
   reviewCount: number;
   providerId: number;
@@ -1053,7 +1123,7 @@ export interface ServiceBooking {
   userId: number;
   userName: string;
   userEmail: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
   bookingDate: string;
   notes?: string;
   totalPrice: number;
@@ -1076,7 +1146,13 @@ export interface ServiceReview {
 export interface CreateServiceRequest {
   title: string;
   description: string;
-  category: 'INSTRUCTION' | 'EQUIPMENT' | 'GUIDE' | 'PHOTOGRAPHY' | 'TRANSPORT' | 'OTHER';
+  category:
+    | "INSTRUCTION"
+    | "EQUIPMENT"
+    | "GUIDE"
+    | "PHOTOGRAPHY"
+    | "TRANSPORT"
+    | "OTHER";
   price: number;
   currency: string;
   location: string;
@@ -1090,11 +1166,17 @@ export interface CreateServiceRequest {
 export interface UpdateServiceRequest {
   title?: string;
   description?: string;
-  category?: 'INSTRUCTION' | 'EQUIPMENT' | 'GUIDE' | 'PHOTOGRAPHY' | 'TRANSPORT' | 'OTHER';
+  category?:
+    | "INSTRUCTION"
+    | "EQUIPMENT"
+    | "GUIDE"
+    | "PHOTOGRAPHY"
+    | "TRANSPORT"
+    | "OTHER";
   price?: number;
   currency?: string;
   location?: string;
-  availability?: 'AVAILABLE' | 'BUSY' | 'UNAVAILABLE';
+  availability?: "AVAILABLE" | "BUSY" | "UNAVAILABLE";
   imageUrl?: string;
   tags?: string[];
   requirements?: string;
@@ -1111,7 +1193,7 @@ export interface CreateBookingRequest {
 }
 
 export interface UpdateBookingStatusRequest {
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 }
 
 export interface CreateReviewRequest {
@@ -1124,11 +1206,17 @@ export interface CreateReviewRequest {
 export interface ServiceFilters {
   page?: number;
   limit?: number;
-  category?: 'INSTRUCTION' | 'EQUIPMENT' | 'GUIDE' | 'PHOTOGRAPHY' | 'TRANSPORT' | 'OTHER';
+  category?:
+    | "INSTRUCTION"
+    | "EQUIPMENT"
+    | "GUIDE"
+    | "PHOTOGRAPHY"
+    | "TRANSPORT"
+    | "OTHER";
   location?: string;
   minPrice?: number;
   maxPrice?: number;
-  availability?: 'AVAILABLE' | 'BUSY' | 'UNAVAILABLE';
+  availability?: "AVAILABLE" | "BUSY" | "UNAVAILABLE";
   search?: string;
   providerId?: number;
   isActive?: boolean;
@@ -1241,6 +1329,65 @@ export type CreateExploreSiteUpdateRequest = {
   conditionWaves?: "calm" | "moderate" | "rough";
   conditionTempC?: number;
   occurredAt?: string;
+};
+
+export type ExploreSiteModerationState = "approved" | "pending" | "hidden";
+
+export type CreateExploreSiteSubmissionRequest = {
+  name: string;
+  lat: number;
+  lng: number;
+  entryDifficulty: "easy" | "moderate" | "hard";
+  depthMinM?: number;
+  depthMaxM?: number;
+  hazards?: string[];
+  bestSeason?: string;
+  typicalConditions?: string;
+  access?: string;
+  fees?: string;
+  contactInfo?: string;
+};
+
+export type ModerateExploreSiteRequest = {
+  reason?: string;
+};
+
+export type ExploreSiteSubmission = {
+  id: string;
+  slug: string;
+  name: string;
+  area: string;
+  latitude?: number;
+  longitude?: number;
+  difficulty: "easy" | "moderate" | "hard";
+  depthMinM?: number;
+  depthMaxM?: number;
+  hazards: string[];
+  bestSeason?: string;
+  typicalConditions?: string;
+  access?: string;
+  fees?: string;
+  contactInfo?: string;
+  verificationStatus: "community" | "instructor" | "moderator" | "verified";
+  submittedByAppUserId?: string;
+  submittedByDisplayName?: string;
+  reviewedByAppUserId?: string;
+  reviewedByDisplayName?: string;
+  reviewedAt?: string;
+  moderationReason?: string;
+  moderationState: ExploreSiteModerationState;
+  lastUpdatedAt: string;
+  updatedAt: string;
+  createdAt: string;
+};
+
+export type ExploreSiteSubmissionResponse = {
+  submission: ExploreSiteSubmission;
+};
+
+export type ExploreSiteSubmissionListResponse = {
+  items: ExploreSiteSubmission[];
+  nextCursor?: string;
 };
 
 export type BuddyFinderPreviewIntent = {

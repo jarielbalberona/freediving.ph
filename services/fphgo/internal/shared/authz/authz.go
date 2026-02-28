@@ -14,6 +14,7 @@ const (
 	PermissionChikaModerate   Permission = "chika.moderate"
 	PermissionExploreRead     Permission = "explore.read"
 	PermissionExploreSubmit   Permission = "explore.submit"
+	PermissionExploreModerate Permission = "explore.moderate"
 	PermissionProfilesRead    Permission = "profiles.read"
 	PermissionProfilesWrite   Permission = "profiles.write"
 	PermissionBlocksRead      Permission = "blocks.read"
@@ -76,6 +77,7 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionChikaWrite] = true
 		permissions[PermissionChikaModerate] = true
 		permissions[PermissionExploreSubmit] = true
+		permissions[PermissionExploreModerate] = true
 		permissions[PermissionProfilesWrite] = true
 		permissions[PermissionBlocksWrite] = true
 		permissions[PermissionBuddiesWrite] = true
@@ -92,6 +94,7 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionChikaWrite] = true
 		permissions[PermissionChikaModerate] = true
 		permissions[PermissionExploreSubmit] = true
+		permissions[PermissionExploreModerate] = true
 		permissions[PermissionProfilesWrite] = true
 		permissions[PermissionBlocksWrite] = true
 		permissions[PermissionBuddiesWrite] = true
@@ -113,6 +116,7 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionChikaWrite] = true
 		permissions[PermissionChikaModerate] = true
 		permissions[PermissionExploreSubmit] = true
+		permissions[PermissionExploreModerate] = true
 		permissions[PermissionProfilesWrite] = true
 		permissions[PermissionBlocksWrite] = true
 		permissions[PermissionBuddiesWrite] = true

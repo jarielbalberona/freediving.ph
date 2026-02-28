@@ -9,6 +9,7 @@ import {
   getGroupedNavItems,
   isActiveRoute,
 } from "@/config/nav";
+import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { NavUser } from "@/components/ui/nav-user";
 import {
   Sidebar,
@@ -44,6 +45,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const groupedFiltered = isMobile
     ? grouped.filter((g) => g.group !== "core")
     : grouped;
+  const profileHref = useCurrentProfileHref();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -64,17 +66,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             )}
             <SidebarMenu>
               {items.map((item) => {
+                const href = item.id === "profile" ? profileHref : item.href ?? "#";
                 const active =
                   item.kind === "link" &&
-                  item.href != null &&
-                  isActiveRoute(pathname ?? "", item.href);
+                  isActiveRoute(pathname ?? "", href);
                 if (item.items?.length) {
                   return (
                     <SidebarMenuItem key={item.id}>
                       <SidebarMenuButton
                         render={
                           <Link
-                            href={item.kind === "link" ? item.href ?? "#" : "#"}
+                            href={item.kind === "link" ? href : "#"}
                             className="font-medium"
                           >
                             {item.icon != null && <item.icon />}
@@ -106,7 +108,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 return (
                   <SidebarMenuItem key={item.id}>
                     <Link
-                      href={item.kind === "link" ? item.href ?? "#" : "#"}
+                      href={item.kind === "link" ? href : "#"}
                       className="flex items-center gap-2 w-full"
                     >
                       <SidebarMenuButton

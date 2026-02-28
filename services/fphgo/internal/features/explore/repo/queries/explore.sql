@@ -279,3 +279,220 @@ JOIN dive_sites s ON s.id = ss.dive_site_id
 WHERE ss.app_user_id = sqlc.arg(app_user_id)
   AND s.moderation_state = 'approved'
 ORDER BY ss.created_at DESC, s.id DESC;
+
+-- name: FindApprovedSiteDuplicate :one
+SELECT id
+FROM dive_sites
+WHERE moderation_state = 'approved'
+  AND lower(name) = lower(sqlc.arg(name))
+  AND lower(area) = lower(sqlc.arg(area))
+LIMIT 1;
+
+-- name: SlugExists :one
+SELECT EXISTS (
+  SELECT 1
+  FROM dive_sites
+  WHERE slug = sqlc.arg(slug)
+);
+
+-- name: CreateSiteSubmission :one
+INSERT INTO dive_sites (
+  name,
+  slug,
+  area,
+  latitude,
+  longitude,
+  entry_difficulty,
+  depth_min_m,
+  depth_max_m,
+  hazards,
+  best_season,
+  typical_conditions,
+  access,
+  fees,
+  contact_info,
+  verification_status,
+  submitted_by_app_user_id,
+  moderation_state,
+  last_updated_at,
+  updated_at
+)
+VALUES (
+  sqlc.arg(name),
+  sqlc.arg(slug),
+  sqlc.arg(area),
+  sqlc.narg(latitude),
+  sqlc.narg(longitude),
+  sqlc.arg(entry_difficulty),
+  sqlc.narg(depth_min_m),
+  sqlc.narg(depth_max_m),
+  sqlc.arg(hazards),
+  sqlc.narg(best_season),
+  sqlc.narg(typical_conditions),
+  sqlc.narg(access),
+  sqlc.narg(fees),
+  sqlc.narg(contact_info),
+  'community',
+  sqlc.arg(submitted_by_app_user_id),
+  'pending',
+  NOW(),
+  NOW()
+)
+RETURNING *;
+
+-- name: ListMySiteSubmissions :many
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.best_season,
+  s.typical_conditions,
+  s.access,
+  s.fees,
+  s.contact_info,
+  s.verification_status,
+  s.submitted_by_app_user_id,
+  s.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  s.reviewed_at,
+  s.moderation_reason,
+  s.moderation_state,
+  s.last_updated_at,
+  s.updated_at,
+  s.created_at
+FROM dive_sites s
+LEFT JOIN users reviewer ON reviewer.id = s.reviewed_by_app_user_id
+WHERE s.submitted_by_app_user_id = sqlc.arg(submitted_by_app_user_id)
+  AND (s.created_at < sqlc.arg(cursor_created_at) OR (s.created_at = sqlc.arg(cursor_created_at) AND s.id < sqlc.arg(cursor_id)))
+ORDER BY s.created_at DESC, s.id DESC
+LIMIT sqlc.arg(limit_rows);
+
+-- name: GetMySiteSubmissionByID :one
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.best_season,
+  s.typical_conditions,
+  s.access,
+  s.fees,
+  s.contact_info,
+  s.verification_status,
+  s.submitted_by_app_user_id,
+  s.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  s.reviewed_at,
+  s.moderation_reason,
+  s.moderation_state,
+  s.last_updated_at,
+  s.updated_at,
+  s.created_at
+FROM dive_sites s
+LEFT JOIN users reviewer ON reviewer.id = s.reviewed_by_app_user_id
+WHERE s.id = sqlc.arg(id)
+  AND s.submitted_by_app_user_id = sqlc.arg(submitted_by_app_user_id);
+
+-- name: ListPendingSites :many
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.best_season,
+  s.typical_conditions,
+  s.access,
+  s.fees,
+  s.contact_info,
+  s.verification_status,
+  s.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  s.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  s.reviewed_at,
+  s.moderation_reason,
+  s.moderation_state,
+  s.last_updated_at,
+  s.updated_at,
+  s.created_at
+FROM dive_sites s
+LEFT JOIN users submitter ON submitter.id = s.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = s.reviewed_by_app_user_id
+WHERE s.moderation_state = 'pending'
+  AND (s.created_at < sqlc.arg(cursor_created_at) OR (s.created_at = sqlc.arg(cursor_created_at) AND s.id < sqlc.arg(cursor_id)))
+ORDER BY s.created_at DESC, s.id DESC
+LIMIT sqlc.arg(limit_rows);
+
+-- name: GetSiteByIDForModeration :one
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.best_season,
+  s.typical_conditions,
+  s.access,
+  s.fees,
+  s.contact_info,
+  s.verification_status,
+  s.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  s.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  s.reviewed_at,
+  s.moderation_reason,
+  s.moderation_state,
+  s.last_updated_at,
+  s.updated_at,
+  s.created_at
+FROM dive_sites s
+LEFT JOIN users submitter ON submitter.id = s.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = s.reviewed_by_app_user_id
+WHERE s.id = sqlc.arg(id);
+
+-- name: ApproveSite :one
+UPDATE dive_sites
+SET slug = sqlc.arg(slug),
+    moderation_state = 'approved',
+    reviewed_by_app_user_id = sqlc.arg(reviewed_by_app_user_id),
+    reviewed_at = sqlc.arg(reviewed_at),
+    moderation_reason = sqlc.narg(moderation_reason),
+    updated_at = NOW(),
+    last_updated_at = GREATEST(last_updated_at, NOW())
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: RejectOrHideSite :one
+UPDATE dive_sites
+SET moderation_state = 'hidden',
+    reviewed_by_app_user_id = sqlc.arg(reviewed_by_app_user_id),
+    reviewed_at = sqlc.arg(reviewed_at),
+    moderation_reason = sqlc.narg(moderation_reason),
+    updated_at = NOW()
+WHERE id = sqlc.arg(id)
+RETURNING *;

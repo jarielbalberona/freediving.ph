@@ -82,7 +82,7 @@ export default async function RootLayout({
                       </div>
                     </div>
                   </header>
-                  <div className="pb-20 md:pb-0 min-h-[calc(100vh-3.5rem)]">
+                  <div className="pb-17 md:pb-0 min-h-[calc(100vh-3.5rem)]">
                     {children}
                   </div>
 	                </SidebarInset>

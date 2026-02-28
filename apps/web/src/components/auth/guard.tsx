@@ -51,8 +51,8 @@ const Blocked = ({ title, description }: { title: string; description: string })
 export function AuthGuard({
   children,
   requiredRole = "MEMBER",
-  title = "Sign in required",
-  description = "You need to sign in to access this page."
+  title = "Account required",
+  description = "Create an account to access this page."
 }: GuardProps) {
   const router = useRouter();
   const { user, isLoaded } = useUser();

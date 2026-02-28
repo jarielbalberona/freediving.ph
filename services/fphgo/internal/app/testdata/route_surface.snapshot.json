@@ -130,7 +130,35 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/explore/moderation/sites/pending"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/moderation/sites/{id}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/moderation/sites/{id}/approve"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/moderation/sites/{id}/reject"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/explore/sites"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/submissions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/submissions/{id}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/sites/submit"
     },
     {
       "method": "DELETE",

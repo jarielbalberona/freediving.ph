@@ -37,7 +37,7 @@ export default async function BuddySharePage({ params }: PageProps) {
   try {
     const data = await getBuddyFinderSharePreviewServer(intentId);
     return (
-      <div className="min-h-full bg-[linear-gradient(180deg,_#f6fbff_0%,_#ffffff_100%)] px-4 py-10">
+      <div className="min-h-full bg-[linear-gradient(180deg,_#f6fbff_0%,_#ffffff_100%)] px-4 py-2">
         <div className="mx-auto max-w-3xl space-y-6">
           <div className="space-y-2">
             <p className="text-sm uppercase tracking-[0.2em] text-sky-700">Freediving Philippines</p>
@@ -57,7 +57,7 @@ export default async function BuddySharePage({ params }: PageProps) {
               <CardTitle className="text-2xl text-sky-950">Safe preview only</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-zinc-700">
-              <p>{data.intent.notePreview || "Sign in to reveal the full note and use the DM request flow."}</p>
+              <p>{data.intent.notePreview || "Create an account to view the full note and message this diver."}</p>
               <TrustCard
                 emailVerified={data.intent.emailVerified}
                 phoneVerified={data.intent.phoneVerified}
@@ -66,9 +66,9 @@ export default async function BuddySharePage({ params }: PageProps) {
                 reportCount={data.intent.reportCount}
               />
               <div className="rounded-2xl bg-sky-950 p-4 text-sky-50">
-                <p className="font-medium">Sign up to message and match</p>
+                <p className="font-medium">Message and match</p>
                 <p className="mt-1 text-sm text-sky-100">
-                  Exact contact stays gated. Coarse area only. Message requests still need acceptance.
+                  Create an account to message this diver. Exact contact is shared only after request acceptance.
                 </p>
               </div>
             </CardContent>

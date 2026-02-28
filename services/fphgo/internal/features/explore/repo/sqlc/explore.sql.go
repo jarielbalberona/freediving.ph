@@ -11,6 +11,179 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approveSite = `-- name: ApproveSite :one
+UPDATE dive_sites
+SET slug = $1,
+    moderation_state = 'approved',
+    reviewed_by_app_user_id = $2,
+    reviewed_at = $3,
+    moderation_reason = $4,
+    updated_at = NOW(),
+    last_updated_at = GREATEST(last_updated_at, NOW())
+WHERE id = $5
+RETURNING id, name, slug, area, latitude, longitude, entry_difficulty, depth_min_m, depth_max_m, hazards, best_season, typical_conditions, access, fees, contact_info, verification_status, verified_by_app_user_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, moderation_state, last_updated_at, updated_at, created_at
+`
+
+type ApproveSiteParams struct {
+	Slug                string             `db:"slug" json:"slug"`
+	ReviewedByAppUserID pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedAt          pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason    *string            `db:"moderation_reason" json:"moderation_reason"`
+	ID                  pgtype.UUID        `db:"id" json:"id"`
+}
+
+func (q *Queries) ApproveSite(ctx context.Context, arg ApproveSiteParams) (DiveSite, error) {
+	row := q.db.QueryRow(ctx, approveSite,
+		arg.Slug,
+		arg.ReviewedByAppUserID,
+		arg.ReviewedAt,
+		arg.ModerationReason,
+		arg.ID,
+	)
+	var i DiveSite
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Area,
+		&i.Latitude,
+		&i.Longitude,
+		&i.EntryDifficulty,
+		&i.DepthMinM,
+		&i.DepthMaxM,
+		&i.Hazards,
+		&i.BestSeason,
+		&i.TypicalConditions,
+		&i.Access,
+		&i.Fees,
+		&i.ContactInfo,
+		&i.VerificationStatus,
+		&i.VerifiedByAppUserID,
+		&i.SubmittedByAppUserID,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.ModerationState,
+		&i.LastUpdatedAt,
+		&i.UpdatedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createSiteSubmission = `-- name: CreateSiteSubmission :one
+INSERT INTO dive_sites (
+  name,
+  slug,
+  area,
+  latitude,
+  longitude,
+  entry_difficulty,
+  depth_min_m,
+  depth_max_m,
+  hazards,
+  best_season,
+  typical_conditions,
+  access,
+  fees,
+  contact_info,
+  verification_status,
+  submitted_by_app_user_id,
+  moderation_state,
+  last_updated_at,
+  updated_at
+)
+VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  $6,
+  $7,
+  $8,
+  $9,
+  $10,
+  $11,
+  $12,
+  $13,
+  $14,
+  'community',
+  $15,
+  'pending',
+  NOW(),
+  NOW()
+)
+RETURNING id, name, slug, area, latitude, longitude, entry_difficulty, depth_min_m, depth_max_m, hazards, best_season, typical_conditions, access, fees, contact_info, verification_status, verified_by_app_user_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, moderation_state, last_updated_at, updated_at, created_at
+`
+
+type CreateSiteSubmissionParams struct {
+	Name                 string         `db:"name" json:"name"`
+	Slug                 string         `db:"slug" json:"slug"`
+	Area                 string         `db:"area" json:"area"`
+	Latitude             *float64       `db:"latitude" json:"latitude"`
+	Longitude            *float64       `db:"longitude" json:"longitude"`
+	EntryDifficulty      string         `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM            pgtype.Numeric `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM            pgtype.Numeric `db:"depth_max_m" json:"depth_max_m"`
+	Hazards              []string       `db:"hazards" json:"hazards"`
+	BestSeason           *string        `db:"best_season" json:"best_season"`
+	TypicalConditions    *string        `db:"typical_conditions" json:"typical_conditions"`
+	Access               *string        `db:"access" json:"access"`
+	Fees                 *string        `db:"fees" json:"fees"`
+	ContactInfo          *string        `db:"contact_info" json:"contact_info"`
+	SubmittedByAppUserID pgtype.UUID    `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+}
+
+func (q *Queries) CreateSiteSubmission(ctx context.Context, arg CreateSiteSubmissionParams) (DiveSite, error) {
+	row := q.db.QueryRow(ctx, createSiteSubmission,
+		arg.Name,
+		arg.Slug,
+		arg.Area,
+		arg.Latitude,
+		arg.Longitude,
+		arg.EntryDifficulty,
+		arg.DepthMinM,
+		arg.DepthMaxM,
+		arg.Hazards,
+		arg.BestSeason,
+		arg.TypicalConditions,
+		arg.Access,
+		arg.Fees,
+		arg.ContactInfo,
+		arg.SubmittedByAppUserID,
+	)
+	var i DiveSite
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Area,
+		&i.Latitude,
+		&i.Longitude,
+		&i.EntryDifficulty,
+		&i.DepthMinM,
+		&i.DepthMaxM,
+		&i.Hazards,
+		&i.BestSeason,
+		&i.TypicalConditions,
+		&i.Access,
+		&i.Fees,
+		&i.ContactInfo,
+		&i.VerificationStatus,
+		&i.VerifiedByAppUserID,
+		&i.SubmittedByAppUserID,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.ModerationState,
+		&i.LastUpdatedAt,
+		&i.UpdatedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createUpdate = `-- name: CreateUpdate :one
 INSERT INTO dive_site_updates (
   dive_site_id,
@@ -70,6 +243,223 @@ func (q *Queries) CreateUpdate(ctx context.Context, arg CreateUpdateParams) (Div
 		&i.OccurredAt,
 		&i.CreatedAt,
 		&i.State,
+	)
+	return i, err
+}
+
+const findApprovedSiteDuplicate = `-- name: FindApprovedSiteDuplicate :one
+SELECT id
+FROM dive_sites
+WHERE moderation_state = 'approved'
+  AND lower(name) = lower($1)
+  AND lower(area) = lower($2)
+LIMIT 1
+`
+
+type FindApprovedSiteDuplicateParams struct {
+	Name string `db:"name" json:"name"`
+	Area string `db:"area" json:"area"`
+}
+
+func (q *Queries) FindApprovedSiteDuplicate(ctx context.Context, arg FindApprovedSiteDuplicateParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, findApprovedSiteDuplicate, arg.Name, arg.Area)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getMySiteSubmissionByID = `-- name: GetMySiteSubmissionByID :one
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.best_season,
+  s.typical_conditions,
+  s.access,
+  s.fees,
+  s.contact_info,
+  s.verification_status,
+  s.submitted_by_app_user_id,
+  s.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  s.reviewed_at,
+  s.moderation_reason,
+  s.moderation_state,
+  s.last_updated_at,
+  s.updated_at,
+  s.created_at
+FROM dive_sites s
+LEFT JOIN users reviewer ON reviewer.id = s.reviewed_by_app_user_id
+WHERE s.id = $1
+  AND s.submitted_by_app_user_id = $2
+`
+
+type GetMySiteSubmissionByIDParams struct {
+	ID                   pgtype.UUID `db:"id" json:"id"`
+	SubmittedByAppUserID pgtype.UUID `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+}
+
+type GetMySiteSubmissionByIDRow struct {
+	ID                    pgtype.UUID        `db:"id" json:"id"`
+	Slug                  string             `db:"slug" json:"slug"`
+	Name                  string             `db:"name" json:"name"`
+	Area                  string             `db:"area" json:"area"`
+	Latitude              *float64           `db:"latitude" json:"latitude"`
+	Longitude             *float64           `db:"longitude" json:"longitude"`
+	EntryDifficulty       string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM             pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM             pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards               []string           `db:"hazards" json:"hazards"`
+	BestSeason            *string            `db:"best_season" json:"best_season"`
+	TypicalConditions     *string            `db:"typical_conditions" json:"typical_conditions"`
+	Access                *string            `db:"access" json:"access"`
+	Fees                  *string            `db:"fees" json:"fees"`
+	ContactInfo           *string            `db:"contact_info" json:"contact_info"`
+	VerificationStatus    string             `db:"verification_status" json:"verification_status"`
+	SubmittedByAppUserID  pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	ReviewedByAppUserID   pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt            pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason      *string            `db:"moderation_reason" json:"moderation_reason"`
+	ModerationState       string             `db:"moderation_state" json:"moderation_state"`
+	LastUpdatedAt         pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	UpdatedAt             pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	CreatedAt             pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetMySiteSubmissionByID(ctx context.Context, arg GetMySiteSubmissionByIDParams) (GetMySiteSubmissionByIDRow, error) {
+	row := q.db.QueryRow(ctx, getMySiteSubmissionByID, arg.ID, arg.SubmittedByAppUserID)
+	var i GetMySiteSubmissionByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.Area,
+		&i.Latitude,
+		&i.Longitude,
+		&i.EntryDifficulty,
+		&i.DepthMinM,
+		&i.DepthMaxM,
+		&i.Hazards,
+		&i.BestSeason,
+		&i.TypicalConditions,
+		&i.Access,
+		&i.Fees,
+		&i.ContactInfo,
+		&i.VerificationStatus,
+		&i.SubmittedByAppUserID,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedByDisplayName,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.ModerationState,
+		&i.LastUpdatedAt,
+		&i.UpdatedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getSiteByIDForModeration = `-- name: GetSiteByIDForModeration :one
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.best_season,
+  s.typical_conditions,
+  s.access,
+  s.fees,
+  s.contact_info,
+  s.verification_status,
+  s.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  s.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  s.reviewed_at,
+  s.moderation_reason,
+  s.moderation_state,
+  s.last_updated_at,
+  s.updated_at,
+  s.created_at
+FROM dive_sites s
+LEFT JOIN users submitter ON submitter.id = s.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = s.reviewed_by_app_user_id
+WHERE s.id = $1
+`
+
+type GetSiteByIDForModerationRow struct {
+	ID                     pgtype.UUID        `db:"id" json:"id"`
+	Slug                   string             `db:"slug" json:"slug"`
+	Name                   string             `db:"name" json:"name"`
+	Area                   string             `db:"area" json:"area"`
+	Latitude               *float64           `db:"latitude" json:"latitude"`
+	Longitude              *float64           `db:"longitude" json:"longitude"`
+	EntryDifficulty        string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM              pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM              pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards                []string           `db:"hazards" json:"hazards"`
+	BestSeason             *string            `db:"best_season" json:"best_season"`
+	TypicalConditions      *string            `db:"typical_conditions" json:"typical_conditions"`
+	Access                 *string            `db:"access" json:"access"`
+	Fees                   *string            `db:"fees" json:"fees"`
+	ContactInfo            *string            `db:"contact_info" json:"contact_info"`
+	VerificationStatus     string             `db:"verification_status" json:"verification_status"`
+	SubmittedByAppUserID   pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	SubmittedByDisplayName string             `db:"submitted_by_display_name" json:"submitted_by_display_name"`
+	ReviewedByAppUserID    pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName  string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt             pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason       *string            `db:"moderation_reason" json:"moderation_reason"`
+	ModerationState        string             `db:"moderation_state" json:"moderation_state"`
+	LastUpdatedAt          pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	UpdatedAt              pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetSiteByIDForModeration(ctx context.Context, id pgtype.UUID) (GetSiteByIDForModerationRow, error) {
+	row := q.db.QueryRow(ctx, getSiteByIDForModeration, id)
+	var i GetSiteByIDForModerationRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.Area,
+		&i.Latitude,
+		&i.Longitude,
+		&i.EntryDifficulty,
+		&i.DepthMinM,
+		&i.DepthMaxM,
+		&i.Hazards,
+		&i.BestSeason,
+		&i.TypicalConditions,
+		&i.Access,
+		&i.Fees,
+		&i.ContactInfo,
+		&i.VerificationStatus,
+		&i.SubmittedByAppUserID,
+		&i.SubmittedByDisplayName,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedByDisplayName,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.ModerationState,
+		&i.LastUpdatedAt,
+		&i.UpdatedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -327,6 +717,246 @@ func (q *Queries) ListLatestUpdates(ctx context.Context, arg ListLatestUpdatesPa
 			&i.ConditionWaves,
 			&i.ConditionTempC,
 			&i.OccurredAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMySiteSubmissions = `-- name: ListMySiteSubmissions :many
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.best_season,
+  s.typical_conditions,
+  s.access,
+  s.fees,
+  s.contact_info,
+  s.verification_status,
+  s.submitted_by_app_user_id,
+  s.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  s.reviewed_at,
+  s.moderation_reason,
+  s.moderation_state,
+  s.last_updated_at,
+  s.updated_at,
+  s.created_at
+FROM dive_sites s
+LEFT JOIN users reviewer ON reviewer.id = s.reviewed_by_app_user_id
+WHERE s.submitted_by_app_user_id = $1
+  AND (s.created_at < $2 OR (s.created_at = $2 AND s.id < $3))
+ORDER BY s.created_at DESC, s.id DESC
+LIMIT $4
+`
+
+type ListMySiteSubmissionsParams struct {
+	SubmittedByAppUserID pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	CursorCreatedAt      pgtype.Timestamptz `db:"cursor_created_at" json:"cursor_created_at"`
+	CursorID             pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
+	LimitRows            int32              `db:"limit_rows" json:"limit_rows"`
+}
+
+type ListMySiteSubmissionsRow struct {
+	ID                    pgtype.UUID        `db:"id" json:"id"`
+	Slug                  string             `db:"slug" json:"slug"`
+	Name                  string             `db:"name" json:"name"`
+	Area                  string             `db:"area" json:"area"`
+	Latitude              *float64           `db:"latitude" json:"latitude"`
+	Longitude             *float64           `db:"longitude" json:"longitude"`
+	EntryDifficulty       string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM             pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM             pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards               []string           `db:"hazards" json:"hazards"`
+	BestSeason            *string            `db:"best_season" json:"best_season"`
+	TypicalConditions     *string            `db:"typical_conditions" json:"typical_conditions"`
+	Access                *string            `db:"access" json:"access"`
+	Fees                  *string            `db:"fees" json:"fees"`
+	ContactInfo           *string            `db:"contact_info" json:"contact_info"`
+	VerificationStatus    string             `db:"verification_status" json:"verification_status"`
+	SubmittedByAppUserID  pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	ReviewedByAppUserID   pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt            pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason      *string            `db:"moderation_reason" json:"moderation_reason"`
+	ModerationState       string             `db:"moderation_state" json:"moderation_state"`
+	LastUpdatedAt         pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	UpdatedAt             pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	CreatedAt             pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListMySiteSubmissions(ctx context.Context, arg ListMySiteSubmissionsParams) ([]ListMySiteSubmissionsRow, error) {
+	rows, err := q.db.Query(ctx, listMySiteSubmissions,
+		arg.SubmittedByAppUserID,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.LimitRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMySiteSubmissionsRow{}
+	for rows.Next() {
+		var i ListMySiteSubmissionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.Area,
+			&i.Latitude,
+			&i.Longitude,
+			&i.EntryDifficulty,
+			&i.DepthMinM,
+			&i.DepthMaxM,
+			&i.Hazards,
+			&i.BestSeason,
+			&i.TypicalConditions,
+			&i.Access,
+			&i.Fees,
+			&i.ContactInfo,
+			&i.VerificationStatus,
+			&i.SubmittedByAppUserID,
+			&i.ReviewedByAppUserID,
+			&i.ReviewedByDisplayName,
+			&i.ReviewedAt,
+			&i.ModerationReason,
+			&i.ModerationState,
+			&i.LastUpdatedAt,
+			&i.UpdatedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingSites = `-- name: ListPendingSites :many
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.best_season,
+  s.typical_conditions,
+  s.access,
+  s.fees,
+  s.contact_info,
+  s.verification_status,
+  s.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  s.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  s.reviewed_at,
+  s.moderation_reason,
+  s.moderation_state,
+  s.last_updated_at,
+  s.updated_at,
+  s.created_at
+FROM dive_sites s
+LEFT JOIN users submitter ON submitter.id = s.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = s.reviewed_by_app_user_id
+WHERE s.moderation_state = 'pending'
+  AND (s.created_at < $1 OR (s.created_at = $1 AND s.id < $2))
+ORDER BY s.created_at DESC, s.id DESC
+LIMIT $3
+`
+
+type ListPendingSitesParams struct {
+	CursorCreatedAt pgtype.Timestamptz `db:"cursor_created_at" json:"cursor_created_at"`
+	CursorID        pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
+	LimitRows       int32              `db:"limit_rows" json:"limit_rows"`
+}
+
+type ListPendingSitesRow struct {
+	ID                     pgtype.UUID        `db:"id" json:"id"`
+	Slug                   string             `db:"slug" json:"slug"`
+	Name                   string             `db:"name" json:"name"`
+	Area                   string             `db:"area" json:"area"`
+	Latitude               *float64           `db:"latitude" json:"latitude"`
+	Longitude              *float64           `db:"longitude" json:"longitude"`
+	EntryDifficulty        string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM              pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM              pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards                []string           `db:"hazards" json:"hazards"`
+	BestSeason             *string            `db:"best_season" json:"best_season"`
+	TypicalConditions      *string            `db:"typical_conditions" json:"typical_conditions"`
+	Access                 *string            `db:"access" json:"access"`
+	Fees                   *string            `db:"fees" json:"fees"`
+	ContactInfo            *string            `db:"contact_info" json:"contact_info"`
+	VerificationStatus     string             `db:"verification_status" json:"verification_status"`
+	SubmittedByAppUserID   pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	SubmittedByDisplayName string             `db:"submitted_by_display_name" json:"submitted_by_display_name"`
+	ReviewedByAppUserID    pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName  string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt             pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason       *string            `db:"moderation_reason" json:"moderation_reason"`
+	ModerationState        string             `db:"moderation_state" json:"moderation_state"`
+	LastUpdatedAt          pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	UpdatedAt              pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListPendingSites(ctx context.Context, arg ListPendingSitesParams) ([]ListPendingSitesRow, error) {
+	rows, err := q.db.Query(ctx, listPendingSites, arg.CursorCreatedAt, arg.CursorID, arg.LimitRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingSitesRow{}
+	for rows.Next() {
+		var i ListPendingSitesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.Area,
+			&i.Latitude,
+			&i.Longitude,
+			&i.EntryDifficulty,
+			&i.DepthMinM,
+			&i.DepthMaxM,
+			&i.Hazards,
+			&i.BestSeason,
+			&i.TypicalConditions,
+			&i.Access,
+			&i.Fees,
+			&i.ContactInfo,
+			&i.VerificationStatus,
+			&i.SubmittedByAppUserID,
+			&i.SubmittedByDisplayName,
+			&i.ReviewedByAppUserID,
+			&i.ReviewedByDisplayName,
+			&i.ReviewedAt,
+			&i.ModerationReason,
+			&i.ModerationState,
+			&i.LastUpdatedAt,
+			&i.UpdatedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -668,6 +1298,62 @@ func (q *Queries) ListUpdatesForSite(ctx context.Context, arg ListUpdatesForSite
 	return items, nil
 }
 
+const rejectOrHideSite = `-- name: RejectOrHideSite :one
+UPDATE dive_sites
+SET moderation_state = 'hidden',
+    reviewed_by_app_user_id = $1,
+    reviewed_at = $2,
+    moderation_reason = $3,
+    updated_at = NOW()
+WHERE id = $4
+RETURNING id, name, slug, area, latitude, longitude, entry_difficulty, depth_min_m, depth_max_m, hazards, best_season, typical_conditions, access, fees, contact_info, verification_status, verified_by_app_user_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, moderation_state, last_updated_at, updated_at, created_at
+`
+
+type RejectOrHideSiteParams struct {
+	ReviewedByAppUserID pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedAt          pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason    *string            `db:"moderation_reason" json:"moderation_reason"`
+	ID                  pgtype.UUID        `db:"id" json:"id"`
+}
+
+func (q *Queries) RejectOrHideSite(ctx context.Context, arg RejectOrHideSiteParams) (DiveSite, error) {
+	row := q.db.QueryRow(ctx, rejectOrHideSite,
+		arg.ReviewedByAppUserID,
+		arg.ReviewedAt,
+		arg.ModerationReason,
+		arg.ID,
+	)
+	var i DiveSite
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Area,
+		&i.Latitude,
+		&i.Longitude,
+		&i.EntryDifficulty,
+		&i.DepthMinM,
+		&i.DepthMaxM,
+		&i.Hazards,
+		&i.BestSeason,
+		&i.TypicalConditions,
+		&i.Access,
+		&i.Fees,
+		&i.ContactInfo,
+		&i.VerificationStatus,
+		&i.VerifiedByAppUserID,
+		&i.SubmittedByAppUserID,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.ModerationState,
+		&i.LastUpdatedAt,
+		&i.UpdatedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const saveSite = `-- name: SaveSite :exec
 INSERT INTO dive_site_saves (app_user_id, dive_site_id)
 VALUES ($1, $2)
@@ -682,6 +1368,21 @@ type SaveSiteParams struct {
 func (q *Queries) SaveSite(ctx context.Context, arg SaveSiteParams) error {
 	_, err := q.db.Exec(ctx, saveSite, arg.AppUserID, arg.DiveSiteID)
 	return err
+}
+
+const slugExists = `-- name: SlugExists :one
+SELECT EXISTS (
+  SELECT 1
+  FROM dive_sites
+  WHERE slug = $1
+)
+`
+
+func (q *Queries) SlugExists(ctx context.Context, slug string) (bool, error) {
+	row := q.db.QueryRow(ctx, slugExists, slug)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const touchSiteLastUpdated = `-- name: TouchSiteLastUpdated :exec

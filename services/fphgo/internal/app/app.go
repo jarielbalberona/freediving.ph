@@ -45,6 +45,7 @@ import (
 	usersrepo "fphgo/internal/features/users/repo"
 	usersservice "fphgo/internal/features/users/service"
 	"fphgo/internal/realtime/ws"
+	sharedmapsgeocode "fphgo/internal/shared/maps/geocode"
 	sharedratelimit "fphgo/internal/shared/ratelimit"
 	sharedr2 "fphgo/internal/shared/storage/r2"
 	"fphgo/internal/shared/validatex"
@@ -158,6 +159,11 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	mediaHandler := mediahttp.New(mediaService, v)
 
 	exploreRepo := explorerepo.New(pool)
+	var siteGeocoder *sharedmapsgeocode.Client
+	siteGeocoder, err = sharedmapsgeocode.New(cfg.GoogleMapsAPIKey)
+	if err != nil {
+		logger.Warn("explore site geocoder disabled", "error", err)
+	}
 	buddyFinderRepo := buddyfinderrepo.New(pool)
 	buddyFinderService := buddyfinderservice.New(
 		buddyFinderRepo,
@@ -170,6 +176,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		exploreRepo,
 		exploreservice.WithLimiter(limiter),
 		exploreservice.WithBuddyMatcher(buddyFinderService),
+		exploreservice.WithReverseGeocoder(siteGeocoder),
 	)
 	exploreHandler := explorehttp.New(exploreService, v)
 

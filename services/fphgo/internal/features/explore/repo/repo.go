@@ -72,6 +72,66 @@ type SiteDetail struct {
 	LastConditionSummary  string
 }
 
+type CreateSiteSubmissionInput struct {
+	Name                 string
+	Slug                 string
+	Area                 string
+	Latitude             *float64
+	Longitude            *float64
+	Difficulty           string
+	DepthMinM            *float64
+	DepthMaxM            *float64
+	Hazards              []string
+	BestSeason           *string
+	TypicalConditions    *string
+	Access               *string
+	Fees                 *string
+	ContactInfo          *string
+	SubmittedByAppUserID string
+}
+
+type ListSiteSubmissionsInput struct {
+	SubmittedByAppUserID string
+	CursorCreatedAt      time.Time
+	CursorID             string
+	Limit                int32
+}
+
+type ListPendingSitesInput struct {
+	CursorCreatedAt time.Time
+	CursorID        string
+	Limit           int32
+}
+
+type SiteSubmission struct {
+	ID                     string
+	Slug                   string
+	Name                   string
+	Area                   string
+	Latitude               *float64
+	Longitude              *float64
+	Difficulty             string
+	DepthMinM              *float64
+	DepthMaxM              *float64
+	Hazards                []string
+	BestSeason             string
+	TypicalConditions      string
+	Access                 string
+	Fees                   string
+	ContactInfo            string
+	VerificationStatus     string
+	SubmittedByAppUserID   string
+	SubmittedByDisplayName string
+	ReviewedByAppUserID    string
+	ReviewedByDisplayName  string
+	ReviewedAt             *time.Time
+	ModerationReason       string
+	ModerationState        string
+	LastUpdatedAt          time.Time
+	UpdatedAt              time.Time
+	CreatedAt              time.Time
+}
+
 type ListUpdatesInput struct {
 	SiteID           string
 	CursorOccurredAt time.Time
@@ -212,6 +272,124 @@ func (r *Repo) GetSiteBySlug(ctx context.Context, slug string) (SiteDetail, erro
 	}, nil
 }
 
+func (r *Repo) FindApprovedSiteDuplicate(ctx context.Context, name, area string) (string, error) {
+	id, err := r.queries.FindApprovedSiteDuplicate(ctx, exploreqlc.FindApprovedSiteDuplicateParams{
+		Name: name,
+		Area: area,
+	})
+	if err != nil {
+		return "", err
+	}
+	return uuidOrEmpty(id), nil
+}
+
+func (r *Repo) SlugExists(ctx context.Context, slug string) (bool, error) {
+	return r.queries.SlugExists(ctx, slug)
+}
+
+func (r *Repo) CreateSiteSubmission(ctx context.Context, input CreateSiteSubmissionInput) (SiteSubmission, error) {
+	row, err := r.queries.CreateSiteSubmission(ctx, exploreqlc.CreateSiteSubmissionParams{
+		Name:                 input.Name,
+		Slug:                 input.Slug,
+		Area:                 input.Area,
+		Latitude:             input.Latitude,
+		Longitude:            input.Longitude,
+		EntryDifficulty:      input.Difficulty,
+		DepthMinM:            numericValue(input.DepthMinM),
+		DepthMaxM:            numericValue(input.DepthMaxM),
+		Hazards:              input.Hazards,
+		BestSeason:           input.BestSeason,
+		TypicalConditions:    input.TypicalConditions,
+		Access:               input.Access,
+		Fees:                 input.Fees,
+		ContactInfo:          input.ContactInfo,
+		SubmittedByAppUserID: toUUID(input.SubmittedByAppUserID),
+	})
+	if err != nil {
+		return SiteSubmission{}, err
+	}
+	return mapDiveSiteSubmission(row, "", ""), nil
+}
+
+func (r *Repo) ListMySiteSubmissions(ctx context.Context, input ListSiteSubmissionsInput) ([]SiteSubmission, error) {
+	rows, err := r.queries.ListMySiteSubmissions(ctx, exploreqlc.ListMySiteSubmissionsParams{
+		SubmittedByAppUserID: toUUID(input.SubmittedByAppUserID),
+		CursorCreatedAt:      timestamptz(input.CursorCreatedAt),
+		CursorID:             toUUID(input.CursorID),
+		LimitRows:            input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]SiteSubmission, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapMySubmission(row))
+	}
+	return items, nil
+}
+
+func (r *Repo) GetMySiteSubmissionByID(ctx context.Context, id, submittedByAppUserID string) (SiteSubmission, error) {
+	row, err := r.queries.GetMySiteSubmissionByID(ctx, exploreqlc.GetMySiteSubmissionByIDParams{
+		ID:                   toUUID(id),
+		SubmittedByAppUserID: toUUID(submittedByAppUserID),
+	})
+	if err != nil {
+		return SiteSubmission{}, err
+	}
+	return mapMySubmissionDetail(row), nil
+}
+
+func (r *Repo) ListPendingSites(ctx context.Context, input ListPendingSitesInput) ([]SiteSubmission, error) {
+	rows, err := r.queries.ListPendingSites(ctx, exploreqlc.ListPendingSitesParams{
+		CursorCreatedAt: timestamptz(input.CursorCreatedAt),
+		CursorID:        toUUID(input.CursorID),
+		LimitRows:       input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]SiteSubmission, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapPendingSubmission(row))
+	}
+	return items, nil
+}
+
+func (r *Repo) GetSiteByIDForModeration(ctx context.Context, id string) (SiteSubmission, error) {
+	row, err := r.queries.GetSiteByIDForModeration(ctx, toUUID(id))
+	if err != nil {
+		return SiteSubmission{}, err
+	}
+	return mapModerationSubmission(row), nil
+}
+
+func (r *Repo) ApproveSite(ctx context.Context, id, slug, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (SiteSubmission, error) {
+	row, err := r.queries.ApproveSite(ctx, exploreqlc.ApproveSiteParams{
+		Slug:                slug,
+		ReviewedByAppUserID: toUUID(reviewedByAppUserID),
+		ReviewedAt:          timestamptz(reviewedAt),
+		ModerationReason:    moderationReason,
+		ID:                  toUUID(id),
+	})
+	if err != nil {
+		return SiteSubmission{}, err
+	}
+	return mapDiveSiteSubmission(row, "", ""), nil
+}
+
+func (r *Repo) RejectOrHideSite(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (SiteSubmission, error) {
+	row, err := r.queries.RejectOrHideSite(ctx, exploreqlc.RejectOrHideSiteParams{
+		ReviewedByAppUserID: toUUID(reviewedByAppUserID),
+		ReviewedAt:          timestamptz(reviewedAt),
+		ModerationReason:    moderationReason,
+		ID:                  toUUID(id),
+	})
+	if err != nil {
+		return SiteSubmission{}, err
+	}
+	return mapDiveSiteSubmission(row, "", ""), nil
+}
+
 func (r *Repo) ListUpdatesForSite(ctx context.Context, input ListUpdatesInput) ([]SiteUpdate, error) {
 	rows, err := r.queries.ListUpdatesForSite(ctx, exploreqlc.ListUpdatesForSiteParams{
 		DiveSiteID:       toUUID(input.SiteID),
@@ -226,10 +404,10 @@ func (r *Repo) ListUpdatesForSite(ctx context.Context, input ListUpdatesInput) (
 	items := make([]SiteUpdate, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, SiteUpdate{
-			ID:                   row.ID.String(),
-			DiveSiteID:           row.DiveSiteID.String(),
-			AuthorAppUserID:      row.AuthorAppUserID.String(),
-			AuthorDisplayName:    row.AuthorDisplayName,
+			ID:                row.ID.String(),
+			DiveSiteID:        row.DiveSiteID.String(),
+			AuthorAppUserID:   row.AuthorAppUserID.String(),
+			AuthorDisplayName: row.AuthorDisplayName,
 			AuthorTrust: TrustSignals{
 				EmailVerified: row.EmailVerified,
 				PhoneVerified: row.PhoneVerified,
@@ -421,4 +599,165 @@ func uuidOrEmpty(id pgtype.UUID) string {
 	}
 	parsed := uuid.UUID(id.Bytes)
 	return parsed.String()
+}
+
+func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Time.UTC()
+	return &result
+}
+
+func mapDiveSiteSubmission(row exploreqlc.DiveSite, submittedByDisplayName, reviewedByDisplayName string) SiteSubmission {
+	return SiteSubmission{
+		ID:                     row.ID.String(),
+		Slug:                   row.Slug,
+		Name:                   row.Name,
+		Area:                   row.Area,
+		Latitude:               row.Latitude,
+		Longitude:              row.Longitude,
+		Difficulty:             row.EntryDifficulty,
+		DepthMinM:              numericPtr(row.DepthMinM),
+		DepthMaxM:              numericPtr(row.DepthMaxM),
+		Hazards:                row.Hazards,
+		BestSeason:             valueOrEmpty(row.BestSeason),
+		TypicalConditions:      valueOrEmpty(row.TypicalConditions),
+		Access:                 valueOrEmpty(row.Access),
+		Fees:                   valueOrEmpty(row.Fees),
+		ContactInfo:            valueOrEmpty(row.ContactInfo),
+		VerificationStatus:     row.VerificationStatus,
+		SubmittedByAppUserID:   uuidOrEmpty(row.SubmittedByAppUserID),
+		SubmittedByDisplayName: submittedByDisplayName,
+		ReviewedByAppUserID:    uuidOrEmpty(row.ReviewedByAppUserID),
+		ReviewedByDisplayName:  reviewedByDisplayName,
+		ReviewedAt:             timestamptzPtr(row.ReviewedAt),
+		ModerationReason:       valueOrEmpty(row.ModerationReason),
+		ModerationState:        row.ModerationState,
+		LastUpdatedAt:          row.LastUpdatedAt.Time.UTC(),
+		UpdatedAt:              row.UpdatedAt.Time.UTC(),
+		CreatedAt:              row.CreatedAt.Time.UTC(),
+	}
+}
+
+func mapMySubmission(row exploreqlc.ListMySiteSubmissionsRow) SiteSubmission {
+	return SiteSubmission{
+		ID:                    row.ID.String(),
+		Slug:                  row.Slug,
+		Name:                  row.Name,
+		Area:                  row.Area,
+		Latitude:              row.Latitude,
+		Longitude:             row.Longitude,
+		Difficulty:            row.EntryDifficulty,
+		DepthMinM:             numericPtr(row.DepthMinM),
+		DepthMaxM:             numericPtr(row.DepthMaxM),
+		Hazards:               row.Hazards,
+		BestSeason:            valueOrEmpty(row.BestSeason),
+		TypicalConditions:     valueOrEmpty(row.TypicalConditions),
+		Access:                valueOrEmpty(row.Access),
+		Fees:                  valueOrEmpty(row.Fees),
+		ContactInfo:           valueOrEmpty(row.ContactInfo),
+		VerificationStatus:    row.VerificationStatus,
+		SubmittedByAppUserID:  uuidOrEmpty(row.SubmittedByAppUserID),
+		ReviewedByAppUserID:   uuidOrEmpty(row.ReviewedByAppUserID),
+		ReviewedByDisplayName: row.ReviewedByDisplayName,
+		ReviewedAt:            timestamptzPtr(row.ReviewedAt),
+		ModerationReason:      valueOrEmpty(row.ModerationReason),
+		ModerationState:       row.ModerationState,
+		LastUpdatedAt:         row.LastUpdatedAt.Time.UTC(),
+		UpdatedAt:             row.UpdatedAt.Time.UTC(),
+		CreatedAt:             row.CreatedAt.Time.UTC(),
+	}
+}
+
+func mapMySubmissionDetail(row exploreqlc.GetMySiteSubmissionByIDRow) SiteSubmission {
+	return SiteSubmission{
+		ID:                    row.ID.String(),
+		Slug:                  row.Slug,
+		Name:                  row.Name,
+		Area:                  row.Area,
+		Latitude:              row.Latitude,
+		Longitude:             row.Longitude,
+		Difficulty:            row.EntryDifficulty,
+		DepthMinM:             numericPtr(row.DepthMinM),
+		DepthMaxM:             numericPtr(row.DepthMaxM),
+		Hazards:               row.Hazards,
+		BestSeason:            valueOrEmpty(row.BestSeason),
+		TypicalConditions:     valueOrEmpty(row.TypicalConditions),
+		Access:                valueOrEmpty(row.Access),
+		Fees:                  valueOrEmpty(row.Fees),
+		ContactInfo:           valueOrEmpty(row.ContactInfo),
+		VerificationStatus:    row.VerificationStatus,
+		SubmittedByAppUserID:  uuidOrEmpty(row.SubmittedByAppUserID),
+		ReviewedByAppUserID:   uuidOrEmpty(row.ReviewedByAppUserID),
+		ReviewedByDisplayName: row.ReviewedByDisplayName,
+		ReviewedAt:            timestamptzPtr(row.ReviewedAt),
+		ModerationReason:      valueOrEmpty(row.ModerationReason),
+		ModerationState:       row.ModerationState,
+		LastUpdatedAt:         row.LastUpdatedAt.Time.UTC(),
+		UpdatedAt:             row.UpdatedAt.Time.UTC(),
+		CreatedAt:             row.CreatedAt.Time.UTC(),
+	}
+}
+
+func mapPendingSubmission(row exploreqlc.ListPendingSitesRow) SiteSubmission {
+	return SiteSubmission{
+		ID:                     row.ID.String(),
+		Slug:                   row.Slug,
+		Name:                   row.Name,
+		Area:                   row.Area,
+		Latitude:               row.Latitude,
+		Longitude:              row.Longitude,
+		Difficulty:             row.EntryDifficulty,
+		DepthMinM:              numericPtr(row.DepthMinM),
+		DepthMaxM:              numericPtr(row.DepthMaxM),
+		Hazards:                row.Hazards,
+		BestSeason:             valueOrEmpty(row.BestSeason),
+		TypicalConditions:      valueOrEmpty(row.TypicalConditions),
+		Access:                 valueOrEmpty(row.Access),
+		Fees:                   valueOrEmpty(row.Fees),
+		ContactInfo:            valueOrEmpty(row.ContactInfo),
+		VerificationStatus:     row.VerificationStatus,
+		SubmittedByAppUserID:   uuidOrEmpty(row.SubmittedByAppUserID),
+		SubmittedByDisplayName: row.SubmittedByDisplayName,
+		ReviewedByAppUserID:    uuidOrEmpty(row.ReviewedByAppUserID),
+		ReviewedByDisplayName:  row.ReviewedByDisplayName,
+		ReviewedAt:             timestamptzPtr(row.ReviewedAt),
+		ModerationReason:       valueOrEmpty(row.ModerationReason),
+		ModerationState:        row.ModerationState,
+		LastUpdatedAt:          row.LastUpdatedAt.Time.UTC(),
+		UpdatedAt:              row.UpdatedAt.Time.UTC(),
+		CreatedAt:              row.CreatedAt.Time.UTC(),
+	}
+}
+
+func mapModerationSubmission(row exploreqlc.GetSiteByIDForModerationRow) SiteSubmission {
+	return SiteSubmission{
+		ID:                     row.ID.String(),
+		Slug:                   row.Slug,
+		Name:                   row.Name,
+		Area:                   row.Area,
+		Latitude:               row.Latitude,
+		Longitude:              row.Longitude,
+		Difficulty:             row.EntryDifficulty,
+		DepthMinM:              numericPtr(row.DepthMinM),
+		DepthMaxM:              numericPtr(row.DepthMaxM),
+		Hazards:                row.Hazards,
+		BestSeason:             valueOrEmpty(row.BestSeason),
+		TypicalConditions:      valueOrEmpty(row.TypicalConditions),
+		Access:                 valueOrEmpty(row.Access),
+		Fees:                   valueOrEmpty(row.Fees),
+		ContactInfo:            valueOrEmpty(row.ContactInfo),
+		VerificationStatus:     row.VerificationStatus,
+		SubmittedByAppUserID:   uuidOrEmpty(row.SubmittedByAppUserID),
+		SubmittedByDisplayName: row.SubmittedByDisplayName,
+		ReviewedByAppUserID:    uuidOrEmpty(row.ReviewedByAppUserID),
+		ReviewedByDisplayName:  row.ReviewedByDisplayName,
+		ReviewedAt:             timestamptzPtr(row.ReviewedAt),
+		ModerationReason:       valueOrEmpty(row.ModerationReason),
+		ModerationState:        row.ModerationState,
+		LastUpdatedAt:          row.LastUpdatedAt.Time.UTC(),
+		UpdatedAt:              row.UpdatedAt.Time.UTC(),
+		CreatedAt:              row.CreatedAt.Time.UTC(),
+	}
 }

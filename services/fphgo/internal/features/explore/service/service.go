@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,14 +20,24 @@ import (
 )
 
 type Service struct {
-	repo    repository
-	buddies buddyMatcher
-	limiter rateLimiter
+	repo     repository
+	buddies  buddyMatcher
+	limiter  rateLimiter
+	geocoder reverseGeocoder
 }
 
 type repository interface {
 	ListSites(ctx context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error)
 	GetSiteBySlug(ctx context.Context, slug string) (explorerepo.SiteDetail, error)
+	FindApprovedSiteDuplicate(ctx context.Context, name, area string) (string, error)
+	SlugExists(ctx context.Context, slug string) (bool, error)
+	CreateSiteSubmission(ctx context.Context, input explorerepo.CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error)
+	ListMySiteSubmissions(ctx context.Context, input explorerepo.ListSiteSubmissionsInput) ([]explorerepo.SiteSubmission, error)
+	GetMySiteSubmissionByID(ctx context.Context, id, submittedByAppUserID string) (explorerepo.SiteSubmission, error)
+	ListPendingSites(ctx context.Context, input explorerepo.ListPendingSitesInput) ([]explorerepo.SiteSubmission, error)
+	GetSiteByIDForModeration(ctx context.Context, id string) (explorerepo.SiteSubmission, error)
+	ApproveSite(ctx context.Context, id, slug, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteSubmission, error)
+	RejectOrHideSite(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteSubmission, error)
 	ListUpdatesForSite(ctx context.Context, input explorerepo.ListUpdatesInput) ([]explorerepo.SiteUpdate, error)
 	ListLatestUpdates(ctx context.Context, area string, cursorOccurredAt time.Time, cursorID string, limit int32) ([]explorerepo.LatestUpdate, error)
 	CreateUpdate(ctx context.Context, input explorerepo.CreateUpdateInput) (explorerepo.SiteUpdate, error)
@@ -44,10 +55,20 @@ type buddyMatcher interface {
 	ListMemberIntentsForSite(ctx context.Context, input buddyfinderservice.SiteIntentsInput) (buddyfinderservice.SiteIntentsResult, error)
 }
 
+type reverseGeocoder interface {
+	ReverseGeocodeArea(ctx context.Context, lat, lng float64) (string, error)
+}
+
 type noopLimiter struct{}
 
 func (noopLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
 	return sharedratelimit.Result{Allowed: true}, nil
+}
+
+type disabledReverseGeocoder struct{}
+
+func (disabledReverseGeocoder) ReverseGeocodeArea(context.Context, float64, float64) (string, error) {
+	return "", fmt.Errorf("reverse geocoder is not configured")
 }
 
 type Option func(*Service)
@@ -64,6 +85,14 @@ func WithBuddyMatcher(matcher buddyMatcher) Option {
 	return func(s *Service) {
 		if matcher != nil {
 			s.buddies = matcher
+		}
+	}
+}
+
+func WithReverseGeocoder(geocoder reverseGeocoder) Option {
+	return func(s *Service) {
+		if geocoder != nil {
+			s.geocoder = geocoder
 		}
 	}
 }
@@ -124,14 +153,49 @@ type ListLatestUpdatesResult struct {
 	NextCursor string
 }
 
+type CreateSiteSubmissionInput struct {
+	ActorID           string
+	Name              string
+	Lat               *float64
+	Lng               *float64
+	Difficulty        string
+	DepthMinM         *float64
+	DepthMaxM         *float64
+	Hazards           []string
+	BestSeason        *string
+	TypicalConditions *string
+	Access            *string
+	Fees              *string
+	ContactInfo       *string
+}
+
+type SubmissionListInput struct {
+	ActorID string
+	Cursor  string
+	Limit   int32
+}
+
+type SubmissionListResult struct {
+	Items      []explorerepo.SiteSubmission
+	NextCursor string
+}
+
+type ModerateSiteInput struct {
+	ActorID string
+	SiteID  string
+	Reason  *string
+}
+
 type ValidationFailure struct {
 	Issues []validatex.Issue
 }
 
 func (e ValidationFailure) Error() string { return "validation failed" }
 
+var slugUnsafePattern = regexp.MustCompile(`[^a-z0-9]+`)
+
 func New(repo repository, opts ...Option) *Service {
-	svc := &Service{repo: repo, limiter: noopLimiter{}}
+	svc := &Service{repo: repo, limiter: noopLimiter{}, geocoder: disabledReverseGeocoder{}}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(svc)
@@ -260,6 +324,188 @@ func (s *Service) ListLatestUpdates(ctx context.Context, input ListLatestUpdates
 		items = items[:limit]
 	}
 	return ListLatestUpdatesResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) CreateSiteSubmission(ctx context.Context, input CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error) {
+	if _, err := uuid.Parse(input.ActorID); err != nil {
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+
+	name := strings.TrimSpace(input.Name)
+	difficulty := strings.TrimSpace(input.Difficulty)
+	issues := validateSubmissionInput(name, difficulty, input.Lat, input.Lng, input.DepthMinM, input.DepthMaxM)
+	if len(issues) > 0 {
+		return explorerepo.SiteSubmission{}, ValidationFailure{Issues: issues}
+	}
+
+	if err := s.enforceRateLimit(ctx, "explore.submit_site.hour", input.ActorID, 1, time.Hour, "site submission cooldown active"); err != nil {
+		return explorerepo.SiteSubmission{}, err
+	}
+	if err := s.enforceRateLimit(ctx, "explore.submit_site.day", input.ActorID, 5, 24*time.Hour, "daily site submission cap exceeded"); err != nil {
+		return explorerepo.SiteSubmission{}, err
+	}
+
+	area, err := s.geocoder.ReverseGeocodeArea(ctx, *input.Lat, *input.Lng)
+	if err != nil {
+		return explorerepo.SiteSubmission{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"location"},
+			Code:    "invalid_location",
+			Message: "Unable to determine area from map pin. Please pick a different spot.",
+		}}}
+	}
+
+	if _, err := s.repo.FindApprovedSiteDuplicate(ctx, name, area); err == nil {
+		return explorerepo.SiteSubmission{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"name"},
+			Code:    "custom",
+			Message: "A published dive site with the same name and area already exists",
+		}}}
+	} else if !explorerepo.IsNoRows(err) {
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_lookup_failed", "failed to check for duplicate dive sites", err)
+	}
+
+	submission, err := s.repo.CreateSiteSubmission(ctx, explorerepo.CreateSiteSubmissionInput{
+		Name:                 name,
+		Slug:                 pendingSlug(),
+		Area:                 area,
+		Latitude:             input.Lat,
+		Longitude:            input.Lng,
+		Difficulty:           difficulty,
+		DepthMinM:            input.DepthMinM,
+		DepthMaxM:            input.DepthMaxM,
+		Hazards:              cleanStringList(input.Hazards),
+		BestSeason:           trimPtr(input.BestSeason),
+		TypicalConditions:    trimPtr(input.TypicalConditions),
+		Access:               trimPtr(input.Access),
+		Fees:                 trimPtr(input.Fees),
+		ContactInfo:          trimPtr(input.ContactInfo),
+		SubmittedByAppUserID: input.ActorID,
+	})
+	if err != nil {
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_submission_failed", "failed to submit dive site", err)
+	}
+	return submission, nil
+}
+
+func (s *Service) ListMySiteSubmissions(ctx context.Context, input SubmissionListInput) (SubmissionListResult, error) {
+	if _, err := uuid.Parse(input.ActorID); err != nil {
+		return SubmissionListResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	limit := input.Limit
+	if limit <= 0 || limit > pagination.MaxLimit {
+		limit = pagination.DefaultLimit
+	}
+	cursorCreatedAt, cursorID := pagination.DefaultUUIDCursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		createdAt, tieID, err := pagination.DecodeUUID(input.Cursor)
+		if err != nil {
+			return SubmissionListResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"cursor"},
+				Code:    "custom",
+				Message: "invalid cursor",
+			}}}
+		}
+		cursorCreatedAt = createdAt
+		cursorID = tieID
+	}
+	items, err := s.repo.ListMySiteSubmissions(ctx, explorerepo.ListSiteSubmissionsInput{
+		SubmittedByAppUserID: input.ActorID,
+		CursorCreatedAt:      cursorCreatedAt,
+		CursorID:             cursorID,
+		Limit:                limit + 1,
+	})
+	if err != nil {
+		return SubmissionListResult{}, apperrors.New(http.StatusInternalServerError, "site_submission_list_failed", "failed to list your site submissions", err)
+	}
+	nextCursor := ""
+	if int32(len(items)) > limit {
+		next := items[limit-1]
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
+		items = items[:limit]
+	}
+	return SubmissionListResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) GetMySiteSubmissionByID(ctx context.Context, actorID, submissionID string) (explorerepo.SiteSubmission, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(submissionID); err != nil {
+		return explorerepo.SiteSubmission{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"id"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	item, err := s.repo.GetMySiteSubmissionByID(ctx, submissionID, actorID)
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return explorerepo.SiteSubmission{}, apperrors.New(http.StatusNotFound, "site_submission_not_found", "dive site submission not found", err)
+		}
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_submission_detail_failed", "failed to load dive site submission", err)
+	}
+	return item, nil
+}
+
+func (s *Service) ListPendingSites(ctx context.Context, input SubmissionListInput) (SubmissionListResult, error) {
+	limit := input.Limit
+	if limit <= 0 || limit > pagination.MaxLimit {
+		limit = pagination.DefaultLimit
+	}
+	cursorCreatedAt, cursorID := pagination.DefaultUUIDCursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		createdAt, tieID, err := pagination.DecodeUUID(input.Cursor)
+		if err != nil {
+			return SubmissionListResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"cursor"},
+				Code:    "custom",
+				Message: "invalid cursor",
+			}}}
+		}
+		cursorCreatedAt = createdAt
+		cursorID = tieID
+	}
+	items, err := s.repo.ListPendingSites(ctx, explorerepo.ListPendingSitesInput{
+		CursorCreatedAt: cursorCreatedAt,
+		CursorID:        cursorID,
+		Limit:           limit + 1,
+	})
+	if err != nil {
+		return SubmissionListResult{}, apperrors.New(http.StatusInternalServerError, "pending_sites_failed", "failed to list pending dive sites", err)
+	}
+	nextCursor := ""
+	if int32(len(items)) > limit {
+		next := items[limit-1]
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
+		items = items[:limit]
+	}
+	return SubmissionListResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) GetSiteByIDForModeration(ctx context.Context, siteID string) (explorerepo.SiteSubmission, error) {
+	if _, err := uuid.Parse(siteID); err != nil {
+		return explorerepo.SiteSubmission{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"id"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	item, err := s.repo.GetSiteByIDForModeration(ctx, siteID)
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return explorerepo.SiteSubmission{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_detail_failed", "failed to load dive site", err)
+	}
+	return item, nil
+}
+
+func (s *Service) ApproveSite(ctx context.Context, input ModerateSiteInput) (explorerepo.SiteSubmission, error) {
+	return s.moderateSite(ctx, input, true)
+}
+
+func (s *Service) RejectSite(ctx context.Context, input ModerateSiteInput) (explorerepo.SiteSubmission, error) {
+	return s.moderateSite(ctx, input, false)
 }
 
 func (s *Service) GetBuddyPreviewBySlug(ctx context.Context, slug string, limit int32) (SiteBuddyPreviewResult, error) {
@@ -427,4 +673,144 @@ func trimPtr(input *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func validateSubmissionInput(name, difficulty string, lat, lng, depthMinM, depthMaxM *float64) []validatex.Issue {
+	issues := make([]validatex.Issue, 0, 5)
+	if name == "" {
+		issues = append(issues, validatex.Issue{Path: []any{"name"}, Code: "required", Message: "Required"})
+	}
+	if difficulty != "easy" && difficulty != "moderate" && difficulty != "hard" {
+		issues = append(issues, validatex.Issue{Path: []any{"entryDifficulty"}, Code: "invalid_enum", Message: "Must be one of: easy moderate hard"})
+	}
+	if lat == nil {
+		issues = append(issues, validatex.Issue{Path: []any{"lat"}, Code: "required", Message: "Required"})
+	}
+	if lng == nil {
+		issues = append(issues, validatex.Issue{Path: []any{"lng"}, Code: "required", Message: "Required"})
+	}
+	if lat != nil && *lat < -90 {
+		issues = append(issues, validatex.Issue{Path: []any{"lat"}, Code: "too_small", Message: "Must be between -90 and 90"})
+	}
+	if lat != nil && *lat > 90 {
+		issues = append(issues, validatex.Issue{Path: []any{"lat"}, Code: "too_big", Message: "Must be between -90 and 90"})
+	}
+	if lng != nil && *lng < -180 {
+		issues = append(issues, validatex.Issue{Path: []any{"lng"}, Code: "too_small", Message: "Must be between -180 and 180"})
+	}
+	if lng != nil && *lng > 180 {
+		issues = append(issues, validatex.Issue{Path: []any{"lng"}, Code: "too_big", Message: "Must be between -180 and 180"})
+	}
+	if depthMinM != nil && depthMaxM != nil && *depthMinM > *depthMaxM {
+		issues = append(issues, validatex.Issue{Path: []any{"depthMinM"}, Code: "custom", Message: "depthMinM must be less than or equal to depthMaxM"})
+	}
+	return issues
+}
+
+func cleanStringList(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, trimmed)
+	}
+	return result
+}
+
+func pendingSlug() string {
+	raw := strings.ReplaceAll(uuid.NewString(), "-", "")
+	return "pending-" + raw[:12]
+}
+
+func slugify(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	normalized = slugUnsafePattern.ReplaceAllString(normalized, "-")
+	normalized = strings.Trim(normalized, "-")
+	if normalized == "" {
+		return "dive-site"
+	}
+	return normalized
+}
+
+func (s *Service) generateApprovedSlug(ctx context.Context, name, area string) (string, error) {
+	base := slugify(name)
+	areaBase := slugify(fmt.Sprintf("%s %s", name, area))
+	candidates := []string{base}
+	if areaBase != base {
+		candidates = append(candidates, areaBase)
+	}
+	for _, candidate := range candidates {
+		exists, err := s.repo.SlugExists(ctx, candidate)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+	for i := 2; i <= 50; i++ {
+		candidate := fmt.Sprintf("%s-%d", base, i)
+		exists, err := s.repo.SlugExists(ctx, candidate)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+	return fmt.Sprintf("%s-%s", base, strings.ReplaceAll(uuid.NewString(), "-", "")[:8]), nil
+}
+
+func (s *Service) moderateSite(ctx context.Context, input ModerateSiteInput, approve bool) (explorerepo.SiteSubmission, error) {
+	if _, err := uuid.Parse(input.ActorID); err != nil {
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(input.SiteID); err != nil {
+		return explorerepo.SiteSubmission{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"id"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	site, err := s.repo.GetSiteByIDForModeration(ctx, input.SiteID)
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return explorerepo.SiteSubmission{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_detail_failed", "failed to load dive site", err)
+	}
+	if site.ModerationState != "pending" {
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusConflict, "invalid_state", "site is not pending review", nil)
+	}
+	reason := trimPtr(input.Reason)
+	reviewedAt := time.Now().UTC()
+	if approve {
+		slug, slugErr := s.generateApprovedSlug(ctx, site.Name, site.Area)
+		if slugErr != nil {
+			return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "slug_generation_failed", "failed to generate site slug", slugErr)
+		}
+		item, approveErr := s.repo.ApproveSite(ctx, input.SiteID, slug, input.ActorID, reviewedAt, reason)
+		if approveErr != nil {
+			return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_approve_failed", "failed to approve dive site", approveErr)
+		}
+		item.SubmittedByDisplayName = site.SubmittedByDisplayName
+		return item, nil
+	}
+	item, rejectErr := s.repo.RejectOrHideSite(ctx, input.SiteID, input.ActorID, reviewedAt, reason)
+	if rejectErr != nil {
+		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_reject_failed", "failed to reject dive site", rejectErr)
+	}
+	item.SubmittedByDisplayName = site.SubmittedByDisplayName
+	return item, nil
 }

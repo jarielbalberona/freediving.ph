@@ -24,6 +24,7 @@ type Config struct {
 	ClerkJWTKey            string
 	ClerkJWTIssuer         string
 	ClerkJWTAudience       []string
+	GoogleMapsAPIKey       string
 	R2AccountID            string
 	R2AccessKeyID          string
 	R2SecretAccessKey      string
@@ -94,6 +95,7 @@ func Load() (Config, error) {
 	clerkJWTKey := strings.TrimSpace(os.Getenv("CLERK_JWT_KEY"))
 	clerkJWTIssuer := strings.TrimSpace(os.Getenv("CLERK_JWT_ISSUER"))
 	clerkJWTAudience := splitCSV(os.Getenv("CLERK_JWT_AUDIENCE"))
+	googleMapsAPIKey := strings.TrimSpace(os.Getenv("GOOGLE_MAPS_API_KEY"))
 	r2AccountID := strings.TrimSpace(os.Getenv("R2_ACCOUNT_ID"))
 	r2AccessKeyID := strings.TrimSpace(os.Getenv("R2_ACCESS_KEY_ID"))
 	r2SecretAccessKey := strings.TrimSpace(os.Getenv("R2_SECRET_ACCESS_KEY"))
@@ -140,6 +142,7 @@ func Load() (Config, error) {
 		ClerkJWTKey:            clerkJWTKey,
 		ClerkJWTIssuer:         clerkJWTIssuer,
 		ClerkJWTAudience:       clerkJWTAudience,
+		GoogleMapsAPIKey:       googleMapsAPIKey,
 		R2AccountID:            r2AccountID,
 		R2AccessKeyID:          r2AccessKeyID,
 		R2SecretAccessKey:      r2SecretAccessKey,

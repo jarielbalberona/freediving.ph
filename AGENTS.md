@@ -1,8 +1,9 @@
 # AGENTS.md
 
 ## Monorepo Map
-- `apps/api`: Express + TypeScript API server, route registration, middleware, and feature modules under `src/app/*`.
+- `apps/api`: Legacy Express + TypeScript API server (do not modify; API work belongs in `services/fphgo`).
 - `apps/web`: Next.js App Router frontend (`src/app`) with shared UI/components, hooks, and feature modules.
+- `services/fphgo`: Go API service; canonical backend for all new API work.
 - `packages/config`: Shared runtime/config constants for workspaces.
 - `packages/db`: Shared DB package shell (currently minimal export surface) used for workspace dependency boundaries.
 - `packages/types`: Shared TypeScript DTOs/envelope types used by API and web.
@@ -46,7 +47,7 @@ Verified examples:
 - For cross-workspace changes, run repo-level checks: `pnpm typecheck && pnpm lint && pnpm test`.
 - Keep shared contracts in `packages/types/src` backward-compatible when possible; update API and web together when DTOs change.
 - Do not create feature-local `types.ts` in `apps/web/src/features/*`; define shared contracts in `packages/types/src` and import from `@freediving.ph/types`.
-- API DB schema + migrations are driven from `apps/api/src/models/drizzle` and `apps/api/.drizzle/migrations`; verify DB scripts after model changes.
+- Do not touch `apps/api`; it is legacy. All API work belongs in `services/fphgo`.
 - Do not add workspace-only env assumptions into shared packages.
 
 ## ExecPlans

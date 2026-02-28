@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { SignInButton } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ import { messagesApi } from "@/features/messages/api/messages";
 import { useMyProfile, useSavedHub } from "@/features/profiles/hooks/queries";
 import { useSaveUser, useUnsaveUser } from "@/features/profiles/hooks/mutations";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { getProfileRoute } from "@/lib/routes";
 
 type IntentDraft = {
   area: string;
@@ -107,10 +109,10 @@ export default function BuddyFinderPage() {
             <Badge className="w-fit rounded-full bg-sky-950 text-sky-50">Buddy Finder</Badge>
             <div className="space-y-2">
               <h1 className="max-w-2xl font-serif text-4xl tracking-tight text-sky-950">
-                Find a nearby buddy without giving away more than you should.
+                Find a dive buddy nearby with privacy-first matching.
               </h1>
               <p className="max-w-2xl text-sm text-zinc-600">
-                Coarse location only. Trust ladder first. DM still goes through request preview and accept gating.
+                Share coarse location only. Contact details are revealed after mutual acceptance.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -142,7 +144,7 @@ export default function BuddyFinderPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sky-950">
                 <UserRoundSearch className="h-5 w-5" />
-                Signed-out preview
+                Browse intents
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -154,7 +156,7 @@ export default function BuddyFinderPage() {
                       <Badge variant="outline">{item.timeWindow.replace("_", " ")}</Badge>
                     </div>
                     <p className="mt-3 text-sm text-zinc-600 blur-[2px]">
-                      {item.notePreview || "Buddy details stay limited until sign-in."}
+                      {item.notePreview || "Full details available to members."}
                     </p>
                     <TrustCard
                       className="mt-3"
@@ -168,11 +170,11 @@ export default function BuddyFinderPage() {
                 ))}
               </div>
               <div className="rounded-2xl bg-sky-950 p-4 text-sky-50">
-                <p className="text-sm font-medium">{previewQuery.data?.count ?? 0} active intents in preview</p>
-                <p className="mt-1 text-sm text-sky-100">Sign up to reveal full intent notes, dates, and message entry.</p>
+                <p className="text-sm font-medium">{previewQuery.data?.count ?? 0} active intents</p>
+                <p className="mt-1 text-sm text-sky-100">Create an account to view full notes, dates, and message other divers.</p>
                 <div className="mt-3">
                   <SignInButton mode="modal">
-                    <Button variant="secondary">Sign up to message and match</Button>
+                    <Button variant="secondary">Create account to message and match</Button>
                   </SignInButton>
                 </div>
               </div>
@@ -234,8 +236,8 @@ export default function BuddyFinderPage() {
                   <Textarea value={newIntent.note} onChange={(event) => setNewIntent((current) => ({ ...current, note: event.target.value }))} />
                 </div>
                 <div className="rounded-2xl bg-zinc-100 p-4 text-sm text-zinc-600">
-                  <p className="font-medium text-zinc-900">Safety defaults</p>
-                  <p className="mt-1">Only coarse area is shown. Exact location, private history, and contact stay behind sign-in and DM request gating.</p>
+                  <p className="font-medium text-zinc-900">Privacy defaults</p>
+                  <p className="mt-1">Only coarse area is shown publicly. Exact location and contact are shared after message request acceptance.</p>
                 </div>
                 <Button
                   disabled={createIntentMutation.isPending}
@@ -264,7 +266,14 @@ export default function BuddyFinderPage() {
                   <CardContent className="space-y-4 p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-lg font-semibold text-sky-950">{item.displayName || item.username}</p>
+                        <p className="text-lg font-semibold text-sky-950">
+                          <Link
+                            href={getProfileRoute(item.username)}
+                            className="transition-colors hover:text-sky-700"
+                          >
+                            {item.displayName || item.username}
+                          </Link>
+                        </p>
                         <p className="text-sm text-zinc-600">{item.homeArea || item.area}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -320,8 +329,8 @@ export default function BuddyFinderPage() {
           <Card className="rounded-[24px] border-dashed border-sky-200 bg-white/80">
             <CardContent className="flex items-center justify-between gap-4 p-6">
               <div>
-                <p className="text-lg font-semibold text-sky-950">Want full Buddy Finder access?</p>
-                <p className="text-sm text-zinc-600">Sign in to post intent, reveal full details, and start the DM request flow.</p>
+                <p className="text-lg font-semibold text-sky-950">Post intents and message divers</p>
+                <p className="text-sm text-zinc-600">Create an account to post your intent, view full details, and connect with buddies.</p>
               </div>
               <div className="flex items-center gap-2 text-sm text-zinc-500">
                 <ShieldCheck className="h-4 w-4" />

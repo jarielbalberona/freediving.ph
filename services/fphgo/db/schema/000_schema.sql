@@ -192,8 +192,13 @@ CREATE TABLE IF NOT EXISTS dive_sites (
   contact_info TEXT,
   verification_status TEXT NOT NULL DEFAULT 'community',
   verified_by_app_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  submitted_by_app_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_by_app_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMPTZ,
+  moderation_reason TEXT,
   moderation_state TEXT NOT NULL DEFAULT 'approved',
   last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (entry_difficulty IN ('easy', 'moderate', 'hard')),
   CHECK (verification_status IN ('community', 'instructor', 'moderator', 'verified')),
@@ -399,6 +404,8 @@ CREATE INDEX IF NOT EXISTS idx_dive_sites_slug ON dive_sites (slug);
 CREATE INDEX IF NOT EXISTS idx_dive_sites_area ON dive_sites (area);
 CREATE INDEX IF NOT EXISTS idx_dive_sites_verification_status ON dive_sites (verification_status);
 CREATE INDEX IF NOT EXISTS idx_dive_sites_updated_id ON dive_sites (last_updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_dive_sites_moderation_created_id ON dive_sites (moderation_state, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_dive_sites_submitter_created_id ON dive_sites (submitted_by_app_user_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_dive_site_updates_site_occurred_at ON dive_site_updates (dive_site_id, occurred_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_dive_site_updates_author_created_at ON dive_site_updates (author_app_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_buddy_intents_area_created_at ON buddy_intents (area, created_at DESC, id DESC);

@@ -1,6 +1,6 @@
 # API Compatibility Matrix: `apps/web` vs `services/fphgo`
 
-Last updated: 2026-02-28
+Last updated: 2026-03-01
 
 ## Scope And Sources
 
@@ -19,12 +19,19 @@ Go route sources scanned:
 |---|---|---|---|---|
 | `/v1/auth/session` | `GET` | `useSession()` in `apps/web/src/features/auth/session/use-session.ts` | `GetSession` in `services/fphgo/internal/features/auth/http/handlers.go` | `OK` |
 | `/v1/explore/sites` | `GET` | `exploreApi.listSites()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `ListSites` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/sites/submit` | `POST` | `exploreApi.submitSite()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `CreateSiteSubmission` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/sites/submissions` | `GET` | `exploreApi.listMySubmissions()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `ListMySiteSubmissions` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/sites/submissions/{id}` | `GET` | `exploreApi.getMySubmissionById()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `GetMySiteSubmissionByID` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
 | `/v1/explore/updates` | `GET` | `exploreApi.listLatestUpdates()` / `getExploreLatestUpdatesServer()` in `apps/web/src/features/diveSpots/api/explore-v1*.ts` | `ListLatestUpdates` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
 | `/v1/explore/sites/{slug}` | `GET` | `exploreApi.getSiteBySlug()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `GetSiteBySlug` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
 | `/v1/explore/sites/{slug}/buddy-preview` | `GET` | `exploreApi.getSiteBuddyPreview()` / `getExploreSiteBuddyPreviewServer()` in `apps/web/src/features/diveSpots/api/explore-v1*.ts` | `GetBuddyPreviewBySlug` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
 | `/v1/explore/sites/{slug}/buddy-intents` | `GET` | `exploreApi.getSiteBuddyIntents()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `GetBuddyIntentsBySlug` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
 | `/v1/explore/sites/{siteId}/save` | `POST` | `exploreApi.saveSite()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `SaveSite` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
 | `/v1/explore/sites/{siteId}/updates` | `POST` | `exploreApi.createUpdate()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `CreateUpdate` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/moderation/sites/pending` | `GET` | `exploreApi.listPendingSites()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `ListPendingSites` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/moderation/sites/{id}` | `GET` | `exploreApi.getModerationSiteById()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `GetSiteByIDForModeration` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/moderation/sites/{id}/approve` | `POST` | `exploreApi.approveSite()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `ApproveSite` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/moderation/sites/{id}/reject` | `POST` | `exploreApi.rejectSite()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `RejectSite` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
 | `/v1/buddy-finder/preview` | `GET` | `buddyFinderApi.preview()` in `apps/web/src/features/buddies/api/buddy-finder.ts` | `Preview` in `services/fphgo/internal/features/buddyfinder/http/handlers.go` | `OK` |
 | `/v1/buddy-finder/intents` | `GET` | `buddyFinderApi.listIntents()` in `apps/web/src/features/buddies/api/buddy-finder.ts` | `ListIntents` in `services/fphgo/internal/features/buddyfinder/http/handlers.go` | `OK` |
 | `/v1/buddy-finder/intents` | `POST` | `buddyFinderApi.createIntent()` in `apps/web/src/features/buddies/api/buddy-finder.ts` | `CreateIntent` in `services/fphgo/internal/features/buddyfinder/http/handlers.go` | `OK` |
@@ -355,10 +362,17 @@ Derived from `services/fphgo/internal/app/routes.go` and per-feature route files
 | `GET` | `/v1/users/me` | `users.http.Handlers.GetMe` | `RequireMember` |
 | `GET` | `/v1/users/{id}` | `users.http.Handlers.GetUser` | `RequireMember` + `RequirePermission(users.read)` |
 | `GET` | `/v1/explore/sites` | `explore.http.Handlers.ListSites` | Public |
+| `POST` | `/v1/explore/sites/submit` | `explore.http.Handlers.CreateSiteSubmission` | `RequireMember` + `RequirePermission(explore.submit)` |
+| `GET` | `/v1/explore/sites/submissions` | `explore.http.Handlers.ListMySiteSubmissions` | `RequireMember` + `RequirePermission(explore.submit)` |
+| `GET` | `/v1/explore/sites/submissions/{id}` | `explore.http.Handlers.GetMySiteSubmissionByID` | `RequireMember` + `RequirePermission(explore.submit)` |
 | `GET` | `/v1/explore/sites/{slug}` | `explore.http.Handlers.GetSiteBySlug` | Public |
 | `POST` | `/v1/explore/sites/{siteId}/updates` | `explore.http.Handlers.CreateUpdate` | `RequireMember` + `RequirePermission(explore.submit)` |
 | `POST` | `/v1/explore/sites/{siteId}/save` | `explore.http.Handlers.SaveSite` | `RequireMember` + `RequirePermission(explore.submit)` |
 | `DELETE` | `/v1/explore/sites/{siteId}/save` | `explore.http.Handlers.UnsaveSite` | `RequireMember` + `RequirePermission(explore.submit)` |
+| `GET` | `/v1/explore/moderation/sites/pending` | `explore.http.Handlers.ListPendingSites` | `RequireMember` + `RequirePermission(explore.moderate)` |
+| `GET` | `/v1/explore/moderation/sites/{id}` | `explore.http.Handlers.GetSiteByIDForModeration` | `RequireMember` + `RequirePermission(explore.moderate)` |
+| `POST` | `/v1/explore/moderation/sites/{id}/approve` | `explore.http.Handlers.ApproveSite` | `RequireMember` + `RequirePermission(explore.moderate)` |
+| `POST` | `/v1/explore/moderation/sites/{id}/reject` | `explore.http.Handlers.RejectSite` | `RequireMember` + `RequirePermission(explore.moderate)` |
 | `GET` | `/v1/buddy-finder/preview` | `buddyfinder.http.Handlers.Preview` | Public |
 | `GET` | `/v1/buddy-finder/intents` | `buddyfinder.http.Handlers.ListIntents` | `RequireMember` + `RequirePermission(buddies.read)` |
 | `POST` | `/v1/buddy-finder/intents` | `buddyfinder.http.Handlers.CreateIntent` | `RequireMember` + `RequirePermission(buddies.write)` |
