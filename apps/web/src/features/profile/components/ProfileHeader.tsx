@@ -87,7 +87,7 @@ export function ProfileHeader({
   settingsHref,
 }: ProfileHeaderProps) {
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 px-4">
       <div className="grid gap-6 md:hidden">
         <div className="grid grid-cols-[auto_1fr] items-center gap-5">
           <Avatar className="size-24 border border-border/70 bg-muted">

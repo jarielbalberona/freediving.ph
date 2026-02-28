@@ -21,7 +21,7 @@ SET slug = $1,
     updated_at = NOW(),
     last_updated_at = GREATEST(last_updated_at, NOW())
 WHERE id = $5
-RETURNING id, name, slug, area, latitude, longitude, entry_difficulty, depth_min_m, depth_max_m, hazards, best_season, typical_conditions, access, fees, contact_info, verification_status, verified_by_app_user_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, moderation_state, last_updated_at, updated_at, created_at
+RETURNING id, name, slug, area, latitude, longitude, description, entry_difficulty, depth_min_m, depth_max_m, hazards, best_season, typical_conditions, access, fees, contact_info, verification_status, verified_by_app_user_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, moderation_state, last_updated_at, updated_at, created_at
 `
 
 type ApproveSiteParams struct {
@@ -48,6 +48,7 @@ func (q *Queries) ApproveSite(ctx context.Context, arg ApproveSiteParams) (DiveS
 		&i.Area,
 		&i.Latitude,
 		&i.Longitude,
+		&i.Description,
 		&i.EntryDifficulty,
 		&i.DepthMinM,
 		&i.DepthMaxM,
@@ -78,6 +79,7 @@ INSERT INTO dive_sites (
   area,
   latitude,
   longitude,
+  description,
   entry_difficulty,
   depth_min_m,
   depth_max_m,
@@ -108,13 +110,14 @@ VALUES (
   $12,
   $13,
   $14,
-  'community',
   $15,
+  'community',
+  $16,
   'pending',
   NOW(),
   NOW()
 )
-RETURNING id, name, slug, area, latitude, longitude, entry_difficulty, depth_min_m, depth_max_m, hazards, best_season, typical_conditions, access, fees, contact_info, verification_status, verified_by_app_user_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, moderation_state, last_updated_at, updated_at, created_at
+RETURNING id, name, slug, area, latitude, longitude, description, entry_difficulty, depth_min_m, depth_max_m, hazards, best_season, typical_conditions, access, fees, contact_info, verification_status, verified_by_app_user_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, moderation_state, last_updated_at, updated_at, created_at
 `
 
 type CreateSiteSubmissionParams struct {
@@ -123,6 +126,7 @@ type CreateSiteSubmissionParams struct {
 	Area                 string         `db:"area" json:"area"`
 	Latitude             *float64       `db:"latitude" json:"latitude"`
 	Longitude            *float64       `db:"longitude" json:"longitude"`
+	Description          *string        `db:"description" json:"description"`
 	EntryDifficulty      string         `db:"entry_difficulty" json:"entry_difficulty"`
 	DepthMinM            pgtype.Numeric `db:"depth_min_m" json:"depth_min_m"`
 	DepthMaxM            pgtype.Numeric `db:"depth_max_m" json:"depth_max_m"`
@@ -142,6 +146,7 @@ func (q *Queries) CreateSiteSubmission(ctx context.Context, arg CreateSiteSubmis
 		arg.Area,
 		arg.Latitude,
 		arg.Longitude,
+		arg.Description,
 		arg.EntryDifficulty,
 		arg.DepthMinM,
 		arg.DepthMaxM,
@@ -161,6 +166,7 @@ func (q *Queries) CreateSiteSubmission(ctx context.Context, arg CreateSiteSubmis
 		&i.Area,
 		&i.Latitude,
 		&i.Longitude,
+		&i.Description,
 		&i.EntryDifficulty,
 		&i.DepthMinM,
 		&i.DepthMaxM,
@@ -276,6 +282,7 @@ SELECT
   s.area,
   s.latitude,
   s.longitude,
+  s.description,
   s.entry_difficulty,
   s.depth_min_m,
   s.depth_max_m,
@@ -313,6 +320,7 @@ type GetMySiteSubmissionByIDRow struct {
 	Area                  string             `db:"area" json:"area"`
 	Latitude              *float64           `db:"latitude" json:"latitude"`
 	Longitude             *float64           `db:"longitude" json:"longitude"`
+	Description           *string            `db:"description" json:"description"`
 	EntryDifficulty       string             `db:"entry_difficulty" json:"entry_difficulty"`
 	DepthMinM             pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
 	DepthMaxM             pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
@@ -344,6 +352,7 @@ func (q *Queries) GetMySiteSubmissionByID(ctx context.Context, arg GetMySiteSubm
 		&i.Area,
 		&i.Latitude,
 		&i.Longitude,
+		&i.Description,
 		&i.EntryDifficulty,
 		&i.DepthMinM,
 		&i.DepthMaxM,
@@ -375,6 +384,7 @@ SELECT
   s.area,
   s.latitude,
   s.longitude,
+  s.description,
   s.entry_difficulty,
   s.depth_min_m,
   s.depth_max_m,
@@ -408,6 +418,7 @@ type GetSiteByIDForModerationRow struct {
 	Area                   string             `db:"area" json:"area"`
 	Latitude               *float64           `db:"latitude" json:"latitude"`
 	Longitude              *float64           `db:"longitude" json:"longitude"`
+	Description            *string            `db:"description" json:"description"`
 	EntryDifficulty        string             `db:"entry_difficulty" json:"entry_difficulty"`
 	DepthMinM              pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
 	DepthMaxM              pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
@@ -440,6 +451,7 @@ func (q *Queries) GetSiteByIDForModeration(ctx context.Context, id pgtype.UUID) 
 		&i.Area,
 		&i.Latitude,
 		&i.Longitude,
+		&i.Description,
 		&i.EntryDifficulty,
 		&i.DepthMinM,
 		&i.DepthMaxM,
@@ -492,6 +504,7 @@ SELECT
   s.area,
   s.latitude,
   s.longitude,
+  s.description,
   s.entry_difficulty,
   s.depth_min_m,
   s.depth_max_m,
@@ -530,6 +543,7 @@ type GetSiteBySlugRow struct {
 	Area                  string             `db:"area" json:"area"`
 	Latitude              *float64           `db:"latitude" json:"latitude"`
 	Longitude             *float64           `db:"longitude" json:"longitude"`
+	Description           *string            `db:"description" json:"description"`
 	EntryDifficulty       string             `db:"entry_difficulty" json:"entry_difficulty"`
 	DepthMinM             pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
 	DepthMaxM             pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
@@ -558,6 +572,7 @@ func (q *Queries) GetSiteBySlug(ctx context.Context, slug string) (GetSiteBySlug
 		&i.Area,
 		&i.Latitude,
 		&i.Longitude,
+		&i.Description,
 		&i.EntryDifficulty,
 		&i.DepthMinM,
 		&i.DepthMaxM,
@@ -737,6 +752,7 @@ SELECT
   s.area,
   s.latitude,
   s.longitude,
+  s.description,
   s.entry_difficulty,
   s.depth_min_m,
   s.depth_max_m,
@@ -778,6 +794,7 @@ type ListMySiteSubmissionsRow struct {
 	Area                  string             `db:"area" json:"area"`
 	Latitude              *float64           `db:"latitude" json:"latitude"`
 	Longitude             *float64           `db:"longitude" json:"longitude"`
+	Description           *string            `db:"description" json:"description"`
 	EntryDifficulty       string             `db:"entry_difficulty" json:"entry_difficulty"`
 	DepthMinM             pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
 	DepthMaxM             pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
@@ -820,6 +837,7 @@ func (q *Queries) ListMySiteSubmissions(ctx context.Context, arg ListMySiteSubmi
 			&i.Area,
 			&i.Latitude,
 			&i.Longitude,
+			&i.Description,
 			&i.EntryDifficulty,
 			&i.DepthMinM,
 			&i.DepthMaxM,
@@ -858,6 +876,7 @@ SELECT
   s.area,
   s.latitude,
   s.longitude,
+  s.description,
   s.entry_difficulty,
   s.depth_min_m,
   s.depth_max_m,
@@ -900,6 +919,7 @@ type ListPendingSitesRow struct {
 	Area                   string             `db:"area" json:"area"`
 	Latitude               *float64           `db:"latitude" json:"latitude"`
 	Longitude              *float64           `db:"longitude" json:"longitude"`
+	Description            *string            `db:"description" json:"description"`
 	EntryDifficulty        string             `db:"entry_difficulty" json:"entry_difficulty"`
 	DepthMinM              pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
 	DepthMaxM              pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
@@ -938,6 +958,7 @@ func (q *Queries) ListPendingSites(ctx context.Context, arg ListPendingSitesPara
 			&i.Area,
 			&i.Latitude,
 			&i.Longitude,
+			&i.Description,
 			&i.EntryDifficulty,
 			&i.DepthMinM,
 			&i.DepthMaxM,
@@ -1070,6 +1091,7 @@ SELECT
   s.area,
   s.latitude,
   s.longitude,
+  s.description,
   s.entry_difficulty,
   s.depth_min_m,
   s.depth_max_m,
@@ -1126,6 +1148,7 @@ type ListSitesRow struct {
 	Area                 string             `db:"area" json:"area"`
 	Latitude             *float64           `db:"latitude" json:"latitude"`
 	Longitude            *float64           `db:"longitude" json:"longitude"`
+	Description          *string            `db:"description" json:"description"`
 	EntryDifficulty      string             `db:"entry_difficulty" json:"entry_difficulty"`
 	DepthMinM            pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
 	DepthMaxM            pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
@@ -1162,6 +1185,7 @@ func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSit
 			&i.Area,
 			&i.Latitude,
 			&i.Longitude,
+			&i.Description,
 			&i.EntryDifficulty,
 			&i.DepthMinM,
 			&i.DepthMaxM,
@@ -1306,7 +1330,7 @@ SET moderation_state = 'hidden',
     moderation_reason = $3,
     updated_at = NOW()
 WHERE id = $4
-RETURNING id, name, slug, area, latitude, longitude, entry_difficulty, depth_min_m, depth_max_m, hazards, best_season, typical_conditions, access, fees, contact_info, verification_status, verified_by_app_user_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, moderation_state, last_updated_at, updated_at, created_at
+RETURNING id, name, slug, area, latitude, longitude, description, entry_difficulty, depth_min_m, depth_max_m, hazards, best_season, typical_conditions, access, fees, contact_info, verification_status, verified_by_app_user_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, moderation_state, last_updated_at, updated_at, created_at
 `
 
 type RejectOrHideSiteParams struct {
@@ -1331,6 +1355,7 @@ func (q *Queries) RejectOrHideSite(ctx context.Context, arg RejectOrHideSitePara
 		&i.Area,
 		&i.Latitude,
 		&i.Longitude,
+		&i.Description,
 		&i.EntryDifficulty,
 		&i.DepthMinM,
 		&i.DepthMaxM,

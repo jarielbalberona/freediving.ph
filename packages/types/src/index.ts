@@ -1270,6 +1270,7 @@ export type ExploreSiteDetail = {
   area: string;
   latitude?: number;
   longitude?: number;
+  description?: string;
   difficulty: "easy" | "moderate" | "hard";
   depthMinM?: number;
   depthMaxM?: number;
@@ -1337,6 +1338,7 @@ export type CreateExploreSiteSubmissionRequest = {
   name: string;
   lat: number;
   lng: number;
+  description: string;
   entryDifficulty: "easy" | "moderate" | "hard";
   depthMinM?: number;
   depthMaxM?: number;
@@ -1345,7 +1347,6 @@ export type CreateExploreSiteSubmissionRequest = {
   typicalConditions?: string;
   access?: string;
   fees?: string;
-  contactInfo?: string;
 };
 
 export type ModerateExploreSiteRequest = {
@@ -1359,6 +1360,7 @@ export type ExploreSiteSubmission = {
   area: string;
   latitude?: number;
   longitude?: number;
+  description?: string;
   difficulty: "easy" | "moderate" | "hard";
   depthMinM?: number;
   depthMaxM?: number;
@@ -1367,7 +1369,6 @@ export type ExploreSiteSubmission = {
   typicalConditions?: string;
   access?: string;
   fees?: string;
-  contactInfo?: string;
   verificationStatus: "community" | "instructor" | "moderator" | "verified";
   submittedByAppUserId?: string;
   submittedByDisplayName?: string;

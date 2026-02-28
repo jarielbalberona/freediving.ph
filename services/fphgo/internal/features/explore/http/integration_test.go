@@ -270,6 +270,7 @@ func TestExploreSubmissionValidationRequiresLatLngAndRange(t *testing.T) {
 
 	missingBody, _ := json.Marshal(CreateSiteSubmissionRequest{
 		Name:            "Sombrero",
+		Description:     "Calm reef shelf with easy shore entry.",
 		EntryDifficulty: "easy",
 	})
 	missingReq := httptest.NewRequest(http.MethodPost, "/sites/submit", bytes.NewReader(missingBody))
@@ -284,6 +285,7 @@ func TestExploreSubmissionValidationRequiresLatLngAndRange(t *testing.T) {
 	invalidLng := 181.0
 	invalidBody, _ := json.Marshal(CreateSiteSubmissionRequest{
 		Name:            "Sombrero",
+		Description:     "Calm reef shelf with easy shore entry.",
 		Lat:             &invalidLat,
 		Lng:             &invalidLng,
 		EntryDifficulty: "easy",
@@ -344,6 +346,7 @@ func TestExploreSubmissionAndModerationRoutes(t *testing.T) {
 
 	body, _ := json.Marshal(CreateSiteSubmissionRequest{
 		Name:            "Sombrero",
+		Description:     "Calm reef shelf with easy shore entry.",
 		Lat:             float64Ptr(13.72),
 		Lng:             float64Ptr(120.88),
 		EntryDifficulty: "easy",

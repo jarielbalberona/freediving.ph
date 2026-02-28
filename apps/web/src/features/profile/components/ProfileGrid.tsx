@@ -2,15 +2,18 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Clapperboard, Heart, ImageOff, MessageCircleMore, XIcon } from "lucide-react";
+import {
+  Clapperboard,
+  Heart,
+  ImageOff,
+  MessageCircleMore,
+  Send,
+  XIcon,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-} from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileTile } from "@/features/profile/components/ProfileTile";
 import type { ProfilePost } from "@/features/profile/types";
@@ -76,11 +79,7 @@ export function ProfileGrid({
     <>
       <div className="grid grid-cols-3 gap-0.5 md:gap-1 xl:grid-cols-4">
         {posts.map((post) => (
-          <ProfileTile
-            key={post.id}
-            post={post}
-            onOpen={setSelectedPost}
-          />
+          <ProfileTile key={post.id} post={post} onOpen={setSelectedPost} />
         ))}
       </div>
 
@@ -94,44 +93,42 @@ export function ProfileGrid({
       >
         {selectedPost ? (
           <DialogContent
+            containerClassName="p-0"
             showCloseButton={false}
-            className="h-[min(94vh,980px)] max-h-[94vh] max-w-[min(96vw,1500px)] rounded-[1.5rem] border-border/70 bg-background p-0 text-foreground md:rounded-[2rem]"
+            className="relative h-dvh max-h-dvh max-w-none w-full rounded-none border-0 bg-background p-0 text-foreground shadow-none ring-0 md:max-w-max"
           >
-            <div className="grid h-full overflow-hidden lg:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.8fr)]">
-              <div className="relative min-h-[45vh] bg-muted lg:min-h-0">
-                <Image
-                  src={selectedPost.thumbUrl}
-                  alt={`Expanded post ${selectedPost.id}`}
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 1024px) 100vw, 72vw"
-                  priority
-                />
-              </div>
-              <aside className="flex min-h-0 flex-col border-t border-border bg-background lg:border-l lg:border-t-0">
-                <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-4 sm:px-5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar className="size-10 border border-border">
-                      <AvatarImage src={avatarUrl} alt={displayName} />
-                      <AvatarFallback className="bg-muted text-foreground">
-                        {getInitials(displayName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {username}
-                      </p>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {displayName}
-                      </p>
-                    </div>
-                  </div>
+            <div className="hidden md:block absolute right-2 top-2 z-20">
+              <DialogClose
+                render={
+                  <Button
+                    variant="default"
+                    size="icon"
+                  />
+                }
+              >
+                <XIcon className="size-4" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
+            </div>
+            <div className="flex flex-col md:flex-row md:h-dvh md:overflow-hidden">
+              <div className="relative bg-muted md:flex md:min-w-0 md:flex-1  md:overflow-hidden">
+                <div className="relative aspect-[4/5] h-auto w-full max-w-full md:max-h-full md:w-auto overflow-hidden">
+                  <Image
+                    src={selectedPost.thumbUrl}
+                    alt={`Expanded post ${selectedPost.id}`}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 767px) 100vw, 70vw"
+                    priority
+                  />
+                </div>
+                <div className="block md:hidden">
                   <DialogClose
                     render={
                       <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="shrink-0 rounded-full"
+                        variant="outline"
+                        size="icon"
+                        className="absolute right-4 top-4 z-20 bg-background/50"
                       />
                     }
                   >
@@ -139,49 +136,56 @@ export function ProfileGrid({
                     <span className="sr-only">Close</span>
                   </DialogClose>
                 </div>
+              </div>
 
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-5">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      {selectedPost.mediaType === "video" ? (
-                        <>
-                          <Clapperboard className="size-4" />
-                          <span>Video post</span>
-                        </>
-                      ) : (
-                        <span>Photo post</span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Heart className="size-4" />
-                          <span>Likes</span>
-                        </div>
-                        <p className="mt-2 text-2xl font-semibold text-foreground">
-                          {formatMetric(selectedPost.likeCount)}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <MessageCircleMore className="size-4" />
-                          <span>Comments</span>
-                        </div>
-                        <p className="mt-2 text-2xl font-semibold text-foreground">
-                          {formatMetric(selectedPost.commentCount)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-4">
-                      <p className="text-sm leading-6 text-muted-foreground">
-                        Post detail data is still thin. This viewer now uses the
-                        right layout, but captions, comments, and carousel media
-                        need a real post-detail contract instead of fake filler.
-                      </p>
-                    </div>
+              <aside className="flex min-h-0 flex-shrink-0 flex-col border-t border-border bg-background md:w-96 md:border-l md:border-t-0">
+                <div className="flex items-center gap-3 px-4 py-3 md:px-5">
+                  <Avatar className="size-9 border border-border">
+                    <AvatarImage src={avatarUrl} alt={displayName} />
+                    <AvatarFallback className="bg-muted text-foreground">
+                      {getInitials(displayName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {username}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {displayName}
+                    </p>
                   </div>
+                </div>
+
+                <div className="px-4 pb-3 md:px-5">
+                  <div className="flex items-center gap-5 text-foreground">
+                    <div className="flex items-center gap-2">
+                      <Heart className="size-7" />
+                      <span className="text-sm font-semibold">
+                        {formatMetric(selectedPost.likeCount)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MessageCircleMore className="size-7" />
+                      <span className="text-sm font-semibold">
+                        {formatMetric(selectedPost.commentCount)}
+                      </span>
+                    </div>
+                    <Send className="size-7" />
+                    {selectedPost.mediaType === "video" ? (
+                      <Clapperboard className="ml-auto size-5 text-muted-foreground" />
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="space-y-1 px-4 pb-5 md:min-h-0 md:flex-1 md:overflow-y-auto md:px-5">
+                  <p className="text-sm leading-6 text-foreground">
+                    <span className="mr-1 font-semibold">{username}</span>
+                    Profile post preview. Real captions and comments still need
+                    the actual post-detail payload.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    View all {formatMetric(selectedPost.commentCount)} comments
+                  </p>
                 </div>
               </aside>
             </div>

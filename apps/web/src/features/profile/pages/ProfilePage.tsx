@@ -34,7 +34,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
 
   if (profileQuery.isPending && !profileQuery.data) {
     return (
-      <div className="mx-auto max-w-[935px] px-4 py-6 md:px-6 md:py-8">
+      <div className="mx-auto max-w-[935px]">
         <ProfileSkeleton />
       </div>
     );
@@ -59,7 +59,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-[935px] px-4 py-6 md:px-6 md:py-8">
+    <div className="mx-auto max-w-[935px]">
       <div className="space-y-6 md:space-y-8">
         <ProfileHeader
           profile={profileQuery.data}

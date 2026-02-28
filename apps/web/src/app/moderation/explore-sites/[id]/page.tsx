@@ -59,13 +59,13 @@ export default function ModerationExploreSiteDetailPage() {
                 <p className="text-sm text-muted-foreground">{item.area}</p>
               </CardHeader>
               <CardContent className="space-y-4">
+                <p className="text-sm"><span className="font-medium">Description:</span> {item.description || "Not provided"}</p>
                 <p className="text-sm"><span className="font-medium">Difficulty:</span> {item.difficulty}</p>
                 <p className="text-sm"><span className="font-medium">Hazards:</span> {item.hazards.length > 0 ? item.hazards.join(", ") : "None listed"}</p>
                 <p className="text-sm"><span className="font-medium">Best season:</span> {item.bestSeason || "Not provided"}</p>
                 <p className="text-sm"><span className="font-medium">Typical conditions:</span> {item.typicalConditions || "Not provided"}</p>
                 <p className="text-sm"><span className="font-medium">Access:</span> {item.access || "Not provided"}</p>
                 <p className="text-sm"><span className="font-medium">Fees:</span> {item.fees || "Not provided"}</p>
-                <p className="text-sm"><span className="font-medium">Contact info:</span> {item.contactInfo || "Not provided"}</p>
 
                 <div className="space-y-2">
                   <Label htmlFor="moderation-reason">Moderator note</Label>

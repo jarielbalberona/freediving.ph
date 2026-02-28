@@ -128,6 +128,7 @@ type DiveSite struct {
 	Area                 string             `db:"area" json:"area"`
 	Latitude             *float64           `db:"latitude" json:"latitude"`
 	Longitude            *float64           `db:"longitude" json:"longitude"`
+	Description          *string            `db:"description" json:"description"`
 	EntryDifficulty      string             `db:"entry_difficulty" json:"entry_difficulty"`
 	DepthMinM            pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
 	DepthMaxM            pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`

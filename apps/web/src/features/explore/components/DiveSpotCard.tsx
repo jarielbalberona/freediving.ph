@@ -31,7 +31,7 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
         ref={ref}
         id={`explore-spot-card-${spot.id}`}
         className={cn(
-          "overflow-hidden rounded-[28px] border-white/70 bg-white/95 shadow-sm transition-all",
+          "mx-1 my-4 py-1 overflow-hidden rounded-[28px] border-white/70 bg-white/95 shadow-sm transition-all",
           selected && "border-primary/45 ring-primary/20 ring-2 shadow-lg",
         )}
       >
@@ -39,7 +39,7 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
           <Button
             variant="secondary"
             size="icon-sm"
-            className="absolute right-6 top-2 z-10 rounded-full"
+            className="absolute right-6 top-6 z-10 rounded-full"
             aria-label={`Hide ${spot.name}`}
             onClick={(event) => {
               event.stopPropagation();

@@ -218,9 +218,7 @@ function PickerMap({ value, onChange }: PickerMapProps) {
             : "Click the map to drop a pin"}
         </p>
         <p className="mt-1 text-xs text-zinc-600">
-          {value
-            ? `Lat ${value.lat.toFixed(5)}  Lng ${value.lng.toFixed(5)}`
-            : "Drag the pin if you need to adjust it."}
+          Drag the pin if you need to adjust it.
         </p>
       </div>
     </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { PenLine } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import { AuthGuard } from "@/components/auth/guard";
@@ -45,6 +46,7 @@ import {
 const initialValues: SiteSubmissionValues = {
   name: "",
   location: null,
+  description: "",
   entryDifficulty: "moderate",
   depthMinM: "",
   depthMaxM: "",
@@ -53,7 +55,6 @@ const initialValues: SiteSubmissionValues = {
   typicalConditions: "",
   access: "",
   fees: "",
-  contactInfo: "",
 };
 
 const toNumber = (value: string | undefined): number | undefined => {
@@ -92,6 +93,7 @@ export default function ExploreSubmitPage() {
         name: values.name.trim(),
         lat: values.location.lat,
         lng: values.location.lng,
+        description: values.description.trim(),
         entryDifficulty: values.entryDifficulty,
         depthMinM: toNumber(values.depthMinM),
         depthMaxM: toNumber(values.depthMaxM),
@@ -103,7 +105,6 @@ export default function ExploreSubmitPage() {
         typicalConditions: values.typicalConditions?.trim() || undefined,
         access: values.access?.trim() || undefined,
         fees: values.fees?.trim() || undefined,
-        contactInfo: values.contactInfo?.trim() || undefined,
       });
       return response.submission;
     },
@@ -125,6 +126,8 @@ export default function ExploreSubmitPage() {
   const onSubmit = (values: SiteSubmissionValues) => {
     submitMutation.mutate(values);
   };
+
+  const requiredAsterisk = <span className="ml-1 text-rose-600">*</span>;
 
   return (
     <AuthGuard
@@ -183,7 +186,10 @@ export default function ExploreSubmitPage() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel htmlFor="site-name">Name</FormLabel>
+                          <FormLabel htmlFor="site-name">
+                            Name
+                            {requiredAsterisk}
+                          </FormLabel>
                           <FormControl>
                             <Input id="site-name" {...field} />
                           </FormControl>
@@ -197,7 +203,10 @@ export default function ExploreSubmitPage() {
                       name="location"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Dive spot location</FormLabel>
+                          <FormLabel>
+                            Dive spot location
+                            {requiredAsterisk}
+                          </FormLabel>
                           <div className="flex flex-wrap items-center gap-3">
                             {!hasSelectedLocation(field.value) ? (
                               <Button
@@ -215,9 +224,12 @@ export default function ExploreSubmitPage() {
                                 <Button
                                   type="button"
                                   variant="outline"
+                                  size="icon-sm"
                                   onClick={() => setIsMapOpen(true)}
+                                  aria-label="Edit pin"
+                                  title="Edit pin"
                                 >
-                                  Edit pin
+                                  <PenLine />
                                 </Button>
                               </>
                             )}
@@ -244,11 +256,32 @@ export default function ExploreSubmitPage() {
                   <div className="grid gap-4 sm:grid-cols-3">
                     <FormField
                       control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem className="sm:col-span-3">
+                          <FormLabel htmlFor="site-description">
+                            Description
+                            {requiredAsterisk}
+                          </FormLabel>
+                          <FormControl>
+                            <Textarea
+                              id="site-description"
+                              placeholder="Describe the dive site, layout, marine life, and what divers should expect."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name="entryDifficulty"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel htmlFor="site-difficulty">
                             Entry difficulty
+                            {requiredAsterisk}
                           </FormLabel>
                           <Select
                             value={field.value}
@@ -386,8 +419,7 @@ export default function ExploreSubmitPage() {
                     )}
                   />
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField
+                  <FormField
                       control={form.control}
                       name="fees"
                       render={({ field }) => (
@@ -400,22 +432,6 @@ export default function ExploreSubmitPage() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="contactInfo"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel htmlFor="site-contact">
-                            Contact info
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea id="site-contact" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
 
                   {submitMutation.error ? (
                     <p className="text-sm text-red-600">

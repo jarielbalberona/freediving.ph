@@ -18,8 +18,10 @@ export function ExploreMobileToggle({
   return (
     <div className="pointer-events-auto">
       <ToggleGroup
-        value={view}
-        onValueChange={(nextValue) => onChange(nextValue as MapViewMode)}
+        value={[view]}
+        onValueChange={(nextValue) =>
+          onChange((nextValue[0] ?? view) as MapViewMode)
+        }
         className="grid grid-cols-2 gap-1 rounded-full bg-white/95 p-1 shadow-2xl"
       >
         <ToggleGroupItem value="map" aria-label="Map view">

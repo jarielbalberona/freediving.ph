@@ -16,7 +16,7 @@ export const hasSelectedLocation = (
 export const formatPinnedAreaLabel = (value: SiteLocation | null) => {
   if (!value) return "Mark on map";
   if (value.area?.trim()) return `Pinned: ${value.area.trim()}`;
-  return `Pinned: ${value.lat.toFixed(4)}, ${value.lng.toFixed(4)}`;
+  return "Pinned: resolving location...";
 };
 
 export const deriveCoarseAreaFromAddressComponents = (

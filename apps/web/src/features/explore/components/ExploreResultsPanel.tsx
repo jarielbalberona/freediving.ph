@@ -179,7 +179,7 @@ export function ExploreResultsPanel({
         </div>
       </div>
 
-      <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1 px-4 py-4">
+      <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1 p-2">
         <div className="space-y-3 pb-6">
           {loading ? (
             Array.from({ length: 6 }).map((_, index) => (

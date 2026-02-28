@@ -16,6 +16,10 @@ export const siteSubmissionSchema = z
   .object({
     name: z.string().min(3, "Name must be at least 3 characters").max(120),
     location: locationSchema.nullable(),
+    description: z
+      .string()
+      .min(12, "Description must be at least 12 characters")
+      .max(2000),
     entryDifficulty: z.enum(["easy", "moderate", "hard"]),
     depthMinM: z.string().optional(),
     depthMaxM: z.string().optional(),
@@ -24,7 +28,6 @@ export const siteSubmissionSchema = z
     typicalConditions: z.string().max(500).optional(),
     access: z.string().max(500).optional(),
     fees: z.string().max(280).optional(),
-    contactInfo: z.string().max(280).optional(),
   })
   .refine((data) => data.location !== null, {
     message: "Pick the dive spot on the map before submitting",

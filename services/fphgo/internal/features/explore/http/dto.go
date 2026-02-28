@@ -36,6 +36,7 @@ type SiteDetail struct {
 	Area                  string   `json:"area"`
 	Latitude              *float64 `json:"latitude,omitempty"`
 	Longitude             *float64 `json:"longitude,omitempty"`
+	Description           string   `json:"description,omitempty"`
 	Difficulty            string   `json:"difficulty"`
 	DepthMinM             *float64 `json:"depthMinM,omitempty"`
 	DepthMaxM             *float64 `json:"depthMaxM,omitempty"`
@@ -86,6 +87,7 @@ type CreateSiteSubmissionRequest struct {
 	Name              string   `json:"name" validate:"required,min=3,max=120"`
 	Lat               *float64 `json:"lat" validate:"required,gte=-90,lte=90"`
 	Lng               *float64 `json:"lng" validate:"required,gte=-180,lte=180"`
+	Description       string   `json:"description" validate:"required,min=12,max=2000"`
 	EntryDifficulty   string   `json:"entryDifficulty" validate:"required,oneof=easy moderate hard"`
 	DepthMinM         *float64 `json:"depthMinM" validate:"omitempty,gte=0,lte=2000"`
 	DepthMaxM         *float64 `json:"depthMaxM" validate:"omitempty,gte=0,lte=2000"`
@@ -94,7 +96,6 @@ type CreateSiteSubmissionRequest struct {
 	TypicalConditions *string  `json:"typicalConditions" validate:"omitempty,max=500"`
 	Access            *string  `json:"access" validate:"omitempty,max=500"`
 	Fees              *string  `json:"fees" validate:"omitempty,max=280"`
-	ContactInfo       *string  `json:"contactInfo" validate:"omitempty,max=280"`
 }
 
 type ModerateSiteRequest struct {
@@ -117,6 +118,7 @@ type SiteSubmission struct {
 	Area                   string   `json:"area"`
 	Latitude               *float64 `json:"latitude,omitempty"`
 	Longitude              *float64 `json:"longitude,omitempty"`
+	Description            string   `json:"description,omitempty"`
 	Difficulty             string   `json:"difficulty"`
 	DepthMinM              *float64 `json:"depthMinM,omitempty"`
 	DepthMaxM              *float64 `json:"depthMaxM,omitempty"`
@@ -125,7 +127,6 @@ type SiteSubmission struct {
 	TypicalConditions      string   `json:"typicalConditions,omitempty"`
 	Access                 string   `json:"access,omitempty"`
 	Fees                   string   `json:"fees,omitempty"`
-	ContactInfo            string   `json:"contactInfo,omitempty"`
 	VerificationStatus     string   `json:"verificationStatus"`
 	SubmittedByAppUserID   string   `json:"submittedByAppUserId,omitempty"`
 	SubmittedByDisplayName string   `json:"submittedByDisplayName,omitempty"`

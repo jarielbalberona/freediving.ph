@@ -122,9 +122,10 @@ func TestCreateSiteSubmissionRequiresCoordinates(t *testing.T) {
 	svc := New(&repoStub{}, WithReverseGeocoder(&geocoderStub{area: "Mabini, Batangas"}))
 
 	_, err := svc.CreateSiteSubmission(context.Background(), CreateSiteSubmissionInput{
-		ActorID:    "550e8400-e29b-41d4-a716-446655440000",
-		Name:       "Cathedral",
-		Difficulty: "easy",
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Name:        "Cathedral",
+		Description: "Steep wall with reef fish.",
+		Difficulty:  "easy",
 	})
 	if err == nil {
 		t.Fatal("expected validation error")
@@ -145,11 +146,12 @@ func TestCreateSiteSubmissionRejectsInvalidCoordinateRanges(t *testing.T) {
 	svc := New(&repoStub{}, WithReverseGeocoder(&geocoderStub{area: "Mabini, Batangas"}))
 
 	_, err := svc.CreateSiteSubmission(context.Background(), CreateSiteSubmissionInput{
-		ActorID:    "550e8400-e29b-41d4-a716-446655440000",
-		Name:       "Cathedral",
-		Lat:        &lat,
-		Lng:        &lng,
-		Difficulty: "easy",
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Name:        "Cathedral",
+		Description: "Steep wall with reef fish.",
+		Lat:         &lat,
+		Lng:         &lng,
+		Difficulty:  "easy",
 	})
 	if err == nil {
 		t.Fatal("expected validation error")
@@ -172,12 +174,13 @@ func TestCreateSiteSubmissionDerivesAreaBeforePersisting(t *testing.T) {
 	svc := New(repo, WithReverseGeocoder(geocoder))
 
 	_, err := svc.CreateSiteSubmission(context.Background(), CreateSiteSubmissionInput{
-		ActorID:    "550e8400-e29b-41d4-a716-446655440000",
-		Name:       "Cathedral",
-		Lat:        &lat,
-		Lng:        &lng,
-		Difficulty: "easy",
-		Hazards:    []string{"surge", "surge"},
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Name:        "Cathedral",
+		Description: "Steep wall with reef fish.",
+		Lat:         &lat,
+		Lng:         &lng,
+		Difficulty:  "easy",
+		Hazards:     []string{"surge", "surge"},
 	})
 	if err != nil {
 		t.Fatalf("create submission: %v", err)
@@ -188,6 +191,9 @@ func TestCreateSiteSubmissionDerivesAreaBeforePersisting(t *testing.T) {
 	}
 	if repo.created.Area != "Mabini, Batangas" {
 		t.Fatalf("expected derived area to be persisted, got %q", repo.created.Area)
+	}
+	if repo.created.Description != "Steep wall with reef fish." {
+		t.Fatalf("expected description to be persisted, got %q", repo.created.Description)
 	}
 	if repo.created.Latitude == nil || repo.created.Longitude == nil {
 		t.Fatalf("expected coordinates to be persisted, got %+v", repo.created)
@@ -203,11 +209,12 @@ func TestCreateSiteSubmissionReturnsLocationValidationErrorWhenGeocodeFails(t *t
 	svc := New(&repoStub{}, WithReverseGeocoder(&geocoderStub{err: errors.New("boom")}))
 
 	_, err := svc.CreateSiteSubmission(context.Background(), CreateSiteSubmissionInput{
-		ActorID:    "550e8400-e29b-41d4-a716-446655440000",
-		Name:       "Cathedral",
-		Lat:        &lat,
-		Lng:        &lng,
-		Difficulty: "easy",
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Name:        "Cathedral",
+		Description: "Steep wall with reef fish.",
+		Lat:         &lat,
+		Lng:         &lng,
+		Difficulty:  "easy",
 	})
 	if err == nil {
 		t.Fatal("expected validation error")

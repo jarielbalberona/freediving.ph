@@ -158,6 +158,7 @@ type CreateSiteSubmissionInput struct {
 	Name              string
 	Lat               *float64
 	Lng               *float64
+	Description       string
 	Difficulty        string
 	DepthMinM         *float64
 	DepthMaxM         *float64
@@ -166,7 +167,6 @@ type CreateSiteSubmissionInput struct {
 	TypicalConditions *string
 	Access            *string
 	Fees              *string
-	ContactInfo       *string
 }
 
 type SubmissionListInput struct {
@@ -332,8 +332,9 @@ func (s *Service) CreateSiteSubmission(ctx context.Context, input CreateSiteSubm
 	}
 
 	name := strings.TrimSpace(input.Name)
+	description := strings.TrimSpace(input.Description)
 	difficulty := strings.TrimSpace(input.Difficulty)
-	issues := validateSubmissionInput(name, difficulty, input.Lat, input.Lng, input.DepthMinM, input.DepthMaxM)
+	issues := validateSubmissionInput(name, description, difficulty, input.Lat, input.Lng, input.DepthMinM, input.DepthMaxM)
 	if len(issues) > 0 {
 		return explorerepo.SiteSubmission{}, ValidationFailure{Issues: issues}
 	}
@@ -370,6 +371,7 @@ func (s *Service) CreateSiteSubmission(ctx context.Context, input CreateSiteSubm
 		Area:                 area,
 		Latitude:             input.Lat,
 		Longitude:            input.Lng,
+		Description:          description,
 		Difficulty:           difficulty,
 		DepthMinM:            input.DepthMinM,
 		DepthMaxM:            input.DepthMaxM,
@@ -378,7 +380,6 @@ func (s *Service) CreateSiteSubmission(ctx context.Context, input CreateSiteSubm
 		TypicalConditions:    trimPtr(input.TypicalConditions),
 		Access:               trimPtr(input.Access),
 		Fees:                 trimPtr(input.Fees),
-		ContactInfo:          trimPtr(input.ContactInfo),
 		SubmittedByAppUserID: input.ActorID,
 	})
 	if err != nil {
@@ -675,10 +676,13 @@ func trimPtr(input *string) *string {
 	return &trimmed
 }
 
-func validateSubmissionInput(name, difficulty string, lat, lng, depthMinM, depthMaxM *float64) []validatex.Issue {
+func validateSubmissionInput(name, description, difficulty string, lat, lng, depthMinM, depthMaxM *float64) []validatex.Issue {
 	issues := make([]validatex.Issue, 0, 5)
 	if name == "" {
 		issues = append(issues, validatex.Issue{Path: []any{"name"}, Code: "required", Message: "Required"})
+	}
+	if description == "" {
+		issues = append(issues, validatex.Issue{Path: []any{"description"}, Code: "required", Message: "Required"})
 	}
 	if difficulty != "easy" && difficulty != "moderate" && difficulty != "hard" {
 		issues = append(issues, validatex.Issue{Path: []any{"entryDifficulty"}, Code: "invalid_enum", Message: "Must be one of: easy moderate hard"})

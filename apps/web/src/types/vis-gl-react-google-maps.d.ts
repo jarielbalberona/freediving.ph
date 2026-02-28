@@ -79,5 +79,7 @@ declare module "@vis.gl/react-google-maps" {
   }): JSX.Element;
 
   export function useMap(id?: string | null): google.maps.Map | null;
-  export function useMapsLibrary(name: "geocoding"): google.maps.GeocodingLibrary | null;
+  export function useMapsLibrary(
+    name: "geocoding",
+  ): google.maps.GeocodingLibrary | null;
 }

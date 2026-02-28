@@ -374,15 +374,10 @@ export function ExploreLayout() {
               onSelectSpot={handleSelectSpot}
             />
 
-            <div className="pointer-events-none absolute inset-x-0 top-5 flex justify-center">
+            <div className="desktop-view pointer-events-none absolute inset-x-0 top-5 flex justify-center">
               <Button
                 variant="secondary"
-                className={cn(
-                  "pointer-events-auto rounded-full px-5 shadow-xl transition-opacity",
-                  boundsState.isDirty
-                    ? "opacity-100"
-                    : "pointer-events-none opacity-0",
-                )}
+                className={`pointer-events-auto rounded-full px-5 shadow-xl transition-opacity ${boundsState.isDirty ? "opacity-100" : "pointer-events-none opacity-0"}`}
                 onClick={handleApplyAreaSearch}
               >
                 <Compass className="mr-2 size-4" />
@@ -412,13 +407,8 @@ export function ExploreLayout() {
           value={state.view}
           className="relative flex h-full flex-col gap-0 lg:hidden"
         >
-          <div
-            className={cn(
-              "pointer-events-none absolute inset-x-0 top-3 z-20 px-4",
-              state.view === "list" && "hidden",
-            )}
-          >
-            <Card className="pointer-events-auto rounded-[26px] border-white/80 bg-white/92 p-3 shadow-xl backdrop-blur">
+          <div className={cn("pointer-events-none absolute inset-x-0 top-2 z-20 px-4", state.view === "list" && "hidden")}>
+            <Card className="pointer-events-auto rounded-[26px] border-white/80  bg-transparent p-3 shadow-xl backdrop-blur">
               <div className="flex items-center gap-2">
                 <Input
                   ref={searchInputRef}
@@ -433,11 +423,11 @@ export function ExploreLayout() {
               </div>
             </Card>
 
-            <div className="pointer-events-none mt-3 flex justify-center">
+            <div className="mobile-view pointer-events-none px-4 w-full flex justify-center">
               <div className="pointer-events-auto">
                 {boundsState.isDirty ? (
                   <Button
-                    className="rounded-full"
+                    className="mt-3 rounded-full"
                     variant="secondary"
                     onClick={handleApplyAreaSearch}
                   >
@@ -447,11 +437,10 @@ export function ExploreLayout() {
               </div>
             </div>
           </div>
-
           <TabsList className="hidden" />
 
           <TabsContent value="map" className="mt-0 flex-1">
-            <div className="relative h-full">
+            <div className="relative h-full pt-0">
               <ExploreMap
                 spots={sortedItems}
                 selectedSpotId={state.selectedSpotId}
@@ -463,7 +452,7 @@ export function ExploreLayout() {
               />
 
               {selectedSpot ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-28 z-20 px-4">
+                <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">
                   <div className="pointer-events-auto">
                     <DiveSpotCard
                       spot={selectedSpot}
@@ -492,16 +481,12 @@ export function ExploreLayout() {
               sort={sort}
               onSortChange={setSort}
               onResetFilters={handleResetFilters}
-              className="border-r-0 pt-20"
+              className="border-r-0"
               compactControls
-              showSearchControls={false}
+              showSearchControls={true}
               renderSpotActions={renderSpotActions}
             />
           </TabsContent>
-
-          <div className="pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center px-4">
-            <ExploreMobileToggle view={state.view} onChange={setView} />
-          </div>
         </Tabs>
 
         <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
@@ -516,6 +501,11 @@ export function ExploreLayout() {
           </SheetContent>
         </Sheet>
       </div>
+                     <div className="relative">
+                         <div className="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex justify-center px-4">
+            <ExploreMobileToggle view={state.view} onChange={setView} />
+          </div>
+                     </div>
     </MapProvider>
   );
 }

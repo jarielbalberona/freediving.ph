@@ -54,6 +54,7 @@ type SiteDetail struct {
 	Area                  string
 	Latitude              *float64
 	Longitude             *float64
+	Description           string
 	Difficulty            string
 	DepthMinM             *float64
 	DepthMaxM             *float64
@@ -78,6 +79,7 @@ type CreateSiteSubmissionInput struct {
 	Area                 string
 	Latitude             *float64
 	Longitude            *float64
+	Description          string
 	Difficulty           string
 	DepthMinM            *float64
 	DepthMaxM            *float64
@@ -110,6 +112,7 @@ type SiteSubmission struct {
 	Area                   string
 	Latitude               *float64
 	Longitude              *float64
+	Description            string
 	Difficulty             string
 	DepthMinM              *float64
 	DepthMaxM              *float64
@@ -253,6 +256,7 @@ func (r *Repo) GetSiteBySlug(ctx context.Context, slug string) (SiteDetail, erro
 		Area:                  row.Area,
 		Latitude:              row.Latitude,
 		Longitude:             row.Longitude,
+		Description:           valueOrEmpty(row.Description),
 		Difficulty:            row.EntryDifficulty,
 		DepthMinM:             numericPtr(row.DepthMinM),
 		DepthMaxM:             numericPtr(row.DepthMaxM),
@@ -288,12 +292,14 @@ func (r *Repo) SlugExists(ctx context.Context, slug string) (bool, error) {
 }
 
 func (r *Repo) CreateSiteSubmission(ctx context.Context, input CreateSiteSubmissionInput) (SiteSubmission, error) {
+	description := input.Description
 	row, err := r.queries.CreateSiteSubmission(ctx, exploreqlc.CreateSiteSubmissionParams{
 		Name:                 input.Name,
 		Slug:                 input.Slug,
 		Area:                 input.Area,
 		Latitude:             input.Latitude,
 		Longitude:            input.Longitude,
+		Description:          &description,
 		EntryDifficulty:      input.Difficulty,
 		DepthMinM:            numericValue(input.DepthMinM),
 		DepthMaxM:            numericValue(input.DepthMaxM),
@@ -617,6 +623,7 @@ func mapDiveSiteSubmission(row exploreqlc.DiveSite, submittedByDisplayName, revi
 		Area:                   row.Area,
 		Latitude:               row.Latitude,
 		Longitude:              row.Longitude,
+		Description:            valueOrEmpty(row.Description),
 		Difficulty:             row.EntryDifficulty,
 		DepthMinM:              numericPtr(row.DepthMinM),
 		DepthMaxM:              numericPtr(row.DepthMaxM),
@@ -648,6 +655,7 @@ func mapMySubmission(row exploreqlc.ListMySiteSubmissionsRow) SiteSubmission {
 		Area:                  row.Area,
 		Latitude:              row.Latitude,
 		Longitude:             row.Longitude,
+		Description:           valueOrEmpty(row.Description),
 		Difficulty:            row.EntryDifficulty,
 		DepthMinM:             numericPtr(row.DepthMinM),
 		DepthMaxM:             numericPtr(row.DepthMaxM),
@@ -678,6 +686,7 @@ func mapMySubmissionDetail(row exploreqlc.GetMySiteSubmissionByIDRow) SiteSubmis
 		Area:                  row.Area,
 		Latitude:              row.Latitude,
 		Longitude:             row.Longitude,
+		Description:           valueOrEmpty(row.Description),
 		Difficulty:            row.EntryDifficulty,
 		DepthMinM:             numericPtr(row.DepthMinM),
 		DepthMaxM:             numericPtr(row.DepthMaxM),
@@ -708,6 +717,7 @@ func mapPendingSubmission(row exploreqlc.ListPendingSitesRow) SiteSubmission {
 		Area:                   row.Area,
 		Latitude:               row.Latitude,
 		Longitude:              row.Longitude,
+		Description:            valueOrEmpty(row.Description),
 		Difficulty:             row.EntryDifficulty,
 		DepthMinM:              numericPtr(row.DepthMinM),
 		DepthMaxM:              numericPtr(row.DepthMaxM),
@@ -739,6 +749,7 @@ func mapModerationSubmission(row exploreqlc.GetSiteByIDForModerationRow) SiteSub
 		Area:                   row.Area,
 		Latitude:               row.Latitude,
 		Longitude:              row.Longitude,
+		Description:            valueOrEmpty(row.Description),
 		Difficulty:             row.EntryDifficulty,
 		DepthMinM:              numericPtr(row.DepthMinM),
 		DepthMaxM:              numericPtr(row.DepthMaxM),

@@ -181,6 +181,7 @@ CREATE TABLE IF NOT EXISTS dive_sites (
   area TEXT NOT NULL,
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
+  description TEXT,
   entry_difficulty TEXT NOT NULL,
   depth_min_m NUMERIC,
   depth_max_m NUMERIC,

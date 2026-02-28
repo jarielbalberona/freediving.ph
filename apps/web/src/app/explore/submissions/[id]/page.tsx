@@ -50,13 +50,13 @@ export default function ExploreSubmissionDetailPage() {
                 <Badge>{item.moderationState}</Badge>
               </CardHeader>
               <CardContent className="space-y-4 text-sm text-zinc-700">
+                <p><span className="font-medium text-zinc-950">Description:</span> {item.description || "Not provided"}</p>
                 <p><span className="font-medium text-zinc-950">Difficulty:</span> {item.difficulty}</p>
                 <p><span className="font-medium text-zinc-950">Hazards:</span> {item.hazards.length > 0 ? item.hazards.join(", ") : "None listed"}</p>
                 <p><span className="font-medium text-zinc-950">Best season:</span> {item.bestSeason || "Not provided"}</p>
                 <p><span className="font-medium text-zinc-950">Typical conditions:</span> {item.typicalConditions || "Not provided"}</p>
                 <p><span className="font-medium text-zinc-950">Access:</span> {item.access || "Not provided"}</p>
                 <p><span className="font-medium text-zinc-950">Fees:</span> {item.fees || "Not provided"}</p>
-                <p><span className="font-medium text-zinc-950">Contact info:</span> {item.contactInfo || "Not provided"}</p>
                 {item.moderationReason ? (
                   <p><span className="font-medium text-zinc-950">Moderator note:</span> {item.moderationReason}</p>
                 ) : null}

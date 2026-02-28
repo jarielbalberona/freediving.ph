@@ -153,6 +153,7 @@ func (h *Handlers) CreateSiteSubmission(w http.ResponseWriter, r *http.Request) 
 		Name:              req.Name,
 		Lat:               req.Lat,
 		Lng:               req.Lng,
+		Description:       req.Description,
 		Difficulty:        req.EntryDifficulty,
 		DepthMinM:         req.DepthMinM,
 		DepthMaxM:         req.DepthMaxM,
@@ -161,7 +162,6 @@ func (h *Handlers) CreateSiteSubmission(w http.ResponseWriter, r *http.Request) 
 		TypicalConditions: req.TypicalConditions,
 		Access:            req.Access,
 		Fees:              req.Fees,
-		ContactInfo:       req.ContactInfo,
 	})
 	if svcErr != nil {
 		h.writeError(w, r, svcErr)
@@ -525,6 +525,7 @@ func mapSiteDetail(input explorerepo.SiteDetail) SiteDetail {
 		Area:                  input.Area,
 		Latitude:              input.Latitude,
 		Longitude:             input.Longitude,
+		Description:           input.Description,
 		Difficulty:            input.Difficulty,
 		DepthMinM:             input.DepthMinM,
 		DepthMaxM:             input.DepthMaxM,
@@ -533,7 +534,6 @@ func mapSiteDetail(input explorerepo.SiteDetail) SiteDetail {
 		TypicalConditions:     input.TypicalConditions,
 		Access:                input.Access,
 		Fees:                  input.Fees,
-		ContactInfo:           input.ContactInfo,
 		VerificationStatus:    input.VerificationStatus,
 		VerifiedByUserID:      input.VerifiedByUserID,
 		VerifiedByDisplayName: input.VerifiedByDisplayName,
@@ -573,6 +573,7 @@ func mapSiteSubmission(input explorerepo.SiteSubmission) SiteSubmission {
 		Area:                   input.Area,
 		Latitude:               input.Latitude,
 		Longitude:              input.Longitude,
+		Description:            input.Description,
 		Difficulty:             input.Difficulty,
 		DepthMinM:              input.DepthMinM,
 		DepthMaxM:              input.DepthMaxM,
@@ -581,7 +582,6 @@ func mapSiteSubmission(input explorerepo.SiteSubmission) SiteSubmission {
 		TypicalConditions:      input.TypicalConditions,
 		Access:                 input.Access,
 		Fees:                   input.Fees,
-		ContactInfo:            input.ContactInfo,
 		VerificationStatus:     input.VerificationStatus,
 		SubmittedByAppUserID:   input.SubmittedByAppUserID,
 		SubmittedByDisplayName: input.SubmittedByDisplayName,
