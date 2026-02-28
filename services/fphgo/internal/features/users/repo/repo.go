@@ -7,7 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	usersqlc "fphgo/internal/features/users/repo/sqlc"
 )
 
 type User struct {
@@ -18,10 +21,11 @@ type User struct {
 }
 
 type Repo struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	queries *usersqlc.Queries
 }
 
-func New(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
+func New(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool, queries: usersqlc.New(pool)} }
 
 func (r *Repo) CreateUserWithProfile(ctx context.Context, username, displayName, bio string) (User, error) {
 	id := uuid.NewString()
@@ -81,6 +85,20 @@ func (r *Repo) GetUserByID(ctx context.Context, userID string) (User, error) {
 		return User{}, err
 	}
 	return result, nil
+}
+
+func (r *Repo) SaveUser(ctx context.Context, viewerUserID, savedUserID string) error {
+	return r.queries.SaveUser(ctx, usersqlc.SaveUserParams{
+		ViewerAppUserID: toUUID(viewerUserID),
+		SavedAppUserID:  toUUID(savedUserID),
+	})
+}
+
+func (r *Repo) UnsaveUser(ctx context.Context, viewerUserID, savedUserID string) error {
+	return r.queries.UnsaveUser(ctx, usersqlc.UnsaveUserParams{
+		ViewerAppUserID: toUUID(viewerUserID),
+		SavedAppUserID:  toUUID(savedUserID),
+	})
 }
 
 func (r *Repo) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -148,4 +166,10 @@ func (r *Repo) EnsureLocalUserForClerk(ctx context.Context, clerkUserID, usernam
 		return User{}, fmt.Errorf("commit tx: %w", err)
 	}
 	return result, nil
+}
+
+func toUUID(value string) pgtype.UUID {
+	var id pgtype.UUID
+	_ = id.Scan(value)
+	return id
 }

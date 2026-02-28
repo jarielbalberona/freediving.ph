@@ -90,3 +90,9 @@ WHERE id = $1 AND deleted_at IS NULL;
 SELECT author_user_id
 FROM chika_comments
 WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: ResolveDiveSiteUpdateAuthor :one
+SELECT author_app_user_id
+FROM dive_site_updates
+WHERE id = $1
+  AND state = 'active';

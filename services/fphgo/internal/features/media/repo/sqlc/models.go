@@ -20,6 +20,22 @@ type Buddy struct {
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type BuddyIntent struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	DiveSiteID      pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Area            string             `db:"area" json:"area"`
+	IntentType      string             `db:"intent_type" json:"intent_type"`
+	TimeWindow      string             `db:"time_window" json:"time_window"`
+	DateStart       pgtype.Date        `db:"date_start" json:"date_start"`
+	DateEnd         pgtype.Date        `db:"date_end" json:"date_end"`
+	Note            *string            `db:"note" json:"note"`
+	Visibility      string             `db:"visibility" json:"visibility"`
+	State           string             `db:"state" json:"state"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ExpiresAt       pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+}
+
 type BuddyRelationship struct {
 	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
 	BuddyID   pgtype.UUID        `db:"buddy_id" json:"buddy_id"`
@@ -106,11 +122,46 @@ type ConversationParticipant struct {
 }
 
 type DiveSite struct {
-	ID              pgtype.UUID        `db:"id" json:"id"`
-	Name            string             `db:"name" json:"name"`
-	Location        string             `db:"location" json:"location"`
-	ModerationState string             `db:"moderation_state" json:"moderation_state"`
-	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID                  pgtype.UUID        `db:"id" json:"id"`
+	Name                string             `db:"name" json:"name"`
+	Slug                string             `db:"slug" json:"slug"`
+	Area                string             `db:"area" json:"area"`
+	Latitude            *float64           `db:"latitude" json:"latitude"`
+	Longitude           *float64           `db:"longitude" json:"longitude"`
+	EntryDifficulty     string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM           pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM           pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards             []string           `db:"hazards" json:"hazards"`
+	BestSeason          *string            `db:"best_season" json:"best_season"`
+	TypicalConditions   *string            `db:"typical_conditions" json:"typical_conditions"`
+	Access              *string            `db:"access" json:"access"`
+	Fees                *string            `db:"fees" json:"fees"`
+	ContactInfo         *string            `db:"contact_info" json:"contact_info"`
+	VerificationStatus  string             `db:"verification_status" json:"verification_status"`
+	VerifiedByAppUserID pgtype.UUID        `db:"verified_by_app_user_id" json:"verified_by_app_user_id"`
+	ModerationState     string             `db:"moderation_state" json:"moderation_state"`
+	LastUpdatedAt       pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type DiveSiteSafe struct {
+	AppUserID  pgtype.UUID        `db:"app_user_id" json:"app_user_id"`
+	DiveSiteID pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type DiveSiteUpdate struct {
+	ID                   pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID           pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	AuthorAppUserID      pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	Note                 string             `db:"note" json:"note"`
+	ConditionVisibilityM pgtype.Numeric     `db:"condition_visibility_m" json:"condition_visibility_m"`
+	ConditionCurrent     *string            `db:"condition_current" json:"condition_current"`
+	ConditionWaves       *string            `db:"condition_waves" json:"condition_waves"`
+	ConditionTempC       pgtype.Numeric     `db:"condition_temp_c" json:"condition_temp_c"`
+	OccurredAt           pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	State                string             `db:"state" json:"state"`
 }
 
 type Event struct {
@@ -176,6 +227,7 @@ type Message struct {
 	ConversationID pgtype.UUID        `db:"conversation_id" json:"conversation_id"`
 	SenderUserID   pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
 	Content        string             `db:"content" json:"content"`
+	Metadata       []byte             `db:"metadata" json:"metadata"`
 	IdempotencyKey *string            `db:"idempotency_key" json:"idempotency_key"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -197,6 +249,9 @@ type Profile struct {
 	Bio                 string             `db:"bio" json:"bio"`
 	AvatarUrl           string             `db:"avatar_url" json:"avatar_url"`
 	Location            string             `db:"location" json:"location"`
+	HomeArea            string             `db:"home_area" json:"home_area"`
+	Interests           []string           `db:"interests" json:"interests"`
+	CertLevel           *string            `db:"cert_level" json:"cert_level"`
 	Socials             []byte             `db:"socials" json:"socials"`
 	PseudonymousEnabled bool               `db:"pseudonymous_enabled" json:"pseudonymous_enabled"`
 	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
@@ -237,12 +292,20 @@ type ReportEvent struct {
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type SavedUser struct {
+	ViewerAppUserID pgtype.UUID        `db:"viewer_app_user_id" json:"viewer_app_user_id"`
+	SavedAppUserID  pgtype.UUID        `db:"saved_app_user_id" json:"saved_app_user_id"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type User struct {
 	ID                 pgtype.UUID        `db:"id" json:"id"`
 	Username           string             `db:"username" json:"username"`
 	DisplayName        string             `db:"display_name" json:"display_name"`
 	AuthProvider       string             `db:"auth_provider" json:"auth_provider"`
 	AuthProviderUserID *string            `db:"auth_provider_user_id" json:"auth_provider_user_id"`
+	EmailVerified      bool               `db:"email_verified" json:"email_verified"`
+	PhoneVerified      bool               `db:"phone_verified" json:"phone_verified"`
 	GlobalRole         string             `db:"global_role" json:"global_role"`
 	AccountStatus      string             `db:"account_status" json:"account_status"`
 	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`

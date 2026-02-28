@@ -20,3 +20,13 @@ SELECT
 FROM users u
 JOIN profiles p ON p.user_id = u.id
 WHERE u.id = $1;
+
+-- name: SaveUser :exec
+INSERT INTO saved_users (viewer_app_user_id, saved_app_user_id)
+VALUES ($1, $2)
+ON CONFLICT (viewer_app_user_id, saved_app_user_id) DO NOTHING;
+
+-- name: UnsaveUser :exec
+DELETE FROM saved_users
+WHERE viewer_app_user_id = $1
+  AND saved_app_user_id = $2;

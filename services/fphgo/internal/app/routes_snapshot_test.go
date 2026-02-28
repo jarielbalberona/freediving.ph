@@ -24,6 +24,7 @@ import (
 	reportshttp "fphgo/internal/features/reports/http"
 	usershttp "fphgo/internal/features/users/http"
 	"fphgo/internal/middleware"
+	"fphgo/internal/shared/validatex"
 )
 
 type routeSnapshotEntry struct {
@@ -155,7 +156,7 @@ func buildFullSurfaceRouter() chi.Router {
 		UsersHandler:      usershttp.New(nil, nil),
 		MessagingHandler:  messaginghttp.New(nil, nil, nil),
 		ChikaHandler:      chikahttp.New(nil, nil),
-		ExploreHandler:    explorehttp.New(nil),
+		ExploreHandler:    explorehttp.New(nil, validatex.New()),
 		ProfilesHandler:   profileshttp.New(nil, nil),
 		BlocksHandler:     blockshttp.New(nil, nil),
 		BuddiesHandler:    buddieshttp.New(nil, nil),

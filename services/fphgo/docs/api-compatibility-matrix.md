@@ -1,6 +1,6 @@
 # API Compatibility Matrix: `apps/web` vs `services/fphgo`
 
-Last updated: 2026-02-27
+Last updated: 2026-02-28
 
 ## Scope And Sources
 
@@ -18,6 +18,21 @@ Go route sources scanned:
 | Endpoint | Method | Web caller | Go handler | Status |
 |---|---|---|---|---|
 | `/v1/auth/session` | `GET` | `useSession()` in `apps/web/src/features/auth/session/use-session.ts` | `GetSession` in `services/fphgo/internal/features/auth/http/handlers.go` | `OK` |
+| `/v1/explore/sites` | `GET` | `exploreApi.listSites()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `ListSites` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/updates` | `GET` | `exploreApi.listLatestUpdates()` / `getExploreLatestUpdatesServer()` in `apps/web/src/features/diveSpots/api/explore-v1*.ts` | `ListLatestUpdates` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/sites/{slug}` | `GET` | `exploreApi.getSiteBySlug()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `GetSiteBySlug` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/sites/{slug}/buddy-preview` | `GET` | `exploreApi.getSiteBuddyPreview()` / `getExploreSiteBuddyPreviewServer()` in `apps/web/src/features/diveSpots/api/explore-v1*.ts` | `GetBuddyPreviewBySlug` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/sites/{slug}/buddy-intents` | `GET` | `exploreApi.getSiteBuddyIntents()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `GetBuddyIntentsBySlug` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/sites/{siteId}/save` | `POST` | `exploreApi.saveSite()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `SaveSite` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/explore/sites/{siteId}/updates` | `POST` | `exploreApi.createUpdate()` in `apps/web/src/features/diveSpots/api/explore-v1.ts` | `CreateUpdate` in `services/fphgo/internal/features/explore/http/handlers.go` | `OK` |
+| `/v1/buddy-finder/preview` | `GET` | `buddyFinderApi.preview()` in `apps/web/src/features/buddies/api/buddy-finder.ts` | `Preview` in `services/fphgo/internal/features/buddyfinder/http/handlers.go` | `OK` |
+| `/v1/buddy-finder/intents` | `GET` | `buddyFinderApi.listIntents()` in `apps/web/src/features/buddies/api/buddy-finder.ts` | `ListIntents` in `services/fphgo/internal/features/buddyfinder/http/handlers.go` | `OK` |
+| `/v1/buddy-finder/intents` | `POST` | `buddyFinderApi.createIntent()` in `apps/web/src/features/buddies/api/buddy-finder.ts` | `CreateIntent` in `services/fphgo/internal/features/buddyfinder/http/handlers.go` | `OK` |
+| `/v1/buddy-finder/intents/{id}/message` | `POST` | `buddyFinderApi.messageEntry()` in `apps/web/src/features/buddies/api/buddy-finder.ts` | `MessageEntry` in `services/fphgo/internal/features/buddyfinder/http/handlers.go` | `OK` |
+| `/v1/buddy-finder/intents/{id}/share-preview` | `GET` | `buddyFinderApi.getSharePreview()` / `getBuddyFinderSharePreviewServer()` in `apps/web/src/features/buddies/api/buddy-finder*.ts` | `SharePreview` in `services/fphgo/internal/features/buddyfinder/http/handlers.go` | `OK` |
+| `/v1/me/saved` | `GET` | `profilesApi.getSavedHub()` in `apps/web/src/features/profiles/api/profiles.ts` | `GetSavedHub` in `services/fphgo/internal/features/profiles/http/handlers.go` | `OK` |
+| `/v1/users/{userId}/save` | `POST` | `profilesApi.saveUser()` in `apps/web/src/features/profiles/api/profiles.ts` | `SaveUser` in `services/fphgo/internal/features/users/http/handlers.go` | `OK` |
+| `/v1/users/{userId}/save` | `DELETE` | `profilesApi.unsaveUser()` in `apps/web/src/features/profiles/api/profiles.ts` | `UnsaveUser` in `services/fphgo/internal/features/users/http/handlers.go` | `OK` |
 | `/v1/messages/inbox` | `GET` | `messagesApi.getConversations()` in `apps/web/src/features/messages/api/messages.ts` | `Inbox` in `services/fphgo/internal/features/messaging/http/handlers.go` | `OK` |
 | `/v1/messages/inbox` | `GET` | `messagesApi.getMessages()` in `apps/web/src/features/messages/api/messages.ts` | `Inbox` in `services/fphgo/internal/features/messaging/http/handlers.go` | `Shape mismatch` |
 | `/v1/messages/send` | `POST` | `messagesApi.sendMessage()` in `apps/web/src/features/messages/api/messages.ts` | `Send` in `services/fphgo/internal/features/messaging/http/handlers.go` | `Shape mismatch` |
@@ -49,6 +64,85 @@ Go route:
 
 Compatibility notes:
 - Shape is aligned and now consumed through shared `@freediving.ph/types` `MeResponse`.
+
+### Explore, Conditions Pulse, and Site Buddy Matching
+
+#### `GET /v1/explore/updates`
+
+Web usage:
+- Caller: `exploreApi.listLatestUpdates()` (`apps/web/src/features/diveSpots/api/explore-v1.ts`)
+- Server caller: `getExploreLatestUpdatesServer()` (`apps/web/src/features/diveSpots/api/explore-v1.server.ts`)
+- Request body type: none
+- Expected response type (TS): `ExploreLatestUpdatesResponse`
+
+Go route:
+- Route: `/updates` in `services/fphgo/internal/features/explore/http/routes.go`
+- Handler: `ListLatestUpdates` in `services/fphgo/internal/features/explore/http/handlers.go`
+- Required auth: public
+
+Compatibility notes:
+- This is the Conditions Pulse feed used by `/explore/updates`. It includes author trust ladder fields and stays public-read safe.
+
+#### `GET /v1/explore/sites/{slug}/buddy-preview`
+
+Web usage:
+- Caller: `exploreApi.getSiteBuddyPreview()` (`apps/web/src/features/diveSpots/api/explore-v1.ts`)
+- Server caller: `getExploreSiteBuddyPreviewServer()` (`apps/web/src/features/diveSpots/api/explore-v1.server.ts`)
+- Request body type: none
+- Expected response type (TS): `ExploreSiteBuddyPreviewResponse`
+
+Go route:
+- Route: `/sites/{slug}/buddy-preview` in `services/fphgo/internal/features/explore/http/routes.go`
+- Handler: `GetBuddyPreviewBySlug` in `services/fphgo/internal/features/explore/http/handlers.go`
+- Required auth: public
+
+Compatibility notes:
+- Server-side redaction is aligned with the web preview usage on both the interactive sheet and the share page.
+
+#### `GET /v1/explore/sites/{slug}/buddy-intents`
+
+Web usage:
+- Caller: `exploreApi.getSiteBuddyIntents()` (`apps/web/src/features/diveSpots/api/explore-v1.ts`)
+- Request body type: none
+- Expected response type (TS): `ExploreSiteBuddyIntentsResponse`
+
+Go route:
+- Route: `/sites/{slug}/buddy-intents` in `services/fphgo/internal/features/explore/http/routes.go`
+- Handler: `GetBuddyIntentsBySlug` in `services/fphgo/internal/features/explore/http/handlers.go`
+- Required auth: `RequireMember` + `RequirePermission(buddies.read)`
+
+Compatibility notes:
+- The response includes `sourceBreakdown` so the web can explain why some cards are site-linked and others are area fallback.
+
+### Saved Hub and Buddy Share
+
+#### `GET /v1/me/saved`
+
+Web usage:
+- Caller: `profilesApi.getSavedHub()` (`apps/web/src/features/profiles/api/profiles.ts`)
+- Expected response type (TS): `SavedHubResponse`
+
+Go route:
+- Route: `/v1/me/saved` in `services/fphgo/internal/features/profiles/http/routes.go`
+- Handler: `GetSavedHub` in `services/fphgo/internal/features/profiles/http/handlers.go`
+- Required auth: member + `profiles.read`
+
+Compatibility notes:
+- Saved users are filtered for blocks in either direction. Hidden or deleted content is filtered out upstream.
+
+#### `GET /v1/buddy-finder/intents/{id}/share-preview`
+
+Web usage:
+- Caller: `buddyFinderApi.getSharePreview()` / `getBuddyFinderSharePreviewServer()` (`apps/web/src/features/buddies/api/buddy-finder*.ts`)
+- Expected response type (TS): `BuddyFinderSharePreviewResponse`
+
+Go route:
+- Route: `/intents/{id}/share-preview` in `services/fphgo/internal/features/buddyfinder/http/routes.go`
+- Handler: `SharePreview` in `services/fphgo/internal/features/buddyfinder/http/handlers.go`
+- Required auth: public
+
+Compatibility notes:
+- The response is intentionally redacted and filtered to active, non-expired, member-visible intents only.
 
 ### Messaging
 
@@ -260,7 +354,16 @@ Derived from `services/fphgo/internal/app/routes.go` and per-feature route files
 | `POST` | `/v1/users` | `users.http.Handlers.CreateUser` | Public |
 | `GET` | `/v1/users/me` | `users.http.Handlers.GetMe` | `RequireMember` |
 | `GET` | `/v1/users/{id}` | `users.http.Handlers.GetUser` | `RequireMember` + `RequirePermission(users.read)` |
-| `GET` | `/v1/explore/dive-sites` | `explore.http.Handlers.ListDiveSites` | Public |
+| `GET` | `/v1/explore/sites` | `explore.http.Handlers.ListSites` | Public |
+| `GET` | `/v1/explore/sites/{slug}` | `explore.http.Handlers.GetSiteBySlug` | Public |
+| `POST` | `/v1/explore/sites/{siteId}/updates` | `explore.http.Handlers.CreateUpdate` | `RequireMember` + `RequirePermission(explore.submit)` |
+| `POST` | `/v1/explore/sites/{siteId}/save` | `explore.http.Handlers.SaveSite` | `RequireMember` + `RequirePermission(explore.submit)` |
+| `DELETE` | `/v1/explore/sites/{siteId}/save` | `explore.http.Handlers.UnsaveSite` | `RequireMember` + `RequirePermission(explore.submit)` |
+| `GET` | `/v1/buddy-finder/preview` | `buddyfinder.http.Handlers.Preview` | Public |
+| `GET` | `/v1/buddy-finder/intents` | `buddyfinder.http.Handlers.ListIntents` | `RequireMember` + `RequirePermission(buddies.read)` |
+| `POST` | `/v1/buddy-finder/intents` | `buddyfinder.http.Handlers.CreateIntent` | `RequireMember` + `RequirePermission(buddies.write)` |
+| `DELETE` | `/v1/buddy-finder/intents/{id}` | `buddyfinder.http.Handlers.DeleteIntent` | `RequireMember` + `RequirePermission(buddies.write)` |
+| `POST` | `/v1/buddy-finder/intents/{id}/message` | `buddyfinder.http.Handlers.MessageEntry` | `RequireMember` + `RequirePermission(buddies.write)` |
 | `GET` | `/v1/auth/session` | `auth.http.Handlers.GetSession` | `RequireMember` |
 | `GET` | `/v1/messages/inbox` | `messaging.http.Handlers.Inbox` | `RequireMember` + `RequirePermission(messaging.read)` |
 | `GET` | `/v1/messages/requests` | `messaging.http.Handlers.Requests` | `RequireMember` + `RequirePermission(messaging.read)` |
@@ -427,6 +530,38 @@ Auth requirements:
 Compatibility notes:
 - Web buddies API uses `fphgoFetchClient` and UUID string IDs.
 - Response contracts are backed by shared types in `packages/types` (`BuddyRequest`, `IncomingBuddyRequestsResponse`, `OutgoingBuddyRequestsResponse`, `BuddyListResponse`).
+
+## Explore v1 Addendum
+
+Web callers (`apps/web/src/features/diveSpots/api/explore-v1.ts`) now target:
+- `GET /v1/explore/sites`
+- `GET /v1/explore/sites/{slug}`
+- `POST /v1/explore/sites/{siteId}/save`
+- `DELETE /v1/explore/sites/{siteId}/save`
+- `POST /v1/explore/sites/{siteId}/updates`
+
+Go handler package: `services/fphgo/internal/features/explore/http`
+
+Compatibility notes:
+- Explore is public-read, member-write.
+- Share pages use the stable web path `/explore/sites/{slug}` backed by `GET /v1/explore/sites/{slug}`.
+- Response contracts are now backed by shared `@freediving.ph/types` Explore DTOs.
+
+## Buddy Finder v1 Addendum
+
+Web callers (`apps/web/src/features/buddies/api/buddy-finder.ts`) now target:
+- `GET /v1/buddy-finder/preview`
+- `GET /v1/buddy-finder/intents`
+- `POST /v1/buddy-finder/intents`
+- `DELETE /v1/buddy-finder/intents/{id}`
+- `POST /v1/buddy-finder/intents/{id}/message`
+
+Go handler package: `services/fphgo/internal/features/buddyfinder/http`
+
+Compatibility notes:
+- Signed-out preview is public.
+- Member intent routes use existing `buddies.read` / `buddies.write` permissions.
+- Message entry returns the target user id for the existing messaging request flow; web then calls `POST /v1/messages/requests`.
 
 ## Messaging v1 Addendum
 

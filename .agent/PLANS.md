@@ -238,6 +238,218 @@ Ensure no obvious migrated write endpoint in profiles/blocks/reports/messaging/c
   - `reports.write`
   - messaging write endpoints
   - chika write endpoints
+
+---
+
+# ExecPlan: Explore Dive Sites + Buddy Finder MVP Hook
+
+## 1. Title
+
+Implement Explore Dive Sites and Buddy Finder MVP hook across `services/fphgo`, `apps/web`, and shared contracts
+
+## 2. Objective
+
+Ship the core acquisition loop promised by product: a signed-out user can open the app and quickly browse real dive sites with trust signals, and a user can preview nearby buddy intents with safe coarse-location data and clear sign-in conversion points.
+
+## 3. Scope
+
+- Backend in `services/fphgo` only; do not touch `apps/api/*`.
+- Replace the stub `explore` read path with full v1 browse/detail/save/update behavior.
+- Add a new `buddyfinder` feature in Go rather than forcing the existing buddy-relationship module to do matching.
+- Extend profile/onboarding storage to support:
+  - home area
+  - interests
+  - optional cert level
+- Seed enough Explore data to avoid empty-state MVP failure.
+- Update `apps/web` Explore and Buddies surfaces to call `/v1/...` routes on `services/fphgo`.
+- Add docs, compatibility matrix updates, release checklist entries, and targeted tests.
+
+## 4. Constraints And Non-Goals
+
+- Non-goal: modify `apps/api/*` legacy code.
+- Non-goal: introduce Redis, PostGIS, background workers, or exact-location buddy matching in v1.
+- Non-goal: redesign the existing buddy relationship system; reuse existing messaging request flow where possible.
+- Must follow `services/fphgo/AGENTS.md`:
+  - thin handlers
+  - service-layer business rules
+  - repo layer as DB-only
+  - `pgxpool` only
+  - `sqlc` per feature from `services/fphgo/sqlc.yaml`
+  - `httpx.DecodeAndValidate[T]` for write DTOs
+- `apps/web` must not add feature-local `types.ts`; shared contracts belong in `packages/types/src/index.ts`.
+
+## 5. Acceptance Criteria
+
+- Signed-out users can browse Explore immediately via `/v1/explore/sites` and `/explore/sites/{slug}`.
+- Explore cards expose high-signal summary fields: area, difficulty, depth, hazards, verification, last updated, and last condition summary.
+- Explore save and site updates require auth; signed-out actions trigger sign-in on web.
+- Signed-out users can view `/v1/buddy-finder/preview` samples by area with redacted details.
+- Signed-in users can list, create, delete, and initiate messaging from buddy intents with block enforcement, cooldowns, and coarse-location-only output.
+- Minimal onboarding stores home area, interests, and optional cert level, then routes users into Explore/Buddy Finder.
+- Docs exist:
+  - `services/fphgo/docs/explore-v1.md`
+  - `services/fphgo/docs/buddy-finder-v1.md`
+  - updated `services/fphgo/docs/api-compatibility-matrix.md`
+  - updated `docs/checklist/mvp1releaset.md`
+- Targeted tests cover public Explore reads, auth-gated writes, buddy preview/list/create behavior, validation, rate limiting, and block filtering.
+
+## 6. Repo Evidence
+
+- Router wiring and dependency assembly:
+  - `services/fphgo/internal/app/routes.go`
+  - `services/fphgo/internal/app/app.go`
+- Existing Explore is only a stub:
+  - `services/fphgo/internal/features/explore/http/routes.go`
+  - `services/fphgo/internal/features/explore/http/handlers.go`
+  - `services/fphgo/internal/features/explore/service/service.go`
+  - `services/fphgo/internal/features/explore/repo/repo.go`
+- Existing buddy module is relationship/request management, not matching:
+  - `services/fphgo/internal/features/buddies/http/routes.go`
+  - `services/fphgo/internal/features/buddies/service/service.go`
+- Messaging request gate already exists and can back Buddy Finder contact flow:
+  - `services/fphgo/internal/features/messaging/http/routes.go`
+  - `services/fphgo/internal/features/messaging/service/service.go`
+- Profile storage currently only supports `location`/`socials`; onboarding fields are absent:
+  - `services/fphgo/db/schema/000_schema.sql`
+  - `services/fphgo/internal/features/profiles/repo/queries/profiles.sql`
+  - `services/fphgo/internal/features/profiles/service/service.go`
+- Shared TS contracts are centralized and currently still carry old dive-spot shapes:
+  - `packages/types/src/index.ts`
+  - `packages/types/AGENTS.md`
+- Web Explore and Buddies are wired to obsolete/incorrect surfaces:
+  - `apps/web/src/app/explore/page.tsx`
+  - `apps/web/src/app/explore/explore-view.tsx`
+  - `apps/web/src/features/diveSpots/api/diveSpots.ts`
+  - `apps/web/src/app/buddies/page.tsx`
+  - `apps/web/src/features/buddies/api/buddies.ts`
+  - `apps/web/src/lib/api/fphgo-routes.ts`
+- Release/documentation targets already exist:
+  - `services/fphgo/docs/api-compatibility-matrix.md`
+  - `docs/checklist/mvp1releaset.md`
+
+## 7. Risks And Rollback
+
+- Risk: changing `dive_sites` shape can break the stub Explore code and any schema-drift tests unless schema + migration + sqlc outputs are kept in lockstep.
+- Risk: overloading the existing `buddies` feature for matching would produce policy confusion and route conflicts; mitigate by isolating `buddyfinder`.
+- Risk: onboarding schema changes affect profile reads/writes; mitigate with additive columns and defaults.
+- Risk: seeded data inside migrations can become noisy or hard to revise; mitigate by keeping inserts idempotent and limited to curated MVP records.
+- Risk: web route migration may leave stale legacy callers; mitigate by updating route helpers and compatibility matrix together.
+- Rollback:
+  - revert new migration(s) for Explore/Buddy Finder/onboarding fields
+  - unmount new router paths
+  - restore previous Explore web page if required
+
+## 8. Milestones
+
+### Milestone 1: Contract and data foundation
+
+- Goal: define DB schema, shared types, and feature boundaries for Explore, Buddy Finder, and onboarding.
+- Inputs/Dependencies:
+  - `services/fphgo/db/schema/000_schema.sql`
+  - `services/fphgo/sqlc.yaml`
+  - `packages/types/src/index.ts`
+- Changes:
+  - add Goose migration(s) and schema updates
+  - add/replace Explore sqlc query set
+  - add Buddy Finder sqlc query set/package
+  - add onboarding/profile schema support
+  - update shared TS contracts
+- Validation Commands:
+  - `make sqlc`
+  - `go test ./db/...`
+  - `pnpm -C packages/types type-check`
+- Expected Evidence:
+  - generated sqlc output for explore/buddyfinder
+  - schema drift tests still pass
+- Rollback Notes:
+  - revert migration/schema/types changes before wiring routes
+- Status: `done`
+
+### Milestone 2: Go Explore + Buddy Finder feature implementation
+
+- Goal: ship backend routes, services, seed path, and policy enforcement.
+- Inputs/Dependencies:
+  - Milestone 1 complete
+  - existing messaging/profile/block services
+- Changes:
+  - implement Explore list/detail/save/update handlers, services, repos, and tests
+  - implement Buddy Finder preview/intents/message entry handlers, services, repos, and tests
+  - wire routes/dependencies in app
+  - add seed mechanism for day-1 Explore content
+- Validation Commands:
+  - `go test ./internal/features/explore/... ./internal/features/buddyfinder/... ./internal/features/profiles/... ./internal/app ./db`
+- Expected Evidence:
+  - passing integration/unit tests for public reads, auth gates, blocks, and rate limits
+- Rollback Notes:
+  - unmount new routes and revert feature packages/migration if policy bugs surface
+- Status: `done`
+
+### Milestone 3: Web MVP flows and onboarding
+
+- Goal: replace obsolete Explore/Buddies screens with the new MVP hook and sign-in gating.
+- Inputs/Dependencies:
+  - backend contracts stable enough to consume
+  - shared types updated
+- Changes:
+  - update route helpers and API clients to `/v1/explore/...` and `/v1/buddy-finder/...`
+  - rebuild Explore page/detail/share preview
+  - rebuild Buddies page as Buddy Finder preview/member flow
+  - add lightweight onboarding flow for area/interests/cert
+- Validation Commands:
+  - `pnpm -C apps/web type-check`
+  - `pnpm -C apps/web build`
+- Expected Evidence:
+  - web compiles against shared contracts with no legacy route leakage for these features
+- Rollback Notes:
+  - restore previous web pages if backend contract slips
+- Status: `done`
+
+### Milestone 4: Documentation and release gate updates
+
+- Goal: document the shipped surface and close release checklist gaps.
+- Inputs/Dependencies:
+  - routes/tests finalized
+- Changes:
+  - add Explore/Buddy Finder docs
+  - update API compatibility matrix
+  - update MVP release checklist entries
+  - record verification outcomes in this plan
+- Validation Commands:
+  - `go test ./docs/...`
+- Expected Evidence:
+  - docs committed and compatibility gate passing
+- Rollback Notes:
+  - docs-only revert if wording is wrong; no runtime impact
+- Status: `done`
+
+## 9. Verification Plan
+
+- Backend narrow checks first:
+  - `cd services/fphgo && make sqlc`
+  - `go test ./internal/features/explore/... ./internal/features/buddyfinder/... ./internal/features/profiles/... ./internal/app ./db`
+- Shared contracts:
+  - `pnpm -C packages/types type-check`
+- Web:
+  - `pnpm -C apps/web type-check`
+  - `pnpm -C apps/web build`
+- If risk grows beyond feature boundaries:
+  - `go test ./...`
+  - `pnpm typecheck`
+
+## 10. Progress Log
+
+- 2026-02-28: Confirmed `services/fphgo/internal/features/explore/*` is a placeholder browse stub using old `dive_sites(location, moderation_state)` assumptions.
+- 2026-02-28: Confirmed `services/fphgo/internal/features/buddies/*` manages buddy relationships, not area/time-window matching, so Buddy Finder needs its own feature boundary.
+- 2026-02-28: Confirmed web Explore still calls legacy dive-spot APIs and web Buddies is wired to request-management UX, both misaligned with MVP promise.
+- 2026-02-28: Confirmed profile storage lacks onboarding fields for interests and cert level, requiring additive schema work.
+- 2026-02-28: Added site-to-buddy coupling via `buddy_intents.dive_site_id`, site-first matching with area fallback, Explore site buddy preview/full endpoints, and web site-page buddy UI.
+- 2026-02-28: Regenerated sqlc, refreshed route snapshot, added service/repo/http coverage for the coupling, updated docs/checklists, and verified the web production build.
+
+## 11. Outcomes And Follow-Ups
+
+- Follow-up: consider PostGIS/geospatial indexing once Explore moves beyond coarse browse and seeded markers.
+- Follow-up: move Buddy Finder expiration cleanup to a scheduled job once automation/worker infrastructure exists.
+- Follow-up: replace placeholder mutual-buddy/report counts with real graph/report aggregates when those domains stabilize.
 - Add missing service-layer rate limits/cooldowns.
 - Add/expand integration tests for high-risk write endpoints.
 - Update `services/fphgo/docs/rate-limits-v1.md`.

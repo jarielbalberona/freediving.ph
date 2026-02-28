@@ -13,6 +13,7 @@ func Routes(h *Handlers) chi.Router {
 	r.Group(func(read chi.Router) {
 		read.Use(middleware.RequirePermission(authz.PermissionProfilesRead))
 		read.Get("/me/profile", h.GetMeProfile)
+		read.Get("/me/saved", h.GetSavedHub)
 		read.Get("/profiles/{userID}", h.GetProfileByUserID)
 		read.Get("/users/search", h.SearchUsers)
 	})

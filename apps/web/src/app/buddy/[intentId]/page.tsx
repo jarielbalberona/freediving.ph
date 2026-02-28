@@ -1,0 +1,82 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+
+import { TrustCard } from "@/components/trust-card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getBuddyFinderSharePreviewServer } from "@/features/buddies/api/buddy-finder.server";
+
+type PageProps = {
+  params: Promise<{ intentId: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { intentId } = await params;
+  try {
+    const data = await getBuddyFinderSharePreviewServer(intentId);
+    const title = data.intent.diveSiteName
+      ? `Buddy for ${data.intent.diveSiteName}`
+      : `Buddy Finder in ${data.intent.area}`;
+    const description = `${data.intent.area}. ${data.intent.intentType.replace("_", " ")} · ${data.intent.timeWindow.replace("_", " ")}. Safe preview only.`;
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+      },
+    };
+  } catch {
+    return { title: "Buddy intent not found" };
+  }
+}
+
+export default async function BuddySharePage({ params }: PageProps) {
+  const { intentId } = await params;
+
+  try {
+    const data = await getBuddyFinderSharePreviewServer(intentId);
+    return (
+      <div className="min-h-full bg-[linear-gradient(180deg,_#f6fbff_0%,_#ffffff_100%)] px-4 py-10">
+        <div className="mx-auto max-w-3xl space-y-6">
+          <div className="space-y-2">
+            <p className="text-sm uppercase tracking-[0.2em] text-sky-700">Freediving Philippines</p>
+            <h1 className="font-serif text-4xl text-sky-950">
+              {data.intent.diveSiteName ? `Looking for a buddy at ${data.intent.diveSiteName}` : "Buddy Finder preview"}
+            </h1>
+            <p className="text-zinc-600">{data.intent.area}</p>
+          </div>
+
+          <Card className="rounded-[28px] border-white/80 bg-white/90">
+            <CardHeader className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <Badge>{data.intent.intentType.replace("_", " ")}</Badge>
+                <Badge variant="outline">{data.intent.timeWindow.replace("_", " ")}</Badge>
+                {data.intent.dateStart ? <Badge variant="outline">From {data.intent.dateStart}</Badge> : null}
+              </div>
+              <CardTitle className="text-2xl text-sky-950">Safe preview only</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-zinc-700">
+              <p>{data.intent.notePreview || "Sign in to reveal the full note and use the DM request flow."}</p>
+              <TrustCard
+                emailVerified={data.intent.emailVerified}
+                phoneVerified={data.intent.phoneVerified}
+                certLevel={data.intent.certLevel}
+                buddyCount={data.intent.buddyCount}
+                reportCount={data.intent.reportCount}
+              />
+              <div className="rounded-2xl bg-sky-950 p-4 text-sky-50">
+                <p className="font-medium">Sign up to message and match</p>
+                <p className="mt-1 text-sm text-sky-100">
+                  Exact contact stays gated. Coarse area only. Message requests still need acceptance.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  } catch {
+    notFound();
+  }
+}

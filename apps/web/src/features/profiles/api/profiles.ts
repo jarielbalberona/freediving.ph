@@ -1,6 +1,8 @@
 import {
   type Profile,
   type ProfileResponse,
+  type SaveUserResponse,
+  type SavedHubResponse,
   type SearchUsersResponse,
   type UpdateMyProfileRequest,
 } from "@freediving.ph/types";
@@ -21,6 +23,22 @@ export const profilesApi = {
     return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.me(), {
       method: "PATCH",
       body: payload as Record<string, unknown>,
+    });
+  },
+
+  getSavedHub: async (): Promise<SavedHubResponse> => {
+    return fphgoFetchClient<SavedHubResponse>(routes.v1.profiles.saved());
+  },
+
+  saveUser: async (userId: string): Promise<SaveUserResponse> => {
+    return fphgoFetchClient<SaveUserResponse>(routes.v1.profiles.saveUser(userId), {
+      method: "POST",
+    });
+  },
+
+  unsaveUser: async (userId: string): Promise<void> => {
+    return fphgoFetchClient<void>(routes.v1.profiles.saveUser(userId), {
+      method: "DELETE",
     });
   },
 

@@ -66,6 +66,34 @@ func (h *Handlers) GetUser(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, UserResponse(user))
 }
 
+func (h *Handlers) SaveUser(w http.ResponseWriter, r *http.Request) {
+	identity, ok := middleware.CurrentIdentity(r.Context())
+	if !ok || identity.UserID == "" {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil))
+		return
+	}
+	userID := chi.URLParam(r, "id")
+	if err := h.service.SaveUser(r.Context(), identity.UserID, userID); err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SaveUserResponse{Saved: true})
+}
+
+func (h *Handlers) UnsaveUser(w http.ResponseWriter, r *http.Request) {
+	identity, ok := middleware.CurrentIdentity(r.Context())
+	if !ok || identity.UserID == "" {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil))
+		return
+	}
+	userID := chi.URLParam(r, "id")
+	if err := h.service.UnsaveUser(r.Context(), identity.UserID, userID); err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handlers) GetProfileByUsername(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	if username == "" {

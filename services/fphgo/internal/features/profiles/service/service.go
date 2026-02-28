@@ -23,6 +23,8 @@ type repository interface {
 	GetProfileByUserID(ctx context.Context, userID string) (profilesrepo.Profile, error)
 	UpsertMyProfile(ctx context.Context, input profilesrepo.UpsertProfileInput) (profilesrepo.Profile, error)
 	SearchUsers(ctx context.Context, viewerID, q string, limit int32) ([]profilesrepo.SearchUser, error)
+	ListSavedSitesForUser(ctx context.Context, appUserID string) ([]profilesrepo.SavedSite, error)
+	ListSavedUsersForUser(ctx context.Context, viewerUserID string) ([]profilesrepo.SavedUser, error)
 }
 
 type rateLimiter interface {
@@ -46,13 +48,25 @@ func WithLimiter(limiter rateLimiter) Option {
 }
 
 type Profile struct {
-	UserID      string            `json:"userId"`
-	Username    string            `json:"username"`
-	DisplayName string            `json:"displayName"`
-	Bio         string            `json:"bio"`
-	AvatarURL   string            `json:"avatarUrl"`
-	Location    string            `json:"location"`
-	Socials     map[string]string `json:"socials"`
+	UserID        string            `json:"userId"`
+	Username      string            `json:"username"`
+	DisplayName   string            `json:"displayName"`
+	EmailVerified bool              `json:"emailVerified"`
+	PhoneVerified bool              `json:"phoneVerified"`
+	BuddyCount    int64             `json:"buddyCount"`
+	ReportCount   int64             `json:"reportCount"`
+	Bio           string            `json:"bio"`
+	AvatarURL     string            `json:"avatarUrl"`
+	Location      string            `json:"location"`
+	HomeArea      string            `json:"homeArea"`
+	Interests     []string          `json:"interests"`
+	CertLevel     string            `json:"certLevel"`
+	Socials       map[string]string `json:"socials"`
+}
+
+type SavedHub struct {
+	Sites []profilesrepo.SavedSite `json:"sites"`
+	Users []profilesrepo.SavedUser `json:"users"`
 }
 
 type UpdateMyProfileInput struct {
@@ -61,6 +75,9 @@ type UpdateMyProfileInput struct {
 	Bio         *string
 	AvatarURL   *string
 	Location    *string
+	HomeArea    *string
+	Interests   *[]string
+	CertLevel   *string
 	Socials     *map[string]string
 }
 
@@ -112,6 +129,9 @@ func (s *Service) UpdateMyProfile(ctx context.Context, input UpdateMyProfileInpu
 		Bio:         current.Bio,
 		AvatarURL:   current.AvatarURL,
 		Location:    current.Location,
+		HomeArea:    current.HomeArea,
+		Interests:   current.Interests,
+		CertLevel:   current.CertLevel,
 		Socials:     current.Socials,
 	}
 
@@ -127,6 +147,15 @@ func (s *Service) UpdateMyProfile(ctx context.Context, input UpdateMyProfileInpu
 	}
 	if input.Location != nil {
 		update.Location = strings.TrimSpace(*input.Location)
+	}
+	if input.HomeArea != nil {
+		update.HomeArea = strings.TrimSpace(*input.HomeArea)
+	}
+	if input.Interests != nil {
+		update.Interests = trimInterests(*input.Interests)
+	}
+	if input.CertLevel != nil {
+		update.CertLevel = strings.TrimSpace(*input.CertLevel)
 	}
 	if input.Socials != nil {
 		update.Socials = trimSocials(*input.Socials)
@@ -167,21 +196,44 @@ func (s *Service) SearchUsers(ctx context.Context, actorID, query string, limit 
 			AvatarURL:   row.AvatarURL,
 			Location:    coarseLocation(row.Location),
 			Socials:     map[string]string{},
+			Interests:   []string{},
 		})
 	}
 
 	return items, nil
 }
 
+func (s *Service) GetSavedHub(ctx context.Context, actorID string) (SavedHub, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return SavedHub{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	sites, err := s.repo.ListSavedSitesForUser(ctx, actorID)
+	if err != nil {
+		return SavedHub{}, apperrors.New(http.StatusInternalServerError, "saved_sites_failed", "failed to load saved sites", err)
+	}
+	users, err := s.repo.ListSavedUsersForUser(ctx, actorID)
+	if err != nil {
+		return SavedHub{}, apperrors.New(http.StatusInternalServerError, "saved_users_failed", "failed to load saved users", err)
+	}
+	return SavedHub{Sites: sites, Users: users}, nil
+}
+
 func mapProfile(item profilesrepo.Profile) Profile {
 	return Profile{
-		UserID:      item.UserID,
-		Username:    item.Username,
-		DisplayName: item.DisplayName,
-		Bio:         item.Bio,
-		AvatarURL:   item.AvatarURL,
-		Location:    coarseLocation(item.Location),
-		Socials:     trimSocials(item.Socials),
+		UserID:        item.UserID,
+		Username:      item.Username,
+		DisplayName:   item.DisplayName,
+		EmailVerified: item.EmailVerified,
+		PhoneVerified: item.PhoneVerified,
+		BuddyCount:    item.BuddyCount,
+		ReportCount:   item.ReportCount,
+		Bio:           item.Bio,
+		AvatarURL:     item.AvatarURL,
+		Location:      coarseLocation(item.Location),
+		HomeArea:      coarseLocation(firstNonEmpty(item.HomeArea, item.Location)),
+		Interests:     trimInterests(item.Interests),
+		CertLevel:     strings.TrimSpace(item.CertLevel),
+		Socials:       trimSocials(item.Socials),
 	}
 }
 
@@ -211,6 +263,35 @@ func trimSocials(input map[string]string) map[string]string {
 		result[strings.TrimSpace(key)] = trimmedValue
 	}
 	return result
+}
+
+func trimInterests(input []string) []string {
+	if len(input) == 0 {
+		return []string{}
+	}
+	result := make([]string, 0, len(input))
+	seen := map[string]struct{}{}
+	for _, value := range input {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+	return result
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (s *Service) enforceRateLimit(ctx context.Context, scope, key string, maxEvents int, window time.Duration, message string) error {

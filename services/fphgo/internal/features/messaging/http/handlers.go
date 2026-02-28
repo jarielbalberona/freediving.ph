@@ -125,6 +125,13 @@ func (h *Handlers) Inbox(w http.ResponseWriter, r *http.Request) {
 				Username:    item.OtherUsername,
 				DisplayName: item.OtherDisplayName,
 				AvatarURL:   item.OtherAvatarURL,
+				Trust: TrustCard{
+					EmailVerified: item.OtherTrust.EmailVerified,
+					PhoneVerified: item.OtherTrust.PhoneVerified,
+					CertLevel:     item.OtherTrust.CertLevel,
+					BuddyCount:    item.OtherTrust.BuddyCount,
+					ReportCount:   item.OtherTrust.ReportCount,
+				},
 			},
 			LastMessage:  mapMessage(item.LastMessage),
 			UnreadCount:  item.UnreadCount,
@@ -199,6 +206,7 @@ func (h *Handlers) SendConversationMessage(w http.ResponseWriter, r *http.Reques
 		ActorID:        actorID,
 		ConversationID: conversationID,
 		Content:        req.Content,
+		Metadata:       mapMessageMetadata(req.Metadata),
 		RequestID:      middleware.RequestIDFromContext(r.Context()),
 		IdempotencyKey: idempotencyKeyFromHeader(r),
 	})
@@ -270,7 +278,42 @@ func mapMessage(input messagingrepo.Message) MessageItem {
 		MessageID:      strconv.FormatInt(input.ID, 10),
 		SenderID:       input.SenderID,
 		Content:        input.Content,
+		Metadata:       mapMessageMetadataOut(input.Metadata),
 		CreatedAt:      input.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+func mapMessageMetadata(input *MessageMetadata) *messagingrepo.MessageMetadata {
+	if input == nil {
+		return nil
+	}
+	return &messagingrepo.MessageMetadata{
+		Type:         input.Type,
+		DiveSiteID:   input.DiveSiteID,
+		DiveSiteSlug: input.DiveSiteSlug,
+		DiveSiteName: input.DiveSiteName,
+		DiveSiteArea: input.DiveSiteArea,
+		TimeWindow:   input.TimeWindow,
+		DateStart:    input.DateStart,
+		DateEnd:      input.DateEnd,
+		Note:         input.Note,
+	}
+}
+
+func mapMessageMetadataOut(input *messagingrepo.MessageMetadata) *MessageMetadata {
+	if input == nil {
+		return nil
+	}
+	return &MessageMetadata{
+		Type:         input.Type,
+		DiveSiteID:   input.DiveSiteID,
+		DiveSiteSlug: input.DiveSiteSlug,
+		DiveSiteName: input.DiveSiteName,
+		DiveSiteArea: input.DiveSiteArea,
+		TimeWindow:   input.TimeWindow,
+		DateStart:    input.DateStart,
+		DateEnd:      input.DateEnd,
+		Note:         input.Note,
 	}
 }
 

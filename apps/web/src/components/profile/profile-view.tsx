@@ -1,32 +1,50 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useMyProfile, useUpdateMyProfile } from "@/features/profiles";
+import { TrustCard } from "@/components/trust-card";
+import {
+  useMyProfile,
+  useProfileByUserId,
+  useSavedHub,
+  useSaveUser,
+  useUnsaveUser,
+  useUpdateMyProfile,
+} from "@/features/profiles";
 import { useBlockUser, useBlockedUsers, useUnblockUser } from "@/features/blocks";
 import { useSendBuddyRequest } from "@/features/buddies";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 
 export default function ProfileView() {
-  const { data, isLoading } = useMyProfile();
+  const searchParams = useSearchParams();
+  const targetUserId = searchParams.get("userId");
+  const myProfileQuery = useMyProfile();
+  const profileByUserIdQuery = useProfileByUserId(targetUserId);
+  const { data: savedHub } = useSavedHub(Boolean(targetUserId));
+  const saveUser = useSaveUser();
+  const unsaveUser = useUnsaveUser();
   const updateProfile = useUpdateMyProfile();
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
   const sendBuddyRequest = useSendBuddyRequest();
   const { data: blockedUsers } = useBlockedUsers();
 
-  const profile = data?.profile;
+  const isOwnProfile = !targetUserId || targetUserId === myProfileQuery.data?.profile.userId;
+  const activeQuery = isOwnProfile ? myProfileQuery : profileByUserIdQuery;
+  const profile = activeQuery.data?.profile;
+  const isSaved = Boolean(profile && savedHub?.users.some((item) => item.userId === profile.userId));
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [blockedUserId, setBlockedUserId] = useState("");
   const [buddyTargetUserId, setBuddyTargetUserId] = useState("");
 
-  if (isLoading) {
+  if (activeQuery.isLoading) {
     return <div className="container mx-auto p-6">Loading profile...</div>;
   }
 
@@ -44,14 +62,42 @@ export default function ProfileView() {
         <CardHeader>
           <CardTitle>Profile</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-4">
           <p className="text-lg font-semibold">{profile.displayName || profile.username}</p>
           <p className="text-sm text-muted-foreground">@{profile.username}</p>
           <p className="text-sm text-muted-foreground">{profile.bio || "No bio yet."}</p>
           <p className="text-sm text-muted-foreground">{profile.location || "No location yet."}</p>
+          <TrustCard
+            emailVerified={profile.emailVerified}
+            phoneVerified={profile.phoneVerified}
+            certLevel={profile.certLevel}
+            buddyCount={profile.buddyCount}
+            reportCount={profile.reportCount}
+          />
+          {!isOwnProfile ? (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  isSaved
+                    ? unsaveUser.mutate(profile.userId)
+                    : saveUser.mutate(profile.userId)
+                }
+              >
+                {isSaved ? "Saved" : "Save profile"}
+              </Button>
+              <Button
+                disabled={!profile.userId.trim() || sendBuddyRequest.isPending}
+                onClick={() => sendBuddyRequest.mutate(profile.userId)}
+              >
+                Add Buddy
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
+      {isOwnProfile ? (
       <Card>
         <CardHeader>
           <CardTitle>Edit Profile</CardTitle>
@@ -86,7 +132,9 @@ export default function ProfileView() {
           </Button>
         </CardContent>
       </Card>
+      ) : null}
 
+      {isOwnProfile ? (
       <Card>
         <CardHeader>
           <CardTitle>Buddies</CardTitle>
@@ -116,7 +164,9 @@ export default function ProfileView() {
           ) : null}
         </CardContent>
       </Card>
+      ) : null}
 
+      {isOwnProfile ? (
       <Card>
         <CardHeader>
           <CardTitle>Safety: Blocks</CardTitle>
@@ -168,6 +218,7 @@ export default function ProfileView() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
     </div>
   );
 }

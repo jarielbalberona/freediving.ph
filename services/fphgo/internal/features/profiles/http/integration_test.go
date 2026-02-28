@@ -61,6 +61,14 @@ func (m *memoryProfilesRepo) SearchUsers(_ context.Context, _ string, query stri
 	}}, nil
 }
 
+func (m *memoryProfilesRepo) ListSavedSitesForUser(_ context.Context, _ string) ([]profilesrepo.SavedSite, error) {
+	return []profilesrepo.SavedSite{}, nil
+}
+
+func (m *memoryProfilesRepo) ListSavedUsersForUser(_ context.Context, _ string) ([]profilesrepo.SavedUser, error) {
+	return []profilesrepo.SavedUser{}, nil
+}
+
 type denyAfterLimiter struct {
 	limit int
 	count int
@@ -116,6 +124,24 @@ func (s *stubProfilesService) SearchUsers(_ context.Context, _ string, query str
 	}}, nil
 }
 
+func (s *stubProfilesService) GetSavedHub(_ context.Context, _ string) (profilesservice.SavedHub, error) {
+	return profilesservice.SavedHub{
+		Sites: []profilesrepo.SavedSite{{
+			ID:      "550e8400-e29b-41d4-a716-446655440021",
+			Slug:    "twin-rocks-anilao",
+			Name:    "Twin Rocks",
+			Area:    "Mabini, Batangas",
+			SavedAt: time.Now().UTC().Format(time.RFC3339),
+		}},
+		Users: []profilesrepo.SavedUser{{
+			UserID:      "550e8400-e29b-41d4-a716-446655440022",
+			Username:    "buddy",
+			DisplayName: "Buddy User",
+			SavedAt:     time.Now().UTC().Format(time.RFC3339),
+		}},
+	}, nil
+}
+
 func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 	v := validatex.New()
 	h := New(&stubProfilesService{}, v)
@@ -131,6 +157,7 @@ func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 			body   string
 		}{
 			{method: http.MethodGet, path: "/me/profile"},
+			{method: http.MethodGet, path: "/me/saved"},
 			{method: http.MethodPatch, path: "/me/profile", body: `{"displayName":"New Name"}`},
 			{method: http.MethodGet, path: "/profiles/550e8400-e29b-41d4-a716-446655440000"},
 			{method: http.MethodGet, path: "/users/search?q=member"},
@@ -189,6 +216,13 @@ func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 		router.ServeHTTP(getMeRec, getMeReq)
 		if getMeRec.Code != http.StatusOK {
 			t.Fatalf("expected 200 for GET /me/profile, got %d", getMeRec.Code)
+		}
+
+		savedReq := httptest.NewRequest(http.MethodGet, "/me/saved", nil)
+		savedRec := httptest.NewRecorder()
+		router.ServeHTTP(savedRec, savedReq)
+		if savedRec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for GET /me/saved, got %d", savedRec.Code)
 		}
 
 		patchReq := httptest.NewRequest(http.MethodPatch, "/me/profile", strings.NewReader(`{"displayName":"Updated Name"}`))

@@ -114,3 +114,35 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 	)
 	return i, err
 }
+
+const saveUser = `-- name: SaveUser :exec
+INSERT INTO saved_users (viewer_app_user_id, saved_app_user_id)
+VALUES ($1, $2)
+ON CONFLICT (viewer_app_user_id, saved_app_user_id) DO NOTHING
+`
+
+type SaveUserParams struct {
+	ViewerAppUserID pgtype.UUID `db:"viewer_app_user_id" json:"viewer_app_user_id"`
+	SavedAppUserID  pgtype.UUID `db:"saved_app_user_id" json:"saved_app_user_id"`
+}
+
+func (q *Queries) SaveUser(ctx context.Context, arg SaveUserParams) error {
+	_, err := q.db.Exec(ctx, saveUser, arg.ViewerAppUserID, arg.SavedAppUserID)
+	return err
+}
+
+const unsaveUser = `-- name: UnsaveUser :exec
+DELETE FROM saved_users
+WHERE viewer_app_user_id = $1
+  AND saved_app_user_id = $2
+`
+
+type UnsaveUserParams struct {
+	ViewerAppUserID pgtype.UUID `db:"viewer_app_user_id" json:"viewer_app_user_id"`
+	SavedAppUserID  pgtype.UUID `db:"saved_app_user_id" json:"saved_app_user_id"`
+}
+
+func (q *Queries) UnsaveUser(ctx context.Context, arg UnsaveUserParams) error {
+	_, err := q.db.Exec(ctx, unsaveUser, arg.ViewerAppUserID, arg.SavedAppUserID)
+	return err
+}

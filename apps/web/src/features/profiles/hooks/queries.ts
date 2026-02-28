@@ -27,3 +27,12 @@ export const useUserSearch = (query?: string, limit = 10) => {
     staleTime: 30_000,
   });
 };
+
+export const useSavedHub = (enabled = true) => {
+  return useQuery({
+    queryKey: ["profiles", "saved"],
+    queryFn: () => profilesApi.getSavedHub(),
+    enabled,
+    staleTime: 30_000,
+  });
+};

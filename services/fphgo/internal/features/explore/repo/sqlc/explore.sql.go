@@ -7,31 +7,326 @@ package exploreqlc
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const listDiveSites = `-- name: ListDiveSites :many
-SELECT id, name, location, moderation_state, created_at
-FROM dive_sites
-WHERE moderation_state = 'approved'
-  AND ($1 = '' OR name ILIKE '%' || $1 || '%' OR location ILIKE '%' || $1 || '%')
-ORDER BY name ASC
-LIMIT 100
+const createUpdate = `-- name: CreateUpdate :one
+INSERT INTO dive_site_updates (
+  dive_site_id,
+  author_app_user_id,
+  note,
+  condition_visibility_m,
+  condition_current,
+  condition_waves,
+  condition_temp_c,
+  occurred_at
+)
+VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  $6,
+  $7,
+  $8
+)
+RETURNING id, dive_site_id, author_app_user_id, note, condition_visibility_m, condition_current, condition_waves, condition_temp_c, occurred_at, created_at, state
 `
 
-func (q *Queries) ListDiveSites(ctx context.Context, dollar_1 interface{}) ([]DiveSite, error) {
-	rows, err := q.db.Query(ctx, listDiveSites, dollar_1)
+type CreateUpdateParams struct {
+	DiveSiteID           pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	AuthorAppUserID      pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	Note                 string             `db:"note" json:"note"`
+	ConditionVisibilityM pgtype.Numeric     `db:"condition_visibility_m" json:"condition_visibility_m"`
+	ConditionCurrent     *string            `db:"condition_current" json:"condition_current"`
+	ConditionWaves       *string            `db:"condition_waves" json:"condition_waves"`
+	ConditionTempC       pgtype.Numeric     `db:"condition_temp_c" json:"condition_temp_c"`
+	OccurredAt           pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
+func (q *Queries) CreateUpdate(ctx context.Context, arg CreateUpdateParams) (DiveSiteUpdate, error) {
+	row := q.db.QueryRow(ctx, createUpdate,
+		arg.DiveSiteID,
+		arg.AuthorAppUserID,
+		arg.Note,
+		arg.ConditionVisibilityM,
+		arg.ConditionCurrent,
+		arg.ConditionWaves,
+		arg.ConditionTempC,
+		arg.OccurredAt,
+	)
+	var i DiveSiteUpdate
+	err := row.Scan(
+		&i.ID,
+		&i.DiveSiteID,
+		&i.AuthorAppUserID,
+		&i.Note,
+		&i.ConditionVisibilityM,
+		&i.ConditionCurrent,
+		&i.ConditionWaves,
+		&i.ConditionTempC,
+		&i.OccurredAt,
+		&i.CreatedAt,
+		&i.State,
+	)
+	return i, err
+}
+
+const getSiteBySlug = `-- name: GetSiteBySlug :one
+WITH recent_update_counts AS (
+  SELECT
+    dive_site_id,
+    COUNT(*)::bigint AS recent_update_count
+  FROM dive_site_updates
+  WHERE state = 'active'
+  GROUP BY dive_site_id
+),
+latest_update AS (
+  SELECT DISTINCT ON (u.dive_site_id)
+    u.dive_site_id,
+    u.note,
+    u.condition_visibility_m,
+    u.condition_current,
+    u.condition_waves,
+    u.occurred_at
+  FROM dive_site_updates u
+  WHERE u.state = 'active'
+  ORDER BY u.dive_site_id, u.occurred_at DESC, u.id DESC
+)
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.best_season,
+  s.typical_conditions,
+  s.access,
+  s.fees,
+  s.contact_info,
+  s.verification_status,
+  s.verified_by_app_user_id,
+  COALESCE(v.display_name, '') AS verified_by_display_name,
+  s.last_updated_at,
+  s.created_at,
+  COALESCE(rc.recent_update_count, 0)::bigint AS report_count,
+  COALESCE(
+    NULLIF(lu.note, ''),
+    TRIM(BOTH ' ' FROM CONCAT(
+      CASE WHEN lu.condition_visibility_m IS NOT NULL THEN 'Vis ' || lu.condition_visibility_m::text || 'm.' ELSE '' END,
+      CASE WHEN lu.condition_current IS NOT NULL THEN ' Current ' || lu.condition_current || '.' ELSE '' END,
+      CASE WHEN lu.condition_waves IS NOT NULL THEN ' Waves ' || lu.condition_waves || '.' ELSE '' END
+    ))
+  ) AS last_condition_summary
+FROM dive_sites s
+LEFT JOIN users v ON v.id = s.verified_by_app_user_id
+LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
+LEFT JOIN latest_update lu ON lu.dive_site_id = s.id
+WHERE s.slug = $1
+  AND s.moderation_state = 'approved'
+`
+
+type GetSiteBySlugRow struct {
+	ID                    pgtype.UUID        `db:"id" json:"id"`
+	Slug                  string             `db:"slug" json:"slug"`
+	Name                  string             `db:"name" json:"name"`
+	Area                  string             `db:"area" json:"area"`
+	Latitude              *float64           `db:"latitude" json:"latitude"`
+	Longitude             *float64           `db:"longitude" json:"longitude"`
+	EntryDifficulty       string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM             pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM             pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards               []string           `db:"hazards" json:"hazards"`
+	BestSeason            *string            `db:"best_season" json:"best_season"`
+	TypicalConditions     *string            `db:"typical_conditions" json:"typical_conditions"`
+	Access                *string            `db:"access" json:"access"`
+	Fees                  *string            `db:"fees" json:"fees"`
+	ContactInfo           *string            `db:"contact_info" json:"contact_info"`
+	VerificationStatus    string             `db:"verification_status" json:"verification_status"`
+	VerifiedByAppUserID   pgtype.UUID        `db:"verified_by_app_user_id" json:"verified_by_app_user_id"`
+	VerifiedByDisplayName string             `db:"verified_by_display_name" json:"verified_by_display_name"`
+	LastUpdatedAt         pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	CreatedAt             pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ReportCount           int64              `db:"report_count" json:"report_count"`
+	LastConditionSummary  interface{}        `db:"last_condition_summary" json:"last_condition_summary"`
+}
+
+func (q *Queries) GetSiteBySlug(ctx context.Context, slug string) (GetSiteBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getSiteBySlug, slug)
+	var i GetSiteBySlugRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.Area,
+		&i.Latitude,
+		&i.Longitude,
+		&i.EntryDifficulty,
+		&i.DepthMinM,
+		&i.DepthMaxM,
+		&i.Hazards,
+		&i.BestSeason,
+		&i.TypicalConditions,
+		&i.Access,
+		&i.Fees,
+		&i.ContactInfo,
+		&i.VerificationStatus,
+		&i.VerifiedByAppUserID,
+		&i.VerifiedByDisplayName,
+		&i.LastUpdatedAt,
+		&i.CreatedAt,
+		&i.ReportCount,
+		&i.LastConditionSummary,
+	)
+	return i, err
+}
+
+const getSiteForWrite = `-- name: GetSiteForWrite :one
+SELECT id, slug, name, area, moderation_state
+FROM dive_sites
+WHERE id = $1
+`
+
+type GetSiteForWriteRow struct {
+	ID              pgtype.UUID `db:"id" json:"id"`
+	Slug            string      `db:"slug" json:"slug"`
+	Name            string      `db:"name" json:"name"`
+	Area            string      `db:"area" json:"area"`
+	ModerationState string      `db:"moderation_state" json:"moderation_state"`
+}
+
+func (q *Queries) GetSiteForWrite(ctx context.Context, siteID pgtype.UUID) (GetSiteForWriteRow, error) {
+	row := q.db.QueryRow(ctx, getSiteForWrite, siteID)
+	var i GetSiteForWriteRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.Area,
+		&i.ModerationState,
+	)
+	return i, err
+}
+
+const listLatestUpdates = `-- name: ListLatestUpdates :many
+WITH buddy_counts AS (
+  SELECT app_user_id, COUNT(*)::bigint AS buddy_count
+  FROM (
+    SELECT app_user_id_a AS app_user_id FROM buddies
+    UNION ALL
+    SELECT app_user_id_b AS app_user_id FROM buddies
+  ) pairs
+  GROUP BY app_user_id
+),
+report_counts AS (
+  SELECT target_app_user_id AS user_id, COUNT(*)::bigint AS report_count
+  FROM reports
+  WHERE target_app_user_id IS NOT NULL
+  GROUP BY target_app_user_id
+)
+SELECT
+  u.id,
+  u.dive_site_id,
+  s.slug AS site_slug,
+  s.name AS site_name,
+  s.area AS site_area,
+  u.author_app_user_id,
+  COALESCE(author.display_name, '') AS author_display_name,
+  author.email_verified,
+  author.phone_verified,
+  COALESCE(profile.cert_level, '') AS author_cert_level,
+  COALESCE(bc.buddy_count, 0)::bigint AS author_buddy_count,
+  COALESCE(rc.report_count, 0)::bigint AS author_report_count,
+  u.note,
+  u.condition_visibility_m,
+  u.condition_current,
+  u.condition_waves,
+  u.condition_temp_c,
+  u.occurred_at,
+  u.created_at
+FROM dive_site_updates u
+JOIN dive_sites s ON s.id = u.dive_site_id
+JOIN users author ON author.id = u.author_app_user_id
+LEFT JOIN profiles profile ON profile.user_id = u.author_app_user_id
+LEFT JOIN buddy_counts bc ON bc.app_user_id = u.author_app_user_id
+LEFT JOIN report_counts rc ON rc.user_id = u.author_app_user_id
+WHERE u.state = 'active'
+  AND s.moderation_state = 'approved'
+  AND ($1::text = '' OR s.area = $1)
+  AND (u.occurred_at < $2 OR (u.occurred_at = $2 AND u.id < $3))
+ORDER BY u.occurred_at DESC, u.id DESC
+LIMIT $4
+`
+
+type ListLatestUpdatesParams struct {
+	AreaFilter       string             `db:"area_filter" json:"area_filter"`
+	CursorOccurredAt pgtype.Timestamptz `db:"cursor_occurred_at" json:"cursor_occurred_at"`
+	CursorID         pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
+	LimitRows        int32              `db:"limit_rows" json:"limit_rows"`
+}
+
+type ListLatestUpdatesRow struct {
+	ID                   pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID           pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SiteSlug             string             `db:"site_slug" json:"site_slug"`
+	SiteName             string             `db:"site_name" json:"site_name"`
+	SiteArea             string             `db:"site_area" json:"site_area"`
+	AuthorAppUserID      pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	AuthorDisplayName    string             `db:"author_display_name" json:"author_display_name"`
+	EmailVerified        bool               `db:"email_verified" json:"email_verified"`
+	PhoneVerified        bool               `db:"phone_verified" json:"phone_verified"`
+	AuthorCertLevel      string             `db:"author_cert_level" json:"author_cert_level"`
+	AuthorBuddyCount     int64              `db:"author_buddy_count" json:"author_buddy_count"`
+	AuthorReportCount    int64              `db:"author_report_count" json:"author_report_count"`
+	Note                 string             `db:"note" json:"note"`
+	ConditionVisibilityM pgtype.Numeric     `db:"condition_visibility_m" json:"condition_visibility_m"`
+	ConditionCurrent     *string            `db:"condition_current" json:"condition_current"`
+	ConditionWaves       *string            `db:"condition_waves" json:"condition_waves"`
+	ConditionTempC       pgtype.Numeric     `db:"condition_temp_c" json:"condition_temp_c"`
+	OccurredAt           pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListLatestUpdates(ctx context.Context, arg ListLatestUpdatesParams) ([]ListLatestUpdatesRow, error) {
+	rows, err := q.db.Query(ctx, listLatestUpdates,
+		arg.AreaFilter,
+		arg.CursorOccurredAt,
+		arg.CursorID,
+		arg.LimitRows,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []DiveSite{}
+	items := []ListLatestUpdatesRow{}
 	for rows.Next() {
-		var i DiveSite
+		var i ListLatestUpdatesRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
-			&i.Location,
-			&i.ModerationState,
+			&i.DiveSiteID,
+			&i.SiteSlug,
+			&i.SiteName,
+			&i.SiteArea,
+			&i.AuthorAppUserID,
+			&i.AuthorDisplayName,
+			&i.EmailVerified,
+			&i.PhoneVerified,
+			&i.AuthorCertLevel,
+			&i.AuthorBuddyCount,
+			&i.AuthorReportCount,
+			&i.Note,
+			&i.ConditionVisibilityM,
+			&i.ConditionCurrent,
+			&i.ConditionWaves,
+			&i.ConditionTempC,
+			&i.OccurredAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -42,4 +337,381 @@ func (q *Queries) ListDiveSites(ctx context.Context, dollar_1 interface{}) ([]Di
 		return nil, err
 	}
 	return items, nil
+}
+
+const listSavedSitesForUser = `-- name: ListSavedSitesForUser :many
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.verification_status,
+  s.last_updated_at,
+  TRUE AS is_saved
+FROM dive_site_saves ss
+JOIN dive_sites s ON s.id = ss.dive_site_id
+WHERE ss.app_user_id = $1
+  AND s.moderation_state = 'approved'
+ORDER BY ss.created_at DESC, s.id DESC
+`
+
+type ListSavedSitesForUserRow struct {
+	ID                 pgtype.UUID        `db:"id" json:"id"`
+	Slug               string             `db:"slug" json:"slug"`
+	Name               string             `db:"name" json:"name"`
+	Area               string             `db:"area" json:"area"`
+	Latitude           *float64           `db:"latitude" json:"latitude"`
+	Longitude          *float64           `db:"longitude" json:"longitude"`
+	EntryDifficulty    string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM          pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM          pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards            []string           `db:"hazards" json:"hazards"`
+	VerificationStatus string             `db:"verification_status" json:"verification_status"`
+	LastUpdatedAt      pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	IsSaved            bool               `db:"is_saved" json:"is_saved"`
+}
+
+func (q *Queries) ListSavedSitesForUser(ctx context.Context, appUserID pgtype.UUID) ([]ListSavedSitesForUserRow, error) {
+	rows, err := q.db.Query(ctx, listSavedSitesForUser, appUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSavedSitesForUserRow{}
+	for rows.Next() {
+		var i ListSavedSitesForUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.Area,
+			&i.Latitude,
+			&i.Longitude,
+			&i.EntryDifficulty,
+			&i.DepthMinM,
+			&i.DepthMaxM,
+			&i.Hazards,
+			&i.VerificationStatus,
+			&i.LastUpdatedAt,
+			&i.IsSaved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSites = `-- name: ListSites :many
+WITH latest_update AS (
+  SELECT DISTINCT ON (u.dive_site_id)
+    u.dive_site_id,
+    u.note,
+    u.condition_visibility_m,
+    u.condition_current,
+    u.condition_waves,
+    u.occurred_at
+  FROM dive_site_updates u
+  WHERE u.state = 'active'
+  ORDER BY u.dive_site_id, u.occurred_at DESC, u.id DESC
+),
+recent_update_counts AS (
+  SELECT
+    dive_site_id,
+    COUNT(*)::bigint AS recent_update_count
+  FROM dive_site_updates
+  WHERE state = 'active'
+    AND occurred_at >= NOW() - INTERVAL '7 days'
+  GROUP BY dive_site_id
+)
+SELECT
+  s.id,
+  s.slug,
+  s.name,
+  s.area,
+  s.latitude,
+  s.longitude,
+  s.entry_difficulty,
+  s.depth_min_m,
+  s.depth_max_m,
+  s.hazards,
+  s.verification_status,
+  s.last_updated_at,
+  COALESCE(rc.recent_update_count, 0)::bigint AS recent_update_count,
+  COALESCE(
+    NULLIF(lu.note, ''),
+    TRIM(BOTH ' ' FROM CONCAT(
+      CASE WHEN lu.condition_visibility_m IS NOT NULL THEN 'Vis ' || lu.condition_visibility_m::text || 'm.' ELSE '' END,
+      CASE WHEN lu.condition_current IS NOT NULL THEN ' Current ' || lu.condition_current || '.' ELSE '' END,
+      CASE WHEN lu.condition_waves IS NOT NULL THEN ' Waves ' || lu.condition_waves || '.' ELSE '' END
+    ))
+  ) AS last_condition_summary,
+  EXISTS (
+    SELECT 1
+    FROM dive_site_saves ss
+    WHERE ss.dive_site_id = s.id
+      AND ss.app_user_id = $1
+  ) AS is_saved
+FROM dive_sites s
+LEFT JOIN latest_update lu ON lu.dive_site_id = s.id
+LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
+WHERE s.moderation_state = 'approved'
+  AND ($2::text = '' OR s.area = $2)
+  AND ($3::text = '' OR s.entry_difficulty = $3)
+  AND (NOT $4::bool OR s.verification_status IN ('verified', 'instructor', 'moderator'))
+  AND (
+    $5::text = ''
+    OR s.name ILIKE '%' || $5 || '%'
+    OR s.area ILIKE '%' || $5 || '%'
+  )
+  AND (s.last_updated_at < $6 OR (s.last_updated_at = $6 AND s.id < $7))
+ORDER BY s.last_updated_at DESC, s.id DESC
+LIMIT $8
+`
+
+type ListSitesParams struct {
+	ViewerUserID     pgtype.UUID        `db:"viewer_user_id" json:"viewer_user_id"`
+	AreaFilter       string             `db:"area_filter" json:"area_filter"`
+	DifficultyFilter string             `db:"difficulty_filter" json:"difficulty_filter"`
+	VerifiedOnly     bool               `db:"verified_only" json:"verified_only"`
+	SearchText       string             `db:"search_text" json:"search_text"`
+	CursorUpdatedAt  pgtype.Timestamptz `db:"cursor_updated_at" json:"cursor_updated_at"`
+	CursorID         pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
+	LimitRows        int32              `db:"limit_rows" json:"limit_rows"`
+}
+
+type ListSitesRow struct {
+	ID                   pgtype.UUID        `db:"id" json:"id"`
+	Slug                 string             `db:"slug" json:"slug"`
+	Name                 string             `db:"name" json:"name"`
+	Area                 string             `db:"area" json:"area"`
+	Latitude             *float64           `db:"latitude" json:"latitude"`
+	Longitude            *float64           `db:"longitude" json:"longitude"`
+	EntryDifficulty      string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM            pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM            pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards              []string           `db:"hazards" json:"hazards"`
+	VerificationStatus   string             `db:"verification_status" json:"verification_status"`
+	LastUpdatedAt        pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	RecentUpdateCount    int64              `db:"recent_update_count" json:"recent_update_count"`
+	LastConditionSummary interface{}        `db:"last_condition_summary" json:"last_condition_summary"`
+	IsSaved              bool               `db:"is_saved" json:"is_saved"`
+}
+
+func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSitesRow, error) {
+	rows, err := q.db.Query(ctx, listSites,
+		arg.ViewerUserID,
+		arg.AreaFilter,
+		arg.DifficultyFilter,
+		arg.VerifiedOnly,
+		arg.SearchText,
+		arg.CursorUpdatedAt,
+		arg.CursorID,
+		arg.LimitRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSitesRow{}
+	for rows.Next() {
+		var i ListSitesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.Area,
+			&i.Latitude,
+			&i.Longitude,
+			&i.EntryDifficulty,
+			&i.DepthMinM,
+			&i.DepthMaxM,
+			&i.Hazards,
+			&i.VerificationStatus,
+			&i.LastUpdatedAt,
+			&i.RecentUpdateCount,
+			&i.LastConditionSummary,
+			&i.IsSaved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUpdatesForSite = `-- name: ListUpdatesForSite :many
+WITH buddy_counts AS (
+  SELECT app_user_id, COUNT(*)::bigint AS buddy_count
+  FROM (
+    SELECT app_user_id_a AS app_user_id FROM buddies
+    UNION ALL
+    SELECT app_user_id_b AS app_user_id FROM buddies
+  ) pairs
+  GROUP BY app_user_id
+),
+report_counts AS (
+  SELECT target_app_user_id AS user_id, COUNT(*)::bigint AS report_count
+  FROM reports
+  WHERE target_app_user_id IS NOT NULL
+  GROUP BY target_app_user_id
+)
+SELECT
+  u.id,
+  u.dive_site_id,
+  u.author_app_user_id,
+  COALESCE(author.display_name, '') AS author_display_name,
+  author.email_verified,
+  author.phone_verified,
+  COALESCE(profile.cert_level, '') AS author_cert_level,
+  COALESCE(bc.buddy_count, 0)::bigint AS author_buddy_count,
+  COALESCE(rc.report_count, 0)::bigint AS author_report_count,
+  u.note,
+  u.condition_visibility_m,
+  u.condition_current,
+  u.condition_waves,
+  u.condition_temp_c,
+  u.occurred_at,
+  u.created_at,
+  u.state
+FROM dive_site_updates u
+JOIN users author ON author.id = u.author_app_user_id
+LEFT JOIN profiles profile ON profile.user_id = u.author_app_user_id
+LEFT JOIN buddy_counts bc ON bc.app_user_id = u.author_app_user_id
+LEFT JOIN report_counts rc ON rc.user_id = u.author_app_user_id
+WHERE u.dive_site_id = $1
+  AND u.state = 'active'
+  AND (u.occurred_at < $2 OR (u.occurred_at = $2 AND u.id < $3))
+ORDER BY u.occurred_at DESC, u.id DESC
+LIMIT $4
+`
+
+type ListUpdatesForSiteParams struct {
+	DiveSiteID       pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	CursorOccurredAt pgtype.Timestamptz `db:"cursor_occurred_at" json:"cursor_occurred_at"`
+	CursorID         pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
+	LimitRows        int32              `db:"limit_rows" json:"limit_rows"`
+}
+
+type ListUpdatesForSiteRow struct {
+	ID                   pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID           pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	AuthorAppUserID      pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	AuthorDisplayName    string             `db:"author_display_name" json:"author_display_name"`
+	EmailVerified        bool               `db:"email_verified" json:"email_verified"`
+	PhoneVerified        bool               `db:"phone_verified" json:"phone_verified"`
+	AuthorCertLevel      string             `db:"author_cert_level" json:"author_cert_level"`
+	AuthorBuddyCount     int64              `db:"author_buddy_count" json:"author_buddy_count"`
+	AuthorReportCount    int64              `db:"author_report_count" json:"author_report_count"`
+	Note                 string             `db:"note" json:"note"`
+	ConditionVisibilityM pgtype.Numeric     `db:"condition_visibility_m" json:"condition_visibility_m"`
+	ConditionCurrent     *string            `db:"condition_current" json:"condition_current"`
+	ConditionWaves       *string            `db:"condition_waves" json:"condition_waves"`
+	ConditionTempC       pgtype.Numeric     `db:"condition_temp_c" json:"condition_temp_c"`
+	OccurredAt           pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	State                string             `db:"state" json:"state"`
+}
+
+func (q *Queries) ListUpdatesForSite(ctx context.Context, arg ListUpdatesForSiteParams) ([]ListUpdatesForSiteRow, error) {
+	rows, err := q.db.Query(ctx, listUpdatesForSite,
+		arg.DiveSiteID,
+		arg.CursorOccurredAt,
+		arg.CursorID,
+		arg.LimitRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUpdatesForSiteRow{}
+	for rows.Next() {
+		var i ListUpdatesForSiteRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DiveSiteID,
+			&i.AuthorAppUserID,
+			&i.AuthorDisplayName,
+			&i.EmailVerified,
+			&i.PhoneVerified,
+			&i.AuthorCertLevel,
+			&i.AuthorBuddyCount,
+			&i.AuthorReportCount,
+			&i.Note,
+			&i.ConditionVisibilityM,
+			&i.ConditionCurrent,
+			&i.ConditionWaves,
+			&i.ConditionTempC,
+			&i.OccurredAt,
+			&i.CreatedAt,
+			&i.State,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const saveSite = `-- name: SaveSite :exec
+INSERT INTO dive_site_saves (app_user_id, dive_site_id)
+VALUES ($1, $2)
+ON CONFLICT (app_user_id, dive_site_id) DO NOTHING
+`
+
+type SaveSiteParams struct {
+	AppUserID  pgtype.UUID `db:"app_user_id" json:"app_user_id"`
+	DiveSiteID pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+}
+
+func (q *Queries) SaveSite(ctx context.Context, arg SaveSiteParams) error {
+	_, err := q.db.Exec(ctx, saveSite, arg.AppUserID, arg.DiveSiteID)
+	return err
+}
+
+const touchSiteLastUpdated = `-- name: TouchSiteLastUpdated :exec
+UPDATE dive_sites
+SET last_updated_at = GREATEST(last_updated_at, $1)
+WHERE id = $2
+`
+
+type TouchSiteLastUpdatedParams struct {
+	LastUpdatedAt pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	DiveSiteID    pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+}
+
+func (q *Queries) TouchSiteLastUpdated(ctx context.Context, arg TouchSiteLastUpdatedParams) error {
+	_, err := q.db.Exec(ctx, touchSiteLastUpdated, arg.LastUpdatedAt, arg.DiveSiteID)
+	return err
+}
+
+const unsaveSite = `-- name: UnsaveSite :exec
+DELETE FROM dive_site_saves
+WHERE app_user_id = $1
+  AND dive_site_id = $2
+`
+
+type UnsaveSiteParams struct {
+	AppUserID  pgtype.UUID `db:"app_user_id" json:"app_user_id"`
+	DiveSiteID pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+}
+
+func (q *Queries) UnsaveSite(ctx context.Context, arg UnsaveSiteParams) error {
+	_, err := q.db.Exec(ctx, unsaveSite, arg.AppUserID, arg.DiveSiteID)
+	return err
 }

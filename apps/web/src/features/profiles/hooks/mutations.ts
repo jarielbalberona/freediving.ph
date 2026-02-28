@@ -13,3 +13,27 @@ export const useUpdateMyProfile = () => {
     },
   });
 };
+
+export const useSaveUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => profilesApi.saveUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profiles", "saved"] });
+      queryClient.invalidateQueries({ queryKey: ["profiles", "me"] });
+    },
+  });
+};
+
+export const useUnsaveUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => profilesApi.unsaveUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profiles", "saved"] });
+      queryClient.invalidateQueries({ queryKey: ["profiles", "me"] });
+    },
+  });
+};

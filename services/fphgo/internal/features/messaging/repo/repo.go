@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sort"
 	"time"
@@ -31,7 +32,28 @@ type Message struct {
 	ConversationID string
 	SenderID       string
 	Content        string
+	Metadata       *MessageMetadata
 	CreatedAt      time.Time
+}
+
+type MessageMetadata struct {
+	Type         string `json:"type"`
+	DiveSiteID   string `json:"diveSiteId"`
+	DiveSiteSlug string `json:"diveSiteSlug,omitempty"`
+	DiveSiteName string `json:"diveSiteName"`
+	DiveSiteArea string `json:"diveSiteArea,omitempty"`
+	TimeWindow   string `json:"timeWindow,omitempty"`
+	DateStart    string `json:"dateStart,omitempty"`
+	DateEnd      string `json:"dateEnd,omitempty"`
+	Note         string `json:"note,omitempty"`
+}
+
+type TrustSignals struct {
+	EmailVerified bool
+	PhoneVerified bool
+	CertLevel     string
+	BuddyCount    int64
+	ReportCount   int64
 }
 
 type ConversationItem struct {
@@ -43,6 +65,7 @@ type ConversationItem struct {
 	OtherUsername    string
 	OtherDisplayName string
 	OtherAvatarURL   string
+	OtherTrust       TrustSignals
 	LastMessage      Message
 	RequestPreview   Message
 	UnreadCount      int64
@@ -112,7 +135,7 @@ func (r *Repo) UpsertDMConversation(ctx context.Context, senderID, recipientID, 
 	}, nil
 }
 
-func (r *Repo) InsertMessage(ctx context.Context, conversationID, senderID, content string, idempotencyKey *string) (Message, error) {
+func (r *Repo) InsertMessage(ctx context.Context, conversationID, senderID, content string, metadata *MessageMetadata, idempotencyKey *string) (Message, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Message{}, err
@@ -124,6 +147,7 @@ func (r *Repo) InsertMessage(ctx context.Context, conversationID, senderID, cont
 		ConversationID: toUUID(conversationID),
 		SenderUserID:   toUUID(senderID),
 		Content:        content,
+		Metadata:       encodeMessageMetadata(metadata),
 		IdempotencyKey: idempotencyKey,
 	})
 	if err != nil {
@@ -141,6 +165,7 @@ func (r *Repo) InsertMessage(ctx context.Context, conversationID, senderID, cont
 		ConversationID: conversationID,
 		SenderID:       senderID,
 		Content:        content,
+		Metadata:       decodeMessageMetadata(inserted.Metadata),
 		CreatedAt:      inserted.CreatedAt.Time.UTC(),
 	}, nil
 }
@@ -205,11 +230,19 @@ func (r *Repo) ListInboxConversations(ctx context.Context, input ListInboxInput)
 			OtherUsername:    row.OtherUsername,
 			OtherDisplayName: row.OtherDisplayName,
 			OtherAvatarURL:   valueOrEmpty(row.OtherAvatarUrl),
+			OtherTrust: TrustSignals{
+				EmailVerified: row.OtherEmailVerified,
+				PhoneVerified: row.OtherPhoneVerified,
+				CertLevel:     valueOrEmpty(row.OtherCertLevel),
+				BuddyCount:    row.OtherBuddyCount,
+				ReportCount:   row.OtherReportCount,
+			},
 			LastMessage: Message{
 				ID:             row.LastMessageID,
 				ConversationID: row.ID.String(),
 				SenderID:       row.LastMessageSenderID.String(),
 				Content:        row.LastMessageContent,
+				Metadata:       decodeMessageMetadata(row.LastMessageMetadata),
 				CreatedAt:      row.LastMessageCreatedAt.Time.UTC(),
 			},
 			RequestPreview: Message{
@@ -217,6 +250,7 @@ func (r *Repo) ListInboxConversations(ctx context.Context, input ListInboxInput)
 				ConversationID: row.ID.String(),
 				SenderID:       row.FirstMessageSenderID.String(),
 				Content:        row.FirstMessageContent,
+				Metadata:       decodeMessageMetadata(row.FirstMessageMetadata),
 				CreatedAt:      row.FirstMessageCreatedAt.Time.UTC(),
 			},
 			UnreadCount:  row.UnreadCount,
@@ -244,6 +278,7 @@ func (r *Repo) ListConversationMessages(ctx context.Context, input ListConversat
 			ConversationID: row.ConversationID.String(),
 			SenderID:       row.SenderUserID.String(),
 			Content:        row.Content,
+			Metadata:       decodeMessageMetadata(row.Metadata),
 			CreatedAt:      row.CreatedAt.Time.UTC(),
 		})
 	}
@@ -281,4 +316,26 @@ func valueOrEmpty(input *string) string {
 		return ""
 	}
 	return *input
+}
+
+func encodeMessageMetadata(metadata *MessageMetadata) []byte {
+	if metadata == nil {
+		return nil
+	}
+	payload, err := json.Marshal(metadata)
+	if err != nil {
+		return nil
+	}
+	return payload
+}
+
+func decodeMessageMetadata(raw []byte) *MessageMetadata {
+	if len(raw) == 0 {
+		return nil
+	}
+	var metadata MessageMetadata
+	if err := json.Unmarshal(raw, &metadata); err != nil {
+		return nil
+	}
+	return &metadata
 }

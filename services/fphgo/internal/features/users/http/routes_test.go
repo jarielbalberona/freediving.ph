@@ -15,16 +15,19 @@ func TestProtectedUserRoutesRequireAuth(t *testing.T) {
 	router := Routes(&Handlers{validator: v})
 
 	tests := []struct {
-		name string
-		path string
+		name   string
+		path   string
+		method string
 	}{
-		{name: "me", path: "/me"},
-		{name: "by id", path: "/123"},
+		{name: "me", path: "/me", method: http.MethodGet},
+		{name: "by id", path: "/123", method: http.MethodGet},
+		{name: "save user", path: "/123/save", method: http.MethodPost},
+		{name: "unsave user", path: "/123/save", method: http.MethodDelete},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req := httptest.NewRequest(tc.method, tc.path, nil)
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, req)
 

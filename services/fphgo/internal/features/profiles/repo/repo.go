@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -19,13 +20,20 @@ type Repo struct {
 }
 
 type Profile struct {
-	UserID      string
-	Username    string
-	DisplayName string
-	Bio         string
-	AvatarURL   string
-	Location    string
-	Socials     map[string]string
+	UserID        string
+	Username      string
+	DisplayName   string
+	EmailVerified bool
+	PhoneVerified bool
+	BuddyCount    int64
+	ReportCount   int64
+	Bio           string
+	AvatarURL     string
+	Location      string
+	HomeArea      string
+	Interests     []string
+	CertLevel     string
+	Socials       map[string]string
 }
 
 type UpsertProfileInput struct {
@@ -34,6 +42,9 @@ type UpsertProfileInput struct {
 	Bio         string
 	AvatarURL   string
 	Location    string
+	HomeArea    string
+	Interests   []string
+	CertLevel   string
 	Socials     map[string]string
 	UpdateName  bool
 }
@@ -44,6 +55,31 @@ type SearchUser struct {
 	DisplayName string
 	AvatarURL   string
 	Location    string
+}
+
+type SavedSite struct {
+	ID                   string
+	Slug                 string
+	Name                 string
+	Area                 string
+	Difficulty           string
+	LastUpdatedAt        string
+	LastConditionSummary string
+	SavedAt              string
+}
+
+type SavedUser struct {
+	UserID        string
+	Username      string
+	DisplayName   string
+	EmailVerified bool
+	PhoneVerified bool
+	AvatarURL     string
+	HomeArea      string
+	CertLevel     string
+	BuddyCount    int64
+	ReportCount   int64
+	SavedAt       string
 }
 
 func New(pool *pgxpool.Pool) *Repo {
@@ -62,13 +98,20 @@ func (r *Repo) GetProfileByUserID(ctx context.Context, userID string) (Profile, 
 	}
 
 	return Profile{
-		UserID:      row.UserID.String(),
-		Username:    row.Username,
-		DisplayName: row.DisplayName,
-		Bio:         row.Bio,
-		AvatarURL:   row.AvatarUrl,
-		Location:    row.Location,
-		Socials:     socials,
+		UserID:        row.UserID.String(),
+		Username:      row.Username,
+		DisplayName:   row.DisplayName,
+		EmailVerified: row.EmailVerified,
+		PhoneVerified: row.PhoneVerified,
+		BuddyCount:    row.BuddyCount,
+		ReportCount:   row.ReportCount,
+		Bio:           row.Bio,
+		AvatarURL:     row.AvatarUrl,
+		Location:      row.Location,
+		HomeArea:      row.HomeArea,
+		Interests:     row.Interests,
+		CertLevel:     valueOrEmpty(row.CertLevel),
+		Socials:       socials,
 	}, nil
 }
 
@@ -101,6 +144,9 @@ func (r *Repo) UpsertMyProfile(ctx context.Context, input UpsertProfileInput) (P
 		Bio:       input.Bio,
 		AvatarUrl: input.AvatarURL,
 		Location:  input.Location,
+		HomeArea:  input.HomeArea,
+		Interests: input.Interests,
+		CertLevel: stringPtr(input.CertLevel),
 		Socials:   socialsJSON,
 	}); err != nil {
 		return Profile{}, err
@@ -121,14 +167,66 @@ func (r *Repo) UpsertMyProfile(ctx context.Context, input UpsertProfileInput) (P
 	}
 
 	return Profile{
-		UserID:      profileRow.UserID.String(),
-		Username:    profileRow.Username,
-		DisplayName: profileRow.DisplayName,
-		Bio:         profileRow.Bio,
-		AvatarURL:   profileRow.AvatarUrl,
-		Location:    profileRow.Location,
-		Socials:     socials,
+		UserID:        profileRow.UserID.String(),
+		Username:      profileRow.Username,
+		DisplayName:   profileRow.DisplayName,
+		EmailVerified: profileRow.EmailVerified,
+		PhoneVerified: profileRow.PhoneVerified,
+		BuddyCount:    profileRow.BuddyCount,
+		ReportCount:   profileRow.ReportCount,
+		Bio:           profileRow.Bio,
+		AvatarURL:     profileRow.AvatarUrl,
+		Location:      profileRow.Location,
+		HomeArea:      profileRow.HomeArea,
+		Interests:     profileRow.Interests,
+		CertLevel:     valueOrEmpty(profileRow.CertLevel),
+		Socials:       socials,
 	}, nil
+}
+
+func (r *Repo) ListSavedSitesForUser(ctx context.Context, appUserID string) ([]SavedSite, error) {
+	rows, err := r.queries.ListSavedSitesForUser(ctx, toUUID(appUserID))
+	if err != nil {
+		return nil, err
+	}
+	items := make([]SavedSite, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, SavedSite{
+			ID:                   row.ID.String(),
+			Slug:                 row.Slug,
+			Name:                 row.Name,
+			Area:                 row.Area,
+			Difficulty:           row.EntryDifficulty,
+			LastUpdatedAt:        row.LastUpdatedAt.Time.UTC().Format(time.RFC3339),
+			LastConditionSummary: anyString(row.LastConditionSummary),
+			SavedAt:              row.SavedAt.Time.UTC().Format(time.RFC3339),
+		})
+	}
+	return items, nil
+}
+
+func (r *Repo) ListSavedUsersForUser(ctx context.Context, viewerUserID string) ([]SavedUser, error) {
+	rows, err := r.queries.ListSavedUsersForUser(ctx, toUUID(viewerUserID))
+	if err != nil {
+		return nil, err
+	}
+	items := make([]SavedUser, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, SavedUser{
+			UserID:        row.UserID.String(),
+			Username:      row.Username,
+			DisplayName:   row.DisplayName,
+			EmailVerified: row.EmailVerified,
+			PhoneVerified: row.PhoneVerified,
+			AvatarURL:     row.AvatarUrl,
+			HomeArea:      row.HomeArea,
+			CertLevel:     row.CertLevel,
+			BuddyCount:    row.BuddyCount,
+			ReportCount:   row.ReportCount,
+			SavedAt:       row.SavedAt.Time.UTC().Format(time.RFC3339),
+		})
+	}
+	return items, nil
 }
 
 func (r *Repo) SearchUsers(ctx context.Context, viewerID, q string, limit int32) ([]SearchUser, error) {
@@ -178,4 +276,31 @@ func decodeSocials(raw []byte) (map[string]string, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+func valueOrEmpty(input *string) string {
+	if input == nil {
+		return ""
+	}
+	return *input
+}
+
+func stringPtr(input string) *string {
+	if input == "" {
+		return nil
+	}
+	return &input
+}
+
+func anyString(input any) string {
+	switch value := input.(type) {
+	case nil:
+		return ""
+	case string:
+		return value
+	case []byte:
+		return string(value)
+	default:
+		return ""
+	}
 }

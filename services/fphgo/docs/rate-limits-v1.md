@@ -67,6 +67,14 @@ Global baseline:
 | `buddies.create_request` per actor | 20 | 1 hour | `POST /v1/buddies/requests` |
 | `buddies.transition` per actor | 60 | 1 minute | `POST /v1/buddies/requests/{requestId}/accept`, `POST /v1/buddies/requests/{requestId}/decline` |
 | `buddies.remove` per actor | 30 | 1 minute | `DELETE /v1/buddies/{buddyUserId}` |
+| `buddyfinder.create_intent` per actor | 3 | 24 hours | `POST /v1/buddy-finder/intents` |
+| `buddyfinder.message_entry` per actor+target | 1 | 2 minutes | `POST /v1/buddy-finder/intents/{id}/message` |
+
+### Explore
+
+| Scope Key | Limit | Window | Applies To |
+|---|---:|---:|---|
+| `explore.create_update` per actor | 5 | 1 hour | `POST /v1/explore/sites/{siteId}/updates` |
 
 ### Messaging
 
@@ -101,15 +109,17 @@ Global baseline:
 | Feature | Write Endpoints | Rate Limited | Notes |
 |---|---:|---:|---|
 | Chika | 10 | 10 | Full coverage |
+| Explore | 3 | 1 | Site save endpoints currently rely on authz and IP guardrail; update creation has actor-scoped limit |
 | Profiles | 1 | 1 | Full coverage |
 | Blocks | 2 | 2 | Full coverage |
 | Buddies | 4 | 4 | Full coverage |
+| Buddy Finder | 3 | 2 | Create intent and message entry have actor-scoped limits; delete own intent does not |
 | Messaging | 5 | 4 | `MarkRead` excluded (idempotent read-state) |
 | Reports | 2 | 2 | CreateReport uses custom cooldown; UpdateStatus uses shared limiter |
 | Moderation Actions | 8 | 8 | All share `moderation.action` scope |
 | Users | 1 | 1 | Global IP middleware only (no actor available) |
 
-**Total: 33 write endpoints, 32 with actor-scoped limits, 1 with IP-only guardrail.**
+**Total: 39 write endpoints, 34 with feature-level limits, remaining endpoints covered by authz and baseline IP guardrail.**
 
 ## Test Coverage
 

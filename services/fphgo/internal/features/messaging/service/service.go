@@ -33,7 +33,7 @@ type Service struct {
 type messagingRepository interface {
 	AreBuddies(ctx context.Context, a, b string) (bool, error)
 	UpsertDMConversation(ctx context.Context, senderID, recipientID, status string) (messagingrepo.Conversation, error)
-	InsertMessage(ctx context.Context, conversationID, senderID, content string, idempotencyKey *string) (messagingrepo.Message, error)
+	InsertMessage(ctx context.Context, conversationID, senderID, content string, metadata *messagingrepo.MessageMetadata, idempotencyKey *string) (messagingrepo.Message, error)
 	GetConversation(ctx context.Context, conversationID string) (messagingrepo.Conversation, error)
 	IsParticipant(ctx context.Context, conversationID, userID string) (bool, error)
 	GetOtherParticipantID(ctx context.Context, conversationID, userID string) (string, error)
@@ -112,6 +112,7 @@ type SendConversationMessageInput struct {
 	ActorID        string
 	ConversationID string
 	Content        string
+	Metadata       *messagingrepo.MessageMetadata
 	RequestID      string
 	IdempotencyKey *string
 }
@@ -176,7 +177,7 @@ func (s *Service) CreateRequest(ctx context.Context, input CreateRequestInput) (
 	if err != nil {
 		return RequestAction{}, apperrors.New(http.StatusInternalServerError, "conversation_upsert_failed", "failed to upsert conversation", err)
 	}
-	msg, err := s.repo.InsertMessage(ctx, conv.ID, input.SenderID, strings.TrimSpace(input.Content), input.IdempotencyKey)
+	msg, err := s.repo.InsertMessage(ctx, conv.ID, input.SenderID, strings.TrimSpace(input.Content), nil, input.IdempotencyKey)
 	if err != nil {
 		return RequestAction{}, apperrors.New(http.StatusInternalServerError, "message_insert_failed", "failed to save message", err)
 	}
@@ -186,6 +187,7 @@ func (s *Service) CreateRequest(ctx context.Context, input CreateRequestInput) (
 		"messageId":      strconv.FormatInt(msg.ID, 10),
 		"senderId":       input.SenderID,
 		"content":        msg.Content,
+		"metadata":       msg.Metadata,
 		"createdAt":      msg.CreatedAt.Format(time.RFC3339),
 		"status":         conv.Status,
 	})
@@ -362,6 +364,9 @@ func (s *Service) SendConversationMessage(ctx context.Context, input SendConvers
 	if strings.TrimSpace(input.Content) == "" {
 		return messagingrepo.Message{}, apperrors.New(http.StatusBadRequest, "invalid_content", "content is required", nil)
 	}
+	if err := validateMessageMetadata(input.Metadata); err != nil {
+		return messagingrepo.Message{}, err
+	}
 	if err := s.enforceRateLimit(ctx, "messages.send", input.ActorID, 30, time.Minute, "sender message rate exceeded"); err != nil {
 		return messagingrepo.Message{}, err
 	}
@@ -399,7 +404,7 @@ func (s *Service) SendConversationMessage(ctx context.Context, input SendConvers
 		return messagingrepo.Message{}, apperrors.New(http.StatusConflict, "invalid_state", "conversation request was declined", nil)
 	}
 
-	msg, err := s.repo.InsertMessage(ctx, input.ConversationID, input.ActorID, strings.TrimSpace(input.Content), input.IdempotencyKey)
+	msg, err := s.repo.InsertMessage(ctx, input.ConversationID, input.ActorID, strings.TrimSpace(input.Content), input.Metadata, input.IdempotencyKey)
 	if err != nil {
 		return messagingrepo.Message{}, apperrors.New(http.StatusInternalServerError, "message_insert_failed", "failed to save message", err)
 	}
@@ -409,6 +414,7 @@ func (s *Service) SendConversationMessage(ctx context.Context, input SendConvers
 		"messageId":      strconv.FormatInt(msg.ID, 10),
 		"senderId":       input.ActorID,
 		"content":        msg.Content,
+		"metadata":       msg.Metadata,
 		"createdAt":      msg.CreatedAt.Format(time.RFC3339),
 		"status":         conv.Status,
 	})
@@ -468,6 +474,27 @@ func (s *Service) isBlockedEither(ctx context.Context, a, b string) (bool, error
 		return false, nil
 	}
 	return s.block.IsBlockedEitherDirection(ctx, a, b)
+}
+
+func validateMessageMetadata(metadata *messagingrepo.MessageMetadata) error {
+	if metadata == nil {
+		return nil
+	}
+	if strings.TrimSpace(metadata.Type) != "meet_at" {
+		return apperrors.New(http.StatusBadRequest, "invalid_metadata", "unsupported message metadata type", nil)
+	}
+	if strings.TrimSpace(metadata.DiveSiteID) == "" || strings.TrimSpace(metadata.DiveSiteName) == "" {
+		return apperrors.New(http.StatusBadRequest, "invalid_metadata", "meet_at metadata requires dive site id and name", nil)
+	}
+	switch strings.TrimSpace(metadata.TimeWindow) {
+	case "", "today", "weekend", "specific_date":
+	default:
+		return apperrors.New(http.StatusBadRequest, "invalid_metadata", "invalid meet_at timeWindow", nil)
+	}
+	if len(strings.TrimSpace(metadata.Note)) > 200 {
+		return apperrors.New(http.StatusBadRequest, "invalid_metadata", "meet_at note is too long", nil)
+	}
+	return nil
 }
 
 func (s *Service) broadcast(requestID, eventType string, payload map[string]any) {

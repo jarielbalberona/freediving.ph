@@ -27,11 +27,13 @@ links:
   rate_limits_doc: "services/fphgo/docs/rate-limits-v1.md"
   moderation_actions_doc: "services/fphgo/docs/moderation-actions-v1.md"
   moderation_visibility_doc: "services/fphgo/docs/moderation-visibility-v1.md"
+  explore_doc: "services/fphgo/docs/explore-v1.md"
   profiles_doc: "services/fphgo/docs/profiles-v1.md"
   blocks_doc: "services/fphgo/docs/blocks-v1.md"
   reports_doc: "services/fphgo/docs/reports-v1.md"
   buddies_doc: "services/fphgo/docs/buddies-v1.md"
   buddies_visibility_doc: "services/fphgo/docs/buddies-visibility-v1.md"
+  buddy_finder_doc: "services/fphgo/docs/buddy-finder-v1.md"
   messaging_doc: "services/fphgo/docs/messaging-v1.md"
   messaging_state_doc: "services/fphgo/docs/messaging-state-v1.md"
   chika_doc: "services/fphgo/docs/chika-v1.md"
@@ -82,6 +84,7 @@ notes:
 
 - [ ] Out of scope modules are identified and excluded from MVP v1 release. Candidates: Events, Competitive Records, Groups, Training Logs, Marketplace, Collaborations.
 - [x] Explore (`/v1/explore`) ships in MVP v1. It is mounted in the router with `explore.read` (all roles) and `explore.submit` (member+). No gating required.
+- [x] Buddy Finder public preview ships in MVP v1 under `/v1/buddy-finder/preview`, and member intent routes are gated behind auth and existing buddy permissions.
 - [ ] A written list of in-scope migrated modules exists and is agreed by owners.
 - [ ] For migrated modules, `apps/web` calls only `services/fphgo`.
 - [ ] No `apps/api/*` runtime dependency exists for migrated modules.
@@ -91,6 +94,28 @@ notes:
 - Migrated module list:
 - PR / commit:
 - Notes:
+
+### 1.4 Explore and Buddy Finder hook quality
+
+- [ ] Best add-on verification is complete and reviewed: `docs/specs/best-addon-mvp1-verification.md`
+- [ ] Explore shows seeded real sites with verification, last updated, and at least one conditions summary per surfaced card set.
+- [ ] Conditions Pulse ships with a public `Latest updates near you` page and site detail add-update flow.
+- [ ] Signed-out users can browse Explore and open shareable site detail pages.
+- [ ] Signed-out users can see Buddy Finder preview value quickly without seeing exact location or direct contact.
+- [ ] Dive site pages show buddy intents with site-linked intents first and area fallback second.
+- [ ] Signed-out dive site pages show only redacted buddy preview cards; full notes and message entry require sign-in.
+- [ ] Save-site and message-buddy actions trigger sign-in naturally.
+- [ ] Trust ladder appears on buddy cards, profile header, and messaging request preview without leaking precise last-seen or location data.
+- [ ] Saved hub ships with saved sites and saved buddies tabs, and blocked users are excluded from saved people results.
+- [ ] Buddy share pages use redacted public preview only and do not leak contact or exact location.
+- [ ] Message composer supports meet-at plan cards with site metadata and thread rendering.
+- [ ] Onboarding only asks for home area, interests, and optional cert level.
+
+**Evidence:**
+
+- Explore screenshots / route checks:
+- Buddy Finder screenshots / route checks:
+- Onboarding flow notes:
 
 ### 1.2 API compatibility matrix is accurate and green
 

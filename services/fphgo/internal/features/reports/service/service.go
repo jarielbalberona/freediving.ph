@@ -277,7 +277,7 @@ func (s *Service) ListReportsForModeration(ctx context.Context, input ListReport
 		return ReportListResult{}, ValidationFailure{Issues: []validatex.Issue{{
 			Path:    []any{"targetType"},
 			Code:    "invalid_enum",
-			Message: "Must be one of: user message chika_thread chika_comment",
+			Message: "Must be one of: user message chika_thread chika_comment dive_site_update",
 		}}}
 	}
 	if input.Limit <= 0 || input.Limit > 100 {
@@ -413,7 +413,7 @@ func validateCreateInput(input CreateReportInput) []validatex.Issue {
 	issues := []validatex.Issue{}
 
 	if !isValidTargetType(input.TargetType) {
-		issues = append(issues, validatex.Issue{Path: []any{"targetType"}, Code: "invalid_enum", Message: "Must be one of: user message chika_thread chika_comment"})
+		issues = append(issues, validatex.Issue{Path: []any{"targetType"}, Code: "invalid_enum", Message: "Must be one of: user message chika_thread chika_comment dive_site_update"})
 	}
 	if !isValidReasonCode(input.ReasonCode) {
 		issues = append(issues, validatex.Issue{Path: []any{"reasonCode"}, Code: "invalid_enum", Message: "Must be one of: spam harassment impersonation unsafe other"})
@@ -441,7 +441,7 @@ func parseTypedTargetID(targetType, targetID string) (*string, *int64, []validat
 		}}
 	}
 	switch strings.TrimSpace(targetType) {
-	case "user", "chika_thread":
+	case "user", "chika_thread", "dive_site_update":
 		parsed, err := uuid.Parse(trimmed)
 		if err != nil {
 			return nil, nil, []validatex.Issue{{Path: []any{"targetId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"}}
@@ -455,13 +455,13 @@ func parseTypedTargetID(targetType, targetID string) (*string, *int64, []validat
 		}
 		return nil, &parsed, nil
 	default:
-		return nil, nil, []validatex.Issue{{Path: []any{"targetType"}, Code: "invalid_enum", Message: "Must be one of: user message chika_thread chika_comment"}}
+		return nil, nil, []validatex.Issue{{Path: []any{"targetType"}, Code: "invalid_enum", Message: "Must be one of: user message chika_thread chika_comment dive_site_update"}}
 	}
 }
 
 func isValidTargetType(value string) bool {
 	switch strings.TrimSpace(value) {
-	case "user", "message", "chika_thread", "chika_comment":
+	case "user", "message", "chika_thread", "chika_comment", "dive_site_update":
 		return true
 	default:
 		return false

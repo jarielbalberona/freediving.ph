@@ -342,6 +342,20 @@ func (q *Queries) ResolveChikaThreadAuthor(ctx context.Context, id pgtype.UUID) 
 	return created_by_user_id, err
 }
 
+const resolveDiveSiteUpdateAuthor = `-- name: ResolveDiveSiteUpdateAuthor :one
+SELECT author_app_user_id
+FROM dive_site_updates
+WHERE id = $1
+  AND state = 'active'
+`
+
+func (q *Queries) ResolveDiveSiteUpdateAuthor(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, resolveDiveSiteUpdateAuthor, id)
+	var author_app_user_id pgtype.UUID
+	err := row.Scan(&author_app_user_id)
+	return author_app_user_id, err
+}
+
 const resolveMessageAuthor = `-- name: ResolveMessageAuthor :one
 SELECT sender_user_id
 FROM messages

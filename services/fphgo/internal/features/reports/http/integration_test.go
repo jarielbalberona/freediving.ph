@@ -31,6 +31,7 @@ type memoryReportsRepo struct {
 	messageAuthors map[string]string
 	threadAuthors  map[string]string
 	commentAuthors map[string]string
+	updateAuthors  map[string]string
 	nextCreatedAt  time.Time
 }
 
@@ -42,6 +43,7 @@ func newMemoryReportsRepo() *memoryReportsRepo {
 		messageAuthors: map[string]string{},
 		threadAuthors:  map[string]string{},
 		commentAuthors: map[string]string{},
+		updateAuthors:  map[string]string{},
 		nextCreatedAt:  time.Now().UTC().Add(-1 * time.Minute),
 	}
 }
@@ -209,6 +211,10 @@ func (m *memoryReportsRepo) ResolveTargetAuthor(_ context.Context, targetType st
 		}
 	case "chika_comment":
 		if author, ok := m.commentAuthors[targetID]; ok {
+			return author, nil
+		}
+	case "dive_site_update":
+		if author, ok := m.updateAuthors[targetID]; ok {
 			return author, nil
 		}
 	}
@@ -402,6 +408,34 @@ func TestCreateReportCreatesAuditEvent(t *testing.T) {
 	first, _ := events[0].(map[string]any)
 	if first["eventType"] != "created" {
 		t.Fatalf("expected created event, got %v", first["eventType"])
+	}
+}
+
+func TestCreateReportSupportsDiveSiteUpdateTargets(t *testing.T) {
+	reporterID := "550e8400-e29b-41d4-a716-446655440000"
+	updateID := "550e8400-e29b-41d4-a716-446655440099"
+	authorID := "550e8400-e29b-41d4-a716-446655440001"
+	repo := newMemoryReportsRepo()
+	repo.updateAuthors[updateID] = authorID
+
+	svc := reportsservice.New(repo)
+	h := New(svc, validatex.New())
+	router := buildReportsRouter(h, authz.Identity{
+		UserID:        reporterID,
+		GlobalRole:    "member",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionReportsWrite: true,
+		},
+	})
+
+	body := `{"targetType":"dive_site_update","targetId":"` + updateID + `","reasonCode":"unsafe"}`
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for dive_site_update report, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

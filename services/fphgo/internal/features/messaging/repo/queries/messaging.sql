@@ -21,11 +21,11 @@ VALUES ($1, $2)
 ON CONFLICT (conversation_id, user_id) DO NOTHING;
 
 -- name: InsertMessage :one
-INSERT INTO messages (conversation_id, sender_user_id, content, idempotency_key)
-VALUES ($1, $2, $3, $4)
+INSERT INTO messages (conversation_id, sender_user_id, content, metadata, idempotency_key)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (conversation_id, idempotency_key) WHERE idempotency_key IS NOT NULL
 DO UPDATE SET content = messages.content
-RETURNING id, created_at;
+RETURNING id, metadata, created_at;
 
 -- name: TouchConversation :exec
 UPDATE conversations
@@ -64,14 +64,33 @@ SELECT
   other_cp.user_id AS other_user_id,
   u.username AS other_username,
   u.display_name AS other_display_name,
+  u.email_verified AS other_email_verified,
+  u.phone_verified AS other_phone_verified,
   p.avatar_url AS other_avatar_url,
+  p.cert_level AS other_cert_level,
+  COALESCE((
+    SELECT COUNT(*)::bigint
+    FROM (
+      SELECT app_user_id_a AS app_user_id FROM buddies
+      UNION ALL
+      SELECT app_user_id_b AS app_user_id FROM buddies
+    ) pairs
+    WHERE pairs.app_user_id = other_cp.user_id
+  ), 0)::bigint AS other_buddy_count,
+  COALESCE((
+    SELECT COUNT(*)::bigint
+    FROM reports r
+    WHERE r.target_app_user_id = other_cp.user_id
+  ), 0)::bigint AS other_report_count,
   last_message.id AS last_message_id,
   last_message.sender_user_id AS last_message_sender_id,
   last_message.content AS last_message_content,
+  last_message.metadata AS last_message_metadata,
   last_message.created_at AS last_message_created_at,
   first_message.id AS first_message_id,
   first_message.sender_user_id AS first_message_sender_id,
   first_message.content AS first_message_content,
+  first_message.metadata AS first_message_metadata,
   first_message.created_at AS first_message_created_at,
   unread.unread_count,
   pending_msgs.pending_count
@@ -81,14 +100,14 @@ JOIN conversation_participants other_cp ON other_cp.conversation_id = c.id AND o
 JOIN users u ON u.id = other_cp.user_id
 LEFT JOIN profiles p ON p.user_id = other_cp.user_id
 LEFT JOIN LATERAL (
-  SELECT m.id, m.sender_user_id, m.content, m.created_at
+  SELECT m.id, m.sender_user_id, m.content, m.metadata, m.created_at
   FROM messages m
   WHERE m.conversation_id = c.id
   ORDER BY m.created_at DESC, m.id DESC
   LIMIT 1
 ) last_message ON TRUE
 LEFT JOIN LATERAL (
-  SELECT m.id, m.sender_user_id, m.content, m.created_at
+  SELECT m.id, m.sender_user_id, m.content, m.metadata, m.created_at
   FROM messages m
   WHERE m.conversation_id = c.id
   ORDER BY m.created_at ASC, m.id ASC
@@ -126,6 +145,7 @@ SELECT
   m.id,
   m.sender_user_id,
   m.content,
+  m.metadata,
   m.created_at
 FROM messages m
 JOIN conversations c ON c.id = m.conversation_id

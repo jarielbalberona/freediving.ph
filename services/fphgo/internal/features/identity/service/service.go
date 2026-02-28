@@ -28,8 +28,8 @@ func (s *Service) ResolveIdentity(ctx context.Context, clerkUserID string) (*aut
 	}
 
 	if !exists {
-		username, displayName := fetchClerkUserInfo(ctx, clerkUserID)
-		if err := s.repo.EnsureUserForClerk(ctx, clerkUserID, username, displayName); err != nil {
+		username, displayName, emailVerified, phoneVerified := fetchClerkUserInfo(ctx, clerkUserID)
+		if err := s.repo.EnsureUserForClerk(ctx, clerkUserID, username, displayName, emailVerified, phoneVerified); err != nil {
 			return nil, apperrors.New(http.StatusInternalServerError, "identity_bootstrap_failed", "failed to bootstrap local identity", err)
 		}
 	}
@@ -86,10 +86,10 @@ func (s *Service) ResolveScope(ctx context.Context, userID, groupID, eventID str
 	return scope, nil
 }
 
-func fetchClerkUserInfo(ctx context.Context, clerkUserID string) (username, displayName string) {
+func fetchClerkUserInfo(ctx context.Context, clerkUserID string) (username, displayName string, emailVerified, phoneVerified bool) {
 	u, err := clerkuser.Get(ctx, clerkUserID)
 	if err != nil || u == nil {
-		return "", ""
+		return "", "", false, false
 	}
 
 	if u.Username != nil {
@@ -105,5 +105,18 @@ func fetchClerkUserInfo(ctx context.Context, clerkUserID string) (username, disp
 	}
 	displayName = strings.Join(parts, " ")
 
-	return username, displayName
+	for _, email := range u.EmailAddresses {
+		if email != nil && email.Verification != nil && email.Verification.Status == "verified" {
+			emailVerified = true
+			break
+		}
+	}
+	for _, phone := range u.PhoneNumbers {
+		if phone != nil && phone.Verification != nil && phone.Verification.Status == "verified" {
+			phoneVerified = true
+			break
+		}
+	}
+
+	return username, displayName, emailVerified, phoneVerified
 }

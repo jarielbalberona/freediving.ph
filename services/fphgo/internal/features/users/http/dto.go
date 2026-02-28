@@ -13,6 +13,10 @@ type UserResponse struct {
 	Bio         string `json:"bio"`
 }
 
+type SaveUserResponse struct {
+	Saved bool `json:"saved"`
+}
+
 // ProfileDetails matches the web's ProfileDetails shape for GET /profiles/:username.
 type ProfileDetails struct {
 	ID              string  `json:"id"`

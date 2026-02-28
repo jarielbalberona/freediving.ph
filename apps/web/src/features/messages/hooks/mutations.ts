@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import type { ConversationMessagesResponse, SendMessageResponse } from "@freediving.ph/types";
+import type { ConversationMessagesResponse, MessageMetadata, SendMessageResponse } from "@freediving.ph/types";
 import { messagesApi } from "../api/messages";
 
 export const useCreateMessageRequest = () => {
@@ -37,8 +37,8 @@ export const useDeclineMessageRequest = () => {
 export const useSendMessage = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ conversationId, content }: { conversationId: string; content: string }) =>
-      messagesApi.sendConversationMessage(conversationId, { content }),
+    mutationFn: ({ conversationId, content, metadata }: { conversationId: string; content: string; metadata?: MessageMetadata }) =>
+      messagesApi.sendConversationMessage(conversationId, { content, metadata }),
     onSuccess: (data: SendMessageResponse, variables) => {
       queryClient.setQueryData<ConversationMessagesResponse | undefined>(
         ["messages", "conversation", variables.conversationId],

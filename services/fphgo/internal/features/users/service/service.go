@@ -86,6 +86,35 @@ func (s *Service) EnsureLocalUserForClerk(ctx context.Context, clerkUserID strin
 	return User(u), nil
 }
 
+func (s *Service) SaveUser(ctx context.Context, actorID, savedUserID string) error {
+	if strings.TrimSpace(actorID) == "" || strings.TrimSpace(savedUserID) == "" {
+		return apperrors.New(http.StatusBadRequest, "invalid_user_id", "user id is required", nil)
+	}
+	if actorID == savedUserID {
+		return apperrors.New(http.StatusBadRequest, "invalid_target", "cannot save yourself", nil)
+	}
+	if _, err := s.repo.GetUserByID(ctx, savedUserID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperrors.New(http.StatusNotFound, "user_not_found", "user not found", err)
+		}
+		return apperrors.New(http.StatusInternalServerError, "get_user_failed", "failed to fetch user", err)
+	}
+	if err := s.repo.SaveUser(ctx, actorID, savedUserID); err != nil {
+		return apperrors.New(http.StatusInternalServerError, "save_user_failed", "failed to save user", err)
+	}
+	return nil
+}
+
+func (s *Service) UnsaveUser(ctx context.Context, actorID, savedUserID string) error {
+	if strings.TrimSpace(actorID) == "" || strings.TrimSpace(savedUserID) == "" {
+		return apperrors.New(http.StatusBadRequest, "invalid_user_id", "user id is required", nil)
+	}
+	if err := s.repo.UnsaveUser(ctx, actorID, savedUserID); err != nil {
+		return apperrors.New(http.StatusInternalServerError, "unsave_user_failed", "failed to unsave user", err)
+	}
+	return nil
+}
+
 func fetchClerkUserInfo(ctx context.Context, clerkUserID string) (username, displayName string) {
 	u, err := clerkuser.Get(ctx, clerkUserID)
 	if err != nil || u == nil {

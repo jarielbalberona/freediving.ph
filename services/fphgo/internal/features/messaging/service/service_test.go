@@ -28,8 +28,8 @@ func (s *repoStub) UpsertDMConversation(_ context.Context, senderID, _ string, s
 	}
 	return s.conv, nil
 }
-func (s *repoStub) InsertMessage(_ context.Context, conversationID, senderID, content string, _ *string) (messagingrepo.Message, error) {
-	return messagingrepo.Message{ID: 1, ConversationID: conversationID, SenderID: senderID, Content: content, CreatedAt: time.Now().UTC()}, nil
+func (s *repoStub) InsertMessage(_ context.Context, conversationID, senderID, content string, metadata *messagingrepo.MessageMetadata, _ *string) (messagingrepo.Message, error) {
+	return messagingrepo.Message{ID: 1, ConversationID: conversationID, SenderID: senderID, Content: content, Metadata: metadata, CreatedAt: time.Now().UTC()}, nil
 }
 func (s *repoStub) GetConversation(_ context.Context, _ string) (messagingrepo.Conversation, error) {
 	if s.conv.ID == "" {
@@ -116,5 +116,22 @@ func TestPendingConversationRecipientCannotSendBeforeAccept(t *testing.T) {
 	appErr, ok := err.(*apperrors.AppError)
 	if !ok || appErr.Status != http.StatusForbidden {
 		t.Fatalf("expected forbidden error, got %#v", err)
+	}
+}
+
+func TestSendConversationMessageRejectsInvalidMetadata(t *testing.T) {
+	repo := &repoStub{conv: messagingrepo.Conversation{ID: "conv-1", InitiatorUserID: "550e8400-e29b-41d4-a716-446655440001", Status: "active"}}
+	svc := New(repo, hubStub{}, blockCheckerStub{})
+
+	_, err := svc.SendConversationMessage(context.Background(), SendConversationMessageInput{
+		ActorID:        "550e8400-e29b-41d4-a716-446655440001",
+		ConversationID: "conv-1",
+		Content:        "let's go",
+		Metadata: &messagingrepo.MessageMetadata{
+			Type: "meet_at",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected metadata validation error")
 	}
 }

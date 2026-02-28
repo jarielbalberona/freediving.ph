@@ -70,7 +70,7 @@ func (m *memoryMessagingRepo) UpsertDMConversation(_ context.Context, senderID, 
 	return *conv, nil
 }
 
-func (m *memoryMessagingRepo) InsertMessage(_ context.Context, conversationID, senderID, content string, idempotencyKey *string) (messagingrepo.Message, error) {
+func (m *memoryMessagingRepo) InsertMessage(_ context.Context, conversationID, senderID, content string, metadata *messagingrepo.MessageMetadata, idempotencyKey *string) (messagingrepo.Message, error) {
 	if idempotencyKey != nil {
 		for _, msg := range m.msgs[conversationID] {
 			if msg.Content == content {
@@ -83,6 +83,7 @@ func (m *memoryMessagingRepo) InsertMessage(_ context.Context, conversationID, s
 		ConversationID: conversationID,
 		SenderID:       senderID,
 		Content:        content,
+		Metadata:       metadata,
 		CreatedAt:      time.Now().UTC(),
 	}
 	m.msgs[conversationID] = append(m.msgs[conversationID], msg)
@@ -273,6 +274,66 @@ func TestMessagingRequestPreviewAcceptAndSendFlow(t *testing.T) {
 	recipientRouter.ServeHTTP(afterAcceptSendRec, afterAcceptSendReq)
 	if afterAcceptSendRec.Code != http.StatusOK {
 		t.Fatalf("expected accepted send 200, got %d body=%s", afterAcceptSendRec.Code, afterAcceptSendRec.Body.String())
+	}
+}
+
+func TestMessagingSendAndReadIncludesMeetAtMetadata(t *testing.T) {
+	repo := newMemoryMessagingRepo()
+	actorID := "550e8400-e29b-41d4-a716-446655440010"
+	recipientID := "550e8400-e29b-41d4-a716-446655440011"
+	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{edges: map[string]bool{}})
+	h := New(svc, nil, validatex.New())
+
+	senderRouter := buildMessagingRouter(h, actorID, "active")
+	recipientRouter := buildMessagingRouter(h, recipientID, "active")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/requests", strings.NewReader(`{"recipientId":"`+recipientID+`","content":"Request with plan"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRec := httptest.NewRecorder()
+	senderRouter.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 create request, got %d body=%s", createRec.Code, createRec.Body.String())
+	}
+	var created RequestActionResponse
+	_ = json.Unmarshal(createRec.Body.Bytes(), &created)
+
+	acceptReq := httptest.NewRequest(http.MethodPost, "/requests/"+created.RequestID+"/accept", nil)
+	acceptRec := httptest.NewRecorder()
+	recipientRouter.ServeHTTP(acceptRec, acceptReq)
+	if acceptRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 accept, got %d body=%s", acceptRec.Code, acceptRec.Body.String())
+	}
+
+	sendBody := `{"content":"Let us lock the plan","metadata":{"type":"meet_at","diveSiteId":"550e8400-e29b-41d4-a716-446655440099","diveSiteSlug":"twin-rocks-anilao","diveSiteName":"Twin Rocks","diveSiteArea":"Mabini, Batangas","timeWindow":"weekend","note":"Early morning window"}}`
+	sendReq := httptest.NewRequest(http.MethodPost, "/conversations/"+created.ConversationID, bytes.NewBufferString(sendBody))
+	sendReq.Header.Set("Content-Type", "application/json")
+	sendRec := httptest.NewRecorder()
+	senderRouter.ServeHTTP(sendRec, sendReq)
+	if sendRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 send, got %d body=%s", sendRec.Code, sendRec.Body.String())
+	}
+
+	messagesReq := httptest.NewRequest(http.MethodGet, "/conversations/"+created.ConversationID, nil)
+	messagesRec := httptest.NewRecorder()
+	recipientRouter.ServeHTTP(messagesRec, messagesReq)
+	if messagesRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 conversation messages, got %d body=%s", messagesRec.Code, messagesRec.Body.String())
+	}
+	var payload ListConversationMessagesResponse
+	if err := json.Unmarshal(messagesRec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode messages payload: %v", err)
+	}
+	found := false
+	for _, item := range payload.Items {
+		if item.Metadata != nil && item.Metadata.Type == "meet_at" {
+			found = true
+			if item.Metadata.DiveSiteName != "Twin Rocks" || item.Metadata.DiveSiteSlug != "twin-rocks-anilao" {
+				t.Fatalf("expected metadata diveSiteName, got %+v", item.Metadata)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected meet_at metadata in conversation messages response")
 	}
 }
 

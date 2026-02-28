@@ -90,22 +90,24 @@ func (q *Queries) GetOtherParticipantID(ctx context.Context, arg GetOtherPartici
 }
 
 const insertMessage = `-- name: InsertMessage :one
-INSERT INTO messages (conversation_id, sender_user_id, content, idempotency_key)
-VALUES ($1, $2, $3, $4)
+INSERT INTO messages (conversation_id, sender_user_id, content, metadata, idempotency_key)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (conversation_id, idempotency_key) WHERE idempotency_key IS NOT NULL
 DO UPDATE SET content = messages.content
-RETURNING id, created_at
+RETURNING id, metadata, created_at
 `
 
 type InsertMessageParams struct {
 	ConversationID pgtype.UUID `db:"conversation_id" json:"conversation_id"`
 	SenderUserID   pgtype.UUID `db:"sender_user_id" json:"sender_user_id"`
 	Content        string      `db:"content" json:"content"`
+	Metadata       []byte      `db:"metadata" json:"metadata"`
 	IdempotencyKey *string     `db:"idempotency_key" json:"idempotency_key"`
 }
 
 type InsertMessageRow struct {
 	ID        int64              `db:"id" json:"id"`
+	Metadata  []byte             `db:"metadata" json:"metadata"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -114,10 +116,11 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (I
 		arg.ConversationID,
 		arg.SenderUserID,
 		arg.Content,
+		arg.Metadata,
 		arg.IdempotencyKey,
 	)
 	var i InsertMessageRow
-	err := row.Scan(&i.ID, &i.CreatedAt)
+	err := row.Scan(&i.ID, &i.Metadata, &i.CreatedAt)
 	return i, err
 }
 
@@ -146,6 +149,7 @@ SELECT
   m.id,
   m.sender_user_id,
   m.content,
+  m.metadata,
   m.created_at
 FROM messages m
 JOIN conversations c ON c.id = m.conversation_id
@@ -177,6 +181,7 @@ type ListConversationMessagesRow struct {
 	ID             int64              `db:"id" json:"id"`
 	SenderUserID   pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
 	Content        string             `db:"content" json:"content"`
+	Metadata       []byte             `db:"metadata" json:"metadata"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -200,6 +205,7 @@ func (q *Queries) ListConversationMessages(ctx context.Context, arg ListConversa
 			&i.ID,
 			&i.SenderUserID,
 			&i.Content,
+			&i.Metadata,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -221,14 +227,33 @@ SELECT
   other_cp.user_id AS other_user_id,
   u.username AS other_username,
   u.display_name AS other_display_name,
+  u.email_verified AS other_email_verified,
+  u.phone_verified AS other_phone_verified,
   p.avatar_url AS other_avatar_url,
+  p.cert_level AS other_cert_level,
+  COALESCE((
+    SELECT COUNT(*)::bigint
+    FROM (
+      SELECT app_user_id_a AS app_user_id FROM buddies
+      UNION ALL
+      SELECT app_user_id_b AS app_user_id FROM buddies
+    ) pairs
+    WHERE pairs.app_user_id = other_cp.user_id
+  ), 0)::bigint AS other_buddy_count,
+  COALESCE((
+    SELECT COUNT(*)::bigint
+    FROM reports r
+    WHERE r.target_app_user_id = other_cp.user_id
+  ), 0)::bigint AS other_report_count,
   last_message.id AS last_message_id,
   last_message.sender_user_id AS last_message_sender_id,
   last_message.content AS last_message_content,
+  last_message.metadata AS last_message_metadata,
   last_message.created_at AS last_message_created_at,
   first_message.id AS first_message_id,
   first_message.sender_user_id AS first_message_sender_id,
   first_message.content AS first_message_content,
+  first_message.metadata AS first_message_metadata,
   first_message.created_at AS first_message_created_at,
   unread.unread_count,
   pending_msgs.pending_count
@@ -238,14 +263,14 @@ JOIN conversation_participants other_cp ON other_cp.conversation_id = c.id AND o
 JOIN users u ON u.id = other_cp.user_id
 LEFT JOIN profiles p ON p.user_id = other_cp.user_id
 LEFT JOIN LATERAL (
-  SELECT m.id, m.sender_user_id, m.content, m.created_at
+  SELECT m.id, m.sender_user_id, m.content, m.metadata, m.created_at
   FROM messages m
   WHERE m.conversation_id = c.id
   ORDER BY m.created_at DESC, m.id DESC
   LIMIT 1
 ) last_message ON TRUE
 LEFT JOIN LATERAL (
-  SELECT m.id, m.sender_user_id, m.content, m.created_at
+  SELECT m.id, m.sender_user_id, m.content, m.metadata, m.created_at
   FROM messages m
   WHERE m.conversation_id = c.id
   ORDER BY m.created_at ASC, m.id ASC
@@ -293,14 +318,21 @@ type ListInboxConversationsRow struct {
 	OtherUserID           pgtype.UUID        `db:"other_user_id" json:"other_user_id"`
 	OtherUsername         string             `db:"other_username" json:"other_username"`
 	OtherDisplayName      string             `db:"other_display_name" json:"other_display_name"`
+	OtherEmailVerified    bool               `db:"other_email_verified" json:"other_email_verified"`
+	OtherPhoneVerified    bool               `db:"other_phone_verified" json:"other_phone_verified"`
 	OtherAvatarUrl        *string            `db:"other_avatar_url" json:"other_avatar_url"`
+	OtherCertLevel        *string            `db:"other_cert_level" json:"other_cert_level"`
+	OtherBuddyCount       int64              `db:"other_buddy_count" json:"other_buddy_count"`
+	OtherReportCount      int64              `db:"other_report_count" json:"other_report_count"`
 	LastMessageID         int64              `db:"last_message_id" json:"last_message_id"`
 	LastMessageSenderID   pgtype.UUID        `db:"last_message_sender_id" json:"last_message_sender_id"`
 	LastMessageContent    string             `db:"last_message_content" json:"last_message_content"`
+	LastMessageMetadata   []byte             `db:"last_message_metadata" json:"last_message_metadata"`
 	LastMessageCreatedAt  pgtype.Timestamptz `db:"last_message_created_at" json:"last_message_created_at"`
 	FirstMessageID        int64              `db:"first_message_id" json:"first_message_id"`
 	FirstMessageSenderID  pgtype.UUID        `db:"first_message_sender_id" json:"first_message_sender_id"`
 	FirstMessageContent   string             `db:"first_message_content" json:"first_message_content"`
+	FirstMessageMetadata  []byte             `db:"first_message_metadata" json:"first_message_metadata"`
 	FirstMessageCreatedAt pgtype.Timestamptz `db:"first_message_created_at" json:"first_message_created_at"`
 	UnreadCount           int64              `db:"unread_count" json:"unread_count"`
 	PendingCount          int32              `db:"pending_count" json:"pending_count"`
@@ -328,14 +360,21 @@ func (q *Queries) ListInboxConversations(ctx context.Context, arg ListInboxConve
 			&i.OtherUserID,
 			&i.OtherUsername,
 			&i.OtherDisplayName,
+			&i.OtherEmailVerified,
+			&i.OtherPhoneVerified,
 			&i.OtherAvatarUrl,
+			&i.OtherCertLevel,
+			&i.OtherBuddyCount,
+			&i.OtherReportCount,
 			&i.LastMessageID,
 			&i.LastMessageSenderID,
 			&i.LastMessageContent,
+			&i.LastMessageMetadata,
 			&i.LastMessageCreatedAt,
 			&i.FirstMessageID,
 			&i.FirstMessageSenderID,
 			&i.FirstMessageContent,
+			&i.FirstMessageMetadata,
 			&i.FirstMessageCreatedAt,
 			&i.UnreadCount,
 			&i.PendingCount,

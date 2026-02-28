@@ -15,6 +15,9 @@ import (
 	buddieshttp "fphgo/internal/features/buddies/http"
 	buddiesrepo "fphgo/internal/features/buddies/repo"
 	buddiesservice "fphgo/internal/features/buddies/service"
+	buddyfinderhttp "fphgo/internal/features/buddyfinder/http"
+	buddyfinderrepo "fphgo/internal/features/buddyfinder/repo"
+	buddyfinderservice "fphgo/internal/features/buddyfinder/service"
 	chikahttp "fphgo/internal/features/chika/http"
 	chikarepo "fphgo/internal/features/chika/repo"
 	chikaservice "fphgo/internal/features/chika/service"
@@ -53,32 +56,50 @@ type App struct {
 }
 
 type Dependencies struct {
-	AuthHandler       *authhttp.Handlers
-	UsersHandler      *usershttp.Handlers
-	MessagingHandler  *messaginghttp.Handlers
-	ChikaHandler      *chikahttp.Handlers
-	ExploreHandler    *explorehttp.Handlers
-	ProfilesHandler   *profileshttp.Handlers
-	BlocksHandler     *blockshttp.Handlers
-	BuddiesHandler    *buddieshttp.Handlers
-	ReportsHandler    *reportshttp.Handlers
-	ModerationHandler *moderationhttp.Handlers
-	MediaHandler      *mediahttp.Handlers
-	AuthRoutes        chi.Router
-	UsersRoutes       chi.Router
-	MessagingRoutes   chi.Router
-	ChikaRoutes       chi.Router
-	ExploreRoutes     chi.Router
-	ProfilesRoutes    chi.Router
-	BlocksRoutes      chi.Router
-	BuddiesRoutes     chi.Router
-	ReportsRoutes     chi.Router
-	ModerationRoutes  chi.Router
-	MediaRoutes       chi.Router
-	IdentityService   *identityservice.Service
-	WSHandler         *ws.Handler
-	Hub               *ws.Hub
-	ReadyCheck        func(context.Context) error
+	AuthHandler        *authhttp.Handlers
+	UsersHandler       *usershttp.Handlers
+	MessagingHandler   *messaginghttp.Handlers
+	ChikaHandler       *chikahttp.Handlers
+	ExploreHandler     *explorehttp.Handlers
+	BuddyFinderHandler *buddyfinderhttp.Handlers
+	ProfilesHandler    *profileshttp.Handlers
+	BlocksHandler      *blockshttp.Handlers
+	BuddiesHandler     *buddieshttp.Handlers
+	ReportsHandler     *reportshttp.Handlers
+	ModerationHandler  *moderationhttp.Handlers
+	MediaHandler       *mediahttp.Handlers
+	AuthRoutes         chi.Router
+	UsersRoutes        chi.Router
+	MessagingRoutes    chi.Router
+	ChikaRoutes        chi.Router
+	ExploreRoutes      chi.Router
+	BuddyFinderRoutes  chi.Router
+	ProfilesRoutes     chi.Router
+	BlocksRoutes       chi.Router
+	BuddiesRoutes      chi.Router
+	ReportsRoutes      chi.Router
+	ModerationRoutes   chi.Router
+	MediaRoutes        chi.Router
+	IdentityService    *identityservice.Service
+	WSHandler          *ws.Handler
+	Hub                *ws.Hub
+	ReadyCheck         func(context.Context) error
+}
+
+type buddyFinderSiteLookup struct {
+	explore *explorerepo.Repo
+}
+
+func (l buddyFinderSiteLookup) GetSiteForWrite(ctx context.Context, siteID string) (buddyfinderservice.SiteRecord, error) {
+	site, err := l.explore.GetSiteForWrite(ctx, siteID)
+	if err != nil {
+		return buddyfinderservice.SiteRecord{}, err
+	}
+	return buddyfinderservice.SiteRecord{
+		ID:              site.ID,
+		Area:            site.Area,
+		ModerationState: site.ModerationState,
+	}, nil
 }
 
 func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) *Dependencies {
@@ -137,8 +158,20 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	mediaHandler := mediahttp.New(mediaService, v)
 
 	exploreRepo := explorerepo.New(pool)
-	exploreService := exploreservice.New(exploreRepo)
-	exploreHandler := explorehttp.New(exploreService)
+	buddyFinderRepo := buddyfinderrepo.New(pool)
+	buddyFinderService := buddyfinderservice.New(
+		buddyFinderRepo,
+		buddyfinderservice.WithLimiter(limiter),
+		buddyfinderservice.WithBlocks(blocksService),
+		buddyfinderservice.WithSiteLookup(buddyFinderSiteLookup{explore: exploreRepo}),
+	)
+	buddyFinderHandler := buddyfinderhttp.New(buddyFinderService, v)
+	exploreService := exploreservice.New(
+		exploreRepo,
+		exploreservice.WithLimiter(limiter),
+		exploreservice.WithBuddyMatcher(buddyFinderService),
+	)
+	exploreHandler := explorehttp.New(exploreService, v)
 
 	identityRepo := identityrepo.New(pool)
 	identityService := identityservice.New(identityRepo)
@@ -146,20 +179,21 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	wsHandler := ws.NewHandler(logger, hub, userService)
 
 	return &Dependencies{
-		AuthHandler:       authHandler,
-		UsersHandler:      usersHandler,
-		MessagingHandler:  messagingHandler,
-		ChikaHandler:      chikaHandler,
-		ExploreHandler:    exploreHandler,
-		ProfilesHandler:   profilesHandler,
-		BlocksHandler:     blocksHandler,
-		BuddiesHandler:    buddiesHandler,
-		ReportsHandler:    reportsHandler,
-		ModerationHandler: moderationHandler,
-		MediaHandler:      mediaHandler,
-		IdentityService:   identityService,
-		WSHandler:         wsHandler,
-		Hub:               hub,
-		ReadyCheck:        pool.Ping,
+		AuthHandler:        authHandler,
+		UsersHandler:       usersHandler,
+		MessagingHandler:   messagingHandler,
+		ChikaHandler:       chikaHandler,
+		ExploreHandler:     exploreHandler,
+		BuddyFinderHandler: buddyFinderHandler,
+		ProfilesHandler:    profilesHandler,
+		BlocksHandler:      blocksHandler,
+		BuddiesHandler:     buddiesHandler,
+		ReportsHandler:     reportsHandler,
+		ModerationHandler:  moderationHandler,
+		MediaHandler:       mediaHandler,
+		IdentityService:    identityService,
+		WSHandler:          wsHandler,
+		Hub:                hub,
+		ReadyCheck:         pool.Ping,
 	}
 }

@@ -548,6 +548,27 @@ export interface MessageParticipant {
   username: string;
   displayName: string;
   avatarUrl: string;
+  trust: MessageTrustCard;
+}
+
+export interface MessageTrustCard {
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  certLevel?: string;
+  buddyCount: number;
+  reportCount: number;
+}
+
+export interface MessageMetadata {
+  type?: "meet_at";
+  diveSiteId?: string;
+  diveSiteSlug?: string;
+  diveSiteName?: string;
+  diveSiteArea?: string;
+  timeWindow?: "today" | "weekend" | "specific_date";
+  dateStart?: string;
+  dateEnd?: string;
+  note?: string;
 }
 
 export interface MessageItem {
@@ -555,6 +576,7 @@ export interface MessageItem {
   messageId: string;
   senderId: string;
   content: string;
+  metadata?: MessageMetadata;
   createdAt: string;
 }
 
@@ -588,6 +610,7 @@ export interface MessageRequestActionResponse {
 
 export interface SendMessageRequest {
   content: string;
+  metadata?: MessageMetadata;
 }
 
 export interface SendMessageResponse {
@@ -1110,3 +1133,238 @@ export interface ServiceFilters {
   providerId?: number;
   isActive?: boolean;
 }
+
+export type ExploreSiteCard = {
+  id: string;
+  slug: string;
+  name: string;
+  area: string;
+  latitude?: number;
+  longitude?: number;
+  difficulty: "easy" | "moderate" | "hard";
+  depthMinM?: number;
+  depthMaxM?: number;
+  hazards: string[];
+  verificationStatus: "community" | "instructor" | "moderator" | "verified";
+  lastUpdatedAt: string;
+  recentUpdateCount: number;
+  lastConditionSummary?: string;
+  isSaved: boolean;
+};
+
+export type ExploreSiteUpdate = {
+  id: string;
+  diveSiteId: string;
+  authorAppUserId: string;
+  authorDisplayName: string;
+  authorTrust: ExploreTrustCard;
+  note: string;
+  conditionVisibilityM?: number;
+  conditionCurrent?: "none" | "mild" | "strong";
+  conditionWaves?: "calm" | "moderate" | "rough";
+  conditionTempC?: number;
+  occurredAt: string;
+  createdAt: string;
+};
+
+export type ExploreTrustCard = {
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  certLevel?: string;
+  buddyCount: number;
+  reportCount: number;
+};
+
+export type ExploreSiteDetail = {
+  id: string;
+  slug: string;
+  name: string;
+  area: string;
+  latitude?: number;
+  longitude?: number;
+  difficulty: "easy" | "moderate" | "hard";
+  depthMinM?: number;
+  depthMaxM?: number;
+  hazards: string[];
+  bestSeason?: string;
+  typicalConditions?: string;
+  access?: string;
+  fees?: string;
+  contactInfo?: string;
+  verificationStatus: "community" | "instructor" | "moderator" | "verified";
+  verifiedByUserId?: string;
+  verifiedByDisplayName?: string;
+  lastUpdatedAt: string;
+  createdAt: string;
+  reportCount: number;
+  lastConditionSummary?: string;
+};
+
+export type ExploreListResponse = {
+  items: ExploreSiteCard[];
+  nextCursor?: string;
+};
+
+export type ExploreSiteDetailResponse = {
+  site: ExploreSiteDetail;
+  updates: ExploreSiteUpdate[];
+  nextUpdatesCursor?: string;
+};
+
+export type ExploreLatestUpdate = {
+  id: string;
+  diveSiteId: string;
+  siteSlug: string;
+  siteName: string;
+  siteArea: string;
+  authorAppUserId: string;
+  authorDisplayName: string;
+  authorTrust: ExploreTrustCard;
+  note: string;
+  conditionVisibilityM?: number;
+  conditionCurrent?: "none" | "mild" | "strong";
+  conditionWaves?: "calm" | "moderate" | "rough";
+  conditionTempC?: number;
+  occurredAt: string;
+  createdAt: string;
+};
+
+export type ExploreLatestUpdatesResponse = {
+  items: ExploreLatestUpdate[];
+  nextCursor?: string;
+};
+
+export type CreateExploreSiteUpdateRequest = {
+  note: string;
+  conditionVisibilityM?: number;
+  conditionCurrent?: "none" | "mild" | "strong";
+  conditionWaves?: "calm" | "moderate" | "rough";
+  conditionTempC?: number;
+  occurredAt?: string;
+};
+
+export type BuddyFinderPreviewIntent = {
+  id: string;
+  diveSiteId?: string;
+  area: string;
+  intentType: "training" | "fun_dive" | "depth" | "pool" | "line_training";
+  timeWindow: "today" | "weekend" | "specific_date";
+  dateStart?: string;
+  dateEnd?: string;
+  notePreview?: string;
+  createdAt: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  certLevel?: string;
+  buddyCount: number;
+  reportCount: number;
+  mutualBuddiesCount: number;
+};
+
+export type BuddyFinderPreviewResponse = {
+  area: string;
+  count: number;
+  items: BuddyFinderPreviewIntent[];
+};
+
+export type BuddyFinderIntent = {
+  id: string;
+  authorAppUserId: string;
+  diveSiteId?: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  homeArea: string;
+  area: string;
+  intentType: "training" | "fun_dive" | "depth" | "pool" | "line_training";
+  timeWindow: "today" | "weekend" | "specific_date";
+  dateStart?: string;
+  dateEnd?: string;
+  note?: string;
+  createdAt: string;
+  expiresAt: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  certLevel?: string;
+  buddyCount: number;
+  reportCount: number;
+  mutualBuddiesCount: number;
+};
+
+export type BuddyFinderListResponse = {
+  items: BuddyFinderIntent[];
+  nextCursor?: string;
+};
+
+export type CreateBuddyFinderIntentRequest = {
+  diveSiteId?: string;
+  area?: string;
+  intentType: "training" | "fun_dive" | "depth" | "pool" | "line_training";
+  timeWindow: "today" | "weekend" | "specific_date";
+  dateStart?: string;
+  dateEnd?: string;
+  note?: string;
+};
+
+export type BuddyFinderIntentResponse = {
+  intent: {
+    id: string;
+    diveSiteId?: string;
+    area: string;
+    intentType: "training" | "fun_dive" | "depth" | "pool" | "line_training";
+    timeWindow: "today" | "weekend" | "specific_date";
+    dateStart?: string;
+    dateEnd?: string;
+    note?: string;
+    createdAt: string;
+    expiresAt: string;
+  };
+};
+
+export type BuddyFinderMessageEntryResponse = {
+  intentId: string;
+  recipientUserId: string;
+  requiresRequest: boolean;
+};
+
+export type BuddyFinderSharePreview = {
+  id: string;
+  diveSiteId?: string;
+  diveSiteName?: string;
+  area: string;
+  intentType: "training" | "fun_dive" | "depth" | "pool" | "line_training";
+  timeWindow: "today" | "weekend" | "specific_date";
+  dateStart?: string;
+  dateEnd?: string;
+  notePreview?: string;
+  createdAt: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  certLevel?: string;
+  buddyCount: number;
+  reportCount: number;
+};
+
+export type BuddyFinderSharePreviewResponse = {
+  intent: BuddyFinderSharePreview;
+};
+
+export type ExploreSiteBuddySourceBreakdown = {
+  siteLinkedCount: number;
+  areaFallbackCount: number;
+};
+
+export type ExploreSiteBuddyPreviewResponse = {
+  items: BuddyFinderPreviewIntent[];
+  sourceBreakdown: ExploreSiteBuddySourceBreakdown;
+};
+
+export type ExploreSiteBuddyIntentsResponse = {
+  items: BuddyFinderIntent[];
+  nextCursor?: string;
+  sourceBreakdown: ExploreSiteBuddySourceBreakdown;
+};
+
+export type SaveUserResponse = {
+  saved: boolean;
+};

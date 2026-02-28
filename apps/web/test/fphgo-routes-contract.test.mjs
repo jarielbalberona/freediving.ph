@@ -3,8 +3,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-const repoRoot = path.resolve(globalThis.process.cwd());
-const routesPath = path.join(repoRoot, "src/lib/api/fphgo-routes.ts");
+const cwd = path.resolve(globalThis.process.cwd());
+const appRoot = cwd.endsWith(path.join("apps", "web")) ? cwd : path.join(cwd, "apps", "web");
+const routesPath = path.join(appRoot, "src/lib/api/fphgo-routes.ts");
 
 test("all FPHGO route literals are versioned with /v1", async () => {
   const source = await readFile(routesPath, "utf8");
@@ -17,7 +18,7 @@ test("all FPHGO route literals are versioned with /v1", async () => {
   }
 });
 
-test("messages, chika, and buddies builders map to fphgo v1 prefixes", async () => {
+test("messages, chika, buddies, and add-on builders map to fphgo v1 prefixes", async () => {
   const source = await readFile(routesPath, "utf8");
 
   assert.match(source, /me: \(\) => "\/v1\/auth\/session"/);
@@ -32,4 +33,8 @@ test("messages, chika, and buddies builders map to fphgo v1 prefixes", async () 
   assert.match(source, /createRequest: \(\) => "\/v1\/buddies\/requests"/);
   assert.match(source, /incomingRequests: \(\) => "\/v1\/buddies\/requests\/incoming"/);
   assert.match(source, /outgoingRequests: \(\) => "\/v1\/buddies\/requests\/outgoing"/);
+  assert.match(source, /saved: \(\) => "\/v1\/me\/saved"/);
+  assert.match(source, /saveUser: \(userId: string \| number\) =>/);
+  assert.match(source, /latestUpdates: \(\) => "\/v1\/explore\/updates"/);
+  assert.match(source, /sharePreview: \(id: string \| number\) =>/);
 });

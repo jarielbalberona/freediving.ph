@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL DEFAULT '',
   auth_provider TEXT NOT NULL DEFAULT 'local',
   auth_provider_user_id TEXT,
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
   global_role TEXT NOT NULL DEFAULT 'member',
   account_status TEXT NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -18,6 +20,9 @@ CREATE TABLE IF NOT EXISTS profiles (
   bio TEXT NOT NULL DEFAULT '',
   avatar_url TEXT NOT NULL DEFAULT '',
   location TEXT NOT NULL DEFAULT '',
+  home_area TEXT NOT NULL DEFAULT '',
+  interests TEXT[] NOT NULL DEFAULT '{}'::text[],
+  cert_level TEXT,
   socials JSONB NOT NULL DEFAULT '{}'::jsonb,
   pseudonymous_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -95,6 +100,7 @@ CREATE TABLE IF NOT EXISTS messages (
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   sender_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
+  metadata JSONB,
   idempotency_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -171,10 +177,79 @@ CREATE TABLE IF NOT EXISTS media_assets (
 CREATE TABLE IF NOT EXISTS dive_sites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
-  location TEXT NOT NULL DEFAULT '',
+  slug TEXT NOT NULL UNIQUE,
+  area TEXT NOT NULL,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  entry_difficulty TEXT NOT NULL,
+  depth_min_m NUMERIC,
+  depth_max_m NUMERIC,
+  hazards TEXT[],
+  best_season TEXT,
+  typical_conditions TEXT,
+  access TEXT,
+  fees TEXT,
+  contact_info TEXT,
+  verification_status TEXT NOT NULL DEFAULT 'community',
+  verified_by_app_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   moderation_state TEXT NOT NULL DEFAULT 'approved',
+  last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (entry_difficulty IN ('easy', 'moderate', 'hard')),
+  CHECK (verification_status IN ('community', 'instructor', 'moderator', 'verified')),
   CHECK (moderation_state IN ('approved', 'pending', 'hidden'))
+);
+
+CREATE TABLE IF NOT EXISTS dive_site_updates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE CASCADE,
+  author_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  note TEXT NOT NULL,
+  condition_visibility_m NUMERIC,
+  condition_current TEXT,
+  condition_waves TEXT,
+  condition_temp_c NUMERIC,
+  occurred_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  state TEXT NOT NULL DEFAULT 'active',
+  CHECK (condition_current IS NULL OR condition_current IN ('none', 'mild', 'strong')),
+  CHECK (condition_waves IS NULL OR condition_waves IN ('calm', 'moderate', 'rough')),
+  CHECK (state IN ('active', 'hidden'))
+);
+
+CREATE TABLE IF NOT EXISTS dive_site_saves (
+  app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (app_user_id, dive_site_id)
+);
+
+CREATE TABLE IF NOT EXISTS saved_users (
+  viewer_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  saved_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (viewer_app_user_id, saved_app_user_id),
+  CHECK (viewer_app_user_id <> saved_app_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS buddy_intents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  dive_site_id UUID REFERENCES dive_sites(id) ON DELETE SET NULL,
+  area TEXT NOT NULL,
+  intent_type TEXT NOT NULL,
+  time_window TEXT NOT NULL,
+  date_start DATE,
+  date_end DATE,
+  note TEXT,
+  visibility TEXT NOT NULL DEFAULT 'members',
+  state TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  CHECK (intent_type IN ('training', 'fun_dive', 'depth', 'pool', 'line_training')),
+  CHECK (time_window IN ('today', 'weekend', 'specific_date')),
+  CHECK (visibility IN ('members')),
+  CHECK (state IN ('active', 'hidden', 'expired'))
 );
 
 CREATE TABLE IF NOT EXISTS groups (
@@ -208,9 +283,9 @@ CREATE TABLE IF NOT EXISTS reports (
   status TEXT NOT NULL DEFAULT 'open',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (target_type IN ('user', 'message', 'chika_thread', 'chika_comment')),
+  CHECK (target_type IN ('user', 'message', 'chika_thread', 'chika_comment', 'dive_site_update')),
   CHECK (
-    (target_type IN ('user', 'chika_thread') AND target_uuid IS NOT NULL AND target_bigint IS NULL)
+    (target_type IN ('user', 'chika_thread', 'dive_site_update') AND target_uuid IS NOT NULL AND target_bigint IS NULL)
     OR
     (target_type IN ('message', 'chika_comment') AND target_bigint IS NOT NULL AND target_uuid IS NULL)
   ),
@@ -320,6 +395,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_idempotency_key ON messages (conv
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_user ON conversation_participants (user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations (status);
 CREATE INDEX IF NOT EXISTS idx_dive_sites_name ON dive_sites (name);
+CREATE INDEX IF NOT EXISTS idx_dive_sites_slug ON dive_sites (slug);
+CREATE INDEX IF NOT EXISTS idx_dive_sites_area ON dive_sites (area);
+CREATE INDEX IF NOT EXISTS idx_dive_sites_verification_status ON dive_sites (verification_status);
+CREATE INDEX IF NOT EXISTS idx_dive_sites_updated_id ON dive_sites (last_updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_dive_site_updates_site_occurred_at ON dive_site_updates (dive_site_id, occurred_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_dive_site_updates_author_created_at ON dive_site_updates (author_app_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_buddy_intents_area_created_at ON buddy_intents (area, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_buddy_intents_dive_site_created_at
+  ON buddy_intents (dive_site_id, created_at DESC, id DESC)
+  WHERE dive_site_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_buddy_intents_expires_at ON buddy_intents (expires_at);
+CREATE INDEX IF NOT EXISTS idx_buddy_intents_author_created_at ON buddy_intents (author_app_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_saved_users_viewer_created_at ON saved_users (viewer_app_user_id, created_at DESC, saved_app_user_id DESC);
+CREATE INDEX IF NOT EXISTS idx_saved_users_saved_app_user_id ON saved_users (saved_app_user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth_provider_subject ON users (auth_provider, auth_provider_user_id) WHERE auth_provider_user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_display_name_search ON users (lower(display_name));
 CREATE INDEX IF NOT EXISTS idx_users_username_search ON users (lower(username));

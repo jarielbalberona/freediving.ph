@@ -271,6 +271,15 @@ func (r *Repo) ResolveTargetAuthor(ctx context.Context, targetType string, targe
 			return "", err
 		}
 		return authorID.String(), nil
+	case "dive_site_update":
+		if targetUUID == nil {
+			return "", errors.New("missing target uuid")
+		}
+		id, err := r.queries.ResolveDiveSiteUpdateAuthor(ctx, toUUID(*targetUUID))
+		if err != nil {
+			return "", err
+		}
+		return id.String(), nil
 	default:
 		return "", errors.New("unsupported target type")
 	}
@@ -329,7 +338,7 @@ func toUUIDNullable(value string) pgtype.UUID {
 
 func toTargetID(targetType string, targetUUID pgtype.UUID, targetBigint *int64) (string, error) {
 	switch targetType {
-	case "user", "chika_thread":
+	case "user", "chika_thread", "dive_site_update":
 		if !targetUUID.Valid {
 			return "", errors.New("missing target_uuid for uuid target type")
 		}

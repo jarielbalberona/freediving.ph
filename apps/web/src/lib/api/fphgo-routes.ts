@@ -27,8 +27,26 @@ export const routes = {
     },
     profiles: {
       me: () => "/v1/me/profile",
+      saved: () => "/v1/me/saved",
       byUserId: (userId: string | number) => `/v1/profiles/${toPathId(userId)}`,
       searchUsers: () => "/v1/users/search",
+      saveUser: (userId: string | number) => `/v1/users/${toPathId(userId)}/save`,
+    },
+    explore: {
+      listSites: () => "/v1/explore/sites",
+      latestUpdates: () => "/v1/explore/updates",
+      siteBySlug: (slug: string | number) => `/v1/explore/sites/${toPathId(slug)}`,
+      siteBuddyPreview: (slug: string | number) => `/v1/explore/sites/${toPathId(slug)}/buddy-preview`,
+      siteBuddyIntents: (slug: string | number) => `/v1/explore/sites/${toPathId(slug)}/buddy-intents`,
+      saveSite: (siteId: string | number) => `/v1/explore/sites/${toPathId(siteId)}/save`,
+      createUpdate: (siteId: string | number) => `/v1/explore/sites/${toPathId(siteId)}/updates`,
+    },
+    buddyFinder: {
+      preview: () => "/v1/buddy-finder/preview",
+      intents: () => "/v1/buddy-finder/intents",
+      byId: (id: string | number) => `/v1/buddy-finder/intents/${toPathId(id)}`,
+      message: (id: string | number) => `/v1/buddy-finder/intents/${toPathId(id)}/message`,
+      sharePreview: (id: string | number) => `/v1/buddy-finder/intents/${toPathId(id)}/share-preview`,
     },
     blocks: {
       list: () => "/v1/blocks",

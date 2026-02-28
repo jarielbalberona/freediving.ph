@@ -33,7 +33,7 @@ func (r *Repo) ClerkUserExists(ctx context.Context, clerkUserID string) (bool, e
 	return exists, err
 }
 
-func (r *Repo) EnsureUserForClerk(ctx context.Context, clerkUserID, username, displayName string) error {
+func (r *Repo) EnsureUserForClerk(ctx context.Context, clerkUserID, username, displayName string, emailVerified, phoneVerified bool) error {
 	if strings.TrimSpace(clerkUserID) == "" {
 		return fmt.Errorf("clerk user id is required")
 	}
@@ -50,12 +50,15 @@ func (r *Repo) EnsureUserForClerk(ctx context.Context, clerkUserID, username, di
 
 	var userID string
 	row := tx.QueryRow(ctx, `
-		INSERT INTO users (id, username, display_name, auth_provider, auth_provider_user_id)
-		VALUES (gen_random_uuid(), $1, $2, 'clerk', $3)
+		INSERT INTO users (id, username, display_name, auth_provider, auth_provider_user_id, email_verified, phone_verified)
+		VALUES (gen_random_uuid(), $1, $2, 'clerk', $3, $4, $5)
 		ON CONFLICT (auth_provider, auth_provider_user_id)
-		DO UPDATE SET auth_provider_user_id = EXCLUDED.auth_provider_user_id
+		DO UPDATE SET
+			auth_provider_user_id = EXCLUDED.auth_provider_user_id,
+			email_verified = EXCLUDED.email_verified,
+			phone_verified = EXCLUDED.phone_verified
 		RETURNING id
-	`, username, displayName, clerkUserID)
+	`, username, displayName, clerkUserID, emailVerified, phoneVerified)
 	if err := row.Scan(&userID); err != nil {
 		return fmt.Errorf("upsert clerk user: %w", err)
 	}

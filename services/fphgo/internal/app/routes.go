@@ -11,6 +11,7 @@ import (
 	authhttp "fphgo/internal/features/auth/http"
 	blockshttp "fphgo/internal/features/blocks/http"
 	buddieshttp "fphgo/internal/features/buddies/http"
+	buddyfinderhttp "fphgo/internal/features/buddyfinder/http"
 	chikahttp "fphgo/internal/features/chika/http"
 	explorehttp "fphgo/internal/features/explore/http"
 	mediahttp "fphgo/internal/features/media/http"
@@ -110,6 +111,9 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		}
 		if exploreRouter := resolveExploreRouter(deps); exploreRouter != nil {
 			r.Mount("/v1/explore", exploreRouter)
+		}
+		if buddyFinderRouter := resolveBuddyFinderRouter(deps); buddyFinderRouter != nil {
+			r.Mount("/v1/buddy-finder", buddyFinderRouter)
 		}
 		r.Group(func(member chi.Router) {
 			member.Use(middleware.RequireMember)
@@ -234,6 +238,16 @@ func resolveProfilesRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return profileshttp.Routes(deps.ProfilesHandler)
+}
+
+func resolveBuddyFinderRouter(deps *Dependencies) chi.Router {
+	if deps.BuddyFinderRoutes != nil {
+		return deps.BuddyFinderRoutes
+	}
+	if deps.BuddyFinderHandler == nil {
+		return nil
+	}
+	return buddyfinderhttp.Routes(deps.BuddyFinderHandler)
 }
 
 func resolveBlocksRouter(deps *Dependencies) chi.Router {

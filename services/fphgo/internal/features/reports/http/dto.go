@@ -1,7 +1,7 @@
 package http
 
 type CreateReportRequest struct {
-	TargetType   string   `json:"targetType" validate:"required,oneof=user message chika_thread chika_comment"`
+	TargetType   string   `json:"targetType" validate:"required,oneof=user message chika_thread chika_comment dive_site_update"`
 	TargetID     string   `json:"targetId" validate:"required"`
 	ReasonCode   string   `json:"reasonCode" validate:"required,oneof=spam harassment impersonation unsafe other"`
 	Details      string   `json:"details,omitempty" validate:"omitempty,max=2000"`
