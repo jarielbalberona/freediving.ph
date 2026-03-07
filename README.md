@@ -92,8 +92,8 @@ Default local URLs:
 
 **Web (`apps/web/.env`)** – minimum:
 
-- `NEXT_PUBLIC_API_URL`
-- `API_URL` (server-side; usually same as `NEXT_PUBLIC_API_URL`)
+- `NEXT_PUBLIC_FPHGO_BASE_URL`
+- `FPHGO_BASE_URL` (server-side; usually same as `NEXT_PUBLIC_FPHGO_BASE_URL`)
 - `NEXT_PUBLIC_APP_URL`
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`

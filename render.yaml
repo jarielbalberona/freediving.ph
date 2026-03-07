@@ -69,6 +69,8 @@ services:
         value: "1"
       - key: MEDIA_SIGNING_SECRET_V1
         sync: false
+      - key: CHIKA_PSEUDONYM_SECRET
+        sync: false
 
   # Next.js web service backed by apps/web. It talks to the Go API via one base URL.
   - type: web

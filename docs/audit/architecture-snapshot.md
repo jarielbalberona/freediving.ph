@@ -70,7 +70,7 @@
 ## Deployment and ops setup
 - Render blueprints:
   - root multi-service: `render.yaml`
-  - app-specific files: `apps/api/render.yaml`, `apps/web/render.yaml`
+  - app-specific files: none (legacy app-specific Render files removed)
 - Docker:
   - local compose: `docker-compose.yml`
   - app Dockerfiles: `apps/api/Dockerfile`, `apps/web/Dockerfile`
