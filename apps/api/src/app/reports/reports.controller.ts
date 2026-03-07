@@ -1,0 +1,63 @@
+import type { Request, Response } from "express";
+
+import { ApiController } from "@/controllers/base/api.controller";
+import type { ServiceApiResponse } from "@/utils/serviceApi";
+
+import ReportsService from "./reports.service";
+import {
+  CreateReportSchema,
+  ReportQuerySchema,
+  UpdateReportStatusSchema,
+} from "./reports.validators";
+
+export default class ReportsController extends ApiController {
+  protected reportsService: ReportsService;
+
+  constructor(request: Request, response: Response) {
+    super(request, response);
+    this.reportsService = new ReportsService();
+  }
+
+  async createReport() {
+    try {
+      const check = CreateReportSchema.safeParse(this.request.body);
+      if (!check.success) {
+        return this.validationError(check.error);
+      }
+
+      const response = await this.reportsService.create(this.request.context!.appUserId!, check.data);
+      return this.apiResponse.sendResponse(response);
+    } catch (error: unknown) {
+      return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+    }
+  }
+
+  async listReports() {
+    try {
+      const check = ReportQuerySchema.safeParse(this.request.query);
+      if (!check.success) {
+        return this.validationError(check.error);
+      }
+
+      const response = await this.reportsService.list(check.data);
+      return this.apiResponse.sendResponse(response);
+    } catch (error: unknown) {
+      return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+    }
+  }
+
+  async updateReportStatus() {
+    try {
+      const reportId = Number(this.request.params.id);
+      const check = UpdateReportStatusSchema.safeParse(this.request.body);
+      if (!check.success) {
+        return this.validationError(check.error);
+      }
+
+      const response = await this.reportsService.updateStatus(this.request.context!.appUserId!, reportId, check.data);
+      return this.apiResponse.sendResponse(response);
+    } catch (error: unknown) {
+      return this.apiResponse.sendResponse(error as ServiceApiResponse<unknown>);
+    }
+  }
+}

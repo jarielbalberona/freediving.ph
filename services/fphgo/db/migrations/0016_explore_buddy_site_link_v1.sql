@@ -1,0 +1,38 @@
+-- +goose Up
+-- +goose StatementBegin
+ALTER TABLE buddy_intents
+  ADD COLUMN IF NOT EXISTS dive_site_id UUID REFERENCES dive_sites(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_buddy_intents_dive_site_created_at
+  ON buddy_intents (dive_site_id, created_at DESC, id DESC)
+  WHERE dive_site_id IS NOT NULL;
+
+UPDATE buddy_intents
+SET dive_site_id = CASE id
+  WHEN '30000000-0000-0000-0000-000000000001' THEN '10000000-0000-0000-0000-000000000007'::uuid
+  WHEN '30000000-0000-0000-0000-000000000002' THEN '10000000-0000-0000-0000-000000000019'::uuid
+  WHEN '30000000-0000-0000-0000-000000000003' THEN '10000000-0000-0000-0000-000000000001'::uuid
+  ELSE dive_site_id
+END
+WHERE id IN (
+  '30000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000002',
+  '30000000-0000-0000-0000-000000000003'
+);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+UPDATE buddy_intents
+SET dive_site_id = NULL
+WHERE id IN (
+  '30000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000002',
+  '30000000-0000-0000-0000-000000000003'
+);
+
+DROP INDEX IF EXISTS idx_buddy_intents_dive_site_created_at;
+
+ALTER TABLE buddy_intents
+  DROP COLUMN IF EXISTS dive_site_id;
+-- +goose StatementEnd

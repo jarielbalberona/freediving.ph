@@ -1,0 +1,530 @@
+import { InferSelectModel, and, desc, eq, count, isNull, sql } from "drizzle-orm";
+import { hasMinimumGlobalRole, type GlobalRole } from "@freediving.ph/config";
+
+import { GroupsServerSchemaType, GroupsUpdateSchemaType, GroupMemberSchemaType, GroupPostSchemaType } from "./groups.validators";
+import { hasMinimumGroupRole } from "@/core/authorization";
+import { getPlatformBlockedUserIds, isPlatformBlockedBetween } from "@/core/blocking";
+import { users } from "@/models/drizzle/authentication.model";
+import DrizzleService from "@/databases/drizzle/service";
+import { groups, groupMembers, groupPosts, groupPostComments, groupPostLikes } from "@/models/drizzle/groups.model";
+import { ServiceApiResponse, ServiceResponse } from "@/utils/serviceApi";
+import { status } from "@/utils/statusCodes";
+import { buildOffsetPagination } from "@/utils/pagination";
+import type { PaginationQuerySchemaType } from "@/validators/pagination.schema";
+
+export type GroupsSchemaType = InferSelectModel<typeof groups>;
+
+export default class GroupsService extends DrizzleService {
+	private isModeratorRole(role: GlobalRole | null | undefined) {
+		if (!role) return false;
+		return hasMinimumGlobalRole(role, "moderator");
+	}
+
+	private async getMembership(groupId: number, userId: number) {
+		const rows = await this.db
+			.select()
+			.from(groupMembers)
+			.where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+			.limit(1);
+		return rows[0] ?? null;
+	}
+
+	private canManageGroupMembers(role: string | null | undefined) {
+		return hasMinimumGroupRole(role, "moderator");
+	}
+
+	async create(data: GroupsServerSchemaType) {
+		try {
+			const insertData = {
+				...data,
+				lat: data.lat?.toString(),
+				lng: data.lng?.toString(),
+			};
+			const createdData = await this.db.insert(groups).values(insertData).returning();
+
+			if (!createdData.length) {
+				return ServiceResponse.createResponse(
+					status.HTTP_406_NOT_ACCEPTABLE,
+					"Invalid group data",
+					createdData[0]
+				);
+			}
+
+			await this.db.insert(groupMembers).values({
+				groupId: createdData[0].id,
+				userId: data.createdBy,
+				role: "owner",
+				status: "active",
+				canPost: true,
+				canCreateEvents: true,
+				canInviteMembers: true,
+				canModerate: true,
+			});
+
+			return ServiceResponse.createResponse(
+				status.HTTP_201_CREATED,
+				"Group created successfully",
+				createdData[0]
+			);
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	}
+
+	async retrieve(id: number, viewerUserId: number | null = null): Promise<ServiceApiResponse<GroupsSchemaType>> {
+		try {
+			const retrieveData = await this.db.query.groups.findFirst({
+				where: eq(groups.id, id),
+				with: {
+					creator: {
+						columns: {
+							id: true,
+							username: true,
+							email: true,
+							alias: true,
+						},
+					},
+					members: {
+						with: {
+							user: {
+								columns: {
+									id: true,
+									username: true,
+									alias: true,
+								},
+							},
+						},
+					},
+				},
+			});
+
+			if (!retrieveData) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_404_NOT_FOUND,
+					"Group not found"
+				);
+			}
+
+			if (viewerUserId) {
+				const creatorBlocked = await isPlatformBlockedBetween(this.db, viewerUserId, retrieveData.createdBy);
+				if (creatorBlocked) {
+					return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Group not found");
+				}
+			}
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				"Group retrieved successfully",
+				retrieveData
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async update(id: number, data: GroupsUpdateSchemaType) {
+		try {
+			const updateData = {
+				...data,
+				lat: data.lat?.toString(),
+        lng: data.lng?.toString(),
+			};
+			const updatedData = await this.db.update(groups).set(updateData).where(eq(groups.id, id)).returning();
+
+			if (!updatedData.length) {
+				return ServiceResponse.createResponse(
+					status.HTTP_406_NOT_ACCEPTABLE,
+					"Invalid group id",
+					updatedData[0]
+				);
+			}
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				"Group updated successfully",
+				updatedData[0]
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async retrieveAll(query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
+		try {
+			const totalRows = await this.db.select({ count: sql<number>`count(*)` }).from(groups);
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
+			const retrieveData = await this.db
+				.select({
+					group: groups,
+					creator: {
+						id: users.id,
+						username: users.username,
+						email: users.email,
+						alias: users.alias,
+					},
+					memberCount: count(groupMembers.id),
+				})
+				.from(groups)
+				.leftJoin(users, eq(groups.createdBy, users.id))
+				.leftJoin(groupMembers, eq(groups.id, groupMembers.groupId))
+				.groupBy(groups.id, users.id)
+				.orderBy(desc(groups.createdAt))
+				.limit(query.limit)
+				.offset(query.offset);
+
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter((row) => !blockedUserIds.has(row.group.createdBy))
+				: retrieveData;
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				"Groups retrieved successfully",
+				filteredData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	// Group Members methods
+	async joinGroup(groupId: number, userId: number) {
+		try {
+			const group = await this.db.query.groups.findFirst({ where: eq(groups.id, groupId) });
+			if (!group) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Group not found");
+			}
+
+			const blockedCreator = await isPlatformBlockedBetween(this.db, userId, group.createdBy);
+			if (blockedCreator) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Cannot join group due to block relationship"
+				);
+			}
+
+			if (group.type === "INVITE_ONLY") {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"This group is invite-only"
+				);
+			}
+
+			const existingMember = await this.db
+				.select()
+				.from(groupMembers)
+				.where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+				.limit(1);
+			if (existingMember[0]) {
+				return ServiceResponse.createRejectResponse(status.HTTP_409_CONFLICT, "Membership already exists");
+			}
+
+			const memberStatus = group.joinApprovalRequired ? "pending" : "active";
+			const created = await this.db
+				.insert(groupMembers)
+				.values({
+					groupId,
+					userId,
+					role: "member",
+					status: memberStatus,
+					canPost: true,
+					canCreateEvents: false,
+					canInviteMembers: false,
+					canModerate: false
+				})
+				.returning();
+
+			return ServiceResponse.createResponse(
+				status.HTTP_201_CREATED,
+				memberStatus === "pending" ? "Join request submitted" : "Joined group successfully",
+				created[0]
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async reviewJoinRequest(
+		groupId: number,
+		memberUserId: number,
+		actorUserId: number,
+		action: "approve" | "reject"
+	) {
+		try {
+			const actorMembership = await this.db
+				.select()
+				.from(groupMembers)
+				.where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, actorUserId)))
+				.limit(1);
+
+			const actor = actorMembership[0];
+			if (!actor || !hasMinimumGroupRole(actor.role, "moderator")) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Only group owner/admin/moderator can review join requests"
+				);
+			}
+
+			const nextStatus = action === "approve" ? "active" : "banned";
+			const updated = await this.db
+				.update(groupMembers)
+				.set({ status: nextStatus })
+				.where(
+					and(
+						eq(groupMembers.groupId, groupId),
+						eq(groupMembers.userId, memberUserId),
+						eq(groupMembers.status, "pending")
+					)
+				)
+				.returning();
+
+			if (!updated[0]) {
+				return ServiceResponse.createRejectResponse(status.HTTP_404_NOT_FOUND, "Pending membership request not found");
+			}
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				action === "approve" ? "Join request approved" : "Join request rejected",
+				updated[0]
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async addMember(data: GroupMemberSchemaType, actorUserId: number, actorRole: GlobalRole) {
+		try {
+			if (!this.isModeratorRole(actorRole)) {
+				const actorMembership = await this.getMembership(data.groupId, actorUserId);
+				if (!actorMembership || actorMembership.status !== "active" || !this.canManageGroupMembers(actorMembership.role)) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						"Only group owner/admin/moderator can add members"
+					);
+				}
+			}
+
+			// Check if user is already a member
+			const existingMember = await this.db
+				.select()
+				.from(groupMembers)
+				.where(and(eq(groupMembers.groupId, data.groupId), eq(groupMembers.userId, data.userId)))
+				.limit(1);
+
+			if (existingMember.length > 0) {
+				return ServiceResponse.createResponse(
+					status.HTTP_409_CONFLICT,
+					"User is already a member of this group",
+					existingMember[0]
+				);
+			}
+
+			const createdData = await this.db
+				.insert(groupMembers)
+				.values({
+					...data,
+					role: String(data.role).toLowerCase(),
+					status: String(data.status).toLowerCase()
+				})
+				.returning();
+
+			if (!createdData.length) {
+				return ServiceResponse.createResponse(
+					status.HTTP_406_NOT_ACCEPTABLE,
+					"Invalid member data",
+					createdData[0]
+				);
+			}
+
+			return ServiceResponse.createResponse(
+				status.HTTP_201_CREATED,
+				"Member added successfully",
+				createdData[0]
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async removeMember(groupId: number, userId: number, actorUserId: number, actorRole: GlobalRole) {
+		try {
+			const isSelfRemoval = actorUserId === userId;
+			if (!isSelfRemoval && !this.isModeratorRole(actorRole)) {
+				const actorMembership = await this.getMembership(groupId, actorUserId);
+				if (!actorMembership || actorMembership.status !== "active" || !this.canManageGroupMembers(actorMembership.role)) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						"Only group owner/admin/moderator can remove members"
+					);
+				}
+			}
+
+			const ownerMember = await this.db
+				.select({ id: groupMembers.id })
+				.from(groupMembers)
+				.where(
+					and(
+						eq(groupMembers.groupId, groupId),
+						eq(groupMembers.userId, userId),
+						eq(groupMembers.role, "owner")
+					)
+				)
+				.limit(1);
+
+			if (ownerMember.length > 0) {
+				return ServiceResponse.createRejectResponse(
+					status.HTTP_403_FORBIDDEN,
+					"Group owner cannot be removed"
+				);
+			}
+
+			const deletedData = await this.db
+				.delete(groupMembers)
+				.where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)))
+				.returning();
+
+			if (!deletedData.length) {
+				return ServiceResponse.createResponse(
+					status.HTTP_404_NOT_FOUND,
+					"Member not found",
+					null
+				);
+			}
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				"Member removed successfully",
+				deletedData[0]
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async getMembers(groupId: number, query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
+		try {
+			const totalRows = await this.db
+				.select({ count: sql<number>`count(*)` })
+				.from(groupMembers)
+				.where(eq(groupMembers.groupId, groupId));
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
+			const retrieveData = await this.db
+				.select({
+					member: groupMembers,
+					user: {
+						id: users.id,
+						username: users.username,
+						alias: users.alias,
+						email: users.email,
+					},
+				})
+				.from(groupMembers)
+				.leftJoin(users, eq(groupMembers.userId, users.id))
+				.where(eq(groupMembers.groupId, groupId))
+				.orderBy(desc(groupMembers.createdAt))
+				.limit(query.limit)
+				.offset(query.offset);
+
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter((row) => !blockedUserIds.has(row.member.userId))
+				: retrieveData;
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				"Group members retrieved successfully",
+				filteredData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	// Group Posts methods
+	async createPost(data: GroupPostSchemaType, actorUserId: number, actorRole: GlobalRole) {
+		try {
+			if (!this.isModeratorRole(actorRole)) {
+				const actorMembership = await this.getMembership(data.groupId, actorUserId);
+				if (!actorMembership || actorMembership.status !== "active" || !actorMembership.canPost) {
+					return ServiceResponse.createRejectResponse(
+						status.HTTP_403_FORBIDDEN,
+						"You must be an active member with posting permission to create posts"
+					);
+				}
+			}
+
+			const createdData = await this.db
+				.insert(groupPosts)
+				.values({
+					...data,
+					authorId: actorUserId
+				})
+				.returning();
+
+			if (!createdData.length) {
+				return ServiceResponse.createResponse(
+					status.HTTP_406_NOT_ACCEPTABLE,
+					"Invalid post data",
+					createdData[0]
+				);
+			}
+
+			return ServiceResponse.createResponse(
+				status.HTTP_201_CREATED,
+				"Post created successfully",
+				createdData[0]
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+
+	async getPosts(groupId: number, query: PaginationQuerySchemaType, viewerUserId: number | null = null) {
+		try {
+			const totalRows = await this.db
+				.select({ count: sql<number>`count(*)` })
+				.from(groupPosts)
+				.where(eq(groupPosts.groupId, groupId));
+			const totalItems = Number(totalRows[0]?.count ?? 0);
+
+			const retrieveData = await this.db
+				.select({
+					post: groupPosts,
+					author: {
+						id: users.id,
+						username: users.username,
+						alias: users.alias,
+					},
+					commentCount: count(groupPostComments.id),
+					likeCount: count(groupPostLikes.id),
+				})
+				.from(groupPosts)
+				.leftJoin(users, eq(groupPosts.authorId, users.id))
+				.leftJoin(groupPostComments, eq(groupPosts.id, groupPostComments.postId))
+				.leftJoin(groupPostLikes, eq(groupPosts.id, groupPostLikes.postId))
+				.where(and(eq(groupPosts.groupId, groupId), isNull(groupPosts.deletedAt)))
+				.groupBy(groupPosts.id, users.id)
+				.orderBy(desc(groupPosts.createdAt))
+				.limit(query.limit)
+				.offset(query.offset);
+
+			const blockedUserIds = viewerUserId ? await getPlatformBlockedUserIds(this.db, viewerUserId) : null;
+			const filteredData = blockedUserIds
+				? retrieveData.filter((row) => !blockedUserIds.has(row.post.authorId))
+				: retrieveData;
+
+			return ServiceResponse.createResponse(
+				status.HTTP_200_OK,
+				"Group posts retrieved successfully",
+				filteredData,
+				buildOffsetPagination(totalItems, query.limit, query.offset)
+			);
+		} catch (error) {
+			return ServiceResponse.createErrorResponse(error);
+		}
+	}
+}

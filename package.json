@@ -1,0 +1,56 @@
+{
+  "name": "@freediving.ph/monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter './apps/*' dev",
+    "build": "pnpm -r --if-present --filter './packages/*' build && pnpm build:api && pnpm build:web",
+    "build:all": "pnpm build",
+    "typecheck": "pnpm -r --if-present type-check",
+    "lint": "pnpm -r --if-present lint",
+    "format": "biome format --write .",
+    "test": "pnpm -r --if-present test",
+    "preflight": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "dev:web": "pnpm --filter @freediving.ph/web dev",
+    "dev:api": "pnpm --filter @freediving.ph/api dev",
+    "dev:go": "cd services/fphgo && make dev",
+    "build:web": "pnpm --filter @freediving.ph/web build",
+    "build:api": "pnpm --filter @freediving.ph/api build",
+    "test:go": "cd services/fphgo && make test",
+    "sqlc:go": "cd services/fphgo && make sqlc",
+    "migrate:go": "cd services/fphgo && make migrate-up",
+    "db:generate": "pnpm --filter @freediving.ph/db db:generate",
+    "db:migrate": "pnpm --filter @freediving.ph/db db:migrate",
+    "db:push": "pnpm --filter @freediving.ph/db db:push",
+    "db:studio": "pnpm --filter @freediving.ph/db db:studio",
+    "db:seed": "pnpm --filter @freediving.ph/api db:seed"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "tsx": "^4.19.3"
+  },
+  "pnpm": {
+    "allowedDeprecatedVersions": {
+      "@esbuild-kit/core-utils": "3.3.2",
+      "@esbuild-kit/esm-loader": "2.6.5"
+    },
+    "supportedArchitectures": {
+      "os": [
+        "darwin",
+        "linux"
+      ],
+      "cpu": [
+        "x64",
+        "arm64"
+      ]
+    },
+    "onlyBuiltDependencies": [
+      "@clerk/shared",
+      "bcryptjs",
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}

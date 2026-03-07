@@ -1,0 +1,102 @@
+# Render Blueprint for the monorepo deployment.
+# Deploys:
+# 1. Managed Postgres
+# 2. Go API from services/fphgo
+# 3. Next.js web app from apps/web
+
+databases:
+  # Managed Render Postgres used by the Go API.
+  - name: freediving-ph-db
+    databaseName: freediving_ph
+    user: freediving_ph
+    plan: basic-1gb
+    region: oregon
+    postgresMajorVersion: "16"
+
+services:
+  # Go API service backed by services/fphgo. Canonical API routes remain under /v1.
+  - type: web
+    name: freediving-ph-api
+    runtime: go
+    plan: starter
+    region: oregon
+    buildCommand: cd services/fphgo && go mod download && go build -o bin/fphgo ./cmd/api
+    preDeployCommand: cd services/fphgo && make migrate-up
+    startCommand: cd services/fphgo && ./bin/fphgo
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: APP_ENV
+        value: production
+      - key: NODE_ENV
+        value: production
+      - key: DB_DSN
+        fromDatabase:
+          name: freediving-ph-db
+          property: connectionString
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_JWT_KEY
+        sync: false
+      - key: CLERK_JWT_ISSUER
+        sync: false
+      - key: CLERK_JWT_AUDIENCE
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://freediving-ph-app.onrender.com
+      - key: CORS_ORIGINS
+        value: https://freediving-ph-app.onrender.com
+      - key: APP_URL
+        value: https://freediving-ph-app.onrender.com
+      - key: API_URL
+        value: https://freediving-ph-api.onrender.com
+      - key: API_BASE_URL
+        value: https://freediving-ph-api.onrender.com
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_REGION
+        sync: false
+      - key: CDN_BASE_URL
+        value: https://cdn.freediving.ph
+      - key: MEDIA_SIGNING_KEY_VERSION
+        value: "1"
+      - key: MEDIA_SIGNING_SECRET_V1
+        sync: false
+
+  # Next.js web service backed by apps/web. It talks to the Go API via one base URL.
+  - type: web
+    name: freediving-ph-app
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @freediving.ph/web build
+    startCommand: pnpm --filter @freediving.ph/web start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: NEXT_PUBLIC_API_URL
+        value: https://freediving-ph-api.onrender.com
+      - key: NEXT_PUBLIC_FPHGO_BASE_URL
+        value: https://freediving-ph-api.onrender.com
+      - key: FPHGO_BASE_URL
+        value: https://freediving-ph-api.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://freediving-ph-app.onrender.com
+      - key: APP_URL
+        value: https://freediving-ph-app.onrender.com
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        sync: false

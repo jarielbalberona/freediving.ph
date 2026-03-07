@@ -1,0 +1,21 @@
+# Grouped nav and mobile bottom nav: verification checklist
+
+- [ ] **Signed in vs signed out visibility**
+  - Signed in: sidebar and More drawer show all items (including protected).
+  - Signed out: sidebar and More drawer show only public items; protected items hidden.
+- [ ] **Active states**
+  - Sidebar and bottom nav highlight the current route (pathname matches href).
+  - Home `/#` is active when pathname is `/`.
+- [ ] **Create and More actions**
+  - Bottom nav: Create opens create drawer; More opens the sidebar (no drawer).
+  - Create drawer: options (Profile Post, Community Post, Story) run placeholder handler and close.
+  - On mobile, sidebar opened via More shows all groups except Core (Core items are in the bottom nav).
+- [ ] **Mobile bottom nav**
+  - Visible only on small screens (hidden from `md` up).
+  - Shows only main items: Home, Explore, Chika, Create, Messages, More, Profile.
+  - More opens the sidebar (mobile sheet); sidebar on mobile hides Core group.
+  - Protected main items (Messages, Profile) when signed out: show with lock hint; click routes to `/auth`.
+- [ ] **Desktop sidebar**
+  - Grouped sections with labels: Core, Community, Diving and Progress, Resources, Future, Admin.
+  - On mobile (when opened via More or trigger), Core group is hidden.
+  - Items are links; submenu support is in place (no subitems in data yet).

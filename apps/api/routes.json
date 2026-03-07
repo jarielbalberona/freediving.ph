@@ -1,0 +1,534 @@
+[
+  {
+    "method": "GET",
+    "path": "/health/"
+  },
+  {
+    "method": "GET",
+    "path": "/health/live"
+  },
+  {
+    "method": "GET",
+    "path": "/health/ready"
+  },
+  {
+    "method": "GET",
+    "path": "/metrics/"
+  },
+  {
+    "method": "POST",
+    "path": "/media/"
+  },
+  {
+    "method": "GET",
+    "path": "/media/presigned-url/:username"
+  },
+  {
+    "method": "GET",
+    "path": "/auth/health"
+  },
+  {
+    "method": "GET",
+    "path": "/auth/me"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/health"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/me"
+  },
+  {
+    "method": "GET",
+    "path": "/users/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/users/"
+  },
+  {
+    "method": "GET",
+    "path": "/users/export"
+  },
+  {
+    "method": "GET",
+    "path": "/csrf-token/"
+  },
+  {
+    "method": "GET",
+    "path": "/dive-spots/"
+  },
+  {
+    "method": "POST",
+    "path": "/dive-spots/"
+  },
+  {
+    "method": "GET",
+    "path": "/dive-spots/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/dive-spots/:id"
+  },
+  {
+    "method": "PATCH",
+    "path": "/dive-spots/:id/review"
+  },
+  {
+    "method": "GET",
+    "path": "/dive-spots/:id/reviews"
+  },
+  {
+    "method": "POST",
+    "path": "/dive-spots/:id/reviews"
+  },
+  {
+    "method": "GET",
+    "path": "/dive-spots/:id/reviews/summary"
+  },
+  {
+    "method": "GET",
+    "path": "/threads/"
+  },
+  {
+    "method": "POST",
+    "path": "/threads/"
+  },
+  {
+    "method": "GET",
+    "path": "/threads/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/threads/:id"
+  },
+  {
+    "method": "DELETE",
+    "path": "/threads/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/threads/:id/comments"
+  },
+  {
+    "method": "POST",
+    "path": "/threads/:id/comments"
+  },
+  {
+    "method": "POST",
+    "path": "/threads/:id/reactions"
+  },
+  {
+    "method": "DELETE",
+    "path": "/threads/:id/reactions"
+  },
+  {
+    "method": "PATCH",
+    "path": "/threads/:id/mode"
+  },
+  {
+    "method": "GET",
+    "path": "/threads/:id/pseudonym"
+  },
+  {
+    "method": "GET",
+    "path": "/events/"
+  },
+  {
+    "method": "POST",
+    "path": "/events/"
+  },
+  {
+    "method": "GET",
+    "path": "/events/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/events/:id"
+  },
+  {
+    "method": "PATCH",
+    "path": "/events/:id/moderate-remove"
+  },
+  {
+    "method": "GET",
+    "path": "/events/:id/attendees"
+  },
+  {
+    "method": "POST",
+    "path": "/events/:id/attendees"
+  },
+  {
+    "method": "DELETE",
+    "path": "/events/:id/attendees/:userId"
+  },
+  {
+    "method": "GET",
+    "path": "/groups/"
+  },
+  {
+    "method": "POST",
+    "path": "/groups/"
+  },
+  {
+    "method": "GET",
+    "path": "/groups/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/groups/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/groups/:id/members"
+  },
+  {
+    "method": "POST",
+    "path": "/groups/:id/members"
+  },
+  {
+    "method": "POST",
+    "path": "/groups/:id/join"
+  },
+  {
+    "method": "POST",
+    "path": "/groups/:id/members/:userId/:action"
+  },
+  {
+    "method": "DELETE",
+    "path": "/groups/:id/members/:userId"
+  },
+  {
+    "method": "GET",
+    "path": "/groups/:id/posts"
+  },
+  {
+    "method": "POST",
+    "path": "/groups/:id/posts"
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/"
+  },
+  {
+    "method": "POST",
+    "path": "/notifications/"
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/notifications/:id"
+  },
+  {
+    "method": "DELETE",
+    "path": "/notifications/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/users/:userId"
+  },
+  {
+    "method": "POST",
+    "path": "/notifications/users/:userId/mark-all-read"
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/users/:userId/unread-count"
+  },
+  {
+    "method": "POST",
+    "path": "/notifications/:id/mark-read"
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/users/:userId/settings"
+  },
+  {
+    "method": "PUT",
+    "path": "/notifications/users/:userId/settings"
+  },
+  {
+    "method": "GET",
+    "path": "/messages/conversations"
+  },
+  {
+    "method": "POST",
+    "path": "/messages/conversations/direct"
+  },
+  {
+    "method": "GET",
+    "path": "/messages/conversations/:conversationId/messages"
+  },
+  {
+    "method": "POST",
+    "path": "/messages/conversations/:conversationId/messages"
+  },
+  {
+    "method": "DELETE",
+    "path": "/messages/conversations/:conversationId/messages/:messageId"
+  },
+  {
+    "method": "PATCH",
+    "path": "/messages/conversations/:conversationId/messages/:messageId/moderate-remove"
+  },
+  {
+    "method": "POST",
+    "path": "/reports/"
+  },
+  {
+    "method": "GET",
+    "path": "/reports/"
+  },
+  {
+    "method": "PATCH",
+    "path": "/reports/:id/status"
+  },
+  {
+    "method": "GET",
+    "path": "/profiles/:username"
+  },
+  {
+    "method": "PUT",
+    "path": "/profiles/me"
+  },
+  {
+    "method": "POST",
+    "path": "/profiles/me/personal-bests"
+  },
+  {
+    "method": "PUT",
+    "path": "/profiles/me/personal-bests/:id"
+  },
+  {
+    "method": "DELETE",
+    "path": "/profiles/me/personal-bests/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/buddies/requests"
+  },
+  {
+    "method": "GET",
+    "path": "/buddies/requests"
+  },
+  {
+    "method": "POST",
+    "path": "/buddies/requests/:requestId/accept"
+  },
+  {
+    "method": "POST",
+    "path": "/buddies/requests/:requestId/reject"
+  },
+  {
+    "method": "POST",
+    "path": "/buddies/requests/:requestId/cancel"
+  },
+  {
+    "method": "GET",
+    "path": "/buddies/"
+  },
+  {
+    "method": "GET",
+    "path": "/buddies/available"
+  },
+  {
+    "method": "DELETE",
+    "path": "/buddies/:buddyUserId"
+  },
+  {
+    "method": "GET",
+    "path": "/buddies/finder/search"
+  },
+  {
+    "method": "GET",
+    "path": "/competitive-records/"
+  },
+  {
+    "method": "POST",
+    "path": "/competitive-records/"
+  },
+  {
+    "method": "PATCH",
+    "path": "/competitive-records/:id/moderate"
+  },
+  {
+    "method": "GET",
+    "path": "/records/"
+  },
+  {
+    "method": "POST",
+    "path": "/records/"
+  },
+  {
+    "method": "PATCH",
+    "path": "/records/:id/moderate"
+  },
+  {
+    "method": "GET",
+    "path": "/training-logs/"
+  },
+  {
+    "method": "POST",
+    "path": "/training-logs/"
+  },
+  {
+    "method": "PATCH",
+    "path": "/training-logs/:id"
+  },
+  {
+    "method": "DELETE",
+    "path": "/training-logs/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/training-logs/:id/metrics"
+  },
+  {
+    "method": "PUT",
+    "path": "/training-logs/:id/metrics"
+  },
+  {
+    "method": "GET",
+    "path": "/safety-resources/pages"
+  },
+  {
+    "method": "GET",
+    "path": "/safety-resources/contacts"
+  },
+  {
+    "method": "POST",
+    "path": "/safety-resources/pages"
+  },
+  {
+    "method": "PUT",
+    "path": "/safety-resources/pages/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/safety-resources/pages/:id/rollback"
+  },
+  {
+    "method": "GET",
+    "path": "/safety-resources/pages/stale"
+  },
+  {
+    "method": "POST",
+    "path": "/safety-resources/contacts"
+  },
+  {
+    "method": "GET",
+    "path": "/awareness/"
+  },
+  {
+    "method": "POST",
+    "path": "/awareness/"
+  },
+  {
+    "method": "GET",
+    "path": "/marketplace/"
+  },
+  {
+    "method": "POST",
+    "path": "/marketplace/"
+  },
+  {
+    "method": "PATCH",
+    "path": "/marketplace/:id/moderate"
+  },
+  {
+    "method": "GET",
+    "path": "/collaboration/"
+  },
+  {
+    "method": "POST",
+    "path": "/collaboration/"
+  },
+  {
+    "method": "PATCH",
+    "path": "/collaboration/:id/moderate"
+  },
+  {
+    "method": "GET",
+    "path": "/user-services/"
+  },
+  {
+    "method": "POST",
+    "path": "/user-services/"
+  },
+  {
+    "method": "GET",
+    "path": "/user-services/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/user-services/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/user-services/users/:userId"
+  },
+  {
+    "method": "POST",
+    "path": "/user-services/bookings"
+  },
+  {
+    "method": "GET",
+    "path": "/user-services/:id/bookings"
+  },
+  {
+    "method": "GET",
+    "path": "/user-services/users/:userId/bookings"
+  },
+  {
+    "method": "PUT",
+    "path": "/user-services/bookings/:id/status"
+  },
+  {
+    "method": "POST",
+    "path": "/user-services/reviews"
+  },
+  {
+    "method": "GET",
+    "path": "/user-services/:id/reviews"
+  },
+  {
+    "method": "POST",
+    "path": "/moderation/chika/identity-reveal"
+  },
+  {
+    "method": "PATCH",
+    "path": "/moderation/threads/:threadId/lock"
+  },
+  {
+    "method": "PATCH",
+    "path": "/moderation/threads/:threadId/remove"
+  },
+  {
+    "method": "PATCH",
+    "path": "/moderation/users/:userId/suspension"
+  },
+  {
+    "method": "PATCH",
+    "path": "/moderation/users/:userId/feature-restrictions"
+  },
+  {
+    "method": "GET",
+    "path": "/moderation/threads/:threadId/pseudonyms"
+  },
+  {
+    "method": "GET",
+    "path": "/blocks/"
+  },
+  {
+    "method": "POST",
+    "path": "/blocks/"
+  },
+  {
+    "method": "DELETE",
+    "path": "/blocks/:blockedUserId"
+  }
+]

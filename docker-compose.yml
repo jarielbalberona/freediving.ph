@@ -1,45 +1,31 @@
 services:
-  api:
-    container_name: api
-    build: ./api
-    ports:
-      - "4000:4000"
-    env_file:
-      - ./api/.env
-    volumes:
-      - ./api:/usr/src/app # Sync project files (hot reload)
-      - /usr/src/app/node_modules # Prevent overwriting node_modules (IMPORTANT)
-    restart: unless-stopped
-
-  app:
-    container_name: app
-    build: ./app
-    ports:
-      - "3000:3000"
-    # env_file:
-    #   - ./app/.env
-    volumes:
-      - ./app:/usr/src/app # Sync local files to container
-      - /usr/src/app/node_modules # Prevent overwriting node_modules
-    depends_on:
-      - api
-      - database
-    restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgres://postgres:password@database:5432/freedivingph
-
   database:
     container_name: database
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: freedivingph
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fph
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  fphgo:
+    container_name: fphgo
+    build:
+      context: ./services/fphgo
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - database
+    env_file:
+      - ./services/fphgo/.env
+    environment:
+      DB_DSN: postgres://postgres:postgres@database:5432/fph?sslmode=disable
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./services/fphgo:/app
 volumes:
   pgdata:

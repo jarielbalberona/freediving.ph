@@ -1,0 +1,1 @@
+ALTER TABLE "dive_spots" ALTER COLUMN "directions" DROP NOT NULL;

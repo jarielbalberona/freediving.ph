@@ -4,9 +4,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-pnpm-lock.yaml
-yarn.lock
-package-lock.json
+apps/*/pnpm-lock.yaml
+packages/*/pnpm-lock.yaml
+**/package-lock.json
 
 # Logs & Debugging
 logs/
@@ -28,6 +28,9 @@ out/
 # Express build files
 dist/
 build/
+
+# Go / Air build output
+**/tmp/
 
 # Miscellaneous
 .DS_Store
@@ -63,3 +66,6 @@ crash.*.log
 *.tfplan
 *.backup
 terraform.tfstate.d/
+
+.tool-versions
+er.email your-email-on-github@example.com

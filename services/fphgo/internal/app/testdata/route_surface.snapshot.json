@@ -1,0 +1,368 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "pattern": "/healthz"
+    },
+    {
+      "method": "GET",
+      "pattern": "/profiles/{username}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/readyz"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/auth/session"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/blocks/"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/blocks/"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/blocks/{blockedUserId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/buddies/"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/buddies/preview/{userId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/buddies/requests"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/buddies/requests/incoming"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/buddies/requests/outgoing"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/buddies/requests/{requestId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/buddies/requests/{requestId}/accept"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/buddies/requests/{requestId}/decline"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/buddies/{buddyUserId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/categories"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/chika/comments/{commentId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/chika/comments/{commentId}"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/chika/comments/{commentId}/reactions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/comments/{commentId}/reactions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/media"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/threads"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/chika/threads/{threadId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads/{threadId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/chika/threads/{threadId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads/{threadId}/comments"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/threads/{threadId}/comments"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads/{threadId}/media"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/chika/threads/{threadId}/posts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/threads/{threadId}/posts"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/chika/threads/{threadId}/reactions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/threads/{threadId}/reactions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/moderation/sites/pending"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/moderation/sites/{id}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/moderation/sites/{id}/approve"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/moderation/sites/{id}/reject"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/submissions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/submissions/{id}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/sites/submit"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/explore/sites/{siteId}/save"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/sites/{siteId}/save"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/sites/{siteId}/updates"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/{slug}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/{slug}/buddy-intents"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/{slug}/buddy-preview"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/updates"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/locations/barangays"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/locations/cities-municipalities"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/locations/provinces"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/locations/regions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/me"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/me/profile"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/me/profile"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/me/saved"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/media/mine"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/upload"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/upload-multiple"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/urls"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/messages/threads"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/threads/direct"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/messages/threads/{threadId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/threads/{threadId}/category"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/messages/threads/{threadId}/messages"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/threads/{threadId}/messages"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/threads/{threadId}/read"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/chika/comments/{commentId}/hide"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/chika/comments/{commentId}/unhide"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/chika/threads/{threadId}/hide"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/chika/threads/{threadId}/unhide"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/users/{appUserId}/read-only"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/users/{appUserId}/read-only/clear"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/users/{appUserId}/suspend"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/moderation/users/{appUserId}/unsuspend"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/by-username/{username}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/by-username/{username}/bucketlist"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/by-username/{username}/posts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/{userID}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/reports/"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/reports/"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/reports/{reportId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/reports/{reportId}/status"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/users/"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/users/id/{id}"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/users/id/{id}/save"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/users/id/{id}/save"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/users/me"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/users/search"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/users/{username}"
+    }
+  ]
+}

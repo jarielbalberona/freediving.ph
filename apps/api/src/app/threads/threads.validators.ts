@@ -1,0 +1,44 @@
+import { z } from "zod";
+import { zodMessages } from "@/core/messages";
+import { PaginationQuerySchema } from "@/validators/pagination.schema";
+
+export const ThreadsServerSchema = z.object({
+	userId: z.number().int().positive().optional(),
+	title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters"),
+	content: z.string().min(1, "Content is required").max(2000, "Content must be less than 2000 characters")
+});
+
+export const ThreadsUpdateSchema = z.object({
+	title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters").optional(),
+	content: z.string().min(1, "Content is required").max(2000, "Content must be less than 2000 characters").optional()
+});
+
+export const CommentCreateSchema = z.object({
+	userId: z.number().int().positive().optional(),
+	threadId: z.number().int().positive(),
+	parentId: z.number().int().positive().optional(),
+	content: z.string().min(1, "Content is required").max(1000, "Content must be less than 1000 characters")
+});
+
+export const ReactionSchema = z.object({
+	userId: z.number().int().positive().optional(),
+	type: z.enum(["1", "0"], {
+		required_error: "Reaction type is required",
+		invalid_type_error: "Reaction type must be '1' (like) or '0' (dislike)"
+	})
+});
+
+export const ThreadModeSchema = z.object({
+	mode: z.enum(["NORMAL", "PSEUDONYMOUS_CHIKA"])
+});
+
+export const ThreadListQuerySchema = PaginationQuerySchema;
+export const ThreadCommentsQuerySchema = PaginationQuerySchema;
+
+export type ThreadsServerSchemaType = z.infer<typeof ThreadsServerSchema>;
+export type ThreadsUpdateSchemaType = z.infer<typeof ThreadsUpdateSchema>;
+export type CommentCreateSchemaType = z.infer<typeof CommentCreateSchema>;
+export type ReactionSchemaType = z.infer<typeof ReactionSchema>;
+export type ThreadModeSchemaType = z.infer<typeof ThreadModeSchema>;
+export type ThreadListQuerySchemaType = z.infer<typeof ThreadListQuerySchema>;
+export type ThreadCommentsQuerySchemaType = z.infer<typeof ThreadCommentsQuerySchema>;

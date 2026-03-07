@@ -6,12 +6,12 @@ terraform {
     }
   }
 
-  backend "s3" {
-    bucket  = "freediving.ph-tofu-state"
-    key     = "development/terraform.tfstate"
-    region  = "ap-southeast-1"
-    encrypt = true
-  }
+  # backend "s3" {
+  #   bucket  = "freediving-ph-tofu-state"
+  #   key     = "development/terraform.tfstate"
+  #   region  = "ap-southeast-1"
+  #   encrypt = true
+  # }
 }
 
 
