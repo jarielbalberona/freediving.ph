@@ -1,7 +1,10 @@
-export type PublicProfileHighlight = {
-  id: string;
-  title: string;
-  coverUrl?: string;
+export type ProfileBucketListItem = {
+  siteId: string;
+  siteSlug: string;
+  siteName: string;
+  siteArea: string;
+  pinnedAt: string;
+  hasDived: boolean;
 };
 
 export type PublicProfile = {
@@ -15,13 +18,18 @@ export type PublicProfile = {
     followers: number;
     following: number;
   };
-  highlights: PublicProfileHighlight[];
 };
 
 export type ProfilePost = {
   id: string;
+  siteId: string;
+  siteSlug: string;
+  siteName: string;
+  siteArea: string;
+  caption: string;
+  occurredAt: string;
   thumbUrl: string;
   mediaType: "image" | "video";
-  likeCount?: number;
-  commentCount?: number;
+  likeCount: number;
+  commentCount: number;
 };

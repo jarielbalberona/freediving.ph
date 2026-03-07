@@ -35,6 +35,8 @@ func main() {
 	}
 
 	logger := platformlogger.New(cfg.Env, cfg.LogLevel)
+	logger.Debug("debug logging enabled", "env", cfg.Env, "configured_log_level", cfg.LogLevel)
+	logger.Debug("cfg", "GoogleMapsAPIKey", cfg.GoogleMapsAPIKey)
 	ctx := context.Background()
 
 	pool, err := platformdb.NewPool(ctx, cfg.DBDSN, cfg.DBMaxConns, cfg.DBMinConns, cfg.DBConnMaxLife)

@@ -13,6 +13,8 @@ const formatMetric = (value?: number): string =>
   new Intl.NumberFormat().format(value ?? 0);
 
 export function ProfileTile({ post, onOpen }: ProfileTileProps) {
+  const thumbUrl = post.thumbUrl || "/images/samples/1.jpg";
+
   return (
     <Button
       variant="ghost"
@@ -21,7 +23,7 @@ export function ProfileTile({ post, onOpen }: ProfileTileProps) {
     >
       <div className="relative aspect-square w-full overflow-hidden bg-muted">
         <Image
-          src={post.thumbUrl}
+          src={thumbUrl}
           alt={`Post ${post.id}`}
           fill
           className="object-cover transition-transform duration-300 md:group-hover:scale-[1.03]"

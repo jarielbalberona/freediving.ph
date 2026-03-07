@@ -38,6 +38,8 @@ Verified examples:
 - Type-check: `tsc --noEmit` via each workspace `type-check` script.
 - Tests: Node test runner (`node --test` in apps, `tsx --test` in packages).
 - Shared TS baseline: `tsconfig.base.json`.
+- UI implementation rule (web): prefer shadcn/ui components and composition patterns; avoid manual Tailwind utility markup unless a clear gap exists and document why custom classes are needed.
+- UI changes must follow existing workspace file structure and code conventions; place new files in the appropriate `app`, `components`, `features`, `lib`, `hooks`, `providers`, or `store` directories.
 
 ## How To Not Break The Repo
 - Run targeted checks in changed workspaces before opening PRs:

@@ -134,10 +134,10 @@ export default function ExploreSubmitPage() {
       title="Sign in to submit a dive site"
       description="Members can propose new dive sites for moderator review."
     >
-      <div className="min-h-full bg-[linear-gradient(180deg,_#f4fbff_0%,_#ffffff_100%)] px-4 py-6 sm:px-6">
+      <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-6">
-          <section className="rounded-[28px] border border-sky-900/10 bg-white/90 p-6 shadow-sm">
-            <Badge className="rounded-full bg-sky-950 text-white">
+          <section className="rounded-4xl border border-border bg-card/90 p-6 shadow-sm">
+            <Badge className="rounded-full bg-primary text-primary-foreground">
               Explore submission
             </Badge>
             <h1 className="mt-3 font-serif text-4xl tracking-tight text-zinc-950">
@@ -150,7 +150,7 @@ export default function ExploreSubmitPage() {
           </section>
 
           {submittedId ? (
-            <Card className="rounded-[24px] border-emerald-500/20 bg-emerald-50/70">
+            <Card className="border-emerald-500/20 bg-emerald-50/70">
               <CardContent className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-emerald-900">
@@ -170,7 +170,7 @@ export default function ExploreSubmitPage() {
             </Card>
           ) : null}
 
-          <Card className="rounded-[24px] bg-white/90">
+          <Card className="bg-card/90">
             <CardHeader>
               <CardTitle>Site details</CardTitle>
             </CardHeader>

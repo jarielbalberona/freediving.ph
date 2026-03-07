@@ -9,10 +9,9 @@ import type { Notification } from '@freediving.ph/types';
 
 interface NotificationCardProps {
   notification: Notification;
-  userId: number;
 }
 
-export function NotificationCard({ notification, userId }: NotificationCardProps) {
+export function NotificationCard({ notification }: NotificationCardProps) {
   const markAsReadMutation = useMarkAsRead();
   const deleteNotificationMutation = useDeleteNotification();
 
@@ -46,12 +45,12 @@ export function NotificationCard({ notification, userId }: NotificationCardProps
 
   const handleMarkAsRead = () => {
     if (notification.status === 'UNREAD') {
-      markAsReadMutation.mutate({ userId, notificationId: notification.id });
+      markAsReadMutation.mutate(notification.id);
     }
   };
 
   const handleDelete = () => {
-    deleteNotificationMutation.mutate({ userId, notificationId: notification.id });
+    deleteNotificationMutation.mutate(notification.id);
   };
 
   return (

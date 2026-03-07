@@ -327,19 +327,34 @@ export function ExploreLayout() {
 
   return (
     <MapProvider>
-      <div className="relative h-[calc(100vh-3.5rem)] min-h-[720px] overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.1),_transparent_28%),linear-gradient(180deg,_#ecf6ff_0%,_#f8fbfd_42%,_#ffffff_100%)]">
+      <div className="relative h-[calc(100vh-3.5rem)] min-h-[720px] overflow-hidden bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.12),_transparent_28%),linear-gradient(180deg,_hsl(var(--primary)/0.08)_0%,_hsl(var(--background))_42%,_hsl(var(--background))_100%)]">
         <div className="absolute right-4 top-4 z-30 hidden flex-wrap items-center gap-2 lg:flex">
-          <Link href="/explore/submit" className={cn(buttonVariants({ variant: "outline" }), "rounded-full bg-white/90")}>
+          <Link
+            href="/explore/submit"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "rounded-full bg-card/90",
+            )}
+          >
             <MapPinned className="mr-2 size-4" />
             Submit a site
           </Link>
           {session.status === "signed_in" ? (
-            <Link href="/explore/submissions" className={cn(buttonVariants({ variant: "outline" }), "rounded-full bg-white/90")}>
+            <Link
+              href="/explore/submissions"
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "rounded-full bg-card/90",
+              )}
+            >
               My submissions
             </Link>
           ) : null}
           {session.hasPermission("explore.moderate") ? (
-            <Link href="/moderation/explore-sites" className={cn(buttonVariants(), "rounded-full")}>
+            <Link
+              href="/moderation/explore-sites"
+              className={cn(buttonVariants(), "rounded-full")}
+            >
               <Gavel className="mr-2 size-4" />
               Review pending
             </Link>
@@ -387,14 +402,14 @@ export function ExploreLayout() {
 
             <div className="absolute bottom-5 left-5 flex flex-wrap gap-2">
               {state.minRating ? (
-                <Badge className="rounded-full bg-white/90 px-3 py-1 text-slate-700 shadow">
+                <Badge className="rounded-full bg-card/90 px-3 py-1 text-foreground shadow">
                   {state.minRating.toFixed(1)}+ rated
                 </Badge>
               ) : null}
               {state.tags.map((tag) => (
                 <Badge
                   key={tag}
-                  className="rounded-full bg-white/90 px-3 py-1 text-slate-700 shadow"
+                  className="rounded-full bg-card/90 px-3 py-1 text-foreground shadow"
                 >
                   {tag}
                 </Badge>
@@ -407,8 +422,13 @@ export function ExploreLayout() {
           value={state.view}
           className="relative flex h-full flex-col gap-0 lg:hidden"
         >
-          <div className={cn("pointer-events-none absolute inset-x-0 top-2 z-20 px-4", state.view === "list" && "hidden")}>
-            <Card className="pointer-events-auto rounded-[26px] border-white/80  bg-transparent p-3 shadow-xl backdrop-blur">
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-x-0 top-2 z-20 px-4",
+              state.view === "list" && "hidden",
+            )}
+          >
+            <Card className="pointer-events-auto border-border/80 bg-transparent p-3 shadow-xl backdrop-blur">
               <div className="flex items-center gap-2">
                 <Input
                   ref={searchInputRef}
@@ -417,7 +437,7 @@ export function ExploreLayout() {
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search dive spots"
                   aria-label="Search dive spots"
-                  className="h-11 rounded-full bg-slate-50"
+                  className="h-11 rounded-full bg-muted/40"
                 />
                 {mobileFiltersControl}
               </div>
@@ -501,11 +521,11 @@ export function ExploreLayout() {
           </SheetContent>
         </Sheet>
       </div>
-                     <div className="relative">
-                         <div className="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex justify-center px-4">
-            <ExploreMobileToggle view={state.view} onChange={setView} />
-          </div>
-                     </div>
+      <div className="relative">
+        <div className="pointer-events-none fixed lg:hidden inset-x-0 bottom-20 z-50 flex justify-center px-4">
+          <ExploreMobileToggle view={state.view} onChange={setView} />
+        </div>
+      </div>
     </MapProvider>
   );
 }

@@ -1,5 +1,5 @@
 export type {
+  ProfileBucketListItem,
   ProfilePost,
   PublicProfile,
-  PublicProfileHighlight,
 } from "@freediving.ph/types";

@@ -99,8 +99,8 @@ test("GET /v1/chika/threads — thread list", async () => {
 
 // ── Migrated feature: messaging ─────────────────────────────────────
 
-test("GET /v1/messages/inbox — messaging inbox", async () => {
-  const { response, body } = await authedRequest("/v1/messages/inbox");
+test("GET /v1/messages/threads — messaging threads", async () => {
+  const { response, body } = await authedRequest("/v1/messages/threads?category=primary");
   assert.equal(response.status, 200);
   assert.equal(Array.isArray(body.items), true);
 });

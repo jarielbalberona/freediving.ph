@@ -215,6 +215,12 @@ func (h *Handlers) UploadMultiple(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) MintURLs(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+
 	req, issues, ok := httpx.DecodeAndValidate[MintURLsRequest](r, h.validator)
 	if !ok {
 		httpx.WriteValidationError(w, issues)
@@ -232,7 +238,10 @@ func (h *Handlers) MintURLs(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	result, err := h.service.MintURLs(r.Context(), mediaservice.MintURLsInput{Items: items})
+	result, err := h.service.MintURLs(r.Context(), mediaservice.MintURLsInput{
+		ViewerUserID: actorID,
+		Items:        items,
+	})
 	if err != nil {
 		var validationErr mediaservice.ValidationFailure
 		if errors.As(err, &validationErr) {

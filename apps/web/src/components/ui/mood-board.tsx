@@ -32,8 +32,8 @@ export default function MoodBoardItem({ image }: { image: ImageData }) {
             }
           }}
         />
-        <div className="absolute inset-0 transition-opacity duration-300 opacity-0 bg-gradient-to-b from-transparent via-transparent to-black/60 group-hover:opacity-100" />
-        <div className="absolute bottom-0 left-0 right-0 p-4 text-white transition-transform duration-300 transform translate-y-full group-hover:translate-y-0">
+        <div className="absolute inset-0 transition-opacity duration-300 opacity-0 bg-gradient-to-b from-transparent via-transparent to-overlay/60 group-hover:opacity-100" />
+        <div className="text-overlay-foreground absolute bottom-0 left-0 right-0 p-4 transition-transform duration-300 transform translate-y-full group-hover:translate-y-0">
           <h3 className="text-sm font-medium">{image.title}</h3>
         </div>
       </div>

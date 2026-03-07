@@ -20,9 +20,10 @@ func TestProtectedUserRoutesRequireAuth(t *testing.T) {
 		method string
 	}{
 		{name: "me", path: "/me", method: http.MethodGet},
-		{name: "by id", path: "/123", method: http.MethodGet},
-		{name: "save user", path: "/123/save", method: http.MethodPost},
-		{name: "unsave user", path: "/123/save", method: http.MethodDelete},
+		{name: "by username", path: "/jarielbalberona", method: http.MethodGet},
+		{name: "by id", path: "/id/123", method: http.MethodGet},
+		{name: "save user", path: "/id/123/save", method: http.MethodPost},
+		{name: "unsave user", path: "/id/123/save", method: http.MethodDelete},
 	}
 
 	for _, tc := range tests {

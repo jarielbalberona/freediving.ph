@@ -17,6 +17,7 @@ export * from './safetyResources';
 export * from './awareness';
 export * from './marketplace';
 export * from './collaboration';
+export * from './locations';
 
 // You can add more features here as they are created:
 // export * from './events';

@@ -20,13 +20,14 @@ This defines the minimal feature-scoped permissions for currently implemented pr
 - `reports.moderate`: `PATCH /v1/reports/{reportId}/status`
 
 ### Messaging
-- `messaging.read`: `GET /v1/messages/inbox`, `GET /v1/messages/requests`, `GET /ws`
-- `messaging.write`: `POST /v1/messages/send`, `POST /v1/messages/{conversationId}/accept`, `POST /v1/messages/{conversationId}/reject`
+- `messaging.read`: `GET /v1/messages/threads`, `GET /v1/messages/threads/{threadId}`, `GET /v1/messages/threads/{threadId}/messages`
+- `messaging.write`: `POST /v1/messages/threads/direct`, `POST /v1/messages/threads/{threadId}/messages`, `POST /v1/messages/threads/{threadId}/read`
 
 ### Chika
 - `chika.read`: list/read threads/posts/comments/media endpoints
 - `chika.write`: create/update/delete threads/comments/reactions/media endpoints
 - `chika.moderate`: reserved moderator capability
+- `chika.reveal_identity`: allows explicit identity reveal on chika payloads (`includeRealAuthor=true`)
 
 ## Where Default Grants Come From
 

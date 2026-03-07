@@ -23,7 +23,7 @@ const markerSvg = (selected: boolean) =>
   `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
     <svg width="38" height="50" viewBox="0 0 38 50" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M19 49C17 45 8 33.5 8 24C8 14.6112 13.6112 7 19 7C24.3888 7 30 14.6112 30 24C30 33.5 21 45 19 49Z" fill="${selected ? "#0F766E" : "#2563EB"}"/>
-      <circle cx="19" cy="24" r="8.5" fill="white"/>
+      <circle cx="19" cy="24" r="8.5" fill="${selected ? "#D1FAE5" : "#DBEAFE"}"/>
       <circle cx="19" cy="24" r="4.5" fill="${selected ? "#0F766E" : "#2563EB"}"/>
     </svg>
   `)}`;

@@ -21,11 +21,23 @@ import (
 	chikahttp "fphgo/internal/features/chika/http"
 	chikarepo "fphgo/internal/features/chika/repo"
 	chikaservice "fphgo/internal/features/chika/service"
+	eventshttp "fphgo/internal/features/events/http"
+	eventsrepo "fphgo/internal/features/events/repo"
+	eventsservice "fphgo/internal/features/events/service"
 	explorehttp "fphgo/internal/features/explore/http"
 	explorerepo "fphgo/internal/features/explore/repo"
 	exploreservice "fphgo/internal/features/explore/service"
+	feedhttp "fphgo/internal/features/feed/http"
+	feedrepo "fphgo/internal/features/feed/repo"
+	feedservice "fphgo/internal/features/feed/service"
+	groupshttp "fphgo/internal/features/groups/http"
+	groupsrepo "fphgo/internal/features/groups/repo"
+	groupsservice "fphgo/internal/features/groups/service"
 	identityrepo "fphgo/internal/features/identity/repo"
 	identityservice "fphgo/internal/features/identity/service"
+	locationshttp "fphgo/internal/features/locations/http"
+	locationsrepo "fphgo/internal/features/locations/repo"
+	locationsservice "fphgo/internal/features/locations/service"
 	mediahttp "fphgo/internal/features/media/http"
 	mediarepo "fphgo/internal/features/media/repo"
 	mediaservice "fphgo/internal/features/media/service"
@@ -35,6 +47,9 @@ import (
 	moderationhttp "fphgo/internal/features/moderation_actions/http"
 	moderationrepo "fphgo/internal/features/moderation_actions/repo"
 	moderationservice "fphgo/internal/features/moderation_actions/service"
+	notificationshttp "fphgo/internal/features/notifications/http"
+	notificationsrepo "fphgo/internal/features/notifications/repo"
+	notificationsservice "fphgo/internal/features/notifications/service"
 	profileshttp "fphgo/internal/features/profiles/http"
 	profilesrepo "fphgo/internal/features/profiles/repo"
 	profilesservice "fphgo/internal/features/profiles/service"
@@ -57,34 +72,44 @@ type App struct {
 }
 
 type Dependencies struct {
-	AuthHandler        *authhttp.Handlers
-	UsersHandler       *usershttp.Handlers
-	MessagingHandler   *messaginghttp.Handlers
-	ChikaHandler       *chikahttp.Handlers
-	ExploreHandler     *explorehttp.Handlers
-	BuddyFinderHandler *buddyfinderhttp.Handlers
-	ProfilesHandler    *profileshttp.Handlers
-	BlocksHandler      *blockshttp.Handlers
-	BuddiesHandler     *buddieshttp.Handlers
-	ReportsHandler     *reportshttp.Handlers
-	ModerationHandler  *moderationhttp.Handlers
-	MediaHandler       *mediahttp.Handlers
-	AuthRoutes         chi.Router
-	UsersRoutes        chi.Router
-	MessagingRoutes    chi.Router
-	ChikaRoutes        chi.Router
-	ExploreRoutes      chi.Router
-	BuddyFinderRoutes  chi.Router
-	ProfilesRoutes     chi.Router
-	BlocksRoutes       chi.Router
-	BuddiesRoutes      chi.Router
-	ReportsRoutes      chi.Router
-	ModerationRoutes   chi.Router
-	MediaRoutes        chi.Router
-	IdentityService    *identityservice.Service
-	WSHandler          *ws.Handler
-	Hub                *ws.Hub
-	ReadyCheck         func(context.Context) error
+	AuthHandler          *authhttp.Handlers
+	UsersHandler         *usershttp.Handlers
+	MessagingHandler     *messaginghttp.Handlers
+	ChikaHandler         *chikahttp.Handlers
+	ExploreHandler       *explorehttp.Handlers
+	FeedHandler          *feedhttp.Handlers
+	BuddyFinderHandler   *buddyfinderhttp.Handlers
+	ProfilesHandler      *profileshttp.Handlers
+	BlocksHandler        *blockshttp.Handlers
+	BuddiesHandler       *buddieshttp.Handlers
+	ReportsHandler       *reportshttp.Handlers
+	ModerationHandler    *moderationhttp.Handlers
+	MediaHandler         *mediahttp.Handlers
+	NotificationsHandler *notificationshttp.Handlers
+	GroupsHandler        *groupshttp.Handlers
+	EventsHandler        *eventshttp.Handlers
+	LocationsHandler     *locationshttp.Handlers
+	AuthRoutes           chi.Router
+	UsersRoutes          chi.Router
+	MessagingRoutes      chi.Router
+	ChikaRoutes          chi.Router
+	ExploreRoutes        chi.Router
+	FeedRoutes           chi.Router
+	BuddyFinderRoutes    chi.Router
+	ProfilesRoutes       chi.Router
+	BlocksRoutes         chi.Router
+	BuddiesRoutes        chi.Router
+	ReportsRoutes        chi.Router
+	ModerationRoutes     chi.Router
+	MediaRoutes          chi.Router
+	NotificationsRoutes  chi.Router
+	GroupsRoutes         chi.Router
+	EventsRoutes         chi.Router
+	LocationsRoutes      chi.Router
+	IdentityService      *identityservice.Service
+	WSHandler            *ws.Handler
+	Hub                  *ws.Hub
+	ReadyCheck           func(context.Context) error
 }
 
 type buddyFinderSiteLookup struct {
@@ -104,7 +129,17 @@ func (l buddyFinderSiteLookup) GetSiteForWrite(ctx context.Context, siteID strin
 }
 
 func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) *Dependencies {
-	hub := ws.NewHub(logger)
+	var hubOpts []ws.HubOption
+	if cfg.WSFanoutChannel != "" {
+		bus, err := ws.NewPostgresFanoutBus(logger, pool, cfg.DBDSN, cfg.WSFanoutChannel)
+		if err != nil {
+			logger.Error("ws fanout disabled", "error", err)
+		} else {
+			hubOpts = append(hubOpts, ws.WithFanoutBus(bus))
+			logger.Info("ws fanout enabled", "channel", cfg.WSFanoutChannel)
+		}
+	}
+	hub := ws.NewHub(logger, hubOpts...)
 	v := validatex.New()
 	limiter := sharedratelimit.New(pool)
 
@@ -122,11 +157,24 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	messagingHandler := messaginghttp.New(messagingService, userService, v)
 
 	chikaRepo := chikarepo.New(pool)
-	chikaService := chikaservice.New(chikaRepo, blocksService, chikaservice.WithLimiter(limiter))
+	chikaService := chikaservice.New(
+		chikaRepo,
+		blocksService,
+		chikaservice.WithLimiter(limiter),
+		chikaservice.WithPseudonymSecret(cfg.ChikaPseudonymSecret),
+		chikaservice.WithRealtimeBroadcaster(hub),
+	)
 	chikaHandler := chikahttp.New(chikaService, v)
+	feedRepo := feedrepo.New(pool)
+	feedService := feedservice.New(feedRepo)
+	feedHandler := feedhttp.New(feedService, v)
 
 	profilesRepo := profilesrepo.New(pool)
-	profilesService := profilesservice.New(profilesRepo, profilesservice.WithLimiter(limiter))
+	profilesService := profilesservice.New(
+		profilesRepo,
+		profilesservice.WithLimiter(limiter),
+		profilesservice.WithMediaBaseURL(cfg.MediaCDNBaseURL),
+	)
 	profilesHandler := profileshttp.New(profilesService, v)
 	blocksHandler := blockshttp.New(blocksService, v)
 	buddiesHandler := buddieshttp.New(buddiesService, v)
@@ -134,7 +182,11 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	reportsService := reportsservice.New(reportsRepo, reportsservice.WithLimiter(limiter))
 	reportsHandler := reportshttp.New(reportsService, v)
 	moderationRepo := moderationrepo.New(pool)
-	moderationService := moderationservice.New(moderationRepo, moderationservice.WithLimiter(limiter))
+	moderationService := moderationservice.New(
+		moderationRepo,
+		moderationservice.WithLimiter(limiter),
+		moderationservice.WithRealtimeBroadcaster(hub),
+	)
 	moderationHandler := moderationhttp.New(moderationService, v)
 	mediaRepo := mediarepo.New(pool)
 	var mediaUploader *sharedr2.Client
@@ -157,6 +209,18 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		cfg.MediaSigningKeyVersion,
 	)
 	mediaHandler := mediahttp.New(mediaService, v)
+	notificationsRepo := notificationsrepo.New(pool)
+	notificationsService := notificationsservice.New(notificationsRepo)
+	notificationsHandler := notificationshttp.New(notificationsService, v)
+	groupsRepo := groupsrepo.New(pool)
+	groupsService := groupsservice.New(groupsRepo)
+	groupsHandler := groupshttp.New(groupsService, v)
+	eventsRepo := eventsrepo.New(pool)
+	eventsService := eventsservice.New(eventsRepo)
+	eventsHandler := eventshttp.New(eventsService, v)
+	locationsRepo := locationsrepo.New(pool)
+	locationsService := locationsservice.New(locationsRepo)
+	locationsHandler := locationshttp.New(locationsService)
 
 	exploreRepo := explorerepo.New(pool)
 	var siteGeocoder *sharedmapsgeocode.Client
@@ -183,24 +247,29 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	identityRepo := identityrepo.New(pool)
 	identityService := identityservice.New(identityRepo)
 
-	wsHandler := ws.NewHandler(logger, hub, userService)
+	wsHandler := ws.NewHandler(logger, hub, userService, cfg.CORSOrigins)
 
 	return &Dependencies{
-		AuthHandler:        authHandler,
-		UsersHandler:       usersHandler,
-		MessagingHandler:   messagingHandler,
-		ChikaHandler:       chikaHandler,
-		ExploreHandler:     exploreHandler,
-		BuddyFinderHandler: buddyFinderHandler,
-		ProfilesHandler:    profilesHandler,
-		BlocksHandler:      blocksHandler,
-		BuddiesHandler:     buddiesHandler,
-		ReportsHandler:     reportsHandler,
-		ModerationHandler:  moderationHandler,
-		MediaHandler:       mediaHandler,
-		IdentityService:    identityService,
-		WSHandler:          wsHandler,
-		Hub:                hub,
-		ReadyCheck:         pool.Ping,
+		AuthHandler:          authHandler,
+		UsersHandler:         usersHandler,
+		MessagingHandler:     messagingHandler,
+		ChikaHandler:         chikaHandler,
+		ExploreHandler:       exploreHandler,
+		FeedHandler:          feedHandler,
+		BuddyFinderHandler:   buddyFinderHandler,
+		ProfilesHandler:      profilesHandler,
+		BlocksHandler:        blocksHandler,
+		BuddiesHandler:       buddiesHandler,
+		ReportsHandler:       reportsHandler,
+		ModerationHandler:    moderationHandler,
+		MediaHandler:         mediaHandler,
+		NotificationsHandler: notificationsHandler,
+		GroupsHandler:        groupsHandler,
+		EventsHandler:        eventsHandler,
+		LocationsHandler:     locationsHandler,
+		IdentityService:      identityService,
+		WSHandler:            wsHandler,
+		Hub:                  hub,
+		ReadyCheck:           pool.Ping,
 	}
 }

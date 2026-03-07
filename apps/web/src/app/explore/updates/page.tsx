@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { UsernameLink } from "@/components/common/UsernameLink";
 import { TrustCard } from "@/components/trust-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,9 +27,9 @@ export default function ExploreUpdatesPage() {
   });
 
   return (
-    <div className="min-h-full bg-[linear-gradient(180deg,_#f6fbf9_0%,_#ffffff_100%)] px-4 py-6 sm:px-6">
+    <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-5xl space-y-6">
-        <section className="rounded-[28px] border border-emerald-900/10 bg-white/90 p-6 shadow-sm">
+        <section className="rounded-4xl border border-border bg-card/90 p-6 shadow-sm">
           <Badge className="w-fit rounded-full bg-emerald-950 text-emerald-50">Conditions Pulse</Badge>
           <h1 className="mt-3 font-serif text-4xl tracking-tight text-emerald-950">Latest updates near you</h1>
           <p className="mt-2 max-w-2xl text-sm text-zinc-600">
@@ -37,13 +38,13 @@ export default function ExploreUpdatesPage() {
           <div className="mt-4 grid max-w-2xl gap-3 sm:grid-cols-2">
             <Input placeholder="Filter by area" value={area} onChange={(event) => setArea(event.target.value)} />
             <div className="flex gap-2">
-              <button type="button" className={`rounded-md border px-3 py-2 text-sm ${recency === "24h" ? "bg-emerald-950 text-white" : "bg-white"}`} onClick={() => setRecency("24h")}>
+              <button type="button" className={`rounded-md border px-3 py-2 text-sm ${recency === "24h" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground"}`} onClick={() => setRecency("24h")}>
                 24h
               </button>
-              <button type="button" className={`rounded-md border px-3 py-2 text-sm ${recency === "7d" ? "bg-emerald-950 text-white" : "bg-white"}`} onClick={() => setRecency("7d")}>
+              <button type="button" className={`rounded-md border px-3 py-2 text-sm ${recency === "7d" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground"}`} onClick={() => setRecency("7d")}>
                 7d
               </button>
-              <button type="button" className={`rounded-md border px-3 py-2 text-sm ${recency === "30d" ? "bg-emerald-950 text-white" : "bg-white"}`} onClick={() => setRecency("30d")}>
+              <button type="button" className={`rounded-md border px-3 py-2 text-sm ${recency === "30d" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground"}`} onClick={() => setRecency("30d")}>
                 30d
               </button>
             </div>
@@ -52,7 +53,7 @@ export default function ExploreUpdatesPage() {
 
         <section className="grid gap-4">
           {items.map((item) => (
-            <Card key={item.id} className="rounded-[24px] bg-white/90">
+            <Card key={item.id} className="bg-card/90">
               <CardHeader className="space-y-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -69,7 +70,12 @@ export default function ExploreUpdatesPage() {
               <CardContent className="space-y-3">
                 <p className="text-sm text-zinc-700">{item.note}</p>
                 <p className="text-xs text-zinc-500">
-                  {item.authorDisplayName || "Community report"} updated {new Date(item.occurredAt).toLocaleString()}
+                  <UsernameLink
+                    username={item.authorDisplayName}
+                    className="text-zinc-500"
+                    fallback="Community report"
+                  />{" "}
+                  updated {new Date(item.occurredAt).toLocaleString()}
                 </p>
                 <TrustCard
                   emailVerified={item.authorTrust.emailVerified}
@@ -85,7 +91,7 @@ export default function ExploreUpdatesPage() {
             </Card>
           ))}
           {items.length === 0 && !updatesQuery.isLoading ? (
-            <Card className="rounded-[24px] border-dashed">
+            <Card className="border-dashed">
               <CardContent className="p-6 text-sm text-zinc-600">
                 No recent updates matched this filter yet. That is precisely why Conditions Pulse matters.
               </CardContent>

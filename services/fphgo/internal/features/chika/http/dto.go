@@ -7,6 +7,7 @@ type Pagination struct {
 
 type CreateThreadRequest struct {
 	Title      string `json:"title" validate:"required,min=1,max=200"`
+	Content    string `json:"content" validate:"max=2000"`
 	CategoryID string `json:"categoryId" validate:"required,uuid"`
 }
 
@@ -19,7 +20,8 @@ type CreatePostRequest struct {
 }
 
 type CreateCommentRequest struct {
-	Content string `json:"content" validate:"required,min=1,max=4000"`
+	Content         string `json:"content" validate:"required,min=1,max=4000"`
+	ParentCommentID string `json:"parentCommentId,omitempty" validate:"omitempty,numeric"`
 }
 
 type UpdateCommentRequest struct {
@@ -44,6 +46,10 @@ type CreateMediaAssetRequest struct {
 type ThreadResponse struct {
 	ID               string `json:"id"`
 	Title            string `json:"title"`
+	Content          string `json:"content"`
+	VoteCount        int64  `json:"voteCount"`
+	CommentCount     int64  `json:"commentCount"`
+	UserReaction     string `json:"userReaction,omitempty"`
 	Mode             string `json:"mode"`
 	CategoryID       string `json:"categoryId"`
 	CategorySlug     string `json:"categorySlug"`
@@ -69,7 +75,12 @@ type PostResponse struct {
 type CommentResponse struct {
 	ID               string `json:"id"`
 	ThreadID         string `json:"threadId"`
+	ParentCommentID  string `json:"parentCommentId,omitempty"`
+	VoteCount        int64  `json:"voteCount"`
+	ReplyCount       int64  `json:"replyCount"`
+	UserReaction     string `json:"userReaction,omitempty"`
 	AuthorDisplay    string `json:"authorDisplayName"`
+	AuthorAvatarURL  string `json:"authorAvatarUrl,omitempty"`
 	RealAuthorUserID string `json:"realAuthorUserId,omitempty"`
 	Content          string `json:"content"`
 	IsHidden         bool   `json:"isHidden"`
@@ -90,6 +101,12 @@ type ReactionResponse struct {
 	ThreadID string `json:"threadId"`
 	UserID   string `json:"userId"`
 	Type     string `json:"type"`
+}
+
+type CommentReactionResponse struct {
+	CommentID string `json:"commentId"`
+	UserID    string `json:"userId"`
+	Type      string `json:"type"`
 }
 
 type MediaAssetResponse struct {

@@ -37,13 +37,13 @@ func TestV1CoreEndpointsRequireAuth(t *testing.T) {
 	paths := []string{
 		"/v1/me",
 		"/v1/auth/session",
-		"/v1/messages/inbox",
-		"/v1/chika/threads",
+		"/v1/messages/threads?category=primary",
 		"/v1/me/profile",
 		"/v1/users/search?q=test",
 		"/v1/blocks",
 		"/v1/buddies",
 		"/v1/reports",
+		"/v1/notifications",
 	}
 
 	for _, path := range paths {
@@ -73,6 +73,16 @@ func TestV1CoreEndpointsRequireAuth(t *testing.T) {
 
 func TestV1CoreEndpointContracts(t *testing.T) {
 	router := buildContractRouter()
+
+	t.Run("GET /v1/chika/threads public", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/chika/threads", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+	})
 
 	t.Run("GET /v1/auth/session", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/v1/auth/session", nil)
@@ -127,8 +137,8 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		assertArrayField(t, payload, "permissions")
 	})
 
-	t.Run("GET /v1/messages/inbox", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/v1/messages/inbox", nil)
+	t.Run("GET /v1/messages/threads", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/messages/threads?category=primary", nil)
 		req.Header.Set("Authorization", "Bearer contract-ok")
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
@@ -146,15 +156,16 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 			t.Fatal("expected items array")
 		}
 		if len(items) == 0 {
-			t.Fatal("expected at least one inbox item")
+			t.Fatal("expected at least one thread")
 		}
 		first, ok := items[0].(map[string]any)
 		if !ok {
-			t.Fatal("expected inbox item object")
+			t.Fatal("expected thread summary object")
 		}
-		assertStringField(t, first, "conversationId")
-		assertStringField(t, first, "status")
-		assertStringField(t, first, "updatedAt")
+		assertStringField(t, first, "id")
+		assertStringField(t, first, "type")
+		assertStringField(t, first, "category")
+		assertStringField(t, first, "lastMessageAt")
 		if _, ok := first["participant"].(map[string]any); !ok {
 			t.Fatal("expected participant object")
 		}
@@ -311,6 +322,24 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		assertStringField(t, first, "createdAt")
 		assertStringField(t, first, "updatedAt")
 	})
+
+	t.Run("GET /v1/notifications", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/notifications", nil)
+		req.Header.Set("Authorization", "Bearer contract-ok")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rec.Code)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		if _, ok := payload["items"].([]any); !ok {
+			t.Fatal("expected items array")
+		}
+	})
 }
 
 func TestValidationErrorContractIncludesIssues(t *testing.T) {
@@ -356,7 +385,7 @@ func TestAuthStateGuardsOnProtectedAndWriteRoutes(t *testing.T) {
 	})
 
 	t.Run("missing permission is 403", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/v1/messages/inbox", nil)
+		req := httptest.NewRequest(http.MethodGet, "/v1/messages/threads?category=primary", nil)
 		req.Header.Set("Authorization", "Bearer contract-no-messaging-read")
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
@@ -380,8 +409,8 @@ func TestAuthStateGuardsOnProtectedAndWriteRoutes(t *testing.T) {
 	})
 
 	t.Run("suspended cannot write", func(t *testing.T) {
-		body := strings.NewReader(`{"recipientId":"550e8400-e29b-41d4-a716-446655440003","content":"hello"}`)
-		req := httptest.NewRequest(http.MethodPost, "/v1/messages/requests", body)
+		body := strings.NewReader(`{"targetUserId":"550e8400-e29b-41d4-a716-446655440003"}`)
+		req := httptest.NewRequest(http.MethodPost, "/v1/messages/threads/direct", body)
 		req.Header.Set("Authorization", "Bearer contract-suspended")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -415,52 +444,72 @@ func buildContractRouter() chi.Router {
 	})
 
 	messagesRoutes := chi.NewRouter()
-	messagesRoutes.Get("/inbox", func(w http.ResponseWriter, r *http.Request) {
+	messagesRoutes.Get("/threads", func(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]any{"items": []map[string]any{{
-			"conversationId": "550e8400-e29b-41d4-a716-446655440001",
-			"status":         "active",
-			"updatedAt":      "2026-02-27T00:00:00Z",
+			"id":            "550e8400-e29b-41d4-a716-446655440001",
+			"type":          "direct",
+			"category":      "primary",
+			"lastMessageAt": "2026-02-27T00:00:00Z",
 			"participant": map[string]any{
-				"userId":      "550e8400-e29b-41d4-a716-446655440002",
+				"id":          "550e8400-e29b-41d4-a716-446655440002",
 				"username":    "member2",
 				"displayName": "Member Two",
 				"avatarUrl":   "",
 			},
 			"lastMessage": map[string]any{
-				"conversationId": "550e8400-e29b-41d4-a716-446655440001",
-				"messageId":      "1001",
-				"senderId":       "550e8400-e29b-41d4-a716-446655440002",
-				"content":        "hello",
-				"createdAt":      "2026-02-27T00:00:00Z",
+				"id":           "1001",
+				"threadId":     "550e8400-e29b-41d4-a716-446655440001",
+				"senderUserId": "550e8400-e29b-41d4-a716-446655440002",
+				"kind":         "text",
+				"body":         "hello",
+				"createdAt":    "2026-02-27T00:00:00Z",
+				"isOwn":        false,
 			},
 		}}})
+	})
+	messagesRoutes.Post("/threads/direct", func(w http.ResponseWriter, r *http.Request) {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"id":       "550e8400-e29b-41d4-a716-446655440001",
+			"type":     "direct",
+			"category": "primary",
+			"participants": []map[string]any{
+				{"id": "550e8400-e29b-41d4-a716-446655440000", "username": "member1", "displayName": "Member One", "avatarUrl": ""},
+				{"id": "550e8400-e29b-41d4-a716-446655440002", "username": "member2", "displayName": "Member Two", "avatarUrl": ""},
+			},
+			"createdAt": "2026-02-27T00:00:00Z",
+			"canSend":   true,
+		})
 	})
 
 	chikaRoutes := chi.NewRouter()
 	chikaRoutes.Get("/threads", func(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]any{
 			"items": []map[string]any{{
-				"id":                "550e8400-e29b-41d4-a716-446655440010",
-				"title":             "Contract thread",
-				"mode":              "normal",
-				"categoryId":        "550e8400-e29b-41d4-a716-446655440020",
-				"categorySlug":      "general",
-				"categoryName":      "General",
+				"id":                   "550e8400-e29b-41d4-a716-446655440010",
+				"title":                "Contract thread",
+				"mode":                 "normal",
+				"categoryId":           "550e8400-e29b-41d4-a716-446655440020",
+				"categorySlug":         "general",
+				"categoryName":         "General",
 				"categoryPseudonymous": false,
-				"authorDisplayName": "member1",
-				"isHidden":          false,
-				"createdAt":         "2026-02-27T00:00:00Z",
-				"updatedAt":         "2026-02-27T00:00:00Z",
+				"authorDisplayName":    "member1",
+				"isHidden":             false,
+				"createdAt":            "2026-02-27T00:00:00Z",
+				"updatedAt":            "2026-02-27T00:00:00Z",
 			}},
 			"pagination": map[string]any{"limit": 20, "offset": 0},
 		})
 	})
-	chikaRoutes.Post("/threads", func(w http.ResponseWriter, r *http.Request) {
-		httpx.WriteValidationError(w, []validatex.Issue{{
-			Path:    []any{"title"},
-			Code:    "required",
-			Message: "title is required",
-		}})
+	chikaRoutes.Group(func(write chi.Router) {
+		write.Use(middleware.RequireMember)
+		write.Use(middleware.RequirePermission(authz.PermissionChikaWrite))
+		write.Post("/threads", func(w http.ResponseWriter, r *http.Request) {
+			httpx.WriteValidationError(w, []validatex.Issue{{
+				Path:    []any{"title"},
+				Code:    "required",
+				Message: "title is required",
+			}})
+		})
 	})
 
 	profilesRoutes := chi.NewRouter()
@@ -532,16 +581,35 @@ func buildContractRouter() chi.Router {
 		})
 	})
 
+	notificationsRoutes := chi.NewRouter()
+	notificationsRoutes.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		httpx.JSON(w, http.StatusOK, map[string]any{
+			"items": []map[string]any{{
+				"id":        1,
+				"userId":    "550e8400-e29b-41d4-a716-446655440000",
+				"type":      "SYSTEM",
+				"title":     "Welcome",
+				"message":   "Contract notification",
+				"status":    "UNREAD",
+				"priority":  "NORMAL",
+				"createdAt": "2026-02-27T00:00:00Z",
+				"updatedAt": "2026-02-27T00:00:00Z",
+			}},
+			"pagination": map[string]any{"limit": 20, "offset": 0},
+		})
+	})
+
 	deps := &Dependencies{
-		AuthHandler:     authhttp.New(),
-		AuthRoutes:      authRoutes,
-		MessagingRoutes: messagesRoutes,
-		ChikaRoutes:     chikaRoutes,
-		ProfilesRoutes:  profilesRoutes,
-		BlocksRoutes:    blocksRoutes,
-		BuddiesRoutes:   buddiesRoutes,
-		ReportsRoutes:   reportsRoutes,
-		ReadyCheck:      func(_ context.Context) error { return nil },
+		AuthHandler:         authhttp.New(),
+		AuthRoutes:          authRoutes,
+		MessagingRoutes:     messagesRoutes,
+		ChikaRoutes:         chikaRoutes,
+		ProfilesRoutes:      profilesRoutes,
+		BlocksRoutes:        blocksRoutes,
+		BuddiesRoutes:       buddiesRoutes,
+		ReportsRoutes:       reportsRoutes,
+		NotificationsRoutes: notificationsRoutes,
+		ReadyCheck:          func(_ context.Context) error { return nil },
 	}
 
 	cfg := config.Config{CORSOrigins: []string{"*"}}

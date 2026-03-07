@@ -87,11 +87,11 @@ export function ExploreResultsPanel({
   return (
     <div
       className={cn(
-        "bg-background flex h-full min-h-0 flex-col border-r border-black/5",
+        "bg-background flex h-full min-h-0 flex-col border-r border-border",
         className,
       )}
     >
-      <div className="border-b border-black/5 px-4 pb-4 pt-4">
+      <div className="border-b border-border px-4 pb-4 pt-4">
         {showSearchControls ? (
           <div className="flex items-center gap-2">
             <Input
@@ -185,10 +185,10 @@ export function ExploreResultsPanel({
             Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={`explore-skeleton-${index}`}
-                className="rounded-[28px] border border-black/5 bg-white p-4"
+                className="rounded-4xl border border-border bg-card p-4"
               >
                 <div className="grid gap-4 sm:grid-cols-[132px_1fr]">
-                  <Skeleton className="h-36 rounded-[22px]" />
+                  <Skeleton className="h-36" />
                   <div className="space-y-3">
                     <Skeleton className="h-5 w-2/3" />
                     <Skeleton className="h-4 w-1/2" />
@@ -213,7 +213,7 @@ export function ExploreResultsPanel({
               />
             ))
           ) : (
-            <div className="rounded-[28px] border border-dashed border-black/10 bg-slate-50 px-5 py-8">
+            <div className="rounded-4xl border border-dashed border-border/80 bg-muted/40 px-5 py-8">
               <p className="text-base font-semibold text-foreground">
                 No dive spots found
               </p>

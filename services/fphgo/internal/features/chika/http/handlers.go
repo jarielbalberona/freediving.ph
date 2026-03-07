@@ -1,8 +1,6 @@
 package http
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"net/http"
 	"strconv"
 	"strings"
@@ -42,6 +40,7 @@ func (h *Handlers) CreateThread(w http.ResponseWriter, r *http.Request) {
 	thread, err := h.service.CreateThread(r.Context(), chikaservice.CreateThreadInput{
 		ActorID:    actor.ID,
 		Title:      req.Title,
+		Content:    req.Content,
 		CategoryID: req.CategoryID,
 	})
 	if err != nil {
@@ -49,7 +48,7 @@ func (h *Handlers) CreateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusCreated, threadResponse(thread, actor.ID, actor.Role, actor.CanModerate))
+	httpx.JSON(w, http.StatusCreated, threadResponse(thread, actor.ID, false))
 }
 
 func (h *Handlers) ListCategories(w http.ResponseWriter, r *http.Request) {
@@ -71,41 +70,52 @@ func (h *Handlers) ListCategories(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListThreads(w http.ResponseWriter, r *http.Request) {
-	actor, err := requireActor(r)
+	actor, err := requireActorOrGuest(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	limit, offset := parsePagination(r)
+	limit, offset := parsePagination(r, actor.IsGuest)
 	result, err := h.service.ListThreads(r.Context(), chikaservice.ListThreadsInput{
 		ViewerID:   actor.ID,
 		ViewerRole: actor.Role,
 		Category:   r.URL.Query().Get("category"),
 		Limit:      limit,
-		Cursor:     r.URL.Query().Get("cursor"),
+		Cursor:     publicCursor(actor.IsGuest, r.URL.Query().Get("cursor")),
 	})
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
+	includeRealAuthor := shouldIncludeRealAuthor(r, actor.CanRevealIdentity)
+	if includeRealAuthor {
+		if err := h.service.RevealIdentityRateLimit(r.Context(), actor.ID); err != nil {
+			httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+			return
+		}
+	}
 
 	resp := make([]ThreadResponse, 0, len(result.Items))
 	for _, item := range result.Items {
-		resp = append(resp, threadResponse(item, actor.ID, actor.Role, actor.CanModerate))
+		resp = append(resp, threadResponse(item, actor.ID, includeRealAuthor))
 	}
 
+	nextCursor := result.NextCursor
+	if actor.IsGuest {
+		nextCursor = ""
+	}
 	httpx.JSON(w, http.StatusOK, ListThreadsResponse{
 		Items: resp,
 		Pagination: Pagination{
 			Limit:  limit,
 			Offset: offset,
 		},
-		NextCursor: result.NextCursor,
+		NextCursor: nextCursor,
 	})
 }
 
 func (h *Handlers) GetThread(w http.ResponseWriter, r *http.Request) {
-	actor, err := requireActor(r)
+	actor, err := requireActorOrGuest(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
@@ -121,7 +131,15 @@ func (h *Handlers) GetThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, threadResponse(thread, actor.ID, actor.Role, actor.CanModerate))
+	includeRealAuthor := shouldIncludeRealAuthor(r, actor.CanRevealIdentity)
+	if includeRealAuthor {
+		if err := h.service.RevealIdentityRateLimit(r.Context(), actor.ID); err != nil {
+			httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+			return
+		}
+	}
+
+	httpx.JSON(w, http.StatusOK, threadResponse(thread, actor.ID, includeRealAuthor))
 }
 
 func (h *Handlers) UpdateThread(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +166,7 @@ func (h *Handlers) UpdateThread(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, threadResponse(thread, actor.ID, actor.Role, actor.CanModerate))
+	httpx.JSON(w, http.StatusOK, threadResponse(thread, actor.ID, false))
 }
 
 func (h *Handlers) DeleteThread(w http.ResponseWriter, r *http.Request) {
@@ -199,13 +217,13 @@ func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListPosts(w http.ResponseWriter, r *http.Request) {
-	actor, err := requireActor(r)
+	actor, err := requireActorOrGuest(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
 	threadID := chi.URLParam(r, "threadId")
-	limit, offset := parsePagination(r)
+	limit, offset := parsePagination(r, actor.IsGuest)
 	items, err := h.service.ListPosts(r.Context(), chikaservice.ListThreadPostsInput{
 		ThreadID:   threadID,
 		ViewerID:   actor.ID,
@@ -245,51 +263,76 @@ func (h *Handlers) CreateComment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteValidationError(w, issues)
 		return
 	}
+	var parentCommentID *int64
+	if raw := strings.TrimSpace(req.ParentCommentID); raw != "" {
+		parsed, parseErr := strconv.ParseInt(raw, 10, 64)
+		if parseErr != nil || parsed <= 0 {
+			httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusBadRequest, "invalid_parent_comment_id", "invalid parent comment id", parseErr))
+			return
+		}
+		parentCommentID = &parsed
+	}
 
 	comment, err := h.service.CreateComment(r.Context(), chikaservice.CreateCommentInput{
-		ThreadID: threadID,
-		UserID:   actor.ID,
-		Content:  req.Content,
+		ThreadID:        threadID,
+		UserID:          actor.ID,
+		Content:         req.Content,
+		ParentCommentID: parentCommentID,
 	})
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, commentResponse(comment, actor.CanModerate))
+	categoryPseudo := true
+	if thread, getErr := h.service.GetThreadForViewer(r.Context(), chikaservice.GetThreadInput{ViewerID: actor.ID, ThreadID: threadID, ViewerRole: actor.Role}); getErr == nil {
+		categoryPseudo = thread.Pseudonymous
+	}
+	httpx.JSON(w, http.StatusCreated, commentResponse(comment, false, categoryPseudo))
 }
 
 func (h *Handlers) ListComments(w http.ResponseWriter, r *http.Request) {
-	actor, err := requireActor(r)
+	actor, err := requireActorOrGuest(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
 	threadID := chi.URLParam(r, "threadId")
-	limit, offset := parsePagination(r)
+	limit, offset := parsePagination(r, actor.IsGuest)
 	result, err := h.service.ListComments(r.Context(), chikaservice.ListThreadCommentsInput{
 		ThreadID:   threadID,
 		ViewerID:   actor.ID,
 		ViewerRole: actor.Role,
 		Limit:      limit,
-		Cursor:     r.URL.Query().Get("cursor"),
+		Cursor:     publicCursor(actor.IsGuest, r.URL.Query().Get("cursor")),
 	})
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
+	includeRealAuthor := shouldIncludeRealAuthor(r, actor.CanRevealIdentity)
+	if includeRealAuthor {
+		if err := h.service.RevealIdentityRateLimit(r.Context(), actor.ID); err != nil {
+			httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+			return
+		}
+	}
 
 	resp := make([]CommentResponse, 0, len(result.Items))
 	for _, item := range result.Items {
-		resp = append(resp, commentResponse(item, actor.CanModerate))
+		resp = append(resp, commentResponse(item, includeRealAuthor, result.CategoryPseudonymous))
 	}
 
+	nextCursor := result.NextCursor
+	if actor.IsGuest {
+		nextCursor = ""
+	}
 	httpx.JSON(w, http.StatusOK, ListCommentsResponse{
 		Items: resp,
 		Pagination: Pagination{
 			Limit:  limit,
 			Offset: offset,
 		},
-		NextCursor: result.NextCursor,
+		NextCursor: nextCursor,
 	})
 }
 
@@ -322,7 +365,11 @@ func (h *Handlers) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, commentResponse(comment, actor.CanModerate))
+	categoryPseudo := true
+	if thread, getErr := h.service.GetThreadForViewer(r.Context(), chikaservice.GetThreadInput{ViewerID: actor.ID, ThreadID: comment.ThreadID, ViewerRole: actor.Role}); getErr == nil {
+		categoryPseudo = thread.Pseudonymous
+	}
+	httpx.JSON(w, http.StatusOK, commentResponse(comment, false, categoryPseudo))
 }
 
 func (h *Handlers) DeleteComment(w http.ResponseWriter, r *http.Request) {
@@ -393,6 +440,61 @@ func (h *Handlers) RemoveThreadReaction(w http.ResponseWriter, r *http.Request) 
 	httpx.JSON(w, http.StatusOK, map[string]any{"status": "removed"})
 }
 
+func (h *Handlers) SetCommentReaction(w http.ResponseWriter, r *http.Request) {
+	actor, err := requireActor(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	commentIDRaw := chi.URLParam(r, "commentId")
+	commentID, parseErr := strconv.ParseInt(commentIDRaw, 10, 64)
+	if parseErr != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusBadRequest, "invalid_comment_id", "invalid comment id", parseErr))
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[SetReactionRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	reaction, err := h.service.SetCommentReaction(r.Context(), chikaservice.SetCommentReactionInput{
+		CommentID: commentID,
+		UserID:    actor.ID,
+		Type:      req.Type,
+	})
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, CommentReactionResponse{
+		CommentID: strconv.FormatInt(commentID, 10),
+		UserID:    reaction.UserID,
+		Type:      reaction.Type,
+	})
+}
+
+func (h *Handlers) RemoveCommentReaction(w http.ResponseWriter, r *http.Request) {
+	actor, err := requireActor(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	commentIDRaw := chi.URLParam(r, "commentId")
+	commentID, parseErr := strconv.ParseInt(commentIDRaw, 10, 64)
+	if parseErr != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusBadRequest, "invalid_comment_id", "invalid comment id", parseErr))
+		return
+	}
+	if err := h.service.RemoveCommentReaction(r.Context(), chikaservice.RemoveCommentReactionInput{
+		CommentID: commentID,
+		UserID:    actor.ID,
+	}); err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"status": "removed"})
+}
+
 func (h *Handlers) CreateMediaAsset(w http.ResponseWriter, r *http.Request) {
 	actor, err := requireActor(r)
 	if err != nil {
@@ -425,7 +527,7 @@ func (h *Handlers) CreateMediaAsset(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListThreadMedia(w http.ResponseWriter, r *http.Request) {
-	actor, err := requireActor(r)
+	actor, err := requireActorOrGuest(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
@@ -452,9 +554,11 @@ func (h *Handlers) ListThreadMedia(w http.ResponseWriter, r *http.Request) {
 }
 
 type Actor struct {
-	ID          string
-	Role        string
-	CanModerate bool
+	ID                string
+	Role              string
+	CanModerate       bool
+	CanRevealIdentity bool
+	IsGuest           bool
 }
 
 func requireActor(r *http.Request) (Actor, error) {
@@ -463,13 +567,34 @@ func requireActor(r *http.Request) (Actor, error) {
 		return Actor{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
 	}
 	return Actor{
-		ID:          identity.UserID,
-		Role:        identity.GlobalRole,
-		CanModerate: identity.Can(authz.PermissionChikaModerate, authz.Scope{}),
+		ID:                identity.UserID,
+		Role:              identity.GlobalRole,
+		CanModerate:       identity.Can(authz.PermissionChikaModerate, authz.Scope{}),
+		CanRevealIdentity: identity.Can(authz.PermissionChikaReveal, authz.Scope{}),
 	}, nil
 }
 
-func parsePagination(r *http.Request) (int32, int32) {
+func requireActorOrGuest(r *http.Request) (Actor, error) {
+	identity, ok := middleware.CurrentIdentity(r.Context())
+	if !ok || identity.UserID == "" {
+		return Actor{
+			ID:                "00000000-0000-0000-0000-000000000000",
+			Role:              "guest",
+			CanModerate:       false,
+			CanRevealIdentity: false,
+			IsGuest:           true,
+		}, nil
+	}
+	return Actor{
+		ID:                identity.UserID,
+		Role:              identity.GlobalRole,
+		CanModerate:       identity.Can(authz.PermissionChikaModerate, authz.Scope{}),
+		CanRevealIdentity: identity.Can(authz.PermissionChikaReveal, authz.Scope{}),
+		IsGuest:           false,
+	}, nil
+}
+
+func parsePagination(r *http.Request, isGuest bool) (int32, int32) {
 	limit := int32(20)
 	offset := int32(0)
 
@@ -483,10 +608,16 @@ func parsePagination(r *http.Request) (int32, int32) {
 			offset = int32(parsed)
 		}
 	}
+	if isGuest {
+		if limit > 10 {
+			limit = 10
+		}
+		offset = 0
+	}
 	return limit, offset
 }
 
-func threadResponse(input chikaservice.Thread, viewerID, viewerRole string, canModerate bool) ThreadResponse {
+func threadResponse(input chikaservice.Thread, viewerID string, includeRealAuthor bool) ThreadResponse {
 	hiddenAt := ""
 	if input.HiddenAt != nil {
 		hiddenAt = input.HiddenAt.UTC().Format(time.RFC3339)
@@ -496,20 +627,26 @@ func threadResponse(input chikaservice.Thread, viewerID, viewerRole string, canM
 		authorDisplay = input.CreatedByUserID
 	}
 	realAuthorID := ""
-	if input.Pseudonymous {
+	if input.Mode == "pseudonymous" || input.Mode == "locked_pseudonymous" {
 		if viewerID == input.CreatedByUserID {
 			authorDisplay = "You"
 		} else {
-			sum := sha1.Sum([]byte(input.ID + ":" + input.CreatedByUserID))
-			authorDisplay = "anon-" + strings.ToUpper(hex.EncodeToString(sum[:3]))
+			authorDisplay = input.AuthorPseudonym
+			if strings.TrimSpace(authorDisplay) == "" {
+				authorDisplay = "anon-UNKNOWN"
+			}
 		}
 	}
-	if canModerate && isModeratorRole(viewerRole) {
+	if includeRealAuthor {
 		realAuthorID = input.CreatedByUserID
 	}
 	return ThreadResponse{
 		ID:               input.ID,
 		Title:            input.Title,
+		Content:          input.Content,
+		VoteCount:        input.VoteCount,
+		CommentCount:     input.CommentCount,
+		UserReaction:     input.ViewerReaction,
 		Mode:             input.Mode,
 		CategoryID:       input.CategoryID,
 		CategorySlug:     input.CategorySlug,
@@ -534,19 +671,32 @@ func postResponse(input chikaservice.Post) PostResponse {
 	}
 }
 
-func commentResponse(input chikaservice.Comment, canModerate bool) CommentResponse {
+func commentResponse(input chikaservice.Comment, includeRealAuthor bool, categoryPseudonymous bool) CommentResponse {
 	hiddenAt := ""
 	if input.HiddenAt != nil {
 		hiddenAt = input.HiddenAt.UTC().Format(time.RFC3339)
 	}
+	parentCommentID := ""
+	if input.ParentID != nil {
+		parentCommentID = strconv.FormatInt(*input.ParentID, 10)
+	}
 	realAuthorID := ""
-	if canModerate {
+	if includeRealAuthor {
 		realAuthorID = input.AuthorUserID
+	}
+	authorAvatarURL := ""
+	if !categoryPseudonymous && input.AuthorAvatarURL != "" {
+		authorAvatarURL = input.AuthorAvatarURL
 	}
 	return CommentResponse{
 		ID:               strconv.FormatInt(input.ID, 10),
 		ThreadID:         input.ThreadID,
+		ParentCommentID:  parentCommentID,
+		VoteCount:        input.VoteCount,
+		ReplyCount:       input.ReplyCount,
+		UserReaction:     input.ViewerReaction,
 		AuthorDisplay:    input.Pseudonym,
+		AuthorAvatarURL:  authorAvatarURL,
 		RealAuthorUserID: realAuthorID,
 		Content:          input.Content,
 		IsHidden:         input.HiddenAt != nil,
@@ -568,6 +718,17 @@ func mediaResponse(input chikaservice.MediaAsset) MediaAssetResponse {
 	}
 }
 
-func isModeratorRole(role string) bool {
-	return role == "moderator" || role == "admin" || role == "super_admin"
+func shouldIncludeRealAuthor(r *http.Request, canRevealIdentity bool) bool {
+	if !canRevealIdentity {
+		return false
+	}
+	raw := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("includeRealAuthor")))
+	return raw == "1" || raw == "true" || raw == "yes"
+}
+
+func publicCursor(isGuest bool, cursor string) string {
+	if isGuest {
+		return ""
+	}
+	return cursor
 }

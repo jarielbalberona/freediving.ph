@@ -77,6 +77,14 @@
       "pattern": "/v1/chika/comments/{commentId}"
     },
     {
+      "method": "DELETE",
+      "pattern": "/v1/chika/comments/{commentId}/reactions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/chika/comments/{commentId}/reactions"
+    },
+    {
       "method": "POST",
       "pattern": "/v1/chika/media"
     },
@@ -190,6 +198,22 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/locations/barangays"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/locations/cities-municipalities"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/locations/provinces"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/locations/regions"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/me"
     },
     {
@@ -222,31 +246,31 @@
     },
     {
       "method": "GET",
-      "pattern": "/v1/messages/conversations/{conversationId}"
+      "pattern": "/v1/messages/threads"
     },
     {
       "method": "POST",
-      "pattern": "/v1/messages/conversations/{conversationId}"
+      "pattern": "/v1/messages/threads/direct"
     },
     {
       "method": "GET",
-      "pattern": "/v1/messages/inbox"
+      "pattern": "/v1/messages/threads/{threadId}"
     },
     {
       "method": "POST",
-      "pattern": "/v1/messages/read"
+      "pattern": "/v1/messages/threads/{threadId}/category"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/messages/threads/{threadId}/messages"
     },
     {
       "method": "POST",
-      "pattern": "/v1/messages/requests"
+      "pattern": "/v1/messages/threads/{threadId}/messages"
     },
     {
       "method": "POST",
-      "pattern": "/v1/messages/requests/{requestId}/accept"
-    },
-    {
-      "method": "POST",
-      "pattern": "/v1/messages/requests/{requestId}/decline"
+      "pattern": "/v1/messages/threads/{threadId}/read"
     },
     {
       "method": "POST",
@@ -282,6 +306,18 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/profiles/by-username/{username}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/by-username/{username}/bucketlist"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/by-username/{username}/posts"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/profiles/{userID}"
     },
     {
@@ -306,6 +342,18 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/users/id/{id}"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/users/id/{id}/save"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/users/id/{id}/save"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/users/me"
     },
     {
@@ -314,15 +362,7 @@
     },
     {
       "method": "GET",
-      "pattern": "/v1/users/{id}"
-    },
-    {
-      "method": "DELETE",
-      "pattern": "/v1/users/{id}/save"
-    },
-    {
-      "method": "POST",
-      "pattern": "/v1/users/{id}/save"
+      "pattern": "/v1/users/{username}"
     }
   ]
 }

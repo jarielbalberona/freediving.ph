@@ -9,16 +9,15 @@ import { Bell, CheckCircle } from 'lucide-react';
 import type { NotificationFilters } from '@freediving.ph/types';
 
 interface NotificationListProps {
-  userId: number;
   filters?: NotificationFilters;
 }
 
-export function NotificationList({ userId, filters }: NotificationListProps) {
-  const { data, isLoading, error } = useNotifications(userId, filters);
+export function NotificationList({ filters }: NotificationListProps) {
+  const { data, isLoading, error } = useNotifications(filters);
   const markAllAsReadMutation = useMarkAllAsRead();
 
   const handleMarkAllAsRead = () => {
-    markAllAsReadMutation.mutate(userId);
+    markAllAsReadMutation.mutate();
   };
 
   if (isLoading) {
@@ -90,7 +89,6 @@ export function NotificationList({ userId, filters }: NotificationListProps) {
           <NotificationCard
             key={notification.id}
             notification={notification}
-            userId={userId}
           />
         ))}
       </div>

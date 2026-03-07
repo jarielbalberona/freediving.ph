@@ -69,7 +69,7 @@
 
 ### Endpoints Introduced/Changed
 - `POST /v1/messages/dm`
-- `GET /v1/messages/inbox`
+- `GET /v1/messages/threads?category=primary`
 - `GET /v1/messages/pending`
 - `POST /v1/messages/pending/:conversationId/accept`
 - `POST /v1/messages/pending/:conversationId/reject`

@@ -17,6 +17,7 @@ func Routes(h *Handlers) chi.Router {
 	r.Get("/threads/{threadId}/media", h.ListThreadMedia)
 
 	r.Group(func(write chi.Router) {
+		write.Use(middleware.RequireMember)
 		write.Use(middleware.RequirePermission(authz.PermissionChikaWrite))
 		write.Post("/threads", h.CreateThread)
 		write.Patch("/threads/{threadId}", h.UpdateThread)
@@ -25,6 +26,8 @@ func Routes(h *Handlers) chi.Router {
 		write.Post("/threads/{threadId}/comments", h.CreateComment)
 		write.Patch("/comments/{commentId}", h.UpdateComment)
 		write.Delete("/comments/{commentId}", h.DeleteComment)
+		write.Post("/comments/{commentId}/reactions", h.SetCommentReaction)
+		write.Delete("/comments/{commentId}/reactions", h.RemoveCommentReaction)
 		write.Post("/threads/{threadId}/reactions", h.SetThreadReaction)
 		write.Delete("/threads/{threadId}/reactions", h.RemoveThreadReaction)
 		write.Post("/media", h.CreateMediaAsset)

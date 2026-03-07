@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	moderationrepo "fphgo/internal/features/moderation_actions/repo"
+	"fphgo/internal/realtime/ws"
 	apperrors "fphgo/internal/shared/errors"
 	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
@@ -33,10 +35,15 @@ type repository interface {
 type Service struct {
 	repo    repository
 	limiter rateLimiter
+	rt      realtimeBroadcaster
 }
 
 type rateLimiter interface {
 	Allow(ctx context.Context, scope, key string, maxEvents int, window time.Duration) (sharedratelimit.Result, error)
+}
+
+type realtimeBroadcaster interface {
+	BroadcastEnvelope(ws.Envelope)
 }
 
 type noopLimiter struct{}
@@ -52,6 +59,12 @@ func WithLimiter(limiter rateLimiter) Option {
 		if limiter != nil {
 			s.limiter = limiter
 		}
+	}
+}
+
+func WithRealtimeBroadcaster(broadcaster realtimeBroadcaster) Option {
+	return func(s *Service) {
+		s.rt = broadcaster
 	}
 }
 
@@ -146,6 +159,10 @@ func (s *Service) HideThread(ctx context.Context, threadID string, input ActionI
 		}
 		return ModerationAction{}, apperrors.New(http.StatusInternalServerError, "moderation_action_failed", "failed to apply moderation action", err)
 	}
+	s.broadcast("chika.thread.updated", map[string]any{
+		"threadId": threadID,
+		"action":   "hide",
+	})
 	return mapAction(created), nil
 }
 
@@ -176,6 +193,10 @@ func (s *Service) UnhideThread(ctx context.Context, threadID string, input Actio
 		}
 		return ModerationAction{}, apperrors.New(http.StatusInternalServerError, "moderation_action_failed", "failed to apply moderation action", err)
 	}
+	s.broadcast("chika.thread.updated", map[string]any{
+		"threadId": threadID,
+		"action":   "unhide",
+	})
 	return mapAction(created), nil
 }
 
@@ -210,6 +231,10 @@ func (s *Service) HideComment(ctx context.Context, commentID int64, input Action
 		}
 		return ModerationAction{}, apperrors.New(http.StatusInternalServerError, "moderation_action_failed", "failed to apply moderation action", err)
 	}
+	s.broadcast("chika.comment.updated", map[string]any{
+		"commentId": strconv.FormatInt(commentID, 10),
+		"action":    "hide",
+	})
 	return mapAction(created), nil
 }
 
@@ -244,6 +269,10 @@ func (s *Service) UnhideComment(ctx context.Context, commentID int64, input Acti
 		}
 		return ModerationAction{}, apperrors.New(http.StatusInternalServerError, "moderation_action_failed", "failed to apply moderation action", err)
 	}
+	s.broadcast("chika.comment.updated", map[string]any{
+		"commentId": strconv.FormatInt(commentID, 10),
+		"action":    "unhide",
+	})
 	return mapAction(created), nil
 }
 
@@ -338,3 +367,16 @@ func mapAction(action moderationrepo.ModerationAction) ModerationAction {
 }
 
 const timeRFC3339 = "2006-01-02T15:04:05Z07:00"
+
+func (s *Service) broadcast(eventType string, payload map[string]any) {
+	if s.rt == nil {
+		return
+	}
+	s.rt.BroadcastEnvelope(ws.Envelope{
+		Version: 1,
+		Type:    eventType,
+		EventID: uuid.NewString(),
+		TS:      time.Now().UTC().Format(time.RFC3339),
+		Payload: payload,
+	})
+}

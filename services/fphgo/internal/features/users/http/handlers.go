@@ -66,6 +66,20 @@ func (h *Handlers) GetUser(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, UserResponse(user))
 }
 
+func (h *Handlers) GetUserByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	if username == "" {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil))
+		return
+	}
+	user, err := h.service.GetUserByUsername(r.Context(), username)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, UserResponse(user))
+}
+
 func (h *Handlers) SaveUser(w http.ResponseWriter, r *http.Request) {
 	identity, ok := middleware.CurrentIdentity(r.Context())
 	if !ok || identity.UserID == "" {

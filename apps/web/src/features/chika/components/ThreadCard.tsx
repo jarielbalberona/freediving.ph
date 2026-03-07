@@ -1,4 +1,5 @@
 import type { ChikaThreadView } from "../api/threads";
+import { UsernameLink } from "@/components/common/UsernameLink";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -20,7 +21,10 @@ export default function ThreadCard({ thread }: ThreadCardProps) {
           ) : null}
         </div>
         <p className="text-sm text-muted-foreground">
-          {thread.authorDisplayName}
+          <UsernameLink
+            username={thread.authorDisplayName}
+            disabled={thread.categoryPseudonymous}
+          />
           <span className="mx-2">·</span>
           <span>{new Date(thread.createdAt).toLocaleString()}</span>
         </p>
@@ -33,4 +37,3 @@ export default function ThreadCard({ thread }: ThreadCardProps) {
     </Card>
   );
 }
-

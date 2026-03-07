@@ -39,7 +39,22 @@ func AttachClerkAuth(cfg config.Config) func(http.Handler) http.Handler {
 	if cfg.ClerkJWTKey != "" {
 		options = append(options, clerkhttp.JSONWebKey(cfg.ClerkJWTKey))
 	}
-	return clerkhttp.WithHeaderAuthorization(options...)
+	base := clerkhttp.WithHeaderAuthorization(options...)
+	return func(next http.Handler) http.Handler {
+		withHeaderAuth := base(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.TrimSpace(r.Header.Get("Authorization")) == "" && r.URL != nil && r.URL.Path == "/ws" {
+				if token := strings.TrimSpace(r.URL.Query().Get("access_token")); token != "" {
+					clone := r.Clone(r.Context())
+					clone.Header = r.Header.Clone()
+					clone.Header.Set("Authorization", "Bearer "+token)
+					withHeaderAuth.ServeHTTP(w, clone)
+					return
+				}
+			}
+			withHeaderAuth.ServeHTTP(w, r)
+		})
+	}
 }
 
 func AttachIdentityContext(resolver IdentityResolver) func(http.Handler) http.Handler {

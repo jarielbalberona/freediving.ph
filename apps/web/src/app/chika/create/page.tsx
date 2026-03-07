@@ -48,9 +48,9 @@ export default function CreateThread() {
   });
 
   useEffect(() => {
-    const firstId = categories?.[0]?.id ?? "";
-    if (!form.getValues("categoryId") && firstId) {
-      form.setValue("categoryId", firstId);
+    const generalId = categories?.find((c) => c.slug === "general")?.id ?? categories?.[0]?.id ?? "";
+    if (!form.getValues("categoryId") && generalId) {
+      form.setValue("categoryId", generalId);
     }
   }, [categories, form]);
 
@@ -75,10 +75,12 @@ export default function CreateThread() {
     }
   };
 
-  const categoryItems = (categories ?? []).map((c) => ({
-    value: c.id,
-    label: `${c.name}${c.pseudonymous ? " (Anonymous)" : ""}`,
-  }));
+  const categoryItems = [...(categories ?? [])]
+    .sort((a, b) => (a.pseudonymous === b.pseudonymous ? 0 : a.pseudonymous ? 1 : -1))
+    .map((c) => ({
+      value: c.id,
+      label: `${c.name}${c.pseudonymous ? " (Anonymous)" : ""}`,
+    }));
 
   return (
     <AuthGuard title="Sign in to post in Chika" description="Posting in Chika requires an authenticated member account.">

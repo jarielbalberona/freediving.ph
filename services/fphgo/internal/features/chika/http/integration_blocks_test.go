@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 
 	chikarepo "fphgo/internal/features/chika/repo"
 	chikaservice "fphgo/internal/features/chika/service"
@@ -105,6 +106,9 @@ func (r *filteredChikaRepo) GetThread(_ context.Context, id string) (chikarepo.T
 	}
 	return chikarepo.Thread{ID: id, CreatedByUserID: "550e8400-e29b-41d4-a716-446655440003", AuthorUsername: "user", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
 }
+func (r *filteredChikaRepo) GetThreadForViewer(ctx context.Context, id string, _ string) (chikarepo.Thread, error) {
+	return r.GetThread(ctx, id)
+}
 func (r *filteredChikaRepo) UpdateThread(context.Context, string, string) (chikarepo.Thread, error) {
 	return chikarepo.Thread{}, nil
 }
@@ -115,7 +119,7 @@ func (r *filteredChikaRepo) CreatePost(context.Context, string, string, string, 
 func (r *filteredChikaRepo) ListPosts(context.Context, string, string, int32, int32) ([]chikarepo.Post, error) {
 	return []chikarepo.Post{}, nil
 }
-func (r *filteredChikaRepo) CreateComment(context.Context, string, string, string, string) (chikarepo.Comment, error) {
+func (r *filteredChikaRepo) CreateComment(context.Context, string, string, string, string, *int64) (chikarepo.Comment, error) {
 	return chikarepo.Comment{}, nil
 }
 func (r *filteredChikaRepo) ListComments(_ context.Context, _ string, viewerID string, includeHidden bool, cursorCreated time.Time, cursorCommentID int64, limit int32) ([]chikarepo.Comment, error) {
@@ -154,6 +158,10 @@ func (r *filteredChikaRepo) SetThreadReaction(context.Context, string, string, s
 	return chikarepo.Reaction{}, nil
 }
 func (r *filteredChikaRepo) RemoveThreadReaction(context.Context, string, string) error { return nil }
+func (r *filteredChikaRepo) SetCommentReaction(context.Context, int64, string, string) (chikarepo.Reaction, error) {
+	return chikarepo.Reaction{}, nil
+}
+func (r *filteredChikaRepo) RemoveCommentReaction(context.Context, int64, string) error { return nil }
 func (r *filteredChikaRepo) CreateMediaAsset(context.Context, chikarepo.CreateMediaAssetInput) (chikarepo.MediaAsset, error) {
 	return chikarepo.MediaAsset{}, nil
 }
@@ -162,6 +170,25 @@ func (r *filteredChikaRepo) ListMediaByEntity(context.Context, string, string) (
 }
 func (r *filteredChikaRepo) EntityExists(context.Context, string, string) (bool, error) {
 	return true, nil
+}
+func (r *filteredChikaRepo) GetThreadAlias(_ context.Context, threadID, userID string) (string, error) {
+	for _, item := range r.threads {
+		if item.ID == threadID && item.CreatedByUserID == userID && strings.TrimSpace(item.AuthorPseudonym) != "" {
+			return item.AuthorPseudonym, nil
+		}
+	}
+	return "", pgx.ErrNoRows
+}
+func (r *filteredChikaRepo) FindHistoricalThreadPseudonym(_ context.Context, threadID, userID string) (string, error) {
+	for _, item := range r.comments {
+		if item.ThreadID == threadID && item.AuthorUserID == userID && strings.TrimSpace(item.Pseudonym) != "" {
+			return item.Pseudonym, nil
+		}
+	}
+	return "", pgx.ErrNoRows
+}
+func (r *filteredChikaRepo) UpsertThreadAlias(_ context.Context, _ string, _ string, pseudonym string) (string, error) {
+	return pseudonym, nil
 }
 func (r *filteredChikaRepo) PseudonymEnabled(context.Context, string) (bool, error) { return true, nil }
 func (r *filteredChikaRepo) Username(context.Context, string) (string, error)       { return "user", nil }
@@ -689,7 +716,7 @@ func TestChikaPseudonymousCategoryVisibility(t *testing.T) {
 		t.Fatalf("expected pseudonymous author display, got %q", memberThread.AuthorDisplay)
 	}
 
-	modThreadReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	modThreadReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID+"?includeRealAuthor=true", nil)
 	modThreadRec := httptest.NewRecorder()
 	modRouter.ServeHTTP(modThreadRec, modThreadReq)
 	if modThreadRec.Code != http.StatusOK {
@@ -720,7 +747,7 @@ func TestChikaPseudonymousCategoryVisibility(t *testing.T) {
 		t.Fatalf("expected member comment realAuthorUserId empty, got %q", memberComments.Items[0].RealAuthorUserID)
 	}
 
-	modCommentReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID+"/comments", nil)
+	modCommentReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID+"/comments?includeRealAuthor=true", nil)
 	modCommentRec := httptest.NewRecorder()
 	modRouter.ServeHTTP(modCommentRec, modCommentReq)
 	if modCommentRec.Code != http.StatusOK {

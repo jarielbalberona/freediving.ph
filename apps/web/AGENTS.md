@@ -15,6 +15,12 @@
   - Store: `src/store/`
 - App/site config: `src/config/`
 
+## UI Implementation Rules
+- Use shadcn/ui components first when implementing UI.
+- Avoid manual Tailwind utility markup as much as possible; add custom Tailwind classes only when shadcn/ui does not cover the requirement.
+- When custom Tailwind is necessary, keep it minimal and consistent with existing code style.
+- Follow existing file structure and code conventions for every UI change.
+
 ## Local Commands (Verified)
 - `pnpm -C apps/web dev`
 - `pnpm -C apps/web build`

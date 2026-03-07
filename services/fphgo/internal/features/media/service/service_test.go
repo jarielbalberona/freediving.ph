@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"io"
 	"net/url"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -53,18 +54,65 @@ func (f *fakeRepo) GetMediaObjectsByIDs(_ context.Context, mediaIDs []string) ([
 	return items, nil
 }
 
-func (f *fakeRepo) ListMediaByOwner(_ context.Context, _ mediarepo.ListMediaByOwnerInput) ([]mediarepo.MediaObject, error) {
+func (f *fakeRepo) ListMediaByOwner(_ context.Context, input mediarepo.ListMediaByOwnerInput) ([]mediarepo.MediaObject, error) {
 	items := make([]mediarepo.MediaObject, 0, len(f.mediaByID))
 	for _, item := range f.mediaByID {
+		if item.OwnerAppUserID != input.OwnerAppUserID {
+			continue
+		}
+		if item.CreatedAt.After(input.CursorCreated) {
+			continue
+		}
+		if item.CreatedAt.Equal(input.CursorCreated) && item.ID >= input.CursorID {
+			continue
+		}
 		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID > items[j].ID
+		}
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	if int32(len(items)) > input.Limit {
+		items = items[:input.Limit]
 	}
 	return items, nil
 }
 
-func (f *fakeRepo) ListMediaByContext(_ context.Context, _ mediarepo.ListMediaByContextInput) ([]mediarepo.MediaObject, error) {
+func (f *fakeRepo) ListMediaByContext(_ context.Context, input mediarepo.ListMediaByContextInput) ([]mediarepo.MediaObject, error) {
 	items := make([]mediarepo.MediaObject, 0, len(f.mediaByID))
+	contextID := ""
+	if input.ContextID != nil {
+		contextID = strings.TrimSpace(*input.ContextID)
+	}
 	for _, item := range f.mediaByID {
+		if item.ContextType != input.ContextType {
+			continue
+		}
+		itemContextID := ""
+		if item.ContextID != nil {
+			itemContextID = strings.TrimSpace(*item.ContextID)
+		}
+		if itemContextID != contextID {
+			continue
+		}
+		if item.CreatedAt.After(input.CursorCreated) {
+			continue
+		}
+		if item.CreatedAt.Equal(input.CursorCreated) && item.ID >= input.CursorID {
+			continue
+		}
 		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID > items[j].ID
+		}
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	if int32(len(items)) > input.Limit {
+		items = items[:input.Limit]
 	}
 	return items, nil
 }
@@ -185,10 +233,11 @@ func TestUploadStripsJPEGExif(t *testing.T) {
 func TestMintURLsClampsWidthAndQuality(t *testing.T) {
 	repo := &fakeRepo{mediaByID: map[string]mediarepo.MediaObject{
 		"11111111-1111-1111-1111-111111111111": {
-			ID:          "11111111-1111-1111-1111-111111111111",
-			ContextType: ContextChikaAttachment,
-			ObjectKey:   "chika/22222222-2222-2222-2222-222222222222/1700000000000-abcd1234.jpg",
-			State:       "active",
+			ID:             "11111111-1111-1111-1111-111111111111",
+			OwnerAppUserID: "550e8400-e29b-41d4-a716-446655440000",
+			ContextType:    ContextChikaAttachment,
+			ObjectKey:      "chika/22222222-2222-2222-2222-222222222222/1700000000000-abcd1234.jpg",
+			State:          "active",
 		},
 	}}
 	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
@@ -196,13 +245,15 @@ func TestMintURLsClampsWidthAndQuality(t *testing.T) {
 		return time.Unix(1_700_000_000, 0).UTC()
 	}
 
-	result, err := svc.MintURLs(context.Background(), MintURLsInput{Items: []MintURLItemInput{{
-		MediaID: "11111111-1111-1111-1111-111111111111",
-		Preset:  PresetDialog,
-		Width:   ptrInt(9999),
-		Format:  ptrString("auto"),
-		Quality: ptrInt(99),
-	}}})
+	result, err := svc.MintURLs(context.Background(), MintURLsInput{
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		Items: []MintURLItemInput{{
+			MediaID: "11111111-1111-1111-1111-111111111111",
+			Preset:  PresetDialog,
+			Width:   ptrInt(9999),
+			Format:  ptrString("auto"),
+			Quality: ptrInt(99),
+		}}})
 	if err != nil {
 		t.Fatalf("expected mint success, got %v", err)
 	}
@@ -234,6 +285,104 @@ func TestCanonicalStringStable(t *testing.T) {
 	sig := signCanonical(canonical, "secret")
 	if sig == "" {
 		t.Fatal("expected signature")
+	}
+}
+
+func TestMintURLsRejectsInvalidObjectKey(t *testing.T) {
+	repo := &fakeRepo{mediaByID: map[string]mediarepo.MediaObject{
+		"11111111-1111-1111-1111-111111111111": {
+			ID:             "11111111-1111-1111-1111-111111111111",
+			OwnerAppUserID: "550e8400-e29b-41d4-a716-446655440000",
+			ContextType:    ContextProfileFeed,
+			ObjectKey:      "feed/user/../bad.jpg",
+			State:          "active",
+		},
+	}}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	result, err := svc.MintURLs(context.Background(), MintURLsInput{
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		Items: []MintURLItemInput{{
+			MediaID: "11111111-1111-1111-1111-111111111111",
+			Preset:  PresetCard,
+		}}})
+	if err != nil {
+		t.Fatalf("expected mint result, got error: %v", err)
+	}
+	if len(result.Items) != 0 {
+		t.Fatalf("expected no minted items, got %d", len(result.Items))
+	}
+	if len(result.Errors) != 1 || result.Errors[0].Code != "invalid_object_key" {
+		t.Fatalf("expected invalid_object_key error, got %+v", result.Errors)
+	}
+}
+
+func TestMintURLsRejectsForeignOwner(t *testing.T) {
+	repo := &fakeRepo{mediaByID: map[string]mediarepo.MediaObject{
+		"11111111-1111-1111-1111-111111111111": {
+			ID:             "11111111-1111-1111-1111-111111111111",
+			OwnerAppUserID: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+			ContextType:    ContextProfileFeed,
+			ObjectKey:      "feed/user/2026/03/1700000000000-abcd1234.jpg",
+			State:          "active",
+		},
+	}}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+	result, err := svc.MintURLs(context.Background(), MintURLsInput{
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		Items: []MintURLItemInput{{
+			MediaID: "11111111-1111-1111-1111-111111111111",
+			Preset:  PresetCard,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("expected mint result, got error: %v", err)
+	}
+	if len(result.Items) != 0 {
+		t.Fatalf("expected no minted items, got %d", len(result.Items))
+	}
+	if len(result.Errors) != 1 || result.Errors[0].Code != "not_found" {
+		t.Fatalf("expected not_found error, got %+v", result.Errors)
+	}
+}
+
+func TestListMediaByContextReturnsOnlyOwnerItems(t *testing.T) {
+	contextID := "22222222-2222-2222-2222-222222222222"
+	repo := &fakeRepo{mediaByID: map[string]mediarepo.MediaObject{
+		"11111111-1111-1111-1111-111111111111": {
+			ID:             "11111111-1111-1111-1111-111111111111",
+			OwnerAppUserID: "550e8400-e29b-41d4-a716-446655440000",
+			ContextType:    ContextEventAttachment,
+			ContextID:      &contextID,
+			ObjectKey:      "events/22222222-2222-2222-2222-222222222222/1700000000000-abcd1234.jpg",
+			State:          "active",
+			CreatedAt:      time.Date(2026, time.March, 1, 10, 0, 0, 0, time.UTC),
+		},
+		"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa": {
+			ID:             "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+			OwnerAppUserID: "99999999-9999-4999-8999-999999999999",
+			ContextType:    ContextEventAttachment,
+			ContextID:      &contextID,
+			ObjectKey:      "events/22222222-2222-2222-2222-222222222222/1700000001000-ffff0000.jpg",
+			State:          "active",
+			CreatedAt:      time.Date(2026, time.March, 1, 9, 0, 0, 0, time.UTC),
+		},
+	}}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+	result, err := svc.ListMedia(context.Background(), ListMediaInput{
+		OwnerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		ContextType: ptrString(ContextEventAttachment),
+		ContextID:   &contextID,
+		Limit:       20,
+	})
+	if err != nil {
+		t.Fatalf("expected list success, got %v", err)
+	}
+	if len(result.Items) != 1 {
+		t.Fatalf("expected one item, got %d", len(result.Items))
+	}
+	if result.Items[0].ID != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("unexpected media id: %s", result.Items[0].ID)
 	}
 }
 

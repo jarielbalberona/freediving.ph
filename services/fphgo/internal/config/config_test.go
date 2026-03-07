@@ -8,6 +8,7 @@ func TestLoadRejectsProductionDevAuth(t *testing.T) {
 	t.Setenv("CLERK_SECRET_KEY", "sk_test")
 	t.Setenv("DEV_AUTH", "true")
 	t.Setenv("CORS_ORIGINS", "https://app.example.com")
+	t.Setenv("CHIKA_PSEUDONYM_SECRET", "secret")
 
 	_, err := Load()
 	if err == nil || err.Error() != "DEV_AUTH cannot be enabled in production" {
@@ -20,6 +21,7 @@ func TestLoadRejectsProductionWildcardCors(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("CLERK_SECRET_KEY", "sk_test")
 	t.Setenv("CORS_ORIGINS", "*")
+	t.Setenv("CHIKA_PSEUDONYM_SECRET", "secret")
 
 	_, err := Load()
 	if err == nil || err.Error() != "CORS_ORIGINS cannot include '*' in production" {
@@ -66,6 +68,7 @@ func TestLoadReadsRenderCompatEnv(t *testing.T) {
 	t.Setenv("CLERK_SECRET_KEY", "sk_test")
 	t.Setenv("CORS_ORIGIN", "https://app.example.com")
 	t.Setenv("API_URL", "https://api.example.com")
+	t.Setenv("CHIKA_PSEUDONYM_SECRET", "secret")
 
 	cfg, err := Load()
 	if err != nil {
@@ -80,5 +83,17 @@ func TestLoadReadsRenderCompatEnv(t *testing.T) {
 	}
 	if cfg.APIBaseURL != "https://api.example.com" {
 		t.Fatalf("expected API base URL fallback to load, got %s", cfg.APIBaseURL)
+	}
+}
+
+func TestLoadRejectsMissingChikaPseudonymSecretInProduction(t *testing.T) {
+	t.Setenv("DB_DSN", "postgres://example")
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("CLERK_SECRET_KEY", "sk_test")
+	t.Setenv("CORS_ORIGINS", "https://app.example.com")
+
+	_, err := Load()
+	if err == nil || err.Error() != "CHIKA_PSEUDONYM_SECRET is required in production" {
+		t.Fatalf("expected missing CHIKA_PSEUDONYM_SECRET error, got %v", err)
 	}
 }

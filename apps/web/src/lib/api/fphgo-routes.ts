@@ -4,15 +4,12 @@ export const routes = {
   v1: {
     me: () => "/v1/auth/session",
     messages: {
-      inbox: () => "/v1/messages/inbox",
-      createRequest: () => "/v1/messages/requests",
-      requestAccept: (requestId: string | number) =>
-        `/v1/messages/requests/${toPathId(requestId)}/accept`,
-      requestDecline: (requestId: string | number) =>
-        `/v1/messages/requests/${toPathId(requestId)}/decline`,
-      conversationById: (conversationId: string | number) =>
-        `/v1/messages/conversations/${toPathId(conversationId)}`,
-      read: () => "/v1/messages/read",
+      threads: () => "/v1/messages/threads",
+      threadById: (threadId: string | number) => `/v1/messages/threads/${toPathId(threadId)}`,
+      threadMessages: (threadId: string | number) => `/v1/messages/threads/${toPathId(threadId)}/messages`,
+      threadRead: (threadId: string | number) => `/v1/messages/threads/${toPathId(threadId)}/read`,
+      threadCategory: (threadId: string | number) => `/v1/messages/threads/${toPathId(threadId)}/category`,
+      directThread: () => "/v1/messages/threads/direct",
     },
     chika: {
       categories: () => "/v1/chika/categories",
@@ -24,13 +21,20 @@ export const routes = {
         comments: (id: string | number) =>
           `/v1/chika/threads/${toPathId(id)}/comments`,
       },
+      comments: {
+        reactions: (id: string | number) =>
+          `/v1/chika/comments/${toPathId(id)}/reactions`,
+      },
     },
     profiles: {
       me: () => "/v1/me/profile",
       saved: () => "/v1/me/saved",
       byUserId: (userId: string | number) => `/v1/profiles/${toPathId(userId)}`,
+      publicByUsername: (username: string | number) => `/v1/profiles/by-username/${toPathId(username)}`,
+      publicPostsByUsername: (username: string | number) => `/v1/profiles/by-username/${toPathId(username)}/posts`,
+      publicBucketListByUsername: (username: string | number) => `/v1/profiles/by-username/${toPathId(username)}/bucketlist`,
       searchUsers: () => "/v1/users/search",
-      saveUser: (userId: string | number) => `/v1/users/${toPathId(userId)}/save`,
+      saveUser: (userId: string | number) => `/v1/users/id/${toPathId(userId)}/save`,
     },
     explore: {
       listSites: () => "/v1/explore/sites",
@@ -54,6 +58,17 @@ export const routes = {
       byId: (id: string | number) => `/v1/buddy-finder/intents/${toPathId(id)}`,
       message: (id: string | number) => `/v1/buddy-finder/intents/${toPathId(id)}/message`,
       sharePreview: (id: string | number) => `/v1/buddy-finder/intents/${toPathId(id)}/share-preview`,
+    },
+    feed: {
+      home: () => "/v1/feed/home",
+      impressions: () => "/v1/feed/impressions",
+      actions: () => "/v1/feed/actions",
+    },
+    locations: {
+      regions: () => "/v1/locations/regions",
+      provinces: () => "/v1/locations/provinces",
+      citiesMunicipalities: () => "/v1/locations/cities-municipalities",
+      barangays: () => "/v1/locations/barangays",
     },
     blocks: {
       list: () => "/v1/blocks",
@@ -100,6 +115,9 @@ export const routes = {
       uploadMultiple: () => "/v1/media/upload-multiple",
       mine: () => "/v1/media/mine",
       urls: () => "/v1/media/urls",
+    },
+    users: {
+      byUsername: (username: string | number) => `/v1/users/${toPathId(username)}`,
     },
   },
 } as const;

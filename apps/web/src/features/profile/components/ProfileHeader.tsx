@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Settings2 } from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import type { PublicProfile } from "@/features/profile/types";
 import { cn } from "@/lib/utils";
 
@@ -10,18 +10,15 @@ type ProfileHeaderProps = {
   profile: PublicProfile;
   isOwner: boolean;
   canMessage: boolean;
+  isFollowing?: boolean;
   settingsHref?: string | null;
+  onFollowClick?: () => void;
+  isFollowPending?: boolean;
+  onMessageClick?: () => void;
+  isMessagePending?: boolean;
 };
 
 const formatCount = (value: number): string => new Intl.NumberFormat().format(value);
-
-const getInitials = (displayName: string): string =>
-  displayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((segment) => segment.charAt(0).toUpperCase())
-    .join("") || "FP";
 
 function ProfileStat({
   label,
@@ -41,40 +38,41 @@ function ProfileStat({
 }
 
 function ActionButtons({
-  isOwner,
   canMessage,
-  settingsHref,
+  isFollowing,
+  onFollowClick,
+  isFollowPending,
+  onMessageClick,
+  isMessagePending,
 }: {
-  isOwner: boolean;
   canMessage: boolean;
-  settingsHref?: string | null;
+  isFollowing?: boolean;
+  onFollowClick?: () => void;
+  isFollowPending?: boolean;
+  onMessageClick?: () => void;
+  isMessagePending?: boolean;
 }) {
-  if (isOwner) {
-    return (
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href={settingsHref ?? "/profile/settings"}
-          className={buttonVariants({ variant: "outline" })}
-        >
-          Edit profile
-        </Link>
-        <Link
-          href={settingsHref ?? "/profile/settings"}
-          className={buttonVariants({ variant: "outline", size: "icon-sm" })}
-          aria-label="Profile settings"
-          title="Profile settings"
-        >
-          <Settings2 className="size-4" />
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-wrap gap-2">
-      <Button disabled={!canMessage}>Follow</Button>
-      <Button variant="outline" disabled={!canMessage}>
-        Message
+      <Button
+        variant={isFollowing ? "outline" : "default"}
+        disabled={!canMessage || isFollowPending}
+        onClick={onFollowClick}
+        size="sm"
+      >
+        {isFollowPending
+          ? "Saving..."
+          : isFollowing
+            ? "Following"
+            : "Follow"}
+      </Button>
+      <Button
+        variant="outline"
+        disabled={!canMessage || isMessagePending}
+        onClick={onMessageClick}
+        size="sm"
+      >
+        {isMessagePending ? "Opening..." : "Message"}
       </Button>
     </div>
   );
@@ -84,16 +82,22 @@ export function ProfileHeader({
   profile,
   isOwner,
   canMessage,
+  isFollowing,
   settingsHref,
+  onFollowClick,
+  isFollowPending = false,
+  onMessageClick,
+  isMessagePending = false,
 }: ProfileHeaderProps) {
   return (
     <section className="space-y-6 px-4">
       <div className="grid gap-6 md:hidden">
         <div className="grid grid-cols-[auto_1fr] items-center gap-5">
-          <Avatar className="size-24 border border-border/70 bg-muted">
-            <AvatarImage src={profile.avatarUrl} alt={profile.displayName} />
-            <AvatarFallback>{getInitials(profile.displayName)}</AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            src={profile.avatarUrl}
+            displayName={profile.displayName}
+            size="lg"
+          />
           <div className="grid grid-cols-3 gap-3">
             <ProfileStat label="posts" value={profile.counts.posts} />
             <ProfileStat label="followers" value={profile.counts.followers} />
@@ -111,8 +115,8 @@ export function ProfileHeader({
                 <Link
                   href={settingsHref ?? "/profile/settings"}
                   className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-                  aria-label="Profile settings"
-                  title="Profile settings"
+                  aria-label="Edit profile"
+                  title="Edit profile"
                 >
                   <Settings2 className="size-4" />
                 </Link>
@@ -127,34 +131,52 @@ export function ProfileHeader({
               </p>
             ) : null}
           </div>
-          <ActionButtons
-            isOwner={isOwner}
-            canMessage={canMessage}
-            settingsHref={settingsHref}
-          />
+          {!isOwner ? (
+            <ActionButtons
+              canMessage={canMessage}
+              isFollowing={isFollowing}
+              onFollowClick={onFollowClick}
+              isFollowPending={isFollowPending}
+              onMessageClick={onMessageClick}
+              isMessagePending={isMessagePending}
+            />
+          ) : null}
         </div>
       </div>
 
       <div className="hidden md:grid md:grid-cols-[220px_minmax(0,1fr)] md:items-start md:gap-10">
-        <div className="flex justify-center md:justify-start">
-          <Avatar className="size-40 border border-border/70 bg-muted">
-            <AvatarImage src={profile.avatarUrl} alt={profile.displayName} />
-            <AvatarFallback className="text-2xl">
-              {getInitials(profile.displayName)}
-            </AvatarFallback>
-          </Avatar>
+        <div className="flex justify-center ">
+          <UserAvatar
+            src={profile.avatarUrl}
+            displayName={profile.displayName}
+            size="xl"
+          />
         </div>
 
         <div className="space-y-5 pt-2">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              {profile.username}
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              @{profile.username}
             </h1>
-            <ActionButtons
-              isOwner={isOwner}
-              canMessage={canMessage}
-              settingsHref={settingsHref}
-            />
+            {isOwner ? (
+              <Link
+                href={settingsHref ?? "/profile/settings"}
+                className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+                aria-label="Edit profile"
+                title="Edit profile"
+              >
+                <Settings2 className="size-4" />
+              </Link>
+            ) : (
+              <ActionButtons
+                canMessage={canMessage}
+                isFollowing={isFollowing}
+                onFollowClick={onFollowClick}
+                isFollowPending={isFollowPending}
+                onMessageClick={onMessageClick}
+                isMessagePending={isMessagePending}
+              />
+            )}
           </div>
 
           <div className="flex flex-wrap gap-8">

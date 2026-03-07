@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { hasMinimumGlobalRole, type GlobalRole } from "@freediving.ph/config";
 import type { MeResponse as SharedMeResponse } from "@freediving.ph/types";
 
-import { apiClient } from "@/lib/api/client";
+import { ApiClientError, apiClient } from "@/lib/api/client";
 import { routes } from "@/lib/api/fphgo-routes";
 
 export type SessionStatus = "signed_out" | "loading" | "signed_in";
@@ -23,13 +23,20 @@ export type SessionState = {
 };
 
 export function useSession(): SessionState {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
 
   const query = useQuery({
     queryKey: SESSION_QUERY_KEY,
     enabled: isLoaded && Boolean(isSignedIn),
-    retry: false,
-    queryFn: () => apiClient<SharedMeResponse>(routes.v1.me()),
+    retry: (failureCount, error) => {
+      if (failureCount >= 2) return false;
+      if (error instanceof ApiClientError && error.status === 401) return true;
+      return false;
+    },
+    queryFn: async () => {
+      const token = await getToken();
+      return apiClient<SharedMeResponse>(routes.v1.me(), { token });
+    },
   });
 
   if (!isLoaded) {
@@ -44,6 +51,17 @@ export function useSession(): SessionState {
   }
 
   if (!isSignedIn) {
+    return {
+      status: "signed_out",
+      me: null,
+      permissions: [],
+      roles: [],
+      hasPermission: () => false,
+      hasRole: () => false,
+    };
+  }
+
+  if (query.isError) {
     return {
       status: "signed_out",
       me: null,

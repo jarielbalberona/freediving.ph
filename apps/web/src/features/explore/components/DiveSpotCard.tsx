@@ -31,7 +31,7 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
         ref={ref}
         id={`explore-spot-card-${spot.id}`}
         className={cn(
-          "mx-1 my-4 py-1 overflow-hidden rounded-[28px] border-white/70 bg-white/95 shadow-sm transition-all",
+          "mx-1 my-4 py-1 overflow-hidden border-border/70 bg-card/95 shadow-sm transition-all",
           selected && "border-primary/45 ring-primary/20 ring-2 shadow-lg",
         )}
       >
@@ -64,7 +64,7 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
         >
           <CardContent className="grid w-full gap-4 p-4 sm:grid-cols-[132px_1fr]">
             <div
-              className="relative h-36 overflow-hidden rounded-[22px]"
+              className="relative h-36 overflow-hidden rounded-3xl"
               style={{ backgroundImage: gradientFromName(spot.name) }}
             >
               {spot.coverImageUrl ? (
@@ -74,7 +74,7 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full items-end p-4 text-lg font-semibold text-white">
+                <div className="text-primary-foreground flex h-full items-end p-4 text-lg font-semibold">
                   {spot.area}
                 </div>
               )}
@@ -109,7 +109,7 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
                   <Badge
                     key={tag}
                     variant="secondary"
-                    className="rounded-full bg-slate-100 px-2.5 py-1 text-xs"
+                    className="rounded-full bg-muted px-2.5 py-1 text-xs"
                   >
                     {tag}
                   </Badge>

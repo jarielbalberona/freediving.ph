@@ -33,9 +33,10 @@ test("phase 6 has centralized auth guard and role normalization helpers", async 
   assert.match(rolesSource, /ROLE_RANK/);
 });
 
-test("phase 6 blocks notification queries without valid numeric user id", async () => {
+test("phase 6 uses identity-scoped notification queries", async () => {
   const source = await readFile(notificationsHooksPath, "utf8");
-  assert.match(source, /enabled: Number\.isInteger\(userId\) && userId > 0/);
+  assert.match(source, /queryKey: \['notifications', filters\]/);
+  assert.doesNotMatch(source, /Number\.isInteger\(userId\)/);
 });
 
 test("phase 6 removes unsafe optimistic chika reaction updates", async () => {

@@ -6,13 +6,13 @@ export const useEvents = (filters?: EventFilters) => {
   return useQuery({
     queryKey: ['events', filters],
     queryFn: () => eventsApi.getEvents(filters),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 };
 
-export const useEvent = (eventId: number) => {
+export const useEvent = (eventId: string) => {
   return useQuery({
     queryKey: ['event', eventId],
     queryFn: () => eventsApi.getEventById(eventId),
@@ -21,11 +21,11 @@ export const useEvent = (eventId: number) => {
   });
 };
 
-export const useEventAttendees = (eventId: number) => {
+export const useEventAttendees = (eventId: string) => {
   return useQuery({
     queryKey: ['event-attendees', eventId],
     queryFn: () => eventsApi.getEventAttendees(eventId),
     enabled: !!eventId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   });
 };

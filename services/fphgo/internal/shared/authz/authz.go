@@ -3,35 +3,38 @@ package authz
 type Permission string
 
 const (
-	PermissionUsersRead       Permission = "users.read"
-	PermissionUsersManage     Permission = "users.manage"
-	PermissionContentWrite    Permission = "content.write"
-	PermissionContentRead     Permission = "content.read"
-	PermissionMessagingRead   Permission = "messaging.read"
-	PermissionMessagingWrite  Permission = "messaging.write"
-	PermissionChikaRead       Permission = "chika.read"
-	PermissionChikaWrite      Permission = "chika.write"
-	PermissionChikaModerate   Permission = "chika.moderate"
-	PermissionExploreRead     Permission = "explore.read"
-	PermissionExploreSubmit   Permission = "explore.submit"
-	PermissionExploreModerate Permission = "explore.moderate"
-	PermissionProfilesRead    Permission = "profiles.read"
-	PermissionProfilesWrite   Permission = "profiles.write"
-	PermissionBlocksRead      Permission = "blocks.read"
-	PermissionBlocksWrite     Permission = "blocks.write"
-	PermissionBuddiesRead     Permission = "buddies.read"
-	PermissionBuddiesWrite    Permission = "buddies.write"
-	PermissionGroupsRead      Permission = "groups.read"
-	PermissionGroupsManage    Permission = "groups.manage"
-	PermissionEventsRead      Permission = "events.read"
-	PermissionEventsManage    Permission = "events.manage"
-	PermissionReportsRead     Permission = "reports.read"
-	PermissionReportsWrite    Permission = "reports.write"
-	PermissionReportsModerate Permission = "reports.moderate"
-	PermissionModerationRead  Permission = "moderation.read"
-	PermissionModerationWrite Permission = "moderation.write"
-	PermissionMediaRead       Permission = "media.read"
-	PermissionMediaWrite      Permission = "media.write"
+	PermissionUsersRead          Permission = "users.read"
+	PermissionUsersManage        Permission = "users.manage"
+	PermissionContentWrite       Permission = "content.write"
+	PermissionContentRead        Permission = "content.read"
+	PermissionMessagingRead      Permission = "messaging.read"
+	PermissionMessagingWrite     Permission = "messaging.write"
+	PermissionChikaRead          Permission = "chika.read"
+	PermissionChikaWrite         Permission = "chika.write"
+	PermissionChikaModerate      Permission = "chika.moderate"
+	PermissionChikaReveal        Permission = "chika.reveal_identity"
+	PermissionExploreRead        Permission = "explore.read"
+	PermissionExploreSubmit      Permission = "explore.submit"
+	PermissionExploreModerate    Permission = "explore.moderate"
+	PermissionProfilesRead       Permission = "profiles.read"
+	PermissionProfilesWrite      Permission = "profiles.write"
+	PermissionBlocksRead         Permission = "blocks.read"
+	PermissionBlocksWrite        Permission = "blocks.write"
+	PermissionBuddiesRead        Permission = "buddies.read"
+	PermissionBuddiesWrite       Permission = "buddies.write"
+	PermissionGroupsRead         Permission = "groups.read"
+	PermissionGroupsManage       Permission = "groups.manage"
+	PermissionEventsRead         Permission = "events.read"
+	PermissionEventsManage       Permission = "events.manage"
+	PermissionReportsRead        Permission = "reports.read"
+	PermissionReportsWrite       Permission = "reports.write"
+	PermissionReportsModerate    Permission = "reports.moderate"
+	PermissionModerationRead     Permission = "moderation.read"
+	PermissionModerationWrite    Permission = "moderation.write"
+	PermissionMediaRead          Permission = "media.read"
+	PermissionMediaWrite         Permission = "media.write"
+	PermissionNotificationsRead  Permission = "notifications.read"
+	PermissionNotificationsWrite Permission = "notifications.write"
 )
 
 type Identity struct {
@@ -52,13 +55,14 @@ type Scope struct {
 
 func RolePermissions(role string) map[Permission]bool {
 	permissions := map[Permission]bool{
-		PermissionContentRead:   true,
-		PermissionMessagingRead: true,
-		PermissionChikaRead:     true,
-		PermissionExploreRead:   true,
-		PermissionProfilesRead:  true,
-		PermissionBlocksRead:    true,
-		PermissionBuddiesRead:   true,
+		PermissionContentRead:       true,
+		PermissionMessagingRead:     true,
+		PermissionChikaRead:         true,
+		PermissionExploreRead:       true,
+		PermissionProfilesRead:      true,
+		PermissionBlocksRead:        true,
+		PermissionBuddiesRead:       true,
+		PermissionNotificationsRead: true,
 	}
 
 	switch role {
@@ -72,10 +76,12 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionReportsWrite] = true
 		permissions[PermissionMediaRead] = true
 		permissions[PermissionMediaWrite] = true
+		permissions[PermissionNotificationsWrite] = true
 	case "moderator":
 		permissions[PermissionMessagingWrite] = true
 		permissions[PermissionChikaWrite] = true
 		permissions[PermissionChikaModerate] = true
+		permissions[PermissionChikaReveal] = true
 		permissions[PermissionExploreSubmit] = true
 		permissions[PermissionExploreModerate] = true
 		permissions[PermissionProfilesWrite] = true
@@ -89,10 +95,12 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionModerationWrite] = true
 		permissions[PermissionMediaRead] = true
 		permissions[PermissionMediaWrite] = true
+		permissions[PermissionNotificationsWrite] = true
 	case "admin":
 		permissions[PermissionMessagingWrite] = true
 		permissions[PermissionChikaWrite] = true
 		permissions[PermissionChikaModerate] = true
+		permissions[PermissionChikaReveal] = true
 		permissions[PermissionExploreSubmit] = true
 		permissions[PermissionExploreModerate] = true
 		permissions[PermissionProfilesWrite] = true
@@ -111,10 +119,12 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionModerationWrite] = true
 		permissions[PermissionMediaRead] = true
 		permissions[PermissionMediaWrite] = true
+		permissions[PermissionNotificationsWrite] = true
 	case "super_admin":
 		permissions[PermissionMessagingWrite] = true
 		permissions[PermissionChikaWrite] = true
 		permissions[PermissionChikaModerate] = true
+		permissions[PermissionChikaReveal] = true
 		permissions[PermissionExploreSubmit] = true
 		permissions[PermissionExploreModerate] = true
 		permissions[PermissionProfilesWrite] = true
@@ -133,6 +143,7 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionModerationWrite] = true
 		permissions[PermissionMediaRead] = true
 		permissions[PermissionMediaWrite] = true
+		permissions[PermissionNotificationsWrite] = true
 	}
 
 	return permissions

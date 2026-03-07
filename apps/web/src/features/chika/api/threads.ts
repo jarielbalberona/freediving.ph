@@ -15,9 +15,12 @@ export type ChikaCommentView = ChikaCommentResponse;
 
 export interface CreateThreadPayload {
   title: string;
-  content?: string;
+  content: string;
   categoryId: string;
 }
+
+export type ThreadReactionType = "upvote" | "downvote";
+export type CommentReactionType = "upvote" | "downvote";
 
 export const threadsApi = {
   getCategories: async (): Promise<ChikaCategoryResponse[]> => {
@@ -44,6 +47,7 @@ export const threadsApi = {
       method: "POST",
       body: {
         title: payload.title,
+        content: payload.content,
         categoryId: payload.categoryId,
       },
     });
@@ -56,11 +60,40 @@ export const threadsApi = {
     return response.items ?? [];
   },
 
-  createComment: async (threadId: string, content: string): Promise<ChikaCommentView> => {
+  createComment: async (
+    threadId: string,
+    content: string,
+    parentCommentId?: string,
+  ): Promise<ChikaCommentView> => {
     return fphgoFetchClient<ChikaCommentResponse>(routes.v1.chika.threads.comments(threadId), {
       method: "POST",
-      body: { content },
+      body: { content, ...(parentCommentId ? { parentCommentId } : {}) },
+    });
+  },
+
+  setReaction: async (threadId: string, type: ThreadReactionType): Promise<void> => {
+    await fphgoFetchClient(routes.v1.chika.threads.reactions(threadId), {
+      method: "POST",
+      body: { type },
+    });
+  },
+
+  removeReaction: async (threadId: string): Promise<void> => {
+    await fphgoFetchClient(routes.v1.chika.threads.reactions(threadId), {
+      method: "DELETE",
+    });
+  },
+
+  setCommentReaction: async (commentId: string, type: CommentReactionType): Promise<void> => {
+    await fphgoFetchClient(routes.v1.chika.comments.reactions(commentId), {
+      method: "POST",
+      body: { type },
+    });
+  },
+
+  removeCommentReaction: async (commentId: string): Promise<void> => {
+    await fphgoFetchClient(routes.v1.chika.comments.reactions(commentId), {
+      method: "DELETE",
     });
   },
 };
-

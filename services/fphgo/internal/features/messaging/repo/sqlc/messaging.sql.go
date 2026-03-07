@@ -48,6 +48,81 @@ func (q *Queries) AreBuddies(ctx context.Context, arg AreBuddiesParams) (bool, e
 	return exists, err
 }
 
+const areUsersBuddies = `-- name: AreUsersBuddies :one
+SELECT EXISTS (
+  SELECT 1
+  FROM buddies
+  WHERE app_user_id_a = LEAST($1, $2)
+    AND app_user_id_b = GREATEST($1, $2)
+)
+`
+
+type AreUsersBuddiesParams struct {
+	AppUserIDA   pgtype.UUID `db:"app_user_id_a" json:"app_user_id_a"`
+	AppUserIDA_2 pgtype.UUID `db:"app_user_id_a_2" json:"app_user_id_a_2"`
+}
+
+func (q *Queries) AreUsersBuddies(ctx context.Context, arg AreUsersBuddiesParams) (bool, error) {
+	row := q.db.QueryRow(ctx, areUsersBuddies, arg.AppUserIDA, arg.AppUserIDA_2)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const createDirectThread = `-- name: CreateDirectThread :one
+INSERT INTO message_threads (
+  id,
+  created_by_user_id,
+  type,
+  direct_user_low,
+  direct_user_high,
+  created_at,
+  updated_at,
+  last_message_at
+)
+VALUES ($1, $2, 'direct', $3, $4, NOW(), NOW(), NOW())
+RETURNING id, created_at, updated_at, last_message_at, type::text AS type, created_by_user_id, direct_user_low, direct_user_high
+`
+
+type CreateDirectThreadParams struct {
+	ID              pgtype.UUID `db:"id" json:"id"`
+	CreatedByUserID pgtype.UUID `db:"created_by_user_id" json:"created_by_user_id"`
+	DirectUserLow   pgtype.UUID `db:"direct_user_low" json:"direct_user_low"`
+	DirectUserHigh  pgtype.UUID `db:"direct_user_high" json:"direct_user_high"`
+}
+
+type CreateDirectThreadRow struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	LastMessageAt   pgtype.Timestamptz `db:"last_message_at" json:"last_message_at"`
+	Type            string             `db:"type" json:"type"`
+	CreatedByUserID pgtype.UUID        `db:"created_by_user_id" json:"created_by_user_id"`
+	DirectUserLow   pgtype.UUID        `db:"direct_user_low" json:"direct_user_low"`
+	DirectUserHigh  pgtype.UUID        `db:"direct_user_high" json:"direct_user_high"`
+}
+
+func (q *Queries) CreateDirectThread(ctx context.Context, arg CreateDirectThreadParams) (CreateDirectThreadRow, error) {
+	row := q.db.QueryRow(ctx, createDirectThread,
+		arg.ID,
+		arg.CreatedByUserID,
+		arg.DirectUserLow,
+		arg.DirectUserHigh,
+	)
+	var i CreateDirectThreadRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastMessageAt,
+		&i.Type,
+		&i.CreatedByUserID,
+		&i.DirectUserLow,
+		&i.DirectUserHigh,
+	)
+	return i, err
+}
+
 const getConversation = `-- name: GetConversation :one
 SELECT id, kind, dm_pair_key, initiator_user_id, status, created_at, updated_at
 FROM conversations
@@ -65,6 +140,123 @@ func (q *Queries) GetConversation(ctx context.Context, id pgtype.UUID) (Conversa
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getDirectOtherParticipant = `-- name: GetDirectOtherParticipant :one
+SELECT
+  m.user_id,
+  u.username,
+  u.display_name,
+  p.avatar_url
+FROM message_thread_members m
+JOIN users u ON u.id = m.user_id
+LEFT JOIN profiles p ON p.user_id = m.user_id
+WHERE m.thread_id = $1
+  AND m.user_id <> $2
+  AND m.left_at IS NULL
+LIMIT 1
+`
+
+type GetDirectOtherParticipantParams struct {
+	ThreadID pgtype.UUID `db:"thread_id" json:"thread_id"`
+	UserID   pgtype.UUID `db:"user_id" json:"user_id"`
+}
+
+type GetDirectOtherParticipantRow struct {
+	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
+	Username    string      `db:"username" json:"username"`
+	DisplayName string      `db:"display_name" json:"display_name"`
+	AvatarUrl   *string     `db:"avatar_url" json:"avatar_url"`
+}
+
+func (q *Queries) GetDirectOtherParticipant(ctx context.Context, arg GetDirectOtherParticipantParams) (GetDirectOtherParticipantRow, error) {
+	row := q.db.QueryRow(ctx, getDirectOtherParticipant, arg.ThreadID, arg.UserID)
+	var i GetDirectOtherParticipantRow
+	err := row.Scan(
+		&i.UserID,
+		&i.Username,
+		&i.DisplayName,
+		&i.AvatarUrl,
+	)
+	return i, err
+}
+
+const getDirectThreadByPair = `-- name: GetDirectThreadByPair :one
+SELECT id, created_at, updated_at, last_message_at, type::text AS type, created_by_user_id, direct_user_low, direct_user_high
+FROM message_threads
+WHERE type = 'direct'
+  AND direct_user_low = $1
+  AND direct_user_high = $2
+`
+
+type GetDirectThreadByPairParams struct {
+	DirectUserLow  pgtype.UUID `db:"direct_user_low" json:"direct_user_low"`
+	DirectUserHigh pgtype.UUID `db:"direct_user_high" json:"direct_user_high"`
+}
+
+type GetDirectThreadByPairRow struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	LastMessageAt   pgtype.Timestamptz `db:"last_message_at" json:"last_message_at"`
+	Type            string             `db:"type" json:"type"`
+	CreatedByUserID pgtype.UUID        `db:"created_by_user_id" json:"created_by_user_id"`
+	DirectUserLow   pgtype.UUID        `db:"direct_user_low" json:"direct_user_low"`
+	DirectUserHigh  pgtype.UUID        `db:"direct_user_high" json:"direct_user_high"`
+}
+
+func (q *Queries) GetDirectThreadByPair(ctx context.Context, arg GetDirectThreadByPairParams) (GetDirectThreadByPairRow, error) {
+	row := q.db.QueryRow(ctx, getDirectThreadByPair, arg.DirectUserLow, arg.DirectUserHigh)
+	var i GetDirectThreadByPairRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastMessageAt,
+		&i.Type,
+		&i.CreatedByUserID,
+		&i.DirectUserLow,
+		&i.DirectUserHigh,
+	)
+	return i, err
+}
+
+const getLastThreadMessage = `-- name: GetLastThreadMessage :one
+SELECT id, thread_id, sender_user_id, client_id, kind::text AS kind, body, created_at, edited_at, deleted_at
+FROM thread_messages
+WHERE thread_id = $1
+  AND deleted_at IS NULL
+ORDER BY created_at DESC, id DESC
+LIMIT 1
+`
+
+type GetLastThreadMessageRow struct {
+	ID           int64              `db:"id" json:"id"`
+	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	SenderUserID pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
+	ClientID     *string            `db:"client_id" json:"client_id"`
+	Kind         string             `db:"kind" json:"kind"`
+	Body         string             `db:"body" json:"body"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	EditedAt     pgtype.Timestamptz `db:"edited_at" json:"edited_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) GetLastThreadMessage(ctx context.Context, threadID pgtype.UUID) (GetLastThreadMessageRow, error) {
+	row := q.db.QueryRow(ctx, getLastThreadMessage, threadID)
+	var i GetLastThreadMessageRow
+	err := row.Scan(
+		&i.ID,
+		&i.ThreadID,
+		&i.SenderUserID,
+		&i.ClientID,
+		&i.Kind,
+		&i.Body,
+		&i.CreatedAt,
+		&i.EditedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -87,6 +279,146 @@ func (q *Queries) GetOtherParticipantID(ctx context.Context, arg GetOtherPartici
 	var user_id pgtype.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
+}
+
+const getThreadDetail = `-- name: GetThreadDetail :one
+SELECT
+  t.id,
+  t.type::text AS type,
+  t.created_at,
+  t.updated_at,
+  t.last_message_at,
+  m.inbox_category::text AS inbox_category,
+  m.last_read_message_id
+FROM message_threads t
+JOIN message_thread_members m ON m.thread_id = t.id
+WHERE t.id = $1
+  AND m.user_id = $2
+  AND m.left_at IS NULL
+LIMIT 1
+`
+
+type GetThreadDetailParams struct {
+	ID     pgtype.UUID `db:"id" json:"id"`
+	UserID pgtype.UUID `db:"user_id" json:"user_id"`
+}
+
+type GetThreadDetailRow struct {
+	ID                pgtype.UUID        `db:"id" json:"id"`
+	Type              string             `db:"type" json:"type"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	LastMessageAt     pgtype.Timestamptz `db:"last_message_at" json:"last_message_at"`
+	InboxCategory     string             `db:"inbox_category" json:"inbox_category"`
+	LastReadMessageID *int64             `db:"last_read_message_id" json:"last_read_message_id"`
+}
+
+func (q *Queries) GetThreadDetail(ctx context.Context, arg GetThreadDetailParams) (GetThreadDetailRow, error) {
+	row := q.db.QueryRow(ctx, getThreadDetail, arg.ID, arg.UserID)
+	var i GetThreadDetailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Type,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastMessageAt,
+		&i.InboxCategory,
+		&i.LastReadMessageID,
+	)
+	return i, err
+}
+
+const getThreadMemberByThreadAndUser = `-- name: GetThreadMemberByThreadAndUser :one
+SELECT
+  thread_id,
+  user_id,
+  joined_at,
+  left_at,
+  inbox_category::text AS inbox_category,
+  is_archived,
+  is_muted,
+  last_read_message_id,
+  last_read_at
+FROM message_thread_members
+WHERE thread_id = $1
+  AND user_id = $2
+LIMIT 1
+`
+
+type GetThreadMemberByThreadAndUserParams struct {
+	ThreadID pgtype.UUID `db:"thread_id" json:"thread_id"`
+	UserID   pgtype.UUID `db:"user_id" json:"user_id"`
+}
+
+type GetThreadMemberByThreadAndUserRow struct {
+	ThreadID          pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	UserID            pgtype.UUID        `db:"user_id" json:"user_id"`
+	JoinedAt          pgtype.Timestamptz `db:"joined_at" json:"joined_at"`
+	LeftAt            pgtype.Timestamptz `db:"left_at" json:"left_at"`
+	InboxCategory     string             `db:"inbox_category" json:"inbox_category"`
+	IsArchived        bool               `db:"is_archived" json:"is_archived"`
+	IsMuted           bool               `db:"is_muted" json:"is_muted"`
+	LastReadMessageID *int64             `db:"last_read_message_id" json:"last_read_message_id"`
+	LastReadAt        pgtype.Timestamptz `db:"last_read_at" json:"last_read_at"`
+}
+
+func (q *Queries) GetThreadMemberByThreadAndUser(ctx context.Context, arg GetThreadMemberByThreadAndUserParams) (GetThreadMemberByThreadAndUserRow, error) {
+	row := q.db.QueryRow(ctx, getThreadMemberByThreadAndUser, arg.ThreadID, arg.UserID)
+	var i GetThreadMemberByThreadAndUserRow
+	err := row.Scan(
+		&i.ThreadID,
+		&i.UserID,
+		&i.JoinedAt,
+		&i.LeftAt,
+		&i.InboxCategory,
+		&i.IsArchived,
+		&i.IsMuted,
+		&i.LastReadMessageID,
+		&i.LastReadAt,
+	)
+	return i, err
+}
+
+const getThreadMessageByID = `-- name: GetThreadMessageByID :one
+SELECT id, thread_id, sender_user_id, client_id, kind::text AS kind, body, created_at, edited_at, deleted_at
+FROM thread_messages
+WHERE id = $1
+  AND thread_id = $2
+  AND deleted_at IS NULL
+`
+
+type GetThreadMessageByIDParams struct {
+	ID       int64       `db:"id" json:"id"`
+	ThreadID pgtype.UUID `db:"thread_id" json:"thread_id"`
+}
+
+type GetThreadMessageByIDRow struct {
+	ID           int64              `db:"id" json:"id"`
+	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	SenderUserID pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
+	ClientID     *string            `db:"client_id" json:"client_id"`
+	Kind         string             `db:"kind" json:"kind"`
+	Body         string             `db:"body" json:"body"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	EditedAt     pgtype.Timestamptz `db:"edited_at" json:"edited_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) GetThreadMessageByID(ctx context.Context, arg GetThreadMessageByIDParams) (GetThreadMessageByIDRow, error) {
+	row := q.db.QueryRow(ctx, getThreadMessageByID, arg.ID, arg.ThreadID)
+	var i GetThreadMessageByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ThreadID,
+		&i.SenderUserID,
+		&i.ClientID,
+		&i.Kind,
+		&i.Body,
+		&i.CreatedAt,
+		&i.EditedAt,
+		&i.DeletedAt,
+	)
+	return i, err
 }
 
 const insertMessage = `-- name: InsertMessage :one
@@ -121,6 +453,68 @@ func (q *Queries) InsertMessage(ctx context.Context, arg InsertMessageParams) (I
 	)
 	var i InsertMessageRow
 	err := row.Scan(&i.ID, &i.Metadata, &i.CreatedAt)
+	return i, err
+}
+
+const insertThreadMessage = `-- name: InsertThreadMessage :one
+INSERT INTO thread_messages (
+  thread_id,
+  sender_user_id,
+  client_id,
+  kind,
+  body
+)
+VALUES (
+  $1,
+  $2,
+  $4,
+  'text',
+  $3
+)
+ON CONFLICT (thread_id, sender_user_id, client_id)
+WHERE client_id IS NOT NULL
+DO UPDATE SET body = thread_messages.body
+RETURNING id, thread_id, sender_user_id, client_id, kind::text AS kind, body, created_at, edited_at, deleted_at
+`
+
+type InsertThreadMessageParams struct {
+	ThreadID     pgtype.UUID `db:"thread_id" json:"thread_id"`
+	SenderUserID pgtype.UUID `db:"sender_user_id" json:"sender_user_id"`
+	Body         string      `db:"body" json:"body"`
+	ClientID     *string     `db:"client_id" json:"client_id"`
+}
+
+type InsertThreadMessageRow struct {
+	ID           int64              `db:"id" json:"id"`
+	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	SenderUserID pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
+	ClientID     *string            `db:"client_id" json:"client_id"`
+	Kind         string             `db:"kind" json:"kind"`
+	Body         string             `db:"body" json:"body"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	EditedAt     pgtype.Timestamptz `db:"edited_at" json:"edited_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) InsertThreadMessage(ctx context.Context, arg InsertThreadMessageParams) (InsertThreadMessageRow, error) {
+	row := q.db.QueryRow(ctx, insertThreadMessage,
+		arg.ThreadID,
+		arg.SenderUserID,
+		arg.Body,
+		arg.ClientID,
+	)
+	var i InsertThreadMessageRow
+	err := row.Scan(
+		&i.ID,
+		&i.ThreadID,
+		&i.SenderUserID,
+		&i.ClientID,
+		&i.Kind,
+		&i.Body,
+		&i.CreatedAt,
+		&i.EditedAt,
+		&i.DeletedAt,
+	)
 	return i, err
 }
 
@@ -389,6 +783,288 @@ func (q *Queries) ListInboxConversations(ctx context.Context, arg ListInboxConve
 	return items, nil
 }
 
+const listMessageThreads = `-- name: ListMessageThreads :many
+SELECT
+  t.id,
+  t.type::text AS type,
+  t.last_message_at,
+  m.inbox_category::text AS inbox_category,
+  p.user_id AS participant_user_id,
+  p.username AS participant_username,
+  p.display_name AS participant_display_name,
+  p.avatar_url AS participant_avatar_url,
+  lm.id AS last_message_id,
+  lm.kind::text AS last_message_kind,
+  lm.body AS last_message_body,
+  lm.sender_user_id AS last_message_sender_user_id,
+  lm.created_at AS last_message_created_at,
+  COALESCE(unread.unread_count, 0)::bigint AS unread_count
+FROM message_thread_members m
+JOIN message_threads t ON t.id = m.thread_id
+JOIN LATERAL (
+  SELECT
+    om.user_id,
+    u.username,
+    u.display_name,
+    COALESCE(pr.avatar_url, '')::text AS avatar_url
+  FROM message_thread_members om
+  JOIN users u ON u.id = om.user_id
+  LEFT JOIN profiles pr ON pr.user_id = om.user_id
+  WHERE om.thread_id = m.thread_id
+    AND om.user_id <> $1
+    AND om.left_at IS NULL
+  LIMIT 1
+) p ON TRUE
+LEFT JOIN LATERAL (
+  SELECT tm.id, tm.kind, tm.body, tm.sender_user_id, tm.created_at
+  FROM thread_messages tm
+  WHERE tm.thread_id = m.thread_id
+    AND tm.deleted_at IS NULL
+  ORDER BY tm.created_at DESC, tm.id DESC
+  LIMIT 1
+) lm ON TRUE
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS unread_count
+  FROM thread_messages tm
+  WHERE tm.thread_id = m.thread_id
+    AND tm.deleted_at IS NULL
+    AND tm.sender_user_id <> $1
+    AND tm.created_at > COALESCE(m.last_read_at, 'epoch'::timestamptz)
+) unread ON TRUE
+WHERE m.user_id = $1
+  AND m.left_at IS NULL
+  AND m.is_archived = FALSE
+  AND m.inbox_category = $2::message_inbox_category
+  AND (
+    $3::text = ''
+    OR p.username ILIKE ('%' || $3::text || '%')
+    OR p.display_name ILIKE ('%' || $3::text || '%')
+  )
+  AND (
+    t.last_message_at < $4::timestamptz
+    OR (t.last_message_at = $4::timestamptz AND t.id < $5::uuid)
+  )
+ORDER BY t.last_message_at DESC, t.id DESC
+LIMIT $6::int
+`
+
+type ListMessageThreadsParams struct {
+	UserID              pgtype.UUID        `db:"user_id" json:"user_id"`
+	Category            interface{}        `db:"category" json:"category"`
+	Search              string             `db:"search" json:"search"`
+	CursorLastMessageAt pgtype.Timestamptz `db:"cursor_last_message_at" json:"cursor_last_message_at"`
+	CursorThreadID      pgtype.UUID        `db:"cursor_thread_id" json:"cursor_thread_id"`
+	LimitCount          int32              `db:"limit_count" json:"limit_count"`
+}
+
+type ListMessageThreadsRow struct {
+	ID                      pgtype.UUID        `db:"id" json:"id"`
+	Type                    string             `db:"type" json:"type"`
+	LastMessageAt           pgtype.Timestamptz `db:"last_message_at" json:"last_message_at"`
+	InboxCategory           string             `db:"inbox_category" json:"inbox_category"`
+	ParticipantUserID       pgtype.UUID        `db:"participant_user_id" json:"participant_user_id"`
+	ParticipantUsername     string             `db:"participant_username" json:"participant_username"`
+	ParticipantDisplayName  string             `db:"participant_display_name" json:"participant_display_name"`
+	ParticipantAvatarUrl    string             `db:"participant_avatar_url" json:"participant_avatar_url"`
+	LastMessageID           int64              `db:"last_message_id" json:"last_message_id"`
+	LastMessageKind         string             `db:"last_message_kind" json:"last_message_kind"`
+	LastMessageBody         string             `db:"last_message_body" json:"last_message_body"`
+	LastMessageSenderUserID pgtype.UUID        `db:"last_message_sender_user_id" json:"last_message_sender_user_id"`
+	LastMessageCreatedAt    pgtype.Timestamptz `db:"last_message_created_at" json:"last_message_created_at"`
+	UnreadCount             int64              `db:"unread_count" json:"unread_count"`
+}
+
+func (q *Queries) ListMessageThreads(ctx context.Context, arg ListMessageThreadsParams) ([]ListMessageThreadsRow, error) {
+	rows, err := q.db.Query(ctx, listMessageThreads,
+		arg.UserID,
+		arg.Category,
+		arg.Search,
+		arg.CursorLastMessageAt,
+		arg.CursorThreadID,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMessageThreadsRow{}
+	for rows.Next() {
+		var i ListMessageThreadsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.LastMessageAt,
+			&i.InboxCategory,
+			&i.ParticipantUserID,
+			&i.ParticipantUsername,
+			&i.ParticipantDisplayName,
+			&i.ParticipantAvatarUrl,
+			&i.LastMessageID,
+			&i.LastMessageKind,
+			&i.LastMessageBody,
+			&i.LastMessageSenderUserID,
+			&i.LastMessageCreatedAt,
+			&i.UnreadCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listThreadMemberUserIDs = `-- name: ListThreadMemberUserIDs :many
+SELECT user_id
+FROM message_thread_members
+WHERE thread_id = $1
+  AND left_at IS NULL
+`
+
+func (q *Queries) ListThreadMemberUserIDs(ctx context.Context, threadID pgtype.UUID) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listThreadMemberUserIDs, threadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var user_id pgtype.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listThreadMessages = `-- name: ListThreadMessages :many
+SELECT
+  id,
+  thread_id,
+  sender_user_id,
+  client_id,
+  kind::text AS kind,
+  body,
+  created_at,
+  edited_at,
+  deleted_at
+FROM thread_messages
+WHERE thread_id = $1
+  AND deleted_at IS NULL
+  AND (
+    created_at < $2::timestamptz
+    OR (created_at = $2::timestamptz AND id < $3::bigint)
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT $4::int
+`
+
+type ListThreadMessagesParams struct {
+	ThreadID        pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	CursorCreatedAt pgtype.Timestamptz `db:"cursor_created_at" json:"cursor_created_at"`
+	CursorMessageID int64              `db:"cursor_message_id" json:"cursor_message_id"`
+	LimitCount      int32              `db:"limit_count" json:"limit_count"`
+}
+
+type ListThreadMessagesRow struct {
+	ID           int64              `db:"id" json:"id"`
+	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	SenderUserID pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
+	ClientID     *string            `db:"client_id" json:"client_id"`
+	Kind         string             `db:"kind" json:"kind"`
+	Body         string             `db:"body" json:"body"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	EditedAt     pgtype.Timestamptz `db:"edited_at" json:"edited_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+func (q *Queries) ListThreadMessages(ctx context.Context, arg ListThreadMessagesParams) ([]ListThreadMessagesRow, error) {
+	rows, err := q.db.Query(ctx, listThreadMessages,
+		arg.ThreadID,
+		arg.CursorCreatedAt,
+		arg.CursorMessageID,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListThreadMessagesRow{}
+	for rows.Next() {
+		var i ListThreadMessagesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.SenderUserID,
+			&i.ClientID,
+			&i.Kind,
+			&i.Body,
+			&i.CreatedAt,
+			&i.EditedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listThreadParticipants = `-- name: ListThreadParticipants :many
+SELECT
+  m.user_id,
+  u.username,
+  u.display_name,
+  p.avatar_url
+FROM message_thread_members m
+JOIN users u ON u.id = m.user_id
+LEFT JOIN profiles p ON p.user_id = m.user_id
+WHERE m.thread_id = $1
+  AND m.left_at IS NULL
+ORDER BY m.joined_at ASC
+`
+
+type ListThreadParticipantsRow struct {
+	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
+	Username    string      `db:"username" json:"username"`
+	DisplayName string      `db:"display_name" json:"display_name"`
+	AvatarUrl   *string     `db:"avatar_url" json:"avatar_url"`
+}
+
+func (q *Queries) ListThreadParticipants(ctx context.Context, threadID pgtype.UUID) ([]ListThreadParticipantsRow, error) {
+	rows, err := q.db.Query(ctx, listThreadParticipants, threadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListThreadParticipantsRow{}
+	for rows.Next() {
+		var i ListThreadParticipantsRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Username,
+			&i.DisplayName,
+			&i.AvatarUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markConversationReadByMessageID = `-- name: MarkConversationReadByMessageID :exec
 UPDATE conversation_participants cp
 SET last_read_at = GREATEST(
@@ -433,6 +1109,29 @@ func (q *Queries) MarkConversationReadNow(ctx context.Context, arg MarkConversat
 	return err
 }
 
+const markThreadRead = `-- name: MarkThreadRead :exec
+UPDATE message_thread_members m
+SET last_read_message_id = tm.id,
+    last_read_at = GREATEST(COALESCE(m.last_read_at, 'epoch'::timestamptz), tm.created_at)
+FROM thread_messages tm
+WHERE m.thread_id = $1
+  AND m.user_id = $2
+  AND tm.thread_id = $1
+  AND tm.id = $3
+  AND (m.last_read_at IS NULL OR tm.created_at >= m.last_read_at)
+`
+
+type MarkThreadReadParams struct {
+	ThreadID pgtype.UUID `db:"thread_id" json:"thread_id"`
+	UserID   pgtype.UUID `db:"user_id" json:"user_id"`
+	ID       int64       `db:"id" json:"id"`
+}
+
+func (q *Queries) MarkThreadRead(ctx context.Context, arg MarkThreadReadParams) error {
+	_, err := q.db.Exec(ctx, markThreadRead, arg.ThreadID, arg.UserID, arg.ID)
+	return err
+}
+
 const setConversationStatus = `-- name: SetConversationStatus :exec
 UPDATE conversations
 SET status = $2, updated_at = NOW()
@@ -457,6 +1156,23 @@ WHERE id = $1
 
 func (q *Queries) TouchConversation(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, touchConversation, id)
+	return err
+}
+
+const touchThreadLastMessage = `-- name: TouchThreadLastMessage :exec
+UPDATE message_threads
+SET last_message_at = $2,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type TouchThreadLastMessageParams struct {
+	ID            pgtype.UUID        `db:"id" json:"id"`
+	LastMessageAt pgtype.Timestamptz `db:"last_message_at" json:"last_message_at"`
+}
+
+func (q *Queries) TouchThreadLastMessage(ctx context.Context, arg TouchThreadLastMessageParams) error {
+	_, err := q.db.Exec(ctx, touchThreadLastMessage, arg.ID, arg.LastMessageAt)
 	return err
 }
 
@@ -495,4 +1211,32 @@ func (q *Queries) UpsertDMConversation(ctx context.Context, arg UpsertDMConversa
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const upsertThreadMember = `-- name: UpsertThreadMember :exec
+INSERT INTO message_thread_members (
+  thread_id,
+  user_id,
+  inbox_category,
+  joined_at,
+  left_at,
+  is_archived,
+  is_muted
+)
+VALUES ($1, $2, $3::message_inbox_category, NOW(), NULL, FALSE, FALSE)
+ON CONFLICT (thread_id, user_id)
+DO UPDATE SET
+  joined_at = COALESCE(message_thread_members.joined_at, NOW()),
+  left_at = NULL
+`
+
+type UpsertThreadMemberParams struct {
+	ThreadID      pgtype.UUID `db:"thread_id" json:"thread_id"`
+	UserID        pgtype.UUID `db:"user_id" json:"user_id"`
+	InboxCategory interface{} `db:"inbox_category" json:"inbox_category"`
+}
+
+func (q *Queries) UpsertThreadMember(ctx context.Context, arg UpsertThreadMemberParams) error {
+	_, err := q.db.Exec(ctx, upsertThreadMember, arg.ThreadID, arg.UserID, arg.InboxCategory)
+	return err
 }

@@ -17,6 +17,7 @@ import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileTile } from "@/features/profile/components/ProfileTile";
 import type { ProfilePost } from "@/features/profile/types";
+import { Card } from "@/components/ui/card";
 
 type ProfileGridProps = {
   posts: ProfilePost[];
@@ -61,7 +62,7 @@ export function ProfileGrid({
 
   if (posts.length === 0) {
     return (
-      <div className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-border bg-muted/30 text-center">
+      <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center">
         <ImageOff className="size-8 text-muted-foreground" />
         <div className="space-y-1">
           <p className="text-base font-semibold text-foreground">
@@ -114,7 +115,7 @@ export function ProfileGrid({
               <div className="relative bg-muted md:flex md:min-w-0 md:flex-1  md:overflow-hidden">
                 <div className="relative aspect-[4/5] h-auto w-full max-w-full md:max-h-full md:w-auto overflow-hidden">
                   <Image
-                    src={selectedPost.thumbUrl}
+                    src={selectedPost.thumbUrl || "/images/samples/1.jpg"}
                     alt={`Expanded post ${selectedPost.id}`}
                     fill
                     className="object-cover"
@@ -180,8 +181,10 @@ export function ProfileGrid({
                 <div className="space-y-1 px-4 pb-5 md:min-h-0 md:flex-1 md:overflow-y-auto md:px-5">
                   <p className="text-sm leading-6 text-foreground">
                     <span className="mr-1 font-semibold">{username}</span>
-                    Profile post preview. Real captions and comments still need
-                    the actual post-detail payload.
+                    {selectedPost.caption || "No dive notes added."}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedPost.siteName} · {selectedPost.siteArea}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     View all {formatMetric(selectedPost.commentCount)} comments

@@ -7,158 +7,117 @@ import type {
   UpdateGroupRequest,
   JoinGroupRequest,
   CreateGroupPostRequest,
-  GroupFilters
+  GroupFilters,
 } from '@freediving.ph/types';
 
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+};
+
+type ListGroupsPayload = {
+  groups: Group[];
+  pagination: Pagination;
+};
+
+type GroupDetailPayload = {
+  group: Group;
+};
+
+type JoinGroupPayload = {
+  membership: GroupMember;
+};
+
+type ListMembersPayload = {
+  members: GroupMember[];
+  pagination: Pagination;
+};
+
+type ListPostsPayload = {
+  posts: GroupPost[];
+  pagination: Pagination;
+};
+
+type CreateGroupPayload = {
+  group: Group;
+};
+
+type CreatePostPayload = {
+  post: GroupPost;
+};
+
 export const groupsApi = {
-  // Get all groups with pagination and filtering
-  getGroups: (filters?: GroupFilters) => {
+  getGroups: async (filters?: GroupFilters): Promise<ListGroupsPayload> => {
     const params = new URLSearchParams();
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
-    if (filters?.type) params.append('type', filters.type);
-    if (filters?.status) params.append('status', filters.status);
+    if (filters?.visibility) params.append('visibility', filters.visibility);
     if (filters?.search) params.append('search', filters.search);
 
     const queryString = params.toString();
-    const url = `/groups${queryString ? `?${queryString}` : ''}`;
+    const url = `/v1/groups${queryString ? `?${queryString}` : ''}`;
 
-    return axiosInstance.get<{
-      success: boolean;
-      data: {
-        groups: Group[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-      };
-    }>(url);
+    const response = await axiosInstance.get<ListGroupsPayload>(url);
+    return response.data;
   },
 
-  // Get group by ID
-  getGroupById: (groupId: number) => {
-    return axiosInstance.get<{
-      success: boolean;
-      data: Group;
-    }>(`/groups/${groupId}`);
+  getGroupById: async (groupId: string): Promise<Group> => {
+    const response = await axiosInstance.get<GroupDetailPayload>(`/v1/groups/${groupId}`);
+    return response.data.group;
   },
 
-  // Create new group
-  createGroup: (data: CreateGroupRequest & { userId: number }) => {
-    return axiosInstance.post<{
-      success: boolean;
-      data: Group;
-    }>('/groups', data);
+  createGroup: async (data: CreateGroupRequest): Promise<Group> => {
+    const response = await axiosInstance.post<CreateGroupPayload>('/v1/groups', data);
+    return response.data.group;
   },
 
-  // Update group
-  updateGroup: (groupId: number, data: UpdateGroupRequest & { userId: number }) => {
-    return axiosInstance.put<{
-      success: boolean;
-      data: Group;
-    }>(`/groups/${groupId}`, data);
+  updateGroup: async (groupId: string, data: UpdateGroupRequest): Promise<Group> => {
+    const response = await axiosInstance.patch<CreateGroupPayload>(`/v1/groups/${groupId}`, data);
+    return response.data.group;
   },
 
-  // Join group
-  joinGroup: (data: JoinGroupRequest) => {
-    return axiosInstance.post<{
-      success: boolean;
-      data: GroupMember;
-    }>('/groups/join', data);
+  joinGroup: async (data: JoinGroupRequest): Promise<GroupMember> => {
+    const response = await axiosInstance.post<JoinGroupPayload>(`/v1/groups/${data.groupId}/join`);
+    return response.data.membership;
   },
 
-  // Leave group
-  leaveGroup: (groupId: number, userId: number) => {
-    return axiosInstance.post<{
-      success: boolean;
-      message: string;
-    }>(`/groups/${groupId}/leave`, { userId });
+  leaveGroup: async (groupId: string): Promise<void> => {
+    await axiosInstance.post(`/v1/groups/${groupId}/leave`);
   },
 
-  // Get group members
-  getGroupMembers: (groupId: number, page?: number, limit?: number) => {
+  getGroupMembers: async (groupId: string, page?: number, limit?: number): Promise<ListMembersPayload> => {
     const params = new URLSearchParams();
     if (page) params.append('page', page.toString());
     if (limit) params.append('limit', limit.toString());
 
     const queryString = params.toString();
-    const url = `/groups/${groupId}/members${queryString ? `?${queryString}` : ''}`;
+    const url = `/v1/groups/${groupId}/members${queryString ? `?${queryString}` : ''}`;
 
-    return axiosInstance.get<{
-      success: boolean;
-      data: {
-        members: GroupMember[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-      };
-    }>(url);
+    const response = await axiosInstance.get<ListMembersPayload>(url);
+    return response.data;
   },
 
-  // Get group posts
-  getGroupPosts: (groupId: number, page?: number, limit?: number) => {
+  getGroupPosts: async (groupId: string, page?: number, limit?: number): Promise<ListPostsPayload> => {
     const params = new URLSearchParams();
     if (page) params.append('page', page.toString());
     if (limit) params.append('limit', limit.toString());
 
     const queryString = params.toString();
-    const url = `/groups/${groupId}/posts${queryString ? `?${queryString}` : ''}`;
+    const url = `/v1/groups/${groupId}/posts${queryString ? `?${queryString}` : ''}`;
 
-    return axiosInstance.get<{
-      success: boolean;
-      data: {
-        posts: GroupPost[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-      };
-    }>(url);
+    const response = await axiosInstance.get<ListPostsPayload>(url);
+    return response.data;
   },
 
-  // Create group post
-  createGroupPost: (data: CreateGroupPostRequest) => {
-    return axiosInstance.post<{
-      success: boolean;
-      data: GroupPost;
-    }>('/groups/posts', data);
-  },
-
-  // Get user's groups
-  getUserGroups: (userId: number, page?: number, limit?: number) => {
-    const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
-
-    const queryString = params.toString();
-    const url = `/groups/users/${userId}/groups${queryString ? `?${queryString}` : ''}`;
-
-    return axiosInstance.get<{
-      success: boolean;
-      data: {
-        groups: Array<Group & { role: string; joinedAt: string }>;
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-      };
-    }>(url);
+  createGroupPost: async (data: CreateGroupPostRequest): Promise<GroupPost> => {
+    const response = await axiosInstance.post<CreatePostPayload>(`/v1/groups/${data.groupId}/posts`, {
+      title: data.title,
+      content: data.content,
+    });
+    return response.data.post;
   },
 };

@@ -7,6 +7,7 @@ type JsonObject = Record<string, unknown>;
 declare global {
   interface Window {
     Clerk?: {
+      loaded?: boolean;
       session?: {
         getToken(): Promise<string | null>;
       };
@@ -134,6 +135,17 @@ export const createFphgoFetcher = ({
 
 const getClerkTokenFromWindow = async (): Promise<string | null> => {
   if (typeof window === "undefined") return null;
+  const start = Date.now();
+  const waitLimitMs = 1500;
+  while (Date.now() - start < waitLimitMs) {
+    if (window.Clerk?.session) {
+      break;
+    }
+    if (window.Clerk?.loaded) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
   try {
     return (await window.Clerk?.session?.getToken()) || null;
   } catch {

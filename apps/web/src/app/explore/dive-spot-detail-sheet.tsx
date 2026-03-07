@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { MapPin, MessageSquare, Star, Waves } from "lucide-react";
 
+import { UsernameLink } from "@/components/common/UsernameLink";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -271,7 +272,15 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
                 <div className="space-y-2">
                   {relatedBuddies.map((buddy: any) => (
                     <div key={buddy.id} className="rounded-md border p-3 text-sm">
-                      <p className="font-medium">{buddy.alias || buddy.username || `Diver #${buddy.id}`}</p>
+                      <p className="font-medium">
+                        {buddy.alias ? (
+                          buddy.alias
+                        ) : buddy.username ? (
+                          <UsernameLink username={buddy.username} />
+                        ) : (
+                          `Diver #${buddy.id}`
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground">{buddy.homeDiveArea || buddy.location || "No location shared"}</p>
                     </div>
                   ))}

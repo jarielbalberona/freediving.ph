@@ -12,6 +12,7 @@ import (
 	"fphgo/internal/middleware"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
+	"fphgo/internal/shared/mediaurl"
 )
 
 type Handlers struct {
@@ -276,6 +277,6 @@ func mapProfile(input buddiesrepo.BuddyProfile) BuddyProfile {
 		UserID:      input.UserID,
 		Username:    input.Username,
 		DisplayName: input.DisplayName,
-		AvatarURL:   input.AvatarURL,
+		AvatarURL:   mediaurl.MaterializeWithDefault(input.AvatarURL),
 	}
 }

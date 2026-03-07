@@ -29,6 +29,7 @@ export function ModeSwitcher() {
   return (
     <Button
       variant="ghost"
+      tooltip="Toggle theme"
       className="group/toggle h-8 w-8 px-0 pointer-events-auto"
       onClick={toggleTheme}
     >

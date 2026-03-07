@@ -47,9 +47,9 @@ export default function CreateThreadModal({ isOpen, onClose }: CreateThreadModal
 
   useEffect(() => {
     if (!isOpen) return;
-    const firstId = categories?.[0]?.id ?? "";
-    if (!form.getValues("categoryId") && firstId) {
-      form.setValue("categoryId", firstId);
+    const generalId = categories?.find((c) => c.slug === "general")?.id ?? categories?.[0]?.id ?? "";
+    if (!form.getValues("categoryId") && generalId) {
+      form.setValue("categoryId", generalId);
     }
   }, [isOpen, categories, form]);
 
@@ -65,7 +65,7 @@ export default function CreateThreadModal({ isOpen, onClose }: CreateThreadModal
         content: values.content?.trim() || "",
         categoryId: values.categoryId,
       });
-      form.reset({ title: "", content: "", categoryId: categories?.[0]?.id ?? "" });
+      form.reset({ title: "", content: "", categoryId: categories?.find((c) => c.slug === "general")?.id ?? categories?.[0]?.id ?? "" });
       onClose();
     } catch (error) {
       setSubmitError(getRateLimitMessage(error, getApiErrorMessage(error, "Failed to create thread")));
@@ -74,10 +74,12 @@ export default function CreateThreadModal({ isOpen, onClose }: CreateThreadModal
 
   if (!isOpen) return null;
 
-  const categoryItems = (categories ?? []).map((c) => ({
-    value: c.id,
-    label: `${c.name}${c.pseudonymous ? " (Anonymous)" : ""}`,
-  }));
+  const categoryItems = [...(categories ?? [])]
+    .sort((a, b) => (a.pseudonymous === b.pseudonymous ? 0 : a.pseudonymous ? 1 : -1))
+    .map((c) => ({
+      value: c.id,
+      label: `${c.name}${c.pseudonymous ? " (Anonymous)" : ""}`,
+    }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm">

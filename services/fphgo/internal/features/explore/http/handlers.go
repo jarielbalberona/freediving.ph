@@ -14,6 +14,7 @@ import (
 	"fphgo/internal/middleware"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
+	"fphgo/internal/shared/mediaurl"
 	"fphgo/internal/shared/pagination"
 	"fphgo/internal/shared/validatex"
 )
@@ -331,7 +332,7 @@ func (h *Handlers) GetBuddyIntentsBySlug(w http.ResponseWriter, r *http.Request)
 			DiveSiteID:         item.DiveSiteID,
 			Username:           item.Username,
 			DisplayName:        item.DisplayName,
-			AvatarURL:          item.AvatarURL,
+			AvatarURL:          mediaurl.MaterializeWithDefault(item.AvatarURL),
 			HomeArea:           item.HomeArea,
 			Area:               item.Area,
 			IntentType:         item.IntentType,

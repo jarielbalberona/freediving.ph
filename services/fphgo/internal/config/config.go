@@ -33,6 +33,8 @@ type Config struct {
 	MediaCDNBaseURL        string
 	MediaSigningSecretV1   string
 	MediaSigningKeyVersion int
+	ChikaPseudonymSecret   string
+	WSFanoutChannel        string
 }
 
 func Load() (Config, error) {
@@ -67,6 +69,7 @@ func Load() (Config, error) {
 		env = "development"
 	}
 	logLevel := strings.TrimSpace(strings.ToLower(os.Getenv("LOG_LEVEL")))
+
 	switch logLevel {
 	case "", "debug", "info", "warn", "error":
 	default:
@@ -107,6 +110,8 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	chikaPseudonymSecret := strings.TrimSpace(os.Getenv("CHIKA_PSEUDONYM_SECRET"))
+	wsFanoutChannel := strings.TrimSpace(os.Getenv("WS_FANOUT_CHANNEL"))
 
 	if strings.EqualFold(env, "production") {
 		if clerkSecretKey == "" {
@@ -117,6 +122,9 @@ func Load() (Config, error) {
 		}
 		if containsWildcardOrigin(origins) {
 			return Config{}, fmt.Errorf("CORS_ORIGINS cannot include '*' in production")
+		}
+		if chikaPseudonymSecret == "" {
+			return Config{}, fmt.Errorf("CHIKA_PSEUDONYM_SECRET is required in production")
 		}
 	}
 	if clerkSecretKey == "" && !devAuth {
@@ -151,6 +159,8 @@ func Load() (Config, error) {
 		MediaCDNBaseURL:        mediaCDNBaseURL,
 		MediaSigningSecretV1:   mediaSigningSecretV1,
 		MediaSigningKeyVersion: mediaSigningKeyVersion,
+		ChikaPseudonymSecret:   chikaPseudonymSecret,
+		WSFanoutChannel:        wsFanoutChannel,
 	}, nil
 }
 

@@ -73,7 +73,12 @@ func extractGooseUpSQL(migration string) string {
 	segment := migration[upIdx:]
 	beginIdx := strings.Index(segment, "-- +goose StatementBegin")
 	if beginIdx == -1 {
-		return ""
+		downIdx := strings.Index(segment, "-- +goose Down")
+		if downIdx == -1 {
+			return strings.TrimSpace(segment)
+		}
+		upBody := strings.TrimSpace(segment[len("-- +goose Up"):downIdx])
+		return upBody
 	}
 
 	segment = segment[beginIdx+len("-- +goose StatementBegin"):]

@@ -1,4 +1,4 @@
-.PHONY: dev dev-deps test sqlc migrate-up migrate-down lint
+.PHONY: dev dev-deps test sqlc migrate-up migrate-down lint psgc-import
 
 GOOSE := go run github.com/pressly/goose/v3/cmd/goose@v3.24.1
 
@@ -23,3 +23,6 @@ migrate-down:
 lint:
 	gofmt -w .
 	go vet ./...
+
+psgc-import:
+	go run ./cmd/psgc-import -data-dir "$(DATA_DIR)" -source-version "$(SOURCE_VERSION)" -published-at "$(PUBLISHED_AT)"

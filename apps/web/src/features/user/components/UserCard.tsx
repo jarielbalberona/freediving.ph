@@ -1,6 +1,7 @@
 "use client";
 
 import { UserProfile } from '@freediving.ph/types';
+import { UsernameLink } from "@/components/common/UsernameLink";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,7 @@ export function UserCard({
             <div className="space-y-1">
               <CardTitle>{user.firstName} {user.lastName}</CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-muted-foreground">@{user.username}</span>
+                <UsernameLink username={`@${user.username}`} className="text-sm text-muted-foreground" />
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getExperienceColor(user.experience)}`}>
                   {user.experience}
                 </span>

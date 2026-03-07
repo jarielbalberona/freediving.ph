@@ -57,7 +57,7 @@ export function MapPinPickerDialog({
         showCloseButton={false}
         className="h-dvh max-h-none max-w-none rounded-none border-0 p-0 sm:h-dvh"
       >
-        <DialogHeader className="border-b border-sky-950/10 bg-white/95 pb-4">
+        <DialogHeader className="border-b border-sky-950/10 bg-card/95 pb-4">
           <DialogTitle className="text-2xl font-semibold text-sky-950">
             Pin the dive site
           </DialogTitle>
@@ -73,7 +73,7 @@ export function MapPinPickerDialog({
           </MapProvider>
         </div>
 
-        <DialogFooter className="border-t border-sky-950/10 bg-white/95 sm:flex-row sm:items-center sm:justify-between">
+        <DialogFooter className="border-t border-sky-950/10 bg-card/95 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-zinc-600">
             {formatPinnedAreaLabel(draftLocation)}
           </div>
@@ -211,7 +211,7 @@ function PickerMap({ value, onChange }: PickerMapProps) {
         ) : null}
       </Map>
 
-      <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-3xl bg-white/92 p-4 shadow-lg backdrop-blur">
+      <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-3xl bg-card/92 p-4 shadow-lg backdrop-blur">
         <p className="text-sm font-medium text-sky-950">
           {displayArea
             ? `Pinned area: ${displayArea}`

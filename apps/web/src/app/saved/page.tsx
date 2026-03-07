@@ -20,9 +20,9 @@ export default function SavedPage() {
 
   return (
     <AuthGuard title="Create an account to access your saved hub" description="Save your favorite dive sites and buddies to plan your next trip.">
-      <div className="min-h-full bg-[linear-gradient(180deg,_#fafaf9_0%,_#ffffff_100%)] px-4 py-6 sm:px-6">
+      <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-5xl space-y-6">
-          <section className="rounded-[28px] border border-zinc-900/10 bg-white/90 p-6 shadow-sm">
+          <section className="rounded-4xl border border-border bg-card/90 p-6 shadow-sm">
             <Badge className="w-fit rounded-full bg-zinc-950 text-zinc-50">Saved Hub</Badge>
             <h1 className="mt-3 font-serif text-4xl tracking-tight text-zinc-950">Plan now, decide later</h1>
             <p className="mt-2 max-w-2xl text-sm text-zinc-600">
@@ -38,7 +38,7 @@ export default function SavedPage() {
 
             <TabsContent value="sites" className="space-y-4">
               {sites.map((site) => (
-                <Card key={site.id} className="rounded-[24px] bg-white/90">
+                <Card key={site.id} className="bg-card/90">
                   <CardHeader>
                     <CardTitle className="text-xl text-zinc-950">{site.name}</CardTitle>
                     <p className="text-sm text-zinc-600">{site.area}</p>
@@ -56,7 +56,7 @@ export default function SavedPage() {
                 </Card>
               ))}
               {sites.length === 0 && !savedQuery.isLoading ? (
-                <Card className="rounded-[24px] border-dashed">
+                <Card className="border-dashed">
                   <CardContent className="p-6 text-sm text-zinc-600">No saved sites yet. Save sites from Explore to plan your next trip.</CardContent>
                 </Card>
               ) : null}
@@ -64,7 +64,7 @@ export default function SavedPage() {
 
             <TabsContent value="users" className="space-y-4">
               {users.map((user) => (
-                <Card key={user.userId} className="rounded-[24px] bg-white/90">
+                <Card key={user.userId} className="bg-card/90">
                   <CardHeader>
                     <CardTitle className="text-xl text-zinc-950">
                       <Link
@@ -95,7 +95,7 @@ export default function SavedPage() {
                 </Card>
               ))}
               {users.length === 0 && !savedQuery.isLoading ? (
-                <Card className="rounded-[24px] border-dashed">
+                <Card className="border-dashed">
                   <CardContent className="p-6 text-sm text-zinc-600">No saved buddies yet. Save divers from Buddy Finder to connect later.</CardContent>
                 </Card>
               ) : null}

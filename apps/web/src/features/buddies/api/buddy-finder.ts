@@ -21,9 +21,9 @@ const withQuery = (path: string, params: Record<string, string | number | boolea
 };
 
 export const buddyFinderApi = {
-  preview: (area?: string) =>
+  preview: (area?: string, limit?: number) =>
     fphgoFetchClient<BuddyFinderPreviewResponse>(
-      withQuery(routes.v1.buddyFinder.preview(), { area }),
+      withQuery(routes.v1.buddyFinder.preview(), { area, limit }),
     ),
 
   listIntents: (params: {

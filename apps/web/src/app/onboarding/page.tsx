@@ -43,7 +43,7 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-full bg-[linear-gradient(180deg,_#fffaf0_0%,_#f8fafc_100%)] px-4 py-8">
       <div className="mx-auto max-w-2xl">
-        <Card className="rounded-[28px]">
+        <Card>
           <CardHeader>
             <CardTitle className="font-serif text-3xl text-zinc-900">Fast onboarding. No junk questions.</CardTitle>
           </CardHeader>

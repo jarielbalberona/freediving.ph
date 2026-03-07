@@ -12,10 +12,8 @@ export const usePublicProfileQuery = (username: string) => {
 
   return useQuery({
     queryKey: ["profile", "public", normalizedUsername],
-    queryFn: () =>
-      profileApi.getPublicProfile(normalizedUsername, {
-        viewerUsername: session.me?.username ?? null,
-      }),
+    enabled: session.status !== "loading",
+    queryFn: () => profileApi.getPublicProfile(normalizedUsername),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });
@@ -27,6 +25,17 @@ export const useProfilePostsQuery = (username: string) => {
   return useQuery({
     queryKey: ["profile", "posts", normalizedUsername],
     queryFn: () => profileApi.getProfilePosts(normalizedUsername),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useProfileBucketListQuery = (username: string) => {
+  const normalizedUsername = normalizeUsername(username);
+
+  return useQuery({
+    queryKey: ["profile", "bucketlist", normalizedUsername],
+    queryFn: () => profileApi.getProfileBucketList(normalizedUsername),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });

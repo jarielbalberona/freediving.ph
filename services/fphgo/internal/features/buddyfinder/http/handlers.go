@@ -14,6 +14,7 @@ import (
 	"fphgo/internal/middleware"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
+	"fphgo/internal/shared/mediaurl"
 	"fphgo/internal/shared/pagination"
 	"fphgo/internal/shared/validatex"
 )
@@ -24,7 +25,7 @@ type Handlers struct {
 }
 
 type buddyFinderService interface {
-	Preview(ctx context.Context, area string) (buddyfinderservice.PreviewResult, error)
+	Preview(ctx context.Context, area string, limit int32) (buddyfinderservice.PreviewResult, error)
 	GetSharePreview(ctx context.Context, intentID string) (buddyfinderservice.SharePreviewResult, error)
 	ListMemberIntents(ctx context.Context, input buddyfinderservice.ListMemberIntentsInput) (buddyfinderservice.ListMemberIntentsResult, error)
 	CreateIntent(ctx context.Context, input buddyfinderservice.CreateIntentInput) (buddyfinderrepo.Intent, error)
@@ -37,7 +38,12 @@ func New(service buddyFinderService, validator httpx.Validator) *Handlers {
 }
 
 func (h *Handlers) Preview(w http.ResponseWriter, r *http.Request) {
-	result, err := h.service.Preview(r.Context(), r.URL.Query().Get("area"))
+	limit, parseErr := pagination.ParseLimit(r.URL.Query().Get("limit"), 6, 10)
+	if parseErr != nil {
+		httpx.WriteValidationError(w, issue("limit", "custom", "limit must be a positive integer"))
+		return
+	}
+	result, err := h.service.Preview(r.Context(), r.URL.Query().Get("area"), limit)
 	if err != nil {
 		h.writeError(w, r, err)
 		return
@@ -98,7 +104,7 @@ func (h *Handlers) SharePreview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListIntents(w http.ResponseWriter, r *http.Request) {
-	actorID, err := requireActorID(r)
+	actor, err := requireActorOrGuest(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
@@ -108,12 +114,15 @@ func (h *Handlers) ListIntents(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteValidationError(w, issue("limit", "custom", "limit must be a positive integer"))
 		return
 	}
+	if actor.IsGuest && limit > 10 {
+		limit = 10
+	}
 	result, svcErr := h.service.ListMemberIntents(r.Context(), buddyfinderservice.ListMemberIntentsInput{
-		ViewerUserID: actorID,
+		ViewerUserID: actor.ID,
 		Area:         r.URL.Query().Get("area"),
 		IntentType:   r.URL.Query().Get("intentType"),
 		TimeWindow:   r.URL.Query().Get("timeWindow"),
-		Cursor:       r.URL.Query().Get("cursor"),
+		Cursor:       actorCursor(actor.IsGuest, r.URL.Query().Get("cursor")),
 		Limit:        limit,
 	})
 	if svcErr != nil {
@@ -234,6 +243,29 @@ func requireActorID(r *http.Request) (string, error) {
 	return identity.UserID, nil
 }
 
+type actorContext struct {
+	ID      string
+	IsGuest bool
+}
+
+func requireActorOrGuest(r *http.Request) (actorContext, error) {
+	identity, ok := middleware.CurrentIdentity(r.Context())
+	if !ok || identity.UserID == "" {
+		return actorContext{
+			ID:      "00000000-0000-0000-0000-000000000000",
+			IsGuest: true,
+		}, nil
+	}
+	return actorContext{ID: identity.UserID, IsGuest: false}, nil
+}
+
+func actorCursor(isGuest bool, cursor string) string {
+	if isGuest {
+		return ""
+	}
+	return cursor
+}
+
 func mapMemberIntent(input buddyfinderrepo.MemberIntent) MemberIntent {
 	return MemberIntent{
 		ID:                 input.ID,
@@ -241,7 +273,7 @@ func mapMemberIntent(input buddyfinderrepo.MemberIntent) MemberIntent {
 		DiveSiteID:         input.DiveSiteID,
 		Username:           input.Username,
 		DisplayName:        input.DisplayName,
-		AvatarURL:          input.AvatarURL,
+		AvatarURL:          mediaurl.MaterializeWithDefault(input.AvatarURL),
 		HomeArea:           input.HomeArea,
 		Area:               input.Area,
 		IntentType:         input.IntentType,

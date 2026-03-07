@@ -11,12 +11,14 @@ import (
 
 	profilesrepo "fphgo/internal/features/profiles/repo"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/mediaurl"
 	sharedratelimit "fphgo/internal/shared/ratelimit"
 )
 
 type Service struct {
-	repo    repository
-	limiter rateLimiter
+	repo         repository
+	limiter      rateLimiter
+	mediaBaseURL string
 }
 
 type repository interface {
@@ -25,6 +27,9 @@ type repository interface {
 	SearchUsers(ctx context.Context, viewerID, q string, limit int32) ([]profilesrepo.SearchUser, error)
 	ListSavedSitesForUser(ctx context.Context, appUserID string) ([]profilesrepo.SavedSite, error)
 	ListSavedUsersForUser(ctx context.Context, viewerUserID string) ([]profilesrepo.SavedUser, error)
+	GetPublicProfileByUsername(ctx context.Context, username string) (profilesrepo.PublicProfile, error)
+	ListPublicProfilePostsByUsername(ctx context.Context, username string, limit int32) ([]profilesrepo.PublicProfilePost, error)
+	ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]profilesrepo.ProfileBucketListItem, error)
 }
 
 type rateLimiter interface {
@@ -44,6 +49,12 @@ func WithLimiter(limiter rateLimiter) Option {
 		if limiter != nil {
 			s.limiter = limiter
 		}
+	}
+}
+
+func WithMediaBaseURL(baseURL string) Option {
+	return func(s *Service) {
+		s.mediaBaseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	}
 }
 
@@ -67,6 +78,44 @@ type Profile struct {
 type SavedHub struct {
 	Sites []profilesrepo.SavedSite `json:"sites"`
 	Users []profilesrepo.SavedUser `json:"users"`
+}
+
+type PublicProfile struct {
+	UserID      string
+	Username    string
+	DisplayName string
+	Bio         string
+	AvatarURL   string
+	Counts      PublicProfileCounts
+}
+
+type PublicProfileCounts struct {
+	Posts     int64
+	Followers int64
+	Following int64
+}
+
+type PublicProfilePost struct {
+	ID           string
+	SiteID       string
+	SiteSlug     string
+	SiteName     string
+	SiteArea     string
+	Caption      string
+	OccurredAt   string
+	ThumbURL     string
+	MediaType    string
+	LikeCount    int64
+	CommentCount int64
+}
+
+type ProfileBucketListItem struct {
+	SiteID   string
+	SiteSlug string
+	SiteName string
+	SiteArea string
+	PinnedAt string
+	HasDived bool
 }
 
 type UpdateMyProfileInput struct {
@@ -104,7 +153,7 @@ func (s *Service) GetProfileByUserID(ctx context.Context, userID string) (Profil
 		return Profile{}, apperrors.New(http.StatusInternalServerError, "profile_get_failed", "failed to fetch profile", err)
 	}
 
-	return mapProfile(item), nil
+	return s.mapProfile(item), nil
 }
 
 func (s *Service) UpdateMyProfile(ctx context.Context, input UpdateMyProfileInput) (Profile, error) {
@@ -143,7 +192,7 @@ func (s *Service) UpdateMyProfile(ctx context.Context, input UpdateMyProfileInpu
 		update.Bio = strings.TrimSpace(*input.Bio)
 	}
 	if input.AvatarURL != nil {
-		update.AvatarURL = strings.TrimSpace(*input.AvatarURL)
+		update.AvatarURL = mediaurl.NormalizeReference(*input.AvatarURL)
 	}
 	if input.Location != nil {
 		update.Location = strings.TrimSpace(*input.Location)
@@ -166,7 +215,7 @@ func (s *Service) UpdateMyProfile(ctx context.Context, input UpdateMyProfileInpu
 		return Profile{}, apperrors.New(http.StatusInternalServerError, "profile_update_failed", "failed to update profile", err)
 	}
 
-	return mapProfile(item), nil
+	return s.mapProfile(item), nil
 }
 
 func (s *Service) SearchUsers(ctx context.Context, actorID, query string, limit int32) ([]Profile, error) {
@@ -193,7 +242,7 @@ func (s *Service) SearchUsers(ctx context.Context, actorID, query string, limit 
 			UserID:      row.UserID,
 			Username:    row.Username,
 			DisplayName: row.DisplayName,
-			AvatarURL:   row.AvatarURL,
+			AvatarURL:   mediaurl.Materialize(row.AvatarURL, s.mediaBaseURL),
 			Location:    coarseLocation(row.Location),
 			Socials:     map[string]string{},
 			Interests:   []string{},
@@ -215,10 +264,98 @@ func (s *Service) GetSavedHub(ctx context.Context, actorID string) (SavedHub, er
 	if err != nil {
 		return SavedHub{}, apperrors.New(http.StatusInternalServerError, "saved_users_failed", "failed to load saved users", err)
 	}
-	return SavedHub{Sites: sites, Users: users}, nil
+	materializedUsers := make([]profilesrepo.SavedUser, 0, len(users))
+	for _, user := range users {
+		user.AvatarURL = mediaurl.Materialize(user.AvatarURL, s.mediaBaseURL)
+		materializedUsers = append(materializedUsers, user)
+	}
+	return SavedHub{Sites: sites, Users: materializedUsers}, nil
 }
 
-func mapProfile(item profilesrepo.Profile) Profile {
+func (s *Service) GetPublicProfileByUsername(ctx context.Context, username string) (PublicProfile, error) {
+	value := strings.TrimSpace(username)
+	if value == "" {
+		return PublicProfile{}, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
+	}
+	item, err := s.repo.GetPublicProfileByUsername(ctx, value)
+	if err != nil {
+		if profilesrepo.IsNoRows(err) {
+			return PublicProfile{}, apperrors.New(http.StatusNotFound, "profile_not_found", "profile not found", err)
+		}
+		return PublicProfile{}, apperrors.New(http.StatusInternalServerError, "profile_get_failed", "failed to fetch profile", err)
+	}
+	return PublicProfile{
+		UserID:      item.UserID,
+		Username:    item.Username,
+		DisplayName: item.DisplayName,
+		Bio:         item.Bio,
+		AvatarURL:   mediaurl.Materialize(item.AvatarURL, s.mediaBaseURL),
+		Counts: PublicProfileCounts{
+			Posts:     item.PostsCount,
+			Followers: item.FollowersCount,
+			Following: item.FollowingCount,
+		},
+	}, nil
+}
+
+func (s *Service) ListPublicProfilePostsByUsername(ctx context.Context, username string, limit int32) ([]PublicProfilePost, error) {
+	value := strings.TrimSpace(username)
+	if value == "" {
+		return nil, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
+	}
+	if limit <= 0 || limit > 60 {
+		limit = 24
+	}
+	items, err := s.repo.ListPublicProfilePostsByUsername(ctx, value, limit)
+	if err != nil {
+		return nil, apperrors.New(http.StatusInternalServerError, "profile_posts_failed", "failed to fetch profile posts", err)
+	}
+	posts := make([]PublicProfilePost, 0, len(items))
+	for _, item := range items {
+		posts = append(posts, PublicProfilePost{
+			ID:           item.ID,
+			SiteID:       item.SiteID,
+			SiteSlug:     item.SiteSlug,
+			SiteName:     item.SiteName,
+			SiteArea:     item.SiteArea,
+			Caption:      item.Caption,
+			OccurredAt:   item.OccurredAt,
+			ThumbURL:     item.ThumbURL,
+			MediaType:    item.MediaType,
+			LikeCount:    item.LikeCount,
+			CommentCount: item.CommentCount,
+		})
+	}
+	return posts, nil
+}
+
+func (s *Service) ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]ProfileBucketListItem, error) {
+	value := strings.TrimSpace(username)
+	if value == "" {
+		return nil, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
+	}
+	if limit <= 0 || limit > 60 {
+		limit = 24
+	}
+	items, err := s.repo.ListProfileBucketListByUsername(ctx, value, limit)
+	if err != nil {
+		return nil, apperrors.New(http.StatusInternalServerError, "profile_bucketlist_failed", "failed to fetch profile bucketlist", err)
+	}
+	bucket := make([]ProfileBucketListItem, 0, len(items))
+	for _, item := range items {
+		bucket = append(bucket, ProfileBucketListItem{
+			SiteID:   item.SiteID,
+			SiteSlug: item.SiteSlug,
+			SiteName: item.SiteName,
+			SiteArea: item.SiteArea,
+			PinnedAt: item.PinnedAt,
+			HasDived: item.HasDived,
+		})
+	}
+	return bucket, nil
+}
+
+func (s *Service) mapProfile(item profilesrepo.Profile) Profile {
 	return Profile{
 		UserID:        item.UserID,
 		Username:      item.Username,
@@ -228,7 +365,7 @@ func mapProfile(item profilesrepo.Profile) Profile {
 		BuddyCount:    item.BuddyCount,
 		ReportCount:   item.ReportCount,
 		Bio:           item.Bio,
-		AvatarURL:     item.AvatarURL,
+		AvatarURL:     mediaurl.Materialize(item.AvatarURL, s.mediaBaseURL),
 		Location:      coarseLocation(item.Location),
 		HomeArea:      coarseLocation(firstNonEmpty(item.HomeArea, item.Location)),
 		Interests:     trimInterests(item.Interests),

@@ -399,7 +399,7 @@ Derived from `services/fphgo/internal/app/routes.go` and per-feature route files
 | `POST` | `/v1/chika/threads/{threadId}/reactions` | `chika.http.Handlers.SetThreadReaction` | `RequireMember` + `RequirePermission(chika.read)` + `RequirePermission(chika.write)` |
 | `DELETE` | `/v1/chika/threads/{threadId}/reactions` | `chika.http.Handlers.RemoveThreadReaction` | `RequireMember` + `RequirePermission(chika.read)` + `RequirePermission(chika.write)` |
 | `POST` | `/v1/chika/media` | `chika.http.Handlers.CreateMediaAsset` | `RequireMember` + `RequirePermission(chika.read)` + `RequirePermission(chika.write)` |
-| `GET` | `/ws` | `deps.WSHandler.ServeHTTP` | `RequireMember` + `RequirePermission(messaging.read)` |
+| `GET` | `/ws` | `deps.WSHandler.ServeHTTP` | `RequireMember` |
 
 ## Prioritized Gap List
 
@@ -595,3 +595,14 @@ Compatibility notes:
 - Message IDs are BIGSERIAL in Postgres but returned to web as strings.
 - Inbox returns conversation-level items with status and pending request preview support.
 - WebSocket event envelope is versioned (`v: 1`).
+
+## Messaging Threads V1 (Current)
+
+Current messaging API surface:
+
+- `GET /v1/messages/threads`
+- `GET /v1/messages/threads/{threadId}`
+- `GET /v1/messages/threads/{threadId}/messages`
+- `POST /v1/messages/threads/direct`
+- `POST /v1/messages/threads/{threadId}/messages`
+- `POST /v1/messages/threads/{threadId}/read`

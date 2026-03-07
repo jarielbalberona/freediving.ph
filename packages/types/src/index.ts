@@ -5,6 +5,7 @@ export * from "./api/error";
 export * from "./api/me";
 export * from "./api/profile";
 export * from "./api/public-profile";
+export * from "./feed";
 export * from "./media";
 export * from "./reports";
 
@@ -77,6 +78,10 @@ export type ThreadComment = ThreadCommentDto;
 export interface ChikaThreadResponse {
   id: string;
   title: string;
+  content: string;
+  voteCount: number;
+  commentCount: number;
+  userReaction?: "upvote" | "downvote";
   mode: string;
   categoryId: string;
   categorySlug: string;
@@ -94,7 +99,12 @@ export interface ChikaThreadResponse {
 export interface ChikaCommentResponse {
   id: string;
   threadId: string;
+  parentCommentId?: string;
+  voteCount: number;
+  replyCount: number;
+  userReaction?: "upvote" | "downvote";
   authorDisplayName: string;
+  authorAvatarUrl?: string;
   realAuthorUserId?: string;
   content: string;
   isHidden: boolean;
@@ -275,256 +285,187 @@ export interface DiveSpotFilters {
 }
 
 export interface Event {
-  id: number;
+  id: string;
   title: string;
-  description: string;
-  location: string;
-  startDate: string;
-  endDate: string;
+  description?: string;
+  location?: string;
+  locationName?: string;
+  formattedAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  googlePlaceId?: string;
+  regionCode?: string;
+  provinceCode?: string;
+  cityCode?: string;
+  barangayCode?: string;
+  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
+  startsAt?: string;
+  endsAt?: string;
   maxAttendees?: number;
   currentAttendees: number;
-  status:
-    | "DRAFT"
-    | "PUBLISHED"
-    | "CANCELLED"
-    | "COMPLETED"
-    | "POSTPONED"
-    | "REMOVED";
-  type:
-    | "DIVE_SESSION"
-    | "TRAINING"
-    | "COMPETITION"
-    | "SOCIAL"
-    | "WORKSHOP"
-    | "MEETUP"
-    | "TOURNAMENT"
-    | "FUNDRAISER";
-  difficulty: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
-  price?: number;
-  currency?: string;
-  imageUrl?: string;
-  organizerId: number;
-  diveSpotId?: number;
-  organizerName: string;
-  organizerEmail: string;
-  requirements?: string;
-  equipment?: string;
-  contactInfo?: string;
-  tags?: string[];
-  isPublic: boolean;
-  allowWaitlist: boolean;
+  status: "draft" | "published" | "cancelled" | "completed";
+  visibility: "public" | "group_members" | "invite_only";
+  type: string;
+  difficulty: "beginner" | "intermediate" | "advanced" | "expert";
+  organizerUserId?: string;
+  groupId?: string;
+  viewerJoined: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface EventAttendee {
-  id: number;
-  eventId: number;
-  userId: number;
-  userName: string;
-  userEmail: string;
-  status: "registered" | "attended" | "cancelled" | "no_show";
-  joinedAt: string;
+  eventId: string;
+  userId: string;
+  role: "attendee" | "staff" | "organizer";
+  status: "active" | "invited" | "blocked";
+  joinedAt?: string;
   notes?: string;
+  displayName?: string;
+  username?: string;
+  avatarUrl?: string;
 }
 
 export interface CreateEventRequest {
   title: string;
-  description: string;
-  location: string;
-  startDate: string;
-  endDate: string;
+  description?: string;
+  location?: string;
+  locationName?: string;
+  formattedAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  googlePlaceId?: string;
+  regionCode?: string;
+  provinceCode?: string;
+  cityCode?: string;
+  barangayCode?: string;
+  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
+  startsAt?: string;
+  endsAt?: string;
   maxAttendees?: number;
-  type:
-    | "DIVE_SESSION"
-    | "TRAINING"
-    | "COMPETITION"
-    | "SOCIAL"
-    | "WORKSHOP"
-    | "MEETUP"
-    | "TOURNAMENT"
-    | "FUNDRAISER";
-  difficulty: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
-  price?: number;
-  currency?: string;
-  imageUrl?: string;
-  requirements?: string;
-  equipment?: string;
-  contactInfo?: string;
-  tags?: string[];
-  diveSpotId?: number;
-  isPublic: boolean;
-  allowWaitlist: boolean;
+  status?: "draft" | "published" | "cancelled" | "completed";
+  visibility?: "public" | "group_members" | "invite_only";
+  type?: string;
+  difficulty?: "beginner" | "intermediate" | "advanced" | "expert";
+  groupId?: string;
 }
 
 export interface UpdateEventRequest {
   title?: string;
   description?: string;
   location?: string;
-  startDate?: string;
-  endDate?: string;
+  locationName?: string;
+  formattedAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  googlePlaceId?: string;
+  regionCode?: string;
+  provinceCode?: string;
+  cityCode?: string;
+  barangayCode?: string;
+  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
+  startsAt?: string;
+  endsAt?: string;
   maxAttendees?: number;
-  status?:
-    | "DRAFT"
-    | "PUBLISHED"
-    | "CANCELLED"
-    | "COMPLETED"
-    | "POSTPONED"
-    | "REMOVED";
-  type?:
-    | "DIVE_SESSION"
-    | "TRAINING"
-    | "COMPETITION"
-    | "SOCIAL"
-    | "WORKSHOP"
-    | "MEETUP"
-    | "TOURNAMENT"
-    | "FUNDRAISER";
-  difficulty?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
-  price?: number;
-  currency?: string;
-  imageUrl?: string;
-  requirements?: string;
-  equipment?: string;
-  contactInfo?: string;
-  tags?: string[];
-  diveSpotId?: number;
-  isPublic?: boolean;
-  allowWaitlist?: boolean;
+  status?: "draft" | "published" | "cancelled" | "completed";
+  visibility?: "public" | "group_members" | "invite_only";
+  type?: string;
+  difficulty?: "beginner" | "intermediate" | "advanced" | "expert";
 }
 
 export interface JoinEventRequest {
-  eventId: number;
-  userId: number;
+  eventId: string;
   notes?: string;
 }
 
 export interface EventFilters {
   page?: number;
   limit?: number;
-  status?:
-    | "DRAFT"
-    | "PUBLISHED"
-    | "CANCELLED"
-    | "COMPLETED"
-    | "POSTPONED"
-    | "REMOVED";
-  type?:
-    | "DIVE_SESSION"
-    | "TRAINING"
-    | "COMPETITION"
-    | "SOCIAL"
-    | "WORKSHOP"
-    | "MEETUP"
-    | "TOURNAMENT"
-    | "FUNDRAISER";
-  difficulty?: "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
-  location?: string;
-  startDate?: string;
-  endDate?: string;
+  status?: "draft" | "published" | "cancelled" | "completed";
   search?: string;
-  organizerId?: number;
-  isPublic?: boolean;
+  groupId?: string;
 }
 
 export interface Group {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   description?: string;
-  type: "PUBLIC" | "PRIVATE" | "INVITE_ONLY" | "CLOSED";
-  status: "ACTIVE" | "ARCHIVED" | "DELETED";
+  visibility: "public" | "private" | "invite_only";
+  status: "active" | "archived" | "deleted";
+  joinPolicy: "open" | "approval" | "invite_only";
   memberCount: number;
   eventCount: number;
   postCount: number;
   location?: string;
-  lat?: number;
-  lng?: number;
-  createdBy: number;
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface GroupMember {
-  id: number;
-  groupId: number;
-  userId: number;
-  role: "OWNER" | "ADMIN" | "MODERATOR" | "MEMBER";
-  joinedAt: string;
-  leftAt?: string;
-  isActive: boolean;
-  lastReadAt?: string;
-  lastReadMessageId?: number;
-  notificationSettings?: Record<string, any>;
+  groupId: string;
+  userId: string;
+  role: "owner" | "moderator" | "member";
+  status: "active" | "invited" | "blocked";
+  joinedAt?: string;
   createdAt: string;
   updatedAt: string;
-  user?: {
-    id: number;
-    name: string;
-    username: string;
-    image: string;
-  };
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
 }
 
 export interface GroupPost {
-  id: number;
-  groupId: number;
-  authorId: number;
+  id: string;
+  groupId: string;
+  authorUserId: string;
   title?: string;
   content: string;
-  postType: "text" | "image" | "video" | "link";
+  status: "active" | "hidden" | "deleted";
   likeCount: number;
   commentCount: number;
   createdAt: string;
   updatedAt: string;
-  author?: {
-    id: number;
-    name: string;
-    username: string;
-    image: string;
-  };
+  authorName?: string;
+  authorUsername?: string;
+  authorAvatarUrl?: string;
 }
 
 export interface CreateGroupRequest {
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
-  type?: "PUBLIC" | "PRIVATE" | "INVITE_ONLY" | "CLOSED";
+  visibility?: "public" | "private" | "invite_only";
+  joinPolicy?: "open" | "approval" | "invite_only";
   location?: string;
-  lat?: number;
-  lng?: number;
 }
 
 export interface UpdateGroupRequest {
   name?: string;
   description?: string;
-  type?: "PUBLIC" | "PRIVATE" | "INVITE_ONLY" | "CLOSED";
-  status?: "ACTIVE" | "ARCHIVED" | "DELETED";
+  visibility?: "public" | "private" | "invite_only";
+  status?: "active" | "archived" | "deleted";
+  joinPolicy?: "open" | "approval" | "invite_only";
   location?: string;
-  lat?: number;
-  lng?: number;
 }
 
 export interface JoinGroupRequest {
-  groupId: number;
-  userId: number;
-  role?: "MEMBER" | "MODERATOR" | "ADMIN";
+  groupId: string;
 }
 
 export interface CreateGroupPostRequest {
-  groupId: number;
-  authorId: number;
+  groupId: string;
   title?: string;
   content: string;
-  postType?: "text" | "image" | "video" | "link";
 }
 
 export interface GroupFilters {
   page?: number;
   limit?: number;
-  type?: "PUBLIC" | "PRIVATE" | "INVITE_ONLY" | "CLOSED";
-  status?: "ACTIVE" | "ARCHIVED" | "DELETED";
+  visibility?: "public" | "private" | "invite_only";
   search?: string;
+  mine?: boolean;
 }
 
 export interface Media {
@@ -592,118 +533,124 @@ export interface MediaFilters {
   tags?: string[];
 }
 
-export type ConversationStatus = "pending" | "active" | "rejected";
+export type MessagingThreadCategory = "primary" | "transactions" | "requests";
+export type MessagingThreadType = "direct";
+export type MessagingThreadMessageKind = "text" | "system";
 
-export interface MessageParticipant {
-  userId: string;
+export interface MessagingThreadParticipant {
+  id: string;
   username: string;
   displayName: string;
   avatarUrl: string;
-  trust: MessageTrustCard;
 }
 
-export interface MessageTrustCard {
-  emailVerified: boolean;
-  phoneVerified: boolean;
-  certLevel?: string;
-  buddyCount: number;
-  reportCount: number;
-}
-
-export interface MessageMetadata {
-  type?: "meet_at";
-  diveSiteId?: string;
-  diveSiteSlug?: string;
-  diveSiteName?: string;
-  diveSiteArea?: string;
-  timeWindow?: "today" | "weekend" | "specific_date";
-  dateStart?: string;
-  dateEnd?: string;
-  note?: string;
-}
-
-export interface MessageItem {
-  conversationId: string;
-  messageId: string;
-  senderId: string;
-  content: string;
-  metadata?: MessageMetadata;
+export interface MessagingThreadMessage {
+  id: string;
+  threadId: string;
+  senderUserId: string;
+  kind: MessagingThreadMessageKind;
+  body: string;
   createdAt: string;
+  clientId?: string;
+  isOwn: boolean;
+  status?: "sent" | "pending" | "failed";
 }
 
-export interface ConversationListItem {
-  conversationId: string;
-  status: ConversationStatus;
-  initiatorUserId: string;
-  updatedAt: string;
-  participant: MessageParticipant;
-  lastMessage: MessageItem;
-  requestPreview?: MessageItem;
+export interface MessagingThreadSummary {
+  id: string;
+  type: MessagingThreadType;
+  category: MessagingThreadCategory;
+  participant: MessagingThreadParticipant;
+  lastMessage?: MessagingThreadMessage;
+  lastMessageAt: string;
   unreadCount: number;
-  pendingCount: number;
+  hasUnread: boolean;
+  activeRequest: boolean;
 }
 
-export interface ConversationListResponse {
-  items: ConversationListItem[];
+export interface MessagingThreadListResponse {
+  items: MessagingThreadSummary[];
   nextCursor?: string;
 }
 
-export interface ConversationMessagesResponse {
-  items: MessageItem[];
+export interface MessagingThreadDetailResponse {
+  id: string;
+  type: MessagingThreadType;
+  participants: MessagingThreadParticipant[];
+  category: MessagingThreadCategory;
+  createdAt: string;
+  lastReadMessageId?: string;
+  canSend: boolean;
+}
+
+export interface MessagingThreadMessagesResponse {
+  items: MessagingThreadMessage[];
   nextCursor?: string;
 }
 
-export interface MessageRequestActionResponse {
-  requestId: string;
-  conversationId: string;
-  status: ConversationStatus;
+export interface MessagingOpenDirectThreadRequest {
+  targetUserId: string;
 }
 
-export interface SendMessageRequest {
-  content: string;
-  metadata?: MessageMetadata;
+export interface MessagingSendMessageRequest {
+  body: string;
+  clientId?: string;
 }
 
-export interface SendMessageResponse {
-  message: MessageItem;
+export interface MessagingSendMessageResponse {
+  message: MessagingThreadMessage;
 }
 
-export interface MarkReadRequest {
-  conversationId: string;
-  messageId?: string;
+export interface MessagingMarkReadRequest {
+  lastReadMessageId: string;
 }
 
-export interface MarkReadResponse {
-  conversationId: string;
+export interface MessagingMarkReadResponse {
+  threadId: string;
   marked: boolean;
 }
 
-export interface MessageWebSocketEnvelope<T = unknown> {
+export interface MessagingUpdateThreadCategoryRequest {
+  category: "primary" | "transactions";
+}
+
+export interface MessagingUpdateThreadCategoryResponse {
+  threadId: string;
+  category: "primary" | "transactions";
+  updated: boolean;
+}
+
+export type MessagingRealtimeEnvelope<T = unknown> = {
   v: 1;
-  type:
-    | "message.created"
-    | "conversation.updated"
-    | "request.created"
-    | "request.accepted"
-    | "request.declined";
+  type: "message.created" | "thread.updated" | "thread.read";
   ts: string;
   eventId?: string;
   requestId?: string;
   payload: T;
-}
+};
 
-export interface MessageCreatedPayload {
-  conversationId: string;
-  messageId: string;
-  senderId: string;
-  content: string;
-  createdAt: string;
-  status: ConversationStatus;
-}
+export type ChikaRealtimeEventType =
+  | "chika.thread.created"
+  | "chika.thread.updated"
+  | "chika.thread.deleted"
+  | "chika.thread.reaction.updated"
+  | "chika.comment.created"
+  | "chika.comment.updated"
+  | "chika.comment.deleted"
+  | "chika.comment.reaction.updated";
+
+export type ChikaRealtimeEnvelope<T = unknown> = {
+  v: 1;
+  type: ChikaRealtimeEventType;
+  ts: string;
+  eventId?: string;
+  requestId?: string;
+  payload: T;
+};
 
 export interface Notification {
   id: number;
-  userId: number;
+  userId: string;
   type:
     | "SYSTEM"
     | "MESSAGE"
@@ -724,9 +671,9 @@ export interface Notification {
   message: string;
   status: "UNREAD" | "READ" | "ARCHIVED" | "DELETED";
   priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
-  relatedUserId?: number;
+  relatedUserId?: string;
   relatedEntityType?: string;
-  relatedEntityId?: number;
+  relatedEntityId?: string;
   imageUrl?: string;
   actionUrl?: string;
   metadata?: Record<string, any>;
@@ -741,8 +688,8 @@ export interface Notification {
 }
 
 export interface NotificationSettings {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   emailEnabled: boolean;
   pushEnabled: boolean;
   inAppEnabled: boolean;
@@ -777,14 +724,14 @@ export interface NotificationStats {
 }
 
 export interface CreateNotificationRequest {
-  userId: number;
+  userId: string;
   type: Notification["type"];
   title: string;
   message: string;
   priority?: Notification["priority"];
-  relatedUserId?: number;
+  relatedUserId?: string;
   relatedEntityType?: string;
-  relatedEntityId?: number;
+  relatedEntityId?: string;
   imageUrl?: string;
   actionUrl?: string;
   metadata?: Record<string, any>;
@@ -824,6 +771,7 @@ export interface UpdateNotificationSettingsRequest {
 export interface NotificationFilters {
   page?: number;
   limit?: number;
+  offset?: number;
   status?: Notification["status"];
   type?: Notification["type"];
   priority?: Notification["priority"];

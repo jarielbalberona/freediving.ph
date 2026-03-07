@@ -82,6 +82,40 @@ type SavedUser struct {
 	SavedAt       string
 }
 
+type PublicProfile struct {
+	UserID         string
+	Username       string
+	DisplayName    string
+	Bio            string
+	AvatarURL      string
+	PostsCount     int64
+	FollowersCount int64
+	FollowingCount int64
+}
+
+type PublicProfilePost struct {
+	ID           string
+	SiteID       string
+	SiteSlug     string
+	SiteName     string
+	SiteArea     string
+	Caption      string
+	OccurredAt   string
+	ThumbURL     string
+	MediaType    string
+	LikeCount    int64
+	CommentCount int64
+}
+
+type ProfileBucketListItem struct {
+	SiteID   string
+	SiteSlug string
+	SiteName string
+	SiteArea string
+	PinnedAt string
+	HasDived bool
+}
+
 func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool, queries: profilesqlc.New(pool)}
 }
@@ -250,6 +284,178 @@ func (r *Repo) SearchUsers(ctx context.Context, viewerID, q string, limit int32)
 		})
 	}
 
+	return items, nil
+}
+
+func (r *Repo) GetPublicProfileByUsername(ctx context.Context, username string) (PublicProfile, error) {
+	const q = `
+		SELECT
+			u.id,
+			u.username,
+			u.display_name,
+			COALESCE(p.bio, '') AS bio,
+			COALESCE(p.avatar_url, '') AS avatar_url,
+			COALESCE((
+				SELECT COUNT(*)::bigint
+				FROM dive_site_updates d
+				WHERE d.author_app_user_id = u.id
+				  AND d.state = 'active'
+			), 0)::bigint AS posts_count,
+			COALESCE((
+				SELECT COUNT(*)::bigint
+				FROM saved_users su
+				WHERE su.saved_app_user_id = u.id
+			), 0)::bigint AS followers_count,
+			COALESCE((
+				SELECT COUNT(*)::bigint
+				FROM saved_users su
+				WHERE su.viewer_app_user_id = u.id
+			), 0)::bigint AS following_count
+		FROM users u
+		LEFT JOIN profiles p ON p.user_id = u.id
+		WHERE lower(u.username) = lower($1)
+		  AND u.account_status = 'active'
+		LIMIT 1
+	`
+
+	var (
+		userID pgtype.UUID
+		result PublicProfile
+	)
+	err := r.pool.QueryRow(ctx, q, username).Scan(
+		&userID,
+		&result.Username,
+		&result.DisplayName,
+		&result.Bio,
+		&result.AvatarURL,
+		&result.PostsCount,
+		&result.FollowersCount,
+		&result.FollowingCount,
+	)
+	if err != nil {
+		return PublicProfile{}, err
+	}
+	result.UserID = userID.String()
+	return result, nil
+}
+
+func (r *Repo) ListPublicProfilePostsByUsername(ctx context.Context, username string, limit int32) ([]PublicProfilePost, error) {
+	const q = `
+		SELECT
+			d.id,
+			s.id AS site_id,
+			s.slug AS site_slug,
+			s.name AS site_name,
+			s.area AS site_area,
+			COALESCE(d.note, '') AS caption,
+			d.occurred_at
+		FROM users u
+		JOIN dive_site_updates d ON d.author_app_user_id = u.id
+		JOIN dive_sites s ON s.id = d.dive_site_id
+		WHERE lower(u.username) = lower($1)
+		  AND u.account_status = 'active'
+		  AND d.state = 'active'
+		  AND s.moderation_state = 'approved'
+		ORDER BY d.occurred_at DESC, d.id DESC
+		LIMIT $2
+	`
+
+	rows, err := r.pool.Query(ctx, q, username, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]PublicProfilePost, 0)
+	for rows.Next() {
+		var (
+			id         pgtype.UUID
+			siteID     pgtype.UUID
+			occurredAt pgtype.Timestamptz
+			item       PublicProfilePost
+		)
+		if err := rows.Scan(
+			&id,
+			&siteID,
+			&item.SiteSlug,
+			&item.SiteName,
+			&item.SiteArea,
+			&item.Caption,
+			&occurredAt,
+		); err != nil {
+			return nil, err
+		}
+
+		item.ID = id.String()
+		item.SiteID = siteID.String()
+		item.OccurredAt = occurredAt.Time.UTC().Format(time.RFC3339)
+		item.MediaType = "image"
+		item.ThumbURL = ""
+		item.LikeCount = 0
+		item.CommentCount = 0
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repo) ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]ProfileBucketListItem, error) {
+	const q = `
+		SELECT
+			s.id AS site_id,
+			s.slug AS site_slug,
+			s.name AS site_name,
+			s.area AS site_area,
+			ss.created_at AS pinned_at,
+			EXISTS (
+				SELECT 1
+				FROM dive_site_updates d
+				WHERE d.author_app_user_id = u.id
+				  AND d.dive_site_id = s.id
+				  AND d.state = 'active'
+			) AS has_dived
+		FROM users u
+		JOIN dive_site_saves ss ON ss.app_user_id = u.id
+		JOIN dive_sites s ON s.id = ss.dive_site_id
+		WHERE lower(u.username) = lower($1)
+		  AND u.account_status = 'active'
+		  AND s.moderation_state = 'approved'
+		ORDER BY ss.created_at DESC, s.id DESC
+		LIMIT $2
+	`
+
+	rows, err := r.pool.Query(ctx, q, username, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]ProfileBucketListItem, 0)
+	for rows.Next() {
+		var (
+			siteID   pgtype.UUID
+			pinnedAt pgtype.Timestamptz
+			item     ProfileBucketListItem
+		)
+		if err := rows.Scan(
+			&siteID,
+			&item.SiteSlug,
+			&item.SiteName,
+			&item.SiteArea,
+			&pinnedAt,
+			&item.HasDived,
+		); err != nil {
+			return nil, err
+		}
+		item.SiteID = siteID.String()
+		item.PinnedAt = pinnedAt.Time.UTC().Format(time.RFC3339)
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return items, nil
 }
 

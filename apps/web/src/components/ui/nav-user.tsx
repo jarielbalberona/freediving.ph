@@ -26,12 +26,11 @@ export function NavUser() {
           <div className="w-full">
             <SignInButton mode="modal">
               <Button
-                type="button"
-                variant="ghost"
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                size="sm"
+                tooltip="Sign in to your account"
               >
                 <User />
-                <span className="text-base">Sign In</span>
+                <span>Sign In</span>
               </Button>
             </SignInButton>
           </div>

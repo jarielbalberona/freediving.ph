@@ -3,6 +3,8 @@ package ws
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 
 	usersservice "fphgo/internal/features/users/service"
 	"fphgo/internal/middleware"
@@ -15,10 +17,11 @@ type Handler struct {
 	logger       *slog.Logger
 	hub          *Hub
 	userResolver *usersservice.Service
+	origins      []string
 }
 
-func NewHandler(logger *slog.Logger, hub *Hub, userResolver *usersservice.Service) *Handler {
-	return &Handler{logger: logger, hub: hub, userResolver: userResolver}
+func NewHandler(logger *slog.Logger, hub *Hub, userResolver *usersservice.Service, origins []string) *Handler {
+	return &Handler{logger: logger, hub: hub, userResolver: userResolver, origins: origins}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -33,9 +36,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		InsecureSkipVerify: true,
-	})
+	acceptOptions := &websocket.AcceptOptions{}
+	originPatterns := resolveOriginPatterns(h.origins)
+	if len(originPatterns) > 0 {
+		acceptOptions.OriginPatterns = originPatterns
+	} else {
+		// Development fallback when CORS_ORIGINS is set to "*".
+		acceptOptions.InsecureSkipVerify = true
+	}
+	conn, err := websocket.Accept(w, r, acceptOptions)
 	if err != nil {
 		h.logger.Error("ws accept failed", "error", err)
 		return
@@ -43,4 +52,23 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	client := NewClient(h.logger, h.hub, conn, clerkUserID, user.ID)
 	client.Run(r.Context())
+}
+
+func resolveOriginPatterns(origins []string) []string {
+	patterns := make([]string, 0, len(origins))
+	for _, raw := range origins {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" || trimmed == "*" {
+			continue
+		}
+		parsed, err := url.Parse(trimmed)
+		if err != nil {
+			continue
+		}
+		host := strings.TrimSpace(parsed.Host)
+		if host != "" {
+			patterns = append(patterns, host)
+		}
+	}
+	return patterns
 }

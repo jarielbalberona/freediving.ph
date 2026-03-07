@@ -6,12 +6,12 @@ export const useGroups = (filters?: GroupFilters) => {
   return useQuery({
     queryKey: ['groups', filters],
     queryFn: () => groupsApi.getGroups(filters),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     retry: 3,
   });
 };
 
-export const useGroup = (groupId: number) => {
+export const useGroup = (groupId: string) => {
   return useQuery({
     queryKey: ['group', groupId],
     queryFn: () => groupsApi.getGroupById(groupId),
@@ -20,29 +20,28 @@ export const useGroup = (groupId: number) => {
   });
 };
 
-export const useGroupMembers = (groupId: number, page?: number, limit?: number) => {
+export const useGroupMembers = (groupId: string, page?: number, limit?: number) => {
   return useQuery({
     queryKey: ['group-members', groupId, page, limit],
     queryFn: () => groupsApi.getGroupMembers(groupId, page, limit),
     enabled: !!groupId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   });
 };
 
-export const useGroupPosts = (groupId: number, page?: number, limit?: number) => {
+export const useGroupPosts = (groupId: string, page?: number, limit?: number) => {
   return useQuery({
     queryKey: ['group-posts', groupId, page, limit],
     queryFn: () => groupsApi.getGroupPosts(groupId, page, limit),
     enabled: !!groupId,
-    staleTime: 1 * 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
   });
 };
 
-export const useUserGroups = (userId: number, page?: number, limit?: number) => {
+export const useUserGroups = (page?: number, limit?: number) => {
   return useQuery({
-    queryKey: ['user-groups', userId, page, limit],
-    queryFn: () => groupsApi.getUserGroups(userId, page, limit),
-    enabled: !!userId,
+    queryKey: ['user-groups', page, limit],
+    queryFn: () => groupsApi.getGroups({ mine: true, page, limit }),
     staleTime: 5 * 60 * 1000,
   });
 };

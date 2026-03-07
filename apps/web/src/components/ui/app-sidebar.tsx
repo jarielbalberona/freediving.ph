@@ -10,7 +10,7 @@ import {
   isActiveRoute,
 } from "@/config/nav";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
-import { NavUser } from "@/components/ui/nav-user";
+
 import {
   Sidebar,
   SidebarContent,
@@ -132,9 +132,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser />
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import { useUser } from '@clerk/nextjs';
 import { NotificationList } from '@/features/notifications';
 import { useNotificationStats } from '@/features/notifications';
 import { AuthGuard } from '@/components/auth/guard';
@@ -9,14 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FeatureErrorBoundary } from '@/components/error-boundary';
 import { Bell, Calendar, MessageSquare } from 'lucide-react';
-import { getNumericUserId } from '@/lib/auth/user-id';
 
 export default function NotificationsPage() {
-  const { user } = useUser();
-  const numericUserId = getNumericUserId(user);
-  const { data: stats, isLoading: statsLoading, error: statsError } = useNotificationStats(
-    numericUserId ?? 0
-  );
+  const { data: stats, isLoading: statsLoading, error: statsError } = useNotificationStats();
 
   return (
     <AuthGuard title="Sign in to view notifications" description="Please sign in to access your notifications.">
@@ -36,15 +30,7 @@ export default function NotificationsPage() {
               ))}
             </div>
           ) : (
-            !numericUserId ? (
-              <Card>
-                <CardContent className="py-6">
-                  <p className="text-sm text-muted-foreground">
-                    Account setup incomplete. Please refresh and try again.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : statsError ? (
+            statsError ? (
               <Card>
                 <CardContent className="py-6">
                   <p className="text-sm text-destructive">
@@ -113,11 +99,7 @@ export default function NotificationsPage() {
                 <CardTitle>Recent Notifications</CardTitle>
               </CardHeader>
               <CardContent>
-                {numericUserId ? (
-                  <NotificationList userId={numericUserId} />
-                ) : (
-                  <p className="text-sm text-muted-foreground">Cannot load notifications for this account.</p>
-                )}
+                <NotificationList />
               </CardContent>
             </Card>
           </FeatureErrorBoundary>

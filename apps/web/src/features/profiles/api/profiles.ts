@@ -1,6 +1,9 @@
 import {
+  type ProfileBucketListItem,
+  type ProfilePost,
   type Profile,
   type ProfileResponse,
+  type PublicProfile,
   type SaveUserResponse,
   type SavedHubResponse,
   type SearchUsersResponse,
@@ -17,6 +20,68 @@ export const profilesApi = {
 
   getProfileByUserId: async (userId: string): Promise<ProfileResponse> => {
     return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.byUserId(userId));
+  },
+
+  getUserByUsername: async (username: string): Promise<Profile> => {
+    const response = await fphgoFetchClient<{
+      id: string;
+      username: string;
+      displayName: string;
+      bio: string;
+    }>(routes.v1.users.byUsername(username));
+
+    return {
+      userId: response.id,
+      username: response.username,
+      displayName: response.displayName,
+      bio: response.bio,
+    };
+  },
+
+  getPublicProfileByUsername: async (username: string): Promise<PublicProfile> => {
+    const response = await fphgoFetchClient<{
+      profile: {
+        userId: string;
+        username: string;
+        displayName: string;
+        bio: string;
+        avatarUrl: string;
+        counts: {
+          posts: number;
+          followers: number;
+          following: number;
+        };
+      };
+    }>(routes.v1.profiles.publicByUsername(username));
+
+    return {
+      id: response.profile.userId,
+      username: response.profile.username,
+      displayName: response.profile.displayName,
+      bio: response.profile.bio,
+      avatarUrl: response.profile.avatarUrl,
+      counts: response.profile.counts,
+    };
+  },
+
+  getPublicProfilePostsByUsername: async (
+    username: string,
+    limit = 24,
+  ): Promise<ProfilePost[]> => {
+    const response = await fphgoFetchClient<{ items: ProfilePost[] }>(
+      `${routes.v1.profiles.publicPostsByUsername(username)}?limit=${limit}`,
+    );
+    return response.items ?? [];
+  },
+
+  getPublicProfileBucketListByUsername: async (
+    username: string,
+    limit = 24,
+  ): Promise<ProfileBucketListItem[]> => {
+    const response = await fphgoFetchClient<{ items: ProfileBucketListItem[] }>(
+      `${routes.v1.profiles.publicBucketListByUsername(username)}?limit=${limit}`,
+    );
+    return response.items ?? [];
   },
 
   updateMyProfile: async (payload: UpdateMyProfileRequest): Promise<ProfileResponse> => {

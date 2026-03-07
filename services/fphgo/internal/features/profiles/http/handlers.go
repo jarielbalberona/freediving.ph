@@ -23,6 +23,9 @@ type profileService interface {
 	UpdateMyProfile(ctx context.Context, input profilesservice.UpdateMyProfileInput) (profilesservice.Profile, error)
 	SearchUsers(ctx context.Context, actorID, query string, limit int32) ([]profilesservice.Profile, error)
 	GetSavedHub(ctx context.Context, actorID string) (profilesservice.SavedHub, error)
+	GetPublicProfileByUsername(ctx context.Context, username string) (profilesservice.PublicProfile, error)
+	ListPublicProfilePostsByUsername(ctx context.Context, username string, limit int32) ([]profilesservice.PublicProfilePost, error)
+	ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]profilesservice.ProfileBucketListItem, error)
 }
 
 func New(service profileService, validator httpx.Validator) *Handlers {
@@ -181,6 +184,88 @@ func (h *Handlers) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.JSON(w, http.StatusOK, SearchUsersResponse{Items: resp})
+}
+
+func (h *Handlers) GetPublicProfileByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	profile, err := h.service.GetPublicProfileByUsername(r.Context(), username)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, PublicProfileResponse{
+		Profile: PublicProfile{
+			UserID:      profile.UserID,
+			Username:    profile.Username,
+			DisplayName: profile.DisplayName,
+			Bio:         profile.Bio,
+			AvatarURL:   profile.AvatarURL,
+			Counts: PublicProfileCounts{
+				Posts:     profile.Counts.Posts,
+				Followers: profile.Counts.Followers,
+				Following: profile.Counts.Following,
+			},
+		},
+	})
+}
+
+func (h *Handlers) ListPublicProfilePostsByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	limit := int32(24)
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		if parsed, parseErr := strconv.ParseInt(rawLimit, 10, 32); parseErr == nil {
+			limit = int32(parsed)
+		}
+	}
+	items, err := h.service.ListPublicProfilePostsByUsername(r.Context(), username, limit)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	posts := make([]PublicProfilePost, 0, len(items))
+	for _, item := range items {
+		posts = append(posts, PublicProfilePost{
+			ID:           item.ID,
+			SiteID:       item.SiteID,
+			SiteSlug:     item.SiteSlug,
+			SiteName:     item.SiteName,
+			SiteArea:     item.SiteArea,
+			Caption:      item.Caption,
+			OccurredAt:   item.OccurredAt,
+			ThumbURL:     item.ThumbURL,
+			MediaType:    item.MediaType,
+			LikeCount:    item.LikeCount,
+			CommentCount: item.CommentCount,
+		})
+	}
+	httpx.JSON(w, http.StatusOK, PublicProfilePostsResponse{Items: posts})
+}
+
+func (h *Handlers) ListProfileBucketListByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	limit := int32(24)
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		if parsed, parseErr := strconv.ParseInt(rawLimit, 10, 32); parseErr == nil {
+			limit = int32(parsed)
+		}
+	}
+	items, err := h.service.ListProfileBucketListByUsername(r.Context(), username, limit)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	bucket := make([]ProfileBucketListItem, 0, len(items))
+	for _, item := range items {
+		bucket = append(bucket, ProfileBucketListItem{
+			SiteID:   item.SiteID,
+			SiteSlug: item.SiteSlug,
+			SiteName: item.SiteName,
+			SiteArea: item.SiteArea,
+			PinnedAt: item.PinnedAt,
+			HasDived: item.HasDived,
+		})
+	}
+	httpx.JSON(w, http.StatusOK, ProfileBucketListResponse{Items: bucket})
 }
 
 func requireActorID(r *http.Request) (string, error) {

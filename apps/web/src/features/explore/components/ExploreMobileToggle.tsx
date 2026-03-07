@@ -22,7 +22,7 @@ export function ExploreMobileToggle({
         onValueChange={(nextValue) =>
           onChange((nextValue[0] ?? view) as MapViewMode)
         }
-        className="grid grid-cols-2 gap-1 rounded-full bg-white/95 p-1 shadow-2xl"
+        className="grid grid-cols-2 gap-1 rounded-full bg-card/95 p-1 shadow-2xl"
       >
         <ToggleGroupItem value="map" aria-label="Map view">
           <Map className="mr-2 size-4" />

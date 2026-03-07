@@ -32,6 +32,30 @@ type IntentDraft = {
   note: string;
 };
 
+const INTENT_TYPE_ITEMS = [
+  { value: "training", label: "Training" },
+  { value: "fun_dive", label: "Fun dive" },
+  { value: "depth", label: "Depth" },
+  { value: "pool", label: "Pool" },
+  { value: "line_training", label: "Line training" },
+] as const;
+
+const INTENT_FILTER_ITEMS = [
+  { value: "all", label: "All intents" },
+  ...INTENT_TYPE_ITEMS,
+] as const;
+
+const TIME_WINDOW_ITEMS = [
+  { value: "today", label: "Today" },
+  { value: "weekend", label: "Weekend" },
+  { value: "specific_date", label: "Specific date" },
+] as const;
+
+const TIME_WINDOW_FILTER_ITEMS = [
+  { value: "all", label: "Any time" },
+  ...TIME_WINDOW_ITEMS,
+] as const;
+
 export default function BuddyFinderPage() {
   const session = useSession();
   const searchParams = useSearchParams();
@@ -56,7 +80,7 @@ export default function BuddyFinderPage() {
 
   const previewQuery = useQuery({
     queryKey: ["buddy-finder", "preview", area],
-    queryFn: () => buddyFinderApi.preview(area || undefined),
+    queryFn: () => buddyFinderApi.preview(area || undefined, 10),
   });
 
   const intentsQuery = useQuery({
@@ -66,9 +90,8 @@ export default function BuddyFinderPage() {
         area: area || undefined,
         intentType: intentType || undefined,
         timeWindow: timeWindow || undefined,
-        limit: 20,
+        limit: session.status === "signed_in" ? 20 : 10,
       }),
-    enabled: session.status === "signed_in",
   });
 
   const createIntentMutation = useMutation({
@@ -82,15 +105,16 @@ export default function BuddyFinderPage() {
   const messageMutation = useMutation({
     mutationFn: async (intentId: string) => {
       const entry = await buddyFinderApi.messageEntry(intentId);
-      return messagesApi.createRequest(
-        entry.recipientUserId,
-        `Saw your Buddy Finder post for ${area || "your area"}. Still looking for a buddy?`,
-      );
+      const thread = await messagesApi.openDirectThread({ targetUserId: entry.recipientUserId });
+      return messagesApi.sendThreadMessage(thread.id, {
+        body: `Saw your Buddy Finder post for ${area || "your area"}. Still looking for a buddy?`,
+      });
     },
   });
 
   const previewItems = previewQuery.data?.items ?? [];
   const memberItems = intentsQuery.data?.items ?? [];
+  const publicItems = memberItems.slice(0, 10);
   const savedUserIds = new Set((savedHub?.users ?? []).map((item) => item.userId));
 
   const shareBuddy = async (intentId: string) => {
@@ -102,60 +126,68 @@ export default function BuddyFinderPage() {
     await navigator.clipboard.writeText(url);
   };
   return (
-    <div className="min-h-full bg-[linear-gradient(180deg,_#f7fbff_0%,_#eef6ff_100%)] px-4 py-6 sm:px-6">
+    <div className="min-h-full bg-gradient-to-b from-background to-muted/20 px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-6xl space-y-6">
-        <section className="grid gap-4 rounded-[28px] border border-sky-950/10 bg-white/90 p-6 shadow-sm lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="grid gap-4 rounded-4xl border border-border bg-card p-6 shadow-sm lg:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-4">
-            <Badge className="w-fit rounded-full bg-sky-950 text-sky-50">Buddy Finder</Badge>
+            <Badge className="w-fit rounded-full bg-primary text-primary-foreground">Buddy Finder</Badge>
             <div className="space-y-2">
-              <h1 className="max-w-2xl font-serif text-4xl tracking-tight text-sky-950">
+              <h1 className="max-w-2xl font-serif text-4xl tracking-tight text-foreground">
                 Find a dive buddy nearby with privacy-first matching.
               </h1>
-              <p className="max-w-2xl text-sm text-zinc-600">
+              <p className="max-w-2xl text-sm text-muted-foreground">
                 Share coarse location only. Contact details are revealed after mutual acceptance.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <Input placeholder="Area or city" value={area} onChange={(event) => setArea(event.target.value)} />
-              <Select value={intentType || "all"} onValueChange={(value) => setIntentType(value === "all" ? "" : (value as typeof intentType))}>
+              <Select
+                value={intentType || "all"}
+                onValueChange={(value) => setIntentType(value === "all" ? "" : (value as typeof intentType))}
+                items={INTENT_FILTER_ITEMS}
+              >
                 <SelectTrigger><SelectValue placeholder="Intent type" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All intents</SelectItem>
-                  <SelectItem value="training">Training</SelectItem>
-                  <SelectItem value="fun_dive">Fun dive</SelectItem>
-                  <SelectItem value="depth">Depth</SelectItem>
-                  <SelectItem value="pool">Pool</SelectItem>
-                  <SelectItem value="line_training">Line training</SelectItem>
+                  {INTENT_FILTER_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <Select value={timeWindow || "all"} onValueChange={(value) => setTimeWindow(value === "all" ? "" : (value as typeof timeWindow))}>
+              <Select
+                value={timeWindow || "all"}
+                onValueChange={(value) => setTimeWindow(value === "all" ? "" : (value as typeof timeWindow))}
+                items={TIME_WINDOW_FILTER_ITEMS}
+              >
                 <SelectTrigger><SelectValue placeholder="Time window" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Any time</SelectItem>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="weekend">Weekend</SelectItem>
-                  <SelectItem value="specific_date">Specific date</SelectItem>
+                  {TIME_WINDOW_FILTER_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <Card className="rounded-[24px] border-sky-950/10 bg-[linear-gradient(180deg,_#edf7ff_0%,_#ffffff_100%)]">
+          <Card className="border-border bg-[linear-gradient(180deg,_hsl(var(--primary)/0.12)_0%,_hsl(var(--card))_100%)]">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-sky-950">
+              <CardTitle className="flex items-center gap-2 text-primary">
                 <UserRoundSearch className="h-5 w-5" />
                 Browse intents
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3">
-                {previewItems.slice(0, 4).map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-white/80 bg-white/80 p-4">
+                {previewItems.slice(0, 10).map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-border/80 bg-card/80 p-4">
                     <div className="flex flex-wrap gap-2">
                       <Badge>{item.intentType.replace("_", " ")}</Badge>
                       <Badge variant="outline">{item.timeWindow.replace("_", " ")}</Badge>
                     </div>
-                    <p className="mt-3 text-sm text-zinc-600 blur-[2px]">
+                    <p className="mt-3 text-sm text-muted-foreground blur-[2px]">
                       {item.notePreview || "Full details available to members."}
                     </p>
                     <TrustCard
@@ -169,9 +201,9 @@ export default function BuddyFinderPage() {
                   </div>
                 ))}
               </div>
-              <div className="rounded-2xl bg-sky-950 p-4 text-sky-50">
+              <div className="rounded-2xl bg-primary p-4 text-primary-foreground">
                 <p className="text-sm font-medium">{previewQuery.data?.count ?? 0} active intents</p>
-                <p className="mt-1 text-sm text-sky-100">Create an account to view full notes, dates, and message other divers.</p>
+                <p className="mt-1 text-sm text-primary-foreground/80">Create an account to view full notes, dates, and message other divers.</p>
                 <div className="mt-3">
                   <SignInButton mode="modal">
                     <Button variant="secondary">Create account to message and match</Button>
@@ -184,7 +216,7 @@ export default function BuddyFinderPage() {
 
         {session.status === "signed_in" ? (
           <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-            <Card className="rounded-[24px]">
+            <Card>
               <CardHeader>
                 <CardTitle>Post your intent</CardTitle>
               </CardHeader>
@@ -196,25 +228,35 @@ export default function BuddyFinderPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Intent type</Label>
-                    <Select value={newIntent.intentType} onValueChange={(value) => setNewIntent((current) => ({ ...current, intentType: value as typeof current.intentType }))}>
+                    <Select
+                      value={newIntent.intentType}
+                      onValueChange={(value) => setNewIntent((current) => ({ ...current, intentType: value as typeof current.intentType }))}
+                      items={INTENT_TYPE_ITEMS}
+                    >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="training">Training</SelectItem>
-                        <SelectItem value="fun_dive">Fun dive</SelectItem>
-                        <SelectItem value="depth">Depth</SelectItem>
-                        <SelectItem value="pool">Pool</SelectItem>
-                        <SelectItem value="line_training">Line training</SelectItem>
+                        {INTENT_TYPE_ITEMS.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Time window</Label>
-                    <Select value={newIntent.timeWindow} onValueChange={(value) => setNewIntent((current) => ({ ...current, timeWindow: value as typeof current.timeWindow }))}>
+                    <Select
+                      value={newIntent.timeWindow}
+                      onValueChange={(value) => setNewIntent((current) => ({ ...current, timeWindow: value as typeof current.timeWindow }))}
+                      items={TIME_WINDOW_ITEMS}
+                    >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="today">Today</SelectItem>
-                        <SelectItem value="weekend">Weekend</SelectItem>
-                        <SelectItem value="specific_date">Specific date</SelectItem>
+                        {TIME_WINDOW_ITEMS.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -235,8 +277,8 @@ export default function BuddyFinderPage() {
                   <Label>Short note</Label>
                   <Textarea value={newIntent.note} onChange={(event) => setNewIntent((current) => ({ ...current, note: event.target.value }))} />
                 </div>
-                <div className="rounded-2xl bg-zinc-100 p-4 text-sm text-zinc-600">
-                  <p className="font-medium text-zinc-900">Privacy defaults</p>
+                <div className="rounded-2xl bg-muted p-4 text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground">Privacy defaults</p>
                   <p className="mt-1">Only coarse area is shown publicly. Exact location and contact are shared after message request acceptance.</p>
                 </div>
                 <Button
@@ -255,33 +297,33 @@ export default function BuddyFinderPage() {
                   {createIntentMutation.isPending ? "Posting..." : "Post intent"}
                 </Button>
                 {createIntentMutation.error ? (
-                  <p className="text-sm text-red-600">{getApiErrorMessage(createIntentMutation.error, "Failed to post intent")}</p>
+                  <p className="text-sm text-destructive">{getApiErrorMessage(createIntentMutation.error, "Failed to post intent")}</p>
                 ) : null}
               </CardContent>
             </Card>
 
             <div className="space-y-4">
               {memberItems.map((item) => (
-                <Card key={item.id} className="rounded-[24px] bg-white/90">
+                <Card key={item.id} className="bg-card">
                   <CardContent className="space-y-4 p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-lg font-semibold text-sky-950">
+                        <p className="text-lg font-semibold text-foreground">
                           <Link
                             href={getProfileRoute(item.username)}
-                            className="transition-colors hover:text-sky-700"
+                            className="transition-colors hover:text-primary"
                           >
                             {item.displayName || item.username}
                           </Link>
                         </p>
-                        <p className="text-sm text-zinc-600">{item.homeArea || item.area}</p>
+                        <p className="text-sm text-muted-foreground">{item.homeArea || item.area}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Badge>{item.intentType.replace("_", " ")}</Badge>
                         <Badge variant="outline">{item.timeWindow.replace("_", " ")}</Badge>
                       </div>
                     </div>
-                    <p className="text-sm text-zinc-700">{item.note || "No note added."}</p>
+                    <p className="text-sm text-foreground/80">{item.note || "No note added."}</p>
                     <TrustCard
                       emailVerified={item.emailVerified}
                       phoneVerified={item.phoneVerified}
@@ -289,7 +331,7 @@ export default function BuddyFinderPage() {
                       buddyCount={item.buddyCount}
                       reportCount={item.reportCount}
                     />
-                    <div className="flex flex-wrap gap-2 text-xs text-zinc-500">
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                       <span>Posted {new Date(item.createdAt).toLocaleString()}</span>
                       {item.mutualBuddiesCount > 0 ? <span>{item.mutualBuddiesCount} mutual buddies</span> : null}
                     </div>
@@ -316,32 +358,58 @@ export default function BuddyFinderPage() {
                 </Card>
               ))}
               {messageMutation.error ? (
-                <p className="text-sm text-red-600">{getApiErrorMessage(messageMutation.error, "Failed to start message request")}</p>
+                <p className="text-sm text-destructive">{getApiErrorMessage(messageMutation.error, "Failed to start message request")}</p>
               ) : null}
               {messageMutation.isSuccess ? (
-                <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
+                <div className="rounded-2xl bg-emerald-500/10 p-4 text-sm text-emerald-600">
                   DM request preview sent. The recipient still has to accept unless you are already buddies.
                 </div>
               ) : null}
             </div>
           </section>
         ) : (
-          <Card className="rounded-[24px] border-dashed border-sky-200 bg-white/80">
-            <CardContent className="flex items-center justify-between gap-4 p-6">
-              <div>
-                <p className="text-lg font-semibold text-sky-950">Post intents and message divers</p>
-                <p className="text-sm text-zinc-600">Create an account to post your intent, view full details, and connect with buddies.</p>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-zinc-500">
-                <ShieldCheck className="h-4 w-4" />
-                Coarse location by default
-              </div>
-            </CardContent>
-          </Card>
+          <section className="space-y-4">
+            <Card className="border-dashed border-primary/20 bg-card/80">
+              <CardContent className="flex items-center justify-between gap-4 p-6">
+                <div>
+                  <p className="text-lg font-semibold text-foreground">Public preview is read-only</p>
+                  <p className="text-sm text-muted-foreground">Showing up to 10 intents. Sign in to message, save, and post your own.</p>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <ShieldCheck className="h-4 w-4" />
+                  Coarse location by default
+                </div>
+              </CardContent>
+            </Card>
+            {publicItems.map((item) => (
+              <Card key={item.id} className="bg-card">
+                <CardContent className="space-y-4 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-semibold text-foreground">{item.displayName || item.username}</p>
+                      <p className="text-sm text-muted-foreground">{item.homeArea || item.area}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge>{item.intentType.replace("_", " ")}</Badge>
+                      <Badge variant="outline">{item.timeWindow.replace("_", " ")}</Badge>
+                    </div>
+                  </div>
+                  <p className="text-sm text-foreground/80">{item.note || "No note added."}</p>
+                  <TrustCard
+                    emailVerified={item.emailVerified}
+                    phoneVerified={item.phoneVerified}
+                    certLevel={item.certLevel}
+                    buddyCount={item.buddyCount}
+                    reportCount={item.reportCount}
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </section>
         )}
 
         {(previewQuery.error || intentsQuery.error) ? (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-destructive">
             {getApiErrorMessage(previewQuery.error || intentsQuery.error, "Failed to load Buddy Finder")}
           </p>
         ) : null}

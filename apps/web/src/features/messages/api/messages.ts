@@ -1,63 +1,67 @@
-import {
-  type ConversationListResponse,
-  type ConversationMessagesResponse,
-  type MarkReadRequest,
-  type MarkReadResponse,
-  type MessageRequestActionResponse,
-  type SendMessageRequest,
-  type SendMessageResponse,
+import type {
+  MessagingMarkReadRequest,
+  MessagingMarkReadResponse,
+  MessagingOpenDirectThreadRequest,
+  MessagingSendMessageRequest,
+  MessagingSendMessageResponse,
+  MessagingThreadDetailResponse,
+  MessagingThreadListResponse,
+  MessagingThreadMessagesResponse,
+  MessagingUpdateThreadCategoryRequest,
+  MessagingUpdateThreadCategoryResponse,
 } from "@freediving.ph/types";
 
 import { fphgoFetchClient } from "@/lib/api/fphgo-fetch-client";
 import { routes } from "@/lib/api/fphgo-routes";
 
+export type ListThreadsParams = {
+  category: "primary" | "transactions" | "requests";
+  limit?: number;
+  cursor?: string;
+  q?: string;
+};
+
 export const messagesApi = {
-  getInbox: async (limit = 20, cursor?: string): Promise<ConversationListResponse> => {
+  listThreads: async ({ category, limit = 20, cursor, q }: ListThreadsParams): Promise<MessagingThreadListResponse> => {
+    const params = new URLSearchParams({ category, limit: String(limit) });
+    if (cursor) params.set("cursor", cursor);
+    if (q && q.trim()) params.set("q", q.trim());
+    return fphgoFetchClient<MessagingThreadListResponse>(`${routes.v1.messages.threads()}?${params.toString()}`);
+  },
+
+  getThread: async (threadId: string): Promise<MessagingThreadDetailResponse> => {
+    return fphgoFetchClient<MessagingThreadDetailResponse>(routes.v1.messages.threadById(threadId));
+  },
+
+  listThreadMessages: async (threadId: string, limit = 30, cursor?: string): Promise<MessagingThreadMessagesResponse> => {
     const params = new URLSearchParams({ limit: String(limit) });
     if (cursor) params.set("cursor", cursor);
-    return fphgoFetchClient<ConversationListResponse>(`${routes.v1.messages.inbox()}?${params.toString()}`);
+    return fphgoFetchClient<MessagingThreadMessagesResponse>(`${routes.v1.messages.threadMessages(threadId)}?${params.toString()}`);
   },
 
-  createRequest: async (recipientId: string, content: string): Promise<MessageRequestActionResponse> => {
-    return fphgoFetchClient<MessageRequestActionResponse>(routes.v1.messages.createRequest(), {
-      method: "POST",
-      body: { recipientId, content },
-    });
-  },
-
-  acceptRequest: async (requestId: string): Promise<MessageRequestActionResponse> => {
-    return fphgoFetchClient<MessageRequestActionResponse>(routes.v1.messages.requestAccept(requestId), {
-      method: "POST",
-    });
-  },
-
-  declineRequest: async (requestId: string): Promise<MessageRequestActionResponse> => {
-    return fphgoFetchClient<MessageRequestActionResponse>(routes.v1.messages.requestDecline(requestId), {
-      method: "POST",
-    });
-  },
-
-  getConversationMessages: async (
-    conversationId: string,
-    limit = 50,
-    cursor?: string,
-  ): Promise<ConversationMessagesResponse> => {
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (cursor) params.set("cursor", cursor);
-    return fphgoFetchClient<ConversationMessagesResponse>(
-      `${routes.v1.messages.conversationById(conversationId)}?${params.toString()}`,
-    );
-  },
-
-  sendConversationMessage: async (conversationId: string, payload: SendMessageRequest): Promise<SendMessageResponse> => {
-    return fphgoFetchClient<SendMessageResponse>(routes.v1.messages.conversationById(conversationId), {
+  openDirectThread: async (payload: MessagingOpenDirectThreadRequest): Promise<MessagingThreadDetailResponse> => {
+    return fphgoFetchClient<MessagingThreadDetailResponse>(routes.v1.messages.directThread(), {
       method: "POST",
       body: payload as unknown as Record<string, unknown>,
     });
   },
 
-  markRead: async (payload: MarkReadRequest): Promise<MarkReadResponse> => {
-    return fphgoFetchClient<MarkReadResponse>(routes.v1.messages.read(), {
+  sendThreadMessage: async (threadId: string, payload: MessagingSendMessageRequest): Promise<MessagingSendMessageResponse> => {
+    return fphgoFetchClient<MessagingSendMessageResponse>(routes.v1.messages.threadMessages(threadId), {
+      method: "POST",
+      body: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  markThreadRead: async (threadId: string, payload: MessagingMarkReadRequest): Promise<MessagingMarkReadResponse> => {
+    return fphgoFetchClient<MessagingMarkReadResponse>(routes.v1.messages.threadRead(threadId), {
+      method: "POST",
+      body: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  updateThreadCategory: async (threadId: string, payload: MessagingUpdateThreadCategoryRequest): Promise<MessagingUpdateThreadCategoryResponse> => {
+    return fphgoFetchClient<MessagingUpdateThreadCategoryResponse>(routes.v1.messages.threadCategory(threadId), {
       method: "POST",
       body: payload as unknown as Record<string, unknown>,
     });

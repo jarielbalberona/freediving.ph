@@ -1,7 +1,6 @@
 import type { ComponentType } from "react";
 import {
   MessagesSquare,
-  Bell,
   Compass,
   Waves,
   Users,
@@ -98,16 +97,6 @@ export const NAV_ITEMS: NavItem[] = [
     isMain: true,
   },
   {
-    id: "notifications",
-    title: "Notifications",
-    kind: "link",
-    href: "/notifications",
-    icon: Bell,
-    isProtected: true,
-    group: "core",
-    comingSoon: true,
-  },
-  {
     id: "buddies",
     title: "Buddies",
     kind: "link",
@@ -124,7 +113,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Shapes,
     isProtected: false,
     group: "community",
-    comingSoon: true,
   },
   {
     id: "events",
@@ -134,7 +122,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: CalendarHeart,
     isProtected: false,
     group: "community",
-    comingSoon: true,
   },
   {
     id: "chika",

@@ -11,6 +11,7 @@ import (
 
 	blocksrepo "fphgo/internal/features/blocks/repo"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/mediaurl"
 	"fphgo/internal/shared/pagination"
 	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
@@ -172,7 +173,7 @@ func (s *Service) ListBlocks(ctx context.Context, blockerID string, limit int32,
 			BlockedUserID: row.BlockedUserID,
 			Username:      row.Username,
 			DisplayName:   row.DisplayName,
-			AvatarURL:     row.AvatarURL,
+			AvatarURL:     mediaurl.MaterializeWithDefault(row.AvatarURL),
 			CreatedAt:     row.CreatedAt.Format(time.RFC3339),
 		})
 	}

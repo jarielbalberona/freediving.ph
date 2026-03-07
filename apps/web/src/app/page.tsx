@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { HomeFeedPage } from "@/features/home-feed";
 
 export default function HomePage() {
-  redirect("/explore");
+  return <HomeFeedPage />;
 }

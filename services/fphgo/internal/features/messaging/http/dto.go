@@ -88,3 +88,86 @@ type MarkReadResponse struct {
 	ConversationID string `json:"conversationId"`
 	Marked         bool   `json:"marked"`
 }
+
+type OpenDirectThreadRequest struct {
+	TargetUserID string `json:"targetUserId" validate:"required,uuid"`
+}
+
+type ThreadMessageItem struct {
+	ID           string `json:"id"`
+	ThreadID     string `json:"threadId"`
+	SenderUserID string `json:"senderUserId"`
+	Kind         string `json:"kind"`
+	Body         string `json:"body"`
+	CreatedAt    string `json:"createdAt"`
+	ClientID     string `json:"clientId,omitempty"`
+	IsOwn        bool   `json:"isOwn"`
+	Status       string `json:"status,omitempty"`
+}
+
+type ThreadSummaryItem struct {
+	ID            string                  `json:"id"`
+	Type          string                  `json:"type"`
+	Category      string                  `json:"category"`
+	Participant   ConversationParticipant `json:"participant"`
+	LastMessage   *ThreadMessageItem      `json:"lastMessage,omitempty"`
+	LastMessageAt string                  `json:"lastMessageAt"`
+	UnreadCount   int64                   `json:"unreadCount"`
+	HasUnread     bool                    `json:"hasUnread"`
+	ActiveRequest bool                    `json:"activeRequest"`
+}
+
+type ListThreadsResponse struct {
+	Items      []ThreadSummaryItem `json:"items"`
+	NextCursor string              `json:"nextCursor,omitempty"`
+}
+
+type ThreadParticipantItem struct {
+	ID          string `json:"id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	AvatarURL   string `json:"avatarUrl"`
+}
+
+type ThreadDetailResponse struct {
+	ID                string                  `json:"id"`
+	Type              string                  `json:"type"`
+	Category          string                  `json:"category"`
+	Participants      []ThreadParticipantItem `json:"participants"`
+	CreatedAt         string                  `json:"createdAt"`
+	LastReadMessageID string                  `json:"lastReadMessageId,omitempty"`
+	CanSend           bool                    `json:"canSend"`
+}
+
+type ListThreadMessagesResponse struct {
+	Items      []ThreadMessageItem `json:"items"`
+	NextCursor string              `json:"nextCursor,omitempty"`
+}
+
+type SendThreadMessageRequest struct {
+	Body     string `json:"body" validate:"required,min=1,max=4000"`
+	ClientID string `json:"clientId" validate:"omitempty,max=120"`
+}
+
+type SendThreadMessageResponse struct {
+	Message ThreadMessageItem `json:"message"`
+}
+
+type MarkThreadReadRequest struct {
+	LastReadMessageID string `json:"lastReadMessageId" validate:"required,numeric"`
+}
+
+type MarkThreadReadResponse struct {
+	ThreadID string `json:"threadId"`
+	Marked   bool   `json:"marked"`
+}
+
+type UpdateThreadCategoryRequest struct {
+	Category string `json:"category" validate:"required,oneof=primary transactions"`
+}
+
+type UpdateThreadCategoryResponse struct {
+	ThreadID string `json:"threadId"`
+	Category string `json:"category"`
+	Updated  bool   `json:"updated"`
+}

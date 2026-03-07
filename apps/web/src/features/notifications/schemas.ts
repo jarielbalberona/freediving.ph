@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
 export const createNotificationSchema = z.object({
-  userId: z.number().int().positive(),
+  userId: z.string().uuid(),
   type: z.enum(['SYSTEM', 'MESSAGE', 'EVENT', 'GROUP', 'SERVICE', 'BOOKING', 'REVIEW', 'MENTION', 'LIKE', 'COMMENT', 'FRIEND_REQUEST', 'GROUP_INVITE', 'EVENT_REMINDER', 'PAYMENT', 'SECURITY']),
   title: z.string().min(1).max(255),
   message: z.string().min(1),
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).optional(),
-  relatedUserId: z.number().int().positive().optional(),
+  relatedUserId: z.string().uuid().optional(),
   relatedEntityType: z.string().max(50).optional(),
-  relatedEntityId: z.number().int().positive().optional(),
+  relatedEntityId: z.string().max(100).optional(),
   imageUrl: z.string().url().optional(),
   actionUrl: z.string().url().optional(),
   metadata: z.record(z.any()).optional(),

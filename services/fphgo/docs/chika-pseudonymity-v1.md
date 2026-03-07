@@ -9,16 +9,17 @@
    to `"pseudonymous"`.
 3. Pseudonyms are **stable per thread + author**: the same user always
    appears as the same pseudonym within a given thread.
-4. Algorithm: `SHA1(threadID + ":" + userID)` → first 3 bytes → hex →
-   `anon-` prefix. Example: `anon-A1B2C3`.
+4. Algorithm: `HMAC-SHA256(secret, threadID + ":" + userID)` encoded in
+   base32, truncated, with `anon-` prefix (for example `anon-K7M2Q9T4`).
 5. In non-pseudonymous threads, the author's real `username` is used as
    the display name.
 
 ### Storage
 
-- Pseudonyms for **comments** and **posts** are stored in the
-  `pseudonym` column at creation time. This ensures the display name is
-  frozen even if the algorithm changes.
+- Pseudonyms are persisted in `chika_thread_aliases(thread_id, user_id, pseudonym)`
+  and reused for all posts/comments in that thread.
+- Pseudonyms for **comments** and **posts** are still stored in each row at
+  creation time as immutable display snapshots.
 - Pseudonyms for **thread authors** are derived at response time using
   the same algorithm — the thread table stores the real `created_by_user_id`.
 
@@ -59,6 +60,8 @@
 | `hiddenAt`         | *(omitted)*                   | RFC3339 timestamp             |
 
 Members never receive `realAuthorUserId` regardless of thread mode.
+Moderators only receive `realAuthorUserId` when they explicitly request
+`includeRealAuthor=true` and have `chika.reveal_identity` permission.
 
 ## Content Lifecycle States
 
@@ -101,6 +104,20 @@ Members never receive `realAuthorUserId` regardless of thread mode.
 | Delete comment   | 30        | 1 min  |
 | Set reaction     | 120       | 1 min  |
 | Remove reaction  | 120       | 1 min  |
+
+### Pseudonymous Thread Tightening
+
+- `create_post`: 20/min on pseudonymous threads (`40/min` on normal threads)
+- `create_comment`: 30/min on pseudonymous threads (`60/min` on normal threads)
+- `set_reaction` (thread): 80/min on pseudonymous threads (`120/min` on normal threads)
+- `set_comment_reaction`: 100/min on pseudonymous threads (`150/min` on normal threads)
+
+### Identity Reveal Guardrails
+
+- `realAuthorUserId` is no longer included by default in list/detail responses.
+- To reveal IDs, pass query param `includeRealAuthor=true`.
+- Reveal requests are permission-gated (`chika.reveal_identity`) and rate-limited:
+  `30` requests per minute per moderator actor.
 
 ## Reports Integration
 

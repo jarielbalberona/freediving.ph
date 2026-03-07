@@ -1,30 +1,53 @@
-# Freediving.ph Monorepo
+# Freediving Philippines
 
-Monorepo for the Freediving Philippines platform.
+![Freediving Philippines Banner](https://raw.githubusercontent.com/jarielbalberona/freediving.ph/refs/heads/main/app/public/images/freedivingph-blue-transparent.png)
+
+_A social platform built for freedivers, by freedivers._
+
+## About the project
+
+Freediving Philippines is an open-source social web app for the freediving community in the Philippines. Inspired by Instagram, Pinterest, and Reddit, it gives divers a place to connect, share experiences, and explore dive sites across the country.
+
+## Features
+
+### Social
+
+- **Profiles** – Showcase your dives, share records, and post freediving adventures.
+- **Messaging** – Private messaging with other freedivers.
+- **Buddies & groups** – Find dive buddies and create or join freediving groups.
+- **Chika (forum)** – Start and join discussions, including anonymous threads.
+
+### Diving-specific
+
+- **Explore** – Discover and contribute dive sites on an interactive map.
+- **Buddy finder** – See available dive buddies at specific locations.
+- **Events** – Organize and join public freediving events.
+- **Competitive records** – Share PBs and national records (e.g. AIDA).
 
 ## What this repo contains
 
-- `apps/api`: Express 5 + TypeScript API, route modules, middleware, Drizzle models/migrations, seeding.
-- `apps/web`: Next.js 15 (App Router) frontend.
-- `services/*`: non-Node services (for example Go backends).
-- `packages/types`: shared DTO/envelope contracts used by API and web.
-- `packages/config`: shared runtime constants/config helpers.
-- `packages/utils`: shared utility functions.
-- `packages/db`: shared DB tooling surface (Drizzle scripts).
-- `packages/ui`: shared UI package shell.
+- **`apps/web`** – Next.js 15 (App Router) frontend.
+- **`services/fphgo`** – Go API service (canonical backend).
+- **`packages/types`** – Shared DTO/envelope contracts for API and web.
+- **`packages/config`** – Shared runtime constants/config helpers.
+- **`packages/utils`** – Shared utility functions.
+- **`packages/db`** – Shared DB tooling surface.
+- **`packages/ui`** – Shared UI package shell.
 
 ## Tech stack
 
-- Frontend: Next.js 15, React 19, TypeScript, TanStack Query, Tailwind.
-- Backend: Express 5, TypeScript, Drizzle ORM, PostgreSQL.
-- Auth: Clerk.
-- Tooling: pnpm workspaces, Biome, Node test runner, tsx tests.
+- **Frontend:** Next.js 15, React 19, TypeScript, TanStack Query, Tailwind.
+- **Backend:** Go (fphgo), PostgreSQL, sqlc, goose migrations.
+- **Auth:** Clerk.
+- **Tooling:** pnpm workspaces, Biome, Node test runner, tsx tests.
+- **Deployment:** CI/CD (e.g. GitHub Actions). Cloud: AWS, Cognito, ECS, RDS, Route53, S3. Infrastructure: Terraform (multi-environment).
 
 ## Prerequisites
 
 - Node.js 20+
 - pnpm 10+
 - PostgreSQL 15+ (or Docker)
+- For the Go API: Go 1.26, `sqlc`. `goose` is run via the fphgo Makefile (no global install needed).
 
 ## Quick start
 
@@ -36,13 +59,28 @@ pnpm install
 
 Set environment variables:
 
-- API env: `apps/api/.env`
-- Web env: `apps/web/.env`
+- **Web:** `apps/web/.env` (see [Environment variables](#environment-variables) below).
+- **Go API:** `services/fphgo/.env` – copy from `services/fphgo/.env.example`.
 
-Then run both apps:
+Run the stack:
+
+**Option A – Docker (database + Go API)**
 
 ```bash
-pnpm dev
+docker compose up -d database fphgo
+pnpm dev:web
+```
+
+**Option B – Local Go API**
+
+```bash
+pnpm dev:go
+```
+
+In another terminal:
+
+```bash
+pnpm dev:web
 ```
 
 Default local URLs:
@@ -52,105 +90,44 @@ Default local URLs:
 
 ## Environment variables
 
-Canonical API env keys are validated in `apps/api/src/core/env.ts`:
-
-- `DATABASE_URL`
-- `PORT`
-- `CSRF_SECRET`
-- `NODE_ENV` (`development` or `production`)
-- `ORIGIN_URL`
-- `APP_URL`
-- `API_URL`
-- `AWS_REGION`
-- `AWS_ACCESS_KEY`
-- `AWS_SECRET_KEY`
-- `AWS_S3_FPH_BUCKET_NAME`
-- `EMAIL_SERVER_HOST`
-- `EMAIL_SERVER_PORT`
-- `EMAIL_SERVER_USER`
-- `EMAIL_SERVER_PASSWORD`
-- `EMAIL_FROM`
-
-The API also supports deployment aliases and normalizes them automatically:
-
-- `CORS_ORIGIN` -> `ORIGIN_URL`
-- `NEXT_PUBLIC_APP_URL` -> `APP_URL`
-- `NEXT_PUBLIC_API_URL` -> `API_URL`
-- `AWS_ACCESS_KEY_ID` -> `AWS_ACCESS_KEY`
-- `AWS_SECRET_ACCESS_KEY` -> `AWS_SECRET_KEY`
-- `AWS_S3_BUCKET` -> `AWS_S3_FPH_BUCKET_NAME`
-- `EMAIL_HOST` -> `EMAIL_SERVER_HOST`
-- `EMAIL_PORT` -> `EMAIL_SERVER_PORT`
-- `EMAIL_USER` -> `EMAIL_SERVER_USER`
-- `EMAIL_PASS` -> `EMAIL_SERVER_PASSWORD`
-
-Minimum web env:
+**Web (`apps/web/.env`)** – minimum:
 
 - `NEXT_PUBLIC_API_URL`
-- `API_URL` (for server-side calls; usually same value as `NEXT_PUBLIC_API_URL`)
+- `API_URL` (server-side; usually same as `NEXT_PUBLIC_API_URL`)
 - `NEXT_PUBLIC_APP_URL`
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
 
+**Go API (`services/fphgo/.env`)** – see `services/fphgo/.env.example`. Typical local values:
+
+- `DB_DSN=postgres://postgres:postgres@localhost:5432/fph?sslmode=disable`
+- `PORT=4000`
+- `APP_ENV=development`
+- `CORS_ORIGINS=http://localhost:3000`
+
 ## Root scripts
 
 ```bash
-pnpm dev          # run apps in parallel
-pnpm build        # build packages, then API and web
+pnpm dev          # run web app (and other apps under apps/*)
+pnpm build        # build packages, then web (and any other app builds)
 pnpm typecheck    # type-check all workspaces
 pnpm lint         # lint all workspaces
 pnpm test         # run all workspace tests
 pnpm preflight    # typecheck + lint + test + build
 ```
 
-Single-app shortcuts:
+Shortcuts:
 
 ```bash
-pnpm dev:api
 pnpm dev:web
-pnpm build:api
 pnpm build:web
-pnpm dev:go
+pnpm dev:go       # run Go API
 pnpm test:go
 pnpm sqlc:go
-pnpm migrate:go
+pnpm migrate:go   # run Go API DB migrations
 ```
-
-## Go services (`services/`)
-
-Go and other non-Node services live under `services/`. The first service is:
-
-- `services/fphgo`
-
-`pnpm` does not manage Go dependencies for this folder. It only proxies Make targets via root scripts.
-
-### Run `fphgo` locally
-
-From repo root:
-
-```bash
-pnpm dev:go
-```
-
-Other convenience commands:
-
-```bash
-pnpm test:go
-pnpm sqlc:go
-pnpm migrate:go
-```
-
-### Prerequisites for `fphgo`
-
-- Go 1.26
-- `sqlc`
-- PostgreSQL
-
-`goose` is executed via `go run` from the service Makefile, so no global `goose` binary install is required.
 
 ## Workspace commands
-
-Run scripts in one workspace via either pattern:
 
 ```bash
 pnpm -C <dir> <script>
@@ -160,60 +137,37 @@ pnpm --filter <package-name> <script>
 Examples:
 
 ```bash
-pnpm -C apps/api dev
-pnpm --filter @freediving.ph/api test
 pnpm -C apps/web build
 pnpm --filter @freediving.ph/web type-check
 pnpm --filter @freediving.ph/types test
 ```
 
-## Database workflows
+## Database
 
-From repo root:
-
-```bash
-pnpm db:generate
-pnpm db:migrate
-pnpm db:push
-pnpm db:studio
-pnpm db:seed
-```
-
-Schema and migrations are under:
-
-- `apps/api/src/models/drizzle`
-- `apps/api/.drizzle/migrations`
+- **Go API:** Migrations live in `services/fphgo/db/migrations`. Run with `pnpm migrate:go` (goose).
+- **Drizzle (packages/db):** Optional shared DB tooling; use `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:push`, `pnpm db:studio` from repo root as needed.
 
 ## Docker (local)
 
-Run PostgreSQL and the Go API in Docker:
+PostgreSQL and the Go API:
 
 ```bash
 docker compose up -d database fphgo
 ```
 
-For local Node API development (`apps/api/.env`) with Docker Postgres:
+Or build and run in foreground:
 
 ```bash
-DATABASE_URL=postgres://fphbuddies:fphbuddiespw@localhost:5432/freedivingph
-```
-
-For local Go API development (`services/fphgo/.env`):
-
-```bash
-DB_DSN=postgres://postgres:postgres@localhost:5432/fph?sslmode=disable
-PORT=4000
-APP_ENV=development
-CORS_ORIGINS=http://localhost:3000
+docker compose up --build fphgo
 ```
 
 ## Deployment
 
-Render blueprint is in `render.yaml` and env template is in `env.render.example`.
+Render blueprint: `render.yaml`. Env template: `env.render.example`.
 
 ## Quality gate before PRs
 
-For changed workspace(s):
+For a single workspace:
 
 ```bash
 pnpm --filter <package-name> type-check
@@ -229,8 +183,29 @@ pnpm lint
 pnpm test
 ```
 
-## Contribution notes
+## Contributing
 
-- Keep shared contracts in `packages/types/src` and update API/web together when DTOs change.
-- Do not create feature-local `types.ts` files in `apps/web/src/features/*`; use `@freediving.ph/types`.
-- Avoid adding workspace-specific env assumptions into shared packages.
+Freediving Philippines is **open source** and we welcome contributions. Fork the repo, open an issue for feature ideas, or send a pull request.
+
+1. **Fork** the repository.
+2. Create a **new branch** for your feature.
+3. Commit with a meaningful message.
+4. Submit a **pull request** for review.
+
+**Contribution notes:**
+
+- Keep shared contracts in `packages/types/src`; update API and web together when DTOs change.
+- Do not add feature-local `types.ts` in `apps/web/src/features/*`; use `@freediving.ph/types`.
+- Avoid workspace-specific env assumptions in shared packages.
+
+## Looking for developers
+
+We’re looking for **software developers** to help build and improve the platform. If you’re interested, open an issue or start contributing.
+
+## Contact & community
+
+- **Email:** jariel@saltandsun.life
+- **Reddit:** [r/freedivingph](https://reddit.com/r/freedivingph)
+- **GitHub Issues:** [Report bugs & request features](https://github.com/jarielbalberona/freediving.ph/issues)
+
+_Let’s build the best freediving platform in the Philippines._

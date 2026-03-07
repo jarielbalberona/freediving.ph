@@ -168,13 +168,16 @@ func New(repo repository, opts ...Option) *Service {
 	return svc
 }
 
-func (s *Service) Preview(ctx context.Context, area string) (PreviewResult, error) {
+func (s *Service) Preview(ctx context.Context, area string, limit int32) (PreviewResult, error) {
 	trimmedArea := strings.TrimSpace(area)
+	if limit <= 0 || limit > 10 {
+		limit = 6
+	}
 	count, err := s.repo.CountPreviewByArea(ctx, trimmedArea)
 	if err != nil {
 		return PreviewResult{}, apperrors.New(http.StatusInternalServerError, "buddy_preview_failed", "failed to count buddy intents", err)
 	}
-	items, err := s.repo.ListPreviewByArea(ctx, trimmedArea, 6)
+	items, err := s.repo.ListPreviewByArea(ctx, trimmedArea, limit)
 	if err != nil {
 		return PreviewResult{}, apperrors.New(http.StatusInternalServerError, "buddy_preview_failed", "failed to list buddy preview", err)
 	}

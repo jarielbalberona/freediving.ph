@@ -11,6 +11,10 @@ test("chika thread contracts support pseudonymous and moderator fields", () => {
   const thread: ChikaThreadResponse = {
     id: "550e8400-e29b-41d4-a716-446655440001",
     title: "Confession",
+    content: "Long-form thread content",
+    voteCount: 12,
+    commentCount: 7,
+    userReaction: "upvote",
     mode: "pseudonymous",
     categoryId: "550e8400-e29b-41d4-a716-446655440090",
     categorySlug: "confessions",
@@ -29,6 +33,9 @@ test("chika comment contract uses string ids", () => {
   const comment: ChikaCommentResponse = {
     id: "123",
     threadId: "550e8400-e29b-41d4-a716-446655440001",
+    voteCount: 10,
+    replyCount: 2,
+    userReaction: "downvote",
     authorDisplayName: "anon-ABC123",
     content: "hello",
     isHidden: false,
@@ -47,4 +54,3 @@ test("chika category contract includes pseudonymous flag", () => {
   };
   assert.equal(category.pseudonymous, true);
 });
-

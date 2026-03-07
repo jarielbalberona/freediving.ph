@@ -108,7 +108,8 @@ type MintURLItemInput struct {
 }
 
 type MintURLsInput struct {
-	Items []MintURLItemInput
+	ViewerUserID string
+	Items        []MintURLItemInput
 }
 
 type MintedURLItem struct {
@@ -493,6 +494,9 @@ func seekSize(rs io.ReadSeeker) (int64, error) {
 }
 
 func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsResult, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(input.ViewerUserID)); err != nil {
+		return MintURLsResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
 	if len(input.Items) == 0 {
 		return MintURLsResult{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"items"}, Code: "required", Message: "items is required"}}}
 	}
@@ -527,8 +531,16 @@ func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsRe
 			result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: "not_found", Message: "media not found"})
 			continue
 		}
+		if row.OwnerAppUserID != input.ViewerUserID {
+			result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: "not_found", Message: "media not found"})
+			continue
+		}
 		if row.State != "active" {
 			result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: row.State, Message: "media is not active"})
+			continue
+		}
+		if !isValidObjectKey(row.ObjectKey) {
+			result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: "invalid_object_key", Message: "media object key is invalid"})
 			continue
 		}
 
@@ -633,13 +645,7 @@ func (s *Service) ListMedia(ctx context.Context, input ListMediaInput) (ListMedi
 	var rows []mediarepo.MediaObject
 	var err error
 	if input.ContextType != nil && strings.TrimSpace(*input.ContextType) != "" {
-		rows, err = s.repo.ListMediaByContext(ctx, mediarepo.ListMediaByContextInput{
-			ContextType:   strings.TrimSpace(*input.ContextType),
-			ContextID:     input.ContextID,
-			CursorCreated: cursorCreated,
-			CursorID:      cursorID,
-			Limit:         limitPlusOne,
-		})
+		rows, err = s.listOwnedMediaByContext(ctx, input, strings.TrimSpace(*input.ContextType), cursorCreated, cursorID, limitPlusOne)
 	} else {
 		rows, err = s.repo.ListMediaByOwner(ctx, mediarepo.ListMediaByOwnerInput{
 			OwnerAppUserID: input.OwnerUserID,
@@ -676,6 +682,53 @@ func (s *Service) ListMedia(ctx context.Context, input ListMediaInput) (ListMedi
 	}
 
 	return ListMediaResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) listOwnedMediaByContext(
+	ctx context.Context,
+	input ListMediaInput,
+	contextType string,
+	cursorCreated time.Time,
+	cursorID string,
+	limitPlusOne int32,
+) ([]mediarepo.MediaObject, error) {
+	collected := make([]mediarepo.MediaObject, 0, limitPlusOne)
+	nextCreated := cursorCreated
+	nextID := cursorID
+
+	for int32(len(collected)) < limitPlusOne {
+		rows, err := s.repo.ListMediaByContext(ctx, mediarepo.ListMediaByContextInput{
+			ContextType:   contextType,
+			ContextID:     input.ContextID,
+			CursorCreated: nextCreated,
+			CursorID:      nextID,
+			Limit:         limitPlusOne,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(rows) == 0 {
+			break
+		}
+
+		for _, row := range rows {
+			if row.OwnerAppUserID == input.OwnerUserID {
+				collected = append(collected, row)
+				if int32(len(collected)) == limitPlusOne {
+					break
+				}
+			}
+		}
+
+		if int32(len(rows)) < limitPlusOne {
+			break
+		}
+		last := rows[len(rows)-1]
+		nextCreated = last.CreatedAt
+		nextID = last.ID
+	}
+
+	return collected, nil
 }
 
 func validateContext(contextType string, contextID *string) (contextRule, []validatex.Issue) {
@@ -894,4 +947,18 @@ func valueOrEmpty(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+func isValidObjectKey(objectKey string) bool {
+	key := strings.TrimSpace(objectKey)
+	if key == "" || strings.HasPrefix(key, "/") {
+		return false
+	}
+	parts := strings.Split(key, "/")
+	for _, part := range parts {
+		if part == ".." {
+			return false
+		}
+	}
+	return true
 }

@@ -4,6 +4,18 @@ type ProfileResponse struct {
 	Profile Profile `json:"profile"`
 }
 
+type PublicProfileResponse struct {
+	Profile PublicProfile `json:"profile"`
+}
+
+type PublicProfilePostsResponse struct {
+	Items []PublicProfilePost `json:"items"`
+}
+
+type ProfileBucketListResponse struct {
+	Items []ProfileBucketListItem `json:"items"`
+}
+
 type SearchUsersResponse struct {
 	Items []Profile `json:"items"`
 }
@@ -28,6 +40,44 @@ type Profile struct {
 	Interests     []string          `json:"interests"`
 	CertLevel     string            `json:"certLevel"`
 	Socials       map[string]string `json:"socials"`
+}
+
+type PublicProfile struct {
+	UserID      string              `json:"userId"`
+	Username    string              `json:"username"`
+	DisplayName string              `json:"displayName"`
+	Bio         string              `json:"bio"`
+	AvatarURL   string              `json:"avatarUrl"`
+	Counts      PublicProfileCounts `json:"counts"`
+}
+
+type PublicProfileCounts struct {
+	Posts     int64 `json:"posts"`
+	Followers int64 `json:"followers"`
+	Following int64 `json:"following"`
+}
+
+type PublicProfilePost struct {
+	ID           string `json:"id"`
+	SiteID       string `json:"siteId"`
+	SiteSlug     string `json:"siteSlug"`
+	SiteName     string `json:"siteName"`
+	SiteArea     string `json:"siteArea"`
+	Caption      string `json:"caption"`
+	OccurredAt   string `json:"occurredAt"`
+	ThumbURL     string `json:"thumbUrl"`
+	MediaType    string `json:"mediaType"`
+	LikeCount    int64  `json:"likeCount"`
+	CommentCount int64  `json:"commentCount"`
+}
+
+type ProfileBucketListItem struct {
+	SiteID   string `json:"siteId"`
+	SiteSlug string `json:"siteSlug"`
+	SiteName string `json:"siteName"`
+	SiteArea string `json:"siteArea"`
+	PinnedAt string `json:"pinnedAt"`
+	HasDived bool   `json:"hasDived"`
 }
 
 type SavedSite struct {
@@ -58,7 +108,7 @@ type SavedUser struct {
 type UpdateMyProfileRequest struct {
 	DisplayName *string            `json:"displayName" validate:"omitempty,min=1,max=80"`
 	Bio         *string            `json:"bio"         validate:"omitempty,max=500"`
-	AvatarURL   *string            `json:"avatarUrl"   validate:"omitempty,url,max=500"`
+	AvatarURL   *string            `json:"avatarUrl"   validate:"omitempty,max=500"`
 	Location    *string            `json:"location"    validate:"omitempty,max=120"`
 	HomeArea    *string            `json:"homeArea"    validate:"omitempty,min=2,max=120"`
 	Interests   *[]string          `json:"interests"   validate:"omitempty,max=8,dive,max=40"`

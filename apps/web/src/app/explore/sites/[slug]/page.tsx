@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { UsernameLink } from "@/components/common/UsernameLink";
 import { TrustCard } from "@/components/trust-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,7 +53,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
       getExploreSiteBuddyPreviewServer(slug).catch(() => null),
     ]);
     return (
-      <div className="min-h-full bg-[linear-gradient(180deg,_#f4fbf8_0%,_#ffffff_100%)] px-4 py-2">
+      <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
         <div className="mx-auto max-w-3xl space-y-6">
           <div className="space-y-3">
             <BackToExploreButton />
@@ -65,7 +66,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
             <p className="text-zinc-600">{data.site.area}</p>
           </div>
 
-          <Card className="rounded-[28px] border-white/80 bg-white/90">
+          <Card className="border-border/80 bg-card/90">
             <CardHeader className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 <Badge>{data.site.difficulty}</Badge>
@@ -105,12 +106,14 @@ export default async function ExploreSharePage({ params }: PageProps) {
               {data.updates.map((update) => (
                 <div
                   key={update.id}
-                  className="rounded-2xl border border-zinc-200 bg-white/90 p-4 text-sm text-zinc-700"
+                  className="rounded-2xl border border-border bg-card/90 p-4 text-sm text-zinc-700"
                 >
                   <div className="flex items-center justify-between gap-3 text-xs text-zinc-500">
-                    <span>
-                      {update.authorDisplayName || "Community report"}
-                    </span>
+                    <UsernameLink
+                      username={update.authorDisplayName}
+                      className="text-zinc-500"
+                      fallback="Community report"
+                    />
                     <span>{new Date(update.occurredAt).toLocaleString()}</span>
                   </div>
                   <p className="mt-2">{update.note}</p>
@@ -138,7 +141,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
             </div>
             <div className="space-y-3">
               {(buddyPreview?.items ?? []).length === 0 ? (
-                <div className="rounded-2xl border border-zinc-200 bg-white/90 p-4 text-sm text-zinc-600">
+                <div className="rounded-2xl border border-border bg-card/90 p-4 text-sm text-zinc-600">
                   Buddy preview will show here once someone posts for this site
                   or area.
                 </div>
@@ -146,7 +149,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
                 buddyPreview?.items.map((intent) => (
                   <div
                     key={intent.id}
-                    className="rounded-2xl border border-zinc-200 bg-white/90 p-4 text-sm text-zinc-700"
+                    className="rounded-2xl border border-border bg-card/90 p-4 text-sm text-zinc-700"
                   >
                     <div className="flex flex-wrap gap-2">
                       <Badge>{intent.intentType.replace("_", " ")}</Badge>
@@ -185,7 +188,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
     const mockSpot = getMockDiveSpotBySlug(slug);
     if (mockSpot) {
       return (
-        <div className="min-h-full bg-[linear-gradient(180deg,_#f4fbf8_0%,_#ffffff_100%)] px-4 py-2">
+        <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
           <div className="mx-auto max-w-3xl space-y-6">
             <div className="space-y-3">
               <BackToExploreButton />
@@ -198,7 +201,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
               <p className="text-zinc-600">{mockSpot.area}</p>
             </div>
 
-            <Card className="rounded-[28px] border-white/80 bg-white/90">
+            <Card className="border-border/80 bg-card/90">
               <CardHeader className="space-y-3">
                 <div className="flex flex-wrap gap-2">
                   {(mockSpot.tags ?? []).map((tag) => (
@@ -234,7 +237,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
               <h2 className="text-xl font-semibold text-emerald-950">
                 Trust and community
               </h2>
-              <Card className="rounded-[28px] border-white/80 bg-white/90">
+              <Card className="border-border/80 bg-card/90">
                 <CardContent className="space-y-4 pt-6 text-sm text-zinc-700">
                   <p>
                     Save and share are available from Explore. Buddy previews

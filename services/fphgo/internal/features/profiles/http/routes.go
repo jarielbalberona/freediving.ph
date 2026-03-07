@@ -15,6 +15,9 @@ func Routes(h *Handlers) chi.Router {
 		read.Get("/me/profile", h.GetMeProfile)
 		read.Get("/me/saved", h.GetSavedHub)
 		read.Get("/profiles/{userID}", h.GetProfileByUserID)
+		read.Get("/profiles/by-username/{username}", h.GetPublicProfileByUsername)
+		read.Get("/profiles/by-username/{username}/posts", h.ListPublicProfilePostsByUsername)
+		read.Get("/profiles/by-username/{username}/bucketlist", h.ListProfileBucketListByUsername)
 		read.Get("/users/search", h.SearchUsers)
 	})
 

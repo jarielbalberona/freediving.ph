@@ -69,6 +69,27 @@ func (m *memoryProfilesRepo) ListSavedUsersForUser(_ context.Context, _ string) 
 	return []profilesrepo.SavedUser{}, nil
 }
 
+func (m *memoryProfilesRepo) GetPublicProfileByUsername(_ context.Context, username string) (profilesrepo.PublicProfile, error) {
+	return profilesrepo.PublicProfile{
+		UserID:         "550e8400-e29b-41d4-a716-446655440099",
+		Username:       username,
+		DisplayName:    "Member User",
+		Bio:            "Bio",
+		AvatarURL:      "https://example.com/avatar.jpg",
+		PostsCount:     2,
+		FollowersCount: 3,
+		FollowingCount: 4,
+	}, nil
+}
+
+func (m *memoryProfilesRepo) ListPublicProfilePostsByUsername(_ context.Context, _ string, _ int32) ([]profilesrepo.PublicProfilePost, error) {
+	return []profilesrepo.PublicProfilePost{}, nil
+}
+
+func (m *memoryProfilesRepo) ListProfileBucketListByUsername(_ context.Context, _ string, _ int32) ([]profilesrepo.ProfileBucketListItem, error) {
+	return []profilesrepo.ProfileBucketListItem{}, nil
+}
+
 type denyAfterLimiter struct {
 	limit int
 	count int
@@ -142,6 +163,52 @@ func (s *stubProfilesService) GetSavedHub(_ context.Context, _ string) (profiles
 	}, nil
 }
 
+func (s *stubProfilesService) GetPublicProfileByUsername(_ context.Context, username string) (profilesservice.PublicProfile, error) {
+	return profilesservice.PublicProfile{
+		UserID:      "550e8400-e29b-41d4-a716-446655440011",
+		Username:    username,
+		DisplayName: "Member User",
+		Bio:         "Bio",
+		AvatarURL:   "https://example.com/avatar.jpg",
+		Counts: profilesservice.PublicProfileCounts{
+			Posts:     2,
+			Followers: 3,
+			Following: 4,
+		},
+	}, nil
+}
+
+func (s *stubProfilesService) ListPublicProfilePostsByUsername(_ context.Context, _ string, _ int32) ([]profilesservice.PublicProfilePost, error) {
+	return []profilesservice.PublicProfilePost{
+		{
+			ID:           "550e8400-e29b-41d4-a716-446655440061",
+			SiteID:       "550e8400-e29b-41d4-a716-446655440062",
+			SiteSlug:     "twin-rocks-anilao",
+			SiteName:     "Twin Rocks",
+			SiteArea:     "Mabini, Batangas",
+			Caption:      "Great visibility today",
+			OccurredAt:   time.Now().UTC().Format(time.RFC3339),
+			MediaType:    "image",
+			ThumbURL:     "",
+			LikeCount:    0,
+			CommentCount: 0,
+		},
+	}, nil
+}
+
+func (s *stubProfilesService) ListProfileBucketListByUsername(_ context.Context, _ string, _ int32) ([]profilesservice.ProfileBucketListItem, error) {
+	return []profilesservice.ProfileBucketListItem{
+		{
+			SiteID:   "550e8400-e29b-41d4-a716-446655440071",
+			SiteSlug: "cathedral-cove",
+			SiteName: "Cathedral Cove",
+			SiteArea: "Anilao",
+			PinnedAt: time.Now().UTC().Format(time.RFC3339),
+			HasDived: true,
+		},
+	}, nil
+}
+
 func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 	v := validatex.New()
 	h := New(&stubProfilesService{}, v)
@@ -160,6 +227,9 @@ func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 			{method: http.MethodGet, path: "/me/saved"},
 			{method: http.MethodPatch, path: "/me/profile", body: `{"displayName":"New Name"}`},
 			{method: http.MethodGet, path: "/profiles/550e8400-e29b-41d4-a716-446655440000"},
+			{method: http.MethodGet, path: "/profiles/by-username/member"},
+			{method: http.MethodGet, path: "/profiles/by-username/member/posts"},
+			{method: http.MethodGet, path: "/profiles/by-username/member/bucketlist"},
 			{method: http.MethodGet, path: "/users/search?q=member"},
 		}
 
@@ -240,6 +310,27 @@ func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 			t.Fatalf("expected 200 for GET /profiles/{userID}, got %d", byIDRec.Code)
 		}
 
+		byUsernameReq := httptest.NewRequest(http.MethodGet, "/profiles/by-username/member", nil)
+		byUsernameRec := httptest.NewRecorder()
+		router.ServeHTTP(byUsernameRec, byUsernameReq)
+		if byUsernameRec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for GET /profiles/by-username/{username}, got %d", byUsernameRec.Code)
+		}
+
+		postsReq := httptest.NewRequest(http.MethodGet, "/profiles/by-username/member/posts", nil)
+		postsRec := httptest.NewRecorder()
+		router.ServeHTTP(postsRec, postsReq)
+		if postsRec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for GET /profiles/by-username/{username}/posts, got %d", postsRec.Code)
+		}
+
+		bucketReq := httptest.NewRequest(http.MethodGet, "/profiles/by-username/member/bucketlist", nil)
+		bucketRec := httptest.NewRecorder()
+		router.ServeHTTP(bucketRec, bucketReq)
+		if bucketRec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for GET /profiles/by-username/{username}/bucketlist, got %d", bucketRec.Code)
+		}
+
 		searchReq := httptest.NewRequest(http.MethodGet, "/users/search?q=member", nil)
 		searchRec := httptest.NewRecorder()
 		router.ServeHTTP(searchRec, searchReq)
@@ -262,7 +353,7 @@ func TestPatchProfileValidationReturnsApiErrorIssues(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequest(http.MethodPatch, "/me/profile", strings.NewReader(`{"avatarUrl":"not-a-url"}`))
+	req := httptest.NewRequest(http.MethodPatch, "/me/profile", strings.NewReader(`{"avatarUrl":"`+strings.Repeat("a", 501)+`"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)

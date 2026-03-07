@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 import { ClerkProvider } from "@clerk/nextjs";
 
@@ -17,9 +18,15 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ModeSwitcher } from "@/components/ui/mode-switcher";
-
+import { NotificationCenter } from "@/components/nav/notification-center";
+import { NavUser } from "@/components/ui/nav-user";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -59,7 +66,8 @@ export default async function RootLayout({
         </head>
         <body
           className={cn(
-            "bg-background overscroll-none font-sans antialiased"
+            "bg-background overscroll-none font-sans antialiased",
+            inter.variable,
           )}
         >
           <ThemeProvider
@@ -70,24 +78,26 @@ export default async function RootLayout({
           >
             <ReactQueryProvider>
               <TooltipProvider>
-	              <SidebarProvider defaultOpen={defaultOpen}>
-	                <AppSidebar />
-	                <SidebarInset>
-	                  <AuthGate />
-	                  <header className="sticky inset-x-0 top-0 z-10 flex items-center gap-2 bg-background isolate shrink-0">
-                    <div className="flex items-center w-full gap-2 px-4 h-14">
-                      <SidebarTrigger className="-ml-1.5" />
-                      <div className="flex items-center gap-2 ml-auto">
-                        <ModeSwitcher />
+                <SidebarProvider defaultOpen={defaultOpen}>
+                  <AppSidebar />
+                  <SidebarInset>
+                    <AuthGate />
+                    <header className="sticky inset-x-0 top-0 z-10 flex items-center gap-2 bg-background isolate shrink-0">
+                      <div className="flex items-center w-full gap-2 px-4 h-14">
+                        <SidebarTrigger className="-ml-1.5" />
+                        <div className="flex items-center gap-2 ml-auto">
+                          <ModeSwitcher />
+                          <NotificationCenter />
+                          <NavUser />
+                        </div>
                       </div>
+                    </header>
+                    <div className="pb-17 md:pb-0 min-h-[calc(100vh-3.5rem)]">
+                      {children}
                     </div>
-                  </header>
-                  <div className="pb-17 md:pb-0 min-h-[calc(100vh-3.5rem)]">
-                    {children}
-                  </div>
-	                </SidebarInset>
-	                <MobileNavWithDrawers />
-              </SidebarProvider>
+                  </SidebarInset>
+                  <MobileNavWithDrawers />
+                </SidebarProvider>
               </TooltipProvider>
               <Toaster />
               <Analytics />
@@ -99,4 +109,4 @@ export default async function RootLayout({
   );
 }
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";

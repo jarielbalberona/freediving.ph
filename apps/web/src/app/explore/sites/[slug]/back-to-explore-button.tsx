@@ -18,7 +18,7 @@ export default function BackToExploreButton() {
   };
 
   return (
-    <Button type="button" variant="ghost" className="w-fit gap-2 px-0 text-emerald-800" onClick={handleClick}>
+    <Button type="button" variant="ghost" className="w-fit gap-2 px-0 text-emerald-800 px-4" onClick={handleClick}>
       <ChevronLeft className="h-4 w-4" />
       Back
     </Button>

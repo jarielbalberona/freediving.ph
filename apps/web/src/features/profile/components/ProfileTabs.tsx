@@ -29,7 +29,7 @@ function PlaceholderPanel({
   description: string;
 }) {
   return (
-    <div className="flex min-h-72 flex-col items-center justify-center gap-2 rounded-[2rem] border border-dashed border-border bg-muted/20 text-center">
+    <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center">
       <p className="text-base font-semibold text-foreground">{title}</p>
       <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
     </div>

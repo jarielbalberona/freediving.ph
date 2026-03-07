@@ -21,7 +21,14 @@ func TestProfilesRoutesRequireAuth(t *testing.T) {
 	router.Use(middleware.RequireMember)
 	router.Mount("/", Routes(New(nil, v)))
 
-	paths := []string{"/me/profile", "/profiles/550e8400-e29b-41d4-a716-446655440000", "/users/search?q=test"}
+	paths := []string{
+		"/me/profile",
+		"/profiles/550e8400-e29b-41d4-a716-446655440000",
+		"/profiles/by-username/member",
+		"/profiles/by-username/member/posts",
+		"/profiles/by-username/member/bucketlist",
+		"/users/search?q=test",
+	}
 	for _, path := range paths {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
@@ -72,7 +79,7 @@ func TestPatchProfileValidation(t *testing.T) {
 	}
 
 	router := buildTestRouter(identity, v)
-	req := httptest.NewRequest(http.MethodPatch, "/me/profile", strings.NewReader(`{"avatarUrl":"not-a-url"}`))
+	req := httptest.NewRequest(http.MethodPatch, "/me/profile", strings.NewReader(`{"avatarUrl":"`+strings.Repeat("a", 501)+`"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)

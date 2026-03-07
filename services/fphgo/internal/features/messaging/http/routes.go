@@ -12,17 +12,17 @@ func Routes(h *Handlers) chi.Router {
 
 	r.Group(func(read chi.Router) {
 		read.Use(middleware.RequirePermission(authz.PermissionMessagingRead))
-		read.Get("/inbox", h.Inbox)
-		read.Get("/conversations/{conversationId}", h.ConversationMessages)
+		read.Get("/threads", h.ListThreads)
+		read.Get("/threads/{threadId}", h.GetThread)
+		read.Get("/threads/{threadId}/messages", h.ListThreadMessages)
 	})
 
 	r.Group(func(write chi.Router) {
 		write.Use(middleware.RequirePermission(authz.PermissionMessagingWrite))
-		write.Post("/requests", h.CreateRequest)
-		write.Post("/requests/{requestId}/accept", h.AcceptRequest)
-		write.Post("/requests/{requestId}/decline", h.DeclineRequest)
-		write.Post("/conversations/{conversationId}", h.SendConversationMessage)
-		write.Post("/read", h.MarkRead)
+		write.Post("/threads/direct", h.OpenDirectThread)
+		write.Post("/threads/{threadId}/messages", h.SendThreadMessage)
+		write.Post("/threads/{threadId}/read", h.MarkThreadRead)
+		write.Post("/threads/{threadId}/category", h.UpdateThreadCategory)
 	})
 
 	return r

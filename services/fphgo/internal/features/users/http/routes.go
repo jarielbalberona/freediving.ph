@@ -14,9 +14,10 @@ func Routes(h *Handlers) chi.Router {
 	r.Group(func(protected chi.Router) {
 		protected.Use(middleware.RequireMember)
 		protected.Get("/me", h.GetMe)
-		protected.With(middleware.RequirePermission(authz.PermissionUsersRead)).Get("/{id}", h.GetUser)
-		protected.With(middleware.RequirePermission(authz.PermissionProfilesWrite)).Post("/{id}/save", h.SaveUser)
-		protected.With(middleware.RequirePermission(authz.PermissionProfilesWrite)).Delete("/{id}/save", h.UnsaveUser)
+		protected.With(middleware.RequirePermission(authz.PermissionProfilesRead)).Get("/{username}", h.GetUserByUsername)
+		protected.With(middleware.RequirePermission(authz.PermissionUsersRead)).Get("/id/{id}", h.GetUser)
+		protected.With(middleware.RequirePermission(authz.PermissionProfilesWrite)).Post("/id/{id}/save", h.SaveUser)
+		protected.With(middleware.RequirePermission(authz.PermissionProfilesWrite)).Delete("/id/{id}/save", h.UnsaveUser)
 	})
 
 	return r

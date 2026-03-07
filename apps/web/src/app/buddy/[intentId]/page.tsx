@@ -37,26 +37,26 @@ export default async function BuddySharePage({ params }: PageProps) {
   try {
     const data = await getBuddyFinderSharePreviewServer(intentId);
     return (
-      <div className="min-h-full bg-[linear-gradient(180deg,_#f6fbff_0%,_#ffffff_100%)] px-4 py-2">
+      <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
         <div className="mx-auto max-w-3xl space-y-6">
           <div className="space-y-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-700">Freediving Philippines</p>
-            <h1 className="font-serif text-4xl text-sky-950">
+            <p className="text-sm uppercase tracking-[0.2em] text-primary">Freediving Philippines</p>
+            <h1 className="font-serif text-4xl text-foreground">
               {data.intent.diveSiteName ? `Looking for a buddy at ${data.intent.diveSiteName}` : "Buddy Finder preview"}
             </h1>
-            <p className="text-zinc-600">{data.intent.area}</p>
+            <p className="text-muted-foreground">{data.intent.area}</p>
           </div>
 
-          <Card className="rounded-[28px] border-white/80 bg-white/90">
+          <Card className="border-border/80 bg-card">
             <CardHeader className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 <Badge>{data.intent.intentType.replace("_", " ")}</Badge>
                 <Badge variant="outline">{data.intent.timeWindow.replace("_", " ")}</Badge>
                 {data.intent.dateStart ? <Badge variant="outline">From {data.intent.dateStart}</Badge> : null}
               </div>
-              <CardTitle className="text-2xl text-sky-950">Safe preview only</CardTitle>
+              <CardTitle className="text-2xl text-foreground">Safe preview only</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm text-zinc-700">
+            <CardContent className="space-y-4 text-sm text-foreground/80">
               <p>{data.intent.notePreview || "Create an account to view the full note and message this diver."}</p>
               <TrustCard
                 emailVerified={data.intent.emailVerified}
@@ -65,9 +65,9 @@ export default async function BuddySharePage({ params }: PageProps) {
                 buddyCount={data.intent.buddyCount}
                 reportCount={data.intent.reportCount}
               />
-              <div className="rounded-2xl bg-sky-950 p-4 text-sky-50">
+              <div className="rounded-2xl bg-primary p-4 text-primary-foreground">
                 <p className="font-medium">Message and match</p>
-                <p className="mt-1 text-sm text-sky-100">
+                <p className="mt-1 text-sm text-primary-foreground/90">
                   Create an account to message this diver. Exact contact is shared only after request acceptance.
                 </p>
               </div>

@@ -13,10 +13,15 @@ import (
 	buddieshttp "fphgo/internal/features/buddies/http"
 	buddyfinderhttp "fphgo/internal/features/buddyfinder/http"
 	chikahttp "fphgo/internal/features/chika/http"
+	eventshttp "fphgo/internal/features/events/http"
 	explorehttp "fphgo/internal/features/explore/http"
+	feedhttp "fphgo/internal/features/feed/http"
+	groupshttp "fphgo/internal/features/groups/http"
+	locationshttp "fphgo/internal/features/locations/http"
 	mediahttp "fphgo/internal/features/media/http"
 	messaginghttp "fphgo/internal/features/messaging/http"
 	moderationhttp "fphgo/internal/features/moderation_actions/http"
+	notificationshttp "fphgo/internal/features/notifications/http"
 	profileshttp "fphgo/internal/features/profiles/http"
 	reportshttp "fphgo/internal/features/reports/http"
 	usershttp "fphgo/internal/features/users/http"
@@ -106,14 +111,32 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		r.Use(routerOpts.authMiddleware)
 		r.Use(routerOpts.tokenClaimsMiddleware)
 		r.Use(routerOpts.identityMiddleware)
+		if deps.WSHandler != nil {
+			r.Get("/ws", deps.WSHandler.ServeHTTP)
+		}
 		if deps.UsersHandler != nil {
 			r.Get("/profiles/{username}", deps.UsersHandler.GetProfileByUsername)
 		}
 		if exploreRouter := resolveExploreRouter(deps); exploreRouter != nil {
 			r.Mount("/v1/explore", exploreRouter)
 		}
+		if feedRouter := resolveFeedRouter(deps); feedRouter != nil {
+			r.Mount("/v1/feed", feedRouter)
+		}
 		if buddyFinderRouter := resolveBuddyFinderRouter(deps); buddyFinderRouter != nil {
 			r.Mount("/v1/buddy-finder", buddyFinderRouter)
+		}
+		if chikaRouter := resolveChikaRouter(deps); chikaRouter != nil {
+			r.Mount("/v1/chika", chikaRouter)
+		}
+		if groupsRouter := resolveGroupsRouter(deps); groupsRouter != nil {
+			r.Mount("/v1/groups", groupsRouter)
+		}
+		if eventsRouter := resolveEventsRouter(deps); eventsRouter != nil {
+			r.Mount("/v1/events", eventsRouter)
+		}
+		if locationsRouter := resolveLocationsRouter(deps); locationsRouter != nil {
+			r.Mount("/v1/locations", locationsRouter)
 		}
 		r.Group(func(member chi.Router) {
 			member.Use(middleware.RequireMember)
@@ -147,6 +170,11 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 					media.Mount("/v1/media", mediaRouter)
 				}
 			})
+			member.Group(func(notifications chi.Router) {
+				if notificationsRouter := resolveNotificationsRouter(deps); notificationsRouter != nil {
+					notifications.Mount("/v1/notifications", notificationsRouter)
+				}
+			})
 			if authRouter := resolveAuthRouter(deps); authRouter != nil {
 				member.Mount("/v1/auth", authRouter)
 			}
@@ -157,18 +185,6 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 				messages.Use(middleware.RequirePermission(authz.PermissionMessagingRead))
 				if messagingRouter := resolveMessagingRouter(deps); messagingRouter != nil {
 					messages.Mount("/v1/messages", messagingRouter)
-				}
-			})
-			member.Group(func(chika chi.Router) {
-				chika.Use(middleware.RequirePermission(authz.PermissionChikaRead))
-				if chikaRouter := resolveChikaRouter(deps); chikaRouter != nil {
-					chika.Mount("/v1/chika", chikaRouter)
-				}
-			})
-			member.Group(func(ws chi.Router) {
-				ws.Use(middleware.RequirePermission(authz.PermissionMessagingRead))
-				if deps.WSHandler != nil {
-					ws.Get("/ws", deps.WSHandler.ServeHTTP)
 				}
 			})
 		})
@@ -250,6 +266,46 @@ func resolveBuddyFinderRouter(deps *Dependencies) chi.Router {
 	return buddyfinderhttp.Routes(deps.BuddyFinderHandler)
 }
 
+func resolveFeedRouter(deps *Dependencies) chi.Router {
+	if deps.FeedRoutes != nil {
+		return deps.FeedRoutes
+	}
+	if deps.FeedHandler == nil {
+		return nil
+	}
+	return feedhttp.Routes(deps.FeedHandler)
+}
+
+func resolveGroupsRouter(deps *Dependencies) chi.Router {
+	if deps.GroupsRoutes != nil {
+		return deps.GroupsRoutes
+	}
+	if deps.GroupsHandler == nil {
+		return nil
+	}
+	return groupshttp.Routes(deps.GroupsHandler)
+}
+
+func resolveEventsRouter(deps *Dependencies) chi.Router {
+	if deps.EventsRoutes != nil {
+		return deps.EventsRoutes
+	}
+	if deps.EventsHandler == nil {
+		return nil
+	}
+	return eventshttp.Routes(deps.EventsHandler)
+}
+
+func resolveLocationsRouter(deps *Dependencies) chi.Router {
+	if deps.LocationsRoutes != nil {
+		return deps.LocationsRoutes
+	}
+	if deps.LocationsHandler == nil {
+		return nil
+	}
+	return locationshttp.Routes(deps.LocationsHandler)
+}
+
 func resolveBlocksRouter(deps *Dependencies) chi.Router {
 	if deps.BlocksRoutes != nil {
 		return deps.BlocksRoutes
@@ -288,6 +344,16 @@ func resolveMediaRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return mediahttp.Routes(deps.MediaHandler)
+}
+
+func resolveNotificationsRouter(deps *Dependencies) chi.Router {
+	if deps.NotificationsRoutes != nil {
+		return deps.NotificationsRoutes
+	}
+	if deps.NotificationsHandler == nil {
+		return nil
+	}
+	return notificationshttp.Routes(deps.NotificationsHandler)
 }
 
 func resolveModerationRouter(deps *Dependencies) chi.Router {

@@ -2,40 +2,37 @@ import { useQuery } from '@tanstack/react-query';
 import { notificationsApi } from '../api/notifications';
 import type { NotificationFilters } from '@freediving.ph/types';
 
-export const useNotifications = (userId: number, filters?: NotificationFilters) => {
+export const useNotifications = (filters?: NotificationFilters) => {
   return useQuery({
-    queryKey: ['notifications', userId, filters],
-    queryFn: () => notificationsApi.getUserNotifications(userId, filters),
-    enabled: Number.isInteger(userId) && userId > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    queryKey: ['notifications', filters],
+    queryFn: () => notificationsApi.getNotifications(filters),
+    staleTime: 5 * 60 * 1000,
     retry: 3,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 };
 
-export const useNotification = (userId: number, notificationId: number) => {
+export const useNotification = (notificationId: number) => {
   return useQuery({
-    queryKey: ['notification', userId, notificationId],
-    queryFn: () => notificationsApi.getNotificationById(userId, notificationId),
-    enabled: Number.isInteger(userId) && userId > 0 && !!notificationId,
+    queryKey: ['notification', notificationId],
+    queryFn: () => notificationsApi.getNotificationById(notificationId),
+    enabled: Number.isInteger(notificationId) && notificationId > 0,
     staleTime: 5 * 60 * 1000,
   });
 };
 
-export const useNotificationSettings = (userId: number) => {
+export const useNotificationSettings = () => {
   return useQuery({
-    queryKey: ['notification-settings', userId],
-    queryFn: () => notificationsApi.getNotificationSettings(userId),
-    enabled: Number.isInteger(userId) && userId > 0,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    queryKey: ['notification-settings'],
+    queryFn: () => notificationsApi.getNotificationSettings(),
+    staleTime: 10 * 60 * 1000,
   });
 };
 
-export const useNotificationStats = (userId: number) => {
+export const useNotificationStats = () => {
   return useQuery({
-    queryKey: ['notification-stats', userId],
-    queryFn: () => notificationsApi.getNotificationStats(userId),
-    enabled: Number.isInteger(userId) && userId > 0,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    queryKey: ['notification-stats'],
+    queryFn: () => notificationsApi.getNotificationStats(),
+    staleTime: 2 * 60 * 1000,
   });
 };

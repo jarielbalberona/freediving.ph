@@ -25,7 +25,7 @@ export default function ExploreSubmissionDetailPage() {
 
   return (
     <AuthGuard title="Sign in to view your submission" description="Submission detail is restricted to the owner and moderators.">
-      <div className="min-h-full bg-[linear-gradient(180deg,_#fafaf9_0%,_#ffffff_100%)] px-4 py-6 sm:px-6">
+      <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-3xl space-y-6">
           <div className="flex items-center justify-between">
             <Link href="/explore/submissions" className={buttonVariants({ variant: "outline" })}>
@@ -41,7 +41,7 @@ export default function ExploreSubmissionDetailPage() {
           ) : null}
 
           {item ? (
-            <Card className="rounded-[24px] bg-white/90">
+            <Card className="bg-card/90">
               <CardHeader className="flex flex-row items-start justify-between gap-4">
                 <div>
                   <CardTitle className="text-2xl text-zinc-950">{item.name}</CardTitle>

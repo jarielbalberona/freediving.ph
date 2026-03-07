@@ -28,7 +28,7 @@ type buddyFinderServiceStub struct {
 	err     error
 }
 
-func (s *buddyFinderServiceStub) Preview(context.Context, string) (buddyfinderservice.PreviewResult, error) {
+func (s *buddyFinderServiceStub) Preview(context.Context, string, int32) (buddyfinderservice.PreviewResult, error) {
 	return s.preview, s.err
 }
 func (s *buddyFinderServiceStub) GetSharePreview(context.Context, string) (buddyfinderservice.SharePreviewResult, error) {
@@ -90,8 +90,8 @@ func TestBuddyFinderPreviewPublicAndMemberRoutesProtected(t *testing.T) {
 	listReq := httptest.NewRequest(http.MethodGet, "/intents?area=Moalboal,%20Cebu", nil)
 	listRec := httptest.NewRecorder()
 	router.ServeHTTP(listRec, listReq)
-	if listRec.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401 for signed-out intents list, got %d", listRec.Code)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for signed-out intents list preview, got %d", listRec.Code)
 	}
 }
 

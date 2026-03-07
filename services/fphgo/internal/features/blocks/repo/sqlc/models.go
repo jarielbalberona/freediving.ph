@@ -74,6 +74,13 @@ type ChikaComment struct {
 	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
+type ChikaCommentReaction struct {
+	CommentID    int64              `db:"comment_id" json:"comment_id"`
+	UserID       pgtype.UUID        `db:"user_id" json:"user_id"`
+	ReactionType string             `db:"reaction_type" json:"reaction_type"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ChikaPost struct {
 	ID           int64              `db:"id" json:"id"`
 	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
@@ -95,6 +102,14 @@ type ChikaThread struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	HiddenAt        pgtype.Timestamptz `db:"hidden_at" json:"hidden_at"`
 	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+type ChikaThreadAlias struct {
+	ThreadID  pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
+	Pseudonym string             `db:"pseudonym" json:"pseudonym"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type ChikaThreadReaction struct {
@@ -171,9 +186,32 @@ type DiveSiteUpdate struct {
 }
 
 type Event struct {
-	ID        pgtype.UUID        `db:"id" json:"id"`
-	Title     string             `db:"title" json:"title"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID                   pgtype.UUID        `db:"id" json:"id"`
+	Title                string             `db:"title" json:"title"`
+	Description          *string            `db:"description" json:"description"`
+	Location             *string            `db:"location" json:"location"`
+	LocationName         *string            `db:"location_name" json:"location_name"`
+	FormattedAddress     *string            `db:"formatted_address" json:"formatted_address"`
+	Latitude             *float64           `db:"latitude" json:"latitude"`
+	Longitude            *float64           `db:"longitude" json:"longitude"`
+	GooglePlaceID        *string            `db:"google_place_id" json:"google_place_id"`
+	RegionCode           *string            `db:"region_code" json:"region_code"`
+	ProvinceCode         *string            `db:"province_code" json:"province_code"`
+	CityMunicipalityCode *string            `db:"city_municipality_code" json:"city_municipality_code"`
+	BarangayCode         *string            `db:"barangay_code" json:"barangay_code"`
+	LocationSource       string             `db:"location_source" json:"location_source"`
+	StartsAt             pgtype.Timestamptz `db:"starts_at" json:"starts_at"`
+	EndsAt               pgtype.Timestamptz `db:"ends_at" json:"ends_at"`
+	Status               string             `db:"status" json:"status"`
+	Visibility           string             `db:"visibility" json:"visibility"`
+	EventType            string             `db:"event_type" json:"event_type"`
+	Difficulty           string             `db:"difficulty" json:"difficulty"`
+	MaxAttendees         *int32             `db:"max_attendees" json:"max_attendees"`
+	CurrentAttendees     int32              `db:"current_attendees" json:"current_attendees"`
+	OrganizerUserID      pgtype.UUID        `db:"organizer_user_id" json:"organizer_user_id"`
+	GroupID              pgtype.UUID        `db:"group_id" json:"group_id"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type EventMembership struct {
@@ -181,14 +219,57 @@ type EventMembership struct {
 	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
 	Role      string             `db:"role" json:"role"`
 	Status    string             `db:"status" json:"status"`
+	InvitedBy pgtype.UUID        `db:"invited_by" json:"invited_by"`
+	JoinedAt  pgtype.Timestamptz `db:"joined_at" json:"joined_at"`
+	LeftAt    pgtype.Timestamptz `db:"left_at" json:"left_at"`
+	Notes     *string            `db:"notes" json:"notes"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type FeedAction struct {
+	ID         int64              `db:"id" json:"id"`
+	UserID     pgtype.UUID        `db:"user_id" json:"user_id"`
+	SessionID  string             `db:"session_id" json:"session_id"`
+	FeedItemID *string            `db:"feed_item_id" json:"feed_item_id"`
+	EntityType string             `db:"entity_type" json:"entity_type"`
+	EntityID   string             `db:"entity_id" json:"entity_id"`
+	ActionType string             `db:"action_type" json:"action_type"`
+	Mode       string             `db:"mode" json:"mode"`
+	ValueJson  []byte             `db:"value_json" json:"value_json"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type FeedImpression struct {
+	ID         int64              `db:"id" json:"id"`
+	UserID     pgtype.UUID        `db:"user_id" json:"user_id"`
+	SessionID  string             `db:"session_id" json:"session_id"`
+	FeedItemID string             `db:"feed_item_id" json:"feed_item_id"`
+	EntityType string             `db:"entity_type" json:"entity_type"`
+	EntityID   string             `db:"entity_id" json:"entity_id"`
+	Mode       string             `db:"mode" json:"mode"`
+	Position   int32              `db:"position" json:"position"`
+	SeenAt     pgtype.Timestamptz `db:"seen_at" json:"seen_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type Group struct {
-	ID        pgtype.UUID        `db:"id" json:"id"`
-	Name      string             `db:"name" json:"name"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          pgtype.UUID        `db:"id" json:"id"`
+	Name        string             `db:"name" json:"name"`
+	Slug        string             `db:"slug" json:"slug"`
+	Description *string            `db:"description" json:"description"`
+	Visibility  string             `db:"visibility" json:"visibility"`
+	Status      string             `db:"status" json:"status"`
+	JoinPolicy  string             `db:"join_policy" json:"join_policy"`
+	Location    *string            `db:"location" json:"location"`
+	Lat         *float64           `db:"lat" json:"lat"`
+	Lng         *float64           `db:"lng" json:"lng"`
+	MemberCount int32              `db:"member_count" json:"member_count"`
+	EventCount  int32              `db:"event_count" json:"event_count"`
+	PostCount   int32              `db:"post_count" json:"post_count"`
+	CreatedBy   pgtype.UUID        `db:"created_by" json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type GroupMembership struct {
@@ -196,8 +277,26 @@ type GroupMembership struct {
 	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
 	Role      string             `db:"role" json:"role"`
 	Status    string             `db:"status" json:"status"`
+	InvitedBy pgtype.UUID        `db:"invited_by" json:"invited_by"`
+	JoinedAt  pgtype.Timestamptz `db:"joined_at" json:"joined_at"`
+	LeftAt    pgtype.Timestamptz `db:"left_at" json:"left_at"`
+	Muted     bool               `db:"muted" json:"muted"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type GroupPost struct {
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	GroupID      pgtype.UUID        `db:"group_id" json:"group_id"`
+	AuthorUserID pgtype.UUID        `db:"author_user_id" json:"author_user_id"`
+	Title        *string            `db:"title" json:"title"`
+	Content      string             `db:"content" json:"content"`
+	Status       string             `db:"status" json:"status"`
+	LikeCount    int64              `db:"like_count" json:"like_count"`
+	CommentCount int64              `db:"comment_count" json:"comment_count"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
 type MediaAsset struct {
@@ -238,6 +337,29 @@ type Message struct {
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type MessageThread struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	LastMessageAt   pgtype.Timestamptz `db:"last_message_at" json:"last_message_at"`
+	Type            interface{}        `db:"type" json:"type"`
+	CreatedByUserID pgtype.UUID        `db:"created_by_user_id" json:"created_by_user_id"`
+	DirectUserLow   pgtype.UUID        `db:"direct_user_low" json:"direct_user_low"`
+	DirectUserHigh  pgtype.UUID        `db:"direct_user_high" json:"direct_user_high"`
+}
+
+type MessageThreadMember struct {
+	ThreadID          pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	UserID            pgtype.UUID        `db:"user_id" json:"user_id"`
+	JoinedAt          pgtype.Timestamptz `db:"joined_at" json:"joined_at"`
+	LeftAt            pgtype.Timestamptz `db:"left_at" json:"left_at"`
+	InboxCategory     interface{}        `db:"inbox_category" json:"inbox_category"`
+	IsArchived        bool               `db:"is_archived" json:"is_archived"`
+	IsMuted           bool               `db:"is_muted" json:"is_muted"`
+	LastReadMessageID *int64             `db:"last_read_message_id" json:"last_read_message_id"`
+	LastReadAt        pgtype.Timestamptz `db:"last_read_at" json:"last_read_at"`
+}
+
 type ModerationAction struct {
 	ID             pgtype.UUID        `db:"id" json:"id"`
 	ActorAppUserID pgtype.UUID        `db:"actor_app_user_id" json:"actor_app_user_id"`
@@ -248,6 +370,59 @@ type ModerationAction struct {
 	Reason         string             `db:"reason" json:"reason"`
 	ReportID       pgtype.UUID        `db:"report_id" json:"report_id"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type Notification struct {
+	ID                int64              `db:"id" json:"id"`
+	UserID            pgtype.UUID        `db:"user_id" json:"user_id"`
+	Type              interface{}        `db:"type" json:"type"`
+	Title             string             `db:"title" json:"title"`
+	Message           string             `db:"message" json:"message"`
+	Status            interface{}        `db:"status" json:"status"`
+	Priority          interface{}        `db:"priority" json:"priority"`
+	RelatedUserID     pgtype.UUID        `db:"related_user_id" json:"related_user_id"`
+	RelatedEntityType *string            `db:"related_entity_type" json:"related_entity_type"`
+	RelatedEntityID   *string            `db:"related_entity_id" json:"related_entity_id"`
+	ImageUrl          *string            `db:"image_url" json:"image_url"`
+	ActionUrl         *string            `db:"action_url" json:"action_url"`
+	Metadata          []byte             `db:"metadata" json:"metadata"`
+	IsEmailSent       bool               `db:"is_email_sent" json:"is_email_sent"`
+	IsPushSent        bool               `db:"is_push_sent" json:"is_push_sent"`
+	EmailSentAt       pgtype.Timestamptz `db:"email_sent_at" json:"email_sent_at"`
+	PushSentAt        pgtype.Timestamptz `db:"push_sent_at" json:"push_sent_at"`
+	ReadAt            pgtype.Timestamptz `db:"read_at" json:"read_at"`
+	ArchivedAt        pgtype.Timestamptz `db:"archived_at" json:"archived_at"`
+	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type NotificationSetting struct {
+	ID                         pgtype.UUID        `db:"id" json:"id"`
+	UserID                     pgtype.UUID        `db:"user_id" json:"user_id"`
+	EmailEnabled               bool               `db:"email_enabled" json:"email_enabled"`
+	PushEnabled                bool               `db:"push_enabled" json:"push_enabled"`
+	InAppEnabled               bool               `db:"in_app_enabled" json:"in_app_enabled"`
+	SystemNotifications        bool               `db:"system_notifications" json:"system_notifications"`
+	MessageNotifications       bool               `db:"message_notifications" json:"message_notifications"`
+	EventNotifications         bool               `db:"event_notifications" json:"event_notifications"`
+	GroupNotifications         bool               `db:"group_notifications" json:"group_notifications"`
+	ServiceNotifications       bool               `db:"service_notifications" json:"service_notifications"`
+	BookingNotifications       bool               `db:"booking_notifications" json:"booking_notifications"`
+	ReviewNotifications        bool               `db:"review_notifications" json:"review_notifications"`
+	MentionNotifications       bool               `db:"mention_notifications" json:"mention_notifications"`
+	LikeNotifications          bool               `db:"like_notifications" json:"like_notifications"`
+	CommentNotifications       bool               `db:"comment_notifications" json:"comment_notifications"`
+	FriendRequestNotifications bool               `db:"friend_request_notifications" json:"friend_request_notifications"`
+	GroupInviteNotifications   bool               `db:"group_invite_notifications" json:"group_invite_notifications"`
+	EventReminderNotifications bool               `db:"event_reminder_notifications" json:"event_reminder_notifications"`
+	PaymentNotifications       bool               `db:"payment_notifications" json:"payment_notifications"`
+	SecurityNotifications      bool               `db:"security_notifications" json:"security_notifications"`
+	DigestFrequency            interface{}        `db:"digest_frequency" json:"digest_frequency"`
+	QuietHoursStart            *string            `db:"quiet_hours_start" json:"quiet_hours_start"`
+	QuietHoursEnd              *string            `db:"quiet_hours_end" json:"quiet_hours_end"`
+	Timezone                   string             `db:"timezone" json:"timezone"`
+	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type Profile struct {
@@ -262,6 +437,68 @@ type Profile struct {
 	PseudonymousEnabled bool               `db:"pseudonymous_enabled" json:"pseudonymous_enabled"`
 	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type PsgcBarangay struct {
+	Code                 string             `db:"code" json:"code"`
+	PsgcCode             string             `db:"psgc_code" json:"psgc_code"`
+	RegionCode           string             `db:"region_code" json:"region_code"`
+	ProvinceCode         *string            `db:"province_code" json:"province_code"`
+	CityMunicipalityCode string             `db:"city_municipality_code" json:"city_municipality_code"`
+	Name                 string             `db:"name" json:"name"`
+	OldName              *string            `db:"old_name" json:"old_name"`
+	SourceVersion        string             `db:"source_version" json:"source_version"`
+	IsActive             bool               `db:"is_active" json:"is_active"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type PsgcCitiesMunicipality struct {
+	Code          string             `db:"code" json:"code"`
+	PsgcCode      string             `db:"psgc_code" json:"psgc_code"`
+	RegionCode    string             `db:"region_code" json:"region_code"`
+	ProvinceCode  *string            `db:"province_code" json:"province_code"`
+	Name          string             `db:"name" json:"name"`
+	OldName       *string            `db:"old_name" json:"old_name"`
+	SourceVersion string             `db:"source_version" json:"source_version"`
+	IsActive      bool               `db:"is_active" json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type PsgcImportHistory struct {
+	ID                        int64              `db:"id" json:"id"`
+	SourceVersion             string             `db:"source_version" json:"source_version"`
+	SourceDirectory           string             `db:"source_directory" json:"source_directory"`
+	PublishedAt               pgtype.Timestamptz `db:"published_at" json:"published_at"`
+	RegionsCount              int32              `db:"regions_count" json:"regions_count"`
+	ProvincesCount            int32              `db:"provinces_count" json:"provinces_count"`
+	CitiesMunicipalitiesCount int32              `db:"cities_municipalities_count" json:"cities_municipalities_count"`
+	BarangaysCount            int32              `db:"barangays_count" json:"barangays_count"`
+	ImportedAt                pgtype.Timestamptz `db:"imported_at" json:"imported_at"`
+}
+
+type PsgcProvince struct {
+	Code          string             `db:"code" json:"code"`
+	PsgcCode      string             `db:"psgc_code" json:"psgc_code"`
+	RegionCode    string             `db:"region_code" json:"region_code"`
+	Name          string             `db:"name" json:"name"`
+	OldName       *string            `db:"old_name" json:"old_name"`
+	CityClass     *string            `db:"city_class" json:"city_class"`
+	SourceVersion string             `db:"source_version" json:"source_version"`
+	IsActive      bool               `db:"is_active" json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type PsgcRegion struct {
+	Code          string             `db:"code" json:"code"`
+	PsgcCode      string             `db:"psgc_code" json:"psgc_code"`
+	Name          string             `db:"name" json:"name"`
+	SourceVersion string             `db:"source_version" json:"source_version"`
+	IsActive      bool               `db:"is_active" json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type RateLimitEvent struct {
@@ -304,6 +541,18 @@ type SavedUser struct {
 	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ThreadMessage struct {
+	ID           int64              `db:"id" json:"id"`
+	ThreadID     pgtype.UUID        `db:"thread_id" json:"thread_id"`
+	SenderUserID pgtype.UUID        `db:"sender_user_id" json:"sender_user_id"`
+	ClientID     *string            `db:"client_id" json:"client_id"`
+	Kind         interface{}        `db:"kind" json:"kind"`
+	Body         string             `db:"body" json:"body"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	EditedAt     pgtype.Timestamptz `db:"edited_at" json:"edited_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
 type User struct {
 	ID                 pgtype.UUID        `db:"id" json:"id"`
 	Username           string             `db:"username" json:"username"`
@@ -321,6 +570,24 @@ type UserBlock struct {
 	BlockerAppUserID pgtype.UUID        `db:"blocker_app_user_id" json:"blocker_app_user_id"`
 	BlockedAppUserID pgtype.UUID        `db:"blocked_app_user_id" json:"blocked_app_user_id"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type UserFeedPreference struct {
+	UserID           pgtype.UUID        `db:"user_id" json:"user_id"`
+	PreferredRegions []string           `db:"preferred_regions" json:"preferred_regions"`
+	MutedEntityTypes []string           `db:"muted_entity_types" json:"muted_entity_types"`
+	MutedTopics      []string           `db:"muted_topics" json:"muted_topics"`
+	HiddenCreators   []string           `db:"hidden_creators" json:"hidden_creators"`
+	HiddenSpots      []string           `db:"hidden_spots" json:"hidden_spots"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type UserHiddenFeedItem struct {
+	UserID     pgtype.UUID        `db:"user_id" json:"user_id"`
+	EntityType string             `db:"entity_type" json:"entity_type"`
+	EntityID   string             `db:"entity_id" json:"entity_id"`
+	Reason     string             `db:"reason" json:"reason"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type UserPermissionOverride struct {

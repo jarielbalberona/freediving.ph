@@ -25,10 +25,10 @@ export default function ExploreSubmissionsPage() {
 
   return (
     <AuthGuard title="Sign in to view your submissions" description="Submission status is only visible to the owner and moderators.">
-      <div className="min-h-full bg-[linear-gradient(180deg,_#fafaf9_0%,_#ffffff_100%)] px-4 py-6 sm:px-6">
+      <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-4xl space-y-6">
-          <section className="rounded-[28px] border border-zinc-900/10 bg-white/90 p-6 shadow-sm">
-            <Badge className="rounded-full bg-zinc-950 text-white">Explore workflow</Badge>
+          <section className="rounded-4xl border border-border bg-card/90 p-6 shadow-sm">
+            <Badge className="rounded-full bg-primary text-primary-foreground">Explore workflow</Badge>
             <h1 className="mt-3 font-serif text-4xl tracking-tight text-zinc-950">My site submissions</h1>
             <p className="mt-2 text-sm text-zinc-600">Pending means waiting for review. Hidden means rejected or removed from public Explore.</p>
           </section>
@@ -45,7 +45,7 @@ export default function ExploreSubmissionsPage() {
 
           <div className="space-y-4">
             {items.map((item) => (
-              <Card key={item.id} className="rounded-[24px] bg-white/90">
+              <Card key={item.id} className="bg-card/90">
                 <CardHeader className="flex flex-row items-start justify-between gap-4">
                   <div>
                     <CardTitle className="text-xl text-zinc-950">{item.name}</CardTitle>
@@ -70,7 +70,7 @@ export default function ExploreSubmissionsPage() {
             ))}
 
             {!submissionsQuery.isLoading && items.length === 0 ? (
-              <Card className="rounded-[24px] border-dashed">
+              <Card className="border-dashed">
                 <CardContent className="p-6 text-sm text-zinc-600">No submissions yet. Start with a new dive site proposal.</CardContent>
               </Card>
             ) : null}

@@ -19,7 +19,11 @@ export async function signCanonical(canonical, secret) {
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(canonical));
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(canonical),
+  );
   return base64UrlEncode(new Uint8Array(sig));
 }
 
@@ -38,8 +42,12 @@ export function clampTransform(pathname, w, q) {
     : pathname.startsWith("/i/chika/")
       ? 1600
       : 2048;
-  const width = Math.max(1, Math.min(w || maxWidth, maxWidth));
-  const quality = Math.max(50, Math.min(q || 75, 85));
+  if (!Number.isFinite(w) || w <= 0) {
+    // Omitted width means serve original and skip edge transform.
+    return { width: undefined, quality: undefined };
+  }
+  const width = Math.max(1, Math.min(w, maxWidth));
+  const quality = Math.max(50, Math.min(Number.isFinite(q) ? q : 75, 85));
   return { width, quality };
 }
 
@@ -65,7 +73,8 @@ export async function validateSignature(url, env, nowSeconds) {
     return { ok: false, status: 400, message: "invalid format" };
   }
 
-  const secret = env[`MEDIA_SIGNING_SECRET_${keyVersion}`] || env.MEDIA_SIGNING_SECRET;
+  const secret =
+    env[`MEDIA_SIGNING_SECRET_V${keyVersion}`] || env.MEDIA_SIGNING_SECRET;
   if (!secret) {
     return { ok: false, status: 500, message: "signing secret unavailable" };
   }
@@ -86,11 +95,21 @@ export default {
       return new Response("Not found", { status: 404 });
     }
     if (url.pathname.includes("..")) {
+      logWarn("invalid_object_key", { pathname: url.pathname });
       return new Response("Invalid object key", { status: 400 });
     }
 
-    const validation = await validateSignature(url, env, Math.floor(Date.now() / 1000));
+    const validation = await validateSignature(
+      url,
+      env,
+      Math.floor(Date.now() / 1000),
+    );
     if (!validation.ok) {
+      logWarn("signature_validation_failed", {
+        pathname: url.pathname,
+        message: validation.message,
+        status: validation.status,
+      });
       return new Response(validation.message, { status: validation.status });
     }
 
@@ -106,31 +125,44 @@ export default {
     const cache = caches.default;
     const cached = await cache.match(cacheKey);
     if (cached) {
+      logInfo("cache_hit", { cacheKey });
       return cached;
     }
+    logInfo("cache_miss", { cacheKey });
 
     const objectKey = url.pathname.replace(/^\/i\//, "");
     const originBase = (env.R2_ORIGIN_BASE_URL || "").replace(/\/$/, "");
     if (!originBase) {
+      logError("origin_unavailable", { pathname: url.pathname });
       return new Response("origin unavailable", { status: 500 });
     }
 
-    const remainingTtl = Math.max(1, validation.exp - Math.floor(Date.now() / 1000));
+    const remainingTtl = Math.max(
+      1,
+      validation.exp - Math.floor(Date.now() / 1000),
+    );
     const originUrl = `${originBase}/${objectKey}`;
-    const originResponse = await fetch(originUrl, {
-      cf: {
+    const requestInit = {
+      headers: env.R2_ORIGIN_BEARER_TOKEN
+        ? { Authorization: `Bearer ${env.R2_ORIGIN_BEARER_TOKEN}` }
+        : undefined,
+    };
+    if (width !== undefined) {
+      requestInit.cf = {
         image: {
           width,
           quality,
           format: validation.format,
         },
-      },
-      headers: env.R2_ORIGIN_BEARER_TOKEN
-        ? { Authorization: `Bearer ${env.R2_ORIGIN_BEARER_TOKEN}` }
-        : undefined,
-    });
+      };
+    }
+    const originResponse = await fetch(originUrl, requestInit);
 
     if (!originResponse.ok) {
+      logWarn("origin_fetch_failed", {
+        originUrl,
+        status: originResponse.status,
+      });
       return new Response("not found", { status: originResponse.status });
     }
 
@@ -144,6 +176,14 @@ export default {
     });
 
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
+    logInfo("origin_fetch_success", {
+      originUrl,
+      transformed: width !== undefined,
+      width,
+      quality,
+      format: validation.format,
+      remainingTtl,
+    });
     return response;
   },
 };
@@ -153,7 +193,10 @@ function base64UrlEncode(bytes) {
   for (const b of bytes) {
     binary += String.fromCharCode(b);
   }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
 function timingSafeEqual(a, b) {
@@ -163,4 +206,16 @@ function timingSafeEqual(a, b) {
     mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return mismatch === 0;
+}
+
+function logInfo(event, details) {
+  console.log(JSON.stringify({ level: "info", event, ...details }));
+}
+
+function logWarn(event, details) {
+  console.warn(JSON.stringify({ level: "warn", event, ...details }));
+}
+
+function logError(event, details) {
+  console.error(JSON.stringify({ level: "error", event, ...details }));
 }

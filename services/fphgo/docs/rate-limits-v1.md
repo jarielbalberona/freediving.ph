@@ -46,6 +46,9 @@ Global baseline:
 | `chika.delete_comment` per actor | 30 | 1 minute | `DELETE /v1/chika/comments/{commentId}` |
 | `chika.set_reaction` per actor | 120 | 1 minute | `POST /v1/chika/threads/{threadId}/reactions` |
 | `chika.remove_reaction` per actor | 120 | 1 minute | `DELETE /v1/chika/threads/{threadId}/reactions` |
+| `chika.set_comment_reaction` per actor | 150 | 1 minute | `POST /v1/chika/comments/{commentId}/reactions` |
+| `chika.remove_comment_reaction` per actor | 150 | 1 minute | `DELETE /v1/chika/comments/{commentId}/reactions` |
+| `chika.reveal_identity` per actor | 30 | 1 minute | `GET /v1/chika/*?includeRealAuthor=true` |
 | `chika.create_media` per actor | 30 | 1 minute | `POST /v1/chika/media` |
 
 ### Profiles
@@ -154,3 +157,8 @@ Endpoints aligned in v1:
 - `GET /v1/chika/threads/{threadId}/comments` (bigint tie breaker: `commentId`)
 - `GET /v1/reports` (uuid tie breaker: `reportId`)
 - `GET /v1/blocks` (uuid tie breaker: `blockedUserId`)
+For pseudonymous threads, stricter write limits apply:
+- `chika.create_post`: 20/min
+- `chika.create_comment`: 30/min
+- `chika.set_reaction`: 80/min
+- `chika.set_comment_reaction`: 100/min
