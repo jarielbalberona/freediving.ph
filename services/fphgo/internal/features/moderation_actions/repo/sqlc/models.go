@@ -313,6 +313,27 @@ type MediaAsset struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type MediaItem struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	PostID          pgtype.UUID        `db:"post_id" json:"post_id"`
+	MediaObjectID   pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID   pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID      pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Type            string             `db:"type" json:"type"`
+	StorageKey      string             `db:"storage_key" json:"storage_key"`
+	MimeType        string             `db:"mime_type" json:"mime_type"`
+	Width           int32              `db:"width" json:"width"`
+	Height          int32              `db:"height" json:"height"`
+	DurationMs      *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption         *string            `db:"caption" json:"caption"`
+	SortOrder       int32              `db:"sort_order" json:"sort_order"`
+	Status          string             `db:"status" json:"status"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
 type MediaObject struct {
 	ID             pgtype.UUID        `db:"id" json:"id"`
 	OwnerAppUserID pgtype.UUID        `db:"owner_app_user_id" json:"owner_app_user_id"`
@@ -325,6 +346,25 @@ type MediaObject struct {
 	Height         int32              `db:"height" json:"height"`
 	State          string             `db:"state" json:"state"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type MediaPost struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID   pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID      pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	PostCaption     *string            `db:"post_caption" json:"post_caption"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+type MediaUploadGroup struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	Source          string             `db:"source" json:"source"`
+	ItemCount       int32              `db:"item_count" json:"item_count"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type Message struct {

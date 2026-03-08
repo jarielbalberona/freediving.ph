@@ -14,11 +14,13 @@ func Routes(h *Handlers) chi.Router {
 		write.Use(middleware.RequirePermission(authz.PermissionMediaWrite))
 		write.Post("/upload", h.Upload)
 		write.Post("/upload-multiple", h.UploadMultiple)
+		write.Post("/posts", h.CreatePost)
 	})
 
 	r.Group(func(read chi.Router) {
 		read.Use(middleware.RequirePermission(authz.PermissionMediaRead))
 		read.Get("/mine", h.ListMine)
+		read.Get("/by-username/{username}", h.ListProfileMedia)
 		read.Post("/urls", h.MintURLs)
 	})
 

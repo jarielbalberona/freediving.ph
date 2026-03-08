@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import { useSession } from "@/features/auth/session";
+import { useProfileMediaInfiniteQuery } from "@/features/media/hooks";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
 import { messagesApi } from "@/features/messages/api/messages";
@@ -19,7 +20,6 @@ import {
 import { useSavedHub } from "@/features/profiles/hooks/queries";
 import {
   useProfileBucketListQuery,
-  useProfilePostsQuery,
   usePublicProfileQuery,
 } from "@/features/profile/hooks/queries";
 import { normalizeUsername } from "@/lib/routes";
@@ -34,7 +34,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
   const { user } = useUser();
   const normalizedUsername = normalizeUsername(username);
   const profileQuery = usePublicProfileQuery(normalizedUsername);
-  const postsQuery = useProfilePostsQuery(normalizedUsername);
+  const mediaQuery = useProfileMediaInfiniteQuery(normalizedUsername);
   const bucketListQuery = useProfileBucketListQuery(normalizedUsername);
   const savedHubQuery = useSavedHub(session.status === "signed_in");
   const saveUserMutation = useSaveUser();
@@ -61,6 +61,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
       (saved) => saved.userId === profileQuery.data?.id,
     ),
   );
+  const mediaItems = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
 
   if (profileQuery.isPending && !profileQuery.data) {
     return (
@@ -96,7 +97,11 @@ export default function ProfilePage({ username }: ProfilePageProps) {
           isOwner={isOwner}
           canMessage={session.status === "signed_in"}
           isFollowing={isFollowing}
-          settingsHref={currentProfileHref === `/${normalizedUsername}` ? "/profile/settings" : null}
+          settingsHref={
+            currentProfileHref === `/${normalizedUsername}`
+              ? "/profile/settings"
+              : null
+          }
           onFollowClick={() => {
             if (isFollowPending) return;
             if (isFollowing) {
@@ -115,8 +120,13 @@ export default function ProfilePage({ username }: ProfilePageProps) {
         />
         <ProfileBucketList items={bucketListQuery.data ?? []} />
         <ProfileTabs
-          posts={postsQuery.data ?? []}
-          isLoadingPosts={postsQuery.isPending && !postsQuery.data}
+          mediaItems={mediaItems}
+          isLoadingMedia={mediaQuery.isPending && mediaItems.length === 0}
+          hasNextPage={Boolean(mediaQuery.hasNextPage)}
+          isFetchingNextPage={mediaQuery.isFetchingNextPage}
+          onLoadMore={() => {
+            void mediaQuery.fetchNextPage();
+          }}
           username={profileQuery.data.username}
           displayName={profileQuery.data.displayName}
           avatarUrl={profileQuery.data.avatarUrl}

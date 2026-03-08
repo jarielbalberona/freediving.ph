@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { siteConfig, META_THEME_COLORS } from "@/config/site";
 import { AppSidebar } from "@/components/ui/app-sidebar";
 import { MobileNavWithDrawers } from "@/components/nav/mobile-nav-with-drawers";
+import { DesktopCreateFab } from "@/components/nav/desktop-create-fab";
 import { AuthGate } from "@/features/auth/auth-gate";
 import {
   SidebarInset,
@@ -97,6 +98,7 @@ export default async function RootLayout({
                     </div>
                   </SidebarInset>
                   <MobileNavWithDrawers />
+                  <DesktopCreateFab />
                 </SidebarProvider>
               </TooltipProvider>
               <Toaster />

@@ -297,9 +297,10 @@ func (r *Repo) GetPublicProfileByUsername(ctx context.Context, username string) 
 			COALESCE(p.avatar_url, '') AS avatar_url,
 			COALESCE((
 				SELECT COUNT(*)::bigint
-				FROM dive_site_updates d
-				WHERE d.author_app_user_id = u.id
-				  AND d.state = 'active'
+				FROM media_items mi
+				WHERE mi.author_app_user_id = u.id
+				  AND mi.status = 'active'
+				  AND mi.deleted_at IS NULL
 			), 0)::bigint AS posts_count,
 			COALESCE((
 				SELECT COUNT(*)::bigint

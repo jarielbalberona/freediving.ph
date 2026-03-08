@@ -28,6 +28,7 @@ type buddyFinderService interface {
 	Preview(ctx context.Context, area string, limit int32) (buddyfinderservice.PreviewResult, error)
 	GetSharePreview(ctx context.Context, intentID string) (buddyfinderservice.SharePreviewResult, error)
 	ListMemberIntents(ctx context.Context, input buddyfinderservice.ListMemberIntentsInput) (buddyfinderservice.ListMemberIntentsResult, error)
+	ListOwnIntents(ctx context.Context, actorID string) ([]buddyfinderrepo.MemberIntent, error)
 	CreateIntent(ctx context.Context, input buddyfinderservice.CreateIntentInput) (buddyfinderrepo.Intent, error)
 	DeleteIntent(ctx context.Context, actorID, intentID string) error
 	MessageEntry(ctx context.Context, actorID, intentID string) (buddyfinderservice.MessageEntryResult, error)
@@ -104,7 +105,7 @@ func (h *Handlers) SharePreview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListIntents(w http.ResponseWriter, r *http.Request) {
-	actor, err := requireActorOrGuest(r)
+	actorID, err := requireActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
@@ -114,15 +115,12 @@ func (h *Handlers) ListIntents(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteValidationError(w, issue("limit", "custom", "limit must be a positive integer"))
 		return
 	}
-	if actor.IsGuest && limit > 10 {
-		limit = 10
-	}
 	result, svcErr := h.service.ListMemberIntents(r.Context(), buddyfinderservice.ListMemberIntentsInput{
-		ViewerUserID: actor.ID,
+		ViewerUserID: actorID,
 		Area:         r.URL.Query().Get("area"),
 		IntentType:   r.URL.Query().Get("intentType"),
 		TimeWindow:   r.URL.Query().Get("timeWindow"),
-		Cursor:       actorCursor(actor.IsGuest, r.URL.Query().Get("cursor")),
+		Cursor:       r.URL.Query().Get("cursor"),
 		Limit:        limit,
 	})
 	if svcErr != nil {
@@ -134,6 +132,26 @@ func (h *Handlers) ListIntents(w http.ResponseWriter, r *http.Request) {
 		items = append(items, mapMemberIntent(item))
 	}
 	httpx.JSON(w, http.StatusOK, ListMemberIntentsResponse{Items: items, NextCursor: result.NextCursor})
+}
+
+func (h *Handlers) ListOwnIntents(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+
+	items, svcErr := h.service.ListOwnIntents(r.Context(), actorID)
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+
+	resp := make([]MemberIntent, 0, len(items))
+	for _, item := range items {
+		resp = append(resp, mapMemberIntent(item))
+	}
+	httpx.JSON(w, http.StatusOK, ListMemberIntentsResponse{Items: resp})
 }
 
 func (h *Handlers) CreateIntent(w http.ResponseWriter, r *http.Request) {
@@ -241,29 +259,6 @@ func requireActorID(r *http.Request) (string, error) {
 		return "", apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
 	}
 	return identity.UserID, nil
-}
-
-type actorContext struct {
-	ID      string
-	IsGuest bool
-}
-
-func requireActorOrGuest(r *http.Request) (actorContext, error) {
-	identity, ok := middleware.CurrentIdentity(r.Context())
-	if !ok || identity.UserID == "" {
-		return actorContext{
-			ID:      "00000000-0000-0000-0000-000000000000",
-			IsGuest: true,
-		}, nil
-	}
-	return actorContext{ID: identity.UserID, IsGuest: false}, nil
-}
-
-func actorCursor(isGuest bool, cursor string) string {
-	if isGuest {
-		return ""
-	}
-	return cursor
 }
 
 func mapMemberIntent(input buddyfinderrepo.MemberIntent) MemberIntent {

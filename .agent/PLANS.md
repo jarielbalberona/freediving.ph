@@ -219,6 +219,746 @@ Replace manual area and coordinate entry with a map-pin flow in `apps/web`, and 
 
 ## 11. Outcomes And Follow-Ups
 
+# ExecPlan: FPH Media Post Composer And Profile Masonry
+
+## 1. Title
+
+FPH media post domain model, publish flow, and profile masonry gallery
+
+## 2. Objective
+
+Implement end-to-end photo posting for Freediving Philippines by reusing the existing raw media uploader, adding a domain-level media post model in `services/fphgo`, and replacing the current stub `/[username]/create` and profile grid UI in `apps/web` with a real composer and masonry gallery.
+
+## 3. Scope
+
+- `services/fphgo` DB migrations, `sqlc` queries, repo/service/http layers, and route wiring for media posts and profile media reads.
+- `packages/types` request/response contracts for media posts and profile media gallery items.
+- `apps/web` media feature hooks/components for raw upload, publish, create-page composer, and profile masonry integration.
+- Targeted tests for Go service/http behavior and web contract/type coverage where practical.
+
+## 4. Constraints And Non-Goals
+
+# ExecPlan: Home Feed Product Discipline And Recognizable Card Types
+
+## 1. Title
+
+Home feed ranking discipline, mode identity, and recognizable card chrome
+
+## 2. Objective
+
+Tighten the `/` feed so it behaves like an intentional freediving community surface instead of a generic mixed-content list by enforcing clearer mode framing, better item composition/ranking in `services/fphgo`, and unmistakable feed item type identity in `apps/web`.
+
+## 3. Scope
+
+- `packages/types` feed contracts if new mode/card metadata is required.
+- `services/fphgo` feed service/http layers for composition, ranking, and explanatory metadata.
+- `apps/web` feed hero/tabs/list/card components for mode framing and per-item type recognition.
+- Targeted tests for shared contracts, Go feed behavior, and web type-check coverage.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api/*`.
+- Keep the home feed route contract backward-compatible where possible; add metadata rather than replacing existing fields unless necessary.
+- Do not invent a recommendation engine or new persistence layer in this pass.
+- Non-goal: full feed interaction redesign across the app.
+- Non-goal: adding new feed modes beyond the current four.
+
+## 5. Acceptance Criteria
+
+- Each feed mode exposes a clearer product identity in the UI.
+- Feed items include stable metadata that identifies their type and reason for ranking.
+- The Go feed service enforces a more disciplined first-page mix and ranking bias per mode instead of returning a loosely ordered blended list.
+- Every rendered feed card displays recognizable type chrome so users can distinguish posts, buddies, events, spot reports, records, and discovery cards at a glance.
+- Quick actions and empty states better reinforce the intended feed behaviors for social/community use.
+
+## 6. Repo Evidence
+
+- Shared feed contract currently contains only generic item fields and no ranking explanation metadata: `packages/types/src/feed.ts`
+- Feed assembly/ranking lives in the Go feed service: `services/fphgo/internal/features/feed/service/service.go`
+- Feed HTTP DTO currently mirrors only basic item content: `services/fphgo/internal/features/feed/http/dto.go`
+- The web home page currently uses generic hero/tab/feed components with weak mode framing: `apps/web/src/features/home-feed/components/HomeFeedPage.tsx`, `apps/web/src/features/home-feed/components/HomeHero.tsx`, `apps/web/src/features/home-feed/components/FeedModeTabs.tsx`
+- Card renderers currently differ mostly by body layout and lack consistent type labeling: `apps/web/src/features/home-feed/components/cards/*.tsx`
+
+## 7. Risks And Rollback
+
+- Risk: changing feed ordering without tests can produce regressions that are hard to spot visually.
+- Risk: shared contract expansion can drift between Go and TypeScript if not updated together.
+- Risk: dirty local worktree means broad edits must stay isolated to feed-related files.
+- Rollback Notes:
+  - Revert feed contract additions first if downstream callers break.
+  - Revert Go feed ranking changes independently from web card chrome if ranking behavior regresses.
+  - Revert UI chrome changes independently if they hurt readability while keeping backend metadata in place.
+
+## 8. Milestones
+
+### Milestone 1: Contract and feed-strategy foundation
+- Goal:
+  - Add feed metadata needed for recognizable cards and ranking rationale; inspect and tighten current Go composition rules.
+- Inputs/Dependencies:
+  - `packages/types/src/feed.ts`
+  - `services/fphgo/internal/features/feed/service/models.go`
+  - `services/fphgo/internal/features/feed/service/service.go`
+  - `services/fphgo/internal/features/feed/http/dto.go`
+- Changes:
+  - add stable item-type display metadata if needed
+  - add rank/explanation metadata from backend
+  - codify per-mode prioritization and first-page composition constraints
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/types test`
+  - `cd services/fphgo && go test ./internal/features/feed/...`
+- Expected Evidence:
+  - feed response exposes richer item metadata
+  - mode-specific ordering logic is explicit in service code
+- Rollback Notes:
+  - revert contract additions before touching web if shape causes breakage
+- Status: `done`
+
+### Milestone 2: Web mode framing and recognizable card chrome
+- Goal:
+  - Make mode identity obvious and every feed item type visually recognizable without reading the whole card.
+- Inputs/Dependencies:
+  - `apps/web/src/features/home-feed/components/*`
+  - `apps/web/src/features/home-feed/components/cards/*`
+- Changes:
+  - strengthen hero/tab copy by mode
+  - add shared card chrome for type label / ranking reason
+  - tighten quick actions and empty states around desired feed behaviors
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+- Expected Evidence:
+  - cards show stable type labels and clearer distinctions
+  - UI framing changes with mode instead of just swapping content
+- Rollback Notes:
+  - revert shared card wrapper and mode copy if readability regresses
+- Status: `done`
+
+### Milestone 3: Verification and residual-risk pass
+- Goal:
+  - Verify the feed changes compile and document any remaining gaps.
+- Inputs/Dependencies:
+  - updated feed code from milestones 1-2
+- Changes:
+  - add or update targeted tests where practical
+  - run narrow checks and record outcomes
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/types test`
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `cd services/fphgo && go test ./internal/features/feed/...`
+- Expected Evidence:
+  - targeted checks pass or blockers are documented with concrete scope
+- Rollback Notes:
+  - revert only milestone-specific files if a verification blocker is introduced
+- Status: `done`
+
+## 9. Verification Plan
+
+- `pnpm --filter @freediving.ph/types test`
+- `pnpm --filter @freediving.ph/web type-check`
+- `cd services/fphgo && go test ./internal/features/feed/...`
+
+## 10. Progress Log
+
+- 2026-03-09: Audited the current feed route in `apps/web`, the shared feed contract in `packages/types`, and the Go feed service entrypoints to confirm the existing implementation lacks strong mode framing, ranking explanation metadata, and shared card identity chrome.
+- 2026-03-09: Added feed presentation metadata to the shared contract and Go feed response, strengthened per-mode ranking multipliers and mix/priority ordering, and added targeted Go tests for feed strategy helpers.
+- 2026-03-09: Reworked the web feed framing with mode-specific hero/tabs, live quick-action links, stronger empty states, and a shared feed card shell so item types and rank rationale are visually obvious at a glance.
+- 2026-03-09: Verified `pnpm --filter @freediving.ph/types test`, `pnpm --filter @freediving.ph/web type-check`, and `cd services/fphgo && go test ./internal/features/feed/...`.
+- 2026-03-09: Follow-up scope added: redesign cards to be denser and more legible, wire real detail/profile links per feed entity where routes exist, and include media/photo posts in the home feed using the existing media-post stack.
+
+## 11. Outcomes And Follow-Ups
+
+- Do not touch `apps/api`; it is legacy.
+- Reuse `POST /v1/media/upload` and `POST /v1/media/upload-multiple` for raw uploads. Do not overload them with post persistence.
+- Keep Go handlers thin, business rules in service, repo layer DB-only.
+- `react-photo-album` masonry is required for the profile gallery.
+- Max 10 uploaded photos per post; max 5 MB per file in the new composer flow even though the existing uploader context currently allows more.
+- Dive site must come from approved FPH dive-site data, not free text.
+- Videos are schema/model-ready only. No video upload/create UI in this milestone.
+- Non-goal: mixed photo/video composer, lightbox ecosystem, crop/filter tools, arbitrary location text, feed ranking changes.
+
+## 5. Acceptance Criteria
+
+- `/[username]/create` lets the owner select 1-10 photos, rejects files over 5 MB, previews them immediately, and supports carousel-style review with per-item removal while preserving order.
+- Composer requires a dive site from FPH dive-site data before publish.
+- Composer supports per-photo captions plus an apply-to-all caption toggle.
+- Frontend uploads raw files through the existing uploader endpoint, then publishes one logical media post referencing those uploads.
+- Backend persists one grouped post/upload session plus multiple independently renderable media items with required width/height on photos.
+- Public profile media is returned paginated with width/height and dive-site metadata, and the profile renders those items in a masonry layout using actual intrinsic dimensions.
+- Video support exists in the data model but is rejected in the current publish flow.
+
+## 6. Repo Evidence
+
+# ExecPlan: Buddies Hub Completion, Privacy Alignment, And Experience Rewrite
+
+## 1. Title
+
+Buddies hub completion, Buddy Finder privacy correction, and `/buddies` experience rewrite
+
+## 2. Objective
+
+Turn `/buddies` from a confused Buddy Finder-only feed into a coherent buddies hub that:
+
+- exposes the real buddy relationship workflow already present in `services/fphgo`
+- keeps Buddy Finder as one part of the surface instead of the entire surface
+- fixes the current privacy mismatch between public claims and actual guest-visible data
+- rewrites the page copy and visual hierarchy so the product sounds and feels deliberate instead of sloppy
+
+## 3. Scope
+
+- `apps/web` `/buddies` page information architecture, copy, and component structure.
+- `apps/web` buddy relationship UI for incoming/outgoing requests, current buddies, and relationship actions.
+- `apps/web` Buddy Finder UI adjustments for guest/member separation, post management, and wording cleanup.
+- `services/fphgo` Buddy Finder read-contract alignment for guest-safe vs member-safe fields.
+- `services/fphgo` docs cleanup where live behavior drifted from the documented contract.
+- Shared contracts in `packages/types` only if the API response shapes need explicit guest/member separation.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api`; it is legacy.
+- Keep new API work in `services/fphgo` only.
+- Do not broaden the surface into an all-new social system. Fix the current product, do not invent three more products.
+- Do not expose exact coordinates, direct contact details, or unrestricted public profile data through Buddy Finder.
+- Preserve the messaging pending/active trust model; Buddy Finder should start message flow, not bypass it.
+- Non-goal: real mutual-buddy graph computation unless it is trivial and already supported cleanly by repo/service layers.
+- Non-goal: advanced recommendation/ranking logic for Buddy Finder in this milestone.
+- Non-goal: a dedicated `/buddies/[id]` detail experience unless there is a clear functional requirement after hub completion.
+
+## 5. Acceptance Criteria
+
+- `/buddies` clearly separates:
+  - relationship management
+  - active Buddy Finder listings
+  - posting and self-management actions
+- Signed-in members can:
+  - view current buddies
+  - view incoming requests
+  - view outgoing requests
+  - accept, decline, cancel, remove, and send buddy requests from the web UI
+  - create and delete their own Buddy Finder intents
+  - save and message from Buddy Finder cards where allowed
+- Guests can:
+  - browse a genuinely redacted Buddy Finder preview
+  - never see fields that the product copy claims are hidden
+- Guest Buddy Finder responses do not leak full notes, usernames, or other member-level profile details unless product explicitly decides they are public and the copy/docs are updated to match.
+- `/buddies` copy no longer uses awkward phrasing like “DM request preview sent” and no longer over-promises privacy behavior.
+- The page looks like a product hub, not a random marketing card glued to a CRUD form.
+- Dead or misleading route/file artifacts are resolved, including the placeholder `apps/web/src/app/buddies/[id]/page.tsx`.
+- Docs for Buddy Finder and buddies visibility match the live code after the work is complete.
+
+## 6. Repo Evidence
+
+- `/buddies` is currently Buddy Finder-only and does not use the real buddies relationship hooks/APIs:
+  - `apps/web/src/app/buddies/page.tsx`
+  - `apps/web/src/features/buddies/api/buddy-finder.ts`
+- Real buddy relationship API clients already exist but are unused by the page:
+  - `apps/web/src/features/buddies/api/buddies.ts`
+  - `apps/web/src/features/buddies/hooks/queries.ts`
+  - `apps/web/src/features/buddies/hooks/mutations.ts`
+- Live Buddy Finder router currently exposes `GET /v1/buddy-finder/intents` publicly:
+  - `services/fphgo/internal/features/buddyfinder/http/routes.go`
+- Guest/member handling is merged in one list handler using `requireActorOrGuest`:
+  - `services/fphgo/internal/features/buddyfinder/http/handlers.go`
+- Member intent mapping currently returns full note and user/profile fields without guest-specific redaction:
+  - `services/fphgo/internal/features/buddyfinder/http/dto.go`
+  - `services/fphgo/internal/features/buddyfinder/http/handlers.go`
+  - `services/fphgo/internal/features/buddyfinder/repo/queries/buddyfinder.sql`
+- Public share preview is separately and more safely redacted than the main `/buddies` guest view:
+  - `apps/web/src/app/buddy/[intentId]/page.tsx`
+- There is an unfinished placeholder route under `/buddies/[id]` returning “Chika id”:
+  - `apps/web/src/app/buddies/[id]/page.tsx`
+- Current docs drift from live behavior:
+  - `services/fphgo/docs/buddy-finder-v1.md`
+  - `services/fphgo/docs/buddies-v1.md`
+  - `services/fphgo/docs/buddies-visibility-v1.md`
+
+## 7. Risks And Rollback
+
+- Risk: changing Buddy Finder guest visibility can break current assumptions in `/buddies`, Explore buddy previews, or share surfaces if response contracts are not separated deliberately.
+- Risk: wiring buddies relationship actions into the hub without tightening state modeling will create UI lies around request status and available actions.
+- Risk: trying to “refresh the vibe” without fixing IA first will produce cosmetic nonsense over a broken workflow.
+- Risk: there is already unrelated dirty worktree state; broad refactors can collide with user changes if not kept scoped.
+- Rollback Notes:
+  - If guest/member response split causes regressions, roll back the API contract split first and keep the hub rewrite behind the current member-only assumptions.
+  - If the hub rewrite destabilizes the route, keep the old Buddy Finder flow functional while reverting only the new relationship-management sections.
+  - Revert/remove the placeholder `/buddies/[id]` route only if replacement navigation is already in place; do not strand links.
+
+## 8. Milestones
+
+### Milestone 1: Product contract lock and IA rewrite
+- Goal:
+  - Define what `/buddies` is supposed to be, in code terms and user-facing terms, before touching implementation.
+- Inputs/Dependencies:
+  - `apps/web/src/app/buddies/page.tsx`
+  - `services/fphgo/docs/buddy-finder-v1.md`
+  - `services/fphgo/docs/buddies-v1.md`
+  - `services/fphgo/docs/buddies-visibility-v1.md`
+- Changes:
+  - establish final section model for `/buddies`
+  - decide guest-visible vs member-visible fields for Buddy Finder
+  - define copy tone, labels, and success/error language
+  - decide fate of `/buddies/[id]`
+- Validation Commands:
+  - none beyond repo review in this milestone
+- Expected Evidence:
+  - plan-approved IA with explicit guest/member field boundaries
+  - wording map for hero, cards, actions, empty states, and success/error text
+- Rollback Notes:
+  - no code rollback needed; this milestone is design/spec lock
+- Status: `done`
+
+### Milestone 2: Backend privacy alignment for Buddy Finder reads
+- Goal:
+  - make live API behavior truthful and safe instead of relying on frontend copy to fake privacy.
+- Inputs/Dependencies:
+  - `services/fphgo/internal/features/buddyfinder/http/routes.go`
+  - `services/fphgo/internal/features/buddyfinder/http/handlers.go`
+  - `services/fphgo/internal/features/buddyfinder/http/dto.go`
+  - `services/fphgo/internal/features/buddyfinder/repo/queries/buddyfinder.sql`
+  - `packages/types/src/index.ts`
+- Changes:
+  - either split guest and member list responses, or reintroduce member gating for full intents
+  - ensure guest payloads are redacted by server contract, not by UI convention
+  - keep share-preview and site-preview semantics aligned with the chosen privacy model
+  - update shared types if response shapes diverge
+- Validation Commands:
+  - `cd services/fphgo && go test ./internal/features/buddyfinder/...`
+  - `pnpm --filter @freediving.ph/types test`
+- Expected Evidence:
+  - guest fetch cannot return fields deemed member-only
+  - docs and route behavior no longer contradict each other
+- Rollback Notes:
+  - revert to the prior read contract if web migration is blocked, but document the leak explicitly
+- Status: `done`
+
+### Milestone 3: Web relationship-management foundation
+- Goal:
+  - surface the existing buddies system in the web app instead of pretending it does not exist.
+- Inputs/Dependencies:
+  - `apps/web/src/features/buddies/api/buddies.ts`
+  - `apps/web/src/features/buddies/hooks/queries.ts`
+  - `apps/web/src/features/buddies/hooks/mutations.ts`
+  - `apps/web/src/app/buddies/page.tsx`
+- Changes:
+  - build sections/components for:
+    - current buddies
+    - incoming requests
+    - outgoing requests
+  - wire accept/decline/cancel/remove/send actions
+  - show request state and sensible empty states
+  - add request action entry points from relevant cards/profile references where appropriate
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web test`
+- Expected Evidence:
+  - signed-in users can exercise the actual buddy lifecycle from the UI
+  - relationship queries/mutations are no longer dead code
+- Rollback Notes:
+  - revert section components independently if one state flow is unstable; do not tear out the entire route
+- Status: `done`
+
+### Milestone 4: Buddy Finder management and route cleanup
+- Goal:
+  - finish the missing operational pieces around Buddy Finder and remove obvious junk.
+- Inputs/Dependencies:
+  - `apps/web/src/app/buddies/page.tsx`
+  - `apps/web/src/features/buddies/api/buddy-finder.ts`
+  - `apps/web/src/app/buddies/[id]/page.tsx`
+- Changes:
+  - add “my active post(s)” handling or equivalent self-management view
+  - wire delete intent for owned posts
+  - make guest/member Buddy Finder card variants explicit
+  - replace or remove the placeholder `/buddies/[id]` route
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web test`
+- Expected Evidence:
+  - users can manage their own active intents
+  - no fake or placeholder buddies route remains
+- Rollback Notes:
+  - keep intent creation intact even if self-management UI must be reverted temporarily
+- Status: `done`
+
+### Milestone 5: Experience rewrite, copy pass, and visual polish
+- Goal:
+  - make the page feel like a serious product surface instead of a generic card stack with mismatched language.
+- Inputs/Dependencies:
+  - `apps/web/src/app/buddies/page.tsx`
+  - shared UI primitives already used in `apps/web`
+- Changes:
+  - restructure the hero and section hierarchy around clarity:
+    - “Your buddies”
+    - “Requests”
+    - “Find dive partners”
+    - “Post availability”
+  - replace vague or awkward copy:
+    - remove “DM request preview sent”
+    - remove fuzzy “match” phrasing where the product is really request-driven
+    - use blunt, trustworthy privacy labels
+  - improve visual rhythm, spacing, hierarchy, and state communication
+  - align guest CTA language with actual restrictions
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+  - targeted visual/manual review in dev
+- Expected Evidence:
+  - copy reads consistently across guest/member states
+  - page hierarchy makes the primary actions obvious within one screen
+- Rollback Notes:
+  - visual/copy changes can be reverted independently if stakeholders disagree; keep functional fixes intact
+- Status: `done`
+
+### Milestone 6: Docs, cleanup, and verification
+- Goal:
+  - close the loop so the repo stops lying about buddies behavior.
+- Inputs/Dependencies:
+  - updated web and Go code from milestones 2-5
+- Changes:
+  - update Buddy Finder docs and buddies visibility docs
+  - add/adjust targeted tests for guest/member visibility and route expectations
+  - run narrow checks first, then broader checks if blast radius warrants it
+- Validation Commands:
+  - `cd services/fphgo && go test ./internal/features/buddyfinder/... ./internal/features/buddies/...`
+  - `pnpm --filter @freediving.ph/types test`
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web test`
+- Expected Evidence:
+  - docs match live code
+  - targeted checks pass or remaining unrelated failures are explicitly recorded
+- Rollback Notes:
+  - revert docs only alongside reverted behavior; do not leave contract drift behind again
+- Status: `done`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && go test ./internal/features/buddyfinder/... ./internal/features/buddies/...`
+- `pnpm --filter @freediving.ph/types test`
+- `pnpm --filter @freediving.ph/web type-check`
+- `pnpm --filter @freediving.ph/web test`
+- If blast radius expands across shared routes or auth behavior:
+  - `pnpm typecheck`
+  - `pnpm lint`
+
+## 10. Progress Log
+
+- 2026-03-08: Audited `/buddies` and confirmed the route is a Buddy Finder page rather than a real buddies hub; the real buddies relationship API/hooks exist in web but are not wired into the route.
+- 2026-03-08: Confirmed live backend drift: `GET /v1/buddy-finder/intents` is public in router code even though Buddy Finder docs still describe it as member-only.
+- 2026-03-08: Confirmed privacy mismatch: guest-visible list cards can receive full note and identity fields from the Buddy Finder list path, while preview/share endpoints are server-redacted.
+- 2026-03-08: Confirmed dead artifact: `apps/web/src/app/buddies/[id]/page.tsx` is placeholder junk unrelated to the actual buddies product.
+- 2026-03-08: Locked full Buddy Finder intent reads back behind member auth, added `/v1/buddy-finder/intents/mine` for self-management, and updated the Buddy Finder docs to reflect the live contract.
+- 2026-03-08: Rebuilt `apps/web/src/app/buddies/page.tsx` into a real buddies hub with current buddies, incoming/outgoing requests, active availability management, guest-safe preview, and corrected wording.
+- 2026-03-08: Removed the stale `/buddies` middleware auth gate so the guest preview is reachable, redirected `/buddies/[id]` back to `/buddies`, and updated route/frontend contract coverage touched by the change.
+- 2026-03-08: Verified `cd services/fphgo && go test ./internal/features/buddyfinder/... ./internal/features/buddies/...`, `pnpm --filter @freediving.ph/web type-check`, and `pnpm --filter @freediving.ph/web exec node --test test/fphgo-routes-contract.test.mjs`.
+- 2026-03-08: Broader `pnpm --filter @freediving.ph/web test` still reports unrelated pre-existing failures in `best-addon-mvp1-contract.test.mjs`, `explore-buddy-site-contract.test.mjs`, `phase6-frontend-hardening-contract.test.mjs` (Chika expectation), and `fphgo-ci-smoke.test.mjs` without `FPHGO_BASE_URL`.
+
+## 11. Outcomes And Follow-Ups
+
+- Recommended implementation order:
+  1. lock guest/member contract
+  2. wire real buddies management
+  3. finish Buddy Finder self-management
+  4. rewrite page hierarchy and copy
+- If product wants public discoverability, make that decision explicitly and design a guest-safe contract for it. Do not keep accidental public exposure and call it “privacy-first.”
+- If product wants `/buddies` to remain primarily Buddy Finder, then rename the route/nav label accordingly. Right now the naming is misleading.
+
+# ExecPlan: Groups Discovery And Group Detail Experience Rewrite
+
+## 1. Title
+
+Groups discovery cleanup, public/member flow alignment, and group detail rewrite
+
+## 2. Objective
+
+Turn `/groups` from a locked-down generic CRUD screen into a coherent public discovery page with a useful signed-in member flow, and upgrade `/groups/[id]` from a thin data dump into a real group detail surface.
+
+## 3. Scope
+
+- `apps/web` `/groups` list page information architecture, copy, and signed-in action flow.
+- `apps/web` `/groups/[id]` detail page for overview, membership state, members, and post activity.
+- `apps/web` groups feature hooks/API cleanup where auth gating or payload handling is currently wrong.
+- `apps/web` route/middleware behavior so public groups remain reachable to guests.
+- Targeted test updates for routes/contracts touched by the work.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api`; it is legacy.
+- Do not invent moderation/admin tooling for groups in this pass.
+- Keep backend changes minimal unless a real contract gap blocks the web flow.
+- Non-goal: full group settings editor or scoped role-management UI.
+- Non-goal: rich post composer, reactions, comments, or media attachments for groups in this milestone.
+
+## 5. Acceptance Criteria
+
+- `/groups` is publicly reachable and honestly reflects that public groups can be browsed without sign-in.
+- Guests can browse public groups and open public group detail pages.
+- Signed-in users can:
+  - browse all visible groups
+  - browse their joined groups
+  - create a group
+  - join or leave groups
+  - understand approval/invite-only join states from the UI copy
+- `/groups/[id]` clearly shows:
+  - group overview
+  - membership action state
+  - member list
+  - recent posts
+  - a member-only post composer when allowed
+- Wording no longer reads like generic SaaS boilerplate.
+- The page hierarchy feels intentional and consistent with the upgraded `/buddies` surface.
+
+## 6. Repo Evidence
+
+- Current list page hard-locks `/groups` behind `AuthGuard` even though backend list/detail are public-capable:
+  - `apps/web/src/app/groups/page.tsx`
+  - `services/fphgo/internal/features/groups/http/routes.go`
+  - `services/fphgo/internal/features/groups/http/handlers.go`
+- Current detail page is a thin data dump with no meaningful interaction flow:
+  - `apps/web/src/app/groups/[id]/page.tsx`
+- Web groups feature already has usable hooks for list/detail/join/leave/create/post:
+  - `apps/web/src/features/groups/api/groups.ts`
+  - `apps/web/src/features/groups/hooks/queries.ts`
+  - `apps/web/src/features/groups/hooks/mutations.ts`
+- Backend service already distinguishes public vs member-only groups and approval/invite semantics:
+  - `services/fphgo/internal/features/groups/service/service.go`
+- Current shared types already cover the necessary list/detail/member/post payloads:
+  - `packages/types/src/index.ts`
+
+## 7. Risks And Rollback
+
+- Risk: removing the frontend auth gate can expose poor guest-state assumptions in the existing hooks.
+- Risk: join-state UI can lie if approval/invite-only semantics are not surfaced properly.
+- Risk: broad visual rewrite can collide with unrelated existing work if edits are not scoped to groups files.
+- Rollback Notes:
+  - Revert list/detail page rewrites independently if one route regresses.
+  - Keep the public list access change if it matches backend contract, even if the detail page needs partial rollback.
+
+## 8. Milestones
+
+### Milestone 1: Contract and IA lock
+- Goal:
+  - define the public/member model and page hierarchy for `/groups` and `/groups/[id]`
+- Inputs/Dependencies:
+  - `apps/web/src/app/groups/page.tsx`
+  - `apps/web/src/app/groups/[id]/page.tsx`
+  - `services/fphgo/internal/features/groups/service/service.go`
+- Changes:
+  - decide guest vs member sections
+  - decide wording for public, approval, and invite-only states
+  - define detail-page section model
+- Validation Commands:
+  - none beyond repo audit
+- Expected Evidence:
+  - explicit IA and state model
+- Rollback Notes:
+  - no code rollback; spec lock only
+- Status: `done`
+
+### Milestone 2: List page rewrite
+- Goal:
+  - make `/groups` publicly browseable and useful.
+- Inputs/Dependencies:
+  - `apps/web/src/app/groups/page.tsx`
+  - `apps/web/src/features/groups/hooks/*`
+  - `apps/web/src/middleware.ts`
+- Changes:
+  - remove auth-only lock on the page
+  - add guest/member-aware tabs and CTAs
+  - improve join/leave/create flows and empty states
+  - rewrite copy and visual structure
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+- Expected Evidence:
+  - guests can browse public groups
+  - members get correct "my groups" and action states
+- Rollback Notes:
+  - revert list page only if needed; do not reintroduce a false auth gate casually
+- Status: `done`
+
+### Milestone 3: Detail page rewrite
+- Goal:
+  - make `/groups/[id]` a usable destination instead of a raw dump.
+- Inputs/Dependencies:
+  - `apps/web/src/app/groups/[id]/page.tsx`
+  - `apps/web/src/features/groups/hooks/*`
+- Changes:
+  - add group overview hero
+  - add membership state and join/leave action handling
+  - add member-only post composer
+  - improve members/posts presentation and copy
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+- Expected Evidence:
+  - public groups render for guests
+  - signed-in members can post and manage basic membership actions
+- Rollback Notes:
+  - revert detail page independently if interaction flow is unstable
+- Status: `done`
+
+### Milestone 4: Verification and cleanup
+- Goal:
+  - tighten route/test consistency for the groups changes.
+- Inputs/Dependencies:
+  - updated groups pages/hooks
+- Changes:
+  - update any affected middleware/route tests
+  - run targeted checks
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+  - targeted web tests for route/contracts touched by the change
+- Expected Evidence:
+  - no groups-specific type regressions
+  - touched contract tests pass
+- Rollback Notes:
+  - revert only the groups-specific test updates if they overreach
+- Status: `done`
+
+## 9. Verification Plan
+
+- `pnpm --filter @freediving.ph/web type-check`
+- targeted `node --test` runs for any updated web contract files
+
+## 10. Progress Log
+
+- 2026-03-09: Audited `/groups` and confirmed the backend supports public list/detail reads while the frontend hard-locks the list page behind sign-in.
+- 2026-03-09: Confirmed `/groups/[id]` exists but is only a thin client-side data dump with weak copy and minimal action flow.
+- 2026-03-09: Confirmed current hooks already support list/detail/join/leave/create/post flows, so the main problem is UI/product wiring rather than missing backend endpoints.
+- 2026-03-09: Rewrote `apps/web/src/app/groups/page.tsx` as a public-capable discovery page with guest/member-aware tabs, visibility filters, better join-state handling, and a proper create-group flow for signed-in users.
+- 2026-03-09: Rewrote `apps/web/src/app/groups/[id]/page.tsx` into a real detail surface with overview, membership state, member list, recent posts, and a member-only post composer.
+- 2026-03-09: Added query enable flags to the shared groups hooks where needed and verified `pnpm --filter @freediving.ph/web type-check`.
+
+## 11. Outcomes And Follow-Ups
+
+- Recommended implementation order:
+  1. public/member list page rewrite
+  2. detail page rewrite
+  3. targeted test cleanup
+
+- Existing raw uploader is already separated from domain logic and returns width/height: `services/fphgo/internal/features/media/http/handlers.go`, `services/fphgo/internal/features/media/service/service.go`, `services/fphgo/internal/features/media/http/dto.go`
+- Current uploader persists loose `media_objects` only: `services/fphgo/db/migrations/0014_media_objects_v1.sql`, `services/fphgo/internal/features/media/repo/queries/media.sql`
+- Current `/[username]/create` page is only a stub form with no publish backend: `apps/web/src/features/profile/pages/CreateProfilePostPage.tsx`, `apps/web/src/app/[username]/create/page.tsx`
+- Current profile “posts” tab uses square-grid assumptions and static post DTOs, not masonry media items: `apps/web/src/features/profile/components/ProfileGrid.tsx`, `apps/web/src/features/profile/components/ProfileTabs.tsx`, `apps/web/src/features/profile/hooks/queries.ts`
+- Public profile API currently exposes old `posts` endpoints without cursor pagination: `services/fphgo/internal/features/profiles/http/routes.go`, `services/fphgo/internal/features/profiles/http/handlers.go`, `services/fphgo/internal/features/profiles/service/service.go`
+- Dive-site browse/search data already exists and is queryable from web: `services/fphgo/internal/features/explore/http/handlers.go`, `services/fphgo/internal/features/explore/http/dto.go`, `apps/web/src/features/diveSpots/api/explore-v1.ts`
+- Shared web media API already talks to `fphgo` and can be extended instead of replaced: `apps/web/src/features/media/api/media.ts`, `apps/web/src/lib/api/fphgo-routes.ts`
+
+## 7. Risks And Rollback
+
+- Risk: profile media read path collides with the existing placeholder profile-post contract and UI.
+- Risk: dirty worktree includes uncommitted create/profile changes, so broad rewrites could trample user work if not merged carefully.
+- Risk: adding `react-photo-album` may require dependency installation if it is not already present.
+- Risk: schema changes must preserve the current raw uploader and avoid orphaned domain references.
+- Rollback Notes:
+  - Keep raw uploader untouched so the system can fall back to loose uploads if the domain publish path regresses.
+  - Isolate new DB tables and API endpoints so reverting the feature does not require undoing `media_objects`.
+  - Replace the profile media tab in one component seam so UI rollback is limited to the new gallery/composer files.
+
+## 8. Milestones
+
+### Milestone 1: Contracts and schema foundation
+- Goal:
+  - Add migration(s), shared TS contracts, and feature SQL for `media_upload_groups`, `media_posts`, and `media_items`.
+- Inputs/Dependencies:
+  - `services/fphgo/db/migrations/0014_media_objects_v1.sql`
+  - `services/fphgo/sqlc.yaml`
+  - `packages/types/src/media.ts`
+- Changes:
+  - create new tables and indexes
+  - extend `packages/types` with publish and profile-media contracts
+  - add `sqlc` queries and repo mapping types for media post creation and profile-media listing
+- Validation Commands:
+  - `cd services/fphgo && make sqlc`
+  - `pnpm --filter @freediving.ph/types test`
+- Expected Evidence:
+  - generated `sqlc` output includes new query types
+  - shared types compile against the new request/response shapes
+- Rollback Notes:
+  - revert the new migration and generated files before any handler wiring if the model shape proves wrong
+- Status: `pending`
+
+### Milestone 2: Go publish and read APIs
+- Goal:
+  - Add authenticated create-media-post and paginated profile-media APIs on top of the new schema while reusing raw uploads.
+- Inputs/Dependencies:
+  - milestone 1 schema/contracts
+  - existing uploader service/repo
+  - existing explore repo for dive-site validation
+- Changes:
+  - add service rules for ownership, upload validation, file count/type/size guardrails, and video gating
+  - add HTTP DTOs/routes/handlers for `POST /v1/media-posts` and paginated profile media reads
+  - update profile or media feature read path to return independent media items with dive-site metadata and cursor pagination
+- Validation Commands:
+  - `cd services/fphgo && go test ./internal/features/media/... ./internal/features/profiles/...`
+- Expected Evidence:
+  - publish endpoint rejects malformed uploads and persists grouped posts/items for valid photo payloads
+  - profile media endpoint returns width/height-backed items with next cursor
+- Rollback Notes:
+  - disable new route wiring and leave schema dormant if service behavior is unstable
+- Status: `pending`
+
+### Milestone 3: Web create composer
+- Goal:
+  - Replace the stub `/[username]/create` page with a real photo composer that uploads raw files, captures dive-site/caption metadata, and publishes grouped posts.
+- Inputs/Dependencies:
+  - milestone 2 APIs
+  - existing auth/session patterns
+  - existing explore list-sites API for dive-site selection
+- Changes:
+  - add media composer schema, hooks, uploader orchestration, preview carousel, caption apply-to-all behavior, and owner gating
+  - keep upload state separate from publish mutation state
+  - surface upload failures/retry or removal paths cleanly
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web test`
+- Expected Evidence:
+  - create page compiles against new API hooks and validates the required UX rules client-side
+- Rollback Notes:
+  - revert only the new create-page feature files while keeping backend endpoints available
+- Status: `pending`
+
+### Milestone 4: Profile masonry gallery
+- Goal:
+  - Replace the square profile grid with a masonry media gallery backed by paginated profile-media API data and a clean viewer hook.
+- Inputs/Dependencies:
+  - milestone 2 profile media endpoint
+  - `react-photo-album`
+- Changes:
+  - integrate masonry layout with stored intrinsic dimensions
+  - add pagination/infinite-load behavior and zero-state handling
+  - preserve a clean tile click path for future grouped viewer/detail work
+- Validation Commands:
+  - `pnpm --filter @freediving.ph/web type-check`
+  - `pnpm --filter @freediving.ph/web test`
+- Expected Evidence:
+  - profile tab renders independent items without aspect-ratio forcing and tolerates legacy items missing dimensions
+- Rollback Notes:
+  - swap the profile tab back to the current grid component if the masonry dependency or hydration behavior regresses
+- Status: `pending`
+
+## 9. Verification Plan
+
+- `cd services/fphgo && make sqlc`
+- `cd services/fphgo && go test ./internal/features/media/... ./internal/features/profiles/...`
+- `pnpm --filter @freediving.ph/types test`
+- `pnpm --filter @freediving.ph/web type-check`
+- `pnpm --filter @freediving.ph/web test`
+
+## 10. Progress Log
+
+- 2026-03-08: Audited the existing raw uploader, profile endpoints, profile web UI, and dive-site source. Confirmed the uploader already returns width/height and should remain raw-asset only.
+- 2026-03-08: Confirmed `/[username]/create` is currently a stub page in a dirty worktree and the public profile gallery still assumes square tiles, so this feature requires replacement rather than incremental hookup.
+- 2026-03-08: Added `media_upload_groups`, `media_posts`, and `media_items`, updated schema/sqlc/shared types, and wired `services/fphgo` create/list endpoints on top of the existing raw uploader.
+- 2026-03-08: Replaced the stub create page with a real RHF/Zod composer, added dive-site selection, per-photo captions, apply-to-all behavior, and upload/publish orchestration in `apps/web`.
+- 2026-03-08: Replaced the profile square grid with a `react-photo-album` masonry gallery backed by the new paginated profile-media API and existing signed media URL minting flow.
+- 2026-03-08: Verified `go test ./internal/features/media/... ./internal/features/profiles/...`, `pnpm --filter @freediving.ph/types test`, `pnpm --filter @freediving.ph/web type-check`, and a targeted web contract test for the new media flow. Full `pnpm --filter @freediving.ph/web test` still fails on unrelated pre-existing contract/smoke tests (`best-addon-mvp1-contract`, `explore-buddy-site-contract`, `fphgo-routes-contract`, `phase6-frontend-hardening-contract`, and missing `FPHGO_BASE_URL` for `fphgo-ci-smoke`).
+
+## 11. Outcomes And Follow-Ups
+
+- Implemented:
+  - grouped media-post schema and publish/list APIs
+  - `/[username]/create` photo composer with raw-upload reuse
+  - profile masonry gallery with intrinsic dimensions and pagination
+- Deferred:
+  - video UI/upload flow
+  - grouped viewer/sibling fetch endpoint
+  - deeper recovery for stale or legacy media rows outside the new `media_items` model
+
 # ExecPlan: Messaging Transactions Tab And Category Foundation
 
 ## 1. Title
@@ -1045,3 +1785,21 @@ Add a stable, versioned PSGC data model in `services/fphgo`, provide an import p
 ## 11. Outcomes And Follow-Ups
 
 - Follow-up: wire web event/location forms to `/v1/locations` cascades and persist canonical codes + geocoding metadata.
+
+## Events Discovery And Event Detail Rewrite
+- Status: done
+- Goal: turn /events into a public-capable discovery page with member actions, cleaner event creation, and a proper event detail experience that matches backend permissions.
+- Scope:
+  - remove the unnecessary auth wall on /events
+  - rewrite events list page with guest/member states, better copy, filtering, and create flow
+  - rebuild /events/[id] with structured event overview, join/leave handling, attendee visibility, and permission-aware messaging
+  - update any event hooks needed to support conditional fetching cleanly
+- Risks:
+  - non-public event detail must not promise access the backend will reject
+  - organizer leave behavior is blocked server-side and needs explicit UI copy
+- Verification:
+  - pnpm --filter @freediving.ph/web type-check
+- Progress Log:
+  - 2026-03-09: Rebuilt `/events` into a public-capable discovery page with guest/member states, stronger copy, better filtering, and a fuller publish-event flow.
+  - 2026-03-09: Rebuilt `/events/[id]` into a structured detail page with permission-aware attendance messaging and attendee rendering.
+  - 2026-03-09: Added optional `enabled` flags to event queries and verified with `pnpm --filter @freediving.ph/web type-check`.

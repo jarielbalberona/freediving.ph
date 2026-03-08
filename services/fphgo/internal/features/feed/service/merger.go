@@ -48,25 +48,36 @@ func sortRanked(items []rankedItem) {
 
 func targetMix(limit int, mode Mode) map[ItemType]int {
 	mix := map[ItemType]float64{
-		ItemTypePost:         0.50,
-		ItemTypeCommunityHot: 0.15,
-		ItemTypeDiveSpot:     0.15,
-		ItemTypeEvent:        0.10,
-		ItemTypeBuddySignal:  0.10,
+		ItemTypePost:         0.28,
+		ItemTypeMediaPost:    0.18,
+		ItemTypeCommunityHot: 0.12,
+		ItemTypeDiveSpot:     0.08,
+		ItemTypeEvent:        0.15,
+		ItemTypeBuddySignal:  0.20,
 	}
 	if mode == ModeSpotReports {
-		mix[ItemTypePost] = 0.35
-		mix[ItemTypeDiveSpot] = 0.35
-		mix[ItemTypeCommunityHot] = 0.15
-		mix[ItemTypeEvent] = 0.05
-		mix[ItemTypeBuddySignal] = 0.10
+		mix[ItemTypePost] = 0.22
+		mix[ItemTypeMediaPost] = 0.12
+		mix[ItemTypeDiveSpot] = 0.34
+		mix[ItemTypeCommunityHot] = 0.08
+		mix[ItemTypeEvent] = 0.08
+		mix[ItemTypeBuddySignal] = 0.16
 	}
 	if mode == ModeNearby {
-		mix[ItemTypePost] = 0.40
-		mix[ItemTypeDiveSpot] = 0.25
+		mix[ItemTypePost] = 0.20
+		mix[ItemTypeMediaPost] = 0.12
+		mix[ItemTypeDiveSpot] = 0.24
 		mix[ItemTypeCommunityHot] = 0.10
-		mix[ItemTypeEvent] = 0.10
-		mix[ItemTypeBuddySignal] = 0.15
+		mix[ItemTypeEvent] = 0.12
+		mix[ItemTypeBuddySignal] = 0.28
+	}
+	if mode == ModeTraining {
+		mix[ItemTypePost] = 0.24
+		mix[ItemTypeMediaPost] = 0.18
+		mix[ItemTypeDiveSpot] = 0.08
+		mix[ItemTypeCommunityHot] = 0.12
+		mix[ItemTypeEvent] = 0.20
+		mix[ItemTypeBuddySignal] = 0.18
 	}
 
 	out := make(map[ItemType]int, len(mix))
@@ -80,7 +91,7 @@ func targetMix(limit int, mode Mode) map[ItemType]int {
 		used += count
 	}
 	for used > limit {
-		for _, typ := range []ItemType{ItemTypePost, ItemTypeCommunityHot, ItemTypeDiveSpot, ItemTypeEvent, ItemTypeBuddySignal} {
+		for _, typ := range []ItemType{ItemTypeCommunityHot, ItemTypeDiveSpot, ItemTypeEvent, ItemTypeBuddySignal, ItemTypeMediaPost, ItemTypePost} {
 			if used <= limit {
 				break
 			}
@@ -97,6 +108,19 @@ func targetMix(limit int, mode Mode) map[ItemType]int {
 	return out
 }
 
+func modePriorityOrder(mode Mode) []ItemType {
+	switch mode {
+	case ModeNearby:
+		return []ItemType{ItemTypeBuddySignal, ItemTypePost, ItemTypeMediaPost, ItemTypeDiveSpot, ItemTypeEvent, ItemTypeCommunityHot}
+	case ModeTraining:
+		return []ItemType{ItemTypePost, ItemTypeMediaPost, ItemTypeEvent, ItemTypeBuddySignal, ItemTypeCommunityHot, ItemTypeDiveSpot}
+	case ModeSpotReports:
+		return []ItemType{ItemTypePost, ItemTypeDiveSpot, ItemTypeMediaPost, ItemTypeBuddySignal, ItemTypeEvent, ItemTypeCommunityHot}
+	default:
+		return []ItemType{ItemTypePost, ItemTypeMediaPost, ItemTypeBuddySignal, ItemTypeEvent, ItemTypeCommunityHot, ItemTypeDiveSpot}
+	}
+}
+
 func mergeWithDiversity(items []rankedItem, limit int, mode Mode) []rankedItem {
 	if len(items) == 0 || limit <= 0 {
 		return nil
@@ -107,6 +131,7 @@ func mergeWithDiversity(items []rankedItem, limit int, mode Mode) []rankedItem {
 		groups[item.Type] = append(groups[item.Type], item)
 	}
 	targets := targetMix(limit, mode)
+	priority := modePriorityOrder(mode)
 	picked := make([]rankedItem, 0, limit)
 	seen := make(map[string]struct{})
 	byActorRecent := make(map[string]int)
@@ -136,7 +161,7 @@ func mergeWithDiversity(items []rankedItem, limit int, mode Mode) []rankedItem {
 
 	for len(picked) < limit {
 		progress := false
-		for _, typ := range []ItemType{ItemTypePost, ItemTypeCommunityHot, ItemTypeDiveSpot, ItemTypeEvent, ItemTypeBuddySignal} {
+		for _, typ := range priority {
 			if len(picked) >= limit {
 				break
 			}
@@ -155,7 +180,7 @@ func mergeWithDiversity(items []rankedItem, limit int, mode Mode) []rankedItem {
 
 	if len(picked) < limit {
 		remaining := make([]rankedItem, 0)
-		for _, typ := range []ItemType{ItemTypePost, ItemTypeCommunityHot, ItemTypeDiveSpot, ItemTypeEvent, ItemTypeBuddySignal} {
+		for _, typ := range priority {
 			remaining = append(remaining, groups[typ]...)
 		}
 		sortRanked(remaining)
@@ -188,6 +213,9 @@ func canPlace(current []rankedItem, next rankedItem, mode Mode, byActor map[stri
 	}
 	last := current[len(current)-1]
 	if mode != ModeSpotReports && last.Type == ItemTypeDiveSpot && next.Type == ItemTypeDiveSpot {
+		return false
+	}
+	if strict && last.Type == next.Type && (next.Type == ItemTypeCommunityHot || next.Type == ItemTypeDiveSpot || next.Type == ItemTypeEvent || next.Type == ItemTypeMediaPost) {
 		return false
 	}
 	if strict && last.ActorUserID != "" && last.ActorUserID == next.ActorUserID {

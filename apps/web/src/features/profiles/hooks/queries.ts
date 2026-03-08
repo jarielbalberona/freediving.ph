@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 
 import { profilesApi } from "../api/profiles";
 
-export const useMyProfile = () => {
+export const useMyProfile = (enabled = true) => {
   return useQuery({
     queryKey: ["profiles", "me"],
     queryFn: () => profilesApi.getMyProfile(),
+    enabled,
     staleTime: 60_000,
   });
 };

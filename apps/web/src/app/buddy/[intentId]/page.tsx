@@ -10,14 +10,16 @@ type PageProps = {
   params: Promise<{ intentId: string }>;
 };
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { intentId } = await params;
   try {
     const data = await getBuddyFinderSharePreviewServer(intentId);
     const title = data.intent.diveSiteName
       ? `Buddy for ${data.intent.diveSiteName}`
       : `Buddy Finder in ${data.intent.area}`;
-    const description = `${data.intent.area}. ${data.intent.intentType.replace("_", " ")} · ${data.intent.timeWindow.replace("_", " ")}. Safe preview only.`;
+    const description = `${data.intent.area}. ${data.intent.intentType.replace("_", " ")} · ${data.intent.timeWindow.replace("_", " ")}. Safe preview only. Sign in to see the full listing and send a request.`;
     return {
       title,
       description,
@@ -40,9 +42,13 @@ export default async function BuddySharePage({ params }: PageProps) {
       <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
         <div className="mx-auto max-w-3xl space-y-6">
           <div className="space-y-2">
-            <p className="text-sm uppercase tracking-[0.2em] text-primary">Freediving Philippines</p>
+            <p className="text-sm uppercase tracking-[0.2em] text-primary">
+              Freediving Philippines
+            </p>
             <h1 className="font-serif text-4xl text-foreground">
-              {data.intent.diveSiteName ? `Looking for a buddy at ${data.intent.diveSiteName}` : "Buddy Finder preview"}
+              {data.intent.diveSiteName
+                ? `Availability posted for ${data.intent.diveSiteName}`
+                : "Buddy Finder preview"}
             </h1>
             <p className="text-muted-foreground">{data.intent.area}</p>
           </div>
@@ -51,13 +57,22 @@ export default async function BuddySharePage({ params }: PageProps) {
             <CardHeader className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 <Badge>{data.intent.intentType.replace("_", " ")}</Badge>
-                <Badge variant="outline">{data.intent.timeWindow.replace("_", " ")}</Badge>
-                {data.intent.dateStart ? <Badge variant="outline">From {data.intent.dateStart}</Badge> : null}
+                <Badge variant="outline">
+                  {data.intent.timeWindow.replace("_", " ")}
+                </Badge>
+                {data.intent.dateStart ? (
+                  <Badge variant="outline">From {data.intent.dateStart}</Badge>
+                ) : null}
               </div>
-              <CardTitle className="text-2xl text-foreground">Safe preview only</CardTitle>
+              <CardTitle className="text-2xl text-foreground">
+                Safe preview only
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-foreground/80">
-              <p>{data.intent.notePreview || "Create an account to view the full note and message this diver."}</p>
+              <p>
+                {data.intent.notePreview ||
+                  "Create an account to view the full note and message this diver."}
+              </p>
               <TrustCard
                 emailVerified={data.intent.emailVerified}
                 phoneVerified={data.intent.phoneVerified}
@@ -66,9 +81,10 @@ export default async function BuddySharePage({ params }: PageProps) {
                 reportCount={data.intent.reportCount}
               />
               <div className="rounded-2xl bg-primary p-4 text-primary-foreground">
-                <p className="font-medium">Message and match</p>
+                <p className="font-medium">Sign in for the full workflow</p>
                 <p className="mt-1 text-sm text-primary-foreground/90">
-                  Create an account to message this diver. Exact contact is shared only after request acceptance.
+                  Create an account to view the full listing, send a buddy
+                  request, and start a message request.
                 </p>
               </div>
             </CardContent>

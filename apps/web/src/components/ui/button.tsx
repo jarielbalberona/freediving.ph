@@ -53,26 +53,29 @@ function Button({
   ...props
 }: ButtonPrimitive.Props &
   VariantProps<typeof buttonVariants> & { tooltip?: string }) {
-  const buttonComponent = (
-    <ButtonPrimitive
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  );
-
   if (tooltip) {
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger>{buttonComponent}</TooltipTrigger>
+          <ButtonPrimitive
+            data-slot="button"
+            className={cn(buttonVariants({ variant, size, className }))}
+            render={TooltipTrigger}
+            {...props}
+          />
           <TooltipContent side="bottom">{tooltip}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
   }
 
-  return buttonComponent;
+  return (
+    <ButtonPrimitive
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  );
 }
 
 export { Button, buttonVariants };

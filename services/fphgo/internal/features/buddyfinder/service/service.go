@@ -31,6 +31,7 @@ type repository interface {
 	ListPreviewBySite(ctx context.Context, diveSiteID string, limit int32) ([]buddyfinderrepo.PreviewIntent, error)
 	ListMemberIntentsByArea(ctx context.Context, input buddyfinderrepo.ListMemberIntentsInput) ([]buddyfinderrepo.MemberIntent, error)
 	ListMemberIntentsBySite(ctx context.Context, input buddyfinderrepo.ListSiteIntentsInput) ([]buddyfinderrepo.MemberIntent, error)
+	ListOwnIntents(ctx context.Context, actorUserID string) ([]buddyfinderrepo.MemberIntent, error)
 	GetIntentByID(ctx context.Context, intentID string) (buddyfinderrepo.Intent, error)
 	GetSharePreviewByID(ctx context.Context, intentID string) (buddyfinderrepo.SharePreview, error)
 	CreateIntent(ctx context.Context, input buddyfinderrepo.CreateIntentInput) (buddyfinderrepo.Intent, error)
@@ -273,6 +274,17 @@ func (s *Service) ListMemberIntents(ctx context.Context, input ListMemberIntents
 		items = items[:limit]
 	}
 	return ListMemberIntentsResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) ListOwnIntents(ctx context.Context, actorID string) ([]buddyfinderrepo.MemberIntent, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return nil, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	items, err := s.repo.ListOwnIntents(ctx, actorID)
+	if err != nil {
+		return nil, apperrors.New(http.StatusInternalServerError, "buddy_list_failed", "failed to list own buddy intents", err)
+	}
+	return items, nil
 }
 
 func (s *Service) ListMemberIntentsForSite(ctx context.Context, input SiteIntentsInput) (SiteIntentsResult, error) {

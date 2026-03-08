@@ -31,13 +31,20 @@ type HomeNearbyCondition struct {
 }
 
 type HomeFeedItem struct {
-	ID        string         `json:"id"`
-	Type      string         `json:"type"`
-	EntityID  string         `json:"entityId"`
-	Score     float64        `json:"score"`
-	Reasons   []string       `json:"reasons"`
-	CreatedAt string         `json:"createdAt"`
-	Payload   map[string]any `json:"payload"`
+	ID         string         `json:"id"`
+	Type       string         `json:"type"`
+	EntityID   string         `json:"entityId"`
+	Score      float64        `json:"score"`
+	Reasons    []string       `json:"reasons"`
+	TypeLabel  string         `json:"typeLabel"`
+	TypeHint   string         `json:"typeHint"`
+	RankLabel  string         `json:"rankLabel"`
+	RankHint   string         `json:"rankHint"`
+	Tone       string         `json:"tone"`
+	DetailHref string         `json:"detailHref,omitempty"`
+	AuthorHref string         `json:"authorHref,omitempty"`
+	CreatedAt  string         `json:"createdAt"`
+	Payload    map[string]any `json:"payload"`
 }
 
 type LogImpressionsRequest struct {

@@ -15,6 +15,7 @@ type ItemType string
 
 const (
 	ItemTypePost         ItemType = "post"
+	ItemTypeMediaPost    ItemType = "media_post"
 	ItemTypeCommunityHot ItemType = "community_hot_post"
 	ItemTypeDiveSpot     ItemType = "dive_spot"
 	ItemTypeEvent        ItemType = "event"
@@ -60,13 +61,20 @@ type NearbyCondition struct {
 }
 
 type FeedItem struct {
-	ID        string         `json:"id"`
-	Type      ItemType       `json:"type"`
-	EntityID  string         `json:"entityId"`
-	Score     float64        `json:"score"`
-	Reasons   []string       `json:"reasons"`
-	CreatedAt string         `json:"createdAt"`
-	Payload   map[string]any `json:"payload"`
+	ID         string         `json:"id"`
+	Type       ItemType       `json:"type"`
+	EntityID   string         `json:"entityId"`
+	Score      float64        `json:"score"`
+	Reasons    []string       `json:"reasons"`
+	TypeLabel  string         `json:"typeLabel"`
+	TypeHint   string         `json:"typeHint"`
+	RankLabel  string         `json:"rankLabel"`
+	RankHint   string         `json:"rankHint"`
+	Tone       string         `json:"tone"`
+	DetailHref string         `json:"detailHref,omitempty"`
+	AuthorHref string         `json:"authorHref,omitempty"`
+	CreatedAt  string         `json:"createdAt"`
+	Payload    map[string]any `json:"payload"`
 }
 
 type rankedItem struct {

@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type {
+  CreateMediaPostRequest,
+  ListProfileMediaResponse,
   MediaContextType,
+  MediaItemType,
   MediaPreset,
   MintMediaUrlItem,
   MintMediaUrlsResponse,
@@ -25,7 +28,10 @@ type _contextType = Assert<
 >;
 type _preset = Assert<IsEqual<MediaPreset, "thumb" | "card" | "dialog" | "original">>;
 type _mintItem = Assert<IsEqual<MintMediaUrlsResponse["items"][number], MintMediaUrlItem>>;
+type _postItemType = Assert<IsEqual<MediaItemType, "photo" | "video">>;
+type _createMediaItems = Assert<IsEqual<CreateMediaPostRequest["items"][number]["type"], MediaItemType>>;
+type _profileMediaList = Assert<IsEqual<ListProfileMediaResponse["items"][number]["type"], MediaItemType>>;
 
-test("media contracts expose minting and context enums", () => {
+test("media contracts expose upload, publish, and gallery enums", () => {
   assert.equal(true, true);
 });

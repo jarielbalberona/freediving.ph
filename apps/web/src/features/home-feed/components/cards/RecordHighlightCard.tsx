@@ -1,14 +1,16 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
 import type { HomeFeedItem } from "@freediving.ph/types";
+import { FeedCardShell } from "@/features/home-feed/components/FeedCardShell";
 
-export function RecordHighlightCard({ item, actions }: { item: HomeFeedItem; actions?: React.ReactNode }) {
+export function RecordHighlightCard({
+  item,
+  actions,
+}: { item: HomeFeedItem; actions?: React.ReactNode }) {
   return (
-    <Card className="p-5">
+    <FeedCardShell item={item} actions={actions}>
       <p className="text-base font-semibold text-primary">Record highlight</p>
-      <p className="mt-2 text-sm text-muted-foreground">Entity #{item.entityId}</p>
-      {actions}
-    </Card>
+      <p className="text-sm text-muted-foreground">Entity #{item.entityId}</p>
+    </FeedCardShell>
   );
 }

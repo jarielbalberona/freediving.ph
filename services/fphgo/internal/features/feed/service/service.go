@@ -21,6 +21,7 @@ type repository interface {
 	ListHiddenItems(ctx context.Context, userID string) (map[string]struct{}, error)
 	ListNegativeActionCounts(ctx context.Context, userID string, since time.Time) ([]feedrepo.FeedActionCount, error)
 	ListPostCandidates(ctx context.Context, input feedrepo.CandidateInput) ([]feedrepo.PostCandidate, error)
+	ListMediaPostCandidates(ctx context.Context, input feedrepo.CandidateInput) ([]feedrepo.MediaPostCandidate, error)
 	ListCommunityCandidates(ctx context.Context, input feedrepo.CandidateInput) ([]feedrepo.CommunityCandidate, error)
 	ListDiveSpotCandidates(ctx context.Context, input feedrepo.CandidateInput) ([]feedrepo.DiveSpotCandidate, error)
 	ListBuddySignalCandidates(ctx context.Context, input feedrepo.CandidateInput) ([]feedrepo.BuddySignalCandidate, error)
@@ -112,6 +113,10 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 	if err != nil {
 		return HomeResult{}, apperrors.New(http.StatusInternalServerError, "feed_failed", "failed to load post candidates", err)
 	}
+	mediaPosts, err := s.repo.ListMediaPostCandidates(ctx, candidatesInput)
+	if err != nil {
+		return HomeResult{}, apperrors.New(http.StatusInternalServerError, "feed_failed", "failed to load media post candidates", err)
+	}
 	community, err := s.repo.ListCommunityCandidates(ctx, candidatesInput)
 	if err != nil {
 		return HomeResult{}, apperrors.New(http.StatusInternalServerError, "feed_failed", "failed to load community candidates", err)
@@ -130,7 +135,7 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 	}
 
 	mode := ParseMode(string(input.Mode))
-	ranked := make([]rankedItem, 0, len(posts)+len(community)+len(spots)+len(buddySignals)+len(events))
+	ranked := make([]rankedItem, 0, len(posts)+len(mediaPosts)+len(community)+len(spots)+len(buddySignals)+len(events))
 	for _, row := range posts {
 		entityKey := "post:" + row.ID
 		if _, blocked := hidden[entityKey]; blocked {
@@ -153,25 +158,99 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 			score -= 0.08 * float64(penalty)
 			reasons = append(reasons, "feedback_penalty")
 		}
+		presentation := presentationFor(mode, ItemTypePost, reasons)
 		ranked = append(ranked, rankedItem{
 			FeedItem: FeedItem{
-				ID:        "fi_post_" + row.ID,
-				Type:      ItemTypePost,
-				EntityID:  row.ID,
-				Score:     score,
-				Reasons:   dedupeReasons(reasons),
-				CreatedAt: formatRFC3339(row.CreatedAt),
+				ID:         "fi_post_" + row.ID,
+				Type:       ItemTypePost,
+				EntityID:   row.ID,
+				Score:      score,
+				Reasons:    dedupeReasons(reasons),
+				TypeLabel:  presentation.TypeLabel,
+				TypeHint:   presentation.TypeHint,
+				RankLabel:  presentation.RankLabel,
+				RankHint:   presentation.RankHint,
+				Tone:       presentation.Tone,
+				DetailHref: diveSiteHref(row.DiveSiteSlug),
+				AuthorHref: profileHref(row.AuthorUsername),
+				CreatedAt:  formatRFC3339(row.CreatedAt),
 				Payload: map[string]any{
 					"authorUserId":   row.AuthorUserID,
 					"authorName":     row.AuthorName,
 					"authorUsername": row.AuthorUsername,
 					"diveSiteId":     row.DiveSiteID,
+					"diveSiteSlug":   row.DiveSiteSlug,
 					"diveSiteName":   row.DiveSiteName,
 					"area":           row.Area,
 					"note":           row.Note,
 					"current":        row.Current,
 					"waves":          row.Waves,
 					"savedByViewer":  row.SavedByViewer,
+				},
+			},
+			ActorUserID: row.AuthorUserID,
+			Area:        row.Area,
+			rawScore:    score,
+		})
+	}
+	for _, row := range mediaPosts {
+		entityKey := "media_post:" + row.ID
+		if _, blocked := hidden[entityKey]; blocked {
+			continue
+		}
+		localBoost := areaMatchBoost(homeArea, row.Area)
+		itemDensityBoost := float64(row.ItemCount) * 0.03
+		if itemDensityBoost > 0.15 {
+			itemDensityBoost = 0.15
+		}
+		score := 0.42 + freshnessScore(row.CreatedAt, 24)*0.34 + itemDensityBoost + localBoost
+		reasons := []string{"fresh"}
+		if row.SavedByViewer {
+			score += 0.08
+			reasons = append(reasons, "saved_spot_related")
+		}
+		if localBoost > 0 {
+			reasons = append(reasons, "nearby")
+		}
+		multiplier, modeReasons := modeMultiplier(mode, ItemTypeMediaPost, localBoost)
+		score *= multiplier
+		reasons = append(reasons, modeReasons...)
+		if penalty := negativeMap[entityKey]; penalty > 0 {
+			score -= 0.08 * float64(penalty)
+			reasons = append(reasons, "feedback_penalty")
+		}
+		presentation := presentationFor(mode, ItemTypeMediaPost, reasons)
+		ranked = append(ranked, rankedItem{
+			FeedItem: FeedItem{
+				ID:         "fi_media_" + row.ID,
+				Type:       ItemTypeMediaPost,
+				EntityID:   row.ID,
+				Score:      score,
+				Reasons:    dedupeReasons(reasons),
+				TypeLabel:  presentation.TypeLabel,
+				TypeHint:   presentation.TypeHint,
+				RankLabel:  presentation.RankLabel,
+				RankHint:   presentation.RankHint,
+				Tone:       presentation.Tone,
+				DetailHref: profileHref(row.AuthorUsername),
+				AuthorHref: profileHref(row.AuthorUsername),
+				CreatedAt:  formatRFC3339(row.CreatedAt),
+				Payload: map[string]any{
+					"authorUserId":    row.AuthorUserID,
+					"authorName":      row.AuthorName,
+					"authorUsername":  row.AuthorUsername,
+					"diveSiteId":      row.DiveSiteID,
+					"diveSiteSlug":    row.DiveSiteSlug,
+					"diveSiteName":    row.DiveSiteName,
+					"area":            row.Area,
+					"postCaption":     row.PostCaption,
+					"previewCaption":  row.PreviewCaption,
+					"previewMediaId":  row.PreviewMediaID,
+					"previewMimeType": row.PreviewMimeType,
+					"previewWidth":    row.PreviewWidth,
+					"previewHeight":   row.PreviewHeight,
+					"itemCount":       row.ItemCount,
+					"items":           row.Items,
 				},
 			},
 			ActorUserID: row.AuthorUserID,
@@ -194,14 +273,22 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 			score -= 0.08 * float64(penalty)
 			reasons = append(reasons, "feedback_penalty")
 		}
+		presentation := presentationFor(mode, ItemTypeCommunityHot, reasons)
 		ranked = append(ranked, rankedItem{
 			FeedItem: FeedItem{
-				ID:        "fi_community_" + row.ID,
-				Type:      ItemTypeCommunityHot,
-				EntityID:  row.ID,
-				Score:     score,
-				Reasons:   dedupeReasons(reasons),
-				CreatedAt: formatRFC3339(row.CreatedAt),
+				ID:         "fi_community_" + row.ID,
+				Type:       ItemTypeCommunityHot,
+				EntityID:   row.ID,
+				Score:      score,
+				Reasons:    dedupeReasons(reasons),
+				TypeLabel:  presentation.TypeLabel,
+				TypeHint:   presentation.TypeHint,
+				RankLabel:  presentation.RankLabel,
+				RankHint:   presentation.RankHint,
+				Tone:       presentation.Tone,
+				DetailHref: chikaHref(row.ID),
+				AuthorHref: profileHref(row.AuthorUsername),
+				CreatedAt:  formatRFC3339(row.CreatedAt),
 				Payload: map[string]any{
 					"authorUserId":   row.AuthorUserID,
 					"authorName":     row.AuthorName,
@@ -239,16 +326,24 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 			score -= 0.08 * float64(penalty)
 			reasons = append(reasons, "feedback_penalty")
 		}
+		presentation := presentationFor(mode, ItemTypeDiveSpot, reasons)
 		ranked = append(ranked, rankedItem{
 			FeedItem: FeedItem{
-				ID:        "fi_spot_" + row.ID,
-				Type:      ItemTypeDiveSpot,
-				EntityID:  row.ID,
-				Score:     score,
-				Reasons:   dedupeReasons(reasons),
-				CreatedAt: formatRFC3339(row.LastUpdatedAt),
+				ID:         "fi_spot_" + row.ID,
+				Type:       ItemTypeDiveSpot,
+				EntityID:   row.ID,
+				Score:      score,
+				Reasons:    dedupeReasons(reasons),
+				TypeLabel:  presentation.TypeLabel,
+				TypeHint:   presentation.TypeHint,
+				RankLabel:  presentation.RankLabel,
+				RankHint:   presentation.RankHint,
+				Tone:       presentation.Tone,
+				DetailHref: diveSiteHref(row.Slug),
+				CreatedAt:  formatRFC3339(row.LastUpdatedAt),
 				Payload: map[string]any{
 					"name":               row.Name,
+					"slug":               row.Slug,
 					"area":               row.Area,
 					"description":        row.Description,
 					"entryDifficulty":    row.EntryDifficulty,
@@ -280,14 +375,21 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 			score -= 0.08 * float64(penalty)
 			reasons = append(reasons, "feedback_penalty")
 		}
+		presentation := presentationFor(mode, ItemTypeEvent, reasons)
 		ranked = append(ranked, rankedItem{
 			FeedItem: FeedItem{
-				ID:        "fi_event_" + row.ID,
-				Type:      ItemTypeEvent,
-				EntityID:  row.ID,
-				Score:     score,
-				Reasons:   dedupeReasons(reasons),
-				CreatedAt: formatRFC3339(row.CreatedAt),
+				ID:         "fi_event_" + row.ID,
+				Type:       ItemTypeEvent,
+				EntityID:   row.ID,
+				Score:      score,
+				Reasons:    dedupeReasons(reasons),
+				TypeLabel:  presentation.TypeLabel,
+				TypeHint:   presentation.TypeHint,
+				RankLabel:  presentation.RankLabel,
+				RankHint:   presentation.RankHint,
+				Tone:       presentation.Tone,
+				DetailHref: eventHref(row.ID),
+				CreatedAt:  formatRFC3339(row.CreatedAt),
 				Payload: map[string]any{
 					"title":        row.Title,
 					"memberCount":  row.MemberCount,
@@ -319,14 +421,22 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 			score -= 0.08 * float64(penalty)
 			reasons = append(reasons, "feedback_penalty")
 		}
+		presentation := presentationFor(mode, ItemTypeBuddySignal, reasons)
 		ranked = append(ranked, rankedItem{
 			FeedItem: FeedItem{
-				ID:        "fi_buddy_" + row.ID,
-				Type:      ItemTypeBuddySignal,
-				EntityID:  row.ID,
-				Score:     score,
-				Reasons:   dedupeReasons(reasons),
-				CreatedAt: formatRFC3339(row.CreatedAt),
+				ID:         "fi_buddy_" + row.ID,
+				Type:       ItemTypeBuddySignal,
+				EntityID:   row.ID,
+				Score:      score,
+				Reasons:    dedupeReasons(reasons),
+				TypeLabel:  presentation.TypeLabel,
+				TypeHint:   presentation.TypeHint,
+				RankLabel:  presentation.RankLabel,
+				RankHint:   presentation.RankHint,
+				Tone:       presentation.Tone,
+				DetailHref: buddyHref(row.ID),
+				AuthorHref: profileHref(row.AuthorUsername),
+				CreatedAt:  formatRFC3339(row.CreatedAt),
 				Payload: map[string]any{
 					"authorUserId":   row.AuthorUserID,
 					"authorName":     row.AuthorName,
@@ -383,29 +493,15 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 		return HomeResult{}, apperrors.New(http.StatusInternalServerError, "feed_failed", "failed to load nearby condition", err)
 	}
 
-	message := "Conditions look stable near your saved spots."
-	if isGuest {
-		message = "Public preview mode: sign in to see more content."
-	}
-	if mode == ModeTraining {
-		message = "Training-focused picks are prioritized for this session."
-	}
-	if mode == ModeSpotReports {
-		message = "Spot reports are prioritized for actionable dive decisions."
-	}
+	frame := contextForMode(mode, isGuest)
 
 	return HomeResult{
 		Context: ContextBlock{
-			Greeting:    "Good day, diver",
-			Message:     message,
-			SafetyBadge: "Dive with a buddy",
+			Greeting:    frame.Greeting,
+			Message:     frame.Message,
+			SafetyBadge: frame.SafetyBadge,
 		},
-		QuickActions: []QuickAction{
-			{Type: "log_dive", Label: "Log dive"},
-			{Type: "find_buddy", Label: "Find buddy"},
-			{Type: "explore_spots", Label: "Explore spots"},
-			{Type: "create_session", Label: "Create session"},
-		},
+		QuickActions: quickActionsForMode(mode),
 		NearbyCondition: NearbyCondition{
 			Spot:       nearby.Spot,
 			DistanceKm: nearby.DistanceKm,

@@ -77,13 +77,15 @@ export function HomeFeedPage() {
   return (
     <main className="min-h-full bg-gradient-to-b from-background to-muted/20 px-3 py-3 text-foreground sm:px-4 sm:py-4">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-        <HomeHero context={context} />
+        <HomeHero context={context} mode={mode} />
         <HomeQuickActions actions={actions} />
         <NearbyConditionsCard condition={nearbyCondition} />
         <FeedModeTabs mode={mode} onChange={setMode} />
 
         {query.error ? (
-          <p className="text-sm text-destructive">Failed to load feed. Sign in and try again.</p>
+          <p className="text-sm text-destructive">
+            Failed to load feed. Sign in and try again.
+          </p>
         ) : null}
 
         <MixedFeed

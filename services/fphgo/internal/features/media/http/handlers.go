@@ -7,6 +7,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
 
 	mediaservice "fphgo/internal/features/media/service"
 	"fphgo/internal/middleware"
@@ -276,6 +279,103 @@ func (h *Handlers) MintURLs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+
+	req, issues, ok := httpx.DecodeAndValidate[CreateMediaPostRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+
+	items := make([]mediaservice.CreateMediaPostItemInput, 0, len(req.Items))
+	for _, item := range req.Items {
+		items = append(items, mediaservice.CreateMediaPostItemInput{
+			MediaObjectID: item.MediaObjectID,
+			Type:          item.Type,
+			StorageKey:    item.StorageKey,
+			MimeType:      item.MimeType,
+			Width:         item.Width,
+			Height:        item.Height,
+			DurationMs:    item.DurationMs,
+			Caption:       item.Caption,
+			DiveSiteID:    item.DiveSiteID,
+			SortOrder:     item.SortOrder,
+		})
+	}
+
+	source := ""
+	if req.Source != nil {
+		source = strings.TrimSpace(*req.Source)
+	}
+	result, err := h.service.CreateMediaPost(r.Context(), mediaservice.CreateMediaPostInput{
+		ActorID:           actorID,
+		DiveSiteID:        req.DiveSiteID,
+		PostCaption:       req.PostCaption,
+		ApplyCaptionToAll: req.ApplyCaptionToAll,
+		Source:            source,
+		Items:             items,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+
+	httpx.JSON(w, http.StatusCreated, CreateMediaPostResponse{
+		Post: MediaPostDTO{
+			ID:              result.Post.ID,
+			AuthorAppUserID: result.Post.AuthorAppUserID,
+			UploadGroupID:   result.Post.UploadGroupID,
+			DiveSiteID:      result.Post.DiveSiteID,
+			PostCaption:     result.Post.PostCaption,
+			CreatedAt:       result.Post.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:       result.Post.UpdatedAt.Format(time.RFC3339),
+		},
+		Items: mapProfileMediaDTOs(result.Items),
+	})
+}
+
+func (h *Handlers) ListProfileMedia(w http.ResponseWriter, r *http.Request) {
+	limit := int32(24)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, parseErr := strconv.ParseInt(raw, 10, 32)
+		if parseErr != nil || parsed <= 0 {
+			httpx.WriteValidationError(w, []validatex.Issue{{Path: []any{"limit"}, Code: "custom", Message: "limit must be a positive integer"}})
+			return
+		}
+		limit = int32(parsed)
+	}
+
+	result, err := h.service.ListProfileMedia(r.Context(), mediaservice.ListProfileMediaInput{
+		Username: chi.URLParam(r, "username"),
+		Cursor:   strings.TrimSpace(r.URL.Query().Get("cursor")),
+		Limit:    limit,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, ProfileMediaListResponse{
+		Items:      mapProfileMediaDTOs(result.Items),
+		NextCursor: result.NextCursor,
+	})
+}
+
 func (h *Handlers) ListMine(w http.ResponseWriter, r *http.Request) {
 	actorID, err := requireActorID(r)
 	if err != nil {
@@ -347,4 +447,34 @@ func requireActorID(r *http.Request) (string, error) {
 		return "", apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
 	}
 	return identity.UserID, nil
+}
+
+func mapProfileMediaDTOs(items []mediaservice.ProfileMediaItemResult) []ProfileMediaDTO {
+	result := make([]ProfileMediaDTO, 0, len(items))
+	for _, item := range items {
+		result = append(result, ProfileMediaDTO{
+			ID:              item.ID,
+			MediaObjectID:   item.MediaObjectID,
+			PostID:          item.PostID,
+			UploadGroupID:   item.UploadGroupID,
+			AuthorAppUserID: item.AuthorAppUserID,
+			Type:            item.Type,
+			StorageKey:      item.StorageKey,
+			MimeType:        item.MimeType,
+			Width:           item.Width,
+			Height:          item.Height,
+			DurationMs:      item.DurationMs,
+			Caption:         item.Caption,
+			DiveSite: ProfileMediaSiteDTO{
+				ID:   item.DiveSiteID,
+				Slug: item.DiveSiteSlug,
+				Name: item.DiveSiteName,
+				Area: item.DiveSiteArea,
+			},
+			SortOrder: item.SortOrder,
+			Status:    item.Status,
+			CreatedAt: item.CreatedAt.Format(time.RFC3339),
+		})
+	}
+	return result
 }

@@ -1,5 +1,5 @@
-export default async function Chika({ params }: { params: Promise<{ id: string }> }) {
-    const id = (await params).id;
+import { redirect } from "next/navigation";
 
-	return <h1>Chika id: {id}</h1>;
+export default async function BuddiesLegacyDetailPage() {
+  redirect("/buddies");
 }

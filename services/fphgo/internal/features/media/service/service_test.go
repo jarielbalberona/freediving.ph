@@ -17,8 +17,9 @@ import (
 )
 
 type fakeRepo struct {
-	created   []mediarepo.CreateMediaObjectInput
-	mediaByID map[string]mediarepo.MediaObject
+	created       []mediarepo.CreateMediaObjectInput
+	mediaByID     map[string]mediarepo.MediaObject
+	publishedPost *mediarepo.PublishMediaPostInput
 }
 
 func (f *fakeRepo) CreateMediaObject(_ context.Context, input mediarepo.CreateMediaObjectInput) (mediarepo.MediaObject, error) {
@@ -115,6 +116,58 @@ func (f *fakeRepo) ListMediaByContext(_ context.Context, input mediarepo.ListMed
 		items = items[:input.Limit]
 	}
 	return items, nil
+}
+
+func (f *fakeRepo) PublishMediaPost(_ context.Context, input mediarepo.PublishMediaPostInput) (mediarepo.MediaPost, []mediarepo.MediaItem, error) {
+	f.publishedPost = &input
+	post := mediarepo.MediaPost{
+		ID:              "22222222-2222-2222-2222-222222222222",
+		AuthorAppUserID: input.AuthorAppUserID,
+		UploadGroupID:   "33333333-3333-3333-3333-333333333333",
+		DiveSiteID:      input.DiveSiteID,
+		PostCaption:     input.PostCaption,
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
+	}
+	items := make([]mediarepo.MediaItem, 0, len(input.Items))
+	for idx, item := range input.Items {
+		items = append(items, mediarepo.MediaItem{
+			ID:              "44444444-4444-4444-4444-44444444444" + string(rune('0'+idx)),
+			PostID:          post.ID,
+			MediaObjectID:   item.MediaObjectID,
+			AuthorAppUserID: item.AuthorAppUserID,
+			UploadGroupID:   post.UploadGroupID,
+			DiveSiteID:      item.DiveSiteID,
+			Type:            item.Type,
+			StorageKey:      item.StorageKey,
+			MimeType:        item.MimeType,
+			Width:           item.Width,
+			Height:          item.Height,
+			DurationMs:      item.DurationMs,
+			Caption:         item.Caption,
+			SortOrder:       item.SortOrder,
+			Status:          item.Status,
+			CreatedAt:       time.Now().UTC(),
+			UpdatedAt:       time.Now().UTC(),
+		})
+	}
+	return post, items, nil
+}
+
+func (f *fakeRepo) ListProfileMediaByUsername(_ context.Context, _ mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error) {
+	return nil, nil
+}
+
+type fakeSiteLookup struct {
+	site SiteRecord
+	err  error
+}
+
+func (f fakeSiteLookup) GetSiteForWrite(context.Context, string) (SiteRecord, error) {
+	if f.err != nil {
+		return SiteRecord{}, f.err
+	}
+	return f.site, nil
 }
 
 type fakeUploader struct {
@@ -277,14 +330,150 @@ func TestCanonicalStringStable(t *testing.T) {
 		"q":   "75",
 		"w":   "640",
 	})
-	canonical := canonicalString("/i/feed/user_123/2026/02/1700000123456-ab12cd.jpg", q)
-	want := "GET\n/i/feed/user_123/2026/02/1700000123456-ab12cd.jpg\nf=auto&q=75&w=640&exp=1700000000&k=1"
+	canonical := canonicalString("/feed/user_123/2026/02/1700000123456-ab12cd.jpg", q)
+	want := "GET\n/feed/user_123/2026/02/1700000123456-ab12cd.jpg\nf=auto&q=75&w=640&exp=1700000000&k=1"
 	if canonical != want {
 		t.Fatalf("canonical mismatch\nwant: %s\ngot:  %s", want, canonical)
 	}
 	sig := signCanonical(canonical, "secret")
 	if sig == "" {
 		t.Fatal("expected signature")
+	}
+}
+
+func TestCreateMediaPostRejectsVideoItems(t *testing.T) {
+	repo := &fakeRepo{mediaByID: map[string]mediarepo.MediaObject{
+		"11111111-1111-1111-1111-111111111111": {
+			ID:             "11111111-1111-1111-1111-111111111111",
+			OwnerAppUserID: "550e8400-e29b-41d4-a716-446655440000",
+			ContextType:    ContextProfileFeed,
+			ObjectKey:      "feed/user/video.jpg",
+			MimeType:       "image/jpeg",
+			SizeBytes:      1024,
+			Width:          100,
+			Height:         100,
+			State:          "active",
+		},
+	}}
+	svc := New(
+		repo,
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret",
+		1,
+		WithSiteLookup(fakeSiteLookup{site: SiteRecord{
+			ID:              "66666666-6666-6666-6666-666666666666",
+			Slug:            "anilao",
+			Name:            "Anilao",
+			Area:            "Batangas",
+			ModerationState: "approved",
+		}}),
+	)
+
+	_, err := svc.CreateMediaPost(context.Background(), CreateMediaPostInput{
+		ActorID:    "550e8400-e29b-41d4-a716-446655440000",
+		DiveSiteID: "66666666-6666-6666-6666-666666666666",
+		Items: []CreateMediaPostItemInput{{
+			MediaObjectID: "11111111-1111-1111-1111-111111111111",
+			Type:          "video",
+			StorageKey:    "feed/user/video.jpg",
+			MimeType:      "image/jpeg",
+			Width:         100,
+			Height:        100,
+			SortOrder:     0,
+		}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "validation failed") {
+		t.Fatalf("expected validation failure, got %v", err)
+	}
+}
+
+func TestCreateMediaPostPublishesGroupedPhotos(t *testing.T) {
+	repo := &fakeRepo{mediaByID: map[string]mediarepo.MediaObject{
+		"11111111-1111-1111-1111-111111111111": {
+			ID:             "11111111-1111-1111-1111-111111111111",
+			OwnerAppUserID: "550e8400-e29b-41d4-a716-446655440000",
+			ContextType:    ContextProfileFeed,
+			ObjectKey:      "feed/user/one.jpg",
+			MimeType:       "image/jpeg",
+			SizeBytes:      1024,
+			Width:          100,
+			Height:         120,
+			State:          "active",
+		},
+		"22222222-2222-2222-2222-222222222222": {
+			ID:             "22222222-2222-2222-2222-222222222222",
+			OwnerAppUserID: "550e8400-e29b-41d4-a716-446655440000",
+			ContextType:    ContextProfileFeed,
+			ObjectKey:      "feed/user/two.jpg",
+			MimeType:       "image/jpeg",
+			SizeBytes:      1024,
+			Width:          100,
+			Height:         150,
+			State:          "active",
+		},
+	}}
+	svc := New(
+		repo,
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret",
+		1,
+		WithSiteLookup(fakeSiteLookup{site: SiteRecord{
+			ID:              "66666666-6666-6666-6666-666666666666",
+			Slug:            "anilao",
+			Name:            "Anilao",
+			Area:            "Batangas",
+			ModerationState: "approved",
+		}}),
+	)
+
+	sharedCaption := "Freedive day"
+	result, err := svc.CreateMediaPost(context.Background(), CreateMediaPostInput{
+		ActorID:           "550e8400-e29b-41d4-a716-446655440000",
+		DiveSiteID:        "66666666-6666-6666-6666-666666666666",
+		ApplyCaptionToAll: true,
+		Items: []CreateMediaPostItemInput{
+			{
+				MediaObjectID: "11111111-1111-1111-1111-111111111111",
+				Type:          "photo",
+				StorageKey:    "feed/user/one.jpg",
+				MimeType:      "image/jpeg",
+				Width:         100,
+				Height:        120,
+				Caption:       &sharedCaption,
+				SortOrder:     0,
+			},
+			{
+				MediaObjectID: "22222222-2222-2222-2222-222222222222",
+				Type:          "photo",
+				StorageKey:    "feed/user/two.jpg",
+				MimeType:      "image/jpeg",
+				Width:         100,
+				Height:        150,
+				SortOrder:     1,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected create media post success, got %v", err)
+	}
+	if repo.publishedPost == nil {
+		t.Fatal("expected repo publish call")
+	}
+	if repo.publishedPost.Source != "create_post" {
+		t.Fatalf("expected default source create_post, got %s", repo.publishedPost.Source)
+	}
+	if len(repo.publishedPost.Items) != 2 {
+		t.Fatalf("expected two published items, got %d", len(repo.publishedPost.Items))
+	}
+	if repo.publishedPost.Items[1].Caption == nil || *repo.publishedPost.Items[1].Caption != sharedCaption {
+		t.Fatalf("expected shared caption to apply to blank item, got %#v", repo.publishedPost.Items[1].Caption)
+	}
+	if result.Items[0].DiveSiteName != "Anilao" {
+		t.Fatalf("expected dive site name on result, got %s", result.Items[0].DiveSiteName)
 	}
 }
 

@@ -19,4 +19,7 @@ export const canLinkToProfileUsername = (username: string): boolean => {
 export const getProfileRoute = (username: string): string =>
   `/${encodeURIComponent(normalizeUsername(username))}`;
 
+export const getProfileCreateRoute = (username: string): string =>
+  `${getProfileRoute(username)}/create`;
+
 export const getProfileFallbackRoute = (): string => "/profile";

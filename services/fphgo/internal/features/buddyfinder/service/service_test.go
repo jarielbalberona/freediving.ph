@@ -14,6 +14,7 @@ type stubRepo struct {
 	previewBySite []buddyfinderrepo.PreviewIntent
 	memberByArea  []buddyfinderrepo.MemberIntent
 	memberBySite  []buddyfinderrepo.MemberIntent
+	ownIntents    []buddyfinderrepo.MemberIntent
 	sharePreview  buddyfinderrepo.SharePreview
 	created       buddyfinderrepo.CreateIntentInput
 	createResult  buddyfinderrepo.Intent
@@ -34,6 +35,9 @@ func (s *stubRepo) ListMemberIntentsByArea(context.Context, buddyfinderrepo.List
 }
 func (s *stubRepo) ListMemberIntentsBySite(context.Context, buddyfinderrepo.ListSiteIntentsInput) ([]buddyfinderrepo.MemberIntent, error) {
 	return s.memberBySite, nil
+}
+func (s *stubRepo) ListOwnIntents(context.Context, string) ([]buddyfinderrepo.MemberIntent, error) {
+	return s.ownIntents, nil
 }
 func (s *stubRepo) GetIntentByID(context.Context, string) (buddyfinderrepo.Intent, error) {
 	return buddyfinderrepo.Intent{}, errors.New("not implemented")

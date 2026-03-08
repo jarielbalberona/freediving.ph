@@ -1,5 +1,8 @@
 import type {
+  CreateMediaPostRequest,
+  CreateMediaPostResponse,
   ListMyMediaResponse,
+  ListProfileMediaResponse,
   MediaContextType,
   MediaUploadResponse,
   MintMediaUrlItemRequest,
@@ -39,7 +42,10 @@ export const mediaApi = {
     files: File[],
     contextType: MediaContextType,
     contextId?: string,
-  ): Promise<{ items: MediaUploadResponse[]; errors?: Array<{ index: number; code: string; message: string }> }> => {
+  ): Promise<{
+    items: MediaUploadResponse[];
+    errors?: Array<{ index: number; code: string; message: string }>;
+  }> => {
     const formData = new FormData();
     for (const file of files) {
       formData.append("files", file);
@@ -49,16 +55,18 @@ export const mediaApi = {
       formData.append("contextId", contextId);
     }
 
-    return fphgoFetchClient<{ items: MediaUploadResponse[]; errors?: Array<{ index: number; code: string; message: string }> }>(
-      routes.v1.media.uploadMultiple(),
-      {
-        method: "POST",
-        body: formData,
-      },
-    );
+    return fphgoFetchClient<{
+      items: MediaUploadResponse[];
+      errors?: Array<{ index: number; code: string; message: string }>;
+    }>(routes.v1.media.uploadMultiple(), {
+      method: "POST",
+      body: formData,
+    });
   },
 
-  listMine: async (params: ListMineParams = {}): Promise<ListMyMediaResponse> => {
+  listMine: async (
+    params: ListMineParams = {},
+  ): Promise<ListMyMediaResponse> => {
     const query = new URLSearchParams();
     if (params.limit) query.set("limit", String(params.limit));
     if (params.cursor) query.set("cursor", params.cursor);
@@ -66,13 +74,39 @@ export const mediaApi = {
     if (params.contextId) query.set("contextId", params.contextId);
 
     const suffix = query.toString() ? `?${query.toString()}` : "";
-    return fphgoFetchClient<ListMyMediaResponse>(`${routes.v1.media.mine()}${suffix}`);
+    return fphgoFetchClient<ListMyMediaResponse>(
+      `${routes.v1.media.mine()}${suffix}`,
+    );
   },
 
-  mintUrls: async (items: MintMediaUrlItemRequest[]): Promise<MintMediaUrlsResponse> => {
+  mintUrls: async (
+    items: MintMediaUrlItemRequest[],
+  ): Promise<MintMediaUrlsResponse> => {
     return fphgoFetchClient<MintMediaUrlsResponse>(routes.v1.media.urls(), {
       method: "POST",
       body: { items },
     });
+  },
+
+  createPost: async (
+    payload: CreateMediaPostRequest,
+  ): Promise<CreateMediaPostResponse> => {
+    return fphgoFetchClient<CreateMediaPostResponse>(routes.v1.media.posts(), {
+      method: "POST",
+      body: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  listProfileMedia: async (
+    username: string,
+    params: { limit?: number; cursor?: string } = {},
+  ): Promise<ListProfileMediaResponse> => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set("limit", String(params.limit));
+    if (params.cursor) query.set("cursor", params.cursor);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return fphgoFetchClient<ListProfileMediaResponse>(
+      `${routes.v1.media.byUsername(username)}${suffix}`,
+    );
   },
 };

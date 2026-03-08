@@ -1,7 +1,10 @@
 import type { ListMineParams } from "../api/media";
-import type { MediaPreset, MintMediaUrlItemRequest } from "@freediving.ph/types";
+import type {
+  MediaPreset,
+  MintMediaUrlItemRequest,
+} from "@freediving.ph/types";
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import { mediaApi } from "../api/media";
 
@@ -22,7 +25,10 @@ export const useListMyMedia = (params: ListMineParams = {}, enabled = true) => {
   });
 };
 
-export const useMintMediaUrls = (items: MintMediaUrlItemRequest[], enabled = true) => {
+export const useMintMediaUrls = (
+  items: MintMediaUrlItemRequest[],
+  enabled = true,
+) => {
   const normalizedItems = useMemo(() => sortItems(items), [items]);
 
   return useQuery({
@@ -40,7 +46,7 @@ export const useMintedMediaMap = (
   enabled = true,
 ) => {
   const items = useMemo(
-    () => mediaIds.map((mediaId) => ({ mediaId, preset } as const)),
+    () => mediaIds.map((mediaId) => ({ mediaId, preset }) as const),
     [mediaIds, preset],
   );
 
@@ -58,4 +64,15 @@ export const useMintedMediaMap = (
     ...query,
     urlMap,
   };
+};
+
+export const useProfileMediaInfiniteQuery = (username: string, limit = 24) => {
+  return useInfiniteQuery({
+    queryKey: ["media", "profile", username, limit],
+    queryFn: ({ pageParam }: { pageParam?: string }) =>
+      mediaApi.listProfileMedia(username, { limit, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    staleTime: 60_000,
+  });
 };

@@ -37,6 +37,9 @@ func (s *buddyFinderServiceStub) GetSharePreview(context.Context, string) (buddy
 func (s *buddyFinderServiceStub) ListMemberIntents(context.Context, buddyfinderservice.ListMemberIntentsInput) (buddyfinderservice.ListMemberIntentsResult, error) {
 	return s.list, s.err
 }
+func (s *buddyFinderServiceStub) ListOwnIntents(context.Context, string) ([]buddyfinderrepo.MemberIntent, error) {
+	return s.list.Items, s.err
+}
 func (s *buddyFinderServiceStub) CreateIntent(context.Context, buddyfinderservice.CreateIntentInput) (buddyfinderrepo.Intent, error) {
 	return s.intent, s.err
 }
@@ -90,8 +93,23 @@ func TestBuddyFinderPreviewPublicAndMemberRoutesProtected(t *testing.T) {
 	listReq := httptest.NewRequest(http.MethodGet, "/intents?area=Moalboal,%20Cebu", nil)
 	listRec := httptest.NewRecorder()
 	router.ServeHTTP(listRec, listReq)
-	if listRec.Code != http.StatusOK {
-		t.Fatalf("expected 200 for signed-out intents list preview, got %d", listRec.Code)
+	if listRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for signed-out intents list, got %d", listRec.Code)
+	}
+
+	memberRouter := buildBuddyFinderRouter(t, svc, authz.Identity{
+		UserID:        "550e8400-e29b-41d4-a716-446655440000",
+		GlobalRole:    "member",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionBuddiesRead: true,
+		},
+	})
+	memberReq := httptest.NewRequest(http.MethodGet, "/intents?area=Moalboal,%20Cebu", nil)
+	memberRec := httptest.NewRecorder()
+	memberRouter.ServeHTTP(memberRec, memberReq)
+	if memberRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for member intents list, got %d", memberRec.Code)
 	}
 }
 

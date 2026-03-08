@@ -56,13 +56,20 @@ func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 	items := make([]HomeFeedItem, 0, len(result.Items))
 	for _, item := range result.Items {
 		items = append(items, HomeFeedItem{
-			ID:        item.ID,
-			Type:      string(item.Type),
-			EntityID:  item.EntityID,
-			Score:     item.Score,
-			Reasons:   item.Reasons,
-			CreatedAt: item.CreatedAt,
-			Payload:   item.Payload,
+			ID:         item.ID,
+			Type:       string(item.Type),
+			EntityID:   item.EntityID,
+			Score:      item.Score,
+			Reasons:    item.Reasons,
+			TypeLabel:  item.TypeLabel,
+			TypeHint:   item.TypeHint,
+			RankLabel:  item.RankLabel,
+			RankHint:   item.RankHint,
+			Tone:       item.Tone,
+			DetailHref: item.DetailHref,
+			AuthorHref: item.AuthorHref,
+			CreatedAt:  item.CreatedAt,
+			Payload:    item.Payload,
 		})
 	}
 	httpx.JSON(w, http.StatusOK, HomeResponse{

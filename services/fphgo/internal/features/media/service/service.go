@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"image"
 	"image/gif"
@@ -24,9 +25,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	mediarepo "fphgo/internal/features/media/repo"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/pagination"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -49,6 +52,8 @@ type repository interface {
 	GetMediaObjectsByIDs(ctx context.Context, mediaIDs []string) ([]mediarepo.MediaObject, error)
 	ListMediaByOwner(ctx context.Context, input mediarepo.ListMediaByOwnerInput) ([]mediarepo.MediaObject, error)
 	ListMediaByContext(ctx context.Context, input mediarepo.ListMediaByContextInput) ([]mediarepo.MediaObject, error)
+	PublishMediaPost(ctx context.Context, input mediarepo.PublishMediaPostInput) (mediarepo.MediaPost, []mediarepo.MediaItem, error)
+	ListProfileMediaByUsername(ctx context.Context, input mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error)
 }
 
 type uploader interface {
@@ -59,11 +64,34 @@ type uploader interface {
 type Service struct {
 	repo              repository
 	uploader          uploader
+	siteLookup        siteLookup
 	bucketName        string
 	cdnBaseURL        string
 	signingSecret     string
 	signingKeyVersion int
 	nowFn             func() time.Time
+}
+
+type siteLookup interface {
+	GetSiteForWrite(ctx context.Context, siteID string) (SiteRecord, error)
+}
+
+type SiteRecord struct {
+	ID              string
+	Slug            string
+	Name            string
+	Area            string
+	ModerationState string
+}
+
+type Option func(*Service)
+
+func WithSiteLookup(lookup siteLookup) Option {
+	return func(s *Service) {
+		if lookup != nil {
+			s.siteLookup = lookup
+		}
+	}
 }
 
 type ValidationFailure struct {
@@ -142,6 +170,76 @@ type ListMediaResult struct {
 	NextCursor string
 }
 
+type CreateMediaPostInput struct {
+	ActorID           string
+	DiveSiteID        string
+	PostCaption       *string
+	ApplyCaptionToAll bool
+	Source            string
+	Items             []CreateMediaPostItemInput
+}
+
+type CreateMediaPostItemInput struct {
+	MediaObjectID string
+	Type          string
+	StorageKey    string
+	MimeType      string
+	Width         int
+	Height        int
+	DurationMs    *int
+	Caption       *string
+	DiveSiteID    *string
+	SortOrder     int
+}
+
+type MediaPostResult struct {
+	ID              string
+	AuthorAppUserID string
+	UploadGroupID   string
+	DiveSiteID      string
+	PostCaption     *string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type ProfileMediaItemResult struct {
+	ID              string
+	MediaObjectID   string
+	PostID          string
+	UploadGroupID   string
+	AuthorAppUserID string
+	Type            string
+	StorageKey      string
+	MimeType        string
+	Width           int
+	Height          int
+	DurationMs      *int
+	Caption         *string
+	DiveSiteID      string
+	DiveSiteSlug    string
+	DiveSiteName    string
+	DiveSiteArea    string
+	SortOrder       int
+	Status          string
+	CreatedAt       time.Time
+}
+
+type CreateMediaPostResult struct {
+	Post  MediaPostResult
+	Items []ProfileMediaItemResult
+}
+
+type ListProfileMediaInput struct {
+	Username string
+	Cursor   string
+	Limit    int32
+}
+
+type ListProfileMediaResult struct {
+	Items      []ProfileMediaItemResult
+	NextCursor string
+}
+
 type contextRule struct {
 	maxUploadBytes    int64
 	ttl               time.Duration
@@ -163,7 +261,7 @@ var contextRules = map[string]contextRule{
 		allowedPresets:    map[string]bool{PresetThumb: true, PresetCard: true, PresetDialog: true},
 	},
 	ContextProfileFeed: {
-		maxUploadBytes:    10 * 1024 * 1024,
+		maxUploadBytes:    5 * 1024 * 1024,
 		ttl:               3 * 24 * time.Hour,
 		maxTransformWidth: 2048,
 		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
@@ -219,11 +317,11 @@ var mimeExt = map[string]string{
 	"image/gif":  "gif",
 }
 
-func New(repo repository, uploader uploader, bucketName, cdnBaseURL, signingSecret string, signingKeyVersion int) *Service {
+func New(repo repository, uploader uploader, bucketName, cdnBaseURL, signingSecret string, signingKeyVersion int, opts ...Option) *Service {
 	if signingKeyVersion <= 0 {
 		signingKeyVersion = 1
 	}
-	return &Service{
+	svc := &Service{
 		repo:              repo,
 		uploader:          uploader,
 		bucketName:        bucketName,
@@ -234,6 +332,12 @@ func New(repo repository, uploader uploader, bucketName, cdnBaseURL, signingSecr
 			return time.Now().UTC()
 		},
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func (s *Service) Upload(ctx context.Context, input UploadInput) (UploadResult, error) {
@@ -590,7 +694,7 @@ func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsRe
 			query.Set("f", format)
 		}
 
-		requestPath := "/i/" + row.ObjectKey
+		requestPath := "/" + row.ObjectKey
 		canonical := canonicalString(requestPath, query)
 		signature := signCanonical(canonical, s.signingSecret)
 		query.Set("sig", signature)
@@ -603,6 +707,317 @@ func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsRe
 	}
 
 	return result, nil
+}
+
+func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInput) (CreateMediaPostResult, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(input.ActorID)); err != nil {
+		return CreateMediaPostResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(input.DiveSiteID)); err != nil {
+		return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"diveSiteId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if len(input.Items) == 0 {
+		return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"items"},
+			Code:    "required",
+			Message: "items is required",
+		}}}
+	}
+	if len(input.Items) > 10 {
+		return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"items"},
+			Code:    "too_big",
+			Message: "items must be 10 or fewer",
+		}}}
+	}
+	if s.siteLookup == nil {
+		return CreateMediaPostResult{}, apperrors.New(http.StatusInternalServerError, "site_lookup_unavailable", "dive site lookup is not configured", nil)
+	}
+
+	site, err := s.siteLookup.GetSiteForWrite(ctx, input.DiveSiteID)
+	if err != nil {
+		return CreateMediaPostResult{}, mapSiteLookupError(err)
+	}
+	if site.ModerationState != "approved" {
+		return CreateMediaPostResult{}, apperrors.New(http.StatusForbidden, "forbidden", "linked dive site is not available", nil)
+	}
+
+	mediaIDs := make([]string, 0, len(input.Items))
+	for idx, item := range input.Items {
+		if _, err := uuid.Parse(strings.TrimSpace(item.MediaObjectID)); err != nil {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "mediaObjectId"},
+				Code:    "invalid_uuid",
+				Message: "Must be a valid UUID",
+			}}}
+		}
+		mediaIDs = append(mediaIDs, item.MediaObjectID)
+	}
+
+	rows, err := s.repo.GetMediaObjectsByIDs(ctx, mediaIDs)
+	if err != nil {
+		return CreateMediaPostResult{}, apperrors.New(http.StatusInternalServerError, "media_lookup_failed", "failed to load uploaded media", err)
+	}
+	byID := make(map[string]mediarepo.MediaObject, len(rows))
+	for _, row := range rows {
+		byID[row.ID] = row
+	}
+
+	sharedCaption := firstNonEmptyCaption(input.Items)
+	items := make([]mediarepo.CreateMediaItemInput, 0, len(input.Items))
+	for idx, item := range input.Items {
+		row, ok := byID[item.MediaObjectID]
+		if !ok {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "mediaObjectId"},
+				Code:    "custom",
+				Message: "uploaded media is missing",
+			}}}
+		}
+		if row.OwnerAppUserID != input.ActorID {
+			return CreateMediaPostResult{}, apperrors.New(http.StatusForbidden, "forbidden", "uploaded media does not belong to actor", nil)
+		}
+		if row.ContextType != ContextProfileFeed {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "mediaObjectId"},
+				Code:    "custom",
+				Message: "uploaded media must use the profile feed uploader context",
+			}}}
+		}
+		if row.State != "active" {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "mediaObjectId"},
+				Code:    "custom",
+				Message: "uploaded media is not active",
+			}}}
+		}
+		if row.SizeBytes > 5*1024*1024 {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "mediaObjectId"},
+				Code:    "too_big",
+				Message: "file exceeds 5 MB limit",
+			}}}
+		}
+		if item.Type != "photo" {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "type"},
+				Code:    "invalid_enum",
+				Message: "only photo items are supported in this flow",
+			}}}
+		}
+		if !allowedMIMETypes[row.MimeType] {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "mimeType"},
+				Code:    "invalid_enum",
+				Message: "unsupported image type",
+			}}}
+		}
+		if row.Width <= 0 || row.Height <= 0 {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "width"},
+				Code:    "custom",
+				Message: "uploaded media dimensions are required",
+			}}}
+		}
+		if strings.TrimSpace(item.StorageKey) == "" || item.StorageKey != row.ObjectKey {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "storageKey"},
+				Code:    "custom",
+				Message: "storage key does not match uploaded media",
+			}}}
+		}
+		if strings.TrimSpace(item.MimeType) == "" || strings.TrimSpace(item.MimeType) != row.MimeType {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "mimeType"},
+				Code:    "custom",
+				Message: "mime type does not match uploaded media",
+			}}}
+		}
+		if item.Width != int(row.Width) || item.Height != int(row.Height) {
+			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"items", idx, "width"},
+				Code:    "custom",
+				Message: "dimensions do not match uploaded media",
+			}}}
+		}
+
+		caption := normalizeOptionalString(item.Caption)
+		if input.ApplyCaptionToAll && caption == nil && sharedCaption != nil {
+			caption = sharedCaption
+		}
+		itemDiveSiteID := input.DiveSiteID
+		if item.DiveSiteID != nil && strings.TrimSpace(*item.DiveSiteID) != "" {
+			itemDiveSiteID = strings.TrimSpace(*item.DiveSiteID)
+			if _, err := uuid.Parse(itemDiveSiteID); err != nil {
+				return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+					Path:    []any{"items", idx, "diveSiteId"},
+					Code:    "invalid_uuid",
+					Message: "Must be a valid UUID",
+				}}}
+			}
+			if itemDiveSiteID != input.DiveSiteID {
+				return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+					Path:    []any{"items", idx, "diveSiteId"},
+					Code:    "custom",
+					Message: "per-item dive sites are not supported in this flow",
+				}}}
+			}
+		}
+
+		items = append(items, mediarepo.CreateMediaItemInput{
+			MediaObjectID:   row.ID,
+			AuthorAppUserID: input.ActorID,
+			DiveSiteID:      itemDiveSiteID,
+			Type:            item.Type,
+			StorageKey:      row.ObjectKey,
+			MimeType:        row.MimeType,
+			Width:           row.Width,
+			Height:          row.Height,
+			DurationMs:      nil,
+			Caption:         caption,
+			SortOrder:       int32(idx),
+			Status:          "active",
+		})
+	}
+
+	source := strings.TrimSpace(input.Source)
+	if source == "" {
+		source = "create_post"
+	}
+	if source != "create_post" && source != "profile_upload" {
+		return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"source"},
+			Code:    "invalid_enum",
+			Message: "source is invalid",
+		}}}
+	}
+
+	postCaption := normalizeOptionalString(input.PostCaption)
+	createdPost, createdItems, err := s.repo.PublishMediaPost(ctx, mediarepo.PublishMediaPostInput{
+		AuthorAppUserID: input.ActorID,
+		Source:          source,
+		DiveSiteID:      input.DiveSiteID,
+		PostCaption:     postCaption,
+		Items:           items,
+	})
+	if err != nil {
+		return CreateMediaPostResult{}, apperrors.New(http.StatusInternalServerError, "media_post_create_failed", "failed to create media post", err)
+	}
+
+	resultItems := make([]ProfileMediaItemResult, 0, len(createdItems))
+	for _, item := range createdItems {
+		resultItems = append(resultItems, ProfileMediaItemResult{
+			ID:              item.ID,
+			MediaObjectID:   item.MediaObjectID,
+			PostID:          item.PostID,
+			UploadGroupID:   item.UploadGroupID,
+			AuthorAppUserID: item.AuthorAppUserID,
+			Type:            item.Type,
+			StorageKey:      item.StorageKey,
+			MimeType:        item.MimeType,
+			Width:           int(item.Width),
+			Height:          int(item.Height),
+			DurationMs:      intPtrFromInt32(item.DurationMs),
+			Caption:         item.Caption,
+			DiveSiteID:      item.DiveSiteID,
+			DiveSiteSlug:    site.Slug,
+			DiveSiteName:    site.Name,
+			DiveSiteArea:    site.Area,
+			SortOrder:       int(item.SortOrder),
+			Status:          item.Status,
+			CreatedAt:       item.CreatedAt,
+		})
+	}
+
+	return CreateMediaPostResult{
+		Post: MediaPostResult{
+			ID:              createdPost.ID,
+			AuthorAppUserID: createdPost.AuthorAppUserID,
+			UploadGroupID:   createdPost.UploadGroupID,
+			DiveSiteID:      createdPost.DiveSiteID,
+			PostCaption:     createdPost.PostCaption,
+			CreatedAt:       createdPost.CreatedAt,
+			UpdatedAt:       createdPost.UpdatedAt,
+		},
+		Items: resultItems,
+	}, nil
+}
+
+func (s *Service) ListProfileMedia(ctx context.Context, input ListProfileMediaInput) (ListProfileMediaResult, error) {
+	username := strings.TrimSpace(input.Username)
+	if username == "" {
+		return ListProfileMediaResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"username"},
+			Code:    "required",
+			Message: "username is required",
+		}}}
+	}
+	if input.Limit <= 0 || input.Limit > 60 {
+		input.Limit = 24
+	}
+
+	cursorCreated, cursorID := pagination.DefaultUUIDCursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		decodedCreated, decodedID, err := pagination.DecodeUUID(input.Cursor)
+		if err != nil {
+			return ListProfileMediaResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"cursor"},
+				Code:    "custom",
+				Message: "invalid cursor",
+			}}}
+		}
+		cursorCreated = decodedCreated
+		cursorID = decodedID
+	}
+
+	rows, err := s.repo.ListProfileMediaByUsername(ctx, mediarepo.ListProfileMediaInput{
+		Username:      username,
+		CursorCreated: cursorCreated,
+		CursorID:      cursorID,
+		Limit:         input.Limit + 1,
+	})
+	if err != nil {
+		return ListProfileMediaResult{}, apperrors.New(http.StatusInternalServerError, "profile_media_failed", "failed to load profile media", err)
+	}
+
+	nextCursor := ""
+	if int32(len(rows)) > input.Limit {
+		cutoff := int(input.Limit)
+		next := rows[cutoff-1]
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
+		rows = rows[:cutoff]
+	}
+
+	items := make([]ProfileMediaItemResult, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, ProfileMediaItemResult{
+			ID:              row.ID,
+			MediaObjectID:   row.MediaObjectID,
+			PostID:          row.PostID,
+			UploadGroupID:   row.UploadGroupID,
+			AuthorAppUserID: row.AuthorAppUserID,
+			Type:            row.Type,
+			StorageKey:      row.StorageKey,
+			MimeType:        row.MimeType,
+			Width:           int(row.Width),
+			Height:          int(row.Height),
+			DurationMs:      intPtrFromInt32(row.DurationMs),
+			Caption:         row.Caption,
+			DiveSiteID:      row.DiveSiteID,
+			DiveSiteSlug:    row.DiveSiteSlug,
+			DiveSiteName:    row.DiveSiteName,
+			DiveSiteArea:    row.DiveSiteArea,
+			SortOrder:       int(row.SortOrder),
+			Status:          row.Status,
+			CreatedAt:       row.CreatedAt,
+		})
+	}
+
+	return ListProfileMediaResult{Items: items, NextCursor: nextCursor}, nil
 }
 
 func (s *Service) ListMedia(ctx context.Context, input ListMediaInput) (ListMediaResult, error) {
@@ -729,6 +1144,41 @@ func (s *Service) listOwnedMediaByContext(
 	}
 
 	return collected, nil
+}
+
+func mapSiteLookupError(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+	}
+	return apperrors.New(http.StatusInternalServerError, "site_lookup_failed", "failed to load dive site", err)
+}
+
+func normalizeOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func firstNonEmptyCaption(items []CreateMediaPostItemInput) *string {
+	for _, item := range items {
+		if caption := normalizeOptionalString(item.Caption); caption != nil {
+			return caption
+		}
+	}
+	return nil
+}
+
+func intPtrFromInt32(value *int32) *int {
+	if value == nil {
+		return nil
+	}
+	result := int(*value)
+	return &result
 }
 
 func validateContext(contextType string, contextID *string) (contextRule, []validatex.Issue) {

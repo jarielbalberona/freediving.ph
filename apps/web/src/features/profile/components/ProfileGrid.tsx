@@ -1,34 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import type { ProfileMediaItem } from "@freediving.ph/types";
 import Image from "next/image";
-import {
-  Clapperboard,
-  Heart,
-  ImageOff,
-  MessageCircleMore,
-  Send,
-  XIcon,
-} from "lucide-react";
+import { useState } from "react";
+import { ImageOff, LoaderCircle } from "lucide-react";
+import { MasonryPhotoAlbum } from "react-photo-album";
+import "react-photo-album/masonry.css";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProfileTile } from "@/features/profile/components/ProfileTile";
-import type { ProfilePost } from "@/features/profile/types";
-import { Card } from "@/components/ui/card";
+import {
+  MediaViewerDialog,
+  type MediaViewerDialogItem,
+} from "@/features/media/components/MediaViewerDialog";
+import { useMintedMediaMap } from "@/features/media/hooks";
 
 type ProfileGridProps = {
-  posts: ProfilePost[];
+  items: ProfileMediaItem[];
   isLoading: boolean;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  onLoadMore: () => void;
   username: string;
   displayName: string;
   avatarUrl?: string;
 };
 
-const formatMetric = (value?: number): string =>
-  new Intl.NumberFormat().format(value ?? 0);
+type AlbumPhoto = {
+  key: string;
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
+  mediaItem: ProfileMediaItem;
+};
 
 const getInitials = (value: string): string =>
   value
@@ -39,162 +45,203 @@ const getInitials = (value: string): string =>
     .join("");
 
 export function ProfileGrid({
-  posts,
+  items,
   isLoading,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
   username,
   displayName,
   avatarUrl,
 }: ProfileGridProps) {
-  const [selectedPost, setSelectedPost] = useState<ProfilePost | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const validItems = items.filter((item) => item.width > 0 && item.height > 0);
+  const galleryUrls = useMintedMediaMap(
+    validItems.map((item) => item.mediaObjectId),
+    "card",
+    validItems.length > 0,
+  );
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-0.5 md:gap-1 xl:grid-cols-4">
-        {Array.from({ length: 12 }, (_, index) => (
+      <div className="columns-2 gap-3 md:columns-3 xl:columns-4">
+        {Array.from({ length: 8 }, (_, index) => (
           <Skeleton
-            key={`profile-post-skeleton-${index + 1}`}
-            className="aspect-square rounded-none"
+            key={`profile-media-skeleton-${index + 1}`}
+            className="mb-3 h-48 break-inside-avoid rounded-[0.5rem]"
           />
         ))}
       </div>
     );
   }
 
-  if (posts.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center">
         <ImageOff className="size-8 text-muted-foreground" />
         <div className="space-y-1">
           <p className="text-base font-semibold text-foreground">
-            No posts yet
+            No photos yet
           </p>
           <p className="text-sm text-muted-foreground">
-            {username} has not shared any feed posts.
+            {username} has not published any profile photos yet.
           </p>
         </div>
       </div>
     );
   }
 
-  return (
-    <>
-      <div className="grid grid-cols-3 gap-0.5 md:gap-1 xl:grid-cols-4">
-        {posts.map((post) => (
-          <ProfileTile key={post.id} post={post} onOpen={setSelectedPost} />
-        ))}
+  if (validItems.length === 0) {
+    return (
+      <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center">
+        <ImageOff className="size-8 text-muted-foreground" />
+        <div className="space-y-1">
+          <p className="text-base font-semibold text-foreground">
+            Media metadata missing
+          </p>
+          <p className="text-sm text-muted-foreground">
+            This profile has media records, but some older items are missing
+            dimensions.
+          </p>
+        </div>
       </div>
+    );
+  }
 
-      <Dialog
-        open={selectedPost != null}
+  const photos: AlbumPhoto[] = validItems
+    .map((item) => {
+      const src = galleryUrls.urlMap.get(item.mediaObjectId);
+      if (!src) return null;
+      return {
+        key: item.id,
+        src,
+        width: item.width,
+        height: item.height,
+        alt: item.caption || `${username} photo`,
+        mediaItem: item,
+      };
+    })
+    .filter((item): item is AlbumPhoto => item != null);
+  const viewerItems: MediaViewerDialogItem[] = validItems.map((item) => ({
+    id: item.id,
+    mediaObjectId: item.mediaObjectId,
+    width: item.width,
+    height: item.height,
+    caption: item.caption,
+    alt: item.caption || `${username} photo`,
+  }));
+
+  return (
+    <div className="space-y-4">
+      {galleryUrls.isPending && photos.length === 0 ? (
+        <div className="columns-2 gap-3 md:columns-3 xl:columns-4">
+          {Array.from({ length: 8 }, (_, index) => (
+            <Skeleton
+              key={`profile-media-url-skeleton-${index + 1}`}
+              className="mb-3 h-48 break-inside-avoid rounded-[0.5rem]"
+            />
+          ))}
+        </div>
+      ) : (
+        <MasonryPhotoAlbum
+          photos={photos}
+          spacing={4}
+          defaultContainerWidth={935}
+          columns={(containerWidth) => {
+            if (containerWidth < 640) return 2;
+            if (containerWidth < 1024) return 3;
+            return 4;
+          }}
+          onClick={({ index }) => setSelectedIndex(index)}
+          render={{
+            image: (props, { photo }) => (
+              <div
+                style={{ width: props.width, position: "relative" }}
+                className="overflow-hidden rounded-[0.5rem] bg-muted/30"
+              >
+                <Image
+                  src={photo.src}
+                  alt={photo.alt}
+                  width={photo.width}
+                  height={photo.height}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  className="h-auto w-full object-cover transition-transform duration-200 hover:scale-[1.01]"
+                  unoptimized
+                />
+              </div>
+            ),
+          }}
+        />
+      )}
+
+      {hasNextPage ? (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onLoadMore}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? (
+              <>
+                <LoaderCircle className="size-4 animate-spin" />
+                Loading more
+              </>
+            ) : (
+              "Load more photos"
+            )}
+          </Button>
+        </div>
+      ) : null}
+
+      <MediaViewerDialog
+        items={viewerItems}
+        open={selectedIndex != null}
+        initialIndex={selectedIndex ?? 0}
         onOpenChange={(open) => {
           if (!open) {
-            setSelectedPost(null);
+            setSelectedIndex(null);
           }
         }}
-      >
-        {selectedPost ? (
-          <DialogContent
-            containerClassName="p-0"
-            showCloseButton={false}
-            className="relative h-dvh max-h-dvh max-w-none w-full rounded-none border-0 bg-background p-0 text-foreground shadow-none ring-0 md:max-w-max"
-          >
-            <div className="hidden md:block absolute right-2 top-2 z-20">
-              <DialogClose
-                render={
-                  <Button
-                    variant="default"
-                    size="icon"
-                  />
-                }
-              >
-                <XIcon className="size-4" />
-                <span className="sr-only">Close</span>
-              </DialogClose>
-            </div>
-            <div className="flex flex-col md:flex-row md:h-dvh md:overflow-hidden">
-              <div className="relative bg-muted md:flex md:min-w-0 md:flex-1  md:overflow-hidden">
-                <div className="relative aspect-[4/5] h-auto w-full max-w-full md:max-h-full md:w-auto overflow-hidden">
-                  <Image
-                    src={selectedPost.thumbUrl || "/images/samples/1.jpg"}
-                    alt={`Expanded post ${selectedPost.id}`}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 767px) 100vw, 70vw"
-                    priority
-                  />
-                </div>
-                <div className="block md:hidden">
-                  <DialogClose
-                    render={
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="absolute right-4 top-4 z-20 bg-background/50"
-                      />
-                    }
-                  >
-                    <XIcon className="size-4" />
-                    <span className="sr-only">Close</span>
-                  </DialogClose>
+        renderSidebar={(activeItem) => {
+          const selectedItem =
+            validItems.find((item) => item.id === activeItem.id) ?? null;
+          if (!selectedItem) return null;
+
+          return (
+            <>
+              <div className="flex items-center gap-3 px-5 py-4">
+                <Avatar className="size-10 border border-border">
+                  <AvatarImage src={avatarUrl} alt={displayName} />
+                  <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    @{username}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {displayName}
+                  </p>
                 </div>
               </div>
 
-              <aside className="flex min-h-0 flex-shrink-0 flex-col border-t border-border bg-background md:w-96 md:border-l md:border-t-0">
-                <div className="flex items-center gap-3 px-4 py-3 md:px-5">
-                  <Avatar className="size-9 border border-border">
-                    <AvatarImage src={avatarUrl} alt={displayName} />
-                    <AvatarFallback className="bg-muted text-foreground">
-                      {getInitials(displayName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      {username}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {displayName}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="px-4 pb-3 md:px-5">
-                  <div className="flex items-center gap-5 text-foreground">
-                    <div className="flex items-center gap-2">
-                      <Heart className="size-7" />
-                      <span className="text-sm font-semibold">
-                        {formatMetric(selectedPost.likeCount)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MessageCircleMore className="size-7" />
-                      <span className="text-sm font-semibold">
-                        {formatMetric(selectedPost.commentCount)}
-                      </span>
-                    </div>
-                    <Send className="size-7" />
-                    {selectedPost.mediaType === "video" ? (
-                      <Clapperboard className="ml-auto size-5 text-muted-foreground" />
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="space-y-1 px-4 pb-5 md:min-h-0 md:flex-1 md:overflow-y-auto md:px-5">
-                  <p className="text-sm leading-6 text-foreground">
-                    <span className="mr-1 font-semibold">{username}</span>
-                    {selectedPost.caption || "No dive notes added."}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedPost.siteName} · {selectedPost.siteArea}
+              <div className="space-y-3 px-5 pb-5">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {selectedItem.diveSite.name || "Dive site unavailable"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    View all {formatMetric(selectedPost.commentCount)} comments
+                    {selectedItem.diveSite.area || "Location unavailable"}
                   </p>
                 </div>
-              </aside>
-            </div>
-          </DialogContent>
-        ) : null}
-      </Dialog>
-    </>
+                <p className="text-sm leading-6 text-foreground">
+                  {selectedItem.caption || "No caption added."}
+                </p>
+              </div>
+            </>
+          );
+        }}
+      />
+    </div>
   );
 }

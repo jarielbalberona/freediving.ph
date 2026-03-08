@@ -14,6 +14,7 @@ import (
 )
 
 type Repo struct {
+	pool    *pgxpool.Pool
 	queries *buddyfinderqlc.Queries
 }
 
@@ -128,7 +129,7 @@ type CreateIntentInput struct {
 }
 
 func New(pool *pgxpool.Pool) *Repo {
-	return &Repo{queries: buddyfinderqlc.New(pool)}
+	return &Repo{pool: pool, queries: buddyfinderqlc.New(pool)}
 }
 
 func (r *Repo) CountPreviewByArea(ctx context.Context, area string) (int64, error) {
@@ -279,6 +280,138 @@ func (r *Repo) ListMemberIntentsBySite(ctx context.Context, input ListSiteIntent
 			ReportCount:        row.ReportCount,
 			MutualBuddiesCount: row.MutualBuddiesCount,
 		})
+	}
+	return items, nil
+}
+
+func (r *Repo) ListOwnIntents(ctx context.Context, actorUserID string) ([]MemberIntent, error) {
+	rows, err := r.pool.Query(ctx, `
+SELECT
+  bi.id,
+  bi.author_app_user_id,
+  bi.dive_site_id,
+  u.username,
+  u.display_name,
+  COALESCE(p.avatar_url, '') AS avatar_url,
+  p.home_area,
+  bi.area,
+  bi.intent_type,
+  bi.time_window,
+  bi.date_start,
+  bi.date_end,
+  bi.note,
+  bi.created_at,
+  bi.expires_at,
+  u.email_verified,
+  u.phone_verified,
+  p.cert_level,
+  COALESCE((
+    SELECT COUNT(*)::bigint
+    FROM (
+      SELECT app_user_id_a AS app_user_id FROM buddies
+      UNION ALL
+      SELECT app_user_id_b AS app_user_id FROM buddies
+    ) pairs
+    WHERE pairs.app_user_id = bi.author_app_user_id
+  ), 0)::bigint AS buddy_count,
+  COALESCE((
+    SELECT COUNT(*)::bigint
+    FROM reports r
+    WHERE r.target_app_user_id = bi.author_app_user_id
+  ), 0)::bigint AS report_count,
+  0::bigint AS mutual_buddies_count
+FROM buddy_intents bi
+JOIN users u ON u.id = bi.author_app_user_id
+JOIN profiles p ON p.user_id = bi.author_app_user_id
+WHERE bi.state = 'active'
+  AND bi.visibility = 'members'
+  AND bi.expires_at > NOW()
+  AND u.account_status = 'active'
+  AND bi.author_app_user_id = $1::uuid
+ORDER BY bi.created_at DESC, bi.id DESC
+LIMIT 10
+`, actorUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]MemberIntent, 0)
+	for rows.Next() {
+		var (
+			id                 pgtype.UUID
+			authorAppUserID    pgtype.UUID
+			diveSiteID         pgtype.UUID
+			username           string
+			displayName        string
+			avatarURL          string
+			homeArea           string
+			area               string
+			intentType         string
+			timeWindow         string
+			dateStart          pgtype.Date
+			dateEnd            pgtype.Date
+			note               *string
+			createdAt          pgtype.Timestamptz
+			expiresAt          pgtype.Timestamptz
+			emailVerified      bool
+			phoneVerified      bool
+			certLevel          *string
+			buddyCount         int64
+			reportCount        int64
+			mutualBuddiesCount int64
+		)
+		if err := rows.Scan(
+			&id,
+			&authorAppUserID,
+			&diveSiteID,
+			&username,
+			&displayName,
+			&avatarURL,
+			&homeArea,
+			&area,
+			&intentType,
+			&timeWindow,
+			&dateStart,
+			&dateEnd,
+			&note,
+			&createdAt,
+			&expiresAt,
+			&emailVerified,
+			&phoneVerified,
+			&certLevel,
+			&buddyCount,
+			&reportCount,
+			&mutualBuddiesCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, MemberIntent{
+			ID:                 uuidOrEmpty(id),
+			AuthorAppUserID:    uuidOrEmpty(authorAppUserID),
+			DiveSiteID:         uuidOrEmpty(diveSiteID),
+			Username:           username,
+			DisplayName:        displayName,
+			AvatarURL:          avatarURL,
+			HomeArea:           homeArea,
+			Area:               area,
+			IntentType:         intentType,
+			TimeWindow:         timeWindow,
+			DateStart:          datePtr(dateStart),
+			DateEnd:            datePtr(dateEnd),
+			Note:               valueOrEmpty(note),
+			CreatedAt:          createdAt.Time.UTC(),
+			ExpiresAt:          expiresAt.Time.UTC(),
+			EmailVerified:      emailVerified,
+			PhoneVerified:      phoneVerified,
+			CertLevel:          valueOrEmpty(certLevel),
+			BuddyCount:         buddyCount,
+			ReportCount:        reportCount,
+			MutualBuddiesCount: mutualBuddiesCount,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }

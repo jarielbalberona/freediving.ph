@@ -27,6 +27,7 @@ type PostCandidate struct {
 	AuthorName       string
 	AuthorUsername   string
 	DiveSiteID       string
+	DiveSiteSlug     string
 	DiveSiteName     string
 	Area             string
 	Note             string
@@ -37,6 +38,36 @@ type PostCandidate struct {
 	CreatedAt        time.Time
 	OccurredAt       time.Time
 	SavedByViewer    bool
+}
+
+type MediaPostCandidate struct {
+	ID              string
+	AuthorUserID    string
+	AuthorName      string
+	AuthorUsername  string
+	DiveSiteID      string
+	DiveSiteSlug    string
+	DiveSiteName    string
+	Area            string
+	PostCaption     string
+	PreviewCaption  string
+	PreviewMediaID  string
+	PreviewMimeType string
+	PreviewWidth    int32
+	PreviewHeight   int32
+	ItemCount       int32
+	Items           []MediaPostCandidateItem
+	CreatedAt       time.Time
+	SavedByViewer   bool
+}
+
+type MediaPostCandidateItem struct {
+	ID            string `json:"id"`
+	MediaObjectID string `json:"mediaObjectId"`
+	Width         int32  `json:"width"`
+	Height        int32  `json:"height"`
+	Caption       string `json:"caption"`
+	SortOrder     int32  `json:"sortOrder"`
 }
 
 type CommunityCandidate struct {
@@ -54,6 +85,7 @@ type CommunityCandidate struct {
 
 type DiveSpotCandidate struct {
 	ID                string
+	Slug              string
 	Name              string
 	Area              string
 	Description       string
@@ -214,6 +246,7 @@ func (r *Repo) ListPostCandidates(ctx context.Context, input CandidateInput) ([]
 			COALESCE(NULLIF(u.display_name, ''), u.username),
 			u.username,
 			ds.id::text,
+			COALESCE(ds.slug, ''),
 			ds.name,
 			ds.area,
 			dsu.note,
@@ -264,6 +297,7 @@ func (r *Repo) ListPostCandidates(ctx context.Context, input CandidateInput) ([]
 			&item.AuthorName,
 			&item.AuthorUsername,
 			&item.DiveSiteID,
+			&item.DiveSiteSlug,
 			&item.DiveSiteName,
 			&item.Area,
 			&item.Note,
@@ -289,6 +323,135 @@ func (r *Repo) ListPostCandidates(ctx context.Context, input CandidateInput) ([]
 		}
 		item.CreatedAt = item.CreatedAt.UTC()
 		item.OccurredAt = item.OccurredAt.UTC()
+		items = append(items, item)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return items, nil
+}
+
+func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput) ([]MediaPostCandidate, error) {
+	const q = `
+		SELECT
+			mp.id::text,
+			mp.author_app_user_id::text,
+			COALESCE(NULLIF(u.display_name, ''), u.username),
+			u.username,
+			ds.id::text,
+			COALESCE(ds.slug, ''),
+			ds.name,
+			ds.area,
+			COALESCE(mp.post_caption, ''),
+			COALESCE(preview.caption, ''),
+			preview.media_object_id::text,
+			preview.mime_type,
+			preview.width,
+			preview.height,
+			item_counts.item_count,
+			item_counts.items_json,
+			mp.created_at,
+			EXISTS(
+				SELECT 1 FROM dive_site_saves dss
+				WHERE dss.app_user_id = $1::uuid
+				  AND dss.dive_site_id = mp.dive_site_id
+			)
+		FROM media_posts mp
+		JOIN users u ON u.id = mp.author_app_user_id
+		JOIN dive_sites ds ON ds.id = mp.dive_site_id
+		JOIN LATERAL (
+			SELECT
+				mi.media_object_id,
+				mi.mime_type,
+				mi.width,
+				mi.height,
+				COALESCE(mi.caption, '') AS caption
+			FROM media_items mi
+			WHERE mi.post_id = mp.id
+			  AND mi.status = 'active'
+			  AND mi.deleted_at IS NULL
+			  AND mi.type = 'photo'
+			ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
+			LIMIT 1
+		) preview ON true
+		JOIN LATERAL (
+			SELECT
+				COUNT(*)::int AS item_count,
+				COALESCE(
+					json_agg(
+						json_build_object(
+							'id', mi.id::text,
+							'mediaObjectId', mi.media_object_id::text,
+							'width', mi.width,
+							'height', mi.height,
+							'caption', COALESCE(mi.caption, ''),
+							'sortOrder', mi.sort_order
+						)
+						ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
+					),
+					'[]'::json
+				) AS items_json
+			FROM media_items mi
+			WHERE mi.post_id = mp.id
+			  AND mi.status = 'active'
+			  AND mi.deleted_at IS NULL
+			  AND mi.type = 'photo'
+		) item_counts ON true
+		WHERE mp.deleted_at IS NULL
+		  AND ds.moderation_state = 'approved'
+		  AND u.account_status = 'active'
+		  AND NOT EXISTS (
+			SELECT 1 FROM user_blocks b
+			WHERE (b.blocker_app_user_id = $1::uuid AND b.blocked_app_user_id = mp.author_app_user_id)
+			   OR (b.blocker_app_user_id = mp.author_app_user_id AND b.blocked_app_user_id = $1::uuid)
+		  )
+		  AND NOT EXISTS (
+			SELECT 1 FROM user_hidden_feed_items h
+			WHERE h.user_id = $1::uuid
+			  AND h.entity_type = 'media_post'
+			  AND h.entity_id = mp.id::text
+		  )
+		ORDER BY mp.created_at DESC, mp.id DESC
+		LIMIT $2
+	`
+	rows, err := r.pool.Query(ctx, q, userUUIDParam(input.UserID), input.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]MediaPostCandidate, 0)
+	for rows.Next() {
+		var item MediaPostCandidate
+		var itemsJSON []byte
+		if scanErr := rows.Scan(
+			&item.ID,
+			&item.AuthorUserID,
+			&item.AuthorName,
+			&item.AuthorUsername,
+			&item.DiveSiteID,
+			&item.DiveSiteSlug,
+			&item.DiveSiteName,
+			&item.Area,
+			&item.PostCaption,
+			&item.PreviewCaption,
+			&item.PreviewMediaID,
+			&item.PreviewMimeType,
+			&item.PreviewWidth,
+			&item.PreviewHeight,
+			&item.ItemCount,
+			&itemsJSON,
+			&item.CreatedAt,
+			&item.SavedByViewer,
+		); scanErr != nil {
+			return nil, scanErr
+		}
+		if len(itemsJSON) > 0 {
+			if err := json.Unmarshal(itemsJSON, &item.Items); err != nil {
+				return nil, err
+			}
+		}
+		item.CreatedAt = item.CreatedAt.UTC()
 		items = append(items, item)
 	}
 	if rows.Err() != nil {
@@ -365,6 +528,7 @@ func (r *Repo) ListDiveSpotCandidates(ctx context.Context, input CandidateInput)
 	const q = `
 		SELECT
 			ds.id::text,
+			COALESCE(ds.slug, ''),
 			ds.name,
 			ds.area,
 			COALESCE(ds.description, ''),
@@ -396,6 +560,7 @@ func (r *Repo) ListDiveSpotCandidates(ctx context.Context, input CandidateInput)
 		var item DiveSpotCandidate
 		if scanErr := rows.Scan(
 			&item.ID,
+			&item.Slug,
 			&item.Name,
 			&item.Area,
 			&item.Description,

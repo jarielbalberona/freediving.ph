@@ -14,6 +14,7 @@ import (
 )
 
 type Repo struct {
+	pool    *pgxpool.Pool
 	queries *mediaqlc.Queries
 }
 
@@ -43,6 +44,76 @@ type CreateMediaObjectInput struct {
 	State          string
 }
 
+type MediaUploadGroup struct {
+	ID              string
+	AuthorAppUserID string
+	Source          string
+	ItemCount       int32
+	CreatedAt       time.Time
+}
+
+type MediaPost struct {
+	ID              string
+	AuthorAppUserID string
+	UploadGroupID   string
+	DiveSiteID      string
+	PostCaption     *string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       *time.Time
+}
+
+type MediaItem struct {
+	ID              string
+	PostID          string
+	MediaObjectID   string
+	AuthorAppUserID string
+	UploadGroupID   string
+	DiveSiteID      string
+	Type            string
+	StorageKey      string
+	MimeType        string
+	Width           int32
+	Height          int32
+	DurationMs      *int32
+	Caption         *string
+	SortOrder       int32
+	Status          string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       *time.Time
+}
+
+type PublishMediaPostInput struct {
+	AuthorAppUserID string
+	Source          string
+	DiveSiteID      string
+	PostCaption     *string
+	Items           []CreateMediaItemInput
+}
+
+type CreateMediaItemInput struct {
+	MediaObjectID   string
+	AuthorAppUserID string
+	DiveSiteID      string
+	Type            string
+	StorageKey      string
+	MimeType        string
+	Width           int32
+	Height          int32
+	DurationMs      *int32
+	Caption         *string
+	SortOrder       int32
+	Status          string
+}
+
+type ProfileMediaItem struct {
+	MediaItem
+	DiveSiteSlug string
+	DiveSiteName string
+	DiveSiteArea string
+}
+
 type ListMediaByOwnerInput struct {
 	OwnerAppUserID string
 	CursorCreated  time.Time
@@ -59,7 +130,7 @@ type ListMediaByContextInput struct {
 }
 
 func New(pool *pgxpool.Pool) *Repo {
-	return &Repo{queries: mediaqlc.New(pool)}
+	return &Repo{pool: pool, queries: mediaqlc.New(pool)}
 }
 
 func (r *Repo) CreateMediaObject(ctx context.Context, input CreateMediaObjectInput) (MediaObject, error) {
@@ -147,6 +218,90 @@ func (r *Repo) UpdateMediaState(ctx context.Context, mediaID, state string) (Med
 	return mapMedia(row), nil
 }
 
+func (r *Repo) PublishMediaPost(ctx context.Context, input PublishMediaPostInput) (MediaPost, []MediaItem, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return MediaPost{}, nil, err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	q := mediaqlc.New(tx)
+	group, err := q.CreateMediaUploadGroup(ctx, mediaqlc.CreateMediaUploadGroupParams{
+		AuthorAppUserID: toUUID(input.AuthorAppUserID),
+		Source:          input.Source,
+		ItemCount:       int32(len(input.Items)),
+	})
+	if err != nil {
+		return MediaPost{}, nil, err
+	}
+
+	post, err := q.CreateMediaPost(ctx, mediaqlc.CreateMediaPostParams{
+		AuthorAppUserID: toUUID(input.AuthorAppUserID),
+		UploadGroupID:   group.ID,
+		DiveSiteID:      toUUID(input.DiveSiteID),
+		PostCaption:     stringPtr(input.PostCaption),
+	})
+	if err != nil {
+		return MediaPost{}, nil, err
+	}
+
+	items := make([]MediaItem, 0, len(input.Items))
+	for _, item := range input.Items {
+		created, createErr := q.CreateMediaItem(ctx, mediaqlc.CreateMediaItemParams{
+			PostID:          post.ID,
+			MediaObjectID:   toUUID(item.MediaObjectID),
+			AuthorAppUserID: toUUID(item.AuthorAppUserID),
+			UploadGroupID:   group.ID,
+			DiveSiteID:      toUUID(item.DiveSiteID),
+			Type:            item.Type,
+			StorageKey:      item.StorageKey,
+			MimeType:        item.MimeType,
+			Width:           item.Width,
+			Height:          item.Height,
+			DurationMs:      item.DurationMs,
+			Caption:         stringPtr(item.Caption),
+			SortOrder:       item.SortOrder,
+			Status:          item.Status,
+		})
+		if createErr != nil {
+			return MediaPost{}, nil, createErr
+		}
+		items = append(items, mapMediaItem(created))
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return MediaPost{}, nil, err
+	}
+
+	return mapMediaPost(post), items, nil
+}
+
+func (r *Repo) ListProfileMediaByUsername(ctx context.Context, input ListProfileMediaInput) ([]ProfileMediaItem, error) {
+	rows, err := r.queries.ListProfileMediaByUsername(ctx, mediaqlc.ListProfileMediaByUsernameParams{
+		Username:   input.Username,
+		CreatedAt:  toTimestamptz(input.CursorCreated),
+		ID:         toUUID(input.CursorID),
+		LimitCount: input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]ProfileMediaItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapProfileMediaItem(row))
+	}
+	return items, nil
+}
+
+type ListProfileMediaInput struct {
+	Username      string
+	CursorCreated time.Time
+	CursorID      string
+	Limit         int32
+}
+
 func IsNoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
 }
@@ -164,6 +319,70 @@ func mapMedia(row mediaqlc.MediaObject) MediaObject {
 		Height:         row.Height,
 		State:          row.State,
 		CreatedAt:      row.CreatedAt.Time.UTC(),
+	}
+}
+
+func mapMediaPost(row mediaqlc.MediaPost) MediaPost {
+	return MediaPost{
+		ID:              row.ID.String(),
+		AuthorAppUserID: row.AuthorAppUserID.String(),
+		UploadGroupID:   row.UploadGroupID.String(),
+		DiveSiteID:      row.DiveSiteID.String(),
+		PostCaption:     stringPtr(row.PostCaption),
+		CreatedAt:       row.CreatedAt.Time.UTC(),
+		UpdatedAt:       row.UpdatedAt.Time.UTC(),
+		DeletedAt:       timestamptzPtr(row.DeletedAt),
+	}
+}
+
+func mapMediaItem(row mediaqlc.MediaItem) MediaItem {
+	return MediaItem{
+		ID:              row.ID.String(),
+		PostID:          row.PostID.String(),
+		MediaObjectID:   row.MediaObjectID.String(),
+		AuthorAppUserID: row.AuthorAppUserID.String(),
+		UploadGroupID:   row.UploadGroupID.String(),
+		DiveSiteID:      row.DiveSiteID.String(),
+		Type:            row.Type,
+		StorageKey:      row.StorageKey,
+		MimeType:        row.MimeType,
+		Width:           row.Width,
+		Height:          row.Height,
+		DurationMs:      int32PtrFromPtr(row.DurationMs),
+		Caption:         stringPtr(row.Caption),
+		SortOrder:       row.SortOrder,
+		Status:          row.Status,
+		CreatedAt:       row.CreatedAt.Time.UTC(),
+		UpdatedAt:       row.UpdatedAt.Time.UTC(),
+		DeletedAt:       timestamptzPtr(row.DeletedAt),
+	}
+}
+
+func mapProfileMediaItem(row mediaqlc.ListProfileMediaByUsernameRow) ProfileMediaItem {
+	return ProfileMediaItem{
+		MediaItem: MediaItem{
+			ID:              row.ID.String(),
+			PostID:          row.PostID.String(),
+			MediaObjectID:   row.MediaObjectID.String(),
+			AuthorAppUserID: row.AuthorAppUserID.String(),
+			UploadGroupID:   row.UploadGroupID.String(),
+			DiveSiteID:      row.DiveSiteID.String(),
+			Type:            row.Type,
+			StorageKey:      row.StorageKey,
+			MimeType:        row.MimeType,
+			Width:           row.Width,
+			Height:          row.Height,
+			DurationMs:      int32PtrFromPtr(row.DurationMs),
+			Caption:         stringPtr(row.Caption),
+			SortOrder:       row.SortOrder,
+			Status:          row.Status,
+			CreatedAt:       row.CreatedAt.Time.UTC(),
+			UpdatedAt:       row.UpdatedAt.Time.UTC(),
+			DeletedAt:       timestamptzPtr(row.DeletedAt),
+		},
+		DiveSiteSlug: row.DiveSiteSlug,
+		DiveSiteName: row.DiveSiteName,
+		DiveSiteArea: row.DiveSiteArea,
 	}
 }
 
@@ -190,4 +409,28 @@ func uuidPtr(value pgtype.UUID) *string {
 	}
 	parsed := value.String()
 	return &parsed
+}
+
+func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Time.UTC()
+	return &result
+}
+
+func stringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	return &trimmed
+}
+
+func int32PtrFromPtr(value *int32) *int32 {
+	if value == nil {
+		return nil
+	}
+	result := *value
+	return &result
 }

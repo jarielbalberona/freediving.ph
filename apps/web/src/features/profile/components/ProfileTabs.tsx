@@ -1,21 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Bookmark,
-  Clapperboard,
-  Grid3X3,
-  Tag,
-} from "lucide-react";
+import { Bookmark, Clapperboard, Grid3X3, Tag } from "lucide-react";
 
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileGrid } from "@/features/profile/components/ProfileGrid";
-import type { ProfilePost } from "@/features/profile/types";
+import type { ProfileMediaItem } from "@freediving.ph/types";
 
 type ProfileTabsProps = {
-  posts: ProfilePost[];
-  isLoadingPosts: boolean;
+  mediaItems: ProfileMediaItem[];
+  isLoadingMedia: boolean;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  onLoadMore: () => void;
   username: string;
   displayName: string;
   avatarUrl?: string;
@@ -37,8 +35,11 @@ function PlaceholderPanel({
 }
 
 export function ProfileTabs({
-  posts,
-  isLoadingPosts,
+  mediaItems,
+  isLoadingMedia,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
   username,
   displayName,
   avatarUrl,
@@ -49,10 +50,9 @@ export function ProfileTabs({
     <section className="space-y-0">
       <Separator />
       <Tabs value={tab} onValueChange={setTab} className="gap-0">
-        <div className="sticky top-14 z-10 bg-background/95 backdrop-blur">
           <TabsList
             variant="line"
-            className="grid w-full grid-cols-4 gap-0 rounded-none px-0"
+            className="grid w-full h-12! grid-cols-4 gap-0 rounded-none px-0"
           >
             <TabsTrigger
               value="grid"
@@ -83,12 +83,14 @@ export function ProfileTabs({
               <span className="hidden sm:inline">Tagged</span>
             </TabsTrigger>
           </TabsList>
-        </div>
 
-        <TabsContent value="grid" className="pt-1">
+        <TabsContent value="grid" className="pt-2">
           <ProfileGrid
-            posts={posts}
-            isLoading={isLoadingPosts}
+            items={mediaItems}
+            isLoading={isLoadingMedia}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={onLoadMore}
             username={username}
             displayName={displayName}
             avatarUrl={avatarUrl}

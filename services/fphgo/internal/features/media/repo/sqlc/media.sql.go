@@ -11,6 +11,103 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createMediaItem = `-- name: CreateMediaItem :one
+INSERT INTO media_items (
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING
+  id,
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  created_at,
+  updated_at,
+  deleted_at
+`
+
+type CreateMediaItemParams struct {
+	PostID          pgtype.UUID `db:"post_id" json:"post_id"`
+	MediaObjectID   pgtype.UUID `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID pgtype.UUID `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID   pgtype.UUID `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID      pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+	Type            string      `db:"type" json:"type"`
+	StorageKey      string      `db:"storage_key" json:"storage_key"`
+	MimeType        string      `db:"mime_type" json:"mime_type"`
+	Width           int32       `db:"width" json:"width"`
+	Height          int32       `db:"height" json:"height"`
+	DurationMs      *int32      `db:"duration_ms" json:"duration_ms"`
+	Caption         *string     `db:"caption" json:"caption"`
+	SortOrder       int32       `db:"sort_order" json:"sort_order"`
+	Status          string      `db:"status" json:"status"`
+}
+
+func (q *Queries) CreateMediaItem(ctx context.Context, arg CreateMediaItemParams) (MediaItem, error) {
+	row := q.db.QueryRow(ctx, createMediaItem,
+		arg.PostID,
+		arg.MediaObjectID,
+		arg.AuthorAppUserID,
+		arg.UploadGroupID,
+		arg.DiveSiteID,
+		arg.Type,
+		arg.StorageKey,
+		arg.MimeType,
+		arg.Width,
+		arg.Height,
+		arg.DurationMs,
+		arg.Caption,
+		arg.SortOrder,
+		arg.Status,
+	)
+	var i MediaItem
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.MediaObjectID,
+		&i.AuthorAppUserID,
+		&i.UploadGroupID,
+		&i.DiveSiteID,
+		&i.Type,
+		&i.StorageKey,
+		&i.MimeType,
+		&i.Width,
+		&i.Height,
+		&i.DurationMs,
+		&i.Caption,
+		&i.SortOrder,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const createMediaObject = `-- name: CreateMediaObject :one
 INSERT INTO media_objects (
   owner_app_user_id,
@@ -63,6 +160,74 @@ func (q *Queries) CreateMediaObject(ctx context.Context, arg CreateMediaObjectPa
 		&i.Width,
 		&i.Height,
 		&i.State,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createMediaPost = `-- name: CreateMediaPost :one
+INSERT INTO media_posts (
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  post_caption
+)
+VALUES ($1, $2, $3, $4)
+RETURNING id, author_app_user_id, upload_group_id, dive_site_id, post_caption, created_at, updated_at, deleted_at
+`
+
+type CreateMediaPostParams struct {
+	AuthorAppUserID pgtype.UUID `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID   pgtype.UUID `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID      pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+	PostCaption     *string     `db:"post_caption" json:"post_caption"`
+}
+
+func (q *Queries) CreateMediaPost(ctx context.Context, arg CreateMediaPostParams) (MediaPost, error) {
+	row := q.db.QueryRow(ctx, createMediaPost,
+		arg.AuthorAppUserID,
+		arg.UploadGroupID,
+		arg.DiveSiteID,
+		arg.PostCaption,
+	)
+	var i MediaPost
+	err := row.Scan(
+		&i.ID,
+		&i.AuthorAppUserID,
+		&i.UploadGroupID,
+		&i.DiveSiteID,
+		&i.PostCaption,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const createMediaUploadGroup = `-- name: CreateMediaUploadGroup :one
+INSERT INTO media_upload_groups (
+  author_app_user_id,
+  source,
+  item_count
+)
+VALUES ($1, $2, $3)
+RETURNING id, author_app_user_id, source, item_count, created_at
+`
+
+type CreateMediaUploadGroupParams struct {
+	AuthorAppUserID pgtype.UUID `db:"author_app_user_id" json:"author_app_user_id"`
+	Source          string      `db:"source" json:"source"`
+	ItemCount       int32       `db:"item_count" json:"item_count"`
+}
+
+func (q *Queries) CreateMediaUploadGroup(ctx context.Context, arg CreateMediaUploadGroupParams) (MediaUploadGroup, error) {
+	row := q.db.QueryRow(ctx, createMediaUploadGroup, arg.AuthorAppUserID, arg.Source, arg.ItemCount)
+	var i MediaUploadGroup
+	err := row.Scan(
+		&i.ID,
+		&i.AuthorAppUserID,
+		&i.Source,
+		&i.ItemCount,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -229,6 +394,123 @@ func (q *Queries) ListMediaByOwner(ctx context.Context, arg ListMediaByOwnerPara
 			&i.Height,
 			&i.State,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProfileMediaByUsername = `-- name: ListProfileMediaByUsername :many
+SELECT
+  mi.id,
+  mi.post_id,
+  mi.media_object_id,
+  mi.author_app_user_id,
+  mi.upload_group_id,
+  mi.dive_site_id,
+  mi.type,
+  mi.storage_key,
+  mi.mime_type,
+  mi.width,
+  mi.height,
+  mi.duration_ms,
+  mi.caption,
+  mi.sort_order,
+  mi.status,
+  mi.created_at,
+  mi.updated_at,
+  mi.deleted_at,
+  COALESCE(ds.slug, '') AS dive_site_slug,
+  COALESCE(ds.name, '') AS dive_site_name,
+  COALESCE(ds.area, '') AS dive_site_area
+FROM media_items mi
+JOIN media_posts mp ON mp.id = mi.post_id
+JOIN users u ON u.id = mi.author_app_user_id
+LEFT JOIN dive_sites ds
+  ON ds.id = mi.dive_site_id
+ AND ds.moderation_state = 'approved'
+WHERE lower(u.username) = lower($1)
+  AND u.account_status = 'active'
+  AND mi.status = 'active'
+  AND mi.deleted_at IS NULL
+  AND mp.deleted_at IS NULL
+  AND (mi.created_at < $2 OR (mi.created_at = $2 AND mi.id < $3))
+ORDER BY mi.created_at DESC, mi.id DESC
+LIMIT $4
+`
+
+type ListProfileMediaByUsernameParams struct {
+	Username   string             `db:"username" json:"username"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID         pgtype.UUID        `db:"id" json:"id"`
+	LimitCount int32              `db:"limit_count" json:"limit_count"`
+}
+
+type ListProfileMediaByUsernameRow struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	PostID          pgtype.UUID        `db:"post_id" json:"post_id"`
+	MediaObjectID   pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID   pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID      pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Type            string             `db:"type" json:"type"`
+	StorageKey      string             `db:"storage_key" json:"storage_key"`
+	MimeType        string             `db:"mime_type" json:"mime_type"`
+	Width           int32              `db:"width" json:"width"`
+	Height          int32              `db:"height" json:"height"`
+	DurationMs      *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption         *string            `db:"caption" json:"caption"`
+	SortOrder       int32              `db:"sort_order" json:"sort_order"`
+	Status          string             `db:"status" json:"status"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	DiveSiteSlug    string             `db:"dive_site_slug" json:"dive_site_slug"`
+	DiveSiteName    string             `db:"dive_site_name" json:"dive_site_name"`
+	DiveSiteArea    string             `db:"dive_site_area" json:"dive_site_area"`
+}
+
+func (q *Queries) ListProfileMediaByUsername(ctx context.Context, arg ListProfileMediaByUsernameParams) ([]ListProfileMediaByUsernameRow, error) {
+	rows, err := q.db.Query(ctx, listProfileMediaByUsername,
+		arg.Username,
+		arg.CreatedAt,
+		arg.ID,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProfileMediaByUsernameRow{}
+	for rows.Next() {
+		var i ListProfileMediaByUsernameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostID,
+			&i.MediaObjectID,
+			&i.AuthorAppUserID,
+			&i.UploadGroupID,
+			&i.DiveSiteID,
+			&i.Type,
+			&i.StorageKey,
+			&i.MimeType,
+			&i.Width,
+			&i.Height,
+			&i.DurationMs,
+			&i.Caption,
+			&i.SortOrder,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.DiveSiteSlug,
+			&i.DiveSiteName,
+			&i.DiveSiteArea,
 		); err != nil {
 			return nil, err
 		}

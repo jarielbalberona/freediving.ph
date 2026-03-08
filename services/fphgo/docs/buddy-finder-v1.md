@@ -25,6 +25,11 @@ Base path: `/v1/buddy-finder`
   - privacy: coarse area only
   - safety: blocked users excluded in SQL
 
+- `GET /v1/buddy-finder/intents/mine`
+  - auth: member + `buddies.read`
+  - response: actor's active Buddy Finder posts for self-management
+  - privacy: owner-only operational view
+
 - `POST /v1/buddy-finder/intents`
   - auth: member + `buddies.write`
   - body:

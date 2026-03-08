@@ -2,11 +2,19 @@ export type HomeFeedMode = "following" | "nearby" | "training" | "spot-reports";
 
 export type HomeFeedItemType =
   | "post"
+  | "media_post"
   | "community_hot_post"
   | "dive_spot"
   | "event"
   | "buddy_signal"
   | "record_highlight";
+
+export type HomeFeedItemTone =
+  | "social"
+  | "coordination"
+  | "conditions"
+  | "discovery"
+  | "milestone";
 
 export interface HomeFeedContext {
   greeting: string;
@@ -36,6 +44,13 @@ export interface HomeFeedItemBase {
   entityId: string;
   score: number;
   reasons: string[];
+  typeLabel: string;
+  typeHint: string;
+  rankLabel: string;
+  rankHint: string;
+  tone: HomeFeedItemTone;
+  detailHref?: string;
+  authorHref?: string;
   createdAt: string;
 }
 

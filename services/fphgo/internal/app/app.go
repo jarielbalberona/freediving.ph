@@ -128,6 +128,24 @@ func (l buddyFinderSiteLookup) GetSiteForWrite(ctx context.Context, siteID strin
 	}, nil
 }
 
+type mediaSiteLookup struct {
+	explore *explorerepo.Repo
+}
+
+func (l mediaSiteLookup) GetSiteForWrite(ctx context.Context, siteID string) (mediaservice.SiteRecord, error) {
+	site, err := l.explore.GetSiteForWrite(ctx, siteID)
+	if err != nil {
+		return mediaservice.SiteRecord{}, err
+	}
+	return mediaservice.SiteRecord{
+		ID:              site.ID,
+		Slug:            site.Slug,
+		Name:            site.Name,
+		Area:            site.Area,
+		ModerationState: site.ModerationState,
+	}, nil
+}
+
 func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) *Dependencies {
 	var hubOpts []ws.HubOption
 	if cfg.WSFanoutChannel != "" {
@@ -188,6 +206,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		moderationservice.WithRealtimeBroadcaster(hub),
 	)
 	moderationHandler := moderationhttp.New(moderationService, v)
+	exploreRepo := explorerepo.New(pool)
 	mediaRepo := mediarepo.New(pool)
 	var mediaUploader *sharedr2.Client
 	mediaUploader, err := sharedr2.New(context.Background(), sharedr2.Config{
@@ -207,6 +226,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		cfg.MediaCDNBaseURL,
 		cfg.MediaSigningSecretV1,
 		cfg.MediaSigningKeyVersion,
+		mediaservice.WithSiteLookup(mediaSiteLookup{explore: exploreRepo}),
 	)
 	mediaHandler := mediahttp.New(mediaService, v)
 	notificationsRepo := notificationsrepo.New(pool)
@@ -221,8 +241,6 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	locationsRepo := locationsrepo.New(pool)
 	locationsService := locationsservice.New(locationsRepo)
 	locationsHandler := locationshttp.New(locationsService)
-
-	exploreRepo := explorerepo.New(pool)
 	var siteGeocoder *sharedmapsgeocode.Client
 	siteGeocoder, err = sharedmapsgeocode.New(cfg.GoogleMapsAPIKey)
 	if err != nil {
