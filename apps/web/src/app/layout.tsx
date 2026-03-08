@@ -23,6 +23,7 @@ import { NotificationCenter } from "@/components/nav/notification-center";
 import { NavUser } from "@/components/ui/nav-user";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppLogo } from "@/components/ui/app-logo";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -85,7 +86,10 @@ export default async function RootLayout({
                     <AuthGate />
                     <header className="sticky inset-x-0 top-0 z-10 flex items-center gap-2 bg-background isolate shrink-0">
                       <div className="flex items-center w-full gap-2 px-4 h-14">
-                        <SidebarTrigger className="-ml-1.5" />
+                        <div className="flex items-center gap-2">
+                          <SidebarTrigger className="-ml-1.5" />
+                          <AppLogo />
+                        </div>
                         <div className="flex items-center gap-2 ml-auto">
                           <ModeSwitcher />
                           <NotificationCenter />

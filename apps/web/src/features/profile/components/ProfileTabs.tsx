@@ -84,7 +84,7 @@ export function ProfileTabs({
             </TabsTrigger>
           </TabsList>
 
-        <TabsContent value="grid" className="pt-2">
+        <TabsContent value="grid" className="pt-2 px-1">
           <ProfileGrid
             items={mediaItems}
             isLoading={isLoadingMedia}
