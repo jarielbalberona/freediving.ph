@@ -260,28 +260,26 @@ export default function EventsPage() {
               </Badge>
               <div className="space-y-2 sm:space-y-3">
                 <h1 className="max-w-3xl font-serif text-[1.75rem] leading-tight tracking-tight text-foreground sm:text-4xl lg:text-[2.8rem]">
-                  Find the dives, trainings, and meetups that are actually happening.
+                  Dives, trainings, and meetups.
                 </h1>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
-                  Public events are visible to everyone. Restricted events stay
-                  restricted. Signed-in members can join public events and
-                  publish their own when they have something real to host.
+                  Find out what's happening in the community and join in.
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
                 <EventStatCard
-                  label="Visible events"
+                  label="Events"
                   value={String(eventsQuery.data?.pagination.total ?? allEvents.length)}
                   icon={<Compass className="h-4 w-4" />}
                 />
                 <EventStatCard
-                  label={isSignedIn ? "Joined from this list" : "Guest access"}
-                  value={isSignedIn ? String(joinedEvents.length) : "Public only"}
+                  label={isSignedIn ? "Joined" : "Public"}
+                  value={isSignedIn ? String(joinedEvents.length) : "View only"}
                   icon={<Ticket className="h-4 w-4" />}
                 />
                 <EventStatCard
-                  label="Access model"
-                  value="Permission-aware"
+                  label="Access"
+                  value="Managed"
                   icon={<ShieldCheck className="h-4 w-4" />}
                 />
               </div>
@@ -290,27 +288,27 @@ export default function EventsPage() {
             <Card className="border-border/70 bg-[linear-gradient(180deg,_hsl(var(--primary)/0.14)_0%,_hsl(var(--card))_100%)]">
               <CardHeader className="space-y-2 p-4 sm:space-y-3 sm:p-6">
                 <CardTitle className="text-lg text-foreground sm:text-xl">
-                  {isSignedIn ? "What you can do here" : "Guest rules"}
+                  {isSignedIn ? "Events" : "Public Events"}
                 </CardTitle>
                 <CardDescription className="text-sm text-foreground/75">
                   {isSignedIn
-                    ? "Browse upcoming public events, track what you already joined, and publish an event without the usual vague filler."
-                    : "You can browse public events. Sign in to join, publish, or access restricted events you already belong to."}
+                    ? "Join upcoming sessions or publish your own to gather a crew."
+                    : "Browse public events. Sign in to join or host."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 p-4 pt-0 text-sm text-foreground/80 sm:space-y-4 sm:p-6 sm:pt-0">
                 <InfoBox
-                  title="Public is discoverable"
-                  description="If an event is public, guests can see it. If it is not, the backend will reject access. The page should say exactly that."
+                  title="Public Events"
+                  description="Visible to everyone."
                 />
                 <InfoBox
-                  title="Joining still follows permissions"
-                  description="Signing in lets you join public events. Group-only and invite-only visibility still depends on actual membership."
+                  title="Restricted Events"
+                  description="Only visible to group members or invitees."
                 />
                 {!isSignedIn ? (
                   <SignInButton mode="modal">
                     <Button className="w-full" size="default">
-                      Sign in to join and publish events
+                      Sign in to join events
                     </Button>
                   </SignInButton>
                 ) : (
@@ -332,12 +330,10 @@ export default function EventsPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1.5 sm:space-y-2">
               <h2 className="font-serif text-2xl tracking-tight text-foreground sm:text-[2rem]">
-                Browse events
+                Discover
               </h2>
               <p className="max-w-2xl text-sm text-muted-foreground">
-                Search by title or description, then filter by status. The
-                default is published because showing dead drafts to guests is
-                nonsense.
+                Search by title or description.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_210px] sm:gap-3 lg:min-w-[520px]">
@@ -345,7 +341,7 @@ export default function EventsPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-10"
-                  placeholder="Search events by title or description"
+                  placeholder="Search events..."
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -391,12 +387,8 @@ export default function EventsPage() {
                 isSignedIn={isSignedIn}
                 onJoin={handleJoinEvent}
                 onLeave={handleLeaveEvent}
-                emptyTitle="No events matched"
-                emptyDescription={
-                  search.trim()
-                    ? "Tighten the search less. There is nothing in the current result set."
-                    : "No published events are visible right now."
-                }
+                emptyTitle="No events found"
+                emptyDescription="Try adjusting your search or filters."
               />
             </TabsContent>
 
@@ -409,8 +401,8 @@ export default function EventsPage() {
                   isSignedIn
                   onJoin={handleJoinEvent}
                   onLeave={handleLeaveEvent}
-                  emptyTitle="You have not joined anything from this result set"
-                  emptyDescription="Join a public event first. This tab is for actual commitments, not wishful thinking."
+                  emptyTitle="No joined events"
+                  emptyDescription="Join an event to see it here."
                 />
               </TabsContent>
             ) : null}
@@ -459,7 +451,7 @@ export default function EventsPage() {
                     <FormControl>
                       <Textarea
                         className="min-h-28"
-                        placeholder="What is happening, who it is for, and anything people should know before joining."
+                        placeholder="Event description"
                         {...field}
                       />
                     </FormControl>
@@ -759,8 +751,7 @@ function EventDiscoveryCard({
             </Link>
           </CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
-            {event.description?.trim() ||
-              "No description. If the organizer cannot explain the event, people should ask harder questions before showing up."}
+            {event.description?.trim() || "No description."}
           </CardDescription>
         </div>
       </CardHeader>

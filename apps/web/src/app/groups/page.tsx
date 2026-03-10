@@ -163,33 +163,30 @@ export default function GroupsPage() {
               </Badge>
               <div className="space-y-2 sm:space-y-3">
                 <h1 className="max-w-3xl font-serif text-[1.75rem] leading-tight tracking-tight text-foreground sm:text-4xl lg:text-[2.8rem]">
-                  Find real freediving communities, not dead shells with a logo
-                  and no activity.
+                  Find your community.
                 </h1>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
-                  Public groups are open for discovery. Private and invite-only
-                  groups stay restricted. Signed-in members can join, leave,
-                  create groups, and participate where they belong.
+                  Join local groups, training squads, and freediving clubs.
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
                 <StatCard
-                  label="Visible groups"
+                  label="Groups"
                   value={String(
                     groupsQuery.data?.pagination.total ?? discoverGroups.length,
                   )}
                   icon={<Compass className="h-4 w-4" />}
                 />
                 <StatCard
-                  label={isSignedIn ? "Your groups" : "Public discovery"}
+                  label={isSignedIn ? "Your groups" : "Public"}
                   value={String(
                     isSignedIn ? myGroups.length : discoverGroups.length,
                   )}
                   icon={<Users className="h-4 w-4" />}
                 />
                 <StatCard
-                  label="Restricted by design"
-                  value="Yes"
+                  label="Private"
+                  value="Supported"
                   icon={<ShieldCheck className="h-4 w-4" />}
                 />
               </div>
@@ -198,27 +195,27 @@ export default function GroupsPage() {
             <Card className="border-border/70 bg-[linear-gradient(180deg,_hsl(var(--primary)/0.15)_0%,_hsl(var(--card))_100%)]">
               <CardHeader className="space-y-2 p-4 sm:space-y-3 sm:p-6">
                 <CardTitle className="text-lg text-foreground sm:text-xl">
-                  {isSignedIn ? "What you can do here" : "Guest rules"}
+                  {isSignedIn ? "Groups" : "Community"}
                 </CardTitle>
                 <CardDescription className="text-sm text-foreground/75">
                   {isSignedIn
-                    ? "Browse what is active, keep your own memberships organized, and create a group when you have a real reason for it."
-                    : "You can browse public groups. Sign in to join, create a group, or view restricted groups you belong to."}
+                    ? "Join existing groups or create your own to coordinate dives and events."
+                    : "Browse public groups to see what's happening in the community."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 p-4 pt-0 text-sm text-foreground/80 sm:space-y-4 sm:p-6 sm:pt-0">
                 <InfoBox
-                  title="Public means discoverable"
-                  description="Public groups can be browsed without sign-in. That does not mean every group should be public."
+                  title="Public Groups"
+                  description="Open for anyone to see and join."
                 />
                 <InfoBox
-                  title="Approval and invite-only are different"
-                  description="Approval groups accept requests. Invite-only groups do not. The UI should stop pretending those are the same state."
+                  title="Private Groups"
+                  description="Requires approval or invitation to join."
                 />
                 {!isSignedIn ? (
                   <SignInButton mode="modal">
                     <Button className="w-full" size="default">
-                      Sign in to join and create groups
+                      Sign in to join groups
                     </Button>
                   </SignInButton>
                 ) : (
@@ -240,11 +237,10 @@ export default function GroupsPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1.5 sm:space-y-2">
               <h2 className="font-serif text-2xl tracking-tight text-foreground sm:text-[2rem]">
-                Discover groups
+                Discover
               </h2>
               <p className="max-w-2xl text-sm text-muted-foreground">
-                Search by name or description. Use visibility filters to narrow
-                what you want instead of scrolling through junk.
+                Find groups by name or location.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_200px] sm:gap-3 lg:min-w-[520px]">
@@ -252,7 +248,7 @@ export default function GroupsPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-10"
-                  placeholder="Search groups by name or description"
+                  placeholder="Search groups..."
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -304,8 +300,8 @@ export default function GroupsPage() {
                 />
               ) : discoverGroups.length === 0 ? (
                 <EmptyState
-                  title="No groups matched"
-                  description="Broaden the search or stop filtering so hard. If the list is empty, nobody useful is showing up under the current constraints."
+                  title="No groups found"
+                  description="Try a different search term or filter."
                 />
               ) : (
                 <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
@@ -340,8 +336,8 @@ export default function GroupsPage() {
                   />
                 ) : myGroups.length === 0 ? (
                   <EmptyState
-                    title="You have not joined any groups yet"
-                    description="Join a public group, request access to an approval-based group, or create one if you actually intend to run it."
+                  title="No groups joined yet"
+                  description="Find a group to join or create your own."
                   />
                 ) : (
                   <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
@@ -384,7 +380,7 @@ export default function GroupsPage() {
               <Label htmlFor="create-group-description">Description</Label>
               <Textarea
                 id="create-group-description"
-                placeholder="What is this group actually for?"
+                placeholder="What is this group for?"
                 value={createDescription}
                 onChange={(event) => setCreateDescription(event.target.value)}
               />
@@ -510,8 +506,7 @@ function GroupCard({
           ) : null}
         </div>
         <CardDescription className="line-clamp-3 min-h-[3.75rem] text-sm text-muted-foreground">
-          {group.description ||
-            "No description yet. That is usually a bad sign, but at least the group exists."}
+          {group.description || "No description."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -581,7 +576,7 @@ function StatCard({
         {icon}
         {label}
       </div>
-      <p className="mt-2 text-2xl font-semibold text-foreground sm:mt-3 sm:text-3xl">{value}</p>
+      <p className="mt-2 text-xl font-semibold text-foreground sm:mt-3 sm:text-2xl">{value}</p>
     </div>
   );
 }

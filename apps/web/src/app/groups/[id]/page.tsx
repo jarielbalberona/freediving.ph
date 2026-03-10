@@ -187,8 +187,7 @@ export default function GroupDetailPage() {
                   {group.name}
                 </h1>
                 <p className="max-w-3xl text-base text-muted-foreground">
-                  {group.description ||
-                    "No description. If the group cannot explain itself, people should be suspicious by default."}
+                  {group.description || "No description provided."}
                 </p>
               </div>
               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -216,8 +215,8 @@ export default function GroupDetailPage() {
                 </CardTitle>
                 <CardDescription className="text-sm text-foreground/75">
                   {group.visibility === "public"
-                    ? "Public groups are visible to everyone. Joining still follows the group's join policy."
-                    : "This group is restricted. Visibility and joining are separate controls, and they should stay that way."}
+                    ? "Public group. Anyone can see members and posts."
+                    : "Restricted group. Content is only visible to members."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -225,8 +224,7 @@ export default function GroupDetailPage() {
                   isMember ? (
                     <>
                       <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
-                        You are a member. If you leave, you lose access to any
-                        restricted content tied to this group.
+                        You are a member.
                       </div>
                       <Button
                         variant="outline"
@@ -239,8 +237,7 @@ export default function GroupDetailPage() {
                     </>
                   ) : pendingMembership === "pending" ? (
                     <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
-                      Join request sent. Wait for approval instead of hammering
-                      the button again.
+                      Join request pending.
                     </div>
                   ) : canJoin ? (
                     <Button
@@ -254,8 +251,7 @@ export default function GroupDetailPage() {
                     </Button>
                   ) : (
                     <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
-                      Invite only. There is no self-serve join action for this
-                      group.
+                      Invite only.
                     </div>
                   )
                 ) : (
@@ -290,7 +286,7 @@ export default function GroupDetailPage() {
                 <Label htmlFor="group-post-content">Content</Label>
                 <Textarea
                   id="group-post-content"
-                  placeholder="Write something useful. Nobody needs another empty announcement."
+                  placeholder="Write something..."
                   value={postContent}
                   onChange={(event) => setPostContent(event.target.value)}
                 />
@@ -379,8 +375,7 @@ export default function GroupDetailPage() {
                 </p>
               ) : posts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No posts yet. Either the group is new or nobody is using it
-                  properly.
+                  No posts yet.
                 </p>
               ) : (
                 <div className="space-y-3">

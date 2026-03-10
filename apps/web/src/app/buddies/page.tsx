@@ -336,30 +336,27 @@ export default function BuddiesPage() {
               </Badge>
               <div className="space-y-2 sm:space-y-3">
                 <h1 className="max-w-3xl font-serif text-[1.75rem] leading-tight tracking-tight text-foreground sm:text-4xl lg:text-[2.8rem]">
-                  Manage your dive network and find a reliable partner when you
-                  actually need one.
+                  Find buddies and coordinate sessions.
                 </h1>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
-                  Buddy Finder is for current availability. Buddy requests are
-                  for longer-term trust. This page now does both, and the
-                  privacy rules are explicit instead of hand-wavy.
+                  Connect with divers for upcoming sessions or build your long-term dive network.
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
                 <StatCard
-                  label={isSignedIn ? "Current buddies" : "Active public posts"}
+                  label={isSignedIn ? "Buddies" : "Active posts"}
                   value={String(isSignedIn ? counts.buddies : counts.preview)}
                   icon={<Users className="h-4 w-4" />}
                 />
                 <StatCard
                   label={
-                    isSignedIn ? "Incoming requests" : "Request-based messaging"
+                    isSignedIn ? "Requests" : "Messaging"
                   }
                   value={String(isSignedIn ? counts.incoming : 1)}
                   icon={<HeartHandshake className="h-4 w-4" />}
                 />
                 <StatCard
-                  label={isSignedIn ? "Your active posts" : "Coarse area only"}
+                  label={isSignedIn ? "Your posts" : "Areas"}
                   value={String(isSignedIn ? counts.activePosts : 0)}
                   icon={<ShieldCheck className="h-4 w-4" />}
                 />
@@ -369,37 +366,35 @@ export default function BuddiesPage() {
             <Card className="border-border/70 bg-[linear-gradient(180deg,_hsl(var(--primary)/0.16)_0%,_hsl(var(--card))_100%)]">
               <CardHeader className="space-y-2 p-4 sm:space-y-3 sm:p-6">
                 <CardTitle className="text-lg text-foreground sm:text-xl">
-                  {isSignedIn ? "How this page works" : "Guest preview rules"}
+                  {isSignedIn ? "Buddy Finder" : "Guest Preview"}
                 </CardTitle>
                 <CardDescription className="text-sm text-foreground/75">
                   {isSignedIn
-                    ? "Use requests to build your circle. Use Buddy Finder when you have a specific session in mind."
-                    : "You can browse availability by area. Sign in to see member details, send requests, and manage your own posts."}
+                    ? "Post your availability to find partners for specific sessions, or build your buddy list for future dives."
+                    : "Browse availability by area. Sign in to connect and coordinate."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 p-4 pt-0 text-sm text-foreground/80 sm:space-y-4 sm:p-6 sm:pt-0">
                 <div className="rounded-2xl border border-border/60 bg-background/80 p-3 sm:rounded-3xl sm:p-4">
                   <p className="font-medium text-foreground">
-                    What stays private
+                    Privacy First
                   </p>
                   <p className="mt-1">
-                    Exact meeting points and direct contact are not public.
-                    Guest preview stays coarse by area and time window.
+                    Exact locations are private. Guest view only shows general areas and times.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-background/80 p-3 sm:rounded-3xl sm:p-4">
                   <p className="font-medium text-foreground">
-                    What opens after sign-in
+                    Member Features
                   </p>
                   <p className="mt-1">
-                    Member posts show the person behind the listing. Messages
-                    still begin through the request-based messaging flow.
+                    Sign in to see profiles, send messages, and manage your buddy connections.
                   </p>
                 </div>
                 {!isSignedIn ? (
                   <SignInButton mode="modal">
                     <Button className="w-full" size="default">
-                      Sign in to manage buddies and message people
+                      Sign in to manage buddies
                     </Button>
                   </SignInButton>
                 ) : null}
@@ -418,11 +413,10 @@ export default function BuddiesPage() {
                     Your buddies
                   </div>
                   <CardTitle className="text-xl sm:text-2xl">
-                    Relationships and requests
+                    Network & Requests
                   </CardTitle>
                   <CardDescription>
-                    Stop pretending Buddy Finder and buddy relationships are the
-                    same thing. They are not.
+                    Manage your trusted dive partners and incoming connections.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -561,11 +555,10 @@ export default function BuddiesPage() {
                     Post availability
                   </div>
                   <CardTitle className="text-xl sm:text-2xl">
-                    Tell people what session you want
+                    Post Availability
                   </CardTitle>
                   <CardDescription>
-                    This is not a bio. It is a short-lived availability post
-                    with a coarse area, time window, and a useful note.
+                    Let others know when and where you want to dive.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -678,8 +671,7 @@ export default function BuddiesPage() {
                   </div>
 
                   <div className="rounded-3xl border border-border/70 bg-muted/45 p-4 text-sm text-muted-foreground">
-                    Area stays coarse. If someone messages you, the conversation
-                    still starts in request mode unless you are already buddies.
+                    Area stays coarse. Conversations start in request mode unless you are already buddies.
                   </div>
 
                   <Button
@@ -707,8 +699,7 @@ export default function BuddiesPage() {
                         Your active posts
                       </h3>
                       <span className="text-xs text-muted-foreground">
-                        Current limit is effectively low because posts expire
-                        fast.
+                        Posts expire automatically.
                       </span>
                     </div>
                     {myIntents.length > 0 ? (
@@ -770,12 +761,10 @@ export default function BuddiesPage() {
                     Find dive partners
                   </div>
                   <h2 className="font-serif text-3xl tracking-tight text-foreground">
-                    Live availability from members
+                    Community Availability
                   </h2>
                   <p className="max-w-2xl text-sm text-muted-foreground">
-                    Filter by area, session type, and time. If you want a real
-                    connection, send a buddy request. If you just want to ask
-                    about one session, message them.
+                    Browse active sessions and find divers looking for partners.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -892,11 +881,10 @@ export default function BuddiesPage() {
                   Public preview
                 </div>
                 <h2 className="font-serif text-3xl tracking-tight text-foreground">
-                  Guest view shows coarse signals, not full member detail
+                  Public Preview
                 </h2>
                 <p className="max-w-2xl text-sm text-muted-foreground">
-                  You can browse area, time window, and trust signals. Sign in
-                  for names, full notes, requests, saves, and messaging.
+                  Sign in to see full profiles, send messages, and connect with buddies.
                 </p>
               </div>
               <div className="w-full max-w-sm">
@@ -934,11 +922,10 @@ export default function BuddiesPage() {
               <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-lg font-semibold text-foreground">
-                    Sign in for the real workflow
+                    Sign in to connect
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Messaging, saving, buddy requests, and full member listings
-                    are for signed-in members.
+                    Messaging, saving, and buddy requests are for signed-in members.
                   </p>
                 </div>
                 <SignInButton mode="modal">
@@ -964,7 +951,7 @@ function StatCard({
         {icon}
         {label}
       </div>
-      <p className="mt-2 text-2xl font-semibold text-foreground sm:mt-3 sm:text-3xl">{value}</p>
+      <p className="mt-2 text-xl font-semibold text-foreground sm:mt-3 sm:text-2xl">{value}</p>
     </div>
   );
 }

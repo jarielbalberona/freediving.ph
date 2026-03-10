@@ -20,33 +20,33 @@ type modeFrame struct {
 
 func presentationFor(mode Mode, itemType ItemType, reasons []string) feedPresentation {
 	rankLabel := "Worth a look"
-	rankHint := "Relevant activity for this feed right now."
+	rankHint := "Highlights from across the community."
 	for _, reason := range reasons {
 		switch strings.TrimSpace(reason) {
 		case "following":
 			rankLabel = "From your network"
-			rankHint = "People and conversations closest to your graph are pushed up."
+			rankHint = "Updates from divers you follow."
 		case "nearby", "nearby_spot":
-			rankLabel = "Near your area"
-			rankHint = "Local activity is prioritized because it can turn into a real dive."
+			rankLabel = "Happening nearby"
+			rankHint = "Local activity and potential dive opportunities."
 		case "training_affinity":
-			rankLabel = "Training-focused"
-			rankHint = "This helps the training lane stay practical instead of noisy."
+			rankLabel = "Training focus"
+			rankHint = "Logs and discussions about technique and progress."
 		case "spot_reports":
-			rankLabel = "Fresh spot intel"
-			rankHint = "Operational reports and site updates outrank generic chatter here."
+			rankLabel = "Conditions report"
+			rankHint = "Recent updates on visibility and site conditions."
 		case "buddy_activity":
-			rankLabel = "Actionable now"
-			rankHint = "Buddy coordination is prioritized because it creates real sessions."
+			rankLabel = "Buddy check"
+			rankHint = "Divers looking for partners right now."
 		case "event_activity":
-			rankLabel = "Group momentum"
-			rankHint = "This event is active enough to matter right now."
+			rankLabel = "Upcoming events"
+			rankHint = "Active meetups and sessions."
 		case "community_heat":
-			rankLabel = "Active discussion"
-			rankHint = "This thread is moving, not sitting dead in the water."
+			rankLabel = "Trending"
+			rankHint = "Popular conversations in the community."
 		case "saved_spot_related":
-			rankLabel = "Related to saved places"
-			rankHint = "Your saved places are influencing what surfaces here."
+			rankLabel = "From your saved spots"
+			rankHint = "Activity at places you're interested in."
 		}
 	}
 
@@ -54,7 +54,7 @@ func presentationFor(mode Mode, itemType ItemType, reasons []string) feedPresent
 	case ItemTypePost:
 		return feedPresentation{
 			TypeLabel: "Dive update",
-			TypeHint:  "Social post from the water or after a session.",
+			TypeHint:  "Updates from the water.",
 			RankLabel: rankLabel,
 			RankHint:  rankHint,
 			Tone:      "social",
@@ -62,7 +62,7 @@ func presentationFor(mode Mode, itemType ItemType, reasons []string) feedPresent
 	case ItemTypeMediaPost:
 		return feedPresentation{
 			TypeLabel: "Photo post",
-			TypeHint:  "Visual post from a dive day, session, or site visit.",
+			TypeHint:  "Photos from dives and sessions.",
 			RankLabel: rankLabel,
 			RankHint:  rankHint,
 			Tone:      "social",
@@ -70,7 +70,7 @@ func presentationFor(mode Mode, itemType ItemType, reasons []string) feedPresent
 	case ItemTypeCommunityHot:
 		return feedPresentation{
 			TypeLabel: "Community thread",
-			TypeHint:  "Discussion with visible reply and reaction momentum.",
+			TypeHint:  "Active community discussions.",
 			RankLabel: rankLabel,
 			RankHint:  rankHint,
 			Tone:      "social",
@@ -78,7 +78,7 @@ func presentationFor(mode Mode, itemType ItemType, reasons []string) feedPresent
 	case ItemTypeDiveSpot:
 		return feedPresentation{
 			TypeLabel: "Spot briefing",
-			TypeHint:  "Place-level context that helps a diver decide where to go.",
+			TypeHint:  "Site info and conditions.",
 			RankLabel: rankLabel,
 			RankHint:  rankHint,
 			Tone:      "conditions",
@@ -86,7 +86,7 @@ func presentationFor(mode Mode, itemType ItemType, reasons []string) feedPresent
 	case ItemTypeEvent:
 		return feedPresentation{
 			TypeLabel: "Group session",
-			TypeHint:  "An event or meetup that can pull people into the water together.",
+			TypeHint:  "Group dives and meetups.",
 			RankLabel: rankLabel,
 			RankHint:  rankHint,
 			Tone:      "coordination",
@@ -94,7 +94,7 @@ func presentationFor(mode Mode, itemType ItemType, reasons []string) feedPresent
 	case ItemTypeBuddySignal:
 		return feedPresentation{
 			TypeLabel: "Buddy call",
-			TypeHint:  "A direct coordination signal from someone looking to dive.",
+			TypeHint:  "Divers looking for partners.",
 			RankLabel: rankLabel,
 			RankHint:  rankHint,
 			Tone:      "coordination",
@@ -102,7 +102,7 @@ func presentationFor(mode Mode, itemType ItemType, reasons []string) feedPresent
 	default:
 		return feedPresentation{
 			TypeLabel: "Record highlight",
-			TypeHint:  "Milestone content worth noticing, but not the core of the feed.",
+			TypeHint:  "Notable community milestones.",
 			RankLabel: rankLabel,
 			RankHint:  rankHint,
 			Tone:      "milestone",
@@ -149,36 +149,36 @@ func diveSiteHref(slug string) string {
 func contextForMode(mode Mode, isGuest bool) modeFrame {
 	if isGuest {
 		return modeFrame{
-			Greeting:    "Freediving community pulse",
-			Message:     "This preview shows live activity, local water context, and buddy coordination. Sign in to unlock the full feed.",
-			SafetyBadge: "Buddy-first diving",
+			Greeting:    "Community Pulse",
+			Message:     "Live activity, local updates, and buddy coordination. Sign in for more.",
+			SafetyBadge: "Preview",
 		}
 	}
 
 	switch mode {
 	case ModeNearby:
 		return modeFrame{
-			Greeting:    "Local water, local people, local decisions",
-			Message:     "Nearby prioritizes what can turn into a dive soon: buddy calls, fresh reports, and active local posts.",
-			SafetyBadge: "Local conditions first",
+			Greeting:    "Local Activity",
+			Message:     "Updates, buddy calls, and reports from your area.",
+			SafetyBadge: "Nearby",
 		}
 	case ModeTraining:
 		return modeFrame{
-			Greeting:    "Training is the discipline lane",
-			Message:     "Training strips out fluff and pushes progress logs, session plans, and useful signals higher.",
-			SafetyBadge: "Progress over noise",
+			Greeting:    "Training & Progress",
+			Message:     "Focused on technique, session logs, and training discussions.",
+			SafetyBadge: "Training",
 		}
 	case ModeSpotReports:
 		return modeFrame{
-			Greeting:    "Spot reports should help you decide, not just browse",
-			Message:     "This mode favors fresh operational intel, site activity, and buddy coordination around real places.",
-			SafetyBadge: "Fresh spot intel",
+			Greeting:    "Conditions Reports",
+			Message:     "Latest visibility and site updates from the community.",
+			SafetyBadge: "Conditions",
 		}
 	default:
 		return modeFrame{
-			Greeting:    "Your feed should lead to real dives",
-			Message:     "Following favors people, plans, and local momentum over decorative discovery cards.",
-			SafetyBadge: "People before catalog",
+			Greeting:    "Community Feed",
+			Message:     "Updates from divers you follow and trending discussions.",
+			SafetyBadge: "Network",
 		}
 	}
 }
@@ -189,28 +189,28 @@ func quickActionsForMode(mode Mode) []QuickAction {
 		return []QuickAction{
 			{Type: "find_buddy", Label: "Find buddy"},
 			{Type: "report_conditions", Label: "Report conditions"},
-			{Type: "explore_spots", Label: "Nearby spots"},
-			{Type: "join_event", Label: "See sessions"},
+			{Type: "explore_spots", Label: "Browse spots"},
+			{Type: "join_event", Label: "Find events"},
 		}
 	case ModeTraining:
 		return []QuickAction{
 			{Type: "log_training", Label: "Log training"},
 			{Type: "share_progress", Label: "Share progress"},
 			{Type: "find_buddy", Label: "Find buddy"},
-			{Type: "join_event", Label: "See events"},
+			{Type: "join_event", Label: "Find events"},
 		}
 	case ModeSpotReports:
 		return []QuickAction{
 			{Type: "report_conditions", Label: "Report conditions"},
-			{Type: "explore_spots", Label: "Open spots"},
+			{Type: "explore_spots", Label: "Browse spots"},
 			{Type: "find_buddy", Label: "Find buddy"},
-			{Type: "join_event", Label: "See meetups"},
+			{Type: "join_event", Label: "Find events"},
 		}
 	default:
 		return []QuickAction{
 			{Type: "post_update", Label: "Post update"},
 			{Type: "find_buddy", Label: "Find buddy"},
-			{Type: "open_chika", Label: "Open chika"},
+			{Type: "open_chika", Label: "Start chika"},
 			{Type: "create_session", Label: "Create session"},
 		}
 	}
