@@ -581,6 +581,8 @@ export interface MessagingThreadDetailResponse {
   createdAt: string;
   lastReadMessageId?: string;
   canSend: boolean;
+  activeRequest: boolean;
+  canResolveRequest: boolean;
 }
 
 export interface MessagingThreadMessagesResponse {
@@ -618,6 +620,12 @@ export interface MessagingUpdateThreadCategoryResponse {
   threadId: string;
   category: "primary" | "transactions";
   updated: boolean;
+}
+
+export interface MessagingResolveThreadRequestResponse {
+  threadId: string;
+  action: "accepted" | "declined";
+  resolved: boolean;
 }
 
 export type MessagingRealtimeEnvelope<T = unknown> = {

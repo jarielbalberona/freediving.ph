@@ -138,9 +138,11 @@ type ThreadListResult struct {
 }
 
 type ThreadDetailResult struct {
-	Thread       messagingrepo.Thread
-	Participants []messagingrepo.ThreadParticipant
-	CanSend      bool
+	Thread            messagingrepo.Thread
+	Participants      []messagingrepo.ThreadParticipant
+	CanSend           bool
+	ActiveRequest     bool
+	CanResolveRequest bool
 }
 
 type ThreadMessagesInput struct {
@@ -180,6 +182,12 @@ type UpdateThreadCategoryInput struct {
 	ThreadID  string
 	Category  string
 	RequestID string
+}
+
+type ResolveThreadRequestResult struct {
+	ThreadID string
+	Action   string
+	Resolved bool
 }
 
 func New(repo messagingRepository, hub messageBroadcaster, blockService blockChecker, opts ...Option) *Service {
@@ -581,7 +589,9 @@ type threadRepository interface {
 	GetThreadMessage(ctx context.Context, threadID string, messageID int64) (messagingrepo.ThreadMessage, error)
 	ThreadMemberIDs(ctx context.Context, threadID string) ([]string, error)
 	IsThreadMember(ctx context.Context, threadID, userID string) (bool, error)
+	PromoteThreadRequestToPrimary(ctx context.Context, threadID, userID string) error
 	UpdateThreadCategory(ctx context.Context, threadID string, category messagingrepo.ThreadCategory) error
+	ArchiveThreadForUser(ctx context.Context, threadID, userID string) error
 }
 
 type targetedBroadcaster interface {
@@ -712,10 +722,74 @@ func (s *Service) GetThreadDetail(ctx context.Context, actorID, threadID string)
 		return ThreadDetailResult{}, apperrors.New(http.StatusInternalServerError, "thread_detail_failed", "failed to load participants", err)
 	}
 	return ThreadDetailResult{
-		Thread:       thread,
-		Participants: participants,
-		CanSend:      true,
+		Thread:            thread,
+		Participants:      participants,
+		CanSend:           thread.Category != messagingrepo.ThreadCategoryRequests,
+		ActiveRequest:     thread.Category == messagingrepo.ThreadCategoryRequests,
+		CanResolveRequest: thread.Category == messagingrepo.ThreadCategoryRequests,
 	}, nil
+}
+
+func (s *Service) AcceptThreadRequest(ctx context.Context, actorID, threadID, requestID string) (ResolveThreadRequestResult, error) {
+	repo, err := s.threadRepo()
+	if err != nil {
+		return ResolveThreadRequestResult{}, err
+	}
+	member, err := repo.IsThreadMember(ctx, threadID, actorID)
+	if err != nil {
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusInternalServerError, "thread_member_check_failed", "failed to validate membership", err)
+	}
+	if !member {
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusForbidden, "forbidden", "not a thread member", nil)
+	}
+	thread, err := repo.GetThread(ctx, threadID, actorID)
+	if err != nil {
+		if messagingrepo.IsNoRows(err) {
+			return ResolveThreadRequestResult{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
+		}
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusInternalServerError, "thread_detail_failed", "failed to load thread", err)
+	}
+	if thread.Category != messagingrepo.ThreadCategoryRequests {
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusConflict, "invalid_state", "thread request is not pending", nil)
+	}
+	if err := repo.PromoteThreadRequestToPrimary(ctx, threadID, actorID); err != nil {
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusInternalServerError, "thread_category_update_failed", "failed to accept thread request", err)
+	}
+	if memberIDs, memberErr := repo.ThreadMemberIDs(ctx, threadID); memberErr == nil {
+		s.broadcastThreadEnvelope(memberIDs, requestID, "thread.updated", map[string]any{"threadId": threadID})
+	}
+	return ResolveThreadRequestResult{ThreadID: threadID, Action: "accepted", Resolved: true}, nil
+}
+
+func (s *Service) DeclineThreadRequest(ctx context.Context, actorID, threadID, requestID string) (ResolveThreadRequestResult, error) {
+	repo, err := s.threadRepo()
+	if err != nil {
+		return ResolveThreadRequestResult{}, err
+	}
+	member, err := repo.IsThreadMember(ctx, threadID, actorID)
+	if err != nil {
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusInternalServerError, "thread_member_check_failed", "failed to validate membership", err)
+	}
+	if !member {
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusForbidden, "forbidden", "not a thread member", nil)
+	}
+	thread, err := repo.GetThread(ctx, threadID, actorID)
+	if err != nil {
+		if messagingrepo.IsNoRows(err) {
+			return ResolveThreadRequestResult{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
+		}
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusInternalServerError, "thread_detail_failed", "failed to load thread", err)
+	}
+	if thread.Category != messagingrepo.ThreadCategoryRequests {
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusConflict, "invalid_state", "thread request is not pending", nil)
+	}
+	if err := repo.ArchiveThreadForUser(ctx, threadID, actorID); err != nil {
+		return ResolveThreadRequestResult{}, apperrors.New(http.StatusInternalServerError, "thread_request_decline_failed", "failed to decline thread request", err)
+	}
+	if memberIDs, memberErr := repo.ThreadMemberIDs(ctx, threadID); memberErr == nil {
+		s.broadcastThreadEnvelope(memberIDs, requestID, "thread.updated", map[string]any{"threadId": threadID})
+	}
+	return ResolveThreadRequestResult{ThreadID: threadID, Action: "declined", Resolved: true}, nil
 }
 
 func (s *Service) ListThreadMessages(ctx context.Context, input ThreadMessagesInput) (ThreadMessagesResult, error) {

@@ -16,7 +16,7 @@ import { UserAvatarDetail } from "@/components/ui/user-avatar-detail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSession } from "@/features/auth/session/use-session";
 
-import { useMarkThreadRead, useSendThreadMessage } from "../hooks/mutations";
+import { useMarkThreadRead, useResolveThreadRequest, useSendThreadMessage } from "../hooks/mutations";
 import { useThreadDetail, useThreadList, useThreadMessages } from "../hooks/queries";
 import { useMessagesRealtime } from "../hooks/realtime";
 
@@ -110,6 +110,7 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
 
   const sendMutation = useSendThreadMessage(session.me?.userId);
   const markReadMutation = useMarkThreadRead();
+  const resolveRequestMutation = useResolveThreadRequest();
   const serverLastReadMessageId = threadDetailQuery.data?.lastReadMessageId;
 
   useEffect(() => {
@@ -175,6 +176,7 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
 
   const showOfflineBanner = !realtime.networkOnline;
   const showRealtimeLagBanner = realtime.networkOnline && realtime.connectionStatus !== "connected";
+  const isActionableRequest = Boolean(threadDetailQuery.data?.activeRequest && threadDetailQuery.data?.canResolveRequest);
 
   const inboxPanel = (
     <div className="flex h-full min-h-0 flex-col border-r border-border bg-card">
@@ -282,7 +284,47 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
           displayName={partner?.displayName || partner?.username || "Conversation"}
           username={partner?.username || "unknown"}
         />
+        {isActionableRequest ? (
+          <Badge variant="outline" className="ml-auto">Message request</Badge>
+        ) : null}
       </div>
+
+      {isActionableRequest ? (
+        <div className="border-b border-border bg-amber-50 px-4 py-3">
+          <p className="text-sm font-medium text-amber-900">This conversation is still in your requests inbox.</p>
+          <p className="mt-1 text-xs text-amber-800">
+            Accept to move it into normal messaging. Decline hides it from your inbox until a new direct thread is opened again.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Button
+              onClick={() => {
+                if (!activeThreadId) return;
+                resolveRequestMutation.mutate({ threadId: activeThreadId, action: "accept" });
+              }}
+              disabled={resolveRequestMutation.isPending}
+            >
+              Accept
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!activeThreadId) return;
+                resolveRequestMutation.mutate(
+                  { threadId: activeThreadId, action: "decline" },
+                  {
+                    onSuccess: () => {
+                      router.replace("/messages?tab=requests");
+                    },
+                  },
+                );
+              }}
+              disabled={resolveRequestMutation.isPending}
+            >
+              Decline
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {showOfflineBanner ? (
         <div className="border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-xs text-destructive">
@@ -332,22 +374,26 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
       </div>
 
       <div className="border-t border-border bg-card p-3">
-        <div className="flex items-end gap-2">
-          <Textarea
-            rows={1}
-            value={composer}
-            onChange={(event) => setComposer(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder="Message..."
-            className="min-h-10 resize-none"
-          />
-          <Button onClick={handleSend} disabled={!composer.trim() || sendMutation.isPending}>Send</Button>
-        </div>
+        {threadDetailQuery.data?.canSend ? (
+          <div className="flex items-end gap-2">
+            <Textarea
+              rows={1}
+              value={composer}
+              onChange={(event) => setComposer(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder="Message..."
+              className="min-h-10 resize-none"
+            />
+            <Button onClick={handleSend} disabled={!composer.trim() || sendMutation.isPending}>Send</Button>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Accept this request before you can reply.</p>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   MessagingMarkReadResponse,
+  MessagingResolveThreadRequestResponse,
   MessagingSendMessageResponse,
   MessagingThreadMessage,
   MessagingThreadMessagesResponse,
@@ -146,6 +147,24 @@ export const useUpdateThreadCategory = () => {
       messagesApi.updateThreadCategory(threadId, { category }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["messages", "threads"] });
+    },
+  });
+};
+
+export const useResolveThreadRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, action }: { threadId: string; action: "accept" | "decline" }) =>
+      action === "accept" ? messagesApi.acceptThreadRequest(threadId) : messagesApi.declineThreadRequest(threadId),
+    onSuccess: (data: MessagingResolveThreadRequestResponse, variables: { threadId: string; action: "accept" | "decline" }) => {
+      queryClient.invalidateQueries({ queryKey: ["messages", "threads"] });
+      if (variables.action === "decline") {
+        queryClient.removeQueries({ queryKey: messageQueryKeys.thread(data.threadId) });
+        queryClient.removeQueries({ queryKey: messageQueryKeys.threadMessages(data.threadId) });
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: messageQueryKeys.thread(data.threadId) });
+      queryClient.invalidateQueries({ queryKey: messageQueryKeys.threadMessages(data.threadId) });
     },
   });
 };

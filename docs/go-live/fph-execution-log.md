@@ -88,5 +88,34 @@
   - `pnpm --filter @freediving.ph/web type-check`
   - `rg -n "MOCK_EXPLORE_SPOTS|getMockDiveSpotBySlug" apps/web/src/features/explore/api/exploreApi.ts apps/web/src/features/explore/components/ExploreLayout.tsx 'apps/web/src/app/explore/sites/[slug]/page.tsx' apps/web/src/features/explore/mock-data.ts`
 - Commit hash: recorded in Git history for `fix/fph-go-live`
-- Pushed: pending
+- Pushed: yes, on `origin/fix/fph-go-live`
 - Blockers: none
+
+## 2026-03-31 21:15 Asia/Manila — FRO-192
+
+- Status: completed on shared branch, awaiting push/review
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: added real recipient-side request controls to the thread messaging flow, exposed request-action metadata in thread detail, blocked reply UI until a request is accepted, and wired accept/decline endpoints to the live thread category model instead of the legacy conversation request model.
+- Files touched:
+  - `services/fphgo/internal/features/messaging/repo/repo.go`
+  - `services/fphgo/internal/features/messaging/service/service.go`
+  - `services/fphgo/internal/features/messaging/service/service_test.go`
+  - `services/fphgo/internal/features/messaging/http/dto.go`
+  - `services/fphgo/internal/features/messaging/http/routes.go`
+  - `services/fphgo/internal/features/messaging/http/handlers.go`
+  - `services/fphgo/internal/features/messaging/http/integration_test.go`
+  - `apps/web/src/lib/api/fphgo-routes.ts`
+  - `packages/types/src/index.ts`
+  - `apps/web/src/features/messages/api/messages.ts`
+  - `apps/web/src/features/messages/hooks/mutations.ts`
+  - `apps/web/src/features/messages/components/MessagingView.tsx`
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `go test ./internal/features/messaging/http ./internal/features/messaging/service`
+  - `pnpm --filter @freediving.ph/web type-check` still fails in this shared worktree because `apps/web/node_modules` resolves `@freediving.ph/types` back to `/Volumes/Files/softwareengineering/my-projects/freediving.ph/packages/types/src/index.ts` instead of the worktree copy
+  - `pnpm exec tsc -p /tmp/fro192-web-tsconfig.json --noEmit` resolves the worktree types correctly; remaining failures are unrelated pre-existing Explore Google Maps typings in `src/app/explore/submit/*` and `src/features/explore/components/ExploreMap.tsx`
+- Commit hash: pending
+- Pushed: pending
+- Blockers:
+  - shared worktree `apps/web/node_modules` symlink leaks to the original repo, so stock web type-check is not branch-isolated

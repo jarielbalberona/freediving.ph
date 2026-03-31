@@ -135,3 +135,128 @@ func TestSendConversationMessageRejectsInvalidMetadata(t *testing.T) {
 		t.Fatal("expected metadata validation error")
 	}
 }
+
+func TestGetThreadDetailRequestDisablesComposer(t *testing.T) {
+	repo := newThreadRepoStub(messagingrepo.ThreadCategoryRequests)
+	svc := New(repo, hubStub{}, blockCheckerStub{})
+
+	result, err := svc.GetThreadDetail(context.Background(), repo.actorID, repo.thread.ID)
+	if err != nil {
+		t.Fatalf("expected thread detail, got error: %v", err)
+	}
+	if result.CanSend {
+		t.Fatal("expected request thread to disable sending until accepted")
+	}
+	if !result.ActiveRequest || !result.CanResolveRequest {
+		t.Fatal("expected request thread to be actionable for the recipient")
+	}
+}
+
+func TestDeclineThreadRequestArchivesRecipientMembership(t *testing.T) {
+	repo := newThreadRepoStub(messagingrepo.ThreadCategoryRequests)
+	svc := New(repo, hubStub{}, blockCheckerStub{})
+
+	result, err := svc.DeclineThreadRequest(context.Background(), repo.actorID, repo.thread.ID, "")
+	if err != nil {
+		t.Fatalf("expected decline to succeed, got error: %v", err)
+	}
+	if !result.Resolved || result.Action != "declined" {
+		t.Fatalf("unexpected decline result: %#v", result)
+	}
+	if !repo.archived {
+		t.Fatal("expected recipient membership to be archived")
+	}
+}
+
+func TestAcceptThreadRequestPromotesRecipientToPrimary(t *testing.T) {
+	repo := newThreadRepoStub(messagingrepo.ThreadCategoryRequests)
+	svc := New(repo, hubStub{}, blockCheckerStub{})
+
+	result, err := svc.AcceptThreadRequest(context.Background(), repo.actorID, repo.thread.ID, "")
+	if err != nil {
+		t.Fatalf("expected accept to succeed, got error: %v", err)
+	}
+	if !result.Resolved || result.Action != "accepted" {
+		t.Fatalf("unexpected accept result: %#v", result)
+	}
+	if repo.thread.Category != messagingrepo.ThreadCategoryPrimary {
+		t.Fatalf("expected recipient thread category to be primary, got %s", repo.thread.Category)
+	}
+}
+
+type threadRepoStub struct {
+	repoStub
+	thread   messagingrepo.Thread
+	actorID  string
+	archived bool
+}
+
+func newThreadRepoStub(category messagingrepo.ThreadCategory) *threadRepoStub {
+	now := time.Now().UTC()
+	return &threadRepoStub{
+		thread: messagingrepo.Thread{
+			ID:            "550e8400-e29b-41d4-a716-446655440099",
+			Type:          messagingrepo.ThreadKindDirect,
+			Category:      category,
+			CreatedAt:     now,
+			LastMessageAt: now,
+		},
+		actorID: "550e8400-e29b-41d4-a716-446655440000",
+	}
+}
+
+func (s *threadRepoStub) OpenOrCreateDirectThread(context.Context, string, string, messagingrepo.ThreadCategory) (messagingrepo.Thread, error) {
+	return s.thread, nil
+}
+func (s *threadRepoStub) AreUsersBuddies(context.Context, string, string) (bool, error) {
+	return false, nil
+}
+func (s *threadRepoStub) ListThreads(context.Context, messagingrepo.ListThreadsInput) ([]messagingrepo.ThreadSummary, error) {
+	return nil, nil
+}
+func (s *threadRepoStub) GetThread(_ context.Context, threadID, userID string) (messagingrepo.Thread, error) {
+	if threadID != s.thread.ID || userID != s.actorID {
+		return messagingrepo.Thread{}, errors.New("missing")
+	}
+	return s.thread, nil
+}
+func (s *threadRepoStub) ListThreadParticipants(context.Context, string) ([]messagingrepo.ThreadParticipant, error) {
+	return []messagingrepo.ThreadParticipant{{UserID: s.actorID}, {UserID: "550e8400-e29b-41d4-a716-446655440001"}}, nil
+}
+func (s *threadRepoStub) ListThreadMessages(context.Context, messagingrepo.ListThreadMessagesInput) ([]messagingrepo.ThreadMessage, error) {
+	return nil, nil
+}
+func (s *threadRepoStub) CreateThreadMessage(context.Context, string, string, string, *string) (messagingrepo.ThreadMessage, error) {
+	return messagingrepo.ThreadMessage{}, nil
+}
+func (s *threadRepoStub) MarkThreadRead(context.Context, string, string, int64) error { return nil }
+func (s *threadRepoStub) GetThreadMessage(context.Context, string, int64) (messagingrepo.ThreadMessage, error) {
+	return messagingrepo.ThreadMessage{}, nil
+}
+func (s *threadRepoStub) ThreadMemberIDs(context.Context, string) ([]string, error) {
+	return []string{s.actorID, "550e8400-e29b-41d4-a716-446655440001"}, nil
+}
+func (s *threadRepoStub) IsThreadMember(_ context.Context, threadID, userID string) (bool, error) {
+	return threadID == s.thread.ID && userID == s.actorID, nil
+}
+func (s *threadRepoStub) UpdateThreadCategory(_ context.Context, threadID string, category messagingrepo.ThreadCategory) error {
+	if threadID != s.thread.ID {
+		return errors.New("missing")
+	}
+	s.thread.Category = category
+	return nil
+}
+func (s *threadRepoStub) PromoteThreadRequestToPrimary(_ context.Context, threadID, userID string) error {
+	if threadID != s.thread.ID || userID != s.actorID {
+		return errors.New("missing")
+	}
+	s.thread.Category = messagingrepo.ThreadCategoryPrimary
+	return nil
+}
+func (s *threadRepoStub) ArchiveThreadForUser(_ context.Context, threadID, userID string) error {
+	if threadID != s.thread.ID || userID != s.actorID {
+		return errors.New("missing")
+	}
+	s.archived = true
+	return nil
+}

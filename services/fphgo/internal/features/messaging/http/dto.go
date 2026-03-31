@@ -137,6 +137,8 @@ type ThreadDetailResponse struct {
 	CreatedAt         string                  `json:"createdAt"`
 	LastReadMessageID string                  `json:"lastReadMessageId,omitempty"`
 	CanSend           bool                    `json:"canSend"`
+	ActiveRequest     bool                    `json:"activeRequest"`
+	CanResolveRequest bool                    `json:"canResolveRequest"`
 }
 
 type ListThreadMessagesResponse struct {
@@ -170,4 +172,10 @@ type UpdateThreadCategoryResponse struct {
 	ThreadID string `json:"threadId"`
 	Category string `json:"category"`
 	Updated  bool   `json:"updated"`
+}
+
+type ResolveThreadRequestResponse struct {
+	ThreadID string `json:"threadId"`
+	Action   string `json:"action"`
+	Resolved bool   `json:"resolved"`
 }

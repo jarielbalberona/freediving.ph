@@ -420,6 +420,39 @@ func (h *Handlers) GetThread(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, mapThreadDetail(result, actorID))
 }
 
+func (h *Handlers) AcceptThreadRequest(w http.ResponseWriter, r *http.Request) {
+	h.resolveThreadRequest(w, r, true)
+}
+
+func (h *Handlers) DeclineThreadRequest(w http.ResponseWriter, r *http.Request) {
+	h.resolveThreadRequest(w, r, false)
+}
+
+func (h *Handlers) resolveThreadRequest(w http.ResponseWriter, r *http.Request, accept bool) {
+	actorID, err := h.requireLocalActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	threadID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "threadId"), "threadId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+
+	var result messagingservice.ResolveThreadRequestResult
+	if accept {
+		result, err = h.service.AcceptThreadRequest(r.Context(), actorID, threadID, middleware.RequestIDFromContext(r.Context()))
+	} else {
+		result, err = h.service.DeclineThreadRequest(r.Context(), actorID, threadID, middleware.RequestIDFromContext(r.Context()))
+	}
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, ResolveThreadRequestResponse(result))
+}
+
 func (h *Handlers) ListThreadMessages(w http.ResponseWriter, r *http.Request) {
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
@@ -579,6 +612,8 @@ func mapThreadDetail(result messagingservice.ThreadDetailResult, actorID string)
 		CreatedAt:         result.Thread.CreatedAt.Format(time.RFC3339),
 		LastReadMessageID: lastReadMessageID,
 		CanSend:           result.CanSend,
+		ActiveRequest:     result.ActiveRequest,
+		CanResolveRequest: result.CanResolveRequest,
 	}
 }
 

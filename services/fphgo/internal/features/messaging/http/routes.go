@@ -20,6 +20,8 @@ func Routes(h *Handlers) chi.Router {
 	r.Group(func(write chi.Router) {
 		write.Use(middleware.RequirePermission(authz.PermissionMessagingWrite))
 		write.Post("/threads/direct", h.OpenDirectThread)
+		write.Post("/threads/{threadId}/accept", h.AcceptThreadRequest)
+		write.Post("/threads/{threadId}/decline", h.DeclineThreadRequest)
 		write.Post("/threads/{threadId}/messages", h.SendThreadMessage)
 		write.Post("/threads/{threadId}/read", h.MarkThreadRead)
 		write.Post("/threads/{threadId}/category", h.UpdateThreadCategory)
