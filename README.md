@@ -1,6 +1,6 @@
 # Freediving Philippines
 
-![Freediving Philippines Banner](https://raw.githubusercontent.com/jarielbalberona/freediving.ph/refs/heads/main/app/public/images/freedivingph-blue-transparent.png)
+![Freediving Philippines Banner](https://raw.githubusercontent.com/jarielbalberona/freediving.ph/refs/heads/main/apps/web/public/images/freedivingph-blue-transparent.png)
 
 _A social platform built for freedivers, by freedivers._
 
@@ -26,8 +26,10 @@ Freediving Philippines is an open-source social web app for the freediving commu
 
 ## What this repo contains
 
-- **`apps/web`** – Next.js 15 (App Router) frontend.
-- **`services/fphgo`** – Go API service (canonical backend).
+- **`apps/web`** – Next.js App Router frontend.
+- **`apps/api`** – Legacy TypeScript API. Keep it for compatibility work only; new API work belongs in `services/fphgo`.
+- **`services/fphgo`** – Go API service and canonical backend for new product work.
+- **`services/cdn-worker`** – CDN/media delivery worker for signed image handling.
 - **`packages/types`** – Shared DTO/envelope contracts for API and web.
 - **`packages/config`** – Shared runtime constants/config helpers.
 - **`packages/utils`** – Shared utility functions.
@@ -36,11 +38,11 @@ Freediving Philippines is an open-source social web app for the freediving commu
 
 ## Tech stack
 
-- **Frontend:** Next.js 15, React 19, TypeScript, TanStack Query, Tailwind.
-- **Backend:** Go (fphgo), PostgreSQL, sqlc, goose migrations.
+- **Frontend:** Next.js 15, React 19, TypeScript, TanStack Query, Tailwind CSS.
+- **Backend:** Go (`services/fphgo`), PostgreSQL, sqlc, goose migrations.
 - **Auth:** Clerk.
 - **Tooling:** pnpm workspaces, Biome, Node test runner, tsx tests.
-- **Deployment:** CI/CD (e.g. GitHub Actions). Cloud: AWS, Cognito, ECS, RDS, Route53, S3. Infrastructure: Terraform (multi-environment).
+- **Deployment:** Render blueprint via `render.yaml` for the web app and Go API, plus separate CDN worker/runtime infrastructure.
 
 ## Prerequisites
 
@@ -105,6 +107,8 @@ Default local URLs:
 - `APP_ENV=development`
 - `CORS_ORIGINS=http://localhost:3000`
 
+For Render-style deployment values, use `env.render.example` together with `render.yaml`.
+
 ## Root scripts
 
 ```bash
@@ -163,7 +167,10 @@ docker compose up --build fphgo
 
 ## Deployment
 
-Render blueprint: `render.yaml`. Env template: `env.render.example`.
+- Render blueprint: `render.yaml`
+- Render env template: `env.render.example`
+- Go API runtime docs: `services/fphgo/README.md`
+- CDN worker lives in `services/cdn-worker`
 
 ## Quality gate before PRs
 
@@ -197,6 +204,7 @@ Freediving Philippines is **open source** and we welcome contributions. Fork the
 - Keep shared contracts in `packages/types/src`; update API and web together when DTOs change.
 - Do not add feature-local `types.ts` in `apps/web/src/features/*`; use `@freediving.ph/types`.
 - Avoid workspace-specific env assumptions in shared packages.
+- Do not treat `apps/api` as the place for new backend work; the canonical backend is `services/fphgo`.
 
 ## Looking for developers
 
