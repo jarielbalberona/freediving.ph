@@ -16,6 +16,17 @@ func New() *Handlers {
 }
 
 func (h *Handlers) GetSession(w http.ResponseWriter, r *http.Request) {
+	h.writeSession(w, r)
+}
+
+func (h *Handlers) GetLegacySession(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
+	w.Header().Set("Sunset", "Tue, 30 Jun 2026 00:00:00 GMT")
+	w.Header().Set("Link", `</v1/auth/session>; rel="successor-version"`)
+	h.writeSession(w, r)
+}
+
+func (h *Handlers) writeSession(w http.ResponseWriter, r *http.Request) {
 	identity, ok := middleware.CurrentIdentity(r.Context())
 	if !ok || !identity.IsAuthenticated() {
 		httpx.JSON(w, http.StatusUnauthorized, map[string]any{

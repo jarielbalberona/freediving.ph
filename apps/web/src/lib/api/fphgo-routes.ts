@@ -3,7 +3,7 @@ const toPathId = (id: string | number): string =>
 
 export const routes = {
   v1: {
-    me: () => "/v1/auth/session",
+    session: () => "/v1/auth/session",
     messages: {
       threads: () => "/v1/messages/threads",
       threadById: (threadId: string | number) =>

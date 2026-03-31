@@ -179,7 +179,7 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 				member.Mount("/v1/auth", authRouter)
 			}
 			if deps.AuthHandler != nil {
-				member.Get("/v1/me", deps.AuthHandler.GetSession)
+				member.Get("/v1/me", deps.AuthHandler.GetLegacySession)
 			}
 			member.Group(func(messages chi.Router) {
 				messages.Use(middleware.RequirePermission(authz.PermissionMessagingRead))
