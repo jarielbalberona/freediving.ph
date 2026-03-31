@@ -10,7 +10,7 @@ func TestPresentationForBuddySignalInNearbyMode(t *testing.T) {
 	if got.TypeLabel != "Buddy call" {
 		t.Fatalf("expected buddy label, got %q", got.TypeLabel)
 	}
-	if got.RankLabel != "Actionable now" {
+	if got.RankLabel != "Buddy check" {
 		t.Fatalf("expected actionable rank label, got %q", got.RankLabel)
 	}
 	if got.Tone != "coordination" {
@@ -26,7 +26,7 @@ func TestContextForMode(t *testing.T) {
 	if got.Greeting == "" || got.Message == "" || got.SafetyBadge == "" {
 		t.Fatalf("expected non-empty mode frame, got %#v", got)
 	}
-	if got.Greeting != "Training is the discipline lane" {
+	if got.Greeting != "Training & Progress" {
 		t.Fatalf("unexpected training greeting %q", got.Greeting)
 	}
 }
