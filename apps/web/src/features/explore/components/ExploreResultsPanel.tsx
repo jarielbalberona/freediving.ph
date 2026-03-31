@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { ArrowUpWideNarrow } from "lucide-react";
+import { ArrowUpWideNarrow, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import type { DiveSpot } from "../types";
 import { DiveSpotCard } from "./DiveSpotCard";
 
-type SortMode = "relevance" | "rating" | "reviews";
+type SortMode = "relevance" | "recent";
 
 type ExploreResultsPanelProps = {
   q: string;
@@ -27,9 +27,12 @@ type ExploreResultsPanelProps = {
   fetching: boolean;
   spots: DiveSpot[];
   selectedSpotId: string | null;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   filtersControl: React.ReactNode;
   onQueryChange: (q: string) => void;
+  onLoadMore: () => void;
   onSelectSpot: (spot: DiveSpot) => void;
   sort: SortMode;
   onSortChange: (sort: SortMode) => void;
@@ -42,8 +45,7 @@ type ExploreResultsPanelProps = {
 
 const sortLabels: Record<SortMode, string> = {
   relevance: "Relevance",
-  rating: "Top rated",
-  reviews: "Most reviewed",
+  recent: "Recent updates",
 };
 
 export function ExploreResultsPanel({
@@ -53,9 +55,12 @@ export function ExploreResultsPanel({
   fetching,
   spots,
   selectedSpotId,
+  hasNextPage,
+  isFetchingNextPage,
   searchInputRef,
   filtersControl,
   onQueryChange,
+  onLoadMore,
   onSelectSpot,
   sort,
   onSortChange,
@@ -125,11 +130,8 @@ export function ExploreResultsPanel({
                 <DropdownMenuItem onClick={() => onSortChange("relevance")}>
                   Relevance
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange("rating")}>
-                  Top rated
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange("reviews")}>
-                  Most reviewed
+                <DropdownMenuItem onClick={() => onSortChange("recent")}>
+                  Recent updates
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -167,11 +169,8 @@ export function ExploreResultsPanel({
                 <DropdownMenuItem onClick={() => onSortChange("relevance")}>
                   Relevance
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange("rating")}>
-                  Top rated
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange("reviews")}>
-                  Most reviewed
+                <DropdownMenuItem onClick={() => onSortChange("recent")}>
+                  Recent updates
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -229,6 +228,26 @@ export function ExploreResultsPanel({
               </Button>
             </div>
           )}
+          {hasResults && hasNextPage ? (
+            <div className="flex justify-center px-2 pb-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                onClick={onLoadMore}
+                disabled={isFetchingNextPage}
+              >
+                {isFetchingNextPage ? (
+                  <>
+                    <LoaderCircle className="mr-2 size-4 animate-spin" />
+                    Loading more
+                  </>
+                ) : (
+                  "Load more sites"
+                )}
+              </Button>
+            </div>
+          ) : null}
         </div>
       </ScrollArea>
     </div>

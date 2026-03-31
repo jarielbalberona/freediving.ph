@@ -57,6 +57,14 @@ function ExploreMarkers({
   const map = useMap();
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const markersRef = useRef(new globalThis.Map<string, google.maps.Marker>());
+  const spotsWithCoordinates = useMemo(
+    () =>
+      spots.filter(
+        (spot): spot is DiveSpot & { lat: number; lng: number } =>
+          typeof spot.lat === "number" && typeof spot.lng === "number",
+      ),
+    [spots],
+  );
 
   useEffect(() => {
     if (!map || clustererRef.current) return;
@@ -68,7 +76,7 @@ function ExploreMarkers({
   useEffect(() => {
     if (!map || !clustererRef.current) return;
 
-    const nextIds = new Set(spots.map((spot) => spot.id));
+    const nextIds = new Set(spotsWithCoordinates.map((spot) => spot.id));
 
     for (const [spotId, marker] of markersRef.current.entries()) {
       if (!nextIds.has(spotId)) {
@@ -78,7 +86,7 @@ function ExploreMarkers({
       }
     }
 
-    for (const spot of spots) {
+    for (const spot of spotsWithCoordinates) {
       const currentMarker = markersRef.current.get(spot.id);
       const icon = {
         url: markerSvg(spot.id === selectedSpotId),
@@ -104,7 +112,7 @@ function ExploreMarkers({
 
     clustererRef.current.clearMarkers();
     clustererRef.current.addMarkers(Array.from(markersRef.current.values()));
-  }, [map, onSelectSpot, selectedSpotId, spots]);
+  }, [map, onSelectSpot, selectedSpotId, spotsWithCoordinates]);
 
   useEffect(() => {
     if (!selectedSpotId || !map) return;

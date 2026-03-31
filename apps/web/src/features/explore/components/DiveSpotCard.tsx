@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MapPin, Star, X } from "lucide-react";
+import { MapPin, Waves, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,35 +86,42 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
                   <h3 className="line-clamp-2 text-base font-semibold text-foreground">
                     {spot.name}
                   </h3>
-                  {typeof spot.rating === "number" ? (
-                    <div className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
-                      <Star className="size-3.5 fill-current" />
-                      {spot.rating.toFixed(1)}
-                    </div>
-                  ) : null}
                 </div>
                 <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
                   <MapPin className="size-4" />
                   {spot.area}
                 </p>
-                {typeof spot.reviewCount === "number" ? (
-                  <p className="text-muted-foreground text-xs">
-                    {spot.reviewCount.toLocaleString()} reviews
-                  </p>
-                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <Badge
+                    variant="secondary"
+                    className="rounded-full bg-muted px-2.5 py-1 text-xs capitalize"
+                  >
+                    {spot.difficulty}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="rounded-full px-2.5 py-1 text-xs capitalize"
+                  >
+                    {spot.verificationStatus}
+                  </Badge>
+                  {spot.recentUpdateCount > 0 ? (
+                    <Badge
+                      variant="outline"
+                      className="rounded-full px-2.5 py-1 text-xs"
+                    >
+                      <Waves className="mr-1.5 size-3.5" />
+                      {spot.recentUpdateCount} recent update
+                      {spot.recentUpdateCount === 1 ? "" : "s"}
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {(spot.tags ?? []).slice(0, 4).map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="rounded-full bg-muted px-2.5 py-1 text-xs"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
+              {spot.lastConditionSummary ? (
+                <p className="text-sm text-muted-foreground">
+                  {spot.lastConditionSummary}
+                </p>
+              ) : null}
 
               {actions ? (
                 <div

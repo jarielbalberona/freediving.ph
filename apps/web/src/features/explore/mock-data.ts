@@ -1,6 +1,11 @@
 import { getDiveSpotSlug, type DiveSpot } from "./types";
 
-export const MOCK_EXPLORE_SPOTS: DiveSpot[] = [
+type MockDiveSpotSeed = Pick<
+  DiveSpot,
+  "id" | "name" | "area" | "lat" | "lng" | "rating" | "reviewCount" | "tags"
+>;
+
+const MOCK_EXPLORE_SPOT_SEEDS: MockDiveSpotSeed[] = [
   {
     id: "anilao-cathedral",
     name: "Cathedral Rock",
@@ -242,6 +247,17 @@ export const MOCK_EXPLORE_SPOTS: DiveSpot[] = [
     tags: ["Drift", "Reef", "Boat"],
   },
 ];
+
+export const MOCK_EXPLORE_SPOTS: DiveSpot[] = MOCK_EXPLORE_SPOT_SEEDS.map(
+  (spot) => ({
+    ...spot,
+    slug: spot.id,
+    difficulty: "moderate",
+    verificationStatus: "community",
+    recentUpdateCount: 0,
+    isSaved: false,
+  }),
+);
 
 export const getMockDiveSpotBySlug = (slug: string) =>
   MOCK_EXPLORE_SPOTS.find((spot) => getDiveSpotSlug(spot) === slug) ?? null;
