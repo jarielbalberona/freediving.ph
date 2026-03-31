@@ -207,3 +207,20 @@
 - Pushed: pending
 - Blockers:
   - none
+
+## 2026-03-31 23:35 Asia/Manila — FRO-198
+
+- Status: completed on shared branch, awaiting review
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: added a repo-backed launch smoke checklist that separates what is already automated from what still requires real deploy-time/manual verification. The checklist is grounded in the current route surface and explicitly calls out that dev-auth smoke is not enough to prove production Clerk or media behavior.
+- Files touched:
+  - `docs/go-live/fph-launch-smoke-checklist.md`
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `rg -n "Automated Smoke Already In Repo|Manual Launch Smoke|Navigation Truth|Known Limits Of This Checklist" docs/go-live/fph-launch-smoke-checklist.md`
+  - reviewed `apps/web/test/fphgo-ci-smoke.test.mjs`, `services/fphgo/internal/app/routes.go`, and feature route files to ground checklist steps in current repo truth
+- Commit hash: pending
+- Pushed: pending
+- Blockers:
+  - real production smoke execution still depends on deploy-time Clerk and media environment; this ticket documents the path and gates instead of faking runtime evidence
