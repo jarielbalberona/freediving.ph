@@ -36,3 +36,17 @@
   - `pnpm --filter @freediving.ph/web type-check`
 - Commit hash: recorded in Git history for `fix/fph-go-live`
 - Blockers: none
+
+## 2026-03-31 19:49 Asia/Manila — FRO-190
+
+- Status: completed locally on shared branch, awaiting explicit push/review
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: removed the fake profile tabs so launch scope only exposes the real profile media grid.
+- Files touched:
+  - `apps/web/src/features/profile/components/ProfileTabs.tsx`
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `pnpm --filter @freediving.ph/web type-check`
+- Commit hash: recorded in Git history for `fix/fph-go-live`
+- Blockers: none
