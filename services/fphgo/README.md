@@ -43,11 +43,20 @@ await fetch("/v1/messages/threads?category=primary", {
 - `CLERK_JWT_AUDIENCE` (optional, CSV list, requires token `aud` overlap)
 - `DEV_AUTH` (optional, local dev fallback only)
 - `API_BASE_URL` (optional, public API origin metadata)
+- `R2_ACCOUNT_ID` (required in production; Cloudflare R2 account id)
+- `R2_ACCESS_KEY_ID` (required in production)
+- `R2_SECRET_ACCESS_KEY` (required in production)
+- `R2_BUCKET_NAME` (required in production)
+- `R2_REGION` (optional; defaults to `auto`)
+- `CDN_BASE_URL` (required in production; public media delivery base URL)
+- `MEDIA_SIGNING_SECRET_V1` (required in production; HMAC signing secret for media URLs)
+- `MEDIA_SIGNING_KEY_VERSION` (optional, default `1`)
 - `CHIKA_PSEUDONYM_SECRET` (required in production; HMAC secret for pseudonymous alias generation)
 
 Production guards:
 - `APP_ENV=production` rejects `DEV_AUTH=true`.
 - `APP_ENV=production` rejects wildcard `CORS_ORIGINS=*`.
+- `APP_ENV=production` requires the R2 upload envs plus `CDN_BASE_URL` and `MEDIA_SIGNING_SECRET_V1`.
 - `APP_ENV=production` requires `CHIKA_PSEUDONYM_SECRET`.
 
 ## Example curl

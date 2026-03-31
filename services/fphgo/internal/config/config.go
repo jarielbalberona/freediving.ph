@@ -126,6 +126,24 @@ func Load() (Config, error) {
 		if chikaPseudonymSecret == "" {
 			return Config{}, fmt.Errorf("CHIKA_PSEUDONYM_SECRET is required in production")
 		}
+		if r2AccountID == "" {
+			return Config{}, fmt.Errorf("R2_ACCOUNT_ID is required in production")
+		}
+		if r2AccessKeyID == "" {
+			return Config{}, fmt.Errorf("R2_ACCESS_KEY_ID is required in production")
+		}
+		if r2SecretAccessKey == "" {
+			return Config{}, fmt.Errorf("R2_SECRET_ACCESS_KEY is required in production")
+		}
+		if r2BucketName == "" {
+			return Config{}, fmt.Errorf("R2_BUCKET_NAME is required in production")
+		}
+		if mediaCDNBaseURL == "" {
+			return Config{}, fmt.Errorf("CDN_BASE_URL is required in production")
+		}
+		if mediaSigningSecretV1 == "" {
+			return Config{}, fmt.Errorf("MEDIA_SIGNING_SECRET_V1 is required in production")
+		}
 	}
 	if clerkSecretKey == "" && !devAuth {
 		return Config{}, fmt.Errorf("CLERK_SECRET_KEY is required unless DEV_AUTH=true")

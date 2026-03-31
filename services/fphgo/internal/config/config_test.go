@@ -69,6 +69,12 @@ func TestLoadReadsRenderCompatEnv(t *testing.T) {
 	t.Setenv("CORS_ORIGIN", "https://app.example.com")
 	t.Setenv("API_URL", "https://api.example.com")
 	t.Setenv("CHIKA_PSEUDONYM_SECRET", "secret")
+	t.Setenv("R2_ACCOUNT_ID", "account")
+	t.Setenv("R2_ACCESS_KEY_ID", "access")
+	t.Setenv("R2_SECRET_ACCESS_KEY", "secret-key")
+	t.Setenv("R2_BUCKET_NAME", "bucket")
+	t.Setenv("CDN_BASE_URL", "https://cdn.example.com")
+	t.Setenv("MEDIA_SIGNING_SECRET_V1", "signing-secret")
 
 	cfg, err := Load()
 	if err != nil {
@@ -95,5 +101,43 @@ func TestLoadRejectsMissingChikaPseudonymSecretInProduction(t *testing.T) {
 	_, err := Load()
 	if err == nil || err.Error() != "CHIKA_PSEUDONYM_SECRET is required in production" {
 		t.Fatalf("expected missing CHIKA_PSEUDONYM_SECRET error, got %v", err)
+	}
+}
+
+func TestLoadRejectsMissingMediaConfigInProduction(t *testing.T) {
+	t.Setenv("DB_DSN", "postgres://example")
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("CLERK_SECRET_KEY", "sk_test")
+	t.Setenv("CORS_ORIGINS", "https://app.example.com")
+	t.Setenv("CHIKA_PSEUDONYM_SECRET", "secret")
+
+	_, err := Load()
+	if err == nil || err.Error() != "R2_ACCOUNT_ID is required in production" {
+		t.Fatalf("expected missing R2_ACCOUNT_ID error, got %v", err)
+	}
+}
+
+func TestLoadAcceptsProductionMediaConfig(t *testing.T) {
+	t.Setenv("DB_DSN", "postgres://example")
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("CLERK_SECRET_KEY", "sk_test")
+	t.Setenv("CORS_ORIGINS", "https://app.example.com")
+	t.Setenv("CHIKA_PSEUDONYM_SECRET", "secret")
+	t.Setenv("R2_ACCOUNT_ID", "account")
+	t.Setenv("R2_ACCESS_KEY_ID", "access")
+	t.Setenv("R2_SECRET_ACCESS_KEY", "secret-key")
+	t.Setenv("R2_BUCKET_NAME", "bucket")
+	t.Setenv("CDN_BASE_URL", "https://cdn.example.com")
+	t.Setenv("MEDIA_SIGNING_SECRET_V1", "signing-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("expected production media config to load, got %v", err)
+	}
+	if cfg.R2BucketName != "bucket" {
+		t.Fatalf("expected bucket to load, got %s", cfg.R2BucketName)
+	}
+	if cfg.MediaCDNBaseURL != "https://cdn.example.com" {
+		t.Fatalf("expected CDN base URL to load, got %s", cfg.MediaCDNBaseURL)
 	}
 }

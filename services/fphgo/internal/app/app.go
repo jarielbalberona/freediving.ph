@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -217,6 +218,10 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		Region:          cfg.R2Region,
 	})
 	if err != nil {
+		if strings.EqualFold(cfg.Env, "production") {
+			logger.Error("media r2 storage init failed", "error", err)
+			panic(err)
+		}
 		logger.Warn("media r2 storage disabled", "error", err)
 	}
 	mediaService := mediaservice.New(

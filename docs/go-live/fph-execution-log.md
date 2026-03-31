@@ -115,8 +115,8 @@
   - `go test ./internal/features/messaging/http ./internal/features/messaging/service`
   - `pnpm --filter @freediving.ph/web type-check` still fails in this shared worktree because `apps/web/node_modules` resolves `@freediving.ph/types` back to `/Volumes/Files/softwareengineering/my-projects/freediving.ph/packages/types/src/index.ts` instead of the worktree copy
   - `pnpm exec tsc -p /tmp/fro192-web-tsconfig.json --noEmit` resolves the worktree types correctly; remaining failures are unrelated pre-existing Explore Google Maps typings in `src/app/explore/submit/*` and `src/features/explore/components/ExploreMap.tsx`
-- Commit hash: pending
-- Pushed: pending
+- Commit hash: `04ac4fd`
+- Pushed: yes, on `origin/fix/fph-go-live`
 - Blockers:
   - shared worktree `apps/web/node_modules` symlink leaks to the original repo, so stock web type-check is not branch-isolated
 
@@ -132,8 +132,8 @@
   - `docs/go-live/fph-execution-log.md`
 - Verification:
   - `pnpm exec tsc -p /tmp/fro195-groups-tsconfig.json --noEmit`
-- Commit hash: pending
-- Pushed: pending
+- Commit hash: `aa2b85e`
+- Pushed: yes, on `origin/fix/fph-go-live`
 - Blockers:
   - none for this narrowed launch-scope fix
 
@@ -150,7 +150,44 @@
 - Verification:
   - `pnpm exec tsc -p /tmp/fro196-chika-tsconfig.json --noEmit`
   - reviewed `services/fphgo/internal/features/chika/http/integration_blocks_test.go` to confirm member-vs-moderator real-author behavior and hidden-content behavior are already covered in backend tests
+- Commit hash: `42bd429`
+- Pushed: yes, on `origin/fix/fph-go-live`
+- Blockers:
+  - none for this launch-scope fix
+
+## 2026-03-31 22:05 Asia/Manila — FRO-197
+
+- Status: verified on shared branch, no code change required
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: confirmed the feed strategy contract and homepage framing are already stable on the current branch. The backend feed strategy test now passes, and the homepage feed components compile cleanly against the current shared types without needing a new patch.
+- Files touched:
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `go test ./internal/features/feed/service`
+  - `pnpm exec tsc -p /tmp/fro197-homefeed-tsconfig.json --noEmit`
+- Commit hash: none
+- Pushed: n/a
+- Blockers:
+  - none
+
+## 2026-03-31 23:10 Asia/Manila — FRO-199
+
+- Status: completed on shared branch, awaiting review
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: enforced production media readiness at startup by rejecting incomplete R2/CDN/signing env configuration during config load, and by refusing to boot production if R2 client initialization still fails. This removes the previous launch lie where the API could start successfully and only break when users attempted uploads or URL minting.
+- Files touched:
+  - `services/fphgo/internal/config/config.go`
+  - `services/fphgo/internal/config/config_test.go`
+  - `services/fphgo/internal/app/app.go`
+  - `services/fphgo/README.md`
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `go test ./internal/config`
+  - `go test ./internal/app -run TestNope`
+  - `go test ./internal/app ./internal/config` still hits the pre-existing `TestRouteSurfaceSnapshot` mismatch in `internal/app`; this ticket did not touch routes
 - Commit hash: pending
 - Pushed: pending
 - Blockers:
-  - none for this launch-scope fix
+  - none for this startup hardening change
