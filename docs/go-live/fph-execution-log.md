@@ -119,3 +119,20 @@
 - Pushed: pending
 - Blockers:
   - shared worktree `apps/web/node_modules` symlink leaks to the original repo, so stock web type-check is not branch-isolated
+
+## 2026-03-31 21:28 Asia/Manila — FRO-195
+
+- Status: completed on shared branch, awaiting push/review
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: narrowed restricted group membership to truthful launch scope by removing approval-queue promises from the web UI, limiting group creation to open or invite-only join policies, and replacing fake request-access states with explicit invite-required messaging.
+- Files touched:
+  - `apps/web/src/app/groups/page.tsx`
+  - `apps/web/src/app/groups/[id]/page.tsx`
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `pnpm exec tsc -p /tmp/fro195-groups-tsconfig.json --noEmit`
+- Commit hash: pending
+- Pushed: pending
+- Blockers:
+  - none for this narrowed launch-scope fix

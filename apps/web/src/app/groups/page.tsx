@@ -71,9 +71,8 @@ export default function GroupsPage() {
     "public" | "private" | "invite_only"
   >("public");
   const [createJoinPolicy, setCreateJoinPolicy] = useState<
-    "open" | "approval" | "invite_only"
+    "open" | "invite_only"
   >("open");
-  const [pendingGroupIds, setPendingGroupIds] = useState<string[]>([]);
 
   const filters = useMemo(
     () => ({
@@ -100,15 +99,11 @@ export default function GroupsPage() {
     try {
       const membership = await joinMutation.mutateAsync({ groupId });
       if (membership.status === "invited") {
-        setPendingGroupIds((current) =>
-          current.includes(groupId) ? current : [...current, groupId],
+        toast.error(
+          "Approval queues are not available at launch. Ask a group admin for an invite instead.",
         );
-        toast.success("Join request sent. This group requires approval.");
         return;
       }
-      setPendingGroupIds((current) =>
-        current.filter((item) => item !== groupId),
-      );
       toast.success("Joined group.");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to join group"));
@@ -118,9 +113,6 @@ export default function GroupsPage() {
   const onLeave = async (groupId: string) => {
     try {
       await leaveMutation.mutateAsync({ groupId });
-      setPendingGroupIds((current) =>
-        current.filter((item) => item !== groupId),
-      );
       toast.success("Left group.");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to leave group"));
@@ -209,8 +201,8 @@ export default function GroupsPage() {
                   description="Open for anyone to see and join."
                 />
                 <InfoBox
-                  title="Private Groups"
-                  description="Requires approval or invitation to join."
+                  title="Restricted Groups"
+                  description="Invite-only access is supported at launch. Approval queues are not."
                 />
                 {!isSignedIn ? (
                   <SignInButton mode="modal">
@@ -305,16 +297,15 @@ export default function GroupsPage() {
                 />
               ) : (
                 <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                  {discoverGroups.map((group) => (
-                    <GroupCard
-                      key={group.id}
-                      group={group}
-                      isSignedIn={isSignedIn}
-                      isJoined={joinedGroupIds.has(group.id)}
-                      isPending={pendingGroupIds.includes(group.id)}
-                      actionPending={
-                        joinMutation.isPending || leaveMutation.isPending
-                      }
+                    {discoverGroups.map((group) => (
+                      <GroupCard
+                        key={group.id}
+                        group={group}
+                        isSignedIn={isSignedIn}
+                        isJoined={joinedGroupIds.has(group.id)}
+                        actionPending={
+                          joinMutation.isPending || leaveMutation.isPending
+                        }
                       onJoin={() => void onJoin(group.id)}
                       onLeave={() => void onLeave(group.id)}
                     />
@@ -347,7 +338,6 @@ export default function GroupsPage() {
                         group={group}
                         isSignedIn
                         isJoined
-                        isPending={false}
                         actionPending={leaveMutation.isPending}
                         onJoin={() => undefined}
                         onLeave={() => void onLeave(group.id)}
@@ -421,7 +411,7 @@ export default function GroupsPage() {
                   value={createJoinPolicy}
                   onValueChange={(value) =>
                     setCreateJoinPolicy(
-                      value as "open" | "approval" | "invite_only",
+                      value as "open" | "invite_only",
                     )
                   }
                 >
@@ -430,7 +420,6 @@ export default function GroupsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="open">Open join</SelectItem>
-                    <SelectItem value="approval">Approval required</SelectItem>
                     <SelectItem value="invite_only">Invite only</SelectItem>
                   </SelectContent>
                 </Select>
@@ -458,7 +447,6 @@ function GroupCard({
   group,
   isSignedIn,
   isJoined,
-  isPending,
   actionPending,
   onJoin,
   onLeave,
@@ -466,14 +454,13 @@ function GroupCard({
   group: Group;
   isSignedIn: boolean;
   isJoined: boolean;
-  isPending: boolean;
   actionPending: boolean;
   onJoin: () => void;
   onLeave: () => void;
 }) {
-  const joinLabel = group.joinPolicy === "approval" ? "Request access" : "Join";
   const canJoin =
-    group.visibility !== "invite_only" && group.joinPolicy !== "invite_only";
+    group.visibility !== "invite_only" && group.joinPolicy === "open";
+  const isApprovalOnly = group.joinPolicy === "approval";
 
   return (
     <Card className="overflow-hidden rounded-[1.75rem] border-border/70 bg-background/80">
@@ -535,7 +522,7 @@ function GroupCard({
           </Link>
           {!isSignedIn ? (
             <SignInButton mode="modal">
-              <Button size="sm">{canJoin ? joinLabel : "Sign in"}</Button>
+              <Button size="sm">{canJoin ? "Join" : "Sign in"}</Button>
             </SignInButton>
           ) : isJoined ? (
             <Button
@@ -546,14 +533,14 @@ function GroupCard({
             >
               Leave
             </Button>
-          ) : isPending ? (
-            <Badge className="rounded-full bg-primary/10 px-3 py-1 text-primary">
-              Request pending
-            </Badge>
           ) : canJoin ? (
             <Button size="sm" disabled={actionPending} onClick={onJoin}>
-              {joinLabel}
+              Join
             </Button>
+          ) : isApprovalOnly ? (
+            <Badge variant="outline" className="rounded-full px-3 py-1">
+              Invite required at launch
+            </Badge>
           ) : (
             <Badge variant="outline" className="rounded-full px-3 py-1">
               Invite only
@@ -641,7 +628,7 @@ function visibilityLabel(value: Group["visibility"]) {
 function joinPolicyLabel(value: Group["joinPolicy"]) {
   switch (value) {
     case "approval":
-      return "Approval required";
+      return "Restricted";
     case "invite_only":
       return "Invite only";
     default:

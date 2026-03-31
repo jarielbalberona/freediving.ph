@@ -52,9 +52,6 @@ export default function GroupDetailPage() {
 
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
-  const [pendingMembership, setPendingMembership] = useState<
-    "none" | "pending"
-  >("none");
 
   const groupQuery = useGroup(groupId);
   const membersQuery = useGroupMembers(groupId, 1, 20);
@@ -79,11 +76,11 @@ export default function GroupDetailPage() {
     try {
       const membership = await joinMutation.mutateAsync({ groupId });
       if (membership.status === "invited") {
-        setPendingMembership("pending");
-        toast.success("Join request sent. This group requires approval.");
+        toast.error(
+          "Approval queues are not available at launch. Ask a group admin for an invite instead.",
+        );
         return;
       }
-      setPendingMembership("none");
       toast.success("Joined group.");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to join group"));
@@ -94,7 +91,6 @@ export default function GroupDetailPage() {
     if (!groupId) return;
     try {
       await leaveMutation.mutateAsync({ groupId });
-      setPendingMembership("none");
       toast.success("Left group.");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to leave group"));
@@ -154,7 +150,8 @@ export default function GroupDetailPage() {
   }
 
   const canJoin =
-    group.visibility !== "invite_only" && group.joinPolicy !== "invite_only";
+    group.visibility !== "invite_only" && group.joinPolicy === "open";
+  const isApprovalOnly = group.joinPolicy === "approval";
 
   return (
     <div className="min-h-full bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.1),_transparent_26%),linear-gradient(180deg,_hsl(var(--background))_0%,_hsl(var(--muted)/0.24)_100%)] px-4 py-6 sm:px-6 lg:px-8">
@@ -216,7 +213,7 @@ export default function GroupDetailPage() {
                 <CardDescription className="text-sm text-foreground/75">
                   {group.visibility === "public"
                     ? "Public group. Anyone can see members and posts."
-                    : "Restricted group. Content is only visible to members."}
+                    : "Restricted group. Invite-only access is supported at launch; approval queues are not."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -229,26 +226,24 @@ export default function GroupDetailPage() {
                       <Button
                         variant="outline"
                         className="w-full"
-                        disabled={leaveMutation.isPending}
-                        onClick={() => void onLeave()}
-                      >
-                        Leave group
-                      </Button>
+                      disabled={leaveMutation.isPending}
+                      onClick={() => void onLeave()}
+                    >
+                      Leave group
+                    </Button>
                     </>
-                  ) : pendingMembership === "pending" ? (
-                    <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
-                      Join request pending.
-                    </div>
                   ) : canJoin ? (
                     <Button
                       className="w-full"
                       disabled={joinMutation.isPending}
                       onClick={() => void onJoin()}
                     >
-                      {group.joinPolicy === "approval"
-                        ? "Request access"
-                        : "Join group"}
+                      Join group
                     </Button>
+                  ) : isApprovalOnly ? (
+                    <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
+                      Approval-based access is not in launch scope yet. Ask a group admin for an invite.
+                    </div>
                   ) : (
                     <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
                       Invite only.
@@ -421,7 +416,7 @@ function visibilityLabel(value: Group["visibility"]) {
 function joinPolicyLabel(value: Group["joinPolicy"]) {
   switch (value) {
     case "approval":
-      return "Approval required";
+      return "Restricted";
     case "invite_only":
       return "Invite only";
     default:
