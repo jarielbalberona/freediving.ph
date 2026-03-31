@@ -191,3 +191,19 @@
 - Pushed: pending
 - Blockers:
   - none for this startup hardening change
+
+## 2026-03-31 23:20 Asia/Manila — FRO-200
+
+- Status: completed on shared branch, awaiting review
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: removed `comingSoon` routes from launch-visible navigation so unfinished surfaces are no longer advertised in the sidebar, “more” drawer, or deprecated link exports. The pages may still exist in the repo, but launch navigation no longer pretends they are part of the public product.
+- Files touched:
+  - `apps/web/src/config/nav.ts`
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `pnpm exec tsc -p /tmp/fro200-nav-tsconfig.json --noEmit`
+- Commit hash: pending
+- Pushed: pending
+- Blockers:
+  - none
