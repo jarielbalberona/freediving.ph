@@ -136,3 +136,21 @@
 - Pushed: pending
 - Blockers:
   - none for this narrowed launch-scope fix
+
+## 2026-03-31 21:43 Asia/Manila — FRO-196
+
+- Status: completed on shared branch, awaiting push/review
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: verified that Chika pseudonymous identity protection is already covered by backend integration tests and exposed the existing report flow in the thread and comment UI so launch now has a basic member report path without changing the privacy model.
+- Files touched:
+  - `apps/web/src/features/chika/components/ThreadDetail.tsx`
+  - `apps/web/src/app/chika/[id]/page.tsx`
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `pnpm exec tsc -p /tmp/fro196-chika-tsconfig.json --noEmit`
+  - reviewed `services/fphgo/internal/features/chika/http/integration_blocks_test.go` to confirm member-vs-moderator real-author behavior and hidden-content behavior are already covered in backend tests
+- Commit hash: pending
+- Pushed: pending
+- Blockers:
+  - none for this launch-scope fix

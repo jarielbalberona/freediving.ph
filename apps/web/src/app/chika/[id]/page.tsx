@@ -11,6 +11,7 @@ import type { ChikaCommentView } from "@/features/chika";
 import { commentSchema, type CommentValues } from "@/features/chika/schemas/comment.schema";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 import { UsernameLink } from "@/components/common/UsernameLink";
+import { ReportAction } from "@/components/report/report-action";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -201,6 +202,7 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
                     {comment.replyCount} repl{comment.replyCount === 1 ? "y" : "ies"}
                   </span>
                 ) : null}
+                <ReportAction targetType="chika_comment" targetId={comment.id} />
                 <Button
                   type="button"
                   variant="ghost"
