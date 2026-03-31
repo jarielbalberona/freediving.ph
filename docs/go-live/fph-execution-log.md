@@ -93,7 +93,7 @@
 
 ## 2026-03-31 21:15 Asia/Manila — FRO-192
 
-- Status: completed on shared branch, awaiting push/review
+- Status: pushed on shared branch, in review
 - Branch: `fix/fph-go-live`
 - Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
 - Summary: added real recipient-side request controls to the thread messaging flow, exposed request-action metadata in thread detail, blocked reply UI until a request is accepted, and wired accept/decline endpoints to the live thread category model instead of the legacy conversation request model.
@@ -122,7 +122,7 @@
 
 ## 2026-03-31 21:28 Asia/Manila — FRO-195
 
-- Status: completed on shared branch, awaiting push/review
+- Status: pushed on shared branch, in review
 - Branch: `fix/fph-go-live`
 - Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
 - Summary: narrowed restricted group membership to truthful launch scope by removing approval-queue promises from the web UI, limiting group creation to open or invite-only join policies, and replacing fake request-access states with explicit invite-required messaging.
@@ -139,7 +139,7 @@
 
 ## 2026-03-31 21:43 Asia/Manila — FRO-196
 
-- Status: completed on shared branch, awaiting push/review
+- Status: pushed on shared branch, in review
 - Branch: `fix/fph-go-live`
 - Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
 - Summary: verified that Chika pseudonymous identity protection is already covered by backend integration tests and exposed the existing report flow in the thread and comment UI so launch now has a basic member report path without changing the privacy model.
@@ -173,7 +173,7 @@
 
 ## 2026-03-31 23:10 Asia/Manila — FRO-199
 
-- Status: completed on shared branch, awaiting review
+- Status: pushed on shared branch, in review
 - Branch: `fix/fph-go-live`
 - Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
 - Summary: enforced production media readiness at startup by rejecting incomplete R2/CDN/signing env configuration during config load, and by refusing to boot production if R2 client initialization still fails. This removes the previous launch lie where the API could start successfully and only break when users attempted uploads or URL minting.
@@ -187,14 +187,14 @@
   - `go test ./internal/config`
   - `go test ./internal/app -run TestNope`
   - `go test ./internal/app ./internal/config` still hits the pre-existing `TestRouteSurfaceSnapshot` mismatch in `internal/app`; this ticket did not touch routes
-- Commit hash: pending
-- Pushed: pending
+- Commit hash: `1f78e55`
+- Pushed: yes, on `origin/fix/fph-go-live`
 - Blockers:
   - none for this startup hardening change
 
 ## 2026-03-31 23:20 Asia/Manila — FRO-200
 
-- Status: completed on shared branch, awaiting review
+- Status: pushed on shared branch, in review
 - Branch: `fix/fph-go-live`
 - Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
 - Summary: removed `comingSoon` routes from launch-visible navigation so unfinished surfaces are no longer advertised in the sidebar, “more” drawer, or deprecated link exports. The pages may still exist in the repo, but launch navigation no longer pretends they are part of the public product.
@@ -203,14 +203,14 @@
   - `docs/go-live/fph-execution-log.md`
 - Verification:
   - `pnpm exec tsc -p /tmp/fro200-nav-tsconfig.json --noEmit`
-- Commit hash: pending
-- Pushed: pending
+- Commit hash: `e93d88f`
+- Pushed: yes, on `origin/fix/fph-go-live`
 - Blockers:
   - none
 
 ## 2026-03-31 23:35 Asia/Manila — FRO-198
 
-- Status: completed on shared branch, awaiting review
+- Status: pushed on shared branch, in review
 - Branch: `fix/fph-go-live`
 - Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
 - Summary: added a repo-backed launch smoke checklist that separates what is already automated from what still requires real deploy-time/manual verification. The checklist is grounded in the current route surface and explicitly calls out that dev-auth smoke is not enough to prove production Clerk or media behavior.
@@ -220,7 +220,24 @@
 - Verification:
   - `rg -n "Automated Smoke Already In Repo|Manual Launch Smoke|Navigation Truth|Known Limits Of This Checklist" docs/go-live/fph-launch-smoke-checklist.md`
   - reviewed `apps/web/test/fphgo-ci-smoke.test.mjs`, `services/fphgo/internal/app/routes.go`, and feature route files to ground checklist steps in current repo truth
+- Commit hash: `1dcc40d`
+- Pushed: yes, on `origin/fix/fph-go-live`
+- Blockers:
+  - real production smoke execution still depends on deploy-time Clerk and media environment; this ticket documents the path and gates instead of faking runtime evidence
+
+## 2026-04-01 03:35 Asia/Manila — FRO-212
+
+- Status: pushed on shared branch, in review
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: reconciled the stale execution log with actual git commits, push state, and Linear review state for the completed go-live tickets. This is bookkeeping-only and does not change product behavior.
+- Files touched:
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `git log --oneline --decorate --graph a7d11d6..HEAD`
+  - `git diff -- docs/go-live/fph-execution-log.md`
+  - verified `FRO-192`, `FRO-195`, `FRO-196`, `FRO-199`, `FRO-200`, and `FRO-198` against Linear `In Review` state and branch truth
 - Commit hash: pending
 - Pushed: pending
 - Blockers:
-  - real production smoke execution still depends on deploy-time Clerk and media environment; this ticket documents the path and gates instead of faking runtime evidence
+  - none
