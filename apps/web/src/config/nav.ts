@@ -256,6 +256,7 @@ const MAIN_NAV_ORDER: string[] = [
 
 function isVisible(item: NavItem, isSignedIn: boolean): boolean {
   if (item.kind === "action") return true;
+  if (item.comingSoon) return false;
   return isSignedIn || !item.isProtected;
 }
 
@@ -345,7 +346,7 @@ export function isActiveRoute(pathname: string, href: string): boolean {
 }
 
 /** @deprecated Use getVisibleNavItems + getGroupedNavItems. Kept for backward compatibility. */
-export const navigation = NAV_ITEMS.filter((i) => i.kind === "link").map(
+export const navigation = NAV_ITEMS.filter((i) => i.kind === "link" && !i.comingSoon).map(
   (item) => ({
     title: item.title,
     url: item.href ?? "#",

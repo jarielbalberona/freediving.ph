@@ -2,10 +2,16 @@ export type MapViewMode = "map" | "list";
 
 export type DiveSpot = {
   id: string;
+  slug: string;
   name: string;
   area: string;
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
+  difficulty: "easy" | "moderate" | "hard";
+  verificationStatus: "community" | "instructor" | "moderator" | "verified";
+  recentUpdateCount: number;
+  lastConditionSummary?: string;
+  isSaved: boolean;
   rating?: number;
   reviewCount?: number;
   coverImageUrl?: string;
@@ -14,7 +20,7 @@ export type DiveSpot = {
 
 export type ExploreResponse = {
   items: DiveSpot[];
-  total: number;
+  nextCursor?: string;
 };
 
 export type ExploreBounds = {
@@ -38,11 +44,9 @@ export type ExploreCamera = {
 
 export type ExploreSearchParams = {
   q: string;
-  minRating: number | null;
-  tags: string[];
   bounds: ExploreBounds | null;
   limit: number;
-  offset: number;
+  cursor?: string;
 };
 
 export type ExploreQueryState = {
@@ -63,6 +67,8 @@ export const PHILIPPINES_CENTER = {
 export const PHILIPPINES_ZOOM = 5.6;
 
 export const EXPLORE_DEFAULT_LIMIT = 48;
+
+export const getDiveSpotSlug = (spot: DiveSpot): string => spot.slug;
 
 export const EXPLORE_TAG_OPTIONS = [
   "Beginner",

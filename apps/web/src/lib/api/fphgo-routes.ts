@@ -3,7 +3,7 @@ const toPathId = (id: string | number): string =>
 
 export const routes = {
   v1: {
-    me: () => "/v1/auth/session",
+    session: () => "/v1/auth/session",
     messages: {
       threads: () => "/v1/messages/threads",
       threadById: (threadId: string | number) =>
@@ -12,6 +12,10 @@ export const routes = {
         `/v1/messages/threads/${toPathId(threadId)}/messages`,
       threadRead: (threadId: string | number) =>
         `/v1/messages/threads/${toPathId(threadId)}/read`,
+      threadAccept: (threadId: string | number) =>
+        `/v1/messages/threads/${toPathId(threadId)}/accept`,
+      threadDecline: (threadId: string | number) =>
+        `/v1/messages/threads/${toPathId(threadId)}/decline`,
       threadCategory: (threadId: string | number) =>
         `/v1/messages/threads/${toPathId(threadId)}/category`,
       directThread: () => "/v1/messages/threads/direct",

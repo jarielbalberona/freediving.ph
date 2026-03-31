@@ -232,6 +232,26 @@ func (m *memoryMessagingRepo) UpdateThreadCategory(_ context.Context, threadID s
 	return nil
 }
 
+func (m *memoryMessagingRepo) PromoteThreadRequestToPrimary(_ context.Context, threadID, userID string) error {
+	threadMembers, ok := m.members[threadID]
+	if !ok {
+		return nil
+	}
+	if _, exists := threadMembers[userID]; exists {
+		threadMembers[userID] = messagingrepo.ThreadCategoryPrimary
+	}
+	return nil
+}
+
+func (m *memoryMessagingRepo) ArchiveThreadForUser(_ context.Context, threadID, userID string) error {
+	threadMembers, ok := m.members[threadID]
+	if !ok {
+		return nil
+	}
+	delete(threadMembers, userID)
+	return nil
+}
+
 type messagingNoRows struct{}
 
 func (messagingNoRows) Error() string { return "no rows" }

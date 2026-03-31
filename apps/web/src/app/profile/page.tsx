@@ -11,7 +11,7 @@ export default async function ProfileRedirectPage() {
   let username: string | null = null;
 
   try {
-    const me = await fphgoFetchServer<MeResponse>(routes.v1.me());
+    const me = await fphgoFetchServer<MeResponse>(routes.v1.session());
     username = me.username ?? null;
   } catch {
     const clerkUser = await currentUser();

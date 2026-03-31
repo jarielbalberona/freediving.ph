@@ -1,5 +1,6 @@
 import type { ChikaThreadView } from "../api/threads";
 import { UsernameLink } from "@/components/common/UsernameLink";
+import { ReportAction } from "@/components/report/report-action";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ThreadActions from "./ThreadActions";
@@ -49,13 +50,14 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
         </p>
       ) : null}
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <ThreadActions
           threadId={thread.id}
           initialVoteCount={thread.voteCount}
           initialReaction={thread.userReaction}
           commentCount={thread.commentCount}
         />
+        <ReportAction targetType="chika_thread" targetId={thread.id} />
       </div>
     </Card>
   );

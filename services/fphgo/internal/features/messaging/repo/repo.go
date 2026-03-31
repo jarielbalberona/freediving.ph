@@ -435,18 +435,10 @@ func (r *Repo) OpenOrCreateDirectThread(ctx context.Context, actorID, targetUser
 		}
 	}
 
-	if err := r.queries.UpsertThreadMember(ctx, messagingqlc.UpsertThreadMemberParams{
-		ThreadID:      toUUID(threadID),
-		UserID:        toUUID(actorID),
-		InboxCategory: string(ThreadCategoryPrimary),
-	}); err != nil {
+	if err := r.upsertThreadMember(ctx, threadID, actorID, ThreadCategoryPrimary); err != nil {
 		return Thread{}, err
 	}
-	if err := r.queries.UpsertThreadMember(ctx, messagingqlc.UpsertThreadMemberParams{
-		ThreadID:      toUUID(threadID),
-		UserID:        toUUID(targetUserID),
-		InboxCategory: string(targetCategory),
-	}); err != nil {
+	if err := r.upsertThreadMember(ctx, threadID, targetUserID, targetCategory); err != nil {
 		return Thread{}, err
 	}
 
@@ -673,6 +665,17 @@ func (r *Repo) PromoteThreadRequestToPrimary(ctx context.Context, threadID, user
 	return err
 }
 
+func (r *Repo) ArchiveThreadForUser(ctx context.Context, threadID, userID string) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE message_thread_members
+		SET is_archived = TRUE
+		WHERE thread_id = $1
+		  AND user_id = $2
+		  AND left_at IS NULL
+	`, toUUID(threadID), toUUID(userID))
+	return err
+}
+
 func (r *Repo) UpdateThreadCategory(ctx context.Context, threadID string, category ThreadCategory) error {
 	_, err := r.pool.Exec(ctx, `
 		UPDATE message_thread_members
@@ -680,6 +683,28 @@ func (r *Repo) UpdateThreadCategory(ctx context.Context, threadID string, catego
 		WHERE thread_id = $1
 		  AND left_at IS NULL
 	`, toUUID(threadID), string(category))
+	return err
+}
+
+func (r *Repo) upsertThreadMember(ctx context.Context, threadID, userID string, category ThreadCategory) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO message_thread_members (
+		  thread_id,
+		  user_id,
+		  inbox_category,
+		  joined_at,
+		  left_at,
+		  is_archived,
+		  is_muted
+		)
+		VALUES ($1, $2, $3::message_inbox_category, NOW(), NULL, FALSE, FALSE)
+		ON CONFLICT (thread_id, user_id)
+		DO UPDATE SET
+		  inbox_category = EXCLUDED.inbox_category,
+		  joined_at = COALESCE(message_thread_members.joined_at, NOW()),
+		  left_at = NULL,
+		  is_archived = FALSE
+	`, toUUID(threadID), toUUID(userID), string(category))
 	return err
 }
 

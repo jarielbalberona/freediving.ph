@@ -135,6 +135,12 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		assertStringField(t, payload, "globalRole")
 		assertStringField(t, payload, "accountStatus")
 		assertArrayField(t, payload, "permissions")
+		if got := rec.Header().Get("Deprecation"); got != "true" {
+			t.Fatalf("expected legacy /v1/me deprecation header, got %q", got)
+		}
+		if got := rec.Header().Get("Link"); got != `</v1/auth/session>; rel="successor-version"` {
+			t.Fatalf("expected canonical session link header, got %q", got)
+		}
 	})
 
 	t.Run("GET /v1/messages/threads", func(t *testing.T) {

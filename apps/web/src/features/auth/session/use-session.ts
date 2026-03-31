@@ -35,7 +35,7 @@ export function useSession(): SessionState {
     },
     queryFn: async () => {
       const token = await getToken();
-      return apiClient<SharedMeResponse>(routes.v1.me(), { token });
+      return apiClient<SharedMeResponse>(routes.v1.session(), { token });
     },
   });
 

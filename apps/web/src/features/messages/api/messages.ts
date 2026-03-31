@@ -2,6 +2,7 @@ import type {
   MessagingMarkReadRequest,
   MessagingMarkReadResponse,
   MessagingOpenDirectThreadRequest,
+  MessagingResolveThreadRequestResponse,
   MessagingSendMessageRequest,
   MessagingSendMessageResponse,
   MessagingThreadDetailResponse,
@@ -57,6 +58,18 @@ export const messagesApi = {
     return fphgoFetchClient<MessagingMarkReadResponse>(routes.v1.messages.threadRead(threadId), {
       method: "POST",
       body: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  acceptThreadRequest: async (threadId: string): Promise<MessagingResolveThreadRequestResponse> => {
+    return fphgoFetchClient<MessagingResolveThreadRequestResponse>(routes.v1.messages.threadAccept(threadId), {
+      method: "POST",
+    });
+  },
+
+  declineThreadRequest: async (threadId: string): Promise<MessagingResolveThreadRequestResponse> => {
+    return fphgoFetchClient<MessagingResolveThreadRequestResponse>(routes.v1.messages.threadDecline(threadId), {
+      method: "POST",
     });
   },
 

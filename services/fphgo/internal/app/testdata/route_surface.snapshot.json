@@ -230,7 +230,15 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/media/by-username/{username}"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/media/mine"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/posts"
     },
     {
       "method": "POST",

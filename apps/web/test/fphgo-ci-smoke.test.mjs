@@ -42,7 +42,7 @@ test("GET /readyz — DB readiness check", async () => {
 // ── Auth gate: unauthenticated requests are rejected ────────────────
 
 test("protected endpoints return 401 without auth", async () => {
-  const paths = ["/v1/me", "/v1/blocks", "/v1/buddies"];
+  const paths = ["/v1/auth/session", "/v1/blocks", "/v1/buddies"];
   for (const path of paths) {
     const { response, body } = await request(path);
     assert.equal(response.status, 401, `expected 401 for ${path}`);
@@ -52,8 +52,8 @@ test("protected endpoints return 401 without auth", async () => {
 
 // ── Identity bootstrap + session ────────────────────────────────────
 
-test("GET /v1/me — session with dev auth harness", async () => {
-  const { response, body } = await authedRequest("/v1/me");
+test("GET /v1/auth/session — canonical session with dev auth harness", async () => {
+  const { response, body } = await authedRequest("/v1/auth/session");
   assert.equal(response.status, 200);
   assert.equal(body.clerkSubject, SMOKE_USER);
   assert.equal(typeof body.userId, "string");
@@ -62,6 +62,14 @@ test("GET /v1/me — session with dev auth harness", async () => {
   assert.equal(body.accountStatus, "active");
   assert.equal(Array.isArray(body.permissions), true);
   assert.ok(body.permissions.length > 0, "member should have permissions");
+});
+
+test("GET /v1/me — legacy session alias remains readable", async () => {
+  const { response, body } = await authedRequest("/v1/me");
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("deprecation"), "true");
+  assert.equal(response.headers.get("link"), '</v1/auth/session>; rel="successor-version"');
+  assert.equal(body.clerkSubject, SMOKE_USER);
 });
 
 // ── Migrated feature: blocks ────────────────────────────────────────
