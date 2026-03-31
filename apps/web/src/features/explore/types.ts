@@ -2,6 +2,7 @@ export type MapViewMode = "map" | "list";
 
 export type DiveSpot = {
   id: string;
+  slug?: string;
   name: string;
   area: string;
   lat: number;
@@ -63,6 +64,8 @@ export const PHILIPPINES_CENTER = {
 export const PHILIPPINES_ZOOM = 5.6;
 
 export const EXPLORE_DEFAULT_LIMIT = 48;
+
+export const getDiveSpotSlug = (spot: DiveSpot): string => spot.slug ?? spot.id;
 
 export const EXPLORE_TAG_OPTIONS = [
   "Beginner",

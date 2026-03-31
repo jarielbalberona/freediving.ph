@@ -50,3 +50,19 @@
   - `pnpm --filter @freediving.ph/web type-check`
 - Commit hash: recorded in Git history for `fix/fph-go-live`
 - Blockers: none
+
+## 2026-03-31 20:00 Asia/Manila — FRO-194
+
+- Status: completed locally on shared branch, awaiting explicit push/review
+- Branch: `fix/fph-go-live`
+- Worktree: `/Volumes/Files/softwareengineering/my-projects/freedivingph-go-live`
+- Summary: aligned Explore site links and share URLs to a dedicated slug helper so the route layer no longer implicitly treats `id` as the public slug contract.
+- Files touched:
+  - `apps/web/src/features/explore/types.ts`
+  - `apps/web/src/features/explore/mock-data.ts`
+  - `apps/web/src/features/explore/components/ExploreLayout.tsx`
+  - `docs/go-live/fph-execution-log.md`
+- Verification:
+  - `pnpm --filter @freediving.ph/web type-check`
+- Commit hash: recorded in Git history for `fix/fph-go-live`
+- Blockers: none

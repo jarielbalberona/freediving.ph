@@ -43,6 +43,7 @@ import {
   EXPLORE_DEFAULT_LIMIT,
   EXPLORE_TAG_OPTIONS,
   type DiveSpot,
+  getDiveSpotSlug,
 } from "../types";
 import { DiveSpotCard } from "./DiveSpotCard";
 import { ExploreMap } from "./ExploreMap";
@@ -243,7 +244,7 @@ export function ExploreLayout() {
   };
 
   const shareSpot = async (spot: DiveSpot) => {
-    const url = `${window.location.origin}/explore/sites/${spot.id}`;
+    const url = `${window.location.origin}/explore/sites/${getDiveSpotSlug(spot)}`;
     if (navigator.share) {
       await navigator.share({ title: spot.name, url });
       return;
@@ -257,7 +258,7 @@ export function ExploreLayout() {
 
     return (
       <>
-        <Link href={`/explore/sites/${spot.id}`}>
+        <Link href={`/explore/sites/${getDiveSpotSlug(spot)}`}>
           <Button size="sm" variant="outline" className="rounded-full">
             <ExternalLink className="mr-1.5 size-4" />
             Open site

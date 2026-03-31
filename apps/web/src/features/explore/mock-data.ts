@@ -1,4 +1,4 @@
-import type { DiveSpot } from "./types";
+import { getDiveSpotSlug, type DiveSpot } from "./types";
 
 export const MOCK_EXPLORE_SPOTS: DiveSpot[] = [
   {
@@ -244,4 +244,4 @@ export const MOCK_EXPLORE_SPOTS: DiveSpot[] = [
 ];
 
 export const getMockDiveSpotBySlug = (slug: string) =>
-  MOCK_EXPLORE_SPOTS.find((spot) => spot.id === slug) ?? null;
+  MOCK_EXPLORE_SPOTS.find((spot) => getDiveSpotSlug(spot) === slug) ?? null;
