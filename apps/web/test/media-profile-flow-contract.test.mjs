@@ -28,7 +28,8 @@ test("profile create flow and masonry gallery are wired to the media posting sta
 
   assert.match(createPage, /ProfileMediaComposer/);
   assert.match(composer, /approved FPH dive-site directory/);
-  assert.match(composer, /Apply to all/);
+  assert.match(composer, /Caption applies to the whole post/);
+  assert.match(composer, /applyCaptionToAll: false/);
   assert.match(composer, /contextType: "profile_feed"/);
   assert.match(gallery, /MasonryPhotoAlbum/);
   assert.match(gallery, /react-photo-album\/masonry\.css/);
