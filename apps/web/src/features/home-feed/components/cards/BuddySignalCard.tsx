@@ -12,6 +12,7 @@ import {
 type BuddyPayload = {
   authorName?: string;
   authorUsername?: string;
+  authorAvatarUrl?: string;
   area?: string;
   intentType?: string;
   timeWindow?: string;
@@ -31,6 +32,7 @@ export function BuddySignalCard({
         item={item}
         displayName={payload.authorName || "Diver"}
         username={payload.authorUsername}
+        avatarUrl={payload.authorAvatarUrl}
         usernameFallback="Pseudonymous"
         metadata={[
           payload.area,

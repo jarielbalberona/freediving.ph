@@ -9,7 +9,7 @@ import { useSession } from "@/features/auth/session/use-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { UserAvatarDetail } from "@/components/ui/user-avatar-detail";
+import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import { stripMarkdownForPreview } from "@/features/chika/lib/markdown";
 
 const toRelativeTime = (value: string) => {
@@ -86,12 +86,16 @@ const ThreadListClient = ({
             className={`mb-3 p-4 transition-colors hover:bg-accent/30 ${thread.isHidden ? "border-dashed opacity-60" : ""}`}
           >
             <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <UserAvatarDetail username={thread.authorDisplayName} />
-                <p className="truncate text-xs text-muted-foreground">
-                  {thread.categoryName} · {toRelativeTime(thread.createdAt)}
-                </p>
-              </div>
+              <UserIdentityHeader
+                displayName={thread.authorDisplayName}
+                username={thread.authorDisplayName}
+                avatarUrl={thread.authorAvatarUrl}
+                showProfileImage={!thread.categoryPseudonymous}
+                usernameDisabled={thread.categoryPseudonymous}
+                location={thread.categoryName}
+                time={toRelativeTime(thread.createdAt)}
+                className="flex-1"
+              />
               <div className="shrink-0">
                 {thread.categoryPseudonymous ? (
                   <Badge

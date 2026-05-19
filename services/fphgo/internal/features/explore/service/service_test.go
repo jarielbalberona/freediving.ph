@@ -27,6 +27,8 @@ type repoStub struct {
 	unlikedSiteID string
 	likeUserID    string
 	siteDetail    explorerepo.SiteDetail
+	presences     []explorerepo.VisibleDivePresence
+	affinities    []explorerepo.VisibleDiveSiteAffinity
 }
 
 func (r *repoStub) ListSites(_ context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error) {
@@ -133,6 +135,60 @@ func (r *repoStub) UnlikeDiveSite(_ context.Context, siteID, userID string) erro
 	return nil
 }
 
+func (r *repoStub) CreateDivePresence(_ context.Context, input explorerepo.CreateDivePresenceInput) (explorerepo.DivePresence, error) {
+	return explorerepo.DivePresence{ID: "550e8400-e29b-41d4-a716-446655441001", UserID: input.UserID, DiveSiteID: input.DiveSiteID, PresenceType: input.PresenceType, Visibility: input.Visibility, ContactEnabled: input.ContactEnabled, Status: "active", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
+}
+
+func (r *repoStub) UpdateDivePresenceByOwner(_ context.Context, presenceID string, input explorerepo.CreateDivePresenceInput) (explorerepo.DivePresence, error) {
+	return explorerepo.DivePresence{ID: presenceID, UserID: input.UserID, DiveSiteID: input.DiveSiteID, PresenceType: input.PresenceType, Visibility: input.Visibility, ContactEnabled: input.ContactEnabled, Status: "active", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
+}
+
+func (r *repoStub) CancelDivePresenceByOwner(context.Context, string, string, string) (int64, error) {
+	return 1, nil
+}
+
+func (r *repoStub) ExpirePastDivePresences(context.Context) error { return nil }
+
+func (r *repoStub) CountActiveDivePresencesByUser(context.Context, string) (int64, error) {
+	return 0, nil
+}
+
+func (r *repoStub) ListCurrentUserDivePresences(context.Context, string) ([]explorerepo.DivePresence, error) {
+	return nil, nil
+}
+
+func (r *repoStub) ListVisibleDivePresencesBySite(context.Context, string, string, int32) ([]explorerepo.VisibleDivePresence, error) {
+	return r.presences, nil
+}
+
+func (r *repoStub) CountVisibleDivePresencesBySite(context.Context, string, string) (int64, error) {
+	return int64(len(r.presences)), nil
+}
+
+func (r *repoStub) UpsertDiveSiteAffinity(_ context.Context, input explorerepo.UpsertDiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error) {
+	return explorerepo.DiveSiteAffinity{ID: "550e8400-e29b-41d4-a716-446655441002", UserID: input.UserID, DiveSiteID: input.DiveSiteID, Relationship: input.Relationship, Visibility: input.Visibility, ContactEnabled: input.ContactEnabled, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
+}
+
+func (r *repoStub) UpdateDiveSiteAffinityByOwner(_ context.Context, affinityID string, input explorerepo.UpsertDiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error) {
+	return explorerepo.DiveSiteAffinity{ID: affinityID, UserID: input.UserID, DiveSiteID: input.DiveSiteID, Relationship: input.Relationship, Visibility: input.Visibility, ContactEnabled: input.ContactEnabled, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
+}
+
+func (r *repoStub) DeleteDiveSiteAffinityByOwner(context.Context, string, string, string) (int64, error) {
+	return 1, nil
+}
+
+func (r *repoStub) ListCurrentUserDiveSiteAffinities(context.Context, string) ([]explorerepo.DiveSiteAffinity, error) {
+	return nil, nil
+}
+
+func (r *repoStub) ListVisibleDiveSiteAffinitiesBySite(context.Context, string, string, int32) ([]explorerepo.VisibleDiveSiteAffinity, error) {
+	return r.affinities, nil
+}
+
+func (r *repoStub) CountVisibleDiveSiteAffinitiesBySite(context.Context, string, string) (int64, error) {
+	return int64(len(r.affinities)), nil
+}
+
 func TestListSitesPassesValidatedBoundsToRepo(t *testing.T) {
 	repo := &repoStub{listResult: []explorerepo.SiteCard{{
 		ID:            "550e8400-e29b-41d4-a716-446655440101",
@@ -213,6 +269,60 @@ func TestListSitesSavedOnlyStillPaginates(t *testing.T) {
 	}
 	if len(result.Items) != 1 || result.NextCursor == "" {
 		t.Fatalf("expected one item and next cursor, got %+v", result)
+	}
+}
+
+func TestGetRelatedBySlugSeparatesPresenceAndAffinity(t *testing.T) {
+	repo := &repoStub{
+		siteDetail: explorerepo.SiteDetail{
+			ID:                 "550e8400-e29b-41d4-a716-446655440101",
+			Slug:               "napaling-reef",
+			Name:               "Napaling Reef",
+			Area:               "Panglao, Bohol",
+			Difficulty:         "easy",
+			VerificationStatus: "verified",
+			LastUpdatedAt:      time.Now().UTC(),
+			CreatedAt:          time.Now().UTC(),
+		},
+		presences: []explorerepo.VisibleDivePresence{{
+			DivePresence: explorerepo.DivePresence{
+				ID:             "550e8400-e29b-41d4-a716-446655441001",
+				UserID:         "550e8400-e29b-41d4-a716-446655441101",
+				DiveSiteID:     "550e8400-e29b-41d4-a716-446655440101",
+				PresenceType:   "available",
+				Visibility:     "members",
+				ContactEnabled: true,
+				Status:         "active",
+				CreatedAt:      time.Now().UTC(),
+				UpdatedAt:      time.Now().UTC(),
+			},
+		}},
+		affinities: []explorerepo.VisibleDiveSiteAffinity{{
+			DiveSiteAffinity: explorerepo.DiveSiteAffinity{
+				ID:           "550e8400-e29b-41d4-a716-446655441002",
+				UserID:       "550e8400-e29b-41d4-a716-446655441102",
+				DiveSiteID:   "550e8400-e29b-41d4-a716-446655440101",
+				Relationship: "regular",
+				Visibility:   "members",
+				CreatedAt:    time.Now().UTC(),
+				UpdatedAt:    time.Now().UTC(),
+			},
+		}},
+	}
+	svc := New(repo)
+
+	result, err := svc.GetRelatedBySlug(context.Background(), "550e8400-e29b-41d4-a716-446655440000", "napaling-reef")
+	if err != nil {
+		t.Fatalf("related: %v", err)
+	}
+	if result.Counts.AvailableBuddies != 1 || result.Counts.LocalRegulars != 1 {
+		t.Fatalf("unexpected counts: %+v", result.Counts)
+	}
+	if len(result.Previews.AvailableBuddies) != 1 || result.Previews.AvailableBuddies[0].PresenceType != "available" {
+		t.Fatalf("expected presence-backed available buddy, got %+v", result.Previews.AvailableBuddies)
+	}
+	if len(result.Previews.LocalRegulars) != 1 || result.Previews.LocalRegulars[0].Relationship != "regular" {
+		t.Fatalf("expected affinity-backed local regular, got %+v", result.Previews.LocalRegulars)
 	}
 }
 

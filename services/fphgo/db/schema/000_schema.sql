@@ -420,6 +420,40 @@ CREATE TABLE IF NOT EXISTS buddy_intents (
   CHECK (state IN ('active', 'hidden', 'expired'))
 );
 
+CREATE TABLE IF NOT EXISTS user_dive_site_affinities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE CASCADE,
+  relationship TEXT NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'members',
+  contact_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, dive_site_id, relationship),
+  CHECK (relationship IN ('local', 'regular', 'instructor', 'operator', 'interested')),
+  CHECK (visibility IN ('public', 'members', 'private'))
+);
+
+CREATE TABLE IF NOT EXISTS dive_presences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE CASCADE,
+  presence_type TEXT NOT NULL,
+  start_at TIMESTAMPTZ,
+  end_at TIMESTAMPTZ,
+  visibility TEXT NOT NULL DEFAULT 'members',
+  contact_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (presence_type IN ('available', 'planning', 'training', 'fun_dive')),
+  CHECK (visibility IN ('public', 'members', 'private')),
+  CHECK (status IN ('active', 'cancelled', 'expired')),
+  CHECK (start_at IS NULL OR end_at IS NULL OR start_at < end_at)
+);
+
 CREATE TABLE IF NOT EXISTS groups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -931,6 +965,11 @@ CREATE INDEX IF NOT EXISTS idx_user_hidden_feed_items_user_created_at ON user_hi
 CREATE INDEX IF NOT EXISTS idx_user_hidden_feed_items_entity ON user_hidden_feed_items (entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_activity_items_public_cursor ON activity_items (occurred_at DESC, id DESC) WHERE state = 'active' AND visibility = 'public';
 CREATE INDEX IF NOT EXISTS idx_activity_items_visibility_cursor ON activity_items (visibility, occurred_at DESC, id DESC) WHERE state = 'active';
+CREATE INDEX IF NOT EXISTS idx_user_dive_site_affinities_site_visible ON user_dive_site_affinities (dive_site_id, visibility, relationship, updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_user_dive_site_affinities_user_updated ON user_dive_site_affinities (user_id, updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_dive_presences_site_active_visible ON dive_presences (dive_site_id, visibility, start_at ASC NULLS FIRST, created_at DESC, id DESC) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_dive_presences_user_active ON dive_presences (user_id, updated_at DESC, id DESC) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_dive_presences_expiry ON dive_presences (end_at) WHERE status = 'active' AND end_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_items_actor_cursor ON activity_items (actor_user_id, occurred_at DESC, id DESC) WHERE state = 'active' AND actor_user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_items_group_cursor ON activity_items (group_id, occurred_at DESC, id DESC) WHERE state = 'active' AND group_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_activity_items_dive_site_cursor ON activity_items (dive_site_id, occurred_at DESC, id DESC) WHERE state = 'active' AND dive_site_id IS NOT NULL;

@@ -56,6 +56,7 @@ type ThreadResponse struct {
 	CategoryName     string `json:"categoryName"`
 	CategoryPseudo   bool   `json:"categoryPseudonymous"`
 	AuthorDisplay    string `json:"authorDisplayName"`
+	AuthorAvatarURL  string `json:"authorAvatarUrl,omitempty"`
 	RealAuthorUserID string `json:"realAuthorUserId,omitempty"`
 	IsHidden         bool   `json:"isHidden"`
 	HiddenAt         string `json:"hiddenAt,omitempty"`

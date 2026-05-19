@@ -38,7 +38,15 @@ test("profile create flow and masonry gallery are wired to the media posting sta
 });
 
 test("media dialog is wired as an in-place social post view", async () => {
-  const [mediaCard, profileGrid, socialPanel, actions, comments, detailPage] =
+  const [
+    mediaCard,
+    profileGrid,
+    socialPanel,
+    actions,
+    comments,
+    detailPage,
+    identityHeader,
+  ] =
     await Promise.all([
       fs.readFile(
         path.join(
@@ -70,6 +78,10 @@ test("media dialog is wired as an in-place social post view", async () => {
         path.join(repoRoot, "src/features/media/pages/MediaPostDetailPage.tsx"),
         "utf8",
       ),
+      fs.readFile(
+        path.join(repoRoot, "src/components/common/UserIdentityHeader.tsx"),
+        "utf8",
+      ),
     ]);
 
   assert.match(mediaCard, /setViewerOpen\(true\)/);
@@ -77,6 +89,11 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(mediaCard, /<MediaPostSocialPanel/);
   assert.match(profileGrid, /<MediaPostSocialPanel/);
   assert.match(detailPage, /<MediaPostSocialPanel/);
+  assert.match(socialPanel, /<UserIdentityHeader/);
+  assert.match(socialPanel, /showProfileImage=\{showAuthorProfileImage\}/);
+  assert.match(socialPanel, /location=\{/);
+  assert.match(identityHeader, /showProfileImage = true/);
+  assert.match(identityHeader, /src=\{showProfileImage \? avatarUrl : undefined\}/);
   assert.match(socialPanel, /<MediaPostActions/);
   assert.match(socialPanel, /onCommentClick=\{focusComments\}/);
   assert.match(socialPanel, /<MediaPostComments postId=\{postId\}/);

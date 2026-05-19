@@ -15,6 +15,8 @@ func Routes(h *Handlers) chi.Router {
 	r.Get("/sites/{slug}", h.GetSiteBySlug)
 	r.Get("/sites/{slug}/related", h.GetRelatedBySlug)
 	r.Get("/sites/{slug}/community-posts", h.ListCommunityPostsBySlug)
+	r.Get("/sites/{slug}/presence", h.ListDivePresencesBySlug)
+	r.Get("/sites/{slug}/affinities", h.ListDiveAffinitiesBySlug)
 	r.Get("/sites/{slug}/buddy-preview", h.GetBuddyPreviewBySlug)
 
 	r.Group(func(member chi.Router) {
@@ -26,6 +28,12 @@ func Routes(h *Handlers) chi.Router {
 		member.Group(func(submissions chi.Router) {
 			submissions.Use(middleware.RequirePermission(authz.PermissionExploreSubmit))
 			submissions.Post("/sites/submit", h.CreateSiteSubmission)
+			submissions.Post("/sites/{slug}/presence", h.CreateDivePresence)
+			submissions.Patch("/sites/{slug}/presence/{presenceId}", h.UpdateDivePresence)
+			submissions.Delete("/sites/{slug}/presence/{presenceId}", h.CancelDivePresence)
+			submissions.Post("/sites/{slug}/affinities", h.CreateDiveSiteAffinity)
+			submissions.Patch("/sites/{slug}/affinities/{affinityId}", h.UpdateDiveSiteAffinity)
+			submissions.Delete("/sites/{slug}/affinities/{affinityId}", h.DeleteDiveSiteAffinity)
 			submissions.Get("/sites/submissions", h.ListMySiteSubmissions)
 			submissions.Get("/sites/submissions/{id}", h.GetMySiteSubmissionByID)
 			submissions.Post("/sites/{siteId}/updates", h.CreateUpdate)

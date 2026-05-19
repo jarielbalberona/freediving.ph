@@ -62,6 +62,14 @@ export const routes = {
         `/v1/explore/sites/${toPathId(slug)}/related`,
       siteCommunityPosts: (slug: string | number) =>
         `/v1/explore/sites/${toPathId(slug)}/community-posts`,
+      sitePresence: (slug: string | number) =>
+        `/v1/explore/sites/${toPathId(slug)}/presence`,
+      sitePresenceById: (slug: string | number, presenceId: string | number) =>
+        `/v1/explore/sites/${toPathId(slug)}/presence/${toPathId(presenceId)}`,
+      siteAffinities: (slug: string | number) =>
+        `/v1/explore/sites/${toPathId(slug)}/affinities`,
+      siteAffinityById: (slug: string | number, affinityId: string | number) =>
+        `/v1/explore/sites/${toPathId(slug)}/affinities/${toPathId(affinityId)}`,
       siteBuddyPreview: (slug: string | number) =>
         `/v1/explore/sites/${toPathId(slug)}/buddy-preview`,
       siteBuddyIntents: (slug: string | number) =>

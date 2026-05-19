@@ -162,6 +162,21 @@ type ConversationParticipant struct {
 	JoinedAt       pgtype.Timestamptz `db:"joined_at" json:"joined_at"`
 }
 
+type DivePresence struct {
+	ID             pgtype.UUID        `db:"id" json:"id"`
+	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`
+	DiveSiteID     pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	PresenceType   string             `db:"presence_type" json:"presence_type"`
+	StartAt        pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt          pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	Visibility     string             `db:"visibility" json:"visibility"`
+	ContactEnabled bool               `db:"contact_enabled" json:"contact_enabled"`
+	Note           *string            `db:"note" json:"note"`
+	Status         string             `db:"status" json:"status"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type DiveSite struct {
 	ID                   pgtype.UUID        `db:"id" json:"id"`
 	Name                 string             `db:"name" json:"name"`
@@ -673,6 +688,18 @@ type UserBlock struct {
 	BlockerAppUserID pgtype.UUID        `db:"blocker_app_user_id" json:"blocker_app_user_id"`
 	BlockedAppUserID pgtype.UUID        `db:"blocked_app_user_id" json:"blocked_app_user_id"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type UserDiveSiteAffinity struct {
+	ID             pgtype.UUID        `db:"id" json:"id"`
+	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`
+	DiveSiteID     pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Relationship   string             `db:"relationship" json:"relationship"`
+	Visibility     string             `db:"visibility" json:"visibility"`
+	ContactEnabled bool               `db:"contact_enabled" json:"contact_enabled"`
+	Note           *string            `db:"note" json:"note"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type UserFeedPreference struct {

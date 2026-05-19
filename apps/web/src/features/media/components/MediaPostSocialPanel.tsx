@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { MapPin } from "lucide-react";
 
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { UsernameLink } from "@/components/common/UsernameLink";
+import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import { cn } from "@/lib/utils";
 
 import { MediaPostActions } from "./MediaPostActions";
@@ -17,6 +15,7 @@ type MediaPostSocialPanelProps = {
   authorName: string;
   authorUsername?: string;
   authorAvatarUrl?: string | null;
+  showAuthorProfileImage?: boolean;
   diveSiteName?: string;
   diveSiteArea?: string;
   diveSiteHref?: string;
@@ -36,6 +35,7 @@ export function MediaPostSocialPanel({
   authorName,
   authorUsername,
   authorAvatarUrl,
+  showAuthorProfileImage = true,
   diveSiteName,
   diveSiteArea,
   diveSiteHref,
@@ -69,39 +69,24 @@ export function MediaPostSocialPanel({
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <div className="space-y-4 border-b px-5 py-4">
-        <div className="flex items-center gap-3">
-          <UserAvatar
-            src={authorAvatarUrl}
-            displayName={authorName}
-            size="sm"
-          />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">
-              {authorName || "Diver"}
-            </p>
-            <UsernameLink
-              username={authorUsername}
-              className="truncate text-xs text-muted-foreground"
-            />
-          </div>
-        </div>
-
-        {locationText ? (
-          diveSiteHref ? (
-            <Link
-              href={diveSiteHref}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <MapPin className="size-4" />
-              <span>{locationText}</span>
-            </Link>
-          ) : (
-            <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-              <MapPin className="size-4" />
-              <span>{locationText}</span>
-            </p>
-          )
-        ) : null}
+        <UserIdentityHeader
+          displayName={authorName || "Diver"}
+          username={authorUsername}
+          avatarUrl={authorAvatarUrl}
+          showProfileImage={showAuthorProfileImage}
+          location={
+            locationText && diveSiteHref ? (
+              <Link
+                href={diveSiteHref}
+                className="hover:text-foreground hover:underline"
+              >
+                {locationText}
+              </Link>
+            ) : (
+              locationText
+            )
+          }
+        />
 
         <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
           {caption || "No caption added."}
@@ -118,7 +103,13 @@ export function MediaPostSocialPanel({
         />
       </div>
 
-      <div ref={commentsRef} className={cn("min-h-0 flex-1 overflow-y-auto px-5 py-4", commentsClassName)}>
+      <div
+        ref={commentsRef}
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto px-5 py-4",
+          commentsClassName,
+        )}
+      >
         <MediaPostComments postId={postId} />
       </div>
     </div>

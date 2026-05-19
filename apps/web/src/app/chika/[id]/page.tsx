@@ -27,7 +27,7 @@ import {
   type CommentValues,
 } from "@/features/chika/schemas/comment.schema";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
-import { UsernameLink } from "@/components/common/UsernameLink";
+import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import { ReportAction } from "@/components/report/report-action";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,8 +48,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getProfileRoute } from "@/lib/routes";
-import { UserAvatarDetail } from "@/components/ui/user-avatar-detail";
 
 const toRelativeTime = (value: string) => {
   const date = new Date(value);
@@ -302,13 +300,14 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center gap-2">
-                <UserAvatarDetail
+                <UserIdentityHeader
+                  displayName={comment.authorDisplayName}
                   username={comment.authorDisplayName}
-                  src={comment.authorAvatarUrl}
+                  avatarUrl={comment.authorAvatarUrl}
+                  showProfileImage={Boolean(comment.authorAvatarUrl)}
+                  time={toRelativeTime(comment.createdAt)}
+                  className="flex-1"
                 />
-                <span className="text-sm text-muted-foreground">
-                  · {toRelativeTime(comment.createdAt)}
-                </span>
                 {comment.isHidden ? (
                   <Badge
                     variant="destructive"

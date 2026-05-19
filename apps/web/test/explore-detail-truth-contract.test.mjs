@@ -57,12 +57,18 @@ test("explore site detail renders related tabs without duplicating old buddy sec
 
   assert.match(sharePage, /<DiveSiteRelatedTabs/);
   assert.doesNotMatch(sharePage, /Find a buddy for this spot/);
+  assert.match(sharePage, /getExploreSitePresenceServer\(slug, 6\)/);
+  assert.match(sharePage, /getExploreSiteAffinitiesServer\(slug, 6\)/);
   assert.match(sharePage, /getExploreSiteCommunityPostsServer\(slug, undefined, 6\)/);
   assert.match(sharePage, /communityNextCursor=\{communityPostsPage\?\.nextCursor\}/);
-  assert.match(relatedTabs, /Buddies \(\{buddyCount\}\)/);
-  assert.match(relatedTabs, /Community posts \(\{counts\.communityPosts\}\)/);
-  assert.match(relatedTabs, /No buddy posts for this spot yet\./);
+  assert.match(relatedTabs, /Available Buddies \(\{availableBuddyCount\}\)/);
+  assert.match(relatedTabs, /Locals & Regulars \(\{localRegularCount\}\)/);
+  assert.match(relatedTabs, /Community Posts \(\{communityPostCount\}\)/);
+  assert.match(relatedTabs, /No available buddies yet\. Be the first to mark your dive presence\./);
+  assert.match(relatedTabs, /No locals or regulars yet\. Mark yourself as connected to this site\./);
   assert.match(relatedTabs, /No community posts tagged to this spot yet\./);
+  assert.match(relatedTabs, /exploreApi\.createSitePresence\(slug/);
+  assert.match(relatedTabs, /exploreApi\.createSiteAffinity\(slug/);
   assert.match(relatedTabs, /activityToHomeFeedItems\(communityFeed\)/);
   assert.match(relatedTabs, /<FeedItemRenderer/);
   assert.match(relatedTabs, /exploreApi\.getSiteCommunityPosts\(slug, nextCursor\)/);
@@ -71,12 +77,35 @@ test("explore site detail renders related tabs without duplicating old buddy sec
   assert.match(relatedTabs, /setNextCursor\(page\.nextCursor\)/);
   assert.match(relatedTabs, /"Load more"/);
   assert.match(routes, /siteRelated/);
+  assert.match(routes, /sitePresence/);
+  assert.match(routes, /siteAffinities/);
   assert.match(routes, /siteCommunityPosts/);
   assert.match(serverApi, /getExploreSiteRelatedServer/);
+  assert.match(serverApi, /getExploreSitePresenceServer/);
+  assert.match(serverApi, /getExploreSiteAffinitiesServer/);
   assert.match(serverApi, /getExploreSiteCommunityPostsServer/);
   assert.match(clientApi, /getSiteCommunityPosts/);
+  assert.match(clientApi, /createSitePresence/);
+  assert.match(clientApi, /createSiteAffinity/);
   assert.doesNotMatch(relatedTabs, /location/i);
   assert.doesNotMatch(relatedTabs, /area.*community/i);
+});
+
+test("dive presence and affinity forms submit separate payloads", async () => {
+  const [relatedTabs, clientApi] = await Promise.all([
+    readFile(relatedTabsPath, "utf8"),
+    readFile(exploreClientApiPath, "utf8"),
+  ]);
+
+  assert.match(relatedTabs, /presenceType: "available"/);
+  assert.match(relatedTabs, /flexible: true/);
+  assert.match(relatedTabs, /visibility: "members"/);
+  assert.match(relatedTabs, /contactEnabled: true/);
+  assert.match(relatedTabs, /relationship: "regular"/);
+  assert.match(relatedTabs, /contactEnabled: false/);
+  assert.match(relatedTabs, /rfc3339FromLocal\(presenceForm\.startAt/);
+  assert.match(clientApi, /createSitePresence: \(slug: string, payload: CreateDivePresenceRequest\)/);
+  assert.match(clientApi, /createSiteAffinity: \(slug: string, payload: CreateDiveSiteAffinityRequest\)/);
 });
 
 test("launch source does not import seeded Explore mock data", async () => {

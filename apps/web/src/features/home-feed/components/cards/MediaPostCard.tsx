@@ -13,11 +13,13 @@ import { MediaPostActions } from "@/features/media/components/MediaPostActions";
 import { MediaPostSocialPanel } from "@/features/media/components/MediaPostSocialPanel";
 import { MediaViewerDialog } from "@/features/media/components/MediaViewerDialog";
 import { useMintedMediaMap } from "@/features/media/hooks";
+import { canLinkToProfileUsername, getProfileRoute } from "@/lib/routes";
 import type { HomeFeedItem } from "@freediving.ph/types";
 
 type MediaPostPayload = {
   authorName?: string;
   authorUsername?: string;
+  authorAvatarUrl?: string;
   diveSiteSlug?: string;
   diveSiteName?: string;
   area?: string;
@@ -68,6 +70,12 @@ export function MediaPostCard({
     payload.postCaption?.trim() ||
     payload.previewCaption?.trim() ||
     "No caption";
+  const postHref =
+    payload.authorUsername && canLinkToProfileUsername(payload.authorUsername)
+      ? `${getProfileRoute(payload.authorUsername)}/posts/${encodeURIComponent(
+          item.entityId,
+        )}`
+      : item.detailHref;
   const viewerItems =
     payload.items?.map((photo, index) => ({
       id: photo.id || `${item.id}-${index + 1}`,
@@ -82,7 +90,7 @@ export function MediaPostCard({
     <div className="flex w-full flex-wrap items-center justify-between gap-2">
       <MediaPostActions
         postId={item.entityId}
-        href={item.detailHref}
+        href={postHref}
         likeCount={payload.likeCount ?? 0}
         commentCount={payload.commentCount ?? 0}
         viewerHasLiked={payload.viewerHasLiked ?? false}
@@ -104,6 +112,7 @@ export function MediaPostCard({
           item={item}
           displayName={payload.authorName || "Diver"}
           username={payload.authorUsername}
+          avatarUrl={payload.authorAvatarUrl}
           metadata={[
             payload.diveSiteSlug && payload.diveSiteName ? (
               <Link
@@ -157,9 +166,10 @@ export function MediaPostCard({
           return (
             <MediaPostSocialPanel
               postId={item.entityId}
-              href={item.detailHref}
+              href={postHref}
               authorName={payload.authorName || "Diver"}
               authorUsername={payload.authorUsername}
+              authorAvatarUrl={payload.authorAvatarUrl}
               diveSiteName={payload.diveSiteName || "Dive site unavailable"}
               diveSiteArea={payload.area || "Location unavailable"}
               diveSiteHref={

@@ -50,6 +50,20 @@ type repository interface {
 	GetVisibleDiveSiteLikeState(ctx context.Context, siteID, viewerUserID string) (explorerepo.LikeState, error)
 	LikeDiveSite(ctx context.Context, siteID, userID string) error
 	UnlikeDiveSite(ctx context.Context, siteID, userID string) error
+	CreateDivePresence(ctx context.Context, input explorerepo.CreateDivePresenceInput) (explorerepo.DivePresence, error)
+	UpdateDivePresenceByOwner(ctx context.Context, presenceID string, input explorerepo.CreateDivePresenceInput) (explorerepo.DivePresence, error)
+	CancelDivePresenceByOwner(ctx context.Context, presenceID, userID, siteID string) (int64, error)
+	ExpirePastDivePresences(ctx context.Context) error
+	CountActiveDivePresencesByUser(ctx context.Context, userID string) (int64, error)
+	ListCurrentUserDivePresences(ctx context.Context, userID string) ([]explorerepo.DivePresence, error)
+	ListVisibleDivePresencesBySite(ctx context.Context, viewerUserID, siteID string, limit int32) ([]explorerepo.VisibleDivePresence, error)
+	CountVisibleDivePresencesBySite(ctx context.Context, viewerUserID, siteID string) (int64, error)
+	UpsertDiveSiteAffinity(ctx context.Context, input explorerepo.UpsertDiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error)
+	UpdateDiveSiteAffinityByOwner(ctx context.Context, affinityID string, input explorerepo.UpsertDiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error)
+	DeleteDiveSiteAffinityByOwner(ctx context.Context, affinityID, userID, siteID string) (int64, error)
+	ListCurrentUserDiveSiteAffinities(ctx context.Context, userID string) ([]explorerepo.DiveSiteAffinity, error)
+	ListVisibleDiveSiteAffinitiesBySite(ctx context.Context, viewerUserID, siteID string, limit int32) ([]explorerepo.VisibleDiveSiteAffinity, error)
+	CountVisibleDiveSiteAffinitiesBySite(ctx context.Context, viewerUserID, siteID string) (int64, error)
 }
 
 type rateLimiter interface {
@@ -174,27 +188,60 @@ type SiteBuddyIntentsResult struct {
 }
 
 type SiteRelatedCounts struct {
-	Buddies          int64
+	AvailableBuddies int64
+	LocalRegulars    int64
 	CommunityPosts   int64
 	RecentConditions int64
 }
 
 type SiteRelatedPreviews struct {
-	Buddies        []buddyfinderrepo.PreviewIntent
-	CommunityPosts []feedservice.ActivityItem
+	AvailableBuddies []explorerepo.VisibleDivePresence
+	LocalRegulars    []explorerepo.VisibleDiveSiteAffinity
+	CommunityPosts   []feedservice.ActivityItem
 }
 
 type SiteRelatedResult struct {
-	Site            explorerepo.SiteDetail
-	Counts          SiteRelatedCounts
-	Previews        SiteRelatedPreviews
-	SourceBreakdown buddyfinderservice.SourceBreakdown
+	Site     explorerepo.SiteDetail
+	Counts   SiteRelatedCounts
+	Previews SiteRelatedPreviews
 }
 
 type SiteCommunityPostsResult struct {
 	Site       explorerepo.SiteDetail
 	Items      []feedservice.ActivityItem
 	NextCursor string
+}
+
+type SiteDivePresencesResult struct {
+	Site  explorerepo.SiteDetail
+	Items []explorerepo.VisibleDivePresence
+}
+
+type SiteDiveAffinitiesResult struct {
+	Site  explorerepo.SiteDetail
+	Items []explorerepo.VisibleDiveSiteAffinity
+}
+
+type DivePresenceInput struct {
+	ActorID        string
+	Slug           string
+	PresenceID     string
+	PresenceType   string
+	StartAt        *time.Time
+	EndAt          *time.Time
+	Visibility     string
+	ContactEnabled bool
+	Note           *string
+}
+
+type DiveSiteAffinityInput struct {
+	ActorID        string
+	Slug           string
+	AffinityID     string
+	Relationship   string
+	Visibility     string
+	ContactEnabled bool
+	Note           *string
 }
 
 type CreateUpdateInput struct {
@@ -692,15 +739,29 @@ func (s *Service) GetRelatedBySlug(ctx context.Context, viewerID, slug string) (
 		},
 	}
 
-	if s.buddies != nil {
-		preview, err := s.buddies.PreviewForSite(ctx, site.ID, site.Area, 6)
-		if err != nil {
-			return SiteRelatedResult{}, err
-		}
-		result.Previews.Buddies = preview.Items
-		result.SourceBreakdown = preview.SourceBreakdown
-		result.Counts.Buddies = int64(preview.SourceBreakdown.SiteLinkedCount + preview.SourceBreakdown.AreaFallbackCount)
+	if err := s.repo.ExpirePastDivePresences(ctx); err != nil {
+		return SiteRelatedResult{}, apperrors.New(http.StatusInternalServerError, "dive_presence_expire_failed", "failed to expire old dive presences", err)
 	}
+	presenceCount, err := s.repo.CountVisibleDivePresencesBySite(ctx, strings.TrimSpace(viewerID), site.ID)
+	if err != nil {
+		return SiteRelatedResult{}, apperrors.New(http.StatusInternalServerError, "dive_presence_count_failed", "failed to count available buddies", err)
+	}
+	presences, err := s.repo.ListVisibleDivePresencesBySite(ctx, strings.TrimSpace(viewerID), site.ID, 6)
+	if err != nil {
+		return SiteRelatedResult{}, apperrors.New(http.StatusInternalServerError, "dive_presence_list_failed", "failed to list available buddies", err)
+	}
+	affinityCount, err := s.repo.CountVisibleDiveSiteAffinitiesBySite(ctx, strings.TrimSpace(viewerID), site.ID)
+	if err != nil {
+		return SiteRelatedResult{}, apperrors.New(http.StatusInternalServerError, "dive_affinity_count_failed", "failed to count locals and regulars", err)
+	}
+	affinities, err := s.repo.ListVisibleDiveSiteAffinitiesBySite(ctx, strings.TrimSpace(viewerID), site.ID, 6)
+	if err != nil {
+		return SiteRelatedResult{}, apperrors.New(http.StatusInternalServerError, "dive_affinity_list_failed", "failed to list locals and regulars", err)
+	}
+	result.Counts.AvailableBuddies = presenceCount
+	result.Counts.LocalRegulars = affinityCount
+	result.Previews.AvailableBuddies = presences
+	result.Previews.LocalRegulars = affinities
 
 	if s.feed != nil {
 		input := feedservice.ActivityInput{
@@ -723,6 +784,252 @@ func (s *Service) GetRelatedBySlug(ctx context.Context, viewerID, slug string) (
 	}
 
 	return result, nil
+}
+
+func (s *Service) ListDivePresencesBySlug(ctx context.Context, viewerID, slug string, limit int32) (SiteDivePresencesResult, error) {
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), strings.TrimSpace(viewerID))
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return SiteDivePresencesResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return SiteDivePresencesResult{}, apperrors.New(http.StatusInternalServerError, "site_detail_failed", "failed to load dive site", err)
+	}
+	if limit <= 0 || limit > pagination.MaxLimit {
+		limit = pagination.DefaultLimit
+	}
+	if err := s.repo.ExpirePastDivePresences(ctx); err != nil {
+		return SiteDivePresencesResult{}, apperrors.New(http.StatusInternalServerError, "dive_presence_expire_failed", "failed to expire old dive presences", err)
+	}
+	items, err := s.repo.ListVisibleDivePresencesBySite(ctx, strings.TrimSpace(viewerID), site.ID, limit)
+	if err != nil {
+		return SiteDivePresencesResult{}, apperrors.New(http.StatusInternalServerError, "dive_presence_list_failed", "failed to list available buddies", err)
+	}
+	return SiteDivePresencesResult{Site: site, Items: items}, nil
+}
+
+func (s *Service) ListDiveAffinitiesBySlug(ctx context.Context, viewerID, slug string, limit int32) (SiteDiveAffinitiesResult, error) {
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), strings.TrimSpace(viewerID))
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return SiteDiveAffinitiesResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return SiteDiveAffinitiesResult{}, apperrors.New(http.StatusInternalServerError, "site_detail_failed", "failed to load dive site", err)
+	}
+	if limit <= 0 || limit > pagination.MaxLimit {
+		limit = pagination.DefaultLimit
+	}
+	items, err := s.repo.ListVisibleDiveSiteAffinitiesBySite(ctx, strings.TrimSpace(viewerID), site.ID, limit)
+	if err != nil {
+		return SiteDiveAffinitiesResult{}, apperrors.New(http.StatusInternalServerError, "dive_affinity_list_failed", "failed to list locals and regulars", err)
+	}
+	return SiteDiveAffinitiesResult{Site: site, Items: items}, nil
+}
+
+func (s *Service) CreateDivePresence(ctx context.Context, input DivePresenceInput) (explorerepo.DivePresence, error) {
+	site, err := s.siteForMemberWrite(ctx, input.ActorID, input.Slug)
+	if err != nil {
+		return explorerepo.DivePresence{}, err
+	}
+	if issues := validateDivePresence(input); len(issues) > 0 {
+		return explorerepo.DivePresence{}, ValidationFailure{Issues: issues}
+	}
+	if err := s.repo.ExpirePastDivePresences(ctx); err != nil {
+		return explorerepo.DivePresence{}, apperrors.New(http.StatusInternalServerError, "dive_presence_expire_failed", "failed to expire old dive presences", err)
+	}
+	count, err := s.repo.CountActiveDivePresencesByUser(ctx, input.ActorID)
+	if err != nil {
+		return explorerepo.DivePresence{}, apperrors.New(http.StatusInternalServerError, "dive_presence_count_failed", "failed to count active dive presences", err)
+	}
+	if count >= 5 {
+		return explorerepo.DivePresence{}, apperrors.New(http.StatusConflict, "active_presence_limit_reached", "you can have at most 5 active dive presences", nil)
+	}
+	return s.repo.CreateDivePresence(ctx, explorerepo.CreateDivePresenceInput{
+		UserID:         input.ActorID,
+		DiveSiteID:     site.ID,
+		PresenceType:   input.PresenceType,
+		StartAt:        input.StartAt,
+		EndAt:          input.EndAt,
+		Visibility:     input.Visibility,
+		ContactEnabled: input.ContactEnabled,
+		Note:           cleanOptionalNote(input.Note),
+	})
+}
+
+func (s *Service) UpdateDivePresence(ctx context.Context, input DivePresenceInput) (explorerepo.DivePresence, error) {
+	site, err := s.siteForMemberWrite(ctx, input.ActorID, input.Slug)
+	if err != nil {
+		return explorerepo.DivePresence{}, err
+	}
+	if _, err := uuid.Parse(input.PresenceID); err != nil {
+		return explorerepo.DivePresence{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"presenceId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"}}}
+	}
+	if issues := validateDivePresence(input); len(issues) > 0 {
+		return explorerepo.DivePresence{}, ValidationFailure{Issues: issues}
+	}
+	item, err := s.repo.UpdateDivePresenceByOwner(ctx, input.PresenceID, explorerepo.CreateDivePresenceInput{
+		UserID:         input.ActorID,
+		DiveSiteID:     site.ID,
+		PresenceType:   input.PresenceType,
+		StartAt:        input.StartAt,
+		EndAt:          input.EndAt,
+		Visibility:     input.Visibility,
+		ContactEnabled: input.ContactEnabled,
+		Note:           cleanOptionalNote(input.Note),
+	})
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return explorerepo.DivePresence{}, apperrors.New(http.StatusNotFound, "presence_not_found", "dive presence not found", err)
+		}
+		return explorerepo.DivePresence{}, apperrors.New(http.StatusInternalServerError, "dive_presence_update_failed", "failed to update dive presence", err)
+	}
+	return item, nil
+}
+
+func (s *Service) CancelDivePresence(ctx context.Context, actorID, slug, presenceID string) error {
+	site, err := s.siteForMemberWrite(ctx, actorID, slug)
+	if err != nil {
+		return err
+	}
+	if _, err := uuid.Parse(presenceID); err != nil {
+		return ValidationFailure{Issues: []validatex.Issue{{Path: []any{"presenceId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"}}}
+	}
+	rows, err := s.repo.CancelDivePresenceByOwner(ctx, presenceID, actorID, site.ID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "dive_presence_cancel_failed", "failed to cancel dive presence", err)
+	}
+	if rows == 0 {
+		return apperrors.New(http.StatusNotFound, "presence_not_found", "dive presence not found", nil)
+	}
+	return nil
+}
+
+func (s *Service) CreateDiveSiteAffinity(ctx context.Context, input DiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error) {
+	site, err := s.siteForMemberWrite(ctx, input.ActorID, input.Slug)
+	if err != nil {
+		return explorerepo.DiveSiteAffinity{}, err
+	}
+	if issues := validateDiveSiteAffinity(input); len(issues) > 0 {
+		return explorerepo.DiveSiteAffinity{}, ValidationFailure{Issues: issues}
+	}
+	return s.repo.UpsertDiveSiteAffinity(ctx, explorerepo.UpsertDiveSiteAffinityInput{
+		UserID:         input.ActorID,
+		DiveSiteID:     site.ID,
+		Relationship:   input.Relationship,
+		Visibility:     input.Visibility,
+		ContactEnabled: input.ContactEnabled,
+		Note:           cleanOptionalNote(input.Note),
+	})
+}
+
+func (s *Service) UpdateDiveSiteAffinity(ctx context.Context, input DiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error) {
+	site, err := s.siteForMemberWrite(ctx, input.ActorID, input.Slug)
+	if err != nil {
+		return explorerepo.DiveSiteAffinity{}, err
+	}
+	if _, err := uuid.Parse(input.AffinityID); err != nil {
+		return explorerepo.DiveSiteAffinity{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"affinityId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"}}}
+	}
+	if issues := validateDiveSiteAffinity(input); len(issues) > 0 {
+		return explorerepo.DiveSiteAffinity{}, ValidationFailure{Issues: issues}
+	}
+	item, err := s.repo.UpdateDiveSiteAffinityByOwner(ctx, input.AffinityID, explorerepo.UpsertDiveSiteAffinityInput{
+		UserID:         input.ActorID,
+		DiveSiteID:     site.ID,
+		Relationship:   input.Relationship,
+		Visibility:     input.Visibility,
+		ContactEnabled: input.ContactEnabled,
+		Note:           cleanOptionalNote(input.Note),
+	})
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return explorerepo.DiveSiteAffinity{}, apperrors.New(http.StatusNotFound, "affinity_not_found", "dive site affinity not found", err)
+		}
+		return explorerepo.DiveSiteAffinity{}, apperrors.New(http.StatusInternalServerError, "dive_affinity_update_failed", "failed to update dive site affinity", err)
+	}
+	return item, nil
+}
+
+func (s *Service) DeleteDiveSiteAffinity(ctx context.Context, actorID, slug, affinityID string) error {
+	site, err := s.siteForMemberWrite(ctx, actorID, slug)
+	if err != nil {
+		return err
+	}
+	if _, err := uuid.Parse(affinityID); err != nil {
+		return ValidationFailure{Issues: []validatex.Issue{{Path: []any{"affinityId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"}}}
+	}
+	rows, err := s.repo.DeleteDiveSiteAffinityByOwner(ctx, affinityID, actorID, site.ID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "dive_affinity_delete_failed", "failed to delete dive site affinity", err)
+	}
+	if rows == 0 {
+		return apperrors.New(http.StatusNotFound, "affinity_not_found", "dive site affinity not found", nil)
+	}
+	return nil
+}
+
+func (s *Service) siteForMemberWrite(ctx context.Context, actorID, slug string) (explorerepo.SiteDetail, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return explorerepo.SiteDetail{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), actorID)
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return explorerepo.SiteDetail{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return explorerepo.SiteDetail{}, apperrors.New(http.StatusInternalServerError, "site_detail_failed", "failed to load dive site", err)
+	}
+	return site, nil
+}
+
+func validateDivePresence(input DivePresenceInput) []validatex.Issue {
+	issues := make([]validatex.Issue, 0, 2)
+	if !oneOf(input.PresenceType, "available", "planning", "training", "fun_dive") {
+		issues = append(issues, validatex.Issue{Path: []any{"presenceType"}, Code: "invalid_enum", Message: "presenceType must be available, planning, training, or fun_dive"})
+	}
+	if !oneOf(input.Visibility, "public", "members", "private") {
+		issues = append(issues, validatex.Issue{Path: []any{"visibility"}, Code: "invalid_enum", Message: "visibility must be public, members, or private"})
+	}
+	if input.StartAt != nil && input.EndAt != nil && !input.StartAt.Before(*input.EndAt) {
+		issues = append(issues, validatex.Issue{Path: []any{"endAt"}, Code: "custom", Message: "endAt must be after startAt"})
+	}
+	if input.Note != nil && len(strings.TrimSpace(*input.Note)) > 280 {
+		issues = append(issues, validatex.Issue{Path: []any{"note"}, Code: "too_big", Message: "note must be at most 280 characters"})
+	}
+	return issues
+}
+
+func validateDiveSiteAffinity(input DiveSiteAffinityInput) []validatex.Issue {
+	issues := make([]validatex.Issue, 0, 2)
+	if !oneOf(input.Relationship, "local", "regular", "instructor", "operator", "interested") {
+		issues = append(issues, validatex.Issue{Path: []any{"relationship"}, Code: "invalid_enum", Message: "relationship must be local, regular, instructor, operator, or interested"})
+	}
+	if !oneOf(input.Visibility, "public", "members", "private") {
+		issues = append(issues, validatex.Issue{Path: []any{"visibility"}, Code: "invalid_enum", Message: "visibility must be public, members, or private"})
+	}
+	if input.Note != nil && len(strings.TrimSpace(*input.Note)) > 280 {
+		issues = append(issues, validatex.Issue{Path: []any{"note"}, Code: "too_big", Message: "note must be at most 280 characters"})
+	}
+	return issues
+}
+
+func oneOf(value string, allowed ...string) bool {
+	for _, item := range allowed {
+		if value == item {
+			return true
+		}
+	}
+	return false
+}
+
+func cleanOptionalNote(note *string) *string {
+	if note == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*note)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func (s *Service) ListCommunityPostsBySlug(ctx context.Context, viewerID, slug, cursor string, limit int32) (SiteCommunityPostsResult, error) {

@@ -47,19 +47,92 @@ type SiteRelatedResponse struct {
 }
 
 type SiteRelatedCounts struct {
-	Buddies          int64 `json:"buddies"`
-	CommunityPosts   int64 `json:"communityPosts"`
-	RecentConditions int64 `json:"recentConditions"`
+	Buddies             int64 `json:"buddies"`
+	AvailableBuddies    int64 `json:"availableBuddyCount"`
+	LocalRegulars       int64 `json:"localRegularCount"`
+	CommunityPosts      int64 `json:"communityPostCount"`
+	LegacyCommunityPost int64 `json:"communityPosts"`
+	RecentConditions    int64 `json:"recentConditions"`
 }
 
 type SiteRelatedPreviews struct {
-	Buddies        []SiteBuddyPreviewIntent `json:"buddies"`
-	CommunityPosts []ActivityFeedItem       `json:"communityPosts"`
+	Buddies          []DivePresenceItem     `json:"buddies"`
+	AvailableBuddies []DivePresenceItem     `json:"availableBuddies"`
+	LocalRegulars    []DiveSiteAffinityItem `json:"localRegulars"`
+	CommunityPosts   []ActivityFeedItem     `json:"communityPosts"`
 }
 
 type SiteCommunityPostsResponse struct {
 	Items      []ActivityFeedItem `json:"items"`
 	NextCursor string             `json:"nextCursor,omitempty"`
+}
+
+type DivePresenceListResponse struct {
+	Items []DivePresenceItem `json:"items"`
+}
+
+type DivePresenceResponse struct {
+	Presence DivePresenceItem `json:"presence"`
+}
+
+type DiveSiteAffinityListResponse struct {
+	Items []DiveSiteAffinityItem `json:"items"`
+}
+
+type DiveSiteAffinityResponse struct {
+	Affinity DiveSiteAffinityItem `json:"affinity"`
+}
+
+type DivePresenceItem struct {
+	ID             string `json:"id"`
+	UserID         string `json:"userId"`
+	DiveSiteID     string `json:"diveSiteId"`
+	Username       string `json:"username,omitempty"`
+	DisplayName    string `json:"displayName,omitempty"`
+	AvatarURL      string `json:"avatarUrl,omitempty"`
+	PresenceType   string `json:"presenceType"`
+	StartAt        string `json:"startAt,omitempty"`
+	EndAt          string `json:"endAt,omitempty"`
+	Visibility     string `json:"visibility"`
+	ContactEnabled bool   `json:"contactEnabled"`
+	ContactAllowed bool   `json:"contactAllowed"`
+	Note           string `json:"note,omitempty"`
+	Status         string `json:"status"`
+	CreatedAt      string `json:"createdAt"`
+	UpdatedAt      string `json:"updatedAt"`
+}
+
+type DiveSiteAffinityItem struct {
+	ID             string `json:"id"`
+	UserID         string `json:"userId"`
+	DiveSiteID     string `json:"diveSiteId"`
+	Username       string `json:"username,omitempty"`
+	DisplayName    string `json:"displayName,omitempty"`
+	AvatarURL      string `json:"avatarUrl,omitempty"`
+	Relationship   string `json:"relationship"`
+	Visibility     string `json:"visibility"`
+	ContactEnabled bool   `json:"contactEnabled"`
+	ContactAllowed bool   `json:"contactAllowed"`
+	Note           string `json:"note,omitempty"`
+	CreatedAt      string `json:"createdAt"`
+	UpdatedAt      string `json:"updatedAt"`
+}
+
+type DivePresenceRequest struct {
+	PresenceType   string  `json:"presenceType" validate:"required,oneof=available planning training fun_dive"`
+	StartAt        *string `json:"startAt" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
+	EndAt          *string `json:"endAt" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
+	Flexible       bool    `json:"flexible"`
+	Visibility     string  `json:"visibility" validate:"required,oneof=public members private"`
+	ContactEnabled bool    `json:"contactEnabled"`
+	Note           *string `json:"note" validate:"omitempty,max=280"`
+}
+
+type DiveSiteAffinityRequest struct {
+	Relationship   string  `json:"relationship" validate:"required,oneof=local regular instructor operator interested"`
+	Visibility     string  `json:"visibility" validate:"required,oneof=public members private"`
+	ContactEnabled bool    `json:"contactEnabled"`
+	Note           *string `json:"note" validate:"omitempty,max=280"`
 }
 
 type ActivityFeedActor struct {

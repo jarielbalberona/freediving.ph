@@ -28,6 +28,10 @@ type exploreServiceStub struct {
 	detail           exploreservice.SiteDetailResult
 	related          exploreservice.SiteRelatedResult
 	communityPosts   exploreservice.SiteCommunityPostsResult
+	presences        exploreservice.SiteDivePresencesResult
+	affinities       exploreservice.SiteDiveAffinitiesResult
+	presenceInput    exploreservice.DivePresenceInput
+	affinityInput    exploreservice.DiveSiteAffinityInput
 	preview          exploreservice.SiteBuddyPreviewResult
 	intents          exploreservice.SiteBuddyIntentsResult
 	create           explorerepo.SiteUpdate
@@ -53,6 +57,54 @@ func (s *exploreServiceStub) GetRelatedBySlug(context.Context, string, string) (
 
 func (s *exploreServiceStub) ListCommunityPostsBySlug(context.Context, string, string, string, int32) (exploreservice.SiteCommunityPostsResult, error) {
 	return s.communityPosts, s.err
+}
+
+func (s *exploreServiceStub) ListDivePresencesBySlug(context.Context, string, string, int32) (exploreservice.SiteDivePresencesResult, error) {
+	return s.presences, s.err
+}
+
+func (s *exploreServiceStub) ListDiveAffinitiesBySlug(context.Context, string, string, int32) (exploreservice.SiteDiveAffinitiesResult, error) {
+	return s.affinities, s.err
+}
+
+func (s *exploreServiceStub) CreateDivePresence(_ context.Context, input exploreservice.DivePresenceInput) (explorerepo.DivePresence, error) {
+	s.presenceInput = input
+	if s.err != nil {
+		return explorerepo.DivePresence{}, s.err
+	}
+	return explorerepo.DivePresence{ID: "550e8400-e29b-41d4-a716-446655441001", UserID: input.ActorID, DiveSiteID: "550e8400-e29b-41d4-a716-446655440101", PresenceType: input.PresenceType, Visibility: input.Visibility, ContactEnabled: input.ContactEnabled, Status: "active", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
+}
+
+func (s *exploreServiceStub) UpdateDivePresence(_ context.Context, input exploreservice.DivePresenceInput) (explorerepo.DivePresence, error) {
+	s.presenceInput = input
+	if s.err != nil {
+		return explorerepo.DivePresence{}, s.err
+	}
+	return explorerepo.DivePresence{ID: input.PresenceID, UserID: input.ActorID, DiveSiteID: "550e8400-e29b-41d4-a716-446655440101", PresenceType: input.PresenceType, Visibility: input.Visibility, ContactEnabled: input.ContactEnabled, Status: "active", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
+}
+
+func (s *exploreServiceStub) CancelDivePresence(context.Context, string, string, string) error {
+	return s.err
+}
+
+func (s *exploreServiceStub) CreateDiveSiteAffinity(_ context.Context, input exploreservice.DiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error) {
+	s.affinityInput = input
+	if s.err != nil {
+		return explorerepo.DiveSiteAffinity{}, s.err
+	}
+	return explorerepo.DiveSiteAffinity{ID: "550e8400-e29b-41d4-a716-446655441002", UserID: input.ActorID, DiveSiteID: "550e8400-e29b-41d4-a716-446655440101", Relationship: input.Relationship, Visibility: input.Visibility, ContactEnabled: input.ContactEnabled, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
+}
+
+func (s *exploreServiceStub) UpdateDiveSiteAffinity(_ context.Context, input exploreservice.DiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error) {
+	s.affinityInput = input
+	if s.err != nil {
+		return explorerepo.DiveSiteAffinity{}, s.err
+	}
+	return explorerepo.DiveSiteAffinity{ID: input.AffinityID, UserID: input.ActorID, DiveSiteID: "550e8400-e29b-41d4-a716-446655440101", Relationship: input.Relationship, Visibility: input.Visibility, ContactEnabled: input.ContactEnabled, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
+}
+
+func (s *exploreServiceStub) DeleteDiveSiteAffinity(context.Context, string, string, string) error {
+	return s.err
 }
 
 func (s *exploreServiceStub) CreateSiteSubmission(_ context.Context, input exploreservice.CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error) {
@@ -185,20 +237,43 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 		},
 		related: exploreservice.SiteRelatedResult{
 			Counts: exploreservice.SiteRelatedCounts{
-				Buddies:          1,
+				AvailableBuddies: 1,
+				LocalRegulars:    1,
 				CommunityPosts:   1,
 				RecentConditions: 1,
 			},
 			Previews: exploreservice.SiteRelatedPreviews{
-				Buddies: []buddyfinderrepo.PreviewIntent{{
-					ID:            "550e8400-e29b-41d4-a716-446655440301",
-					DiveSiteID:    "550e8400-e29b-41d4-a716-446655440101",
-					Area:          "Mabini, Batangas",
-					IntentType:    "training",
-					TimeWindow:    "today",
-					Note:          "Full note that should never leak from related responses.",
-					CreatedAt:     time.Now().UTC(),
-					EmailVerified: true,
+				AvailableBuddies: []explorerepo.VisibleDivePresence{{
+					DivePresence: explorerepo.DivePresence{
+						ID:             "550e8400-e29b-41d4-a716-446655440301",
+						UserID:         "550e8400-e29b-41d4-a716-446655440302",
+						DiveSiteID:     "550e8400-e29b-41d4-a716-446655440101",
+						PresenceType:   "training",
+						Visibility:     "public",
+						ContactEnabled: true,
+						Note:           "Training this afternoon.",
+						Status:         "active",
+						CreatedAt:      time.Now().UTC(),
+						UpdatedAt:      time.Now().UTC(),
+					},
+					Username:       "available_diver",
+					DisplayName:    "Available Diver",
+					ContactAllowed: true,
+				}},
+				LocalRegulars: []explorerepo.VisibleDiveSiteAffinity{{
+					DiveSiteAffinity: explorerepo.DiveSiteAffinity{
+						ID:             "550e8400-e29b-41d4-a716-446655440311",
+						UserID:         "550e8400-e29b-41d4-a716-446655440312",
+						DiveSiteID:     "550e8400-e29b-41d4-a716-446655440101",
+						Relationship:   "regular",
+						Visibility:     "public",
+						ContactEnabled: false,
+						Note:           "Weekend regular.",
+						CreatedAt:      time.Now().UTC(),
+						UpdatedAt:      time.Now().UTC(),
+					},
+					Username:    "regular_diver",
+					DisplayName: "Regular Diver",
 				}},
 				CommunityPosts: []feedservice.ActivityItem{{
 					ID:           "550e8400-e29b-41d4-a716-446655440901",
@@ -289,11 +364,14 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	if err := json.Unmarshal(relatedRec.Body.Bytes(), &relatedBody); err != nil {
 		t.Fatalf("decode related response: %v", err)
 	}
-	if relatedBody.Counts.Buddies != 1 || relatedBody.Counts.CommunityPosts != 1 || relatedBody.Counts.RecentConditions != 1 {
+	if relatedBody.Counts.AvailableBuddies != 1 || relatedBody.Counts.LocalRegulars != 1 || relatedBody.Counts.CommunityPosts != 1 || relatedBody.Counts.RecentConditions != 1 {
 		t.Fatalf("unexpected related counts: %+v", relatedBody.Counts)
 	}
-	if got := relatedBody.Previews.Buddies[0].NotePreview; got == "Full note that should never leak from related responses." {
-		t.Fatalf("expected related buddy note redaction, got %q", got)
+	if got := relatedBody.Previews.AvailableBuddies[0].PresenceType; got != "training" {
+		t.Fatalf("expected active dive presence preview, got %q", got)
+	}
+	if got := relatedBody.Previews.LocalRegulars[0].Relationship; got != "regular" {
+		t.Fatalf("expected affinity preview, got %q", got)
 	}
 	if got := relatedBody.Previews.CommunityPosts[0].Type; got != "media_post_created" {
 		t.Fatalf("expected media post activity preview, got %q", got)

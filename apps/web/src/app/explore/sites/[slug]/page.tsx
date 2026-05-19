@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   getExploreSiteBySlugServer,
+  getExploreSiteAffinitiesServer,
   getExploreSiteCommunityPostsServer,
+  getExploreSitePresenceServer,
   getExploreSiteRelatedServer,
 } from "@/features/diveSpots/api/explore-v1.server";
 import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeButton";
@@ -65,9 +67,12 @@ export default async function ExploreSharePage({ params }: PageProps) {
   const { slug } = await params;
 
   try {
-    const [data, related, communityPostsPage] = await Promise.all([
+    const [data, related, presencePage, affinitiesPage, communityPostsPage] =
+      await Promise.all([
       getExploreSiteBySlugServer(slug),
       getExploreSiteRelatedServer(slug).catch(() => null),
+      getExploreSitePresenceServer(slug, 6).catch(() => null),
+      getExploreSiteAffinitiesServer(slug, 6).catch(() => null),
       getExploreSiteCommunityPostsServer(slug, undefined, 6).catch(() => null),
     ]);
     return (
@@ -162,18 +167,19 @@ export default async function ExploreSharePage({ params }: PageProps) {
             slug={slug}
             counts={
               related?.counts ?? {
-                buddies: 0,
+                availableBuddyCount: 0,
+                localRegularCount: 0,
+                communityPostCount: 0,
                 communityPosts: 0,
                 recentConditions: data.updates.length,
               }
             }
-            buddySourceBreakdown={
-              related?.sourceBreakdown ?? {
-                siteLinkedCount: 0,
-                areaFallbackCount: 0,
-              }
+            availableBuddies={
+              presencePage?.items ?? related?.previews.availableBuddies ?? []
             }
-            buddyPreview={related?.previews.buddies ?? []}
+            localRegulars={
+              affinitiesPage?.items ?? related?.previews.localRegulars ?? []
+            }
             communityPosts={
               communityPostsPage?.items ?? related?.previews.communityPosts ?? []
             }

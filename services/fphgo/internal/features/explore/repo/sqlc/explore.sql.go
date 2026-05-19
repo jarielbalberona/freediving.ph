@@ -72,6 +72,190 @@ func (q *Queries) ApproveSite(ctx context.Context, arg ApproveSiteParams) (DiveS
 	return i, err
 }
 
+const cancelDivePresenceByOwner = `-- name: CancelDivePresenceByOwner :execrows
+UPDATE dive_presences
+SET status = 'cancelled', updated_at = NOW()
+WHERE id = $1
+  AND user_id = $2
+  AND dive_site_id = $3
+  AND status <> 'cancelled'
+`
+
+type CancelDivePresenceByOwnerParams struct {
+	PresenceID pgtype.UUID `db:"presence_id" json:"presence_id"`
+	UserID     pgtype.UUID `db:"user_id" json:"user_id"`
+	DiveSiteID pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+}
+
+func (q *Queries) CancelDivePresenceByOwner(ctx context.Context, arg CancelDivePresenceByOwnerParams) (int64, error) {
+	result, err := q.db.Exec(ctx, cancelDivePresenceByOwner, arg.PresenceID, arg.UserID, arg.DiveSiteID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const countActiveDivePresencesByUser = `-- name: CountActiveDivePresencesByUser :one
+SELECT COUNT(*)::bigint
+FROM dive_presences
+WHERE user_id = $1
+  AND status = 'active'
+  AND (end_at IS NULL OR end_at > NOW())
+`
+
+func (q *Queries) CountActiveDivePresencesByUser(ctx context.Context, userID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveDivePresencesByUser, userID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countVisibleDivePresencesBySite = `-- name: CountVisibleDivePresencesBySite :one
+SELECT COUNT(*)::bigint
+FROM dive_presences dp
+JOIN users u ON u.id = dp.user_id
+WHERE dp.dive_site_id = $1
+  AND dp.status = 'active'
+  AND (dp.end_at IS NULL OR dp.end_at > NOW())
+  AND u.account_status = 'active'
+  AND (
+    ($2::uuid IS NULL AND dp.visibility = 'public')
+    OR (
+      $2::uuid IS NOT NULL
+      AND (
+        dp.visibility IN ('public', 'members')
+        OR (dp.visibility = 'private' AND dp.user_id = $2)
+      )
+    )
+  )
+  AND (
+    $2::uuid IS NULL
+    OR dp.user_id = $2
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_app_user_id = $2 AND ub.blocked_app_user_id = dp.user_id)
+         OR (ub.blocker_app_user_id = dp.user_id AND ub.blocked_app_user_id = $2)
+    )
+  )
+`
+
+type CountVisibleDivePresencesBySiteParams struct {
+	DiveSiteID   pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+	ViewerUserID pgtype.UUID `db:"viewer_user_id" json:"viewer_user_id"`
+}
+
+func (q *Queries) CountVisibleDivePresencesBySite(ctx context.Context, arg CountVisibleDivePresencesBySiteParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countVisibleDivePresencesBySite, arg.DiveSiteID, arg.ViewerUserID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countVisibleDiveSiteAffinitiesBySite = `-- name: CountVisibleDiveSiteAffinitiesBySite :one
+SELECT COUNT(*)::bigint
+FROM user_dive_site_affinities a
+JOIN users u ON u.id = a.user_id
+WHERE a.dive_site_id = $1
+  AND u.account_status = 'active'
+  AND (
+    ($2::uuid IS NULL AND a.visibility = 'public')
+    OR (
+      $2::uuid IS NOT NULL
+      AND (
+        a.visibility IN ('public', 'members')
+        OR (a.visibility = 'private' AND a.user_id = $2)
+      )
+    )
+  )
+  AND (
+    $2::uuid IS NULL
+    OR a.user_id = $2
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_app_user_id = $2 AND ub.blocked_app_user_id = a.user_id)
+         OR (ub.blocker_app_user_id = a.user_id AND ub.blocked_app_user_id = $2)
+    )
+  )
+`
+
+type CountVisibleDiveSiteAffinitiesBySiteParams struct {
+	DiveSiteID   pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+	ViewerUserID pgtype.UUID `db:"viewer_user_id" json:"viewer_user_id"`
+}
+
+func (q *Queries) CountVisibleDiveSiteAffinitiesBySite(ctx context.Context, arg CountVisibleDiveSiteAffinitiesBySiteParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countVisibleDiveSiteAffinitiesBySite, arg.DiveSiteID, arg.ViewerUserID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const createDivePresence = `-- name: CreateDivePresence :one
+INSERT INTO dive_presences (
+  user_id,
+  dive_site_id,
+  presence_type,
+  start_at,
+  end_at,
+  visibility,
+  contact_enabled,
+  note
+)
+VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  $6,
+  $7,
+  $8
+)
+RETURNING id, user_id, dive_site_id, presence_type, start_at, end_at, visibility, contact_enabled, note, status, created_at, updated_at
+`
+
+type CreateDivePresenceParams struct {
+	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`
+	DiveSiteID     pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	PresenceType   string             `db:"presence_type" json:"presence_type"`
+	StartAt        pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt          pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	Visibility     string             `db:"visibility" json:"visibility"`
+	ContactEnabled bool               `db:"contact_enabled" json:"contact_enabled"`
+	Note           *string            `db:"note" json:"note"`
+}
+
+func (q *Queries) CreateDivePresence(ctx context.Context, arg CreateDivePresenceParams) (DivePresence, error) {
+	row := q.db.QueryRow(ctx, createDivePresence,
+		arg.UserID,
+		arg.DiveSiteID,
+		arg.PresenceType,
+		arg.StartAt,
+		arg.EndAt,
+		arg.Visibility,
+		arg.ContactEnabled,
+		arg.Note,
+	)
+	var i DivePresence
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.DiveSiteID,
+		&i.PresenceType,
+		&i.StartAt,
+		&i.EndAt,
+		&i.Visibility,
+		&i.ContactEnabled,
+		&i.Note,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createSiteSubmission = `-- name: CreateSiteSubmission :one
 INSERT INTO dive_sites (
   name,
@@ -251,6 +435,40 @@ func (q *Queries) CreateUpdate(ctx context.Context, arg CreateUpdateParams) (Div
 		&i.State,
 	)
 	return i, err
+}
+
+const deleteDiveSiteAffinityByOwner = `-- name: DeleteDiveSiteAffinityByOwner :execrows
+DELETE FROM user_dive_site_affinities
+WHERE id = $1
+  AND user_id = $2
+  AND dive_site_id = $3
+`
+
+type DeleteDiveSiteAffinityByOwnerParams struct {
+	AffinityID pgtype.UUID `db:"affinity_id" json:"affinity_id"`
+	UserID     pgtype.UUID `db:"user_id" json:"user_id"`
+	DiveSiteID pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+}
+
+func (q *Queries) DeleteDiveSiteAffinityByOwner(ctx context.Context, arg DeleteDiveSiteAffinityByOwnerParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDiveSiteAffinityByOwner, arg.AffinityID, arg.UserID, arg.DiveSiteID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const expirePastDivePresences = `-- name: ExpirePastDivePresences :exec
+UPDATE dive_presences
+SET status = 'expired', updated_at = NOW()
+WHERE status = 'active'
+  AND end_at IS NOT NULL
+  AND end_at <= NOW()
+`
+
+func (q *Queries) ExpirePastDivePresences(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, expirePastDivePresences)
+	return err
 }
 
 const findApprovedSiteDuplicate = `-- name: FindApprovedSiteDuplicate :one
@@ -693,6 +911,85 @@ type LikeDiveSiteParams struct {
 func (q *Queries) LikeDiveSite(ctx context.Context, arg LikeDiveSiteParams) error {
 	_, err := q.db.Exec(ctx, likeDiveSite, arg.DiveSiteID, arg.UserID)
 	return err
+}
+
+const listCurrentUserDivePresences = `-- name: ListCurrentUserDivePresences :many
+SELECT id, user_id, dive_site_id, presence_type, start_at, end_at, visibility, contact_enabled, note, status, created_at, updated_at
+FROM dive_presences
+WHERE user_id = $1
+  AND status = 'active'
+  AND (end_at IS NULL OR end_at > NOW())
+ORDER BY COALESCE(start_at, created_at) ASC, created_at DESC, id DESC
+`
+
+func (q *Queries) ListCurrentUserDivePresences(ctx context.Context, userID pgtype.UUID) ([]DivePresence, error) {
+	rows, err := q.db.Query(ctx, listCurrentUserDivePresences, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DivePresence{}
+	for rows.Next() {
+		var i DivePresence
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.DiveSiteID,
+			&i.PresenceType,
+			&i.StartAt,
+			&i.EndAt,
+			&i.Visibility,
+			&i.ContactEnabled,
+			&i.Note,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCurrentUserDiveSiteAffinities = `-- name: ListCurrentUserDiveSiteAffinities :many
+SELECT id, user_id, dive_site_id, relationship, visibility, contact_enabled, note, created_at, updated_at
+FROM user_dive_site_affinities
+WHERE user_id = $1
+ORDER BY updated_at DESC, id DESC
+`
+
+func (q *Queries) ListCurrentUserDiveSiteAffinities(ctx context.Context, userID pgtype.UUID) ([]UserDiveSiteAffinity, error) {
+	rows, err := q.db.Query(ctx, listCurrentUserDiveSiteAffinities, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []UserDiveSiteAffinity{}
+	for rows.Next() {
+		var i UserDiveSiteAffinity
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.DiveSiteID,
+			&i.Relationship,
+			&i.Visibility,
+			&i.ContactEnabled,
+			&i.Note,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listLatestUpdates = `-- name: ListLatestUpdates :many
@@ -1497,6 +1794,225 @@ func (q *Queries) ListUpdatesForSite(ctx context.Context, arg ListUpdatesForSite
 	return items, nil
 }
 
+const listVisibleDivePresencesBySite = `-- name: ListVisibleDivePresencesBySite :many
+SELECT
+  dp.id,
+  dp.user_id,
+  dp.dive_site_id,
+  dp.presence_type,
+  dp.start_at,
+  dp.end_at,
+  dp.visibility,
+  dp.contact_enabled,
+  dp.note,
+  dp.status,
+  dp.created_at,
+  dp.updated_at,
+  u.username,
+  u.display_name,
+  COALESCE(p.avatar_url, '') AS avatar_url,
+  (
+    dp.contact_enabled
+    AND $1::uuid IS NOT NULL
+    AND dp.user_id <> $1
+  )::bool AS contact_allowed
+FROM dive_presences dp
+JOIN users u ON u.id = dp.user_id
+JOIN profiles p ON p.user_id = dp.user_id
+WHERE dp.dive_site_id = $2
+  AND dp.status = 'active'
+  AND (dp.end_at IS NULL OR dp.end_at > NOW())
+  AND u.account_status = 'active'
+  AND (
+    ($1::uuid IS NULL AND dp.visibility = 'public')
+    OR (
+      $1::uuid IS NOT NULL
+      AND (
+        dp.visibility IN ('public', 'members')
+        OR (dp.visibility = 'private' AND dp.user_id = $1)
+      )
+    )
+  )
+  AND (
+    $1::uuid IS NULL
+    OR dp.user_id = $1
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_app_user_id = $1 AND ub.blocked_app_user_id = dp.user_id)
+         OR (ub.blocker_app_user_id = dp.user_id AND ub.blocked_app_user_id = $1)
+    )
+  )
+ORDER BY COALESCE(dp.start_at, dp.created_at) ASC, dp.created_at DESC, dp.id DESC
+LIMIT $3
+`
+
+type ListVisibleDivePresencesBySiteParams struct {
+	ViewerUserID pgtype.UUID `db:"viewer_user_id" json:"viewer_user_id"`
+	DiveSiteID   pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+	LimitRows    int32       `db:"limit_rows" json:"limit_rows"`
+}
+
+type ListVisibleDivePresencesBySiteRow struct {
+	ID             pgtype.UUID        `db:"id" json:"id"`
+	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`
+	DiveSiteID     pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	PresenceType   string             `db:"presence_type" json:"presence_type"`
+	StartAt        pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt          pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	Visibility     string             `db:"visibility" json:"visibility"`
+	ContactEnabled bool               `db:"contact_enabled" json:"contact_enabled"`
+	Note           *string            `db:"note" json:"note"`
+	Status         string             `db:"status" json:"status"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	Username       string             `db:"username" json:"username"`
+	DisplayName    string             `db:"display_name" json:"display_name"`
+	AvatarUrl      string             `db:"avatar_url" json:"avatar_url"`
+	ContactAllowed bool               `db:"contact_allowed" json:"contact_allowed"`
+}
+
+func (q *Queries) ListVisibleDivePresencesBySite(ctx context.Context, arg ListVisibleDivePresencesBySiteParams) ([]ListVisibleDivePresencesBySiteRow, error) {
+	rows, err := q.db.Query(ctx, listVisibleDivePresencesBySite, arg.ViewerUserID, arg.DiveSiteID, arg.LimitRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVisibleDivePresencesBySiteRow{}
+	for rows.Next() {
+		var i ListVisibleDivePresencesBySiteRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.DiveSiteID,
+			&i.PresenceType,
+			&i.StartAt,
+			&i.EndAt,
+			&i.Visibility,
+			&i.ContactEnabled,
+			&i.Note,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Username,
+			&i.DisplayName,
+			&i.AvatarUrl,
+			&i.ContactAllowed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVisibleDiveSiteAffinitiesBySite = `-- name: ListVisibleDiveSiteAffinitiesBySite :many
+SELECT
+  a.id,
+  a.user_id,
+  a.dive_site_id,
+  a.relationship,
+  a.visibility,
+  a.contact_enabled,
+  a.note,
+  a.created_at,
+  a.updated_at,
+  u.username,
+  u.display_name,
+  COALESCE(p.avatar_url, '') AS avatar_url,
+  (
+    a.contact_enabled
+    AND $1::uuid IS NOT NULL
+    AND a.user_id <> $1
+  )::bool AS contact_allowed
+FROM user_dive_site_affinities a
+JOIN users u ON u.id = a.user_id
+JOIN profiles p ON p.user_id = a.user_id
+WHERE a.dive_site_id = $2
+  AND u.account_status = 'active'
+  AND (
+    ($1::uuid IS NULL AND a.visibility = 'public')
+    OR (
+      $1::uuid IS NOT NULL
+      AND (
+        a.visibility IN ('public', 'members')
+        OR (a.visibility = 'private' AND a.user_id = $1)
+      )
+    )
+  )
+  AND (
+    $1::uuid IS NULL
+    OR a.user_id = $1
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_app_user_id = $1 AND ub.blocked_app_user_id = a.user_id)
+         OR (ub.blocker_app_user_id = a.user_id AND ub.blocked_app_user_id = $1)
+    )
+  )
+ORDER BY a.updated_at DESC, a.id DESC
+LIMIT $3
+`
+
+type ListVisibleDiveSiteAffinitiesBySiteParams struct {
+	ViewerUserID pgtype.UUID `db:"viewer_user_id" json:"viewer_user_id"`
+	DiveSiteID   pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+	LimitRows    int32       `db:"limit_rows" json:"limit_rows"`
+}
+
+type ListVisibleDiveSiteAffinitiesBySiteRow struct {
+	ID             pgtype.UUID        `db:"id" json:"id"`
+	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`
+	DiveSiteID     pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Relationship   string             `db:"relationship" json:"relationship"`
+	Visibility     string             `db:"visibility" json:"visibility"`
+	ContactEnabled bool               `db:"contact_enabled" json:"contact_enabled"`
+	Note           *string            `db:"note" json:"note"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	Username       string             `db:"username" json:"username"`
+	DisplayName    string             `db:"display_name" json:"display_name"`
+	AvatarUrl      string             `db:"avatar_url" json:"avatar_url"`
+	ContactAllowed bool               `db:"contact_allowed" json:"contact_allowed"`
+}
+
+func (q *Queries) ListVisibleDiveSiteAffinitiesBySite(ctx context.Context, arg ListVisibleDiveSiteAffinitiesBySiteParams) ([]ListVisibleDiveSiteAffinitiesBySiteRow, error) {
+	rows, err := q.db.Query(ctx, listVisibleDiveSiteAffinitiesBySite, arg.ViewerUserID, arg.DiveSiteID, arg.LimitRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVisibleDiveSiteAffinitiesBySiteRow{}
+	for rows.Next() {
+		var i ListVisibleDiveSiteAffinitiesBySiteRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.DiveSiteID,
+			&i.Relationship,
+			&i.Visibility,
+			&i.ContactEnabled,
+			&i.Note,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Username,
+			&i.DisplayName,
+			&i.AvatarUrl,
+			&i.ContactAllowed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const rejectOrHideSite = `-- name: RejectOrHideSite :one
 UPDATE dive_sites
 SET moderation_state = 'hidden',
@@ -1631,4 +2147,169 @@ type UnsaveSiteParams struct {
 func (q *Queries) UnsaveSite(ctx context.Context, arg UnsaveSiteParams) error {
 	_, err := q.db.Exec(ctx, unsaveSite, arg.AppUserID, arg.DiveSiteID)
 	return err
+}
+
+const updateDivePresenceByOwner = `-- name: UpdateDivePresenceByOwner :one
+UPDATE dive_presences
+SET
+  presence_type = $1,
+  start_at = $2,
+  end_at = $3,
+  visibility = $4,
+  contact_enabled = $5,
+  note = $6,
+  updated_at = NOW()
+WHERE id = $7
+  AND user_id = $8
+  AND dive_site_id = $9
+RETURNING id, user_id, dive_site_id, presence_type, start_at, end_at, visibility, contact_enabled, note, status, created_at, updated_at
+`
+
+type UpdateDivePresenceByOwnerParams struct {
+	PresenceType   string             `db:"presence_type" json:"presence_type"`
+	StartAt        pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt          pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	Visibility     string             `db:"visibility" json:"visibility"`
+	ContactEnabled bool               `db:"contact_enabled" json:"contact_enabled"`
+	Note           *string            `db:"note" json:"note"`
+	PresenceID     pgtype.UUID        `db:"presence_id" json:"presence_id"`
+	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`
+	DiveSiteID     pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+}
+
+func (q *Queries) UpdateDivePresenceByOwner(ctx context.Context, arg UpdateDivePresenceByOwnerParams) (DivePresence, error) {
+	row := q.db.QueryRow(ctx, updateDivePresenceByOwner,
+		arg.PresenceType,
+		arg.StartAt,
+		arg.EndAt,
+		arg.Visibility,
+		arg.ContactEnabled,
+		arg.Note,
+		arg.PresenceID,
+		arg.UserID,
+		arg.DiveSiteID,
+	)
+	var i DivePresence
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.DiveSiteID,
+		&i.PresenceType,
+		&i.StartAt,
+		&i.EndAt,
+		&i.Visibility,
+		&i.ContactEnabled,
+		&i.Note,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateDiveSiteAffinityByOwner = `-- name: UpdateDiveSiteAffinityByOwner :one
+UPDATE user_dive_site_affinities
+SET
+  relationship = $1,
+  visibility = $2,
+  contact_enabled = $3,
+  note = $4,
+  updated_at = NOW()
+WHERE id = $5
+  AND user_id = $6
+  AND dive_site_id = $7
+RETURNING id, user_id, dive_site_id, relationship, visibility, contact_enabled, note, created_at, updated_at
+`
+
+type UpdateDiveSiteAffinityByOwnerParams struct {
+	Relationship   string      `db:"relationship" json:"relationship"`
+	Visibility     string      `db:"visibility" json:"visibility"`
+	ContactEnabled bool        `db:"contact_enabled" json:"contact_enabled"`
+	Note           *string     `db:"note" json:"note"`
+	AffinityID     pgtype.UUID `db:"affinity_id" json:"affinity_id"`
+	UserID         pgtype.UUID `db:"user_id" json:"user_id"`
+	DiveSiteID     pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+}
+
+func (q *Queries) UpdateDiveSiteAffinityByOwner(ctx context.Context, arg UpdateDiveSiteAffinityByOwnerParams) (UserDiveSiteAffinity, error) {
+	row := q.db.QueryRow(ctx, updateDiveSiteAffinityByOwner,
+		arg.Relationship,
+		arg.Visibility,
+		arg.ContactEnabled,
+		arg.Note,
+		arg.AffinityID,
+		arg.UserID,
+		arg.DiveSiteID,
+	)
+	var i UserDiveSiteAffinity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.DiveSiteID,
+		&i.Relationship,
+		&i.Visibility,
+		&i.ContactEnabled,
+		&i.Note,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertDiveSiteAffinity = `-- name: UpsertDiveSiteAffinity :one
+INSERT INTO user_dive_site_affinities (
+  user_id,
+  dive_site_id,
+  relationship,
+  visibility,
+  contact_enabled,
+  note
+)
+VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  $6
+)
+ON CONFLICT (user_id, dive_site_id, relationship) DO UPDATE SET
+  visibility = EXCLUDED.visibility,
+  contact_enabled = EXCLUDED.contact_enabled,
+  note = EXCLUDED.note,
+  updated_at = NOW()
+RETURNING id, user_id, dive_site_id, relationship, visibility, contact_enabled, note, created_at, updated_at
+`
+
+type UpsertDiveSiteAffinityParams struct {
+	UserID         pgtype.UUID `db:"user_id" json:"user_id"`
+	DiveSiteID     pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+	Relationship   string      `db:"relationship" json:"relationship"`
+	Visibility     string      `db:"visibility" json:"visibility"`
+	ContactEnabled bool        `db:"contact_enabled" json:"contact_enabled"`
+	Note           *string     `db:"note" json:"note"`
+}
+
+func (q *Queries) UpsertDiveSiteAffinity(ctx context.Context, arg UpsertDiveSiteAffinityParams) (UserDiveSiteAffinity, error) {
+	row := q.db.QueryRow(ctx, upsertDiveSiteAffinity,
+		arg.UserID,
+		arg.DiveSiteID,
+		arg.Relationship,
+		arg.Visibility,
+		arg.ContactEnabled,
+		arg.Note,
+	)
+	var i UserDiveSiteAffinity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.DiveSiteID,
+		&i.Relationship,
+		&i.Visibility,
+		&i.ContactEnabled,
+		&i.Note,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

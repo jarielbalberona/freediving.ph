@@ -13,6 +13,7 @@ import ThreadActions from "@/features/chika/components/ThreadActions";
 type CommunityPayload = {
   authorName?: string;
   authorUsername?: string;
+  authorAvatarUrl?: string;
   authorPseudonymous?: boolean;
   title?: string;
   categoryName?: string;
@@ -42,6 +43,7 @@ export function CommunityHotCard({
         item={item}
         displayName={payload.authorName || "Community member"}
         username={payload.authorUsername}
+        avatarUrl={payload.authorAvatarUrl}
         usernameDisabled={payload.authorPseudonymous}
         usernameFallback={payload.authorPseudonymous ? "Pseudonymous" : "Unknown"}
         typeExtras={

@@ -640,6 +640,10 @@ func threadResponse(input chikaservice.Thread, viewerID string, includeRealAutho
 	if includeRealAuthor {
 		realAuthorID = input.CreatedByUserID
 	}
+	authorAvatarURL := ""
+	if input.Mode != "pseudonymous" && input.Mode != "locked_pseudonymous" && input.AuthorAvatarURL != "" {
+		authorAvatarURL = input.AuthorAvatarURL
+	}
 	return ThreadResponse{
 		ID:               input.ID,
 		Title:            input.Title,
@@ -653,6 +657,7 @@ func threadResponse(input chikaservice.Thread, viewerID string, includeRealAutho
 		CategoryName:     input.CategoryName,
 		CategoryPseudo:   input.Pseudonymous,
 		AuthorDisplay:    authorDisplay,
+		AuthorAvatarURL:  authorAvatarURL,
 		RealAuthorUserID: realAuthorID,
 		IsHidden:         input.HiddenAt != nil,
 		HiddenAt:         hiddenAt,

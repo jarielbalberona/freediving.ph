@@ -98,6 +98,7 @@ test("activity preview adapts supported ledger types and skips unknown types saf
   assert.match(source, /case "buddy_intent_created"/);
   assert.match(source, /case "media_post_created"/);
   assert.match(source, /return null/);
+  assert.match(source, /authorAvatarUrl: item\.actor\.avatarUrl/);
   assert.match(source, /authorPseudonymous: item\.actor\.id\.trim\(\) === ""/);
   assert.doesNotMatch(source, /authorUserId/);
 });
@@ -123,6 +124,11 @@ test("activity media posts preserve display URLs and avoid caption-only downgrad
   assert.match(adapter, /mediaUnavailableReason/);
   assert.match(card, /previewMediaId && !previewDisplayUrl/);
   assert.match(card, /previewDisplayUrl\s*\?/);
+  assert.match(card, /canLinkToProfileUsername\(payload\.authorUsername\)/);
+  assert.match(card, /getProfileRoute\(payload\.authorUsername\)\}\/posts/);
+  assert.match(card, /href=\{postHref\}/);
+  assert.match(card, /avatarUrl=\{payload\.authorAvatarUrl\}/);
+  assert.match(card, /authorAvatarUrl=\{payload\.authorAvatarUrl\}/);
   assert.match(card, /<p className="line-clamp-3 text-sm leading-relaxed text-foreground">/);
   assert.doesNotMatch(card, /className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"/);
   assert.match(dialog, /filter\(\(item\) => !item\.displayUrl\)/);

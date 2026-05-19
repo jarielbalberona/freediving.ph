@@ -51,6 +51,7 @@ const mediaNumberValue = (value: unknown, key: string): number | undefined =>
 const actorPayload = (item: ActivityFeedItem) => ({
   authorName: item.actor.name,
   authorUsername: item.actor.username,
+  authorAvatarUrl: item.actor.avatarUrl,
   authorPseudonymous: item.actor.id.trim() === "",
 });
 

@@ -1,6 +1,12 @@
 import type {
   CreateExploreSiteSubmissionRequest,
   CreateExploreSiteUpdateRequest,
+  CreateDivePresenceRequest,
+  CreateDiveSiteAffinityRequest,
+  DivePresenceListResponse,
+  DivePresenceResponse,
+  DiveSiteAffinityListResponse,
+  DiveSiteAffinityResponse,
   ExploreLatestUpdatesResponse,
   ExploreListResponse,
   ExploreSiteSubmissionListResponse,
@@ -89,6 +95,69 @@ export const exploreApi = {
   getSiteCommunityPosts: (slug: string, cursor?: string, limit = 20) =>
     fphgoFetchClient<ExploreSiteCommunityPostsResponse>(
       withQuery(routes.v1.explore.siteCommunityPosts(slug), { cursor, limit }),
+    ),
+
+  getSitePresence: (slug: string, limit = 20) =>
+    fphgoFetchClient<DivePresenceListResponse>(
+      withQuery(routes.v1.explore.sitePresence(slug), { limit }),
+    ),
+
+  createSitePresence: (slug: string, payload: CreateDivePresenceRequest) =>
+    fphgoFetchClient<DivePresenceResponse>(routes.v1.explore.sitePresence(slug), {
+      method: "POST",
+      body: payload as Record<string, unknown>,
+    }),
+
+  updateSitePresence: (
+    slug: string,
+    presenceId: string,
+    payload: CreateDivePresenceRequest,
+  ) =>
+    fphgoFetchClient<DivePresenceResponse>(
+      routes.v1.explore.sitePresenceById(slug, presenceId),
+      {
+        method: "PATCH",
+        body: payload as Record<string, unknown>,
+      },
+    ),
+
+  cancelSitePresence: (slug: string, presenceId: string) =>
+    fphgoFetchClient<void>(
+      routes.v1.explore.sitePresenceById(slug, presenceId),
+      { method: "DELETE" },
+    ),
+
+  getSiteAffinities: (slug: string, limit = 20) =>
+    fphgoFetchClient<DiveSiteAffinityListResponse>(
+      withQuery(routes.v1.explore.siteAffinities(slug), { limit }),
+    ),
+
+  createSiteAffinity: (slug: string, payload: CreateDiveSiteAffinityRequest) =>
+    fphgoFetchClient<DiveSiteAffinityResponse>(
+      routes.v1.explore.siteAffinities(slug),
+      {
+        method: "POST",
+        body: payload as Record<string, unknown>,
+      },
+    ),
+
+  updateSiteAffinity: (
+    slug: string,
+    affinityId: string,
+    payload: CreateDiveSiteAffinityRequest,
+  ) =>
+    fphgoFetchClient<DiveSiteAffinityResponse>(
+      routes.v1.explore.siteAffinityById(slug, affinityId),
+      {
+        method: "PATCH",
+        body: payload as Record<string, unknown>,
+      },
+    ),
+
+  deleteSiteAffinity: (slug: string, affinityId: string) =>
+    fphgoFetchClient<void>(
+      routes.v1.explore.siteAffinityById(slug, affinityId),
+      { method: "DELETE" },
     ),
 
   getSiteBuddyIntents: (slug: string, cursor?: string, limit = 10) =>

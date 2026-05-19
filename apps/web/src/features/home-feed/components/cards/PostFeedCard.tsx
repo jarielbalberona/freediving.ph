@@ -12,6 +12,7 @@ import {
 type PostPayload = {
   authorName?: string;
   authorUsername?: string;
+  authorAvatarUrl?: string;
   diveSiteSlug?: string;
   diveSiteName?: string;
   area?: string;
@@ -32,6 +33,7 @@ export function PostFeedCard({
         item={item}
         displayName={payload.authorName || "Diver"}
         username={payload.authorUsername}
+        avatarUrl={payload.authorAvatarUrl}
         metadata={[
           payload.diveSiteSlug && payload.diveSiteName ? (
             <Link

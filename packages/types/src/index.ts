@@ -89,6 +89,7 @@ export interface ChikaThreadResponse {
   categoryName: string;
   categoryPseudonymous: boolean;
   authorDisplayName: string;
+  authorAvatarUrl?: string;
   realAuthorUserId?: string;
   isHidden: boolean;
   hiddenAt?: string;
@@ -1273,13 +1274,18 @@ export type ExploreSiteDetailResponse = {
 };
 
 export type ExploreSiteRelatedCounts = {
-  buddies: number;
+  buddies?: number;
+  availableBuddyCount: number;
+  localRegularCount: number;
+  communityPostCount: number;
   communityPosts: number;
   recentConditions: number;
 };
 
 export type ExploreSiteRelatedPreviews = {
-  buddies: BuddyFinderPreviewIntent[];
+  buddies?: DivePresenceItem[];
+  availableBuddies: DivePresenceItem[];
+  localRegulars: DiveSiteAffinityItem[];
   communityPosts: ActivityFeedItem[];
 };
 
@@ -1292,6 +1298,89 @@ export type ExploreSiteRelatedResponse = {
 export type ExploreSiteCommunityPostsResponse = {
   items: ActivityFeedItem[];
   nextCursor?: string;
+};
+
+export type DivePresenceType =
+  | "available"
+  | "planning"
+  | "training"
+  | "fun_dive";
+
+export type DivePresenceVisibility = "public" | "members" | "private";
+
+export type DivePresenceItem = {
+  id: string;
+  userId: string;
+  diveSiteId: string;
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  presenceType: DivePresenceType;
+  startAt?: string;
+  endAt?: string;
+  visibility: DivePresenceVisibility;
+  contactEnabled: boolean;
+  contactAllowed: boolean;
+  note?: string;
+  status: "active" | "cancelled" | "expired";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DivePresenceListResponse = {
+  items: DivePresenceItem[];
+};
+
+export type DivePresenceResponse = {
+  presence: DivePresenceItem;
+};
+
+export type CreateDivePresenceRequest = {
+  presenceType: DivePresenceType;
+  flexible: boolean;
+  startAt?: string;
+  endAt?: string;
+  visibility: DivePresenceVisibility;
+  contactEnabled: boolean;
+  note?: string;
+};
+
+export type DiveSiteAffinityRelationship =
+  | "local"
+  | "regular"
+  | "instructor"
+  | "operator"
+  | "interested";
+
+export type DiveSiteAffinityItem = {
+  id: string;
+  userId: string;
+  diveSiteId: string;
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  relationship: DiveSiteAffinityRelationship;
+  visibility: DivePresenceVisibility;
+  contactEnabled: boolean;
+  contactAllowed: boolean;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DiveSiteAffinityListResponse = {
+  items: DiveSiteAffinityItem[];
+};
+
+export type DiveSiteAffinityResponse = {
+  affinity: DiveSiteAffinityItem;
+};
+
+export type CreateDiveSiteAffinityRequest = {
+  relationship: DiveSiteAffinityRelationship;
+  visibility: DivePresenceVisibility;
+  contactEnabled: boolean;
+  note?: string;
 };
 
 export type ExploreLatestUpdate = {

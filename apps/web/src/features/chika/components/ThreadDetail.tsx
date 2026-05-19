@@ -1,7 +1,6 @@
 import type { ChikaThreadView } from "../api/threads";
-import { UsernameLink } from "@/components/common/UsernameLink";
+import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import { ReportAction } from "@/components/report/report-action";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ThreadActions from "./ThreadActions";
 import { ChikaMarkdown } from "./ChikaMarkdown";
@@ -16,14 +15,15 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
       className={`${thread.isHidden ? "border-dashed opacity-60" : ""}`}
     >
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {thread.categoryName} ·{" "}
-          <UsernameLink
-            username={thread.authorDisplayName}
-            disabled={thread.categoryPseudonymous}
-          />{" "}
-          · {new Date(thread.createdAt).toLocaleString()}
-        </p>
+        <UserIdentityHeader
+          displayName={thread.authorDisplayName}
+          username={thread.authorDisplayName}
+          avatarUrl={thread.authorAvatarUrl}
+          showProfileImage={!thread.categoryPseudonymous}
+          usernameDisabled={thread.categoryPseudonymous}
+          location={thread.categoryName}
+          time={new Date(thread.createdAt).toLocaleString()}
+        />
         <div className="flex items-center gap-2">
           {thread.categoryPseudonymous ? (
             <Badge

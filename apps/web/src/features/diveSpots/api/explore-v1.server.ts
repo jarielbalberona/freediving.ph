@@ -2,6 +2,8 @@ import "server-only";
 
 import type {
   ExploreLatestUpdatesResponse,
+  DivePresenceListResponse,
+  DiveSiteAffinityListResponse,
   ExploreSiteCommunityPostsResponse,
   ExploreSiteBuddyPreviewResponse,
   ExploreSiteDetailResponse,
@@ -46,6 +48,16 @@ export const getExploreSiteCommunityPostsServer = (
 ) =>
   fphgoFetchServer<ExploreSiteCommunityPostsResponse>(
     withQuery(routes.v1.explore.siteCommunityPosts(slug), { cursor, limit }),
+  );
+
+export const getExploreSitePresenceServer = (slug: string, limit = 6) =>
+  fphgoFetchServer<DivePresenceListResponse>(
+    withQuery(routes.v1.explore.sitePresence(slug), { limit }),
+  );
+
+export const getExploreSiteAffinitiesServer = (slug: string, limit = 6) =>
+  fphgoFetchServer<DiveSiteAffinityListResponse>(
+    withQuery(routes.v1.explore.siteAffinities(slug), { limit }),
   );
 
 export const getExploreLatestUpdatesServer = (area?: string, cursor?: string, limit = 20) =>

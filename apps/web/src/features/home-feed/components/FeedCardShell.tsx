@@ -11,9 +11,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { UsernameLink } from "@/components/common/UsernameLink";
+import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import { Badge } from "@/components/ui/badge";
-import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
 import type { HomeFeedItem } from "@freediving.ph/types";
 
@@ -112,34 +111,12 @@ export function FeedTypeBadge({ item }: { item: HomeFeedItem }) {
   );
 }
 
-function MetadataRow({ items }: { items: React.ReactNode[] }) {
-  const visibleItems = items.filter(Boolean);
-  if (visibleItems.length === 0) return null;
-
-  return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 pl-11 text-xs text-muted-foreground">
-      {visibleItems.map((metadata, index) => (
-        <span
-          // Metadata is static per card render, and order is the identity here.
-          key={`feed-metadata-${index + 1}`}
-          className="inline-flex min-w-0 items-center gap-1.5"
-        >
-          {index > 0 ? (
-            <span className="shrink-0" aria-hidden="true">
-              ·
-            </span>
-          ) : null}
-          <span className="min-w-0 truncate">{metadata}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export function FeedItemHeader({
   item,
   displayName,
   username,
+  avatarUrl,
+  showProfileImage = true,
   usernameDisabled = false,
   usernameFallback = "Unknown",
   metadata = [],
@@ -148,39 +125,34 @@ export function FeedItemHeader({
   item: HomeFeedItem;
   displayName?: string;
   username?: string;
+  avatarUrl?: string | null;
+  showProfileImage?: boolean;
   usernameDisabled?: boolean;
   usernameFallback?: string;
   metadata?: React.ReactNode[];
   typeExtras?: React.ReactNode;
 }) {
   const elapsedTime = formatElapsedTime(item.createdAt);
-  const metadataItems = [
-    <UsernameLink
-      key="username"
-      username={username}
-      className="truncate text-xs text-muted-foreground"
-      disabled={usernameDisabled}
-      fallback={usernameFallback}
-    />,
-    ...metadata,
-    elapsedTime,
-  ];
 
   return (
     <header>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-        <div className="flex min-w-[12rem] flex-1 items-center gap-3">
-          <UserAvatar displayName={displayName} size="sm" />
-          <p className="min-w-0 truncate text-sm font-semibold">
-            {displayName || "Diver"}
-          </p>
-        </div>
+        <UserIdentityHeader
+          displayName={displayName || "Diver"}
+          username={username}
+          avatarUrl={avatarUrl}
+          showProfileImage={showProfileImage}
+          usernameDisabled={usernameDisabled}
+          usernameFallback={usernameFallback}
+          metadata={metadata}
+          time={elapsedTime}
+          className="min-w-[12rem] flex-1"
+        />
         <div className="flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
           <FeedTypeBadge item={item} />
           {typeExtras}
         </div>
       </div>
-      <MetadataRow items={metadataItems} />
     </header>
   );
 }

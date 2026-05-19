@@ -194,6 +194,22 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/explore/sites/{slug}/affinities"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/sites/{slug}/affinities"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/explore/sites/{slug}/affinities/{affinityId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/explore/sites/{slug}/affinities/{affinityId}"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/explore/sites/{slug}/buddy-intents"
     },
     {
@@ -203,6 +219,22 @@
     {
       "method": "GET",
       "pattern": "/v1/explore/sites/{slug}/community-posts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/{slug}/presence"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/sites/{slug}/presence"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/explore/sites/{slug}/presence/{presenceId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/explore/sites/{slug}/presence/{presenceId}"
     },
     {
       "method": "GET",
