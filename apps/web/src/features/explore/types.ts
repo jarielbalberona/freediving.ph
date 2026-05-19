@@ -22,10 +22,22 @@ export type DiveSpot = {
   likeCount: number;
   viewerHasLiked: boolean;
   buddySignal?: BuddySignal;
+  coverMedia?: DiveSpotCoverMedia;
   rating?: number;
   reviewCount?: number;
   coverImageUrl?: string;
   tags?: string[];
+};
+
+export type DiveSpotCoverMedia = {
+  mediaPostId: string;
+  mediaItemId: string;
+  mediaObjectId: string;
+  displayUrl: string;
+  width: number;
+  height: number;
+  likeCount: number;
+  createdAt: string;
 };
 
 export type BuddySignal = {

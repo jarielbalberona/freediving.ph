@@ -24,6 +24,18 @@ type SiteCard struct {
 	LikeCount            int64        `json:"likeCount"`
 	ViewerHasLiked       bool         `json:"viewerHasLiked"`
 	BuddySignal          *BuddySignal `json:"buddySignal,omitempty"`
+	CoverMedia           *CoverMedia  `json:"coverMedia,omitempty"`
+}
+
+type CoverMedia struct {
+	MediaPostID   string `json:"mediaPostId"`
+	MediaItemID   string `json:"mediaItemId"`
+	MediaObjectID string `json:"mediaObjectId"`
+	DisplayURL    string `json:"displayUrl"`
+	Width         int32  `json:"width"`
+	Height        int32  `json:"height"`
+	LikeCount     int64  `json:"likeCount"`
+	CreatedAt     string `json:"createdAt"`
 }
 
 type BuddySignal struct {
@@ -210,31 +222,32 @@ type ActivityFeedItem struct {
 }
 
 type SiteDetail struct {
-	ID                    string   `json:"id"`
-	Slug                  string   `json:"slug"`
-	Name                  string   `json:"name"`
-	Area                  string   `json:"area"`
-	Latitude              *float64 `json:"latitude,omitempty"`
-	Longitude             *float64 `json:"longitude,omitempty"`
-	Description           string   `json:"description,omitempty"`
-	Difficulty            string   `json:"difficulty"`
-	DepthMinM             *float64 `json:"depthMinM,omitempty"`
-	DepthMaxM             *float64 `json:"depthMaxM,omitempty"`
-	Hazards               []string `json:"hazards"`
-	BestSeason            string   `json:"bestSeason,omitempty"`
-	TypicalConditions     string   `json:"typicalConditions,omitempty"`
-	Access                string   `json:"access,omitempty"`
-	Fees                  string   `json:"fees,omitempty"`
-	ContactInfo           string   `json:"contactInfo,omitempty"`
-	VerificationStatus    string   `json:"verificationStatus"`
-	VerifiedByUserID      string   `json:"verifiedByUserId,omitempty"`
-	VerifiedByDisplayName string   `json:"verifiedByDisplayName,omitempty"`
-	LastUpdatedAt         string   `json:"lastUpdatedAt"`
-	CreatedAt             string   `json:"createdAt"`
-	ReportCount           int64    `json:"reportCount"`
-	LastConditionSummary  string   `json:"lastConditionSummary,omitempty"`
-	LikeCount             int64    `json:"likeCount"`
-	ViewerHasLiked        bool     `json:"viewerHasLiked"`
+	ID                    string      `json:"id"`
+	Slug                  string      `json:"slug"`
+	Name                  string      `json:"name"`
+	Area                  string      `json:"area"`
+	Latitude              *float64    `json:"latitude,omitempty"`
+	Longitude             *float64    `json:"longitude,omitempty"`
+	Description           string      `json:"description,omitempty"`
+	Difficulty            string      `json:"difficulty"`
+	DepthMinM             *float64    `json:"depthMinM,omitempty"`
+	DepthMaxM             *float64    `json:"depthMaxM,omitempty"`
+	Hazards               []string    `json:"hazards"`
+	BestSeason            string      `json:"bestSeason,omitempty"`
+	TypicalConditions     string      `json:"typicalConditions,omitempty"`
+	Access                string      `json:"access,omitempty"`
+	Fees                  string      `json:"fees,omitempty"`
+	ContactInfo           string      `json:"contactInfo,omitempty"`
+	VerificationStatus    string      `json:"verificationStatus"`
+	VerifiedByUserID      string      `json:"verifiedByUserId,omitempty"`
+	VerifiedByDisplayName string      `json:"verifiedByDisplayName,omitempty"`
+	LastUpdatedAt         string      `json:"lastUpdatedAt"`
+	CreatedAt             string      `json:"createdAt"`
+	ReportCount           int64       `json:"reportCount"`
+	LastConditionSummary  string      `json:"lastConditionSummary,omitempty"`
+	LikeCount             int64       `json:"likeCount"`
+	ViewerHasLiked        bool        `json:"viewerHasLiked"`
+	CoverMedia            *CoverMedia `json:"coverMedia,omitempty"`
 }
 
 type SiteUpdate struct {

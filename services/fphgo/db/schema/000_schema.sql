@@ -1045,11 +1045,13 @@ CREATE INDEX IF NOT EXISTS idx_media_objects_context_created_at ON media_objects
 CREATE INDEX IF NOT EXISTS idx_media_objects_state ON media_objects (state);
 CREATE INDEX IF NOT EXISTS idx_media_upload_groups_author_created_at ON media_upload_groups (author_app_user_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_media_posts_author_created_at ON media_posts (author_app_user_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_media_posts_site_cover_candidates ON media_posts (dive_site_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_posts_group ON media_posts (upload_group_id);
 CREATE INDEX IF NOT EXISTS idx_media_items_author_created_at ON media_items (author_app_user_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_items_post_sort ON media_items (post_id, sort_order ASC, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_media_items_group_sort ON media_items (upload_group_id, sort_order ASC, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_media_items_status_created_at ON media_items (status, created_at DESC, id DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_media_items_site_cover_candidates ON media_items (dive_site_id, post_id, sort_order ASC, created_at ASC, id ASC) WHERE type = 'photo' AND status = 'active' AND deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_post_likes_post ON media_post_likes (media_post_id);
 CREATE INDEX IF NOT EXISTS idx_media_post_likes_user ON media_post_likes (user_id);
 CREATE INDEX IF NOT EXISTS idx_media_post_saves_post ON media_post_saves (media_post_id);

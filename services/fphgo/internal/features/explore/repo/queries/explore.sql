@@ -101,7 +101,15 @@ SELECT
     FROM dive_site_likes viewer_like
     WHERE viewer_like.dive_site_id = s.id
       AND viewer_like.user_id = sqlc.arg(viewer_user_id)
-  ) AS viewer_has_liked
+  ) AS viewer_has_liked,
+  cover.media_post_id AS cover_media_post_id,
+  cover.media_item_id AS cover_media_item_id,
+  cover.media_object_id AS cover_media_object_id,
+  COALESCE(cover.storage_key, '') AS cover_media_storage_key,
+  COALESCE(cover.width, 0)::int AS cover_media_width,
+  COALESCE(cover.height, 0)::int AS cover_media_height,
+  COALESCE(cover.like_count, 0)::bigint AS cover_media_like_count,
+  cover.created_at AS cover_media_created_at
 FROM dive_sites s
 LEFT JOIN latest_update lu ON lu.dive_site_id = s.id
 LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
@@ -112,6 +120,58 @@ LEFT JOIN LATERAL (
   FROM dive_site_likes dsl
   WHERE dsl.dive_site_id = s.id
 ) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT
+    mp.id AS media_post_id,
+    selected_item.id AS media_item_id,
+    selected_item.media_object_id,
+    selected_item.storage_key,
+    selected_item.width,
+    selected_item.height,
+    COALESCE(media_likes.like_count, 0)::bigint AS like_count,
+    mp.created_at
+  FROM media_posts mp
+  JOIN users media_author ON media_author.id = mp.author_app_user_id
+  JOIN LATERAL (
+    SELECT
+      mi.id,
+      mi.media_object_id,
+      mi.storage_key,
+      mi.width,
+      mi.height
+    FROM media_items mi
+    JOIN media_objects mo ON mo.id = mi.media_object_id
+    WHERE mi.post_id = mp.id
+      AND mi.dive_site_id = s.id
+      AND mi.type = 'photo'
+      AND mi.mime_type LIKE 'image/%'
+      AND mi.status = 'active'
+      AND mi.deleted_at IS NULL
+      AND NULLIF(TRIM(mi.storage_key), '') IS NOT NULL
+      AND mo.state = 'active'
+    ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
+    LIMIT 1
+  ) selected_item ON true
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::bigint AS like_count
+    FROM media_post_likes mpl
+    WHERE mpl.media_post_id = mp.id
+  ) media_likes ON true
+  WHERE mp.dive_site_id = s.id
+    AND mp.deleted_at IS NULL
+    AND media_author.account_status = 'active'
+    AND (
+      sqlc.arg(viewer_user_id)::uuid IS NULL
+      OR NOT EXISTS (
+        SELECT 1
+        FROM user_blocks media_blocks
+        WHERE (media_blocks.blocker_app_user_id = sqlc.arg(viewer_user_id) AND media_blocks.blocked_app_user_id = mp.author_app_user_id)
+           OR (media_blocks.blocker_app_user_id = mp.author_app_user_id AND media_blocks.blocked_app_user_id = sqlc.arg(viewer_user_id))
+      )
+    )
+  ORDER BY COALESCE(media_likes.like_count, 0)::bigint DESC, mp.created_at DESC, mp.id DESC
+  LIMIT 1
+) cover ON true
 WHERE s.moderation_state = 'approved'
   AND (sqlc.arg(area_filter)::text = '' OR s.area = sqlc.arg(area_filter))
   AND (sqlc.arg(difficulty_filter)::text = '' OR s.entry_difficulty = sqlc.arg(difficulty_filter))
@@ -203,7 +263,15 @@ SELECT
     FROM dive_site_likes viewer_like
     WHERE viewer_like.dive_site_id = s.id
       AND viewer_like.user_id = sqlc.arg(viewer_user_id)
-  ) AS viewer_has_liked
+  ) AS viewer_has_liked,
+  cover.media_post_id AS cover_media_post_id,
+  cover.media_item_id AS cover_media_item_id,
+  cover.media_object_id AS cover_media_object_id,
+  COALESCE(cover.storage_key, '') AS cover_media_storage_key,
+  COALESCE(cover.width, 0)::int AS cover_media_width,
+  COALESCE(cover.height, 0)::int AS cover_media_height,
+  COALESCE(cover.like_count, 0)::bigint AS cover_media_like_count,
+  cover.created_at AS cover_media_created_at
 FROM dive_sites s
 LEFT JOIN users v ON v.id = s.verified_by_app_user_id
 LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
@@ -213,6 +281,58 @@ LEFT JOIN LATERAL (
   FROM dive_site_likes dsl
   WHERE dsl.dive_site_id = s.id
 ) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT
+    mp.id AS media_post_id,
+    selected_item.id AS media_item_id,
+    selected_item.media_object_id,
+    selected_item.storage_key,
+    selected_item.width,
+    selected_item.height,
+    COALESCE(media_likes.like_count, 0)::bigint AS like_count,
+    mp.created_at
+  FROM media_posts mp
+  JOIN users media_author ON media_author.id = mp.author_app_user_id
+  JOIN LATERAL (
+    SELECT
+      mi.id,
+      mi.media_object_id,
+      mi.storage_key,
+      mi.width,
+      mi.height
+    FROM media_items mi
+    JOIN media_objects mo ON mo.id = mi.media_object_id
+    WHERE mi.post_id = mp.id
+      AND mi.dive_site_id = s.id
+      AND mi.type = 'photo'
+      AND mi.mime_type LIKE 'image/%'
+      AND mi.status = 'active'
+      AND mi.deleted_at IS NULL
+      AND NULLIF(TRIM(mi.storage_key), '') IS NOT NULL
+      AND mo.state = 'active'
+    ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
+    LIMIT 1
+  ) selected_item ON true
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::bigint AS like_count
+    FROM media_post_likes mpl
+    WHERE mpl.media_post_id = mp.id
+  ) media_likes ON true
+  WHERE mp.dive_site_id = s.id
+    AND mp.deleted_at IS NULL
+    AND media_author.account_status = 'active'
+    AND (
+      sqlc.arg(viewer_user_id)::uuid IS NULL
+      OR NOT EXISTS (
+        SELECT 1
+        FROM user_blocks media_blocks
+        WHERE (media_blocks.blocker_app_user_id = sqlc.arg(viewer_user_id) AND media_blocks.blocked_app_user_id = mp.author_app_user_id)
+           OR (media_blocks.blocker_app_user_id = mp.author_app_user_id AND media_blocks.blocked_app_user_id = sqlc.arg(viewer_user_id))
+      )
+    )
+  ORDER BY COALESCE(media_likes.like_count, 0)::bigint DESC, mp.created_at DESC, mp.id DESC
+  LIMIT 1
+) cover ON true
 WHERE s.slug = sqlc.arg(slug)
   AND s.moderation_state = 'approved';
 

@@ -11,6 +11,7 @@ import type {
   HomeFeedItem,
   HomeFeedMode,
   HomeFeedResponse,
+  NearbyConditionsResponse,
 } from "../src/index.ts";
 
 type Assert<T extends true> = T;
@@ -43,9 +44,54 @@ type _impressions = Assert<
 type _actions = Assert<
   IsEqual<FeedActionsRequest["items"][number]["entityType"], string>
 >;
+type _nearbyConditionsSource = Assert<
+  IsEqual<
+    NearbyConditionsResponse["source"],
+    "local" | "nearest_dive_area" | "fallback_country"
+  >
+>;
 
 test("feed contracts expose home response and telemetry payloads", () => {
   assert.equal(true, true);
+});
+
+test("nearby conditions contract keeps safety confidence labels explicit", () => {
+  const response = {
+    locationLabel: "Anilao, Batangas",
+    source: "local",
+    updatedAt: "2026-05-20T00:00:00Z",
+    cards: {
+      current: {
+        label: "Current",
+        value: "Reported light",
+        confidence: "reported",
+      },
+      visibility: {
+        label: "Visibility",
+        value: "Reported 15m",
+        confidence: "reported",
+      },
+      temp: {
+        label: "Temp",
+        value: "29C sea forecast",
+        confidence: "forecast",
+      },
+      wind: {
+        label: "Wind",
+        value: "12 kph forecast",
+        confidence: "forecast",
+      },
+      sunrise: {
+        label: "Sunrise",
+        value: "5:31 AM",
+        confidence: "forecast",
+      },
+    },
+  } satisfies NearbyConditionsResponse;
+
+  assert.equal(response.cards.visibility.confidence, "reported");
+  assert.equal(response.cards.current.confidence, "reported");
+  assert.equal(response.cards.wind.confidence, "forecast");
 });
 
 test("feed item contracts expose presentation metadata", () => {
@@ -108,7 +154,10 @@ test("activity feed contracts expose ledger response shape", () => {
   } satisfies ActivityFeedResponse;
 
   assert.equal(response.items[0].type, "chika_thread_created");
-  assert.equal(response.items[0].media?.[0]?.displayUrl?.includes("sig="), true);
+  assert.equal(
+    response.items[0].media?.[0]?.displayUrl?.includes("sig="),
+    true,
+  );
 });
 
 test("feed telemetry contracts carry source without breaking legacy mode", () => {

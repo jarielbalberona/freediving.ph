@@ -15,18 +15,20 @@ import (
 	explorerepo "fphgo/internal/features/explore/repo"
 	feedservice "fphgo/internal/features/feed/service"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/mediasign"
 	"fphgo/internal/shared/pagination"
 	sharedratelimit "fphgo/internal/shared/ratelimit"
 	"fphgo/internal/shared/validatex"
 )
 
 type Service struct {
-	repo     repository
-	buddies  buddyMatcher
-	limiter  rateLimiter
-	geocoder reverseGeocoder
-	activity activityPublisher
-	feed     activityFeed
+	repo        repository
+	buddies     buddyMatcher
+	limiter     rateLimiter
+	geocoder    reverseGeocoder
+	activity    activityPublisher
+	feed        activityFeed
+	mediaSigner *mediasign.Signer
 }
 
 type repository interface {
@@ -148,6 +150,12 @@ func WithActivityPublisher(publisher activityPublisher) Option {
 func WithActivityFeed(feed activityFeed) Option {
 	return func(s *Service) {
 		s.feed = feed
+	}
+}
+
+func WithMediaDisplayURLs(baseURL, signingSecret string, signingKeyVersion int) Option {
+	return func(s *Service) {
+		s.mediaSigner = mediasign.New(baseURL, signingSecret, signingKeyVersion)
 	}
 }
 
@@ -452,6 +460,7 @@ func (s *Service) ListSites(ctx context.Context, input ListSitesInput) (ListSite
 		nextCursor = pagination.Encode(next.LastUpdatedAt, next.ID)
 		items = items[:limit]
 	}
+	s.hydrateSiteCardCoverMedia(items)
 
 	return ListSitesResult{Items: items, NextCursor: nextCursor}, nil
 }
@@ -466,6 +475,26 @@ func repoBounds(bounds *MapBounds) *explorerepo.MapBounds {
 		East:  bounds.East,
 		West:  bounds.West,
 	}
+}
+
+func (s *Service) hydrateSiteCardCoverMedia(items []explorerepo.SiteCard) {
+	for i := range items {
+		s.hydrateCoverMedia(items[i].CoverMedia)
+	}
+}
+
+func (s *Service) hydrateSiteDetailCoverMedia(site *explorerepo.SiteDetail) {
+	if site == nil {
+		return
+	}
+	s.hydrateCoverMedia(site.CoverMedia)
+}
+
+func (s *Service) hydrateCoverMedia(cover *explorerepo.SiteCoverMedia) {
+	if cover == nil || strings.TrimSpace(cover.ObjectKey) == "" || s.mediaSigner == nil {
+		return
+	}
+	cover.DisplayURL = s.mediaSigner.URL(cover.ObjectKey, mediasign.PresetCard, 10*time.Minute)
 }
 
 func validateMapBounds(bounds *MapBounds) []validatex.Issue {
@@ -537,6 +566,8 @@ func (s *Service) GetSiteBySlug(ctx context.Context, viewerID, slug, updatesCurs
 		nextCursor = pagination.Encode(next.OccurredAt, next.ID)
 		updates = updates[:limit]
 	}
+
+	s.hydrateSiteDetailCoverMedia(&site)
 
 	return SiteDetailResult{Site: site, Updates: updates, NextUpdatesCursor: nextCursor}, nil
 }

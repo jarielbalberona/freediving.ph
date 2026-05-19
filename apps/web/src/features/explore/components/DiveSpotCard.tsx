@@ -62,6 +62,12 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
   ({ spot, selected, onSelect, onClose, actions }, ref) => {
     const depth = depthLabel(spot);
     const visibleHazards = spot.hazards.slice(0, 2);
+    const [coverFailed, setCoverFailed] = React.useState(false);
+    const coverImageUrl = coverFailed ? undefined : spot.coverImageUrl;
+
+    React.useEffect(() => {
+      setCoverFailed(false);
+    }, [spot.coverImageUrl]);
 
     return (
       <div
@@ -108,11 +114,13 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
               className="relative h-24 overflow-hidden rounded-2xl sm:h-28"
               style={{ backgroundImage: gradientFromName(spot.name) }}
             >
-              {spot.coverImageUrl ? (
+              {coverImageUrl ? (
                 <img
-                  src={spot.coverImageUrl}
-                  alt={spot.name}
+                  src={coverImageUrl}
+                  alt={`${spot.name} cover photo`}
                   className="h-full w-full object-cover"
+                  loading="lazy"
+                  onError={() => setCoverFailed(true)}
                 />
               ) : (
                 <div className="flex h-full items-end p-3 text-sm font-semibold text-primary-foreground">

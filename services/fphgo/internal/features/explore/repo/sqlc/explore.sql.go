@@ -1285,7 +1285,15 @@ SELECT
     FROM dive_site_likes viewer_like
     WHERE viewer_like.dive_site_id = s.id
       AND viewer_like.user_id = $1
-  ) AS viewer_has_liked
+  ) AS viewer_has_liked,
+  cover.media_post_id AS cover_media_post_id,
+  cover.media_item_id AS cover_media_item_id,
+  cover.media_object_id AS cover_media_object_id,
+  COALESCE(cover.storage_key, '') AS cover_media_storage_key,
+  COALESCE(cover.width, 0)::int AS cover_media_width,
+  COALESCE(cover.height, 0)::int AS cover_media_height,
+  COALESCE(cover.like_count, 0)::bigint AS cover_media_like_count,
+  cover.created_at AS cover_media_created_at
 FROM dive_sites s
 LEFT JOIN users v ON v.id = s.verified_by_app_user_id
 LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
@@ -1295,6 +1303,58 @@ LEFT JOIN LATERAL (
   FROM dive_site_likes dsl
   WHERE dsl.dive_site_id = s.id
 ) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT
+    mp.id AS media_post_id,
+    selected_item.id AS media_item_id,
+    selected_item.media_object_id,
+    selected_item.storage_key,
+    selected_item.width,
+    selected_item.height,
+    COALESCE(media_likes.like_count, 0)::bigint AS like_count,
+    mp.created_at
+  FROM media_posts mp
+  JOIN users media_author ON media_author.id = mp.author_app_user_id
+  JOIN LATERAL (
+    SELECT
+      mi.id,
+      mi.media_object_id,
+      mi.storage_key,
+      mi.width,
+      mi.height
+    FROM media_items mi
+    JOIN media_objects mo ON mo.id = mi.media_object_id
+    WHERE mi.post_id = mp.id
+      AND mi.dive_site_id = s.id
+      AND mi.type = 'photo'
+      AND mi.mime_type LIKE 'image/%'
+      AND mi.status = 'active'
+      AND mi.deleted_at IS NULL
+      AND NULLIF(TRIM(mi.storage_key), '') IS NOT NULL
+      AND mo.state = 'active'
+    ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
+    LIMIT 1
+  ) selected_item ON true
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::bigint AS like_count
+    FROM media_post_likes mpl
+    WHERE mpl.media_post_id = mp.id
+  ) media_likes ON true
+  WHERE mp.dive_site_id = s.id
+    AND mp.deleted_at IS NULL
+    AND media_author.account_status = 'active'
+    AND (
+      $1::uuid IS NULL
+      OR NOT EXISTS (
+        SELECT 1
+        FROM user_blocks media_blocks
+        WHERE (media_blocks.blocker_app_user_id = $1 AND media_blocks.blocked_app_user_id = mp.author_app_user_id)
+           OR (media_blocks.blocker_app_user_id = mp.author_app_user_id AND media_blocks.blocked_app_user_id = $1)
+      )
+    )
+  ORDER BY COALESCE(media_likes.like_count, 0)::bigint DESC, mp.created_at DESC, mp.id DESC
+  LIMIT 1
+) cover ON true
 WHERE s.slug = $2
   AND s.moderation_state = 'approved'
 `
@@ -1330,6 +1390,14 @@ type GetSiteBySlugRow struct {
 	LastConditionSummary  interface{}        `db:"last_condition_summary" json:"last_condition_summary"`
 	LikeCount             int64              `db:"like_count" json:"like_count"`
 	ViewerHasLiked        bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
+	CoverMediaPostID      pgtype.UUID        `db:"cover_media_post_id" json:"cover_media_post_id"`
+	CoverMediaItemID      pgtype.UUID        `db:"cover_media_item_id" json:"cover_media_item_id"`
+	CoverMediaObjectID    pgtype.UUID        `db:"cover_media_object_id" json:"cover_media_object_id"`
+	CoverMediaStorageKey  string             `db:"cover_media_storage_key" json:"cover_media_storage_key"`
+	CoverMediaWidth       int32              `db:"cover_media_width" json:"cover_media_width"`
+	CoverMediaHeight      int32              `db:"cover_media_height" json:"cover_media_height"`
+	CoverMediaLikeCount   int64              `db:"cover_media_like_count" json:"cover_media_like_count"`
+	CoverMediaCreatedAt   pgtype.Timestamptz `db:"cover_media_created_at" json:"cover_media_created_at"`
 }
 
 func (q *Queries) GetSiteBySlug(ctx context.Context, arg GetSiteBySlugParams) (GetSiteBySlugRow, error) {
@@ -1361,6 +1429,14 @@ func (q *Queries) GetSiteBySlug(ctx context.Context, arg GetSiteBySlugParams) (G
 		&i.LastConditionSummary,
 		&i.LikeCount,
 		&i.ViewerHasLiked,
+		&i.CoverMediaPostID,
+		&i.CoverMediaItemID,
+		&i.CoverMediaObjectID,
+		&i.CoverMediaStorageKey,
+		&i.CoverMediaWidth,
+		&i.CoverMediaHeight,
+		&i.CoverMediaLikeCount,
+		&i.CoverMediaCreatedAt,
 	)
 	return i, err
 }
@@ -2624,7 +2700,15 @@ SELECT
     FROM dive_site_likes viewer_like
     WHERE viewer_like.dive_site_id = s.id
       AND viewer_like.user_id = $1
-  ) AS viewer_has_liked
+  ) AS viewer_has_liked,
+  cover.media_post_id AS cover_media_post_id,
+  cover.media_item_id AS cover_media_item_id,
+  cover.media_object_id AS cover_media_object_id,
+  COALESCE(cover.storage_key, '') AS cover_media_storage_key,
+  COALESCE(cover.width, 0)::int AS cover_media_width,
+  COALESCE(cover.height, 0)::int AS cover_media_height,
+  COALESCE(cover.like_count, 0)::bigint AS cover_media_like_count,
+  cover.created_at AS cover_media_created_at
 FROM dive_sites s
 LEFT JOIN latest_update lu ON lu.dive_site_id = s.id
 LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
@@ -2635,6 +2719,58 @@ LEFT JOIN LATERAL (
   FROM dive_site_likes dsl
   WHERE dsl.dive_site_id = s.id
 ) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT
+    mp.id AS media_post_id,
+    selected_item.id AS media_item_id,
+    selected_item.media_object_id,
+    selected_item.storage_key,
+    selected_item.width,
+    selected_item.height,
+    COALESCE(media_likes.like_count, 0)::bigint AS like_count,
+    mp.created_at
+  FROM media_posts mp
+  JOIN users media_author ON media_author.id = mp.author_app_user_id
+  JOIN LATERAL (
+    SELECT
+      mi.id,
+      mi.media_object_id,
+      mi.storage_key,
+      mi.width,
+      mi.height
+    FROM media_items mi
+    JOIN media_objects mo ON mo.id = mi.media_object_id
+    WHERE mi.post_id = mp.id
+      AND mi.dive_site_id = s.id
+      AND mi.type = 'photo'
+      AND mi.mime_type LIKE 'image/%'
+      AND mi.status = 'active'
+      AND mi.deleted_at IS NULL
+      AND NULLIF(TRIM(mi.storage_key), '') IS NOT NULL
+      AND mo.state = 'active'
+    ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
+    LIMIT 1
+  ) selected_item ON true
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::bigint AS like_count
+    FROM media_post_likes mpl
+    WHERE mpl.media_post_id = mp.id
+  ) media_likes ON true
+  WHERE mp.dive_site_id = s.id
+    AND mp.deleted_at IS NULL
+    AND media_author.account_status = 'active'
+    AND (
+      $1::uuid IS NULL
+      OR NOT EXISTS (
+        SELECT 1
+        FROM user_blocks media_blocks
+        WHERE (media_blocks.blocker_app_user_id = $1 AND media_blocks.blocked_app_user_id = mp.author_app_user_id)
+           OR (media_blocks.blocker_app_user_id = mp.author_app_user_id AND media_blocks.blocked_app_user_id = $1)
+      )
+    )
+  ORDER BY COALESCE(media_likes.like_count, 0)::bigint DESC, mp.created_at DESC, mp.id DESC
+  LIMIT 1
+) cover ON true
 WHERE s.moderation_state = 'approved'
   AND ($2::text = '' OR s.area = $2)
   AND ($3::text = '' OR s.entry_difficulty = $3)
@@ -2707,6 +2843,14 @@ type ListSitesRow struct {
 	IsSaved                    bool               `db:"is_saved" json:"is_saved"`
 	LikeCount                  int64              `db:"like_count" json:"like_count"`
 	ViewerHasLiked             bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
+	CoverMediaPostID           pgtype.UUID        `db:"cover_media_post_id" json:"cover_media_post_id"`
+	CoverMediaItemID           pgtype.UUID        `db:"cover_media_item_id" json:"cover_media_item_id"`
+	CoverMediaObjectID         pgtype.UUID        `db:"cover_media_object_id" json:"cover_media_object_id"`
+	CoverMediaStorageKey       string             `db:"cover_media_storage_key" json:"cover_media_storage_key"`
+	CoverMediaWidth            int32              `db:"cover_media_width" json:"cover_media_width"`
+	CoverMediaHeight           int32              `db:"cover_media_height" json:"cover_media_height"`
+	CoverMediaLikeCount        int64              `db:"cover_media_like_count" json:"cover_media_like_count"`
+	CoverMediaCreatedAt        pgtype.Timestamptz `db:"cover_media_created_at" json:"cover_media_created_at"`
 }
 
 func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSitesRow, error) {
@@ -2754,6 +2898,14 @@ func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSit
 			&i.IsSaved,
 			&i.LikeCount,
 			&i.ViewerHasLiked,
+			&i.CoverMediaPostID,
+			&i.CoverMediaItemID,
+			&i.CoverMediaObjectID,
+			&i.CoverMediaStorageKey,
+			&i.CoverMediaWidth,
+			&i.CoverMediaHeight,
+			&i.CoverMediaLikeCount,
+			&i.CoverMediaCreatedAt,
 		); err != nil {
 			return nil, err
 		}

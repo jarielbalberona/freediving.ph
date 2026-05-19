@@ -79,6 +79,10 @@ test("dive spot cards expose only real list-card facts and non-claiming buddy CT
   assert.match(source, /lastConditionSummary/);
   assert.match(source, /verificationStatus/);
   assert.match(source, /buddySignal/);
+  assert.match(source, /coverImageUrl/);
+  assert.match(source, /alt=\{`\$\{spot\.name\} cover photo`\}/);
+  assert.match(source, /onError=\{\(\) => setCoverFailed\(true\)\}/);
+  assert.match(source, /loading="lazy"/);
   assert.match(source, /spot\.buddySignal\.label/);
   assert.match(source, /hasSiteActivity/);
   assert.match(source, /spot\.buddySignal \?/);

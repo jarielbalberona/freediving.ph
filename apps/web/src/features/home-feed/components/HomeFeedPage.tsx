@@ -139,22 +139,12 @@ export function HomeFeedPage({
     [homeQuery.data?.quickActions],
   );
 
-  const nearbyCondition = homeQuery.data?.nearbyCondition ?? {
-    spot: "Philippines",
-    safety: "Check locally",
-    current: "Ask locally",
-    visibility: "Varies",
-    waterTemp: "Varies",
-    wind: "Check forecast",
-    sunrise: "Plan ahead",
-  };
-
   return (
     <main className="min-h-full bg-gradient-to-b from-background to-muted/20 px-3 py-3 text-foreground sm:px-4 sm:py-4">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
         <HomeHero context={context} mode={mode} />
         <HomeQuickActions actions={actions} />
-        <NearbyConditionsCard condition={nearbyCondition} />
+        <NearbyConditionsCard />
         <FeedModeTabs mode={mode} onChange={setMode} />
 
         {query.error ? (

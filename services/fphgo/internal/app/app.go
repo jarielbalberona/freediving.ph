@@ -34,6 +34,9 @@ import (
 	groupshttp "fphgo/internal/features/groups/http"
 	groupsrepo "fphgo/internal/features/groups/repo"
 	groupsservice "fphgo/internal/features/groups/service"
+	homehttp "fphgo/internal/features/home/http"
+	homerepo "fphgo/internal/features/home/repo"
+	homeservice "fphgo/internal/features/home/service"
 	identityrepo "fphgo/internal/features/identity/repo"
 	identityservice "fphgo/internal/features/identity/service"
 	locationshttp "fphgo/internal/features/locations/http"
@@ -90,6 +93,7 @@ type Dependencies struct {
 	GroupsHandler        *groupshttp.Handlers
 	EventsHandler        *eventshttp.Handlers
 	LocationsHandler     *locationshttp.Handlers
+	HomeHandler          *homehttp.Handlers
 	AuthRoutes           chi.Router
 	UsersRoutes          chi.Router
 	MessagingRoutes      chi.Router
@@ -107,6 +111,7 @@ type Dependencies struct {
 	GroupsRoutes         chi.Router
 	EventsRoutes         chi.Router
 	LocationsRoutes      chi.Router
+	HomeRoutes           chi.Router
 	IdentityService      *identityservice.Service
 	WSHandler            *ws.Handler
 	Hub                  *ws.Hub
@@ -256,6 +261,9 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	locationsRepo := locationsrepo.New(pool)
 	locationsService := locationsservice.New(locationsRepo)
 	locationsHandler := locationshttp.New(locationsService)
+	homeRepo := homerepo.New(pool)
+	homeService := homeservice.New(homeRepo, homeservice.WithForecastProvider(homeservice.NewOpenMeteoProvider()))
+	homeHandler := homehttp.New(homeService)
 	var siteGeocoder *sharedmapsgeocode.Client
 	siteGeocoder, err = sharedmapsgeocode.New(cfg.GoogleMapsAPIKey)
 	if err != nil {
@@ -277,6 +285,11 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		exploreservice.WithReverseGeocoder(siteGeocoder),
 		exploreservice.WithActivityPublisher(feedService),
 		exploreservice.WithActivityFeed(feedService),
+		exploreservice.WithMediaDisplayURLs(
+			cfg.MediaCDNBaseURL,
+			cfg.MediaSigningSecretV1,
+			cfg.MediaSigningKeyVersion,
+		),
 	)
 	exploreHandler := explorehttp.New(exploreService, v)
 
@@ -303,6 +316,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		GroupsHandler:        groupsHandler,
 		EventsHandler:        eventsHandler,
 		LocationsHandler:     locationsHandler,
+		HomeHandler:          homeHandler,
 		IdentityService:      identityService,
 		WSHandler:            wsHandler,
 		Hub:                  hub,

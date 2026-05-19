@@ -124,6 +124,9 @@ export const routes = {
       impressions: () => "/v1/feed/impressions",
       actions: () => "/v1/feed/actions",
     },
+    home: {
+      nearbyConditions: () => "/v1/home/nearby-conditions",
+    },
     locations: {
       regions: () => "/v1/locations/regions",
       provinces: () => "/v1/locations/provinces",

@@ -59,6 +59,7 @@ type SiteCard struct {
 	IsSaved              bool
 	LikeCount            int64
 	ViewerHasLiked       bool
+	CoverMedia           *SiteCoverMedia
 }
 
 type SiteDetail struct {
@@ -87,6 +88,19 @@ type SiteDetail struct {
 	LastConditionSummary  string
 	LikeCount             int64
 	ViewerHasLiked        bool
+	CoverMedia            *SiteCoverMedia
+}
+
+type SiteCoverMedia struct {
+	MediaPostID   string
+	MediaItemID   string
+	MediaObjectID string
+	ObjectKey     string
+	DisplayURL    string
+	Width         int32
+	Height        int32
+	LikeCount     int64
+	CreatedAt     time.Time
 }
 
 type LikeState struct {
@@ -446,6 +460,16 @@ func (r *Repo) ListSites(ctx context.Context, input ListSitesInput) ([]SiteCard,
 			IsSaved:              row.IsSaved,
 			LikeCount:            row.LikeCount,
 			ViewerHasLiked:       row.ViewerHasLiked,
+			CoverMedia: mapSiteCoverMedia(
+				row.CoverMediaPostID,
+				row.CoverMediaItemID,
+				row.CoverMediaObjectID,
+				row.CoverMediaStorageKey,
+				row.CoverMediaWidth,
+				row.CoverMediaHeight,
+				row.CoverMediaLikeCount,
+				row.CoverMediaCreatedAt,
+			),
 		})
 	}
 	return items, nil
@@ -485,6 +509,16 @@ func (r *Repo) GetSiteBySlug(ctx context.Context, slug, viewerUserID string) (Si
 		LastConditionSummary:  anyString(row.LastConditionSummary),
 		LikeCount:             row.LikeCount,
 		ViewerHasLiked:        row.ViewerHasLiked,
+		CoverMedia: mapSiteCoverMedia(
+			row.CoverMediaPostID,
+			row.CoverMediaItemID,
+			row.CoverMediaObjectID,
+			row.CoverMediaStorageKey,
+			row.CoverMediaWidth,
+			row.CoverMediaHeight,
+			row.CoverMediaLikeCount,
+			row.CoverMediaCreatedAt,
+		),
 	}, nil
 }
 
@@ -1245,6 +1279,31 @@ func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
 	}
 	result := value.Time.UTC()
 	return &result
+}
+
+func mapSiteCoverMedia(
+	postID pgtype.UUID,
+	itemID pgtype.UUID,
+	objectID pgtype.UUID,
+	objectKey string,
+	width int32,
+	height int32,
+	likeCount int64,
+	createdAt pgtype.Timestamptz,
+) *SiteCoverMedia {
+	if !postID.Valid || !itemID.Valid || !objectID.Valid || objectKey == "" || width <= 0 || height <= 0 {
+		return nil
+	}
+	return &SiteCoverMedia{
+		MediaPostID:   uuidOrEmpty(postID),
+		MediaItemID:   uuidOrEmpty(itemID),
+		MediaObjectID: uuidOrEmpty(objectID),
+		ObjectKey:     objectKey,
+		Width:         width,
+		Height:        height,
+		LikeCount:     likeCount,
+		CreatedAt:     createdAt.Time.UTC(),
+	}
 }
 
 func mapDivePresence(row exploreqlc.DivePresence) DivePresence {

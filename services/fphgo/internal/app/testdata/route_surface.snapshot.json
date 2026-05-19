@@ -146,6 +146,22 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/explore/moderation/site-edits/pending"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/moderation/site-edits/{id}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/moderation/site-edits/{id}/approve"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/moderation/site-edits/{id}/reject"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/explore/moderation/sites/pending"
     },
     {
@@ -167,6 +183,14 @@
     {
       "method": "GET",
       "pattern": "/v1/explore/sites"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/edit-proposals"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/edit-proposals/{id}"
     },
     {
       "method": "GET",
@@ -233,6 +257,10 @@
       "pattern": "/v1/explore/sites/{slug}/community-posts"
     },
     {
+      "method": "POST",
+      "pattern": "/v1/explore/sites/{slug}/edit-proposals"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/explore/sites/{slug}/presence"
     },
@@ -279,6 +307,10 @@
     {
       "method": "POST",
       "pattern": "/v1/feed/impressions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/home/nearby-conditions"
     },
     {
       "method": "GET",

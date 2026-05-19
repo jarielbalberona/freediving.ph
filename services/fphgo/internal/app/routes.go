@@ -17,6 +17,7 @@ import (
 	explorehttp "fphgo/internal/features/explore/http"
 	feedhttp "fphgo/internal/features/feed/http"
 	groupshttp "fphgo/internal/features/groups/http"
+	homehttp "fphgo/internal/features/home/http"
 	locationshttp "fphgo/internal/features/locations/http"
 	mediahttp "fphgo/internal/features/media/http"
 	messaginghttp "fphgo/internal/features/messaging/http"
@@ -125,6 +126,9 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		}
 		if feedRouter := resolveFeedRouter(deps); feedRouter != nil {
 			r.Mount("/v1/feed", feedRouter)
+		}
+		if homeRouter := resolveHomeRouter(deps); homeRouter != nil {
+			r.Mount("/v1/home", homeRouter)
 		}
 		if mediaRouter := resolveMediaRouter(deps); mediaRouter != nil {
 			r.Mount("/v1/media", mediaRouter)
@@ -275,6 +279,16 @@ func resolveFeedRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return feedhttp.Routes(deps.FeedHandler)
+}
+
+func resolveHomeRouter(deps *Dependencies) chi.Router {
+	if deps.HomeRoutes != nil {
+		return deps.HomeRoutes
+	}
+	if deps.HomeHandler == nil {
+		return nil
+	}
+	return homehttp.Routes(deps.HomeHandler)
 }
 
 func resolveGroupsRouter(deps *Dependencies) chi.Router {

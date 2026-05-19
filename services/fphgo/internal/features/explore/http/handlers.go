@@ -1162,6 +1162,7 @@ func mapSiteCard(input explorerepo.SiteCard) SiteCard {
 		LikeCount:            input.LikeCount,
 		ViewerHasLiked:       input.ViewerHasLiked,
 		BuddySignal:          mapBuddySignal(input),
+		CoverMedia:           mapCoverMedia(input.CoverMedia),
 	}
 }
 
@@ -1213,6 +1214,23 @@ func mapSiteDetail(input explorerepo.SiteDetail) SiteDetail {
 		LastConditionSummary:  input.LastConditionSummary,
 		LikeCount:             input.LikeCount,
 		ViewerHasLiked:        input.ViewerHasLiked,
+		CoverMedia:            mapCoverMedia(input.CoverMedia),
+	}
+}
+
+func mapCoverMedia(input *explorerepo.SiteCoverMedia) *CoverMedia {
+	if input == nil || strings.TrimSpace(input.DisplayURL) == "" {
+		return nil
+	}
+	return &CoverMedia{
+		MediaPostID:   input.MediaPostID,
+		MediaItemID:   input.MediaItemID,
+		MediaObjectID: input.MediaObjectID,
+		DisplayURL:    input.DisplayURL,
+		Width:         input.Width,
+		Height:        input.Height,
+		LikeCount:     input.LikeCount,
+		CreatedAt:     input.CreatedAt.Format(time.RFC3339),
 	}
 }
 

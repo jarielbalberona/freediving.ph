@@ -18,6 +18,7 @@ import (
 	chikahttp "fphgo/internal/features/chika/http"
 	explorehttp "fphgo/internal/features/explore/http"
 	feedhttp "fphgo/internal/features/feed/http"
+	homehttp "fphgo/internal/features/home/http"
 	locationshttp "fphgo/internal/features/locations/http"
 	mediahttp "fphgo/internal/features/media/http"
 	messaginghttp "fphgo/internal/features/messaging/http"
@@ -160,6 +161,7 @@ func buildFullSurfaceRouter() chi.Router {
 		ChikaHandler:      chikahttp.New(nil, nil),
 		ExploreHandler:    explorehttp.New(nil, validatex.New()),
 		FeedHandler:       feedhttp.New(nil, nil),
+		HomeHandler:       homehttp.New(nil),
 		LocationsHandler:  locationshttp.New(nil),
 		ProfilesHandler:   profileshttp.New(nil, nil),
 		BlocksHandler:     blockshttp.New(nil, nil),

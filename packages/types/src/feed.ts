@@ -45,6 +45,34 @@ export interface HomeFeedNearbyCondition {
   sunrise: string;
 }
 
+export type NearbyConditionsSource =
+  | "local"
+  | "nearest_dive_area"
+  | "fallback_country";
+
+export type NearbyConditionConfidence = "reported" | "forecast" | "unknown";
+
+export interface NearbyConditionCard {
+  label: "Current" | "Visibility" | "Temp" | "Wind" | "Sunrise";
+  value: string;
+  confidence: NearbyConditionConfidence;
+}
+
+export interface NearbyConditionCards {
+  current: NearbyConditionCard & { label: "Current" };
+  visibility: NearbyConditionCard & { label: "Visibility" };
+  temp: NearbyConditionCard & { label: "Temp" };
+  wind: NearbyConditionCard & { label: "Wind" };
+  sunrise: NearbyConditionCard & { label: "Sunrise" };
+}
+
+export interface NearbyConditionsResponse {
+  locationLabel: string;
+  source: NearbyConditionsSource;
+  updatedAt?: string;
+  cards: NearbyConditionCards;
+}
+
 export interface HomeFeedItemBase {
   id: string;
   feedSource?: FeedSource;

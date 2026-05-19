@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -407,6 +408,38 @@ func TestListSitesSavedOnlyStillPaginates(t *testing.T) {
 	}
 	if len(result.Items) != 1 || result.NextCursor == "" {
 		t.Fatalf("expected one item and next cursor, got %+v", result)
+	}
+}
+
+func TestListSitesHydratesCoverMediaDisplayURL(t *testing.T) {
+	repo := &repoStub{listResult: []explorerepo.SiteCard{{
+		ID:            "550e8400-e29b-41d4-a716-446655440101",
+		LastUpdatedAt: time.Now().UTC(),
+		CoverMedia: &explorerepo.SiteCoverMedia{
+			MediaPostID:   "550e8400-e29b-41d4-a716-446655440201",
+			MediaItemID:   "550e8400-e29b-41d4-a716-446655440202",
+			MediaObjectID: "550e8400-e29b-41d4-a716-446655440203",
+			ObjectKey:     "media/site-cover.jpg",
+			Width:         1200,
+			Height:        800,
+			CreatedAt:     time.Now().UTC(),
+		},
+	}}}
+	svc := New(repo, WithMediaDisplayURLs("https://cdn.example.test", "secret", 1))
+
+	result, err := svc.ListSites(context.Background(), ListSitesInput{Limit: 20})
+	if err != nil {
+		t.Fatalf("list sites: %v", err)
+	}
+	if len(result.Items) != 1 || result.Items[0].CoverMedia == nil {
+		t.Fatalf("expected cover media, got %+v", result.Items)
+	}
+	displayURL := result.Items[0].CoverMedia.DisplayURL
+	if !strings.HasPrefix(displayURL, "https://cdn.example.test/media/site-cover.jpg?") {
+		t.Fatalf("expected signed display URL, got %q", displayURL)
+	}
+	if !strings.Contains(displayURL, "sig=") || !strings.Contains(displayURL, "w=960") {
+		t.Fatalf("expected signed card transform URL, got %q", displayURL)
 	}
 }
 

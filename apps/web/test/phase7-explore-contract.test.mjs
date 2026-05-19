@@ -41,6 +41,8 @@ test("explore adapter preserves backend card facts and supported filters", async
   assert.match(apiSource, /depthMaxM: site\.depthMaxM/);
   assert.match(apiSource, /hazards: site\.hazards/);
   assert.match(apiSource, /buddySignal: site\.buddySignal/);
+  assert.match(apiSource, /coverMedia: site\.coverMedia/);
+  assert.match(apiSource, /coverImageUrl: site\.coverMedia\?\.displayUrl/);
   assert.match(apiSource, /area: params\.area/);
   assert.match(apiSource, /difficulty: params\.difficulty/);
   assert.match(apiSource, /verifiedOnly: params\.verifiedOnly/);

@@ -53,7 +53,10 @@ test("explore site detail renders real backend data or 404s honestly", async () 
   assert.match(sharePage, /getExploreSiteRelatedServer\(slug\)/);
   assert.match(sharePage, /Suggest edit/);
   assert.match(sharePage, /\/explore\/sites\/\$\{data\.site\.slug\}\/suggest-edit/);
+  assert.match(sharePage, /FphgoFetchError/);
+  assert.match(sharePage, /error\.status === 404/);
   assert.match(sharePage, /notFound\(\)/);
+  assert.match(sharePage, /throw error/);
 });
 
 test("explore site edits use a separate proposal workflow", async () => {

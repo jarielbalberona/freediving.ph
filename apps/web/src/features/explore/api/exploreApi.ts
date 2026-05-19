@@ -22,6 +22,8 @@ const mapSiteCard = (site: ExploreSiteCard): DiveSpot => ({
   likeCount: site.likeCount,
   viewerHasLiked: site.viewerHasLiked,
   buddySignal: site.buddySignal,
+  coverMedia: site.coverMedia,
+  coverImageUrl: site.coverMedia?.displayUrl,
 });
 
 export const exploreApi = {

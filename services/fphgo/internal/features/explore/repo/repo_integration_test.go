@@ -707,6 +707,160 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 	}
 }
 
+func TestListSitesSelectsEligibleLinkedCoverMedia(t *testing.T) {
+	pool := testExplorePool(t)
+	repo := explorerepo.New(pool)
+	ctx := context.Background()
+	nonce := time.Now().UnixNano()
+
+	insertUser := func(username, status string) string {
+		t.Helper()
+		var id string
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO users (id, username, display_name, account_status)
+			VALUES (gen_random_uuid(), $1, $2, $3)
+			RETURNING id
+		`, username, username, status).Scan(&id); err != nil {
+			t.Skipf("insert user: %v", err)
+		}
+		return id
+	}
+
+	activeAuthorID := insertUser(fmt.Sprintf("cover_author_%d", nonce), "active")
+	inactiveAuthorID := insertUser(fmt.Sprintf("cover_inactive_%d", nonce), "suspended")
+
+	insertSite := func(name, moderation string) string {
+		t.Helper()
+		var id string
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO dive_sites (
+				name, slug, area, latitude, longitude, entry_difficulty,
+				verification_status, moderation_state, last_updated_at, updated_at
+			)
+			VALUES ($1, $2, 'Dauin, Negros Oriental', 9.20, 123.25, 'easy', 'verified', $3, NOW(), NOW())
+			RETURNING id
+		`, name, fmt.Sprintf("%s-%d", name, nonce), moderation).Scan(&id); err != nil {
+			t.Fatalf("insert site: %v", err)
+		}
+		return id
+	}
+
+	siteID := insertSite("Cover Reef", "approved")
+	noMediaSiteID := insertSite("Bare Reef", "approved")
+	otherSiteID := insertSite("Other Cover Reef", "approved")
+	pendingSiteID := insertSite("Pending Cover Reef", "pending")
+
+	addMedia := func(siteID, authorID, key, itemStatus, objectState string, createdAt time.Time, likes int, deleted bool) {
+		t.Helper()
+		var groupID string
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO media_upload_groups (author_app_user_id, source, item_count, created_at)
+			VALUES ($1, 'create_post', 1, $2)
+			RETURNING id
+		`, authorID, createdAt).Scan(&groupID); err != nil {
+			t.Fatalf("insert media group: %v", err)
+		}
+
+		var objectID string
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO media_objects (
+				owner_app_user_id, context_type, context_id, object_key, mime_type,
+				size_bytes, width, height, state, created_at
+			)
+			VALUES ($1, 'dive_spot_attachment', $2, $3, 'image/jpeg', 120000, 1200, 800, $4, $5)
+			RETURNING id
+		`, authorID, siteID, key, objectState, createdAt).Scan(&objectID); err != nil {
+			t.Fatalf("insert media object: %v", err)
+		}
+
+		var postID string
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO media_posts (
+				author_app_user_id, upload_group_id, dive_site_id, post_caption, created_at, updated_at, deleted_at
+			)
+			VALUES ($1, $2, $3, 'cover candidate', $4, $4, CASE WHEN $5 THEN $4 ELSE NULL END)
+			RETURNING id
+		`, authorID, groupID, siteID, createdAt, deleted).Scan(&postID); err != nil {
+			t.Fatalf("insert media post: %v", err)
+		}
+
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO media_items (
+				post_id, media_object_id, author_app_user_id, upload_group_id, dive_site_id,
+				type, storage_key, mime_type, width, height, sort_order, status, created_at, updated_at
+			)
+			VALUES ($1, $2, $3, $4, $5, 'photo', $6, 'image/jpeg', 1200, 800, 0, $7, $8, $8)
+		`, postID, objectID, authorID, groupID, siteID, key, itemStatus, createdAt); err != nil {
+			t.Fatalf("insert media item: %v", err)
+		}
+
+		for i := 0; i < likes; i++ {
+			likerID := insertUser(fmt.Sprintf("cover_liker_%d_%d_%d", nonce, likes, i), "active")
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO media_post_likes (media_post_id, user_id, created_at)
+				VALUES ($1, $2, $3)
+			`, postID, likerID, createdAt.Add(time.Duration(i)*time.Second)); err != nil {
+				t.Fatalf("insert media like: %v", err)
+			}
+		}
+	}
+
+	now := time.Now().UTC()
+	addMedia(siteID, activeAuthorID, "media/low-liked-newer.jpg", "active", "active", now.Add(-1*time.Hour), 1, false)
+	addMedia(siteID, activeAuthorID, "media/top-liked-older.jpg", "active", "active", now.Add(-3*time.Hour), 3, false)
+	addMedia(siteID, activeAuthorID, "media/top-liked-newer.jpg", "active", "active", now.Add(-2*time.Hour), 3, false)
+	addMedia(siteID, activeAuthorID, "media/hidden-item.jpg", "hidden", "active", now, 9, false)
+	addMedia(siteID, activeAuthorID, "media/hidden-object.jpg", "active", "hidden", now, 9, false)
+	addMedia(siteID, inactiveAuthorID, "media/inactive-author.jpg", "active", "active", now, 10, false)
+	addMedia(siteID, activeAuthorID, "media/deleted-post.jpg", "active", "active", now, 11, true)
+	addMedia(otherSiteID, activeAuthorID, "media/other-site.jpg", "active", "active", now, 12, false)
+	addMedia(pendingSiteID, activeAuthorID, "media/pending-site.jpg", "active", "active", now, 13, false)
+
+	items, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
+		Area:            "Dauin, Negros Oriental",
+		CursorUpdatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           100,
+	})
+	if err != nil {
+		t.Fatalf("list sites: %v", err)
+	}
+
+	foundCovered := false
+	foundBare := false
+	foundOther := false
+	for _, item := range items {
+		switch item.ID {
+		case siteID:
+			foundCovered = true
+			if item.CoverMedia == nil {
+				t.Fatalf("expected cover media for linked site: %+v", item)
+			}
+			if item.CoverMedia.ObjectKey != "media/top-liked-newer.jpg" {
+				t.Fatalf("expected highest-liked newest cover, got %+v", item.CoverMedia)
+			}
+			if item.CoverMedia.LikeCount != 3 {
+				t.Fatalf("expected cover like count 3, got %+v", item.CoverMedia)
+			}
+		case noMediaSiteID:
+			foundBare = true
+			if item.CoverMedia != nil {
+				t.Fatalf("expected no cover for site without eligible media, got %+v", item.CoverMedia)
+			}
+		case otherSiteID:
+			foundOther = true
+			if item.CoverMedia == nil || item.CoverMedia.ObjectKey != "media/other-site.jpg" {
+				t.Fatalf("expected only directly linked media for other site, got %+v", item.CoverMedia)
+			}
+		case pendingSiteID:
+			t.Fatalf("pending site leaked into public results: %+v", item)
+		}
+	}
+	if !foundCovered || !foundBare || !foundOther {
+		t.Fatalf("expected approved sites in results, got %+v", items)
+	}
+}
+
 func TestListVisibleDivePresencesGlobalAppliesVisibilityBlocksAndFilters(t *testing.T) {
 	pool := testExplorePool(t)
 	repo := explorerepo.New(pool)

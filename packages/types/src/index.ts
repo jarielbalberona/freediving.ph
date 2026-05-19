@@ -1201,6 +1201,18 @@ export type ExploreSiteCard = {
   likeCount: number;
   viewerHasLiked: boolean;
   buddySignal?: ExploreBuddySignal;
+  coverMedia?: ExploreCoverMedia;
+};
+
+export type ExploreCoverMedia = {
+  mediaPostId: string;
+  mediaItemId: string;
+  mediaObjectId: string;
+  displayUrl: string;
+  width: number;
+  height: number;
+  likeCount: number;
+  createdAt: string;
 };
 
 export type ExploreBuddySignal = {
@@ -1260,6 +1272,7 @@ export type ExploreSiteDetail = {
   lastConditionSummary?: string;
   likeCount: number;
   viewerHasLiked: boolean;
+  coverMedia?: ExploreCoverMedia;
 };
 
 export type ExploreListResponse = {
