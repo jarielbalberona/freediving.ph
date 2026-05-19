@@ -18,7 +18,7 @@ test("chika thread contracts support pseudonymous and moderator fields", () => {
     mode: "pseudonymous",
     categoryId: "550e8400-e29b-41d4-a716-446655440090",
     categorySlug: "confessions",
-    categoryName: "Confessions",
+    categoryName: "Community Stories",
     categoryPseudonymous: true,
     authorDisplayName: "anon-ABC123",
     realAuthorUserId: "550e8400-e29b-41d4-a716-446655440777",
@@ -49,7 +49,7 @@ test("chika category contract includes pseudonymous flag", () => {
   const category: ChikaCategoryResponse = {
     id: "550e8400-e29b-41d4-a716-446655440090",
     slug: "confessions",
-    name: "Confessions",
+    name: "Community Stories",
     pseudonymous: true,
   };
   assert.equal(category.pseudonymous, true);

@@ -663,7 +663,7 @@ func TestChikaPseudonymousCategoryVisibility(t *testing.T) {
 
 	repo := &filteredChikaRepo{
 		categories: []chikarepo.Category{
-			{ID: "550e8400-e29b-41d4-a716-446655440090", Slug: "confessions", Name: "Confessions", Pseudonymous: true},
+			{ID: "550e8400-e29b-41d4-a716-446655440090", Slug: "confessions", Name: "Community Stories", Pseudonymous: true},
 		},
 		blocks: map[string]bool{},
 		threads: []chikarepo.Thread{
@@ -673,7 +673,7 @@ func TestChikaPseudonymousCategoryVisibility(t *testing.T) {
 				Mode:            "pseudonymous",
 				CategoryID:      "550e8400-e29b-41d4-a716-446655440090",
 				CategorySlug:    "confessions",
-				CategoryName:    "Confessions",
+				CategoryName:    "Community Stories",
 				Pseudonymous:    true,
 				CreatedByUserID: authorID,
 				CreatedAt:       now,
@@ -774,7 +774,7 @@ func TestChikaPseudonymStability(t *testing.T) {
 	repo := &filteredChikaRepo{
 		blocks: map[string]bool{},
 		threads: []chikarepo.Thread{
-			{ID: threadID, Title: "Anon", Mode: "pseudonymous", CategoryID: "c1", CategorySlug: "confessions", CategoryName: "Confessions", Pseudonymous: true, CreatedByUserID: authorID, AuthorUsername: "hidden_user", CreatedAt: now, UpdatedAt: now},
+			{ID: threadID, Title: "Anon", Mode: "pseudonymous", CategoryID: "c1", CategorySlug: "confessions", CategoryName: "Community Stories", Pseudonymous: true, CreatedByUserID: authorID, AuthorUsername: "hidden_user", CreatedAt: now, UpdatedAt: now},
 		},
 		comments:         []chikarepo.Comment{},
 		hiddenThreadIDs:  map[string]bool{},
