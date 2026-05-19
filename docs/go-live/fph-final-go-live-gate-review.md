@@ -2,9 +2,12 @@
 
 Date/time of review: 2026-05-19 13:52 PST (UTC+08:00)
 
+Recovery rerun note: 2026-05-19 14:09 PST (UTC+08:00) confirmed the same final decision. Target web/API still return Render router `404 Not Found` with `x-render-routing: no-server`; Render CLI/API access is blocked by an expired/unauthorized token; no usable repo-side deploy workflow was found. See `docs/go-live/fph-deployment-recovery.md` and `docs/go-live/fph-live-smoke-results.md`.
+
 Environment reviewed:
 - Repo checkout: `/Volumes/Files/softwareengineering/my-projects/freediving.ph`
-- Current branch: `main` at `9a8ddb9` / `origin/main`
+- Current branch during original gate: `main` at `9a8ddb9` / `origin/main`
+- Current branch during recovery rerun: `main` at `e5e2ae9` / `origin/main`
 - Merged go-live PR: `#4` (`fix/fph-go-live` -> `main`), merged 2026-03-31
 - Target web URL from `render.yaml`: `https://freediving-ph-app.onrender.com`
 - Target API URL from `render.yaml`: `https://freediving-ph-api.onrender.com`
@@ -49,6 +52,7 @@ Corrections applied:
 - Posted an `offTrack` Linear project status update for `FPH Go Live`.
 
 Still needed:
+- Restore Render access/deploy control (`FD-1105`).
 - Attach or recreate the missing go-live ticket accounting in Linear.
 - Fix or intentionally update the Explore buddy contract test.
 - Reconcile the Go route snapshot intentionally, then rerun backend route tests.
@@ -74,6 +78,7 @@ Remaining issues:
 - Target API is not serving.
 - Health, readiness, Explore, Chika, and auth entry routes cannot be proven.
 - This is a launch-blocking environment failure.
+- Recovery rerun confirmed no deploy/redeploy could be triggered because Render CLI token is expired/unauthorized and no usable GitHub deploy workflow exists.
 
 ## Gate D - Target-Environment Smoke
 
@@ -139,6 +144,8 @@ This product may be directionally close in source code and public UX, but launch
 9. Current web tests fail on Explore buddy contract copy drift.
 10. Current Go route snapshot test fails due route count drift.
 11. Linear ticket truth is not reviewable from the accessible `FPH Go Live` project.
+12. Render deployment access is blocked by expired/unauthorized CLI token (`FD-1105`).
+13. Public custom domain routing is unresolved if `freediving.ph` hostnames are launch scope (`FD-1106`).
 
 ## Exact Next Actions
 

@@ -1,17 +1,7 @@
 # Render Blueprint for the monorepo deployment.
 # Deploys:
-# 1. Managed Postgres
 # 2. Go API from services/fphgo
 # 3. Next.js web app from apps/web
-
-databases:
-  # Managed Render Postgres used by the Go API.
-  - name: freediving-ph-db
-    databaseName: freediving_ph
-    user: freediving_ph
-    plan: basic-1gb
-    region: oregon
-    postgresMajorVersion: "16"
 
 services:
   # Go API service backed by services/fphgo. Canonical API routes remain under /v1.
