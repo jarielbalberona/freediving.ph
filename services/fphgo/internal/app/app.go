@@ -276,6 +276,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		exploreservice.WithBuddyMatcher(buddyFinderService),
 		exploreservice.WithReverseGeocoder(siteGeocoder),
 		exploreservice.WithActivityPublisher(feedService),
+		exploreservice.WithActivityFeed(feedService),
 	)
 	exploreHandler := explorehttp.New(exploreService, v)
 

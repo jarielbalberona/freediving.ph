@@ -58,11 +58,13 @@ type ActivityTarget struct {
 }
 
 type ActivityInput struct {
-	UserID string
-	Mode   Mode
-	Cursor string
-	Region string
-	Limit  int
+	UserID     string
+	Mode       Mode
+	Cursor     string
+	Region     string
+	DiveSiteID string
+	Types      []ActivityType
+	Limit      int
 }
 
 type ActivityResult struct {
@@ -171,6 +173,8 @@ func (s *Service) Activity(ctx context.Context, input ActivityInput) (ActivityRe
 		UserID:           strings.TrimSpace(input.UserID),
 		Mode:             string(ParseMode(string(input.Mode))),
 		Area:             areaFilter,
+		DiveSiteID:       strings.TrimSpace(input.DiveSiteID),
+		Types:            activityTypesAsStrings(input.Types),
 		CursorOccurredAt: cursorOccurredAt,
 		CursorID:         cursorID,
 		Limit:            int32(limit + 1),
@@ -191,6 +195,28 @@ func (s *Service) Activity(ctx context.Context, input ActivityInput) (ActivityRe
 		items = append(items, s.mapActivityRow(row, strings.TrimSpace(input.UserID)))
 	}
 	return ActivityResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) CountActivity(ctx context.Context, input ActivityInput) (int64, error) {
+	homeArea, err := s.repo.GetHomeArea(ctx, input.UserID)
+	if err != nil {
+		return 0, apperrors.New(http.StatusInternalServerError, "feed_failed", "failed to resolve profile context", err)
+	}
+	areaFilter := strings.TrimSpace(input.Region)
+	if areaFilter == "" {
+		areaFilter = homeArea
+	}
+	count, err := s.repo.CountActivityItems(ctx, feedrepo.ActivityListInput{
+		UserID:     strings.TrimSpace(input.UserID),
+		Mode:       string(ParseMode(string(input.Mode))),
+		Area:       areaFilter,
+		DiveSiteID: strings.TrimSpace(input.DiveSiteID),
+		Types:      activityTypesAsStrings(input.Types),
+	})
+	if err != nil {
+		return 0, apperrors.New(http.StatusInternalServerError, "activity_feed_failed", "failed to count activity feed", err)
+	}
+	return count, nil
 }
 
 func (s *Service) PublishActivity(ctx context.Context, input ActivityPublishInput) error {
@@ -228,6 +254,20 @@ func (s *Service) PublishActivity(ctx context.Context, input ActivityPublishInpu
 		Stats:           input.Stats,
 		Metadata:        input.Metadata,
 	})
+}
+
+func activityTypesAsStrings(types []ActivityType) []string {
+	if len(types) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(types))
+	for _, value := range types {
+		trimmed := strings.TrimSpace(string(value))
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 
 func (s *Service) MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID string, state ActivityState) error {

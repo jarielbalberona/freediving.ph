@@ -1,3 +1,4 @@
+import type { ActivityFeedItem } from "./feed";
 import type { ReportReasonCode } from "./reports";
 
 export * from "./api/authz";
@@ -1269,6 +1270,28 @@ export type ExploreSiteDetailResponse = {
   site: ExploreSiteDetail;
   updates: ExploreSiteUpdate[];
   nextUpdatesCursor?: string;
+};
+
+export type ExploreSiteRelatedCounts = {
+  buddies: number;
+  communityPosts: number;
+  recentConditions: number;
+};
+
+export type ExploreSiteRelatedPreviews = {
+  buddies: BuddyFinderPreviewIntent[];
+  communityPosts: ActivityFeedItem[];
+};
+
+export type ExploreSiteRelatedResponse = {
+  counts: ExploreSiteRelatedCounts;
+  previews: ExploreSiteRelatedPreviews;
+  sourceBreakdown: ExploreSiteBuddySourceBreakdown;
+};
+
+export type ExploreSiteCommunityPostsResponse = {
+  items: ActivityFeedItem[];
+  nextCursor?: string;
 };
 
 export type ExploreLatestUpdate = {

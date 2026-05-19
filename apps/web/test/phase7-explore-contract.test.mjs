@@ -81,4 +81,7 @@ test("live explore layout wires filters, map selection, and selected preview", a
   assert.match(mapSource, /onSelectSpot\(spot\)/);
   assert.match(mapSource, /MARKER_ICON_SIZE\.selected/);
   assert.match(mapSource, /map\.panTo\(position\)/);
+  assert.match(mapSource, /PHILIPPINES_PADDED_BOUNDS/);
+  assert.match(mapSource, /minZoom=\{PHILIPPINES_MIN_ZOOM\}/);
+  assert.match(mapSource, /strictBounds: false/);
 });

@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
   type ExploreDifficulty,
+  PHILIPPINES_MIN_ZOOM,
+  PHILIPPINES_PADDED_BOUNDS,
   PHILIPPINES_CENTER,
   PHILIPPINES_ZOOM,
   type ExploreBounds,
@@ -43,10 +45,22 @@ const parseCamera = (searchParams: URLSearchParams): ExploreCamera => {
 
   return {
     center: {
-      lat: hasValidCamera ? lat : PHILIPPINES_CENTER.lat,
-      lng: hasValidCamera ? lng : PHILIPPINES_CENTER.lng,
+      lat: hasValidCamera
+        ? Math.min(
+            Math.max(lat, PHILIPPINES_PADDED_BOUNDS.south),
+            PHILIPPINES_PADDED_BOUNDS.north,
+          )
+        : PHILIPPINES_CENTER.lat,
+      lng: hasValidCamera
+        ? Math.min(
+            Math.max(lng, PHILIPPINES_PADDED_BOUNDS.west),
+            PHILIPPINES_PADDED_BOUNDS.east,
+          )
+        : PHILIPPINES_CENTER.lng,
     },
-    zoom: hasValidCamera ? zoom : PHILIPPINES_ZOOM,
+    zoom: hasValidCamera
+      ? Math.max(zoom, PHILIPPINES_MIN_ZOOM)
+      : PHILIPPINES_ZOOM,
   };
 };
 

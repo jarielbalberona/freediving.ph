@@ -13,6 +13,8 @@ func Routes(h *Handlers) chi.Router {
 	r.Get("/sites", h.ListSites)
 	r.Get("/updates", h.ListLatestUpdates)
 	r.Get("/sites/{slug}", h.GetSiteBySlug)
+	r.Get("/sites/{slug}/related", h.GetRelatedBySlug)
+	r.Get("/sites/{slug}/community-posts", h.ListCommunityPostsBySlug)
 	r.Get("/sites/{slug}/buddy-preview", h.GetBuddyPreviewBySlug)
 
 	r.Group(func(member chi.Router) {

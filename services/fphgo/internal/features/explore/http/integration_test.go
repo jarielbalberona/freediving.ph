@@ -14,6 +14,7 @@ import (
 	buddyfinderrepo "fphgo/internal/features/buddyfinder/repo"
 	explorerepo "fphgo/internal/features/explore/repo"
 	exploreservice "fphgo/internal/features/explore/service"
+	feedservice "fphgo/internal/features/feed/service"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/authz"
 	apperrors "fphgo/internal/shared/errors"
@@ -25,6 +26,8 @@ type exploreServiceStub struct {
 	listResult       exploreservice.ListSitesResult
 	latest           exploreservice.ListLatestUpdatesResult
 	detail           exploreservice.SiteDetailResult
+	related          exploreservice.SiteRelatedResult
+	communityPosts   exploreservice.SiteCommunityPostsResult
 	preview          exploreservice.SiteBuddyPreviewResult
 	intents          exploreservice.SiteBuddyIntentsResult
 	create           explorerepo.SiteUpdate
@@ -42,6 +45,14 @@ func (s *exploreServiceStub) ListSites(_ context.Context, input exploreservice.L
 
 func (s *exploreServiceStub) GetSiteBySlug(context.Context, string, string, string, int32) (exploreservice.SiteDetailResult, error) {
 	return s.detail, s.err
+}
+
+func (s *exploreServiceStub) GetRelatedBySlug(context.Context, string, string) (exploreservice.SiteRelatedResult, error) {
+	return s.related, s.err
+}
+
+func (s *exploreServiceStub) ListCommunityPostsBySlug(context.Context, string, string, string, int32) (exploreservice.SiteCommunityPostsResult, error) {
+	return s.communityPosts, s.err
 }
 
 func (s *exploreServiceStub) CreateSiteSubmission(_ context.Context, input exploreservice.CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error) {
@@ -172,6 +183,59 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 				CreatedAt:  time.Now().UTC(),
 			}},
 		},
+		related: exploreservice.SiteRelatedResult{
+			Counts: exploreservice.SiteRelatedCounts{
+				Buddies:          1,
+				CommunityPosts:   1,
+				RecentConditions: 1,
+			},
+			Previews: exploreservice.SiteRelatedPreviews{
+				Buddies: []buddyfinderrepo.PreviewIntent{{
+					ID:            "550e8400-e29b-41d4-a716-446655440301",
+					DiveSiteID:    "550e8400-e29b-41d4-a716-446655440101",
+					Area:          "Mabini, Batangas",
+					IntentType:    "training",
+					TimeWindow:    "today",
+					Note:          "Full note that should never leak from related responses.",
+					CreatedAt:     time.Now().UTC(),
+					EmailVerified: true,
+				}},
+				CommunityPosts: []feedservice.ActivityItem{{
+					ID:           "550e8400-e29b-41d4-a716-446655440901",
+					Type:         feedservice.ActivityMediaPostCreated,
+					SourceModule: feedservice.ActivitySourceMedia,
+					SourceType:   "media_post",
+					SourceID:     "550e8400-e29b-41d4-a716-446655440902",
+					Actor:        feedservice.ActivityActor{Name: "Photo Diver", Username: "photo_diver"},
+					Target:       feedservice.ActivityTarget{Type: "media_post", ID: "550e8400-e29b-41d4-a716-446655440902"},
+					Visibility:   feedservice.ActivityVisibilityPublic,
+					OccurredAt:   time.Now().UTC().Format(time.RFC3339),
+					Title:        "Twin Rocks",
+					Area:         "Mabini, Batangas",
+					DiveSiteID:   "550e8400-e29b-41d4-a716-446655440101",
+					Media:        []map[string]any{{"mediaObjectId": "550e8400-e29b-41d4-a716-446655440903", "width": float64(1200), "height": float64(800), "displayUrl": "https://cdn.example/photo.jpg"}},
+					Metadata:     map[string]any{"diveSiteSlug": "twin-rocks-anilao", "diveSiteName": "Twin Rocks"},
+					Href:         "/explore/sites/twin-rocks-anilao",
+				}},
+			},
+		},
+		communityPosts: exploreservice.SiteCommunityPostsResult{
+			Items: []feedservice.ActivityItem{{
+				ID:           "550e8400-e29b-41d4-a716-446655440901",
+				Type:         feedservice.ActivityMediaPostCreated,
+				SourceModule: feedservice.ActivitySourceMedia,
+				SourceType:   "media_post",
+				SourceID:     "550e8400-e29b-41d4-a716-446655440902",
+				Actor:        feedservice.ActivityActor{Name: "Photo Diver", Username: "photo_diver"},
+				Target:       feedservice.ActivityTarget{Type: "media_post", ID: "550e8400-e29b-41d4-a716-446655440902"},
+				Visibility:   feedservice.ActivityVisibilityPublic,
+				OccurredAt:   time.Now().UTC().Format(time.RFC3339),
+				Title:        "Twin Rocks",
+				Area:         "Mabini, Batangas",
+				DiveSiteID:   "550e8400-e29b-41d4-a716-446655440101",
+				Metadata:     map[string]any{"diveSiteSlug": "twin-rocks-anilao", "diveSiteName": "Twin Rocks"},
+			}},
+		},
 		preview: exploreservice.SiteBuddyPreviewResult{
 			Items: []buddyfinderrepo.PreviewIntent{{
 				ID:            "550e8400-e29b-41d4-a716-446655440301",
@@ -213,6 +277,40 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	r.ServeHTTP(getDetailRec, getDetail)
 	if getDetailRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for public detail, got %d", getDetailRec.Code)
+	}
+
+	relatedReq := httptest.NewRequest(http.MethodGet, "/sites/twin-rocks-anilao/related", nil)
+	relatedRec := httptest.NewRecorder()
+	r.ServeHTTP(relatedRec, relatedReq)
+	if relatedRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for public related, got %d", relatedRec.Code)
+	}
+	var relatedBody SiteRelatedResponse
+	if err := json.Unmarshal(relatedRec.Body.Bytes(), &relatedBody); err != nil {
+		t.Fatalf("decode related response: %v", err)
+	}
+	if relatedBody.Counts.Buddies != 1 || relatedBody.Counts.CommunityPosts != 1 || relatedBody.Counts.RecentConditions != 1 {
+		t.Fatalf("unexpected related counts: %+v", relatedBody.Counts)
+	}
+	if got := relatedBody.Previews.Buddies[0].NotePreview; got == "Full note that should never leak from related responses." {
+		t.Fatalf("expected related buddy note redaction, got %q", got)
+	}
+	if got := relatedBody.Previews.CommunityPosts[0].Type; got != "media_post_created" {
+		t.Fatalf("expected media post activity preview, got %q", got)
+	}
+
+	communityReq := httptest.NewRequest(http.MethodGet, "/sites/twin-rocks-anilao/community-posts", nil)
+	communityRec := httptest.NewRecorder()
+	r.ServeHTTP(communityRec, communityReq)
+	if communityRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for public community posts, got %d", communityRec.Code)
+	}
+	var communityBody SiteCommunityPostsResponse
+	if err := json.Unmarshal(communityRec.Body.Bytes(), &communityBody); err != nil {
+		t.Fatalf("decode community response: %v", err)
+	}
+	if len(communityBody.Items) != 1 || communityBody.Items[0].DiveSiteID != "550e8400-e29b-41d4-a716-446655440101" {
+		t.Fatalf("expected site-linked community item, got %+v", communityBody.Items)
 	}
 
 	updatesReq := httptest.NewRequest(http.MethodGet, "/updates?area=Mabini,%20Batangas", nil)
@@ -262,6 +360,26 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	r.ServeHTTP(intentsRec, intentsReq)
 	if intentsRec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for signed-out buddy intents, got %d", intentsRec.Code)
+	}
+}
+
+func TestExploreRelatedRoutesReturnNotFoundForInvalidSlug(t *testing.T) {
+	r := buildExploreRouter(t, &exploreServiceStub{
+		err: apperrors.New(http.StatusNotFound, "not_found", "dive site not found", nil),
+	}, authz.Identity{})
+
+	for _, path := range []string{
+		"/sites/missing-site/related",
+		"/sites/missing-site/community-posts",
+	} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+			}
+		})
 	}
 }
 

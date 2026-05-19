@@ -19,7 +19,7 @@ const sharePagePath = path.join(
 );
 const routesPath = path.join(appRoot, "src/lib/api/fphgo-routes.ts");
 
-test("explore site pages are coupled to buddy preview and full intent flows", async () => {
+test("explore site pages are coupled to related tabs and full buddy intent flows", async () => {
   const [explorePage, exploreLayout, sharePage, routes] = await Promise.all([
     readFile(explorePagePath, "utf8"),
     readFile(exploreLayoutPath, "utf8"),
@@ -29,6 +29,7 @@ test("explore site pages are coupled to buddy preview and full intent flows", as
 
   assert.match(routes, /siteBuddyPreview/);
   assert.match(routes, /siteBuddyIntents/);
+  assert.match(routes, /siteRelated/);
 
   assert.match(explorePage, /ExploreLayout/);
   assert.match(exploreLayout, /exploreApi\.searchDiveSpots/);
@@ -37,8 +38,7 @@ test("explore site pages are coupled to buddy preview and full intent flows", as
   assert.match(exploreLayout, /getDiveSpotSlug/);
   assert.match(exploreLayout, /Open site/);
 
-  assert.match(sharePage, /getExploreSiteBuddyPreviewServer/);
-  assert.match(sharePage, /Find a buddy for this spot/);
-  assert.match(sharePage, /sourceBreakdown\.siteLinkedCount/);
-  assert.match(sharePage, /Near this area/);
+  assert.match(sharePage, /getExploreSiteRelatedServer/);
+  assert.match(sharePage, /<DiveSiteRelatedTabs/);
+  assert.doesNotMatch(sharePage, /Find a buddy for this spot/);
 });

@@ -7,14 +7,13 @@ import { ImageOff, LoaderCircle } from "lucide-react";
 import { MasonryPhotoAlbum } from "react-photo-album";
 import "react-photo-album/masonry.css";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   MediaViewerDialog,
   type MediaViewerDialogItem,
 } from "@/features/media/components/MediaViewerDialog";
-import { MediaPostActions } from "@/features/media/components/MediaPostActions";
+import { MediaPostSocialPanel } from "@/features/media/components/MediaPostSocialPanel";
 import { useMintedMediaMap } from "@/features/media/hooks";
 
 type ProfileGridProps = {
@@ -36,14 +35,6 @@ type AlbumPhoto = {
   alt: string;
   mediaItem: ProfileMediaItem;
 };
-
-const getInitials = (value: string): string =>
-  value
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((segment) => segment[0]?.toUpperCase() ?? "")
-    .join("");
 
 const getDisplayCaption = (item: ProfileMediaItem): string | null =>
   item.postCaption?.trim() || item.caption?.trim() || null;
@@ -215,44 +206,25 @@ export function ProfileGrid({
           const caption = getDisplayCaption(selectedItem);
 
           return (
-            <>
-              <div className="flex items-center gap-3 px-5 py-4">
-                <Avatar className="size-10 border border-border">
-                  <AvatarImage src={avatarUrl} alt={displayName} />
-                  <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    @{username}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {displayName}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3 px-5 pb-5">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {selectedItem.diveSite.name || "Dive site unavailable"}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedItem.diveSite.area || "Location unavailable"}
-                  </p>
-                </div>
-                <p className="text-sm leading-6 text-foreground">
-                  {caption || "No caption added."}
-                </p>
-                <MediaPostActions
-                  postId={selectedItem.postId}
-                  href={`/${username}/posts/${selectedItem.postId}`}
-                  likeCount={selectedItem.likeCount}
-                  commentCount={selectedItem.commentCount}
-                  viewerHasLiked={selectedItem.viewerHasLiked}
-                  viewerHasSaved={selectedItem.viewerHasSaved}
-                />
-              </div>
-            </>
+            <MediaPostSocialPanel
+              postId={selectedItem.postId}
+              href={`/${username}/posts/${selectedItem.postId}`}
+              authorName={displayName}
+              authorUsername={username}
+              authorAvatarUrl={avatarUrl}
+              diveSiteName={selectedItem.diveSite.name || "Dive site unavailable"}
+              diveSiteArea={selectedItem.diveSite.area || "Location unavailable"}
+              diveSiteHref={
+                selectedItem.diveSite.slug
+                  ? `/explore/sites/${selectedItem.diveSite.slug}`
+                  : undefined
+              }
+              caption={caption || "No caption added."}
+              likeCount={selectedItem.likeCount}
+              commentCount={selectedItem.commentCount}
+              viewerHasLiked={selectedItem.viewerHasLiked}
+              viewerHasSaved={selectedItem.viewerHasSaved}
+            />
           );
         }}
       />

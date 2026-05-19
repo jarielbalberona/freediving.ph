@@ -9,7 +9,12 @@ import {
 } from "@googlemaps/markerclusterer";
 
 import type { DiveSpot, ExploreBounds, ExploreCamera } from "../types";
-import { PHILIPPINES_CENTER, PHILIPPINES_ZOOM } from "../types";
+import {
+  PHILIPPINES_CENTER,
+  PHILIPPINES_MIN_ZOOM,
+  PHILIPPINES_PADDED_BOUNDS,
+  PHILIPPINES_ZOOM,
+} from "../types";
 
 type ExploreMapProps = {
   spots: DiveSpot[];
@@ -280,12 +285,17 @@ export function ExploreMap({
         key={initialCameraKeyRef.current}
         defaultCenter={initialCamera.center ?? PHILIPPINES_CENTER}
         defaultZoom={initialCamera.zoom ?? PHILIPPINES_ZOOM}
+        minZoom={PHILIPPINES_MIN_ZOOM}
         gestureHandling="greedy"
         disableDefaultUI={false}
         mapTypeControl={false}
         streetViewControl={false}
         fullscreenControl={false}
         clickableIcons={false}
+        restriction={{
+          latLngBounds: PHILIPPINES_PADDED_BOUNDS,
+          strictBounds: false,
+        }}
         reuseMaps
         className="h-full w-full"
         onIdle={(event) => {

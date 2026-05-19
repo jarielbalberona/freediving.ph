@@ -58,6 +58,10 @@ export const routes = {
         `/v1/explore/sites/submissions/${toPathId(id)}`,
       siteBySlug: (slug: string | number) =>
         `/v1/explore/sites/${toPathId(slug)}`,
+      siteRelated: (slug: string | number) =>
+        `/v1/explore/sites/${toPathId(slug)}/related`,
+      siteCommunityPosts: (slug: string | number) =>
+        `/v1/explore/sites/${toPathId(slug)}/community-posts`,
       siteBuddyPreview: (slug: string | number) =>
         `/v1/explore/sites/${toPathId(slug)}/buddy-preview`,
       siteBuddyIntents: (slug: string | number) =>

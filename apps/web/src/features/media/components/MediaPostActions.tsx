@@ -19,6 +19,8 @@ type MediaPostActionsProps = {
   commentCount: number;
   viewerHasLiked: boolean;
   viewerHasSaved: boolean;
+  onCommentClick?: () => void;
+  showSave?: boolean;
   className?: string;
 };
 
@@ -41,6 +43,8 @@ export function MediaPostActions({
   commentCount,
   viewerHasLiked,
   viewerHasSaved,
+  onCommentClick,
+  showSave = true,
   className,
 }: MediaPostActionsProps) {
   const router = useRouter();
@@ -140,10 +144,18 @@ export function MediaPostActions({
         size="xs"
         variant="ghost"
         className="rounded-full px-2.5"
-        render={<Link href={postHref} aria-label="View media post comments" />}
+        render={
+          onCommentClick
+            ? undefined
+            : <Link href={postHref} aria-label="View media post comments" />
+        }
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
+          if (onCommentClick) {
+            onCommentClick();
+            return;
+          }
           router.push(postHref);
         }}
       >
@@ -164,26 +176,28 @@ export function MediaPostActions({
       >
         <Share2 className="size-3.5" />
       </Button>
-      <Button
-        type="button"
-        size="xs"
-        variant={viewerHasSaved ? "secondary" : "ghost"}
-        aria-label={viewerHasSaved ? "Unsave media post" : "Save media post"}
-        aria-pressed={viewerHasSaved}
-        disabled={saveMutation.isPending}
-        className="rounded-full px-2.5"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (session.status !== "signed_in") {
-            router.push("/sign-in");
-            return;
-          }
-          saveMutation.mutate();
-        }}
-      >
-        <Bookmark className={cn("size-3.5", viewerHasSaved && "fill-current")} />
-      </Button>
+      {showSave ? (
+        <Button
+          type="button"
+          size="xs"
+          variant={viewerHasSaved ? "secondary" : "ghost"}
+          aria-label={viewerHasSaved ? "Unsave media post" : "Save media post"}
+          aria-pressed={viewerHasSaved}
+          disabled={saveMutation.isPending}
+          className="rounded-full px-2.5"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (session.status !== "signed_in") {
+              router.push("/sign-in");
+              return;
+            }
+            saveMutation.mutate();
+          }}
+        >
+          <Bookmark className={cn("size-3.5", viewerHasSaved && "fill-current")} />
+        </Button>
+      ) : null}
     </div>
   );
 }

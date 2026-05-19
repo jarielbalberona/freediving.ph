@@ -115,6 +115,11 @@ func (r *feedRepoStub) ListActivityItems(_ context.Context, input feedrepo.Activ
 	return r.activityRows, nil
 }
 
+func (r *feedRepoStub) CountActivityItems(_ context.Context, input feedrepo.ActivityListInput) (int64, error) {
+	r.activityInput = input
+	return int64(len(r.activityRows)), nil
+}
+
 func TestHomeGuestExcludesMemberOnlyBuddySignals(t *testing.T) {
 	t.Parallel()
 
@@ -142,6 +147,60 @@ func TestHomeGuestExcludesMemberOnlyBuddySignals(t *testing.T) {
 		if item.Type == ItemTypeBuddySignal {
 			t.Fatalf("guest feed included member-only buddy signal: %#v", item)
 		}
+	}
+}
+
+func TestActivityPassesDiveSiteAndTypeFiltersToRepo(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	repo := &feedRepoStub{
+		activityRows: []feedrepo.ActivityRow{{
+			ID:           "activity-1",
+			Type:         string(ActivityMediaPostCreated),
+			SourceModule: string(ActivitySourceMedia),
+			SourceType:   "media_post",
+			SourceID:     "post-1",
+			TargetType:   "media_post",
+			TargetID:     "post-1",
+			Visibility:   string(ActivityVisibilityPublic),
+			DiveSiteID:   "site-1",
+			OccurredAt:   now,
+		}},
+	}
+	service := New(repo)
+
+	_, err := service.Activity(context.Background(), ActivityInput{
+		UserID:     "viewer-1",
+		Mode:       ModeLatest,
+		DiveSiteID: "site-1",
+		Types:      []ActivityType{ActivityMediaPostCreated},
+		Limit:      10,
+	})
+	if err != nil {
+		t.Fatalf("Activity returned error: %v", err)
+	}
+	if repo.activityInput.DiveSiteID != "site-1" {
+		t.Fatalf("expected dive site filter, got %#v", repo.activityInput)
+	}
+	if len(repo.activityInput.Types) != 1 || repo.activityInput.Types[0] != "media_post_created" {
+		t.Fatalf("expected media post type filter, got %#v", repo.activityInput.Types)
+	}
+
+	count, err := service.CountActivity(context.Background(), ActivityInput{
+		UserID:     "viewer-1",
+		Mode:       ModeLatest,
+		DiveSiteID: "site-1",
+		Types:      []ActivityType{ActivityMediaPostCreated},
+	})
+	if err != nil {
+		t.Fatalf("CountActivity returned error: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected count 1, got %d", count)
+	}
+	if repo.activityInput.DiveSiteID != "site-1" {
+		t.Fatalf("expected count to use dive site filter, got %#v", repo.activityInput)
 	}
 }
 

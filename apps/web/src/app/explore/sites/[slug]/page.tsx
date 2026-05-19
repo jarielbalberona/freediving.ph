@@ -6,11 +6,12 @@ import { TrustCard } from "@/components/trust-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
-  getExploreSiteBuddyPreviewServer,
   getExploreSiteBySlugServer,
+  getExploreSiteRelatedServer,
 } from "@/features/diveSpots/api/explore-v1.server";
 import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeButton";
 import BackToExploreButton from "./back-to-explore-button";
+import { DiveSiteRelatedTabs } from "./dive-site-related-tabs";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -63,9 +64,9 @@ export default async function ExploreSharePage({ params }: PageProps) {
   const { slug } = await params;
 
   try {
-    const [data, buddyPreview] = await Promise.all([
+    const [data, related] = await Promise.all([
       getExploreSiteBySlugServer(slug),
-      getExploreSiteBuddyPreviewServer(slug).catch(() => null),
+      getExploreSiteRelatedServer(slug).catch(() => null),
     ]);
     return (
       <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
@@ -154,57 +155,24 @@ export default async function ExploreSharePage({ params }: PageProps) {
             </div>
           </section>
 
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold text-foreground">
-                Find a buddy for this spot
-              </h2>
-              <Badge variant="outline">
-                {buddyPreview?.sourceBreakdown.siteLinkedCount ?? 0} nearby
-              </Badge>
-            </div>
-            <div className="space-y-3">
-              {(buddyPreview?.items ?? []).length === 0 ? (
-                <Card size="sm" className="border-dashed">
-                  <CardContent className="text-sm text-muted-foreground">
-                    Buddy preview will show here once someone posts for this
-                    site or area.
-                  </CardContent>
-                </Card>
-              ) : (
-                buddyPreview?.items.map((intent) => (
-                  <Card key={intent.id} size="sm">
-                    <CardContent className="space-y-3 text-sm text-muted-foreground">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge>{titleCase(intent.intentType)}</Badge>
-                        <Badge variant="outline">
-                          {titleCase(intent.timeWindow)}
-                        </Badge>
-                      </div>
-                      <p>
-                        {intent.notePreview ||
-                          "Create an account to view full buddy details and message."}
-                      </p>
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        {intent.diveSiteId === data.site.id ? (
-                          <span>Linked to this site</span>
-                        ) : (
-                          <span>Near this area</span>
-                        )}
-                      </div>
-                      <TrustCard
-                        emailVerified={intent.emailVerified}
-                        phoneVerified={intent.phoneVerified}
-                        certLevel={intent.certLevel}
-                        buddyCount={intent.buddyCount}
-                        reportCount={intent.reportCount}
-                      />
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          </section>
+          <DiveSiteRelatedTabs
+            siteId={data.site.id}
+            counts={
+              related?.counts ?? {
+                buddies: 0,
+                communityPosts: 0,
+                recentConditions: data.updates.length,
+              }
+            }
+            buddySourceBreakdown={
+              related?.sourceBreakdown ?? {
+                siteLinkedCount: 0,
+                areaFallbackCount: 0,
+              }
+            }
+            buddyPreview={related?.previews.buddies ?? []}
+            communityPosts={related?.previews.communityPosts ?? []}
+          />
         </div>
       </div>
     );

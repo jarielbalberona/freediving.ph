@@ -21,6 +21,7 @@ import { useMediaPostCommentsInfiniteQuery } from "../hooks";
 
 type MediaPostCommentsProps = {
   postId: string;
+  className?: string;
 };
 
 const patchComment = (
@@ -41,7 +42,7 @@ const patchComment = (
   };
 };
 
-export function MediaPostComments({ postId }: MediaPostCommentsProps) {
+export function MediaPostComments({ postId, className }: MediaPostCommentsProps) {
   const session = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -199,7 +200,7 @@ export function MediaPostComments({ postId }: MediaPostCommentsProps) {
   });
 
   return (
-    <section className="space-y-4">
+    <section className={cn("space-y-4", className)}>
       <div className="space-y-2">
         <Textarea
           value={body}

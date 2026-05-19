@@ -1,13 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { MapPin } from "lucide-react";
 
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { UsernameLink } from "@/components/common/UsernameLink";
-import { MediaPostActions } from "@/features/media/components/MediaPostActions";
-import { MediaPostComments } from "@/features/media/components/MediaPostComments";
+import { MediaPostSocialPanel } from "@/features/media/components/MediaPostSocialPanel";
 import { useMediaPostQuery, useMintedMediaMap } from "@/features/media/hooks";
 
 type MediaPostDetailPageProps = {
@@ -88,53 +83,28 @@ export default function MediaPostDetailPage({
         })}
       </section>
 
-      <aside className="space-y-5 lg:sticky lg:top-20 lg:self-start">
-        <div className="space-y-4 border-b pb-5">
-          <div className="flex items-center gap-3">
-            <UserAvatar
-              src={detail.author.avatarUrl}
-              displayName={detail.author.displayName}
-              size="sm"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">
-                {detail.author.displayName}
-              </p>
-              <UsernameLink
-                username={detail.author.username}
-                className="truncate text-xs text-muted-foreground"
-              />
-            </div>
-          </div>
-
-          <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-            {caption}
-          </p>
-
-          {items[0]?.diveSite ? (
-            <Link
-              href={`/explore/sites/${items[0].diveSite.slug}`}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <MapPin className="size-4" />
-              <span>
-                {items[0].diveSite.name}
-                {items[0].diveSite.area ? ` · ${items[0].diveSite.area}` : ""}
-              </span>
-            </Link>
-          ) : null}
-
-          <MediaPostActions
-            postId={postId}
-            href={href}
-            likeCount={detail.post.likeCount}
-            commentCount={detail.post.commentCount}
-            viewerHasLiked={detail.post.viewerHasLiked}
-            viewerHasSaved={detail.post.viewerHasSaved}
-          />
-        </div>
-
-        <MediaPostComments postId={postId} />
+      <aside className="min-h-[70vh] lg:sticky lg:top-20 lg:self-start">
+        <MediaPostSocialPanel
+          postId={postId}
+          href={href}
+          authorName={detail.author.displayName}
+          authorUsername={detail.author.username}
+          authorAvatarUrl={detail.author.avatarUrl}
+          diveSiteName={items[0]?.diveSite.name}
+          diveSiteArea={items[0]?.diveSite.area}
+          diveSiteHref={
+            items[0]?.diveSite.slug
+              ? `/explore/sites/${items[0].diveSite.slug}`
+              : undefined
+          }
+          caption={caption}
+          likeCount={detail.post.likeCount}
+          commentCount={detail.post.commentCount}
+          viewerHasLiked={detail.post.viewerHasLiked}
+          viewerHasSaved={detail.post.viewerHasSaved}
+          className="h-full rounded-lg border bg-background"
+          commentsClassName="max-h-[50vh] lg:max-h-none"
+        />
       </aside>
     </main>
   );

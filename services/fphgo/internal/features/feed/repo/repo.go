@@ -183,6 +183,8 @@ type ActivityListInput struct {
 	UserID           string
 	Mode             string
 	Area             string
+	DiveSiteID       string
+	Types            []string
 	CursorOccurredAt time.Time
 	CursorID         string
 	Limit            int32
@@ -1287,6 +1289,8 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 		    OR ($2 = 'dive-reports' AND ai.type IN ('dive_site_update_added', 'media_post_created'))
 		    OR ($2 = 'events' AND ai.type = 'event_published')
 		  )
+		  AND ($7::uuid IS NULL OR ai.dive_site_id = $7::uuid)
+		  AND ($8::text[] IS NULL OR ai.type = ANY($8::text[]))
 		  AND (
 		    $1::uuid IS NULL
 		    OR ai.actor_user_id IS NULL
@@ -1377,6 +1381,8 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 		input.CursorOccurredAt,
 		input.CursorID,
 		input.Limit,
+		userUUIDParam(input.DiveSiteID),
+		activityTypeFilter(input.Types),
 	)
 	if err != nil {
 		return nil, err
@@ -1422,6 +1428,133 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 		return nil, rows.Err()
 	}
 	return items, nil
+}
+
+func (r *Repo) CountActivityItems(ctx context.Context, input ActivityListInput) (int64, error) {
+	const q = `
+		SELECT COUNT(*)::bigint
+		FROM activity_items ai
+		LEFT JOIN users u ON u.id = ai.actor_user_id
+		WHERE ai.state = 'active'
+		  AND (ai.actor_user_id IS NULL OR u.account_status = 'active')
+		  AND (
+		    $1::uuid IS NULL AND ai.visibility = 'public'
+		    OR
+		    $1::uuid IS NOT NULL AND (
+		      ai.visibility IN ('public', 'members')
+		      OR (
+		        ai.visibility = 'group_members'
+		        AND ai.group_id IS NOT NULL
+		        AND EXISTS (
+		          SELECT 1
+		          FROM group_memberships gm
+		          WHERE gm.group_id = ai.group_id
+		            AND gm.user_id = $1::uuid
+		            AND gm.status = 'active'
+		        )
+		      )
+		    )
+		  )
+		  AND ai.visibility <> 'private'
+		  AND ai.visibility <> 'followers'
+		  AND (
+		    $2 = 'latest'
+		    OR ($2 = 'nearby' AND $3 <> '' AND lower(COALESCE(ai.area, '')) LIKE '%' || lower($3) || '%')
+		    OR ($2 = 'chika' AND ai.type = 'chika_thread_created')
+		    OR ($2 = 'dive-reports' AND ai.type IN ('dive_site_update_added', 'media_post_created'))
+		    OR ($2 = 'events' AND ai.type = 'event_published')
+		  )
+		  AND ($4::uuid IS NULL OR ai.dive_site_id = $4::uuid)
+		  AND ($5::text[] IS NULL OR ai.type = ANY($5::text[]))
+		  AND (
+		    $1::uuid IS NULL
+		    OR ai.actor_user_id IS NULL
+		    OR ai.actor_user_id = $1::uuid
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_blocks ub
+		      WHERE (ub.blocker_app_user_id = $1::uuid AND ub.blocked_app_user_id = ai.actor_user_id)
+		         OR (ub.blocker_app_user_id = ai.actor_user_id AND ub.blocked_app_user_id = $1::uuid)
+		    )
+		  )
+		  AND (
+		    $1::uuid IS NULL
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_hidden_feed_items h
+		      WHERE h.user_id = $1::uuid
+		        AND (
+		          (h.entity_type = 'activity_item' AND h.entity_id = ai.id::text)
+		          OR
+		          (h.entity_type = ai.source_type AND h.entity_id = ai.source_id::text)
+		          OR (h.entity_type = ai.type AND h.entity_id = ai.source_id::text)
+		          OR (h.entity_type = ai.target_type AND h.entity_id = ai.target_id::text)
+		        )
+		    )
+		  )
+		  AND (
+		    (ai.type = 'chika_thread_created' AND EXISTS (
+		      SELECT 1
+		      FROM chika_threads t
+		      WHERE t.id = ai.source_id
+		        AND t.hidden_at IS NULL
+		        AND t.deleted_at IS NULL
+		    ))
+		    OR (ai.type = 'dive_site_update_added' AND EXISTS (
+		      SELECT 1
+		      FROM dive_site_updates dsu
+		      JOIN dive_sites ds ON ds.id = dsu.dive_site_id
+		      WHERE dsu.id = ai.source_id
+		        AND dsu.state = 'active'
+		        AND ds.moderation_state = 'approved'
+		    ))
+		    OR (ai.type = 'event_published' AND EXISTS (
+		      SELECT 1
+		      FROM events e
+		      LEFT JOIN groups g ON g.id = e.group_id
+		      WHERE e.id = ai.source_id
+		        AND e.status = 'published'
+		        AND e.visibility IN ('public', 'group_members')
+		        AND (e.group_id IS NULL OR g.status = 'active')
+		    ))
+		    OR (ai.type = 'buddy_intent_created' AND EXISTS (
+		      SELECT 1
+		      FROM buddy_intents bi
+		      LEFT JOIN dive_sites ds ON ds.id = bi.dive_site_id
+		      WHERE bi.id = ai.source_id
+		        AND bi.state = 'active'
+		        AND bi.visibility = 'members'
+		        AND bi.expires_at > NOW()
+		        AND (bi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
+		    ))
+		    OR (ai.type = 'media_post_created' AND EXISTS (
+		      SELECT 1
+		      FROM media_posts mp
+		      JOIN dive_sites ds ON ds.id = mp.dive_site_id
+		      WHERE mp.id = ai.source_id
+		        AND mp.deleted_at IS NULL
+		        AND ds.moderation_state = 'approved'
+		        AND EXISTS (
+		          SELECT 1
+		          FROM media_items mi
+		          JOIN media_objects mo ON mo.id = mi.media_object_id
+		          WHERE mi.post_id = mp.id
+		            AND mi.status = 'active'
+		            AND mi.deleted_at IS NULL
+		            AND mo.state = 'active'
+		        )
+		    ))
+		  )
+	`
+	var count int64
+	err := r.pool.QueryRow(ctx, q,
+		userUUIDParam(input.UserID),
+		normalizeActivityMode(input.Mode),
+		strings.TrimSpace(input.Area),
+		userUUIDParam(input.DiveSiteID),
+		activityTypeFilter(input.Types),
+	).Scan(&count)
+	return count, err
 }
 
 func nullableText(value string) *string {
@@ -1494,4 +1627,18 @@ func userUUIDParam(userID string) any {
 		return nil
 	}
 	return trimmed
+}
+
+func activityTypeFilter(types []string) any {
+	cleaned := make([]string, 0, len(types))
+	for _, value := range types {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			cleaned = append(cleaned, trimmed)
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	return cleaned
 }

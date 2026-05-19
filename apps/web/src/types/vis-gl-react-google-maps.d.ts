@@ -57,6 +57,7 @@ declare module "@vis.gl/react-google-maps" {
         east: number;
         west: number;
       };
+      strictBounds?: boolean;
     };
     onCameraChanged?: (event: MapCameraChangedEvent) => void;
     onClick?: (event: MapMouseEvent) => void;

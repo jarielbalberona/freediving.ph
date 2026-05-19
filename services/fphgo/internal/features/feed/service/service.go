@@ -35,6 +35,7 @@ type repository interface {
 	MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID, state string) error
 	RepairMediaPostActivityMedia(ctx context.Context) error
 	ListActivityItems(ctx context.Context, input feedrepo.ActivityListInput) ([]feedrepo.ActivityRow, error)
+	CountActivityItems(ctx context.Context, input feedrepo.ActivityListInput) (int64, error)
 }
 
 type Service struct {

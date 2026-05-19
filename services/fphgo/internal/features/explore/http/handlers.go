@@ -11,8 +11,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	buddyfinderrepo "fphgo/internal/features/buddyfinder/repo"
 	explorerepo "fphgo/internal/features/explore/repo"
 	exploreservice "fphgo/internal/features/explore/service"
+	feedservice "fphgo/internal/features/feed/service"
 	"fphgo/internal/middleware"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
@@ -30,6 +32,8 @@ type exploreService interface {
 	ListSites(ctx context.Context, input exploreservice.ListSitesInput) (exploreservice.ListSitesResult, error)
 	ListLatestUpdates(ctx context.Context, input exploreservice.ListLatestUpdatesInput) (exploreservice.ListLatestUpdatesResult, error)
 	GetSiteBySlug(ctx context.Context, viewerID, slug, updatesCursor string, updatesLimit int32) (exploreservice.SiteDetailResult, error)
+	GetRelatedBySlug(ctx context.Context, viewerID, slug string) (exploreservice.SiteRelatedResult, error)
+	ListCommunityPostsBySlug(ctx context.Context, viewerID, slug, cursor string, limit int32) (exploreservice.SiteCommunityPostsResult, error)
 	CreateSiteSubmission(ctx context.Context, input exploreservice.CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error)
 	ListMySiteSubmissions(ctx context.Context, input exploreservice.SubmissionListInput) (exploreservice.SubmissionListResult, error)
 	GetMySiteSubmissionByID(ctx context.Context, actorID, submissionID string) (explorerepo.SiteSubmission, error)
@@ -184,6 +188,52 @@ func (h *Handlers) GetSiteBySlug(w http.ResponseWriter, r *http.Request) {
 		Site:              mapSiteDetail(result.Site),
 		Updates:           updates,
 		NextUpdatesCursor: result.NextUpdatesCursor,
+	})
+}
+
+func (h *Handlers) GetRelatedBySlug(w http.ResponseWriter, r *http.Request) {
+	result, svcErr := h.service.GetRelatedBySlug(r.Context(), actorIDIfPresent(r), chi.URLParam(r, "slug"))
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SiteRelatedResponse{
+		Counts: SiteRelatedCounts{
+			Buddies:          result.Counts.Buddies,
+			CommunityPosts:   result.Counts.CommunityPosts,
+			RecentConditions: result.Counts.RecentConditions,
+		},
+		Previews: SiteRelatedPreviews{
+			Buddies:        mapSiteBuddyPreviewIntents(result.Previews.Buddies),
+			CommunityPosts: mapActivityFeedItems(result.Previews.CommunityPosts),
+		},
+		SourceBreakdown: SiteBuddySourceBreakdown{
+			SiteLinkedCount:   result.SourceBreakdown.SiteLinkedCount,
+			AreaFallbackCount: result.SourceBreakdown.AreaFallbackCount,
+		},
+	})
+}
+
+func (h *Handlers) ListCommunityPostsBySlug(w http.ResponseWriter, r *http.Request) {
+	limit, err := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if err != nil {
+		httpx.WriteValidationError(w, anyIssue("limit", "custom", "limit must be a positive integer"))
+		return
+	}
+	result, svcErr := h.service.ListCommunityPostsBySlug(
+		r.Context(),
+		actorIDIfPresent(r),
+		chi.URLParam(r, "slug"),
+		r.URL.Query().Get("cursor"),
+		limit,
+	)
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SiteCommunityPostsResponse{
+		Items:      mapActivityFeedItems(result.Items),
+		NextCursor: result.NextCursor,
 	})
 }
 
@@ -364,21 +414,7 @@ func (h *Handlers) GetBuddyPreviewBySlug(w http.ResponseWriter, r *http.Request)
 	}
 	items := make([]SiteBuddyPreviewIntent, 0, len(result.Items))
 	for _, item := range result.Items {
-		items = append(items, SiteBuddyPreviewIntent{
-			ID:                 item.ID,
-			DiveSiteID:         item.DiveSiteID,
-			Area:               item.Area,
-			IntentType:         item.IntentType,
-			TimeWindow:         item.TimeWindow,
-			DateStart:          formatDate(item.DateStart),
-			DateEnd:            formatDate(item.DateEnd),
-			NotePreview:        redactNote(item.Note),
-			CreatedAt:          item.CreatedAt.Format(time.RFC3339),
-			EmailVerified:      item.EmailVerified,
-			PhoneVerified:      item.PhoneVerified,
-			CertLevel:          item.CertLevel,
-			MutualBuddiesCount: item.MutualBuddiesCount,
-		})
+		items = append(items, mapSiteBuddyPreviewIntent(item))
 	}
 	httpx.JSON(w, http.StatusOK, SiteBuddyPreviewResponse{
 		Items: items,
@@ -432,6 +468,8 @@ func (h *Handlers) GetBuddyIntentsBySlug(w http.ResponseWriter, r *http.Request)
 			EmailVerified:      item.EmailVerified,
 			PhoneVerified:      item.PhoneVerified,
 			CertLevel:          item.CertLevel,
+			BuddyCount:         item.BuddyCount,
+			ReportCount:        item.ReportCount,
 			MutualBuddiesCount: item.MutualBuddiesCount,
 		})
 	}
@@ -755,6 +793,70 @@ func mapSiteSubmission(input explorerepo.SiteSubmission) SiteSubmission {
 		UpdatedAt:              input.UpdatedAt.Format(time.RFC3339),
 		CreatedAt:              input.CreatedAt.Format(time.RFC3339),
 	}
+}
+
+func mapSiteBuddyPreviewIntents(items []buddyfinderrepo.PreviewIntent) []SiteBuddyPreviewIntent {
+	out := make([]SiteBuddyPreviewIntent, 0, len(items))
+	for _, item := range items {
+		out = append(out, mapSiteBuddyPreviewIntent(item))
+	}
+	return out
+}
+
+func mapSiteBuddyPreviewIntent(item buddyfinderrepo.PreviewIntent) SiteBuddyPreviewIntent {
+	return SiteBuddyPreviewIntent{
+		ID:                 item.ID,
+		DiveSiteID:         item.DiveSiteID,
+		Area:               item.Area,
+		IntentType:         item.IntentType,
+		TimeWindow:         item.TimeWindow,
+		DateStart:          formatDate(item.DateStart),
+		DateEnd:            formatDate(item.DateEnd),
+		NotePreview:        redactNote(item.Note),
+		CreatedAt:          item.CreatedAt.Format(time.RFC3339),
+		EmailVerified:      item.EmailVerified,
+		PhoneVerified:      item.PhoneVerified,
+		CertLevel:          item.CertLevel,
+		BuddyCount:         item.BuddyCount,
+		ReportCount:        item.ReportCount,
+		MutualBuddiesCount: item.MutualBuddiesCount,
+	}
+}
+
+func mapActivityFeedItems(items []feedservice.ActivityItem) []ActivityFeedItem {
+	out := make([]ActivityFeedItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, ActivityFeedItem{
+			ID:           item.ID,
+			Type:         string(item.Type),
+			SourceModule: string(item.SourceModule),
+			SourceType:   item.SourceType,
+			SourceID:     item.SourceID,
+			Actor: ActivityFeedActor{
+				ID:        item.Actor.ID,
+				Name:      item.Actor.Name,
+				Username:  item.Actor.Username,
+				AvatarURL: item.Actor.AvatarURL,
+			},
+			Target: ActivityFeedTarget{
+				Type: item.Target.Type,
+				ID:   item.Target.ID,
+			},
+			Visibility: string(item.Visibility),
+			OccurredAt: item.OccurredAt,
+			Title:      item.Title,
+			Body:       item.Body,
+			Area:       item.Area,
+			DiveSiteID: item.DiveSiteID,
+			GroupID:    item.GroupID,
+			EventID:    item.EventID,
+			Media:      item.Media,
+			Stats:      item.Stats,
+			Metadata:   item.Metadata,
+			Href:       item.Href,
+		})
+	}
+	return out
 }
 
 func formatDate(value *time.Time) string {

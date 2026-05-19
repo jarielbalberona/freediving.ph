@@ -26,6 +26,7 @@ type Service struct {
 	limiter  rateLimiter
 	geocoder reverseGeocoder
 	activity activityPublisher
+	feed     activityFeed
 }
 
 type repository interface {
@@ -66,6 +67,11 @@ type reverseGeocoder interface {
 
 type activityPublisher interface {
 	PublishActivity(ctx context.Context, input feedservice.ActivityPublishInput) error
+}
+
+type activityFeed interface {
+	Activity(ctx context.Context, input feedservice.ActivityInput) (feedservice.ActivityResult, error)
+	CountActivity(ctx context.Context, input feedservice.ActivityInput) (int64, error)
 }
 
 type noopLimiter struct{}
@@ -109,6 +115,12 @@ func WithReverseGeocoder(geocoder reverseGeocoder) Option {
 func WithActivityPublisher(publisher activityPublisher) Option {
 	return func(s *Service) {
 		s.activity = publisher
+	}
+}
+
+func WithActivityFeed(feed activityFeed) Option {
+	return func(s *Service) {
+		s.feed = feed
 	}
 }
 
@@ -159,6 +171,30 @@ type SiteBuddyIntentsResult struct {
 	Items           []buddyfinderrepo.MemberIntent
 	NextCursor      string
 	SourceBreakdown buddyfinderservice.SourceBreakdown
+}
+
+type SiteRelatedCounts struct {
+	Buddies          int64
+	CommunityPosts   int64
+	RecentConditions int64
+}
+
+type SiteRelatedPreviews struct {
+	Buddies        []buddyfinderrepo.PreviewIntent
+	CommunityPosts []feedservice.ActivityItem
+}
+
+type SiteRelatedResult struct {
+	Site            explorerepo.SiteDetail
+	Counts          SiteRelatedCounts
+	Previews        SiteRelatedPreviews
+	SourceBreakdown buddyfinderservice.SourceBreakdown
+}
+
+type SiteCommunityPostsResult struct {
+	Site       explorerepo.SiteDetail
+	Items      []feedservice.ActivityItem
+	NextCursor string
 }
 
 type CreateUpdateInput struct {
@@ -638,6 +674,83 @@ func (s *Service) GetBuddyIntentsBySlug(ctx context.Context, viewerID, slug, cur
 		NextCursor:      result.NextCursor,
 		SourceBreakdown: result.SourceBreakdown,
 	}, nil
+}
+
+func (s *Service) GetRelatedBySlug(ctx context.Context, viewerID, slug string) (SiteRelatedResult, error) {
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), strings.TrimSpace(viewerID))
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return SiteRelatedResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return SiteRelatedResult{}, apperrors.New(http.StatusInternalServerError, "site_detail_failed", "failed to load dive site", err)
+	}
+
+	result := SiteRelatedResult{
+		Site: site,
+		Counts: SiteRelatedCounts{
+			RecentConditions: site.ReportCount,
+		},
+	}
+
+	if s.buddies != nil {
+		preview, err := s.buddies.PreviewForSite(ctx, site.ID, site.Area, 6)
+		if err != nil {
+			return SiteRelatedResult{}, err
+		}
+		result.Previews.Buddies = preview.Items
+		result.SourceBreakdown = preview.SourceBreakdown
+		result.Counts.Buddies = int64(preview.SourceBreakdown.SiteLinkedCount + preview.SourceBreakdown.AreaFallbackCount)
+	}
+
+	if s.feed != nil {
+		input := feedservice.ActivityInput{
+			UserID:     strings.TrimSpace(viewerID),
+			Mode:       feedservice.ModeLatest,
+			DiveSiteID: site.ID,
+			Types:      []feedservice.ActivityType{feedservice.ActivityMediaPostCreated},
+			Limit:      3,
+		}
+		communityCount, err := s.feed.CountActivity(ctx, input)
+		if err != nil {
+			return SiteRelatedResult{}, err
+		}
+		community, err := s.feed.Activity(ctx, input)
+		if err != nil {
+			return SiteRelatedResult{}, err
+		}
+		result.Counts.CommunityPosts = communityCount
+		result.Previews.CommunityPosts = community.Items
+	}
+
+	return result, nil
+}
+
+func (s *Service) ListCommunityPostsBySlug(ctx context.Context, viewerID, slug, cursor string, limit int32) (SiteCommunityPostsResult, error) {
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), strings.TrimSpace(viewerID))
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return SiteCommunityPostsResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return SiteCommunityPostsResult{}, apperrors.New(http.StatusInternalServerError, "site_detail_failed", "failed to load dive site", err)
+	}
+	if s.feed == nil {
+		return SiteCommunityPostsResult{Site: site}, nil
+	}
+	if limit <= 0 || limit > pagination.MaxLimit {
+		limit = pagination.DefaultLimit
+	}
+	result, err := s.feed.Activity(ctx, feedservice.ActivityInput{
+		UserID:     strings.TrimSpace(viewerID),
+		Mode:       feedservice.ModeLatest,
+		Cursor:     cursor,
+		DiveSiteID: site.ID,
+		Types:      []feedservice.ActivityType{feedservice.ActivityMediaPostCreated},
+		Limit:      int(limit),
+	})
+	if err != nil {
+		return SiteCommunityPostsResult{}, err
+	}
+	return SiteCommunityPostsResult{Site: site, Items: result.Items, NextCursor: result.NextCursor}, nil
 }
 
 func (s *Service) CreateUpdate(ctx context.Context, input CreateUpdateInput) (explorerepo.SiteUpdate, error) {

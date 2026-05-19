@@ -6,8 +6,10 @@ import type {
   ExploreSiteSubmissionListResponse,
   ExploreSiteSubmissionResponse,
   ExploreSiteBuddyIntentsResponse,
+  ExploreSiteCommunityPostsResponse,
   ExploreSiteBuddyPreviewResponse,
   ExploreSiteDetailResponse,
+  ExploreSiteRelatedResponse,
   ModerateExploreSiteRequest,
   LikeState,
 } from "@freediving.ph/types";
@@ -77,6 +79,16 @@ export const exploreApi = {
   getSiteBuddyPreview: (slug: string, limit = 6) =>
     fphgoFetchClient<ExploreSiteBuddyPreviewResponse>(
       withQuery(routes.v1.explore.siteBuddyPreview(slug), { limit }),
+    ),
+
+  getSiteRelated: (slug: string) =>
+    fphgoFetchClient<ExploreSiteRelatedResponse>(
+      routes.v1.explore.siteRelated(slug),
+    ),
+
+  getSiteCommunityPosts: (slug: string, cursor?: string, limit = 20) =>
+    fphgoFetchClient<ExploreSiteCommunityPostsResponse>(
+      withQuery(routes.v1.explore.siteCommunityPosts(slug), { cursor, limit }),
     ),
 
   getSiteBuddyIntents: (slug: string, cursor?: string, limit = 10) =>

@@ -2,8 +2,10 @@ import "server-only";
 
 import type {
   ExploreLatestUpdatesResponse,
+  ExploreSiteCommunityPostsResponse,
   ExploreSiteBuddyPreviewResponse,
   ExploreSiteDetailResponse,
+  ExploreSiteRelatedResponse,
 } from "@freediving.ph/types";
 
 import { fphgoFetchServer } from "@/lib/api/fphgo-fetch-server";
@@ -30,6 +32,20 @@ export const getExploreSiteBySlugServer = (slug: string, updatesCursor?: string,
 export const getExploreSiteBuddyPreviewServer = (slug: string, limit = 6) =>
   fphgoFetchServer<ExploreSiteBuddyPreviewResponse>(
     withQuery(routes.v1.explore.siteBuddyPreview(slug), { limit }),
+  );
+
+export const getExploreSiteRelatedServer = (slug: string) =>
+  fphgoFetchServer<ExploreSiteRelatedResponse>(
+    routes.v1.explore.siteRelated(slug),
+  );
+
+export const getExploreSiteCommunityPostsServer = (
+  slug: string,
+  cursor?: string,
+  limit = 20,
+) =>
+  fphgoFetchServer<ExploreSiteCommunityPostsResponse>(
+    withQuery(routes.v1.explore.siteCommunityPosts(slug), { cursor, limit }),
   );
 
 export const getExploreLatestUpdatesServer = (area?: string, cursor?: string, limit = 20) =>

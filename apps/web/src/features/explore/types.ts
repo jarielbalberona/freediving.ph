@@ -90,6 +90,15 @@ export const PHILIPPINES_CENTER = {
 
 export const PHILIPPINES_ZOOM = 5.6;
 
+export const PHILIPPINES_MIN_ZOOM = 5.2;
+
+export const PHILIPPINES_PADDED_BOUNDS = {
+  north: 22.8,
+  south: 3.2,
+  east: 128.8,
+  west: 114.5,
+} as const;
+
 export const EXPLORE_DEFAULT_LIMIT = 48;
 
 export const getDiveSpotSlug = (spot: DiveSpot): string => spot.slug;

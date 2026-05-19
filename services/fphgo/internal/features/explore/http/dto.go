@@ -40,6 +40,62 @@ type SiteDetailResponse struct {
 	NextUpdatesCursor string       `json:"nextUpdatesCursor,omitempty"`
 }
 
+type SiteRelatedResponse struct {
+	Counts          SiteRelatedCounts        `json:"counts"`
+	Previews        SiteRelatedPreviews      `json:"previews"`
+	SourceBreakdown SiteBuddySourceBreakdown `json:"sourceBreakdown"`
+}
+
+type SiteRelatedCounts struct {
+	Buddies          int64 `json:"buddies"`
+	CommunityPosts   int64 `json:"communityPosts"`
+	RecentConditions int64 `json:"recentConditions"`
+}
+
+type SiteRelatedPreviews struct {
+	Buddies        []SiteBuddyPreviewIntent `json:"buddies"`
+	CommunityPosts []ActivityFeedItem       `json:"communityPosts"`
+}
+
+type SiteCommunityPostsResponse struct {
+	Items      []ActivityFeedItem `json:"items"`
+	NextCursor string             `json:"nextCursor,omitempty"`
+}
+
+type ActivityFeedActor struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Username  string `json:"username"`
+	AvatarURL string `json:"avatarUrl,omitempty"`
+}
+
+type ActivityFeedTarget struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
+type ActivityFeedItem struct {
+	ID           string             `json:"id"`
+	Type         string             `json:"type"`
+	SourceModule string             `json:"sourceModule"`
+	SourceType   string             `json:"sourceType"`
+	SourceID     string             `json:"sourceId"`
+	Actor        ActivityFeedActor  `json:"actor"`
+	Target       ActivityFeedTarget `json:"target"`
+	Visibility   string             `json:"visibility"`
+	OccurredAt   string             `json:"occurredAt"`
+	Title        string             `json:"title,omitempty"`
+	Body         string             `json:"body,omitempty"`
+	Area         string             `json:"area,omitempty"`
+	DiveSiteID   string             `json:"diveSiteId,omitempty"`
+	GroupID      string             `json:"groupId,omitempty"`
+	EventID      string             `json:"eventId,omitempty"`
+	Media        []map[string]any   `json:"media,omitempty"`
+	Stats        map[string]any     `json:"stats,omitempty"`
+	Metadata     map[string]any     `json:"metadata,omitempty"`
+	Href         string             `json:"href,omitempty"`
+}
+
 type SiteDetail struct {
 	ID                    string   `json:"id"`
 	Slug                  string   `json:"slug"`
@@ -213,6 +269,8 @@ type SiteBuddyPreviewIntent struct {
 	EmailVerified      bool   `json:"emailVerified"`
 	PhoneVerified      bool   `json:"phoneVerified"`
 	CertLevel          string `json:"certLevel,omitempty"`
+	BuddyCount         int64  `json:"buddyCount"`
+	ReportCount        int64  `json:"reportCount"`
 	MutualBuddiesCount int64  `json:"mutualBuddiesCount"`
 }
 
@@ -241,5 +299,7 @@ type SiteBuddyIntent struct {
 	EmailVerified      bool   `json:"emailVerified"`
 	PhoneVerified      bool   `json:"phoneVerified"`
 	CertLevel          string `json:"certLevel,omitempty"`
+	BuddyCount         int64  `json:"buddyCount"`
+	ReportCount        int64  `json:"reportCount"`
 	MutualBuddiesCount int64  `json:"mutualBuddiesCount"`
 }

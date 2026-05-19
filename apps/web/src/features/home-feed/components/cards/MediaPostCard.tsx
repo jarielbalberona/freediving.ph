@@ -5,13 +5,12 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { UsernameLink } from "@/components/common/UsernameLink";
 import {
   FeedCardShell,
   FeedItemHeader,
 } from "@/features/home-feed/components/FeedCardShell";
 import { MediaPostActions } from "@/features/media/components/MediaPostActions";
+import { MediaPostSocialPanel } from "@/features/media/components/MediaPostSocialPanel";
 import { MediaViewerDialog } from "@/features/media/components/MediaViewerDialog";
 import { useMintedMediaMap } from "@/features/media/hooks";
 import type { HomeFeedItem } from "@freediving.ph/types";
@@ -52,6 +51,7 @@ export function MediaPostCard({
 }: { item: HomeFeedItem; actions?: React.ReactNode }) {
   const payload = item.payload as MediaPostPayload;
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [commentFocusSignal, setCommentFocusSignal] = useState(0);
   const previewMediaId = payload.previewMediaId?.trim() ?? "";
   const previewDisplayUrl = payload.previewDisplayUrl?.trim() ?? "";
   const preview = useMintedMediaMap(
@@ -87,6 +87,11 @@ export function MediaPostCard({
         commentCount={payload.commentCount ?? 0}
         viewerHasLiked={payload.viewerHasLiked ?? false}
         viewerHasSaved={payload.viewerHasSaved ?? false}
+        showSave={false}
+        onCommentClick={() => {
+          setViewerOpen(true);
+          setCommentFocusSignal((signal) => signal + 1);
+        }}
       />
       {actions}
     </div>
@@ -150,39 +155,25 @@ export function MediaPostCard({
             payload.items?.find((photo) => photo.id === activeItem.id) ?? null;
 
           return (
-            <div className="space-y-4 px-5 py-4">
-              <div className="flex items-center gap-3">
-                <UserAvatar displayName={payload.authorName} size="sm" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">
-                    {payload.authorName || "Diver"}
-                  </p>
-                  <UsernameLink
-                    username={payload.authorUsername}
-                    className="truncate text-xs text-muted-foreground"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  {payload.diveSiteName || "Dive site unavailable"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {payload.area || "Location unavailable"}
-                </p>
-              </div>
-              <p className="text-sm leading-6 text-foreground">
-                {selectedPhoto?.caption?.trim() || caption}
-              </p>
-              <MediaPostActions
-                postId={item.entityId}
-                href={item.detailHref}
-                likeCount={payload.likeCount ?? 0}
-                commentCount={payload.commentCount ?? 0}
-                viewerHasLiked={payload.viewerHasLiked ?? false}
-                viewerHasSaved={payload.viewerHasSaved ?? false}
-              />
-            </div>
+            <MediaPostSocialPanel
+              postId={item.entityId}
+              href={item.detailHref}
+              authorName={payload.authorName || "Diver"}
+              authorUsername={payload.authorUsername}
+              diveSiteName={payload.diveSiteName || "Dive site unavailable"}
+              diveSiteArea={payload.area || "Location unavailable"}
+              diveSiteHref={
+                payload.diveSiteSlug
+                  ? `/explore/sites/${payload.diveSiteSlug}`
+                  : undefined
+              }
+              caption={selectedPhoto?.caption?.trim() || caption}
+              likeCount={payload.likeCount ?? 0}
+              commentCount={payload.commentCount ?? 0}
+              viewerHasLiked={payload.viewerHasLiked ?? false}
+              viewerHasSaved={payload.viewerHasSaved ?? false}
+              focusCommentsSignal={commentFocusSignal}
+            />
           );
         }}
       />
