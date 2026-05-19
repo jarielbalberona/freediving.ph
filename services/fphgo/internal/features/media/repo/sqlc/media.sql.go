@@ -1001,8 +1001,6 @@ SELECT
   mi.created_at,
   mi.updated_at,
   mi.deleted_at,
-  mp.created_at AS post_created_at,
-  mp.updated_at AS post_updated_at,
   COALESCE(ds.slug, '') AS dive_site_slug,
   COALESCE(ds.name, '') AS dive_site_name,
   COALESCE(ds.area, '') AS dive_site_area,
@@ -1075,8 +1073,6 @@ type ListProfileMediaByUsernameRow struct {
 	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	PostCreatedAt   pgtype.Timestamptz `db:"post_created_at" json:"post_created_at"`
-	PostUpdatedAt   pgtype.Timestamptz `db:"post_updated_at" json:"post_updated_at"`
 	DiveSiteSlug    string             `db:"dive_site_slug" json:"dive_site_slug"`
 	DiveSiteName    string             `db:"dive_site_name" json:"dive_site_name"`
 	DiveSiteArea    string             `db:"dive_site_area" json:"dive_site_area"`
@@ -1121,8 +1117,6 @@ func (q *Queries) ListProfileMediaByUsername(ctx context.Context, arg ListProfil
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.PostCreatedAt,
-			&i.PostUpdatedAt,
 			&i.DiveSiteSlug,
 			&i.DiveSiteName,
 			&i.DiveSiteArea,
