@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNearbyConditionsQuery } from "@/features/home-feed/hooks/queries/useNearbyConditionsQuery";
+import { cn } from "@/lib/utils";
 import type {
   NearbyConditionCard,
   NearbyConditionsResponse,
@@ -70,6 +71,39 @@ const sourceLabel = {
   local: "Latest local report",
   nearest_dive_area: "Nearest dive area",
   fallback_country: "Country fallback",
+} as const;
+
+const cardTone = {
+  Current: {
+    tile: "border-sky-200/80 bg-sky-50 text-sky-950 dark:border-sky-900/60 dark:bg-sky-950/35 dark:text-sky-50",
+    icon: "text-sky-700 dark:text-sky-300",
+    label: "text-sky-800/80 dark:text-sky-200/80",
+    confidence: "text-sky-700/80 dark:text-sky-300/80",
+  },
+  Visibility: {
+    tile: "border-teal-200/80 bg-teal-50 text-teal-950 dark:border-teal-900/60 dark:bg-teal-950/35 dark:text-teal-50",
+    icon: "text-teal-700 dark:text-teal-300",
+    label: "text-teal-800/80 dark:text-teal-200/80",
+    confidence: "text-teal-700/80 dark:text-teal-300/80",
+  },
+  Temp: {
+    tile: "border-rose-200/80 bg-rose-50 text-rose-950 dark:border-rose-900/60 dark:bg-rose-950/35 dark:text-rose-50",
+    icon: "text-rose-700 dark:text-rose-300",
+    label: "text-rose-800/80 dark:text-rose-200/80",
+    confidence: "text-rose-700/80 dark:text-rose-300/80",
+  },
+  Wind: {
+    tile: "border-slate-200 bg-slate-50 text-slate-950 dark:border-slate-800 dark:bg-slate-900/55 dark:text-slate-50",
+    icon: "text-slate-700 dark:text-slate-300",
+    label: "text-slate-700/80 dark:text-slate-200/80",
+    confidence: "text-slate-600 dark:text-slate-300/80",
+  },
+  Sunrise: {
+    tile: "border-amber-200/80 bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-50",
+    icon: "text-amber-700 dark:text-amber-300",
+    label: "text-amber-800/80 dark:text-amber-200/80",
+    confidence: "text-amber-700/80 dark:text-amber-300/80",
+  },
 } as const;
 
 export function NearbyConditionsCard() {
@@ -148,7 +182,9 @@ export function NearbyConditionsCard() {
               ) : (
                 <LocateFixed className="h-3.5 w-3.5" />
               )}
-              <span>{geoState === "locating" ? "Checking" : "Check locally"}</span>
+              <span>
+                {geoState === "locating" ? "Checking" : "Check locally"}
+              </span>
             </Button>
           </div>
           <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground sm:text-sm">
@@ -187,18 +223,30 @@ function ConditionTile({
   card: NearbyConditionCard;
   icon: typeof Waves;
 }) {
+  const tone = cardTone[card.label];
+
   return (
-    <div className="flex min-w-0 flex-col gap-1 rounded-md bg-muted/50 px-1.5 py-1.5 sm:px-2 sm:py-2">
+    <div
+      className={cn(
+        "flex min-w-0 flex-col gap-1 rounded-md border px-1.5 py-1.5 shadow-sm sm:px-2 sm:py-2",
+        tone.tile,
+      )}
+    >
       <div className="flex min-w-0 items-center gap-1">
-        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <p className="truncate text-[10px] font-medium text-muted-foreground sm:text-[11px]">
+        <Icon className={cn("h-3.5 w-3.5 shrink-0", tone.icon)} />
+        <p
+          className={cn(
+            "truncate text-[10px] font-medium sm:text-[11px]",
+            tone.label,
+          )}
+        >
           {card.label}
         </p>
       </div>
-      <p className="min-h-7 whitespace-normal break-words text-[11px] font-semibold leading-tight text-foreground sm:text-xs">
+      <p className="min-h-7 whitespace-normal break-words text-[11px] font-semibold leading-tight sm:text-xs">
         {card.value}
       </p>
-      <p className="text-[10px] leading-tight text-muted-foreground">
+      <p className={cn("text-[10px] leading-tight", tone.confidence)}>
         {confidenceLabel[card.confidence]}
       </p>
     </div>
