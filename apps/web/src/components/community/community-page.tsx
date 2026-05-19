@@ -1,17 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-
-const COMMUNITY_NAV_ITEMS = [
-  { href: "/buddies", label: "Buddies" },
-  { href: "/groups", label: "Groups" },
-  { href: "/events", label: "Events" },
-] as const;
 
 type CommunityStat = {
   label: string;
@@ -24,39 +15,6 @@ export function CommunityPageShell({ children }: { children: ReactNode }) {
     <div className="min-h-full bg-[linear-gradient(180deg,_hsl(var(--background))_0%,_hsl(var(--muted)/0.22)_100%)] px-3 py-5 sm:px-5 sm:py-6 lg:px-8 lg:py-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">{children}</div>
     </div>
-  );
-}
-
-export function CommunitySectionNav() {
-  const pathname = usePathname();
-
-  return (
-    <nav
-      aria-label="Community navigation"
-      className="-mx-1 overflow-x-auto px-1"
-    >
-      <div className="inline-flex min-w-full gap-1 rounded-full border border-border/60 bg-background/75 p-1 sm:min-w-0">
-        {COMMUNITY_NAV_ITEMS.map((item) => {
-          const active =
-            pathname === item.href || pathname?.startsWith(`${item.href}/`);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex-1 rounded-full px-4 py-2 text-center text-sm font-medium text-muted-foreground transition-colors sm:flex-none",
-                active
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "hover:bg-muted hover:text-foreground",
-              )}
-              aria-current={active ? "page" : undefined}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
   );
 }
 

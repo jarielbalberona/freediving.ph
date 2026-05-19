@@ -24,7 +24,6 @@ import {
   CommunityEmptyState,
   CommunityHeader,
   CommunityPageShell,
-  CommunitySectionNav,
   CommunityStats,
 } from "@/components/community/community-page";
 import {
@@ -155,7 +154,6 @@ export default function GroupsPage() {
 
   return (
     <CommunityPageShell>
-      <CommunitySectionNav />
       <CommunityHeader
         eyebrow="Groups"
         title="Join local freediving crews"

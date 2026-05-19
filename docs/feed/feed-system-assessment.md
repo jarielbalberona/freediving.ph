@@ -302,14 +302,14 @@ Missing for the next feed architecture:
 | --- | --- | --- | --- | --- |
 | Profiles / follows | `profiles`, `users`; no follow table found | Actor metadata and home area only | `profiles.pseudonymous_enabled`, `users.account_status`; no profile privacy field found | Not enough for a true following feed |
 | User photos/media/posts | `media_posts`, `media_items`, `media_objects` | Photo posts with captions and dive site context | `media_items.status`, `media_items.deleted_at`, `media_posts.deleted_at`, `media_objects.state` | Good candidate source, but feed response needs bundled display URLs or batch URL hydration |
-| Chika threads | `chika_threads`, `chika_categories`, reactions/comments | Thread creation/trending card | `mode`, `hidden_at`, `deleted_at`, category `pseudonymous` | Current feed leaks real author fields for pseudonymous Chika; this must be fixed before wider feed launch |
+| Chika threads | `chika_threads`, `chika_categories`, reactions/comments | Thread creation/trending card | `mode`, `hidden_at`, `deleted_at`, category `pseudonymous` | Phase 1 masks pseudonymous feed actor fields; replies still need the same treatment when added |
 | Chika replies/comments | `chika_posts`, `chika_comments` | Reply activity could be useful | `deleted_at`, `hidden_at`, pseudonyms | Not currently emitted; must preserve pseudonymous actor behavior |
-| Buddy intents | `buddy_intents` | Active buddy call cards | `visibility = 'members'`, `state`, `expires_at` | Current feed exposes member-only buddy intents to guests because `/v1/feed/home` is public. That is a launch blocker |
+| Buddy intents | `buddy_intents` | Active buddy call cards | `visibility = 'members'`, `state`, `expires_at` | Phase 1 excludes member-only buddy intents from guest feed responses |
 | Buddy requests | `buddy_requests`, `buddies` | Relationship activity only if explicitly public/follower-scoped | `status` | Should not appear in public/community feed by default |
 | Dive sites | `dive_sites`, `dive_site_saves` | Spot briefing, saved/bucket-list related activity | `moderation_state`, verification fields | Public approved sites are safe |
 | Condition reports | `dive_site_updates` | Strong feed source | `state`, site moderation | Good source, but location should stay at dive-site/area level, not precise personal location |
 | Groups | `groups`, `group_posts`, `group_memberships` | Group creation/posts/activity | `groups.visibility`, `groups.status`, `group_posts.status`, `deleted_at`, membership | Not currently included except events; needs member-aware filtering |
-| Events | `events`, `event_memberships` | Published events, joined events | `status`, `visibility`, `group_id`, membership | Current feed query does not filter `status` or `visibility`; this is a launch blocker |
+| Events | `events`, `event_memberships` | Published events, joined events | `status`, `visibility`, `group_id`, membership | Phase 1 filters to published events and enforces public/group/invite visibility for feed candidates |
 | Competitive records | Docs mention competitive records, but no feed source found in current backend scan | Potential later milestone cards | Unknown | Defer until schema/source is real |
 | Messaging | `conversations`, `messages`, message threads | No public feed use | private thread membership | Do not feed this except maybe private notification surfaces, not community feed |
 
@@ -328,26 +328,27 @@ Missing for the next feed architecture:
 - Events have `visibility` and `status`.
 - Messaging has private member tables and pending/accepted state.
 
-### Missing Or Broken In Current Feed
+### Fixed In Phase 1
 
-- Buddy intents have `visibility = 'members'`, but feed home is public and the buddy-intent candidate query does not exclude guests. Public feed should not show member-only buddy posts.
-- Event candidates ignore `events.status` and `events.visibility`. Draft, invite-only, group-member, cancelled, or completed events can be pulled unless hidden by unrelated logic. That is not acceptable.
-- Chika feed cards expose `authorUserId`, `authorName`, and `authorUsername` even for pseudonymous or locked pseudonymous threads. That violates the Go service AGENTS rule: protect pseudonymous Chika identity.
-- Community candidate query does not check `users.account_status = 'active'`.
-- Buddy intent query does not check `users.account_status = 'active'`.
-- Dive-site update candidate query does not check `users.account_status = 'active'`.
+- Buddy intents have `visibility = 'members'`, and guest feed requests now exclude them.
+- Event candidates now require `events.status = 'published'` and enforce public/group-member/invite-only visibility rules.
+- Chika feed cards no longer expose `authorUserId`, `authorName`, `authorUsername`, or profile href for pseudonymous or locked-pseudonymous threads.
+- Community, buddy intent, dive-site update, media, and organizer-backed event queries now suppress non-active users.
+- `hide_item` telemetry now also writes `user_hidden_feed_items`.
+
+### Still Missing Or Deferred
+
 - Group visibility is not enforced because group posts are not currently feed sources; it must be enforced before adding them.
-- Hidden/not-interested currently logs telemetry but does not necessarily create `user_hidden_feed_items`, so "hide" and "not interested" are not the same thing.
 - `user_feed_preferences` is unused.
 - No clear coarse-location policy exists for feed payloads beyond area/dive-site fields.
 - No feed-level contract says which source modules are guest-safe versus member-only.
 
 Minimum required before launch of the rewritten feed:
 - Server-side visibility policy per source type.
-- Chika pseudonymous actor mapping in feed responses.
-- Event status/visibility filtering.
-- Buddy-intent guest exclusion or public-safe preview policy.
-- User account status suppression.
+- Chika pseudonymous actor mapping in any new source adapter, including replies.
+- Event status/visibility filtering for any new event-derived feed types, including attendance activity.
+- Buddy-intent public-safe preview policy if the product ever wants guest-visible buddy cards.
+- User account status suppression in every future source adapter.
 - Deleted/hidden/moderated checks in every source adapter.
 - Block suppression in every actor-based source.
 - Group membership checks for private/invite-only groups and group-member events.

@@ -34,7 +34,6 @@ import {
   CommunityEmptyState,
   CommunityHeader,
   CommunityPageShell,
-  CommunitySectionNav,
   CommunityStats,
 } from "@/components/community/community-page";
 import {
@@ -260,7 +259,6 @@ export default function EventsPage() {
 
   return (
     <CommunityPageShell>
-      <CommunitySectionNav />
       <CommunityHeader
         eyebrow="Events"
         title="Discover dives, trainings, and meetups"

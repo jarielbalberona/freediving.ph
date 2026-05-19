@@ -12,8 +12,8 @@ interface ThreadDetailProps {
 
 export default function ThreadDetail({ thread }: ThreadDetailProps) {
   return (
-    <Card
-      className={`p-4 ${thread.isHidden ? "border-dashed opacity-60" : ""}`}
+    <div
+      className={`${thread.isHidden ? "border-dashed opacity-60" : ""}`}
     >
       <div className="mb-2 flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
@@ -67,6 +67,6 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
         />
         <ReportAction targetType="chika_thread" targetId={thread.id} />
       </div>
-    </Card>
+    </div>
   );
 }

@@ -33,7 +33,6 @@ import {
   CommunityEmptyState,
   CommunityHeader,
   CommunityPageShell,
-  CommunitySectionNav,
   CommunityStats,
 } from "@/components/community/community-page";
 import { TrustCard } from "@/components/trust-card";
@@ -330,7 +329,6 @@ export default function BuddiesPage() {
 
   return (
     <CommunityPageShell>
-      <CommunitySectionNav />
       <CommunityHeader
         eyebrow="Buddies"
         title="Find dive buddies for your next session"
