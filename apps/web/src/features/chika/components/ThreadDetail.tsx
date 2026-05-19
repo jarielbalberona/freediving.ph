@@ -4,6 +4,7 @@ import { ReportAction } from "@/components/report/report-action";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ThreadActions from "./ThreadActions";
+import { ChikaMarkdown } from "./ChikaMarkdown";
 
 interface ThreadDetailProps {
   thread: ChikaThreadView;
@@ -48,9 +49,7 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
       </h1>
 
       {thread.content ? (
-        <p className="mt-3 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
-          {thread.content}
-        </p>
+        <ChikaMarkdown content={thread.content} className="mt-3" />
       ) : null}
 
       {thread.isHidden && thread.hiddenAt ? (

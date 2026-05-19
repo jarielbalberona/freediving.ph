@@ -14,7 +14,6 @@ import {
 import { AuthGuard } from "@/components/auth/guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -40,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getApiErrorMessage, getRateLimitMessage } from "@/lib/http/api-error";
+import { MarkdownEditor } from "@/features/chika/components/MarkdownEditor";
 
 export default function CreateThread() {
   const router = useRouter();
@@ -188,11 +188,13 @@ export default function CreateThread() {
                     <FormItem>
                       <FormLabel>Content</FormLabel>
                       <FormControl>
-                        <Textarea
+                        <MarkdownEditor
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          name={field.name}
                           placeholder="Share your thoughts, ask questions, or tell a story..."
-                          className="min-h-[200px]"
                           maxLength={2000}
-                          {...field}
                         />
                       </FormControl>
                       <FormDescription>

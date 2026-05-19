@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Sparkles } from "lucide-react";
 
@@ -21,6 +22,7 @@ const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 export default function ProfileSettingsPage() {
+  const router = useRouter();
   const myProfileQuery = useMyProfile();
   const uploadMediaMutation = useUploadMedia();
   const updateProfileMutation = useUpdateMyProfile();
@@ -132,17 +134,18 @@ export default function ProfileSettingsPage() {
             <CardTitle>Profile Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-8">
-            <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-24 w-24 rounded-full">
-                  <AvatarImage src={avatarPreviewURL} className="rounded-full object-cover" />
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                <div className="space-y-2">
-                  <Label htmlFor="avatar">Upload avatar photo</Label>
+            <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+              <Avatar className="h-24 w-24 shrink-0 rounded-full">
+                <AvatarImage src={avatarPreviewURL} className="rounded-full object-cover" />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+              <div className="grid w-full gap-2">
+                <Label htmlFor="avatar">Upload avatar photo</Label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Input
                     id="avatar"
                     type="file"
+                    className="sm:flex-1"
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     onChange={(event) => {
                       const selected = event.target.files?.[0] ?? null;
@@ -151,35 +154,36 @@ export default function ProfileSettingsPage() {
                       openCropper(selected);
                     }}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Crop + auto-compress before upload. Allowed: JPG, PNG, WebP, GIF. Max:{" "}
-                    {formatBytes(MAX_AVATAR_BYTES)}.
-                  </p>
-                  {preparedAvatar ? (
-                    <p className="text-xs text-muted-foreground">
-                      Ready: {preparedAvatar.width}x{preparedAvatar.height} •{" "}
-                      {formatBytes(preparedAvatar.sizeBytes)} ({preparedAvatar.mimeType})
-                    </p>
-                  ) : null}
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={onUploadAvatar}
+                    disabled={!preparedAvatar || isUploadingAvatar}
+                  >
+                    {isUploadingAvatar ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Upload Avatar
+                      </>
+                    )}
+                  </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Crop + auto-compress before upload. Allowed: JPG, PNG, WebP, GIF. Max:{" "}
+                  {formatBytes(MAX_AVATAR_BYTES)}.
+                </p>
+                {preparedAvatar ? (
+                  <p className="text-xs text-muted-foreground">
+                    Ready: {preparedAvatar.width}x{preparedAvatar.height} •{" "}
+                    {formatBytes(preparedAvatar.sizeBytes)} ({preparedAvatar.mimeType})
+                  </p>
+                ) : null}
               </div>
-              <Button
-                variant="outline"
-                onClick={onUploadAvatar}
-                disabled={!preparedAvatar || isUploadingAvatar}
-              >
-                {isUploadingAvatar ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Upload Avatar
-                  </>
-                )}
-              </Button>
             </div>
 
             <div className="grid gap-6">
@@ -207,7 +211,10 @@ export default function ProfileSettingsPage() {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => router.push("/profile")}>
+                Close
+              </Button>
               <Button onClick={onSaveProfile} disabled={updateProfileMutation.isPending}>
                 {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>

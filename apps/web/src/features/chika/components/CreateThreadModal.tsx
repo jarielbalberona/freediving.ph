@@ -10,7 +10,6 @@ import {
 } from "../schemas/createThread.schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getApiErrorMessage, getRateLimitMessage } from "@/lib/http/api-error";
+import { MarkdownEditor } from "./MarkdownEditor";
 
 interface CreateThreadModalProps {
   isOpen: boolean;
@@ -150,10 +150,13 @@ export default function CreateThreadModal({
                 <FormItem>
                   <FormLabel>Body (optional)</FormLabel>
                   <FormControl>
-                    <Textarea
-                      rows={5}
+                    <MarkdownEditor
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      minRows={5}
                       placeholder="Share the context, story, or question."
-                      {...field}
                     />
                   </FormControl>
                   <FormMessage />

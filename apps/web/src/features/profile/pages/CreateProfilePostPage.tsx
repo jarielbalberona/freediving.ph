@@ -78,8 +78,8 @@ export default function CreateProfilePostPage({
                 Create a photo post
               </h1>
               <p className="text-sm text-muted-foreground sm:text-base">
-                Upload up to 10 photos, choose an FPH dive site, write per-photo
-                captions, then publish them as one grouped post.
+                Upload up to 10 photos, choose an FPH dive site, write a
+                caption, then publish them as one grouped post.
               </p>
             </div>
 

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { UserAvatarDetail } from "@/components/ui/user-avatar-detail";
+import { stripMarkdownForPreview } from "@/features/chika/lib/markdown";
 
 const toRelativeTime = (value: string) => {
   const date = new Date(value);
@@ -118,7 +119,7 @@ const ThreadListClient = ({
 
               {thread.content ? (
                 <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                  {thread.content}
+                  {stripMarkdownForPreview(thread.content)}
                 </p>
               ) : null}
             </Link>

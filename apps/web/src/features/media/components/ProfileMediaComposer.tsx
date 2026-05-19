@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/form";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Toggle } from "@/components/ui/toggle";
 import { useCreateMediaPost, useUploadMedia } from "@/features/media/hooks";
 import { createMediaPostSchema } from "@/features/media/schemas/create-media-post.schema";
 import { getProfileRoute } from "@/lib/routes";
@@ -91,8 +90,6 @@ export function ProfileMediaComposer({
     defaultValues: {
       diveSiteId: "",
       postCaption: "",
-      applyCaptionToAll: false,
-      sharedCaption: "",
       items: [],
     },
   });
@@ -165,14 +162,10 @@ export function ProfileMediaComposer({
 
     if (prepared.length === 0) return;
 
-    const sharedCaption = form.getValues("sharedCaption")?.trim() ?? "";
-    const shouldApplyToAll = form.getValues("applyCaptionToAll");
-
     setPhotos((current) => [...current, ...prepared]);
     fieldArray.append(
       prepared.map((item) => ({
         localId: item.localId,
-        caption: shouldApplyToAll ? sharedCaption : "",
       })),
     );
     if (photos.length === 0) {
@@ -251,7 +244,7 @@ export function ProfileMediaComposer({
       const response = await createPostMutation.mutateAsync({
         diveSiteId: values.diveSiteId,
         postCaption: values.postCaption?.trim() || null,
-        applyCaptionToAll: values.applyCaptionToAll,
+        applyCaptionToAll: false,
         source: "create_post",
         items: uploadedPhotos.map((item, index) => ({
           mediaObjectId: item.upload!.id,
@@ -260,7 +253,7 @@ export function ProfileMediaComposer({
           mimeType: item.upload!.mimeType,
           width: item.upload!.width || item.width,
           height: item.upload!.height || item.height,
-          caption: values.items[index]?.caption?.trim() || null,
+          caption: null,
           sortOrder: index,
         })),
       });
@@ -274,23 +267,6 @@ export function ProfileMediaComposer({
         error instanceof Error ? error.message : "Publish failed. Try again.",
       );
     }
-  }
-
-  function applySharedCaptionToAll(pressed: boolean) {
-    form.setValue("applyCaptionToAll", pressed, {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-    if (!pressed) return;
-    const sharedCaption = form.getValues("sharedCaption")?.trim() ?? "";
-    const nextItems = form.getValues("items").map((item) => ({
-      ...item,
-      caption: sharedCaption,
-    }));
-    form.setValue("items", nextItems, {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
   }
 
   return (
@@ -450,7 +426,7 @@ export function ProfileMediaComposer({
                     Publish to @{username}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Location is required. Captions stay per photo.
+                    Location is required. Caption applies to the whole post.
                   </p>
                 </div>
                 <Button
@@ -516,126 +492,71 @@ export function ProfileMediaComposer({
 
             <FormField
               control={form.control}
-              name="sharedCaption"
+              name="postCaption"
               render={({ field }) => (
                 <FormItem>
-                  <div className="flex items-center justify-between gap-3">
-                    <FormLabel>Shared caption</FormLabel>
-                    <Toggle
-                      type="button"
-                      variant="outline"
-                      pressed={form.watch("applyCaptionToAll")}
-                      onPressedChange={applySharedCaptionToAll}
-                    >
-                      Apply to all
-                    </Toggle>
-                  </div>
+                  <FormLabel>Caption</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Optional caption to copy to every selected photo"
+                      placeholder="Optional caption for this post"
                       className="min-h-24"
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Turning the toggle on copies this caption to every selected
-                    photo once.
+                    This caption appears on the grouped photo post.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="postCaption"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Post caption (future-ready)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Optional post-level note. Not the main profile caption in v1."
-                      className="min-h-24"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             {activePhoto ? (
-              <div className="space-y-3 rounded-[1.5rem] border bg-muted/20 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      Selected photo
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {activePhoto.file.name}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {activePhoto.status === "failed" ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          void uploadPhoto(
-                            activePhoto.localId,
-                            activePhoto.file,
-                          )
-                        }
-                      >
-                        <RefreshCcw className="size-4" />
-                        Retry
-                      </Button>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border bg-muted/20 p-4">
+                <div className="min-w-0 space-y-2">
+                  <p className="truncate text-sm text-muted-foreground">
+                    {activePhoto.file.name}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary" className="w-fit">
+                      {activePhoto.status === "uploaded"
+                        ? "Upload complete"
+                        : activePhoto.status}
+                    </Badge>
+                    {activePhoto.error ? (
+                      <p className="text-sm text-destructive">
+                        {activePhoto.error}
+                      </p>
                     ) : null}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {activePhoto.status === "failed" ? (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => removePhoto(activeIndex)}
+                      onClick={() =>
+                        void uploadPhoto(
+                          activePhoto.localId,
+                          activePhoto.file,
+                        )
+                      }
                     >
-                      <Trash2 className="size-4" />
-                      Remove
+                      <RefreshCcw className="size-4" />
+                      Retry
                     </Button>
-                  </div>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removePhoto(activeIndex)}
+                  >
+                    <Trash2 className="size-4" />
+                    Remove
+                  </Button>
                 </div>
-
-                <Badge variant="secondary" className="w-fit">
-                  {activePhoto.status === "uploaded"
-                    ? "Upload complete"
-                    : activePhoto.status}
-                </Badge>
-                {activePhoto.error ? (
-                  <p className="text-sm text-destructive">
-                    {activePhoto.error}
-                  </p>
-                ) : null}
-
-                <FormField
-                  control={form.control}
-                  name={`items.${activeIndex}.caption`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Photo caption</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Add a caption for this photo"
-                          className="min-h-28"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        This caption is what appears when the photo is shown
-                        independently on profile.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
             ) : (
               <Alert>
