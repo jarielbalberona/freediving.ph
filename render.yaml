@@ -22,9 +22,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DB_DSN
-        fromDatabase:
-          name: freediving-ph-db
-          property: connectionString
+        sync: false
       - key: CLERK_SECRET_KEY
         sync: false
       - key: CLERK_JWT_KEY
