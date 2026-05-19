@@ -7,7 +7,11 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { UsernameLink } from "@/components/common/UsernameLink";
-import { FeedCardShell } from "@/features/home-feed/components/FeedCardShell";
+import {
+  FeedCardShell,
+  FeedItemHeader,
+} from "@/features/home-feed/components/FeedCardShell";
+import { MediaPostLikeButton } from "@/features/media/components/MediaPostLikeButton";
 import { MediaViewerDialog } from "@/features/media/components/MediaViewerDialog";
 import { useMintedMediaMap } from "@/features/media/hooks";
 import type { HomeFeedItem } from "@freediving.ph/types";
@@ -21,12 +25,18 @@ type MediaPostPayload = {
   postCaption?: string;
   previewCaption?: string;
   previewMediaId?: string;
+  previewDisplayUrl?: string;
+  previewDialogUrl?: string;
   previewWidth?: number;
   previewHeight?: number;
+  likeCount?: number;
+  viewerHasLiked?: boolean;
   itemCount?: number;
   items?: Array<{
     id: string;
     mediaObjectId: string;
+    displayUrl?: string;
+    dialogUrl?: string;
     width: number;
     height: number;
     caption?: string;
@@ -41,14 +51,17 @@ export function MediaPostCard({
   const payload = item.payload as MediaPostPayload;
   const [viewerOpen, setViewerOpen] = useState(false);
   const previewMediaId = payload.previewMediaId?.trim() ?? "";
+  const previewDisplayUrl = payload.previewDisplayUrl?.trim() ?? "";
   const preview = useMintedMediaMap(
-    previewMediaId ? [previewMediaId] : [],
+    previewMediaId && !previewDisplayUrl ? [previewMediaId] : [],
     "card",
-    Boolean(previewMediaId),
+    Boolean(previewMediaId && !previewDisplayUrl),
   );
-  const previewUrl = previewMediaId
-    ? preview.urlMap.get(previewMediaId)
-    : undefined;
+  const previewUrl = previewDisplayUrl
+    ? previewDisplayUrl
+    : previewMediaId
+      ? preview.urlMap.get(previewMediaId)
+      : undefined;
   const caption =
     payload.postCaption?.trim() ||
     payload.previewCaption?.trim() ||
@@ -57,6 +70,7 @@ export function MediaPostCard({
     payload.items?.map((photo, index) => ({
       id: photo.id || `${item.id}-${index + 1}`,
       mediaObjectId: photo.mediaObjectId,
+      displayUrl: photo.dialogUrl || photo.displayUrl,
       width: photo.width,
       height: photo.height,
       caption: photo.caption,
@@ -66,34 +80,29 @@ export function MediaPostCard({
   return (
     <>
       <FeedCardShell item={item} actions={actions}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <UserAvatar displayName={payload.authorName} size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">
-                {payload.authorName || "Diver"}
-              </p>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                <UsernameLink
-                  username={payload.authorUsername}
-                  className="truncate text-xs text-muted-foreground"
-                />
-                {payload.diveSiteSlug && payload.diveSiteName ? (
-                  <Link
-                    href={`/explore/sites/${payload.diveSiteSlug}`}
-                    className="truncate hover:underline"
-                  >
-                    {payload.diveSiteName}
-                  </Link>
-                ) : null}
-                {payload.area ? <span>{payload.area}</span> : null}
-              </div>
-            </div>
-          </div>
-          {payload.itemCount && payload.itemCount > 1 ? (
-            <Badge variant="outline">{payload.itemCount} photos</Badge>
-          ) : null}
-        </div>
+        <FeedItemHeader
+          item={item}
+          displayName={payload.authorName || "Diver"}
+          username={payload.authorUsername}
+          metadata={[
+            payload.diveSiteSlug && payload.diveSiteName ? (
+              <Link
+                href={`/explore/sites/${payload.diveSiteSlug}`}
+                className="hover:underline"
+              >
+                {payload.diveSiteName}
+              </Link>
+            ) : null,
+            payload.area,
+          ]}
+          typeExtras={
+            payload.itemCount && payload.itemCount > 1 ? (
+              <Badge variant="outline" className="h-6 px-2">
+                {payload.itemCount} photos
+              </Badge>
+            ) : null
+          }
+        />
 
         {previewUrl && payload.previewWidth && payload.previewHeight ? (
           <button
@@ -124,6 +133,14 @@ export function MediaPostCard({
             {caption}
           </p>
         )}
+
+        <div className="flex items-center justify-between">
+          <MediaPostLikeButton
+            postId={item.entityId}
+            likeCount={payload.likeCount ?? 0}
+            viewerHasLiked={payload.viewerHasLiked ?? false}
+          />
+        </div>
       </FeedCardShell>
 
       <MediaViewerDialog

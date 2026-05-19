@@ -176,7 +176,14 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	messagingHandler := messaginghttp.New(messagingService, userService, v)
 
 	feedRepo := feedrepo.New(pool)
-	feedService := feedservice.New(feedRepo)
+	feedService := feedservice.New(
+		feedRepo,
+		feedservice.WithMediaDisplayURLs(
+			cfg.MediaCDNBaseURL,
+			cfg.MediaSigningSecretV1,
+			cfg.MediaSigningKeyVersion,
+		),
+	)
 	feedHandler := feedhttp.New(feedService, v)
 
 	chikaRepo := chikarepo.New(pool)

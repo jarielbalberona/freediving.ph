@@ -20,6 +20,11 @@ type FeedCursor = {
   source: FeedSource;
   mode: HomeFeedMode;
 };
+type FeedItemsState = {
+  source: FeedSource;
+  mode: HomeFeedMode;
+  items: HomeFeedItem[];
+};
 
 export function HomeFeedPage({
   initialFeedSource = "activity",
@@ -29,7 +34,7 @@ export function HomeFeedPage({
   const { isSignedIn } = useAuth();
   const [mode, setMode] = useState<HomeFeedMode>("latest");
   const [cursor, setCursor] = useState<FeedCursor | undefined>(undefined);
-  const [items, setItems] = useState<HomeFeedItem[]>([]);
+  const [itemsState, setItemsState] = useState<FeedItemsState | undefined>();
 
   const feedSource: FeedSource =
     initialFeedSource === "home" ? "home" : "activity";
@@ -57,26 +62,35 @@ export function HomeFeedPage({
         : (homeQuery.data?.items ?? []),
     [usingActivityFeed, activityQuery.data?.items, homeQuery.data?.items],
   );
+  const items =
+    itemsState?.source === feedSource && itemsState.mode === mode
+      ? itemsState.items
+      : !cursorValue && query.data
+        ? responseItems
+        : [];
 
   useEffect(() => {
     setCursor(undefined);
-    setItems([]);
   }, [mode, feedSource]);
 
   useEffect(() => {
     if (!query.data) return;
     if (!cursorValue) {
-      setItems(responseItems);
+      setItemsState({ source: feedSource, mode, items: responseItems });
       return;
     }
-    setItems((current) => {
-      const map = new Map(current.map((item) => [item.id, item]));
+    setItemsState((current) => {
+      const currentItems =
+        current?.source === feedSource && current.mode === mode
+          ? current.items
+          : [];
+      const map = new Map(currentItems.map((item) => [item.id, item]));
       for (const item of responseItems) {
         map.set(item.id, item);
       }
-      return Array.from(map.values());
+      return { source: feedSource, mode, items: Array.from(map.values()) };
     });
-  }, [query.data, responseItems, cursorValue]);
+  }, [query.data, responseItems, cursorValue, feedSource, mode]);
 
   useEffect(() => {
     if (!usingActivityFeed || process.env.NODE_ENV === "production") return;
@@ -97,6 +111,7 @@ export function HomeFeedPage({
   ]);
 
   const canLoadMore = Boolean(query.data?.nextCursor);
+  const initialLoading = !query.data && query.isFetching;
 
   const onLoadMore = () => {
     if (!query.data?.nextCursor || query.isFetching) return;
@@ -153,7 +168,7 @@ export function HomeFeedPage({
           mode={mode}
           source={feedSource}
           items={items}
-          loading={query.isFetching}
+          loading={initialLoading}
           hasMore={canLoadMore}
           onLoadMore={onLoadMore}
           showLoginToSeeMore={!isSignedIn}

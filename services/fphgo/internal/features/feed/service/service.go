@@ -13,6 +13,7 @@ import (
 
 	feedrepo "fphgo/internal/features/feed/repo"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/mediasign"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -32,11 +33,13 @@ type repository interface {
 	InsertHiddenItems(ctx context.Context, userID string, rows []feedrepo.FeedHiddenItemInsert) error
 	UpsertActivityItem(ctx context.Context, input feedrepo.ActivityUpsert) error
 	MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID, state string) error
+	RepairMediaPostActivityMedia(ctx context.Context) error
 	ListActivityItems(ctx context.Context, input feedrepo.ActivityListInput) ([]feedrepo.ActivityRow, error)
 }
 
 type Service struct {
-	repo repository
+	repo        repository
+	mediaSigner *mediasign.Signer
 }
 
 type ValidationFailure struct {
@@ -45,8 +48,22 @@ type ValidationFailure struct {
 
 func (e ValidationFailure) Error() string { return "validation failed" }
 
-func New(repo repository) *Service {
-	return &Service{repo: repo}
+type Option func(*Service)
+
+func WithMediaDisplayURLs(baseURL, signingSecret string, signingKeyVersion int) Option {
+	return func(s *Service) {
+		s.mediaSigner = mediasign.New(baseURL, signingSecret, signingKeyVersion)
+	}
+}
+
+func New(repo repository, opts ...Option) *Service {
+	s := &Service{repo: repo}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(s)
+		}
+	}
+	return s
 }
 
 func ParseMode(raw string) Mode {
@@ -278,6 +295,8 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 					"previewHeight":   row.PreviewHeight,
 					"itemCount":       row.ItemCount,
 					"items":           row.Items,
+					"likeCount":       row.LikeCount,
+					"viewerHasLiked":  row.ViewerHasLiked,
 				},
 			},
 			ActorUserID: row.AuthorUserID,
@@ -401,8 +420,10 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 					"entryDifficulty":    row.EntryDifficulty,
 					"verificationStatus": row.Verification,
 					"saveCount":          row.SaveCount,
+					"likeCount":          row.LikeCount,
 					"recentUpdateCount":  row.RecentUpdateCount,
 					"savedByViewer":      row.SavedByViewer,
+					"viewerHasLiked":     row.ViewerHasLiked,
 				},
 			},
 			Area:     row.Area,

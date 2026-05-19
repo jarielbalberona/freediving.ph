@@ -64,6 +64,8 @@ export const routes = {
         `/v1/explore/sites/${toPathId(slug)}/buddy-intents`,
       saveSite: (siteId: string | number) =>
         `/v1/explore/sites/${toPathId(siteId)}/save`,
+      siteLikes: (siteId: string | number) =>
+        `/v1/explore/sites/${toPathId(siteId)}/likes`,
       createUpdate: (siteId: string | number) =>
         `/v1/explore/sites/${toPathId(siteId)}/updates`,
       moderationPendingSites: () => "/v1/explore/moderation/sites/pending",
@@ -155,6 +157,8 @@ export const routes = {
       upload: () => "/v1/media/upload",
       uploadMultiple: () => "/v1/media/upload-multiple",
       posts: () => "/v1/media/posts",
+      postLikes: (postId: string | number) =>
+        `/v1/media/posts/${toPathId(postId)}/likes`,
       byUsername: (username: string | number) =>
         `/v1/media/by-username/${toPathId(username)}`,
       mine: () => "/v1/media/mine",

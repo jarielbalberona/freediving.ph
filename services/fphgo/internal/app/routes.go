@@ -123,6 +123,9 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		if feedRouter := resolveFeedRouter(deps); feedRouter != nil {
 			r.Mount("/v1/feed", feedRouter)
 		}
+		if mediaRouter := resolveMediaRouter(deps); mediaRouter != nil {
+			r.Mount("/v1/media", mediaRouter)
+		}
 		if buddyFinderRouter := resolveBuddyFinderRouter(deps); buddyFinderRouter != nil {
 			r.Mount("/v1/buddy-finder", buddyFinderRouter)
 		}
@@ -163,11 +166,6 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 			member.Group(func(moderation chi.Router) {
 				if moderationRouter := resolveModerationRouter(deps); moderationRouter != nil {
 					moderation.Mount("/v1/moderation", moderationRouter)
-				}
-			})
-			member.Group(func(media chi.Router) {
-				if mediaRouter := resolveMediaRouter(deps); mediaRouter != nil {
-					media.Mount("/v1/media", mediaRouter)
 				}
 			})
 			member.Group(func(notifications chi.Router) {

@@ -59,6 +59,8 @@ type MediaPostCandidate struct {
 	Items           []MediaPostCandidateItem
 	CreatedAt       time.Time
 	SavedByViewer   bool
+	LikeCount       int64
+	ViewerHasLiked  bool
 }
 
 type MediaPostCandidateItem struct {
@@ -96,8 +98,10 @@ type DiveSpotCandidate struct {
 	Verification      string
 	LastUpdatedAt     time.Time
 	SaveCount         int64
+	LikeCount         int64
 	RecentUpdateCount int64
 	SavedByViewer     bool
+	ViewerHasLiked    bool
 }
 
 type BuddySignalCandidate struct {
@@ -429,6 +433,12 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 				SELECT 1 FROM dive_site_saves dss
 				WHERE dss.app_user_id = $1::uuid
 				  AND dss.dive_site_id = mp.dive_site_id
+			),
+			COALESCE((SELECT COUNT(*) FROM media_post_likes mpl WHERE mpl.media_post_id = mp.id), 0)::bigint,
+			EXISTS(
+				SELECT 1 FROM media_post_likes viewer_like
+				WHERE viewer_like.user_id = $1::uuid
+				  AND viewer_like.media_post_id = mp.id
 			)
 		FROM media_posts mp
 		JOIN users u ON u.id = mp.author_app_user_id
@@ -517,6 +527,8 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 			&itemsJSON,
 			&item.CreatedAt,
 			&item.SavedByViewer,
+			&item.LikeCount,
+			&item.ViewerHasLiked,
 		); scanErr != nil {
 			return nil, scanErr
 		}
@@ -618,8 +630,10 @@ func (r *Repo) ListDiveSpotCandidates(ctx context.Context, input CandidateInput)
 			ds.verification_status,
 			ds.last_updated_at,
 			COALESCE((SELECT COUNT(*) FROM dive_site_saves dss WHERE dss.dive_site_id = ds.id), 0)::bigint,
+			COALESCE((SELECT COUNT(*) FROM dive_site_likes dsl WHERE dsl.dive_site_id = ds.id), 0)::bigint,
 			COALESCE((SELECT COUNT(*) FROM dive_site_updates dsu WHERE dsu.dive_site_id = ds.id AND dsu.state = 'active' AND dsu.created_at >= NOW() - INTERVAL '7 days'), 0)::bigint,
-			EXISTS(SELECT 1 FROM dive_site_saves mine WHERE mine.app_user_id = $1::uuid AND mine.dive_site_id = ds.id)
+			EXISTS(SELECT 1 FROM dive_site_saves mine WHERE mine.app_user_id = $1::uuid AND mine.dive_site_id = ds.id),
+			EXISTS(SELECT 1 FROM dive_site_likes mine_like WHERE mine_like.user_id = $1::uuid AND mine_like.dive_site_id = ds.id)
 		FROM dive_sites ds
 		WHERE ds.moderation_state = 'approved'
 		  AND NOT EXISTS (
@@ -650,8 +664,10 @@ func (r *Repo) ListDiveSpotCandidates(ctx context.Context, input CandidateInput)
 			&item.Verification,
 			&item.LastUpdatedAt,
 			&item.SaveCount,
+			&item.LikeCount,
 			&item.RecentUpdateCount,
 			&item.SavedByViewer,
+			&item.ViewerHasLiked,
 		); scanErr != nil {
 			return nil, scanErr
 		}
@@ -1112,6 +1128,47 @@ func (r *Repo) MarkActivityBySource(ctx context.Context, sourceModule, sourceTyp
 	return err
 }
 
+func (r *Repo) RepairMediaPostActivityMedia(ctx context.Context) error {
+	const q = `
+		WITH live_media AS (
+			SELECT
+				mp.id AS media_post_id,
+				jsonb_agg(
+					jsonb_build_object(
+						'id', mi.id::text,
+						'mediaObjectId', mi.media_object_id::text,
+						'type', mi.type,
+						'width', mi.width,
+						'height', mi.height,
+						'caption', COALESCE(mi.caption, ''),
+						'sortOrder', mi.sort_order
+					)
+					ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
+				) AS media
+			FROM media_posts mp
+			JOIN media_items mi ON mi.post_id = mp.id
+			JOIN media_objects mo ON mo.id = mi.media_object_id
+			WHERE mp.deleted_at IS NULL
+			  AND mi.status = 'active'
+			  AND mi.deleted_at IS NULL
+			  AND mi.type = 'photo'
+			  AND mo.state = 'active'
+			GROUP BY mp.id
+		)
+		UPDATE activity_items ai
+		SET media = live_media.media,
+		    updated_at = NOW()
+		FROM live_media
+		WHERE ai.type = 'media_post_created'
+		  AND ai.source_module = 'media'
+		  AND ai.source_type = 'media_post'
+		  AND ai.source_id = live_media.media_post_id
+		  AND (ai.media IS NULL OR ai.media = '[]'::jsonb)
+	`
+	_, err := r.pool.Exec(ctx, q)
+	return err
+}
+
 func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) ([]ActivityRow, error) {
 	const q = `
 		SELECT
@@ -1134,12 +1191,54 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 			ai.occurred_at,
 			COALESCE(ai.title, ''),
 			COALESCE(ai.body, ''),
-			ai.media,
-			ai.stats,
+			CASE
+				WHEN ai.type = 'media_post_created' THEN COALESCE(live_media.items_json, '[]'::jsonb)
+				ELSE ai.media
+			END AS media,
+			CASE
+				WHEN ai.type = 'media_post_created' THEN
+					COALESCE(ai.stats, '{}'::jsonb) ||
+					jsonb_build_object(
+						'likeCount',
+						COALESCE((SELECT COUNT(*) FROM media_post_likes mpl WHERE mpl.media_post_id = ai.source_id), 0),
+						'viewerHasLiked',
+						EXISTS(
+							SELECT 1
+							FROM media_post_likes viewer_like
+							WHERE viewer_like.media_post_id = ai.source_id
+							  AND viewer_like.user_id = $1::uuid
+						)
+					)
+				ELSE ai.stats
+			END AS stats,
 			ai.metadata
 		FROM activity_items ai
 		LEFT JOIN users u ON u.id = ai.actor_user_id
 		LEFT JOIN profiles p ON p.user_id = ai.actor_user_id
+		LEFT JOIN LATERAL (
+			SELECT
+				jsonb_agg(
+					jsonb_build_object(
+						'id', mi.id::text,
+						'mediaObjectId', mi.media_object_id::text,
+						'type', mi.type,
+						'width', mi.width,
+						'height', mi.height,
+						'caption', COALESCE(mi.caption, ''),
+						'sortOrder', mi.sort_order,
+						'objectKey', mo.object_key,
+						'contextType', mo.context_type
+					)
+					ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
+				) AS items_json
+			FROM media_items mi
+			JOIN media_objects mo ON mo.id = mi.media_object_id
+			WHERE mi.post_id = ai.source_id
+			  AND mi.status = 'active'
+			  AND mi.deleted_at IS NULL
+			  AND mi.type = 'photo'
+			  AND mo.state = 'active'
+		) live_media ON ai.type = 'media_post_created'
 		WHERE ai.state = 'active'
 		  AND (ai.actor_user_id IS NULL OR u.account_status = 'active')
 		  AND (

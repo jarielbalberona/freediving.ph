@@ -19,6 +19,8 @@ const mapSiteCard = (site: ExploreSiteCard): DiveSpot => ({
   recentUpdateCount: site.recentUpdateCount,
   lastConditionSummary: site.lastConditionSummary,
   isSaved: site.isSaved,
+  likeCount: site.likeCount,
+  viewerHasLiked: site.viewerHasLiked,
   buddySignal: site.buddySignal,
 });
 

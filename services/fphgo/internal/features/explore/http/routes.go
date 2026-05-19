@@ -30,6 +30,11 @@ func Routes(h *Handlers) chi.Router {
 			submissions.Post("/sites/{siteId}/save", h.SaveSite)
 			submissions.Delete("/sites/{siteId}/save", h.UnsaveSite)
 		})
+		member.Group(func(likes chi.Router) {
+			likes.Use(middleware.RequirePermission(authz.PermissionExploreRead))
+			likes.Post("/sites/{siteId}/likes", h.LikeSite)
+			likes.Delete("/sites/{siteId}/likes", h.UnlikeSite)
+		})
 		member.Group(func(moderation chi.Router) {
 			moderation.Use(middleware.RequirePermission(authz.PermissionExploreModerate))
 			moderation.Get("/moderation/sites/pending", h.ListPendingSites)

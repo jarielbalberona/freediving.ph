@@ -7,19 +7,26 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"net/url"
+	"net/http"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	feedservice "fphgo/internal/features/feed/service"
 	mediarepo "fphgo/internal/features/media/repo"
+	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/mediasign"
 )
 
 type fakeRepo struct {
 	created       []mediarepo.CreateMediaObjectInput
 	mediaByID     map[string]mediarepo.MediaObject
 	publishedPost *mediarepo.PublishMediaPostInput
+	likeState     mediarepo.LikeState
+	likedPostID   string
+	unlikedPostID string
+	likeUserID    string
 }
 
 func (f *fakeRepo) CreateMediaObject(_ context.Context, input mediarepo.CreateMediaObjectInput) (mediarepo.MediaObject, error) {
@@ -158,9 +165,39 @@ func (f *fakeRepo) ListProfileMediaByUsername(_ context.Context, _ mediarepo.Lis
 	return nil, nil
 }
 
+func (f *fakeRepo) GetVisibleMediaPostLikeState(_ context.Context, postID, _ string) (mediarepo.LikeState, error) {
+	if f.likeState.TargetID == "" {
+		return mediarepo.LikeState{TargetID: postID}, nil
+	}
+	return f.likeState, nil
+}
+
+func (f *fakeRepo) LikeMediaPost(_ context.Context, postID, userID string) error {
+	f.likedPostID = postID
+	f.likeUserID = userID
+	f.likeState = mediarepo.LikeState{TargetID: postID, LikeCount: 1, ViewerHasLiked: true}
+	return nil
+}
+
+func (f *fakeRepo) UnlikeMediaPost(_ context.Context, postID, userID string) error {
+	f.unlikedPostID = postID
+	f.likeUserID = userID
+	f.likeState = mediarepo.LikeState{TargetID: postID, LikeCount: 0, ViewerHasLiked: false}
+	return nil
+}
+
 type fakeSiteLookup struct {
 	site SiteRecord
 	err  error
+}
+
+type fakeActivityPublisher struct {
+	items []feedservice.ActivityPublishInput
+}
+
+func (f *fakeActivityPublisher) PublishActivity(_ context.Context, input feedservice.ActivityPublishInput) error {
+	f.items = append(f.items, input)
+	return nil
 }
 
 func (f fakeSiteLookup) GetSiteForWrite(context.Context, string) (SiteRecord, error) {
@@ -322,22 +359,24 @@ func TestMintURLsClampsWidthAndQuality(t *testing.T) {
 	}
 }
 
-func TestCanonicalStringStable(t *testing.T) {
-	q := mapToValues(map[string]string{
-		"exp": "1700000000",
-		"k":   "1",
-		"f":   "auto",
-		"q":   "75",
-		"w":   "640",
-	})
-	canonical := canonicalString("/feed/user_123/2026/02/1700000123456-ab12cd.jpg", q)
-	want := "GET\n/feed/user_123/2026/02/1700000123456-ab12cd.jpg\nf=auto&q=75&w=640&exp=1700000000&k=1"
-	if canonical != want {
-		t.Fatalf("canonical mismatch\nwant: %s\ngot:  %s", want, canonical)
+func TestMediaSignerURLStable(t *testing.T) {
+	signer := mediasign.New(
+		"https://cdn.example.com",
+		"secret",
+		1,
+		mediasign.WithNow(func() time.Time {
+			return time.Unix(1_700_000_000, 0).UTC()
+		}),
+	)
+
+	signedURL := signer.URLWithTransform("feed/user_123/2026/02/1700000123456-ab12cd.jpg", 640, 75, "auto", time.Hour)
+	if !strings.HasPrefix(signedURL, "https://cdn.example.com/feed/user_123/2026/02/1700000123456-ab12cd.jpg?") {
+		t.Fatalf("unexpected signed url path: %s", signedURL)
 	}
-	sig := signCanonical(canonical, "secret")
-	if sig == "" {
-		t.Fatal("expected signature")
+	for _, part := range []string{"exp=1700003600", "f=auto", "k=1", "q=75", "w=640", "sig="} {
+		if !strings.Contains(signedURL, part) {
+			t.Fatalf("expected %q in signed url, got %s", part, signedURL)
+		}
 	}
 }
 
@@ -414,6 +453,7 @@ func TestCreateMediaPostPublishesGroupedPhotos(t *testing.T) {
 			State:          "active",
 		},
 	}}
+	activity := &fakeActivityPublisher{}
 	svc := New(
 		repo,
 		nil,
@@ -428,6 +468,7 @@ func TestCreateMediaPostPublishesGroupedPhotos(t *testing.T) {
 			Area:            "Batangas",
 			ModerationState: "approved",
 		}}),
+		WithActivityPublisher(activity),
 	)
 
 	sharedCaption := "Freedive day"
@@ -474,6 +515,22 @@ func TestCreateMediaPostPublishesGroupedPhotos(t *testing.T) {
 	}
 	if result.Items[0].DiveSiteName != "Anilao" {
 		t.Fatalf("expected dive site name on result, got %s", result.Items[0].DiveSiteName)
+	}
+	if len(activity.items) != 1 {
+		t.Fatalf("expected one media_post_created activity, got %#v", activity.items)
+	}
+	published := activity.items[0]
+	if published.Type != feedservice.ActivityMediaPostCreated || published.Visibility != feedservice.ActivityVisibilityPublic {
+		t.Fatalf("expected public media post activity, got %#v", published)
+	}
+	if len(published.Media) != 2 {
+		t.Fatalf("expected activity media payload for two ready items, got %#v", published.Media)
+	}
+	if published.Media[0]["mediaObjectId"] != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("expected activity media object id, got %#v", published.Media[0])
+	}
+	if published.Media[0]["width"] != 100 || published.Media[0]["height"] != 120 {
+		t.Fatalf("expected activity media dimensions, got %#v", published.Media[0])
 	}
 }
 
@@ -575,6 +632,66 @@ func TestListMediaByContextReturnsOnlyOwnerItems(t *testing.T) {
 	}
 }
 
+func TestLikeMediaPostRequiresActor(t *testing.T) {
+	svc := New(&fakeRepo{}, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	_, err := svc.LikeMediaPost(context.Background(), "", "22222222-2222-4222-8222-222222222222")
+	if err == nil {
+		t.Fatal("expected auth error")
+	}
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok {
+		t.Fatalf("expected AppError, got %T", err)
+	}
+	if appErr.Status != http.StatusUnauthorized {
+		t.Fatalf("expected unauthorized, got %+v", appErr)
+	}
+}
+
+func TestLikeMediaPostUpdatesState(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	result, err := svc.LikeMediaPost(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"22222222-2222-4222-8222-222222222222",
+	)
+	if err != nil {
+		t.Fatalf("like media post: %v", err)
+	}
+	if repo.likedPostID != "22222222-2222-4222-8222-222222222222" || repo.likeUserID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("expected repo like call, got post=%q user=%q", repo.likedPostID, repo.likeUserID)
+	}
+	if result.TargetID != "22222222-2222-4222-8222-222222222222" || result.LikeCount != 1 || !result.ViewerHasLiked {
+		t.Fatalf("unexpected like result: %+v", result)
+	}
+}
+
+func TestUnlikeMediaPostUpdatesState(t *testing.T) {
+	repo := &fakeRepo{likeState: mediarepo.LikeState{
+		TargetID:       "22222222-2222-4222-8222-222222222222",
+		LikeCount:      1,
+		ViewerHasLiked: true,
+	}}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	result, err := svc.UnlikeMediaPost(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"22222222-2222-4222-8222-222222222222",
+	)
+	if err != nil {
+		t.Fatalf("unlike media post: %v", err)
+	}
+	if repo.unlikedPostID != "22222222-2222-4222-8222-222222222222" || repo.likeUserID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("expected repo unlike call, got post=%q user=%q", repo.unlikedPostID, repo.likeUserID)
+	}
+	if result.TargetID != "22222222-2222-4222-8222-222222222222" || result.LikeCount != 0 || result.ViewerHasLiked {
+		t.Fatalf("unexpected unlike result: %+v", result)
+	}
+}
+
 func testPNG(t *testing.T, width, height int) []byte {
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
@@ -609,14 +726,6 @@ func appendFakeExif(jpegBytes []byte) []byte {
 	out = append(out, jpegBytes[:2]...)
 	out = append(out, exif...)
 	out = append(out, jpegBytes[2:]...)
-	return out
-}
-
-func mapToValues(values map[string]string) url.Values {
-	out := make(url.Values, len(values))
-	for k, v := range values {
-		out[k] = []string{v}
-	}
 	return out
 }
 

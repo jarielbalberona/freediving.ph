@@ -9,6 +9,7 @@ import {
   getExploreSiteBuddyPreviewServer,
   getExploreSiteBySlugServer,
 } from "@/features/diveSpots/api/explore-v1.server";
+import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeButton";
 import BackToExploreButton from "./back-to-explore-button";
 
 type PageProps = {
@@ -77,7 +78,14 @@ export default async function ExploreSharePage({ params }: PageProps) {
             <h1 className="font-serif text-4xl text-foreground">
               {data.site.name}
             </h1>
-            <p className="text-muted-foreground">{data.site.area}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-muted-foreground">{data.site.area}</p>
+              <DiveSiteLikeButton
+                siteId={data.site.id}
+                likeCount={data.site.likeCount}
+                viewerHasLiked={data.site.viewerHasLiked}
+              />
+            </div>
           </div>
 
           <Card>

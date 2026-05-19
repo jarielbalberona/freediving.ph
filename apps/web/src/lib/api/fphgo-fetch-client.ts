@@ -16,6 +16,7 @@ declare global {
 }
 
 export type FphgoFetchInit = Omit<RequestInit, "body"> & {
+  auth?: "wait" | "ready-only" | "none";
   body?: BodyInit | JsonObject | null;
   token?: string | null;
 };
@@ -41,7 +42,7 @@ export class FphgoFetchError extends Error {
 
 type FetchDeps = {
   baseUrlProvider: () => string;
-  tokenProvider: () => Promise<string | null>;
+  tokenProvider: (mode?: ClientAuthMode) => Promise<string | null>;
   fetchImpl?: typeof fetch;
 };
 
@@ -87,7 +88,13 @@ export const createFphgoFetcher = ({
     assertV1Path(normalizedPath);
 
     const headers = new Headers(init.headers);
-    const token = init.token === undefined ? await tokenProvider() : init.token;
+    const auth = init.auth ?? "wait";
+    const token =
+      init.token === undefined
+        ? auth === "none"
+          ? null
+          : await tokenProvider(auth)
+        : init.token;
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
@@ -133,8 +140,14 @@ export const createFphgoFetcher = ({
   };
 };
 
-const getClerkTokenFromWindow = async (): Promise<string | null> => {
+type ClientAuthMode = "wait" | "ready-only";
+
+const getClerkTokenFromWindow = async (
+  mode: ClientAuthMode = "wait",
+): Promise<string | null> => {
   if (typeof window === "undefined") return null;
+  if (mode === "ready-only" && !window.Clerk?.session) return null;
+
   const start = Date.now();
   const waitLimitMs = 1500;
   while (Date.now() - start < waitLimitMs) {

@@ -112,6 +112,8 @@ export interface MediaPostSummary {
   uploadGroupId: string;
   diveSiteId: string;
   postCaption?: string | null;
+  likeCount: number;
+  viewerHasLiked: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -133,12 +135,20 @@ export interface ProfileMediaItem {
   diveSite: MediaDiveSiteSummary;
   sortOrder: number;
   status: MediaItemStatus;
+  likeCount: number;
+  viewerHasLiked: boolean;
   createdAt: string;
 }
 
 export interface CreateMediaPostResponse {
   post: MediaPostSummary;
   items: ProfileMediaItem[];
+}
+
+export interface LikeState {
+  targetId: string;
+  likeCount: number;
+  viewerHasLiked: boolean;
 }
 
 export interface ListProfileMediaResponse {

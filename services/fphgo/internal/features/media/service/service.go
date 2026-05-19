@@ -1,12 +1,8 @@
 package service
 
 import (
-	"bytes"
 	"context"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -17,7 +13,6 @@ import (
 	"image/png"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -30,6 +25,7 @@ import (
 	feedservice "fphgo/internal/features/feed/service"
 	mediarepo "fphgo/internal/features/media/repo"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/mediasign"
 	"fphgo/internal/shared/pagination"
 	"fphgo/internal/shared/validatex"
 )
@@ -55,6 +51,9 @@ type repository interface {
 	ListMediaByContext(ctx context.Context, input mediarepo.ListMediaByContextInput) ([]mediarepo.MediaObject, error)
 	PublishMediaPost(ctx context.Context, input mediarepo.PublishMediaPostInput) (mediarepo.MediaPost, []mediarepo.MediaItem, error)
 	ListProfileMediaByUsername(ctx context.Context, input mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error)
+	GetVisibleMediaPostLikeState(ctx context.Context, postID, viewerUserID string) (mediarepo.LikeState, error)
+	LikeMediaPost(ctx context.Context, postID, userID string) error
+	UnlikeMediaPost(ctx context.Context, postID, userID string) error
 }
 
 type uploader interface {
@@ -210,6 +209,8 @@ type MediaPostResult struct {
 	UploadGroupID   string
 	DiveSiteID      string
 	PostCaption     *string
+	LikeCount       int64
+	ViewerHasLiked  bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -234,6 +235,8 @@ type ProfileMediaItemResult struct {
 	DiveSiteArea    string
 	SortOrder       int
 	Status          string
+	LikeCount       int64
+	ViewerHasLiked  bool
 	CreatedAt       time.Time
 }
 
@@ -243,14 +246,21 @@ type CreateMediaPostResult struct {
 }
 
 type ListProfileMediaInput struct {
-	Username string
-	Cursor   string
-	Limit    int32
+	Username     string
+	ViewerUserID string
+	Cursor       string
+	Limit        int32
 }
 
 type ListProfileMediaResult struct {
 	Items      []ProfileMediaItemResult
 	NextCursor string
+}
+
+type LikeStateResult struct {
+	TargetID       string
+	LikeCount      int64
+	ViewerHasLiked bool
 }
 
 type contextRule struct {
@@ -677,12 +687,11 @@ func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsRe
 
 		now := s.nowFn()
 		expiresAt := now.Add(rule.ttl).Unix()
-		query := make(url.Values)
-		query.Set("exp", strconv.FormatInt(expiresAt, 10))
-		query.Set("k", strconv.Itoa(s.signingKeyVersion))
-
+		format := ""
+		width := 0
+		quality := 0
 		if preset != PresetOriginal {
-			format := "auto"
+			format = "auto"
 			if item.Format != nil && strings.TrimSpace(*item.Format) != "" {
 				format = strings.ToLower(strings.TrimSpace(*item.Format))
 			}
@@ -690,31 +699,29 @@ func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsRe
 				result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: "invalid_format", Message: "format is invalid"})
 				continue
 			}
-			width := defaultWidthForPreset(preset)
+			width = defaultWidthForPreset(preset)
 			if item.Width != nil && *item.Width > 0 {
 				width = *item.Width
 			}
 			width = clampInt(width, 1, rule.maxTransformWidth)
 
-			quality := defaultQualityForPreset(preset)
+			quality = defaultQualityForPreset(preset)
 			if item.Quality != nil {
 				quality = *item.Quality
 			}
 			quality = clampInt(quality, 50, 85)
-
-			query.Set("w", strconv.Itoa(width))
-			query.Set("q", strconv.Itoa(quality))
-			query.Set("f", format)
 		}
 
-		requestPath := "/" + row.ObjectKey
-		canonical := canonicalString(requestPath, query)
-		signature := signCanonical(canonical, s.signingSecret)
-		query.Set("sig", signature)
+		signer := mediasign.New(s.cdnBaseURL, s.signingSecret, s.signingKeyVersion, mediasign.WithNow(s.nowFn))
+		signedURL := signer.URLWithTransform(row.ObjectKey, width, quality, format, rule.ttl)
+		if signedURL == "" {
+			result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: "media_signing_unavailable", Message: "media signing is not configured"})
+			continue
+		}
 
 		result.Items = append(result.Items, MintedURLItem{
 			MediaID:   item.MediaID,
-			URL:       s.cdnBaseURL + requestPath + "?" + query.Encode(),
+			URL:       signedURL,
 			ExpiresAt: expiresAt,
 		})
 	}
@@ -942,6 +949,8 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 			DiveSiteArea:    site.Area,
 			SortOrder:       int(item.SortOrder),
 			Status:          item.Status,
+			LikeCount:       0,
+			ViewerHasLiked:  false,
 			CreatedAt:       item.CreatedAt,
 		})
 	}
@@ -989,6 +998,8 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 			UploadGroupID:   createdPost.UploadGroupID,
 			DiveSiteID:      createdPost.DiveSiteID,
 			PostCaption:     createdPost.PostCaption,
+			LikeCount:       0,
+			ViewerHasLiked:  false,
 			CreatedAt:       createdPost.CreatedAt,
 			UpdatedAt:       createdPost.UpdatedAt,
 		},
@@ -1025,6 +1036,7 @@ func (s *Service) ListProfileMedia(ctx context.Context, input ListProfileMediaIn
 
 	rows, err := s.repo.ListProfileMediaByUsername(ctx, mediarepo.ListProfileMediaInput{
 		Username:      username,
+		ViewerUserID:  strings.TrimSpace(input.ViewerUserID),
 		CursorCreated: cursorCreated,
 		CursorID:      cursorID,
 		Limit:         input.Limit + 1,
@@ -1063,11 +1075,60 @@ func (s *Service) ListProfileMedia(ctx context.Context, input ListProfileMediaIn
 			DiveSiteArea:    row.DiveSiteArea,
 			SortOrder:       int(row.SortOrder),
 			Status:          row.Status,
+			LikeCount:       row.LikeCount,
+			ViewerHasLiked:  row.ViewerHasLiked,
 			CreatedAt:       row.CreatedAt,
 		})
 	}
 
 	return ListProfileMediaResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) LikeMediaPost(ctx context.Context, actorID, postID string) (LikeStateResult, error) {
+	return s.setMediaPostLike(ctx, actorID, postID, true)
+}
+
+func (s *Service) UnlikeMediaPost(ctx context.Context, actorID, postID string) (LikeStateResult, error) {
+	return s.setMediaPostLike(ctx, actorID, postID, false)
+}
+
+func (s *Service) setMediaPostLike(ctx context.Context, actorID, postID string, liked bool) (LikeStateResult, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(actorID)); err != nil {
+		return LikeStateResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(postID)); err != nil {
+		return LikeStateResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"postId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := s.repo.GetVisibleMediaPostLikeState(ctx, postID, actorID); err != nil {
+		if mediarepo.IsNoRows(err) {
+			return LikeStateResult{}, apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", err)
+		}
+		return LikeStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_like_failed", "failed to load media post", err)
+	}
+	if liked {
+		if err := s.repo.LikeMediaPost(ctx, postID, actorID); err != nil {
+			return LikeStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_like_failed", "failed to like media post", err)
+		}
+	} else if err := s.repo.UnlikeMediaPost(ctx, postID, actorID); err != nil {
+		return LikeStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_like_failed", "failed to unlike media post", err)
+	}
+	state, err := s.repo.GetVisibleMediaPostLikeState(ctx, postID, actorID)
+	if err != nil {
+		if mediarepo.IsNoRows(err) {
+			return LikeStateResult{}, apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", err)
+		}
+		return LikeStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_like_failed", "failed to load media post", err)
+	}
+	state.ViewerHasLiked = liked
+	return LikeStateResult{
+		TargetID:       state.TargetID,
+		LikeCount:      state.LikeCount,
+		ViewerHasLiked: state.ViewerHasLiked,
+	}, nil
 }
 
 func (s *Service) ListMedia(ctx context.Context, input ListMediaInput) (ListMediaResult, error) {
@@ -1389,25 +1450,6 @@ func extForMime(mimeType string) string {
 		return ext
 	}
 	return "bin"
-}
-
-func canonicalString(requestPath string, query url.Values) string {
-	signedKeys := []string{"f", "q", "w", "exp", "k"}
-	parts := make([]string, 0, len(signedKeys))
-	for _, key := range signedKeys {
-		value := strings.TrimSpace(query.Get(key))
-		if value == "" {
-			continue
-		}
-		parts = append(parts, key+"="+value)
-	}
-	return "GET\n" + requestPath + "\n" + strings.Join(parts, "&")
-}
-
-func signCanonical(canonical, secret string) string {
-	h := hmac.New(sha256.New, []byte(secret))
-	_, _ = io.Copy(h, bytes.NewBufferString(canonical))
-	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 }
 
 func isAllowedOutputFormat(format string) bool {

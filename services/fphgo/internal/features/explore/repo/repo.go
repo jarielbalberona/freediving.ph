@@ -56,6 +56,8 @@ type SiteCard struct {
 	AreaBuddyIntentCount int64
 	LastConditionSummary string
 	IsSaved              bool
+	LikeCount            int64
+	ViewerHasLiked       bool
 }
 
 type SiteDetail struct {
@@ -82,6 +84,14 @@ type SiteDetail struct {
 	CreatedAt             time.Time
 	ReportCount           int64
 	LastConditionSummary  string
+	LikeCount             int64
+	ViewerHasLiked        bool
+}
+
+type LikeState struct {
+	TargetID       string
+	LikeCount      int64
+	ViewerHasLiked bool
 }
 
 type CreateSiteSubmissionInput struct {
@@ -268,13 +278,18 @@ func (r *Repo) ListSites(ctx context.Context, input ListSitesInput) ([]SiteCard,
 			AreaBuddyIntentCount: row.ActiveAreaBuddyIntentCount,
 			LastConditionSummary: anyString(row.LastConditionSummary),
 			IsSaved:              row.IsSaved,
+			LikeCount:            row.LikeCount,
+			ViewerHasLiked:       row.ViewerHasLiked,
 		})
 	}
 	return items, nil
 }
 
-func (r *Repo) GetSiteBySlug(ctx context.Context, slug string) (SiteDetail, error) {
-	row, err := r.queries.GetSiteBySlug(ctx, slug)
+func (r *Repo) GetSiteBySlug(ctx context.Context, slug, viewerUserID string) (SiteDetail, error) {
+	row, err := r.queries.GetSiteBySlug(ctx, exploreqlc.GetSiteBySlugParams{
+		Slug:         slug,
+		ViewerUserID: toUUID(viewerUserID),
+	})
 	if err != nil {
 		return SiteDetail{}, err
 	}
@@ -302,6 +317,8 @@ func (r *Repo) GetSiteBySlug(ctx context.Context, slug string) (SiteDetail, erro
 		CreatedAt:             row.CreatedAt.Time.UTC(),
 		ReportCount:           row.ReportCount,
 		LastConditionSummary:  anyString(row.LastConditionSummary),
+		LikeCount:             row.LikeCount,
+		ViewerHasLiked:        row.ViewerHasLiked,
 	}, nil
 }
 
@@ -560,6 +577,35 @@ func (r *Repo) UnsaveSite(ctx context.Context, appUserID, siteID string) error {
 	return r.queries.UnsaveSite(ctx, exploreqlc.UnsaveSiteParams{
 		AppUserID:  toUUID(appUserID),
 		DiveSiteID: toUUID(siteID),
+	})
+}
+
+func (r *Repo) GetVisibleDiveSiteLikeState(ctx context.Context, siteID, viewerUserID string) (LikeState, error) {
+	row, err := r.queries.GetVisibleDiveSiteLikeState(ctx, exploreqlc.GetVisibleDiveSiteLikeStateParams{
+		DiveSiteID:   toUUID(siteID),
+		ViewerUserID: toUUID(viewerUserID),
+	})
+	if err != nil {
+		return LikeState{}, err
+	}
+	return LikeState{
+		TargetID:       row.ID.String(),
+		LikeCount:      row.LikeCount,
+		ViewerHasLiked: row.ViewerHasLiked,
+	}, nil
+}
+
+func (r *Repo) LikeDiveSite(ctx context.Context, siteID, userID string) error {
+	return r.queries.LikeDiveSite(ctx, exploreqlc.LikeDiveSiteParams{
+		DiveSiteID: toUUID(siteID),
+		UserID:     toUUID(userID),
+	})
+}
+
+func (r *Repo) UnlikeDiveSite(ctx context.Context, siteID, userID string) error {
+	return r.queries.UnlikeDiveSite(ctx, exploreqlc.UnlikeDiveSiteParams{
+		DiveSiteID: toUUID(siteID),
+		UserID:     toUUID(userID),
 	})
 }
 

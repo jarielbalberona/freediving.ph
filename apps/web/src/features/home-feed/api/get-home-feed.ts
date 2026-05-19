@@ -2,7 +2,10 @@ import { fphgoFetchClient } from "@/lib/api/fphgo-fetch-client";
 import { routes } from "@/lib/api/fphgo-routes";
 import type { HomeFeedMode, HomeFeedResponse } from "@freediving.ph/types";
 
-const withQuery = (path: string, params: Record<string, string | number | undefined>) => {
+const withQuery = (
+  path: string,
+  params: Record<string, string | number | undefined>,
+) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== "") {
@@ -26,4 +29,5 @@ export const getHomeFeed = (params: {
       region: params.region,
       limit: params.limit,
     }),
+    { auth: "ready-only", cache: "no-store" },
   );

@@ -296,6 +296,82 @@ func (q *Queries) GetMediaObjectsByIDs(ctx context.Context, dollar_1 []pgtype.UU
 	return items, nil
 }
 
+const getVisibleMediaPostLikeState = `-- name: GetVisibleMediaPostLikeState :one
+SELECT
+  mp.id,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = $1
+  ) AS viewer_has_liked
+FROM media_posts mp
+JOIN users u ON u.id = mp.author_app_user_id
+JOIN dive_sites ds ON ds.id = mp.dive_site_id
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
+WHERE mp.id = $2
+  AND mp.deleted_at IS NULL
+  AND u.account_status = 'active'
+  AND ds.moderation_state = 'approved'
+  AND EXISTS (
+    SELECT 1
+    FROM media_items mi
+    JOIN media_objects mo ON mo.id = mi.media_object_id
+    WHERE mi.post_id = mp.id
+      AND mi.status = 'active'
+      AND mi.deleted_at IS NULL
+      AND mo.state = 'active'
+  )
+  AND (
+    $1::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = mp.author_app_user_id)
+         OR (b.blocker_app_user_id = mp.author_app_user_id AND b.blocked_app_user_id = $1)
+    )
+  )
+`
+
+type GetVisibleMediaPostLikeStateParams struct {
+	ViewerUserID pgtype.UUID `db:"viewer_user_id" json:"viewer_user_id"`
+	MediaPostID  pgtype.UUID `db:"media_post_id" json:"media_post_id"`
+}
+
+type GetVisibleMediaPostLikeStateRow struct {
+	ID             pgtype.UUID `db:"id" json:"id"`
+	LikeCount      int64       `db:"like_count" json:"like_count"`
+	ViewerHasLiked bool        `db:"viewer_has_liked" json:"viewer_has_liked"`
+}
+
+func (q *Queries) GetVisibleMediaPostLikeState(ctx context.Context, arg GetVisibleMediaPostLikeStateParams) (GetVisibleMediaPostLikeStateRow, error) {
+	row := q.db.QueryRow(ctx, getVisibleMediaPostLikeState, arg.ViewerUserID, arg.MediaPostID)
+	var i GetVisibleMediaPostLikeStateRow
+	err := row.Scan(&i.ID, &i.LikeCount, &i.ViewerHasLiked)
+	return i, err
+}
+
+const likeMediaPost = `-- name: LikeMediaPost :exec
+INSERT INTO media_post_likes (media_post_id, user_id)
+VALUES ($1, $2)
+ON CONFLICT (media_post_id, user_id) DO NOTHING
+`
+
+type LikeMediaPostParams struct {
+	MediaPostID pgtype.UUID `db:"media_post_id" json:"media_post_id"`
+	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
+}
+
+func (q *Queries) LikeMediaPost(ctx context.Context, arg LikeMediaPostParams) error {
+	_, err := q.db.Exec(ctx, likeMediaPost, arg.MediaPostID, arg.UserID)
+	return err
+}
+
 const listMediaByContext = `-- name: ListMediaByContext :many
 SELECT id, owner_app_user_id, context_type, context_id, object_key, mime_type, size_bytes, width, height, state, created_at
 FROM media_objects m
@@ -428,28 +504,41 @@ SELECT
   mi.deleted_at,
   COALESCE(ds.slug, '') AS dive_site_slug,
   COALESCE(ds.name, '') AS dive_site_name,
-  COALESCE(ds.area, '') AS dive_site_area
+  COALESCE(ds.area, '') AS dive_site_area,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = $1
+  ) AS viewer_has_liked
 FROM media_items mi
 JOIN media_posts mp ON mp.id = mi.post_id
 JOIN users u ON u.id = mi.author_app_user_id
 LEFT JOIN dive_sites ds
   ON ds.id = mi.dive_site_id
  AND ds.moderation_state = 'approved'
-WHERE lower(u.username) = lower($1)
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
+WHERE lower(u.username) = lower($2)
   AND u.account_status = 'active'
   AND mi.status = 'active'
   AND mi.deleted_at IS NULL
   AND mp.deleted_at IS NULL
-  AND (mi.created_at < $2 OR (mi.created_at = $2 AND mi.id < $3))
+  AND (mi.created_at < $3 OR (mi.created_at = $3 AND mi.id < $4))
 ORDER BY mi.created_at DESC, mi.id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type ListProfileMediaByUsernameParams struct {
-	Username   string             `db:"username" json:"username"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ID         pgtype.UUID        `db:"id" json:"id"`
-	LimitCount int32              `db:"limit_count" json:"limit_count"`
+	ViewerUserID pgtype.UUID        `db:"viewer_user_id" json:"viewer_user_id"`
+	Username     string             `db:"username" json:"username"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	LimitCount   int32              `db:"limit_count" json:"limit_count"`
 }
 
 type ListProfileMediaByUsernameRow struct {
@@ -475,10 +564,13 @@ type ListProfileMediaByUsernameRow struct {
 	DiveSiteSlug    string             `db:"dive_site_slug" json:"dive_site_slug"`
 	DiveSiteName    string             `db:"dive_site_name" json:"dive_site_name"`
 	DiveSiteArea    string             `db:"dive_site_area" json:"dive_site_area"`
+	LikeCount       int64              `db:"like_count" json:"like_count"`
+	ViewerHasLiked  bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
 }
 
 func (q *Queries) ListProfileMediaByUsername(ctx context.Context, arg ListProfileMediaByUsernameParams) ([]ListProfileMediaByUsernameRow, error) {
 	rows, err := q.db.Query(ctx, listProfileMediaByUsername,
+		arg.ViewerUserID,
 		arg.Username,
 		arg.CreatedAt,
 		arg.ID,
@@ -514,6 +606,8 @@ func (q *Queries) ListProfileMediaByUsername(ctx context.Context, arg ListProfil
 			&i.DiveSiteSlug,
 			&i.DiveSiteName,
 			&i.DiveSiteArea,
+			&i.LikeCount,
+			&i.ViewerHasLiked,
 		); err != nil {
 			return nil, err
 		}
@@ -523,6 +617,22 @@ func (q *Queries) ListProfileMediaByUsername(ctx context.Context, arg ListProfil
 		return nil, err
 	}
 	return items, nil
+}
+
+const unlikeMediaPost = `-- name: UnlikeMediaPost :exec
+DELETE FROM media_post_likes
+WHERE media_post_id = $1
+  AND user_id = $2
+`
+
+type UnlikeMediaPostParams struct {
+	MediaPostID pgtype.UUID `db:"media_post_id" json:"media_post_id"`
+	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
+}
+
+func (q *Queries) UnlikeMediaPost(ctx context.Context, arg UnlikeMediaPostParams) error {
+	_, err := q.db.Exec(ctx, unlikeMediaPost, arg.MediaPostID, arg.UserID)
+	return err
 }
 
 const updateMediaState = `-- name: UpdateMediaState :one

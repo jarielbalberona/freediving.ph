@@ -4,7 +4,10 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import type { HomeFeedItem } from "@freediving.ph/types";
-import { FeedCardShell } from "@/features/home-feed/components/FeedCardShell";
+import {
+  FeedCardShell,
+  FeedItemHeader,
+} from "@/features/home-feed/components/FeedCardShell";
 
 type EventPayload = {
   title?: string;
@@ -19,17 +22,20 @@ export function EventCard({
   const payload = item.payload as EventPayload;
   return (
     <FeedCardShell item={item} actions={actions}>
-      <div className="flex items-center justify-between gap-3">
-        <Badge
-          variant="outline"
-          className="border-amber-500/30 bg-amber-500/10 text-amber-800"
-        >
-          Group session
-        </Badge>
-        <span className="text-sm font-medium text-muted-foreground">
-          {payload.memberCount ?? 0} members
-        </span>
-      </div>
+      <FeedItemHeader
+        item={item}
+        displayName="Community event"
+        usernameFallback="Community"
+        metadata={[`${payload.memberCount ?? 0} members`]}
+        typeExtras={
+          <Badge
+            variant="outline"
+            className="h-6 border-amber-500/30 bg-amber-500/10 px-2 text-amber-800"
+          >
+            Group session
+          </Badge>
+        }
+      />
       {item.detailHref ? (
         <Link
           href={item.detailHref}

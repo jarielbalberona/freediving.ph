@@ -92,6 +92,14 @@ test("activity feed contracts expose ledger response shape", () => {
     },
     visibility: "public",
     occurredAt: "2026-05-19T00:00:00Z",
+    media: [
+      {
+        mediaObjectId: "media_1",
+        width: 1200,
+        height: 800,
+        displayUrl: "https://cdn.example.com/photo.jpg?sig=abc",
+      },
+    ],
     href: "/chika/thread_1",
   } satisfies ActivityFeedItem;
   const response = {
@@ -100,6 +108,7 @@ test("activity feed contracts expose ledger response shape", () => {
   } satisfies ActivityFeedResponse;
 
   assert.equal(response.items[0].type, "chika_thread_created");
+  assert.equal(response.items[0].media?.[0]?.displayUrl?.includes("sig="), true);
 });
 
 test("feed telemetry contracts carry source without breaking legacy mode", () => {

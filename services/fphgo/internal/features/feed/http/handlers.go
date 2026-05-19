@@ -32,6 +32,8 @@ func New(service service, validator httpx.Validator) *Handlers {
 }
 
 func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
+	setNoStore(w)
+
 	identity, _ := middleware.CurrentIdentity(r.Context())
 	userID := identity.UserID
 
@@ -96,6 +98,8 @@ func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) Activity(w http.ResponseWriter, r *http.Request) {
+	setNoStore(w)
+
 	identity, _ := middleware.CurrentIdentity(r.Context())
 	userID := identity.UserID
 
@@ -250,6 +254,10 @@ func (h *Handlers) writeError(w http.ResponseWriter, r *http.Request, err error)
 		return
 	}
 	httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+}
+
+func setNoStore(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
 }
 
 func mapQuickActions(items []feedservice.QuickAction) []HomeQuickAction {

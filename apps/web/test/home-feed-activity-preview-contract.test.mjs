@@ -58,8 +58,13 @@ test("home feed keeps legacy client while activity feed is the default client", 
   assert.match(activityClient, /mode: params\.mode/);
   assert.match(activityClient, /cursor: params\.cursor/);
   assert.match(activityClient, /region: params\.region/);
-  assert.match(homeHook, /queryKey: \["home-feed"/);
+  assert.match(homeHook, /queryKey: \["home-feed", "home"/);
   assert.match(activityHook, /"activity-feed"/);
+  assert.match(activityHook, /"activity"/);
+  assert.match(activityClient, /auth: "ready-only"/);
+  assert.match(activityClient, /cache: "no-store"/);
+  assert.match(homeClient, /auth: "ready-only"/);
+  assert.match(homeClient, /cache: "no-store"/);
 });
 
 test("activity source is default and home source is explicit fallback", async () => {
@@ -88,6 +93,31 @@ test("activity preview adapts supported ledger types and skips unknown types saf
   assert.match(source, /return null/);
   assert.match(source, /authorPseudonymous: item\.actor\.id\.trim\(\) === ""/);
   assert.doesNotMatch(source, /authorUserId/);
+});
+
+test("activity media posts preserve display URLs and avoid caption-only downgrade", async () => {
+  const [adapter, card, dialog] = await Promise.all([
+    readFile(adapterPath, "utf8"),
+    readFile(
+      path.join(
+        appRoot,
+        "src/features/home-feed/components/cards/MediaPostCard.tsx",
+      ),
+      "utf8",
+    ),
+    readFile(
+      path.join(appRoot, "src/features/media/components/MediaViewerDialog.tsx"),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(adapter, /previewDisplayUrl/);
+  assert.match(adapter, /displayUrl: mediaStringValue\(media, "displayUrl"\)/);
+  assert.match(adapter, /mediaUnavailableReason/);
+  assert.match(card, /previewMediaId && !previewDisplayUrl/);
+  assert.match(card, /previewDisplayUrl\s*\?/);
+  assert.match(dialog, /filter\(\(item\) => !item\.displayUrl\)/);
+  assert.match(dialog, /item\.displayUrl \?\?/);
 });
 
 test("activity default sends activity-safe telemetry and card actions", async () => {
@@ -119,14 +149,23 @@ test("activity default sends activity-safe telemetry and card actions", async ()
   assert.match(homePage, /initialFeedSource === "home" \? "home" : "activity"/);
   assert.match(mixedFeed, /enabled: telemetryEnabled/);
   assert.match(mixedFeed, /source,/);
-  assert.match(mixedFeed, /entityType: item\.telemetryEntityType \?\? item\.type/);
-  assert.match(mixedFeed, /entityId: item\.telemetryEntityId \?\? item\.entityId/);
+  assert.match(
+    mixedFeed,
+    /entityType: item\.telemetryEntityType \?\? item\.type/,
+  );
+  assert.match(
+    mixedFeed,
+    /entityId: item\.telemetryEntityId \?\? item\.entityId/,
+  );
   assert.match(mixedFeed, /if \(!telemetryEnabled\) return/);
   assert.match(mixedFeed, /showActions=\{telemetryEnabled\}/);
   assert.match(tracker, /source: params\.source \?\? "home"/);
   assert.match(renderer, /showActions = true/);
   assert.match(renderer, /const actions = showActions \?/);
-  assert.match(renderer, /data-entity-type=\{item\.telemetryEntityType \?\? item\.type\}/);
+  assert.match(
+    renderer,
+    /data-entity-type=\{item\.telemetryEntityType \?\? item\.type\}/,
+  );
   assert.match(shell, /FeedTypeBadge/);
   assert.doesNotMatch(shell, /buttonVariants/);
   assert.doesNotMatch(shell, /item\.rankHint/);
@@ -142,10 +181,23 @@ test("source, mode, and cursor changes use separate activity pagination state", 
   const source = await readFile(homePagePath, "utf8");
 
   assert.match(source, /setCursor\(undefined\)/);
-  assert.match(source, /setItems\(\[\]\)/);
   assert.match(source, /\[mode, feedSource\]/);
   assert.match(source, /value: query\.data\.nextCursor/);
   assert.match(source, /source: feedSource/);
-  assert.match(source, /cursor\?\.source === feedSource && cursor\.mode === mode/);
-  assert.match(source, /activityToHomeFeedItems\(activityQuery\.data\?\.items \?\? \[\]\)/);
+  assert.match(
+    source,
+    /cursor\?\.source === feedSource && cursor\.mode === mode/,
+  );
+  assert.match(
+    source,
+    /activityToHomeFeedItems\(activityQuery\.data\?\.items \?\? \[\]\)/,
+  );
+  assert.match(
+    source,
+    /itemsState\?\.source === feedSource && itemsState\.mode === mode/,
+  );
+  assert.match(
+    source,
+    /const initialLoading = !query\.data && query\.isFetching/,
+  );
 });

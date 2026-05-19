@@ -4,7 +4,11 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import type { HomeFeedItem } from "@freediving.ph/types";
-import { FeedCardShell } from "@/features/home-feed/components/FeedCardShell";
+import {
+  FeedCardShell,
+  FeedItemHeader,
+} from "@/features/home-feed/components/FeedCardShell";
+import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeButton";
 
 type DiveSpotPayload = {
   name?: string;
@@ -15,6 +19,8 @@ type DiveSpotPayload = {
   verificationStatus?: string;
   recentUpdateCount?: number;
   saveCount?: number;
+  likeCount?: number;
+  viewerHasLiked?: boolean;
 };
 
 const verificationLabel = (value?: string) => {
@@ -38,33 +44,20 @@ export function DiveSpotCard({
   const payload = item.payload as DiveSpotPayload;
   return (
     <FeedCardShell item={item} actions={actions}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          {payload.slug ? (
-            <Link
-              href={`/explore/sites/${payload.slug}`}
-              className="hover:underline"
-            >
-              <p className="truncate text-base font-semibold tracking-tight">
-                {payload.name || "Dive spot"}
-              </p>
-            </Link>
-          ) : (
-            <p className="truncate text-base font-semibold tracking-tight">
-              {payload.name || "Dive spot"}
-            </p>
-          )}
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {payload.area || "Unknown area"}
-          </p>
-        </div>
-        <Badge
-          variant="outline"
-          className="mt-1 border-cyan-500/30 bg-cyan-500/10 text-cyan-800"
-        >
-          {verificationLabel(payload.verificationStatus)}
-        </Badge>
-      </div>
+      <FeedItemHeader
+        item={item}
+        displayName={payload.name || "Dive spot"}
+        usernameFallback="Dive spot"
+        metadata={[payload.area || "Unknown area"]}
+        typeExtras={
+          <Badge
+            variant="outline"
+            className="h-6 border-cyan-500/30 bg-cyan-500/10 px-2 text-cyan-800"
+          >
+            {verificationLabel(payload.verificationStatus)}
+          </Badge>
+        }
+      />
       <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
         <p>
           Difficulty:{" "}
@@ -74,7 +67,7 @@ export function DiveSpotCard({
         </p>
         <p>
           {payload.recentUpdateCount ?? 0} updates · {payload.saveCount ?? 0}{" "}
-          saves
+          saves · {payload.likeCount ?? 0} likes
         </p>
       </div>
       {payload.description ? (
@@ -91,6 +84,11 @@ export function DiveSpotCard({
           </p>
         )
       ) : null}
+      <DiveSiteLikeButton
+        siteId={item.entityId}
+        likeCount={payload.likeCount ?? 0}
+        viewerHasLiked={payload.viewerHasLiked ?? false}
+      />
     </FeedCardShell>
   );
 }

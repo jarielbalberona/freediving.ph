@@ -679,6 +679,20 @@ CREATE TABLE IF NOT EXISTS media_items (
   CHECK (status IN ('active', 'hidden', 'deleted'))
 );
 
+CREATE TABLE IF NOT EXISTS media_post_likes (
+  media_post_id UUID NOT NULL REFERENCES media_posts(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (media_post_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS dive_site_likes (
+  dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (dive_site_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS rate_limit_events (
   id BIGSERIAL PRIMARY KEY,
   scope TEXT NOT NULL,
@@ -928,3 +942,7 @@ CREATE INDEX IF NOT EXISTS idx_media_items_author_created_at ON media_items (aut
 CREATE INDEX IF NOT EXISTS idx_media_items_post_sort ON media_items (post_id, sort_order ASC, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_media_items_group_sort ON media_items (upload_group_id, sort_order ASC, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_media_items_status_created_at ON media_items (status, created_at DESC, id DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_media_post_likes_post ON media_post_likes (media_post_id);
+CREATE INDEX IF NOT EXISTS idx_media_post_likes_user ON media_post_likes (user_id);
+CREATE INDEX IF NOT EXISTS idx_dive_site_likes_site ON dive_site_likes (dive_site_id);
+CREATE INDEX IF NOT EXISTS idx_dive_site_likes_user ON dive_site_likes (user_id);

@@ -19,6 +19,8 @@ export type DiveSpot = {
   recentUpdateCount: number;
   lastConditionSummary?: string;
   isSaved: boolean;
+  likeCount: number;
+  viewerHasLiked: boolean;
   buddySignal?: BuddySignal;
   rating?: number;
   reviewCount?: number;

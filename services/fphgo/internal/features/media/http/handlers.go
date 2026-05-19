@@ -337,6 +337,8 @@ func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 			UploadGroupID:   result.Post.UploadGroupID,
 			DiveSiteID:      result.Post.DiveSiteID,
 			PostCaption:     result.Post.PostCaption,
+			LikeCount:       result.Post.LikeCount,
+			ViewerHasLiked:  result.Post.ViewerHasLiked,
 			CreatedAt:       result.Post.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:       result.Post.UpdatedAt.Format(time.RFC3339),
 		},
@@ -356,9 +358,10 @@ func (h *Handlers) ListProfileMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.service.ListProfileMedia(r.Context(), mediaservice.ListProfileMediaInput{
-		Username: chi.URLParam(r, "username"),
-		Cursor:   strings.TrimSpace(r.URL.Query().Get("cursor")),
-		Limit:    limit,
+		Username:     chi.URLParam(r, "username"),
+		ViewerUserID: actorIDIfPresent(r),
+		Cursor:       strings.TrimSpace(r.URL.Query().Get("cursor")),
+		Limit:        limit,
 	})
 	if err != nil {
 		var validationErr mediaservice.ValidationFailure
@@ -373,6 +376,62 @@ func (h *Handlers) ListProfileMedia(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, ProfileMediaListResponse{
 		Items:      mapProfileMediaDTOs(result.Items),
 		NextCursor: result.NextCursor,
+	})
+}
+
+func (h *Handlers) LikePost(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.LikeMediaPost(r.Context(), actorID, postID)
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, LikeStateResponse{
+		TargetID:       result.TargetID,
+		LikeCount:      result.LikeCount,
+		ViewerHasLiked: result.ViewerHasLiked,
+	})
+}
+
+func (h *Handlers) UnlikePost(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.UnlikeMediaPost(r.Context(), actorID, postID)
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, LikeStateResponse{
+		TargetID:       result.TargetID,
+		LikeCount:      result.LikeCount,
+		ViewerHasLiked: result.ViewerHasLiked,
 	})
 }
 
@@ -449,6 +508,14 @@ func requireActorID(r *http.Request) (string, error) {
 	return identity.UserID, nil
 }
 
+func actorIDIfPresent(r *http.Request) string {
+	identity, ok := middleware.CurrentIdentity(r.Context())
+	if !ok {
+		return ""
+	}
+	return identity.UserID
+}
+
 func mapProfileMediaDTOs(items []mediaservice.ProfileMediaItemResult) []ProfileMediaDTO {
 	result := make([]ProfileMediaDTO, 0, len(items))
 	for _, item := range items {
@@ -472,9 +539,11 @@ func mapProfileMediaDTOs(items []mediaservice.ProfileMediaItemResult) []ProfileM
 				Name: item.DiveSiteName,
 				Area: item.DiveSiteArea,
 			},
-			SortOrder: item.SortOrder,
-			Status:    item.Status,
-			CreatedAt: item.CreatedAt.Format(time.RFC3339),
+			SortOrder:      item.SortOrder,
+			Status:         item.Status,
+			LikeCount:      item.LikeCount,
+			ViewerHasLiked: item.ViewerHasLiked,
+			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
 		})
 	}
 	return result

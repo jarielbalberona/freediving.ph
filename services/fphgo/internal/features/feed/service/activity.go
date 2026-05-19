@@ -10,6 +10,7 @@ import (
 
 	feedrepo "fphgo/internal/features/feed/repo"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/mediasign"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -162,6 +163,10 @@ func (s *Service) Activity(ctx context.Context, input ActivityInput) (ActivityRe
 		areaFilter = homeArea
 	}
 
+	if err := s.repo.RepairMediaPostActivityMedia(ctx); err != nil {
+		return ActivityResult{}, apperrors.New(http.StatusInternalServerError, "activity_feed_failed", "failed to repair media activity payloads", err)
+	}
+
 	rows, err := s.repo.ListActivityItems(ctx, feedrepo.ActivityListInput{
 		UserID:           strings.TrimSpace(input.UserID),
 		Mode:             string(ParseMode(string(input.Mode))),
@@ -183,7 +188,7 @@ func (s *Service) Activity(ctx context.Context, input ActivityInput) (ActivityRe
 
 	items := make([]ActivityItem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, mapActivityRow(row, strings.TrimSpace(input.UserID)))
+		items = append(items, s.mapActivityRow(row, strings.TrimSpace(input.UserID)))
 	}
 	return ActivityResult{Items: items, NextCursor: nextCursor}, nil
 }
@@ -232,7 +237,7 @@ func (s *Service) MarkActivityBySource(ctx context.Context, sourceModule, source
 	return s.repo.MarkActivityBySource(ctx, sourceModule, sourceType, sourceID, string(state))
 }
 
-func mapActivityRow(row feedrepo.ActivityRow, viewerID string) ActivityItem {
+func (s *Service) mapActivityRow(row feedrepo.ActivityRow, viewerID string) ActivityItem {
 	actor := ActivityActor{
 		ID:        row.ActorUserID,
 		Name:      firstNonEmpty(row.ActorName, row.ActorUsername),
@@ -264,11 +269,43 @@ func mapActivityRow(row feedrepo.ActivityRow, viewerID string) ActivityItem {
 		DiveSiteID:   row.DiveSiteID,
 		GroupID:      row.GroupID,
 		EventID:      row.EventID,
-		Media:        row.Media,
+		Media:        s.hydrateActivityMedia(row.Media),
 		Stats:        row.Stats,
 		Metadata:     row.Metadata,
 		Href:         activityHref(row),
 	}
+}
+
+func (s *Service) hydrateActivityMedia(media []map[string]any) []map[string]any {
+	if len(media) == 0 {
+		return media
+	}
+	out := make([]map[string]any, 0, len(media))
+	for _, item := range media {
+		next := make(map[string]any, len(item)+1)
+		for key, value := range item {
+			if key == "objectKey" || key == "contextType" {
+				continue
+			}
+			next[key] = value
+		}
+		if _, ok := next["displayUrl"]; !ok && s.mediaSigner != nil {
+			if objectKey := stringValue(item, "objectKey"); objectKey != "" {
+				if displayURL := s.mediaSigner.URL(objectKey, mediasign.PresetCard, 10*time.Minute); displayURL != "" {
+					next["displayUrl"] = displayURL
+				}
+			}
+		}
+		if _, ok := next["dialogUrl"]; !ok && s.mediaSigner != nil {
+			if objectKey := stringValue(item, "objectKey"); objectKey != "" {
+				if dialogURL := s.mediaSigner.URL(objectKey, mediasign.PresetDialog, 10*time.Minute); dialogURL != "" {
+					next["dialogUrl"] = dialogURL
+				}
+			}
+		}
+		out = append(out, next)
+	}
+	return out
 }
 
 func activityHref(row feedrepo.ActivityRow) string {

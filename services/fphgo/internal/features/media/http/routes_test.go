@@ -15,16 +15,30 @@ import (
 )
 
 func TestMediaRoutesRequireAuth(t *testing.T) {
-	router := chi.NewRouter()
-	router.Use(middleware.RequireMember)
-	router.Mount("/", Routes(New(nil, validatex.New())))
+	router := Routes(New(nil, validatex.New()))
 
-	req := httptest.NewRequest(http.MethodPost, "/upload-multiple", strings.NewReader(""))
-	req.Header.Set("Content-Type", "multipart/form-data; boundary=abc")
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401, got %d", rec.Code)
+	tests := []struct {
+		method string
+		path   string
+		body   string
+		header string
+	}{
+		{method: http.MethodPost, path: "/upload-multiple", header: "multipart/form-data; boundary=abc"},
+		{method: http.MethodPost, path: "/posts/22222222-2222-4222-8222-222222222222/likes"},
+		{method: http.MethodDelete, path: "/posts/22222222-2222-4222-8222-222222222222/likes"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
+			if tt.header != "" {
+				req.Header.Set("Content-Type", tt.header)
+			}
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("expected 401, got %d", rec.Code)
+			}
+		})
 	}
 }
 

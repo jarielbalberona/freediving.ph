@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDistanceToNowStrict, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import {
   CalendarRange,
   Camera,
@@ -11,7 +11,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { UsernameLink } from "@/components/common/UsernameLink";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
 import type { HomeFeedItem } from "@freediving.ph/types";
 
@@ -66,9 +68,30 @@ const typeIcons: Record<HomeFeedItem["type"], LucideIcon> = {
   record_highlight: Camera,
 };
 
-function formatRelativeTime(value: string) {
+function formatElapsedTime(value: string) {
   try {
-    return formatDistanceToNowStrict(parseISO(value), { addSuffix: true });
+    const timestamp = parseISO(value).getTime();
+    if (!Number.isFinite(timestamp)) return "";
+
+    const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+    if (diffSeconds < 60) return "now";
+
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `${diffMinutes}m`;
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d`;
+
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 5) return `${diffWeeks}w`;
+
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `${diffMonths}mo`;
+
+    return `${Math.floor(diffDays / 365)}y`;
   } catch {
     return "";
   }
@@ -96,6 +119,79 @@ export function FeedTypeBadge({ item }: { item: HomeFeedItem }) {
   );
 }
 
+function MetadataRow({ items }: { items: React.ReactNode[] }) {
+  const visibleItems = items.filter(Boolean);
+  if (visibleItems.length === 0) return null;
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 pl-11 text-xs text-muted-foreground">
+      {visibleItems.map((metadata, index) => (
+        <span
+          // Metadata is static per card render, and order is the identity here.
+          key={`feed-metadata-${index + 1}`}
+          className="inline-flex min-w-0 items-center gap-1.5"
+        >
+          {index > 0 ? (
+            <span className="shrink-0" aria-hidden="true">
+              ·
+            </span>
+          ) : null}
+          <span className="min-w-0 truncate">{metadata}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export function FeedItemHeader({
+  item,
+  displayName,
+  username,
+  usernameDisabled = false,
+  usernameFallback = "Unknown",
+  metadata = [],
+  typeExtras,
+}: {
+  item: HomeFeedItem;
+  displayName?: string;
+  username?: string;
+  usernameDisabled?: boolean;
+  usernameFallback?: string;
+  metadata?: React.ReactNode[];
+  typeExtras?: React.ReactNode;
+}) {
+  const elapsedTime = formatElapsedTime(item.createdAt);
+  const metadataItems = [
+    <UsernameLink
+      key="username"
+      username={username}
+      className="truncate text-xs text-muted-foreground"
+      disabled={usernameDisabled}
+      fallback={usernameFallback}
+    />,
+    ...metadata,
+    elapsedTime,
+  ];
+
+  return (
+    <header>
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="flex min-w-[12rem] flex-1 items-center gap-3">
+          <UserAvatar displayName={displayName} size="sm" />
+          <p className="min-w-0 truncate text-sm font-semibold">
+            {displayName || "Diver"}
+          </p>
+        </div>
+        <div className="flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
+          <FeedTypeBadge item={item} />
+          {typeExtras}
+        </div>
+      </div>
+      <MetadataRow items={metadataItems} />
+    </header>
+  );
+}
+
 export function FeedCardShell({
   item,
   children,
@@ -108,23 +204,14 @@ export function FeedCardShell({
   className?: string;
 }) {
   const styles = typeStyles[item.type] ?? typeStyles.dive_spot;
-  const relativeTime = formatRelativeTime(item.createdAt);
 
   return (
-    <article className={cn("relative border-b border-border/70 py-5", className)}>
+    <article className={cn("relative border-b border-border/70 py-4", className)}>
       <span
-        className={cn("absolute left-0 top-5 h-9 w-1 rounded-full", styles.accent)}
+        className={cn("absolute left-0 top-4 h-8 w-1 rounded-full", styles.accent)}
         aria-hidden="true"
       />
       <div className="space-y-3 pl-4">
-        <div className="flex items-center justify-between gap-3">
-          <FeedTypeBadge item={item} />
-          {relativeTime ? (
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">
-              {relativeTime}
-            </span>
-          ) : null}
-        </div>
         <div className="space-y-3">{children}</div>
       </div>
       {actions ? (

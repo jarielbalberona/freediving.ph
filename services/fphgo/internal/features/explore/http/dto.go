@@ -21,6 +21,8 @@ type SiteCard struct {
 	RecentUpdateCount    int64        `json:"recentUpdateCount"`
 	LastConditionSummary string       `json:"lastConditionSummary,omitempty"`
 	IsSaved              bool         `json:"isSaved"`
+	LikeCount            int64        `json:"likeCount"`
+	ViewerHasLiked       bool         `json:"viewerHasLiked"`
 	BuddySignal          *BuddySignal `json:"buddySignal,omitempty"`
 }
 
@@ -62,6 +64,8 @@ type SiteDetail struct {
 	CreatedAt             string   `json:"createdAt"`
 	ReportCount           int64    `json:"reportCount"`
 	LastConditionSummary  string   `json:"lastConditionSummary,omitempty"`
+	LikeCount             int64    `json:"likeCount"`
+	ViewerHasLiked        bool     `json:"viewerHasLiked"`
 }
 
 type SiteUpdate struct {
@@ -90,6 +94,12 @@ type CreateUpdateRequest struct {
 
 type SaveSiteResponse struct {
 	Saved bool `json:"saved"`
+}
+
+type LikeStateResponse struct {
+	TargetID       string `json:"targetId"`
+	LikeCount      int64  `json:"likeCount"`
+	ViewerHasLiked bool   `json:"viewerHasLiked"`
 }
 
 type CreateSiteSubmissionRequest struct {

@@ -40,7 +40,7 @@ func (s *exploreServiceStub) ListSites(_ context.Context, input exploreservice.L
 	return s.listResult, s.err
 }
 
-func (s *exploreServiceStub) GetSiteBySlug(context.Context, string, string, int32) (exploreservice.SiteDetailResult, error) {
+func (s *exploreServiceStub) GetSiteBySlug(context.Context, string, string, string, int32) (exploreservice.SiteDetailResult, error) {
 	return s.detail, s.err
 }
 
@@ -109,6 +109,20 @@ func (s *exploreServiceStub) CreateUpdate(context.Context, exploreservice.Create
 
 func (s *exploreServiceStub) SaveSite(context.Context, string, string) error   { return s.err }
 func (s *exploreServiceStub) UnsaveSite(context.Context, string, string) error { return s.err }
+
+func (s *exploreServiceStub) LikeDiveSite(context.Context, string, string) (exploreservice.LikeStateResult, error) {
+	if s.err != nil {
+		return exploreservice.LikeStateResult{}, s.err
+	}
+	return exploreservice.LikeStateResult{TargetID: "550e8400-e29b-41d4-a716-446655440101", LikeCount: 1, ViewerHasLiked: true}, nil
+}
+
+func (s *exploreServiceStub) UnlikeDiveSite(context.Context, string, string) (exploreservice.LikeStateResult, error) {
+	if s.err != nil {
+		return exploreservice.LikeStateResult{}, s.err
+	}
+	return exploreservice.LikeStateResult{TargetID: "550e8400-e29b-41d4-a716-446655440101", LikeCount: 0, ViewerHasLiked: false}, nil
+}
 
 func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	svc := &exploreServiceStub{
@@ -229,11 +243,78 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 		t.Fatalf("expected 401 for signed-out save, got %d", saveRec.Code)
 	}
 
+	likeReq := httptest.NewRequest(http.MethodPost, "/sites/550e8400-e29b-41d4-a716-446655440101/likes", nil)
+	likeRec := httptest.NewRecorder()
+	r.ServeHTTP(likeRec, likeReq)
+	if likeRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for signed-out like, got %d", likeRec.Code)
+	}
+
+	unlikeReq := httptest.NewRequest(http.MethodDelete, "/sites/550e8400-e29b-41d4-a716-446655440101/likes", nil)
+	unlikeRec := httptest.NewRecorder()
+	r.ServeHTTP(unlikeRec, unlikeReq)
+	if unlikeRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for signed-out unlike, got %d", unlikeRec.Code)
+	}
+
 	intentsReq := httptest.NewRequest(http.MethodGet, "/sites/twin-rocks-anilao/buddy-intents", nil)
 	intentsRec := httptest.NewRecorder()
 	r.ServeHTTP(intentsRec, intentsReq)
 	if intentsRec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for signed-out buddy intents, got %d", intentsRec.Code)
+	}
+}
+
+func TestExploreLikeRoutesRequireAuthAndReadPermission(t *testing.T) {
+	siteID := "550e8400-e29b-41d4-a716-446655440101"
+
+	forbiddenRouter := buildExploreRouter(t, &exploreServiceStub{}, authz.Identity{
+		UserID:        "550e8400-e29b-41d4-a716-446655440000",
+		GlobalRole:    "member",
+		AccountStatus: "active",
+		Permissions:   map[authz.Permission]bool{},
+	})
+	forbiddenReq := httptest.NewRequest(http.MethodPost, "/sites/"+siteID+"/likes", nil)
+	forbiddenRec := httptest.NewRecorder()
+	forbiddenRouter.ServeHTTP(forbiddenRec, forbiddenReq)
+	if forbiddenRec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 without explore read permission, got %d", forbiddenRec.Code)
+	}
+
+	allowedRouter := buildExploreRouter(t, &exploreServiceStub{}, authz.Identity{
+		UserID:        "550e8400-e29b-41d4-a716-446655440000",
+		GlobalRole:    "member",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionExploreRead: true,
+		},
+	})
+	likeReq := httptest.NewRequest(http.MethodPost, "/sites/"+siteID+"/likes", nil)
+	likeRec := httptest.NewRecorder()
+	allowedRouter.ServeHTTP(likeRec, likeReq)
+	if likeRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for like with explore read permission, got %d: %s", likeRec.Code, likeRec.Body.String())
+	}
+	var likeBody LikeStateResponse
+	if err := json.Unmarshal(likeRec.Body.Bytes(), &likeBody); err != nil {
+		t.Fatalf("decode like response: %v", err)
+	}
+	if likeBody.TargetID != siteID || likeBody.LikeCount != 1 || !likeBody.ViewerHasLiked {
+		t.Fatalf("unexpected like response: %+v", likeBody)
+	}
+
+	unlikeReq := httptest.NewRequest(http.MethodDelete, "/sites/"+siteID+"/likes", nil)
+	unlikeRec := httptest.NewRecorder()
+	allowedRouter.ServeHTTP(unlikeRec, unlikeReq)
+	if unlikeRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for unlike with explore read permission, got %d: %s", unlikeRec.Code, unlikeRec.Body.String())
+	}
+	var unlikeBody LikeStateResponse
+	if err := json.Unmarshal(unlikeRec.Body.Bytes(), &unlikeBody); err != nil {
+		t.Fatalf("decode unlike response: %v", err)
+	}
+	if unlikeBody.TargetID != siteID || unlikeBody.LikeCount != 0 || unlikeBody.ViewerHasLiked {
+		t.Fatalf("unexpected unlike response: %+v", unlikeBody)
 	}
 }
 

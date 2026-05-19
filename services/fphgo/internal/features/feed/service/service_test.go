@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ type feedRepoStub struct {
 	actions       []feedrepo.FeedActionInsert
 	activityRows  []feedrepo.ActivityRow
 	activityInput feedrepo.ActivityListInput
+	repairCount   int
 	upserts       []feedrepo.ActivityUpsert
 	marked        []feedrepo.ActivityUpsert
 }
@@ -100,6 +102,11 @@ func (r *feedRepoStub) MarkActivityBySource(_ context.Context, sourceModule, sou
 		SourceID:     sourceID,
 		State:        state,
 	})
+	return nil
+}
+
+func (r *feedRepoStub) RepairMediaPostActivityMedia(context.Context) error {
+	r.repairCount++
 	return nil
 }
 
@@ -554,5 +561,98 @@ func TestPublishActivityUpsertsIdempotentSource(t *testing.T) {
 	}
 	if got.State != string(ActivityStateActive) {
 		t.Fatalf("expected active default state, got %q", got.State)
+	}
+}
+
+func TestActivityMediaPostHydratesSignedDisplayURLs(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	repo := &feedRepoStub{
+		activityRows: []feedrepo.ActivityRow{{
+			ID:            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+			Type:          string(ActivityMediaPostCreated),
+			SourceModule:  string(ActivitySourceMedia),
+			SourceType:    "media_post",
+			SourceID:      "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+			ActorUserID:   "cccccccc-cccc-cccc-cccc-cccccccccccc",
+			ActorName:     "User One",
+			ActorUsername: "userone",
+			TargetType:    "media_post",
+			TargetID:      "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+			Visibility:    string(ActivityVisibilityPublic),
+			OccurredAt:    now,
+			Title:         "Mabini",
+			Body:          "Clear morning",
+			Media: []map[string]any{{
+				"id":            "dddddddd-dddd-dddd-dddd-dddddddddddd",
+				"mediaObjectId": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+				"type":          "photo",
+				"width":         float64(1200),
+				"height":        float64(800),
+				"objectKey":     "profile-feed/user-one/photo.jpg",
+			}},
+			Metadata: map[string]any{"diveSiteSlug": "mabini"},
+		}},
+	}
+	service := New(repo, WithMediaDisplayURLs("https://cdn.example.com", "secret", 1))
+
+	got, err := service.Activity(context.Background(), ActivityInput{Mode: ModeLatest, Limit: 10})
+	if err != nil {
+		t.Fatalf("Activity returned error: %v", err)
+	}
+	if repo.repairCount != 1 {
+		t.Fatalf("expected media activity repair to run once, got %d", repo.repairCount)
+	}
+	media := got.Items[0].Media[0]
+	if media["objectKey"] != nil {
+		t.Fatalf("activity response leaked object key: %#v", media)
+	}
+	displayURL, ok := media["displayUrl"].(string)
+	if !ok || !strings.HasPrefix(displayURL, "https://cdn.example.com/profile-feed/user-one/photo.jpg?") {
+		t.Fatalf("expected signed display url, got %#v", media["displayUrl"])
+	}
+	if !strings.Contains(displayURL, "sig=") {
+		t.Fatalf("expected signed display url to include signature, got %q", displayURL)
+	}
+	if dialogURL, ok := media["dialogUrl"].(string); !ok || !strings.Contains(dialogURL, "w=1600") {
+		t.Fatalf("expected signed dialog url, got %#v", media["dialogUrl"])
+	}
+}
+
+func TestActivityMediaPostKeepsExplicitFallbackWhenMediaMissing(t *testing.T) {
+	t.Parallel()
+
+	repo := &feedRepoStub{
+		activityRows: []feedrepo.ActivityRow{{
+			ID:            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+			Type:          string(ActivityMediaPostCreated),
+			SourceModule:  string(ActivitySourceMedia),
+			SourceType:    "media_post",
+			SourceID:      "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+			ActorUserID:   "cccccccc-cccc-cccc-cccc-cccccccccccc",
+			ActorName:     "User One",
+			ActorUsername: "userone",
+			TargetType:    "media_post",
+			TargetID:      "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+			Visibility:    string(ActivityVisibilityPublic),
+			OccurredAt:    time.Now().UTC(),
+			Title:         "Mabini",
+			Body:          "Processing photo",
+			Media:         []map[string]any{},
+			Metadata:      map[string]any{"mediaUnavailableReason": "processing"},
+		}},
+	}
+	service := New(repo, WithMediaDisplayURLs("https://cdn.example.com", "secret", 1))
+
+	got, err := service.Activity(context.Background(), ActivityInput{Mode: ModeLatest, Limit: 10})
+	if err != nil {
+		t.Fatalf("Activity returned error: %v", err)
+	}
+	if len(got.Items[0].Media) != 0 {
+		t.Fatalf("expected missing media to stay explicit fallback, got %#v", got.Items[0].Media)
+	}
+	if got.Items[0].Metadata["mediaUnavailableReason"] != "processing" {
+		t.Fatalf("expected fallback reason metadata, got %#v", got.Items[0].Metadata)
 	}
 }

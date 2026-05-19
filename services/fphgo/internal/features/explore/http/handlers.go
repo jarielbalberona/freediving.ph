@@ -29,7 +29,7 @@ type Handlers struct {
 type exploreService interface {
 	ListSites(ctx context.Context, input exploreservice.ListSitesInput) (exploreservice.ListSitesResult, error)
 	ListLatestUpdates(ctx context.Context, input exploreservice.ListLatestUpdatesInput) (exploreservice.ListLatestUpdatesResult, error)
-	GetSiteBySlug(ctx context.Context, slug, updatesCursor string, updatesLimit int32) (exploreservice.SiteDetailResult, error)
+	GetSiteBySlug(ctx context.Context, viewerID, slug, updatesCursor string, updatesLimit int32) (exploreservice.SiteDetailResult, error)
 	CreateSiteSubmission(ctx context.Context, input exploreservice.CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error)
 	ListMySiteSubmissions(ctx context.Context, input exploreservice.SubmissionListInput) (exploreservice.SubmissionListResult, error)
 	GetMySiteSubmissionByID(ctx context.Context, actorID, submissionID string) (explorerepo.SiteSubmission, error)
@@ -42,6 +42,8 @@ type exploreService interface {
 	CreateUpdate(ctx context.Context, input exploreservice.CreateUpdateInput) (explorerepo.SiteUpdate, error)
 	SaveSite(ctx context.Context, actorID, siteID string) error
 	UnsaveSite(ctx context.Context, actorID, siteID string) error
+	LikeDiveSite(ctx context.Context, actorID, siteID string) (exploreservice.LikeStateResult, error)
+	UnlikeDiveSite(ctx context.Context, actorID, siteID string) (exploreservice.LikeStateResult, error)
 }
 
 func New(service exploreService, validator httpx.Validator) *Handlers {
@@ -167,7 +169,7 @@ func (h *Handlers) GetSiteBySlug(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, svcErr := h.service.GetSiteBySlug(r.Context(), chi.URLParam(r, "slug"), r.URL.Query().Get("updatesCursor"), limit)
+	result, svcErr := h.service.GetSiteBySlug(r.Context(), actorIDIfPresent(r), chi.URLParam(r, "slug"), r.URL.Query().Get("updatesCursor"), limit)
 	if svcErr != nil {
 		h.writeError(w, r, svcErr)
 		return
@@ -526,6 +528,52 @@ func (h *Handlers) UnsaveSite(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handlers) LikeSite(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	siteID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "siteId"), "siteId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.LikeDiveSite(r.Context(), actorID, siteID)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, LikeStateResponse{
+		TargetID:       result.TargetID,
+		LikeCount:      result.LikeCount,
+		ViewerHasLiked: result.ViewerHasLiked,
+	})
+}
+
+func (h *Handlers) UnlikeSite(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	siteID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "siteId"), "siteId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.UnlikeDiveSite(r.Context(), actorID, siteID)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, LikeStateResponse{
+		TargetID:       result.TargetID,
+		LikeCount:      result.LikeCount,
+		ViewerHasLiked: result.ViewerHasLiked,
+	})
+}
+
 func (h *Handlers) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	var validationErr exploreservice.ValidationFailure
 	if errors.As(err, &validationErr) {
@@ -600,6 +648,8 @@ func mapSiteCard(input explorerepo.SiteCard) SiteCard {
 		RecentUpdateCount:    input.RecentUpdateCount,
 		LastConditionSummary: input.LastConditionSummary,
 		IsSaved:              input.IsSaved,
+		LikeCount:            input.LikeCount,
+		ViewerHasLiked:       input.ViewerHasLiked,
 		BuddySignal:          mapBuddySignal(input),
 	}
 }
@@ -650,6 +700,8 @@ func mapSiteDetail(input explorerepo.SiteDetail) SiteDetail {
 		CreatedAt:             input.CreatedAt.Format(time.RFC3339),
 		ReportCount:           input.ReportCount,
 		LastConditionSummary:  input.LastConditionSummary,
+		LikeCount:             input.LikeCount,
+		ViewerHasLiked:        input.ViewerHasLiked,
 	}
 }
 

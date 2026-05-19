@@ -8,6 +8,32 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ActivityItem struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	Type            string             `db:"type" json:"type"`
+	SourceModule    string             `db:"source_module" json:"source_module"`
+	SourceType      string             `db:"source_type" json:"source_type"`
+	SourceID        pgtype.UUID        `db:"source_id" json:"source_id"`
+	ActorUserID     pgtype.UUID        `db:"actor_user_id" json:"actor_user_id"`
+	TargetType      string             `db:"target_type" json:"target_type"`
+	TargetID        pgtype.UUID        `db:"target_id" json:"target_id"`
+	Visibility      string             `db:"visibility" json:"visibility"`
+	State           string             `db:"state" json:"state"`
+	Area            *string            `db:"area" json:"area"`
+	DiveSiteID      pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	GroupID         pgtype.UUID        `db:"group_id" json:"group_id"`
+	EventID         pgtype.UUID        `db:"event_id" json:"event_id"`
+	OccurredAt      pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	SourceCreatedAt pgtype.Timestamptz `db:"source_created_at" json:"source_created_at"`
+	Title           *string            `db:"title" json:"title"`
+	Body            *string            `db:"body" json:"body"`
+	Media           []byte             `db:"media" json:"media"`
+	Stats           []byte             `db:"stats" json:"stats"`
+	Metadata        []byte             `db:"metadata" json:"metadata"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type Block struct {
 	BlockerID pgtype.UUID        `db:"blocker_id" json:"blocker_id"`
 	BlockedID pgtype.UUID        `db:"blocked_id" json:"blocked_id"`
@@ -165,6 +191,12 @@ type DiveSite struct {
 	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type DiveSiteLike struct {
+	DiveSiteID pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	UserID     pgtype.UUID        `db:"user_id" json:"user_id"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type DiveSiteSafe struct {
 	AppUserID  pgtype.UUID        `db:"app_user_id" json:"app_user_id"`
 	DiveSiteID pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
@@ -232,6 +264,7 @@ type FeedAction struct {
 	UserID     pgtype.UUID        `db:"user_id" json:"user_id"`
 	SessionID  string             `db:"session_id" json:"session_id"`
 	FeedItemID *string            `db:"feed_item_id" json:"feed_item_id"`
+	FeedSource string             `db:"feed_source" json:"feed_source"`
 	EntityType string             `db:"entity_type" json:"entity_type"`
 	EntityID   string             `db:"entity_id" json:"entity_id"`
 	ActionType string             `db:"action_type" json:"action_type"`
@@ -245,6 +278,7 @@ type FeedImpression struct {
 	UserID     pgtype.UUID        `db:"user_id" json:"user_id"`
 	SessionID  string             `db:"session_id" json:"session_id"`
 	FeedItemID string             `db:"feed_item_id" json:"feed_item_id"`
+	FeedSource string             `db:"feed_source" json:"feed_source"`
 	EntityType string             `db:"entity_type" json:"entity_type"`
 	EntityID   string             `db:"entity_id" json:"entity_id"`
 	Mode       string             `db:"mode" json:"mode"`
@@ -357,6 +391,12 @@ type MediaPost struct {
 	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+type MediaPostLike struct {
+	MediaPostID pgtype.UUID        `db:"media_post_id" json:"media_post_id"`
+	UserID      pgtype.UUID        `db:"user_id" json:"user_id"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type MediaUploadGroup struct {

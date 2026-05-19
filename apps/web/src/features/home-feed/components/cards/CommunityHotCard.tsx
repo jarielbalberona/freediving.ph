@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 
-import { UsernameLink } from "@/components/common/UsernameLink";
 import { Badge } from "@/components/ui/badge";
-import { UserAvatar } from "@/components/ui/user-avatar";
 import type { HomeFeedItem } from "@freediving.ph/types";
-import { FeedCardShell } from "@/features/home-feed/components/FeedCardShell";
+import {
+  FeedCardShell,
+  FeedItemHeader,
+} from "@/features/home-feed/components/FeedCardShell";
 import ThreadActions from "@/features/chika/components/ThreadActions";
 
 type CommunityPayload = {
@@ -37,28 +38,23 @@ export function CommunityHotCard({
 
   return (
     <FeedCardShell item={item} actions={chikaActions}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <UserAvatar displayName={payload.authorName} size="sm" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">
-              {payload.authorName || "Community member"}
-            </p>
-            <UsernameLink
-              username={payload.authorUsername}
-              className="truncate text-xs text-muted-foreground"
-              disabled={payload.authorPseudonymous}
-              fallback={payload.authorPseudonymous ? "Pseudonymous" : "Unknown"}
-            />
-          </div>
-        </div>
-        <Badge
-          variant="outline"
-          className="border-teal-500/30 bg-teal-500/10 text-teal-800"
-        >
-          {payload.categoryName || "Chika"}
-        </Badge>
-      </div>
+      <FeedItemHeader
+        item={item}
+        displayName={payload.authorName || "Community member"}
+        username={payload.authorUsername}
+        usernameDisabled={payload.authorPseudonymous}
+        usernameFallback={payload.authorPseudonymous ? "Pseudonymous" : "Unknown"}
+        typeExtras={
+          payload.categoryName ? (
+            <Badge
+              variant="outline"
+              className="h-6 border-teal-500/30 bg-teal-500/10 px-2 text-teal-800"
+            >
+              {payload.categoryName}
+            </Badge>
+          ) : null
+        }
+      />
       {item.detailHref ? (
         <Link
           href={item.detailHref}

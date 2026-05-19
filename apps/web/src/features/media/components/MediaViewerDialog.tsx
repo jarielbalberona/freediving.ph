@@ -19,6 +19,7 @@ import { useMintedMediaMap } from "@/features/media/hooks";
 export type MediaViewerDialogItem = {
   id: string;
   mediaObjectId: string;
+  displayUrl?: string;
   width: number;
   height: number;
   caption?: string | null;
@@ -46,9 +47,11 @@ export function MediaViewerDialog({
     [items],
   );
   const dialogUrls = useMintedMediaMap(
-    normalizedItems.map((item) => item.mediaObjectId),
+    normalizedItems
+      .filter((item) => !item.displayUrl)
+      .map((item) => item.mediaObjectId),
     "dialog",
-    open && normalizedItems.length > 0,
+    open && normalizedItems.some((item) => !item.displayUrl),
   );
 
   const activeItem =
@@ -130,7 +133,9 @@ export function MediaViewerDialog({
                   <CarouselContent className="ml-0 h-full items-center">
                     {normalizedItems.map((item) => {
                       const src =
-                        dialogUrls.urlMap.get(item.mediaObjectId) ?? "";
+                        item.displayUrl ??
+                        dialogUrls.urlMap.get(item.mediaObjectId) ??
+                        "";
                       return (
                         <CarouselItem
                           key={item.id}

@@ -89,8 +89,16 @@ type MediaPostDTO struct {
 	UploadGroupID   string  `json:"uploadGroupId"`
 	DiveSiteID      string  `json:"diveSiteId"`
 	PostCaption     *string `json:"postCaption,omitempty"`
+	LikeCount       int64   `json:"likeCount"`
+	ViewerHasLiked  bool    `json:"viewerHasLiked"`
 	CreatedAt       string  `json:"createdAt"`
 	UpdatedAt       string  `json:"updatedAt"`
+}
+
+type LikeStateResponse struct {
+	TargetID       string `json:"targetId"`
+	LikeCount      int64  `json:"likeCount"`
+	ViewerHasLiked bool   `json:"viewerHasLiked"`
 }
 
 type ProfileMediaListResponse struct {
@@ -115,6 +123,8 @@ type ProfileMediaDTO struct {
 	DiveSite        ProfileMediaSiteDTO `json:"diveSite"`
 	SortOrder       int                 `json:"sortOrder"`
 	Status          string              `json:"status"`
+	LikeCount       int64               `json:"likeCount"`
+	ViewerHasLiked  bool                `json:"viewerHasLiked"`
 	CreatedAt       string              `json:"createdAt"`
 }
 

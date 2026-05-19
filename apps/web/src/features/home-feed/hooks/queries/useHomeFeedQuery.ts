@@ -11,7 +11,8 @@ export const useHomeFeedQuery = (params: {
   enabled?: boolean;
 }) =>
   useQuery({
-    queryKey: ["home-feed", params.mode, params.cursor ?? ""],
-    queryFn: () => getHomeFeed({ mode: params.mode, cursor: params.cursor, limit: 20 }),
+    queryKey: ["home-feed", "home", params.mode, params.cursor ?? ""],
+    queryFn: () =>
+      getHomeFeed({ mode: params.mode, cursor: params.cursor, limit: 20 }),
     enabled: params.enabled ?? true,
   });

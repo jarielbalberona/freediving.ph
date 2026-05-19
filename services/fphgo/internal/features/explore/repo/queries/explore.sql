@@ -94,12 +94,24 @@ SELECT
     FROM dive_site_saves ss
     WHERE ss.dive_site_id = s.id
       AND ss.app_user_id = sqlc.arg(viewer_user_id)
-  ) AS is_saved
+  ) AS is_saved,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  EXISTS (
+    SELECT 1
+    FROM dive_site_likes viewer_like
+    WHERE viewer_like.dive_site_id = s.id
+      AND viewer_like.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_liked
 FROM dive_sites s
 LEFT JOIN latest_update lu ON lu.dive_site_id = s.id
 LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
 LEFT JOIN site_buddy_counts sbc ON sbc.dive_site_id = s.id
 LEFT JOIN area_buddy_counts abc ON abc.area = s.area
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM dive_site_likes dsl
+  WHERE dsl.dive_site_id = s.id
+) like_counts ON true
 WHERE s.moderation_state = 'approved'
   AND (sqlc.arg(area_filter)::text = '' OR s.area = sqlc.arg(area_filter))
   AND (sqlc.arg(difficulty_filter)::text = '' OR s.entry_difficulty = sqlc.arg(difficulty_filter))
@@ -184,13 +196,54 @@ SELECT
       CASE WHEN lu.condition_current IS NOT NULL THEN ' Current ' || lu.condition_current || '.' ELSE '' END,
       CASE WHEN lu.condition_waves IS NOT NULL THEN ' Waves ' || lu.condition_waves || '.' ELSE '' END
     ))
-  ) AS last_condition_summary
+  ) AS last_condition_summary,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  EXISTS (
+    SELECT 1
+    FROM dive_site_likes viewer_like
+    WHERE viewer_like.dive_site_id = s.id
+      AND viewer_like.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_liked
 FROM dive_sites s
 LEFT JOIN users v ON v.id = s.verified_by_app_user_id
 LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
 LEFT JOIN latest_update lu ON lu.dive_site_id = s.id
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM dive_site_likes dsl
+  WHERE dsl.dive_site_id = s.id
+) like_counts ON true
 WHERE s.slug = sqlc.arg(slug)
   AND s.moderation_state = 'approved';
+
+-- name: GetVisibleDiveSiteLikeState :one
+SELECT
+  s.id,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  EXISTS (
+    SELECT 1
+    FROM dive_site_likes viewer_like
+    WHERE viewer_like.dive_site_id = s.id
+      AND viewer_like.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_liked
+FROM dive_sites s
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM dive_site_likes dsl
+  WHERE dsl.dive_site_id = s.id
+) like_counts ON true
+WHERE s.id = sqlc.arg(dive_site_id)
+  AND s.moderation_state = 'approved';
+
+-- name: LikeDiveSite :exec
+INSERT INTO dive_site_likes (dive_site_id, user_id)
+VALUES ($1, $2)
+ON CONFLICT (dive_site_id, user_id) DO NOTHING;
+
+-- name: UnlikeDiveSite :exec
+DELETE FROM dive_site_likes
+WHERE dive_site_id = $1
+  AND user_id = $2;
 
 -- name: ListUpdatesForSite :many
 WITH buddy_counts AS (

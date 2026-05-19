@@ -14,13 +14,17 @@ import (
 )
 
 type repoStub struct {
-	listInput    explorerepo.ListSitesInput
-	listResult   []explorerepo.SiteCard
-	created      explorerepo.CreateSiteSubmissionInput
-	createResult explorerepo.SiteSubmission
-	createErr    error
-	duplicateID  string
-	duplicateErr error
+	listInput     explorerepo.ListSitesInput
+	listResult    []explorerepo.SiteCard
+	created       explorerepo.CreateSiteSubmissionInput
+	createResult  explorerepo.SiteSubmission
+	createErr     error
+	duplicateID   string
+	duplicateErr  error
+	likeState     explorerepo.LikeState
+	likedSiteID   string
+	unlikedSiteID string
+	likeUserID    string
 }
 
 func (r *repoStub) ListSites(_ context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error) {
@@ -28,7 +32,7 @@ func (r *repoStub) ListSites(_ context.Context, input explorerepo.ListSitesInput
 	return r.listResult, nil
 }
 
-func (r *repoStub) GetSiteBySlug(context.Context, string) (explorerepo.SiteDetail, error) {
+func (r *repoStub) GetSiteBySlug(context.Context, string, string) (explorerepo.SiteDetail, error) {
 	return explorerepo.SiteDetail{}, nil
 }
 
@@ -105,6 +109,27 @@ func (r *repoStub) GetSiteForWrite(context.Context, string) (explorerepo.SiteSum
 func (r *repoStub) SaveSite(context.Context, string, string) error { return nil }
 
 func (r *repoStub) UnsaveSite(context.Context, string, string) error { return nil }
+
+func (r *repoStub) GetVisibleDiveSiteLikeState(_ context.Context, siteID, _ string) (explorerepo.LikeState, error) {
+	if r.likeState.TargetID == "" {
+		return explorerepo.LikeState{TargetID: siteID}, nil
+	}
+	return r.likeState, nil
+}
+
+func (r *repoStub) LikeDiveSite(_ context.Context, siteID, userID string) error {
+	r.likedSiteID = siteID
+	r.likeUserID = userID
+	r.likeState = explorerepo.LikeState{TargetID: siteID, LikeCount: 1, ViewerHasLiked: true}
+	return nil
+}
+
+func (r *repoStub) UnlikeDiveSite(_ context.Context, siteID, userID string) error {
+	r.unlikedSiteID = siteID
+	r.likeUserID = userID
+	r.likeState = explorerepo.LikeState{TargetID: siteID, LikeCount: 0, ViewerHasLiked: false}
+	return nil
+}
 
 func TestListSitesPassesValidatedBoundsToRepo(t *testing.T) {
 	repo := &repoStub{listResult: []explorerepo.SiteCard{{
@@ -186,6 +211,66 @@ func TestListSitesSavedOnlyStillPaginates(t *testing.T) {
 	}
 	if len(result.Items) != 1 || result.NextCursor == "" {
 		t.Fatalf("expected one item and next cursor, got %+v", result)
+	}
+}
+
+func TestLikeDiveSiteRequiresActor(t *testing.T) {
+	svc := New(&repoStub{})
+
+	_, err := svc.LikeDiveSite(context.Background(), "", "550e8400-e29b-41d4-a716-446655440101")
+	if err == nil {
+		t.Fatal("expected auth error")
+	}
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok {
+		t.Fatalf("expected AppError, got %T", err)
+	}
+	if appErr.Status != http.StatusUnauthorized {
+		t.Fatalf("expected unauthorized, got %+v", appErr)
+	}
+}
+
+func TestLikeDiveSiteUpdatesState(t *testing.T) {
+	repo := &repoStub{}
+	svc := New(repo)
+
+	result, err := svc.LikeDiveSite(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"550e8400-e29b-41d4-a716-446655440101",
+	)
+	if err != nil {
+		t.Fatalf("like dive site: %v", err)
+	}
+	if repo.likedSiteID != "550e8400-e29b-41d4-a716-446655440101" || repo.likeUserID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("expected repo like call, got site=%q user=%q", repo.likedSiteID, repo.likeUserID)
+	}
+	if result.TargetID != "550e8400-e29b-41d4-a716-446655440101" || result.LikeCount != 1 || !result.ViewerHasLiked {
+		t.Fatalf("unexpected like result: %+v", result)
+	}
+}
+
+func TestUnlikeDiveSiteUpdatesState(t *testing.T) {
+	repo := &repoStub{likeState: explorerepo.LikeState{
+		TargetID:       "550e8400-e29b-41d4-a716-446655440101",
+		LikeCount:      1,
+		ViewerHasLiked: true,
+	}}
+	svc := New(repo)
+
+	result, err := svc.UnlikeDiveSite(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"550e8400-e29b-41d4-a716-446655440101",
+	)
+	if err != nil {
+		t.Fatalf("unlike dive site: %v", err)
+	}
+	if repo.unlikedSiteID != "550e8400-e29b-41d4-a716-446655440101" || repo.likeUserID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("expected repo unlike call, got site=%q user=%q", repo.unlikedSiteID, repo.likeUserID)
+	}
+	if result.TargetID != "550e8400-e29b-41d4-a716-446655440101" || result.LikeCount != 0 || result.ViewerHasLiked {
+		t.Fatalf("unexpected unlike result: %+v", result)
 	}
 }
 

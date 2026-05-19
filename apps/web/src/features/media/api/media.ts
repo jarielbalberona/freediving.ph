@@ -1,6 +1,7 @@
 import type {
   CreateMediaPostRequest,
   CreateMediaPostResponse,
+  LikeState,
   ListMyMediaResponse,
   ListProfileMediaResponse,
   MediaContextType,
@@ -94,6 +95,18 @@ export const mediaApi = {
     return fphgoFetchClient<CreateMediaPostResponse>(routes.v1.media.posts(), {
       method: "POST",
       body: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  likeMediaPost: async (postId: string): Promise<LikeState> => {
+    return fphgoFetchClient<LikeState>(routes.v1.media.postLikes(postId), {
+      method: "POST",
+    });
+  },
+
+  unlikeMediaPost: async (postId: string): Promise<LikeState> => {
+    return fphgoFetchClient<LikeState>(routes.v1.media.postLikes(postId), {
+      method: "DELETE",
     });
   },
 

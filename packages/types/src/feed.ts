@@ -109,6 +109,18 @@ export interface ActivityFeedTarget {
   id: string;
 }
 
+export interface ActivityFeedMediaItem {
+  id?: string;
+  mediaObjectId: string;
+  type?: string;
+  width?: number;
+  height?: number;
+  caption?: string;
+  sortOrder?: number;
+  displayUrl?: string;
+  dialogUrl?: string;
+}
+
 export interface ActivityFeedItem {
   id: string;
   type: ActivityFeedItemType;
@@ -125,7 +137,7 @@ export interface ActivityFeedItem {
   diveSiteId?: string;
   groupId?: string;
   eventId?: string;
-  media?: Array<Record<string, unknown>>;
+  media?: ActivityFeedMediaItem[];
   stats?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   href?: string;

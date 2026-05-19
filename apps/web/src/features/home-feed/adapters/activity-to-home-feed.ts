@@ -29,15 +29,24 @@ const numberValue = (
     : undefined;
 };
 
-const mediaStringValue = (
+const booleanValue = (
   value: Record<string, unknown> | undefined,
   key: string,
-): string | undefined => stringValue(value, key);
+): boolean | undefined => {
+  const candidate = value?.[key];
+  return typeof candidate === "boolean" ? candidate : undefined;
+};
 
-const mediaNumberValue = (
-  value: Record<string, unknown> | undefined,
-  key: string,
-): number | undefined => numberValue(value, key);
+const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : undefined;
+
+const mediaStringValue = (value: unknown, key: string): string | undefined =>
+  stringValue(asRecord(value), key);
+
+const mediaNumberValue = (value: unknown, key: string): number | undefined =>
+  numberValue(asRecord(value), key);
 
 const actorPayload = (item: ActivityFeedItem) => ({
   authorName: item.actor.name,
@@ -157,6 +166,8 @@ const mapBuddyIntent = (item: ActivityFeedItem): HomeFeedItem =>
 const mapMediaPost = (item: ActivityFeedItem): HomeFeedItem => {
   const firstMedia = item.media?.[0];
   const previewMediaId = mediaStringValue(firstMedia, "mediaObjectId");
+  const previewDisplayUrl = mediaStringValue(firstMedia, "displayUrl");
+  const previewDialogUrl = mediaStringValue(firstMedia, "dialogUrl");
   const previewWidth = mediaNumberValue(firstMedia, "width");
   const previewHeight = mediaNumberValue(firstMedia, "height");
 
@@ -174,6 +185,9 @@ const mapMediaPost = (item: ActivityFeedItem): HomeFeedItem => {
         diveSiteSlug: stringValue(item.metadata, "diveSiteSlug"),
         area: item.area,
         note: item.body,
+        mediaUnavailableReason:
+          stringValue(item.metadata, "mediaUnavailableReason") ??
+          "media_not_displayable",
       },
     });
   }
@@ -193,8 +207,18 @@ const mapMediaPost = (item: ActivityFeedItem): HomeFeedItem => {
       postCaption: item.body,
       previewCaption: item.body,
       previewMediaId,
+      previewDisplayUrl,
+      previewDialogUrl,
       previewWidth,
       previewHeight,
+      likeCount:
+        numberValue(item.stats, "likeCount") ??
+        numberValue(item.metadata, "likeCount") ??
+        0,
+      viewerHasLiked:
+        booleanValue(item.stats, "viewerHasLiked") ??
+        booleanValue(item.metadata, "viewerHasLiked") ??
+        false,
       itemCount: item.media?.length ?? 0,
       items:
         item.media
@@ -206,6 +230,8 @@ const mapMediaPost = (item: ActivityFeedItem): HomeFeedItem => {
             return {
               id: mediaStringValue(media, "id") ?? `${item.id}-${index + 1}`,
               mediaObjectId,
+              displayUrl: mediaStringValue(media, "displayUrl"),
+              dialogUrl: mediaStringValue(media, "dialogUrl"),
               width,
               height,
               caption: mediaStringValue(media, "caption"),

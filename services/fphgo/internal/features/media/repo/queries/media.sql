@@ -126,13 +126,25 @@ SELECT
   mi.deleted_at,
   COALESCE(ds.slug, '') AS dive_site_slug,
   COALESCE(ds.name, '') AS dive_site_name,
-  COALESCE(ds.area, '') AS dive_site_area
+  COALESCE(ds.area, '') AS dive_site_area,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_liked
 FROM media_items mi
 JOIN media_posts mp ON mp.id = mi.post_id
 JOIN users u ON u.id = mi.author_app_user_id
 LEFT JOIN dive_sites ds
   ON ds.id = mi.dive_site_id
  AND ds.moderation_state = 'approved'
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
 WHERE lower(u.username) = lower(sqlc.arg(username))
   AND u.account_status = 'active'
   AND mi.status = 'active'
@@ -141,3 +153,54 @@ WHERE lower(u.username) = lower(sqlc.arg(username))
   AND (mi.created_at < sqlc.arg(created_at) OR (mi.created_at = sqlc.arg(created_at) AND mi.id < sqlc.arg(id)))
 ORDER BY mi.created_at DESC, mi.id DESC
 LIMIT sqlc.arg(limit_count);
+
+-- name: GetVisibleMediaPostLikeState :one
+SELECT
+  mp.id,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_liked
+FROM media_posts mp
+JOIN users u ON u.id = mp.author_app_user_id
+JOIN dive_sites ds ON ds.id = mp.dive_site_id
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
+WHERE mp.id = sqlc.arg(media_post_id)
+  AND mp.deleted_at IS NULL
+  AND u.account_status = 'active'
+  AND ds.moderation_state = 'approved'
+  AND EXISTS (
+    SELECT 1
+    FROM media_items mi
+    JOIN media_objects mo ON mo.id = mi.media_object_id
+    WHERE mi.post_id = mp.id
+      AND mi.status = 'active'
+      AND mi.deleted_at IS NULL
+      AND mo.state = 'active'
+  )
+  AND (
+    sqlc.arg(viewer_user_id)::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = sqlc.arg(viewer_user_id) AND b.blocked_app_user_id = mp.author_app_user_id)
+         OR (b.blocker_app_user_id = mp.author_app_user_id AND b.blocked_app_user_id = sqlc.arg(viewer_user_id))
+    )
+  );
+
+-- name: LikeMediaPost :exec
+INSERT INTO media_post_likes (media_post_id, user_id)
+VALUES ($1, $2)
+ON CONFLICT (media_post_id, user_id) DO NOTHING;
+
+-- name: UnlikeMediaPost :exec
+DELETE FROM media_post_likes
+WHERE media_post_id = $1
+  AND user_id = $2;

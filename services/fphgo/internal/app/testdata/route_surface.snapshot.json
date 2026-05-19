@@ -170,6 +170,14 @@
     },
     {
       "method": "DELETE",
+      "pattern": "/v1/explore/sites/{siteId}/likes"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/sites/{siteId}/likes"
+    },
+    {
+      "method": "DELETE",
       "pattern": "/v1/explore/sites/{siteId}/save"
     },
     {
@@ -255,6 +263,14 @@
     {
       "method": "POST",
       "pattern": "/v1/media/posts"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/media/posts/{postId}/likes"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/posts/{postId}/likes"
     },
     {
       "method": "POST",

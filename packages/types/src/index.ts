@@ -189,6 +189,8 @@ export interface DiveSpot {
   avgRating?: number;
   ratingCount?: number;
   commentCount?: number;
+  likeCount: number;
+  viewerHasLiked: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -1194,6 +1196,8 @@ export type ExploreSiteCard = {
   recentUpdateCount: number;
   lastConditionSummary?: string;
   isSaved: boolean;
+  likeCount: number;
+  viewerHasLiked: boolean;
   buddySignal?: ExploreBuddySignal;
 };
 
@@ -1252,6 +1256,8 @@ export type ExploreSiteDetail = {
   createdAt: string;
   reportCount: number;
   lastConditionSummary?: string;
+  likeCount: number;
+  viewerHasLiked: boolean;
 };
 
 export type ExploreListResponse = {

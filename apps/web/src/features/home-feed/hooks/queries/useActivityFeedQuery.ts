@@ -15,6 +15,7 @@ export const useActivityFeedQuery = (params: {
   useQuery({
     queryKey: [
       "activity-feed",
+      "activity",
       params.filter ?? "",
       params.mode ?? "",
       params.cursor ?? "",

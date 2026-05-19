@@ -30,7 +30,7 @@ type Service struct {
 
 type repository interface {
 	ListSites(ctx context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error)
-	GetSiteBySlug(ctx context.Context, slug string) (explorerepo.SiteDetail, error)
+	GetSiteBySlug(ctx context.Context, slug, viewerUserID string) (explorerepo.SiteDetail, error)
 	FindApprovedSiteDuplicate(ctx context.Context, name, area string) (string, error)
 	SlugExists(ctx context.Context, slug string) (bool, error)
 	CreateSiteSubmission(ctx context.Context, input explorerepo.CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error)
@@ -46,6 +46,9 @@ type repository interface {
 	GetSiteForWrite(ctx context.Context, siteID string) (explorerepo.SiteSummary, error)
 	SaveSite(ctx context.Context, appUserID, siteID string) error
 	UnsaveSite(ctx context.Context, appUserID, siteID string) error
+	GetVisibleDiveSiteLikeState(ctx context.Context, siteID, viewerUserID string) (explorerepo.LikeState, error)
+	LikeDiveSite(ctx context.Context, siteID, userID string) error
+	UnlikeDiveSite(ctx context.Context, siteID, userID string) error
 }
 
 type rateLimiter interface {
@@ -137,6 +140,12 @@ type SiteDetailResult struct {
 	Site              explorerepo.SiteDetail
 	Updates           []explorerepo.SiteUpdate
 	NextUpdatesCursor string
+}
+
+type LikeStateResult struct {
+	TargetID       string
+	LikeCount      int64
+	ViewerHasLiked bool
 }
 
 type SiteBuddyPreviewResult struct {
@@ -316,8 +325,8 @@ func validateMapBounds(bounds *MapBounds) []validatex.Issue {
 	return issues
 }
 
-func (s *Service) GetSiteBySlug(ctx context.Context, slug, updatesCursor string, updatesLimit int32) (SiteDetailResult, error) {
-	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug))
+func (s *Service) GetSiteBySlug(ctx context.Context, viewerID, slug, updatesCursor string, updatesLimit int32) (SiteDetailResult, error) {
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), strings.TrimSpace(viewerID))
 	if err != nil {
 		if explorerepo.IsNoRows(err) {
 			return SiteDetailResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
@@ -578,7 +587,7 @@ func (s *Service) RejectSite(ctx context.Context, input ModerateSiteInput) (expl
 }
 
 func (s *Service) GetBuddyPreviewBySlug(ctx context.Context, slug string, limit int32) (SiteBuddyPreviewResult, error) {
-	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug))
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), "")
 	if err != nil {
 		if explorerepo.IsNoRows(err) {
 			return SiteBuddyPreviewResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
@@ -603,7 +612,7 @@ func (s *Service) GetBuddyIntentsBySlug(ctx context.Context, viewerID, slug, cur
 	if _, err := uuid.Parse(viewerID); err != nil {
 		return SiteBuddyIntentsResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
 	}
-	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug))
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), viewerID)
 	if err != nil {
 		if explorerepo.IsNoRows(err) {
 			return SiteBuddyIntentsResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
@@ -743,6 +752,53 @@ func (s *Service) UnsaveSite(ctx context.Context, actorID, siteID string) error 
 		return apperrors.New(http.StatusInternalServerError, "site_unsave_failed", "failed to unsave dive site", err)
 	}
 	return nil
+}
+
+func (s *Service) LikeDiveSite(ctx context.Context, actorID, siteID string) (LikeStateResult, error) {
+	return s.setDiveSiteLike(ctx, actorID, siteID, true)
+}
+
+func (s *Service) UnlikeDiveSite(ctx context.Context, actorID, siteID string) (LikeStateResult, error) {
+	return s.setDiveSiteLike(ctx, actorID, siteID, false)
+}
+
+func (s *Service) setDiveSiteLike(ctx context.Context, actorID, siteID string, liked bool) (LikeStateResult, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(actorID)); err != nil {
+		return LikeStateResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(siteID)); err != nil {
+		return LikeStateResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"siteId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := s.repo.GetVisibleDiveSiteLikeState(ctx, siteID, actorID); err != nil {
+		if explorerepo.IsNoRows(err) {
+			return LikeStateResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return LikeStateResult{}, apperrors.New(http.StatusInternalServerError, "site_like_failed", "failed to load dive site", err)
+	}
+	if liked {
+		if err := s.repo.LikeDiveSite(ctx, siteID, actorID); err != nil {
+			return LikeStateResult{}, apperrors.New(http.StatusInternalServerError, "site_like_failed", "failed to like dive site", err)
+		}
+	} else if err := s.repo.UnlikeDiveSite(ctx, siteID, actorID); err != nil {
+		return LikeStateResult{}, apperrors.New(http.StatusInternalServerError, "site_like_failed", "failed to unlike dive site", err)
+	}
+	state, err := s.repo.GetVisibleDiveSiteLikeState(ctx, siteID, actorID)
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return LikeStateResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return LikeStateResult{}, apperrors.New(http.StatusInternalServerError, "site_like_failed", "failed to load dive site", err)
+	}
+	state.ViewerHasLiked = liked
+	return LikeStateResult{
+		TargetID:       state.TargetID,
+		LikeCount:      state.LikeCount,
+		ViewerHasLiked: state.ViewerHasLiked,
+	}, nil
 }
 
 func (s *Service) enforceRateLimit(ctx context.Context, scope, key string, maxEvents int, window time.Duration, message string) error {

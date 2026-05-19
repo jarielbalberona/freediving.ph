@@ -63,6 +63,12 @@ type MediaPost struct {
 	DeletedAt       *time.Time
 }
 
+type LikeState struct {
+	TargetID       string
+	LikeCount      int64
+	ViewerHasLiked bool
+}
+
 type MediaItem struct {
 	ID              string
 	PostID          string
@@ -109,10 +115,12 @@ type CreateMediaItemInput struct {
 
 type ProfileMediaItem struct {
 	MediaItem
-	PostCaption  *string
-	DiveSiteSlug string
-	DiveSiteName string
-	DiveSiteArea string
+	PostCaption    *string
+	DiveSiteSlug   string
+	DiveSiteName   string
+	DiveSiteArea   string
+	LikeCount      int64
+	ViewerHasLiked bool
 }
 
 type ListMediaByOwnerInput struct {
@@ -281,10 +289,11 @@ func (r *Repo) PublishMediaPost(ctx context.Context, input PublishMediaPostInput
 
 func (r *Repo) ListProfileMediaByUsername(ctx context.Context, input ListProfileMediaInput) ([]ProfileMediaItem, error) {
 	rows, err := r.queries.ListProfileMediaByUsername(ctx, mediaqlc.ListProfileMediaByUsernameParams{
-		Username:   input.Username,
-		CreatedAt:  toTimestamptz(input.CursorCreated),
-		ID:         toUUID(input.CursorID),
-		LimitCount: input.Limit,
+		ViewerUserID: toUUID(input.ViewerUserID),
+		Username:     input.Username,
+		CreatedAt:    toTimestamptz(input.CursorCreated),
+		ID:           toUUID(input.CursorID),
+		LimitCount:   input.Limit,
 	})
 	if err != nil {
 		return nil, err
@@ -298,9 +307,39 @@ func (r *Repo) ListProfileMediaByUsername(ctx context.Context, input ListProfile
 
 type ListProfileMediaInput struct {
 	Username      string
+	ViewerUserID  string
 	CursorCreated time.Time
 	CursorID      string
 	Limit         int32
+}
+
+func (r *Repo) GetVisibleMediaPostLikeState(ctx context.Context, postID, viewerUserID string) (LikeState, error) {
+	row, err := r.queries.GetVisibleMediaPostLikeState(ctx, mediaqlc.GetVisibleMediaPostLikeStateParams{
+		MediaPostID:  toUUID(postID),
+		ViewerUserID: toUUID(viewerUserID),
+	})
+	if err != nil {
+		return LikeState{}, err
+	}
+	return LikeState{
+		TargetID:       row.ID.String(),
+		LikeCount:      row.LikeCount,
+		ViewerHasLiked: row.ViewerHasLiked,
+	}, nil
+}
+
+func (r *Repo) LikeMediaPost(ctx context.Context, postID, userID string) error {
+	return r.queries.LikeMediaPost(ctx, mediaqlc.LikeMediaPostParams{
+		MediaPostID: toUUID(postID),
+		UserID:      toUUID(userID),
+	})
+}
+
+func (r *Repo) UnlikeMediaPost(ctx context.Context, postID, userID string) error {
+	return r.queries.UnlikeMediaPost(ctx, mediaqlc.UnlikeMediaPostParams{
+		MediaPostID: toUUID(postID),
+		UserID:      toUUID(userID),
+	})
 }
 
 func IsNoRows(err error) bool {
@@ -381,10 +420,12 @@ func mapProfileMediaItem(row mediaqlc.ListProfileMediaByUsernameRow) ProfileMedi
 			UpdatedAt:       row.UpdatedAt.Time.UTC(),
 			DeletedAt:       timestamptzPtr(row.DeletedAt),
 		},
-		PostCaption:  stringPtr(row.PostCaption),
-		DiveSiteSlug: row.DiveSiteSlug,
-		DiveSiteName: row.DiveSiteName,
-		DiveSiteArea: row.DiveSiteArea,
+		PostCaption:    stringPtr(row.PostCaption),
+		DiveSiteSlug:   row.DiveSiteSlug,
+		DiveSiteName:   row.DiveSiteName,
+		DiveSiteArea:   row.DiveSiteArea,
+		LikeCount:      row.LikeCount,
+		ViewerHasLiked: row.ViewerHasLiked,
 	}
 }
 

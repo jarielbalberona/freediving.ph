@@ -7,10 +7,10 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  Bookmark,
   Compass,
   ExternalLink,
   Gavel,
-  Heart,
   LoaderCircle,
   MapPin,
   MapPinned,
@@ -40,6 +40,7 @@ import {
   getDiveSpotSlug,
 } from "../types";
 import { DiveSpotCard } from "./DiveSpotCard";
+import { DiveSiteLikeButton } from "./DiveSiteLikeButton";
 import { ExploreMap } from "./ExploreMap";
 import { ExploreMobileToggle } from "./ExploreMobileToggle";
 import { ExploreResultsPanel } from "./ExploreResultsPanel";
@@ -242,6 +243,11 @@ export function ExploreLayout() {
         >
           <Share2 className="size-3.5" />
         </Button>
+        <DiveSiteLikeButton
+          siteId={spot.id}
+          likeCount={spot.likeCount}
+          viewerHasLiked={spot.viewerHasLiked}
+        />
         {session.status === "signed_in" ? (
           <Button
             size="icon-xs"
@@ -256,7 +262,7 @@ export function ExploreLayout() {
               })
             }
           >
-            <Heart className={cn("size-3.5", isSaved && "fill-current")} />
+            <Bookmark className={cn("size-3.5", isSaved && "fill-current")} />
           </Button>
         ) : null}
       </>

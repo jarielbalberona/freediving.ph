@@ -9,6 +9,7 @@ import type {
   ExploreSiteBuddyPreviewResponse,
   ExploreSiteDetailResponse,
   ModerateExploreSiteRequest,
+  LikeState,
 } from "@freediving.ph/types";
 
 import { fphgoFetchClient } from "@/lib/api/fphgo-fetch-client";
@@ -89,6 +90,16 @@ export const exploreApi = {
 
   unsaveSite: (siteId: string) =>
     fphgoFetchClient<void>(routes.v1.explore.saveSite(siteId), {
+      method: "DELETE",
+    }),
+
+  likeDiveSite: (siteId: string) =>
+    fphgoFetchClient<LikeState>(routes.v1.explore.siteLikes(siteId), {
+      method: "POST",
+    }),
+
+  unlikeDiveSite: (siteId: string) =>
+    fphgoFetchClient<LikeState>(routes.v1.explore.siteLikes(siteId), {
       method: "DELETE",
     }),
 
