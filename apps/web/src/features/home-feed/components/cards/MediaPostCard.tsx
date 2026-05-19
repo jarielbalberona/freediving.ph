@@ -11,7 +11,7 @@ import {
   FeedCardShell,
   FeedItemHeader,
 } from "@/features/home-feed/components/FeedCardShell";
-import { MediaPostLikeButton } from "@/features/media/components/MediaPostLikeButton";
+import { MediaPostActions } from "@/features/media/components/MediaPostActions";
 import { MediaViewerDialog } from "@/features/media/components/MediaViewerDialog";
 import { useMintedMediaMap } from "@/features/media/hooks";
 import type { HomeFeedItem } from "@freediving.ph/types";
@@ -30,7 +30,9 @@ type MediaPostPayload = {
   previewWidth?: number;
   previewHeight?: number;
   likeCount?: number;
+  commentCount?: number;
   viewerHasLiked?: boolean;
+  viewerHasSaved?: boolean;
   itemCount?: number;
   items?: Array<{
     id: string;
@@ -76,10 +78,23 @@ export function MediaPostCard({
       caption: photo.caption,
       alt: photo.caption?.trim() || caption,
     })) ?? [];
+  const mediaActions = (
+    <div className="flex w-full flex-wrap items-center justify-between gap-2">
+      <MediaPostActions
+        postId={item.entityId}
+        href={item.detailHref}
+        likeCount={payload.likeCount ?? 0}
+        commentCount={payload.commentCount ?? 0}
+        viewerHasLiked={payload.viewerHasLiked ?? false}
+        viewerHasSaved={payload.viewerHasSaved ?? false}
+      />
+      {actions}
+    </div>
+  );
 
   return (
     <>
-      <FeedCardShell item={item} actions={actions}>
+      <FeedCardShell item={item} actions={mediaActions}>
         <FeedItemHeader
           item={item}
           displayName={payload.authorName || "Diver"}
@@ -134,13 +149,6 @@ export function MediaPostCard({
           </p>
         )}
 
-        <div className="flex items-center justify-between">
-          <MediaPostLikeButton
-            postId={item.entityId}
-            likeCount={payload.likeCount ?? 0}
-            viewerHasLiked={payload.viewerHasLiked ?? false}
-          />
-        </div>
       </FeedCardShell>
 
       <MediaViewerDialog
@@ -176,6 +184,14 @@ export function MediaPostCard({
               <p className="text-sm leading-6 text-foreground">
                 {selectedPhoto?.caption?.trim() || caption}
               </p>
+              <MediaPostActions
+                postId={item.entityId}
+                href={item.detailHref}
+                likeCount={payload.likeCount ?? 0}
+                commentCount={payload.commentCount ?? 0}
+                viewerHasLiked={payload.viewerHasLiked ?? false}
+                viewerHasSaved={payload.viewerHasSaved ?? false}
+              />
             </div>
           );
         }}

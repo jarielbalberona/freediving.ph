@@ -1,10 +1,15 @@
 import type {
   CreateMediaPostRequest,
   CreateMediaPostResponse,
-  LikeState,
   ListMyMediaResponse,
   ListProfileMediaResponse,
   MediaContextType,
+  MediaPostComment,
+  MediaPostCommentLikeState,
+  MediaPostCommentListResponse,
+  MediaPostDetailResponse,
+  MediaPostLikeState,
+  MediaPostSaveState,
   MediaUploadResponse,
   MintMediaUrlItemRequest,
   MintMediaUrlsResponse,
@@ -98,16 +103,90 @@ export const mediaApi = {
     });
   },
 
-  likeMediaPost: async (postId: string): Promise<LikeState> => {
-    return fphgoFetchClient<LikeState>(routes.v1.media.postLikes(postId), {
+  getPost: async (postId: string): Promise<MediaPostDetailResponse> => {
+    return fphgoFetchClient<MediaPostDetailResponse>(
+      routes.v1.media.postById(postId),
+    );
+  },
+
+  likeMediaPost: async (postId: string): Promise<MediaPostLikeState> => {
+    return fphgoFetchClient<MediaPostLikeState>(routes.v1.media.postLikes(postId), {
       method: "POST",
     });
   },
 
-  unlikeMediaPost: async (postId: string): Promise<LikeState> => {
-    return fphgoFetchClient<LikeState>(routes.v1.media.postLikes(postId), {
+  unlikeMediaPost: async (postId: string): Promise<MediaPostLikeState> => {
+    return fphgoFetchClient<MediaPostLikeState>(routes.v1.media.postLikes(postId), {
       method: "DELETE",
     });
+  },
+
+  saveMediaPost: async (postId: string): Promise<MediaPostSaveState> => {
+    return fphgoFetchClient<MediaPostSaveState>(routes.v1.media.postSaves(postId), {
+      method: "POST",
+    });
+  },
+
+  unsaveMediaPost: async (postId: string): Promise<MediaPostSaveState> => {
+    return fphgoFetchClient<MediaPostSaveState>(routes.v1.media.postSaves(postId), {
+      method: "DELETE",
+    });
+  },
+
+  listPostComments: async (
+    postId: string,
+    params: { limit?: number; cursor?: string } = {},
+  ): Promise<MediaPostCommentListResponse> => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set("limit", String(params.limit));
+    if (params.cursor) query.set("cursor", params.cursor);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return fphgoFetchClient<MediaPostCommentListResponse>(
+      `${routes.v1.media.postComments(postId)}${suffix}`,
+    );
+  },
+
+  createPostComment: async (
+    postId: string,
+    body: string,
+  ): Promise<MediaPostComment> => {
+    return fphgoFetchClient<MediaPostComment>(
+      routes.v1.media.postComments(postId),
+      {
+        method: "POST",
+        body: { body },
+      },
+    );
+  },
+
+  deletePostComment: async (
+    postId: string,
+    commentId: string,
+  ): Promise<void> => {
+    await fphgoFetchClient<void>(
+      `${routes.v1.media.postComments(postId)}/${encodeURIComponent(commentId)}`,
+      { method: "DELETE" },
+    );
+  },
+
+  likeMediaPostComment: async (
+    postId: string,
+    commentId: string,
+  ): Promise<MediaPostCommentLikeState> => {
+    return fphgoFetchClient<MediaPostCommentLikeState>(
+      routes.v1.media.postCommentLikes(postId, commentId),
+      { method: "POST" },
+    );
+  },
+
+  unlikeMediaPostComment: async (
+    postId: string,
+    commentId: string,
+  ): Promise<MediaPostCommentLikeState> => {
+    return fphgoFetchClient<MediaPostCommentLikeState>(
+      routes.v1.media.postCommentLikes(postId, commentId),
+      { method: "DELETE" },
+    );
   },
 
   listProfileMedia: async (

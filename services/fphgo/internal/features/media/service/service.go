@@ -51,9 +51,19 @@ type repository interface {
 	ListMediaByContext(ctx context.Context, input mediarepo.ListMediaByContextInput) ([]mediarepo.MediaObject, error)
 	PublishMediaPost(ctx context.Context, input mediarepo.PublishMediaPostInput) (mediarepo.MediaPost, []mediarepo.MediaItem, error)
 	ListProfileMediaByUsername(ctx context.Context, input mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error)
-	GetVisibleMediaPostLikeState(ctx context.Context, postID, viewerUserID string) (mediarepo.LikeState, error)
+	GetVisibleMediaPostSocialState(ctx context.Context, postID, viewerUserID string) (mediarepo.PostSocialState, error)
 	LikeMediaPost(ctx context.Context, postID, userID string) error
 	UnlikeMediaPost(ctx context.Context, postID, userID string) error
+	SaveMediaPost(ctx context.Context, postID, userID string) error
+	UnsaveMediaPost(ctx context.Context, postID, userID string) error
+	GetMediaPostDetail(ctx context.Context, postID, viewerUserID string) ([]mediarepo.MediaPostDetailItem, error)
+	CreateMediaPostComment(ctx context.Context, postID, authorUserID, body string) (mediarepo.MediaPostComment, error)
+	GetMediaPostComment(ctx context.Context, postID, commentID, viewerUserID string) (mediarepo.MediaPostComment, error)
+	ListMediaPostComments(ctx context.Context, input mediarepo.ListMediaPostCommentsInput) ([]mediarepo.MediaPostComment, error)
+	SoftDeleteMediaPostComment(ctx context.Context, postID, commentID, actorID string) error
+	GetVisibleMediaPostCommentLikeState(ctx context.Context, postID, commentID, viewerUserID string) (mediarepo.CommentLikeState, error)
+	LikeMediaPostComment(ctx context.Context, commentID, userID string) error
+	UnlikeMediaPostComment(ctx context.Context, commentID, userID string) error
 }
 
 type uploader interface {
@@ -210,7 +220,9 @@ type MediaPostResult struct {
 	DiveSiteID      string
 	PostCaption     *string
 	LikeCount       int64
+	CommentCount    int64
 	ViewerHasLiked  bool
+	ViewerHasSaved  bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -236,8 +248,23 @@ type ProfileMediaItemResult struct {
 	SortOrder       int
 	Status          string
 	LikeCount       int64
+	CommentCount    int64
 	ViewerHasLiked  bool
+	ViewerHasSaved  bool
 	CreatedAt       time.Time
+}
+
+type MediaPostAuthorResult struct {
+	ID          string
+	Username    string
+	DisplayName string
+	AvatarURL   string
+}
+
+type MediaPostDetailResult struct {
+	Post   MediaPostResult
+	Author MediaPostAuthorResult
+	Items  []ProfileMediaItemResult
 }
 
 type CreateMediaPostResult struct {
@@ -258,9 +285,63 @@ type ListProfileMediaResult struct {
 }
 
 type LikeStateResult struct {
-	TargetID       string
+	PostID         string
 	LikeCount      int64
 	ViewerHasLiked bool
+}
+
+type SaveStateResult struct {
+	PostID         string
+	ViewerHasSaved bool
+}
+
+type CommentLikeStateResult struct {
+	CommentID      string
+	LikeCount      int64
+	ViewerHasLiked bool
+}
+
+type MediaPostCommentAuthorResult struct {
+	ID          string
+	Username    string
+	DisplayName string
+	AvatarURL   string
+}
+
+type MediaPostCommentResult struct {
+	ID             string
+	PostID         string
+	Author         MediaPostCommentAuthorResult
+	Body           string
+	LikeCount      int64
+	ViewerHasLiked bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type ListMediaPostCommentsInput struct {
+	PostID       string
+	ViewerUserID string
+	Cursor       string
+	Limit        int32
+}
+
+type ListMediaPostCommentsResult struct {
+	Items      []MediaPostCommentResult
+	NextCursor string
+}
+
+type CreateMediaPostCommentInput struct {
+	PostID  string
+	ActorID string
+	Body    string
+}
+
+type DeleteMediaPostCommentInput struct {
+	PostID    string
+	CommentID string
+	ActorID   string
+	ActorRole string
 }
 
 type contextRule struct {
@@ -950,7 +1031,9 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 			SortOrder:       int(item.SortOrder),
 			Status:          item.Status,
 			LikeCount:       0,
+			CommentCount:    0,
 			ViewerHasLiked:  false,
+			ViewerHasSaved:  false,
 			CreatedAt:       item.CreatedAt,
 		})
 	}
@@ -999,7 +1082,9 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 			DiveSiteID:      createdPost.DiveSiteID,
 			PostCaption:     createdPost.PostCaption,
 			LikeCount:       0,
+			CommentCount:    0,
 			ViewerHasLiked:  false,
+			ViewerHasSaved:  false,
 			CreatedAt:       createdPost.CreatedAt,
 			UpdatedAt:       createdPost.UpdatedAt,
 		},
@@ -1076,7 +1161,9 @@ func (s *Service) ListProfileMedia(ctx context.Context, input ListProfileMediaIn
 			SortOrder:       int(row.SortOrder),
 			Status:          row.Status,
 			LikeCount:       row.LikeCount,
+			CommentCount:    row.CommentCount,
 			ViewerHasLiked:  row.ViewerHasLiked,
+			ViewerHasSaved:  row.ViewerHasSaved,
 			CreatedAt:       row.CreatedAt,
 		})
 	}
@@ -1103,7 +1190,7 @@ func (s *Service) setMediaPostLike(ctx context.Context, actorID, postID string, 
 			Message: "Must be a valid UUID",
 		}}}
 	}
-	if _, err := s.repo.GetVisibleMediaPostLikeState(ctx, postID, actorID); err != nil {
+	if _, err := s.repo.GetVisibleMediaPostSocialState(ctx, postID, actorID); err != nil {
 		if mediarepo.IsNoRows(err) {
 			return LikeStateResult{}, apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", err)
 		}
@@ -1116,7 +1203,7 @@ func (s *Service) setMediaPostLike(ctx context.Context, actorID, postID string, 
 	} else if err := s.repo.UnlikeMediaPost(ctx, postID, actorID); err != nil {
 		return LikeStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_like_failed", "failed to unlike media post", err)
 	}
-	state, err := s.repo.GetVisibleMediaPostLikeState(ctx, postID, actorID)
+	state, err := s.repo.GetVisibleMediaPostSocialState(ctx, postID, actorID)
 	if err != nil {
 		if mediarepo.IsNoRows(err) {
 			return LikeStateResult{}, apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", err)
@@ -1125,7 +1212,292 @@ func (s *Service) setMediaPostLike(ctx context.Context, actorID, postID string, 
 	}
 	state.ViewerHasLiked = liked
 	return LikeStateResult{
-		TargetID:       state.TargetID,
+		PostID:         state.PostID,
+		LikeCount:      state.LikeCount,
+		ViewerHasLiked: state.ViewerHasLiked,
+	}, nil
+}
+
+func (s *Service) SaveMediaPost(ctx context.Context, actorID, postID string) (SaveStateResult, error) {
+	return s.setMediaPostSave(ctx, actorID, postID, true)
+}
+
+func (s *Service) UnsaveMediaPost(ctx context.Context, actorID, postID string) (SaveStateResult, error) {
+	return s.setMediaPostSave(ctx, actorID, postID, false)
+}
+
+func (s *Service) setMediaPostSave(ctx context.Context, actorID, postID string, saved bool) (SaveStateResult, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(actorID)); err != nil {
+		return SaveStateResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(postID)); err != nil {
+		return SaveStateResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"postId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := s.repo.GetVisibleMediaPostSocialState(ctx, postID, actorID); err != nil {
+		if mediarepo.IsNoRows(err) {
+			return SaveStateResult{}, apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", err)
+		}
+		return SaveStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_save_failed", "failed to load media post", err)
+	}
+	if saved {
+		if err := s.repo.SaveMediaPost(ctx, postID, actorID); err != nil {
+			return SaveStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_save_failed", "failed to save media post", err)
+		}
+	} else if err := s.repo.UnsaveMediaPost(ctx, postID, actorID); err != nil {
+		return SaveStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_save_failed", "failed to unsave media post", err)
+	}
+	state, err := s.repo.GetVisibleMediaPostSocialState(ctx, postID, actorID)
+	if err != nil {
+		if mediarepo.IsNoRows(err) {
+			return SaveStateResult{}, apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", err)
+		}
+		return SaveStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_save_failed", "failed to load media post", err)
+	}
+	state.ViewerHasSaved = saved
+	return SaveStateResult{PostID: state.PostID, ViewerHasSaved: state.ViewerHasSaved}, nil
+}
+
+func (s *Service) GetMediaPostDetail(ctx context.Context, postID, viewerUserID string) (MediaPostDetailResult, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(postID)); err != nil {
+		return MediaPostDetailResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"postId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if strings.TrimSpace(viewerUserID) != "" {
+		if _, err := uuid.Parse(strings.TrimSpace(viewerUserID)); err != nil {
+			return MediaPostDetailResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+	rows, err := s.repo.GetMediaPostDetail(ctx, postID, strings.TrimSpace(viewerUserID))
+	if err != nil {
+		return MediaPostDetailResult{}, apperrors.New(http.StatusInternalServerError, "media_post_detail_failed", "failed to load media post", err)
+	}
+	if len(rows) == 0 {
+		return MediaPostDetailResult{}, apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", nil)
+	}
+	first := rows[0]
+	items := make([]ProfileMediaItemResult, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, profileMediaResultFromRepo(row.ProfileMediaItem))
+	}
+	return MediaPostDetailResult{
+		Post: MediaPostResult{
+			ID:              first.PostID,
+			AuthorAppUserID: first.AuthorAppUserID,
+			UploadGroupID:   first.UploadGroupID,
+			DiveSiteID:      first.DiveSiteID,
+			PostCaption:     first.PostCaption,
+			LikeCount:       first.LikeCount,
+			CommentCount:    first.CommentCount,
+			ViewerHasLiked:  first.ViewerHasLiked,
+			ViewerHasSaved:  first.ViewerHasSaved,
+			CreatedAt:       first.PostCreatedAt,
+			UpdatedAt:       first.PostUpdatedAt,
+		},
+		Author: MediaPostAuthorResult{
+			ID:          first.AuthorAppUserID,
+			Username:    first.AuthorUsername,
+			DisplayName: first.AuthorDisplayName,
+			AvatarURL:   first.AuthorAvatarURL,
+		},
+		Items: items,
+	}, nil
+}
+
+func (s *Service) ListMediaPostComments(ctx context.Context, input ListMediaPostCommentsInput) (ListMediaPostCommentsResult, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(input.PostID)); err != nil {
+		return ListMediaPostCommentsResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"postId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	viewerID := strings.TrimSpace(input.ViewerUserID)
+	if viewerID != "" {
+		if _, err := uuid.Parse(viewerID); err != nil {
+			return ListMediaPostCommentsResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+	if _, err := s.repo.GetVisibleMediaPostSocialState(ctx, input.PostID, viewerID); err != nil {
+		if mediarepo.IsNoRows(err) {
+			return ListMediaPostCommentsResult{}, apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", err)
+		}
+		return ListMediaPostCommentsResult{}, apperrors.New(http.StatusInternalServerError, "media_post_comments_failed", "failed to load media post", err)
+	}
+	if input.Limit <= 0 || input.Limit > pagination.MaxLimit {
+		input.Limit = pagination.DefaultLimit
+	}
+	cursorCreated, cursorID := pagination.DefaultUUIDCursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		decodedCreated, decodedID, err := pagination.DecodeUUID(input.Cursor)
+		if err != nil {
+			return ListMediaPostCommentsResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"cursor"},
+				Code:    "custom",
+				Message: "invalid cursor",
+			}}}
+		}
+		cursorCreated = decodedCreated
+		cursorID = decodedID
+	}
+	rows, err := s.repo.ListMediaPostComments(ctx, mediarepo.ListMediaPostCommentsInput{
+		PostID:        input.PostID,
+		ViewerUserID:  viewerID,
+		CursorCreated: cursorCreated,
+		CursorID:      cursorID,
+		Limit:         input.Limit + 1,
+	})
+	if err != nil {
+		return ListMediaPostCommentsResult{}, apperrors.New(http.StatusInternalServerError, "media_post_comments_failed", "failed to load comments", err)
+	}
+	nextCursor := ""
+	if int32(len(rows)) > input.Limit {
+		cutoff := int(input.Limit)
+		next := rows[cutoff-1]
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
+		rows = rows[:cutoff]
+	}
+	items := make([]MediaPostCommentResult, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mediaPostCommentResultFromRepo(row))
+	}
+	return ListMediaPostCommentsResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) CreateMediaPostComment(ctx context.Context, input CreateMediaPostCommentInput) (MediaPostCommentResult, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(input.ActorID)); err != nil {
+		return MediaPostCommentResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(input.PostID)); err != nil {
+		return MediaPostCommentResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"postId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	body := strings.TrimSpace(input.Body)
+	if body == "" {
+		return MediaPostCommentResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"body"},
+			Code:    "required",
+			Message: "body is required",
+		}}}
+	}
+	if len([]rune(body)) > 4000 {
+		return MediaPostCommentResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"body"},
+			Code:    "too_big",
+			Message: "body must be 4000 characters or fewer",
+		}}}
+	}
+	if _, err := s.repo.GetVisibleMediaPostSocialState(ctx, input.PostID, input.ActorID); err != nil {
+		if mediarepo.IsNoRows(err) {
+			return MediaPostCommentResult{}, apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", err)
+		}
+		return MediaPostCommentResult{}, apperrors.New(http.StatusInternalServerError, "media_post_comment_failed", "failed to load media post", err)
+	}
+	row, err := s.repo.CreateMediaPostComment(ctx, input.PostID, input.ActorID, body)
+	if err != nil {
+		return MediaPostCommentResult{}, apperrors.New(http.StatusInternalServerError, "media_post_comment_failed", "failed to create comment", err)
+	}
+	return mediaPostCommentResultFromRepo(row), nil
+}
+
+func (s *Service) DeleteMediaPostComment(ctx context.Context, input DeleteMediaPostCommentInput) error {
+	if _, err := uuid.Parse(strings.TrimSpace(input.ActorID)); err != nil {
+		return apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(input.PostID)); err != nil {
+		return ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"postId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(input.CommentID)); err != nil {
+		return ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"commentId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := s.repo.GetVisibleMediaPostSocialState(ctx, input.PostID, input.ActorID); err != nil {
+		if mediarepo.IsNoRows(err) {
+			return apperrors.New(http.StatusNotFound, "media_post_not_found", "media post not found", err)
+		}
+		return apperrors.New(http.StatusInternalServerError, "media_post_comment_failed", "failed to load media post", err)
+	}
+	comment, err := s.repo.GetMediaPostComment(ctx, input.PostID, input.CommentID, input.ActorID)
+	if err != nil {
+		if mediarepo.IsNoRows(err) {
+			return apperrors.New(http.StatusNotFound, "media_post_comment_not_found", "comment not found", err)
+		}
+		return apperrors.New(http.StatusInternalServerError, "media_post_comment_failed", "failed to load comment", err)
+	}
+	if comment.AuthorUserID != input.ActorID && !isModeratorRole(input.ActorRole) {
+		return apperrors.New(http.StatusForbidden, "forbidden", "only owner or moderator can delete comment", nil)
+	}
+	if err := s.repo.SoftDeleteMediaPostComment(ctx, input.PostID, input.CommentID, input.ActorID); err != nil {
+		return apperrors.New(http.StatusInternalServerError, "media_post_comment_failed", "failed to delete comment", err)
+	}
+	return nil
+}
+
+func (s *Service) LikeMediaPostComment(ctx context.Context, actorID, postID, commentID string) (CommentLikeStateResult, error) {
+	return s.setMediaPostCommentLike(ctx, actorID, postID, commentID, true)
+}
+
+func (s *Service) UnlikeMediaPostComment(ctx context.Context, actorID, postID, commentID string) (CommentLikeStateResult, error) {
+	return s.setMediaPostCommentLike(ctx, actorID, postID, commentID, false)
+}
+
+func (s *Service) setMediaPostCommentLike(ctx context.Context, actorID, postID, commentID string, liked bool) (CommentLikeStateResult, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(actorID)); err != nil {
+		return CommentLikeStateResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(postID)); err != nil {
+		return CommentLikeStateResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"postId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(commentID)); err != nil {
+		return CommentLikeStateResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"commentId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := s.repo.GetVisibleMediaPostCommentLikeState(ctx, postID, commentID, actorID); err != nil {
+		if mediarepo.IsNoRows(err) {
+			return CommentLikeStateResult{}, apperrors.New(http.StatusNotFound, "media_post_comment_not_found", "comment not found", err)
+		}
+		return CommentLikeStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_comment_like_failed", "failed to load comment", err)
+	}
+	if liked {
+		if err := s.repo.LikeMediaPostComment(ctx, commentID, actorID); err != nil {
+			return CommentLikeStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_comment_like_failed", "failed to like comment", err)
+		}
+	} else if err := s.repo.UnlikeMediaPostComment(ctx, commentID, actorID); err != nil {
+		return CommentLikeStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_comment_like_failed", "failed to unlike comment", err)
+	}
+	state, err := s.repo.GetVisibleMediaPostCommentLikeState(ctx, postID, commentID, actorID)
+	if err != nil {
+		if mediarepo.IsNoRows(err) {
+			return CommentLikeStateResult{}, apperrors.New(http.StatusNotFound, "media_post_comment_not_found", "comment not found", err)
+		}
+		return CommentLikeStateResult{}, apperrors.New(http.StatusInternalServerError, "media_post_comment_like_failed", "failed to load comment", err)
+	}
+	state.ViewerHasLiked = liked
+	return CommentLikeStateResult{
+		CommentID:      state.CommentID,
 		LikeCount:      state.LikeCount,
 		ViewerHasLiked: state.ViewerHasLiked,
 	}, nil
@@ -1450,6 +1822,62 @@ func extForMime(mimeType string) string {
 		return ext
 	}
 	return "bin"
+}
+
+func profileMediaResultFromRepo(row mediarepo.ProfileMediaItem) ProfileMediaItemResult {
+	return ProfileMediaItemResult{
+		ID:              row.ID,
+		MediaObjectID:   row.MediaObjectID,
+		PostID:          row.PostID,
+		PostCaption:     row.PostCaption,
+		UploadGroupID:   row.UploadGroupID,
+		AuthorAppUserID: row.AuthorAppUserID,
+		Type:            row.Type,
+		StorageKey:      row.StorageKey,
+		MimeType:        row.MimeType,
+		Width:           int(row.Width),
+		Height:          int(row.Height),
+		DurationMs:      intPtrFromInt32(row.DurationMs),
+		Caption:         row.Caption,
+		DiveSiteID:      row.DiveSiteID,
+		DiveSiteSlug:    row.DiveSiteSlug,
+		DiveSiteName:    row.DiveSiteName,
+		DiveSiteArea:    row.DiveSiteArea,
+		SortOrder:       int(row.SortOrder),
+		Status:          row.Status,
+		LikeCount:       row.LikeCount,
+		CommentCount:    row.CommentCount,
+		ViewerHasLiked:  row.ViewerHasLiked,
+		ViewerHasSaved:  row.ViewerHasSaved,
+		CreatedAt:       row.CreatedAt,
+	}
+}
+
+func mediaPostCommentResultFromRepo(row mediarepo.MediaPostComment) MediaPostCommentResult {
+	return MediaPostCommentResult{
+		ID:     row.ID,
+		PostID: row.PostID,
+		Author: MediaPostCommentAuthorResult{
+			ID:          row.AuthorUserID,
+			Username:    row.AuthorUsername,
+			DisplayName: row.AuthorDisplayName,
+			AvatarURL:   row.AuthorAvatarURL,
+		},
+		Body:           row.Body,
+		LikeCount:      row.LikeCount,
+		ViewerHasLiked: row.ViewerHasLiked,
+		CreatedAt:      row.CreatedAt,
+		UpdatedAt:      row.UpdatedAt,
+	}
+}
+
+func isModeratorRole(role string) bool {
+	switch strings.TrimSpace(role) {
+	case "moderator", "admin", "super_admin":
+		return true
+	default:
+		return false
+	}
 }
 
 func isAllowedOutputFormat(format string) bool {

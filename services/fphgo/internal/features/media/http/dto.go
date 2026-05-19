@@ -90,13 +90,26 @@ type MediaPostDTO struct {
 	DiveSiteID      string  `json:"diveSiteId"`
 	PostCaption     *string `json:"postCaption,omitempty"`
 	LikeCount       int64   `json:"likeCount"`
+	CommentCount    int64   `json:"commentCount"`
 	ViewerHasLiked  bool    `json:"viewerHasLiked"`
+	ViewerHasSaved  bool    `json:"viewerHasSaved"`
 	CreatedAt       string  `json:"createdAt"`
 	UpdatedAt       string  `json:"updatedAt"`
 }
 
 type LikeStateResponse struct {
-	TargetID       string `json:"targetId"`
+	PostID         string `json:"postId"`
+	LikeCount      int64  `json:"likeCount"`
+	ViewerHasLiked bool   `json:"viewerHasLiked"`
+}
+
+type SaveStateResponse struct {
+	PostID         string `json:"postId"`
+	ViewerHasSaved bool   `json:"viewerHasSaved"`
+}
+
+type CommentLikeStateResponse struct {
+	CommentID      string `json:"commentId"`
 	LikeCount      int64  `json:"likeCount"`
 	ViewerHasLiked bool   `json:"viewerHasLiked"`
 }
@@ -124,7 +137,9 @@ type ProfileMediaDTO struct {
 	SortOrder       int                 `json:"sortOrder"`
 	Status          string              `json:"status"`
 	LikeCount       int64               `json:"likeCount"`
+	CommentCount    int64               `json:"commentCount"`
 	ViewerHasLiked  bool                `json:"viewerHasLiked"`
+	ViewerHasSaved  bool                `json:"viewerHasSaved"`
 	CreatedAt       string              `json:"createdAt"`
 }
 
@@ -133,4 +148,48 @@ type ProfileMediaSiteDTO struct {
 	Slug string `json:"slug,omitempty"`
 	Name string `json:"name"`
 	Area string `json:"area"`
+}
+
+type MediaPostAuthorDTO struct {
+	ID          string `json:"id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	AvatarURL   string `json:"avatarUrl,omitempty"`
+}
+
+type MediaPostDetailDTO struct {
+	Post   MediaPostDTO       `json:"post"`
+	Author MediaPostAuthorDTO `json:"author"`
+	Items  []ProfileMediaDTO  `json:"items"`
+}
+
+type MediaPostDetailResponse struct {
+	Post MediaPostDetailDTO `json:"post"`
+}
+
+type CreateMediaPostCommentRequest struct {
+	Body string `json:"body" validate:"required,min=1,max=4000"`
+}
+
+type MediaPostCommentAuthorDTO struct {
+	ID          string `json:"id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	AvatarURL   string `json:"avatarUrl,omitempty"`
+}
+
+type MediaPostCommentDTO struct {
+	ID             string                    `json:"id"`
+	PostID         string                    `json:"postId"`
+	Author         MediaPostCommentAuthorDTO `json:"author"`
+	Body           string                    `json:"body"`
+	LikeCount      int64                     `json:"likeCount"`
+	ViewerHasLiked bool                      `json:"viewerHasLiked"`
+	CreatedAt      string                    `json:"createdAt"`
+	UpdatedAt      string                    `json:"updatedAt"`
+}
+
+type MediaPostCommentListResponse struct {
+	Items      []MediaPostCommentDTO `json:"items"`
+	NextCursor string                `json:"nextCursor,omitempty"`
 }

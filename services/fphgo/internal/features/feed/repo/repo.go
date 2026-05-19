@@ -60,7 +60,9 @@ type MediaPostCandidate struct {
 	CreatedAt       time.Time
 	SavedByViewer   bool
 	LikeCount       int64
+	CommentCount    int64
 	ViewerHasLiked  bool
+	ViewerHasSaved  bool
 }
 
 type MediaPostCandidateItem struct {
@@ -435,10 +437,16 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 				  AND dss.dive_site_id = mp.dive_site_id
 			),
 			COALESCE((SELECT COUNT(*) FROM media_post_likes mpl WHERE mpl.media_post_id = mp.id), 0)::bigint,
+			COALESCE((SELECT COUNT(*) FROM media_post_comments mpc WHERE mpc.media_post_id = mp.id AND mpc.deleted_at IS NULL), 0)::bigint,
 			EXISTS(
 				SELECT 1 FROM media_post_likes viewer_like
 				WHERE viewer_like.user_id = $1::uuid
 				  AND viewer_like.media_post_id = mp.id
+			),
+			EXISTS(
+				SELECT 1 FROM media_post_saves viewer_save
+				WHERE viewer_save.user_id = $1::uuid
+				  AND viewer_save.media_post_id = mp.id
 			)
 		FROM media_posts mp
 		JOIN users u ON u.id = mp.author_app_user_id
@@ -528,7 +536,9 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 			&item.CreatedAt,
 			&item.SavedByViewer,
 			&item.LikeCount,
+			&item.CommentCount,
 			&item.ViewerHasLiked,
+			&item.ViewerHasSaved,
 		); scanErr != nil {
 			return nil, scanErr
 		}
@@ -1201,12 +1211,21 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 					jsonb_build_object(
 						'likeCount',
 						COALESCE((SELECT COUNT(*) FROM media_post_likes mpl WHERE mpl.media_post_id = ai.source_id), 0),
+						'commentCount',
+						COALESCE((SELECT COUNT(*) FROM media_post_comments mpc WHERE mpc.media_post_id = ai.source_id AND mpc.deleted_at IS NULL), 0),
 						'viewerHasLiked',
 						EXISTS(
 							SELECT 1
 							FROM media_post_likes viewer_like
 							WHERE viewer_like.media_post_id = ai.source_id
 							  AND viewer_like.user_id = $1::uuid
+						),
+						'viewerHasSaved',
+						EXISTS(
+							SELECT 1
+							FROM media_post_saves viewer_save
+							WHERE viewer_save.media_post_id = ai.source_id
+							  AND viewer_save.user_id = $1::uuid
 						)
 					)
 				ELSE ai.stats

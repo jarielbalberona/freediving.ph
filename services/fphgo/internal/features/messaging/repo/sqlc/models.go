@@ -393,7 +393,30 @@ type MediaPost struct {
 	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
+type MediaPostComment struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	MediaPostID     pgtype.UUID        `db:"media_post_id" json:"media_post_id"`
+	AuthorUserID    pgtype.UUID        `db:"author_user_id" json:"author_user_id"`
+	Body            string             `db:"body" json:"body"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	DeletedByUserID pgtype.UUID        `db:"deleted_by_user_id" json:"deleted_by_user_id"`
+}
+
+type MediaPostCommentLike struct {
+	CommentID pgtype.UUID        `db:"comment_id" json:"comment_id"`
+	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type MediaPostLike struct {
+	MediaPostID pgtype.UUID        `db:"media_post_id" json:"media_post_id"`
+	UserID      pgtype.UUID        `db:"user_id" json:"user_id"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type MediaPostSafe struct {
 	MediaPostID pgtype.UUID        `db:"media_post_id" json:"media_post_id"`
 	UserID      pgtype.UUID        `db:"user_id" json:"user_id"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`

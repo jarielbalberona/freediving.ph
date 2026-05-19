@@ -118,6 +118,15 @@ func profileHref(username string) string {
 	return "/" + strings.ToLower(trimmed)
 }
 
+func mediaPostHref(username, postID string) string {
+	profilePath := profileHref(username)
+	postID = strings.TrimSpace(postID)
+	if profilePath == "" || postID == "" {
+		return ""
+	}
+	return profilePath + "/posts/" + postID
+}
+
 func eventHref(id string) string {
 	if strings.TrimSpace(id) == "" {
 		return ""

@@ -338,7 +338,9 @@ func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 			DiveSiteID:      result.Post.DiveSiteID,
 			PostCaption:     result.Post.PostCaption,
 			LikeCount:       result.Post.LikeCount,
+			CommentCount:    result.Post.CommentCount,
 			ViewerHasLiked:  result.Post.ViewerHasLiked,
+			ViewerHasSaved:  result.Post.ViewerHasSaved,
 			CreatedAt:       result.Post.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:       result.Post.UpdatedAt.Format(time.RFC3339),
 		},
@@ -401,7 +403,7 @@ func (h *Handlers) LikePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, LikeStateResponse{
-		TargetID:       result.TargetID,
+		PostID:         result.PostID,
 		LikeCount:      result.LikeCount,
 		ViewerHasLiked: result.ViewerHasLiked,
 	})
@@ -429,7 +431,230 @@ func (h *Handlers) UnlikePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, LikeStateResponse{
-		TargetID:       result.TargetID,
+		PostID:         result.PostID,
+		LikeCount:      result.LikeCount,
+		ViewerHasLiked: result.ViewerHasLiked,
+	})
+}
+
+func (h *Handlers) SavePost(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.SaveMediaPost(r.Context(), actorID, postID)
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SaveStateResponse{
+		PostID:         result.PostID,
+		ViewerHasSaved: result.ViewerHasSaved,
+	})
+}
+
+func (h *Handlers) UnsavePost(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.UnsaveMediaPost(r.Context(), actorID, postID)
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SaveStateResponse{
+		PostID:         result.PostID,
+		ViewerHasSaved: result.ViewerHasSaved,
+	})
+}
+
+func (h *Handlers) GetPost(w http.ResponseWriter, r *http.Request) {
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.GetMediaPostDetail(r.Context(), postID, actorIDIfPresent(r))
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, MediaPostDetailResponse{
+		Post: mapMediaPostDetailDTO(result),
+	})
+}
+
+func (h *Handlers) ListPostComments(w http.ResponseWriter, r *http.Request) {
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	limit := int32(20)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, parseErr := strconv.ParseInt(raw, 10, 32)
+		if parseErr != nil || parsed <= 0 {
+			httpx.WriteValidationError(w, []validatex.Issue{{Path: []any{"limit"}, Code: "custom", Message: "limit must be a positive integer"}})
+			return
+		}
+		limit = int32(parsed)
+	}
+	result, err := h.service.ListMediaPostComments(r.Context(), mediaservice.ListMediaPostCommentsInput{
+		PostID:       postID,
+		ViewerUserID: actorIDIfPresent(r),
+		Cursor:       strings.TrimSpace(r.URL.Query().Get("cursor")),
+		Limit:        limit,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, MediaPostCommentListResponse{
+		Items:      mapMediaPostCommentDTOs(result.Items),
+		NextCursor: result.NextCursor,
+	})
+}
+
+func (h *Handlers) CreatePostComment(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[CreateMediaPostCommentRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.CreateMediaPostComment(r.Context(), mediaservice.CreateMediaPostCommentInput{
+		PostID:  postID,
+		ActorID: actorID,
+		Body:    req.Body,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, mapMediaPostCommentDTO(result))
+}
+
+func (h *Handlers) DeletePostComment(w http.ResponseWriter, r *http.Request) {
+	identity, ok := middleware.CurrentIdentity(r.Context())
+	if !ok || identity.UserID == "" {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil))
+		return
+	}
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	commentID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "commentId"), "commentId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	if err := h.service.DeleteMediaPostComment(r.Context(), mediaservice.DeleteMediaPostCommentInput{
+		PostID:    postID,
+		CommentID: commentID,
+		ActorID:   identity.UserID,
+		ActorRole: identity.GlobalRole,
+	}); err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) LikePostComment(w http.ResponseWriter, r *http.Request) {
+	h.setPostCommentLike(w, r, true)
+}
+
+func (h *Handlers) UnlikePostComment(w http.ResponseWriter, r *http.Request) {
+	h.setPostCommentLike(w, r, false)
+}
+
+func (h *Handlers) setPostCommentLike(w http.ResponseWriter, r *http.Request, liked bool) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	commentID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "commentId"), "commentId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	var result mediaservice.CommentLikeStateResult
+	if liked {
+		result, err = h.service.LikeMediaPostComment(r.Context(), actorID, postID, commentID)
+	} else {
+		result, err = h.service.UnlikeMediaPostComment(r.Context(), actorID, postID, commentID)
+	}
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, CommentLikeStateResponse{
+		CommentID:      result.CommentID,
 		LikeCount:      result.LikeCount,
 		ViewerHasLiked: result.ViewerHasLiked,
 	})
@@ -542,9 +767,62 @@ func mapProfileMediaDTOs(items []mediaservice.ProfileMediaItemResult) []ProfileM
 			SortOrder:      item.SortOrder,
 			Status:         item.Status,
 			LikeCount:      item.LikeCount,
+			CommentCount:   item.CommentCount,
 			ViewerHasLiked: item.ViewerHasLiked,
+			ViewerHasSaved: item.ViewerHasSaved,
 			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
 		})
 	}
 	return result
+}
+
+func mapMediaPostDetailDTO(result mediaservice.MediaPostDetailResult) MediaPostDetailDTO {
+	return MediaPostDetailDTO{
+		Post: MediaPostDTO{
+			ID:              result.Post.ID,
+			AuthorAppUserID: result.Post.AuthorAppUserID,
+			UploadGroupID:   result.Post.UploadGroupID,
+			DiveSiteID:      result.Post.DiveSiteID,
+			PostCaption:     result.Post.PostCaption,
+			LikeCount:       result.Post.LikeCount,
+			CommentCount:    result.Post.CommentCount,
+			ViewerHasLiked:  result.Post.ViewerHasLiked,
+			ViewerHasSaved:  result.Post.ViewerHasSaved,
+			CreatedAt:       result.Post.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:       result.Post.UpdatedAt.Format(time.RFC3339),
+		},
+		Author: MediaPostAuthorDTO{
+			ID:          result.Author.ID,
+			Username:    result.Author.Username,
+			DisplayName: result.Author.DisplayName,
+			AvatarURL:   result.Author.AvatarURL,
+		},
+		Items: mapProfileMediaDTOs(result.Items),
+	}
+}
+
+func mapMediaPostCommentDTOs(items []mediaservice.MediaPostCommentResult) []MediaPostCommentDTO {
+	result := make([]MediaPostCommentDTO, 0, len(items))
+	for _, item := range items {
+		result = append(result, mapMediaPostCommentDTO(item))
+	}
+	return result
+}
+
+func mapMediaPostCommentDTO(item mediaservice.MediaPostCommentResult) MediaPostCommentDTO {
+	return MediaPostCommentDTO{
+		ID:     item.ID,
+		PostID: item.PostID,
+		Author: MediaPostCommentAuthorDTO{
+			ID:          item.Author.ID,
+			Username:    item.Author.Username,
+			DisplayName: item.Author.DisplayName,
+			AvatarURL:   item.Author.AvatarURL,
+		},
+		Body:           item.Body,
+		LikeCount:      item.LikeCount,
+		ViewerHasLiked: item.ViewerHasLiked,
+		CreatedAt:      item.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      item.UpdatedAt.Format(time.RFC3339),
+	}
 }

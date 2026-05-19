@@ -92,6 +92,24 @@ export function MediaPostLikeButton({
         ),
       };
     });
+
+    queryClient.setQueriesData({ queryKey: ["media", "post", postId] }, (current: any) => {
+      if (!current?.post?.post) return current;
+      return {
+        ...current,
+        post: {
+          ...current.post,
+          post: {
+            ...current.post.post,
+            ...state,
+          },
+          items: (current.post.items ?? []).map((item: any) => ({
+            ...item,
+            ...state,
+          })),
+        },
+      };
+    });
   };
 
   const mutation = useMutation({

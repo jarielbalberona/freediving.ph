@@ -276,7 +276,7 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 				RankLabel:  presentation.RankLabel,
 				RankHint:   presentation.RankHint,
 				Tone:       presentation.Tone,
-				DetailHref: profileHref(row.AuthorUsername),
+				DetailHref: mediaPostHref(row.AuthorUsername, row.ID),
 				AuthorHref: profileHref(row.AuthorUsername),
 				CreatedAt:  formatRFC3339(row.CreatedAt),
 				Payload: map[string]any{
@@ -296,7 +296,9 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 					"itemCount":       row.ItemCount,
 					"items":           row.Items,
 					"likeCount":       row.LikeCount,
+					"commentCount":    row.CommentCount,
 					"viewerHasLiked":  row.ViewerHasLiked,
+					"viewerHasSaved":  row.ViewerHasSaved,
 				},
 			},
 			ActorUserID: row.AuthorUserID,

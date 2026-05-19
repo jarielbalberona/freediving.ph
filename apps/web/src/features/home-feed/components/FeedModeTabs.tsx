@@ -5,11 +5,11 @@ import { cn } from "@/lib/utils";
 import type { HomeFeedMode } from "@freediving.ph/types";
 
 const modes: Array<{ id: HomeFeedMode; label: string; hint: string }> = [
-  { id: "latest", label: "Latest", hint: "Eligible activity" },
+  { id: "latest", label: "Latest", hint: "Community posts" },
   { id: "nearby", label: "Nearby", hint: "Your area" },
   { id: "chika", label: "Chika", hint: "Threads only" },
   { id: "dive-reports", label: "Dive reports", hint: "Sites and conditions" },
-  { id: "events", label: "Events", hint: "Allowed events" },
+  { id: "events", label: "Events", hint: "Upcoming" },
 ];
 
 export function FeedModeTabs({

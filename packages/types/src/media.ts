@@ -113,7 +113,9 @@ export interface MediaPostSummary {
   diveSiteId: string;
   postCaption?: string | null;
   likeCount: number;
+  commentCount: number;
   viewerHasLiked: boolean;
+  viewerHasSaved: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -136,7 +138,9 @@ export interface ProfileMediaItem {
   sortOrder: number;
   status: MediaItemStatus;
   likeCount: number;
+  commentCount: number;
   viewerHasLiked: boolean;
+  viewerHasSaved: boolean;
   createdAt: string;
 }
 
@@ -145,8 +149,65 @@ export interface CreateMediaPostResponse {
   items: ProfileMediaItem[];
 }
 
+export interface MediaPostAuthor {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string | null;
+}
+
+export interface MediaPostDetail {
+  post: MediaPostSummary;
+  author: MediaPostAuthor;
+  items: ProfileMediaItem[];
+}
+
+export interface MediaPostDetailResponse {
+  post: MediaPostDetail;
+}
+
+export interface MediaPostLikeState {
+  postId: string;
+  likeCount: number;
+  viewerHasLiked: boolean;
+}
+
 export interface LikeState {
   targetId: string;
+  likeCount: number;
+  viewerHasLiked: boolean;
+}
+
+export interface MediaPostSaveState {
+  postId: string;
+  viewerHasSaved: boolean;
+}
+
+export interface MediaPostCommentAuthor {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string | null;
+}
+
+export interface MediaPostComment {
+  id: string;
+  postId: string;
+  author: MediaPostCommentAuthor;
+  body: string;
+  likeCount: number;
+  viewerHasLiked: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MediaPostCommentListResponse {
+  items: MediaPostComment[];
+  nextCursor?: string;
+}
+
+export interface MediaPostCommentLikeState {
+  commentId: string;
   likeCount: number;
   viewerHasLiked: boolean;
 }

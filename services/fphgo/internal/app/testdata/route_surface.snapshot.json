@@ -265,12 +265,44 @@
       "pattern": "/v1/media/posts"
     },
     {
+      "method": "GET",
+      "pattern": "/v1/media/posts/{postId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/media/posts/{postId}/comments"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/posts/{postId}/comments"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/media/posts/{postId}/comments/{commentId}"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/media/posts/{postId}/comments/{commentId}/likes"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/posts/{postId}/comments/{commentId}/likes"
+    },
+    {
       "method": "DELETE",
       "pattern": "/v1/media/posts/{postId}/likes"
     },
     {
       "method": "POST",
       "pattern": "/v1/media/posts/{postId}/likes"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/media/posts/{postId}/saves"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/posts/{postId}/saves"
     },
     {
       "method": "POST",

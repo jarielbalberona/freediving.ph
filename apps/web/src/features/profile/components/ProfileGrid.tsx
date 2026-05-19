@@ -14,7 +14,7 @@ import {
   MediaViewerDialog,
   type MediaViewerDialogItem,
 } from "@/features/media/components/MediaViewerDialog";
-import { MediaPostLikeButton } from "@/features/media/components/MediaPostLikeButton";
+import { MediaPostActions } from "@/features/media/components/MediaPostActions";
 import { useMintedMediaMap } from "@/features/media/hooks";
 
 type ProfileGridProps = {
@@ -243,10 +243,13 @@ export function ProfileGrid({
                 <p className="text-sm leading-6 text-foreground">
                   {caption || "No caption added."}
                 </p>
-                <MediaPostLikeButton
+                <MediaPostActions
                   postId={selectedItem.postId}
+                  href={`/${username}/posts/${selectedItem.postId}`}
                   likeCount={selectedItem.likeCount}
+                  commentCount={selectedItem.commentCount}
                   viewerHasLiked={selectedItem.viewerHasLiked}
+                  viewerHasSaved={selectedItem.viewerHasSaved}
                 />
               </div>
             </>

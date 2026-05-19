@@ -63,8 +63,26 @@ type MediaPost struct {
 	DeletedAt       *time.Time
 }
 
-type LikeState struct {
-	TargetID       string
+type PostSocialState struct {
+	PostID            string
+	AuthorUserID      string
+	AuthorUsername    string
+	AuthorDisplayName string
+	AuthorAvatarURL   string
+	LikeCount         int64
+	CommentCount      int64
+	ViewerHasLiked    bool
+	ViewerHasSaved    bool
+}
+
+type SaveState struct {
+	PostID         string
+	ViewerHasSaved bool
+}
+
+type CommentLikeState struct {
+	CommentID      string
+	PostID         string
 	LikeCount      int64
 	ViewerHasLiked bool
 }
@@ -120,7 +138,32 @@ type ProfileMediaItem struct {
 	DiveSiteName   string
 	DiveSiteArea   string
 	LikeCount      int64
+	CommentCount   int64
 	ViewerHasLiked bool
+	ViewerHasSaved bool
+}
+
+type MediaPostDetailItem struct {
+	ProfileMediaItem
+	AuthorUsername    string
+	AuthorDisplayName string
+	AuthorAvatarURL   string
+	PostCreatedAt     time.Time
+	PostUpdatedAt     time.Time
+}
+
+type MediaPostComment struct {
+	ID                string
+	PostID            string
+	AuthorUserID      string
+	AuthorUsername    string
+	AuthorDisplayName string
+	AuthorAvatarURL   string
+	Body              string
+	LikeCount         int64
+	ViewerHasLiked    bool
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 type ListMediaByOwnerInput struct {
@@ -313,18 +356,24 @@ type ListProfileMediaInput struct {
 	Limit         int32
 }
 
-func (r *Repo) GetVisibleMediaPostLikeState(ctx context.Context, postID, viewerUserID string) (LikeState, error) {
-	row, err := r.queries.GetVisibleMediaPostLikeState(ctx, mediaqlc.GetVisibleMediaPostLikeStateParams{
+func (r *Repo) GetVisibleMediaPostSocialState(ctx context.Context, postID, viewerUserID string) (PostSocialState, error) {
+	row, err := r.queries.GetVisibleMediaPostSocialState(ctx, mediaqlc.GetVisibleMediaPostSocialStateParams{
 		MediaPostID:  toUUID(postID),
 		ViewerUserID: toUUID(viewerUserID),
 	})
 	if err != nil {
-		return LikeState{}, err
+		return PostSocialState{}, err
 	}
-	return LikeState{
-		TargetID:       row.ID.String(),
-		LikeCount:      row.LikeCount,
-		ViewerHasLiked: row.ViewerHasLiked,
+	return PostSocialState{
+		PostID:            row.ID.String(),
+		AuthorUserID:      row.AuthorAppUserID.String(),
+		AuthorUsername:    row.AuthorUsername,
+		AuthorDisplayName: row.AuthorDisplayName,
+		AuthorAvatarURL:   row.AuthorAvatarUrl,
+		LikeCount:         row.LikeCount,
+		CommentCount:      row.CommentCount,
+		ViewerHasLiked:    row.ViewerHasLiked,
+		ViewerHasSaved:    row.ViewerHasSaved,
 	}, nil
 }
 
@@ -339,6 +388,124 @@ func (r *Repo) UnlikeMediaPost(ctx context.Context, postID, userID string) error
 	return r.queries.UnlikeMediaPost(ctx, mediaqlc.UnlikeMediaPostParams{
 		MediaPostID: toUUID(postID),
 		UserID:      toUUID(userID),
+	})
+}
+
+func (r *Repo) SaveMediaPost(ctx context.Context, postID, userID string) error {
+	return r.queries.SaveMediaPost(ctx, mediaqlc.SaveMediaPostParams{
+		MediaPostID: toUUID(postID),
+		UserID:      toUUID(userID),
+	})
+}
+
+func (r *Repo) UnsaveMediaPost(ctx context.Context, postID, userID string) error {
+	return r.queries.UnsaveMediaPost(ctx, mediaqlc.UnsaveMediaPostParams{
+		MediaPostID: toUUID(postID),
+		UserID:      toUUID(userID),
+	})
+}
+
+func (r *Repo) GetMediaPostDetail(ctx context.Context, postID, viewerUserID string) ([]MediaPostDetailItem, error) {
+	rows, err := r.queries.GetMediaPostDetail(ctx, mediaqlc.GetMediaPostDetailParams{
+		MediaPostID:  toUUID(postID),
+		ViewerUserID: toUUID(viewerUserID),
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]MediaPostDetailItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapMediaPostDetailItem(row))
+	}
+	return items, nil
+}
+
+func (r *Repo) CreateMediaPostComment(ctx context.Context, postID, authorUserID, body string) (MediaPostComment, error) {
+	row, err := r.queries.CreateMediaPostComment(ctx, mediaqlc.CreateMediaPostCommentParams{
+		MediaPostID:  toUUID(postID),
+		AuthorUserID: toUUID(authorUserID),
+		Body:         body,
+	})
+	if err != nil {
+		return MediaPostComment{}, err
+	}
+	return r.GetMediaPostComment(ctx, postID, row.ID.String(), authorUserID)
+}
+
+func (r *Repo) GetMediaPostComment(ctx context.Context, postID, commentID, viewerUserID string) (MediaPostComment, error) {
+	row, err := r.queries.GetMediaPostComment(ctx, mediaqlc.GetMediaPostCommentParams{
+		MediaPostID:  toUUID(postID),
+		CommentID:    toUUID(commentID),
+		ViewerUserID: toUUID(viewerUserID),
+	})
+	if err != nil {
+		return MediaPostComment{}, err
+	}
+	return mapMediaPostComment(row), nil
+}
+
+func (r *Repo) ListMediaPostComments(ctx context.Context, input ListMediaPostCommentsInput) ([]MediaPostComment, error) {
+	rows, err := r.queries.ListMediaPostComments(ctx, mediaqlc.ListMediaPostCommentsParams{
+		MediaPostID:  toUUID(input.PostID),
+		ViewerUserID: toUUID(input.ViewerUserID),
+		CreatedAt:    toTimestamptz(input.CursorCreated),
+		ID:           toUUID(input.CursorID),
+		LimitCount:   input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]MediaPostComment, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapMediaPostCommentListRow(row))
+	}
+	return items, nil
+}
+
+type ListMediaPostCommentsInput struct {
+	PostID        string
+	ViewerUserID  string
+	CursorCreated time.Time
+	CursorID      string
+	Limit         int32
+}
+
+func (r *Repo) SoftDeleteMediaPostComment(ctx context.Context, postID, commentID, actorID string) error {
+	return r.queries.SoftDeleteMediaPostComment(ctx, mediaqlc.SoftDeleteMediaPostCommentParams{
+		ID:              toUUID(commentID),
+		MediaPostID:     toUUID(postID),
+		DeletedByUserID: toUUID(actorID),
+	})
+}
+
+func (r *Repo) GetVisibleMediaPostCommentLikeState(ctx context.Context, postID, commentID, viewerUserID string) (CommentLikeState, error) {
+	row, err := r.queries.GetVisibleMediaPostCommentLikeState(ctx, mediaqlc.GetVisibleMediaPostCommentLikeStateParams{
+		MediaPostID:  toUUID(postID),
+		CommentID:    toUUID(commentID),
+		ViewerUserID: toUUID(viewerUserID),
+	})
+	if err != nil {
+		return CommentLikeState{}, err
+	}
+	return CommentLikeState{
+		CommentID:      row.ID.String(),
+		PostID:         row.MediaPostID.String(),
+		LikeCount:      row.LikeCount,
+		ViewerHasLiked: row.ViewerHasLiked,
+	}, nil
+}
+
+func (r *Repo) LikeMediaPostComment(ctx context.Context, commentID, userID string) error {
+	return r.queries.LikeMediaPostComment(ctx, mediaqlc.LikeMediaPostCommentParams{
+		CommentID: toUUID(commentID),
+		UserID:    toUUID(userID),
+	})
+}
+
+func (r *Repo) UnlikeMediaPostComment(ctx context.Context, commentID, userID string) error {
+	return r.queries.UnlikeMediaPostComment(ctx, mediaqlc.UnlikeMediaPostCommentParams{
+		CommentID: toUUID(commentID),
+		UserID:    toUUID(userID),
 	})
 }
 
@@ -425,7 +592,81 @@ func mapProfileMediaItem(row mediaqlc.ListProfileMediaByUsernameRow) ProfileMedi
 		DiveSiteName:   row.DiveSiteName,
 		DiveSiteArea:   row.DiveSiteArea,
 		LikeCount:      row.LikeCount,
+		CommentCount:   row.CommentCount,
 		ViewerHasLiked: row.ViewerHasLiked,
+		ViewerHasSaved: row.ViewerHasSaved,
+	}
+}
+
+func mapMediaPostDetailItem(row mediaqlc.GetMediaPostDetailRow) MediaPostDetailItem {
+	return MediaPostDetailItem{
+		ProfileMediaItem: ProfileMediaItem{
+			MediaItem: MediaItem{
+				ID:              row.ID.String(),
+				PostID:          row.PostID.String(),
+				MediaObjectID:   row.MediaObjectID.String(),
+				AuthorAppUserID: row.AuthorAppUserID.String(),
+				UploadGroupID:   row.UploadGroupID.String(),
+				DiveSiteID:      row.DiveSiteID.String(),
+				Type:            row.Type,
+				StorageKey:      row.StorageKey,
+				MimeType:        row.MimeType,
+				Width:           row.Width,
+				Height:          row.Height,
+				DurationMs:      int32PtrFromPtr(row.DurationMs),
+				Caption:         stringPtr(row.Caption),
+				SortOrder:       row.SortOrder,
+				Status:          row.Status,
+				CreatedAt:       row.CreatedAt.Time.UTC(),
+				UpdatedAt:       row.UpdatedAt.Time.UTC(),
+				DeletedAt:       timestamptzPtr(row.DeletedAt),
+			},
+			PostCaption:    stringPtr(row.PostCaption),
+			DiveSiteSlug:   row.DiveSiteSlug,
+			DiveSiteName:   row.DiveSiteName,
+			DiveSiteArea:   row.DiveSiteArea,
+			LikeCount:      row.LikeCount,
+			CommentCount:   row.CommentCount,
+			ViewerHasLiked: row.ViewerHasLiked,
+			ViewerHasSaved: row.ViewerHasSaved,
+		},
+		AuthorUsername:    row.AuthorUsername,
+		AuthorDisplayName: row.AuthorDisplayName,
+		AuthorAvatarURL:   row.AuthorAvatarUrl,
+		PostCreatedAt:     row.PostCreatedAt.Time.UTC(),
+		PostUpdatedAt:     row.PostUpdatedAt.Time.UTC(),
+	}
+}
+
+func mapMediaPostComment(row mediaqlc.GetMediaPostCommentRow) MediaPostComment {
+	return MediaPostComment{
+		ID:                row.ID.String(),
+		PostID:            row.MediaPostID.String(),
+		AuthorUserID:      row.AuthorUserID.String(),
+		AuthorUsername:    row.AuthorUsername,
+		AuthorDisplayName: row.AuthorDisplayName,
+		AuthorAvatarURL:   row.AuthorAvatarUrl,
+		Body:              row.Body,
+		LikeCount:         row.LikeCount,
+		ViewerHasLiked:    row.ViewerHasLiked,
+		CreatedAt:         row.CreatedAt.Time.UTC(),
+		UpdatedAt:         row.UpdatedAt.Time.UTC(),
+	}
+}
+
+func mapMediaPostCommentListRow(row mediaqlc.ListMediaPostCommentsRow) MediaPostComment {
+	return MediaPostComment{
+		ID:                row.ID.String(),
+		PostID:            row.MediaPostID.String(),
+		AuthorUserID:      row.AuthorUserID.String(),
+		AuthorUsername:    row.AuthorUsername,
+		AuthorDisplayName: row.AuthorDisplayName,
+		AuthorAvatarURL:   row.AuthorAvatarUrl,
+		Body:              row.Body,
+		LikeCount:         row.LikeCount,
+		ViewerHasLiked:    row.ViewerHasLiked,
+		CreatedAt:         row.CreatedAt.Time.UTC(),
+		UpdatedAt:         row.UpdatedAt.Time.UTC(),
 	}
 }
 

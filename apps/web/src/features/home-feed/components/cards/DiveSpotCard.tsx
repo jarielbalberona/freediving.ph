@@ -42,8 +42,19 @@ export function DiveSpotCard({
   actions,
 }: { item: HomeFeedItem; actions?: React.ReactNode }) {
   const payload = item.payload as DiveSpotPayload;
+  const diveSpotActions = (
+    <div className="flex w-full flex-wrap items-center justify-between gap-2">
+      <DiveSiteLikeButton
+        siteId={item.entityId}
+        likeCount={payload.likeCount ?? 0}
+        viewerHasLiked={payload.viewerHasLiked ?? false}
+      />
+      {actions}
+    </div>
+  );
+
   return (
-    <FeedCardShell item={item} actions={actions}>
+    <FeedCardShell item={item} actions={diveSpotActions}>
       <FeedItemHeader
         item={item}
         displayName={payload.name || "Dive spot"}
@@ -84,11 +95,6 @@ export function DiveSpotCard({
           </p>
         )
       ) : null}
-      <DiveSiteLikeButton
-        siteId={item.entityId}
-        likeCount={payload.likeCount ?? 0}
-        viewerHasLiked={payload.viewerHasLiked ?? false}
-      />
     </FeedCardShell>
   );
 }

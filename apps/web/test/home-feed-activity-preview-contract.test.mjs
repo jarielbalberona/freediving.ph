@@ -17,6 +17,10 @@ const rendererPath = path.join(
   appRoot,
   "src/features/home-feed/components/FeedItemRenderer.tsx",
 );
+const feedModeTabsPath = path.join(
+  appRoot,
+  "src/features/home-feed/components/FeedModeTabs.tsx",
+);
 const activityClientPath = path.join(
   appRoot,
   "src/features/home-feed/api/get-activity-feed.ts",
@@ -68,9 +72,10 @@ test("home feed keeps legacy client while activity feed is the default client", 
 });
 
 test("activity source is default and home source is explicit fallback", async () => {
-  const [homePage, appPage] = await Promise.all([
+  const [homePage, appPage, feedModeTabs] = await Promise.all([
     readFile(homePagePath, "utf8"),
     readFile(appPagePath, "utf8"),
+    readFile(feedModeTabsPath, "utf8"),
   ]);
 
   assert.match(appPage, /rawFeedSource === "home" \? "home" : "activity"/);
@@ -80,6 +85,8 @@ test("activity source is default and home source is explicit fallback", async ()
   assert.match(homePage, /enabled: !usingActivityFeed/);
   assert.match(homePage, /enabled: usingActivityFeed/);
   assert.doesNotMatch(homePage, /Activity feed preview/);
+  assert.doesNotMatch(feedModeTabs, /Eligible activity/);
+  assert.doesNotMatch(feedModeTabs, /Allowed events/);
 });
 
 test("activity preview adapts supported ledger types and skips unknown types safely", async () => {

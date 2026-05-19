@@ -219,6 +219,14 @@ const mapMediaPost = (item: ActivityFeedItem): HomeFeedItem => {
         booleanValue(item.stats, "viewerHasLiked") ??
         booleanValue(item.metadata, "viewerHasLiked") ??
         false,
+      commentCount:
+        numberValue(item.stats, "commentCount") ??
+        numberValue(item.metadata, "commentCount") ??
+        0,
+      viewerHasSaved:
+        booleanValue(item.stats, "viewerHasSaved") ??
+        booleanValue(item.metadata, "viewerHasSaved") ??
+        false,
       itemCount: item.media?.length ?? 0,
       items:
         item.media

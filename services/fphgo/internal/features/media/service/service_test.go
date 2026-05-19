@@ -20,13 +20,21 @@ import (
 )
 
 type fakeRepo struct {
-	created       []mediarepo.CreateMediaObjectInput
-	mediaByID     map[string]mediarepo.MediaObject
-	publishedPost *mediarepo.PublishMediaPostInput
-	likeState     mediarepo.LikeState
-	likedPostID   string
-	unlikedPostID string
-	likeUserID    string
+	created          []mediarepo.CreateMediaObjectInput
+	mediaByID        map[string]mediarepo.MediaObject
+	publishedPost    *mediarepo.PublishMediaPostInput
+	socialState      mediarepo.PostSocialState
+	commentLikeState mediarepo.CommentLikeState
+	likedPostID      string
+	unlikedPostID    string
+	savedPostID      string
+	unsavedPostID    string
+	likeUserID       string
+	saveUserID       string
+	comments         []mediarepo.MediaPostComment
+	deletedCommentID string
+	commentLikedID   string
+	commentUnlikedID string
 }
 
 func (f *fakeRepo) CreateMediaObject(_ context.Context, input mediarepo.CreateMediaObjectInput) (mediarepo.MediaObject, error) {
@@ -165,24 +173,119 @@ func (f *fakeRepo) ListProfileMediaByUsername(_ context.Context, _ mediarepo.Lis
 	return nil, nil
 }
 
-func (f *fakeRepo) GetVisibleMediaPostLikeState(_ context.Context, postID, _ string) (mediarepo.LikeState, error) {
-	if f.likeState.TargetID == "" {
-		return mediarepo.LikeState{TargetID: postID}, nil
+func (f *fakeRepo) GetVisibleMediaPostSocialState(_ context.Context, postID, _ string) (mediarepo.PostSocialState, error) {
+	if f.socialState.PostID == "" {
+		return mediarepo.PostSocialState{PostID: postID}, nil
 	}
-	return f.likeState, nil
+	return f.socialState, nil
 }
 
 func (f *fakeRepo) LikeMediaPost(_ context.Context, postID, userID string) error {
 	f.likedPostID = postID
 	f.likeUserID = userID
-	f.likeState = mediarepo.LikeState{TargetID: postID, LikeCount: 1, ViewerHasLiked: true}
+	f.socialState = mediarepo.PostSocialState{PostID: postID, LikeCount: 1, ViewerHasLiked: true}
 	return nil
 }
 
 func (f *fakeRepo) UnlikeMediaPost(_ context.Context, postID, userID string) error {
 	f.unlikedPostID = postID
 	f.likeUserID = userID
-	f.likeState = mediarepo.LikeState{TargetID: postID, LikeCount: 0, ViewerHasLiked: false}
+	f.socialState = mediarepo.PostSocialState{PostID: postID, LikeCount: 0, ViewerHasLiked: false}
+	return nil
+}
+
+func (f *fakeRepo) SaveMediaPost(_ context.Context, postID, userID string) error {
+	f.savedPostID = postID
+	f.saveUserID = userID
+	f.socialState.PostID = postID
+	f.socialState.ViewerHasSaved = true
+	return nil
+}
+
+func (f *fakeRepo) UnsaveMediaPost(_ context.Context, postID, userID string) error {
+	f.unsavedPostID = postID
+	f.saveUserID = userID
+	f.socialState.PostID = postID
+	f.socialState.ViewerHasSaved = false
+	return nil
+}
+
+func (f *fakeRepo) GetMediaPostDetail(_ context.Context, _, _ string) ([]mediarepo.MediaPostDetailItem, error) {
+	return nil, nil
+}
+
+func (f *fakeRepo) CreateMediaPostComment(_ context.Context, postID, authorUserID, body string) (mediarepo.MediaPostComment, error) {
+	comment := mediarepo.MediaPostComment{
+		ID:                "77777777-7777-4777-8777-777777777777",
+		PostID:            postID,
+		AuthorUserID:      authorUserID,
+		AuthorDisplayName: "Diver",
+		AuthorUsername:    "diver",
+		Body:              body,
+		CreatedAt:         time.Now().UTC(),
+		UpdatedAt:         time.Now().UTC(),
+	}
+	f.comments = append([]mediarepo.MediaPostComment{comment}, f.comments...)
+	f.socialState.PostID = postID
+	f.socialState.CommentCount++
+	return comment, nil
+}
+
+func (f *fakeRepo) GetMediaPostComment(_ context.Context, postID, commentID, _ string) (mediarepo.MediaPostComment, error) {
+	for _, comment := range f.comments {
+		if comment.ID == commentID && comment.PostID == postID {
+			return comment, nil
+		}
+	}
+	return mediarepo.MediaPostComment{
+		ID:                commentID,
+		PostID:            postID,
+		AuthorUserID:      "550e8400-e29b-41d4-a716-446655440000",
+		AuthorDisplayName: "Diver",
+		AuthorUsername:    "diver",
+		Body:              "hello",
+		CreatedAt:         time.Now().UTC(),
+		UpdatedAt:         time.Now().UTC(),
+	}, nil
+}
+
+func (f *fakeRepo) ListMediaPostComments(_ context.Context, _ mediarepo.ListMediaPostCommentsInput) ([]mediarepo.MediaPostComment, error) {
+	return f.comments, nil
+}
+
+func (f *fakeRepo) SoftDeleteMediaPostComment(_ context.Context, postID, commentID, _ string) error {
+	f.deletedCommentID = commentID
+	if f.socialState.PostID == "" {
+		f.socialState.PostID = postID
+	}
+	if f.socialState.CommentCount > 0 {
+		f.socialState.CommentCount--
+	}
+	return nil
+}
+
+func (f *fakeRepo) GetVisibleMediaPostCommentLikeState(_ context.Context, postID, commentID, _ string) (mediarepo.CommentLikeState, error) {
+	if f.commentLikeState.CommentID == "" {
+		return mediarepo.CommentLikeState{PostID: postID, CommentID: commentID}, nil
+	}
+	return f.commentLikeState, nil
+}
+
+func (f *fakeRepo) LikeMediaPostComment(_ context.Context, commentID, userID string) error {
+	f.commentLikedID = commentID
+	f.likeUserID = userID
+	f.commentLikeState.CommentID = commentID
+	f.commentLikeState.LikeCount = 1
+	f.commentLikeState.ViewerHasLiked = true
+	return nil
+}
+
+func (f *fakeRepo) UnlikeMediaPostComment(_ context.Context, commentID, userID string) error {
+	f.commentUnlikedID = commentID
+	f.likeUserID = userID
+	f.commentLikeState.CommentID = commentID
+	f.commentLikeState.LikeCount = 0
+	f.commentLikeState.ViewerHasLiked = false
 	return nil
 }
 
@@ -663,14 +766,14 @@ func TestLikeMediaPostUpdatesState(t *testing.T) {
 	if repo.likedPostID != "22222222-2222-4222-8222-222222222222" || repo.likeUserID != "550e8400-e29b-41d4-a716-446655440000" {
 		t.Fatalf("expected repo like call, got post=%q user=%q", repo.likedPostID, repo.likeUserID)
 	}
-	if result.TargetID != "22222222-2222-4222-8222-222222222222" || result.LikeCount != 1 || !result.ViewerHasLiked {
+	if result.PostID != "22222222-2222-4222-8222-222222222222" || result.LikeCount != 1 || !result.ViewerHasLiked {
 		t.Fatalf("unexpected like result: %+v", result)
 	}
 }
 
 func TestUnlikeMediaPostUpdatesState(t *testing.T) {
-	repo := &fakeRepo{likeState: mediarepo.LikeState{
-		TargetID:       "22222222-2222-4222-8222-222222222222",
+	repo := &fakeRepo{socialState: mediarepo.PostSocialState{
+		PostID:         "22222222-2222-4222-8222-222222222222",
 		LikeCount:      1,
 		ViewerHasLiked: true,
 	}}
@@ -687,8 +790,79 @@ func TestUnlikeMediaPostUpdatesState(t *testing.T) {
 	if repo.unlikedPostID != "22222222-2222-4222-8222-222222222222" || repo.likeUserID != "550e8400-e29b-41d4-a716-446655440000" {
 		t.Fatalf("expected repo unlike call, got post=%q user=%q", repo.unlikedPostID, repo.likeUserID)
 	}
-	if result.TargetID != "22222222-2222-4222-8222-222222222222" || result.LikeCount != 0 || result.ViewerHasLiked {
+	if result.PostID != "22222222-2222-4222-8222-222222222222" || result.LikeCount != 0 || result.ViewerHasLiked {
 		t.Fatalf("unexpected unlike result: %+v", result)
+	}
+}
+
+func TestSaveMediaPostUpdatesState(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	result, err := svc.SaveMediaPost(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"22222222-2222-4222-8222-222222222222",
+	)
+	if err != nil {
+		t.Fatalf("save media post: %v", err)
+	}
+	if repo.savedPostID != "22222222-2222-4222-8222-222222222222" || repo.saveUserID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("expected repo save call, got post=%q user=%q", repo.savedPostID, repo.saveUserID)
+	}
+	if result.PostID != "22222222-2222-4222-8222-222222222222" || !result.ViewerHasSaved {
+		t.Fatalf("unexpected save result: %+v", result)
+	}
+}
+
+func TestCreateMediaPostCommentTrimsBody(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	result, err := svc.CreateMediaPostComment(context.Background(), CreateMediaPostCommentInput{
+		ActorID: "550e8400-e29b-41d4-a716-446655440000",
+		PostID:  "22222222-2222-4222-8222-222222222222",
+		Body:    "  looks calm  ",
+	})
+	if err != nil {
+		t.Fatalf("create comment: %v", err)
+	}
+	if result.Body != "looks calm" {
+		t.Fatalf("expected trimmed comment body, got %q", result.Body)
+	}
+}
+
+func TestCreateMediaPostCommentRejectsEmptyBody(t *testing.T) {
+	svc := New(&fakeRepo{}, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	_, err := svc.CreateMediaPostComment(context.Background(), CreateMediaPostCommentInput{
+		ActorID: "550e8400-e29b-41d4-a716-446655440000",
+		PostID:  "22222222-2222-4222-8222-222222222222",
+		Body:    "   ",
+	})
+	if err == nil || !strings.Contains(err.Error(), "validation failed") {
+		t.Fatalf("expected validation failure, got %v", err)
+	}
+}
+
+func TestLikeMediaPostCommentUpdatesState(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	result, err := svc.LikeMediaPostComment(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"22222222-2222-4222-8222-222222222222",
+		"33333333-3333-4333-8333-333333333333",
+	)
+	if err != nil {
+		t.Fatalf("like media post comment: %v", err)
+	}
+	if repo.commentLikedID != "33333333-3333-4333-8333-333333333333" || repo.likeUserID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("expected repo comment like call, got comment=%q user=%q", repo.commentLikedID, repo.likeUserID)
+	}
+	if result.CommentID != "33333333-3333-4333-8333-333333333333" || result.LikeCount != 1 || !result.ViewerHasLiked {
+		t.Fatalf("unexpected comment like result: %+v", result)
 	}
 }
 

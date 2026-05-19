@@ -76,3 +76,28 @@ export const useProfileMediaInfiniteQuery = (username: string, limit = 24) => {
     staleTime: 60_000,
   });
 };
+
+export const useMediaPostQuery = (postId: string, enabled = true) => {
+  return useQuery({
+    queryKey: ["media", "post", postId],
+    queryFn: () => mediaApi.getPost(postId),
+    enabled: enabled && Boolean(postId),
+    staleTime: 30_000,
+  });
+};
+
+export const useMediaPostCommentsInfiniteQuery = (
+  postId: string,
+  limit = 20,
+  enabled = true,
+) => {
+  return useInfiniteQuery({
+    queryKey: ["media", "post", postId, "comments", limit],
+    queryFn: ({ pageParam }: { pageParam?: string }) =>
+      mediaApi.listPostComments(postId, { limit, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    enabled: enabled && Boolean(postId),
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    staleTime: 15_000,
+  });
+};

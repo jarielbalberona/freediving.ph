@@ -26,6 +26,12 @@ func TestMediaRoutesRequireAuth(t *testing.T) {
 		{method: http.MethodPost, path: "/upload-multiple", header: "multipart/form-data; boundary=abc"},
 		{method: http.MethodPost, path: "/posts/22222222-2222-4222-8222-222222222222/likes"},
 		{method: http.MethodDelete, path: "/posts/22222222-2222-4222-8222-222222222222/likes"},
+		{method: http.MethodPost, path: "/posts/22222222-2222-4222-8222-222222222222/saves"},
+		{method: http.MethodDelete, path: "/posts/22222222-2222-4222-8222-222222222222/saves"},
+		{method: http.MethodPost, path: "/posts/22222222-2222-4222-8222-222222222222/comments", body: `{"body":"hello"}`},
+		{method: http.MethodDelete, path: "/posts/22222222-2222-4222-8222-222222222222/comments/33333333-3333-4333-8333-333333333333"},
+		{method: http.MethodPost, path: "/posts/22222222-2222-4222-8222-222222222222/comments/33333333-3333-4333-8333-333333333333/likes"},
+		{method: http.MethodDelete, path: "/posts/22222222-2222-4222-8222-222222222222/comments/33333333-3333-4333-8333-333333333333/likes"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {

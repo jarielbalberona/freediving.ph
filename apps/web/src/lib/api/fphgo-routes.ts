@@ -157,8 +157,16 @@ export const routes = {
       upload: () => "/v1/media/upload",
       uploadMultiple: () => "/v1/media/upload-multiple",
       posts: () => "/v1/media/posts",
+      postById: (postId: string | number) =>
+        `/v1/media/posts/${toPathId(postId)}`,
       postLikes: (postId: string | number) =>
         `/v1/media/posts/${toPathId(postId)}/likes`,
+      postSaves: (postId: string | number) =>
+        `/v1/media/posts/${toPathId(postId)}/saves`,
+      postComments: (postId: string | number) =>
+        `/v1/media/posts/${toPathId(postId)}/comments`,
+      postCommentLikes: (postId: string | number, commentId: string | number) =>
+        `/v1/media/posts/${toPathId(postId)}/comments/${toPathId(commentId)}/likes`,
       byUsername: (username: string | number) =>
         `/v1/media/by-username/${toPathId(username)}`,
       mine: () => "/v1/media/mine",
