@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AdvancedMarker,
   Map,
-  Marker,
   useMapsLibrary,
   type MapMouseEvent,
 } from "@vis.gl/react-google-maps";
@@ -27,6 +27,8 @@ import {
 } from "./location-utils";
 
 const resolvedAreaCache = new globalThis.Map<string, string | null>();
+const SUBMIT_GOOGLE_MAP_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "c5170fc5a137d9ea8ef77423";
 
 type MapPinPickerDialogProps = {
   open: boolean;
@@ -169,7 +171,7 @@ function PickerMap({ value, onChange }: PickerMapProps) {
     };
   }, [geocoderRef, onChange, value]);
 
-  const center = useMemo(
+  const initialCenter = useMemo(
     () => (value ? { lat: value.lat, lng: value.lng } : defaultMapCenter),
     [value],
   );
@@ -177,9 +179,9 @@ function PickerMap({ value, onChange }: PickerMapProps) {
   return (
     <div className="relative h-full min-h-0">
       <Map
-        defaultCenter={center}
+        defaultCenter={initialCenter}
         defaultZoom={value ? 10.5 : 6.2}
-        center={center}
+        mapId={SUBMIT_GOOGLE_MAP_ID}
         gestureHandling="greedy"
         mapTypeControl={false}
         fullscreenControl={false}
@@ -194,7 +196,7 @@ function PickerMap({ value, onChange }: PickerMapProps) {
         }}
       >
         {value ? (
-          <Marker
+          <AdvancedMarker
             position={{ lat: value.lat, lng: value.lng }}
             draggable
             onDragEnd={(event: MapMouseEvent | google.maps.MapMouseEvent) => {

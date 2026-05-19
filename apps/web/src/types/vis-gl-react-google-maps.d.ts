@@ -38,6 +38,7 @@ declare module "@vis.gl/react-google-maps" {
     children?: ReactNode;
     id?: string;
     className?: string;
+    mapId?: string;
     defaultCenter?: { lat: number; lng: number };
     defaultZoom?: number;
     center?: { lat: number; lng: number };
@@ -71,6 +72,18 @@ declare module "@vis.gl/react-google-maps" {
     onDragEnd?: (event: google.maps.MapMouseEvent) => void;
     zIndex?: number;
     label?: string;
+  }): JSX.Element;
+
+  export function AdvancedMarker(props: {
+    children?: ReactNode;
+    position: { lat: number; lng: number };
+    draggable?: boolean;
+    clickable?: boolean;
+    onClick?: (event: google.maps.MapMouseEvent) => void;
+    onDragEnd?: (event: google.maps.MapMouseEvent) => void;
+    zIndex?: number;
+    title?: string;
+    className?: string;
   }): JSX.Element;
 
   export function InfoWindow(props: {

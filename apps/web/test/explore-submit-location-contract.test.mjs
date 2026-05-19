@@ -43,6 +43,10 @@ test("explore submit flow stores map-picked location and does not expose manual 
 
   assert.match(dialogSource, /Pin the dive site/);
   assert.match(dialogSource, /Confirm pin/);
+  assert.match(dialogSource, /AdvancedMarker/);
+  assert.match(dialogSource, /mapId=\{SUBMIT_GOOGLE_MAP_ID\}/);
+  assert.doesNotMatch(dialogSource, /<Marker\b/);
+  assert.doesNotMatch(dialogSource, /center=\{initialCenter\}/);
   assert.match(dialogSource, /draggable/);
   assert.match(dialogSource, /onClick=\{\(event\) =>/);
   assert.match(

@@ -1,6 +1,10 @@
 "use client";
 
-import { Map, Marker, type MapCameraChangedEvent } from "@vis.gl/react-google-maps";
+import {
+  AdvancedMarker,
+  Map,
+  type MapCameraChangedEvent,
+} from "@vis.gl/react-google-maps";
 import * as React from "react";
 
 type DiveSpotMarker = {
@@ -27,6 +31,8 @@ interface MapComponentProps {
 }
 
 const defaultMapCenter = { lat: 11.8, lng: 121.4 };
+const EXPLORE_GOOGLE_MAP_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "c5170fc5a137d9ea8ef77423";
 
 const mapBoundsRestriction = {
   north: 19.0,
@@ -89,6 +95,16 @@ const clusterSpots = (spots: Array<DiveSpotMarker & { lat: number; lng: number }
   return Array.from(buckets.values());
 };
 
+const markerClassName = (isSelected: boolean, isSingle: boolean) =>
+  [
+    "grid place-items-center rounded-full border-2 border-white text-xs font-bold text-white shadow-lg",
+    isSelected
+      ? "size-9 bg-sky-600 ring-4 ring-sky-200"
+      : isSingle
+        ? "size-7 bg-sky-600"
+        : "size-8 bg-cyan-700",
+  ].join(" ");
+
 const MapComponent = ({
   freedivingSpots,
   selectedSpotId,
@@ -133,6 +149,7 @@ const MapRenderer = ({
         defaultZoom={resolvedZoom}
         center={resolvedCenter}
         zoom={resolvedZoom}
+        mapId={EXPLORE_GOOGLE_MAP_ID}
         minZoom={6.2}
         gestureHandling="greedy"
         disableDefaultUI={false}
@@ -164,22 +181,30 @@ const MapRenderer = ({
           const isSingle = cluster.spotIds.length === 1;
           const isSelected = selectedSpotId !== null && cluster.spotIds.includes(selectedSpotId);
           return (
-          <Marker
-            key={`${index}-${primarySpotId}`}
-            position={{ lat: cluster.lat, lng: cluster.lng }}
-            onClick={() => {
-              if (isSingle) {
-                onSpotSelect(primarySpotId);
-                return;
+            <AdvancedMarker
+              key={`${index}-${primarySpotId}`}
+              position={{ lat: cluster.lat, lng: cluster.lng }}
+              onClick={() => {
+                if (isSingle) {
+                  onSpotSelect(primarySpotId);
+                  return;
+                }
+                onCameraStateChange?.({
+                  center: { lat: cluster.lat, lng: cluster.lng },
+                  zoom: Math.min(resolvedZoom + 1.2, 14),
+                });
+              }}
+              zIndex={isSelected ? 3 : isSingle ? 2 : 1}
+              title={
+                isSingle
+                  ? "Dive site"
+                  : `${cluster.spotIds.length} dive sites`
               }
-              onCameraStateChange?.({
-                center: { lat: cluster.lat, lng: cluster.lng },
-                zoom: Math.min(resolvedZoom + 1.2, 14),
-              });
-            }}
-            zIndex={isSelected ? 3 : isSingle ? 2 : 1}
-            label={isSelected ? "★" : isSingle ? undefined : String(cluster.spotIds.length)}
-          />
+            >
+              <span className={markerClassName(isSelected, isSingle)}>
+                {isSelected ? "★" : isSingle ? "" : cluster.spotIds.length}
+              </span>
+            </AdvancedMarker>
           );
         })}
       </Map>
