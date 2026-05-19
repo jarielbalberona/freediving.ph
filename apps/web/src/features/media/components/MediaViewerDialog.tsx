@@ -46,12 +46,13 @@ export function MediaViewerDialog({
     () => items.filter((item) => item.width > 0 && item.height > 0),
     [items],
   );
+  const needsMintedUrls = normalizedItems.some((item) => !item.displayUrl);
   const dialogUrls = useMintedMediaMap(
     normalizedItems
       .filter((item) => !item.displayUrl)
       .map((item) => item.mediaObjectId),
     "dialog",
-    open && normalizedItems.some((item) => !item.displayUrl),
+    open && needsMintedUrls,
   );
 
   const activeItem =
@@ -120,7 +121,7 @@ export function MediaViewerDialog({
 
           <div className="flex h-full flex-col md:flex-row">
             <div className="relative min-h-[55vh] flex-1 bg-muted/30 md:min-h-full">
-              {dialogUrls.isPending ? (
+              {needsMintedUrls && dialogUrls.isPending ? (
                 <div className="flex h-full items-center justify-center">
                   <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
                 </div>
