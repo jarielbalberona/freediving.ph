@@ -19,40 +19,33 @@ import type { HomeFeedItem } from "@freediving.ph/types";
 
 const typeStyles: Record<
   HomeFeedItem["type"],
-  { accent: string; badge: string; icon: string }
+  { badge: string; icon: string }
 > = {
   post: {
-    accent: "bg-cyan-500/70",
     badge: "border-cyan-500/30 bg-cyan-500/10 text-cyan-800",
     icon: "bg-cyan-500/10 text-cyan-800",
   },
   media_post: {
-    accent: "bg-sky-500/70",
     badge: "border-sky-500/30 bg-sky-500/10 text-sky-800",
     icon: "bg-sky-500/10 text-sky-800",
   },
   community_hot_post: {
-    accent: "bg-teal-500/70",
     badge: "border-teal-500/30 bg-teal-500/10 text-teal-800",
     icon: "bg-teal-500/10 text-teal-800",
   },
   dive_spot: {
-    accent: "bg-cyan-500/70",
     badge: "border-cyan-500/30 bg-cyan-500/10 text-cyan-800",
     icon: "bg-cyan-500/10 text-cyan-800",
   },
   event: {
-    accent: "bg-amber-500/70",
     badge: "border-amber-500/30 bg-amber-500/10 text-amber-800",
     icon: "bg-amber-500/10 text-amber-800",
   },
   buddy_signal: {
-    accent: "bg-emerald-500/70",
     badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-800",
     icon: "bg-emerald-500/10 text-emerald-800",
   },
   record_highlight: {
-    accent: "bg-violet-500/70",
     badge: "border-violet-500/30 bg-violet-500/10 text-violet-800",
     icon: "bg-violet-500/10 text-violet-800",
   },
@@ -203,19 +196,13 @@ export function FeedCardShell({
   actions?: React.ReactNode;
   className?: string;
 }) {
-  const styles = typeStyles[item.type] ?? typeStyles.dive_spot;
-
   return (
     <article className={cn("relative border-b border-border/70 py-4", className)}>
-      <span
-        className={cn("absolute left-0 top-4 h-8 w-1 rounded-full", styles.accent)}
-        aria-hidden="true"
-      />
-      <div className="space-y-3 pl-4">
+      <div className="space-y-3">
         <div className="space-y-3">{children}</div>
       </div>
       {actions ? (
-        <div className="mt-3 flex items-center justify-end gap-2 pl-4">
+        <div className="mt-3 flex items-center justify-end gap-2">
           {actions}
         </div>
       ) : null}
