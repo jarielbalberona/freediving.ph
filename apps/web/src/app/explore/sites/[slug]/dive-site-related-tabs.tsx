@@ -6,15 +6,24 @@ import type {
   ActivityFeedItem,
   CreateDivePresenceRequest,
   CreateDiveSiteAffinityRequest,
+  CreateDiveSiteReviewRequest,
   DivePresenceItem,
   DiveSiteAffinityItem,
+  DiveSiteReviewItem,
   ExploreSiteRelatedCounts,
 } from "@freediving.ph/types";
-import { CalendarClock, MapPinned, MessageCircle, Users } from "lucide-react";
+import { CalendarClock, MapPinned, MessageCircle, Star, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +46,9 @@ type DiveSiteRelatedTabsProps = {
   localRegulars: DiveSiteAffinityItem[];
   communityPosts: ActivityFeedItem[];
   communityNextCursor?: string;
+  reviews: DiveSiteReviewItem[];
+  reviewCount: number;
+  averageRating: number;
 };
 
 const titleCase = (value: string) =>
@@ -62,6 +74,33 @@ const rfc3339FromLocal = (value: string) => {
   return parsed.toISOString();
 };
 
+const dateFromLocalValue = (value?: string) => {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
+const timeFromLocalValue = (value?: string) => {
+  const parsed = dateFromLocalValue(value);
+  if (!parsed) return "08:00";
+  return `${String(parsed.getHours()).padStart(2, "0")}:${String(
+    parsed.getMinutes(),
+  ).padStart(2, "0")}`;
+};
+
+const localValueFromDateTime = (date?: Date, time = "08:00") => {
+  if (!date) return "";
+  const [hours = "08", minutes = "00"] = time.split(":");
+  const next = new Date(date);
+  next.setHours(Number(hours), Number(minutes), 0, 0);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(next.getDate()).padStart(2, "0")}T${String(
+    next.getHours(),
+  ).padStart(2, "0")}:${String(next.getMinutes()).padStart(2, "0")}`;
+};
+
 const availabilityLabel = (item: DivePresenceItem) => {
   if (!item.startAt && !item.endAt) return "Flexible availability";
   if (item.startAt && item.endAt) {
@@ -79,17 +118,26 @@ export function DiveSiteRelatedTabs({
   localRegulars,
   communityPosts,
   communityNextCursor,
+  reviews,
+  reviewCount,
+  averageRating,
 }: DiveSiteRelatedTabsProps) {
   const [presenceItems, setPresenceItems] = useState(availableBuddies);
   const [affinityItems, setAffinityItems] = useState(localRegulars);
+  const [reviewItems, setReviewItems] = useState(reviews);
   const [communityFeed, setCommunityFeed] = useState(communityPosts);
   const [nextCursor, setNextCursor] = useState(communityNextCursor);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [presenceSaving, setPresenceSaving] = useState(false);
   const [affinitySaving, setAffinitySaving] = useState(false);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [presenceDialogOpen, setPresenceDialogOpen] = useState(false);
+  const [affinityDialogOpen, setAffinityDialogOpen] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [presenceError, setPresenceError] = useState("");
   const [affinityError, setAffinityError] = useState("");
+  const [reviewError, setReviewError] = useState("");
   const [presenceForm, setPresenceForm] = useState<CreateDivePresenceRequest>({
     presenceType: "available",
     flexible: true,
@@ -104,12 +152,21 @@ export function DiveSiteRelatedTabs({
       contactEnabled: false,
       note: "",
     });
+  const [reviewForm, setReviewForm] = useState<CreateDiveSiteReviewRequest>({
+    rating: 5,
+    visibility: "members",
+    comment: "",
+  });
   const communityItems = activityToHomeFeedItems(communityFeed);
   const availableBuddyCount =
     counts.availableBuddyCount ?? counts.buddies ?? presenceItems.length;
   const localRegularCount = counts.localRegularCount ?? affinityItems.length;
   const communityPostCount =
     counts.communityPostCount ?? counts.communityPosts ?? communityItems.length;
+  const visibleReviewCount = Math.max(
+    reviewCount ?? counts.reviewCount ?? 0,
+    reviewItems.length,
+  );
 
   const loadMoreCommunityPosts = async () => {
     if (!nextCursor || isLoadingMore) return;
@@ -146,6 +203,7 @@ export function DiveSiteRelatedTabs({
         note: presenceForm.note?.trim() || undefined,
       });
       setPresenceItems((current) => [response.presence, ...current]);
+      setPresenceDialogOpen(false);
     } catch {
       setPresenceError("Could not mark your dive presence.");
     } finally {
@@ -163,10 +221,32 @@ export function DiveSiteRelatedTabs({
         note: affinityForm.note?.trim() || undefined,
       });
       setAffinityItems((current) => [response.affinity, ...current]);
+      setAffinityDialogOpen(false);
     } catch {
       setAffinityError("Could not add your local or regular connection.");
     } finally {
       setAffinitySaving(false);
+    }
+  };
+
+  const submitReview = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setReviewSaving(true);
+    setReviewError("");
+    try {
+      const response = await exploreApi.createSiteReview(slug, {
+        ...reviewForm,
+        comment: reviewForm.comment?.trim() || undefined,
+      });
+      setReviewItems((current) => [
+        response.review,
+        ...current.filter((item) => item.userId !== response.review.userId),
+      ]);
+      setReviewDialogOpen(false);
+    } catch {
+      setReviewError("Could not save your review.");
+    } finally {
+      setReviewSaving(false);
     }
   };
 
@@ -182,16 +262,32 @@ export function DiveSiteRelatedTabs({
         <TabsTrigger value="community">
           Community Posts ({communityPostCount})
         </TabsTrigger>
+        <TabsTrigger value="reviews">Reviews ({visibleReviewCount})</TabsTrigger>
       </TabsList>
 
       <TabsContent value="available-buddies" className="space-y-3">
-        <PresenceForm
-          form={presenceForm}
-          setForm={setPresenceForm}
-          onSubmit={submitPresence}
-          saving={presenceSaving}
-          error={presenceError}
-        />
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => setPresenceDialogOpen(true)}
+        >
+          <CalendarClock className="size-4" />
+          Mark my dive presence
+        </Button>
+        <Dialog open={presenceDialogOpen} onOpenChange={setPresenceDialogOpen}>
+          <DialogContent className="max-w-2xl!">
+            <DialogHeader>
+              <DialogTitle>Mark my dive presence</DialogTitle>
+            </DialogHeader>
+            <PresenceForm
+              form={presenceForm}
+              setForm={setPresenceForm}
+              onSubmit={submitPresence}
+              saving={presenceSaving}
+              error={presenceError}
+            />
+          </DialogContent>
+        </Dialog>
         {presenceItems.length === 0 ? (
           <Card size="sm" className="border-dashed">
             <CardContent className="text-sm text-muted-foreground">
@@ -227,13 +323,28 @@ export function DiveSiteRelatedTabs({
       </TabsContent>
 
       <TabsContent value="locals" className="space-y-3">
-        <AffinityForm
-          form={affinityForm}
-          setForm={setAffinityForm}
-          onSubmit={submitAffinity}
-          saving={affinitySaving}
-          error={affinityError}
-        />
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => setAffinityDialogOpen(true)}
+        >
+          <MapPinned className="size-4" />
+          Add myself as local/regular
+        </Button>
+        <Dialog open={affinityDialogOpen} onOpenChange={setAffinityDialogOpen}>
+          <DialogContent className="max-w-2xl!">
+            <DialogHeader>
+              <DialogTitle>Add myself as local/regular</DialogTitle>
+            </DialogHeader>
+            <AffinityForm
+              form={affinityForm}
+              setForm={setAffinityForm}
+              onSubmit={submitAffinity}
+              saving={affinitySaving}
+              error={affinityError}
+            />
+          </DialogContent>
+        </Dialog>
         {affinityItems.length === 0 ? (
           <Card size="sm" className="border-dashed">
             <CardContent className="text-sm text-muted-foreground">
@@ -300,6 +411,59 @@ export function DiveSiteRelatedTabs({
           </div>
         ) : null}
       </TabsContent>
+
+      <TabsContent value="reviews" className="space-y-3">
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => setReviewDialogOpen(true)}
+        >
+          <Star className="size-4" />
+          Review this site
+        </Button>
+        <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+          <DialogContent className="max-w-2xl!">
+            <DialogHeader>
+              <DialogTitle>Review this site</DialogTitle>
+            </DialogHeader>
+            <ReviewForm
+              form={reviewForm}
+              setForm={setReviewForm}
+              onSubmit={submitReview}
+              saving={reviewSaving}
+              error={reviewError}
+            />
+          </DialogContent>
+        </Dialog>
+        {visibleReviewCount > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {averageRating.toFixed(1)} average rating
+          </p>
+        ) : null}
+        {reviewItems.length === 0 ? (
+          <Card size="sm" className="border-dashed">
+            <CardContent className="text-sm text-muted-foreground">
+              No reviews yet. Be the first to review this dive site.
+            </CardContent>
+          </Card>
+        ) : (
+          reviewItems.map((item) => (
+            <Card key={item.id} size="sm">
+              <CardContent className="space-y-3 text-sm">
+                <UserLine
+                  name={item.displayName || item.username || "Freediver"}
+                  username={item.username}
+                  avatarUrl={item.avatarUrl}
+                />
+                <Badge variant="outline">{item.rating}/5</Badge>
+                {item.comment ? (
+                  <p className="text-muted-foreground">{item.comment}</p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </TabsContent>
     </Tabs>
   );
 }
@@ -343,11 +507,7 @@ function PresenceForm({
   error: string;
 }) {
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-md border p-3">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <CalendarClock className="size-4" />
-        Mark my dive presence
-      </div>
+    <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Presence type">
           <select
@@ -400,27 +560,22 @@ function PresenceForm({
       </label>
       {!form.flexible ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Start">
-            <Input
-              type="datetime-local"
-              value={form.startAt ?? ""}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  startAt: event.target.value,
-                }))
-              }
-            />
-          </Field>
-          <Field label="End">
-            <Input
-              type="datetime-local"
-              value={form.endAt ?? ""}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, endAt: event.target.value }))
-              }
-            />
-          </Field>
+          <DateTimeField
+            label="Start"
+            value={form.startAt}
+            min={new Date()}
+            onChange={(value) =>
+              setForm((current) => ({ ...current, startAt: value }))
+            }
+          />
+          <DateTimeField
+            label="End"
+            value={form.endAt}
+            min={dateFromLocalValue(form.startAt) ?? new Date()}
+            onChange={(value) =>
+              setForm((current) => ({ ...current, endAt: value }))
+            }
+          />
         </div>
       ) : null}
       <Textarea
@@ -466,11 +621,7 @@ function AffinityForm({
   error: string;
 }) {
   return (
-    <form onSubmit={onSubmit} className="space-y-3 rounded-md border p-3">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <MapPinned className="size-4" />
-        Add myself as local/regular
-      </div>
+    <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Relationship">
           <select
@@ -535,6 +686,111 @@ function AffinityForm({
         {saving ? "Saving..." : "Add myself as local/regular"}
       </Button>
     </form>
+  );
+}
+
+function ReviewForm({
+  form,
+  setForm,
+  onSubmit,
+  saving,
+  error,
+}: {
+  form: CreateDiveSiteReviewRequest;
+  setForm: React.Dispatch<React.SetStateAction<CreateDiveSiteReviewRequest>>;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  saving: boolean;
+  error: string;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Rating">
+          <Input
+            type="number"
+            min={1}
+            max={5}
+            value={form.rating}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                rating: Number(event.target.value),
+              }))
+            }
+          />
+        </Field>
+        <Field label="Visibility">
+          <select
+            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            value={form.visibility}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                visibility: event.target
+                  .value as CreateDiveSiteReviewRequest["visibility"],
+              }))
+            }
+          >
+            <option value="members">Members</option>
+            <option value="public">Public</option>
+            <option value="private">Private</option>
+          </select>
+        </Field>
+      </div>
+      <Textarea
+        placeholder="Share what divers should know about this site."
+        value={form.comment ?? ""}
+        onChange={(event) =>
+          setForm((current) => ({ ...current, comment: event.target.value }))
+        }
+      />
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <Button type="submit" size="sm" disabled={saving}>
+        <Star className="size-4" />
+        {saving ? "Saving..." : "Submit review"}
+      </Button>
+    </form>
+  );
+}
+
+function DateTimeField({
+  label,
+  value,
+  min,
+  onChange,
+}: {
+  label: string;
+  value?: string;
+  min?: Date;
+  onChange: (value?: string) => void;
+}) {
+  const selectedDate = dateFromLocalValue(value);
+  const selectedTime = timeFromLocalValue(value);
+
+  return (
+    <Field label={label}>
+      <div className="grid gap-2">
+        <DatePicker
+          placeholder={`Pick ${label.toLowerCase()} date`}
+          value={selectedDate}
+          min={min}
+          onSelect={(date) =>
+            onChange(date ? localValueFromDateTime(date, selectedTime) : "")
+          }
+        />
+        <Input
+          type="time"
+          value={selectedTime}
+          onChange={(event) =>
+            onChange(
+              selectedDate
+                ? localValueFromDateTime(selectedDate, event.target.value)
+                : "",
+            )
+          }
+        />
+      </div>
+    </Field>
   );
 }
 

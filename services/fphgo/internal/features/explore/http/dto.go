@@ -47,12 +47,14 @@ type SiteRelatedResponse struct {
 }
 
 type SiteRelatedCounts struct {
-	Buddies             int64 `json:"buddies"`
-	AvailableBuddies    int64 `json:"availableBuddyCount"`
-	LocalRegulars       int64 `json:"localRegularCount"`
-	CommunityPosts      int64 `json:"communityPostCount"`
-	LegacyCommunityPost int64 `json:"communityPosts"`
-	RecentConditions    int64 `json:"recentConditions"`
+	Buddies             int64   `json:"buddies"`
+	AvailableBuddies    int64   `json:"availableBuddyCount"`
+	LocalRegulars       int64   `json:"localRegularCount"`
+	CommunityPosts      int64   `json:"communityPostCount"`
+	Reviews             int64   `json:"reviewCount"`
+	AverageRating       float64 `json:"averageRating"`
+	LegacyCommunityPost int64   `json:"communityPosts"`
+	RecentConditions    int64   `json:"recentConditions"`
 }
 
 type SiteRelatedPreviews struct {
@@ -60,6 +62,7 @@ type SiteRelatedPreviews struct {
 	AvailableBuddies []DivePresenceItem     `json:"availableBuddies"`
 	LocalRegulars    []DiveSiteAffinityItem `json:"localRegulars"`
 	CommunityPosts   []ActivityFeedItem     `json:"communityPosts"`
+	Reviews          []DiveSiteReviewItem   `json:"reviews"`
 }
 
 type SiteCommunityPostsResponse struct {
@@ -83,10 +86,23 @@ type DiveSiteAffinityResponse struct {
 	Affinity DiveSiteAffinityItem `json:"affinity"`
 }
 
+type DiveSiteReviewListResponse struct {
+	Items         []DiveSiteReviewItem `json:"items"`
+	AverageRating float64              `json:"averageRating"`
+	ReviewCount   int64                `json:"reviewCount"`
+}
+
+type DiveSiteReviewResponse struct {
+	Review DiveSiteReviewItem `json:"review"`
+}
+
 type DivePresenceItem struct {
 	ID             string `json:"id"`
 	UserID         string `json:"userId"`
 	DiveSiteID     string `json:"diveSiteId"`
+	DiveSiteSlug   string `json:"diveSiteSlug,omitempty"`
+	DiveSiteName   string `json:"diveSiteName,omitempty"`
+	DiveSiteArea   string `json:"diveSiteArea,omitempty"`
 	Username       string `json:"username,omitempty"`
 	DisplayName    string `json:"displayName,omitempty"`
 	AvatarURL      string `json:"avatarUrl,omitempty"`
@@ -106,6 +122,9 @@ type DiveSiteAffinityItem struct {
 	ID             string `json:"id"`
 	UserID         string `json:"userId"`
 	DiveSiteID     string `json:"diveSiteId"`
+	DiveSiteSlug   string `json:"diveSiteSlug,omitempty"`
+	DiveSiteName   string `json:"diveSiteName,omitempty"`
+	DiveSiteArea   string `json:"diveSiteArea,omitempty"`
 	Username       string `json:"username,omitempty"`
 	DisplayName    string `json:"displayName,omitempty"`
 	AvatarURL      string `json:"avatarUrl,omitempty"`
@@ -116,6 +135,21 @@ type DiveSiteAffinityItem struct {
 	Note           string `json:"note,omitempty"`
 	CreatedAt      string `json:"createdAt"`
 	UpdatedAt      string `json:"updatedAt"`
+}
+
+type DiveSiteReviewItem struct {
+	ID          string `json:"id"`
+	DiveSiteID  string `json:"diveSiteId"`
+	UserID      string `json:"userId"`
+	Username    string `json:"username,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
+	AvatarURL   string `json:"avatarUrl,omitempty"`
+	Rating      int32  `json:"rating"`
+	Comment     string `json:"comment,omitempty"`
+	Visibility  string `json:"visibility"`
+	Status      string `json:"status"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
 }
 
 type DivePresenceRequest struct {
@@ -133,6 +167,12 @@ type DiveSiteAffinityRequest struct {
 	Visibility     string  `json:"visibility" validate:"required,oneof=public members private"`
 	ContactEnabled bool    `json:"contactEnabled"`
 	Note           *string `json:"note" validate:"omitempty,max=280"`
+}
+
+type DiveSiteReviewRequest struct {
+	Rating     int32   `json:"rating" validate:"required,gte=1,lte=5"`
+	Comment    *string `json:"comment" validate:"omitempty,max=2000"`
+	Visibility string  `json:"visibility" validate:"required,oneof=public members private"`
 }
 
 type ActivityFeedActor struct {

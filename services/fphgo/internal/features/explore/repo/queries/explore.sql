@@ -306,12 +306,99 @@ WHERE user_id = sqlc.arg(user_id)
   AND (end_at IS NULL OR end_at > NOW());
 
 -- name: ListCurrentUserDivePresences :many
-SELECT *
-FROM dive_presences
-WHERE user_id = sqlc.arg(user_id)
-  AND status = 'active'
-  AND (end_at IS NULL OR end_at > NOW())
-ORDER BY COALESCE(start_at, created_at) ASC, created_at DESC, id DESC;
+SELECT
+  dp.id,
+  dp.user_id,
+  dp.dive_site_id,
+  dp.presence_type,
+  dp.start_at,
+  dp.end_at,
+  dp.visibility,
+  dp.contact_enabled,
+  dp.note,
+  dp.status,
+  dp.created_at,
+  dp.updated_at,
+  s.slug AS dive_site_slug,
+  s.name AS dive_site_name,
+  s.area AS dive_site_area
+FROM dive_presences dp
+JOIN dive_sites s ON s.id = dp.dive_site_id
+WHERE dp.user_id = sqlc.arg(user_id)
+  AND s.moderation_state = 'approved'
+ORDER BY dp.updated_at DESC, dp.id DESC
+LIMIT sqlc.arg(limit_rows);
+
+-- name: ListVisibleDivePresencesGlobal :many
+SELECT
+  dp.id,
+  dp.user_id,
+  dp.dive_site_id,
+  dp.presence_type,
+  dp.start_at,
+  dp.end_at,
+  dp.visibility,
+  dp.contact_enabled,
+  dp.note,
+  dp.status,
+  dp.created_at,
+  dp.updated_at,
+  u.username,
+  u.display_name,
+  COALESCE(p.avatar_url, '') AS avatar_url,
+  s.slug AS dive_site_slug,
+  s.name AS dive_site_name,
+  s.area AS dive_site_area,
+  (
+    dp.contact_enabled
+    AND sqlc.arg(viewer_user_id)::uuid IS NOT NULL
+    AND dp.user_id <> sqlc.arg(viewer_user_id)
+  )::bool AS contact_allowed
+FROM dive_presences dp
+JOIN users u ON u.id = dp.user_id
+JOIN profiles p ON p.user_id = dp.user_id
+JOIN dive_sites s ON s.id = dp.dive_site_id
+WHERE dp.status = 'active'
+  AND (dp.end_at IS NULL OR dp.end_at > NOW())
+  AND u.account_status = 'active'
+  AND s.moderation_state = 'approved'
+  AND (sqlc.arg(site_slug)::text = '' OR s.slug = sqlc.arg(site_slug))
+  AND (sqlc.arg(area_filter)::text = '' OR s.area ILIKE '%' || sqlc.arg(area_filter) || '%')
+  AND (sqlc.arg(presence_type_filter)::text = '' OR dp.presence_type = sqlc.arg(presence_type_filter))
+  AND (
+    NOT sqlc.arg(flexible_only)::bool
+    OR (dp.start_at IS NULL AND dp.end_at IS NULL)
+  )
+  AND (
+    (NOT sqlc.arg(has_date_from)::bool AND NOT sqlc.arg(has_date_to)::bool)
+    OR (dp.start_at IS NULL AND dp.end_at IS NULL)
+    OR (
+      (NOT sqlc.arg(has_date_to)::bool OR COALESCE(dp.start_at, dp.end_at, dp.created_at) <= sqlc.arg(date_to))
+      AND (NOT sqlc.arg(has_date_from)::bool OR COALESCE(dp.end_at, dp.start_at, dp.created_at) >= sqlc.arg(date_from))
+    )
+  )
+  AND (
+    (sqlc.arg(viewer_user_id)::uuid IS NULL AND dp.visibility = 'public')
+    OR (
+      sqlc.arg(viewer_user_id)::uuid IS NOT NULL
+      AND (
+        dp.visibility IN ('public', 'members')
+        OR (dp.visibility = 'private' AND dp.user_id = sqlc.arg(viewer_user_id))
+      )
+    )
+  )
+  AND (
+    sqlc.arg(viewer_user_id)::uuid IS NULL
+    OR dp.user_id = sqlc.arg(viewer_user_id)
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_app_user_id = sqlc.arg(viewer_user_id) AND ub.blocked_app_user_id = dp.user_id)
+         OR (ub.blocker_app_user_id = dp.user_id AND ub.blocked_app_user_id = sqlc.arg(viewer_user_id))
+    )
+  )
+ORDER BY COALESCE(dp.start_at, dp.created_at) ASC, dp.created_at DESC, dp.id DESC
+LIMIT sqlc.arg(limit_rows);
 
 -- name: ListVisibleDivePresencesBySite :many
 SELECT
@@ -438,10 +525,25 @@ WHERE id = sqlc.arg(affinity_id)
   AND dive_site_id = sqlc.arg(dive_site_id);
 
 -- name: ListCurrentUserDiveSiteAffinities :many
-SELECT *
-FROM user_dive_site_affinities
-WHERE user_id = sqlc.arg(user_id)
-ORDER BY updated_at DESC, id DESC;
+SELECT
+  a.id,
+  a.user_id,
+  a.dive_site_id,
+  a.relationship,
+  a.visibility,
+  a.contact_enabled,
+  a.note,
+  a.created_at,
+  a.updated_at,
+  s.slug AS dive_site_slug,
+  s.name AS dive_site_name,
+  s.area AS dive_site_area
+FROM user_dive_site_affinities a
+JOIN dive_sites s ON s.id = a.dive_site_id
+WHERE a.user_id = sqlc.arg(user_id)
+  AND s.moderation_state = 'approved'
+ORDER BY a.updated_at DESC, a.id DESC
+LIMIT sqlc.arg(limit_rows);
 
 -- name: ListVisibleDiveSiteAffinitiesBySite :many
 SELECT
@@ -514,6 +616,130 @@ WHERE a.dive_site_id = sqlc.arg(dive_site_id)
       FROM user_blocks ub
       WHERE (ub.blocker_app_user_id = sqlc.arg(viewer_user_id) AND ub.blocked_app_user_id = a.user_id)
          OR (ub.blocker_app_user_id = a.user_id AND ub.blocked_app_user_id = sqlc.arg(viewer_user_id))
+    )
+  );
+
+-- name: UpsertDiveSiteReview :one
+INSERT INTO dive_site_reviews (
+  dive_site_id,
+  user_id,
+  rating,
+  comment,
+  visibility
+)
+VALUES (
+  sqlc.arg(dive_site_id),
+  sqlc.arg(user_id),
+  sqlc.arg(rating),
+  sqlc.narg(comment),
+  sqlc.arg(visibility)
+)
+ON CONFLICT (dive_site_id, user_id) DO UPDATE SET
+  rating = EXCLUDED.rating,
+  comment = EXCLUDED.comment,
+  visibility = EXCLUDED.visibility,
+  status = 'active',
+  updated_at = NOW()
+RETURNING *;
+
+-- name: ListVisibleDiveSiteReviewsBySite :many
+SELECT
+  r.id,
+  r.dive_site_id,
+  r.user_id,
+  r.rating,
+  r.comment,
+  r.visibility,
+  r.status,
+  r.created_at,
+  r.updated_at,
+  u.username,
+  u.display_name,
+  COALESCE(p.avatar_url, '') AS avatar_url
+FROM dive_site_reviews r
+JOIN users u ON u.id = r.user_id
+JOIN profiles p ON p.user_id = r.user_id
+WHERE r.dive_site_id = sqlc.arg(dive_site_id)
+  AND r.status = 'active'
+  AND u.account_status = 'active'
+  AND (
+    (sqlc.arg(viewer_user_id)::uuid IS NULL AND r.visibility = 'public')
+    OR (
+      sqlc.arg(viewer_user_id)::uuid IS NOT NULL
+      AND (
+        r.visibility IN ('public', 'members')
+        OR (r.visibility = 'private' AND r.user_id = sqlc.arg(viewer_user_id))
+      )
+    )
+  )
+  AND (
+    sqlc.arg(viewer_user_id)::uuid IS NULL
+    OR r.user_id = sqlc.arg(viewer_user_id)
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_app_user_id = sqlc.arg(viewer_user_id) AND ub.blocked_app_user_id = r.user_id)
+         OR (ub.blocker_app_user_id = r.user_id AND ub.blocked_app_user_id = sqlc.arg(viewer_user_id))
+    )
+  )
+ORDER BY r.updated_at DESC, r.id DESC
+LIMIT sqlc.arg(limit_rows);
+
+-- name: CountVisibleDiveSiteReviewsBySite :one
+SELECT COUNT(*)::bigint
+FROM dive_site_reviews r
+JOIN users u ON u.id = r.user_id
+WHERE r.dive_site_id = sqlc.arg(dive_site_id)
+  AND r.status = 'active'
+  AND u.account_status = 'active'
+  AND (
+    (sqlc.arg(viewer_user_id)::uuid IS NULL AND r.visibility = 'public')
+    OR (
+      sqlc.arg(viewer_user_id)::uuid IS NOT NULL
+      AND (
+        r.visibility IN ('public', 'members')
+        OR (r.visibility = 'private' AND r.user_id = sqlc.arg(viewer_user_id))
+      )
+    )
+  )
+  AND (
+    sqlc.arg(viewer_user_id)::uuid IS NULL
+    OR r.user_id = sqlc.arg(viewer_user_id)
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_app_user_id = sqlc.arg(viewer_user_id) AND ub.blocked_app_user_id = r.user_id)
+         OR (ub.blocker_app_user_id = r.user_id AND ub.blocked_app_user_id = sqlc.arg(viewer_user_id))
+    )
+  );
+
+-- name: GetVisibleDiveSiteReviewSummaryBySite :one
+SELECT
+  COALESCE(AVG(r.rating), 0)::double precision AS average_rating,
+  COUNT(*)::bigint AS review_count
+FROM dive_site_reviews r
+JOIN users u ON u.id = r.user_id
+WHERE r.dive_site_id = sqlc.arg(dive_site_id)
+  AND r.status = 'active'
+  AND u.account_status = 'active'
+  AND (
+    (sqlc.arg(viewer_user_id)::uuid IS NULL AND r.visibility = 'public')
+    OR (
+      sqlc.arg(viewer_user_id)::uuid IS NOT NULL
+      AND (
+        r.visibility IN ('public', 'members')
+        OR (r.visibility = 'private' AND r.user_id = sqlc.arg(viewer_user_id))
+      )
+    )
+  )
+  AND (
+    sqlc.arg(viewer_user_id)::uuid IS NULL
+    OR r.user_id = sqlc.arg(viewer_user_id)
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_app_user_id = sqlc.arg(viewer_user_id) AND ub.blocked_app_user_id = r.user_id)
+         OR (ub.blocker_app_user_id = r.user_id AND ub.blocked_app_user_id = sqlc.arg(viewer_user_id))
     )
   );
 

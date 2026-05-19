@@ -90,6 +90,10 @@ func (m *memoryProfilesRepo) ListProfileBucketListByUsername(_ context.Context, 
 	return []profilesrepo.ProfileBucketListItem{}, nil
 }
 
+func (m *memoryProfilesRepo) ListProfileDivingByUsername(_ context.Context, _ string, _ string) (profilesrepo.ProfileDiving, error) {
+	return profilesrepo.ProfileDiving{}, nil
+}
+
 type denyAfterLimiter struct {
 	limit int
 	count int
@@ -206,6 +210,39 @@ func (s *stubProfilesService) ListProfileBucketListByUsername(_ context.Context,
 			PinnedAt: time.Now().UTC().Format(time.RFC3339),
 			HasDived: true,
 		},
+	}, nil
+}
+
+func (s *stubProfilesService) GetProfileDivingByUsername(_ context.Context, _ string, _ string) (profilesservice.ProfileDiving, error) {
+	now := time.Now().UTC()
+	return profilesservice.ProfileDiving{
+		Presences: []profilesservice.ProfileDivePresence{{
+			ID:               "550e8400-e29b-41d4-a716-446655440081",
+			DiveSiteID:       "550e8400-e29b-41d4-a716-446655440082",
+			DiveSiteSlug:     "napaling-reef",
+			DiveSiteName:     "Napaling Reef",
+			DiveSiteArea:     "Panglao, Bohol",
+			PresenceType:     "available",
+			Visibility:       "public",
+			ContactEnabled:   true,
+			ViewerCanContact: true,
+			Note:             "Morning dive",
+			CreatedAt:        now,
+		}},
+		Affinities: []profilesservice.ProfileDiveSiteAffinity{{
+			ID:               "550e8400-e29b-41d4-a716-446655440083",
+			DiveSiteID:       "550e8400-e29b-41d4-a716-446655440082",
+			DiveSiteSlug:     "napaling-reef",
+			DiveSiteName:     "Napaling Reef",
+			DiveSiteArea:     "Panglao, Bohol",
+			Relationship:     "regular",
+			Visibility:       "public",
+			ContactEnabled:   false,
+			ViewerCanContact: false,
+			Note:             "Weekend regular",
+			CreatedAt:        now,
+			UpdatedAt:        now,
+		}},
 	}, nil
 }
 
@@ -338,6 +375,37 @@ func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 			t.Fatalf("expected 200 for GET /users/search, got %d", searchRec.Code)
 		}
 	})
+}
+
+func TestProfileDivingEndpointIsPublicAndReturnsSeparatePresenceAndAffinityLists(t *testing.T) {
+	v := validatex.New()
+	h := New(&stubProfilesService{}, v)
+	router := chi.NewRouter()
+	router.Get("/profiles/{username}/diving", h.GetProfileDivingByUsername)
+
+	req := httptest.NewRequest(http.MethodGet, "/profiles/member/diving", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for public profile diving, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var body ProfileDivingResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode profile diving response: %v", err)
+	}
+	if len(body.Presences) != 1 || body.Presences[0].PresenceType != "available" {
+		t.Fatalf("expected presence list, got %+v", body.Presences)
+	}
+	if body.Presences[0].DiveSiteSlug != "napaling-reef" || body.Presences[0].DiveSiteName != "Napaling Reef" {
+		t.Fatalf("expected presence dive-site data, got %+v", body.Presences[0])
+	}
+	if len(body.Affinities) != 1 || body.Affinities[0].Relationship != "regular" {
+		t.Fatalf("expected affinity list, got %+v", body.Affinities)
+	}
+	if body.Affinities[0].DiveSiteSlug != "napaling-reef" || body.Affinities[0].DiveSiteName != "Napaling Reef" {
+		t.Fatalf("expected affinity dive-site data, got %+v", body.Affinities[0])
+	}
 }
 
 func TestPatchProfileValidationReturnsApiErrorIssues(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 	"fphgo/internal/middleware"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
+	"fphgo/internal/shared/mediaurl"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -795,7 +796,7 @@ func mapMediaPostDetailDTO(result mediaservice.MediaPostDetailResult) MediaPostD
 			ID:          result.Author.ID,
 			Username:    result.Author.Username,
 			DisplayName: result.Author.DisplayName,
-			AvatarURL:   result.Author.AvatarURL,
+			AvatarURL:   mediaurl.MaterializeWithDefault(result.Author.AvatarURL),
 		},
 		Items: mapProfileMediaDTOs(result.Items),
 	}
@@ -817,7 +818,7 @@ func mapMediaPostCommentDTO(item mediaservice.MediaPostCommentResult) MediaPostC
 			ID:          item.Author.ID,
 			Username:    item.Author.Username,
 			DisplayName: item.Author.DisplayName,
-			AvatarURL:   item.Author.AvatarURL,
+			AvatarURL:   mediaurl.MaterializeWithDefault(item.Author.AvatarURL),
 		},
 		Body:           item.Body,
 		LikeCount:      item.LikeCount,

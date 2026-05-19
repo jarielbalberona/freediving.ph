@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useReports } from "@/features/reports";
+import { dateStringToDate, dateToDateString } from "@/lib/date-picker-values";
 import { getApiError } from "@/lib/http/api-error";
 import { cn } from "@/lib/utils";
 
@@ -175,21 +176,21 @@ export default function ModerationReportsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="report-date-from">From date</Label>
-                  <Input
-                    id="report-date-from"
-                    type="date"
-                    value={fromDate}
-                    onChange={(event) => setFromDate(event.target.value)}
+                  <Label>From date</Label>
+                  <DatePicker
+                    placeholder="Pick a from date"
+                    value={dateStringToDate(fromDate)}
+                    max={dateStringToDate(toDate)}
+                    onSelect={(date) => setFromDate(dateToDateString(date))}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="report-date-to">To date</Label>
-                  <Input
-                    id="report-date-to"
-                    type="date"
-                    value={toDate}
-                    onChange={(event) => setToDate(event.target.value)}
+                  <Label>To date</Label>
+                  <DatePicker
+                    placeholder="Pick a to date"
+                    value={dateStringToDate(toDate)}
+                    min={dateStringToDate(fromDate)}
+                    onSelect={(date) => setToDate(dateToDateString(date))}
                   />
                 </div>
               </CardContent>

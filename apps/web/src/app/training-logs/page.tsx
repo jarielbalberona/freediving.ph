@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Form,
@@ -27,6 +28,7 @@ import {
   createTrainingLogSchema,
   type CreateTrainingLogValues,
 } from "@/features/trainingLogs/schemas/createLog.schema";
+import { dateStringToDate, dateToDateString } from "@/lib/date-picker-values";
 
 export default function TrainingLogsPage() {
   const { data: logs = [] } = useTrainingLogs();
@@ -90,7 +92,11 @@ export default function TrainingLogsPage() {
                   <FormItem>
                     <FormLabel>Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker
+                        placeholder="Pick a session date"
+                        value={dateStringToDate(field.value)}
+                        onSelect={(date) => field.onChange(dateToDateString(date))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

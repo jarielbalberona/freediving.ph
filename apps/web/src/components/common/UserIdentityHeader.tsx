@@ -62,7 +62,7 @@ export function UserIdentityHeader({
       <div className={cn("min-w-0 space-y-1", contentClassName)}>
         <p
           className={cn(
-            "min-w-0 truncate text-sm font-semibold text-foreground",
+            "min-w-0 truncate text-sm font-semibold text-foreground mb-0!",
             displayNameClassName,
           )}
         >

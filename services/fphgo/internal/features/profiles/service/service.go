@@ -30,6 +30,7 @@ type repository interface {
 	GetPublicProfileByUsername(ctx context.Context, username string) (profilesrepo.PublicProfile, error)
 	ListPublicProfilePostsByUsername(ctx context.Context, username string, limit int32) ([]profilesrepo.PublicProfilePost, error)
 	ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]profilesrepo.ProfileBucketListItem, error)
+	ListProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileDiving, error)
 }
 
 type rateLimiter interface {
@@ -116,6 +117,42 @@ type ProfileBucketListItem struct {
 	SiteArea string
 	PinnedAt string
 	HasDived bool
+}
+
+type ProfileDivePresence struct {
+	ID               string
+	DiveSiteID       string
+	DiveSiteSlug     string
+	DiveSiteName     string
+	DiveSiteArea     string
+	PresenceType     string
+	StartAt          *time.Time
+	EndAt            *time.Time
+	Visibility       string
+	ContactEnabled   bool
+	ViewerCanContact bool
+	Note             string
+	CreatedAt        time.Time
+}
+
+type ProfileDiveSiteAffinity struct {
+	ID               string
+	DiveSiteID       string
+	DiveSiteSlug     string
+	DiveSiteName     string
+	DiveSiteArea     string
+	Relationship     string
+	Visibility       string
+	ContactEnabled   bool
+	ViewerCanContact bool
+	Note             string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type ProfileDiving struct {
+	Presences  []ProfileDivePresence
+	Affinities []ProfileDiveSiteAffinity
 }
 
 type UpdateMyProfileInput struct {
@@ -353,6 +390,63 @@ func (s *Service) ListProfileBucketListByUsername(ctx context.Context, username 
 		})
 	}
 	return bucket, nil
+}
+
+func (s *Service) GetProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (ProfileDiving, error) {
+	value := strings.TrimSpace(username)
+	if value == "" {
+		return ProfileDiving{}, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
+	}
+	viewerID := strings.TrimSpace(viewerUserID)
+	if viewerID != "" {
+		if _, err := uuid.Parse(viewerID); err != nil {
+			return ProfileDiving{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+
+	result, err := s.repo.ListProfileDivingByUsername(ctx, value, viewerID)
+	if err != nil {
+		return ProfileDiving{}, apperrors.New(http.StatusInternalServerError, "profile_diving_failed", "failed to fetch profile diving data", err)
+	}
+
+	presences := make([]ProfileDivePresence, 0, len(result.Presences))
+	for _, item := range result.Presences {
+		presences = append(presences, ProfileDivePresence{
+			ID:               item.ID,
+			DiveSiteID:       item.DiveSiteID,
+			DiveSiteSlug:     item.DiveSiteSlug,
+			DiveSiteName:     item.DiveSiteName,
+			DiveSiteArea:     item.DiveSiteArea,
+			PresenceType:     item.PresenceType,
+			StartAt:          item.StartAt,
+			EndAt:            item.EndAt,
+			Visibility:       item.Visibility,
+			ContactEnabled:   item.ContactEnabled,
+			ViewerCanContact: item.ViewerCanContact,
+			Note:             item.Note,
+			CreatedAt:        item.CreatedAt,
+		})
+	}
+
+	affinities := make([]ProfileDiveSiteAffinity, 0, len(result.Affinities))
+	for _, item := range result.Affinities {
+		affinities = append(affinities, ProfileDiveSiteAffinity{
+			ID:               item.ID,
+			DiveSiteID:       item.DiveSiteID,
+			DiveSiteSlug:     item.DiveSiteSlug,
+			DiveSiteName:     item.DiveSiteName,
+			DiveSiteArea:     item.DiveSiteArea,
+			Relationship:     item.Relationship,
+			Visibility:       item.Visibility,
+			ContactEnabled:   item.ContactEnabled,
+			ViewerCanContact: item.ViewerCanContact,
+			Note:             item.Note,
+			CreatedAt:        item.CreatedAt,
+			UpdatedAt:        item.UpdatedAt,
+		})
+	}
+
+	return ProfileDiving{Presences: presences, Affinities: affinities}, nil
 }
 
 func (s *Service) mapProfile(item profilesrepo.Profile) Profile {

@@ -55,7 +55,8 @@ type repository interface {
 	CancelDivePresenceByOwner(ctx context.Context, presenceID, userID, siteID string) (int64, error)
 	ExpirePastDivePresences(ctx context.Context) error
 	CountActiveDivePresencesByUser(ctx context.Context, userID string) (int64, error)
-	ListCurrentUserDivePresences(ctx context.Context, userID string) ([]explorerepo.DivePresence, error)
+	ListCurrentUserDivePresences(ctx context.Context, userID string) ([]explorerepo.VisibleDivePresence, error)
+	ListVisibleDivePresencesGlobal(ctx context.Context, input explorerepo.GlobalDivePresenceInput) ([]explorerepo.VisibleDivePresence, error)
 	ListVisibleDivePresencesBySite(ctx context.Context, viewerUserID, siteID string, limit int32) ([]explorerepo.VisibleDivePresence, error)
 	CountVisibleDivePresencesBySite(ctx context.Context, viewerUserID, siteID string) (int64, error)
 	UpsertDiveSiteAffinity(ctx context.Context, input explorerepo.UpsertDiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error)
@@ -64,6 +65,10 @@ type repository interface {
 	ListCurrentUserDiveSiteAffinities(ctx context.Context, userID string) ([]explorerepo.DiveSiteAffinity, error)
 	ListVisibleDiveSiteAffinitiesBySite(ctx context.Context, viewerUserID, siteID string, limit int32) ([]explorerepo.VisibleDiveSiteAffinity, error)
 	CountVisibleDiveSiteAffinitiesBySite(ctx context.Context, viewerUserID, siteID string) (int64, error)
+	UpsertDiveSiteReview(ctx context.Context, input explorerepo.UpsertDiveSiteReviewInput) (explorerepo.DiveSiteReview, error)
+	ListVisibleDiveSiteReviewsBySite(ctx context.Context, viewerUserID, siteID string, limit int32) ([]explorerepo.VisibleDiveSiteReview, error)
+	CountVisibleDiveSiteReviewsBySite(ctx context.Context, viewerUserID, siteID string) (int64, error)
+	GetVisibleDiveSiteReviewSummaryBySite(ctx context.Context, viewerUserID, siteID string) (explorerepo.DiveSiteReviewSummary, error)
 }
 
 type rateLimiter interface {
@@ -191,6 +196,8 @@ type SiteRelatedCounts struct {
 	AvailableBuddies int64
 	LocalRegulars    int64
 	CommunityPosts   int64
+	Reviews          int64
+	AverageRating    float64
 	RecentConditions int64
 }
 
@@ -198,6 +205,7 @@ type SiteRelatedPreviews struct {
 	AvailableBuddies []explorerepo.VisibleDivePresence
 	LocalRegulars    []explorerepo.VisibleDiveSiteAffinity
 	CommunityPosts   []feedservice.ActivityItem
+	Reviews          []explorerepo.VisibleDiveSiteReview
 }
 
 type SiteRelatedResult struct {
@@ -217,9 +225,39 @@ type SiteDivePresencesResult struct {
 	Items []explorerepo.VisibleDivePresence
 }
 
+type GlobalDivePresencesInput struct {
+	ViewerID     string
+	SiteSlug     string
+	Area         string
+	PresenceType string
+	FlexibleOnly bool
+	DateFrom     time.Time
+	DateTo       time.Time
+	Limit        int32
+}
+
+type GlobalDivePresencesResult struct {
+	Items []explorerepo.VisibleDivePresence
+}
+
+type CurrentUserDivePresencesResult struct {
+	Items []explorerepo.VisibleDivePresence
+}
+
 type SiteDiveAffinitiesResult struct {
 	Site  explorerepo.SiteDetail
 	Items []explorerepo.VisibleDiveSiteAffinity
+}
+
+type CurrentUserDiveAffinitiesResult struct {
+	Items []explorerepo.DiveSiteAffinity
+}
+
+type SiteDiveReviewsResult struct {
+	Site          explorerepo.SiteDetail
+	Items         []explorerepo.VisibleDiveSiteReview
+	AverageRating float64
+	ReviewCount   int64
 }
 
 type DivePresenceInput struct {
@@ -242,6 +280,14 @@ type DiveSiteAffinityInput struct {
 	Visibility     string
 	ContactEnabled bool
 	Note           *string
+}
+
+type DiveSiteReviewInput struct {
+	ActorID    string
+	Slug       string
+	Rating     int32
+	Comment    *string
+	Visibility string
 }
 
 type CreateUpdateInput struct {
@@ -762,6 +808,21 @@ func (s *Service) GetRelatedBySlug(ctx context.Context, viewerID, slug string) (
 	result.Counts.LocalRegulars = affinityCount
 	result.Previews.AvailableBuddies = presences
 	result.Previews.LocalRegulars = affinities
+	reviewCount, err := s.repo.CountVisibleDiveSiteReviewsBySite(ctx, strings.TrimSpace(viewerID), site.ID)
+	if err != nil {
+		return SiteRelatedResult{}, apperrors.New(http.StatusInternalServerError, "dive_review_count_failed", "failed to count dive site reviews", err)
+	}
+	reviews, err := s.repo.ListVisibleDiveSiteReviewsBySite(ctx, strings.TrimSpace(viewerID), site.ID, 6)
+	if err != nil {
+		return SiteRelatedResult{}, apperrors.New(http.StatusInternalServerError, "dive_review_list_failed", "failed to list dive site reviews", err)
+	}
+	summary, err := s.repo.GetVisibleDiveSiteReviewSummaryBySite(ctx, strings.TrimSpace(viewerID), site.ID)
+	if err != nil {
+		return SiteRelatedResult{}, apperrors.New(http.StatusInternalServerError, "dive_review_summary_failed", "failed to load dive site review summary", err)
+	}
+	result.Counts.Reviews = reviewCount
+	result.Counts.AverageRating = summary.AverageRating
+	result.Previews.Reviews = reviews
 
 	if s.feed != nil {
 		input := feedservice.ActivityInput{
@@ -807,6 +868,49 @@ func (s *Service) ListDivePresencesBySlug(ctx context.Context, viewerID, slug st
 	return SiteDivePresencesResult{Site: site, Items: items}, nil
 }
 
+func (s *Service) ListGlobalDivePresences(ctx context.Context, input GlobalDivePresencesInput) (GlobalDivePresencesResult, error) {
+	if input.Limit <= 0 || input.Limit > pagination.MaxLimit {
+		input.Limit = pagination.DefaultLimit
+	}
+	if input.PresenceType != "" && !oneOf(input.PresenceType, "available", "planning", "training", "fun_dive") {
+		return GlobalDivePresencesResult{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"presenceType"}, Code: "invalid_enum", Message: "presenceType must be available, planning, training, or fun_dive"}}}
+	}
+	if !input.DateFrom.IsZero() && !input.DateTo.IsZero() && input.DateFrom.After(input.DateTo) {
+		return GlobalDivePresencesResult{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"dateTo"}, Code: "custom", Message: "dateTo must be after dateFrom"}}}
+	}
+	if err := s.repo.ExpirePastDivePresences(ctx); err != nil {
+		return GlobalDivePresencesResult{}, apperrors.New(http.StatusInternalServerError, "dive_presence_expire_failed", "failed to expire old dive presences", err)
+	}
+	items, err := s.repo.ListVisibleDivePresencesGlobal(ctx, explorerepo.GlobalDivePresenceInput{
+		ViewerUserID: strings.TrimSpace(input.ViewerID),
+		SiteSlug:     strings.TrimSpace(input.SiteSlug),
+		Area:         strings.TrimSpace(input.Area),
+		PresenceType: strings.TrimSpace(input.PresenceType),
+		FlexibleOnly: input.FlexibleOnly,
+		DateFrom:     input.DateFrom,
+		DateTo:       input.DateTo,
+		Limit:        input.Limit,
+	})
+	if err != nil {
+		return GlobalDivePresencesResult{}, apperrors.New(http.StatusInternalServerError, "dive_presence_list_failed", "failed to list available buddies", err)
+	}
+	return GlobalDivePresencesResult{Items: items}, nil
+}
+
+func (s *Service) ListMyDivePresences(ctx context.Context, actorID string) (CurrentUserDivePresencesResult, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return CurrentUserDivePresencesResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if err := s.repo.ExpirePastDivePresences(ctx); err != nil {
+		return CurrentUserDivePresencesResult{}, apperrors.New(http.StatusInternalServerError, "dive_presence_expire_failed", "failed to expire old dive presences", err)
+	}
+	items, err := s.repo.ListCurrentUserDivePresences(ctx, actorID)
+	if err != nil {
+		return CurrentUserDivePresencesResult{}, apperrors.New(http.StatusInternalServerError, "dive_presence_list_failed", "failed to list your dive presences", err)
+	}
+	return CurrentUserDivePresencesResult{Items: items}, nil
+}
+
 func (s *Service) ListDiveAffinitiesBySlug(ctx context.Context, viewerID, slug string, limit int32) (SiteDiveAffinitiesResult, error) {
 	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), strings.TrimSpace(viewerID))
 	if err != nil {
@@ -823,6 +927,56 @@ func (s *Service) ListDiveAffinitiesBySlug(ctx context.Context, viewerID, slug s
 		return SiteDiveAffinitiesResult{}, apperrors.New(http.StatusInternalServerError, "dive_affinity_list_failed", "failed to list locals and regulars", err)
 	}
 	return SiteDiveAffinitiesResult{Site: site, Items: items}, nil
+}
+
+func (s *Service) ListMyDiveSiteAffinities(ctx context.Context, actorID string) (CurrentUserDiveAffinitiesResult, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return CurrentUserDiveAffinitiesResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	items, err := s.repo.ListCurrentUserDiveSiteAffinities(ctx, actorID)
+	if err != nil {
+		return CurrentUserDiveAffinitiesResult{}, apperrors.New(http.StatusInternalServerError, "dive_affinity_list_failed", "failed to list your dive site affinities", err)
+	}
+	return CurrentUserDiveAffinitiesResult{Items: items}, nil
+}
+
+func (s *Service) ListDiveReviewsBySlug(ctx context.Context, viewerID, slug string, limit int32) (SiteDiveReviewsResult, error) {
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(slug), strings.TrimSpace(viewerID))
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return SiteDiveReviewsResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return SiteDiveReviewsResult{}, apperrors.New(http.StatusInternalServerError, "site_detail_failed", "failed to load dive site", err)
+	}
+	if limit <= 0 || limit > pagination.MaxLimit {
+		limit = pagination.DefaultLimit
+	}
+	items, err := s.repo.ListVisibleDiveSiteReviewsBySite(ctx, strings.TrimSpace(viewerID), site.ID, limit)
+	if err != nil {
+		return SiteDiveReviewsResult{}, apperrors.New(http.StatusInternalServerError, "dive_review_list_failed", "failed to list dive site reviews", err)
+	}
+	summary, err := s.repo.GetVisibleDiveSiteReviewSummaryBySite(ctx, strings.TrimSpace(viewerID), site.ID)
+	if err != nil {
+		return SiteDiveReviewsResult{}, apperrors.New(http.StatusInternalServerError, "dive_review_summary_failed", "failed to load dive site review summary", err)
+	}
+	return SiteDiveReviewsResult{Site: site, Items: items, AverageRating: summary.AverageRating, ReviewCount: summary.ReviewCount}, nil
+}
+
+func (s *Service) CreateDiveSiteReview(ctx context.Context, input DiveSiteReviewInput) (explorerepo.DiveSiteReview, error) {
+	site, err := s.siteForMemberWrite(ctx, input.ActorID, input.Slug)
+	if err != nil {
+		return explorerepo.DiveSiteReview{}, err
+	}
+	if issues := validateDiveSiteReview(input); len(issues) > 0 {
+		return explorerepo.DiveSiteReview{}, ValidationFailure{Issues: issues}
+	}
+	return s.repo.UpsertDiveSiteReview(ctx, explorerepo.UpsertDiveSiteReviewInput{
+		UserID:     input.ActorID,
+		DiveSiteID: site.ID,
+		Rating:     input.Rating,
+		Comment:    cleanOptionalComment(input.Comment),
+		Visibility: input.Visibility,
+	})
 }
 
 func (s *Service) CreateDivePresence(ctx context.Context, input DivePresenceInput) (explorerepo.DivePresence, error) {
@@ -1012,6 +1166,20 @@ func validateDiveSiteAffinity(input DiveSiteAffinityInput) []validatex.Issue {
 	return issues
 }
 
+func validateDiveSiteReview(input DiveSiteReviewInput) []validatex.Issue {
+	issues := make([]validatex.Issue, 0, 2)
+	if input.Rating < 1 || input.Rating > 5 {
+		issues = append(issues, validatex.Issue{Path: []any{"rating"}, Code: "out_of_range", Message: "rating must be between 1 and 5"})
+	}
+	if !oneOf(input.Visibility, "public", "members", "private") {
+		issues = append(issues, validatex.Issue{Path: []any{"visibility"}, Code: "invalid_enum", Message: "visibility must be public, members, or private"})
+	}
+	if input.Comment != nil && len(strings.TrimSpace(*input.Comment)) > 2000 {
+		issues = append(issues, validatex.Issue{Path: []any{"comment"}, Code: "too_big", Message: "comment must be at most 2000 characters"})
+	}
+	return issues
+}
+
 func oneOf(value string, allowed ...string) bool {
 	for _, item := range allowed {
 		if value == item {
@@ -1026,6 +1194,17 @@ func cleanOptionalNote(note *string) *string {
 		return nil
 	}
 	trimmed := strings.TrimSpace(*note)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func cleanOptionalComment(comment *string) *string {
+	if comment == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*comment)
 	if trimmed == "" {
 		return nil
 	}

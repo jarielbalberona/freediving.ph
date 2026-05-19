@@ -212,6 +212,18 @@ type DiveSiteLike struct {
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type DiveSiteReview struct {
+	ID         pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	UserID     pgtype.UUID        `db:"user_id" json:"user_id"`
+	Rating     int32              `db:"rating" json:"rating"`
+	Comment    *string            `db:"comment" json:"comment"`
+	Visibility string             `db:"visibility" json:"visibility"`
+	Status     string             `db:"status" json:"status"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type DiveSiteSafe struct {
 	AppUserID  pgtype.UUID        `db:"app_user_id" json:"app_user_id"`
 	DiveSiteID pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`

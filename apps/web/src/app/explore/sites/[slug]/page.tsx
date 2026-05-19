@@ -11,6 +11,7 @@ import {
   getExploreSiteCommunityPostsServer,
   getExploreSitePresenceServer,
   getExploreSiteRelatedServer,
+  getExploreSiteReviewsServer,
 } from "@/features/diveSpots/api/explore-v1.server";
 import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeButton";
 import BackToExploreButton from "./back-to-explore-button";
@@ -67,13 +68,14 @@ export default async function ExploreSharePage({ params }: PageProps) {
   const { slug } = await params;
 
   try {
-    const [data, related, presencePage, affinitiesPage, communityPostsPage] =
+    const [data, related, presencePage, affinitiesPage, communityPostsPage, reviewsPage] =
       await Promise.all([
       getExploreSiteBySlugServer(slug),
       getExploreSiteRelatedServer(slug).catch(() => null),
       getExploreSitePresenceServer(slug, 6).catch(() => null),
       getExploreSiteAffinitiesServer(slug, 6).catch(() => null),
       getExploreSiteCommunityPostsServer(slug, undefined, 6).catch(() => null),
+      getExploreSiteReviewsServer(slug, 6).catch(() => null),
     ]);
     return (
       <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
@@ -184,6 +186,13 @@ export default async function ExploreSharePage({ params }: PageProps) {
               communityPostsPage?.items ?? related?.previews.communityPosts ?? []
             }
             communityNextCursor={communityPostsPage?.nextCursor}
+            reviews={reviewsPage?.items ?? related?.previews.reviews ?? []}
+            reviewCount={
+              reviewsPage?.reviewCount ?? related?.counts.reviewCount ?? 0
+            }
+            averageRating={
+              reviewsPage?.averageRating ?? related?.counts.averageRating ?? 0
+            }
           />
         </div>
       </div>

@@ -45,13 +45,18 @@ export const routes = {
         `/v1/profiles/by-username/${toPathId(username)}/posts`,
       publicBucketListByUsername: (username: string | number) =>
         `/v1/profiles/by-username/${toPathId(username)}/bucketlist`,
+      publicDivingByUsername: (username: string | number) =>
+        `/v1/profiles/${toPathId(username)}/diving`,
       searchUsers: () => "/v1/users/search",
       saveUser: (userId: string | number) =>
         `/v1/users/id/${toPathId(userId)}/save`,
     },
     explore: {
       listSites: () => "/v1/explore/sites",
+      globalPresences: () => "/v1/explore/presences",
       latestUpdates: () => "/v1/explore/updates",
+      myDivePresences: () => "/v1/explore/me/dive-presences",
+      myDiveSiteAffinities: () => "/v1/explore/me/dive-site-affinities",
       submitSite: () => "/v1/explore/sites/submit",
       mySubmissions: () => "/v1/explore/sites/submissions",
       mySubmissionById: (id: string | number) =>
@@ -70,6 +75,8 @@ export const routes = {
         `/v1/explore/sites/${toPathId(slug)}/affinities`,
       siteAffinityById: (slug: string | number, affinityId: string | number) =>
         `/v1/explore/sites/${toPathId(slug)}/affinities/${toPathId(affinityId)}`,
+      siteReviews: (slug: string | number) =>
+        `/v1/explore/sites/${toPathId(slug)}/reviews`,
       siteBuddyPreview: (slug: string | number) =>
         `/v1/explore/sites/${toPathId(slug)}/buddy-preview`,
       siteBuddyIntents: (slug: string | number) =>

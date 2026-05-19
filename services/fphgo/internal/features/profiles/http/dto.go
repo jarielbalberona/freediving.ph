@@ -16,6 +16,11 @@ type ProfileBucketListResponse struct {
 	Items []ProfileBucketListItem `json:"items"`
 }
 
+type ProfileDivingResponse struct {
+	Presences  []ProfileDivePresence     `json:"presences"`
+	Affinities []ProfileDiveSiteAffinity `json:"affinities"`
+}
+
 type SearchUsersResponse struct {
 	Items []Profile `json:"items"`
 }
@@ -78,6 +83,37 @@ type ProfileBucketListItem struct {
 	SiteArea string `json:"siteArea"`
 	PinnedAt string `json:"pinnedAt"`
 	HasDived bool   `json:"hasDived"`
+}
+
+type ProfileDivePresence struct {
+	ID               string `json:"id"`
+	DiveSiteID       string `json:"diveSiteId"`
+	DiveSiteSlug     string `json:"diveSiteSlug"`
+	DiveSiteName     string `json:"diveSiteName"`
+	DiveSiteArea     string `json:"diveSiteArea,omitempty"`
+	PresenceType     string `json:"presenceType"`
+	StartAt          string `json:"startAt,omitempty"`
+	EndAt            string `json:"endAt,omitempty"`
+	Visibility       string `json:"visibility"`
+	ContactEnabled   bool   `json:"contactEnabled"`
+	ViewerCanContact bool   `json:"viewerCanContact"`
+	Note             string `json:"note,omitempty"`
+	CreatedAt        string `json:"createdAt"`
+}
+
+type ProfileDiveSiteAffinity struct {
+	ID               string `json:"id"`
+	DiveSiteID       string `json:"diveSiteId"`
+	DiveSiteSlug     string `json:"diveSiteSlug"`
+	DiveSiteName     string `json:"diveSiteName"`
+	DiveSiteArea     string `json:"diveSiteArea,omitempty"`
+	Relationship     string `json:"relationship"`
+	Visibility       string `json:"visibility"`
+	ContactEnabled   bool   `json:"contactEnabled"`
+	ViewerCanContact bool   `json:"viewerCanContact"`
+	Note             string `json:"note,omitempty"`
+	CreatedAt        string `json:"createdAt"`
+	UpdatedAt        string `json:"updatedAt"`
 }
 
 type SavedSite struct {

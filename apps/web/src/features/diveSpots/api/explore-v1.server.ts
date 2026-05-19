@@ -4,6 +4,7 @@ import type {
   ExploreLatestUpdatesResponse,
   DivePresenceListResponse,
   DiveSiteAffinityListResponse,
+  DiveSiteReviewListResponse,
   ExploreSiteCommunityPostsResponse,
   ExploreSiteBuddyPreviewResponse,
   ExploreSiteDetailResponse,
@@ -58,6 +59,11 @@ export const getExploreSitePresenceServer = (slug: string, limit = 6) =>
 export const getExploreSiteAffinitiesServer = (slug: string, limit = 6) =>
   fphgoFetchServer<DiveSiteAffinityListResponse>(
     withQuery(routes.v1.explore.siteAffinities(slug), { limit }),
+  );
+
+export const getExploreSiteReviewsServer = (slug: string, limit = 6) =>
+  fphgoFetchServer<DiveSiteReviewListResponse>(
+    withQuery(routes.v1.explore.siteReviews(slug), { limit }),
   );
 
 export const getExploreLatestUpdatesServer = (area?: string, cursor?: string, limit = 20) =>

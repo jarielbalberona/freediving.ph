@@ -13,6 +13,7 @@ import (
 	"fphgo/internal/shared/authz"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
+	"fphgo/internal/shared/mediaurl"
 )
 
 type Handlers struct {
@@ -642,7 +643,7 @@ func threadResponse(input chikaservice.Thread, viewerID string, includeRealAutho
 	}
 	authorAvatarURL := ""
 	if input.Mode != "pseudonymous" && input.Mode != "locked_pseudonymous" && input.AuthorAvatarURL != "" {
-		authorAvatarURL = input.AuthorAvatarURL
+		authorAvatarURL = mediaurl.MaterializeWithDefault(input.AuthorAvatarURL)
 	}
 	return ThreadResponse{
 		ID:               input.ID,
@@ -691,7 +692,7 @@ func commentResponse(input chikaservice.Comment, includeRealAuthor bool, categor
 	}
 	authorAvatarURL := ""
 	if !categoryPseudonymous && input.AuthorAvatarURL != "" {
-		authorAvatarURL = input.AuthorAvatarURL
+		authorAvatarURL = mediaurl.MaterializeWithDefault(input.AuthorAvatarURL)
 	}
 	return CommentResponse{
 		ID:               strconv.FormatInt(input.ID, 10),

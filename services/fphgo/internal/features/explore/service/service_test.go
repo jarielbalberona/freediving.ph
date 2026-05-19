@@ -28,7 +28,11 @@ type repoStub struct {
 	likeUserID    string
 	siteDetail    explorerepo.SiteDetail
 	presences     []explorerepo.VisibleDivePresence
+	myPresences   []explorerepo.VisibleDivePresence
+	globalInput   explorerepo.GlobalDivePresenceInput
 	affinities    []explorerepo.VisibleDiveSiteAffinity
+	myAffinities  []explorerepo.DiveSiteAffinity
+	reviews       []explorerepo.VisibleDiveSiteReview
 }
 
 func (r *repoStub) ListSites(_ context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error) {
@@ -153,8 +157,14 @@ func (r *repoStub) CountActiveDivePresencesByUser(context.Context, string) (int6
 	return 0, nil
 }
 
-func (r *repoStub) ListCurrentUserDivePresences(context.Context, string) ([]explorerepo.DivePresence, error) {
-	return nil, nil
+func (r *repoStub) ListCurrentUserDivePresences(_ context.Context, userID string) ([]explorerepo.VisibleDivePresence, error) {
+	r.likeUserID = userID
+	return r.myPresences, nil
+}
+
+func (r *repoStub) ListVisibleDivePresencesGlobal(_ context.Context, input explorerepo.GlobalDivePresenceInput) ([]explorerepo.VisibleDivePresence, error) {
+	r.globalInput = input
+	return r.presences, nil
 }
 
 func (r *repoStub) ListVisibleDivePresencesBySite(context.Context, string, string, int32) ([]explorerepo.VisibleDivePresence, error) {
@@ -177,8 +187,9 @@ func (r *repoStub) DeleteDiveSiteAffinityByOwner(context.Context, string, string
 	return 1, nil
 }
 
-func (r *repoStub) ListCurrentUserDiveSiteAffinities(context.Context, string) ([]explorerepo.DiveSiteAffinity, error) {
-	return nil, nil
+func (r *repoStub) ListCurrentUserDiveSiteAffinities(_ context.Context, userID string) ([]explorerepo.DiveSiteAffinity, error) {
+	r.likeUserID = userID
+	return r.myAffinities, nil
 }
 
 func (r *repoStub) ListVisibleDiveSiteAffinitiesBySite(context.Context, string, string, int32) ([]explorerepo.VisibleDiveSiteAffinity, error) {
@@ -187,6 +198,36 @@ func (r *repoStub) ListVisibleDiveSiteAffinitiesBySite(context.Context, string, 
 
 func (r *repoStub) CountVisibleDiveSiteAffinitiesBySite(context.Context, string, string) (int64, error) {
 	return int64(len(r.affinities)), nil
+}
+
+func (r *repoStub) UpsertDiveSiteReview(_ context.Context, input explorerepo.UpsertDiveSiteReviewInput) (explorerepo.DiveSiteReview, error) {
+	return explorerepo.DiveSiteReview{ID: "550e8400-e29b-41d4-a716-446655441003", UserID: input.UserID, DiveSiteID: input.DiveSiteID, Rating: input.Rating, Comment: stringOrEmpty(input.Comment), Visibility: input.Visibility, Status: "active", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
+}
+
+func (r *repoStub) ListVisibleDiveSiteReviewsBySite(context.Context, string, string, int32) ([]explorerepo.VisibleDiveSiteReview, error) {
+	return r.reviews, nil
+}
+
+func (r *repoStub) CountVisibleDiveSiteReviewsBySite(context.Context, string, string) (int64, error) {
+	return int64(len(r.reviews)), nil
+}
+
+func (r *repoStub) GetVisibleDiveSiteReviewSummaryBySite(context.Context, string, string) (explorerepo.DiveSiteReviewSummary, error) {
+	if len(r.reviews) == 0 {
+		return explorerepo.DiveSiteReviewSummary{}, nil
+	}
+	var total int32
+	for _, item := range r.reviews {
+		total += item.Rating
+	}
+	return explorerepo.DiveSiteReviewSummary{AverageRating: float64(total) / float64(len(r.reviews)), ReviewCount: int64(len(r.reviews))}, nil
+}
+
+func stringOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func TestListSitesPassesValidatedBoundsToRepo(t *testing.T) {
@@ -308,6 +349,18 @@ func TestGetRelatedBySlugSeparatesPresenceAndAffinity(t *testing.T) {
 				UpdatedAt:    time.Now().UTC(),
 			},
 		}},
+		reviews: []explorerepo.VisibleDiveSiteReview{{
+			DiveSiteReview: explorerepo.DiveSiteReview{
+				ID:         "550e8400-e29b-41d4-a716-446655441003",
+				UserID:     "550e8400-e29b-41d4-a716-446655441103",
+				DiveSiteID: "550e8400-e29b-41d4-a716-446655440101",
+				Rating:     5,
+				Visibility: "members",
+				Status:     "active",
+				CreatedAt:  time.Now().UTC(),
+				UpdatedAt:  time.Now().UTC(),
+			},
+		}},
 	}
 	svc := New(repo)
 
@@ -315,7 +368,7 @@ func TestGetRelatedBySlugSeparatesPresenceAndAffinity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("related: %v", err)
 	}
-	if result.Counts.AvailableBuddies != 1 || result.Counts.LocalRegulars != 1 {
+	if result.Counts.AvailableBuddies != 1 || result.Counts.LocalRegulars != 1 || result.Counts.Reviews != 1 {
 		t.Fatalf("unexpected counts: %+v", result.Counts)
 	}
 	if len(result.Previews.AvailableBuddies) != 1 || result.Previews.AvailableBuddies[0].PresenceType != "available" {
@@ -323,6 +376,119 @@ func TestGetRelatedBySlugSeparatesPresenceAndAffinity(t *testing.T) {
 	}
 	if len(result.Previews.LocalRegulars) != 1 || result.Previews.LocalRegulars[0].Relationship != "regular" {
 		t.Fatalf("expected affinity-backed local regular, got %+v", result.Previews.LocalRegulars)
+	}
+	if len(result.Previews.Reviews) != 1 || result.Previews.Reviews[0].Rating != 5 || result.Counts.AverageRating != 5 {
+		t.Fatalf("expected dive site review preview, got counts=%+v reviews=%+v", result.Counts, result.Previews.Reviews)
+	}
+}
+
+func TestListGlobalDivePresencesReturnsSiteBackedActivePresence(t *testing.T) {
+	startAt := time.Now().UTC().Add(2 * time.Hour)
+	endAt := startAt.Add(3 * time.Hour)
+	repo := &repoStub{
+		presences: []explorerepo.VisibleDivePresence{{
+			DivePresence: explorerepo.DivePresence{
+				ID:             "550e8400-e29b-41d4-a716-446655442001",
+				UserID:         "550e8400-e29b-41d4-a716-446655442101",
+				DiveSiteID:     "550e8400-e29b-41d4-a716-446655440101",
+				PresenceType:   "available",
+				StartAt:        &startAt,
+				EndAt:          &endAt,
+				Visibility:     "members",
+				ContactEnabled: true,
+				Status:         "active",
+				CreatedAt:      time.Now().UTC(),
+				UpdatedAt:      time.Now().UTC(),
+			},
+			Username:       "napaling_buddy",
+			DisplayName:    "Napaling Buddy",
+			DiveSiteSlug:   "napaling-reef",
+			DiveSiteName:   "Napaling Reef",
+			DiveSiteArea:   "Panglao, Bohol",
+			ContactAllowed: true,
+		}},
+	}
+	svc := New(repo)
+
+	result, err := svc.ListGlobalDivePresences(context.Background(), GlobalDivePresencesInput{
+		ViewerID:     "550e8400-e29b-41d4-a716-446655440000",
+		SiteSlug:     "napaling-reef",
+		Area:         "Bohol",
+		PresenceType: "available",
+		DateFrom:     startAt.Add(-time.Hour),
+		DateTo:       endAt.Add(time.Hour),
+		Limit:        1,
+	})
+	if err != nil {
+		t.Fatalf("list global dive presences: %v", err)
+	}
+	if repo.globalInput.SiteSlug != "napaling-reef" || repo.globalInput.Area != "Bohol" || repo.globalInput.PresenceType != "available" {
+		t.Fatalf("expected filters to reach repo, got %+v", repo.globalInput)
+	}
+	if len(result.Items) != 1 {
+		t.Fatalf("expected one global presence, got %+v", result.Items)
+	}
+	item := result.Items[0]
+	if item.DiveSiteSlug != "napaling-reef" || item.DiveSiteName != "Napaling Reef" || item.DisplayName != "Napaling Buddy" {
+		t.Fatalf("expected presence with dive site and user display data, got %+v", item)
+	}
+}
+
+func TestListGlobalDivePresencesRejectsUnknownPresenceType(t *testing.T) {
+	svc := New(&repoStub{})
+
+	_, err := svc.ListGlobalDivePresences(context.Background(), GlobalDivePresencesInput{
+		PresenceType: "buddy_intent",
+	})
+	if err == nil {
+		t.Fatal("expected invalid presence type error")
+	}
+}
+
+func TestCurrentUserDivePresenceAndAffinityManagementLists(t *testing.T) {
+	repo := &repoStub{
+		myPresences: []explorerepo.VisibleDivePresence{{
+			DivePresence: explorerepo.DivePresence{
+				ID:           "550e8400-e29b-41d4-a716-446655442011",
+				UserID:       "550e8400-e29b-41d4-a716-446655440000",
+				DiveSiteID:   "550e8400-e29b-41d4-a716-446655440101",
+				PresenceType: "training",
+				Visibility:   "private",
+				Status:       "active",
+				CreatedAt:    time.Now().UTC(),
+				UpdatedAt:    time.Now().UTC(),
+			},
+			DiveSiteSlug: "apo-island",
+			DiveSiteName: "Apo Island",
+		}},
+		myAffinities: []explorerepo.DiveSiteAffinity{{
+			ID:           "550e8400-e29b-41d4-a716-446655442012",
+			UserID:       "550e8400-e29b-41d4-a716-446655440000",
+			DiveSiteID:   "550e8400-e29b-41d4-a716-446655440101",
+			Relationship: "regular",
+			Visibility:   "members",
+			CreatedAt:    time.Now().UTC(),
+			UpdatedAt:    time.Now().UTC(),
+			DiveSiteSlug: "apo-island",
+			DiveSiteName: "Apo Island",
+		}},
+	}
+	svc := New(repo)
+
+	presences, err := svc.ListMyDivePresences(context.Background(), "550e8400-e29b-41d4-a716-446655440000")
+	if err != nil {
+		t.Fatalf("list my dive presences: %v", err)
+	}
+	if len(presences.Items) != 1 || presences.Items[0].PresenceType != "training" || presences.Items[0].DiveSiteSlug != "apo-island" {
+		t.Fatalf("expected current user presence with site data, got %+v", presences.Items)
+	}
+
+	affinities, err := svc.ListMyDiveSiteAffinities(context.Background(), "550e8400-e29b-41d4-a716-446655440000")
+	if err != nil {
+		t.Fatalf("list my dive site affinities: %v", err)
+	}
+	if len(affinities.Items) != 1 || affinities.Items[0].Relationship != "regular" || affinities.Items[0].DiveSiteSlug != "apo-island" {
+		t.Fatalf("expected current user affinity with site data, got %+v", affinities.Items)
 	}
 }
 

@@ -55,9 +55,10 @@ export function MapPinPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="h-dvh max-h-none max-w-none rounded-none border-0 p-0 sm:h-dvh"
+        containerClassName="p-0 sm:p-4"
+        className="flex! h-dvh w-dvw max-w-none! flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[min(860px,calc(100dvh-2rem))] sm:w-[min(1120px,calc(100vw-2rem))] sm:rounded-3xl sm:border"
       >
-        <DialogHeader className="border-b border-sky-950/10 bg-card/95 pb-4">
+        <DialogHeader className="shrink-0 border-b border-sky-950/10 bg-card/95 px-5 py-4 sm:px-6">
           <DialogTitle className="text-2xl font-semibold text-sky-950">
             Pin the dive site
           </DialogTitle>
@@ -73,7 +74,7 @@ export function MapPinPickerDialog({
           </MapProvider>
         </div>
 
-        <DialogFooter className="border-t border-sky-950/10 bg-card/95 sm:flex-row sm:items-center sm:justify-between">
+        <DialogFooter className="shrink-0 border-t border-sky-950/10 bg-card/95 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="text-sm text-zinc-600">
             {formatPinnedAreaLabel(draftLocation)}
           </div>
@@ -174,7 +175,7 @@ function PickerMap({ value, onChange }: PickerMapProps) {
   );
 
   return (
-    <div className="h-full">
+    <div className="relative h-full min-h-0">
       <Map
         defaultCenter={center}
         defaultZoom={value ? 10.5 : 6.2}

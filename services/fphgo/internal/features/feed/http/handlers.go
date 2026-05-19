@@ -12,6 +12,7 @@ import (
 	"fphgo/internal/middleware"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
+	"fphgo/internal/shared/mediaurl"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -136,7 +137,7 @@ func (h *Handlers) Activity(w http.ResponseWriter, r *http.Request) {
 				ID:        item.Actor.ID,
 				Name:      item.Actor.Name,
 				Username:  item.Actor.Username,
-				AvatarURL: item.Actor.AvatarURL,
+				AvatarURL: mediaurl.MaterializeWithDefault(item.Actor.AvatarURL),
 			},
 			Target: ActivityFeedTarget{
 				Type: item.Target.Type,

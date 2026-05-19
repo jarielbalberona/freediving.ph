@@ -1,7 +1,7 @@
 export const siteConfig = {
   name: "Freediving Philippines",
-  url: "http://freediving.ph/",
-  ogImage: "http://freediving.ph/og.jpg",
+  url: "https://freediving.ph",
+  ogImage: "https://cdn.freediving.ph/images/freedivingph-blue-white-bg.png",
   description:
     "Revolutionizing the World of Freediving in the Philippines",
   links: {

@@ -116,6 +116,42 @@ type ProfileBucketListItem struct {
 	HasDived bool
 }
 
+type ProfileDivePresence struct {
+	ID               string
+	DiveSiteID       string
+	DiveSiteSlug     string
+	DiveSiteName     string
+	DiveSiteArea     string
+	PresenceType     string
+	StartAt          *time.Time
+	EndAt            *time.Time
+	Visibility       string
+	ContactEnabled   bool
+	ViewerCanContact bool
+	Note             string
+	CreatedAt        time.Time
+}
+
+type ProfileDiveSiteAffinity struct {
+	ID               string
+	DiveSiteID       string
+	DiveSiteSlug     string
+	DiveSiteName     string
+	DiveSiteArea     string
+	Relationship     string
+	Visibility       string
+	ContactEnabled   bool
+	ViewerCanContact bool
+	Note             string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type ProfileDiving struct {
+	Presences  []ProfileDivePresence
+	Affinities []ProfileDiveSiteAffinity
+}
+
 func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool, queries: profilesqlc.New(pool)}
 }
@@ -458,6 +494,198 @@ func (r *Repo) ListProfileBucketListByUsername(ctx context.Context, username str
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *Repo) ListProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (ProfileDiving, error) {
+	const presencesQuery = `
+		WITH viewer AS (
+			SELECT NULLIF($2, '')::uuid AS id
+		)
+		SELECT
+			dp.id,
+			s.id AS dive_site_id,
+			s.slug AS dive_site_slug,
+			s.name AS dive_site_name,
+			s.area AS dive_site_area,
+			dp.presence_type,
+			dp.start_at,
+			dp.end_at,
+			dp.visibility,
+			dp.contact_enabled,
+			(
+				dp.contact_enabled
+				AND viewer.id IS NOT NULL
+				AND viewer.id <> u.id
+			) AS viewer_can_contact,
+			COALESCE(dp.note, '') AS note,
+			dp.created_at
+		FROM users u
+		CROSS JOIN viewer
+		JOIN dive_presences dp ON dp.user_id = u.id
+		JOIN dive_sites s ON s.id = dp.dive_site_id
+		WHERE lower(u.username) = lower($1)
+		  AND u.account_status = 'active'
+		  AND dp.status = 'active'
+		  AND (dp.end_at IS NULL OR dp.end_at > NOW())
+		  AND s.moderation_state = 'approved'
+		  AND (
+		    dp.visibility = 'public'
+		    OR (dp.visibility = 'members' AND viewer.id IS NOT NULL)
+		    OR (dp.visibility = 'private' AND viewer.id = u.id)
+		  )
+		  AND (
+		    viewer.id IS NULL
+		    OR viewer.id = u.id
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_blocks ub
+		      WHERE (ub.blocker_app_user_id = viewer.id AND ub.blocked_app_user_id = u.id)
+		         OR (ub.blocker_app_user_id = u.id AND ub.blocked_app_user_id = viewer.id)
+		    )
+		  )
+		ORDER BY dp.start_at ASC NULLS LAST, dp.created_at DESC, dp.id DESC
+		LIMIT 50
+	`
+
+	presenceRows, err := r.pool.Query(ctx, presencesQuery, username, viewerUserID)
+	if err != nil {
+		return ProfileDiving{}, err
+	}
+	defer presenceRows.Close()
+
+	presences := make([]ProfileDivePresence, 0)
+	for presenceRows.Next() {
+		var (
+			id        pgtype.UUID
+			siteID    pgtype.UUID
+			startAt   pgtype.Timestamptz
+			endAt     pgtype.Timestamptz
+			createdAt pgtype.Timestamptz
+			item      ProfileDivePresence
+		)
+		if err := presenceRows.Scan(
+			&id,
+			&siteID,
+			&item.DiveSiteSlug,
+			&item.DiveSiteName,
+			&item.DiveSiteArea,
+			&item.PresenceType,
+			&startAt,
+			&endAt,
+			&item.Visibility,
+			&item.ContactEnabled,
+			&item.ViewerCanContact,
+			&item.Note,
+			&createdAt,
+		); err != nil {
+			return ProfileDiving{}, err
+		}
+		item.ID = id.String()
+		item.DiveSiteID = siteID.String()
+		if startAt.Valid {
+			value := startAt.Time.UTC()
+			item.StartAt = &value
+		}
+		if endAt.Valid {
+			value := endAt.Time.UTC()
+			item.EndAt = &value
+		}
+		item.CreatedAt = createdAt.Time.UTC()
+		presences = append(presences, item)
+	}
+	if err := presenceRows.Err(); err != nil {
+		return ProfileDiving{}, err
+	}
+
+	const affinitiesQuery = `
+		WITH viewer AS (
+			SELECT NULLIF($2, '')::uuid AS id
+		)
+		SELECT
+			a.id,
+			s.id AS dive_site_id,
+			s.slug AS dive_site_slug,
+			s.name AS dive_site_name,
+			s.area AS dive_site_area,
+			a.relationship,
+			a.visibility,
+			a.contact_enabled,
+			(
+				a.contact_enabled
+				AND viewer.id IS NOT NULL
+				AND viewer.id <> u.id
+			) AS viewer_can_contact,
+			COALESCE(a.note, '') AS note,
+			a.created_at,
+			a.updated_at
+		FROM users u
+		CROSS JOIN viewer
+		JOIN user_dive_site_affinities a ON a.user_id = u.id
+		JOIN dive_sites s ON s.id = a.dive_site_id
+		WHERE lower(u.username) = lower($1)
+		  AND u.account_status = 'active'
+		  AND s.moderation_state = 'approved'
+		  AND (
+		    a.visibility = 'public'
+		    OR (a.visibility = 'members' AND viewer.id IS NOT NULL)
+		    OR (a.visibility = 'private' AND viewer.id = u.id)
+		  )
+		  AND (
+		    viewer.id IS NULL
+		    OR viewer.id = u.id
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_blocks ub
+		      WHERE (ub.blocker_app_user_id = viewer.id AND ub.blocked_app_user_id = u.id)
+		         OR (ub.blocker_app_user_id = u.id AND ub.blocked_app_user_id = viewer.id)
+		    )
+		  )
+		ORDER BY a.relationship, a.updated_at DESC, a.id DESC
+		LIMIT 50
+	`
+
+	affinityRows, err := r.pool.Query(ctx, affinitiesQuery, username, viewerUserID)
+	if err != nil {
+		return ProfileDiving{}, err
+	}
+	defer affinityRows.Close()
+
+	affinities := make([]ProfileDiveSiteAffinity, 0)
+	for affinityRows.Next() {
+		var (
+			id        pgtype.UUID
+			siteID    pgtype.UUID
+			createdAt pgtype.Timestamptz
+			updatedAt pgtype.Timestamptz
+			item      ProfileDiveSiteAffinity
+		)
+		if err := affinityRows.Scan(
+			&id,
+			&siteID,
+			&item.DiveSiteSlug,
+			&item.DiveSiteName,
+			&item.DiveSiteArea,
+			&item.Relationship,
+			&item.Visibility,
+			&item.ContactEnabled,
+			&item.ViewerCanContact,
+			&item.Note,
+			&createdAt,
+			&updatedAt,
+		); err != nil {
+			return ProfileDiving{}, err
+		}
+		item.ID = id.String()
+		item.DiveSiteID = siteID.String()
+		item.CreatedAt = createdAt.Time.UTC()
+		item.UpdatedAt = updatedAt.Time.UTC()
+		affinities = append(affinities, item)
+	}
+	if err := affinityRows.Err(); err != nil {
+		return ProfileDiving{}, err
+	}
+
+	return ProfileDiving{Presences: presences, Affinities: affinities}, nil
 }
 
 func IsNoRows(err error) bool {

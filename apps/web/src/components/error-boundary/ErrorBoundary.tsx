@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import * as Sentry from "@sentry/nextjs";
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,8 +82,12 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private reportError = (error: Error, errorInfo: ErrorInfo) => {
-    // In a real app, you would send this to an error reporting service
-    // like Sentry, LogRocket, or Bugsnag
+    const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN?.trim();
+    const sentryEnabled =
+      Boolean(sentryDsn) &&
+      (process.env.NODE_ENV === 'production' ||
+        process.env.NEXT_PUBLIC_SENTRY_ENABLE_LOCAL === 'true');
+
     const errorReport = {
       errorId: this.state.errorId,
       message: error.message,
@@ -94,16 +99,21 @@ export class ErrorBoundary extends Component<Props, State> {
       level: this.props.level || 'component',
     };
 
-    // Example: Send to external service
-    if (process.env.NODE_ENV === 'production') {
-      // fetch('/api/errors', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(errorReport),
-      // }).catch(console.error);
+    if (sentryEnabled) {
+      Sentry.captureException(error, {
+        tags: {
+          errorBoundaryLevel: this.props.level || 'component',
+        },
+        extra: {
+          errorId: this.state.errorId,
+          componentStack: errorInfo.componentStack,
+        },
+      });
     }
 
-    console.error('Error Report:', errorReport);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error Report:', errorReport);
+    }
   };
 
   private resetErrorBoundary = () => {

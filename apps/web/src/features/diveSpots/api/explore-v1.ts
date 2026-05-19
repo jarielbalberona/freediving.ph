@@ -3,10 +3,13 @@ import type {
   CreateExploreSiteUpdateRequest,
   CreateDivePresenceRequest,
   CreateDiveSiteAffinityRequest,
+  CreateDiveSiteReviewRequest,
   DivePresenceListResponse,
   DivePresenceResponse,
   DiveSiteAffinityListResponse,
   DiveSiteAffinityResponse,
+  DiveSiteReviewListResponse,
+  DiveSiteReviewResponse,
   ExploreLatestUpdatesResponse,
   ExploreListResponse,
   ExploreSiteSubmissionListResponse,
@@ -34,6 +37,17 @@ export type ExploreFilters = {
   east?: number;
   west?: number;
   cursor?: string;
+  limit?: number;
+};
+
+export type DivePresenceFilters = {
+  siteSlug?: string;
+  area?: string;
+  province?: string;
+  presenceType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  flexible?: boolean;
   limit?: number;
 };
 
@@ -81,6 +95,21 @@ export const exploreApi = {
         updatesCursor,
         updatesLimit,
       }),
+    ),
+
+  getGlobalPresences: (filters: DivePresenceFilters = {}) =>
+    fphgoFetchClient<DivePresenceListResponse>(
+      withQuery(routes.v1.explore.globalPresences(), filters),
+    ),
+
+  getMyDivePresences: () =>
+    fphgoFetchClient<DivePresenceListResponse>(
+      routes.v1.explore.myDivePresences(),
+    ),
+
+  getMyDiveSiteAffinities: () =>
+    fphgoFetchClient<DiveSiteAffinityListResponse>(
+      routes.v1.explore.myDiveSiteAffinities(),
     ),
   getSiteBuddyPreview: (slug: string, limit = 6) =>
     fphgoFetchClient<ExploreSiteBuddyPreviewResponse>(
@@ -158,6 +187,20 @@ export const exploreApi = {
     fphgoFetchClient<void>(
       routes.v1.explore.siteAffinityById(slug, affinityId),
       { method: "DELETE" },
+    ),
+
+  getSiteReviews: (slug: string, limit = 20) =>
+    fphgoFetchClient<DiveSiteReviewListResponse>(
+      withQuery(routes.v1.explore.siteReviews(slug), { limit }),
+    ),
+
+  createSiteReview: (slug: string, payload: CreateDiveSiteReviewRequest) =>
+    fphgoFetchClient<DiveSiteReviewResponse>(
+      routes.v1.explore.siteReviews(slug),
+      {
+        method: "POST",
+        body: payload as Record<string, unknown>,
+      },
     ),
 
   getSiteBuddyIntents: (slug: string, cursor?: string, limit = 10) =>

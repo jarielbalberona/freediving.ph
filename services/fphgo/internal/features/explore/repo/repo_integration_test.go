@@ -526,3 +526,130 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 		t.Fatalf("expected inside site in bounded results, got %+v", boundedItems)
 	}
 }
+
+func TestListVisibleDivePresencesGlobalAppliesVisibilityBlocksAndFilters(t *testing.T) {
+	pool := testExplorePool(t)
+	repo := explorerepo.New(pool)
+	ctx := context.Background()
+	nonce := time.Now().UnixNano()
+
+	insertUser := func(username, name, status string) string {
+		t.Helper()
+		var id string
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO users (id, username, display_name, account_status)
+			VALUES (gen_random_uuid(), $1, $2, $3)
+			RETURNING id
+		`, username, name, status).Scan(&id); err != nil {
+			t.Skipf("insert user: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO profiles (user_id, avatar_url, home_area)
+			VALUES ($1, $2, $3)
+		`, id, "https://example.test/avatar.png", "Panglao, Bohol"); err != nil {
+			t.Skipf("insert profile: %v", err)
+		}
+		return id
+	}
+
+	viewerID := insertUser(fmt.Sprintf("presence_viewer_%d", nonce), "Presence Viewer", "active")
+	publicAuthorID := insertUser(fmt.Sprintf("presence_public_%d", nonce), "Public Buddy", "active")
+	memberAuthorID := insertUser(fmt.Sprintf("presence_member_%d", nonce), "Member Buddy", "active")
+	privateAuthorID := insertUser(fmt.Sprintf("presence_private_%d", nonce), "Private Buddy", "active")
+	blockedAuthorID := insertUser(fmt.Sprintf("presence_blocked_%d", nonce), "Blocked Buddy", "active")
+	inactiveAuthorID := insertUser(fmt.Sprintf("presence_inactive_%d", nonce), "Inactive Buddy", "suspended")
+
+	var siteID string
+	siteSlug := fmt.Sprintf("global-presence-reef-%d", nonce)
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO dive_sites (
+			name, slug, area, entry_difficulty, verification_status, moderation_state, last_updated_at, updated_at
+		)
+		VALUES ('Global Presence Reef', $1, 'Panglao, Bohol', 'easy', 'verified', 'approved', NOW(), NOW())
+		RETURNING id
+	`, siteSlug).Scan(&siteID); err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO user_blocks (blocker_app_user_id, blocked_app_user_id)
+		VALUES ($1, $2)
+	`, viewerID, blockedAuthorID); err != nil {
+		t.Skipf("insert block: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_presences (
+			user_id, dive_site_id, presence_type, start_at, end_at, visibility, contact_enabled, note, status
+		)
+		VALUES
+			($1, $7, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'public', true, 'public visible', 'active'),
+			($2, $7, 'training', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'members', true, 'member visible', 'active'),
+			($3, $7, 'planning', NULL, NULL, 'private', true, 'private owner only', 'active'),
+			($4, $7, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'members', true, 'blocked', 'active'),
+			($5, $7, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'public', true, 'inactive', 'active'),
+			($1, $7, 'available', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '1 hour', 'public', true, 'expired', 'active'),
+			($1, $7, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'public', true, 'cancelled', 'cancelled')
+	`, publicAuthorID, memberAuthorID, privateAuthorID, blockedAuthorID, inactiveAuthorID, viewerID, siteID); err != nil {
+		t.Fatalf("insert presences: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO user_dive_site_affinities (user_id, dive_site_id, relationship, visibility, contact_enabled, note)
+		VALUES ($1, $2, 'regular', 'public', true, 'affinity only')
+	`, viewerID, siteID); err != nil {
+		t.Fatalf("insert affinity: %v", err)
+	}
+
+	guestItems, err := repo.ListVisibleDivePresencesGlobal(ctx, explorerepo.GlobalDivePresenceInput{
+		SiteSlug: siteSlug,
+		Limit:    20,
+	})
+	if err != nil {
+		t.Fatalf("list guest global presences: %v", err)
+	}
+	if len(guestItems) != 1 || guestItems[0].UserID != publicAuthorID {
+		t.Fatalf("expected guest to see only public active presence, got %+v", guestItems)
+	}
+	if guestItems[0].DiveSiteSlug != siteSlug || guestItems[0].DiveSiteName != "Global Presence Reef" || guestItems[0].DiveSiteArea != "Panglao, Bohol" {
+		t.Fatalf("expected dive site display data, got %+v", guestItems[0])
+	}
+
+	memberItems, err := repo.ListVisibleDivePresencesGlobal(ctx, explorerepo.GlobalDivePresenceInput{
+		ViewerUserID: viewerID,
+		SiteSlug:     siteSlug,
+		Limit:        20,
+	})
+	if err != nil {
+		t.Fatalf("list member global presences: %v", err)
+	}
+	seen := map[string]bool{}
+	for _, item := range memberItems {
+		seen[item.UserID] = true
+		if item.Note == "affinity only" {
+			t.Fatalf("affinity leaked into global presences: %+v", item)
+		}
+	}
+	if !seen[publicAuthorID] || !seen[memberAuthorID] {
+		t.Fatalf("expected public and member presences, got %+v", memberItems)
+	}
+	for _, hiddenID := range []string{privateAuthorID, blockedAuthorID, inactiveAuthorID} {
+		if seen[hiddenID] {
+			t.Fatalf("hidden presence leaked for user %s: %+v", hiddenID, memberItems)
+		}
+	}
+
+	ownerItems, err := repo.ListVisibleDivePresencesGlobal(ctx, explorerepo.GlobalDivePresenceInput{
+		ViewerUserID: privateAuthorID,
+		SiteSlug:     siteSlug,
+		PresenceType: "planning",
+		FlexibleOnly: true,
+		Limit:        20,
+	})
+	if err != nil {
+		t.Fatalf("list owner private global presences: %v", err)
+	}
+	if len(ownerItems) != 1 || ownerItems[0].UserID != privateAuthorID || ownerItems[0].PresenceType != "planning" {
+		t.Fatalf("expected owner private flexible planning presence, got %+v", ownerItems)
+	}
+}

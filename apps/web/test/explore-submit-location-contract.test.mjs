@@ -47,6 +47,8 @@ test("explore submit flow stores map-picked location and does not expose manual 
   assert.match(dialogSource, /onClick=\{\(event\) =>/);
   assert.match(
     dialogSource,
-    /className="h-dvh max-h-none max-w-none rounded-none border-0 p-0 sm:h-dvh"/,
+    /className="flex! h-dvh w-dvw max-w-none! flex-col gap-0 overflow-hidden rounded-none border-0 p-0/,
   );
+  assert.match(dialogSource, /containerClassName="p-0 sm:p-4"/);
+  assert.match(dialogSource, /className="relative min-h-0 flex-1 bg-sky-950\/5"/);
 });

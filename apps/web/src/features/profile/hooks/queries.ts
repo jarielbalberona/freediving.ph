@@ -40,3 +40,16 @@ export const useProfileBucketListQuery = (username: string) => {
     placeholderData: keepPreviousData,
   });
 };
+
+export const useProfileDivingQuery = (username: string, enabled = true) => {
+  const session = useSession();
+  const normalizedUsername = normalizeUsername(username);
+
+  return useQuery({
+    queryKey: ["profile", "diving", normalizedUsername],
+    enabled: enabled && session.status !== "loading",
+    queryFn: () => profileApi.getProfileDiving(normalizedUsername),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+};

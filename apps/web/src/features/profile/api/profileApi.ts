@@ -1,5 +1,6 @@
 import type {
   ProfileBucketListItem,
+  ProfileDivingResponse,
   ProfilePost,
   PublicProfile,
 } from "@freediving.ph/types";
@@ -22,6 +23,12 @@ export const profileApi = {
     username: string,
   ): Promise<ProfileBucketListItem[]> {
     return profilesApi.getPublicProfileBucketListByUsername(
+      normalizeUsername(username),
+    );
+  },
+
+  async getProfileDiving(username: string): Promise<ProfileDivingResponse> {
+    return profilesApi.getPublicProfileDivingByUsername(
       normalizeUsername(username),
     );
   },

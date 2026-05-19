@@ -5,7 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 
 import ReactQueryProvider from "@/providers/react-query";
 import { cn } from "@/lib/utils";
-import { Analytics } from "@/components/analytics";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig, META_THEME_COLORS } from "@/config/site";
@@ -30,6 +30,9 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
+const googleSiteVerification =
+  process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
+
 export const metadata: Metadata = {
   title: {
     default: siteConfig.name,
@@ -37,6 +40,34 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL(siteConfig.url),
   description: siteConfig.description,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_PH",
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    title: siteConfig.name,
+    description: siteConfig.description,
+    images: [
+      {
+        url: siteConfig.ogImage,
+        alt: siteConfig.name,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.name,
+    description: siteConfig.description,
+    images: [siteConfig.ogImage],
+  },
+  verification: googleSiteVerification
+    ? {
+        google: googleSiteVerification,
+      }
+    : undefined,
 };
 
 export const viewport: Viewport = {
@@ -106,7 +137,7 @@ export default async function RootLayout({
                 </SidebarProvider>
               </TooltipProvider>
               <Toaster />
-              <Analytics />
+              <GoogleAnalytics />
             </ReactQueryProvider>
           </ThemeProvider>
         </body>

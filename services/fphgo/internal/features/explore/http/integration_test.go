@@ -30,8 +30,11 @@ type exploreServiceStub struct {
 	communityPosts   exploreservice.SiteCommunityPostsResult
 	presences        exploreservice.SiteDivePresencesResult
 	affinities       exploreservice.SiteDiveAffinitiesResult
+	reviews          exploreservice.SiteDiveReviewsResult
+	globalInput      exploreservice.GlobalDivePresencesInput
 	presenceInput    exploreservice.DivePresenceInput
 	affinityInput    exploreservice.DiveSiteAffinityInput
+	reviewInput      exploreservice.DiveSiteReviewInput
 	preview          exploreservice.SiteBuddyPreviewResult
 	intents          exploreservice.SiteBuddyIntentsResult
 	create           explorerepo.SiteUpdate
@@ -59,12 +62,33 @@ func (s *exploreServiceStub) ListCommunityPostsBySlug(context.Context, string, s
 	return s.communityPosts, s.err
 }
 
+func (s *exploreServiceStub) ListGlobalDivePresences(_ context.Context, input exploreservice.GlobalDivePresencesInput) (exploreservice.GlobalDivePresencesResult, error) {
+	s.globalInput = input
+	return exploreservice.GlobalDivePresencesResult{Items: s.presences.Items}, s.err
+}
+
+func (s *exploreServiceStub) ListMyDivePresences(context.Context, string) (exploreservice.CurrentUserDivePresencesResult, error) {
+	return exploreservice.CurrentUserDivePresencesResult{Items: s.presences.Items}, s.err
+}
+
 func (s *exploreServiceStub) ListDivePresencesBySlug(context.Context, string, string, int32) (exploreservice.SiteDivePresencesResult, error) {
 	return s.presences, s.err
 }
 
+func (s *exploreServiceStub) ListMyDiveSiteAffinities(context.Context, string) (exploreservice.CurrentUserDiveAffinitiesResult, error) {
+	items := make([]explorerepo.DiveSiteAffinity, 0, len(s.affinities.Items))
+	for _, item := range s.affinities.Items {
+		items = append(items, item.DiveSiteAffinity)
+	}
+	return exploreservice.CurrentUserDiveAffinitiesResult{Items: items}, s.err
+}
+
 func (s *exploreServiceStub) ListDiveAffinitiesBySlug(context.Context, string, string, int32) (exploreservice.SiteDiveAffinitiesResult, error) {
 	return s.affinities, s.err
+}
+
+func (s *exploreServiceStub) ListDiveReviewsBySlug(context.Context, string, string, int32) (exploreservice.SiteDiveReviewsResult, error) {
+	return s.reviews, s.err
 }
 
 func (s *exploreServiceStub) CreateDivePresence(_ context.Context, input exploreservice.DivePresenceInput) (explorerepo.DivePresence, error) {
@@ -105,6 +129,14 @@ func (s *exploreServiceStub) UpdateDiveSiteAffinity(_ context.Context, input exp
 
 func (s *exploreServiceStub) DeleteDiveSiteAffinity(context.Context, string, string, string) error {
 	return s.err
+}
+
+func (s *exploreServiceStub) CreateDiveSiteReview(_ context.Context, input exploreservice.DiveSiteReviewInput) (explorerepo.DiveSiteReview, error) {
+	s.reviewInput = input
+	if s.err != nil {
+		return explorerepo.DiveSiteReview{}, s.err
+	}
+	return explorerepo.DiveSiteReview{ID: "550e8400-e29b-41d4-a716-446655441003", UserID: input.ActorID, DiveSiteID: "550e8400-e29b-41d4-a716-446655440101", Rating: input.Rating, Comment: stringValue(input.Comment), Visibility: input.Visibility, Status: "active", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}, nil
 }
 
 func (s *exploreServiceStub) CreateSiteSubmission(_ context.Context, input exploreservice.CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error) {
@@ -240,6 +272,8 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 				AvailableBuddies: 1,
 				LocalRegulars:    1,
 				CommunityPosts:   1,
+				Reviews:          1,
+				AverageRating:    5,
 				RecentConditions: 1,
 			},
 			Previews: exploreservice.SiteRelatedPreviews{
@@ -292,7 +326,41 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 					Metadata:     map[string]any{"diveSiteSlug": "twin-rocks-anilao", "diveSiteName": "Twin Rocks"},
 					Href:         "/explore/sites/twin-rocks-anilao",
 				}},
+				Reviews: []explorerepo.VisibleDiveSiteReview{{
+					DiveSiteReview: explorerepo.DiveSiteReview{
+						ID:         "550e8400-e29b-41d4-a716-446655440321",
+						UserID:     "550e8400-e29b-41d4-a716-446655440322",
+						DiveSiteID: "550e8400-e29b-41d4-a716-446655440101",
+						Rating:     5,
+						Comment:    "Clear morning and easy entry.",
+						Visibility: "public",
+						Status:     "active",
+						CreatedAt:  time.Now().UTC(),
+						UpdatedAt:  time.Now().UTC(),
+					},
+					Username:    "review_diver",
+					DisplayName: "Review Diver",
+				}},
 			},
+		},
+		reviews: exploreservice.SiteDiveReviewsResult{
+			Items: []explorerepo.VisibleDiveSiteReview{{
+				DiveSiteReview: explorerepo.DiveSiteReview{
+					ID:         "550e8400-e29b-41d4-a716-446655440321",
+					UserID:     "550e8400-e29b-41d4-a716-446655440322",
+					DiveSiteID: "550e8400-e29b-41d4-a716-446655440101",
+					Rating:     5,
+					Comment:    "Clear morning and easy entry.",
+					Visibility: "public",
+					Status:     "active",
+					CreatedAt:  time.Now().UTC(),
+					UpdatedAt:  time.Now().UTC(),
+				},
+				Username:    "review_diver",
+				DisplayName: "Review Diver",
+			}},
+			AverageRating: 5,
+			ReviewCount:   1,
 		},
 		communityPosts: exploreservice.SiteCommunityPostsResult{
 			Items: []feedservice.ActivityItem{{
@@ -364,7 +432,7 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	if err := json.Unmarshal(relatedRec.Body.Bytes(), &relatedBody); err != nil {
 		t.Fatalf("decode related response: %v", err)
 	}
-	if relatedBody.Counts.AvailableBuddies != 1 || relatedBody.Counts.LocalRegulars != 1 || relatedBody.Counts.CommunityPosts != 1 || relatedBody.Counts.RecentConditions != 1 {
+	if relatedBody.Counts.AvailableBuddies != 1 || relatedBody.Counts.LocalRegulars != 1 || relatedBody.Counts.CommunityPosts != 1 || relatedBody.Counts.Reviews != 1 || relatedBody.Counts.AverageRating != 5 || relatedBody.Counts.RecentConditions != 1 {
 		t.Fatalf("unexpected related counts: %+v", relatedBody.Counts)
 	}
 	if got := relatedBody.Previews.AvailableBuddies[0].PresenceType; got != "training" {
@@ -375,6 +443,23 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	}
 	if got := relatedBody.Previews.CommunityPosts[0].Type; got != "media_post_created" {
 		t.Fatalf("expected media post activity preview, got %q", got)
+	}
+	if got := relatedBody.Previews.Reviews[0].Rating; got != 5 {
+		t.Fatalf("expected review preview, got %d", got)
+	}
+
+	reviewsReq := httptest.NewRequest(http.MethodGet, "/sites/twin-rocks-anilao/reviews", nil)
+	reviewsRec := httptest.NewRecorder()
+	r.ServeHTTP(reviewsRec, reviewsReq)
+	if reviewsRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for public reviews, got %d", reviewsRec.Code)
+	}
+	var reviewsBody DiveSiteReviewListResponse
+	if err := json.Unmarshal(reviewsRec.Body.Bytes(), &reviewsBody); err != nil {
+		t.Fatalf("decode reviews response: %v", err)
+	}
+	if reviewsBody.ReviewCount != 1 || reviewsBody.AverageRating != 5 || reviewsBody.Items[0].Comment != "Clear morning and easy entry." {
+		t.Fatalf("unexpected reviews body: %+v", reviewsBody)
 	}
 
 	communityReq := httptest.NewRequest(http.MethodGet, "/sites/twin-rocks-anilao/community-posts", nil)
@@ -458,6 +543,136 @@ func TestExploreRelatedRoutesReturnNotFoundForInvalidSlug(t *testing.T) {
 				t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
 			}
 		})
+	}
+}
+
+func TestExploreGlobalDivePresencesRouteParsesFiltersAndReturnsSiteData(t *testing.T) {
+	startAt := time.Date(2026, 5, 20, 2, 0, 0, 0, time.UTC)
+	endAt := startAt.Add(2 * time.Hour)
+	svc := &exploreServiceStub{
+		presences: exploreservice.SiteDivePresencesResult{
+			Items: []explorerepo.VisibleDivePresence{{
+				DivePresence: explorerepo.DivePresence{
+					ID:             "550e8400-e29b-41d4-a716-446655442001",
+					UserID:         "550e8400-e29b-41d4-a716-446655442101",
+					DiveSiteID:     "550e8400-e29b-41d4-a716-446655440101",
+					PresenceType:   "available",
+					StartAt:        &startAt,
+					EndAt:          &endAt,
+					Visibility:     "public",
+					ContactEnabled: true,
+					Status:         "active",
+					CreatedAt:      time.Now().UTC(),
+					UpdatedAt:      time.Now().UTC(),
+				},
+				Username:       "global_buddy",
+				DisplayName:    "Global Buddy",
+				DiveSiteSlug:   "napaling-reef",
+				DiveSiteName:   "Napaling Reef",
+				DiveSiteArea:   "Panglao, Bohol",
+				ContactAllowed: true,
+			}},
+		},
+	}
+	r := buildExploreRouter(t, svc, authz.Identity{})
+
+	req := httptest.NewRequest(http.MethodGet, "/presences?siteSlug=napaling-reef&province=Bohol&presenceType=available&dateFrom=2026-05-20T00:00:00Z&dateTo=2026-05-21T00:00:00Z&limit=5", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for global presences, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if svc.globalInput.SiteSlug != "napaling-reef" || svc.globalInput.Area != "Bohol" || svc.globalInput.PresenceType != "available" || svc.globalInput.Limit != 5 {
+		t.Fatalf("expected filters to reach service, got %+v", svc.globalInput)
+	}
+	var body DivePresenceListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(body.Items) != 1 || body.Items[0].DiveSiteSlug != "napaling-reef" || body.Items[0].DisplayName != "Global Buddy" {
+		t.Fatalf("expected site-backed global presence, got %+v", body.Items)
+	}
+}
+
+func TestExploreCurrentUserPresenceAndAffinityRoutesRequireMemberAndReturnItems(t *testing.T) {
+	guestRouter := buildExploreRouter(t, &exploreServiceStub{}, authz.Identity{})
+	for _, path := range []string{"/me/dive-presences", "/me/dive-site-affinities"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		guestRouter.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 for guest %s, got %d", path, rec.Code)
+		}
+	}
+
+	svc := &exploreServiceStub{
+		presences: exploreservice.SiteDivePresencesResult{
+			Items: []explorerepo.VisibleDivePresence{{
+				DivePresence: explorerepo.DivePresence{
+					ID:           "550e8400-e29b-41d4-a716-446655442011",
+					UserID:       "550e8400-e29b-41d4-a716-446655440000",
+					DiveSiteID:   "550e8400-e29b-41d4-a716-446655440101",
+					PresenceType: "training",
+					Visibility:   "private",
+					Status:       "active",
+					CreatedAt:    time.Now().UTC(),
+					UpdatedAt:    time.Now().UTC(),
+				},
+				DiveSiteSlug: "apo-island",
+				DiveSiteName: "Apo Island",
+			}},
+		},
+		affinities: exploreservice.SiteDiveAffinitiesResult{
+			Items: []explorerepo.VisibleDiveSiteAffinity{{
+				DiveSiteAffinity: explorerepo.DiveSiteAffinity{
+					ID:           "550e8400-e29b-41d4-a716-446655442012",
+					UserID:       "550e8400-e29b-41d4-a716-446655440000",
+					DiveSiteID:   "550e8400-e29b-41d4-a716-446655440101",
+					Relationship: "regular",
+					Visibility:   "members",
+					CreatedAt:    time.Now().UTC(),
+					UpdatedAt:    time.Now().UTC(),
+					DiveSiteSlug: "apo-island",
+					DiveSiteName: "Apo Island",
+				},
+			}},
+		},
+	}
+	memberRouter := buildExploreRouter(t, svc, authz.Identity{
+		UserID:        "550e8400-e29b-41d4-a716-446655440000",
+		GlobalRole:    "member",
+		AccountStatus: "active",
+		Permissions: map[authz.Permission]bool{
+			authz.PermissionExploreSubmit: true,
+		},
+	})
+
+	presenceReq := httptest.NewRequest(http.MethodGet, "/me/dive-presences", nil)
+	presenceRec := httptest.NewRecorder()
+	memberRouter.ServeHTTP(presenceRec, presenceReq)
+	if presenceRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for current user presences, got %d: %s", presenceRec.Code, presenceRec.Body.String())
+	}
+	var presenceBody DivePresenceListResponse
+	if err := json.Unmarshal(presenceRec.Body.Bytes(), &presenceBody); err != nil {
+		t.Fatalf("decode presence response: %v", err)
+	}
+	if len(presenceBody.Items) != 1 || presenceBody.Items[0].PresenceType != "training" || presenceBody.Items[0].DiveSiteSlug != "apo-island" {
+		t.Fatalf("expected current user presence with site data, got %+v", presenceBody.Items)
+	}
+
+	affinityReq := httptest.NewRequest(http.MethodGet, "/me/dive-site-affinities", nil)
+	affinityRec := httptest.NewRecorder()
+	memberRouter.ServeHTTP(affinityRec, affinityReq)
+	if affinityRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for current user affinities, got %d: %s", affinityRec.Code, affinityRec.Body.String())
+	}
+	var affinityBody DiveSiteAffinityListResponse
+	if err := json.Unmarshal(affinityRec.Body.Bytes(), &affinityBody); err != nil {
+		t.Fatalf("decode affinity response: %v", err)
+	}
+	if len(affinityBody.Items) != 1 || affinityBody.Items[0].Relationship != "regular" || affinityBody.Items[0].DiveSiteSlug != "apo-island" {
+		t.Fatalf("expected current user affinity with site data, got %+v", affinityBody.Items)
 	}
 }
 
@@ -809,5 +1024,12 @@ func buildExploreRouter(t *testing.T, svc *exploreServiceStub, identity authz.Id
 }
 
 func stringPtr(value string) *string { return &value }
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
 
 func float64Ptr(value float64) *float64 { return &value }

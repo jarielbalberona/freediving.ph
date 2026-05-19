@@ -90,3 +90,23 @@ services:
         sync: false
       - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
         sync: false
+      - key: NEXT_PUBLIC_GTM_ID
+        sync: false
+      - key: NEXT_PUBLIC_GA_MEASUREMENT_ID
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+        sync: false
+      - key: NEXT_PUBLIC_SENTRY_DSN
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - key: SENTRY_RELEASE
+        sync: false
+      - key: SENTRY_ORG
+        sync: false
+      - key: SENTRY_PROJECT
+        sync: false
+      - key: SENTRY_AUTH_TOKEN
+        sync: false

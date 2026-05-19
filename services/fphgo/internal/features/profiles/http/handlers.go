@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -26,6 +27,7 @@ type profileService interface {
 	GetPublicProfileByUsername(ctx context.Context, username string) (profilesservice.PublicProfile, error)
 	ListPublicProfilePostsByUsername(ctx context.Context, username string, limit int32) ([]profilesservice.PublicProfilePost, error)
 	ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]profilesservice.ProfileBucketListItem, error)
+	GetProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (profilesservice.ProfileDiving, error)
 }
 
 func New(service profileService, validator httpx.Validator) *Handlers {
@@ -268,12 +270,75 @@ func (h *Handlers) ListProfileBucketListByUsername(w http.ResponseWriter, r *htt
 	httpx.JSON(w, http.StatusOK, ProfileBucketListResponse{Items: bucket})
 }
 
+func (h *Handlers) GetProfileDivingByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	viewerID := ""
+	if identity, ok := middleware.CurrentIdentity(r.Context()); ok {
+		viewerID = identity.UserID
+	}
+
+	result, err := h.service.GetProfileDivingByUsername(r.Context(), username, viewerID)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+
+	presences := make([]ProfileDivePresence, 0, len(result.Presences))
+	for _, item := range result.Presences {
+		presences = append(presences, ProfileDivePresence{
+			ID:               item.ID,
+			DiveSiteID:       item.DiveSiteID,
+			DiveSiteSlug:     item.DiveSiteSlug,
+			DiveSiteName:     item.DiveSiteName,
+			DiveSiteArea:     item.DiveSiteArea,
+			PresenceType:     item.PresenceType,
+			StartAt:          formatOptionalTime(item.StartAt),
+			EndAt:            formatOptionalTime(item.EndAt),
+			Visibility:       item.Visibility,
+			ContactEnabled:   item.ContactEnabled,
+			ViewerCanContact: item.ViewerCanContact,
+			Note:             item.Note,
+			CreatedAt:        item.CreatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+
+	affinities := make([]ProfileDiveSiteAffinity, 0, len(result.Affinities))
+	for _, item := range result.Affinities {
+		affinities = append(affinities, ProfileDiveSiteAffinity{
+			ID:               item.ID,
+			DiveSiteID:       item.DiveSiteID,
+			DiveSiteSlug:     item.DiveSiteSlug,
+			DiveSiteName:     item.DiveSiteName,
+			DiveSiteArea:     item.DiveSiteArea,
+			Relationship:     item.Relationship,
+			Visibility:       item.Visibility,
+			ContactEnabled:   item.ContactEnabled,
+			ViewerCanContact: item.ViewerCanContact,
+			Note:             item.Note,
+			CreatedAt:        item.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:        item.UpdatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+
+	httpx.JSON(w, http.StatusOK, ProfileDivingResponse{
+		Presences:  presences,
+		Affinities: affinities,
+	})
+}
+
 func requireActorID(r *http.Request) (string, error) {
 	identity, ok := middleware.CurrentIdentity(r.Context())
 	if !ok || identity.UserID == "" {
 		return "", apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
 	}
 	return identity.UserID, nil
+}
+
+func formatOptionalTime(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
 }
 
 func profileToDTO(input profilesservice.Profile) Profile {

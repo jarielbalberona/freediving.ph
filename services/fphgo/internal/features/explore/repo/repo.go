@@ -114,7 +114,21 @@ type VisibleDivePresence struct {
 	Username       string
 	DisplayName    string
 	AvatarURL      string
+	DiveSiteSlug   string
+	DiveSiteName   string
+	DiveSiteArea   string
 	ContactAllowed bool
+}
+
+type GlobalDivePresenceInput struct {
+	ViewerUserID string
+	SiteSlug     string
+	Area         string
+	PresenceType string
+	FlexibleOnly bool
+	DateFrom     time.Time
+	DateTo       time.Time
+	Limit        int32
 }
 
 type CreateDivePresenceInput struct {
@@ -138,6 +152,9 @@ type DiveSiteAffinity struct {
 	Note           string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	DiveSiteSlug   string
+	DiveSiteName   string
+	DiveSiteArea   string
 }
 
 type VisibleDiveSiteAffinity struct {
@@ -146,6 +163,38 @@ type VisibleDiveSiteAffinity struct {
 	DisplayName    string
 	AvatarURL      string
 	ContactAllowed bool
+}
+
+type DiveSiteReview struct {
+	ID         string
+	DiveSiteID string
+	UserID     string
+	Rating     int32
+	Comment    string
+	Visibility string
+	Status     string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type VisibleDiveSiteReview struct {
+	DiveSiteReview
+	Username    string
+	DisplayName string
+	AvatarURL   string
+}
+
+type DiveSiteReviewSummary struct {
+	AverageRating float64
+	ReviewCount   int64
+}
+
+type UpsertDiveSiteReviewInput struct {
+	UserID     string
+	DiveSiteID string
+	Rating     int32
+	Comment    *string
+	Visibility string
 }
 
 type UpsertDiveSiteAffinityInput struct {
@@ -723,14 +772,40 @@ func (r *Repo) CountActiveDivePresencesByUser(ctx context.Context, userID string
 	return r.queries.CountActiveDivePresencesByUser(ctx, toUUID(userID))
 }
 
-func (r *Repo) ListCurrentUserDivePresences(ctx context.Context, userID string) ([]DivePresence, error) {
-	rows, err := r.queries.ListCurrentUserDivePresences(ctx, toUUID(userID))
+func (r *Repo) ListCurrentUserDivePresences(ctx context.Context, userID string) ([]VisibleDivePresence, error) {
+	rows, err := r.queries.ListCurrentUserDivePresences(ctx, exploreqlc.ListCurrentUserDivePresencesParams{
+		UserID:    toUUID(userID),
+		LimitRows: 50,
+	})
 	if err != nil {
 		return nil, err
 	}
-	items := make([]DivePresence, 0, len(rows))
+	items := make([]VisibleDivePresence, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, mapDivePresence(row))
+		items = append(items, mapCurrentUserDivePresence(row))
+	}
+	return items, nil
+}
+
+func (r *Repo) ListVisibleDivePresencesGlobal(ctx context.Context, input GlobalDivePresenceInput) ([]VisibleDivePresence, error) {
+	rows, err := r.queries.ListVisibleDivePresencesGlobal(ctx, exploreqlc.ListVisibleDivePresencesGlobalParams{
+		ViewerUserID:       toUUID(input.ViewerUserID),
+		SiteSlug:           input.SiteSlug,
+		AreaFilter:         input.Area,
+		PresenceTypeFilter: input.PresenceType,
+		FlexibleOnly:       input.FlexibleOnly,
+		HasDateFrom:        !input.DateFrom.IsZero(),
+		HasDateTo:          !input.DateTo.IsZero(),
+		DateFrom:           timestamptz(input.DateFrom),
+		DateTo:             timestamptz(input.DateTo),
+		LimitRows:          input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]VisibleDivePresence, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapGlobalDivePresence(row))
 	}
 	return items, nil
 }
@@ -798,13 +873,16 @@ func (r *Repo) DeleteDiveSiteAffinityByOwner(ctx context.Context, affinityID, us
 }
 
 func (r *Repo) ListCurrentUserDiveSiteAffinities(ctx context.Context, userID string) ([]DiveSiteAffinity, error) {
-	rows, err := r.queries.ListCurrentUserDiveSiteAffinities(ctx, toUUID(userID))
+	rows, err := r.queries.ListCurrentUserDiveSiteAffinities(ctx, exploreqlc.ListCurrentUserDiveSiteAffinitiesParams{
+		UserID:    toUUID(userID),
+		LimitRows: 100,
+	})
 	if err != nil {
 		return nil, err
 	}
 	items := make([]DiveSiteAffinity, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, mapDiveSiteAffinity(row))
+		items = append(items, mapCurrentUserDiveSiteAffinity(row))
 	}
 	return items, nil
 }
@@ -830,6 +908,54 @@ func (r *Repo) CountVisibleDiveSiteAffinitiesBySite(ctx context.Context, viewerU
 		ViewerUserID: toUUID(viewerUserID),
 		DiveSiteID:   toUUID(siteID),
 	})
+}
+
+func (r *Repo) UpsertDiveSiteReview(ctx context.Context, input UpsertDiveSiteReviewInput) (DiveSiteReview, error) {
+	row, err := r.queries.UpsertDiveSiteReview(ctx, exploreqlc.UpsertDiveSiteReviewParams{
+		DiveSiteID: toUUID(input.DiveSiteID),
+		UserID:     toUUID(input.UserID),
+		Rating:     input.Rating,
+		Comment:    input.Comment,
+		Visibility: input.Visibility,
+	})
+	if err != nil {
+		return DiveSiteReview{}, err
+	}
+	return mapDiveSiteReview(row), nil
+}
+
+func (r *Repo) ListVisibleDiveSiteReviewsBySite(ctx context.Context, viewerUserID, siteID string, limit int32) ([]VisibleDiveSiteReview, error) {
+	rows, err := r.queries.ListVisibleDiveSiteReviewsBySite(ctx, exploreqlc.ListVisibleDiveSiteReviewsBySiteParams{
+		ViewerUserID: toUUID(viewerUserID),
+		DiveSiteID:   toUUID(siteID),
+		LimitRows:    limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]VisibleDiveSiteReview, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapVisibleDiveSiteReview(row))
+	}
+	return items, nil
+}
+
+func (r *Repo) CountVisibleDiveSiteReviewsBySite(ctx context.Context, viewerUserID, siteID string) (int64, error) {
+	return r.queries.CountVisibleDiveSiteReviewsBySite(ctx, exploreqlc.CountVisibleDiveSiteReviewsBySiteParams{
+		ViewerUserID: toUUID(viewerUserID),
+		DiveSiteID:   toUUID(siteID),
+	})
+}
+
+func (r *Repo) GetVisibleDiveSiteReviewSummaryBySite(ctx context.Context, viewerUserID, siteID string) (DiveSiteReviewSummary, error) {
+	row, err := r.queries.GetVisibleDiveSiteReviewSummaryBySite(ctx, exploreqlc.GetVisibleDiveSiteReviewSummaryBySiteParams{
+		ViewerUserID: toUUID(viewerUserID),
+		DiveSiteID:   toUUID(siteID),
+	})
+	if err != nil {
+		return DiveSiteReviewSummary{}, err
+	}
+	return DiveSiteReviewSummary{AverageRating: row.AverageRating, ReviewCount: row.ReviewCount}, nil
 }
 
 func IsNoRows(err error) bool {
@@ -967,6 +1093,54 @@ func mapVisibleDivePresence(row exploreqlc.ListVisibleDivePresencesBySiteRow) Vi
 	}
 }
 
+func mapCurrentUserDivePresence(row exploreqlc.ListCurrentUserDivePresencesRow) VisibleDivePresence {
+	return VisibleDivePresence{
+		DivePresence: DivePresence{
+			ID:             uuidOrEmpty(row.ID),
+			UserID:         uuidOrEmpty(row.UserID),
+			DiveSiteID:     uuidOrEmpty(row.DiveSiteID),
+			PresenceType:   row.PresenceType,
+			StartAt:        timestamptzPtr(row.StartAt),
+			EndAt:          timestamptzPtr(row.EndAt),
+			Visibility:     row.Visibility,
+			ContactEnabled: row.ContactEnabled,
+			Note:           stringOrEmpty(row.Note),
+			Status:         row.Status,
+			CreatedAt:      row.CreatedAt.Time.UTC(),
+			UpdatedAt:      row.UpdatedAt.Time.UTC(),
+		},
+		DiveSiteSlug: row.DiveSiteSlug,
+		DiveSiteName: row.DiveSiteName,
+		DiveSiteArea: row.DiveSiteArea,
+	}
+}
+
+func mapGlobalDivePresence(row exploreqlc.ListVisibleDivePresencesGlobalRow) VisibleDivePresence {
+	return VisibleDivePresence{
+		DivePresence: DivePresence{
+			ID:             uuidOrEmpty(row.ID),
+			UserID:         uuidOrEmpty(row.UserID),
+			DiveSiteID:     uuidOrEmpty(row.DiveSiteID),
+			PresenceType:   row.PresenceType,
+			StartAt:        timestamptzPtr(row.StartAt),
+			EndAt:          timestamptzPtr(row.EndAt),
+			Visibility:     row.Visibility,
+			ContactEnabled: row.ContactEnabled,
+			Note:           stringOrEmpty(row.Note),
+			Status:         row.Status,
+			CreatedAt:      row.CreatedAt.Time.UTC(),
+			UpdatedAt:      row.UpdatedAt.Time.UTC(),
+		},
+		Username:       row.Username,
+		DisplayName:    row.DisplayName,
+		AvatarURL:      row.AvatarUrl,
+		DiveSiteSlug:   row.DiveSiteSlug,
+		DiveSiteName:   row.DiveSiteName,
+		DiveSiteArea:   row.DiveSiteArea,
+		ContactAllowed: row.ContactAllowed,
+	}
+}
+
 func mapDiveSiteAffinity(row exploreqlc.UserDiveSiteAffinity) DiveSiteAffinity {
 	return DiveSiteAffinity{
 		ID:             uuidOrEmpty(row.ID),
@@ -978,6 +1152,23 @@ func mapDiveSiteAffinity(row exploreqlc.UserDiveSiteAffinity) DiveSiteAffinity {
 		Note:           stringOrEmpty(row.Note),
 		CreatedAt:      row.CreatedAt.Time.UTC(),
 		UpdatedAt:      row.UpdatedAt.Time.UTC(),
+	}
+}
+
+func mapCurrentUserDiveSiteAffinity(row exploreqlc.ListCurrentUserDiveSiteAffinitiesRow) DiveSiteAffinity {
+	return DiveSiteAffinity{
+		ID:             uuidOrEmpty(row.ID),
+		UserID:         uuidOrEmpty(row.UserID),
+		DiveSiteID:     uuidOrEmpty(row.DiveSiteID),
+		Relationship:   row.Relationship,
+		Visibility:     row.Visibility,
+		ContactEnabled: row.ContactEnabled,
+		Note:           stringOrEmpty(row.Note),
+		CreatedAt:      row.CreatedAt.Time.UTC(),
+		UpdatedAt:      row.UpdatedAt.Time.UTC(),
+		DiveSiteSlug:   row.DiveSiteSlug,
+		DiveSiteName:   row.DiveSiteName,
+		DiveSiteArea:   row.DiveSiteArea,
 	}
 }
 
@@ -998,6 +1189,39 @@ func mapVisibleDiveSiteAffinity(row exploreqlc.ListVisibleDiveSiteAffinitiesBySi
 		DisplayName:    row.DisplayName,
 		AvatarURL:      row.AvatarUrl,
 		ContactAllowed: row.ContactAllowed,
+	}
+}
+
+func mapDiveSiteReview(row exploreqlc.DiveSiteReview) DiveSiteReview {
+	return DiveSiteReview{
+		ID:         uuidOrEmpty(row.ID),
+		DiveSiteID: uuidOrEmpty(row.DiveSiteID),
+		UserID:     uuidOrEmpty(row.UserID),
+		Rating:     row.Rating,
+		Comment:    stringOrEmpty(row.Comment),
+		Visibility: row.Visibility,
+		Status:     row.Status,
+		CreatedAt:  row.CreatedAt.Time.UTC(),
+		UpdatedAt:  row.UpdatedAt.Time.UTC(),
+	}
+}
+
+func mapVisibleDiveSiteReview(row exploreqlc.ListVisibleDiveSiteReviewsBySiteRow) VisibleDiveSiteReview {
+	return VisibleDiveSiteReview{
+		DiveSiteReview: DiveSiteReview{
+			ID:         uuidOrEmpty(row.ID),
+			DiveSiteID: uuidOrEmpty(row.DiveSiteID),
+			UserID:     uuidOrEmpty(row.UserID),
+			Rating:     row.Rating,
+			Comment:    stringOrEmpty(row.Comment),
+			Visibility: row.Visibility,
+			Status:     row.Status,
+			CreatedAt:  row.CreatedAt.Time.UTC(),
+			UpdatedAt:  row.UpdatedAt.Time.UTC(),
+		},
+		Username:    row.Username,
+		DisplayName: row.DisplayName,
+		AvatarURL:   row.AvatarUrl,
 	}
 }
 

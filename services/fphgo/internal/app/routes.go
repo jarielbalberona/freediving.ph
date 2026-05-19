@@ -117,6 +117,9 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		if deps.UsersHandler != nil {
 			r.Get("/profiles/{username}", deps.UsersHandler.GetProfileByUsername)
 		}
+		if deps.ProfilesHandler != nil {
+			r.Get("/v1/profiles/{username}/diving", deps.ProfilesHandler.GetProfileDivingByUsername)
+		}
 		if exploreRouter := resolveExploreRouter(deps); exploreRouter != nil {
 			r.Mount("/v1/explore", exploreRouter)
 		}

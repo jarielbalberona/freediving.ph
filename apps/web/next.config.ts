@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   images: {
@@ -38,4 +39,26 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["sharp"],
 };
 
-export default nextConfig;
+const hasSentrySourceMapUpload =
+  Boolean(process.env.SENTRY_AUTH_TOKEN) &&
+  Boolean(process.env.SENTRY_ORG) &&
+  Boolean(process.env.SENTRY_PROJECT);
+
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  telemetry: false,
+  sourcemaps: {
+    disable: !hasSentrySourceMapUpload,
+    deleteSourcemapsAfterUpload: true,
+  },
+  release: {
+    name: process.env.SENTRY_RELEASE,
+    create: hasSentrySourceMapUpload,
+  },
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+  },
+});

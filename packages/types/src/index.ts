@@ -1278,6 +1278,8 @@ export type ExploreSiteRelatedCounts = {
   availableBuddyCount: number;
   localRegularCount: number;
   communityPostCount: number;
+  reviewCount?: number;
+  averageRating?: number;
   communityPosts: number;
   recentConditions: number;
 };
@@ -1287,6 +1289,7 @@ export type ExploreSiteRelatedPreviews = {
   availableBuddies: DivePresenceItem[];
   localRegulars: DiveSiteAffinityItem[];
   communityPosts: ActivityFeedItem[];
+  reviews?: DiveSiteReviewItem[];
 };
 
 export type ExploreSiteRelatedResponse = {
@@ -1312,6 +1315,9 @@ export type DivePresenceItem = {
   id: string;
   userId: string;
   diveSiteId: string;
+  diveSiteSlug?: string;
+  diveSiteName?: string;
+  diveSiteArea?: string;
   username?: string;
   displayName?: string;
   avatarUrl?: string;
@@ -1356,6 +1362,9 @@ export type DiveSiteAffinityItem = {
   id: string;
   userId: string;
   diveSiteId: string;
+  diveSiteSlug?: string;
+  diveSiteName?: string;
+  diveSiteArea?: string;
   username?: string;
   displayName?: string;
   avatarUrl?: string;
@@ -1381,6 +1390,37 @@ export type CreateDiveSiteAffinityRequest = {
   visibility: DivePresenceVisibility;
   contactEnabled: boolean;
   note?: string;
+};
+
+export type DiveSiteReviewItem = {
+  id: string;
+  userId: string;
+  diveSiteId: string;
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  rating: number;
+  comment?: string;
+  visibility: DivePresenceVisibility;
+  status: "active" | "hidden" | "deleted";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DiveSiteReviewListResponse = {
+  items: DiveSiteReviewItem[];
+  averageRating: number;
+  reviewCount: number;
+};
+
+export type DiveSiteReviewResponse = {
+  review: DiveSiteReviewItem;
+};
+
+export type CreateDiveSiteReviewRequest = {
+  rating: number;
+  comment?: string;
+  visibility: DivePresenceVisibility;
 };
 
 export type ExploreLatestUpdate = {

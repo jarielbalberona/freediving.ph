@@ -34,14 +34,19 @@ type exploreService interface {
 	GetSiteBySlug(ctx context.Context, viewerID, slug, updatesCursor string, updatesLimit int32) (exploreservice.SiteDetailResult, error)
 	GetRelatedBySlug(ctx context.Context, viewerID, slug string) (exploreservice.SiteRelatedResult, error)
 	ListCommunityPostsBySlug(ctx context.Context, viewerID, slug, cursor string, limit int32) (exploreservice.SiteCommunityPostsResult, error)
+	ListGlobalDivePresences(ctx context.Context, input exploreservice.GlobalDivePresencesInput) (exploreservice.GlobalDivePresencesResult, error)
+	ListMyDivePresences(ctx context.Context, actorID string) (exploreservice.CurrentUserDivePresencesResult, error)
 	ListDivePresencesBySlug(ctx context.Context, viewerID, slug string, limit int32) (exploreservice.SiteDivePresencesResult, error)
+	ListMyDiveSiteAffinities(ctx context.Context, actorID string) (exploreservice.CurrentUserDiveAffinitiesResult, error)
 	ListDiveAffinitiesBySlug(ctx context.Context, viewerID, slug string, limit int32) (exploreservice.SiteDiveAffinitiesResult, error)
+	ListDiveReviewsBySlug(ctx context.Context, viewerID, slug string, limit int32) (exploreservice.SiteDiveReviewsResult, error)
 	CreateDivePresence(ctx context.Context, input exploreservice.DivePresenceInput) (explorerepo.DivePresence, error)
 	UpdateDivePresence(ctx context.Context, input exploreservice.DivePresenceInput) (explorerepo.DivePresence, error)
 	CancelDivePresence(ctx context.Context, actorID, slug, presenceID string) error
 	CreateDiveSiteAffinity(ctx context.Context, input exploreservice.DiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error)
 	UpdateDiveSiteAffinity(ctx context.Context, input exploreservice.DiveSiteAffinityInput) (explorerepo.DiveSiteAffinity, error)
 	DeleteDiveSiteAffinity(ctx context.Context, actorID, slug, affinityID string) error
+	CreateDiveSiteReview(ctx context.Context, input exploreservice.DiveSiteReviewInput) (explorerepo.DiveSiteReview, error)
 	CreateSiteSubmission(ctx context.Context, input exploreservice.CreateSiteSubmissionInput) (explorerepo.SiteSubmission, error)
 	ListMySiteSubmissions(ctx context.Context, input exploreservice.SubmissionListInput) (exploreservice.SubmissionListResult, error)
 	GetMySiteSubmissionByID(ctx context.Context, actorID, submissionID string) (explorerepo.SiteSubmission, error)
@@ -125,6 +130,30 @@ func parseOptionalBoolQuery(r *http.Request, name string) (bool, []validatex.Iss
 		Code:    "invalid_enum",
 		Message: name + " must be true or false",
 	}}
+}
+
+func parseOptionalQueryTime(w http.ResponseWriter, r *http.Request, name string) (time.Time, bool) {
+	raw := strings.TrimSpace(r.URL.Query().Get(name))
+	if raw == "" {
+		return time.Time{}, true
+	}
+	if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+		return parsed.UTC(), true
+	}
+	if parsed, err := time.Parse("2006-01-02", raw); err == nil {
+		return parsed.UTC(), true
+	}
+	httpx.WriteValidationError(w, anyIssue(name, "invalid_datetime", name+" must be an RFC3339 datetime or YYYY-MM-DD date"))
+	return time.Time{}, false
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func parseListSitesBounds(r *http.Request) (*exploreservice.MapBounds, []validatex.Issue) {
@@ -211,6 +240,8 @@ func (h *Handlers) GetRelatedBySlug(w http.ResponseWriter, r *http.Request) {
 			AvailableBuddies:    result.Counts.AvailableBuddies,
 			LocalRegulars:       result.Counts.LocalRegulars,
 			CommunityPosts:      result.Counts.CommunityPosts,
+			Reviews:             result.Counts.Reviews,
+			AverageRating:       result.Counts.AverageRating,
 			LegacyCommunityPost: result.Counts.CommunityPosts,
 			RecentConditions:    result.Counts.RecentConditions,
 		},
@@ -219,6 +250,7 @@ func (h *Handlers) GetRelatedBySlug(w http.ResponseWriter, r *http.Request) {
 			AvailableBuddies: mapVisibleDivePresences(result.Previews.AvailableBuddies),
 			LocalRegulars:    mapVisibleDiveSiteAffinities(result.Previews.LocalRegulars),
 			CommunityPosts:   mapActivityFeedItems(result.Previews.CommunityPosts),
+			Reviews:          mapVisibleDiveSiteReviews(result.Previews.Reviews),
 		},
 		SourceBreakdown: SiteBuddySourceBreakdown{
 			SiteLinkedCount:   int(result.Counts.AvailableBuddies),
@@ -264,6 +296,56 @@ func (h *Handlers) ListDivePresencesBySlug(w http.ResponseWriter, r *http.Reques
 	httpx.JSON(w, http.StatusOK, DivePresenceListResponse{Items: mapVisibleDivePresences(result.Items)})
 }
 
+func (h *Handlers) ListGlobalDivePresences(w http.ResponseWriter, r *http.Request) {
+	limit, err := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if err != nil {
+		httpx.WriteValidationError(w, anyIssue("limit", "custom", "limit must be a positive integer"))
+		return
+	}
+	dateFrom, dateFromOK := parseOptionalQueryTime(w, r, "dateFrom")
+	if !dateFromOK {
+		return
+	}
+	dateTo, dateToOK := parseOptionalQueryTime(w, r, "dateTo")
+	if !dateToOK {
+		return
+	}
+	flexibleOnly, flexibleIssues := parseOptionalBoolQuery(r, "flexible")
+	if len(flexibleIssues) > 0 {
+		httpx.WriteValidationError(w, flexibleIssues)
+		return
+	}
+	result, svcErr := h.service.ListGlobalDivePresences(r.Context(), exploreservice.GlobalDivePresencesInput{
+		ViewerID:     actorIDIfPresent(r),
+		SiteSlug:     r.URL.Query().Get("siteSlug"),
+		Area:         firstNonEmpty(r.URL.Query().Get("area"), r.URL.Query().Get("province")),
+		PresenceType: r.URL.Query().Get("presenceType"),
+		FlexibleOnly: flexibleOnly,
+		DateFrom:     dateFrom,
+		DateTo:       dateTo,
+		Limit:        limit,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, DivePresenceListResponse{Items: mapVisibleDivePresences(result.Items)})
+}
+
+func (h *Handlers) ListMyDivePresences(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	result, svcErr := h.service.ListMyDivePresences(r.Context(), actorID)
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, DivePresenceListResponse{Items: mapVisibleDivePresences(result.Items)})
+}
+
 func (h *Handlers) ListDiveAffinitiesBySlug(w http.ResponseWriter, r *http.Request) {
 	limit, err := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
 	if err != nil {
@@ -276,6 +358,38 @@ func (h *Handlers) ListDiveAffinitiesBySlug(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	httpx.JSON(w, http.StatusOK, DiveSiteAffinityListResponse{Items: mapVisibleDiveSiteAffinities(result.Items)})
+}
+
+func (h *Handlers) ListMyDiveSiteAffinities(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	result, svcErr := h.service.ListMyDiveSiteAffinities(r.Context(), actorID)
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, DiveSiteAffinityListResponse{Items: mapDiveSiteAffinities(result.Items)})
+}
+
+func (h *Handlers) ListDiveReviewsBySlug(w http.ResponseWriter, r *http.Request) {
+	limit, err := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if err != nil {
+		httpx.WriteValidationError(w, anyIssue("limit", "custom", "limit must be a positive integer"))
+		return
+	}
+	result, svcErr := h.service.ListDiveReviewsBySlug(r.Context(), actorIDIfPresent(r), chi.URLParam(r, "slug"), limit)
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, DiveSiteReviewListResponse{
+		Items:         mapVisibleDiveSiteReviews(result.Items),
+		AverageRating: result.AverageRating,
+		ReviewCount:   result.ReviewCount,
+	})
 }
 
 func (h *Handlers) ListLatestUpdates(w http.ResponseWriter, r *http.Request) {
@@ -683,6 +797,31 @@ func (h *Handlers) DeleteDiveSiteAffinity(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handlers) CreateDiveSiteReview(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[DiveSiteReviewRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, svcErr := h.service.CreateDiveSiteReview(r.Context(), exploreservice.DiveSiteReviewInput{
+		ActorID:    actorID,
+		Slug:       chi.URLParam(r, "slug"),
+		Rating:     req.Rating,
+		Comment:    req.Comment,
+		Visibility: req.Visibility,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, DiveSiteReviewResponse{Review: mapDiveSiteReview(item)})
+}
+
 func (h *Handlers) SaveSite(w http.ResponseWriter, r *http.Request) {
 	actorID, err := requireActorID(r)
 	if err != nil {
@@ -1064,6 +1203,9 @@ func mapVisibleDivePresences(items []explorerepo.VisibleDivePresence) []DivePres
 		mapped.Username = item.Username
 		mapped.DisplayName = item.DisplayName
 		mapped.AvatarURL = item.AvatarURL
+		mapped.DiveSiteSlug = item.DiveSiteSlug
+		mapped.DiveSiteName = item.DiveSiteName
+		mapped.DiveSiteArea = item.DiveSiteArea
 		mapped.ContactAllowed = item.ContactAllowed
 		out = append(out, mapped)
 	}
@@ -1100,17 +1242,54 @@ func mapVisibleDiveSiteAffinities(items []explorerepo.VisibleDiveSiteAffinity) [
 	return out
 }
 
+func mapDiveSiteAffinities(items []explorerepo.DiveSiteAffinity) []DiveSiteAffinityItem {
+	out := make([]DiveSiteAffinityItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, mapDiveSiteAffinity(item))
+	}
+	return out
+}
+
 func mapDiveSiteAffinity(item explorerepo.DiveSiteAffinity) DiveSiteAffinityItem {
 	return DiveSiteAffinityItem{
 		ID:             item.ID,
 		UserID:         item.UserID,
 		DiveSiteID:     item.DiveSiteID,
+		DiveSiteSlug:   item.DiveSiteSlug,
+		DiveSiteName:   item.DiveSiteName,
+		DiveSiteArea:   item.DiveSiteArea,
 		Relationship:   item.Relationship,
 		Visibility:     item.Visibility,
 		ContactEnabled: item.ContactEnabled,
 		Note:           item.Note,
 		CreatedAt:      item.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      item.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func mapVisibleDiveSiteReviews(items []explorerepo.VisibleDiveSiteReview) []DiveSiteReviewItem {
+	out := make([]DiveSiteReviewItem, 0, len(items))
+	for _, item := range items {
+		mapped := mapDiveSiteReview(item.DiveSiteReview)
+		mapped.Username = item.Username
+		mapped.DisplayName = item.DisplayName
+		mapped.AvatarURL = item.AvatarURL
+		out = append(out, mapped)
+	}
+	return out
+}
+
+func mapDiveSiteReview(item explorerepo.DiveSiteReview) DiveSiteReviewItem {
+	return DiveSiteReviewItem{
+		ID:         item.ID,
+		DiveSiteID: item.DiveSiteID,
+		UserID:     item.UserID,
+		Rating:     item.Rating,
+		Comment:    item.Comment,
+		Visibility: item.Visibility,
+		Status:     item.Status,
+		CreatedAt:  item.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  item.UpdatedAt.Format(time.RFC3339),
 	}
 }
 

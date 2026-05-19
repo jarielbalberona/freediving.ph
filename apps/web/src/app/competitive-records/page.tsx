@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Form,
@@ -24,6 +25,7 @@ import {
   type CreateRecordValues,
   type RecordFilterValues,
 } from "@/features/competitiveRecords/schemas/record.schema";
+import { dateStringToDate, dateToDateString } from "@/lib/date-picker-values";
 
 export default function CompetitiveRecordsPage() {
   const createRecord = useCreateCompetitiveRecord();
@@ -155,7 +157,11 @@ export default function CompetitiveRecordsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker
+                        placeholder="Pick an event date"
+                        value={dateStringToDate(field.value)}
+                        onSelect={(date) => field.onChange(dateToDateString(date))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

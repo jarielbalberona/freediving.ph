@@ -20,6 +20,7 @@ import {
 import { useSavedHub } from "@/features/profiles/hooks/queries";
 import {
   useProfileBucketListQuery,
+  useProfileDivingQuery,
   usePublicProfileQuery,
 } from "@/features/profile/hooks/queries";
 import { getProfileSettingsRoute, normalizeUsername } from "@/lib/routes";
@@ -36,6 +37,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
   const profileQuery = usePublicProfileQuery(normalizedUsername);
   const mediaQuery = useProfileMediaInfiniteQuery(normalizedUsername);
   const bucketListQuery = useProfileBucketListQuery(normalizedUsername);
+  const divingQuery = useProfileDivingQuery(normalizedUsername);
   const savedHubQuery = useSavedHub(session.status === "signed_in");
   const saveUserMutation = useSaveUser();
   const unsaveUserMutation = useUnsaveUser();
@@ -130,6 +132,9 @@ export default function ProfilePage({ username }: ProfilePageProps) {
           username={profileQuery.data.username}
           displayName={profileQuery.data.displayName}
           avatarUrl={profileQuery.data.avatarUrl}
+          diving={divingQuery.data}
+          isLoadingDiving={divingQuery.isPending}
+          isOwner={isOwner}
         />
       </div>
     </div>

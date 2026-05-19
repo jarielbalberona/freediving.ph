@@ -102,6 +102,19 @@ Default local URLs:
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
 
+**Web SEO/analytics/monitoring (`apps/web/.env`)** – production:
+
+- `NEXT_PUBLIC_GTM_ID` or `NEXT_PUBLIC_GA_MEASUREMENT_ID` for Google analytics. Prefer GTM; if both are set, GTM is loaded.
+- `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` for repo-visible Google Search Console ownership.
+- `NEXT_PUBLIC_SENTRY_DSN` for browser error capture.
+- `SENTRY_DSN` for server/edge error capture. This can be the same Sentry SaaS or GlitchTip DSN destination, but do not configure two destinations.
+- `SENTRY_ENVIRONMENT=production`
+- `SENTRY_RELEASE` when deployments can stamp a release.
+- `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` only when source map upload is configured.
+
+Production canonical web origin is `https://freediving.ph`. Keep Render and Cloudflare env values aligned with that public URL.
+Manual monitoring smoke after deployment: with `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` set, trigger a controlled client ErrorBoundary failure and a server-render failure in a non-public test route or temporary branch, then confirm both events land in the selected Sentry or GlitchTip project before exposing the route.
+
 **Go API (`services/fphgo/.env`)** – see `services/fphgo/.env.example`. Typical local values:
 
 - `DB_DSN=postgres://postgres:postgres@localhost:5433/fph?sslmode=disable`
@@ -179,6 +192,7 @@ FPHGO_BASE_URL=http://localhost:4000 pnpm --filter @freediving.ph/web test
 - Render env template: `env.render.example`
 - Go API runtime docs: `services/fphgo/README.md`
 - CDN worker lives in `services/cdn-worker`
+- Cloudflare should route `https://freediving.ph` to the Render web service and leave `/robots.txt` plus `/sitemap.xml` unmodified so Google Search Console can fetch them.
 
 ## Quality gate before PRs
 

@@ -1,5 +1,6 @@
 import {
   type ProfileBucketListItem,
+  type ProfileDivingResponse,
   type ProfilePost,
   type Profile,
   type ProfileResponse,
@@ -82,6 +83,15 @@ export const profilesApi = {
       `${routes.v1.profiles.publicBucketListByUsername(username)}?limit=${limit}`,
     );
     return response.items ?? [];
+  },
+
+  getPublicProfileDivingByUsername: async (
+    username: string,
+  ): Promise<ProfileDivingResponse> => {
+    return fphgoFetchClient<ProfileDivingResponse>(
+      routes.v1.profiles.publicDivingByUsername(username),
+      { auth: "ready-only" },
+    );
   },
 
   updateMyProfile: async (payload: UpdateMyProfileRequest): Promise<ProfileResponse> => {

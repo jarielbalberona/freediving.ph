@@ -138,6 +138,14 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/explore/me/dive-presences"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/me/dive-site-affinities"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/explore/moderation/sites/pending"
     },
     {
@@ -151,6 +159,10 @@
     {
       "method": "POST",
       "pattern": "/v1/explore/moderation/sites/{id}/reject"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/presences"
     },
     {
       "method": "GET",
@@ -239,6 +251,14 @@
     {
       "method": "GET",
       "pattern": "/v1/explore/sites/{slug}/related"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/explore/sites/{slug}/reviews"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/explore/sites/{slug}/reviews"
     },
     {
       "method": "GET",
@@ -439,6 +459,10 @@
     {
       "method": "GET",
       "pattern": "/v1/profiles/{userID}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/{username}/diving"
     },
     {
       "method": "GET",
