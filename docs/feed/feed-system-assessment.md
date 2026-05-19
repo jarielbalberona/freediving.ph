@@ -1687,12 +1687,20 @@ Local checks for the cutover:
 - `cd services/fphgo && go test ./internal/app` - passed.
 - `git diff --check` - passed.
 
-Deployment smoke to run after push:
-- `/` must render activity UUIDs, not legacy `fi_*` IDs.
-- `/` must not show the activity preview banner.
-- `/?feedSource=activity` must render activity UUIDs.
-- `/?feedSource=home` must render legacy home `fi_*` IDs.
-- Tab switching must keep Latest from falling into a false empty state.
+Deployment smoke after push:
+- Render deployed commit `2fb17b4` live for both web and API.
+- `/` rendered 2 activity cards with UUID IDs and `data-entity-type="activity_item"`.
+- `/` did not show the activity preview banner.
+- `/?feedSource=activity` rendered the same 2 activity cards with UUID IDs.
+- `/?feedSource=home` rendered 3 legacy home cards with `fi_*` IDs.
+- Switching Latest -> Chika -> Latest kept activity items correct and did not show a false empty state.
+
+Post-cutover API smoke:
+- `GET /v1/feed/activity?filter=latest&limit=10` returned `200` with 2 rows.
+- `GET /v1/feed/activity?filter=chika&limit=10` returned `200` with 1 row.
+- `GET /v1/feed/activity?filter=dive-reports&limit=10` returned `200` with 1 row.
+- `GET /v1/feed/activity?filter=events&limit=10` returned `200` with 0 rows.
+- `GET /v1/feed/activity?filter=nearby&region=Mabini&limit=10` returned `200` with 0 rows.
 
 ### Rollback Plan
 
