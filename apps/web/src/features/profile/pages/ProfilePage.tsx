@@ -22,7 +22,7 @@ import {
   useProfileBucketListQuery,
   usePublicProfileQuery,
 } from "@/features/profile/hooks/queries";
-import { normalizeUsername } from "@/lib/routes";
+import { getProfileSettingsRoute, normalizeUsername } from "@/lib/routes";
 
 type ProfilePageProps = {
   username: string;
@@ -99,7 +99,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
           isFollowing={isFollowing}
           settingsHref={
             currentProfileHref === `/${normalizedUsername}`
-              ? "/profile/settings"
+              ? getProfileSettingsRoute(normalizedUsername)
               : null
           }
           onFollowClick={() => {

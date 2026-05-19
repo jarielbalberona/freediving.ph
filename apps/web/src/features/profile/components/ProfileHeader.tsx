@@ -4,6 +4,7 @@ import { Settings2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import type { PublicProfile } from "@/features/profile/types";
+import { getProfileSettingsRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type ProfileHeaderProps = {
@@ -18,7 +19,8 @@ type ProfileHeaderProps = {
   isMessagePending?: boolean;
 };
 
-const formatCount = (value: number): string => new Intl.NumberFormat().format(value);
+const formatCount = (value: number): string =>
+  new Intl.NumberFormat().format(value);
 
 function ProfileStat({
   label,
@@ -60,11 +62,7 @@ function ActionButtons({
         onClick={onFollowClick}
         size="sm"
       >
-        {isFollowPending
-          ? "Saving..."
-          : isFollowing
-            ? "Following"
-            : "Follow"}
+        {isFollowPending ? "Saving..." : isFollowing ? "Following" : "Follow"}
       </Button>
       <Button
         variant="outline"
@@ -89,6 +87,9 @@ export function ProfileHeader({
   onMessageClick,
   isMessagePending = false,
 }: ProfileHeaderProps) {
+  const resolvedSettingsHref =
+    settingsHref ?? getProfileSettingsRoute(profile.username);
+
   return (
     <section className="space-y-6 px-4">
       <div className="grid gap-6 md:hidden">
@@ -113,8 +114,11 @@ export function ProfileHeader({
               </h1>
               {isOwner ? (
                 <Link
-                  href={settingsHref ?? "/profile/settings"}
-                  className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+                  href={resolvedSettingsHref}
+                  className={buttonVariants({
+                    variant: "ghost",
+                    size: "icon-sm",
+                  })}
                   aria-label="Edit profile"
                   title="Edit profile"
                 >
@@ -160,8 +164,11 @@ export function ProfileHeader({
             </h1>
             {isOwner ? (
               <Link
-                href={settingsHref ?? "/profile/settings"}
-                className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+                href={resolvedSettingsHref}
+                className={buttonVariants({
+                  variant: "ghost",
+                  size: "icon-sm",
+                })}
                 aria-label="Edit profile"
                 title="Edit profile"
               >

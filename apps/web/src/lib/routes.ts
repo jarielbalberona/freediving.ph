@@ -11,9 +11,11 @@ export const isAnonymousUsername = (username: string): boolean =>
 
 export const canLinkToProfileUsername = (username: string): boolean => {
   const normalized = normalizeUsername(username);
-  return normalized.length > 0 &&
+  return (
+    normalized.length > 0 &&
     PROFILE_USERNAME_PATTERN.test(normalized) &&
-    !isAnonymousUsername(normalized);
+    !isAnonymousUsername(normalized)
+  );
 };
 
 export const getProfileRoute = (username: string): string =>
@@ -21,5 +23,8 @@ export const getProfileRoute = (username: string): string =>
 
 export const getProfileCreateRoute = (username: string): string =>
   `${getProfileRoute(username)}/create`;
+
+export const getProfileSettingsRoute = (username: string): string =>
+  `${getProfileRoute(username)}/settings`;
 
 export const getProfileFallbackRoute = (): string => "/profile";
