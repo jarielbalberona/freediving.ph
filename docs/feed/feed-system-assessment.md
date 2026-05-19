@@ -1522,6 +1522,202 @@ Cutover recommendation:
 - **Do not cut over by default yet.**
 - Rerun cutover evaluation only after accepting the current density gap or adding more safe activity source coverage, and after obtaining a safe member token for signed-in telemetry/action/privacy smoke.
 
+## Signed-In Activity Feed Gate
+
+Date: 2026-05-19
+
+Verdict: **Signed-in activity gate FAIL. Do not cut over.** A safe member token was provided and successfully proved signed-in read behavior, but it expired before activity action POSTs could be completed. `hide_item` remains unproven live, and density still argues against a pure activity-feed cutover.
+
+### Member Token Availability
+
+- A member Clerk bearer token was provided for this gate.
+- `GET /v1/auth/session` returned `200`.
+- Resolved local user: `183bb1dc-5047-46a9-a779-54eccd155f38`.
+- Clerk subject: `user_3DwOvEpiG2j0F6RT2cf9UuuSK43`.
+- Role/status: `member`, `active`.
+- The token later expired during the action smoke pass and `/v1/feed/actions` returned `401 invalid_or_expired_token`.
+
+### Signed-In API Smoke
+
+Canonical API: `https://api.freediving.ph`.
+
+Signed-in results before token expiry:
+- `GET /v1/feed/activity?filter=latest&limit=10` returned `200` with 2 public rows:
+  - `media_post_created`
+  - `chika_thread_created`
+- `GET /v1/feed/activity?filter=chika&limit=10` returned `200` with only `chika_thread_created`.
+- `GET /v1/feed/activity?filter=dive-reports&limit=10` returned `200` with only `media_post_created`.
+- `GET /v1/feed/activity?filter=events&limit=10` returned `200` with 0 rows.
+- `GET /v1/feed/activity?filter=nearby&region=Mabini&limit=10` returned `200` with 0 rows.
+
+Privacy notes:
+- Signed-in reads did not expose private, followers-only, group-only, or private event rows.
+- Member-only buddy intent behavior remains not data-proven because no live member-only buddy row appeared.
+- Group-member visibility remains not data-proven because no live group-member activity row appeared.
+- Pseudonymous Chika masking remains not data-proven because the live Chika row was not pseudonymous.
+
+### Activity `hide_item` Smoke
+
+Status: **failed / not proven due token expiry**.
+
+Attempted sequence:
+- Selected activity item `fdea4192-e958-4d91-96df-b15fcdbbb876`.
+- Intended to POST activity impression, `not_interested`, then `hide_item`.
+- Before the action POSTs completed, the token expired.
+- `/v1/feed/impressions` returned `401 invalid_or_expired_token`.
+- `/v1/feed/actions` for `not_interested` returned `401 invalid_or_expired_token`.
+- `/v1/feed/actions` for `hide_item` returned `401 invalid_or_expired_token`.
+- Legacy `/v1/feed/home` action smoke also returned `401 invalid_or_expired_token`.
+
+Result:
+- `feed_source = activity` acceptance is still not live-proven in an authenticated request.
+- `entityType = activity_item` action acceptance is still not live-proven.
+- `not_interested` non-hiding behavior is still not live-proven.
+- `hide_item` suppression is still not live-proven.
+- Legacy home action non-regression is still not live-proven.
+
+### Signed-In Web Preview
+
+Browser state was signed in as a different user than the provided API token.
+
+Read-only web smoke passed:
+- `https://freediving.ph/?feedSource=activity` rendered the preview banner.
+- The signed-in shell rendered profile/messages navigation and no `Sign In` button.
+- Activity cards rendered UUID activity IDs:
+  - `fdea4192-e958-4d91-96df-b15fcdbbb876`
+  - `cd29faea-450f-4788-b0ed-cde9151afc5e`
+- Activity cards used `data-entity-type="activity_item"`.
+- Save / Not interested actions were visible.
+- Switching to Chika showed only the Chika activity row and no false empty state.
+- Returning to Latest showed both activity rows and no false empty state.
+
+Not performed:
+- Browser `hide_item` was not clicked because the browser user is not the same controlled token user, and mutating that account would violate the smoke constraints.
+
+### Density Comparison
+
+Live comparison:
+- `/v1/feed/home?mode=latest&limit=10` returned 3 items:
+  - `media_post`
+  - `community_hot_post`
+  - `dive_spot`
+- `/v1/feed/activity?filter=latest&limit=10` returned 2 items:
+  - `media_post_created`
+  - `chika_thread_created`
+- `/v1/feed/home?mode=dive-reports&limit=10` returned 10 `dive_spot` cards.
+- `/v1/feed/activity?filter=dive-reports&limit=10` returned 1 `media_post_created` row.
+- `/v1/feed/home?mode=nearby&region=Mabini&limit=10` returned 1 `dive_spot`.
+- `/v1/feed/activity?filter=nearby&region=Mabini&limit=10` returned 0 rows.
+
+Decision:
+- **Recommend Option C: hybrid cutover, not pure activity cutover.**
+- Use the activity ledger for real activity once action smoke passes.
+- Keep selected discovery/briefing cards from `/v1/feed/home` until activity publishers/backfill create enough density.
+- Do not add fake filler content.
+
+### Verification Commands
+
+Commands run for this gate:
+- `git status --short` - dirty with unrelated Explore/map files only before doc update.
+- `GET /v1/auth/session` with member token - passed before token expiry.
+- Signed-in activity API smoke - passed before token expiry.
+- Activity action smoke - failed with `401 invalid_or_expired_token`.
+- Signed-in browser preview smoke - passed read-only checks.
+- Tab switch smoke: Latest -> Chika -> Latest - passed without false empty state.
+- Live density comparison - completed.
+
+### Remaining Risks
+
+- Activity `hide_item` is still not live-proven.
+- Activity `not_interested` is still not live-proven.
+- Activity impression/action `source = activity` acceptance is still not live-proven.
+- Legacy home action non-regression is still not live-proven in this gate.
+- Member-only buddy activity remains not data-proven.
+- Group-member activity remains not data-proven.
+- Pseudonymous Chika masking remains not data-proven with live data.
+- Activity feed remains too sparse for a pure default cutover.
+
+Cutover recommendation:
+- **Do not start default cutover implementation.**
+- Obtain a fresh safe member token and rerun only the authenticated action section.
+- If action smoke passes, proceed with an Option C hybrid cutover plan unless product explicitly accepts the thinner pure activity feed.
+
+## Forced Activity Feed Hard Cutover
+
+Date: 2026-05-19
+
+Verdict: **Forced hard cutover accepted by product.** `/v1/feed/activity` is now the default homepage feed source despite the failed signed-in action gate and lower feed density. `/v1/feed/home` remains available only as an emergency/manual fallback.
+
+### Accepted Risks
+
+Product explicitly accepted these risks for the hard cutover:
+- Activity `hide_item` live smoke failed because the member token expired.
+- Activity impressions/actions are not authenticated-live-proven.
+- Member-only buddy intent positive case is not data-proven.
+- Group-member visibility positive case is not data-proven.
+- Signed-in pseudonymous Chika positive case is not data-proven.
+- Activity feed is thinner than the old home feed.
+
+### Default Behavior
+
+- `https://freediving.ph/` uses `GET /v1/feed/activity`.
+- `https://freediving.ph/?feedSource=activity` also uses `GET /v1/feed/activity`.
+- Invalid `feedSource` values fall back to activity.
+- The activity preview banner is removed from normal product UI.
+- Activity telemetry/actions remain enabled for the default homepage path:
+  - impressions send `source: "activity"`
+  - actions send `source: "activity"`
+  - adapted activity cards use `entityType: "activity_item"`
+  - `hide_item` still maps to `user_hidden_feed_items`
+  - `not_interested` remains telemetry only
+
+### Fallback Behavior
+
+- `https://freediving.ph/?feedSource=home` uses the legacy `/v1/feed/home` path.
+- This is a manual rollback/debug path, not the product default.
+- Legacy home telemetry remains intact when this fallback is used because the web layer passes `source: "home"`.
+
+### Verification Results
+
+Local checks for the cutover:
+- `pnpm --filter @freediving.ph/web type-check` - passed.
+- `pnpm --filter @freediving.ph/web test` - passed.
+- `pnpm --filter @freediving.ph/types test` - passed.
+- `cd services/fphgo && go test ./internal/features/feed/...` - passed.
+- `cd services/fphgo && go test ./internal/app` - passed.
+- `git diff --check` - passed.
+
+Deployment smoke to run after push:
+- `/` must render activity UUIDs, not legacy `fi_*` IDs.
+- `/` must not show the activity preview banner.
+- `/?feedSource=activity` must render activity UUIDs.
+- `/?feedSource=home` must render legacy home `fi_*` IDs.
+- Tab switching must keep Latest from falling into a false empty state.
+
+### Rollback Plan
+
+Preferred rollback:
+- Change homepage source selection back so `/` defaults to `home`.
+- Keep `/v1/feed/activity` live.
+- Redeploy web only.
+
+Emergency rollback URL before code rollback:
+- Use `/?feedSource=home` to manually validate the legacy path remains healthy.
+
+Rollback triggers:
+- Homepage blank or empty for normal users.
+- Activity endpoint error rate or latency regression.
+- Broken activity pagination.
+- Action/hide regression that materially harms users.
+- Severe user confusion or engagement drop caused by sparse feed density.
+
+### Remaining Risks
+
+- Hard cutover deliberately ships with unproven authenticated action smoke.
+- Activity `hide_item` should be retested immediately with a fresh member token.
+- Activity density is still lower than `/v1/feed/home`.
+- Buddy/group/pseudonymous positive visibility cases still require seeded or real safe test data.
+
 ## Do Not Build Yet
 
 - ML ranking

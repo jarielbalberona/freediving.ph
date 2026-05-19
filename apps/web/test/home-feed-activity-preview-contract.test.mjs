@@ -39,7 +39,7 @@ const adapterPath = path.join(
   "src/features/home-feed/adapters/activity-to-home-feed.ts",
 );
 
-test("home feed default remains /v1/feed/home while activity preview has its own client", async () => {
+test("home feed keeps legacy client while activity feed is the default client", async () => {
   const [routes, homeClient, activityClient, homeHook, activityHook] =
     await Promise.all([
       readFile(routesPath, "utf8"),
@@ -62,18 +62,19 @@ test("home feed default remains /v1/feed/home while activity preview has its own
   assert.match(activityHook, /"activity-feed"/);
 });
 
-test("activity source is opt-in by query param and invalid values fall back to home", async () => {
+test("activity source is default and home source is explicit fallback", async () => {
   const [homePage, appPage] = await Promise.all([
     readFile(homePagePath, "utf8"),
     readFile(appPagePath, "utf8"),
   ]);
 
-  assert.match(appPage, /rawFeedSource === "activity" \? "activity" : "home"/);
-  assert.match(appPage, /initialFeedSource=\{rawFeedSource === "activity"/);
-  assert.match(homePage, /initialFeedSource === "activity" \? "activity" : "home"/);
-  assert.match(homePage, /enabled: !activityPreview/);
-  assert.match(homePage, /enabled: activityPreview/);
-  assert.match(homePage, /Activity feed preview/);
+  assert.match(appPage, /rawFeedSource === "home" \? "home" : "activity"/);
+  assert.match(appPage, /initialFeedSource=\{feedSource\}/);
+  assert.match(homePage, /initialFeedSource = "activity"/);
+  assert.match(homePage, /initialFeedSource === "home" \? "home" : "activity"/);
+  assert.match(homePage, /enabled: !usingActivityFeed/);
+  assert.match(homePage, /enabled: usingActivityFeed/);
+  assert.doesNotMatch(homePage, /Activity feed preview/);
 });
 
 test("activity preview adapts supported ledger types and skips unknown types safely", async () => {
@@ -89,7 +90,7 @@ test("activity preview adapts supported ledger types and skips unknown types saf
   assert.doesNotMatch(source, /authorUserId/);
 });
 
-test("activity preview sends activity-safe telemetry and card actions", async () => {
+test("activity default sends activity-safe telemetry and card actions", async () => {
   const [homePage, mixedFeed, renderer, tracker, adapter] = await Promise.all([
     readFile(homePagePath, "utf8"),
     readFile(mixedFeedPath, "utf8"),
@@ -106,6 +107,8 @@ test("activity preview sends activity-safe telemetry and card actions", async ()
 
   assert.match(homePage, /source=\{feedSource\}/);
   assert.match(homePage, /telemetryEnabled/);
+  assert.match(homePage, /const feedSource: FeedSource =/);
+  assert.match(homePage, /initialFeedSource === "home" \? "home" : "activity"/);
   assert.match(mixedFeed, /enabled: telemetryEnabled/);
   assert.match(mixedFeed, /source,/);
   assert.match(mixedFeed, /entityType: item\.telemetryEntityType \?\? item\.type/);

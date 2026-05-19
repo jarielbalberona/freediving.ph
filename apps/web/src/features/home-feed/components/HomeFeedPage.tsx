@@ -22,7 +22,7 @@ type FeedCursor = {
 };
 
 export function HomeFeedPage({
-  initialFeedSource = "home",
+  initialFeedSource = "activity",
 }: {
   initialFeedSource?: FeedSource;
 }) {
@@ -32,8 +32,8 @@ export function HomeFeedPage({
   const [items, setItems] = useState<HomeFeedItem[]>([]);
 
   const feedSource: FeedSource =
-    initialFeedSource === "activity" ? "activity" : "home";
-  const activityPreview = feedSource === "activity";
+    initialFeedSource === "home" ? "home" : "activity";
+  const usingActivityFeed = feedSource === "activity";
   const cursorValue =
     cursor?.source === feedSource && cursor.mode === mode
       ? cursor.value
@@ -42,20 +42,20 @@ export function HomeFeedPage({
   const homeQuery = useHomeFeedQuery({
     mode,
     cursor: cursorValue,
-    enabled: !activityPreview,
+    enabled: !usingActivityFeed,
   });
   const activityQuery = useActivityFeedQuery({
     filter: mode,
     cursor: cursorValue,
-    enabled: activityPreview,
+    enabled: usingActivityFeed,
   });
-  const query = activityPreview ? activityQuery : homeQuery;
+  const query = usingActivityFeed ? activityQuery : homeQuery;
   const responseItems = useMemo(
     () =>
-      activityPreview
+      usingActivityFeed
         ? activityToHomeFeedItems(activityQuery.data?.items ?? [])
         : (homeQuery.data?.items ?? []),
-    [activityPreview, activityQuery.data?.items, homeQuery.data?.items],
+    [usingActivityFeed, activityQuery.data?.items, homeQuery.data?.items],
   );
 
   useEffect(() => {
@@ -79,9 +79,9 @@ export function HomeFeedPage({
   }, [query.data, responseItems, cursorValue]);
 
   useEffect(() => {
-    if (!activityPreview || process.env.NODE_ENV === "production") return;
+    if (!usingActivityFeed || process.env.NODE_ENV === "production") return;
     const types = responseItems.map((item) => item.type);
-    console.debug("Activity feed preview", {
+    console.debug("Activity feed", {
       source: feedSource,
       mode,
       itemCount: responseItems.length,
@@ -89,7 +89,7 @@ export function HomeFeedPage({
       hasNextCursor: Boolean(activityQuery.data?.nextCursor),
     });
   }, [
-    activityPreview,
+    usingActivityFeed,
     activityQuery.data?.nextCursor,
     feedSource,
     mode,
@@ -141,11 +141,6 @@ export function HomeFeedPage({
         <HomeQuickActions actions={actions} />
         <NearbyConditionsCard condition={nearbyCondition} />
         <FeedModeTabs mode={mode} onChange={setMode} />
-        {activityPreview ? (
-          <div className="rounded-lg border border-dashed border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-800 dark:text-sky-200">
-            Activity feed preview
-          </div>
-        ) : null}
 
         {query.error ? (
           <p className="text-sm text-destructive">

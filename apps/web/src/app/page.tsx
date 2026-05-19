@@ -11,10 +11,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const rawFeedSource = Array.isArray(params?.feedSource)
     ? params?.feedSource[0]
     : params?.feedSource;
+  const feedSource = rawFeedSource === "home" ? "home" : "activity";
 
-  return (
-    <HomeFeedPage
-      initialFeedSource={rawFeedSource === "activity" ? "activity" : "home"}
-    />
-  );
+  return <HomeFeedPage initialFeedSource={feedSource} />;
 }
