@@ -179,15 +179,15 @@ export function ExploreResultsPanel({
         </div>
       </div>
 
-      <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1 p-2">
-        <div className="space-y-3 pb-6">
+      <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1">
+        <div className="pb-6">
           {loading ? (
             <>
-              <div className="rounded-4xl border border-border bg-card p-5">
+              <div className="border-b border-border bg-muted/25 px-4 py-4">
                 <p className="text-base font-semibold text-foreground">
                   Finding dive spots around the Philippines
                 </p>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Search by beach, town, or dive site. You can also move the map
                   and search that area.
                 </p>
@@ -195,11 +195,11 @@ export function ExploreResultsPanel({
               {Array.from({ length: 5 }).map((_, index) => (
                 <div
                   key={`explore-skeleton-${index}`}
-                  className="rounded-4xl border border-border bg-card p-4"
+                  className="border-b border-border bg-background px-3 py-3"
                 >
-                  <div className="grid gap-4 sm:grid-cols-[132px_1fr]">
-                    <Skeleton className="h-36" />
-                    <div className="space-y-3">
+                  <div className="grid grid-cols-[96px_1fr] gap-3">
+                    <Skeleton className="h-28 rounded-2xl" />
+                    <div className="space-y-2">
                       <Skeleton className="h-5 w-2/3" />
                       <Skeleton className="h-4 w-1/2" />
                       <Skeleton className="h-4 w-1/3" />

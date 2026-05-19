@@ -183,9 +183,10 @@ Ordering:
 - This is ranked ordering, not latest-first activity ordering.
 
 Filters:
-- Modes are not hard filters.
+- `latest` remains a mixed eligible feed.
 - `latest` returns the current eligible mixed feed.
 - `nearby` requires the viewer home area or explicit `region` to match item areas.
+- `chika`, `dive-reports`, and `events` are strict server-side filters.
 - `chika` only returns Chika thread items.
 - `dive-reports` only returns dive-site update/report-like items and site briefing cards.
 - `events` only returns eligible event items.
@@ -221,7 +222,8 @@ Request:
 
 Storage:
 - `feed_actions`.
-- No route currently writes `user_hidden_feed_items` when the user taps `not_interested` or save. It logs feedback; it does not fully enforce hide semantics unless a separate row exists.
+- `hide_item` also writes `user_hidden_feed_items`, so that item is suppressed from future eligible feed responses for the member.
+- `not_interested` remains feedback/ranking telemetry only. It does not hide the item.
 
 ## Current DB State
 
@@ -749,6 +751,120 @@ Additional checks to run during implementation:
 - `pnpm --filter @freediving.ph/web lint`
 
 Do not run device/emulator checks for this feed work unless scope changes.
+
+## Phase 1 Closure Verification
+
+Date: 2026-05-19
+
+Verdict: **Phase 1 closure PASS WITH ISSUES: ready to start Phase 2 only after listed issues are accepted or scheduled.**
+
+### Repo And Commit State
+
+- Branch: `main`.
+- Initial closure checkout state: clean.
+- Recent commits:
+  - `6944262 update pages`
+  - `ad9e855 update feed and pages`
+- `ad9e855 update feed and pages` is present in history and contains the feed hardening work plus unrelated page/community changes:
+  - feed API/service/repo
+  - feed mode migration/schema
+  - shared feed types/tests
+  - home feed tabs/cards/empty states
+  - unrelated `apps/web/src/app/buddies/page.tsx`, `events/page.tsx`, `groups/page.tsx`, and community page/nav work
+- Closure pass changed this document only, to remove stale statements about `user_hidden_feed_items` and strict filters.
+
+### Documentation Consistency
+
+- `hide_item` is documented as writing `user_hidden_feed_items`.
+- `not_interested` is documented as telemetry/ranking feedback only.
+- `feed_actions` remains the telemetry store for feed actions.
+- Hidden items are documented as suppressed from future eligible responses.
+- Visible modes are documented as:
+  - `latest`
+  - `nearby`
+  - `chika`
+  - `dive-reports`
+  - `events`
+- Legacy aliases are documented as compatibility-only:
+  - `following -> latest`
+  - `training -> latest`
+  - `spot-reports -> dive-reports`
+
+### Migration Verification
+
+- Inspected `services/fphgo/db/migrations/0033_feed_phase1_modes.sql`.
+- Inspected `services/fphgo/db/schema/000_schema.sql`.
+- Migration only drops/re-adds check constraints on `feed_impressions.mode` and `feed_actions.mode`.
+- No table reset, truncate, delete, rewrite, or data backfill.
+- Existing telemetry rows using legacy modes remain valid.
+- New mode values are allowed: `latest`, `nearby`, `chika`, `dive-reports`, `events`.
+- Legacy values remain allowed: `following`, `training`, `spot-reports`.
+- `goose -dir db/migrations validate` passed locally.
+- Target environment application was not DB-table verified directly because no production DB access was used. The Render blueprint uses `preDeployCommand: cd services/fphgo && make migrate-up`; live canonical API behavior confirms the feed code is deployed, but the telemetry check constraint state was not independently queried.
+
+### Commands Run
+
+- `git status --short` - clean at start of closure pass; this document is dirty after closure-note updates.
+- `git branch --show-current` - `main`.
+- `git log --oneline -8` - confirmed `6944262` and `ad9e855`.
+- `go run github.com/pressly/goose/v3/cmd/goose@v3.24.1 -dir db/migrations validate` - passed.
+- `cd services/fphgo && go test ./internal/features/feed/...` - passed.
+- `pnpm --filter @freediving.ph/types test` - passed.
+- `pnpm --filter @freediving.ph/web type-check` - passed.
+- `pnpm --filter @freediving.ph/web test` - failed with two known non-feed contract failures:
+  - `apps/web/test/explore-buddy-site-contract.test.mjs` expects `Area fallback`.
+  - `apps/web/test/media-profile-flow-contract.test.mjs` expects `Apply to all`.
+
+### Deployed API Smoke
+
+Canonical live URLs used:
+- Web: `https://freediving.ph/`
+- API: `https://api.freediving.ph/`
+
+Guest API smoke:
+- `GET /v1/feed/home?mode=latest&limit=10` - `200`, returned `community_hot_post`, `dive_spot`.
+- `GET /v1/feed/home?mode=chika&limit=10` - `200`, returned only `community_hot_post`.
+- `GET /v1/feed/home?mode=dive-reports&limit=10` - `200`, returned only `dive_spot` briefing/report-like cards.
+- `GET /v1/feed/home?mode=events&limit=10` - `200`, returned no items in current live seed data.
+- `GET /v1/feed/home?mode=nearby&region=Mabini&limit=10` - `200`, returned only area-matched `dive_spot`.
+- No guest `buddy_signal` appeared in sampled responses.
+- No private/invite/group-only event appeared in sampled responses.
+- No pseudonymous Chika item existed in sampled live responses, so live pseudonymous masking was not data-proven; code tests cover it.
+- Canonical CORS smoke with `Origin: https://freediving.ph` returned `access-control-allow-origin: https://freediving.ph`.
+
+Signed-in API smoke:
+- Blocked. No `MEMBER_TOKEN` was available in the shell, and no test account token was provided.
+- `hide_item` production smoke was not run because it requires a known test/member token and a safe test item.
+
+### Deployed Web Smoke
+
+- `https://freediving.ph/` loaded.
+- Default page showed `Latest activity`.
+- Visible tabs: `Latest`, `Nearby`, `Chika`, `Dive reports`, `Events`.
+- `For you` was not present.
+- `Training` was not present.
+- `Chika` tab showed only the Chika thread card in current live data.
+- `Events` tab showed the honest empty state: "No eligible events yet".
+- `Dive reports` tab showed only spot briefing/report-like cards, matching the known Phase 1 limitation.
+- `Nearby` tab showed the honest empty state when no home/area match existed in the browser session.
+- Quick actions remained visible and mode-aware.
+- Browser-state issue observed: after cycling tabs, returning to `Latest` once showed an empty state even though the canonical API returned two eligible items. Initial homepage load rendered those two items correctly. This needs a small follow-up investigation before calling the deployed web behavior flawless.
+
+### Remaining Risks
+
+- Still a query-time homepage mixer, not an `activity_items` ledger.
+- Offset cursor remains unstable under write churn.
+- `Nearby` is string-area based.
+- Media URL hydration still has per-card/N+1 risk.
+- No true following graph.
+- Live signed-in/member and `hide_item` behavior were not production-smoked due missing test token.
+- Pseudonymous Chika live masking was not data-proven because sampled live Chika data was not pseudonymous.
+- Recent commit history mixes feed hardening with unrelated page/community changes, which increases review and rollback risk.
+- Full web test suite is not green due two known non-feed contract failures.
+
+Go/no-go for Phase 2:
+- **Go for Phase 2 planning and backend foundation work**, with the above issues accepted as Phase 1 closure issues.
+- Do not treat Phase 1 as fully production-proven for signed-in behavior until a member test token/account smoke covers signed-in feed, authorized events, pseudonymous Chika if test data exists, and `hide_item` persistence.
 
 ## Do Not Build Yet
 

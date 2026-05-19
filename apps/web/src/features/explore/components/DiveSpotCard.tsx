@@ -5,7 +5,6 @@ import { MapPin, Waves, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 import type { DiveSpot } from "../types";
@@ -41,12 +40,14 @@ const verificationLabel = (value: DiveSpot["verificationStatus"]) => {
 export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
   ({ spot, selected, onSelect, onClose, actions }, ref) => {
     return (
-      <Card
+      <div
         ref={ref}
         id={`explore-spot-card-${spot.id}`}
         className={cn(
-          "mx-1 my-4 py-1 overflow-hidden border-border/70 bg-card/95 shadow-sm transition-all",
-          selected && "border-primary/45 ring-primary/20 ring-2 shadow-lg",
+          "relative border-b border-border/70 bg-background px-3 py-3 transition-colors hover:bg-muted/35",
+          selected && "bg-primary/5 ring-primary/20 ring-1",
+          onClose &&
+            "rounded-3xl border border-border/70 bg-card/95 shadow-xl hover:bg-card",
         )}
       >
         {onClose ? (
@@ -76,9 +77,9 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
           tabIndex={0}
           aria-pressed={selected}
         >
-          <CardContent className="grid w-full gap-4 p-4 sm:grid-cols-[132px_1fr]">
+          <div className="grid w-full grid-cols-[84px_minmax(0,1fr)] gap-3 sm:grid-cols-[96px_minmax(0,1fr)]">
             <div
-              className="relative h-36 overflow-hidden rounded-3xl"
+              className="relative h-24 overflow-hidden rounded-2xl sm:h-28"
               style={{ backgroundImage: gradientFromName(spot.name) }}
             >
               {spot.coverImageUrl ? (
@@ -88,13 +89,13 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="text-primary-foreground flex h-full items-end p-4 text-lg font-semibold">
+                <div className="flex h-full items-end p-3 text-sm font-semibold text-primary-foreground">
                   {spot.area}
                 </div>
               )}
             </div>
 
-            <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-2">
               <div className="space-y-1">
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="line-clamp-2 text-base font-semibold text-foreground">
@@ -139,16 +140,16 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
 
               {actions ? (
                 <div
-                  className="flex flex-wrap gap-2 pt-1"
+                  className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pt-0.5"
                   onClick={(event) => event.stopPropagation()}
                 >
                   {actions}
                 </div>
               ) : null}
             </div>
-          </CardContent>
+          </div>
         </div>
-      </Card>
+      </div>
     );
   },
 );

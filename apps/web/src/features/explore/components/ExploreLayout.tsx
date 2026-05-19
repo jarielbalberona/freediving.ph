@@ -163,25 +163,25 @@ export function ExploreLayout() {
     return (
       <>
         <Link href={`/explore/sites/${getDiveSpotSlug(spot)}`}>
-          <Button size="sm" variant="outline" className="rounded-full">
-            <ExternalLink className="mr-1.5 size-4" />
+          <Button size="xs" variant="outline" className="rounded-full px-2.5">
+            <ExternalLink className="mr-1 size-3.5" />
             Open site
           </Button>
         </Link>
         <Button
-          size="sm"
+          size="xs"
           variant="outline"
-          className="rounded-full"
+          className="rounded-full px-2.5"
           onClick={() => void shareSpot(spot)}
         >
-          <Share2 className="mr-1.5 size-4" />
+          <Share2 className="mr-1 size-3.5" />
           Share
         </Button>
         {session.status === "signed_in" ? (
           <Button
-            size="sm"
+            size="xs"
             variant={isSaved ? "default" : "outline"}
-            className="rounded-full"
+            className="rounded-full px-2.5"
             disabled={saveSiteMutation.isPending}
             onClick={() =>
               saveSiteMutation.mutate({
@@ -190,7 +190,7 @@ export function ExploreLayout() {
               })
             }
           >
-            <Heart className={cn("mr-1.5 size-4", isSaved && "fill-current")} />
+            <Heart className={cn("mr-1 size-3.5", isSaved && "fill-current")} />
             {isSaved ? "Saved" : "Save"}
           </Button>
         ) : null}
