@@ -30,6 +30,11 @@ test("/buddies is the Dive Presence discovery and management surface", async () 
   assert.match(page, /Try another dive site or mark your own Dive Presence\./);
   assert.match(page, /Available Buddies come from active Dive Presence only/);
   assert.match(page, /long-term dive-site relationships and do not imply availability/);
+  assert.match(page, /onClick=\{\(\) => setActiveTab\("presence"\)\}/);
+  assert.match(page, /value=\{activeTab\}/);
+  assert.match(page, /tabFromParam\(searchParams\.get\("tab"\)\)/);
+  assert.match(page, /value === "presence" \|\| value === "my-dive-presence"/);
+  assert.match(page, /value === "sites" \|\| value === "my-dive-sites"/);
 });
 
 test("/buddies creates dive-site-backed presence and affinity payloads", async () => {

@@ -3,6 +3,7 @@
 import { SignInButton } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, MapPinned, MessageCircle, Search, Trash2 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -45,6 +46,7 @@ import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 
 type DateFilter = "any" | "today" | "weekend" | "flexible" | "custom";
+type BuddiesTab = "find" | "presence" | "sites";
 
 type PresenceDraft = CreateDivePresenceRequest & {
   siteSlug: string;
@@ -98,8 +100,12 @@ const emptyAffinityDraft = (): AffinityDraft => ({
 
 export default function BuddiesPage() {
   const session = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const isSignedIn = session.status === "signed_in";
+  const activeTab = tabFromParam(searchParams.get("tab"));
 
   const [siteSlug, setSiteSlug] = useState("all");
   const [area, setArea] = useState("");
@@ -202,6 +208,12 @@ export default function BuddiesPage() {
   const globalPresences = globalPresencesQuery.data?.items ?? [];
   const myPresences = myPresencesQuery.data?.items ?? [];
   const myAffinities = myAffinitiesQuery.data?.items ?? [];
+  const setActiveTab = (value: string | null) => {
+    const nextTab = tabFromParam(value);
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("tab", paramFromTab(nextTab));
+    router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
+  };
 
   return (
     <CommunityPageShell>
@@ -211,7 +223,7 @@ export default function BuddiesPage() {
         subtitle="Discover active Dive Presence across dive sites, manage your own availability, and keep long-term site relationships separate."
         action={
           isSignedIn ? (
-            <Button size="lg" render={<a href="#my-dive-presence" />}>
+            <Button size="lg" onClick={() => setActiveTab("presence")}>
               <CalendarClock className="mr-2 h-4 w-4" />
               Mark my Dive Presence
             </Button>
@@ -235,7 +247,7 @@ export default function BuddiesPage() {
         Available Buddies come from active Dive Presence only. Locals and regulars come from long-term dive-site relationships and do not imply availability.
       </CommunityAccessNote>
 
-      <Tabs defaultValue="find" className="gap-5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-5">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="find">Find Buddies</TabsTrigger>
           <TabsTrigger value="presence">My Dive Presence</TabsTrigger>
@@ -252,7 +264,7 @@ export default function BuddiesPage() {
               <SiteSelect sites={sites} value={siteSlug} onValueChange={setSiteSlug} includeAll />
               <Input placeholder="Area or province" value={area} onChange={(event) => setArea(event.target.value)} />
               <Select value={presenceType} onValueChange={(value) => setPresenceType(value ?? "all")} items={[{ value: "all", label: "All types" }, ...PRESENCE_TYPES]}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All types</SelectItem>
                   {PRESENCE_TYPES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
@@ -265,7 +277,7 @@ export default function BuddiesPage() {
                 { value: "flexible", label: "Flexible" },
                 { value: "custom", label: "Custom range" },
               ]}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="any">Any time</SelectItem>
                   <SelectItem value="today">Today</SelectItem>
@@ -295,7 +307,7 @@ export default function BuddiesPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="presence" id="my-dive-presence" className="space-y-5">
+        <TabsContent value="presence" className="space-y-5">
           {!isSignedIn ? <SignInPrompt /> : (
             <>
               <PresenceForm
@@ -370,9 +382,9 @@ function PresenceForm({ title, draft, setDraft, sites, saving, onSubmit }: {
       <CardContent className="space-y-4 p-4">
         <h2 className="text-lg font-semibold">{title}</h2>
         <div className="grid gap-3 md:grid-cols-3">
-          <Field label="Dive site"><SiteSelect sites={sites} value={draft.siteSlug || "all"} onValueChange={(value) => setDraft((current) => ({ ...current, siteSlug: value === "all" ? "" : value }))} /></Field>
+          <Field label="Dive site"><SiteSelect sites={sites} value={draft.siteSlug} onValueChange={(value) => setDraft((current) => ({ ...current, siteSlug: value }))} /></Field>
           <Field label="Presence type"><Select value={draft.presenceType} onValueChange={(value) => setDraft((current) => ({ ...current, presenceType: value as DivePresenceType }))} items={PRESENCE_TYPES}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>{PRESENCE_TYPES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
           </Select></Field>
           <Field label="Visibility"><VisibilitySelect value={draft.visibility} onValueChange={(value) => setDraft((current) => ({ ...current, visibility: value }))} /></Field>
@@ -400,9 +412,9 @@ function AffinityForm({ title, draft, setDraft, sites, saving, onSubmit }: {
       <CardContent className="space-y-4 p-4">
         <h2 className="text-lg font-semibold">{title}</h2>
         <div className="grid gap-3 md:grid-cols-3">
-          <Field label="Dive site"><SiteSelect sites={sites} value={draft.siteSlug || "all"} onValueChange={(value) => setDraft((current) => ({ ...current, siteSlug: value === "all" ? "" : value }))} /></Field>
+          <Field label="Dive site"><SiteSelect sites={sites} value={draft.siteSlug} onValueChange={(value) => setDraft((current) => ({ ...current, siteSlug: value }))} /></Field>
           <Field label="Relationship"><Select value={draft.relationship} onValueChange={(value) => setDraft((current) => ({ ...current, relationship: value as DiveSiteAffinityRelationship }))} items={RELATIONSHIPS}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>{RELATIONSHIPS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
           </Select></Field>
           <Field label="Visibility"><VisibilitySelect value={draft.visibility} onValueChange={(value) => setDraft((current) => ({ ...current, visibility: value }))} /></Field>
@@ -422,8 +434,8 @@ function SiteSelect({ sites, value, onValueChange, includeAll = false }: {
   includeAll?: boolean;
 }) {
   return (
-    <Select value={value} onValueChange={(next) => onValueChange(next ?? "all")} items={[...(includeAll ? [{ value: "all", label: "All dive sites" }] : []), ...sites.map((site) => ({ value: site.slug, label: site.name }))]}>
-      <SelectTrigger><SelectValue placeholder="Select dive site" /></SelectTrigger>
+    <Select value={includeAll ? value : value || null} onValueChange={(next) => onValueChange(next ?? (includeAll ? "all" : ""))} items={[...(includeAll ? [{ value: "all", label: "All dive sites" }] : []), ...sites.map((site) => ({ value: site.slug, label: site.name }))]}>
+      <SelectTrigger className="w-full"><SelectValue placeholder="Select dive site" /></SelectTrigger>
       <SelectContent>
         {includeAll ? <SelectItem value="all">All dive sites</SelectItem> : null}
         {sites.map((site) => <SelectItem key={site.id} value={site.slug}>{site.name}</SelectItem>)}
@@ -438,7 +450,7 @@ function VisibilitySelect({ value, onValueChange }: {
 }) {
   return (
     <Select value={value} onValueChange={(next) => onValueChange(next as CreateDivePresenceRequest["visibility"])} items={VISIBILITY_ITEMS}>
-      <SelectTrigger><SelectValue /></SelectTrigger>
+      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
       <SelectContent>{VISIBILITY_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
     </Select>
   );
@@ -672,4 +684,16 @@ function labelForPresenceType(value: string) {
 
 function titleCase(value: string) {
   return value.replace(/_/g, " ").split(" ").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+
+function tabFromParam(value: string | null): BuddiesTab {
+  if (value === "presence" || value === "my-dive-presence") return "presence";
+  if (value === "sites" || value === "my-dive-sites") return "sites";
+  return "find";
+}
+
+function paramFromTab(value: BuddiesTab): string {
+  if (value === "presence") return "my-dive-presence";
+  if (value === "sites") return "my-dive-sites";
+  return "find";
 }
