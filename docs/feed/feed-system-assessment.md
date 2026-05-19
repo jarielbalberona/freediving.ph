@@ -1396,6 +1396,132 @@ Cutover recommendation:
 - **Do not cut over yet.**
 - Next step is to deploy the side-by-side web preview, obtain a safe member token/test account, run signed-in live smoke, and decide/implement activity telemetry and hide behavior before default migration.
 
+## Activity Preview Deployment And Telemetry Readiness
+
+Date: 2026-05-19
+
+Verdict: **Preview deployment PASS WITH ISSUES. Cutover evaluation can rerun only after the listed issues are accepted or cleared.** The side-by-side web preview is now live and testable at `https://freediving.ph/?feedSource=activity`, and activity telemetry/action plumbing is implemented code-wise. Do not make `/v1/feed/activity` the default homepage source yet.
+
+### Deployment Status
+
+- Branch: `main`.
+- Local/live head after deployment: `cdde48f update explore and feed`.
+- Feed telemetry implementation commit: `68ab6d4 Add activity feed preview telemetry`.
+- Render canceled the direct `68ab6d4` deploy after a newer commit arrived, then deployed `cdde48f` live for both services:
+  - web `freediving-ph-app`: live at `2026-05-19T12:31:15Z`
+  - API `freediving-ph-api`: live at `2026-05-19T12:31:05Z`
+- Deployment is not an isolated feed-only artifact because `cdde48f` mixes explore/feed work. That is acceptable for runtime smoke, but it is a review/release-management risk.
+- Worktree was clean after the deployable feed commit during this pass.
+
+### Guest API Smoke
+
+Canonical API: `https://api.freediving.ph`.
+
+Results:
+- `GET /v1/feed/activity?filter=latest&limit=10` returned `200` with 2 public rows:
+  - `media_post_created`
+  - `chika_thread_created`
+- `GET /v1/feed/activity?filter=chika&limit=10` returned `200` with only `chika_thread_created`.
+- `GET /v1/feed/activity?filter=dive-reports&limit=10` returned `200` with only `media_post_created`.
+- `GET /v1/feed/activity?filter=events&limit=10` returned `200` with 0 rows.
+- `GET /v1/feed/activity?filter=nearby&region=Mabini&limit=10` returned `200` with 0 rows.
+
+Guest privacy notes:
+- No member-only buddy intents appeared in guest results.
+- No private, followers-only, group-only, or private event rows appeared in guest results.
+- Live pseudonymous Chika masking remains not data-proven because the live Chika row was not pseudonymous.
+- Member-only buddy exclusion remains not data-proven with positive live data because no live member-only buddy row was available in the result set.
+
+### Signed-In Smoke
+
+Status: **blocked**.
+
+- No `MEMBER_TOKEN`, safe Clerk test token, or safe signed-in test account was available in the local environment.
+- Signed-in checks for member-only buddy rows, group-member rows, block suppression, hidden suppression, and normal-viewer pseudonymous masking remain unproven live.
+- Do not claim signed-in production readiness until this is tested with a safe member token.
+
+### Web Preview Smoke
+
+Status: **passed for guest preview plumbing**.
+
+- `https://freediving.ph/?feedSource=activity` renders the `Activity feed preview` indicator.
+- Activity preview renders activity IDs as UUIDs, not legacy `fi_*` IDs.
+- Activity preview card telemetry attributes use `data-entity-type="activity_item"` and `data-entity-id=<activity item id>`.
+- Normal `https://freediving.ph/` still uses `/v1/feed/home` and renders legacy `fi_*` IDs.
+- No accidental default cutover happened.
+- Tabs remain visible: Latest, Nearby, Chika, Dive reports, Events.
+
+Action visibility note:
+- Save / Not interested are visible in activity preview after activity telemetry support was added. This replaces the earlier temporary preview behavior where legacy actions were hidden.
+
+### Telemetry And Actions
+
+Status: **code-wise implemented; live authenticated POST smoke blocked**.
+
+Implemented:
+- `feed_impressions` and `feed_actions` now carry `feed_source` with allowed values `home` and `activity`.
+- Legacy home telemetry defaults to `home`.
+- Activity preview sends activity item IDs with `source: "activity"` and `entityType: "activity_item"`.
+- `hide_item` for activity rows writes the same feed action path and activity feed suppression checks `user_hidden_feed_items` for `entity_type = 'activity_item'`.
+- `not_interested` remains feedback/telemetry only.
+
+Blocked:
+- Live impression/action POSTs could not be tested because no safe member token was available.
+- Live `hide_item` suppression for activity rows remains unproven until a safe member token/test account exists.
+
+### Pagination Smoke
+
+Guest pagination remains healthy:
+- `GET /v1/feed/activity?filter=latest&limit=1` returned the newest activity row plus an opaque `nextCursor`.
+- Reusing `nextCursor` returned the next older row with no duplicate ID.
+- `GET /v1/feed/activity?filter=latest&cursor=bad-cursor` returned `400`.
+
+### Density Comparison
+
+Live API comparison:
+- `/v1/feed/home?mode=latest&limit=10` returned 3 items: `media_post`, `community_hot_post`, `dive_spot`.
+- `/v1/feed/activity?filter=latest&limit=10` returned 2 items: `media_post_created`, `chika_thread_created`.
+- `/v1/feed/home?mode=dive-reports&limit=10` returned 10 `dive_spot` cards.
+- `/v1/feed/activity?filter=dive-reports&limit=10` returned 1 `media_post_created` row.
+- `/v1/feed/home?mode=nearby&region=Mabini&limit=10` returned 1 `dive_spot`.
+- `/v1/feed/activity?filter=nearby&region=Mabini&limit=10` returned 0 rows.
+
+Product read:
+- Activity is more truthful and contractually cleaner.
+- Home remains denser because it includes discovery/briefing cards that are not real activity ledger rows.
+- Activity is still too sparse to become the default homepage unless the product explicitly accepts lower density or the next pass adds more safe source coverage/backfill.
+
+### Verification Commands
+
+Commands run:
+- `git status --short` - clean after deployable commit during this pass.
+- `git diff --stat` - clean after deployable commit during this pass.
+- `git log --oneline -10` - latest local/live head `cdde48f update explore and feed`; telemetry commit `68ab6d4` is included beneath it.
+- `cd services/fphgo && go run github.com/pressly/goose/v3/cmd/goose@v3.24.1 -dir db/migrations validate` - passed.
+- `pnpm --filter @freediving.ph/web type-check` - passed.
+- `pnpm --filter @freediving.ph/web test` - passed.
+- `pnpm --filter @freediving.ph/types test` - passed.
+- `cd services/fphgo && go test ./internal/features/feed/...` - passed.
+- `cd services/fphgo && go test ./internal/app` - passed.
+- `git diff --check` - passed before the deployable commit.
+- Render deploy checks for web/API - latest `cdde48f` live for both services.
+- Browser smoke for `https://freediving.ph/?feedSource=activity` - passed for guest preview source selection.
+- Browser smoke for `https://freediving.ph/` - passed; default remains home feed.
+
+### Remaining Risks
+
+- Signed-in/member smoke is still blocked by missing `MEMBER_TOKEN`.
+- Live activity `hide_item` smoke is still blocked by missing `MEMBER_TOKEN`.
+- Live pseudonymous Chika masking is still not data-proven.
+- Activity feed density is lower than `/v1/feed/home`.
+- Activity `nearby` remains string-area based and returned no Mabini result in guest smoke.
+- Telemetry/action support is code-wise tested, but authenticated live POST smoke is not done.
+- The live deploy is mixed with explore/feed changes because `cdde48f` superseded the isolated telemetry commit.
+
+Cutover recommendation:
+- **Do not cut over by default yet.**
+- Rerun cutover evaluation only after accepting the current density gap or adding more safe activity source coverage, and after obtaining a safe member token for signed-in telemetry/action/privacy smoke.
+
 ## Do Not Build Yet
 
 - ML ranking
