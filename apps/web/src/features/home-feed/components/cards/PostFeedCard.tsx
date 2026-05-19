@@ -57,9 +57,18 @@ export function PostFeedCard({
           <Badge variant="outline">Saved spot</Badge>
         ) : null}
       </div>
-      <p className="line-clamp-3 text-sm leading-relaxed">
-        {payload.note || "No report note"}
-      </p>
+      {item.detailHref ? (
+        <Link
+          href={item.detailHref}
+          className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"
+        >
+          {payload.note || "No report note"}
+        </Link>
+      ) : (
+        <p className="line-clamp-3 text-sm leading-relaxed">
+          {payload.note || "No report note"}
+        </p>
+      )}
       <div className="flex flex-wrap gap-2 text-xs">
         {payload.current ? (
           <Badge variant="outline">Current: {payload.current}</Badge>

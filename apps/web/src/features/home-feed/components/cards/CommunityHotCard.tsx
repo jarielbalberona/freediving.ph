@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
+
 import { UsernameLink } from "@/components/common/UsernameLink";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import type { HomeFeedItem } from "@freediving.ph/types";
 import { FeedCardShell } from "@/features/home-feed/components/FeedCardShell";
+import ThreadActions from "@/features/chika/components/ThreadActions";
 
 type CommunityPayload = {
   authorName?: string;
@@ -21,8 +24,19 @@ export function CommunityHotCard({
   actions,
 }: { item: HomeFeedItem; actions?: React.ReactNode }) {
   const payload = item.payload as CommunityPayload;
+  const chikaActions = (
+    <div className="flex w-full flex-wrap items-center justify-between gap-2">
+      <ThreadActions
+        threadId={item.entityId}
+        initialVoteCount={payload.reactionCount ?? 0}
+        commentCount={payload.replyCount ?? 0}
+      />
+      {actions}
+    </div>
+  );
+
   return (
-    <FeedCardShell item={item} actions={actions}>
+    <FeedCardShell item={item} actions={chikaActions}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <UserAvatar displayName={payload.authorName} size="sm" />
@@ -40,17 +54,25 @@ export function CommunityHotCard({
         </div>
         <Badge
           variant="outline"
-          className="border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+          className="border-teal-500/30 bg-teal-500/10 text-teal-800"
         >
           {payload.categoryName || "Chika"}
         </Badge>
       </div>
-      <p className="line-clamp-2 text-base font-semibold tracking-tight">
-        {payload.title || "Untitled Chika"}
-      </p>
+      {item.detailHref ? (
+        <Link
+          href={item.detailHref}
+          className="block text-base font-semibold leading-snug tracking-tight text-foreground hover:underline"
+        >
+          {payload.title || "Untitled Chika"}
+        </Link>
+      ) : (
+        <p className="line-clamp-2 text-base font-semibold tracking-tight">
+          {payload.title || "Untitled Chika"}
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">
-        {payload.replyCount ?? 0} replies · {payload.reactionCount ?? 0}{" "}
-        reactions
+        {payload.replyCount ?? 0} replies · {payload.reactionCount ?? 0} votes
       </p>
     </FeedCardShell>
   );

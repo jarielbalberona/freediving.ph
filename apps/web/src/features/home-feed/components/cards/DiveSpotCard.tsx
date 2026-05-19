@@ -60,7 +60,7 @@ export function DiveSpotCard({
         </div>
         <Badge
           variant="outline"
-          className="mt-1 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+          className="mt-1 border-cyan-500/30 bg-cyan-500/10 text-cyan-800"
         >
           {verificationLabel(payload.verificationStatus)}
         </Badge>
@@ -78,9 +78,18 @@ export function DiveSpotCard({
         </p>
       </div>
       {payload.description ? (
-        <p className="line-clamp-2 text-sm text-foreground/80">
-          {payload.description}
-        </p>
+        payload.slug ? (
+          <Link
+            href={`/explore/sites/${payload.slug}`}
+            className="block line-clamp-2 text-sm text-foreground hover:underline"
+          >
+            {payload.description}
+          </Link>
+        ) : (
+          <p className="line-clamp-2 text-sm text-foreground">
+            {payload.description}
+          </p>
+        )
       ) : null}
     </FeedCardShell>
   );

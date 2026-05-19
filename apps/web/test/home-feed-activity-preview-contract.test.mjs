@@ -91,19 +91,27 @@ test("activity preview adapts supported ledger types and skips unknown types saf
 });
 
 test("activity default sends activity-safe telemetry and card actions", async () => {
-  const [homePage, mixedFeed, renderer, tracker, adapter] = await Promise.all([
-    readFile(homePagePath, "utf8"),
-    readFile(mixedFeedPath, "utf8"),
-    readFile(rendererPath, "utf8"),
-    readFile(
-      path.join(
-        appRoot,
-        "src/features/home-feed/hooks/useFeedImpressionTracker.ts",
+  const [homePage, mixedFeed, renderer, shell, tracker, adapter] =
+    await Promise.all([
+      readFile(homePagePath, "utf8"),
+      readFile(mixedFeedPath, "utf8"),
+      readFile(rendererPath, "utf8"),
+      readFile(
+        path.join(
+          appRoot,
+          "src/features/home-feed/components/FeedCardShell.tsx",
+        ),
+        "utf8",
       ),
-      "utf8",
-    ),
-    readFile(adapterPath, "utf8"),
-  ]);
+      readFile(
+        path.join(
+          appRoot,
+          "src/features/home-feed/hooks/useFeedImpressionTracker.ts",
+        ),
+        "utf8",
+      ),
+      readFile(adapterPath, "utf8"),
+    ]);
 
   assert.match(homePage, /source=\{feedSource\}/);
   assert.match(homePage, /telemetryEnabled/);
@@ -119,9 +127,15 @@ test("activity default sends activity-safe telemetry and card actions", async ()
   assert.match(renderer, /showActions = true/);
   assert.match(renderer, /const actions = showActions \?/);
   assert.match(renderer, /data-entity-type=\{item\.telemetryEntityType \?\? item\.type\}/);
+  assert.match(shell, /FeedTypeBadge/);
+  assert.doesNotMatch(shell, /buttonVariants/);
+  assert.doesNotMatch(shell, /item\.rankHint/);
   assert.match(adapter, /feedSource: "activity"/);
   assert.match(adapter, /telemetryEntityType: "activity_item"/);
   assert.match(adapter, /telemetryEntityId: item\.id/);
+  assert.doesNotMatch(adapter, /Profile update/);
+  assert.doesNotMatch(adapter, /Chika thread/);
+  assert.doesNotMatch(adapter, /Ordered by recent eligible activity/);
 });
 
 test("source, mode, and cursor changes use separate activity pagination state", async () => {

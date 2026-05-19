@@ -73,7 +73,7 @@ const baseItem = (
   typeLabel: input.typeLabel,
   typeHint: input.typeHint,
   rankLabel: "Activity",
-  rankHint: "Ordered by recent eligible activity.",
+  rankHint: "",
   tone: input.tone,
   detailHref: input.detailHref,
   authorHref: authorHref(item),
@@ -86,7 +86,7 @@ const mapChikaThread = (item: ActivityFeedItem): HomeFeedItem =>
     type: "community_hot_post",
     entityId: item.target.id || item.sourceId,
     typeLabel: "Chika",
-    typeHint: "Chika thread",
+    typeHint: "Chika",
     tone: "social",
     detailHref: item.href,
     payload: {
@@ -165,7 +165,7 @@ const mapMediaPost = (item: ActivityFeedItem): HomeFeedItem => {
       type: "post",
       entityId: item.sourceId,
       typeLabel: "Media post",
-      typeHint: "Profile update",
+      typeHint: "Media post",
       tone: "social",
       detailHref: item.href,
       payload: {
@@ -182,7 +182,7 @@ const mapMediaPost = (item: ActivityFeedItem): HomeFeedItem => {
     type: "media_post",
     entityId: item.sourceId,
     typeLabel: "Media post",
-    typeHint: "Profile update",
+    typeHint: "Media post",
     tone: "social",
     detailHref: item.href,
     payload: {

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import type { HomeFeedItem } from "@freediving.ph/types";
 import { FeedCardShell } from "@/features/home-feed/components/FeedCardShell";
@@ -20,17 +22,26 @@ export function EventCard({
       <div className="flex items-center justify-between gap-3">
         <Badge
           variant="outline"
-          className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+          className="border-amber-500/30 bg-amber-500/10 text-amber-800"
         >
           Group session
         </Badge>
-        <span className="text-sm text-muted-foreground font-medium">
+        <span className="text-sm font-medium text-muted-foreground">
           {payload.memberCount ?? 0} members
         </span>
       </div>
-      <p className="line-clamp-2 text-base font-semibold tracking-tight">
-        {payload.title || "Untitled event"}
-      </p>
+      {item.detailHref ? (
+        <Link
+          href={item.detailHref}
+          className="block line-clamp-2 text-base font-semibold tracking-tight text-foreground hover:underline"
+        >
+          {payload.title || "Untitled event"}
+        </Link>
+      ) : (
+        <p className="line-clamp-2 text-base font-semibold tracking-tight">
+          {payload.title || "Untitled event"}
+        </p>
+      )}
       {payload.viewerMember ? (
         <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
           <span className="relative flex h-2 w-2">

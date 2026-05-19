@@ -112,9 +112,18 @@ export function MediaPostCard({
           </button>
         ) : null}
 
-        <p className="line-clamp-3 text-sm leading-relaxed text-foreground/90">
-          {caption}
-        </p>
+        {item.detailHref ? (
+          <Link
+            href={item.detailHref}
+            className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"
+          >
+            {caption}
+          </Link>
+        ) : (
+          <p className="line-clamp-3 text-sm leading-relaxed text-foreground">
+            {caption}
+          </p>
+        )}
       </FeedCardShell>
 
       <MediaViewerDialog

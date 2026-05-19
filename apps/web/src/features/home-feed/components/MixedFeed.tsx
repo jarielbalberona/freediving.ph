@@ -6,6 +6,7 @@ import InfiniteScroll from "react-infinite-scroll-component";
 
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { FeedItemRenderer } from "@/features/home-feed/components/FeedItemRenderer";
 import { useFeedActionMutation } from "@/features/home-feed/hooks/mutations/useFeedActionMutation";
@@ -15,6 +16,42 @@ import type {
   HomeFeedItem,
   HomeFeedMode,
 } from "@freediving.ph/types";
+
+function FeedSkeleton() {
+  return (
+    <div className="divide-y divide-border/70">
+      {Array.from({ length: 4 }, (_, index) => (
+        <div key={`home-feed-skeleton-${index + 1}`} className="py-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="size-7 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <Skeleton className="size-9 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-36 max-w-full" />
+              <Skeleton className="h-3 w-48 max-w-full" />
+            </div>
+          </div>
+          <div className="mt-3 space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
+          {index === 1 ? (
+            <Skeleton className="mt-3 aspect-[4/3] w-full rounded-2xl" />
+          ) : null}
+          <div className="mt-3 flex justify-end gap-2">
+            <Skeleton className="h-8 w-20 rounded-full" />
+            <Skeleton className="size-8 rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function MixedFeed({
   mode,
@@ -73,15 +110,7 @@ export function MixedFeed({
   };
 
   if (items.length === 0 && loading) {
-    return (
-      <Card className="p-5">
-        <p className="text-sm font-semibold">Looking for community updates</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          We are checking recent dives, buddy posts, Chika, and spot reports.
-          This usually only takes a moment.
-        </p>
-      </Card>
-    );
+    return <FeedSkeleton />;
   }
 
   if (items.length === 0 && !loading) {
@@ -93,7 +122,7 @@ export function MixedFeed({
         title: "No recent activity yet",
         body: "Recent public and member-safe community activity will appear here as divers post updates.",
         href: "/chika",
-        action: "Open Chika",
+        action: "Join Chika",
       },
       nearby: {
         title: "Local updates will appear here",
@@ -102,20 +131,20 @@ export function MixedFeed({
         action: "Explore spots",
       },
       chika: {
-        title: "No recent Chika threads",
-        body: "Public Chika threads will appear here without mixing in unrelated feed cards.",
+        title: "No recent Chika yet",
+        body: "Public Chika conversations will appear here without mixing in unrelated feed cards.",
         href: "/chika",
         action: "Start a Chika",
       },
       "dive-reports": {
         title: "No dive reports yet",
-        body: "Dive reports only show site updates and condition-like activity.",
+        body: "Site notes and condition updates from divers will appear here.",
         href: "/explore",
         action: "Browse dive spots",
       },
       events: {
-        title: "No eligible events yet",
-        body: "Published events you are allowed to see will appear here.",
+        title: "No upcoming events yet",
+        body: "Published events from the community will appear here.",
         href: "/events",
         action: "Browse events",
       },
@@ -143,7 +172,7 @@ export function MixedFeed({
         hasMore={hasMore}
         loader={
           items.length > 0 ? (
-            <div className="flex justify-center py-2">
+            <div className="flex justify-center py-3">
               <p className="text-sm text-muted-foreground">
                 Bringing in more community updates...
               </p>
@@ -152,7 +181,7 @@ export function MixedFeed({
         }
         scrollThreshold="200px"
       >
-        <div className="space-y-3">
+        <div>
           {items.map((item, index) => (
             <FeedItemRenderer
               key={item.id}

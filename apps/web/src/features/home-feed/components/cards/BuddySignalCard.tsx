@@ -54,19 +54,28 @@ export function BuddySignalCard({
         </div>
         <Badge
           variant="outline"
-          className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+          className="border-emerald-500/30 bg-emerald-500/10 text-emerald-800"
         >
           {payload.timeWindow || "time flexible"}
         </Badge>
       </div>
       <div className="flex flex-wrap gap-2 text-xs">
         <Badge variant="outline">{payload.intentType || "fun_dive"}</Badge>
-        <Badge variant="outline">Buddy coordination</Badge>
+        {payload.area ? <Badge variant="outline">{payload.area}</Badge> : null}
       </div>
       {payload.note ? (
-        <p className="line-clamp-3 text-sm leading-relaxed text-foreground/90">
-          {payload.note}
-        </p>
+        item.detailHref ? (
+          <Link
+            href={item.detailHref}
+            className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"
+          >
+            {payload.note}
+          </Link>
+        ) : (
+          <p className="line-clamp-3 text-sm leading-relaxed text-foreground">
+            {payload.note}
+          </p>
+        )
       ) : null}
     </FeedCardShell>
   );
