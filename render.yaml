@@ -32,15 +32,15 @@ services:
       - key: CLERK_JWT_AUDIENCE
         sync: false
       - key: CORS_ORIGIN
-        value: https://freediving-ph-app.onrender.com
+        value: https://freediving.ph
       - key: CORS_ORIGINS
-        value: https://freediving-ph-app.onrender.com
+        value: https://freediving.ph
       - key: APP_URL
-        value: https://freediving-ph-app.onrender.com
+        value: https://freediving.ph
       - key: API_URL
-        value: https://freediving-ph-api.onrender.com
+        value: https://api.freediving.ph
       - key: API_BASE_URL
-        value: https://freediving-ph-api.onrender.com
+        value: https://api.freediving.ph
       - key: R2_ACCOUNT_ID
         sync: false
       - key: R2_ACCESS_KEY_ID
@@ -75,15 +75,15 @@ services:
       - key: PORT
         value: "10000"
       - key: NEXT_PUBLIC_API_URL
-        value: https://freediving-ph-api.onrender.com
+        value: https://api.freediving.ph
       - key: NEXT_PUBLIC_FPHGO_BASE_URL
-        value: https://freediving-ph-api.onrender.com
+        value: https://api.freediving.ph
       - key: FPHGO_BASE_URL
-        value: https://freediving-ph-api.onrender.com
+        value: https://api.freediving.ph
       - key: NEXT_PUBLIC_APP_URL
-        value: https://freediving-ph-app.onrender.com
+        value: https://freediving.ph
       - key: APP_URL
-        value: https://freediving-ph-app.onrender.com
+        value: https://freediving.ph
       - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
         sync: false
       - key: CLERK_SECRET_KEY
