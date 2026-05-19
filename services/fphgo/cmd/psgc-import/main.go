@@ -56,11 +56,13 @@ func main() {
 	var sourceVersion string
 	var publishedAtRaw string
 	var deactivateMissing bool
+	var skipIfCurrent bool
 
 	flag.StringVar(&dataDir, "data-dir", "", "directory containing regions.json, provinces.json, muncities.json, barangays.json")
 	flag.StringVar(&sourceVersion, "source-version", "", "source version label (default: data dir name)")
 	flag.StringVar(&publishedAtRaw, "published-at", "", "optional publication time (RFC3339 or YYYY-MM-DD)")
 	flag.BoolVar(&deactivateMissing, "deactivate-missing", true, "set previously imported rows not present in this source_version to inactive")
+	flag.BoolVar(&skipIfCurrent, "skip-if-current", false, "skip import when active row counts already match this source version")
 	flag.Parse()
 
 	dataDir = strings.TrimSpace(dataDir)
@@ -112,6 +114,24 @@ func main() {
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	if skipIfCurrent {
+		current, err := hasCurrentImport(ctx, pool, sourceVersion, len(regions), len(provinces), len(cities), len(barangays))
+		if err != nil {
+			die("check current import: %v", err)
+		}
+		if current {
+			logger.Info("psgc import skipped; active data is current",
+				"source_version", sourceVersion,
+				"regions", len(regions),
+				"provinces", len(provinces),
+				"cities_municipalities", len(cities),
+				"barangays", len(barangays),
+			)
+			return
+		}
+	}
+
 	logger.Info("starting psgc import", "source_version", sourceVersion, "data_dir", dataDir)
 
 	if err := importPSGC(ctx, pool, sourceVersion, dataDir, publishedAt, deactivateMissing, regions, provinces, cities, barangays); err != nil {
@@ -125,6 +145,43 @@ func main() {
 		"cities_municipalities", len(cities),
 		"barangays", len(barangays),
 	)
+}
+
+func hasCurrentImport(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	sourceVersion string,
+	regionsCount, provincesCount, citiesCount, barangaysCount int,
+) (bool, error) {
+	const q = `
+		SELECT
+			(SELECT COUNT(*) FROM psgc_import_history WHERE source_version = $1) > 0,
+			(SELECT COUNT(*) FROM psgc_regions WHERE is_active = TRUE AND source_version = $1),
+			(SELECT COUNT(*) FROM psgc_provinces WHERE is_active = TRUE AND source_version = $1),
+			(SELECT COUNT(*) FROM psgc_cities_municipalities WHERE is_active = TRUE AND source_version = $1),
+			(SELECT COUNT(*) FROM psgc_barangays WHERE is_active = TRUE AND source_version = $1)
+	`
+
+	var hasHistory bool
+	var activeRegions int
+	var activeProvinces int
+	var activeCities int
+	var activeBarangays int
+	if err := pool.QueryRow(ctx, q, sourceVersion).Scan(
+		&hasHistory,
+		&activeRegions,
+		&activeProvinces,
+		&activeCities,
+		&activeBarangays,
+	); err != nil {
+		return false, err
+	}
+
+	return hasHistory &&
+		activeRegions == regionsCount &&
+		activeProvinces == provincesCount &&
+		activeCities == citiesCount &&
+		activeBarangays == barangaysCount, nil
 }
 
 func importPSGC(

@@ -11,7 +11,7 @@ services:
     plan: starter
     region: oregon
     buildCommand: cd services/fphgo && go mod download && go build -o bin/fphgo ./cmd/api
-    preDeployCommand: cd services/fphgo && make migrate-up
+    preDeployCommand: cd services/fphgo && make migrate-up && make psgc-import-2025-2q
     startCommand: cd services/fphgo && ./bin/fphgo
     healthCheckPath: /healthz
     envVars:
