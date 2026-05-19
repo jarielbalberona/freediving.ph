@@ -61,6 +61,11 @@ export const routes = {
       mySubmissions: () => "/v1/explore/sites/submissions",
       mySubmissionById: (id: string | number) =>
         `/v1/explore/sites/submissions/${toPathId(id)}`,
+      siteEditProposals: () => "/v1/explore/sites/edit-proposals",
+      siteEditProposalById: (id: string | number) =>
+        `/v1/explore/sites/edit-proposals/${toPathId(id)}`,
+      createSiteEditProposal: (slug: string | number) =>
+        `/v1/explore/sites/${toPathId(slug)}/edit-proposals`,
       siteBySlug: (slug: string | number) =>
         `/v1/explore/sites/${toPathId(slug)}`,
       siteRelated: (slug: string | number) =>
@@ -94,6 +99,14 @@ export const routes = {
         `/v1/explore/moderation/sites/${toPathId(id)}/approve`,
       rejectSite: (id: string | number) =>
         `/v1/explore/moderation/sites/${toPathId(id)}/reject`,
+      moderationPendingSiteEdits: () =>
+        "/v1/explore/moderation/site-edits/pending",
+      moderationSiteEditById: (id: string | number) =>
+        `/v1/explore/moderation/site-edits/${toPathId(id)}`,
+      approveSiteEdit: (id: string | number) =>
+        `/v1/explore/moderation/site-edits/${toPathId(id)}/approve`,
+      rejectSiteEdit: (id: string | number) =>
+        `/v1/explore/moderation/site-edits/${toPathId(id)}/reject`,
     },
     buddyFinder: {
       preview: () => "/v1/buddy-finder/preview",

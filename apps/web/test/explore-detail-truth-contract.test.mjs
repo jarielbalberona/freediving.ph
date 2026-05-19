@@ -7,6 +7,14 @@ const cwd = path.resolve(globalThis.process.cwd());
 const appRoot = cwd.endsWith(path.join("apps", "web")) ? cwd : path.join(cwd, "apps", "web");
 const srcRoot = path.join(appRoot, "src");
 const sharePagePath = path.join(srcRoot, "app/explore/sites/[slug]/page.tsx");
+const suggestEditPagePath = path.join(
+  srcRoot,
+  "app/explore/sites/[slug]/suggest-edit/page.tsx",
+);
+const moderationEditPagePath = path.join(
+  srcRoot,
+  "app/moderation/explore-site-edits/[id]/page.tsx",
+);
 const relatedTabsPath = path.join(
   srcRoot,
   "app/explore/sites/[slug]/dive-site-related-tabs.tsx",
@@ -43,7 +51,36 @@ test("explore site detail renders real backend data or 404s honestly", async () 
   assert.doesNotMatch(sharePage, /Mock explore detail page/);
   assert.match(sharePage, /getExploreSiteBySlugServer\(slug\)/);
   assert.match(sharePage, /getExploreSiteRelatedServer\(slug\)/);
+  assert.match(sharePage, /Suggest edit/);
+  assert.match(sharePage, /\/explore\/sites\/\$\{data\.site\.slug\}\/suggest-edit/);
   assert.match(sharePage, /notFound\(\)/);
+});
+
+test("explore site edits use a separate proposal workflow", async () => {
+  const [suggestEditPage, moderationEditPage, routes, clientApi] = await Promise.all([
+    readFile(suggestEditPagePath, "utf8"),
+    readFile(moderationEditPagePath, "utf8"),
+    readFile(routesPath, "utf8"),
+    readFile(exploreClientApiPath, "utf8"),
+  ]);
+
+  assert.match(suggestEditPage, /exploreApi\.createSiteEditProposal\(slug/);
+  assert.match(suggestEditPage, /Suggested edits are reviewed before they change public Explore/);
+  assert.match(suggestEditPage, /Super admins apply edits immediately/);
+  assert.doesNotMatch(suggestEditPage, /dive_sites/i);
+  assert.match(moderationEditPage, /getModerationSiteEditById/);
+  assert.match(moderationEditPage, /approveSiteEdit/);
+  assert.match(moderationEditPage, /rejectSiteEdit/);
+  assert.match(moderationEditPage, /Current/);
+  assert.match(moderationEditPage, /Proposed/);
+  assert.match(routes, /createSiteEditProposal/);
+  assert.match(routes, /moderationPendingSiteEdits/);
+  assert.match(routes, /approveSiteEdit/);
+  assert.match(routes, /rejectSiteEdit/);
+  assert.match(clientApi, /createSiteEditProposal/);
+  assert.match(clientApi, /listPendingSiteEdits/);
+  assert.match(clientApi, /approveSiteEdit/);
+  assert.match(clientApi, /rejectSiteEdit/);
 });
 
 test("explore site detail renders related tabs without duplicating old buddy section", async () => {

@@ -11,6 +11,172 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const applySiteEditProposal = `-- name: ApplySiteEditProposal :one
+WITH proposal AS (
+  UPDATE dive_site_edit_proposals p
+  SET state = 'applied',
+      reviewed_by_app_user_id = $1,
+      reviewed_at = $2,
+      moderation_reason = $3,
+      updated_at = NOW()
+  WHERE p.id = $4
+    AND p.state = 'pending'
+    AND EXISTS (
+      SELECT 1
+      FROM dive_sites s
+      WHERE s.id = p.dive_site_id
+        AND s.moderation_state = 'approved'
+    )
+  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, created_at, updated_at
+),
+updated_site AS (
+  UPDATE dive_sites s
+  SET name = p.proposed_name,
+      description = p.proposed_description,
+      entry_difficulty = p.proposed_entry_difficulty,
+      depth_min_m = p.proposed_depth_min_m,
+      depth_max_m = p.proposed_depth_max_m,
+      hazards = p.proposed_hazards,
+      best_season = NULLIF(p.proposed_best_season, ''),
+      typical_conditions = NULLIF(p.proposed_typical_conditions, ''),
+      access = NULLIF(p.proposed_access, ''),
+      fees = NULLIF(p.proposed_fees, ''),
+      updated_at = NOW(),
+      last_updated_at = GREATEST(s.last_updated_at, NOW())
+  FROM proposal p
+  WHERE s.id = p.dive_site_id
+    AND s.moderation_state = 'approved'
+  RETURNING s.id, s.name, s.slug, s.area, s.latitude, s.longitude, s.description, s.entry_difficulty, s.depth_min_m, s.depth_max_m, s.hazards, s.best_season, s.typical_conditions, s.access, s.fees, s.contact_info, s.verification_status, s.verified_by_app_user_id, s.submitted_by_app_user_id, s.reviewed_by_app_user_id, s.reviewed_at, s.moderation_reason, s.moderation_state, s.last_updated_at, s.updated_at, s.created_at
+)
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM proposal p
+JOIN updated_site s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+`
+
+type ApplySiteEditProposalParams struct {
+	ReviewedByAppUserID pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedAt          pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason    *string            `db:"moderation_reason" json:"moderation_reason"`
+	ID                  pgtype.UUID        `db:"id" json:"id"`
+}
+
+type ApplySiteEditProposalRow struct {
+	ID                        pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID                pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SiteSlug                  string             `db:"site_slug" json:"site_slug"`
+	SiteArea                  string             `db:"site_area" json:"site_area"`
+	SubmittedByAppUserID      pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	SubmittedByDisplayName    string             `db:"submitted_by_display_name" json:"submitted_by_display_name"`
+	ReviewedByAppUserID       pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName     string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
+	State                     string             `db:"state" json:"state"`
+	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentDescription        string             `db:"current_description" json:"current_description"`
+	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
+	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
+	CurrentDepthMaxM          pgtype.Numeric     `db:"current_depth_max_m" json:"current_depth_max_m"`
+	CurrentHazards            []string           `db:"current_hazards" json:"current_hazards"`
+	CurrentBestSeason         string             `db:"current_best_season" json:"current_best_season"`
+	CurrentTypicalConditions  string             `db:"current_typical_conditions" json:"current_typical_conditions"`
+	CurrentAccess             string             `db:"current_access" json:"current_access"`
+	CurrentFees               string             `db:"current_fees" json:"current_fees"`
+	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
+	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
+	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
+	ProposedDepthMaxM         pgtype.Numeric     `db:"proposed_depth_max_m" json:"proposed_depth_max_m"`
+	ProposedHazards           []string           `db:"proposed_hazards" json:"proposed_hazards"`
+	ProposedBestSeason        string             `db:"proposed_best_season" json:"proposed_best_season"`
+	ProposedTypicalConditions string             `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
+	ProposedAccess            string             `db:"proposed_access" json:"proposed_access"`
+	ProposedFees              string             `db:"proposed_fees" json:"proposed_fees"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ApplySiteEditProposal(ctx context.Context, arg ApplySiteEditProposalParams) (ApplySiteEditProposalRow, error) {
+	row := q.db.QueryRow(ctx, applySiteEditProposal,
+		arg.ReviewedByAppUserID,
+		arg.ReviewedAt,
+		arg.ModerationReason,
+		arg.ID,
+	)
+	var i ApplySiteEditProposalRow
+	err := row.Scan(
+		&i.ID,
+		&i.DiveSiteID,
+		&i.SiteSlug,
+		&i.SiteArea,
+		&i.SubmittedByAppUserID,
+		&i.SubmittedByDisplayName,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedByDisplayName,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.State,
+		&i.CurrentName,
+		&i.CurrentDescription,
+		&i.CurrentEntryDifficulty,
+		&i.CurrentDepthMinM,
+		&i.CurrentDepthMaxM,
+		&i.CurrentHazards,
+		&i.CurrentBestSeason,
+		&i.CurrentTypicalConditions,
+		&i.CurrentAccess,
+		&i.CurrentFees,
+		&i.ProposedName,
+		&i.ProposedDescription,
+		&i.ProposedEntryDifficulty,
+		&i.ProposedDepthMinM,
+		&i.ProposedDepthMaxM,
+		&i.ProposedHazards,
+		&i.ProposedBestSeason,
+		&i.ProposedTypicalConditions,
+		&i.ProposedAccess,
+		&i.ProposedFees,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const approveSite = `-- name: ApproveSite :one
 UPDATE dive_sites
 SET slug = $1,
@@ -297,6 +463,183 @@ func (q *Queries) CreateDivePresence(ctx context.Context, arg CreateDivePresence
 	return i, err
 }
 
+const createSiteEditProposal = `-- name: CreateSiteEditProposal :one
+WITH inserted AS (
+  INSERT INTO dive_site_edit_proposals (
+    dive_site_id,
+    submitted_by_app_user_id,
+    proposed_name,
+    proposed_description,
+    proposed_entry_difficulty,
+    proposed_depth_min_m,
+    proposed_depth_max_m,
+    proposed_hazards,
+    proposed_best_season,
+    proposed_typical_conditions,
+    proposed_access,
+    proposed_fees
+  )
+  VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10,
+    $11,
+    $12
+  )
+  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, created_at, updated_at
+)
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM inserted p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+`
+
+type CreateSiteEditProposalParams struct {
+	DiveSiteID                pgtype.UUID    `db:"dive_site_id" json:"dive_site_id"`
+	SubmittedByAppUserID      pgtype.UUID    `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	ProposedName              string         `db:"proposed_name" json:"proposed_name"`
+	ProposedDescription       string         `db:"proposed_description" json:"proposed_description"`
+	ProposedEntryDifficulty   string         `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
+	ProposedDepthMinM         pgtype.Numeric `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
+	ProposedDepthMaxM         pgtype.Numeric `db:"proposed_depth_max_m" json:"proposed_depth_max_m"`
+	ProposedHazards           []string       `db:"proposed_hazards" json:"proposed_hazards"`
+	ProposedBestSeason        string         `db:"proposed_best_season" json:"proposed_best_season"`
+	ProposedTypicalConditions string         `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
+	ProposedAccess            string         `db:"proposed_access" json:"proposed_access"`
+	ProposedFees              string         `db:"proposed_fees" json:"proposed_fees"`
+}
+
+type CreateSiteEditProposalRow struct {
+	ID                        pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID                pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SiteSlug                  string             `db:"site_slug" json:"site_slug"`
+	SiteArea                  string             `db:"site_area" json:"site_area"`
+	SubmittedByAppUserID      pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	SubmittedByDisplayName    string             `db:"submitted_by_display_name" json:"submitted_by_display_name"`
+	ReviewedByAppUserID       pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName     string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
+	State                     string             `db:"state" json:"state"`
+	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentDescription        string             `db:"current_description" json:"current_description"`
+	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
+	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
+	CurrentDepthMaxM          pgtype.Numeric     `db:"current_depth_max_m" json:"current_depth_max_m"`
+	CurrentHazards            []string           `db:"current_hazards" json:"current_hazards"`
+	CurrentBestSeason         string             `db:"current_best_season" json:"current_best_season"`
+	CurrentTypicalConditions  string             `db:"current_typical_conditions" json:"current_typical_conditions"`
+	CurrentAccess             string             `db:"current_access" json:"current_access"`
+	CurrentFees               string             `db:"current_fees" json:"current_fees"`
+	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
+	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
+	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
+	ProposedDepthMaxM         pgtype.Numeric     `db:"proposed_depth_max_m" json:"proposed_depth_max_m"`
+	ProposedHazards           []string           `db:"proposed_hazards" json:"proposed_hazards"`
+	ProposedBestSeason        string             `db:"proposed_best_season" json:"proposed_best_season"`
+	ProposedTypicalConditions string             `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
+	ProposedAccess            string             `db:"proposed_access" json:"proposed_access"`
+	ProposedFees              string             `db:"proposed_fees" json:"proposed_fees"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) CreateSiteEditProposal(ctx context.Context, arg CreateSiteEditProposalParams) (CreateSiteEditProposalRow, error) {
+	row := q.db.QueryRow(ctx, createSiteEditProposal,
+		arg.DiveSiteID,
+		arg.SubmittedByAppUserID,
+		arg.ProposedName,
+		arg.ProposedDescription,
+		arg.ProposedEntryDifficulty,
+		arg.ProposedDepthMinM,
+		arg.ProposedDepthMaxM,
+		arg.ProposedHazards,
+		arg.ProposedBestSeason,
+		arg.ProposedTypicalConditions,
+		arg.ProposedAccess,
+		arg.ProposedFees,
+	)
+	var i CreateSiteEditProposalRow
+	err := row.Scan(
+		&i.ID,
+		&i.DiveSiteID,
+		&i.SiteSlug,
+		&i.SiteArea,
+		&i.SubmittedByAppUserID,
+		&i.SubmittedByDisplayName,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedByDisplayName,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.State,
+		&i.CurrentName,
+		&i.CurrentDescription,
+		&i.CurrentEntryDifficulty,
+		&i.CurrentDepthMinM,
+		&i.CurrentDepthMaxM,
+		&i.CurrentHazards,
+		&i.CurrentBestSeason,
+		&i.CurrentTypicalConditions,
+		&i.CurrentAccess,
+		&i.CurrentFees,
+		&i.ProposedName,
+		&i.ProposedDescription,
+		&i.ProposedEntryDifficulty,
+		&i.ProposedDepthMinM,
+		&i.ProposedDepthMaxM,
+		&i.ProposedHazards,
+		&i.ProposedBestSeason,
+		&i.ProposedTypicalConditions,
+		&i.ProposedAccess,
+		&i.ProposedFees,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createSiteSubmission = `-- name: CreateSiteSubmission :one
 INSERT INTO dive_sites (
   name,
@@ -531,6 +874,131 @@ func (q *Queries) FindApprovedSiteDuplicate(ctx context.Context, arg FindApprove
 	var id pgtype.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const getMySiteEditProposalByID = `-- name: GetMySiteEditProposalByID :one
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM dive_site_edit_proposals p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+WHERE p.id = $1
+  AND p.submitted_by_app_user_id = $2
+`
+
+type GetMySiteEditProposalByIDParams struct {
+	ID                   pgtype.UUID `db:"id" json:"id"`
+	SubmittedByAppUserID pgtype.UUID `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+}
+
+type GetMySiteEditProposalByIDRow struct {
+	ID                        pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID                pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SiteSlug                  string             `db:"site_slug" json:"site_slug"`
+	SiteArea                  string             `db:"site_area" json:"site_area"`
+	SubmittedByAppUserID      pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	SubmittedByDisplayName    string             `db:"submitted_by_display_name" json:"submitted_by_display_name"`
+	ReviewedByAppUserID       pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName     string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
+	State                     string             `db:"state" json:"state"`
+	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentDescription        string             `db:"current_description" json:"current_description"`
+	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
+	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
+	CurrentDepthMaxM          pgtype.Numeric     `db:"current_depth_max_m" json:"current_depth_max_m"`
+	CurrentHazards            []string           `db:"current_hazards" json:"current_hazards"`
+	CurrentBestSeason         string             `db:"current_best_season" json:"current_best_season"`
+	CurrentTypicalConditions  string             `db:"current_typical_conditions" json:"current_typical_conditions"`
+	CurrentAccess             string             `db:"current_access" json:"current_access"`
+	CurrentFees               string             `db:"current_fees" json:"current_fees"`
+	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
+	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
+	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
+	ProposedDepthMaxM         pgtype.Numeric     `db:"proposed_depth_max_m" json:"proposed_depth_max_m"`
+	ProposedHazards           []string           `db:"proposed_hazards" json:"proposed_hazards"`
+	ProposedBestSeason        string             `db:"proposed_best_season" json:"proposed_best_season"`
+	ProposedTypicalConditions string             `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
+	ProposedAccess            string             `db:"proposed_access" json:"proposed_access"`
+	ProposedFees              string             `db:"proposed_fees" json:"proposed_fees"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) GetMySiteEditProposalByID(ctx context.Context, arg GetMySiteEditProposalByIDParams) (GetMySiteEditProposalByIDRow, error) {
+	row := q.db.QueryRow(ctx, getMySiteEditProposalByID, arg.ID, arg.SubmittedByAppUserID)
+	var i GetMySiteEditProposalByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.DiveSiteID,
+		&i.SiteSlug,
+		&i.SiteArea,
+		&i.SubmittedByAppUserID,
+		&i.SubmittedByDisplayName,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedByDisplayName,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.State,
+		&i.CurrentName,
+		&i.CurrentDescription,
+		&i.CurrentEntryDifficulty,
+		&i.CurrentDepthMinM,
+		&i.CurrentDepthMaxM,
+		&i.CurrentHazards,
+		&i.CurrentBestSeason,
+		&i.CurrentTypicalConditions,
+		&i.CurrentAccess,
+		&i.CurrentFees,
+		&i.ProposedName,
+		&i.ProposedDescription,
+		&i.ProposedEntryDifficulty,
+		&i.ProposedDepthMinM,
+		&i.ProposedDepthMaxM,
+		&i.ProposedHazards,
+		&i.ProposedBestSeason,
+		&i.ProposedTypicalConditions,
+		&i.ProposedAccess,
+		&i.ProposedFees,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getMySiteSubmissionByID = `-- name: GetMySiteSubmissionByID :one
@@ -869,6 +1337,125 @@ func (q *Queries) GetSiteBySlug(ctx context.Context, arg GetSiteBySlugParams) (G
 		&i.LastConditionSummary,
 		&i.LikeCount,
 		&i.ViewerHasLiked,
+	)
+	return i, err
+}
+
+const getSiteEditProposalForModeration = `-- name: GetSiteEditProposalForModeration :one
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM dive_site_edit_proposals p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+WHERE p.id = $1
+`
+
+type GetSiteEditProposalForModerationRow struct {
+	ID                        pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID                pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SiteSlug                  string             `db:"site_slug" json:"site_slug"`
+	SiteArea                  string             `db:"site_area" json:"site_area"`
+	SubmittedByAppUserID      pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	SubmittedByDisplayName    string             `db:"submitted_by_display_name" json:"submitted_by_display_name"`
+	ReviewedByAppUserID       pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName     string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
+	State                     string             `db:"state" json:"state"`
+	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentDescription        string             `db:"current_description" json:"current_description"`
+	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
+	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
+	CurrentDepthMaxM          pgtype.Numeric     `db:"current_depth_max_m" json:"current_depth_max_m"`
+	CurrentHazards            []string           `db:"current_hazards" json:"current_hazards"`
+	CurrentBestSeason         string             `db:"current_best_season" json:"current_best_season"`
+	CurrentTypicalConditions  string             `db:"current_typical_conditions" json:"current_typical_conditions"`
+	CurrentAccess             string             `db:"current_access" json:"current_access"`
+	CurrentFees               string             `db:"current_fees" json:"current_fees"`
+	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
+	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
+	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
+	ProposedDepthMaxM         pgtype.Numeric     `db:"proposed_depth_max_m" json:"proposed_depth_max_m"`
+	ProposedHazards           []string           `db:"proposed_hazards" json:"proposed_hazards"`
+	ProposedBestSeason        string             `db:"proposed_best_season" json:"proposed_best_season"`
+	ProposedTypicalConditions string             `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
+	ProposedAccess            string             `db:"proposed_access" json:"proposed_access"`
+	ProposedFees              string             `db:"proposed_fees" json:"proposed_fees"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) GetSiteEditProposalForModeration(ctx context.Context, id pgtype.UUID) (GetSiteEditProposalForModerationRow, error) {
+	row := q.db.QueryRow(ctx, getSiteEditProposalForModeration, id)
+	var i GetSiteEditProposalForModerationRow
+	err := row.Scan(
+		&i.ID,
+		&i.DiveSiteID,
+		&i.SiteSlug,
+		&i.SiteArea,
+		&i.SubmittedByAppUserID,
+		&i.SubmittedByDisplayName,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedByDisplayName,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.State,
+		&i.CurrentName,
+		&i.CurrentDescription,
+		&i.CurrentEntryDifficulty,
+		&i.CurrentDepthMinM,
+		&i.CurrentDepthMaxM,
+		&i.CurrentHazards,
+		&i.CurrentBestSeason,
+		&i.CurrentTypicalConditions,
+		&i.CurrentAccess,
+		&i.CurrentFees,
+		&i.ProposedName,
+		&i.ProposedDescription,
+		&i.ProposedEntryDifficulty,
+		&i.ProposedDepthMinM,
+		&i.ProposedDepthMaxM,
+		&i.ProposedHazards,
+		&i.ProposedBestSeason,
+		&i.ProposedTypicalConditions,
+		&i.ProposedAccess,
+		&i.ProposedFees,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1285,6 +1872,153 @@ func (q *Queries) ListLatestUpdates(ctx context.Context, arg ListLatestUpdatesPa
 	return items, nil
 }
 
+const listMySiteEditProposals = `-- name: ListMySiteEditProposals :many
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM dive_site_edit_proposals p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+WHERE p.submitted_by_app_user_id = $1
+  AND (p.created_at < $2 OR (p.created_at = $2 AND p.id < $3))
+ORDER BY p.created_at DESC, p.id DESC
+LIMIT $4
+`
+
+type ListMySiteEditProposalsParams struct {
+	SubmittedByAppUserID pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	CursorCreatedAt      pgtype.Timestamptz `db:"cursor_created_at" json:"cursor_created_at"`
+	CursorID             pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
+	LimitRows            int32              `db:"limit_rows" json:"limit_rows"`
+}
+
+type ListMySiteEditProposalsRow struct {
+	ID                        pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID                pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SiteSlug                  string             `db:"site_slug" json:"site_slug"`
+	SiteArea                  string             `db:"site_area" json:"site_area"`
+	SubmittedByAppUserID      pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	SubmittedByDisplayName    string             `db:"submitted_by_display_name" json:"submitted_by_display_name"`
+	ReviewedByAppUserID       pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName     string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
+	State                     string             `db:"state" json:"state"`
+	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentDescription        string             `db:"current_description" json:"current_description"`
+	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
+	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
+	CurrentDepthMaxM          pgtype.Numeric     `db:"current_depth_max_m" json:"current_depth_max_m"`
+	CurrentHazards            []string           `db:"current_hazards" json:"current_hazards"`
+	CurrentBestSeason         string             `db:"current_best_season" json:"current_best_season"`
+	CurrentTypicalConditions  string             `db:"current_typical_conditions" json:"current_typical_conditions"`
+	CurrentAccess             string             `db:"current_access" json:"current_access"`
+	CurrentFees               string             `db:"current_fees" json:"current_fees"`
+	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
+	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
+	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
+	ProposedDepthMaxM         pgtype.Numeric     `db:"proposed_depth_max_m" json:"proposed_depth_max_m"`
+	ProposedHazards           []string           `db:"proposed_hazards" json:"proposed_hazards"`
+	ProposedBestSeason        string             `db:"proposed_best_season" json:"proposed_best_season"`
+	ProposedTypicalConditions string             `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
+	ProposedAccess            string             `db:"proposed_access" json:"proposed_access"`
+	ProposedFees              string             `db:"proposed_fees" json:"proposed_fees"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListMySiteEditProposals(ctx context.Context, arg ListMySiteEditProposalsParams) ([]ListMySiteEditProposalsRow, error) {
+	rows, err := q.db.Query(ctx, listMySiteEditProposals,
+		arg.SubmittedByAppUserID,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.LimitRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMySiteEditProposalsRow{}
+	for rows.Next() {
+		var i ListMySiteEditProposalsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DiveSiteID,
+			&i.SiteSlug,
+			&i.SiteArea,
+			&i.SubmittedByAppUserID,
+			&i.SubmittedByDisplayName,
+			&i.ReviewedByAppUserID,
+			&i.ReviewedByDisplayName,
+			&i.ReviewedAt,
+			&i.ModerationReason,
+			&i.State,
+			&i.CurrentName,
+			&i.CurrentDescription,
+			&i.CurrentEntryDifficulty,
+			&i.CurrentDepthMinM,
+			&i.CurrentDepthMaxM,
+			&i.CurrentHazards,
+			&i.CurrentBestSeason,
+			&i.CurrentTypicalConditions,
+			&i.CurrentAccess,
+			&i.CurrentFees,
+			&i.ProposedName,
+			&i.ProposedDescription,
+			&i.ProposedEntryDifficulty,
+			&i.ProposedDepthMinM,
+			&i.ProposedDepthMaxM,
+			&i.ProposedHazards,
+			&i.ProposedBestSeason,
+			&i.ProposedTypicalConditions,
+			&i.ProposedAccess,
+			&i.ProposedFees,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMySiteSubmissions = `-- name: ListMySiteSubmissions :many
 SELECT
   s.id,
@@ -1398,6 +2132,148 @@ func (q *Queries) ListMySiteSubmissions(ctx context.Context, arg ListMySiteSubmi
 			&i.LastUpdatedAt,
 			&i.UpdatedAt,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingSiteEditProposals = `-- name: ListPendingSiteEditProposals :many
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM dive_site_edit_proposals p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+WHERE p.state = 'pending'
+  AND s.moderation_state = 'approved'
+  AND (p.created_at < $1 OR (p.created_at = $1 AND p.id < $2))
+ORDER BY p.created_at DESC, p.id DESC
+LIMIT $3
+`
+
+type ListPendingSiteEditProposalsParams struct {
+	CursorCreatedAt pgtype.Timestamptz `db:"cursor_created_at" json:"cursor_created_at"`
+	CursorID        pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
+	LimitRows       int32              `db:"limit_rows" json:"limit_rows"`
+}
+
+type ListPendingSiteEditProposalsRow struct {
+	ID                        pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID                pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SiteSlug                  string             `db:"site_slug" json:"site_slug"`
+	SiteArea                  string             `db:"site_area" json:"site_area"`
+	SubmittedByAppUserID      pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	SubmittedByDisplayName    string             `db:"submitted_by_display_name" json:"submitted_by_display_name"`
+	ReviewedByAppUserID       pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName     string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
+	State                     string             `db:"state" json:"state"`
+	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentDescription        string             `db:"current_description" json:"current_description"`
+	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
+	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
+	CurrentDepthMaxM          pgtype.Numeric     `db:"current_depth_max_m" json:"current_depth_max_m"`
+	CurrentHazards            []string           `db:"current_hazards" json:"current_hazards"`
+	CurrentBestSeason         string             `db:"current_best_season" json:"current_best_season"`
+	CurrentTypicalConditions  string             `db:"current_typical_conditions" json:"current_typical_conditions"`
+	CurrentAccess             string             `db:"current_access" json:"current_access"`
+	CurrentFees               string             `db:"current_fees" json:"current_fees"`
+	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
+	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
+	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
+	ProposedDepthMaxM         pgtype.Numeric     `db:"proposed_depth_max_m" json:"proposed_depth_max_m"`
+	ProposedHazards           []string           `db:"proposed_hazards" json:"proposed_hazards"`
+	ProposedBestSeason        string             `db:"proposed_best_season" json:"proposed_best_season"`
+	ProposedTypicalConditions string             `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
+	ProposedAccess            string             `db:"proposed_access" json:"proposed_access"`
+	ProposedFees              string             `db:"proposed_fees" json:"proposed_fees"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListPendingSiteEditProposals(ctx context.Context, arg ListPendingSiteEditProposalsParams) ([]ListPendingSiteEditProposalsRow, error) {
+	rows, err := q.db.Query(ctx, listPendingSiteEditProposals, arg.CursorCreatedAt, arg.CursorID, arg.LimitRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingSiteEditProposalsRow{}
+	for rows.Next() {
+		var i ListPendingSiteEditProposalsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DiveSiteID,
+			&i.SiteSlug,
+			&i.SiteArea,
+			&i.SubmittedByAppUserID,
+			&i.SubmittedByDisplayName,
+			&i.ReviewedByAppUserID,
+			&i.ReviewedByDisplayName,
+			&i.ReviewedAt,
+			&i.ModerationReason,
+			&i.State,
+			&i.CurrentName,
+			&i.CurrentDescription,
+			&i.CurrentEntryDifficulty,
+			&i.CurrentDepthMinM,
+			&i.CurrentDepthMaxM,
+			&i.CurrentHazards,
+			&i.CurrentBestSeason,
+			&i.CurrentTypicalConditions,
+			&i.CurrentAccess,
+			&i.CurrentFees,
+			&i.ProposedName,
+			&i.ProposedDescription,
+			&i.ProposedEntryDifficulty,
+			&i.ProposedDepthMinM,
+			&i.ProposedDepthMaxM,
+			&i.ProposedHazards,
+			&i.ProposedBestSeason,
+			&i.ProposedTypicalConditions,
+			&i.ProposedAccess,
+			&i.ProposedFees,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -2491,6 +3367,147 @@ func (q *Queries) RejectOrHideSite(ctx context.Context, arg RejectOrHideSitePara
 		&i.LastUpdatedAt,
 		&i.UpdatedAt,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const rejectSiteEditProposal = `-- name: RejectSiteEditProposal :one
+WITH proposal AS (
+  UPDATE dive_site_edit_proposals p
+  SET state = 'rejected',
+      reviewed_by_app_user_id = $1,
+      reviewed_at = $2,
+      moderation_reason = $3,
+      updated_at = NOW()
+  WHERE p.id = $4
+    AND p.state = 'pending'
+  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, created_at, updated_at
+)
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM proposal p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+`
+
+type RejectSiteEditProposalParams struct {
+	ReviewedByAppUserID pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedAt          pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason    *string            `db:"moderation_reason" json:"moderation_reason"`
+	ID                  pgtype.UUID        `db:"id" json:"id"`
+}
+
+type RejectSiteEditProposalRow struct {
+	ID                        pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID                pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SiteSlug                  string             `db:"site_slug" json:"site_slug"`
+	SiteArea                  string             `db:"site_area" json:"site_area"`
+	SubmittedByAppUserID      pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	SubmittedByDisplayName    string             `db:"submitted_by_display_name" json:"submitted_by_display_name"`
+	ReviewedByAppUserID       pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedByDisplayName     string             `db:"reviewed_by_display_name" json:"reviewed_by_display_name"`
+	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
+	State                     string             `db:"state" json:"state"`
+	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentDescription        string             `db:"current_description" json:"current_description"`
+	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
+	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
+	CurrentDepthMaxM          pgtype.Numeric     `db:"current_depth_max_m" json:"current_depth_max_m"`
+	CurrentHazards            []string           `db:"current_hazards" json:"current_hazards"`
+	CurrentBestSeason         string             `db:"current_best_season" json:"current_best_season"`
+	CurrentTypicalConditions  string             `db:"current_typical_conditions" json:"current_typical_conditions"`
+	CurrentAccess             string             `db:"current_access" json:"current_access"`
+	CurrentFees               string             `db:"current_fees" json:"current_fees"`
+	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
+	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
+	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
+	ProposedDepthMaxM         pgtype.Numeric     `db:"proposed_depth_max_m" json:"proposed_depth_max_m"`
+	ProposedHazards           []string           `db:"proposed_hazards" json:"proposed_hazards"`
+	ProposedBestSeason        string             `db:"proposed_best_season" json:"proposed_best_season"`
+	ProposedTypicalConditions string             `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
+	ProposedAccess            string             `db:"proposed_access" json:"proposed_access"`
+	ProposedFees              string             `db:"proposed_fees" json:"proposed_fees"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) RejectSiteEditProposal(ctx context.Context, arg RejectSiteEditProposalParams) (RejectSiteEditProposalRow, error) {
+	row := q.db.QueryRow(ctx, rejectSiteEditProposal,
+		arg.ReviewedByAppUserID,
+		arg.ReviewedAt,
+		arg.ModerationReason,
+		arg.ID,
+	)
+	var i RejectSiteEditProposalRow
+	err := row.Scan(
+		&i.ID,
+		&i.DiveSiteID,
+		&i.SiteSlug,
+		&i.SiteArea,
+		&i.SubmittedByAppUserID,
+		&i.SubmittedByDisplayName,
+		&i.ReviewedByAppUserID,
+		&i.ReviewedByDisplayName,
+		&i.ReviewedAt,
+		&i.ModerationReason,
+		&i.State,
+		&i.CurrentName,
+		&i.CurrentDescription,
+		&i.CurrentEntryDifficulty,
+		&i.CurrentDepthMinM,
+		&i.CurrentDepthMaxM,
+		&i.CurrentHazards,
+		&i.CurrentBestSeason,
+		&i.CurrentTypicalConditions,
+		&i.CurrentAccess,
+		&i.CurrentFees,
+		&i.ProposedName,
+		&i.ProposedDescription,
+		&i.ProposedEntryDifficulty,
+		&i.ProposedDepthMinM,
+		&i.ProposedDepthMaxM,
+		&i.ProposedHazards,
+		&i.ProposedBestSeason,
+		&i.ProposedTypicalConditions,
+		&i.ProposedAccess,
+		&i.ProposedFees,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

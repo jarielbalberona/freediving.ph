@@ -16,6 +16,7 @@ import (
 	exploreservice "fphgo/internal/features/explore/service"
 	feedservice "fphgo/internal/features/feed/service"
 	"fphgo/internal/middleware"
+	"fphgo/internal/shared/authz"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
 	"fphgo/internal/shared/mediaurl"
@@ -54,6 +55,13 @@ type exploreService interface {
 	GetSiteByIDForModeration(ctx context.Context, siteID string) (explorerepo.SiteSubmission, error)
 	ApproveSite(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error)
 	RejectSite(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error)
+	CreateSiteEditProposal(ctx context.Context, input exploreservice.CreateSiteEditProposalInput) (exploreservice.CreateSiteEditProposalResult, error)
+	ListMySiteEditProposals(ctx context.Context, input exploreservice.SubmissionListInput) (exploreservice.SiteEditProposalListResult, error)
+	GetMySiteEditProposalByID(ctx context.Context, actorID, proposalID string) (explorerepo.SiteEditProposal, error)
+	ListPendingSiteEditProposals(ctx context.Context, input exploreservice.SubmissionListInput) (exploreservice.SiteEditProposalListResult, error)
+	GetSiteEditProposalForModeration(ctx context.Context, proposalID string) (explorerepo.SiteEditProposal, error)
+	ApplySiteEditProposal(ctx context.Context, input exploreservice.ModerateSiteEditProposalInput) (explorerepo.SiteEditProposal, error)
+	RejectSiteEditProposal(ctx context.Context, input exploreservice.ModerateSiteEditProposalInput) (explorerepo.SiteEditProposal, error)
 	GetBuddyPreviewBySlug(ctx context.Context, slug string, limit int32) (exploreservice.SiteBuddyPreviewResult, error)
 	GetBuddyIntentsBySlug(ctx context.Context, viewerID, slug, cursor string, limit int32) (exploreservice.SiteBuddyIntentsResult, error)
 	CreateUpdate(ctx context.Context, input exploreservice.CreateUpdateInput) (explorerepo.SiteUpdate, error)
@@ -463,6 +471,46 @@ func (h *Handlers) CreateSiteSubmission(w http.ResponseWriter, r *http.Request) 
 	httpx.JSON(w, http.StatusCreated, SiteSubmissionResponse{Submission: mapSiteSubmission(submission)})
 }
 
+func (h *Handlers) CreateSiteEditProposal(w http.ResponseWriter, r *http.Request) {
+	identity, err := requireIdentity(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[CreateSiteEditProposalRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, svcErr := h.service.CreateSiteEditProposal(r.Context(), exploreservice.CreateSiteEditProposalInput{
+		ActorID:           identity.UserID,
+		ActorRole:         identity.GlobalRole,
+		Slug:              chi.URLParam(r, "slug"),
+		Name:              req.Name,
+		Description:       req.Description,
+		Difficulty:        req.EntryDifficulty,
+		DepthMinM:         req.DepthMinM,
+		DepthMaxM:         req.DepthMaxM,
+		Hazards:           req.Hazards,
+		BestSeason:        req.BestSeason,
+		TypicalConditions: req.TypicalConditions,
+		Access:            req.Access,
+		Fees:              req.Fees,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	status := http.StatusCreated
+	if result.AppliedImmediately {
+		status = http.StatusOK
+	}
+	httpx.JSON(w, status, SiteEditProposalResponse{
+		Proposal:           mapSiteEditProposal(result.Proposal),
+		AppliedImmediately: result.AppliedImmediately,
+	})
+}
+
 func (h *Handlers) ListMySiteSubmissions(w http.ResponseWriter, r *http.Request) {
 	actorID, err := requireActorID(r)
 	if err != nil {
@@ -490,6 +538,33 @@ func (h *Handlers) ListMySiteSubmissions(w http.ResponseWriter, r *http.Request)
 	httpx.JSON(w, http.StatusOK, SiteSubmissionListResponse{Items: items, NextCursor: result.NextCursor})
 }
 
+func (h *Handlers) ListMySiteEditProposals(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	limit, parseErr := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if parseErr != nil {
+		httpx.WriteValidationError(w, anyIssue("limit", "custom", "limit must be a positive integer"))
+		return
+	}
+	result, svcErr := h.service.ListMySiteEditProposals(r.Context(), exploreservice.SubmissionListInput{
+		ActorID: actorID,
+		Cursor:  r.URL.Query().Get("cursor"),
+		Limit:   limit,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	items := make([]SiteEditProposal, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, mapSiteEditProposal(item))
+	}
+	httpx.JSON(w, http.StatusOK, SiteEditProposalListResponse{Items: items, NextCursor: result.NextCursor})
+}
+
 func (h *Handlers) GetMySiteSubmissionByID(w http.ResponseWriter, r *http.Request) {
 	actorID, err := requireActorID(r)
 	if err != nil {
@@ -507,6 +582,25 @@ func (h *Handlers) GetMySiteSubmissionByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	httpx.JSON(w, http.StatusOK, SiteSubmissionResponse{Submission: mapSiteSubmission(item)})
+}
+
+func (h *Handlers) GetMySiteEditProposalByID(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	proposalID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "id"), "id")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, svcErr := h.service.GetMySiteEditProposalByID(r.Context(), actorID, proposalID)
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SiteEditProposalResponse{Proposal: mapSiteEditProposal(item)})
 }
 
 func (h *Handlers) ListPendingSites(w http.ResponseWriter, r *http.Request) {
@@ -530,6 +624,27 @@ func (h *Handlers) ListPendingSites(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, SiteSubmissionListResponse{Items: items, NextCursor: result.NextCursor})
 }
 
+func (h *Handlers) ListPendingSiteEditProposals(w http.ResponseWriter, r *http.Request) {
+	limit, parseErr := pagination.ParseLimit(r.URL.Query().Get("limit"), pagination.DefaultLimit, pagination.MaxLimit)
+	if parseErr != nil {
+		httpx.WriteValidationError(w, anyIssue("limit", "custom", "limit must be a positive integer"))
+		return
+	}
+	result, svcErr := h.service.ListPendingSiteEditProposals(r.Context(), exploreservice.SubmissionListInput{
+		Cursor: r.URL.Query().Get("cursor"),
+		Limit:  limit,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	items := make([]SiteEditProposal, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, mapSiteEditProposal(item))
+	}
+	httpx.JSON(w, http.StatusOK, SiteEditProposalListResponse{Items: items, NextCursor: result.NextCursor})
+}
+
 func (h *Handlers) GetSiteByIDForModeration(w http.ResponseWriter, r *http.Request) {
 	siteID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "id"), "id")
 	if !ok {
@@ -544,6 +659,20 @@ func (h *Handlers) GetSiteByIDForModeration(w http.ResponseWriter, r *http.Reque
 	httpx.JSON(w, http.StatusOK, SiteSubmissionResponse{Submission: mapSiteSubmission(item)})
 }
 
+func (h *Handlers) GetSiteEditProposalForModeration(w http.ResponseWriter, r *http.Request) {
+	proposalID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "id"), "id")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, svcErr := h.service.GetSiteEditProposalForModeration(r.Context(), proposalID)
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SiteEditProposalResponse{Proposal: mapSiteEditProposal(item)})
+}
+
 func (h *Handlers) ApproveSite(w http.ResponseWriter, r *http.Request) {
 	h.handleModerationAction(w, r, func(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error) {
 		return h.service.ApproveSite(ctx, input)
@@ -553,6 +682,18 @@ func (h *Handlers) ApproveSite(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) RejectSite(w http.ResponseWriter, r *http.Request) {
 	h.handleModerationAction(w, r, func(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error) {
 		return h.service.RejectSite(ctx, input)
+	})
+}
+
+func (h *Handlers) ApplySiteEditProposal(w http.ResponseWriter, r *http.Request) {
+	h.handleSiteEditModerationAction(w, r, func(ctx context.Context, input exploreservice.ModerateSiteEditProposalInput) (explorerepo.SiteEditProposal, error) {
+		return h.service.ApplySiteEditProposal(ctx, input)
+	})
+}
+
+func (h *Handlers) RejectSiteEditProposal(w http.ResponseWriter, r *http.Request) {
+	h.handleSiteEditModerationAction(w, r, func(ctx context.Context, input exploreservice.ModerateSiteEditProposalInput) (explorerepo.SiteEditProposal, error) {
+		return h.service.RejectSiteEditProposal(ctx, input)
 	})
 }
 
@@ -945,12 +1086,52 @@ func (h *Handlers) handleModerationAction(
 	httpx.JSON(w, http.StatusOK, SiteSubmissionResponse{Submission: mapSiteSubmission(item)})
 }
 
+func (h *Handlers) handleSiteEditModerationAction(
+	w http.ResponseWriter,
+	r *http.Request,
+	run func(context.Context, exploreservice.ModerateSiteEditProposalInput) (explorerepo.SiteEditProposal, error),
+) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	proposalID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "id"), "id")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[ModerateSiteRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, svcErr := run(r.Context(), exploreservice.ModerateSiteEditProposalInput{
+		ActorID:    actorID,
+		ProposalID: proposalID,
+		Reason:     req.Reason,
+	})
+	if svcErr != nil {
+		h.writeError(w, r, svcErr)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, SiteEditProposalResponse{Proposal: mapSiteEditProposal(item)})
+}
+
 func requireActorID(r *http.Request) (string, error) {
 	identity, ok := middleware.CurrentIdentity(r.Context())
 	if !ok || identity.UserID == "" {
 		return "", apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
 	}
 	return identity.UserID, nil
+}
+
+func requireIdentity(r *http.Request) (authz.Identity, error) {
+	identity, ok := middleware.CurrentIdentity(r.Context())
+	if !ok || identity.UserID == "" {
+		return authz.Identity{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
+	}
+	return identity, nil
 }
 
 func actorIDIfPresent(r *http.Request) string {
@@ -1084,6 +1265,45 @@ func mapSiteSubmission(input explorerepo.SiteSubmission) SiteSubmission {
 		LastUpdatedAt:          input.LastUpdatedAt.Format(time.RFC3339),
 		UpdatedAt:              input.UpdatedAt.Format(time.RFC3339),
 		CreatedAt:              input.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+func mapSiteEditProposal(input explorerepo.SiteEditProposal) SiteEditProposal {
+	reviewedAt := ""
+	if input.ReviewedAt != nil && !input.ReviewedAt.IsZero() {
+		reviewedAt = input.ReviewedAt.Format(time.RFC3339)
+	}
+	return SiteEditProposal{
+		ID:                     input.ID,
+		DiveSiteID:             input.DiveSiteID,
+		SiteSlug:               input.SiteSlug,
+		SiteArea:               input.SiteArea,
+		SubmittedByAppUserID:   input.SubmittedByAppUserID,
+		SubmittedByDisplayName: input.SubmittedByDisplayName,
+		ReviewedByAppUserID:    input.ReviewedByAppUserID,
+		ReviewedByDisplayName:  input.ReviewedByDisplayName,
+		ReviewedAt:             reviewedAt,
+		ModerationReason:       input.ModerationReason,
+		State:                  input.State,
+		Current:                mapSiteEditValues(input.Current),
+		Proposed:               mapSiteEditValues(input.Proposed),
+		CreatedAt:              input.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:              input.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func mapSiteEditValues(input explorerepo.SiteEditValues) SiteEditValues {
+	return SiteEditValues{
+		Name:              input.Name,
+		Description:       input.Description,
+		Difficulty:        input.Difficulty,
+		DepthMinM:         input.DepthMinM,
+		DepthMaxM:         input.DepthMaxM,
+		Hazards:           input.Hazards,
+		BestSeason:        input.BestSeason,
+		TypicalConditions: input.TypicalConditions,
+		Access:            input.Access,
+		Fees:              input.Fees,
 	}
 }
 

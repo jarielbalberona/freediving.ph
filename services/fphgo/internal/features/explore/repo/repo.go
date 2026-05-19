@@ -225,6 +225,25 @@ type CreateSiteSubmissionInput struct {
 	SubmittedByAppUserID string
 }
 
+type SiteEditValues struct {
+	Name              string
+	Description       string
+	Difficulty        string
+	DepthMinM         *float64
+	DepthMaxM         *float64
+	Hazards           []string
+	BestSeason        string
+	TypicalConditions string
+	Access            string
+	Fees              string
+}
+
+type CreateSiteEditProposalInput struct {
+	DiveSiteID           string
+	SubmittedByAppUserID string
+	Proposed             SiteEditValues
+}
+
 type ListSiteSubmissionsInput struct {
 	SubmittedByAppUserID string
 	CursorCreatedAt      time.Time
@@ -232,7 +251,20 @@ type ListSiteSubmissionsInput struct {
 	Limit                int32
 }
 
+type ListSiteEditProposalsInput struct {
+	SubmittedByAppUserID string
+	CursorCreatedAt      time.Time
+	CursorID             string
+	Limit                int32
+}
+
 type ListPendingSitesInput struct {
+	CursorCreatedAt time.Time
+	CursorID        string
+	Limit           int32
+}
+
+type ListPendingSiteEditProposalsInput struct {
 	CursorCreatedAt time.Time
 	CursorID        string
 	Limit           int32
@@ -266,6 +298,24 @@ type SiteSubmission struct {
 	LastUpdatedAt          time.Time
 	UpdatedAt              time.Time
 	CreatedAt              time.Time
+}
+
+type SiteEditProposal struct {
+	ID                     string
+	DiveSiteID             string
+	SiteSlug               string
+	SiteArea               string
+	SubmittedByAppUserID   string
+	SubmittedByDisplayName string
+	ReviewedByAppUserID    string
+	ReviewedByDisplayName  string
+	ReviewedAt             *time.Time
+	ModerationReason       string
+	State                  string
+	Current                SiteEditValues
+	Proposed               SiteEditValues
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 type ListUpdatesInput struct {
@@ -552,6 +602,105 @@ func (r *Repo) RejectOrHideSite(ctx context.Context, id, reviewedByAppUserID str
 		return SiteSubmission{}, err
 	}
 	return mapDiveSiteSubmission(row, "", ""), nil
+}
+
+func (r *Repo) CreateSiteEditProposal(ctx context.Context, input CreateSiteEditProposalInput) (SiteEditProposal, error) {
+	row, err := r.queries.CreateSiteEditProposal(ctx, exploreqlc.CreateSiteEditProposalParams{
+		DiveSiteID:                toUUID(input.DiveSiteID),
+		SubmittedByAppUserID:      toUUID(input.SubmittedByAppUserID),
+		ProposedName:              input.Proposed.Name,
+		ProposedDescription:       input.Proposed.Description,
+		ProposedEntryDifficulty:   input.Proposed.Difficulty,
+		ProposedDepthMinM:         numericValue(input.Proposed.DepthMinM),
+		ProposedDepthMaxM:         numericValue(input.Proposed.DepthMaxM),
+		ProposedHazards:           input.Proposed.Hazards,
+		ProposedBestSeason:        input.Proposed.BestSeason,
+		ProposedTypicalConditions: input.Proposed.TypicalConditions,
+		ProposedAccess:            input.Proposed.Access,
+		ProposedFees:              input.Proposed.Fees,
+	})
+	if err != nil {
+		return SiteEditProposal{}, err
+	}
+	return mapCreatedSiteEditProposal(row), nil
+}
+
+func (r *Repo) ListMySiteEditProposals(ctx context.Context, input ListSiteEditProposalsInput) ([]SiteEditProposal, error) {
+	rows, err := r.queries.ListMySiteEditProposals(ctx, exploreqlc.ListMySiteEditProposalsParams{
+		SubmittedByAppUserID: toUUID(input.SubmittedByAppUserID),
+		CursorCreatedAt:      timestamptz(input.CursorCreatedAt),
+		CursorID:             toUUID(input.CursorID),
+		LimitRows:            input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]SiteEditProposal, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapMySiteEditProposal(row))
+	}
+	return items, nil
+}
+
+func (r *Repo) GetMySiteEditProposalByID(ctx context.Context, id, submittedByAppUserID string) (SiteEditProposal, error) {
+	row, err := r.queries.GetMySiteEditProposalByID(ctx, exploreqlc.GetMySiteEditProposalByIDParams{
+		ID:                   toUUID(id),
+		SubmittedByAppUserID: toUUID(submittedByAppUserID),
+	})
+	if err != nil {
+		return SiteEditProposal{}, err
+	}
+	return mapMySiteEditProposalDetail(row), nil
+}
+
+func (r *Repo) ListPendingSiteEditProposals(ctx context.Context, input ListPendingSiteEditProposalsInput) ([]SiteEditProposal, error) {
+	rows, err := r.queries.ListPendingSiteEditProposals(ctx, exploreqlc.ListPendingSiteEditProposalsParams{
+		CursorCreatedAt: timestamptz(input.CursorCreatedAt),
+		CursorID:        toUUID(input.CursorID),
+		LimitRows:       input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]SiteEditProposal, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapPendingSiteEditProposal(row))
+	}
+	return items, nil
+}
+
+func (r *Repo) GetSiteEditProposalForModeration(ctx context.Context, id string) (SiteEditProposal, error) {
+	row, err := r.queries.GetSiteEditProposalForModeration(ctx, toUUID(id))
+	if err != nil {
+		return SiteEditProposal{}, err
+	}
+	return mapModerationSiteEditProposal(row), nil
+}
+
+func (r *Repo) ApplySiteEditProposal(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (SiteEditProposal, error) {
+	row, err := r.queries.ApplySiteEditProposal(ctx, exploreqlc.ApplySiteEditProposalParams{
+		ID:                  toUUID(id),
+		ReviewedByAppUserID: toUUID(reviewedByAppUserID),
+		ReviewedAt:          timestamptz(reviewedAt),
+		ModerationReason:    moderationReason,
+	})
+	if err != nil {
+		return SiteEditProposal{}, err
+	}
+	return mapAppliedSiteEditProposal(row), nil
+}
+
+func (r *Repo) RejectSiteEditProposal(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (SiteEditProposal, error) {
+	row, err := r.queries.RejectSiteEditProposal(ctx, exploreqlc.RejectSiteEditProposalParams{
+		ID:                  toUUID(id),
+		ReviewedByAppUserID: toUUID(reviewedByAppUserID),
+		ReviewedAt:          timestamptz(reviewedAt),
+		ModerationReason:    moderationReason,
+	})
+	if err != nil {
+		return SiteEditProposal{}, err
+	}
+	return mapRejectedSiteEditProposal(row), nil
 }
 
 func (r *Repo) ListUpdatesForSite(ctx context.Context, input ListUpdatesInput) ([]SiteUpdate, error) {
@@ -1380,5 +1529,347 @@ func mapModerationSubmission(row exploreqlc.GetSiteByIDForModerationRow) SiteSub
 		LastUpdatedAt:          row.LastUpdatedAt.Time.UTC(),
 		UpdatedAt:              row.UpdatedAt.Time.UTC(),
 		CreatedAt:              row.CreatedAt.Time.UTC(),
+	}
+}
+
+func mapCreatedSiteEditProposal(row exploreqlc.CreateSiteEditProposalRow) SiteEditProposal {
+	return siteEditProposalFromValues(
+		row.ID,
+		row.DiveSiteID,
+		row.SiteSlug,
+		row.SiteArea,
+		row.SubmittedByAppUserID,
+		row.SubmittedByDisplayName,
+		row.ReviewedByAppUserID,
+		row.ReviewedByDisplayName,
+		row.ReviewedAt,
+		row.ModerationReason,
+		row.State,
+		row.CurrentName,
+		row.CurrentDescription,
+		row.CurrentEntryDifficulty,
+		row.CurrentDepthMinM,
+		row.CurrentDepthMaxM,
+		row.CurrentHazards,
+		row.CurrentBestSeason,
+		row.CurrentTypicalConditions,
+		row.CurrentAccess,
+		row.CurrentFees,
+		row.ProposedName,
+		row.ProposedDescription,
+		row.ProposedEntryDifficulty,
+		row.ProposedDepthMinM,
+		row.ProposedDepthMaxM,
+		row.ProposedHazards,
+		row.ProposedBestSeason,
+		row.ProposedTypicalConditions,
+		row.ProposedAccess,
+		row.ProposedFees,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func mapMySiteEditProposal(row exploreqlc.ListMySiteEditProposalsRow) SiteEditProposal {
+	return siteEditProposalFromValues(
+		row.ID,
+		row.DiveSiteID,
+		row.SiteSlug,
+		row.SiteArea,
+		row.SubmittedByAppUserID,
+		row.SubmittedByDisplayName,
+		row.ReviewedByAppUserID,
+		row.ReviewedByDisplayName,
+		row.ReviewedAt,
+		row.ModerationReason,
+		row.State,
+		row.CurrentName,
+		row.CurrentDescription,
+		row.CurrentEntryDifficulty,
+		row.CurrentDepthMinM,
+		row.CurrentDepthMaxM,
+		row.CurrentHazards,
+		row.CurrentBestSeason,
+		row.CurrentTypicalConditions,
+		row.CurrentAccess,
+		row.CurrentFees,
+		row.ProposedName,
+		row.ProposedDescription,
+		row.ProposedEntryDifficulty,
+		row.ProposedDepthMinM,
+		row.ProposedDepthMaxM,
+		row.ProposedHazards,
+		row.ProposedBestSeason,
+		row.ProposedTypicalConditions,
+		row.ProposedAccess,
+		row.ProposedFees,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func mapMySiteEditProposalDetail(row exploreqlc.GetMySiteEditProposalByIDRow) SiteEditProposal {
+	return siteEditProposalFromValues(
+		row.ID,
+		row.DiveSiteID,
+		row.SiteSlug,
+		row.SiteArea,
+		row.SubmittedByAppUserID,
+		row.SubmittedByDisplayName,
+		row.ReviewedByAppUserID,
+		row.ReviewedByDisplayName,
+		row.ReviewedAt,
+		row.ModerationReason,
+		row.State,
+		row.CurrentName,
+		row.CurrentDescription,
+		row.CurrentEntryDifficulty,
+		row.CurrentDepthMinM,
+		row.CurrentDepthMaxM,
+		row.CurrentHazards,
+		row.CurrentBestSeason,
+		row.CurrentTypicalConditions,
+		row.CurrentAccess,
+		row.CurrentFees,
+		row.ProposedName,
+		row.ProposedDescription,
+		row.ProposedEntryDifficulty,
+		row.ProposedDepthMinM,
+		row.ProposedDepthMaxM,
+		row.ProposedHazards,
+		row.ProposedBestSeason,
+		row.ProposedTypicalConditions,
+		row.ProposedAccess,
+		row.ProposedFees,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func mapPendingSiteEditProposal(row exploreqlc.ListPendingSiteEditProposalsRow) SiteEditProposal {
+	return siteEditProposalFromValues(
+		row.ID,
+		row.DiveSiteID,
+		row.SiteSlug,
+		row.SiteArea,
+		row.SubmittedByAppUserID,
+		row.SubmittedByDisplayName,
+		row.ReviewedByAppUserID,
+		row.ReviewedByDisplayName,
+		row.ReviewedAt,
+		row.ModerationReason,
+		row.State,
+		row.CurrentName,
+		row.CurrentDescription,
+		row.CurrentEntryDifficulty,
+		row.CurrentDepthMinM,
+		row.CurrentDepthMaxM,
+		row.CurrentHazards,
+		row.CurrentBestSeason,
+		row.CurrentTypicalConditions,
+		row.CurrentAccess,
+		row.CurrentFees,
+		row.ProposedName,
+		row.ProposedDescription,
+		row.ProposedEntryDifficulty,
+		row.ProposedDepthMinM,
+		row.ProposedDepthMaxM,
+		row.ProposedHazards,
+		row.ProposedBestSeason,
+		row.ProposedTypicalConditions,
+		row.ProposedAccess,
+		row.ProposedFees,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func mapModerationSiteEditProposal(row exploreqlc.GetSiteEditProposalForModerationRow) SiteEditProposal {
+	return siteEditProposalFromValues(
+		row.ID,
+		row.DiveSiteID,
+		row.SiteSlug,
+		row.SiteArea,
+		row.SubmittedByAppUserID,
+		row.SubmittedByDisplayName,
+		row.ReviewedByAppUserID,
+		row.ReviewedByDisplayName,
+		row.ReviewedAt,
+		row.ModerationReason,
+		row.State,
+		row.CurrentName,
+		row.CurrentDescription,
+		row.CurrentEntryDifficulty,
+		row.CurrentDepthMinM,
+		row.CurrentDepthMaxM,
+		row.CurrentHazards,
+		row.CurrentBestSeason,
+		row.CurrentTypicalConditions,
+		row.CurrentAccess,
+		row.CurrentFees,
+		row.ProposedName,
+		row.ProposedDescription,
+		row.ProposedEntryDifficulty,
+		row.ProposedDepthMinM,
+		row.ProposedDepthMaxM,
+		row.ProposedHazards,
+		row.ProposedBestSeason,
+		row.ProposedTypicalConditions,
+		row.ProposedAccess,
+		row.ProposedFees,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func mapAppliedSiteEditProposal(row exploreqlc.ApplySiteEditProposalRow) SiteEditProposal {
+	return siteEditProposalFromValues(
+		row.ID,
+		row.DiveSiteID,
+		row.SiteSlug,
+		row.SiteArea,
+		row.SubmittedByAppUserID,
+		row.SubmittedByDisplayName,
+		row.ReviewedByAppUserID,
+		row.ReviewedByDisplayName,
+		row.ReviewedAt,
+		row.ModerationReason,
+		row.State,
+		row.CurrentName,
+		row.CurrentDescription,
+		row.CurrentEntryDifficulty,
+		row.CurrentDepthMinM,
+		row.CurrentDepthMaxM,
+		row.CurrentHazards,
+		row.CurrentBestSeason,
+		row.CurrentTypicalConditions,
+		row.CurrentAccess,
+		row.CurrentFees,
+		row.ProposedName,
+		row.ProposedDescription,
+		row.ProposedEntryDifficulty,
+		row.ProposedDepthMinM,
+		row.ProposedDepthMaxM,
+		row.ProposedHazards,
+		row.ProposedBestSeason,
+		row.ProposedTypicalConditions,
+		row.ProposedAccess,
+		row.ProposedFees,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func mapRejectedSiteEditProposal(row exploreqlc.RejectSiteEditProposalRow) SiteEditProposal {
+	return siteEditProposalFromValues(
+		row.ID,
+		row.DiveSiteID,
+		row.SiteSlug,
+		row.SiteArea,
+		row.SubmittedByAppUserID,
+		row.SubmittedByDisplayName,
+		row.ReviewedByAppUserID,
+		row.ReviewedByDisplayName,
+		row.ReviewedAt,
+		row.ModerationReason,
+		row.State,
+		row.CurrentName,
+		row.CurrentDescription,
+		row.CurrentEntryDifficulty,
+		row.CurrentDepthMinM,
+		row.CurrentDepthMaxM,
+		row.CurrentHazards,
+		row.CurrentBestSeason,
+		row.CurrentTypicalConditions,
+		row.CurrentAccess,
+		row.CurrentFees,
+		row.ProposedName,
+		row.ProposedDescription,
+		row.ProposedEntryDifficulty,
+		row.ProposedDepthMinM,
+		row.ProposedDepthMaxM,
+		row.ProposedHazards,
+		row.ProposedBestSeason,
+		row.ProposedTypicalConditions,
+		row.ProposedAccess,
+		row.ProposedFees,
+		row.CreatedAt,
+		row.UpdatedAt,
+	)
+}
+
+func siteEditProposalFromValues(
+	id pgtype.UUID,
+	diveSiteID pgtype.UUID,
+	siteSlug string,
+	siteArea string,
+	submittedByAppUserID pgtype.UUID,
+	submittedByDisplayName string,
+	reviewedByAppUserID pgtype.UUID,
+	reviewedByDisplayName string,
+	reviewedAt pgtype.Timestamptz,
+	moderationReason *string,
+	state string,
+	currentName string,
+	currentDescription string,
+	currentDifficulty string,
+	currentDepthMinM pgtype.Numeric,
+	currentDepthMaxM pgtype.Numeric,
+	currentHazards []string,
+	currentBestSeason string,
+	currentTypicalConditions string,
+	currentAccess string,
+	currentFees string,
+	proposedName string,
+	proposedDescription string,
+	proposedDifficulty string,
+	proposedDepthMinM pgtype.Numeric,
+	proposedDepthMaxM pgtype.Numeric,
+	proposedHazards []string,
+	proposedBestSeason string,
+	proposedTypicalConditions string,
+	proposedAccess string,
+	proposedFees string,
+	createdAt pgtype.Timestamptz,
+	updatedAt pgtype.Timestamptz,
+) SiteEditProposal {
+	return SiteEditProposal{
+		ID:                     uuidOrEmpty(id),
+		DiveSiteID:             uuidOrEmpty(diveSiteID),
+		SiteSlug:               siteSlug,
+		SiteArea:               siteArea,
+		SubmittedByAppUserID:   uuidOrEmpty(submittedByAppUserID),
+		SubmittedByDisplayName: submittedByDisplayName,
+		ReviewedByAppUserID:    uuidOrEmpty(reviewedByAppUserID),
+		ReviewedByDisplayName:  reviewedByDisplayName,
+		ReviewedAt:             timestamptzPtr(reviewedAt),
+		ModerationReason:       valueOrEmpty(moderationReason),
+		State:                  state,
+		Current: SiteEditValues{
+			Name:              currentName,
+			Description:       currentDescription,
+			Difficulty:        currentDifficulty,
+			DepthMinM:         numericPtr(currentDepthMinM),
+			DepthMaxM:         numericPtr(currentDepthMaxM),
+			Hazards:           currentHazards,
+			BestSeason:        currentBestSeason,
+			TypicalConditions: currentTypicalConditions,
+			Access:            currentAccess,
+			Fees:              currentFees,
+		},
+		Proposed: SiteEditValues{
+			Name:              proposedName,
+			Description:       proposedDescription,
+			Difficulty:        proposedDifficulty,
+			DepthMinM:         numericPtr(proposedDepthMinM),
+			DepthMaxM:         numericPtr(proposedDepthMaxM),
+			Hazards:           proposedHazards,
+			BestSeason:        proposedBestSeason,
+			TypicalConditions: proposedTypicalConditions,
+			Access:            proposedAccess,
+			Fees:              proposedFees,
+		},
+		CreatedAt: createdAt.Time.UTC(),
+		UpdatedAt: updatedAt.Time.UTC(),
 	}
 }

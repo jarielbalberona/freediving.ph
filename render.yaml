@@ -106,3 +106,5 @@ services:
         sync: false
       - key: SENTRY_AUTH_TOKEN
         sync: false
+      - key: SENTRY_URL
+        value: https://app.glitchtip.com

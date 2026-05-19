@@ -41,6 +41,13 @@ type repository interface {
 	GetSiteByIDForModeration(ctx context.Context, id string) (explorerepo.SiteSubmission, error)
 	ApproveSite(ctx context.Context, id, slug, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteSubmission, error)
 	RejectOrHideSite(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteSubmission, error)
+	CreateSiteEditProposal(ctx context.Context, input explorerepo.CreateSiteEditProposalInput) (explorerepo.SiteEditProposal, error)
+	ListMySiteEditProposals(ctx context.Context, input explorerepo.ListSiteEditProposalsInput) ([]explorerepo.SiteEditProposal, error)
+	GetMySiteEditProposalByID(ctx context.Context, id, submittedByAppUserID string) (explorerepo.SiteEditProposal, error)
+	ListPendingSiteEditProposals(ctx context.Context, input explorerepo.ListPendingSiteEditProposalsInput) ([]explorerepo.SiteEditProposal, error)
+	GetSiteEditProposalForModeration(ctx context.Context, id string) (explorerepo.SiteEditProposal, error)
+	ApplySiteEditProposal(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteEditProposal, error)
+	RejectSiteEditProposal(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteEditProposal, error)
 	ListUpdatesForSite(ctx context.Context, input explorerepo.ListUpdatesInput) ([]explorerepo.SiteUpdate, error)
 	ListLatestUpdates(ctx context.Context, area string, cursorOccurredAt time.Time, cursorID string, limit int32) ([]explorerepo.LatestUpdate, error)
 	CreateUpdate(ctx context.Context, input explorerepo.CreateUpdateInput) (explorerepo.SiteUpdate, error)
@@ -328,6 +335,22 @@ type CreateSiteSubmissionInput struct {
 	Fees              *string
 }
 
+type CreateSiteEditProposalInput struct {
+	ActorID           string
+	ActorRole         string
+	Slug              string
+	Name              string
+	Description       string
+	Difficulty        string
+	DepthMinM         *float64
+	DepthMaxM         *float64
+	Hazards           []string
+	BestSeason        *string
+	TypicalConditions *string
+	Access            *string
+	Fees              *string
+}
+
 type SubmissionListInput struct {
 	ActorID string
 	Cursor  string
@@ -339,10 +362,26 @@ type SubmissionListResult struct {
 	NextCursor string
 }
 
+type SiteEditProposalListResult struct {
+	Items      []explorerepo.SiteEditProposal
+	NextCursor string
+}
+
+type CreateSiteEditProposalResult struct {
+	Proposal           explorerepo.SiteEditProposal
+	AppliedImmediately bool
+}
+
 type ModerateSiteInput struct {
 	ActorID string
 	SiteID  string
 	Reason  *string
+}
+
+type ModerateSiteEditProposalInput struct {
+	ActorID    string
+	ProposalID string
+	Reason     *string
 }
 
 type ValidationFailure struct {
@@ -713,6 +752,173 @@ func (s *Service) ApproveSite(ctx context.Context, input ModerateSiteInput) (exp
 
 func (s *Service) RejectSite(ctx context.Context, input ModerateSiteInput) (explorerepo.SiteSubmission, error) {
 	return s.moderateSite(ctx, input, false)
+}
+
+func (s *Service) CreateSiteEditProposal(ctx context.Context, input CreateSiteEditProposalInput) (CreateSiteEditProposalResult, error) {
+	if _, err := uuid.Parse(input.ActorID); err != nil {
+		return CreateSiteEditProposalResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+
+	site, err := s.repo.GetSiteBySlug(ctx, strings.TrimSpace(input.Slug), input.ActorID)
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return CreateSiteEditProposalResult{}, apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", err)
+		}
+		return CreateSiteEditProposalResult{}, apperrors.New(http.StatusInternalServerError, "site_detail_failed", "failed to load dive site", err)
+	}
+
+	proposed, issues := normalizeSiteEditValues(input)
+	if len(issues) > 0 {
+		return CreateSiteEditProposalResult{}, ValidationFailure{Issues: issues}
+	}
+	if !siteEditChanged(site, proposed) {
+		return CreateSiteEditProposalResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"changes"},
+			Code:    "custom",
+			Message: "Change at least one site detail before submitting",
+		}}}
+	}
+
+	proposal, err := s.repo.CreateSiteEditProposal(ctx, explorerepo.CreateSiteEditProposalInput{
+		DiveSiteID:           site.ID,
+		SubmittedByAppUserID: input.ActorID,
+		Proposed:             proposed,
+	})
+	if err != nil {
+		return CreateSiteEditProposalResult{}, apperrors.New(http.StatusInternalServerError, "site_edit_proposal_failed", "failed to submit site edit", err)
+	}
+
+	if strings.EqualFold(strings.TrimSpace(input.ActorRole), "super_admin") {
+		reason := "Applied immediately by super admin"
+		applied, applyErr := s.repo.ApplySiteEditProposal(ctx, proposal.ID, input.ActorID, time.Now().UTC(), &reason)
+		if applyErr != nil {
+			return CreateSiteEditProposalResult{}, apperrors.New(http.StatusInternalServerError, "site_edit_apply_failed", "failed to apply site edit", applyErr)
+		}
+		return CreateSiteEditProposalResult{Proposal: applied, AppliedImmediately: true}, nil
+	}
+
+	return CreateSiteEditProposalResult{Proposal: proposal}, nil
+}
+
+func (s *Service) ListMySiteEditProposals(ctx context.Context, input SubmissionListInput) (SiteEditProposalListResult, error) {
+	if _, err := uuid.Parse(input.ActorID); err != nil {
+		return SiteEditProposalListResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	limit := input.Limit
+	if limit <= 0 || limit > pagination.MaxLimit {
+		limit = pagination.DefaultLimit
+	}
+	cursorCreatedAt, cursorID := pagination.DefaultUUIDCursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		createdAt, tieID, err := pagination.DecodeUUID(input.Cursor)
+		if err != nil {
+			return SiteEditProposalListResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"cursor"},
+				Code:    "custom",
+				Message: "invalid cursor",
+			}}}
+		}
+		cursorCreatedAt = createdAt
+		cursorID = tieID
+	}
+	items, err := s.repo.ListMySiteEditProposals(ctx, explorerepo.ListSiteEditProposalsInput{
+		SubmittedByAppUserID: input.ActorID,
+		CursorCreatedAt:      cursorCreatedAt,
+		CursorID:             cursorID,
+		Limit:                limit + 1,
+	})
+	if err != nil {
+		return SiteEditProposalListResult{}, apperrors.New(http.StatusInternalServerError, "site_edit_proposal_list_failed", "failed to list your site edits", err)
+	}
+	nextCursor := ""
+	if int32(len(items)) > limit {
+		next := items[limit-1]
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
+		items = items[:limit]
+	}
+	return SiteEditProposalListResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) GetMySiteEditProposalByID(ctx context.Context, actorID, proposalID string) (explorerepo.SiteEditProposal, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(proposalID); err != nil {
+		return explorerepo.SiteEditProposal{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"id"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	item, err := s.repo.GetMySiteEditProposalByID(ctx, proposalID, actorID)
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusNotFound, "site_edit_not_found", "site edit proposal not found", err)
+		}
+		return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusInternalServerError, "site_edit_detail_failed", "failed to load site edit proposal", err)
+	}
+	return item, nil
+}
+
+func (s *Service) ListPendingSiteEditProposals(ctx context.Context, input SubmissionListInput) (SiteEditProposalListResult, error) {
+	limit := input.Limit
+	if limit <= 0 || limit > pagination.MaxLimit {
+		limit = pagination.DefaultLimit
+	}
+	cursorCreatedAt, cursorID := pagination.DefaultUUIDCursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		createdAt, tieID, err := pagination.DecodeUUID(input.Cursor)
+		if err != nil {
+			return SiteEditProposalListResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"cursor"},
+				Code:    "custom",
+				Message: "invalid cursor",
+			}}}
+		}
+		cursorCreatedAt = createdAt
+		cursorID = tieID
+	}
+	items, err := s.repo.ListPendingSiteEditProposals(ctx, explorerepo.ListPendingSiteEditProposalsInput{
+		CursorCreatedAt: cursorCreatedAt,
+		CursorID:        cursorID,
+		Limit:           limit + 1,
+	})
+	if err != nil {
+		return SiteEditProposalListResult{}, apperrors.New(http.StatusInternalServerError, "pending_site_edits_failed", "failed to list pending site edits", err)
+	}
+	nextCursor := ""
+	if int32(len(items)) > limit {
+		next := items[limit-1]
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
+		items = items[:limit]
+	}
+	return SiteEditProposalListResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) GetSiteEditProposalForModeration(ctx context.Context, proposalID string) (explorerepo.SiteEditProposal, error) {
+	if _, err := uuid.Parse(proposalID); err != nil {
+		return explorerepo.SiteEditProposal{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"id"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	item, err := s.repo.GetSiteEditProposalForModeration(ctx, proposalID)
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusNotFound, "site_edit_not_found", "site edit proposal not found", err)
+		}
+		return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusInternalServerError, "site_edit_detail_failed", "failed to load site edit proposal", err)
+	}
+	return item, nil
+}
+
+func (s *Service) ApplySiteEditProposal(ctx context.Context, input ModerateSiteEditProposalInput) (explorerepo.SiteEditProposal, error) {
+	return s.moderateSiteEditProposal(ctx, input, true)
+}
+
+func (s *Service) RejectSiteEditProposal(ctx context.Context, input ModerateSiteEditProposalInput) (explorerepo.SiteEditProposal, error) {
+	return s.moderateSiteEditProposal(ctx, input, false)
 }
 
 func (s *Service) GetBuddyPreviewBySlug(ctx context.Context, slug string, limit int32) (SiteBuddyPreviewResult, error) {
@@ -1426,6 +1632,13 @@ func trimPtr(input *string) *string {
 	return &trimmed
 }
 
+func stringValue(input *string) string {
+	if input == nil {
+		return ""
+	}
+	return *input
+}
+
 func validateSubmissionInput(name, description, difficulty string, lat, lng, depthMinM, depthMaxM *float64) []validatex.Issue {
 	issues := make([]validatex.Issue, 0, 5)
 	if name == "" {
@@ -1459,6 +1672,113 @@ func validateSubmissionInput(name, description, difficulty string, lat, lng, dep
 		issues = append(issues, validatex.Issue{Path: []any{"depthMinM"}, Code: "custom", Message: "depthMinM must be less than or equal to depthMaxM"})
 	}
 	return issues
+}
+
+func normalizeSiteEditValues(input CreateSiteEditProposalInput) (explorerepo.SiteEditValues, []validatex.Issue) {
+	name := strings.TrimSpace(input.Name)
+	description := strings.TrimSpace(input.Description)
+	difficulty := strings.TrimSpace(input.Difficulty)
+	issues := make([]validatex.Issue, 0, 5)
+	if name == "" {
+		issues = append(issues, validatex.Issue{Path: []any{"name"}, Code: "required", Message: "Required"})
+	}
+	if len(name) > 120 {
+		issues = append(issues, validatex.Issue{Path: []any{"name"}, Code: "too_big", Message: "Must be at most 120 characters"})
+	}
+	if description == "" {
+		issues = append(issues, validatex.Issue{Path: []any{"description"}, Code: "required", Message: "Required"})
+	}
+	if len(description) > 2000 {
+		issues = append(issues, validatex.Issue{Path: []any{"description"}, Code: "too_big", Message: "Must be at most 2000 characters"})
+	}
+	if difficulty != "easy" && difficulty != "moderate" && difficulty != "hard" {
+		issues = append(issues, validatex.Issue{Path: []any{"entryDifficulty"}, Code: "invalid_enum", Message: "Must be one of: easy moderate hard"})
+	}
+	if input.DepthMinM != nil && *input.DepthMinM < 0 {
+		issues = append(issues, validatex.Issue{Path: []any{"depthMinM"}, Code: "too_small", Message: "Must be greater than or equal to 0"})
+	}
+	if input.DepthMaxM != nil && *input.DepthMaxM < 0 {
+		issues = append(issues, validatex.Issue{Path: []any{"depthMaxM"}, Code: "too_small", Message: "Must be greater than or equal to 0"})
+	}
+	if input.DepthMinM != nil && input.DepthMaxM != nil && *input.DepthMinM > *input.DepthMaxM {
+		issues = append(issues, validatex.Issue{Path: []any{"depthMinM"}, Code: "custom", Message: "depthMinM must be less than or equal to depthMaxM"})
+	}
+
+	values := explorerepo.SiteEditValues{
+		Name:              name,
+		Description:       description,
+		Difficulty:        difficulty,
+		DepthMinM:         input.DepthMinM,
+		DepthMaxM:         input.DepthMaxM,
+		Hazards:           cleanStringList(input.Hazards),
+		BestSeason:        stringValue(trimPtr(input.BestSeason)),
+		TypicalConditions: stringValue(trimPtr(input.TypicalConditions)),
+		Access:            stringValue(trimPtr(input.Access)),
+		Fees:              stringValue(trimPtr(input.Fees)),
+	}
+	if len(values.BestSeason) > 160 {
+		issues = append(issues, validatex.Issue{Path: []any{"bestSeason"}, Code: "too_big", Message: "Must be at most 160 characters"})
+	}
+	if len(values.TypicalConditions) > 500 {
+		issues = append(issues, validatex.Issue{Path: []any{"typicalConditions"}, Code: "too_big", Message: "Must be at most 500 characters"})
+	}
+	if len(values.Access) > 500 {
+		issues = append(issues, validatex.Issue{Path: []any{"access"}, Code: "too_big", Message: "Must be at most 500 characters"})
+	}
+	if len(values.Fees) > 280 {
+		issues = append(issues, validatex.Issue{Path: []any{"fees"}, Code: "too_big", Message: "Must be at most 280 characters"})
+	}
+	for _, hazard := range values.Hazards {
+		if len(hazard) > 60 {
+			issues = append(issues, validatex.Issue{Path: []any{"hazards"}, Code: "too_big", Message: "Hazards must be at most 60 characters each"})
+			break
+		}
+	}
+	return values, issues
+}
+
+func siteEditChanged(site explorerepo.SiteDetail, proposed explorerepo.SiteEditValues) bool {
+	current := explorerepo.SiteEditValues{
+		Name:              site.Name,
+		Description:       site.Description,
+		Difficulty:        site.Difficulty,
+		DepthMinM:         site.DepthMinM,
+		DepthMaxM:         site.DepthMaxM,
+		Hazards:           cleanStringList(site.Hazards),
+		BestSeason:        strings.TrimSpace(site.BestSeason),
+		TypicalConditions: strings.TrimSpace(site.TypicalConditions),
+		Access:            strings.TrimSpace(site.Access),
+		Fees:              strings.TrimSpace(site.Fees),
+	}
+	return current.Name != proposed.Name ||
+		current.Description != proposed.Description ||
+		current.Difficulty != proposed.Difficulty ||
+		!floatPtrEqual(current.DepthMinM, proposed.DepthMinM) ||
+		!floatPtrEqual(current.DepthMaxM, proposed.DepthMaxM) ||
+		!stringSlicesEqual(current.Hazards, proposed.Hazards) ||
+		current.BestSeason != proposed.BestSeason ||
+		current.TypicalConditions != proposed.TypicalConditions ||
+		current.Access != proposed.Access ||
+		current.Fees != proposed.Fees
+}
+
+func floatPtrEqual(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func cleanStringList(values []string) []string {
@@ -1566,5 +1886,42 @@ func (s *Service) moderateSite(ctx context.Context, input ModerateSiteInput, app
 		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_reject_failed", "failed to reject dive site", rejectErr)
 	}
 	item.SubmittedByDisplayName = site.SubmittedByDisplayName
+	return item, nil
+}
+
+func (s *Service) moderateSiteEditProposal(ctx context.Context, input ModerateSiteEditProposalInput, approve bool) (explorerepo.SiteEditProposal, error) {
+	if _, err := uuid.Parse(input.ActorID); err != nil {
+		return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(input.ProposalID); err != nil {
+		return explorerepo.SiteEditProposal{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"id"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	proposal, err := s.repo.GetSiteEditProposalForModeration(ctx, input.ProposalID)
+	if err != nil {
+		if explorerepo.IsNoRows(err) {
+			return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusNotFound, "site_edit_not_found", "site edit proposal not found", err)
+		}
+		return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusInternalServerError, "site_edit_detail_failed", "failed to load site edit proposal", err)
+	}
+	if proposal.State != "pending" {
+		return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusConflict, "invalid_state", "site edit is not pending review", nil)
+	}
+	reason := trimPtr(input.Reason)
+	reviewedAt := time.Now().UTC()
+	if approve {
+		item, applyErr := s.repo.ApplySiteEditProposal(ctx, input.ProposalID, input.ActorID, reviewedAt, reason)
+		if applyErr != nil {
+			return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusInternalServerError, "site_edit_apply_failed", "failed to apply site edit", applyErr)
+		}
+		return item, nil
+	}
+	item, rejectErr := s.repo.RejectSiteEditProposal(ctx, input.ProposalID, input.ActorID, reviewedAt, reason)
+	if rejectErr != nil {
+		return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusInternalServerError, "site_edit_reject_failed", "failed to reject site edit", rejectErr)
+	}
 	return item, nil
 }

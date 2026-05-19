@@ -39,9 +39,12 @@ type exploreServiceStub struct {
 	intents          exploreservice.SiteBuddyIntentsResult
 	create           explorerepo.SiteUpdate
 	createSubmission exploreservice.CreateSiteSubmissionInput
+	createSiteEdit   exploreservice.CreateSiteEditProposalInput
 	submission       explorerepo.SiteSubmission
 	submissionList   exploreservice.SubmissionListResult
 	moderationDetail explorerepo.SiteSubmission
+	siteEdit         explorerepo.SiteEditProposal
+	siteEditList     exploreservice.SiteEditProposalListResult
 	err              error
 }
 
@@ -181,6 +184,52 @@ func (s *exploreServiceStub) RejectSite(context.Context, exploreservice.Moderate
 		return explorerepo.SiteSubmission{}, s.err
 	}
 	return s.moderationDetail, nil
+}
+
+func (s *exploreServiceStub) CreateSiteEditProposal(_ context.Context, input exploreservice.CreateSiteEditProposalInput) (exploreservice.CreateSiteEditProposalResult, error) {
+	s.createSiteEdit = input
+	if s.err != nil {
+		return exploreservice.CreateSiteEditProposalResult{}, s.err
+	}
+	return exploreservice.CreateSiteEditProposalResult{Proposal: s.siteEdit}, nil
+}
+
+func (s *exploreServiceStub) ListMySiteEditProposals(context.Context, exploreservice.SubmissionListInput) (exploreservice.SiteEditProposalListResult, error) {
+	return s.siteEditList, s.err
+}
+
+func (s *exploreServiceStub) GetMySiteEditProposalByID(context.Context, string, string) (explorerepo.SiteEditProposal, error) {
+	if s.err != nil {
+		return explorerepo.SiteEditProposal{}, s.err
+	}
+	return s.siteEdit, nil
+}
+
+func (s *exploreServiceStub) ListPendingSiteEditProposals(context.Context, exploreservice.SubmissionListInput) (exploreservice.SiteEditProposalListResult, error) {
+	return s.siteEditList, s.err
+}
+
+func (s *exploreServiceStub) GetSiteEditProposalForModeration(context.Context, string) (explorerepo.SiteEditProposal, error) {
+	if s.err != nil {
+		return explorerepo.SiteEditProposal{}, s.err
+	}
+	return s.siteEdit, nil
+}
+
+func (s *exploreServiceStub) ApplySiteEditProposal(context.Context, exploreservice.ModerateSiteEditProposalInput) (explorerepo.SiteEditProposal, error) {
+	if s.err != nil {
+		return explorerepo.SiteEditProposal{}, s.err
+	}
+	s.siteEdit.State = "applied"
+	return s.siteEdit, nil
+}
+
+func (s *exploreServiceStub) RejectSiteEditProposal(context.Context, exploreservice.ModerateSiteEditProposalInput) (explorerepo.SiteEditProposal, error) {
+	if s.err != nil {
+		return explorerepo.SiteEditProposal{}, s.err
+	}
+	s.siteEdit.State = "rejected"
+	return s.siteEdit, nil
 }
 
 func (s *exploreServiceStub) ListLatestUpdates(context.Context, exploreservice.ListLatestUpdatesInput) (exploreservice.ListLatestUpdatesResult, error) {
@@ -944,6 +993,47 @@ func TestExploreSubmissionAndModerationRoutes(t *testing.T) {
 		t.Fatalf("expected handler to pass lat/lng to service, got %+v", memberSvc.createSubmission)
 	}
 
+	siteEdit := explorerepo.SiteEditProposal{
+		ID:                     "550e8400-e29b-41d4-a716-446655440902",
+		DiveSiteID:             "550e8400-e29b-41d4-a716-446655440101",
+		SiteSlug:               "sardine-run",
+		SiteArea:               "Moalboal, Cebu",
+		SubmittedByAppUserID:   member.UserID,
+		SubmittedByDisplayName: "Member",
+		State:                  "pending",
+		Current: explorerepo.SiteEditValues{
+			Name:        "Sardine Run",
+			Description: "Known sardine site.",
+			Difficulty:  "easy",
+			Hazards:     []string{"boat traffic"},
+		},
+		Proposed: explorerepo.SiteEditValues{
+			Name:        "Sardine Run",
+			Description: "Known sardine bait ball site.",
+			Difficulty:  "easy",
+			Hazards:     []string{"boat traffic"},
+		},
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+	memberSvc.siteEdit = siteEdit
+	editBody, _ := json.Marshal(CreateSiteEditProposalRequest{
+		Name:            "Sardine Run",
+		Description:     "Known sardine bait ball site.",
+		EntryDifficulty: "easy",
+		Hazards:         []string{"boat traffic"},
+	})
+	editReq := httptest.NewRequest(http.MethodPost, "/sites/sardine-run/edit-proposals", bytes.NewReader(editBody))
+	editReq.Header.Set("Content-Type", "application/json")
+	editRec := httptest.NewRecorder()
+	memberRouter.ServeHTTP(editRec, editReq)
+	if editRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for member site edit proposal, got %d: %s", editRec.Code, editRec.Body.String())
+	}
+	if memberSvc.createSiteEdit.Slug != "sardine-run" || memberSvc.createSiteEdit.ActorRole != "member" {
+		t.Fatalf("expected handler to pass slug and role, got %+v", memberSvc.createSiteEdit)
+	}
+
 	failingSvc := &exploreServiceStub{
 		err: exploreservice.ValidationFailure{Issues: []validatex.Issue{{
 			Path:    []any{"location"},
@@ -981,6 +1071,10 @@ func TestExploreSubmissionAndModerationRoutes(t *testing.T) {
 			Items: []explorerepo.SiteSubmission{submission},
 		},
 		moderationDetail: moderated,
+		siteEditList: exploreservice.SiteEditProposalListResult{
+			Items: []explorerepo.SiteEditProposal{siteEdit},
+		},
+		siteEdit: siteEdit,
 	}
 	moderatorRouter := buildExploreRouter(t, moderatorSvc, moderator)
 
@@ -997,6 +1091,21 @@ func TestExploreSubmissionAndModerationRoutes(t *testing.T) {
 	moderatorRouter.ServeHTTP(approveRec, approveReq)
 	if approveRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for approve site, got %d", approveRec.Code)
+	}
+
+	editPendingReq := httptest.NewRequest(http.MethodGet, "/moderation/site-edits/pending", nil)
+	editPendingRec := httptest.NewRecorder()
+	moderatorRouter.ServeHTTP(editPendingRec, editPendingReq)
+	if editPendingRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for pending site edits, got %d", editPendingRec.Code)
+	}
+
+	applyEditReq := httptest.NewRequest(http.MethodPost, "/moderation/site-edits/550e8400-e29b-41d4-a716-446655440902/approve", bytes.NewBufferString(`{"reason":"Accurate correction"}`))
+	applyEditReq.Header.Set("Content-Type", "application/json")
+	applyEditRec := httptest.NewRecorder()
+	moderatorRouter.ServeHTTP(applyEditRec, applyEditReq)
+	if applyEditRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for apply site edit, got %d", applyEditRec.Code)
 	}
 
 	forbiddenReq := httptest.NewRequest(http.MethodGet, "/moderation/sites/pending", nil)

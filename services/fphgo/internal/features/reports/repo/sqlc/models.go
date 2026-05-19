@@ -206,6 +206,28 @@ type DiveSite struct {
 	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type DiveSiteEditProposal struct {
+	ID                        pgtype.UUID        `db:"id" json:"id"`
+	DiveSiteID                pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SubmittedByAppUserID      pgtype.UUID        `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
+	ReviewedByAppUserID       pgtype.UUID        `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
+	State                     string             `db:"state" json:"state"`
+	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
+	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
+	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
+	ProposedDepthMaxM         pgtype.Numeric     `db:"proposed_depth_max_m" json:"proposed_depth_max_m"`
+	ProposedHazards           []string           `db:"proposed_hazards" json:"proposed_hazards"`
+	ProposedBestSeason        string             `db:"proposed_best_season" json:"proposed_best_season"`
+	ProposedTypicalConditions string             `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
+	ProposedAccess            string             `db:"proposed_access" json:"proposed_access"`
+	ProposedFees              string             `db:"proposed_fees" json:"proposed_fees"`
+	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type DiveSiteLike struct {
 	DiveSiteID pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
 	UserID     pgtype.UUID        `db:"user_id" json:"user_id"`

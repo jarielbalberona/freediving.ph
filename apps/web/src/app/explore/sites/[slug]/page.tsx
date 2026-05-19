@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { UsernameLink } from "@/components/common/UsernameLink";
 import { TrustCard } from "@/components/trust-card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   getExploreSiteBySlugServer,
@@ -95,6 +97,12 @@ export default async function ExploreSharePage({ params }: PageProps) {
                 likeCount={data.site.likeCount}
                 viewerHasLiked={data.site.viewerHasLiked}
               />
+              <Link
+                href={`/explore/sites/${data.site.slug}/suggest-edit`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Suggest edit
+              </Link>
             </div>
           </div>
 

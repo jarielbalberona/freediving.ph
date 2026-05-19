@@ -1472,6 +1472,19 @@ export type CreateExploreSiteSubmissionRequest = {
   fees?: string;
 };
 
+export type CreateExploreSiteEditProposalRequest = {
+  name: string;
+  description: string;
+  entryDifficulty: "easy" | "moderate" | "hard";
+  depthMinM?: number;
+  depthMaxM?: number;
+  hazards?: string[];
+  bestSeason?: string;
+  typicalConditions?: string;
+  access?: string;
+  fees?: string;
+};
+
 export type ModerateExploreSiteRequest = {
   reason?: string;
 };
@@ -1511,6 +1524,49 @@ export type ExploreSiteSubmissionResponse = {
 
 export type ExploreSiteSubmissionListResponse = {
   items: ExploreSiteSubmission[];
+  nextCursor?: string;
+};
+
+export type ExploreSiteEditProposalState = "pending" | "applied" | "rejected";
+
+export type ExploreSiteEditValues = {
+  name: string;
+  description: string;
+  difficulty: "easy" | "moderate" | "hard";
+  depthMinM?: number;
+  depthMaxM?: number;
+  hazards: string[];
+  bestSeason?: string;
+  typicalConditions?: string;
+  access?: string;
+  fees?: string;
+};
+
+export type ExploreSiteEditProposal = {
+  id: string;
+  diveSiteId: string;
+  siteSlug: string;
+  siteArea: string;
+  submittedByAppUserId?: string;
+  submittedByDisplayName?: string;
+  reviewedByAppUserId?: string;
+  reviewedByDisplayName?: string;
+  reviewedAt?: string;
+  moderationReason?: string;
+  state: ExploreSiteEditProposalState;
+  current: ExploreSiteEditValues;
+  proposed: ExploreSiteEditValues;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExploreSiteEditProposalResponse = {
+  proposal: ExploreSiteEditProposal;
+  appliedImmediately?: boolean;
+};
+
+export type ExploreSiteEditProposalListResponse = {
+  items: ExploreSiteEditProposal[];
   nextCursor?: string;
 };
 

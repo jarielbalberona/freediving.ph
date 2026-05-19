@@ -20,6 +20,8 @@ type repoStub struct {
 	created       explorerepo.CreateSiteSubmissionInput
 	createResult  explorerepo.SiteSubmission
 	createErr     error
+	editCreated   explorerepo.CreateSiteEditProposalInput
+	editProposal  explorerepo.SiteEditProposal
 	duplicateID   string
 	duplicateErr  error
 	likeState     explorerepo.LikeState
@@ -96,6 +98,71 @@ func (r *repoStub) ApproveSite(_ context.Context, _ string, _ string, _ string, 
 
 func (r *repoStub) RejectOrHideSite(_ context.Context, _ string, _ string, _ time.Time, _ *string) (explorerepo.SiteSubmission, error) {
 	return explorerepo.SiteSubmission{}, nil
+}
+
+func (r *repoStub) CreateSiteEditProposal(_ context.Context, input explorerepo.CreateSiteEditProposalInput) (explorerepo.SiteEditProposal, error) {
+	r.editCreated = input
+	result := r.editProposal
+	if result.ID == "" {
+		result = explorerepo.SiteEditProposal{
+			ID:                     "550e8400-e29b-41d4-a716-446655440902",
+			DiveSiteID:             input.DiveSiteID,
+			SiteSlug:               r.siteDetail.Slug,
+			SiteArea:               r.siteDetail.Area,
+			SubmittedByAppUserID:   input.SubmittedByAppUserID,
+			SubmittedByDisplayName: "Member",
+			State:                  "pending",
+			Current: explorerepo.SiteEditValues{
+				Name:        r.siteDetail.Name,
+				Description: r.siteDetail.Description,
+				Difficulty:  r.siteDetail.Difficulty,
+				DepthMinM:   r.siteDetail.DepthMinM,
+				DepthMaxM:   r.siteDetail.DepthMaxM,
+				Hazards:     r.siteDetail.Hazards,
+			},
+			Proposed:  input.Proposed,
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
+		}
+	}
+	return result, nil
+}
+
+func (r *repoStub) ListMySiteEditProposals(context.Context, explorerepo.ListSiteEditProposalsInput) ([]explorerepo.SiteEditProposal, error) {
+	return nil, nil
+}
+
+func (r *repoStub) GetMySiteEditProposalByID(context.Context, string, string) (explorerepo.SiteEditProposal, error) {
+	return r.editProposal, nil
+}
+
+func (r *repoStub) ListPendingSiteEditProposals(context.Context, explorerepo.ListPendingSiteEditProposalsInput) ([]explorerepo.SiteEditProposal, error) {
+	return nil, nil
+}
+
+func (r *repoStub) GetSiteEditProposalForModeration(context.Context, string) (explorerepo.SiteEditProposal, error) {
+	return r.editProposal, nil
+}
+
+func (r *repoStub) ApplySiteEditProposal(_ context.Context, _ string, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteEditProposal, error) {
+	result := r.editProposal
+	if result.ID == "" {
+		result.ID = "550e8400-e29b-41d4-a716-446655440902"
+	}
+	result.State = "applied"
+	result.ReviewedByAppUserID = reviewedByAppUserID
+	result.ReviewedAt = &reviewedAt
+	result.ModerationReason = stringOrEmpty(moderationReason)
+	return result, nil
+}
+
+func (r *repoStub) RejectSiteEditProposal(_ context.Context, _ string, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteEditProposal, error) {
+	result := r.editProposal
+	result.State = "rejected"
+	result.ReviewedByAppUserID = reviewedByAppUserID
+	result.ReviewedAt = &reviewedAt
+	result.ModerationReason = stringOrEmpty(moderationReason)
+	return result, nil
 }
 
 func (r *repoStub) ListUpdatesForSite(context.Context, explorerepo.ListUpdatesInput) ([]explorerepo.SiteUpdate, error) {
@@ -800,5 +867,88 @@ func TestCreateSiteSubmissionReturnsLocationValidationErrorWhenGeocodeFails(t *t
 	}
 	if issue.Message != "Unable to determine area from map pin. Please pick a different spot." {
 		t.Fatalf("unexpected message: %q", issue.Message)
+	}
+}
+
+func TestCreateSiteEditProposalStoresPendingProposalForMember(t *testing.T) {
+	minDepth := 3.0
+	maxDepth := 18.0
+	repo := &repoStub{siteDetail: explorerepo.SiteDetail{
+		ID:          "550e8400-e29b-41d4-a716-446655440101",
+		Slug:        "sardine-run",
+		Name:        "Sardine Run",
+		Area:        "Moalboal, Cebu",
+		Description: "Known sardine bait ball site.",
+		Difficulty:  "easy",
+		DepthMinM:   &minDepth,
+		DepthMaxM:   &maxDepth,
+		Hazards:     []string{"boat traffic"},
+	}}
+	svc := New(repo)
+
+	result, err := svc.CreateSiteEditProposal(context.Background(), CreateSiteEditProposalInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		ActorRole:   "member",
+		Slug:        "sardine-run",
+		Name:        "Sardine Run",
+		Description: "Known sardine bait ball site with shore entry.",
+		Difficulty:  "easy",
+		DepthMinM:   &minDepth,
+		DepthMaxM:   &maxDepth,
+		Hazards:     []string{"boat traffic", "boat traffic"},
+	})
+	if err != nil {
+		t.Fatalf("create site edit proposal: %v", err)
+	}
+	if result.AppliedImmediately {
+		t.Fatal("member edit should not apply immediately")
+	}
+	if result.Proposal.State != "pending" {
+		t.Fatalf("expected pending proposal, got %q", result.Proposal.State)
+	}
+	if repo.editCreated.DiveSiteID != repo.siteDetail.ID {
+		t.Fatalf("expected edit proposal to target approved site, got %+v", repo.editCreated)
+	}
+	if repo.editCreated.Proposed.Description != "Known sardine bait ball site with shore entry." {
+		t.Fatalf("expected proposed description to be stored, got %+v", repo.editCreated.Proposed)
+	}
+	if len(repo.editCreated.Proposed.Hazards) != 1 || repo.editCreated.Proposed.Hazards[0] != "boat traffic" {
+		t.Fatalf("expected hazards to be cleaned, got %+v", repo.editCreated.Proposed.Hazards)
+	}
+}
+
+func TestCreateSiteEditProposalAppliesImmediatelyForSuperAdmin(t *testing.T) {
+	repo := &repoStub{siteDetail: explorerepo.SiteDetail{
+		ID:          "550e8400-e29b-41d4-a716-446655440101",
+		Slug:        "sardine-run",
+		Name:        "Sardine Run",
+		Area:        "Moalboal, Cebu",
+		Description: "Known sardine bait ball site.",
+		Difficulty:  "easy",
+	}}
+	svc := New(repo)
+
+	result, err := svc.CreateSiteEditProposal(context.Background(), CreateSiteEditProposalInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		ActorRole:   "super_admin",
+		Slug:        "sardine-run",
+		Name:        "Sardine Run Updated",
+		Description: "Known sardine bait ball site.",
+		Difficulty:  "easy",
+	})
+	if err != nil {
+		t.Fatalf("create super admin site edit: %v", err)
+	}
+	if !result.AppliedImmediately {
+		t.Fatal("super admin edit should apply immediately")
+	}
+	if result.Proposal.State != "applied" {
+		t.Fatalf("expected applied proposal, got %q", result.Proposal.State)
+	}
+	if result.Proposal.ReviewedByAppUserID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("expected super admin as reviewer, got %+v", result.Proposal)
+	}
+	if repo.editCreated.Proposed.Name != "Sardine Run Updated" {
+		t.Fatalf("expected proposal to be recorded before apply, got %+v", repo.editCreated.Proposed)
 	}
 }

@@ -286,6 +286,19 @@ type CreateSiteSubmissionRequest struct {
 	Fees              *string  `json:"fees" validate:"omitempty,max=280"`
 }
 
+type CreateSiteEditProposalRequest struct {
+	Name              string   `json:"name" validate:"required,min=3,max=120"`
+	Description       string   `json:"description" validate:"required,min=12,max=2000"`
+	EntryDifficulty   string   `json:"entryDifficulty" validate:"required,oneof=easy moderate hard"`
+	DepthMinM         *float64 `json:"depthMinM" validate:"omitempty,gte=0,lte=2000"`
+	DepthMaxM         *float64 `json:"depthMaxM" validate:"omitempty,gte=0,lte=2000"`
+	Hazards           []string `json:"hazards" validate:"omitempty,dive,max=60"`
+	BestSeason        *string  `json:"bestSeason" validate:"omitempty,max=160"`
+	TypicalConditions *string  `json:"typicalConditions" validate:"omitempty,max=500"`
+	Access            *string  `json:"access" validate:"omitempty,max=500"`
+	Fees              *string  `json:"fees" validate:"omitempty,max=280"`
+}
+
 type ModerateSiteRequest struct {
 	Reason *string `json:"reason" validate:"omitempty,max=280"`
 }
@@ -297,6 +310,16 @@ type SiteSubmissionResponse struct {
 type SiteSubmissionListResponse struct {
 	Items      []SiteSubmission `json:"items"`
 	NextCursor string           `json:"nextCursor,omitempty"`
+}
+
+type SiteEditProposalResponse struct {
+	Proposal           SiteEditProposal `json:"proposal"`
+	AppliedImmediately bool             `json:"appliedImmediately,omitempty"`
+}
+
+type SiteEditProposalListResponse struct {
+	Items      []SiteEditProposal `json:"items"`
+	NextCursor string             `json:"nextCursor,omitempty"`
 }
 
 type SiteSubmission struct {
@@ -326,6 +349,37 @@ type SiteSubmission struct {
 	LastUpdatedAt          string   `json:"lastUpdatedAt"`
 	UpdatedAt              string   `json:"updatedAt"`
 	CreatedAt              string   `json:"createdAt"`
+}
+
+type SiteEditValues struct {
+	Name              string   `json:"name"`
+	Description       string   `json:"description"`
+	Difficulty        string   `json:"difficulty"`
+	DepthMinM         *float64 `json:"depthMinM,omitempty"`
+	DepthMaxM         *float64 `json:"depthMaxM,omitempty"`
+	Hazards           []string `json:"hazards"`
+	BestSeason        string   `json:"bestSeason,omitempty"`
+	TypicalConditions string   `json:"typicalConditions,omitempty"`
+	Access            string   `json:"access,omitempty"`
+	Fees              string   `json:"fees,omitempty"`
+}
+
+type SiteEditProposal struct {
+	ID                     string         `json:"id"`
+	DiveSiteID             string         `json:"diveSiteId"`
+	SiteSlug               string         `json:"siteSlug"`
+	SiteArea               string         `json:"siteArea"`
+	SubmittedByAppUserID   string         `json:"submittedByAppUserId,omitempty"`
+	SubmittedByDisplayName string         `json:"submittedByDisplayName,omitempty"`
+	ReviewedByAppUserID    string         `json:"reviewedByAppUserId,omitempty"`
+	ReviewedByDisplayName  string         `json:"reviewedByDisplayName,omitempty"`
+	ReviewedAt             string         `json:"reviewedAt,omitempty"`
+	ModerationReason       string         `json:"moderationReason,omitempty"`
+	State                  string         `json:"state"`
+	Current                SiteEditValues `json:"current"`
+	Proposed               SiteEditValues `json:"proposed"`
+	CreatedAt              string         `json:"createdAt"`
+	UpdatedAt              string         `json:"updatedAt"`
 }
 
 type TrustCard struct {

@@ -1123,3 +1123,373 @@ SET moderation_state = 'hidden',
     updated_at = NOW()
 WHERE id = sqlc.arg(id)
 RETURNING *;
+
+-- name: CreateSiteEditProposal :one
+WITH inserted AS (
+  INSERT INTO dive_site_edit_proposals (
+    dive_site_id,
+    submitted_by_app_user_id,
+    proposed_name,
+    proposed_description,
+    proposed_entry_difficulty,
+    proposed_depth_min_m,
+    proposed_depth_max_m,
+    proposed_hazards,
+    proposed_best_season,
+    proposed_typical_conditions,
+    proposed_access,
+    proposed_fees
+  )
+  VALUES (
+    sqlc.arg(dive_site_id),
+    sqlc.arg(submitted_by_app_user_id),
+    sqlc.arg(proposed_name),
+    sqlc.arg(proposed_description),
+    sqlc.arg(proposed_entry_difficulty),
+    sqlc.narg(proposed_depth_min_m),
+    sqlc.narg(proposed_depth_max_m),
+    sqlc.arg(proposed_hazards),
+    sqlc.arg(proposed_best_season),
+    sqlc.arg(proposed_typical_conditions),
+    sqlc.arg(proposed_access),
+    sqlc.arg(proposed_fees)
+  )
+  RETURNING *
+)
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM inserted p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id;
+
+-- name: ListMySiteEditProposals :many
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM dive_site_edit_proposals p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+WHERE p.submitted_by_app_user_id = sqlc.arg(submitted_by_app_user_id)
+  AND (p.created_at < sqlc.arg(cursor_created_at) OR (p.created_at = sqlc.arg(cursor_created_at) AND p.id < sqlc.arg(cursor_id)))
+ORDER BY p.created_at DESC, p.id DESC
+LIMIT sqlc.arg(limit_rows);
+
+-- name: GetMySiteEditProposalByID :one
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM dive_site_edit_proposals p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+WHERE p.id = sqlc.arg(id)
+  AND p.submitted_by_app_user_id = sqlc.arg(submitted_by_app_user_id);
+
+-- name: ListPendingSiteEditProposals :many
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM dive_site_edit_proposals p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+WHERE p.state = 'pending'
+  AND s.moderation_state = 'approved'
+  AND (p.created_at < sqlc.arg(cursor_created_at) OR (p.created_at = sqlc.arg(cursor_created_at) AND p.id < sqlc.arg(cursor_id)))
+ORDER BY p.created_at DESC, p.id DESC
+LIMIT sqlc.arg(limit_rows);
+
+-- name: GetSiteEditProposalForModeration :one
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM dive_site_edit_proposals p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id
+WHERE p.id = sqlc.arg(id);
+
+-- name: ApplySiteEditProposal :one
+WITH proposal AS (
+  UPDATE dive_site_edit_proposals p
+  SET state = 'applied',
+      reviewed_by_app_user_id = sqlc.arg(reviewed_by_app_user_id),
+      reviewed_at = sqlc.arg(reviewed_at),
+      moderation_reason = sqlc.narg(moderation_reason),
+      updated_at = NOW()
+  WHERE p.id = sqlc.arg(id)
+    AND p.state = 'pending'
+    AND EXISTS (
+      SELECT 1
+      FROM dive_sites s
+      WHERE s.id = p.dive_site_id
+        AND s.moderation_state = 'approved'
+    )
+  RETURNING *
+),
+updated_site AS (
+  UPDATE dive_sites s
+  SET name = p.proposed_name,
+      description = p.proposed_description,
+      entry_difficulty = p.proposed_entry_difficulty,
+      depth_min_m = p.proposed_depth_min_m,
+      depth_max_m = p.proposed_depth_max_m,
+      hazards = p.proposed_hazards,
+      best_season = NULLIF(p.proposed_best_season, ''),
+      typical_conditions = NULLIF(p.proposed_typical_conditions, ''),
+      access = NULLIF(p.proposed_access, ''),
+      fees = NULLIF(p.proposed_fees, ''),
+      updated_at = NOW(),
+      last_updated_at = GREATEST(s.last_updated_at, NOW())
+  FROM proposal p
+  WHERE s.id = p.dive_site_id
+    AND s.moderation_state = 'approved'
+  RETURNING s.*
+)
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM proposal p
+JOIN updated_site s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id;
+
+-- name: RejectSiteEditProposal :one
+WITH proposal AS (
+  UPDATE dive_site_edit_proposals p
+  SET state = 'rejected',
+      reviewed_by_app_user_id = sqlc.arg(reviewed_by_app_user_id),
+      reviewed_at = sqlc.arg(reviewed_at),
+      moderation_reason = sqlc.narg(moderation_reason),
+      updated_at = NOW()
+  WHERE p.id = sqlc.arg(id)
+    AND p.state = 'pending'
+  RETURNING *
+)
+SELECT
+  p.id,
+  p.dive_site_id,
+  s.slug AS site_slug,
+  s.area AS site_area,
+  p.submitted_by_app_user_id,
+  COALESCE(submitter.display_name, '') AS submitted_by_display_name,
+  p.reviewed_by_app_user_id,
+  COALESCE(reviewer.display_name, '') AS reviewed_by_display_name,
+  p.reviewed_at,
+  p.moderation_reason,
+  p.state,
+  s.name AS current_name,
+  COALESCE(s.description, '') AS current_description,
+  s.entry_difficulty AS current_entry_difficulty,
+  s.depth_min_m AS current_depth_min_m,
+  s.depth_max_m AS current_depth_max_m,
+  s.hazards AS current_hazards,
+  COALESCE(s.best_season, '') AS current_best_season,
+  COALESCE(s.typical_conditions, '') AS current_typical_conditions,
+  COALESCE(s.access, '') AS current_access,
+  COALESCE(s.fees, '') AS current_fees,
+  p.proposed_name,
+  p.proposed_description,
+  p.proposed_entry_difficulty,
+  p.proposed_depth_min_m,
+  p.proposed_depth_max_m,
+  p.proposed_hazards,
+  p.proposed_best_season,
+  p.proposed_typical_conditions,
+  p.proposed_access,
+  p.proposed_fees,
+  p.created_at,
+  p.updated_at
+FROM proposal p
+JOIN dive_sites s ON s.id = p.dive_site_id
+JOIN users submitter ON submitter.id = p.submitted_by_app_user_id
+LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by_app_user_id;

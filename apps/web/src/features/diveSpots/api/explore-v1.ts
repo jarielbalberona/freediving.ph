@@ -1,5 +1,6 @@
 import type {
   CreateExploreSiteSubmissionRequest,
+  CreateExploreSiteEditProposalRequest,
   CreateExploreSiteUpdateRequest,
   CreateDivePresenceRequest,
   CreateDiveSiteAffinityRequest,
@@ -14,6 +15,8 @@ import type {
   ExploreListResponse,
   ExploreSiteSubmissionListResponse,
   ExploreSiteSubmissionResponse,
+  ExploreSiteEditProposalListResponse,
+  ExploreSiteEditProposalResponse,
   ExploreSiteBuddyIntentsResponse,
   ExploreSiteCommunityPostsResponse,
   ExploreSiteBuddyPreviewResponse,
@@ -245,6 +248,18 @@ export const exploreApi = {
       },
     ),
 
+  createSiteEditProposal: (
+    slug: string,
+    payload: CreateExploreSiteEditProposalRequest,
+  ) =>
+    fphgoFetchClient<ExploreSiteEditProposalResponse>(
+      routes.v1.explore.createSiteEditProposal(slug),
+      {
+        method: "POST",
+        body: payload as Record<string, unknown>,
+      },
+    ),
+
   listMySubmissions: (cursor?: string, limit = 20) =>
     fphgoFetchClient<ExploreSiteSubmissionListResponse>(
       withQuery(routes.v1.explore.mySubmissions(), { cursor, limit }),
@@ -255,6 +270,16 @@ export const exploreApi = {
       routes.v1.explore.mySubmissionById(id),
     ),
 
+  listMySiteEditProposals: (cursor?: string, limit = 20) =>
+    fphgoFetchClient<ExploreSiteEditProposalListResponse>(
+      withQuery(routes.v1.explore.siteEditProposals(), { cursor, limit }),
+    ),
+
+  getMySiteEditProposalById: (id: string) =>
+    fphgoFetchClient<ExploreSiteEditProposalResponse>(
+      routes.v1.explore.siteEditProposalById(id),
+    ),
+
   listPendingSites: (cursor?: string, limit = 20) =>
     fphgoFetchClient<ExploreSiteSubmissionListResponse>(
       withQuery(routes.v1.explore.moderationPendingSites(), { cursor, limit }),
@@ -263,6 +288,19 @@ export const exploreApi = {
   getModerationSiteById: (id: string) =>
     fphgoFetchClient<ExploreSiteSubmissionResponse>(
       routes.v1.explore.moderationSiteById(id),
+    ),
+
+  listPendingSiteEdits: (cursor?: string, limit = 20) =>
+    fphgoFetchClient<ExploreSiteEditProposalListResponse>(
+      withQuery(routes.v1.explore.moderationPendingSiteEdits(), {
+        cursor,
+        limit,
+      }),
+    ),
+
+  getModerationSiteEditById: (id: string) =>
+    fphgoFetchClient<ExploreSiteEditProposalResponse>(
+      routes.v1.explore.moderationSiteEditById(id),
     ),
 
   approveSite: (id: string, payload: ModerateExploreSiteRequest) =>
@@ -277,6 +315,24 @@ export const exploreApi = {
   rejectSite: (id: string, payload: ModerateExploreSiteRequest) =>
     fphgoFetchClient<ExploreSiteSubmissionResponse>(
       routes.v1.explore.rejectSite(id),
+      {
+        method: "POST",
+        body: payload as Record<string, unknown>,
+      },
+    ),
+
+  approveSiteEdit: (id: string, payload: ModerateExploreSiteRequest) =>
+    fphgoFetchClient<ExploreSiteEditProposalResponse>(
+      routes.v1.explore.approveSiteEdit(id),
+      {
+        method: "POST",
+        body: payload as Record<string, unknown>,
+      },
+    ),
+
+  rejectSiteEdit: (id: string, payload: ModerateExploreSiteRequest) =>
+    fphgoFetchClient<ExploreSiteEditProposalResponse>(
+      routes.v1.explore.rejectSiteEdit(id),
       {
         method: "POST",
         body: payload as Record<string, unknown>,

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	explorerepo "fphgo/internal/features/explore/repo"
@@ -263,6 +264,102 @@ func TestSiteSubmissionWorkflowVisibility(t *testing.T) {
 	}
 	if ownerDetail.ModerationState != "hidden" || ownerDetail.ModerationReason != reason {
 		t.Fatalf("expected hidden owner detail with moderation reason, got %+v", ownerDetail)
+	}
+}
+
+func TestSiteEditProposalWorkflowAppliesOnlyAfterApproval(t *testing.T) {
+	pool := testExplorePool(t)
+	repo := explorerepo.New(pool)
+	ctx := context.Background()
+
+	submitterID := uuid.NewString()
+	reviewerID := uuid.NewString()
+	siteID := uuid.NewString()
+	now := time.Now().UnixNano()
+
+	for _, user := range []struct {
+		id       string
+		username string
+		name     string
+	}{
+		{id: submitterID, username: fmt.Sprintf("site_edit_submitter_%d", now), name: "Site Edit Submitter"},
+		{id: reviewerID, username: fmt.Sprintf("site_edit_reviewer_%d", now), name: "Site Edit Reviewer"},
+	} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name)
+			VALUES ($1, $2, $3)
+		`, user.id, user.username, user.name); err != nil {
+			t.Skipf("insert user: %v", err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_sites (
+			id, name, slug, area, description, entry_difficulty, hazards, verification_status, moderation_state
+		)
+		VALUES ($1, 'Old Reef', $2, 'Moalboal, Cebu', 'Old description for public site.', 'easy', ARRAY['boat traffic'], 'verified', 'approved')
+	`, siteID, fmt.Sprintf("old-reef-%d", now)); err != nil {
+		t.Skipf("insert site: %v", err)
+	}
+
+	proposal, err := repo.CreateSiteEditProposal(ctx, explorerepo.CreateSiteEditProposalInput{
+		DiveSiteID:           siteID,
+		SubmittedByAppUserID: submitterID,
+		Proposed: explorerepo.SiteEditValues{
+			Name:        "Updated Reef",
+			Description: "Updated description for public site.",
+			Difficulty:  "moderate",
+			Hazards:     []string{"current"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create site edit proposal: %v", err)
+	}
+	if proposal.State != "pending" {
+		t.Fatalf("expected pending proposal, got %q", proposal.State)
+	}
+
+	detail, err := repo.GetSiteBySlug(ctx, proposal.SiteSlug, "")
+	if err != nil {
+		t.Fatalf("get site detail before approval: %v", err)
+	}
+	if detail.Name != "Old Reef" || detail.Difficulty != "easy" {
+		t.Fatalf("proposal changed public site before approval: %+v", detail)
+	}
+
+	pending, err := repo.ListPendingSiteEditProposals(ctx, explorerepo.ListPendingSiteEditProposalsInput{
+		CursorCreatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           20,
+	})
+	if err != nil {
+		t.Fatalf("list pending site edits: %v", err)
+	}
+	foundPending := false
+	for _, item := range pending {
+		if item.ID == proposal.ID {
+			foundPending = true
+			break
+		}
+	}
+	if !foundPending {
+		t.Fatal("expected proposal in pending moderation list")
+	}
+
+	reason := "Verified correction"
+	applied, err := repo.ApplySiteEditProposal(ctx, proposal.ID, reviewerID, time.Now().UTC(), &reason)
+	if err != nil {
+		t.Fatalf("apply site edit proposal: %v", err)
+	}
+	if applied.State != "applied" || applied.ReviewedByAppUserID != reviewerID || applied.ModerationReason != reason {
+		t.Fatalf("expected applied proposal with reviewer, got %+v", applied)
+	}
+
+	detail, err = repo.GetSiteBySlug(ctx, proposal.SiteSlug, "")
+	if err != nil {
+		t.Fatalf("get site detail after approval: %v", err)
+	}
+	if detail.Name != "Updated Reef" || detail.Difficulty != "moderate" || len(detail.Hazards) != 1 || detail.Hazards[0] != "current" {
+		t.Fatalf("approved edit did not update public site: %+v", detail)
 	}
 }
 

@@ -106,11 +106,12 @@ Default local URLs:
 
 - Google Analytics is installed directly in the root layout with GA4 measurement ID `G-2ML3MWBFD8`.
 - `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` for repo-visible Google Search Console ownership.
-- `NEXT_PUBLIC_SENTRY_DSN` for browser error capture.
-- `SENTRY_DSN` for server/edge error capture. This can be the same Sentry SaaS or GlitchTip DSN destination, but do not configure two destinations.
+- `NEXT_PUBLIC_SENTRY_DSN` for browser error capture. Current GlitchTip DSN: `https://04521819cef742259f2c8c9321285550@app.glitchtip.com/23656`.
+- `SENTRY_DSN` for server/edge error capture. Use the same GlitchTip DSN as the browser.
 - `SENTRY_ENVIRONMENT=production`
 - `SENTRY_RELEASE` when deployments can stamp a release.
-- `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` only when source map upload is configured.
+- `SENTRY_URL=https://app.glitchtip.com`
+- `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` only when GlitchTip source map upload is configured.
 
 Production canonical web origin is `https://freediving.ph`. Keep Render and Cloudflare env values aligned with that public URL.
 Manual monitoring smoke after deployment: with `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` set, trigger a controlled client ErrorBoundary failure and a server-render failure in a non-public test route or temporary branch, then confirm both events land in the selected Sentry or GlitchTip project before exposing the route.

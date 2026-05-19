@@ -46,5 +46,8 @@ test("Google tag and Sentry tooling are wired and Vercel Analytics is removed", 
   assert.match(layoutSource, /NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION/);
   assert.match(layoutSource, /verification:/);
   assert.match(sentryClientSource, /NEXT_PUBLIC_SENTRY_DSN/);
+  assert.match(sentryClientSource, /app\.glitchtip\.com\/23656/);
+  assert.match(sentryClientSource, /tracesSampleRate:\s*0\.01/);
+  assert.match(sentryClientSource, /replaysSessionSampleRate:\s*0/);
   assert.doesNotMatch(packageJsonSource, /@vercel\/analytics/);
 });

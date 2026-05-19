@@ -15,8 +15,13 @@ export default function ModerationExploreSitesPage() {
     queryKey: ["moderation-explore-pending"],
     queryFn: () => exploreApi.listPendingSites(),
   });
+  const pendingEditsQuery = useQuery({
+    queryKey: ["moderation-explore-site-edits-pending"],
+    queryFn: () => exploreApi.listPendingSiteEdits(),
+  });
 
   const items = pendingQuery.data?.items ?? [];
+  const editItems = pendingEditsQuery.data?.items ?? [];
 
   return (
     <AuthGuard requiredRole="MODERATOR" title="Moderator access required" description="Only moderators can review dive site submissions.">
@@ -31,8 +36,54 @@ export default function ModerationExploreSitesPage() {
             {pendingQuery.error ? (
               <p className="text-sm text-red-600">{getApiErrorMessage(pendingQuery.error, "Failed to load pending dive sites")}</p>
             ) : null}
+            {pendingEditsQuery.error ? (
+              <p className="text-sm text-red-600">{getApiErrorMessage(pendingEditsQuery.error, "Failed to load pending dive site edits")}</p>
+            ) : null}
 
-            <div className="space-y-4">
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold">Suggested edits</h2>
+                <p className="text-sm text-muted-foreground">Review proposed changes before they alter approved site data.</p>
+              </div>
+              {editItems.map((item) => (
+                <Card key={item.id}>
+                  <CardHeader className="flex flex-row items-start justify-between gap-4">
+                    <div>
+                      <CardTitle>{item.current.name}</CardTitle>
+                      <p className="text-sm text-muted-foreground">{item.siteArea}</p>
+                    </div>
+                    <Badge variant="secondary">{item.state}</Badge>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Suggested by {item.submittedByDisplayName || item.submittedByAppUserId || "member"} on{" "}
+                      {new Date(item.createdAt).toLocaleString()}
+                    </p>
+                    <p className="text-sm">
+                      {item.current.name !== item.proposed.name ? (
+                        <>Name: {item.current.name} to {item.proposed.name}</>
+                      ) : (
+                        <>Site details changed</>
+                      )}
+                    </p>
+                    <Link href={`/moderation/explore-site-edits/${item.id}`} className={buttonVariants()}>
+                      Review edit
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {!pendingEditsQuery.isLoading && editItems.length === 0 ? (
+                <Card>
+                  <CardContent className="p-6 text-sm text-muted-foreground">No pending site edits right now.</CardContent>
+                </Card>
+              ) : null}
+            </section>
+
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold">New site submissions</h2>
+              </div>
               {items.map((item) => (
                 <Card key={item.id}>
                   <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -65,7 +116,7 @@ export default function ModerationExploreSitesPage() {
                   <CardContent className="p-6 text-sm text-muted-foreground">No pending dive sites right now.</CardContent>
                 </Card>
               ) : null}
-            </div>
+            </section>
           </div>
         </div>
       </RequirePermission>
