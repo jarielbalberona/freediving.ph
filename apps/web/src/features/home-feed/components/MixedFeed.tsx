@@ -10,22 +10,30 @@ import { cn } from "@/lib/utils";
 import { FeedItemRenderer } from "@/features/home-feed/components/FeedItemRenderer";
 import { useFeedActionMutation } from "@/features/home-feed/hooks/mutations/useFeedActionMutation";
 import { useFeedImpressionTracker } from "@/features/home-feed/hooks/useFeedImpressionTracker";
-import type { HomeFeedItem, HomeFeedMode } from "@freediving.ph/types";
+import type {
+  FeedSource,
+  HomeFeedItem,
+  HomeFeedMode,
+} from "@freediving.ph/types";
 
 export function MixedFeed({
   mode,
+  source = "home",
   items,
   loading,
   hasMore,
   onLoadMore,
   showLoginToSeeMore,
+  telemetryEnabled = true,
 }: {
   mode: HomeFeedMode;
+  source?: FeedSource;
   items: HomeFeedItem[];
   loading: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
   showLoginToSeeMore: boolean;
+  telemetryEnabled?: boolean;
 }) {
   const sessionId = useMemo(() => {
     if (typeof window === "undefined") return "session-server";
@@ -40,19 +48,23 @@ export function MixedFeed({
 
   useFeedImpressionTracker({
     sessionId,
+    source,
     mode,
     items,
+    enabled: telemetryEnabled,
   });
 
   const onAction = (item: HomeFeedItem, actionType: string) => {
+    if (!telemetryEnabled) return;
     actionMutation.mutate({
       sessionId,
+      source,
       mode,
       items: [
         {
           feedItemId: item.id,
-          entityType: item.type,
-          entityId: item.entityId,
+          entityType: item.telemetryEntityType ?? item.type,
+          entityId: item.telemetryEntityId ?? item.entityId,
           actionType,
           createdAt: new Date().toISOString(),
         },
@@ -147,6 +159,7 @@ export function MixedFeed({
               item={item}
               position={index}
               onAction={onAction}
+              showActions={telemetryEnabled}
             />
           ))}
         </div>

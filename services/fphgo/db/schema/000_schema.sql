@@ -741,6 +741,7 @@ CREATE TABLE IF NOT EXISTS feed_impressions (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   session_id TEXT NOT NULL,
   feed_item_id TEXT NOT NULL,
+  feed_source TEXT NOT NULL DEFAULT 'home',
   entity_type TEXT NOT NULL,
   entity_id TEXT NOT NULL,
   mode TEXT NOT NULL,
@@ -748,6 +749,7 @@ CREATE TABLE IF NOT EXISTS feed_impressions (
   seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (mode IN ('latest', 'nearby', 'chika', 'dive-reports', 'events', 'following', 'training', 'spot-reports')),
+  CHECK (feed_source IN ('home', 'activity')),
   CHECK (position >= 0)
 );
 
@@ -756,13 +758,15 @@ CREATE TABLE IF NOT EXISTS feed_actions (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   session_id TEXT NOT NULL,
   feed_item_id TEXT,
+  feed_source TEXT NOT NULL DEFAULT 'home',
   entity_type TEXT NOT NULL,
   entity_id TEXT NOT NULL,
   action_type TEXT NOT NULL,
   mode TEXT NOT NULL,
   value_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (mode IN ('latest', 'nearby', 'chika', 'dive-reports', 'events', 'following', 'training', 'spot-reports'))
+  CHECK (mode IN ('latest', 'nearby', 'chika', 'dive-reports', 'events', 'following', 'training', 'spot-reports')),
+  CHECK (feed_source IN ('home', 'activity'))
 );
 
 CREATE TABLE IF NOT EXISTS user_feed_preferences (
@@ -876,12 +880,14 @@ CREATE INDEX IF NOT EXISTS idx_psgc_cities_region_active_name ON psgc_cities_mun
 CREATE INDEX IF NOT EXISTS idx_psgc_barangays_city_active_name ON psgc_barangays (city_municipality_code, is_active, name);
 CREATE INDEX IF NOT EXISTS idx_psgc_barangays_province_active_name ON psgc_barangays (province_code, is_active, name);
 CREATE INDEX IF NOT EXISTS idx_psgc_import_history_source_version ON psgc_import_history (source_version, imported_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_impressions_dedupe ON feed_impressions (user_id, session_id, feed_item_id, position);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_impressions_dedupe ON feed_impressions (user_id, session_id, feed_source, feed_item_id, position);
 CREATE INDEX IF NOT EXISTS idx_feed_impressions_user_seen_at ON feed_impressions (user_id, seen_at DESC);
 CREATE INDEX IF NOT EXISTS idx_feed_impressions_entity_seen_at ON feed_impressions (entity_type, entity_id, seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feed_impressions_source_seen_at ON feed_impressions (feed_source, seen_at DESC);
 CREATE INDEX IF NOT EXISTS idx_feed_actions_user_created_at ON feed_actions (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_feed_actions_entity_created_at ON feed_actions (entity_type, entity_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_feed_actions_action_created_at ON feed_actions (action_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feed_actions_source_created_at ON feed_actions (feed_source, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_hidden_feed_items_user_created_at ON user_hidden_feed_items (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_hidden_feed_items_entity ON user_hidden_feed_items (entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_activity_items_public_cursor ON activity_items (occurred_at DESC, id DESC) WHERE state = 'active' AND visibility = 'public';

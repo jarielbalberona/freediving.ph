@@ -6,6 +6,7 @@ import type {
   ActivityFeedItem,
   ActivityFeedResponse,
   FeedActionsRequest,
+  FeedSource,
   FeedImpressionsRequest,
   HomeFeedItem,
   HomeFeedMode,
@@ -25,6 +26,7 @@ type _mode = Assert<
     "latest" | "nearby" | "chika" | "dive-reports" | "events"
   >
 >;
+type _feedSource = Assert<IsEqual<FeedSource, "home" | "activity">>;
 type _activityFilter = Assert<
   IsEqual<
     ActivityFeedFilter,
@@ -49,8 +51,11 @@ test("feed contracts expose home response and telemetry payloads", () => {
 test("feed item contracts expose presentation metadata", () => {
   const item = {
     id: "fi_post_1",
+    feedSource: "home",
     type: "post",
     entityId: "post_1",
+    telemetryEntityType: "post",
+    telemetryEntityId: "post_1",
     score: 0.91,
     reasons: ["latest", "fresh"],
     typeLabel: "Dive update",
@@ -95,4 +100,36 @@ test("activity feed contracts expose ledger response shape", () => {
   } satisfies ActivityFeedResponse;
 
   assert.equal(response.items[0].type, "chika_thread_created");
+});
+
+test("feed telemetry contracts carry source without breaking legacy mode", () => {
+  const impressions = {
+    sessionId: "session-1",
+    source: "activity",
+    mode: "latest",
+    items: [
+      {
+        feedItemId: "activity-1",
+        entityType: "activity_item",
+        entityId: "activity-1",
+        position: 0,
+      },
+    ],
+  } satisfies FeedImpressionsRequest;
+  const actions = {
+    sessionId: "session-1",
+    source: "activity",
+    mode: "latest",
+    items: [
+      {
+        feedItemId: "activity-1",
+        entityType: "activity_item",
+        entityId: "activity-1",
+        actionType: "hide_item",
+      },
+    ],
+  } satisfies FeedActionsRequest;
+
+  assert.equal(impressions.source, "activity");
+  assert.equal(actions.items[0].entityType, "activity_item");
 });

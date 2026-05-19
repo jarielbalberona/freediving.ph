@@ -86,6 +86,7 @@ export const routes = {
     },
     feed: {
       home: () => "/v1/feed/home",
+      activity: () => "/v1/feed/activity",
       impressions: () => "/v1/feed/impressions",
       actions: () => "/v1/feed/actions",
     },

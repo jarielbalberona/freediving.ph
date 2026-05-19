@@ -49,6 +49,7 @@ type HomeFeedItem struct {
 
 type LogImpressionsRequest struct {
 	SessionID string                  `json:"sessionId" validate:"required,max=100"`
+	Source    string                  `json:"source" validate:"omitempty,oneof=home activity"`
 	Mode      string                  `json:"mode" validate:"omitempty,oneof=latest nearby chika dive-reports events following training spot-reports"`
 	Items     []LogImpressionItemBody `json:"items" validate:"required,min=1,max=100,dive"`
 }
@@ -63,6 +64,7 @@ type LogImpressionItemBody struct {
 
 type LogActionsRequest struct {
 	SessionID string              `json:"sessionId" validate:"required,max=100"`
+	Source    string              `json:"source" validate:"omitempty,oneof=home activity"`
 	Mode      string              `json:"mode" validate:"omitempty,oneof=latest nearby chika dive-reports events following training spot-reports"`
 	Items     []LogActionItemBody `json:"items" validate:"required,min=1,max=100,dive"`
 }

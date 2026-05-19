@@ -17,6 +17,8 @@ type feedRepoStub struct {
 	buddySignals  []feedrepo.BuddySignalCandidate
 	events        []feedrepo.EventCandidate
 	hiddenRows    []feedrepo.FeedHiddenItemInsert
+	impressions   []feedrepo.FeedImpressionInsert
+	actions       []feedrepo.FeedActionInsert
 	activityRows  []feedrepo.ActivityRow
 	activityInput feedrepo.ActivityListInput
 	upserts       []feedrepo.ActivityUpsert
@@ -71,11 +73,13 @@ func (r *feedRepoStub) GetNearbyCondition(context.Context, string) (feedrepo.Nea
 	}, nil
 }
 
-func (r *feedRepoStub) InsertImpressions(context.Context, string, string, []feedrepo.FeedImpressionInsert) error {
+func (r *feedRepoStub) InsertImpressions(_ context.Context, _ string, _ string, rows []feedrepo.FeedImpressionInsert) error {
+	r.impressions = append(r.impressions, rows...)
 	return nil
 }
 
-func (r *feedRepoStub) InsertActions(context.Context, string, string, []feedrepo.FeedActionInsert) error {
+func (r *feedRepoStub) InsertActions(_ context.Context, _ string, _ string, rows []feedrepo.FeedActionInsert) error {
+	r.actions = append(r.actions, rows...)
 	return nil
 }
 
@@ -274,6 +278,63 @@ func TestRecordActionsHideItemPersistsHiddenRow(t *testing.T) {
 	}
 	if repo.hiddenRows[0].EntityType != "post" || repo.hiddenRows[0].EntityID != "post-1" {
 		t.Fatalf("unexpected hidden row: %#v", repo.hiddenRows[0])
+	}
+}
+
+func TestRecordActivityTelemetryUsesActivitySourceAndItemID(t *testing.T) {
+	t.Parallel()
+
+	repo := &feedRepoStub{}
+	service := New(repo)
+	now := time.Now().UTC()
+
+	if err := service.RecordImpressions(context.Background(), "viewer-1", "session-1", ModeLatest, []TelemetryImpression{{
+		FeedItemID: "activity-1",
+		Source:     FeedSourceActivity,
+		EntityType: "activity_item",
+		EntityID:   "activity-1",
+		Position:   0,
+		SeenAt:     now,
+	}}); err != nil {
+		t.Fatalf("RecordImpressions returned error: %v", err)
+	}
+	if err := service.RecordActions(context.Background(), "viewer-1", "session-1", ModeLatest, []TelemetryAction{{
+		FeedItemID: "activity-1",
+		Source:     FeedSourceActivity,
+		EntityType: "activity_item",
+		EntityID:   "activity-1",
+		ActionType: "hide_item",
+		CreatedAt:  now,
+	}}); err != nil {
+		t.Fatalf("RecordActions returned error: %v", err)
+	}
+	if len(repo.impressions) != 1 || repo.impressions[0].Source != "activity" {
+		t.Fatalf("expected activity impression source, got %#v", repo.impressions)
+	}
+	if len(repo.actions) != 1 || repo.actions[0].Source != "activity" {
+		t.Fatalf("expected activity action source, got %#v", repo.actions)
+	}
+	if len(repo.hiddenRows) != 1 || repo.hiddenRows[0].EntityType != "activity_item" || repo.hiddenRows[0].EntityID != "activity-1" {
+		t.Fatalf("expected activity hidden row, got %#v", repo.hiddenRows)
+	}
+}
+
+func TestRecordHomeTelemetryDefaultsToHomeSource(t *testing.T) {
+	t.Parallel()
+
+	repo := &feedRepoStub{}
+	service := New(repo)
+
+	if err := service.RecordImpressions(context.Background(), "viewer-1", "session-1", ModeLatest, []TelemetryImpression{{
+		FeedItemID: "fi_post_1",
+		EntityType: "post",
+		EntityID:   "post-1",
+		Position:   0,
+	}}); err != nil {
+		t.Fatalf("RecordImpressions returned error: %v", err)
+	}
+	if len(repo.impressions) != 1 || repo.impressions[0].Source != "home" {
+		t.Fatalf("expected default home impression source, got %#v", repo.impressions)
 	}
 }
 

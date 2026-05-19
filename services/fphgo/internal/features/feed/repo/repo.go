@@ -148,6 +148,7 @@ type FeedActionCount struct {
 
 type FeedImpressionInsert struct {
 	FeedItemID string
+	Source     string
 	EntityType string
 	EntityID   string
 	Mode       string
@@ -157,6 +158,7 @@ type FeedImpressionInsert struct {
 
 type FeedActionInsert struct {
 	FeedItemID string
+	Source     string
 	EntityType string
 	EntityID   string
 	ActionType string
@@ -907,10 +909,10 @@ func (r *Repo) InsertImpressions(ctx context.Context, userID, sessionID string, 
 	}
 	const q = `
 		INSERT INTO feed_impressions (
-			user_id, session_id, feed_item_id, entity_type, entity_id, mode, position, seen_at
+			user_id, session_id, feed_item_id, feed_source, entity_type, entity_id, mode, position, seen_at
 		)
-		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (user_id, session_id, feed_item_id, position) DO NOTHING
+		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (user_id, session_id, feed_source, feed_item_id, position) DO NOTHING
 	`
 	for _, row := range rows {
 		seenAt := row.SeenAt
@@ -921,6 +923,7 @@ func (r *Repo) InsertImpressions(ctx context.Context, userID, sessionID string, 
 			userID,
 			sessionID,
 			row.FeedItemID,
+			normalizeFeedSource(row.Source),
 			row.EntityType,
 			row.EntityID,
 			row.Mode,
@@ -939,9 +942,9 @@ func (r *Repo) InsertActions(ctx context.Context, userID, sessionID string, rows
 	}
 	const q = `
 		INSERT INTO feed_actions (
-			user_id, session_id, feed_item_id, entity_type, entity_id, action_type, mode, value_json, created_at
+			user_id, session_id, feed_item_id, feed_source, entity_type, entity_id, action_type, mode, value_json, created_at
 		)
-		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
 	`
 	for _, row := range rows {
 		createdAt := row.CreatedAt
@@ -960,6 +963,7 @@ func (r *Repo) InsertActions(ctx context.Context, userID, sessionID string, rows
 			userID,
 			sessionID,
 			nullableText(row.FeedItemID),
+			normalizeFeedSource(row.Source),
 			row.EntityType,
 			row.EntityID,
 			row.ActionType,
@@ -971,6 +975,13 @@ func (r *Repo) InsertActions(ctx context.Context, userID, sessionID string, rows
 		}
 	}
 	return nil
+}
+
+func normalizeFeedSource(value string) string {
+	if strings.TrimSpace(value) == "activity" {
+		return "activity"
+	}
+	return "home"
 }
 
 func (r *Repo) InsertHiddenItems(ctx context.Context, userID string, rows []FeedHiddenItemInsert) error {
@@ -1176,6 +1187,8 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 		      FROM user_hidden_feed_items h
 		      WHERE h.user_id = $1::uuid
 		        AND (
+		          (h.entity_type = 'activity_item' AND h.entity_id = ai.id::text)
+		          OR
 		          (h.entity_type = ai.source_type AND h.entity_id = ai.source_id::text)
 		          OR (h.entity_type = ai.type AND h.entity_id = ai.source_id::text)
 		          OR (h.entity_type = ai.target_type AND h.entity_id = ai.target_id::text)

@@ -1169,6 +1169,233 @@ Verified by source inspection:
 
 Web integration for `/v1/feed/activity` can start only after the unrelated web type-check failure is accepted or fixed. Do not swap the production homepage yet. The next step should be a hidden/dev activity-feed client or side-by-side web integration, not replacing `/v1/feed/home`.
 
+### Pre-Integration Cleanup Gate
+
+Date: 2026-05-19
+
+Verdict: **Pre-integration cleanup PASS**.
+
+- The previous `ExploreLayout.tsx` / `hasAppliedBounds` type-check blocker is cleared.
+- `pnpm --filter @freediving.ph/web type-check` now passes.
+- `pnpm --filter @freediving.ph/web test` now passes.
+- The stale media/profile contract expecting `Apply to all` was updated to the current grouped-caption behavior: the composer shows "Caption applies to the whole post" and sends `applyCaptionToAll: false`.
+- `apps/web/test/phase7-explore-contract.test.mjs` now passes with the current server-side bounds contract and no client-side `isWithinBounds` filtering.
+- Feed safety checks still pass:
+  - `cd services/fphgo && go test ./internal/features/feed/...`
+  - `cd services/fphgo && go test ./internal/app`
+  - `pnpm --filter @freediving.ph/types test`
+  - `git diff --check`
+- Dirty files remain mixed across feed backend, feed docs/types, route snapshots, Explore/nav/media/profile, and generated sqlc model files. They are now verification-clean, but commit isolation still matters: do not stage everything blindly.
+
+Updated go/no-go:
+- **Side-by-side web integration for `/v1/feed/activity` can start.**
+- Do not replace `/v1/feed/home` yet.
+
+## Phase 3 Side-By-Side Web Integration
+
+Date: 2026-05-19
+
+Verdict: **Side-by-side activity feed preview is wired code-wise.** The production homepage default still uses `/v1/feed/home`; `/v1/feed/activity` is only used when the page is explicitly opened with `?feedSource=activity`.
+
+### Source Selection
+
+- `/` continues to render the existing home-feed mixer through `GET /v1/feed/home`.
+- `/?feedSource=activity` renders the same homepage shell with feed items loaded from `GET /v1/feed/activity`.
+- Invalid or missing `feedSource` values fall back to `home`.
+- The server page normalizes the query param and passes a narrow `initialFeedSource` prop into the client feed page. This avoids making the normal homepage depend on `useSearchParams` hydration behavior.
+
+### Web Client And Query Behavior
+
+- Added a separate activity feed API client for `/v1/feed/activity`.
+- Added a separate React Query hook with the key prefix `activity-feed`.
+- The existing `home-feed` query key and `/v1/feed/home` client remain unchanged.
+- Activity preview supports `filter`, compatibility `mode`, `cursor`, `region`, and `limit` query params.
+- Switching modes or switching source resets cursor and rendered items before loading the next response.
+
+### Adapter Behavior
+
+- Activity rows are adapted into existing `HomeFeedItem` card shapes only for supported MVP activity types:
+  - `chika_thread_created` -> `community_hot_post`
+  - `dive_site_update_added` -> `post`
+  - `event_published` -> `event`
+  - `buddy_intent_created` -> `buddy_signal`
+  - `media_post_created` -> `media_post` when media dimensions exist, otherwise a safe `post` fallback
+- Unknown activity item types are skipped and only warn in development.
+- The adapter preserves actor fields exactly as returned by the activity API. It does not reconstruct author IDs, usernames, display names, or profile hrefs for pseudonymous Chika.
+
+### Telemetry Behavior
+
+- Legacy `/v1/feed/impressions` and `/v1/feed/actions` telemetry remains enabled for the normal `/v1/feed/home` path.
+- Activity preview disables legacy impression/action telemetry and hides card action buttons.
+- This is intentional until activity feed IDs and entity types are formally supported by telemetry.
+
+### Pagination Behavior
+
+- Activity preview passes the activity endpoint `nextCursor` back as `cursor` without offset assumptions.
+- The existing load-more UI remains the same.
+- Mode/source changes reset the cursor and item list to avoid the previous class of stale empty-state issues after tab cycling.
+
+### Verification Results
+
+Commands run:
+- `pnpm --filter @freediving.ph/web type-check` - passed.
+- `pnpm --filter @freediving.ph/web test` - passed.
+- `pnpm --filter @freediving.ph/types test` - passed.
+- `cd services/fphgo && go test ./internal/features/feed/...` - passed.
+- `git diff --check` - passed.
+
+### Remaining Risks
+
+- This is not a production cutover. `/v1/feed/home` remains the homepage default.
+- Activity preview has not been browser-smoked against deployed signed-in data in this pass.
+- Activity telemetry is deliberately deferred.
+- The adapter is a compatibility bridge; it should not become the long-term card contract if activity-specific rendering diverges.
+- Existing dirty Explore/backend files are still present in the worktree and must remain isolated from any feed-only commit.
+- Phase 1 signed-in/member live smoke, `hide_item` live smoke, and live pseudonymous Chika data proof remain outstanding.
+
+Cutover evaluation:
+- **Can start after side-by-side browser/API smoke with real data.**
+- Do not switch the default homepage source until activity preview parity, signed-in visibility, and telemetry strategy are accepted.
+
+## Activity Feed Cutover Evaluation
+
+Date: 2026-05-19
+
+Verdict: **Cutover evaluation FAIL. Do not cut over yet.** The backend activity endpoint is live and functional for guest reads, but the side-by-side web preview is not deployed to `https://freediving.ph/?feedSource=activity`, signed-in smoke is blocked by lack of a member token, and live content density is thinner than the current home mixer.
+
+### Deployment And Runtime Status
+
+- Branch: `main`.
+- Latest local commit at evaluation time: `a07b799 enhance feed and explore`.
+- The local worktree remains dirty and mixed:
+  - feed web integration: `apps/web/src/app/page.tsx`, `apps/web/src/features/home-feed/**`, `apps/web/src/lib/api/fphgo-routes.ts`, `apps/web/test/home-feed-activity-preview-contract.test.mjs`
+  - feed docs: `docs/feed/feed-system-assessment.md`
+  - unrelated Explore/profile/backend drift: current `apps/web/src/features/explore/**`, `apps/web/src/features/diveSpots/**`, `apps/web/src/features/profile/components/ProfileSkeleton.tsx`, `services/fphgo/internal/features/explore/**`, and related Explore tests
+- Side-by-side web integration is not committed in the current local history and is not deployed to the live web app.
+- `https://api.freediving.ph/v1/feed/activity` is deployed and returns `activity_items` rows, so migration/backfill is runtime-present in the target environment by API evidence. This is an inference from live endpoint behavior, not a direct production DB migration inspection.
+
+### Guest API Smoke
+
+Canonical API: `https://api.freediving.ph`.
+
+Results:
+- `GET /v1/feed/activity?filter=latest&limit=10` returned `200` with 2 public items:
+  - `media_post_created`
+  - `chika_thread_created`
+- `GET /v1/feed/activity?filter=chika&limit=10` returned `200` with only `chika_thread_created`.
+- `GET /v1/feed/activity?filter=dive-reports&limit=10` returned `200` with only `media_post_created`.
+- `GET /v1/feed/activity?filter=events&limit=10` returned `200` with no items.
+- `GET /v1/feed/activity?filter=nearby&region=Mabini&limit=10` returned `200` with no items.
+
+Guest privacy notes:
+- No member-only buddy intents appeared in guest results.
+- No private, followers-only, group-only, or private event rows appeared in guest results.
+- Pseudonymous Chika masking was not data-proven because the live Chika item was normal mode, not pseudonymous.
+- Member-only buddy exclusion is not fully data-proven because no live member-only buddy item appeared in the guest result set.
+
+### Signed-In API Smoke
+
+Status: **blocked**.
+
+- No `MEMBER_TOKEN` or safe member bearer token was available in the local environment.
+- Signed-in checks for member-only buddy intents, group membership visibility, block suppression, hidden item suppression, and normal-viewer pseudonymous Chika masking remain unproven live.
+
+### Pagination Smoke
+
+Guest pagination was smoke-tested live:
+- `GET /v1/feed/activity?filter=latest&limit=1` returned the newest activity row and a `nextCursor`.
+- Reusing that `nextCursor` returned the next older item with no duplicate ID.
+- Ordering was stable by observed `occurredAt` descending:
+  - `2026-05-19T11:17:17Z`
+  - `2026-05-19T09:57:33Z`
+- `GET /v1/feed/activity?filter=latest&cursor=bad-cursor` returned `400` with `validation_error` and cursor issue `invalid cursor`.
+
+Signed-in pagination remains blocked with the missing member token.
+
+### Deployed Web Preview Smoke
+
+Status: **failed / not deployed**.
+
+- Opened `https://freediving.ph/?feedSource=activity`.
+- The page loaded, but it did not show the `Activity feed preview` indicator.
+- DOM still rendered legacy home feed IDs and types:
+  - `fi_media_...` / `media_post`
+  - `fi_community_...` / `community_hot_post`
+  - `fi_spot_...` / `dive_spot`
+- Save / Not interested actions were still visible, which means the deployed page is using the old home feed path, not the local activity preview behavior where telemetry/actions are disabled.
+- Normal `https://freediving.ph/` still works and has not accidentally cut over.
+
+Conclusion:
+- The frontend side-by-side integration must be deployed before a real web cutover evaluation can be completed.
+
+### Home Vs Activity Comparison
+
+API comparison for latest:
+- `/v1/feed/home?mode=latest&limit=10` returned 3 items:
+  - `media_post`
+  - `community_hot_post`
+  - `dive_spot`
+- `/v1/feed/activity?filter=latest&limit=10` returned 2 items:
+  - `media_post_created`
+  - `chika_thread_created`
+
+Mode comparison:
+- Home `dive-reports` returned 10 `dive_spot` briefing/discovery cards.
+- Activity `dive-reports` returned 1 `media_post_created` row.
+- Home `nearby&region=Mabini` returned 1 `dive_spot`.
+- Activity `nearby&region=Mabini` returned 0 items.
+- Both home and activity `events` returned 0 items.
+
+Product read:
+- Activity is more correct as a real activity ledger.
+- Home currently has better content density because it includes discovery/briefing cards.
+- Activity is too thin to become the default homepage without either more backfilled source coverage or an accepted product decision that the homepage should be sparse but truthful.
+
+### Telemetry And Actions
+
+Recommendation: **Option A before cutover.**
+
+- Wire activity item IDs and source/entity mappings into feed telemetry before default migration.
+- Ensure `hide_item` works for activity-backed cards and suppresses future activity results.
+- Do not silently cut over with impressions/actions disabled unless the product explicitly accepts losing that behavior.
+
+Current status:
+- Activity preview intentionally disables legacy feed impressions/actions locally.
+- Live web preview is not deployed, so telemetry-disabled preview behavior is not runtime-proven.
+
+### Verification Commands
+
+Commands run:
+- `git status --short` - dirty worktree with feed integration plus unrelated Explore/profile/backend drift.
+- `git diff --stat` - dirty diff spans feed web/docs plus unrelated Explore/profile/backend files.
+- `git log --oneline -10` - latest local commit `a07b799 enhance feed and explore`.
+- guest `curl` smoke against `https://api.freediving.ph/v1/feed/activity` filters - passed for endpoint availability and contract shape.
+- guest keyset pagination smoke - passed.
+- invalid cursor smoke - passed with `400 validation_error`.
+- deployed browser smoke for `https://freediving.ph/?feedSource=activity` - failed because preview integration is not deployed.
+- deployed browser smoke for `https://freediving.ph/` - passed; no accidental cutover.
+- `pnpm --filter @freediving.ph/web type-check` - passed.
+- `pnpm --filter @freediving.ph/web test` - passed.
+- `pnpm --filter @freediving.ph/types test` - passed.
+- `cd services/fphgo && go test ./internal/features/feed/...` - passed.
+- `cd services/fphgo && go test ./internal/app` - passed.
+- `git diff --check` - passed.
+
+### Remaining Risks
+
+- Side-by-side web integration is not deployed.
+- Signed-in/member activity smoke is blocked by missing `MEMBER_TOKEN`.
+- `hide_item` live smoke remains unproven for activity rows.
+- Live pseudonymous Chika masking remains unproven due missing pseudonymous test data.
+- Activity feed content density is currently lower than `/v1/feed/home`.
+- Activity `nearby` remains string-area based and returned no Mabini result in live guest smoke.
+- Activity telemetry/actions are not ready for cutover.
+- Worktree remains mixed with unrelated Explore/profile/backend changes; commit/review isolation is mandatory.
+
+Cutover recommendation:
+- **Do not cut over yet.**
+- Next step is to deploy the side-by-side web preview, obtain a safe member token/test account, run signed-in live smoke, and decide/implement activity telemetry and hide behavior before default migration.
+
 ## Do Not Build Yet
 
 - ML ranking

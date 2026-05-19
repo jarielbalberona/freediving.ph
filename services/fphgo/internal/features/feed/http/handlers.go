@@ -171,6 +171,7 @@ func (h *Handlers) Impressions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mode := feedservice.ParseMode(req.Mode)
+	source := feedservice.ParseFeedSource(req.Source)
 	rows := make([]feedservice.TelemetryImpression, 0, len(req.Items))
 	for idx, item := range req.Items {
 		seenAt := time.Now().UTC()
@@ -184,6 +185,7 @@ func (h *Handlers) Impressions(w http.ResponseWriter, r *http.Request) {
 		}
 		rows = append(rows, feedservice.TelemetryImpression{
 			FeedItemID: item.FeedItemID,
+			Source:     source,
 			EntityType: item.EntityType,
 			EntityID:   item.EntityID,
 			Mode:       mode,
@@ -211,6 +213,7 @@ func (h *Handlers) Actions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mode := feedservice.ParseMode(req.Mode)
+	source := feedservice.ParseFeedSource(req.Source)
 	rows := make([]feedservice.TelemetryAction, 0, len(req.Items))
 	for idx, item := range req.Items {
 		createdAt := time.Now().UTC()
@@ -224,6 +227,7 @@ func (h *Handlers) Actions(w http.ResponseWriter, r *http.Request) {
 		}
 		rows = append(rows, feedservice.TelemetryAction{
 			FeedItemID: item.FeedItemID,
+			Source:     source,
 			EntityType: item.EntityType,
 			EntityID:   item.EntityID,
 			ActionType: item.ActionType,

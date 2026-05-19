@@ -5,49 +5,109 @@ import { useAuth } from "@clerk/nextjs";
 
 import type { HomeFeedItem, HomeFeedMode } from "@freediving.ph/types";
 
+import { activityToHomeFeedItems } from "@/features/home-feed/adapters/activity-to-home-feed";
 import { FeedModeTabs } from "@/features/home-feed/components/FeedModeTabs";
 import { HomeHero } from "@/features/home-feed/components/HomeHero";
 import { HomeQuickActions } from "@/features/home-feed/components/HomeQuickActions";
 import { MixedFeed } from "@/features/home-feed/components/MixedFeed";
 import { NearbyConditionsCard } from "@/features/home-feed/components/NearbyConditionsCard";
+import { useActivityFeedQuery } from "@/features/home-feed/hooks/queries/useActivityFeedQuery";
 import { useHomeFeedQuery } from "@/features/home-feed/hooks/queries/useHomeFeedQuery";
 
-export function HomeFeedPage() {
+type FeedSource = "home" | "activity";
+type FeedCursor = {
+  value: string;
+  source: FeedSource;
+  mode: HomeFeedMode;
+};
+
+export function HomeFeedPage({
+  initialFeedSource = "home",
+}: {
+  initialFeedSource?: FeedSource;
+}) {
   const { isSignedIn } = useAuth();
   const [mode, setMode] = useState<HomeFeedMode>("latest");
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [cursor, setCursor] = useState<FeedCursor | undefined>(undefined);
   const [items, setItems] = useState<HomeFeedItem[]>([]);
 
-  const query = useHomeFeedQuery({ mode, cursor });
+  const feedSource: FeedSource =
+    initialFeedSource === "activity" ? "activity" : "home";
+  const activityPreview = feedSource === "activity";
+  const cursorValue =
+    cursor?.source === feedSource && cursor.mode === mode
+      ? cursor.value
+      : undefined;
 
-  useEffect(() => {
-    if (!query.data) return;
-    if (!cursor) {
-      setItems(query.data.items);
-      return;
-    }
-    setItems((current) => {
-      const map = new Map(current.map((item) => [item.id, item]));
-      for (const item of query.data.items) {
-        map.set(item.id, item);
-      }
-      return Array.from(map.values());
-    });
-  }, [query.data, cursor]);
+  const homeQuery = useHomeFeedQuery({
+    mode,
+    cursor: cursorValue,
+    enabled: !activityPreview,
+  });
+  const activityQuery = useActivityFeedQuery({
+    filter: mode,
+    cursor: cursorValue,
+    enabled: activityPreview,
+  });
+  const query = activityPreview ? activityQuery : homeQuery;
+  const responseItems = useMemo(
+    () =>
+      activityPreview
+        ? activityToHomeFeedItems(activityQuery.data?.items ?? [])
+        : (homeQuery.data?.items ?? []),
+    [activityPreview, activityQuery.data?.items, homeQuery.data?.items],
+  );
 
   useEffect(() => {
     setCursor(undefined);
     setItems([]);
-  }, [mode]);
+  }, [mode, feedSource]);
+
+  useEffect(() => {
+    if (!query.data) return;
+    if (!cursorValue) {
+      setItems(responseItems);
+      return;
+    }
+    setItems((current) => {
+      const map = new Map(current.map((item) => [item.id, item]));
+      for (const item of responseItems) {
+        map.set(item.id, item);
+      }
+      return Array.from(map.values());
+    });
+  }, [query.data, responseItems, cursorValue]);
+
+  useEffect(() => {
+    if (!activityPreview || process.env.NODE_ENV === "production") return;
+    const types = responseItems.map((item) => item.type);
+    console.debug("Activity feed preview", {
+      source: feedSource,
+      mode,
+      itemCount: responseItems.length,
+      itemTypes: types,
+      hasNextCursor: Boolean(activityQuery.data?.nextCursor),
+    });
+  }, [
+    activityPreview,
+    activityQuery.data?.nextCursor,
+    feedSource,
+    mode,
+    responseItems,
+  ]);
 
   const canLoadMore = Boolean(query.data?.nextCursor);
 
   const onLoadMore = () => {
     if (!query.data?.nextCursor || query.isFetching) return;
-    setCursor(query.data.nextCursor);
+    setCursor({
+      value: query.data.nextCursor,
+      source: feedSource,
+      mode,
+    });
   };
 
-  const context = query.data?.context ?? {
+  const context = homeQuery.data?.context ?? {
     greeting: "Good day, diver",
     message: "Finding the latest from the freediving community...",
     safetyBadge: "Dive with a buddy",
@@ -55,16 +115,16 @@ export function HomeFeedPage() {
 
   const actions = useMemo(
     () =>
-      query.data?.quickActions ?? [
+      homeQuery.data?.quickActions ?? [
         { type: "find_buddy", label: "Find buddy" },
         { type: "explore_spots", label: "Explore spots" },
         { type: "open_chika", label: "Join Chika" },
         { type: "join_event", label: "See events" },
       ],
-    [query.data?.quickActions],
+    [homeQuery.data?.quickActions],
   );
 
-  const nearbyCondition = query.data?.nearbyCondition ?? {
+  const nearbyCondition = homeQuery.data?.nearbyCondition ?? {
     spot: "Philippines",
     safety: "Check locally",
     current: "Ask locally",
@@ -81,6 +141,11 @@ export function HomeFeedPage() {
         <HomeQuickActions actions={actions} />
         <NearbyConditionsCard condition={nearbyCondition} />
         <FeedModeTabs mode={mode} onChange={setMode} />
+        {activityPreview ? (
+          <div className="rounded-lg border border-dashed border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-800 dark:text-sky-200">
+            Activity feed preview
+          </div>
+        ) : null}
 
         {query.error ? (
           <p className="text-sm text-destructive">
@@ -91,11 +156,13 @@ export function HomeFeedPage() {
 
         <MixedFeed
           mode={mode}
+          source={feedSource}
           items={items}
           loading={query.isFetching}
           hasMore={canLoadMore}
           onLoadMore={onLoadMore}
           showLoginToSeeMore={!isSignedIn}
+          telemetryEnabled
         />
       </div>
     </main>

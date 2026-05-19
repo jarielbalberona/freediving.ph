@@ -68,6 +68,15 @@ func ParseMode(raw string) Mode {
 	}
 }
 
+func ParseFeedSource(raw string) FeedSource {
+	switch FeedSource(strings.TrimSpace(strings.ToLower(raw))) {
+	case FeedSourceActivity:
+		return FeedSourceActivity
+	default:
+		return FeedSourceHome
+	}
+}
+
 func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error) {
 	isGuest := strings.TrimSpace(input.UserID) == ""
 	limit := input.Limit
@@ -611,6 +620,7 @@ func (s *Service) RecordImpressions(ctx context.Context, userID, sessionID strin
 		}
 		mapped = append(mapped, feedrepo.FeedImpressionInsert{
 			FeedItemID: row.FeedItemID,
+			Source:     string(ParseFeedSource(string(row.Source))),
 			EntityType: row.EntityType,
 			EntityID:   row.EntityID,
 			Mode:       string(mode),
@@ -647,6 +657,7 @@ func (s *Service) RecordActions(ctx context.Context, userID, sessionID string, m
 		}
 		mapped = append(mapped, feedrepo.FeedActionInsert{
 			FeedItemID: row.FeedItemID,
+			Source:     string(ParseFeedSource(string(row.Source))),
 			EntityType: row.EntityType,
 			EntityID:   row.EntityID,
 			ActionType: row.ActionType,

@@ -17,12 +17,14 @@ export function FeedItemRenderer({
   item,
   position,
   onAction,
+  showActions = true,
 }: {
   item: HomeFeedItem;
   position: number;
   onAction: (item: HomeFeedItem, actionType: string) => void;
+  showActions?: boolean;
 }) {
-  const actions = (
+  const actions = showActions ? (
     <div className="flex items-center justify-end gap-1">
       <Button
         size="icon"
@@ -43,13 +45,13 @@ export function FeedItemRenderer({
         <span className="sr-only">Not interested</span>
       </Button>
     </div>
-  );
+  ) : null;
 
   return (
     <div
       data-feed-item-id={item.id}
-      data-entity-id={item.entityId}
-      data-entity-type={item.type}
+      data-entity-id={item.telemetryEntityId ?? item.entityId}
+      data-entity-type={item.telemetryEntityType ?? item.type}
       data-position={position}
       className="space-y-2"
     >

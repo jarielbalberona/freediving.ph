@@ -5,6 +5,8 @@ export type HomeFeedMode =
   | "dive-reports"
   | "events";
 
+export type FeedSource = "home" | "activity";
+
 export type HomeFeedItemType =
   | "post"
   | "media_post"
@@ -45,8 +47,11 @@ export interface HomeFeedNearbyCondition {
 
 export interface HomeFeedItemBase {
   id: string;
+  feedSource?: FeedSource;
   type: HomeFeedItemType;
   entityId: string;
+  telemetryEntityType?: string;
+  telemetryEntityId?: string;
   score: number;
   reasons: string[];
   typeLabel: string;
@@ -141,6 +146,7 @@ export interface FeedImpressionItem {
 
 export interface FeedImpressionsRequest {
   sessionId: string;
+  source?: FeedSource;
   mode: HomeFeedMode;
   items: FeedImpressionItem[];
 }
@@ -156,6 +162,7 @@ export interface FeedActionItem {
 
 export interface FeedActionsRequest {
   sessionId: string;
+  source?: FeedSource;
   mode: HomeFeedMode;
   items: FeedActionItem[];
 }

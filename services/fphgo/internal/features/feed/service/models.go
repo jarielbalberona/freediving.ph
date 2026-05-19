@@ -12,6 +12,13 @@ const (
 	ModeEvents      Mode = "events"
 )
 
+type FeedSource string
+
+const (
+	FeedSourceHome     FeedSource = "home"
+	FeedSourceActivity FeedSource = "activity"
+)
+
 type ItemType string
 
 const (
@@ -62,20 +69,23 @@ type NearbyCondition struct {
 }
 
 type FeedItem struct {
-	ID         string         `json:"id"`
-	Type       ItemType       `json:"type"`
-	EntityID   string         `json:"entityId"`
-	Score      float64        `json:"score"`
-	Reasons    []string       `json:"reasons"`
-	TypeLabel  string         `json:"typeLabel"`
-	TypeHint   string         `json:"typeHint"`
-	RankLabel  string         `json:"rankLabel"`
-	RankHint   string         `json:"rankHint"`
-	Tone       string         `json:"tone"`
-	DetailHref string         `json:"detailHref,omitempty"`
-	AuthorHref string         `json:"authorHref,omitempty"`
-	CreatedAt  string         `json:"createdAt"`
-	Payload    map[string]any `json:"payload"`
+	ID                  string         `json:"id"`
+	FeedSource          string         `json:"feedSource,omitempty"`
+	Type                ItemType       `json:"type"`
+	EntityID            string         `json:"entityId"`
+	TelemetryEntityType string         `json:"telemetryEntityType,omitempty"`
+	TelemetryEntityID   string         `json:"telemetryEntityId,omitempty"`
+	Score               float64        `json:"score"`
+	Reasons             []string       `json:"reasons"`
+	TypeLabel           string         `json:"typeLabel"`
+	TypeHint            string         `json:"typeHint"`
+	RankLabel           string         `json:"rankLabel"`
+	RankHint            string         `json:"rankHint"`
+	Tone                string         `json:"tone"`
+	DetailHref          string         `json:"detailHref,omitempty"`
+	AuthorHref          string         `json:"authorHref,omitempty"`
+	CreatedAt           string         `json:"createdAt"`
+	Payload             map[string]any `json:"payload"`
 }
 
 type rankedItem struct {
@@ -88,6 +98,7 @@ type rankedItem struct {
 
 type TelemetryImpression struct {
 	FeedItemID string
+	Source     FeedSource
 	EntityType string
 	EntityID   string
 	Mode       Mode
@@ -97,6 +108,7 @@ type TelemetryImpression struct {
 
 type TelemetryAction struct {
 	FeedItemID string
+	Source     FeedSource
 	EntityType string
 	EntityID   string
 	ActionType string

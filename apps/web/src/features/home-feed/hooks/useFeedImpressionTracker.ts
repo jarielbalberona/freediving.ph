@@ -3,16 +3,24 @@
 import { useEffect, useRef } from "react";
 
 import { postFeedImpressions } from "@/features/home-feed/api/post-feed-impressions";
-import type { HomeFeedItem, HomeFeedMode } from "@freediving.ph/types";
+import type {
+  FeedSource,
+  HomeFeedItem,
+  HomeFeedMode,
+} from "@freediving.ph/types";
 
 export const useFeedImpressionTracker = (params: {
   sessionId: string;
+  source?: FeedSource;
   mode: HomeFeedMode;
   items: HomeFeedItem[];
+  enabled?: boolean;
 }) => {
   const seenRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    if (params.enabled === false) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries.filter((entry) => entry.isIntersecting);
@@ -22,8 +30,10 @@ export const useFeedImpressionTracker = (params: {
           .map((entry) => {
             const itemId = entry.target.getAttribute("data-feed-item-id") || "";
             const entityId = entry.target.getAttribute("data-entity-id") || "";
-            const entityType = entry.target.getAttribute("data-entity-type") || "";
-            const positionRaw = entry.target.getAttribute("data-position") || "0";
+            const entityType =
+              entry.target.getAttribute("data-entity-type") || "";
+            const positionRaw =
+              entry.target.getAttribute("data-position") || "0";
             const position = Number.parseInt(positionRaw, 10) || 0;
             if (!itemId || seenRef.current.has(itemId)) return null;
             seenRef.current.add(itemId);
@@ -41,6 +51,7 @@ export const useFeedImpressionTracker = (params: {
 
         void postFeedImpressions({
           sessionId: params.sessionId,
+          source: params.source ?? "home",
           mode: params.mode,
           items: payloadItems,
         });
@@ -48,8 +59,15 @@ export const useFeedImpressionTracker = (params: {
       { threshold: 0.6 },
     );
 
-    const targets = document.querySelectorAll<HTMLElement>("[data-feed-item-id]");
+    const targets =
+      document.querySelectorAll<HTMLElement>("[data-feed-item-id]");
     targets.forEach((node) => observer.observe(node));
     return () => observer.disconnect();
-  }, [params.items, params.mode, params.sessionId]);
+  }, [
+    params.enabled,
+    params.items,
+    params.mode,
+    params.sessionId,
+    params.source,
+  ]);
 };
