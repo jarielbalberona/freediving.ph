@@ -26,8 +26,9 @@ WITH proposal AS (
       FROM dive_sites s
       WHERE s.id = p.dive_site_id
         AND s.moderation_state = 'approved'
+        AND s.updated_at = p.base_site_updated_at
     )
-  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, created_at, updated_at
+  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, base_site_updated_at, created_at, updated_at
 ),
 updated_site AS (
   UPDATE dive_sites s
@@ -46,6 +47,7 @@ updated_site AS (
   FROM proposal p
   WHERE s.id = p.dive_site_id
     AND s.moderation_state = 'approved'
+    AND s.updated_at = p.base_site_updated_at
   RETURNING s.id, s.name, s.slug, s.area, s.latitude, s.longitude, s.description, s.entry_difficulty, s.depth_min_m, s.depth_max_m, s.hazards, s.best_season, s.typical_conditions, s.access, s.fees, s.contact_info, s.verification_status, s.verified_by_app_user_id, s.submitted_by_app_user_id, s.reviewed_by_app_user_id, s.reviewed_at, s.moderation_reason, s.moderation_state, s.last_updated_at, s.updated_at, s.created_at
 )
 SELECT
@@ -60,6 +62,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -107,6 +111,8 @@ type ApplySiteEditProposalRow struct {
 	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
 	State                     string             `db:"state" json:"state"`
+	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
+	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
@@ -151,6 +157,8 @@ func (q *Queries) ApplySiteEditProposal(ctx context.Context, arg ApplySiteEditPr
 		&i.ReviewedAt,
 		&i.ModerationReason,
 		&i.State,
+		&i.BaseSiteUpdatedAt,
+		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,
@@ -468,6 +476,7 @@ WITH inserted AS (
   INSERT INTO dive_site_edit_proposals (
     dive_site_id,
     submitted_by_app_user_id,
+    base_site_updated_at,
     proposed_name,
     proposed_description,
     proposed_entry_difficulty,
@@ -479,9 +488,10 @@ WITH inserted AS (
     proposed_access,
     proposed_fees
   )
-  VALUES (
+  SELECT
     $1,
     $2,
+    s.updated_at,
     $3,
     $4,
     $5,
@@ -492,8 +502,10 @@ WITH inserted AS (
     $10,
     $11,
     $12
-  )
-  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, created_at, updated_at
+  FROM dive_sites s
+  WHERE s.id = $1
+    AND s.moderation_state = 'approved'
+  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, base_site_updated_at, created_at, updated_at
 )
 SELECT
   p.id,
@@ -507,6 +519,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -562,6 +576,8 @@ type CreateSiteEditProposalRow struct {
 	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
 	State                     string             `db:"state" json:"state"`
+	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
+	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
@@ -614,6 +630,8 @@ func (q *Queries) CreateSiteEditProposal(ctx context.Context, arg CreateSiteEdit
 		&i.ReviewedAt,
 		&i.ModerationReason,
 		&i.State,
+		&i.BaseSiteUpdatedAt,
+		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,
@@ -889,6 +907,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -936,6 +956,8 @@ type GetMySiteEditProposalByIDRow struct {
 	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
 	State                     string             `db:"state" json:"state"`
+	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
+	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
@@ -975,6 +997,8 @@ func (q *Queries) GetMySiteEditProposalByID(ctx context.Context, arg GetMySiteEd
 		&i.ReviewedAt,
 		&i.ModerationReason,
 		&i.State,
+		&i.BaseSiteUpdatedAt,
+		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,
@@ -1354,6 +1378,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -1395,6 +1421,8 @@ type GetSiteEditProposalForModerationRow struct {
 	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
 	State                     string             `db:"state" json:"state"`
+	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
+	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
@@ -1434,6 +1462,8 @@ func (q *Queries) GetSiteEditProposalForModeration(ctx context.Context, id pgtyp
 		&i.ReviewedAt,
 		&i.ModerationReason,
 		&i.State,
+		&i.BaseSiteUpdatedAt,
+		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,
@@ -1885,6 +1915,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -1936,6 +1968,8 @@ type ListMySiteEditProposalsRow struct {
 	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
 	State                     string             `db:"state" json:"state"`
+	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
+	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
@@ -1986,6 +2020,8 @@ func (q *Queries) ListMySiteEditProposals(ctx context.Context, arg ListMySiteEdi
 			&i.ReviewedAt,
 			&i.ModerationReason,
 			&i.State,
+			&i.BaseSiteUpdatedAt,
+			&i.CurrentSiteUpdatedAt,
 			&i.CurrentName,
 			&i.CurrentDescription,
 			&i.CurrentEntryDifficulty,
@@ -2156,6 +2192,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -2207,6 +2245,8 @@ type ListPendingSiteEditProposalsRow struct {
 	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
 	State                     string             `db:"state" json:"state"`
+	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
+	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
@@ -2252,6 +2292,8 @@ func (q *Queries) ListPendingSiteEditProposals(ctx context.Context, arg ListPend
 			&i.ReviewedAt,
 			&i.ModerationReason,
 			&i.State,
+			&i.BaseSiteUpdatedAt,
+			&i.CurrentSiteUpdatedAt,
 			&i.CurrentName,
 			&i.CurrentDescription,
 			&i.CurrentEntryDifficulty,
@@ -3381,7 +3423,7 @@ WITH proposal AS (
       updated_at = NOW()
   WHERE p.id = $4
     AND p.state = 'pending'
-  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, created_at, updated_at
+  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, base_site_updated_at, created_at, updated_at
 )
 SELECT
   p.id,
@@ -3395,6 +3437,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -3442,6 +3486,8 @@ type RejectSiteEditProposalRow struct {
 	ReviewedAt                pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
 	State                     string             `db:"state" json:"state"`
+	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
+	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
@@ -3486,6 +3532,8 @@ func (q *Queries) RejectSiteEditProposal(ctx context.Context, arg RejectSiteEdit
 		&i.ReviewedAt,
 		&i.ModerationReason,
 		&i.State,
+		&i.BaseSiteUpdatedAt,
+		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,

@@ -365,21 +365,24 @@ type SiteEditValues struct {
 }
 
 type SiteEditProposal struct {
-	ID                     string         `json:"id"`
-	DiveSiteID             string         `json:"diveSiteId"`
-	SiteSlug               string         `json:"siteSlug"`
-	SiteArea               string         `json:"siteArea"`
-	SubmittedByAppUserID   string         `json:"submittedByAppUserId,omitempty"`
-	SubmittedByDisplayName string         `json:"submittedByDisplayName,omitempty"`
-	ReviewedByAppUserID    string         `json:"reviewedByAppUserId,omitempty"`
-	ReviewedByDisplayName  string         `json:"reviewedByDisplayName,omitempty"`
-	ReviewedAt             string         `json:"reviewedAt,omitempty"`
-	ModerationReason       string         `json:"moderationReason,omitempty"`
-	State                  string         `json:"state"`
-	Current                SiteEditValues `json:"current"`
-	Proposed               SiteEditValues `json:"proposed"`
-	CreatedAt              string         `json:"createdAt"`
-	UpdatedAt              string         `json:"updatedAt"`
+	ID                       string         `json:"id"`
+	DiveSiteID               string         `json:"diveSiteId"`
+	SiteSlug                 string         `json:"siteSlug"`
+	SiteArea                 string         `json:"siteArea"`
+	SubmittedByAppUserID     string         `json:"submittedByAppUserId,omitempty"`
+	SubmittedByDisplayName   string         `json:"submittedByDisplayName,omitempty"`
+	ReviewedByAppUserID      string         `json:"reviewedByAppUserId,omitempty"`
+	ReviewedByDisplayName    string         `json:"reviewedByDisplayName,omitempty"`
+	ReviewedAt               string         `json:"reviewedAt,omitempty"`
+	ModerationReason         string         `json:"moderationReason,omitempty"`
+	State                    string         `json:"state"`
+	BaseSiteUpdatedAt        string         `json:"baseSiteUpdatedAt,omitempty"`
+	CurrentSiteUpdatedAt     string         `json:"currentSiteUpdatedAt,omitempty"`
+	SiteChangedSinceProposal bool           `json:"siteChangedSinceProposal"`
+	Current                  SiteEditValues `json:"current"`
+	Proposed                 SiteEditValues `json:"proposed"`
+	CreatedAt                string         `json:"createdAt"`
+	UpdatedAt                string         `json:"updatedAt"`
 }
 
 type TrustCard struct {

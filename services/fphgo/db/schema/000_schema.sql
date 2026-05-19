@@ -403,6 +403,7 @@ CREATE TABLE IF NOT EXISTS dive_site_edit_proposals (
   proposed_typical_conditions TEXT NOT NULL DEFAULT '',
   proposed_access TEXT NOT NULL DEFAULT '',
   proposed_fees TEXT NOT NULL DEFAULT '',
+  base_site_updated_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (state IN ('pending', 'applied', 'rejected')),

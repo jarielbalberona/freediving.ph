@@ -1129,6 +1129,7 @@ WITH inserted AS (
   INSERT INTO dive_site_edit_proposals (
     dive_site_id,
     submitted_by_app_user_id,
+    base_site_updated_at,
     proposed_name,
     proposed_description,
     proposed_entry_difficulty,
@@ -1140,9 +1141,10 @@ WITH inserted AS (
     proposed_access,
     proposed_fees
   )
-  VALUES (
+  SELECT
     sqlc.arg(dive_site_id),
     sqlc.arg(submitted_by_app_user_id),
+    s.updated_at,
     sqlc.arg(proposed_name),
     sqlc.arg(proposed_description),
     sqlc.arg(proposed_entry_difficulty),
@@ -1153,7 +1155,9 @@ WITH inserted AS (
     sqlc.arg(proposed_typical_conditions),
     sqlc.arg(proposed_access),
     sqlc.arg(proposed_fees)
-  )
+  FROM dive_sites s
+  WHERE s.id = sqlc.arg(dive_site_id)
+    AND s.moderation_state = 'approved'
   RETURNING *
 )
 SELECT
@@ -1168,6 +1172,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -1208,6 +1214,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -1252,6 +1260,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -1294,6 +1304,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -1339,6 +1351,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -1382,6 +1396,7 @@ WITH proposal AS (
       FROM dive_sites s
       WHERE s.id = p.dive_site_id
         AND s.moderation_state = 'approved'
+        AND s.updated_at = p.base_site_updated_at
     )
   RETURNING *
 ),
@@ -1402,6 +1417,7 @@ updated_site AS (
   FROM proposal p
   WHERE s.id = p.dive_site_id
     AND s.moderation_state = 'approved'
+    AND s.updated_at = p.base_site_updated_at
   RETURNING s.*
 )
 SELECT
@@ -1416,6 +1432,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
@@ -1467,6 +1485,8 @@ SELECT
   p.reviewed_at,
   p.moderation_reason,
   p.state,
+  p.base_site_updated_at,
+  s.updated_at AS current_site_updated_at,
   s.name AS current_name,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,

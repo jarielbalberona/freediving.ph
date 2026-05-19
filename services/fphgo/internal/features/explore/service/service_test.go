@@ -15,26 +15,29 @@ import (
 )
 
 type repoStub struct {
-	listInput     explorerepo.ListSitesInput
-	listResult    []explorerepo.SiteCard
-	created       explorerepo.CreateSiteSubmissionInput
-	createResult  explorerepo.SiteSubmission
-	createErr     error
-	editCreated   explorerepo.CreateSiteEditProposalInput
-	editProposal  explorerepo.SiteEditProposal
-	duplicateID   string
-	duplicateErr  error
-	likeState     explorerepo.LikeState
-	likedSiteID   string
-	unlikedSiteID string
-	likeUserID    string
-	siteDetail    explorerepo.SiteDetail
-	presences     []explorerepo.VisibleDivePresence
-	myPresences   []explorerepo.VisibleDivePresence
-	globalInput   explorerepo.GlobalDivePresenceInput
-	affinities    []explorerepo.VisibleDiveSiteAffinity
-	myAffinities  []explorerepo.DiveSiteAffinity
-	reviews       []explorerepo.VisibleDiveSiteReview
+	listInput      explorerepo.ListSitesInput
+	listResult     []explorerepo.SiteCard
+	created        explorerepo.CreateSiteSubmissionInput
+	createResult   explorerepo.SiteSubmission
+	createErr      error
+	editCreated    explorerepo.CreateSiteEditProposalInput
+	editApplied    explorerepo.CreateSiteEditProposalInput
+	editProposal   explorerepo.SiteEditProposal
+	editApplyErr   error
+	editApplyCalls int
+	duplicateID    string
+	duplicateErr   error
+	likeState      explorerepo.LikeState
+	likedSiteID    string
+	unlikedSiteID  string
+	likeUserID     string
+	siteDetail     explorerepo.SiteDetail
+	presences      []explorerepo.VisibleDivePresence
+	myPresences    []explorerepo.VisibleDivePresence
+	globalInput    explorerepo.GlobalDivePresenceInput
+	affinities     []explorerepo.VisibleDiveSiteAffinity
+	myAffinities   []explorerepo.DiveSiteAffinity
+	reviews        []explorerepo.VisibleDiveSiteReview
 }
 
 func (r *repoStub) ListSites(_ context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error) {
@@ -128,6 +131,32 @@ func (r *repoStub) CreateSiteEditProposal(_ context.Context, input explorerepo.C
 	return result, nil
 }
 
+func (r *repoStub) CreateAndApplySiteEditProposal(_ context.Context, input explorerepo.CreateSiteEditProposalInput, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteEditProposal, error) {
+	r.editApplied = input
+	if r.editApplyErr != nil {
+		return explorerepo.SiteEditProposal{}, r.editApplyErr
+	}
+	result := r.editProposal
+	if result.ID == "" {
+		result = explorerepo.SiteEditProposal{
+			ID:                     "550e8400-e29b-41d4-a716-446655440902",
+			DiveSiteID:             input.DiveSiteID,
+			SiteSlug:               r.siteDetail.Slug,
+			SiteArea:               r.siteDetail.Area,
+			SubmittedByAppUserID:   input.SubmittedByAppUserID,
+			SubmittedByDisplayName: "Super Admin",
+			Proposed:               input.Proposed,
+			CreatedAt:              time.Now().UTC(),
+			UpdatedAt:              time.Now().UTC(),
+		}
+	}
+	result.State = "applied"
+	result.ReviewedByAppUserID = reviewedByAppUserID
+	result.ReviewedAt = &reviewedAt
+	result.ModerationReason = stringOrEmpty(moderationReason)
+	return result, nil
+}
+
 func (r *repoStub) ListMySiteEditProposals(context.Context, explorerepo.ListSiteEditProposalsInput) ([]explorerepo.SiteEditProposal, error) {
 	return nil, nil
 }
@@ -145,6 +174,7 @@ func (r *repoStub) GetSiteEditProposalForModeration(context.Context, string) (ex
 }
 
 func (r *repoStub) ApplySiteEditProposal(_ context.Context, _ string, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteEditProposal, error) {
+	r.editApplyCalls++
 	result := r.editProposal
 	if result.ID == "" {
 		result.ID = "550e8400-e29b-41d4-a716-446655440902"
@@ -948,7 +978,70 @@ func TestCreateSiteEditProposalAppliesImmediatelyForSuperAdmin(t *testing.T) {
 	if result.Proposal.ReviewedByAppUserID != "550e8400-e29b-41d4-a716-446655440000" {
 		t.Fatalf("expected super admin as reviewer, got %+v", result.Proposal)
 	}
-	if repo.editCreated.Proposed.Name != "Sardine Run Updated" {
-		t.Fatalf("expected proposal to be recorded before apply, got %+v", repo.editCreated.Proposed)
+	if repo.editApplied.Proposed.Name != "Sardine Run Updated" {
+		t.Fatalf("expected atomic create/apply input, got %+v", repo.editApplied.Proposed)
+	}
+	if repo.editCreated.DiveSiteID != "" {
+		t.Fatalf("super admin path must not use non-atomic create first, got %+v", repo.editCreated)
+	}
+}
+
+func TestCreateSiteEditProposalSuperAdminApplyFailureDoesNotUsePendingCreate(t *testing.T) {
+	repo := &repoStub{
+		editApplyErr: errors.New("apply failed"),
+		siteDetail: explorerepo.SiteDetail{
+			ID:          "550e8400-e29b-41d4-a716-446655440101",
+			Slug:        "sardine-run",
+			Name:        "Sardine Run",
+			Area:        "Moalboal, Cebu",
+			Description: "Known sardine bait ball site.",
+			Difficulty:  "easy",
+		},
+	}
+	svc := New(repo)
+
+	_, err := svc.CreateSiteEditProposal(context.Background(), CreateSiteEditProposalInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		ActorRole:   "super_admin",
+		Slug:        "sardine-run",
+		Name:        "Sardine Run Updated",
+		Description: "Known sardine bait ball site.",
+		Difficulty:  "easy",
+	})
+	if err == nil {
+		t.Fatal("expected atomic super admin apply failure")
+	}
+	if repo.editCreated.DiveSiteID != "" {
+		t.Fatalf("failure must not leave a proposal from non-atomic create path, got %+v", repo.editCreated)
+	}
+	if repo.editApplied.DiveSiteID != repo.siteDetail.ID {
+		t.Fatalf("expected atomic create/apply attempt to target site, got %+v", repo.editApplied)
+	}
+}
+
+func TestApplySiteEditProposalRejectsStaleProposal(t *testing.T) {
+	repo := &repoStub{editProposal: explorerepo.SiteEditProposal{
+		ID:                       "550e8400-e29b-41d4-a716-446655440902",
+		State:                    "pending",
+		SiteChangedSinceProposal: true,
+	}}
+	svc := New(repo)
+
+	_, err := svc.ApplySiteEditProposal(context.Background(), ModerateSiteEditProposalInput{
+		ActorID:    "550e8400-e29b-41d4-a716-446655440000",
+		ProposalID: "550e8400-e29b-41d4-a716-446655440902",
+	})
+	if err == nil {
+		t.Fatal("expected stale proposal conflict")
+	}
+	apiErr, ok := err.(*apperrors.AppError)
+	if !ok {
+		t.Fatalf("expected AppError, got %T", err)
+	}
+	if apiErr.Status != http.StatusConflict || apiErr.Code != "site_edit_conflict" {
+		t.Fatalf("expected site_edit_conflict, got status=%d code=%s", apiErr.Status, apiErr.Code)
+	}
+	if repo.editApplyCalls != 0 {
+		t.Fatalf("stale proposal should fail before repo apply, got %d calls", repo.editApplyCalls)
 	}
 }

@@ -114,6 +114,13 @@ export default function ModerationExploreSiteEditPage() {
                     item.submittedByAppUserId ||
                     "member"}
                 </p>
+                {item.siteChangedSinceProposal ? (
+                  <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    This dive site changed after the edit was submitted. Review
+                    the latest site details before approving; rejection is still
+                    available.
+                  </p>
+                ) : null}
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="overflow-hidden rounded-xl border border-border">
@@ -169,7 +176,9 @@ export default function ModerationExploreSiteEditPage() {
                 <div className="flex flex-wrap gap-3">
                   <Button
                     disabled={
-                      approveMutation.isPending || rejectMutation.isPending
+                      item.siteChangedSinceProposal ||
+                      approveMutation.isPending ||
+                      rejectMutation.isPending
                     }
                     onClick={() => approveMutation.mutate()}
                   >

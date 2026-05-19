@@ -42,6 +42,7 @@ type repository interface {
 	ApproveSite(ctx context.Context, id, slug, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteSubmission, error)
 	RejectOrHideSite(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteSubmission, error)
 	CreateSiteEditProposal(ctx context.Context, input explorerepo.CreateSiteEditProposalInput) (explorerepo.SiteEditProposal, error)
+	CreateAndApplySiteEditProposal(ctx context.Context, input explorerepo.CreateSiteEditProposalInput, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteEditProposal, error)
 	ListMySiteEditProposals(ctx context.Context, input explorerepo.ListSiteEditProposalsInput) ([]explorerepo.SiteEditProposal, error)
 	GetMySiteEditProposalByID(ctx context.Context, id, submittedByAppUserID string) (explorerepo.SiteEditProposal, error)
 	ListPendingSiteEditProposals(ctx context.Context, input explorerepo.ListPendingSiteEditProposalsInput) ([]explorerepo.SiteEditProposal, error)
@@ -779,22 +780,24 @@ func (s *Service) CreateSiteEditProposal(ctx context.Context, input CreateSiteEd
 		}}}
 	}
 
-	proposal, err := s.repo.CreateSiteEditProposal(ctx, explorerepo.CreateSiteEditProposalInput{
+	editInput := explorerepo.CreateSiteEditProposalInput{
 		DiveSiteID:           site.ID,
 		SubmittedByAppUserID: input.ActorID,
 		Proposed:             proposed,
-	})
-	if err != nil {
-		return CreateSiteEditProposalResult{}, apperrors.New(http.StatusInternalServerError, "site_edit_proposal_failed", "failed to submit site edit", err)
 	}
 
 	if strings.EqualFold(strings.TrimSpace(input.ActorRole), "super_admin") {
 		reason := "Applied immediately by super admin"
-		applied, applyErr := s.repo.ApplySiteEditProposal(ctx, proposal.ID, input.ActorID, time.Now().UTC(), &reason)
-		if applyErr != nil {
-			return CreateSiteEditProposalResult{}, apperrors.New(http.StatusInternalServerError, "site_edit_apply_failed", "failed to apply site edit", applyErr)
+		applied, err := s.repo.CreateAndApplySiteEditProposal(ctx, editInput, input.ActorID, time.Now().UTC(), &reason)
+		if err != nil {
+			return CreateSiteEditProposalResult{}, apperrors.New(http.StatusInternalServerError, "site_edit_apply_failed", "failed to apply site edit", err)
 		}
 		return CreateSiteEditProposalResult{Proposal: applied, AppliedImmediately: true}, nil
+	}
+
+	proposal, err := s.repo.CreateSiteEditProposal(ctx, editInput)
+	if err != nil {
+		return CreateSiteEditProposalResult{}, apperrors.New(http.StatusInternalServerError, "site_edit_proposal_failed", "failed to submit site edit", err)
 	}
 
 	return CreateSiteEditProposalResult{Proposal: proposal}, nil
@@ -1910,11 +1913,17 @@ func (s *Service) moderateSiteEditProposal(ctx context.Context, input ModerateSi
 	if proposal.State != "pending" {
 		return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusConflict, "invalid_state", "site edit is not pending review", nil)
 	}
+	if approve && proposal.SiteChangedSinceProposal {
+		return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusConflict, "site_edit_conflict", "dive site changed after this edit was submitted; review the latest site details before approving", nil)
+	}
 	reason := trimPtr(input.Reason)
 	reviewedAt := time.Now().UTC()
 	if approve {
 		item, applyErr := s.repo.ApplySiteEditProposal(ctx, input.ProposalID, input.ActorID, reviewedAt, reason)
 		if applyErr != nil {
+			if explorerepo.IsNoRows(applyErr) {
+				return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusConflict, "site_edit_conflict", "dive site changed after this edit was submitted; review the latest site details before approving", applyErr)
+			}
 			return explorerepo.SiteEditProposal{}, apperrors.New(http.StatusInternalServerError, "site_edit_apply_failed", "failed to apply site edit", applyErr)
 		}
 		return item, nil

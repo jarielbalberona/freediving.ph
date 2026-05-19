@@ -1554,6 +1554,9 @@ export type ExploreSiteEditProposal = {
   reviewedAt?: string;
   moderationReason?: string;
   state: ExploreSiteEditProposalState;
+  baseSiteUpdatedAt?: string;
+  currentSiteUpdatedAt?: string;
+  siteChangedSinceProposal: boolean;
   current: ExploreSiteEditValues;
   proposed: ExploreSiteEditValues;
   createdAt: string;

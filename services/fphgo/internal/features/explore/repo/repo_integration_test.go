@@ -363,6 +363,89 @@ func TestSiteEditProposalWorkflowAppliesOnlyAfterApproval(t *testing.T) {
 	}
 }
 
+func TestSiteEditProposalApprovalRejectsStaleSiteAndRejectStillWorks(t *testing.T) {
+	pool := testExplorePool(t)
+	repo := explorerepo.New(pool)
+	ctx := context.Background()
+
+	submitterID := uuid.NewString()
+	reviewerID := uuid.NewString()
+	siteID := uuid.NewString()
+	now := time.Now().UnixNano()
+	slug := fmt.Sprintf("stale-edit-reef-%d", now)
+
+	for _, user := range []struct {
+		id       string
+		username string
+		name     string
+	}{
+		{id: submitterID, username: fmt.Sprintf("stale_edit_submitter_%d", now), name: "Stale Edit Submitter"},
+		{id: reviewerID, username: fmt.Sprintf("stale_edit_reviewer_%d", now), name: "Stale Edit Reviewer"},
+	} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name)
+			VALUES ($1, $2, $3)
+		`, user.id, user.username, user.name); err != nil {
+			t.Skipf("insert user: %v", err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_sites (
+			id, name, slug, area, description, entry_difficulty, hazards, verification_status, moderation_state
+		)
+		VALUES ($1, 'Stale Reef', $2, 'Moalboal, Cebu', 'Current approved description.', 'easy', ARRAY['boat traffic'], 'verified', 'approved')
+	`, siteID, slug); err != nil {
+		t.Skipf("insert site: %v", err)
+	}
+
+	proposal, err := repo.CreateSiteEditProposal(ctx, explorerepo.CreateSiteEditProposalInput{
+		DiveSiteID:           siteID,
+		SubmittedByAppUserID: submitterID,
+		Proposed: explorerepo.SiteEditValues{
+			Name:        "Stale Reef Proposed",
+			Description: "Old proposal description.",
+			Difficulty:  "moderate",
+			Hazards:     []string{"current"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create site edit proposal: %v", err)
+	}
+	if proposal.BaseSiteUpdatedAt.IsZero() {
+		t.Fatal("expected proposal to store base site updated timestamp")
+	}
+
+	if _, err := pool.Exec(ctx, `
+		UPDATE dive_sites
+		SET description = 'Newer approved description.',
+		    updated_at = updated_at + INTERVAL '1 second'
+		WHERE id = $1
+	`, siteID); err != nil {
+		t.Fatalf("update site after proposal: %v", err)
+	}
+
+	if _, err := repo.ApplySiteEditProposal(ctx, proposal.ID, reviewerID, time.Now().UTC(), nil); !explorerepo.IsNoRows(err) {
+		t.Fatalf("expected stale approval to return no rows, got %v", err)
+	}
+
+	detail, err := repo.GetSiteBySlug(ctx, slug, "")
+	if err != nil {
+		t.Fatalf("get site detail after stale approval: %v", err)
+	}
+	if detail.Name != "Stale Reef" || detail.Description != "Newer approved description." {
+		t.Fatalf("stale approval mutated public site: %+v", detail)
+	}
+
+	reason := "Rejected stale edit"
+	rejected, err := repo.RejectSiteEditProposal(ctx, proposal.ID, reviewerID, time.Now().UTC(), &reason)
+	if err != nil {
+		t.Fatalf("reject stale site edit proposal: %v", err)
+	}
+	if rejected.State != "rejected" || rejected.ModerationReason != reason {
+		t.Fatalf("expected stale proposal rejection, got %+v", rejected)
+	}
+}
+
 func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T) {
 	pool := testExplorePool(t)
 	repo := explorerepo.New(pool)

@@ -224,6 +224,7 @@ type DiveSiteEditProposal struct {
 	ProposedTypicalConditions string             `db:"proposed_typical_conditions" json:"proposed_typical_conditions"`
 	ProposedAccess            string             `db:"proposed_access" json:"proposed_access"`
 	ProposedFees              string             `db:"proposed_fees" json:"proposed_fees"`
+	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
 	CreatedAt                 pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt                 pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }

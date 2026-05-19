@@ -15,6 +15,7 @@ import (
 )
 
 type Repo struct {
+	pool    *pgxpool.Pool
 	queries *exploreqlc.Queries
 }
 
@@ -301,21 +302,24 @@ type SiteSubmission struct {
 }
 
 type SiteEditProposal struct {
-	ID                     string
-	DiveSiteID             string
-	SiteSlug               string
-	SiteArea               string
-	SubmittedByAppUserID   string
-	SubmittedByDisplayName string
-	ReviewedByAppUserID    string
-	ReviewedByDisplayName  string
-	ReviewedAt             *time.Time
-	ModerationReason       string
-	State                  string
-	Current                SiteEditValues
-	Proposed               SiteEditValues
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
+	ID                       string
+	DiveSiteID               string
+	SiteSlug                 string
+	SiteArea                 string
+	SubmittedByAppUserID     string
+	SubmittedByDisplayName   string
+	ReviewedByAppUserID      string
+	ReviewedByDisplayName    string
+	ReviewedAt               *time.Time
+	ModerationReason         string
+	State                    string
+	BaseSiteUpdatedAt        time.Time
+	CurrentSiteUpdatedAt     time.Time
+	SiteChangedSinceProposal bool
+	Current                  SiteEditValues
+	Proposed                 SiteEditValues
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }
 
 type ListUpdatesInput struct {
@@ -386,7 +390,7 @@ type SiteSummary struct {
 }
 
 func New(pool *pgxpool.Pool) *Repo {
-	return &Repo{queries: exploreqlc.New(pool)}
+	return &Repo{pool: pool, queries: exploreqlc.New(pool)}
 }
 
 func (r *Repo) ListSites(ctx context.Context, input ListSitesInput) ([]SiteCard, error) {
@@ -623,6 +627,47 @@ func (r *Repo) CreateSiteEditProposal(ctx context.Context, input CreateSiteEditP
 		return SiteEditProposal{}, err
 	}
 	return mapCreatedSiteEditProposal(row), nil
+}
+
+func (r *Repo) CreateAndApplySiteEditProposal(ctx context.Context, input CreateSiteEditProposalInput, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (SiteEditProposal, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return SiteEditProposal{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	q := r.queries.WithTx(tx)
+	created, err := q.CreateSiteEditProposal(ctx, exploreqlc.CreateSiteEditProposalParams{
+		DiveSiteID:                toUUID(input.DiveSiteID),
+		SubmittedByAppUserID:      toUUID(input.SubmittedByAppUserID),
+		ProposedName:              input.Proposed.Name,
+		ProposedDescription:       input.Proposed.Description,
+		ProposedEntryDifficulty:   input.Proposed.Difficulty,
+		ProposedDepthMinM:         numericValue(input.Proposed.DepthMinM),
+		ProposedDepthMaxM:         numericValue(input.Proposed.DepthMaxM),
+		ProposedHazards:           input.Proposed.Hazards,
+		ProposedBestSeason:        input.Proposed.BestSeason,
+		ProposedTypicalConditions: input.Proposed.TypicalConditions,
+		ProposedAccess:            input.Proposed.Access,
+		ProposedFees:              input.Proposed.Fees,
+	})
+	if err != nil {
+		return SiteEditProposal{}, err
+	}
+
+	applied, err := q.ApplySiteEditProposal(ctx, exploreqlc.ApplySiteEditProposalParams{
+		ID:                  created.ID,
+		ReviewedByAppUserID: toUUID(reviewedByAppUserID),
+		ReviewedAt:          timestamptz(reviewedAt),
+		ModerationReason:    moderationReason,
+	})
+	if err != nil {
+		return SiteEditProposal{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return SiteEditProposal{}, err
+	}
+	return mapAppliedSiteEditProposal(applied), nil
 }
 
 func (r *Repo) ListMySiteEditProposals(ctx context.Context, input ListSiteEditProposalsInput) ([]SiteEditProposal, error) {
@@ -1545,6 +1590,8 @@ func mapCreatedSiteEditProposal(row exploreqlc.CreateSiteEditProposalRow) SiteEd
 		row.ReviewedAt,
 		row.ModerationReason,
 		row.State,
+		row.BaseSiteUpdatedAt,
+		row.CurrentSiteUpdatedAt,
 		row.CurrentName,
 		row.CurrentDescription,
 		row.CurrentEntryDifficulty,
@@ -1583,6 +1630,8 @@ func mapMySiteEditProposal(row exploreqlc.ListMySiteEditProposalsRow) SiteEditPr
 		row.ReviewedAt,
 		row.ModerationReason,
 		row.State,
+		row.BaseSiteUpdatedAt,
+		row.CurrentSiteUpdatedAt,
 		row.CurrentName,
 		row.CurrentDescription,
 		row.CurrentEntryDifficulty,
@@ -1621,6 +1670,8 @@ func mapMySiteEditProposalDetail(row exploreqlc.GetMySiteEditProposalByIDRow) Si
 		row.ReviewedAt,
 		row.ModerationReason,
 		row.State,
+		row.BaseSiteUpdatedAt,
+		row.CurrentSiteUpdatedAt,
 		row.CurrentName,
 		row.CurrentDescription,
 		row.CurrentEntryDifficulty,
@@ -1659,6 +1710,8 @@ func mapPendingSiteEditProposal(row exploreqlc.ListPendingSiteEditProposalsRow) 
 		row.ReviewedAt,
 		row.ModerationReason,
 		row.State,
+		row.BaseSiteUpdatedAt,
+		row.CurrentSiteUpdatedAt,
 		row.CurrentName,
 		row.CurrentDescription,
 		row.CurrentEntryDifficulty,
@@ -1697,6 +1750,8 @@ func mapModerationSiteEditProposal(row exploreqlc.GetSiteEditProposalForModerati
 		row.ReviewedAt,
 		row.ModerationReason,
 		row.State,
+		row.BaseSiteUpdatedAt,
+		row.CurrentSiteUpdatedAt,
 		row.CurrentName,
 		row.CurrentDescription,
 		row.CurrentEntryDifficulty,
@@ -1735,6 +1790,8 @@ func mapAppliedSiteEditProposal(row exploreqlc.ApplySiteEditProposalRow) SiteEdi
 		row.ReviewedAt,
 		row.ModerationReason,
 		row.State,
+		row.BaseSiteUpdatedAt,
+		row.CurrentSiteUpdatedAt,
 		row.CurrentName,
 		row.CurrentDescription,
 		row.CurrentEntryDifficulty,
@@ -1773,6 +1830,8 @@ func mapRejectedSiteEditProposal(row exploreqlc.RejectSiteEditProposalRow) SiteE
 		row.ReviewedAt,
 		row.ModerationReason,
 		row.State,
+		row.BaseSiteUpdatedAt,
+		row.CurrentSiteUpdatedAt,
 		row.CurrentName,
 		row.CurrentDescription,
 		row.CurrentEntryDifficulty,
@@ -1810,6 +1869,8 @@ func siteEditProposalFromValues(
 	reviewedAt pgtype.Timestamptz,
 	moderationReason *string,
 	state string,
+	baseSiteUpdatedAt pgtype.Timestamptz,
+	currentSiteUpdatedAt pgtype.Timestamptz,
 	currentName string,
 	currentDescription string,
 	currentDifficulty string,
@@ -1845,6 +1906,12 @@ func siteEditProposalFromValues(
 		ReviewedAt:             timestamptzPtr(reviewedAt),
 		ModerationReason:       valueOrEmpty(moderationReason),
 		State:                  state,
+		BaseSiteUpdatedAt:      baseSiteUpdatedAt.Time.UTC(),
+		CurrentSiteUpdatedAt:   currentSiteUpdatedAt.Time.UTC(),
+		SiteChangedSinceProposal: state == "pending" &&
+			currentSiteUpdatedAt.Valid &&
+			baseSiteUpdatedAt.Valid &&
+			currentSiteUpdatedAt.Time.After(baseSiteUpdatedAt.Time),
 		Current: SiteEditValues{
 			Name:              currentName,
 			Description:       currentDescription,

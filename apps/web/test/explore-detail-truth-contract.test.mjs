@@ -73,6 +73,8 @@ test("explore site edits use a separate proposal workflow", async () => {
   assert.match(moderationEditPage, /rejectSiteEdit/);
   assert.match(moderationEditPage, /Current/);
   assert.match(moderationEditPage, /Proposed/);
+  assert.match(moderationEditPage, /siteChangedSinceProposal/);
+  assert.match(moderationEditPage, /changed after the edit was submitted/);
   assert.match(routes, /createSiteEditProposal/);
   assert.match(routes, /moderationPendingSiteEdits/);
   assert.match(routes, /approveSiteEdit/);
