@@ -123,6 +123,8 @@ test("activity media posts preserve display URLs and avoid caption-only downgrad
   assert.match(adapter, /mediaUnavailableReason/);
   assert.match(card, /previewMediaId && !previewDisplayUrl/);
   assert.match(card, /previewDisplayUrl\s*\?/);
+  assert.match(card, /<p className="line-clamp-3 text-sm leading-relaxed text-foreground">/);
+  assert.doesNotMatch(card, /className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"/);
   assert.match(dialog, /filter\(\(item\) => !item\.displayUrl\)/);
   assert.match(dialog, /item\.displayUrl \?\?/);
 });
