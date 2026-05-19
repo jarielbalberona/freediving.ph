@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { ImagePlus, MessageSquarePlus, UserRoundPen } from "lucide-react";
 
@@ -16,12 +16,17 @@ import { getProfileCreateRoute } from "@/lib/routes";
 
 export function DesktopCreateFab() {
   const router = useRouter();
+  const pathname = usePathname();
   const session = useSession();
   const { user } = useUser();
   const username = session.me?.username ?? user?.username ?? null;
   const profileCreateHref = username
     ? getProfileCreateRoute(username)
     : "/sign-in";
+  const isExploreRoute =
+    pathname === "/explore" || pathname?.startsWith("/explore/");
+
+  if (isExploreRoute) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-40 hidden md:block">
