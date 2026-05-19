@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { Map, useMap } from "@vis.gl/react-google-maps";
-import { MarkerClusterer } from "@googlemaps/markerclusterer";
+import { MarkerClusterer, type Renderer } from "@googlemaps/markerclusterer";
 
 import type { DiveSpot, ExploreBounds, ExploreCamera } from "../types";
 import { PHILIPPINES_CENTER, PHILIPPINES_ZOOM } from "../types";
@@ -17,16 +17,82 @@ type ExploreMapProps = {
   onSelectSpot: (spot: DiveSpot) => void;
 };
 
-const DEFAULT_MAP_ID = "c5170fc5a137d9ea8ef77423";
+const EXPLORE_GOOGLE_MAP_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "c5170fc5a137d9ea8ef77423";
+const EXPLORE_MARKER_ICON_URL =
+  "https://cdn.freediving.ph/images/map-marker.png";
 
-const markerSvg = (selected: boolean) =>
-  `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-    <svg width="38" height="50" viewBox="0 0 38 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M19 49C17 45 8 33.5 8 24C8 14.6112 13.6112 7 19 7C24.3888 7 30 14.6112 30 24C30 33.5 21 45 19 49Z" fill="${selected ? "#0F766E" : "#2563EB"}"/>
-      <circle cx="19" cy="24" r="8.5" fill="${selected ? "#D1FAE5" : "#DBEAFE"}"/>
-      <circle cx="19" cy="24" r="4.5" fill="${selected ? "#0F766E" : "#2563EB"}"/>
+const MARKER_ICON_SIZE = {
+  default: { width: 40, height: 40 },
+  selected: { width: 48, height: 48 },
+} as const;
+
+const getMarkerIcon = (isSelected: boolean): google.maps.Icon => {
+  return {
+    url: EXPLORE_MARKER_ICON_URL,
+    scaledSize: isSelected
+      ? new google.maps.Size(
+          MARKER_ICON_SIZE.selected.width,
+          MARKER_ICON_SIZE.selected.height,
+        )
+      : new google.maps.Size(
+          MARKER_ICON_SIZE.default.width,
+          MARKER_ICON_SIZE.default.height,
+        ),
+    anchor: isSelected
+      ? new google.maps.Point(
+          MARKER_ICON_SIZE.selected.width / 2,
+          MARKER_ICON_SIZE.selected.height,
+        )
+      : new google.maps.Point(
+          MARKER_ICON_SIZE.default.width / 2,
+          MARKER_ICON_SIZE.default.height,
+        ),
+  };
+};
+
+const getClusterIconUrl = (count: number, isLargeCluster: boolean) => {
+  const fill = isLargeCluster ? "#0369A1" : "#0284C7";
+  const ring = isLargeCluster ? "#7DD3FC" : "#BAE6FD";
+  const halo = isLargeCluster ? "#0F766E" : "#06B6D4";
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="32" cy="32" r="30" fill="${halo}" fill-opacity="0.18"/>
+      <circle cx="32" cy="32" r="24" fill="${fill}" stroke="${ring}" stroke-width="4"/>
+      <circle cx="32" cy="32" r="17" fill="${fill}" fill-opacity="0.92"/>
     </svg>
   `)}`;
+};
+
+const exploreClusterRenderer: Renderer = {
+  render({ count, position }, stats) {
+    const isLargeCluster = count > Math.max(10, stats.clusters.markers.mean);
+    const size = isLargeCluster ? 56 : 48;
+
+    return new google.maps.Marker({
+      position,
+      title: `Cluster of ${count} dive sites`,
+      icon: {
+        url: getClusterIconUrl(count, isLargeCluster),
+        scaledSize: new google.maps.Size(size, size),
+        anchor: new google.maps.Point(size / 2, size / 2),
+      },
+      label: {
+        text: String(count),
+        color: "#FFFFFF",
+        fontSize: count >= 100 ? "12px" : "13px",
+        fontWeight: "700",
+      },
+      zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+    });
+  },
+};
+
+const exploreMapOptions = {
+  mapId: EXPLORE_GOOGLE_MAP_ID,
+  mapTypeId: "terrain",
+} satisfies Pick<google.maps.MapOptions, "mapTypeId"> & { mapId: string };
 
 const toMapBounds = (map: google.maps.Map): ExploreBounds => {
   const bounds = map.getBounds();
@@ -70,7 +136,10 @@ function ExploreMarkers({
     if (!map || clustererRef.current) return;
 
     // The clusterer instance is created once and then fed marker updates, which avoids churn while panning.
-    clustererRef.current = new MarkerClusterer({ map });
+    clustererRef.current = new MarkerClusterer({
+      map,
+      renderer: exploreClusterRenderer,
+    });
   }, [map]);
 
   useEffect(() => {
@@ -89,12 +158,7 @@ function ExploreMarkers({
     for (const spot of spotsWithCoordinates) {
       const currentMarker = markersRef.current.get(spot.id);
       const isSelected = spot.id === selectedSpotId;
-      const icon = {
-        url: markerSvg(isSelected),
-        scaledSize: isSelected
-          ? new google.maps.Size(46, 60)
-          : new google.maps.Size(38, 50),
-      };
+      const icon = getMarkerIcon(isSelected);
 
       if (currentMarker) {
         currentMarker.setIcon(icon);
@@ -168,7 +232,8 @@ export function ExploreMap({
   return (
     <div className="h-full min-h-0 w-full">
       <Map
-        id={DEFAULT_MAP_ID}
+        id="explore-map"
+        {...exploreMapOptions}
         key={initialCameraKeyRef.current}
         defaultCenter={initialCamera.center ?? PHILIPPINES_CENTER}
         defaultZoom={initialCamera.zoom ?? PHILIPPINES_ZOOM}

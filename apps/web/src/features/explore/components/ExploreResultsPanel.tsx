@@ -82,6 +82,16 @@ const difficultyLabels: Record<ExploreDifficulty, string> = {
   hard: "Hard",
 };
 
+const difficultySelectItems = ([
+  "all",
+  "easy",
+  "moderate",
+  "hard",
+] as const).map((value) => ({
+  value,
+  label: difficultyLabels[value],
+}));
+
 export function ExploreResultsPanel({
   q,
   area,
@@ -120,6 +130,13 @@ export function ExploreResultsPanel({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const hasResults = spots.length > 0;
   const areaSelectValue = area || "all";
+  const areaSelectItems = useMemo(
+    () => [
+      { value: "all", label: "All areas" },
+      ...areaOptions.map((option) => ({ value: option, label: option })),
+    ],
+    [areaOptions],
+  );
 
   useEffect(() => {
     if (!selectedSpotId) return;
@@ -149,10 +166,6 @@ export function ExploreResultsPanel({
           <div className="mb-3">
             <p className="text-base font-semibold text-foreground">
               Find dive spots around the Philippines
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Verified and community-shared spots. Check site details before
-              planning a dive.
             </p>
           </div>
         ) : null}
@@ -203,6 +216,7 @@ export function ExploreResultsPanel({
                   if (!value) return;
                   onDifficultyChange(value as ExploreDifficulty);
                 }}
+                items={difficultySelectItems}
               >
                 <SelectTrigger
                   aria-label="Filter by difficulty"
@@ -227,6 +241,7 @@ export function ExploreResultsPanel({
                   if (!value) return;
                   onAreaChange(value === "all" ? "" : value);
                 }}
+                items={areaSelectItems}
               >
                 <SelectTrigger
                   aria-label="Filter by area"
@@ -279,7 +294,7 @@ export function ExploreResultsPanel({
           className={cn(
             "mt-4",
             !showSearchControls &&
-              "mt-0 flex items-center justify-between gap-3",
+            "mt-0 flex items-center justify-between gap-3",
           )}
         >
           <p className="text-sm font-semibold text-foreground">{resultLabel}</p>
