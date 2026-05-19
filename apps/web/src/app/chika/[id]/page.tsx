@@ -32,6 +32,7 @@ import { ReportAction } from "@/components/report/report-action";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
@@ -66,6 +67,71 @@ const toRelativeTime = (value: string) => {
 
 const ROOT_COMMENT_KEY = "__root__";
 type CommentSort = "hot" | "top" | "new";
+
+function ChikaDetailSkeleton() {
+  return (
+    <main>
+      <div className="xl:pr-96">
+        <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
+          <div className="container mx-auto max-w-screen-lg space-y-6 px-4 sm:px-6 lg:px-8">
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <Skeleton className="h-4 w-64 max-w-full" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </div>
+              <Skeleton className="h-7 w-3/4 max-w-2xl" />
+              <div className="mt-3 space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-11/12" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Skeleton className="h-9 w-28 rounded-full" />
+                <Skeleton className="h-9 w-20 rounded-full" />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Skeleton className="h-28 w-full rounded-2xl" />
+              <div className="flex justify-end">
+                <Skeleton className="h-9 w-28 rounded-md" />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Skeleton className="h-4 w-14" />
+              <Skeleton className="h-8 w-32 rounded-4xl" />
+            </div>
+
+            <div className="space-y-3">
+              {Array.from({ length: 3 }, (_, index) => (
+                <Card key={`chika-comment-skeleton-${index + 1}`}>
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="size-10 rounded-full" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <Skeleton className="h-4 w-40 max-w-full" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-7 w-20 rounded-full" />
+                      <Skeleton className="h-7 w-16 rounded-md" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
 
 const buildCommentTree = (comments: ChikaCommentView[]) => {
   const grouped = new Map<string, ChikaCommentView[]>();
@@ -329,28 +395,7 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
   };
 
   if (isLoading) {
-    return (
-      <main>
-        <div className="xl:pr-96">
-          <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
-            <div className="container mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-center py-12">
-                <Card className="w-full max-w-lg">
-                  <CardContent className="p-6 text-center">
-                    <p className="font-medium text-foreground">
-                      Opening this Chika
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      We are getting the post and comments ready.
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
+    return <ChikaDetailSkeleton />;
   }
 
   if (error) {
