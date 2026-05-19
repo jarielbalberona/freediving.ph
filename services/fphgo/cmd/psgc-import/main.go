@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -201,9 +202,143 @@ func importPSGC(
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if _, err := tx.Exec(ctx, `
+		CREATE TEMP TABLE tmp_psgc_regions (
+			code TEXT NOT NULL,
+			psgc_code TEXT NOT NULL,
+			name TEXT NOT NULL
+		) ON COMMIT DROP;
+		CREATE TEMP TABLE tmp_psgc_provinces (
+			code TEXT NOT NULL,
+			psgc_code TEXT NOT NULL,
+			region_code TEXT NOT NULL,
+			name TEXT NOT NULL,
+			old_name TEXT NOT NULL,
+			city_class TEXT NOT NULL
+		) ON COMMIT DROP;
+		CREATE TEMP TABLE tmp_psgc_cities_municipalities (
+			code TEXT NOT NULL,
+			psgc_code TEXT NOT NULL,
+			region_code TEXT NOT NULL,
+			province_code TEXT NOT NULL,
+			name TEXT NOT NULL,
+			old_name TEXT NOT NULL
+		) ON COMMIT DROP;
+		CREATE TEMP TABLE tmp_psgc_barangays (
+			code TEXT NOT NULL,
+			psgc_code TEXT NOT NULL,
+			region_code TEXT NOT NULL,
+			province_code TEXT NOT NULL,
+			city_municipality_code TEXT NOT NULL,
+			name TEXT NOT NULL,
+			old_name TEXT NOT NULL
+		) ON COMMIT DROP;
+	`); err != nil {
+		return fmt.Errorf("create temp tables: %w", err)
+	}
+
+	regionRows := make([][]any, 0, len(regions))
+	for _, record := range regions {
+		code := strings.TrimSpace(record.RegionCode)
+		if code == "" {
+			return errors.New("region row with empty regCode")
+		}
+		regionRows = append(regionRows, []any{
+			code,
+			strings.TrimSpace(record.PSGCCode),
+			strings.TrimSpace(record.RegionName),
+		})
+	}
+	if _, err := tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"tmp_psgc_regions"},
+		[]string{"code", "psgc_code", "name"},
+		pgx.CopyFromRows(regionRows),
+	); err != nil {
+		return fmt.Errorf("copy regions: %w", err)
+	}
+
+	provinceRows := make([][]any, 0, len(provinces))
+	for _, record := range provinces {
+		code := strings.TrimSpace(record.ProvCode)
+		if code == "" {
+			return errors.New("province row with empty provCode")
+		}
+		cityClass := ""
+		if record.CityClass != nil {
+			cityClass = strings.TrimSpace(*record.CityClass)
+		}
+		provinceRows = append(provinceRows, []any{
+			code,
+			strings.TrimSpace(record.PSGCCode),
+			strings.TrimSpace(record.RegionCode),
+			strings.TrimSpace(record.ProvName),
+			strings.TrimSpace(record.ProvOld),
+			cityClass,
+		})
+	}
+	if _, err := tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"tmp_psgc_provinces"},
+		[]string{"code", "psgc_code", "region_code", "name", "old_name", "city_class"},
+		pgx.CopyFromRows(provinceRows),
+	); err != nil {
+		return fmt.Errorf("copy provinces: %w", err)
+	}
+
+	cityRows := make([][]any, 0, len(cities))
+	for _, record := range cities {
+		code := strings.TrimSpace(record.MunCityCode)
+		if code == "" {
+			return errors.New("city row with empty munCityCode")
+		}
+		cityRows = append(cityRows, []any{
+			code,
+			strings.TrimSpace(record.PSGCCode),
+			strings.TrimSpace(record.RegionCode),
+			normalizeProvinceCode(record.ProvCode),
+			strings.TrimSpace(record.MunCityName),
+			strings.TrimSpace(record.MunCityOld),
+		})
+	}
+	if _, err := tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"tmp_psgc_cities_municipalities"},
+		[]string{"code", "psgc_code", "region_code", "province_code", "name", "old_name"},
+		pgx.CopyFromRows(cityRows),
+	); err != nil {
+		return fmt.Errorf("copy cities/municipalities: %w", err)
+	}
+
+	barangayRows := make([][]any, 0, len(barangays))
+	for _, record := range barangays {
+		code := strings.TrimSpace(record.BrgyCode)
+		if code == "" {
+			return errors.New("barangay row with empty brgyCode")
+		}
+		barangayRows = append(barangayRows, []any{
+			code,
+			strings.TrimSpace(record.PSGCCode),
+			strings.TrimSpace(record.RegionCode),
+			normalizeProvinceCode(record.ProvCode),
+			strings.TrimSpace(record.MunCityCode),
+			strings.TrimSpace(record.BrgyName),
+			strings.TrimSpace(record.BrgyOld),
+		})
+	}
+	if _, err := tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"tmp_psgc_barangays"},
+		[]string{"code", "psgc_code", "region_code", "province_code", "city_municipality_code", "name", "old_name"},
+		pgx.CopyFromRows(barangayRows),
+	); err != nil {
+		return fmt.Errorf("copy barangays: %w", err)
+	}
+
 	const upsertRegion = `
 		INSERT INTO psgc_regions (code, psgc_code, name, source_version, is_active, updated_at)
-		VALUES ($1, $2, $3, $4, TRUE, NOW())
+		SELECT code, psgc_code, name, $1, TRUE, NOW()
+		FROM tmp_psgc_regions
 		ON CONFLICT (code)
 		DO UPDATE SET
 			psgc_code = EXCLUDED.psgc_code,
@@ -212,24 +347,14 @@ func importPSGC(
 			is_active = TRUE,
 			updated_at = NOW()
 	`
-	for _, record := range regions {
-		code := strings.TrimSpace(record.RegionCode)
-		if code == "" {
-			return errors.New("region row with empty regCode")
-		}
-		if _, err := tx.Exec(ctx, upsertRegion,
-			code,
-			strings.TrimSpace(record.PSGCCode),
-			strings.TrimSpace(record.RegionName),
-			sourceVersion,
-		); err != nil {
-			return fmt.Errorf("upsert region %s: %w", code, err)
-		}
+	if _, err := tx.Exec(ctx, upsertRegion, sourceVersion); err != nil {
+		return fmt.Errorf("upsert regions: %w", err)
 	}
 
 	const upsertProvince = `
 		INSERT INTO psgc_provinces (code, psgc_code, region_code, name, old_name, city_class, source_version, is_active, updated_at)
-		VALUES ($1, $2, $3, $4, nullif($5, ''), nullif($6, ''), $7, TRUE, NOW())
+		SELECT code, psgc_code, region_code, name, nullif(old_name, ''), nullif(city_class, ''), $1, TRUE, NOW()
+		FROM tmp_psgc_provinces
 		ON CONFLICT (code)
 		DO UPDATE SET
 			psgc_code = EXCLUDED.psgc_code,
@@ -241,31 +366,14 @@ func importPSGC(
 			is_active = TRUE,
 			updated_at = NOW()
 	`
-	for _, record := range provinces {
-		code := strings.TrimSpace(record.ProvCode)
-		if code == "" {
-			return errors.New("province row with empty provCode")
-		}
-		cityClass := ""
-		if record.CityClass != nil {
-			cityClass = strings.TrimSpace(*record.CityClass)
-		}
-		if _, err := tx.Exec(ctx, upsertProvince,
-			code,
-			strings.TrimSpace(record.PSGCCode),
-			strings.TrimSpace(record.RegionCode),
-			strings.TrimSpace(record.ProvName),
-			strings.TrimSpace(record.ProvOld),
-			cityClass,
-			sourceVersion,
-		); err != nil {
-			return fmt.Errorf("upsert province %s: %w", code, err)
-		}
+	if _, err := tx.Exec(ctx, upsertProvince, sourceVersion); err != nil {
+		return fmt.Errorf("upsert provinces: %w", err)
 	}
 
 	const upsertCityMunicipality = `
 		INSERT INTO psgc_cities_municipalities (code, psgc_code, region_code, province_code, name, old_name, source_version, is_active, updated_at)
-		VALUES ($1, $2, $3, nullif($4, ''), $5, nullif($6, ''), $7, TRUE, NOW())
+		SELECT code, psgc_code, region_code, nullif(province_code, ''), name, nullif(old_name, ''), $1, TRUE, NOW()
+		FROM tmp_psgc_cities_municipalities
 		ON CONFLICT (code)
 		DO UPDATE SET
 			psgc_code = EXCLUDED.psgc_code,
@@ -277,27 +385,14 @@ func importPSGC(
 			is_active = TRUE,
 			updated_at = NOW()
 	`
-	for _, record := range cities {
-		code := strings.TrimSpace(record.MunCityCode)
-		if code == "" {
-			return errors.New("city row with empty munCityCode")
-		}
-		if _, err := tx.Exec(ctx, upsertCityMunicipality,
-			code,
-			strings.TrimSpace(record.PSGCCode),
-			strings.TrimSpace(record.RegionCode),
-			normalizeProvinceCode(record.ProvCode),
-			strings.TrimSpace(record.MunCityName),
-			strings.TrimSpace(record.MunCityOld),
-			sourceVersion,
-		); err != nil {
-			return fmt.Errorf("upsert city/municipality %s: %w", code, err)
-		}
+	if _, err := tx.Exec(ctx, upsertCityMunicipality, sourceVersion); err != nil {
+		return fmt.Errorf("upsert cities/municipalities: %w", err)
 	}
 
 	const upsertBarangay = `
 		INSERT INTO psgc_barangays (code, psgc_code, region_code, province_code, city_municipality_code, name, old_name, source_version, is_active, updated_at)
-		VALUES ($1, $2, $3, nullif($4, ''), $5, $6, nullif($7, ''), $8, TRUE, NOW())
+		SELECT code, psgc_code, region_code, nullif(province_code, ''), city_municipality_code, name, nullif(old_name, ''), $1, TRUE, NOW()
+		FROM tmp_psgc_barangays
 		ON CONFLICT (code)
 		DO UPDATE SET
 			psgc_code = EXCLUDED.psgc_code,
@@ -310,23 +405,8 @@ func importPSGC(
 			is_active = TRUE,
 			updated_at = NOW()
 	`
-	for _, record := range barangays {
-		code := strings.TrimSpace(record.BrgyCode)
-		if code == "" {
-			return errors.New("barangay row with empty brgyCode")
-		}
-		if _, err := tx.Exec(ctx, upsertBarangay,
-			code,
-			strings.TrimSpace(record.PSGCCode),
-			strings.TrimSpace(record.RegionCode),
-			normalizeProvinceCode(record.ProvCode),
-			strings.TrimSpace(record.MunCityCode),
-			strings.TrimSpace(record.BrgyName),
-			strings.TrimSpace(record.BrgyOld),
-			sourceVersion,
-		); err != nil {
-			return fmt.Errorf("upsert barangay %s: %w", code, err)
-		}
+	if _, err := tx.Exec(ctx, upsertBarangay, sourceVersion); err != nil {
+		return fmt.Errorf("upsert barangays: %w", err)
 	}
 
 	if deactivateMissing {
