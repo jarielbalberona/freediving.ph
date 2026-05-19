@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Map, useMap } from "@vis.gl/react-google-maps";
-import { MarkerClusterer, type Renderer } from "@googlemaps/markerclusterer";
+import {
+  MarkerClusterer,
+  type Marker as ClusterMarker,
+  type Renderer,
+} from "@googlemaps/markerclusterer";
 
 import type { DiveSpot, ExploreBounds, ExploreCamera } from "../types";
 import { PHILIPPINES_CENTER, PHILIPPINES_ZOOM } from "../types";
@@ -23,32 +27,41 @@ const EXPLORE_MARKER_ICON_URL =
   "https://cdn.freediving.ph/images/map-marker.png";
 
 const MARKER_ICON_SIZE = {
-  default: { width: 40, height: 40 },
-  selected: { width: 48, height: 48 },
+  default: { width: 40, height: 60 },
+  selected: { width: 48, height: 72 },
 } as const;
 
-const getMarkerIcon = (isSelected: boolean): google.maps.Icon => {
-  return {
-    url: EXPLORE_MARKER_ICON_URL,
-    scaledSize: isSelected
-      ? new google.maps.Size(
-          MARKER_ICON_SIZE.selected.width,
-          MARKER_ICON_SIZE.selected.height,
-        )
-      : new google.maps.Size(
-          MARKER_ICON_SIZE.default.width,
-          MARKER_ICON_SIZE.default.height,
-        ),
-    anchor: isSelected
-      ? new google.maps.Point(
-          MARKER_ICON_SIZE.selected.width / 2,
-          MARKER_ICON_SIZE.selected.height,
-        )
-      : new google.maps.Point(
-          MARKER_ICON_SIZE.default.width / 2,
-          MARKER_ICON_SIZE.default.height,
-        ),
-  };
+const createMarkerContent = (isSelected: boolean): HTMLDivElement => {
+  const size = isSelected ? MARKER_ICON_SIZE.selected : MARKER_ICON_SIZE.default;
+  const marker = document.createElement("div");
+  marker.style.width = `${size.width}px`;
+  marker.style.height = `${size.height}px`;
+  marker.style.display = "grid";
+  marker.style.placeItems = "center";
+  marker.style.filter = isSelected
+    ? "drop-shadow(0 0 2px #FFFFFF) drop-shadow(0 0 7px rgb(2 132 199 / 0.58)) drop-shadow(0 10px 18px rgb(8 47 73 / 0.3))"
+    : "drop-shadow(0 8px 16px rgb(8 47 73 / 0.28))";
+  marker.style.transform = isSelected ? "translateY(-6px)" : "translateY(0)";
+  marker.style.transition = "transform 160ms ease, filter 160ms ease";
+
+  const image = document.createElement("img");
+  image.src = EXPLORE_MARKER_ICON_URL;
+  image.alt = "";
+  image.decoding = "async";
+  image.style.width = "100%";
+  image.style.height = "100%";
+  image.style.objectFit = "contain";
+  image.style.display = "block";
+  image.style.pointerEvents = "none";
+
+  marker.appendChild(image);
+  return marker;
+};
+
+const removeMarkerContent = (content: Node | null | undefined) => {
+  if (content instanceof Element) {
+    content.remove();
+  }
 };
 
 const getClusterIconUrl = (count: number, isLargeCluster: boolean) => {
@@ -70,21 +83,27 @@ const exploreClusterRenderer: Renderer = {
     const isLargeCluster = count > Math.max(10, stats.clusters.markers.mean);
     const size = isLargeCluster ? 56 : 48;
 
-    return new google.maps.Marker({
+    const content = document.createElement("div");
+    content.style.width = `${size}px`;
+    content.style.height = `${size}px`;
+    content.style.display = "grid";
+    content.style.placeItems = "center";
+    content.style.borderRadius = "999px";
+    content.style.backgroundImage = `url("${getClusterIconUrl(count, isLargeCluster)}")`;
+    content.style.backgroundSize = "contain";
+    content.style.backgroundRepeat = "no-repeat";
+    content.style.color = "#FFFFFF";
+    content.style.fontSize = count >= 100 ? "12px" : "13px";
+    content.style.fontWeight = "700";
+    content.style.lineHeight = "1";
+    content.style.textShadow = "0 1px 2px rgb(8 47 73 / 0.42)";
+    content.textContent = String(count);
+
+    return new google.maps.marker.AdvancedMarkerElement({
       position,
       title: `Cluster of ${count} dive sites`,
-      icon: {
-        url: getClusterIconUrl(count, isLargeCluster),
-        scaledSize: new google.maps.Size(size, size),
-        anchor: new google.maps.Point(size / 2, size / 2),
-      },
-      label: {
-        text: String(count),
-        color: "#FFFFFF",
-        fontSize: count >= 100 ? "12px" : "13px",
-        fontWeight: "700",
-      },
-      zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+      content,
+      zIndex: 1000 + count,
     });
   },
 };
@@ -121,8 +140,12 @@ function ExploreMarkers({
   onSelectSpot: (spot: DiveSpot) => void;
 }) {
   const map = useMap();
+  const [markerLibrary, setMarkerLibrary] =
+    useState<google.maps.MarkerLibrary | null>(null);
   const clustererRef = useRef<MarkerClusterer | null>(null);
-  const markersRef = useRef(new globalThis.Map<string, google.maps.Marker>());
+  const markersRef = useRef(
+    new globalThis.Map<string, google.maps.marker.AdvancedMarkerElement>(),
+  );
   const spotsWithCoordinates = useMemo(
     () =>
       spots.filter(
@@ -133,24 +156,41 @@ function ExploreMarkers({
   );
 
   useEffect(() => {
-    if (!map || clustererRef.current) return;
+    if (!map || markerLibrary) return;
+
+    let isActive = true;
+
+    void google.maps.importLibrary("marker").then((library) => {
+      if (isActive) {
+        setMarkerLibrary(library as google.maps.MarkerLibrary);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [map, markerLibrary]);
+
+  useEffect(() => {
+    if (!map || !markerLibrary || clustererRef.current) return;
 
     // The clusterer instance is created once and then fed marker updates, which avoids churn while panning.
     clustererRef.current = new MarkerClusterer({
       map,
       renderer: exploreClusterRenderer,
     });
-  }, [map]);
+  }, [map, markerLibrary]);
 
   useEffect(() => {
-    if (!map || !clustererRef.current) return;
+    if (!map || !markerLibrary || !clustererRef.current) return;
 
     const nextIds = new Set(spotsWithCoordinates.map((spot) => spot.id));
 
     for (const [spotId, marker] of markersRef.current.entries()) {
       if (!nextIds.has(spotId)) {
         clustererRef.current.removeMarker(marker);
-        marker.setMap(null);
+        marker.map = null;
+        removeMarkerContent(marker.content);
         markersRef.current.delete(spotId);
       }
     }
@@ -158,18 +198,19 @@ function ExploreMarkers({
     for (const spot of spotsWithCoordinates) {
       const currentMarker = markersRef.current.get(spot.id);
       const isSelected = spot.id === selectedSpotId;
-      const icon = getMarkerIcon(isSelected);
+      const content = createMarkerContent(isSelected);
 
       if (currentMarker) {
-        currentMarker.setIcon(icon);
-        currentMarker.setZIndex(isSelected ? 100 : 1);
+        removeMarkerContent(currentMarker.content);
+        currentMarker.content = content;
+        currentMarker.zIndex = isSelected ? 100 : 1;
         continue;
       }
 
-      const marker = new google.maps.Marker({
+      const marker = new markerLibrary.AdvancedMarkerElement({
         position: { lat: spot.lat, lng: spot.lng },
         title: spot.name,
-        icon,
+        content,
         zIndex: isSelected ? 100 : 1,
       });
 
@@ -178,13 +219,15 @@ function ExploreMarkers({
     }
 
     clustererRef.current.clearMarkers();
-    clustererRef.current.addMarkers(Array.from(markersRef.current.values()));
-  }, [map, onSelectSpot, selectedSpotId, spotsWithCoordinates]);
+    clustererRef.current.addMarkers(
+      Array.from(markersRef.current.values()) as ClusterMarker[],
+    );
+  }, [map, markerLibrary, onSelectSpot, selectedSpotId, spotsWithCoordinates]);
 
   useEffect(() => {
     if (!selectedSpotId || !map) return;
     const selectedMarker = markersRef.current.get(selectedSpotId);
-    const position = selectedMarker?.getPosition();
+    const position = selectedMarker?.position;
     if (!position) return;
     map.panTo(position);
   }, [map, selectedSpotId]);

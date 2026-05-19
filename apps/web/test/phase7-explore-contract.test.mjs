@@ -75,7 +75,10 @@ test("live explore layout wires filters, map selection, and selected preview", a
   assert.match(layoutSource, /Open site/);
 
   assert.match(mapSource, /MarkerClusterer/);
+  assert.match(mapSource, /importLibrary\("marker"\)/);
+  assert.match(mapSource, /AdvancedMarkerElement/);
+  assert.doesNotMatch(mapSource, /new google\.maps\.Marker/);
   assert.match(mapSource, /onSelectSpot\(spot\)/);
-  assert.match(mapSource, /scaledSize: isSelected/);
+  assert.match(mapSource, /MARKER_ICON_SIZE\.selected/);
   assert.match(mapSource, /map\.panTo\(position\)/);
 });
