@@ -36,10 +36,10 @@ func modeMultiplier(mode Mode, itemType ItemType, localBoost float64) (float64, 
 	reasons := make([]string, 0, 2)
 	multiplier := 1.0
 	switch mode {
-	case ModeFollowing:
+	case ModeLatest:
 		if itemType == ItemTypePost || itemType == ItemTypeMediaPost || itemType == ItemTypeBuddySignal || itemType == ItemTypeEvent {
 			multiplier += 0.35
-			reasons = append(reasons, "following")
+			reasons = append(reasons, "latest")
 		}
 		if itemType == ItemTypeDiveSpot {
 			multiplier -= 0.08
@@ -56,21 +56,23 @@ func modeMultiplier(mode Mode, itemType ItemType, localBoost float64) (float64, 
 		if itemType == ItemTypeDiveSpot || itemType == ItemTypePost || itemType == ItemTypeMediaPost {
 			multiplier += 0.18
 		}
-	case ModeTraining:
-		if itemType == ItemTypePost || itemType == ItemTypeMediaPost || itemType == ItemTypeBuddySignal || itemType == ItemTypeEvent {
-			multiplier += 0.30
-			reasons = append(reasons, "training_affinity")
+	case ModeChika:
+		if itemType == ItemTypeCommunityHot {
+			multiplier += 0.40
+			reasons = append(reasons, "chika")
 		}
-		if itemType == ItemTypeDiveSpot {
-			multiplier -= 0.12
-		}
-	case ModeSpotReports:
+	case ModeDiveReports:
 		if itemType == ItemTypeDiveSpot || itemType == ItemTypePost || itemType == ItemTypeMediaPost {
 			multiplier += 0.38
-			reasons = append(reasons, "spot_reports")
+			reasons = append(reasons, "dive_reports")
 		}
 		if itemType == ItemTypeCommunityHot {
 			multiplier -= 0.10
+		}
+	case ModeEvents:
+		if itemType == ItemTypeEvent {
+			multiplier += 0.40
+			reasons = append(reasons, "event_activity")
 		}
 	}
 	return multiplier, reasons

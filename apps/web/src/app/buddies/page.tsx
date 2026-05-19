@@ -27,17 +27,20 @@ import type {
   OutgoingBuddyRequest,
 } from "@freediving.ph/types";
 
+import {
+  CommunityAccessNote,
+  CommunityBrowseToolbar,
+  CommunityEmptyState,
+  CommunityHeader,
+  CommunityPageShell,
+  CommunitySectionNav,
+  CommunityStats,
+} from "@/components/community/community-page";
 import { TrustCard } from "@/components/trust-card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -326,466 +329,67 @@ export default function BuddiesPage() {
   };
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.12),_transparent_28%),linear-gradient(180deg,_hsl(var(--background))_0%,_hsl(var(--muted)/0.35)_100%)] px-3 py-4 sm:px-5 sm:py-5 lg:px-8 lg:py-6">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-5 lg:gap-6">
-        <section className="overflow-hidden rounded-[1.4rem] border border-border/70 bg-card/95 shadow-sm sm:rounded-[1.75rem]">
-          <div className="grid gap-4 p-4 sm:gap-5 sm:p-5 lg:grid-cols-[1.2fr_0.8fr] lg:gap-6 lg:p-7">
-            <div className="space-y-3 sm:space-y-4">
-              <Badge className="w-fit rounded-full bg-primary px-2.5 py-0.5 text-[10px] text-primary-foreground sm:px-3 sm:py-1 sm:text-xs">
-                Buddies hub
-              </Badge>
-              <div className="space-y-2 sm:space-y-3">
-                <h1 className="max-w-3xl font-serif text-[1.75rem] leading-tight tracking-tight text-foreground sm:text-4xl lg:text-[2.8rem]">
-                  Find buddies and coordinate sessions.
-                </h1>
-                <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
-                  Connect with divers for upcoming sessions or build your
-                  long-term dive network.
-                </p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
-                <StatCard
-                  label={isSignedIn ? "Buddies" : "Buddy posts"}
-                  value={String(isSignedIn ? counts.buddies : counts.preview)}
-                  icon={<Users className="h-4 w-4" />}
-                />
-                <StatCard
-                  label={isSignedIn ? "Requests" : "Safe chats"}
-                  value={String(isSignedIn ? counts.incoming : 1)}
-                  icon={<HeartHandshake className="h-4 w-4" />}
-                />
-                <StatCard
-                  label={isSignedIn ? "Your posts" : "Areas nearby"}
-                  value={String(isSignedIn ? counts.activePosts : 0)}
-                  icon={<ShieldCheck className="h-4 w-4" />}
-                />
-              </div>
-            </div>
+    <CommunityPageShell>
+      <CommunitySectionNav />
+      <CommunityHeader
+        eyebrow="Buddies"
+        title="Find dive buddies for your next session"
+        subtitle="Post where and when you’re diving, discover nearby plans, and start conversations safely."
+        action={
+          isSignedIn ? (
+            <Button size="lg" render={<a href="#post-availability" />}>
+              <Plus className="mr-2 h-4 w-4" />
+              Post availability
+            </Button>
+          ) : (
+            <SignInButton mode="modal">
+              <Button size="lg">Sign in to connect</Button>
+            </SignInButton>
+          )
+        }
+      />
 
-            <Card className="border-border/70 bg-[linear-gradient(180deg,_hsl(var(--primary)/0.16)_0%,_hsl(var(--card))_100%)]">
-              <CardHeader className="space-y-2 p-4 sm:space-y-3 sm:p-6">
-                <CardTitle className="text-lg text-foreground sm:text-xl">
-                  {isSignedIn ? "Buddy Finder" : "Public buddy posts"}
-                </CardTitle>
-                <CardDescription className="text-sm text-foreground/75">
-                  {isSignedIn
-                    ? "Post your availability to find partners for specific sessions, or build your buddy list for future dives."
-                    : "Browse broad public buddy posts by area. Sign in when you want to see profiles, message safely, or save a diver for later."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 p-4 pt-0 text-sm text-foreground/80 sm:space-y-4 sm:p-6 sm:pt-0">
-                <div className="rounded-2xl border border-border/60 bg-background/80 p-3 sm:rounded-3xl sm:p-4">
-                  <p className="font-medium text-foreground">Privacy first</p>
-                  <p className="mt-1">
-                    Exact locations are private. Guest view only shows general
-                    areas and times.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-border/60 bg-background/80 p-3 sm:rounded-3xl sm:p-4">
-                  <p className="font-medium text-foreground">For members</p>
-                  <p className="mt-1">
-                    Sign in to see profiles, send messages, and manage your
-                    buddy connections.
-                  </p>
-                </div>
-                {!isSignedIn ? (
-                  <SignInButton mode="modal">
-                    <Button className="w-full" size="default">
-                      Sign in to connect safely
-                    </Button>
-                  </SignInButton>
-                ) : null}
-              </CardContent>
-            </Card>
-          </div>
-        </section>
+      <CommunityStats
+        items={[
+          {
+            label: "Buddies",
+            value: String(isSignedIn ? counts.buddies : counts.preview),
+            icon: <Users className="h-4 w-4" />,
+          },
+          {
+            label: "Open requests",
+            value: String(isSignedIn ? counts.incoming : 0),
+            icon: <HeartHandshake className="h-4 w-4" />,
+          },
+          {
+            label: "Active posts",
+            value: String(isSignedIn ? counts.activePosts : counts.preview),
+            icon: <ShieldCheck className="h-4 w-4" />,
+          },
+        ]}
+      />
 
-        {isSignedIn ? (
-          <>
-            <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-              <Card className="rounded-[1.4rem] border-border/70 bg-card/95 sm:rounded-[1.75rem]">
-                <CardHeader className="gap-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                    <Users className="h-4 w-4" />
-                    Your buddies
-                  </div>
-                  <CardTitle className="text-xl sm:text-2xl">
-                    Buddies and requests
-                  </CardTitle>
-                  <CardDescription>
-                    Manage your trusted dive partners and incoming connections.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Tabs defaultValue="buddies" className="gap-5">
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="buddies">
-                        Buddies ({counts.buddies})
-                      </TabsTrigger>
-                      <TabsTrigger value="incoming">
-                        Requests ({counts.incoming})
-                      </TabsTrigger>
-                      <TabsTrigger value="outgoing">
-                        Sent ({counts.outgoing})
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="buddies" className="space-y-3">
-                      {buddiesQuery.isPending ? (
-                        <LoadingState
-                          title="Checking your buddy list"
-                          description="Your trusted dive partners will appear here once your account is ready."
-                        />
-                      ) : buddies.length > 0 ? (
-                        buddies.map((item) => (
-                          <RelationshipCard
-                            key={item.userId}
-                            profile={item}
-                            description="Trusted connection"
-                            actions={
-                              <>
-                                <Link
-                                  className="text-sm font-medium text-primary hover:underline"
-                                  href={getProfileRoute(item.username)}
-                                >
-                                  View profile
-                                </Link>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  disabled={removeBuddyMutation.isPending}
-                                  onClick={() =>
-                                    void handleRemoveBuddy(item.userId)
-                                  }
-                                >
-                                  Remove
-                                </Button>
-                              </>
-                            }
-                          />
-                        ))
-                      ) : (
-                        <EmptyState
-                          title="Your buddy list is ready to grow"
-                          description="Use Buddy Finder below or send a request from a diver profile when someone feels like a reliable match."
-                        />
-                      )}
-                    </TabsContent>
-                    <TabsContent value="incoming" className="space-y-3">
-                      {incomingQuery.isPending ? (
-                        <LoadingState
-                          title="Checking buddy requests"
-                          description="Incoming requests from other divers will appear here."
-                        />
-                      ) : incoming.length > 0 ? (
-                        incoming.map((item) => (
-                          <RelationshipCard
-                            key={item.request.id}
-                            profile={item.requester}
-                            description={`Requested ${formatTimestamp(item.request.createdAt)}`}
-                            actions={
-                              <>
-                                <Button
-                                  size="sm"
-                                  disabled={
-                                    acceptBuddyRequestMutation.isPending
-                                  }
-                                  onClick={() =>
-                                    void handleAcceptRequest(item.request.id)
-                                  }
-                                >
-                                  Accept
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={
-                                    declineBuddyRequestMutation.isPending
-                                  }
-                                  onClick={() =>
-                                    void handleDeclineRequest(item.request.id)
-                                  }
-                                >
-                                  Decline
-                                </Button>
-                              </>
-                            }
-                          />
-                        ))
-                      ) : (
-                        <EmptyState
-                          title="No one is waiting on you right now"
-                          description="When another diver asks to connect, you can review the request here before accepting."
-                        />
-                      )}
-                    </TabsContent>
-                    <TabsContent value="outgoing" className="space-y-3">
-                      {outgoingQuery.isPending ? (
-                        <LoadingState
-                          title="Checking sent requests"
-                          description="Requests you have sent to other divers will appear here."
-                        />
-                      ) : outgoing.length > 0 ? (
-                        outgoing.map((item) => (
-                          <RelationshipCard
-                            key={item.request.id}
-                            profile={item.target}
-                            description={`Pending since ${formatTimestamp(item.request.createdAt)}`}
-                            actions={
-                              <>
-                                <Badge variant="outline">Pending</Badge>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={
-                                    cancelBuddyRequestMutation.isPending
-                                  }
-                                  onClick={() =>
-                                    void handleCancelRequest(item.request.id)
-                                  }
-                                >
-                                  Cancel
-                                </Button>
-                              </>
-                            }
-                          />
-                        ))
-                      ) : (
-                        <EmptyState
-                          title="No sent requests right now"
-                          description="Send a buddy request when you meet someone you want to keep diving with."
-                        />
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
+      <CommunityAccessNote>
+        Share your availability, browse nearby dive plans, and connect without
+        exposing exact locations. Exact locations stay private until you choose
+        to share them.
+      </CommunityAccessNote>
 
-              <Card className="rounded-[1.4rem] border-border/70 bg-card/95 sm:rounded-[1.75rem]">
-                <CardHeader className="gap-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                    <Plus className="h-4 w-4" />
-                    Post availability
-                  </div>
-                  <CardTitle className="text-xl sm:text-2xl">
-                    Post Availability
-                  </CardTitle>
-                  <CardDescription>
-                    Let others know when and where you want to dive.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <div className="grid gap-3">
-                    <div className="space-y-2">
-                      <Label>Area</Label>
-                      <Input
-                        value={newIntent.area}
-                        onChange={(event) =>
-                          setNewIntent((current) => ({
-                            ...current,
-                            area: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Session type</Label>
-                        <Select
-                          value={newIntent.intentType}
-                          onValueChange={(value) =>
-                            setNewIntent((current) => ({
-                              ...current,
-                              intentType: value as IntentType,
-                            }))
-                          }
-                          items={INTENT_TYPE_ITEMS}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {INTENT_TYPE_ITEMS.map((item) => (
-                              <SelectItem key={item.value} value={item.value}>
-                                {item.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Time window</Label>
-                        <Select
-                          value={newIntent.timeWindow}
-                          onValueChange={(value) =>
-                            setNewIntent((current) => ({
-                              ...current,
-                              timeWindow: value as TimeWindow,
-                            }))
-                          }
-                          items={TIME_WINDOW_ITEMS}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TIME_WINDOW_ITEMS.map((item) => (
-                              <SelectItem key={item.value} value={item.value}>
-                                {item.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    {newIntent.timeWindow === "specific_date" ? (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label>Date start</Label>
-                          <Input
-                            type="date"
-                            value={newIntent.dateStart}
-                            onChange={(event) =>
-                              setNewIntent((current) => ({
-                                ...current,
-                                dateStart: event.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Date end</Label>
-                          <Input
-                            type="date"
-                            value={newIntent.dateEnd}
-                            onChange={(event) =>
-                              setNewIntent((current) => ({
-                                ...current,
-                                dateEnd: event.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                    <div className="space-y-2">
-                      <Label>Short note</Label>
-                      <Textarea
-                        placeholder="Example: Looking for a line training partner for Saturday morning. Comfortable in 20-30m sessions."
-                        value={newIntent.note}
-                        onChange={(event) =>
-                          setNewIntent((current) => ({
-                            ...current,
-                            note: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl border border-border/70 bg-muted/45 p-4 text-sm text-muted-foreground">
-                    Area stays broad for privacy. New conversations start as
-                    requests unless you are already buddies.
-                  </div>
-
-                  <Button
-                    className="w-full"
-                    disabled={createIntentMutation.isPending}
-                    onClick={() =>
-                      createIntentMutation.mutate({
-                        area: newIntent.area,
-                        intentType: newIntent.intentType,
-                        timeWindow: newIntent.timeWindow,
-                        dateStart: newIntent.dateStart || undefined,
-                        dateEnd: newIntent.dateEnd || undefined,
-                        note: newIntent.note || undefined,
-                      })
-                    }
-                  >
-                    {createIntentMutation.isPending
-                      ? "Posting availability..."
-                      : "Post availability"}
-                  </Button>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-foreground">
-                        Your active posts
-                      </h3>
-                      <span className="text-xs text-muted-foreground">
-                        Posts expire automatically.
-                      </span>
-                    </div>
-                    {myIntentsQuery.isPending ? (
-                      <LoadingState
-                        title="Checking your availability posts"
-                        description="Active buddy posts you created will appear here."
-                      />
-                    ) : myIntents.length > 0 ? (
-                      myIntents.map((item) => (
-                        <Card
-                          key={item.id}
-                          className="border-border/60 bg-background/80"
-                        >
-                          <CardContent className="flex flex-wrap items-start justify-between gap-3 p-4">
-                            <div className="space-y-2">
-                              <div className="flex flex-wrap gap-2">
-                                <Badge>
-                                  {labelForIntentType(item.intentType)}
-                                </Badge>
-                                <Badge variant="outline">
-                                  {labelForTimeWindow(item.timeWindow)}
-                                </Badge>
-                              </div>
-                              <p className="text-sm font-medium text-foreground">
-                                {item.area}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {item.note || "No note added."}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Expires {formatTimestamp(item.expiresAt)}
-                              </p>
-                            </div>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              disabled={deleteIntentMutation.isPending}
-                              onClick={() =>
-                                deleteIntentMutation.mutate(item.id)
-                              }
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Remove
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      ))
-                    ) : (
-                      <EmptyState
-                        title="Your availability is clear"
-                        description="Post when you have a real session in mind so other divers know when and where to reach out."
-                      />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </section>
-
-            <section className="space-y-4 rounded-[1.4rem] border border-border/70 bg-card/95 p-4 shadow-sm sm:rounded-[1.75rem] sm:p-5 lg:p-6">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
+      {isSignedIn ? (
+        <>
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="space-y-5">
+              <CommunityBrowseToolbar
+                label={
+                  <>
                     <Compass className="h-4 w-4" />
                     Find dive partners
-                  </div>
-                  <h2 className="font-serif text-3xl tracking-tight text-foreground">
-                    Community Availability
-                  </h2>
-                  <p className="max-w-2xl text-sm text-muted-foreground">
-                    Browse active sessions and find divers looking for partners.
-                  </p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3">
+                  </>
+                }
+                title="Community availability"
+                description="Browse active sessions and find divers looking for partners."
+              >
+                <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[560px]">
                   <Input
                     placeholder="Area or city"
                     value={area}
@@ -832,7 +436,7 @@ export default function BuddiesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
+              </CommunityBrowseToolbar>
 
               {intentsQuery.error ? (
                 <ErrorBlock
@@ -894,105 +498,446 @@ export default function BuddiesPage() {
               </div>
 
               {memberItems.length === 0 && !intentsQuery.isPending ? (
-                <EmptyState
-                  title="This buddy search is quiet right now"
-                  description="Try a broader area, clear the filters, or post your own availability so other divers can reach out."
+                <CommunityEmptyState
+                  title="No buddy posts yet"
+                  description="Post your availability or widen your filters to find divers nearby."
+                  action={
+                    <Button size="sm" render={<a href="#post-availability" />}>
+                      Post availability
+                    </Button>
+                  }
                 />
               ) : null}
-            </section>
-          </>
-        ) : (
-          <section className="space-y-4 rounded-[1.4rem] border border-border/70 bg-card/95 p-4 shadow-sm sm:rounded-[1.75rem] sm:p-5 lg:p-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            </div>
+
+            <aside
+              id="post-availability"
+              className="space-y-5 rounded-2xl border border-border/60 bg-background/70 p-4 sm:p-5"
+            >
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                  <ShieldCheck className="h-4 w-4" />
-                  Public buddy posts
+                  <Plus className="h-4 w-4" />
+                  Post availability
                 </div>
-                <h2 className="font-serif text-3xl tracking-tight text-foreground">
-                  Divers looking for buddies
+                <h2 className="font-serif text-2xl tracking-tight text-foreground">
+                  Share a real dive plan
                 </h2>
-                <p className="max-w-2xl text-sm text-muted-foreground">
-                  Browse broad public posts first. Sign in when you want to see
-                  profiles, message safely, or save someone for later.
+                <p className="text-sm text-muted-foreground">
+                  Let others know the broad area and timing for your next
+                  session.
                 </p>
               </div>
-              <div className="w-full max-w-sm">
-                <Input
-                  placeholder="Area or city"
-                  value={area}
-                  onChange={(event) => setArea(event.target.value)}
-                />
-              </div>
-            </div>
 
-            {previewQuery.error ? (
-              <ErrorBlock
-                message={getApiErrorMessage(
-                  previewQuery.error,
-                  "Public buddy posts are taking longer than expected. Try again in a moment.",
-                )}
-              />
-            ) : null}
-
-            <div className="grid gap-4 xl:grid-cols-2">
-              {previewQuery.isPending ? (
-                <LoadingState
-                  title="Looking for public buddy posts"
-                  description="We are checking broad areas and time windows without exposing exact plans."
-                />
-              ) : (
-                previewItems.map((item) => (
-                  <PreviewCard key={item.id} item={item} />
-                ))
-              )}
-            </div>
-
-            {previewItems.length === 0 && !previewQuery.isPending ? (
-              <EmptyState
-                title="This area is quiet right now"
-                description="Try a broader area, or sign in to post when you are looking for a real dive partner."
-              />
-            ) : null}
-
-            <Card className="border-dashed border-primary/30 bg-primary/5">
-              <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-lg font-semibold text-foreground">
-                    Sign in to connect
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Member profiles, messages, saved divers, and buddy requests
-                    stay behind sign-in so coordination feels safer.
-                  </p>
+              <div className="grid gap-3">
+                <div className="space-y-2">
+                  <Label>Area</Label>
+                  <Input
+                    value={newIntent.area}
+                    onChange={(event) =>
+                      setNewIntent((current) => ({
+                        ...current,
+                        area: event.target.value,
+                      }))
+                    }
+                  />
                 </div>
-                <SignInButton mode="modal">
-                  <Button size="lg">Sign in to connect safely</Button>
-                </SignInButton>
-              </CardContent>
-            </Card>
-          </section>
-        )}
-      </div>
-    </div>
-  );
-}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Session type</Label>
+                    <Select
+                      value={newIntent.intentType}
+                      onValueChange={(value) =>
+                        setNewIntent((current) => ({
+                          ...current,
+                          intentType: value as IntentType,
+                        }))
+                      }
+                      items={INTENT_TYPE_ITEMS}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INTENT_TYPE_ITEMS.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Time window</Label>
+                    <Select
+                      value={newIntent.timeWindow}
+                      onValueChange={(value) =>
+                        setNewIntent((current) => ({
+                          ...current,
+                          timeWindow: value as TimeWindow,
+                        }))
+                      }
+                      items={TIME_WINDOW_ITEMS}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_WINDOW_ITEMS.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {newIntent.timeWindow === "specific_date" ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Date start</Label>
+                      <Input
+                        type="date"
+                        value={newIntent.dateStart}
+                        onChange={(event) =>
+                          setNewIntent((current) => ({
+                            ...current,
+                            dateStart: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Date end</Label>
+                      <Input
+                        type="date"
+                        value={newIntent.dateEnd}
+                        onChange={(event) =>
+                          setNewIntent((current) => ({
+                            ...current,
+                            dateEnd: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                <div className="space-y-2">
+                  <Label>Short note</Label>
+                  <Textarea
+                    placeholder="Example: Looking for a line training partner for Saturday morning. Comfortable in 20-30m sessions."
+                    value={newIntent.note}
+                    onChange={(event) =>
+                      setNewIntent((current) => ({
+                        ...current,
+                        note: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
 
-function StatCard({
-  label,
-  value,
-  icon,
-}: { label: string; value: string; icon: ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-border/60 bg-background/80 p-3 sm:rounded-3xl sm:p-4">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-        {icon}
-        {label}
-      </div>
-      <p className="mt-2 text-xl font-semibold text-foreground sm:mt-3 sm:text-2xl">
-        {value}
-      </p>
-    </div>
+              <div className="rounded-2xl bg-muted/45 p-4 text-sm text-muted-foreground">
+                Area stays broad for privacy. New conversations start as
+                requests unless you are already buddies.
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={createIntentMutation.isPending}
+                onClick={() =>
+                  createIntentMutation.mutate({
+                    area: newIntent.area,
+                    intentType: newIntent.intentType,
+                    timeWindow: newIntent.timeWindow,
+                    dateStart: newIntent.dateStart || undefined,
+                    dateEnd: newIntent.dateEnd || undefined,
+                    note: newIntent.note || undefined,
+                  })
+                }
+              >
+                {createIntentMutation.isPending
+                  ? "Posting availability..."
+                  : "Post availability"}
+              </Button>
+
+              <div className="space-y-3 border-t border-border/60 pt-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Your active posts
+                  </h3>
+                  <span className="text-xs text-muted-foreground">
+                    Posts expire automatically.
+                  </span>
+                </div>
+                {myIntentsQuery.isPending ? (
+                  <LoadingState
+                    title="Checking your availability posts"
+                    description="Active buddy posts you created will appear here."
+                  />
+                ) : myIntents.length > 0 ? (
+                  myIntents.map((item) => (
+                    <Card
+                      key={item.id}
+                      className="border-border/60 bg-background/80"
+                    >
+                      <CardContent className="flex flex-wrap items-start justify-between gap-3 p-4">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge>{labelForIntentType(item.intentType)}</Badge>
+                            <Badge variant="outline">
+                              {labelForTimeWindow(item.timeWindow)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium text-foreground">
+                            {item.area}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.note || "No note added."}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Expires {formatTimestamp(item.expiresAt)}
+                          </p>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={deleteIntentMutation.isPending}
+                          onClick={() => deleteIntentMutation.mutate(item.id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remove
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <EmptyState
+                    title="Your availability is clear"
+                    description="Post when you have a real session in mind so other divers know when and where to reach out."
+                  />
+                )}
+              </div>
+            </aside>
+          </section>
+
+          <section className="space-y-5 border-t border-border/60 pt-6">
+            <CommunityBrowseToolbar
+              label={
+                <>
+                  <Users className="h-4 w-4" />
+                  My network
+                </>
+              }
+              title="Buddies and requests"
+              description="Manage trusted dive partners, incoming requests, and invitations you have sent."
+            />
+
+            <Tabs defaultValue="buddies" className="gap-5">
+              <TabsList className="grid w-full grid-cols-3 md:max-w-xl">
+                <TabsTrigger value="buddies">
+                  Buddies ({counts.buddies})
+                </TabsTrigger>
+                <TabsTrigger value="incoming">
+                  Requests ({counts.incoming})
+                </TabsTrigger>
+                <TabsTrigger value="outgoing">
+                  Sent ({counts.outgoing})
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="buddies" className="space-y-3">
+                {buddiesQuery.isPending ? (
+                  <LoadingState
+                    title="Checking your buddy list"
+                    description="Your trusted dive partners will appear here once your account is ready."
+                  />
+                ) : buddies.length > 0 ? (
+                  buddies.map((item) => (
+                    <RelationshipCard
+                      key={item.userId}
+                      profile={item}
+                      description="Trusted connection"
+                      actions={
+                        <>
+                          <Link
+                            className="text-sm font-medium text-primary hover:underline"
+                            href={getProfileRoute(item.username)}
+                          >
+                            View profile
+                          </Link>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            disabled={removeBuddyMutation.isPending}
+                            onClick={() => void handleRemoveBuddy(item.userId)}
+                          >
+                            Remove
+                          </Button>
+                        </>
+                      }
+                    />
+                  ))
+                ) : (
+                  <EmptyState
+                    title="Your buddy list is ready to grow"
+                    description="Browse active posts or send a request from a diver profile when someone feels like a reliable match."
+                  />
+                )}
+              </TabsContent>
+              <TabsContent value="incoming" className="space-y-3">
+                {incomingQuery.isPending ? (
+                  <LoadingState
+                    title="Checking buddy requests"
+                    description="Incoming requests from other divers will appear here."
+                  />
+                ) : incoming.length > 0 ? (
+                  incoming.map((item) => (
+                    <RelationshipCard
+                      key={item.request.id}
+                      profile={item.requester}
+                      description={`Requested ${formatTimestamp(item.request.createdAt)}`}
+                      actions={
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={acceptBuddyRequestMutation.isPending}
+                            onClick={() =>
+                              void handleAcceptRequest(item.request.id)
+                            }
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={declineBuddyRequestMutation.isPending}
+                            onClick={() =>
+                              void handleDeclineRequest(item.request.id)
+                            }
+                          >
+                            Decline
+                          </Button>
+                        </>
+                      }
+                    />
+                  ))
+                ) : (
+                  <EmptyState
+                    title="No pending buddy requests"
+                    description="When another diver asks to connect, review the request here before accepting."
+                  />
+                )}
+              </TabsContent>
+              <TabsContent value="outgoing" className="space-y-3">
+                {outgoingQuery.isPending ? (
+                  <LoadingState
+                    title="Checking sent requests"
+                    description="Requests you have sent to other divers will appear here."
+                  />
+                ) : outgoing.length > 0 ? (
+                  outgoing.map((item) => (
+                    <RelationshipCard
+                      key={item.request.id}
+                      profile={item.target}
+                      description={`Pending since ${formatTimestamp(item.request.createdAt)}`}
+                      actions={
+                        <>
+                          <Badge variant="outline">Pending</Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={cancelBuddyRequestMutation.isPending}
+                            onClick={() =>
+                              void handleCancelRequest(item.request.id)
+                            }
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      }
+                    />
+                  ))
+                ) : (
+                  <EmptyState
+                    title="No sent requests"
+                    description="Send a buddy request when you meet someone you want to keep diving with."
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
+          </section>
+        </>
+      ) : (
+        <section className="space-y-5">
+          <CommunityBrowseToolbar
+            label={
+              <>
+                <ShieldCheck className="h-4 w-4" />
+                Public buddy posts
+              </>
+            }
+            title="Divers looking for buddies"
+            description="Browse broad public posts first. Sign in when you want to see profiles, message safely, or save someone for later."
+          >
+            <div className="w-full max-w-sm">
+              <Input
+                placeholder="Area or city"
+                value={area}
+                onChange={(event) => setArea(event.target.value)}
+              />
+            </div>
+          </CommunityBrowseToolbar>
+
+          {previewQuery.error ? (
+            <ErrorBlock
+              message={getApiErrorMessage(
+                previewQuery.error,
+                "Public buddy posts are taking longer than expected. Try again in a moment.",
+              )}
+            />
+          ) : null}
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            {previewQuery.isPending ? (
+              <LoadingState
+                title="Looking for public buddy posts"
+                description="We are checking broad areas and time windows without exposing exact plans."
+              />
+            ) : (
+              previewItems.map((item) => (
+                <PreviewCard key={item.id} item={item} />
+              ))
+            )}
+          </div>
+
+          {previewItems.length === 0 && !previewQuery.isPending ? (
+            <CommunityEmptyState
+              title="No buddy posts yet"
+              description="Post your availability or widen your filters to find divers nearby."
+              action={
+                <SignInButton mode="modal">
+                  <Button size="sm">Post availability</Button>
+                </SignInButton>
+              }
+            />
+          ) : null}
+
+          <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-lg font-semibold text-foreground">
+                Sign in to connect
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Member profiles, messages, saved divers, and buddy requests stay
+                behind sign-in so coordination feels safer.
+              </p>
+            </div>
+            <SignInButton mode="modal">
+              <Button size="lg">Sign in to connect safely</Button>
+            </SignInButton>
+          </div>
+        </section>
+      )}
+    </CommunityPageShell>
   );
 }
 

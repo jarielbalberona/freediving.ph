@@ -77,29 +77,35 @@ export function MixedFeed({
       HomeFeedMode,
       { title: string; body: string; href: string; action: string }
     > = {
-      following: {
-        title: "Your feed is ready to grow",
-        body: "Follow divers, join Chika, or browse dive spots to start shaping what appears here.",
+      latest: {
+        title: "No recent activity yet",
+        body: "Recent public and member-safe community activity will appear here as divers post updates.",
         href: "/chika",
         action: "Open Chika",
       },
       nearby: {
         title: "Local updates will appear here",
-        body: "When divers share buddy posts or spot activity near you, this feed becomes your local pulse.",
+        body: "Nearby only shows items tied to your home area or an explicit area filter.",
         href: "/explore",
         action: "Explore spots",
       },
-      training: {
-        title: "Training is quiet right now",
-        body: "Training posts from the community will show here when divers share progress or sessions.",
+      chika: {
+        title: "No recent Chika threads",
+        body: "Public Chika threads will appear here without mixing in unrelated feed cards.",
         href: "/chika",
         action: "Start a Chika",
       },
-      "spot-reports": {
-        title: "Spot reports will appear here",
-        body: "Condition updates show up when divers share what they saw at a dive site.",
+      "dive-reports": {
+        title: "No dive reports yet",
+        body: "Dive reports only show site updates and condition-like activity.",
         href: "/explore",
         action: "Browse dive spots",
+      },
+      events: {
+        title: "No eligible events yet",
+        body: "Published events you are allowed to see will appear here.",
+        href: "/events",
+        action: "Browse events",
       },
     };
     const copy = emptyCopy[mode];

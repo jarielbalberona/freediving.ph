@@ -9,10 +9,11 @@ func TestModePriorityOrder(t *testing.T) {
 		mode Mode
 		want ItemType
 	}{
-		{mode: ModeFollowing, want: ItemTypePost},
+		{mode: ModeLatest, want: ItemTypePost},
 		{mode: ModeNearby, want: ItemTypeBuddySignal},
-		{mode: ModeTraining, want: ItemTypePost},
-		{mode: ModeSpotReports, want: ItemTypePost},
+		{mode: ModeChika, want: ItemTypeCommunityHot},
+		{mode: ModeDiveReports, want: ItemTypePost},
+		{mode: ModeEvents, want: ItemTypeEvent},
 	}
 
 	for _, tt := range tests {

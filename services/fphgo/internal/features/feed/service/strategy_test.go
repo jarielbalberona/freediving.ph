@@ -21,20 +21,20 @@ func TestPresentationForBuddySignalInNearbyMode(t *testing.T) {
 func TestContextForMode(t *testing.T) {
 	t.Parallel()
 
-	got := contextForMode(ModeTraining, false)
+	got := contextForMode(ModeChika, false)
 
 	if got.Greeting == "" || got.Message == "" || got.SafetyBadge == "" {
 		t.Fatalf("expected non-empty mode frame, got %#v", got)
 	}
-	if got.Greeting != "Training & Progress" {
-		t.Fatalf("unexpected training greeting %q", got.Greeting)
+	if got.Greeting != "Chika" {
+		t.Fatalf("unexpected chika greeting %q", got.Greeting)
 	}
 }
 
 func TestQuickActionsForMode(t *testing.T) {
 	t.Parallel()
 
-	got := quickActionsForMode(ModeSpotReports)
+	got := quickActionsForMode(ModeDiveReports)
 	if len(got) != 4 {
 		t.Fatalf("expected 4 quick actions, got %d", len(got))
 	}

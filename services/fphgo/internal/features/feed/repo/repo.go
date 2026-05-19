@@ -71,16 +71,19 @@ type MediaPostCandidateItem struct {
 }
 
 type CommunityCandidate struct {
-	ID             string
-	AuthorUserID   string
-	AuthorName     string
-	AuthorUsername string
-	Title          string
-	CategorySlug   string
-	CategoryName   string
-	ReplyCount     int64
-	ReactionCount  int64
-	CreatedAt      time.Time
+	ID                   string
+	AuthorUserID         string
+	AuthorName           string
+	AuthorUsername       string
+	AuthorPseudonym      string
+	Mode                 string
+	Title                string
+	CategorySlug         string
+	CategoryName         string
+	CategoryPseudonymous bool
+	ReplyCount           int64
+	ReactionCount        int64
+	CreatedAt            time.Time
 }
 
 type DiveSpotCandidate struct {
@@ -110,15 +113,20 @@ type BuddySignalCandidate struct {
 	ExpiresAt      time.Time
 	DiveSiteID     string
 	DiveSiteName   string
+	Visibility     string
 	SavedByViewer  bool
 }
 
 type EventCandidate struct {
-	ID           string
-	Title        string
-	CreatedAt    time.Time
-	MemberCount  int64
-	ViewerMember bool
+	ID               string
+	Title            string
+	Area             string
+	Status           string
+	Visibility       string
+	CreatedAt        time.Time
+	MemberCount      int64
+	ViewerMember     bool
+	ViewerAuthorized bool
 }
 
 type NearbyCondition struct {
@@ -155,6 +163,12 @@ type FeedActionInsert struct {
 	Mode       string
 	Value      map[string]any
 	CreatedAt  time.Time
+}
+
+type FeedHiddenItemInsert struct {
+	EntityType string
+	EntityID   string
+	Reason     string
 }
 
 func New(pool *pgxpool.Pool) *Repo {
@@ -241,7 +255,7 @@ func (r *Repo) ListNegativeActionCounts(ctx context.Context, userID string, sinc
 func (r *Repo) ListPostCandidates(ctx context.Context, input CandidateInput) ([]PostCandidate, error) {
 	const q = `
 		SELECT
-			u.id::text,
+			dsu.id::text,
 			dsu.author_app_user_id::text,
 			COALESCE(NULLIF(u.display_name, ''), u.username),
 			u.username,
@@ -266,6 +280,7 @@ func (r *Repo) ListPostCandidates(ctx context.Context, input CandidateInput) ([]
 		JOIN users u ON u.id = dsu.author_app_user_id
 		WHERE dsu.state = 'active'
 		  AND ds.moderation_state = 'approved'
+		  AND u.account_status = 'active'
 		  AND NOT EXISTS (
 			SELECT 1 FROM user_blocks b
 			WHERE (b.blocker_app_user_id = $1::uuid AND b.blocked_app_user_id = dsu.author_app_user_id)
@@ -467,17 +482,22 @@ func (r *Repo) ListCommunityCandidates(ctx context.Context, input CandidateInput
 			t.created_by_user_id::text,
 			COALESCE(NULLIF(u.display_name, ''), u.username),
 			u.username,
+			COALESCE(ta.pseudonym, ''),
+			t.mode,
 			t.title,
 			c.slug,
 			c.name,
+			c.pseudonymous,
 			COALESCE((SELECT COUNT(*) FROM chika_posts p WHERE p.thread_id = t.id AND p.deleted_at IS NULL), 0)::bigint,
 			COALESCE((SELECT COUNT(*) FROM chika_thread_reactions r WHERE r.thread_id = t.id), 0)::bigint,
 			t.created_at
 		FROM chika_threads t
 		JOIN users u ON u.id = t.created_by_user_id
 		JOIN chika_categories c ON c.id = t.category_id
+		LEFT JOIN chika_thread_aliases ta ON ta.thread_id = t.id AND ta.user_id = t.created_by_user_id
 		WHERE t.deleted_at IS NULL
 		  AND t.hidden_at IS NULL
+		  AND u.account_status = 'active'
 		  AND NOT EXISTS (
 			SELECT 1 FROM user_blocks b
 			WHERE (b.blocker_app_user_id = $1::uuid AND b.blocked_app_user_id = t.created_by_user_id)
@@ -506,9 +526,12 @@ func (r *Repo) ListCommunityCandidates(ctx context.Context, input CandidateInput
 			&item.AuthorUserID,
 			&item.AuthorName,
 			&item.AuthorUsername,
+			&item.AuthorPseudonym,
+			&item.Mode,
 			&item.Title,
 			&item.CategorySlug,
 			&item.CategoryName,
+			&item.CategoryPseudonymous,
 			&item.ReplyCount,
 			&item.ReactionCount,
 			&item.CreatedAt,
@@ -597,12 +620,17 @@ func (r *Repo) ListBuddySignalCandidates(ctx context.Context, input CandidateInp
 			bi.expires_at,
 			COALESCE(bi.dive_site_id::text, ''),
 			COALESCE(ds.name, ''),
+			bi.visibility,
 			EXISTS(SELECT 1 FROM dive_site_saves dss WHERE dss.app_user_id = $1::uuid AND dss.dive_site_id = bi.dive_site_id)
 		FROM buddy_intents bi
 		JOIN users u ON u.id = bi.author_app_user_id
 		LEFT JOIN dive_sites ds ON ds.id = bi.dive_site_id
 		WHERE bi.state = 'active'
 		  AND bi.expires_at >= NOW()
+		  AND bi.visibility = 'members'
+		  AND $1::uuid IS NOT NULL
+		  AND u.account_status = 'active'
+		  AND (bi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
 		  AND NOT EXISTS (
 			SELECT 1 FROM user_blocks b
 			WHERE (b.blocker_app_user_id = $1::uuid AND b.blocked_app_user_id = bi.author_app_user_id)
@@ -639,6 +667,7 @@ func (r *Repo) ListBuddySignalCandidates(ctx context.Context, input CandidateInp
 			&item.ExpiresAt,
 			&item.DiveSiteID,
 			&item.DiveSiteName,
+			&item.Visibility,
 			&item.SavedByViewer,
 		); scanErr != nil {
 			return nil, scanErr
@@ -658,11 +687,57 @@ func (r *Repo) ListEventCandidates(ctx context.Context, input CandidateInput) ([
 		SELECT
 			e.id::text,
 			e.title,
+			COALESCE(e.location, e.location_name, ''),
+			e.status,
+			e.visibility,
 			e.created_at,
 			COALESCE((SELECT COUNT(*) FROM event_memberships em WHERE em.event_id = e.id AND em.status = 'active'), 0)::bigint,
-			EXISTS(SELECT 1 FROM event_memberships mine WHERE mine.event_id = e.id AND mine.user_id = $1::uuid AND mine.status = 'active')
+			EXISTS(SELECT 1 FROM event_memberships mine WHERE mine.event_id = e.id AND mine.user_id = $1::uuid AND mine.status = 'active'),
+			(
+				e.visibility = 'public'
+				OR (
+					$1::uuid IS NOT NULL
+					AND e.visibility = 'group_members'
+					AND (
+						EXISTS(SELECT 1 FROM event_memberships emv WHERE emv.event_id = e.id AND emv.user_id = $1::uuid AND emv.status = 'active')
+						OR (
+							e.group_id IS NOT NULL
+							AND EXISTS(SELECT 1 FROM group_memberships gmv WHERE gmv.group_id = e.group_id AND gmv.user_id = $1::uuid AND gmv.status = 'active')
+						)
+					)
+				)
+				OR (
+					$1::uuid IS NOT NULL
+					AND e.visibility = 'invite_only'
+					AND EXISTS(SELECT 1 FROM event_memberships eiv WHERE eiv.event_id = e.id AND eiv.user_id = $1::uuid AND eiv.status = 'active')
+				)
+			)
 		FROM events e
-		WHERE NOT EXISTS (
+		LEFT JOIN users organizer ON organizer.id = e.organizer_user_id
+		LEFT JOIN groups g ON g.id = e.group_id
+		WHERE e.status = 'published'
+		  AND (e.organizer_user_id IS NULL OR organizer.account_status = 'active')
+		  AND (e.group_id IS NULL OR g.status = 'active')
+		  AND (
+			e.visibility = 'public'
+			OR (
+				$1::uuid IS NOT NULL
+				AND e.visibility = 'group_members'
+				AND (
+					EXISTS(SELECT 1 FROM event_memberships emv WHERE emv.event_id = e.id AND emv.user_id = $1::uuid AND emv.status = 'active')
+					OR (
+						e.group_id IS NOT NULL
+						AND EXISTS(SELECT 1 FROM group_memberships gmv WHERE gmv.group_id = e.group_id AND gmv.user_id = $1::uuid AND gmv.status = 'active')
+					)
+				)
+			)
+			OR (
+				$1::uuid IS NOT NULL
+				AND e.visibility = 'invite_only'
+				AND EXISTS(SELECT 1 FROM event_memberships eiv WHERE eiv.event_id = e.id AND eiv.user_id = $1::uuid AND eiv.status = 'active')
+			)
+		  )
+		  AND NOT EXISTS (
 			SELECT 1 FROM user_hidden_feed_items h
 			WHERE h.user_id = $1::uuid
 			  AND h.entity_type = 'event'
@@ -680,7 +755,7 @@ func (r *Repo) ListEventCandidates(ctx context.Context, input CandidateInput) ([
 	items := make([]EventCandidate, 0)
 	for rows.Next() {
 		var item EventCandidate
-		if scanErr := rows.Scan(&item.ID, &item.Title, &item.CreatedAt, &item.MemberCount, &item.ViewerMember); scanErr != nil {
+		if scanErr := rows.Scan(&item.ID, &item.Title, &item.Area, &item.Status, &item.Visibility, &item.CreatedAt, &item.MemberCount, &item.ViewerMember, &item.ViewerAuthorized); scanErr != nil {
 			return nil, scanErr
 		}
 		item.CreatedAt = item.CreatedAt.UTC()
@@ -835,6 +910,28 @@ func (r *Repo) InsertActions(ctx context.Context, userID, sessionID string, rows
 			valueRaw,
 			createdAt,
 		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Repo) InsertHiddenItems(ctx context.Context, userID string, rows []FeedHiddenItemInsert) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	const q = `
+		INSERT INTO user_hidden_feed_items (user_id, entity_type, entity_id, reason)
+		VALUES ($1::uuid, $2, $3, $4)
+		ON CONFLICT (user_id, entity_type, entity_id)
+		DO UPDATE SET reason = EXCLUDED.reason, created_at = NOW()
+	`
+	for _, row := range rows {
+		reason := strings.TrimSpace(row.Reason)
+		if reason == "" {
+			reason = "hidden"
+		}
+		if _, err := r.pool.Exec(ctx, q, userID, row.EntityType, row.EntityID, reason); err != nil {
 			return err
 		}
 	}

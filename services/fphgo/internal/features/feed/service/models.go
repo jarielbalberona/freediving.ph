@@ -5,10 +5,11 @@ import "time"
 type Mode string
 
 const (
-	ModeFollowing   Mode = "following"
+	ModeLatest      Mode = "latest"
 	ModeNearby      Mode = "nearby"
-	ModeTraining    Mode = "training"
-	ModeSpotReports Mode = "spot-reports"
+	ModeChika       Mode = "chika"
+	ModeDiveReports Mode = "dive-reports"
+	ModeEvents      Mode = "events"
 )
 
 type ItemType string

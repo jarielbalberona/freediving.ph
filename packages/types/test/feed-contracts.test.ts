@@ -17,7 +17,10 @@ type IsEqual<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B
   : false;
 
 type _mode = Assert<
-  IsEqual<HomeFeedMode, "following" | "nearby" | "training" | "spot-reports">
+  IsEqual<
+    HomeFeedMode,
+    "latest" | "nearby" | "chika" | "dive-reports" | "events"
+  >
 >;
 type _items = Assert<IsEqual<HomeFeedResponse["items"][number], HomeFeedItem>>;
 type _impressions = Assert<
@@ -37,11 +40,11 @@ test("feed item contracts expose presentation metadata", () => {
     type: "post",
     entityId: "post_1",
     score: 0.91,
-    reasons: ["following", "fresh"],
+    reasons: ["latest", "fresh"],
     typeLabel: "Dive update",
     typeHint: "Social post from the community",
-    rankLabel: "From your network",
-    rankHint: "Fresh activity from people you follow",
+    rankLabel: "Latest",
+    rankHint: "Recent eligible community activity.",
     tone: "social",
     detailHref: "/anilao-local",
     authorHref: "/anilao-local",
@@ -50,6 +53,6 @@ test("feed item contracts expose presentation metadata", () => {
   } satisfies HomeFeedItem;
 
   assert.equal(item.typeLabel, "Dive update");
-  assert.equal(item.rankLabel, "From your network");
+  assert.equal(item.rankLabel, "Latest");
   assert.equal(item.detailHref, "/anilao-local");
 });

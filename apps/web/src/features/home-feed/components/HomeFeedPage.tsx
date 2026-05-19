@@ -14,7 +14,7 @@ import { useHomeFeedQuery } from "@/features/home-feed/hooks/queries/useHomeFeed
 
 export function HomeFeedPage() {
   const { isSignedIn } = useAuth();
-  const [mode, setMode] = useState<HomeFeedMode>("following");
+  const [mode, setMode] = useState<HomeFeedMode>("latest");
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [items, setItems] = useState<HomeFeedItem[]>([]);
 

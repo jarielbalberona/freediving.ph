@@ -9,6 +9,7 @@ import { FeedCardShell } from "@/features/home-feed/components/FeedCardShell";
 type CommunityPayload = {
   authorName?: string;
   authorUsername?: string;
+  authorPseudonymous?: boolean;
   title?: string;
   categoryName?: string;
   replyCount?: number;
@@ -32,6 +33,8 @@ export function CommunityHotCard({
             <UsernameLink
               username={payload.authorUsername}
               className="truncate text-xs text-muted-foreground"
+              disabled={payload.authorPseudonymous}
+              fallback={payload.authorPseudonymous ? "Pseudonymous" : "Unknown"}
             />
           </div>
         </div>

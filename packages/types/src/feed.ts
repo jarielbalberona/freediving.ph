@@ -1,4 +1,9 @@
-export type HomeFeedMode = "following" | "nearby" | "training" | "spot-reports";
+export type HomeFeedMode =
+  | "latest"
+  | "nearby"
+  | "chika"
+  | "dive-reports"
+  | "events";
 
 export type HomeFeedItemType =
   | "post"

@@ -55,7 +55,7 @@ func targetMix(limit int, mode Mode) map[ItemType]int {
 		ItemTypeEvent:        0.15,
 		ItemTypeBuddySignal:  0.20,
 	}
-	if mode == ModeSpotReports {
+	if mode == ModeDiveReports {
 		mix[ItemTypePost] = 0.22
 		mix[ItemTypeMediaPost] = 0.12
 		mix[ItemTypeDiveSpot] = 0.34
@@ -71,13 +71,11 @@ func targetMix(limit int, mode Mode) map[ItemType]int {
 		mix[ItemTypeEvent] = 0.12
 		mix[ItemTypeBuddySignal] = 0.28
 	}
-	if mode == ModeTraining {
-		mix[ItemTypePost] = 0.24
-		mix[ItemTypeMediaPost] = 0.18
-		mix[ItemTypeDiveSpot] = 0.08
-		mix[ItemTypeCommunityHot] = 0.12
-		mix[ItemTypeEvent] = 0.20
-		mix[ItemTypeBuddySignal] = 0.18
+	if mode == ModeChika {
+		mix[ItemTypeCommunityHot] = 1.0
+	}
+	if mode == ModeEvents {
+		mix[ItemTypeEvent] = 1.0
 	}
 
 	out := make(map[ItemType]int, len(mix))
@@ -112,10 +110,12 @@ func modePriorityOrder(mode Mode) []ItemType {
 	switch mode {
 	case ModeNearby:
 		return []ItemType{ItemTypeBuddySignal, ItemTypePost, ItemTypeMediaPost, ItemTypeDiveSpot, ItemTypeEvent, ItemTypeCommunityHot}
-	case ModeTraining:
-		return []ItemType{ItemTypePost, ItemTypeMediaPost, ItemTypeEvent, ItemTypeBuddySignal, ItemTypeCommunityHot, ItemTypeDiveSpot}
-	case ModeSpotReports:
+	case ModeChika:
+		return []ItemType{ItemTypeCommunityHot, ItemTypePost, ItemTypeMediaPost, ItemTypeBuddySignal, ItemTypeEvent, ItemTypeDiveSpot}
+	case ModeDiveReports:
 		return []ItemType{ItemTypePost, ItemTypeDiveSpot, ItemTypeMediaPost, ItemTypeBuddySignal, ItemTypeEvent, ItemTypeCommunityHot}
+	case ModeEvents:
+		return []ItemType{ItemTypeEvent, ItemTypeBuddySignal, ItemTypePost, ItemTypeMediaPost, ItemTypeCommunityHot, ItemTypeDiveSpot}
 	default:
 		return []ItemType{ItemTypePost, ItemTypeMediaPost, ItemTypeBuddySignal, ItemTypeEvent, ItemTypeCommunityHot, ItemTypeDiveSpot}
 	}
@@ -212,7 +212,7 @@ func canPlace(current []rankedItem, next rankedItem, mode Mode, byActor map[stri
 		return true
 	}
 	last := current[len(current)-1]
-	if mode != ModeSpotReports && last.Type == ItemTypeDiveSpot && next.Type == ItemTypeDiveSpot {
+	if mode != ModeDiveReports && last.Type == ItemTypeDiveSpot && next.Type == ItemTypeDiveSpot {
 		return false
 	}
 	if strict && last.Type == next.Type && (next.Type == ItemTypeCommunityHot || next.Type == ItemTypeDiveSpot || next.Type == ItemTypeEvent || next.Type == ItemTypeMediaPost) {

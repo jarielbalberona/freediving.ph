@@ -747,7 +747,7 @@ CREATE TABLE IF NOT EXISTS feed_impressions (
   position INTEGER NOT NULL,
   seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (mode IN ('following', 'nearby', 'training', 'spot-reports')),
+  CHECK (mode IN ('latest', 'nearby', 'chika', 'dive-reports', 'events', 'following', 'training', 'spot-reports')),
   CHECK (position >= 0)
 );
 
@@ -762,7 +762,7 @@ CREATE TABLE IF NOT EXISTS feed_actions (
   mode TEXT NOT NULL,
   value_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (mode IN ('following', 'nearby', 'training', 'spot-reports'))
+  CHECK (mode IN ('latest', 'nearby', 'chika', 'dive-reports', 'events', 'following', 'training', 'spot-reports'))
 );
 
 CREATE TABLE IF NOT EXISTS user_feed_preferences (

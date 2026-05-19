@@ -25,8 +25,15 @@ export function DesktopCreateFab() {
     : "/sign-in";
   const isExploreRoute =
     pathname === "/explore" || pathname?.startsWith("/explore/");
+  const isCommunityRoute =
+    pathname === "/buddies" ||
+    pathname?.startsWith("/buddies/") ||
+    pathname === "/groups" ||
+    pathname?.startsWith("/groups/") ||
+    pathname === "/events" ||
+    pathname?.startsWith("/events/");
 
-  if (isExploreRoute) return null;
+  if (isExploreRoute || isCommunityRoute) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-40 hidden md:block">

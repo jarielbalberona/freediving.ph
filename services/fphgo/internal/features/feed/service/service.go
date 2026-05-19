@@ -29,6 +29,7 @@ type repository interface {
 	GetNearbyCondition(ctx context.Context, userID string) (feedrepo.NearbyCondition, error)
 	InsertImpressions(ctx context.Context, userID, sessionID string, rows []feedrepo.FeedImpressionInsert) error
 	InsertActions(ctx context.Context, userID, sessionID string, rows []feedrepo.FeedActionInsert) error
+	InsertHiddenItems(ctx context.Context, userID string, rows []feedrepo.FeedHiddenItemInsert) error
 }
 
 type Service struct {
@@ -46,17 +47,21 @@ func New(repo repository) *Service {
 }
 
 func ParseMode(raw string) Mode {
-	switch Mode(strings.TrimSpace(raw)) {
-	case ModeFollowing:
-		return ModeFollowing
+	switch Mode(strings.TrimSpace(strings.ToLower(raw))) {
+	case ModeLatest, "following", "":
+		return ModeLatest
 	case ModeNearby:
 		return ModeNearby
-	case ModeTraining:
-		return ModeTraining
-	case ModeSpotReports:
-		return ModeSpotReports
+	case ModeChika:
+		return ModeChika
+	case ModeDiveReports, "spot-reports":
+		return ModeDiveReports
+	case ModeEvents:
+		return ModeEvents
+	case "training":
+		return ModeLatest
 	default:
-		return ModeFollowing
+		return ModeLatest
 	}
 }
 
@@ -88,6 +93,10 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 	homeArea, err := s.repo.GetHomeArea(ctx, input.UserID)
 	if err != nil {
 		return HomeResult{}, apperrors.New(http.StatusInternalServerError, "feed_failed", "failed to resolve profile context", err)
+	}
+	areaFilter := strings.TrimSpace(input.Region)
+	if areaFilter == "" {
+		areaFilter = homeArea
 	}
 
 	hidden, err := s.repo.ListHiddenItems(ctx, input.UserID)
@@ -137,6 +146,9 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 	mode := ParseMode(string(input.Mode))
 	ranked := make([]rankedItem, 0, len(posts)+len(mediaPosts)+len(community)+len(spots)+len(buddySignals)+len(events))
 	for _, row := range posts {
+		if !includeItem(mode, ItemTypePost, row.Area, areaFilter) {
+			continue
+		}
 		entityKey := "post:" + row.ID
 		if _, blocked := hidden[entityKey]; blocked {
 			continue
@@ -194,6 +206,9 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 		})
 	}
 	for _, row := range mediaPosts {
+		if !includeItem(mode, ItemTypeMediaPost, row.Area, areaFilter) {
+			continue
+		}
 		entityKey := "media_post:" + row.ID
 		if _, blocked := hidden[entityKey]; blocked {
 			continue
@@ -259,6 +274,9 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 		})
 	}
 	for _, row := range community {
+		if !includeItem(mode, ItemTypeCommunityHot, "", areaFilter) {
+			continue
+		}
 		entityKey := "community_hot_post:" + row.ID
 		if _, blocked := hidden[entityKey]; blocked {
 			continue
@@ -274,6 +292,23 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 			reasons = append(reasons, "feedback_penalty")
 		}
 		presentation := presentationFor(mode, ItemTypeCommunityHot, reasons)
+		authorUserID := row.AuthorUserID
+		authorName := row.AuthorName
+		authorUsername := row.AuthorUsername
+		authorHref := profileHref(row.AuthorUsername)
+		if isPseudonymousChika(row.Mode) {
+			authorUserID = ""
+			authorUsername = ""
+			authorHref = ""
+			if row.AuthorUserID == input.UserID && strings.TrimSpace(input.UserID) != "" {
+				authorName = "You"
+			} else {
+				authorName = strings.TrimSpace(row.AuthorPseudonym)
+				if authorName == "" {
+					authorName = "anon-UNKNOWN"
+				}
+			}
+		}
 		ranked = append(ranked, rankedItem{
 			FeedItem: FeedItem{
 				ID:         "fi_community_" + row.ID,
@@ -287,17 +322,19 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 				RankHint:   presentation.RankHint,
 				Tone:       presentation.Tone,
 				DetailHref: chikaHref(row.ID),
-				AuthorHref: profileHref(row.AuthorUsername),
+				AuthorHref: authorHref,
 				CreatedAt:  formatRFC3339(row.CreatedAt),
 				Payload: map[string]any{
-					"authorUserId":   row.AuthorUserID,
-					"authorName":     row.AuthorName,
-					"authorUsername": row.AuthorUsername,
-					"title":          row.Title,
-					"categorySlug":   row.CategorySlug,
-					"categoryName":   row.CategoryName,
-					"replyCount":     row.ReplyCount,
-					"reactionCount":  row.ReactionCount,
+					"authorUserId":         authorUserID,
+					"authorName":           authorName,
+					"authorUsername":       authorUsername,
+					"authorPseudonymous":   isPseudonymousChika(row.Mode),
+					"title":                row.Title,
+					"categorySlug":         row.CategorySlug,
+					"categoryName":         row.CategoryName,
+					"categoryPseudonymous": row.CategoryPseudonymous,
+					"replyCount":           row.ReplyCount,
+					"reactionCount":        row.ReactionCount,
 				},
 			},
 			ActorUserID: row.AuthorUserID,
@@ -305,6 +342,9 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 		})
 	}
 	for _, row := range spots {
+		if !includeItem(mode, ItemTypeDiveSpot, row.Area, areaFilter) {
+			continue
+		}
 		entityKey := "dive_spot:" + row.ID
 		if _, blocked := hidden[entityKey]; blocked {
 			continue
@@ -358,6 +398,12 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 		})
 	}
 	for _, row := range events {
+		if !eventEligible(row, isGuest) {
+			continue
+		}
+		if !includeItem(mode, ItemTypeEvent, row.Area, areaFilter) {
+			continue
+		}
 		entityKey := "event:" + row.ID
 		if _, blocked := hidden[entityKey]; blocked {
 			continue
@@ -392,6 +438,7 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 				CreatedAt:  formatRFC3339(row.CreatedAt),
 				Payload: map[string]any{
 					"title":        row.Title,
+					"area":         row.Area,
 					"memberCount":  row.MemberCount,
 					"viewerMember": row.ViewerMember,
 				},
@@ -400,6 +447,12 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 		})
 	}
 	for _, row := range buddySignals {
+		if isGuest && row.Visibility == "members" {
+			continue
+		}
+		if !includeItem(mode, ItemTypeBuddySignal, row.Area, areaFilter) {
+			continue
+		}
 		entityKey := "buddy_signal:" + row.ID
 		if _, blocked := hidden[entityKey]; blocked {
 			continue
@@ -447,6 +500,7 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 					"note":           row.Note,
 					"diveSiteId":     row.DiveSiteID,
 					"diveSiteName":   row.DiveSiteName,
+					"visibility":     row.Visibility,
 					"savedByViewer":  row.SavedByViewer,
 				},
 			},
@@ -515,6 +569,20 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 		Items:      items,
 		NextCursor: nextCursor,
 	}, nil
+}
+
+func eventEligible(row feedrepo.EventCandidate, isGuest bool) bool {
+	if row.Status != "" && row.Status != "published" {
+		return false
+	}
+	switch row.Visibility {
+	case "", "public":
+		return true
+	case "group_members", "invite_only":
+		return !isGuest && row.ViewerAuthorized
+	default:
+		return false
+	}
 }
 
 func (s *Service) RecordImpressions(ctx context.Context, userID, sessionID string, mode Mode, rows []TelemetryImpression) error {
@@ -587,7 +655,52 @@ func (s *Service) RecordActions(ctx context.Context, userID, sessionID string, m
 	if err := s.repo.InsertActions(ctx, userID, session, mapped); err != nil {
 		return apperrors.New(http.StatusInternalServerError, "feed_telemetry_failed", "failed to record actions", err)
 	}
+	hiddenRows := make([]feedrepo.FeedHiddenItemInsert, 0)
+	for _, row := range rows {
+		if row.ActionType == "hide_item" {
+			hiddenRows = append(hiddenRows, feedrepo.FeedHiddenItemInsert{
+				EntityType: row.EntityType,
+				EntityID:   row.EntityID,
+				Reason:     "hide_item",
+			})
+		}
+	}
+	if len(hiddenRows) > 0 {
+		if err := s.repo.InsertHiddenItems(ctx, userID, hiddenRows); err != nil {
+			return apperrors.New(http.StatusInternalServerError, "feed_telemetry_failed", "failed to hide feed items", err)
+		}
+	}
 	return nil
+}
+
+func includeItem(mode Mode, itemType ItemType, area, areaFilter string) bool {
+	switch mode {
+	case ModeChika:
+		return itemType == ItemTypeCommunityHot
+	case ModeDiveReports:
+		return itemType == ItemTypePost || itemType == ItemTypeDiveSpot
+	case ModeEvents:
+		return itemType == ItemTypeEvent
+	case ModeNearby:
+		return areaMatchesFilter(areaFilter, area)
+	default:
+		return true
+	}
+}
+
+func areaMatchesFilter(filter, candidate string) bool {
+	normalizedFilter := strings.ToLower(strings.TrimSpace(filter))
+	normalizedCandidate := strings.ToLower(strings.TrimSpace(candidate))
+	if normalizedFilter == "" || normalizedCandidate == "" {
+		return false
+	}
+	return normalizedFilter == normalizedCandidate ||
+		strings.Contains(normalizedFilter, normalizedCandidate) ||
+		strings.Contains(normalizedCandidate, normalizedFilter)
+}
+
+func isPseudonymousChika(mode string) bool {
+	return mode == "pseudonymous" || mode == "locked_pseudonymous"
 }
 
 func encodeCursor(offset int) string {

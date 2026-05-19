@@ -23,18 +23,18 @@ func presentationFor(mode Mode, itemType ItemType, reasons []string) feedPresent
 	rankHint := "Highlights from across the community."
 	for _, reason := range reasons {
 		switch strings.TrimSpace(reason) {
-		case "following":
-			rankLabel = "From your network"
-			rankHint = "Updates from divers you follow."
+		case "latest":
+			rankLabel = "Latest"
+			rankHint = "Recent eligible community activity."
 		case "nearby", "nearby_spot":
 			rankLabel = "Happening nearby"
 			rankHint = "Local activity and potential dive opportunities."
-		case "training_affinity":
-			rankLabel = "Training focus"
-			rankHint = "Logs and discussions about technique and progress."
-		case "spot_reports":
-			rankLabel = "Conditions report"
+		case "dive_reports":
+			rankLabel = "Dive report"
 			rankHint = "Recent updates on visibility and site conditions."
+		case "chika":
+			rankLabel = "Chika"
+			rankHint = "Recent community threads."
 		case "buddy_activity":
 			rankLabel = "Buddy check"
 			rankHint = "Divers looking for partners right now."
@@ -162,23 +162,29 @@ func contextForMode(mode Mode, isGuest bool) modeFrame {
 			Message:     "Updates, buddy calls, and reports from your area.",
 			SafetyBadge: "Nearby",
 		}
-	case ModeTraining:
+	case ModeChika:
 		return modeFrame{
-			Greeting:    "Training & Progress",
-			Message:     "Focused on technique, session logs, and training discussions.",
-			SafetyBadge: "Training",
+			Greeting:    "Chika",
+			Message:     "Recent public community threads.",
+			SafetyBadge: "Chika",
 		}
-	case ModeSpotReports:
+	case ModeDiveReports:
 		return modeFrame{
-			Greeting:    "Conditions Reports",
+			Greeting:    "Dive Reports",
 			Message:     "Latest visibility and site updates from the community.",
-			SafetyBadge: "Conditions",
+			SafetyBadge: "Reports",
+		}
+	case ModeEvents:
+		return modeFrame{
+			Greeting:    "Events",
+			Message:     "Published events you are allowed to see.",
+			SafetyBadge: "Events",
 		}
 	default:
 		return modeFrame{
-			Greeting:    "Community Feed",
-			Message:     "Updates from divers you follow and trending discussions.",
-			SafetyBadge: "Network",
+			Greeting:    "Latest Activity",
+			Message:     "Recent eligible activity from across the freediving community.",
+			SafetyBadge: "Latest",
 		}
 	}
 }
@@ -192,19 +198,26 @@ func quickActionsForMode(mode Mode) []QuickAction {
 			{Type: "explore_spots", Label: "Browse spots"},
 			{Type: "join_event", Label: "Find events"},
 		}
-	case ModeTraining:
+	case ModeChika:
 		return []QuickAction{
-			{Type: "log_training", Label: "Log training"},
-			{Type: "share_progress", Label: "Share progress"},
+			{Type: "open_chika", Label: "Open Chika"},
+			{Type: "post_update", Label: "Post update"},
 			{Type: "find_buddy", Label: "Find buddy"},
 			{Type: "join_event", Label: "Find events"},
 		}
-	case ModeSpotReports:
+	case ModeDiveReports:
 		return []QuickAction{
 			{Type: "report_conditions", Label: "Report conditions"},
 			{Type: "explore_spots", Label: "Browse spots"},
 			{Type: "find_buddy", Label: "Find buddy"},
 			{Type: "join_event", Label: "Find events"},
+		}
+	case ModeEvents:
+		return []QuickAction{
+			{Type: "join_event", Label: "Browse events"},
+			{Type: "create_session", Label: "Create event"},
+			{Type: "find_buddy", Label: "Find buddy"},
+			{Type: "open_chika", Label: "Open Chika"},
 		}
 	default:
 		return []QuickAction{

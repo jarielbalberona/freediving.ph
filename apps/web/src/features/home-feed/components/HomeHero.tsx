@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import type { HomeFeedContext } from "@freediving.ph/types";
 
 const modeLabels: Record<HomeFeedMode, string> = {
-  following: "People you follow",
+  latest: "Latest activity",
   nearby: "Near you",
-  training: "Training feed",
-  "spot-reports": "Spot reports",
+  chika: "Chika",
+  "dive-reports": "Dive reports",
+  events: "Events",
 };
 
 export function HomeHero({
