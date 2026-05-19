@@ -32,18 +32,17 @@ test("SEO system assets are implemented as App Router metadata routes", async ()
   }
 });
 
-test("Google and Sentry tooling are env-driven and Vercel Analytics is removed", async () => {
-  const [analyticsSource, layoutSource, packageJsonSource, sentryClientSource] =
+test("Google tag and Sentry tooling are wired and Vercel Analytics is removed", async () => {
+  const [layoutSource, packageJsonSource, sentryClientSource] =
     await Promise.all([
-      readSource("src/components/google-analytics.tsx"),
       readSource("src/app/layout.tsx"),
       readSource("package.json"),
       readSource("sentry.client.config.ts"),
     ]);
 
-  assert.match(analyticsSource, /NEXT_PUBLIC_GTM_ID/);
-  assert.match(analyticsSource, /NEXT_PUBLIC_GA_MEASUREMENT_ID/);
-  assert.match(analyticsSource, /googletagmanager\.com/);
+  assert.match(layoutSource, /G-2ML3MWBFD8/);
+  assert.match(layoutSource, /googletagmanager\.com\/gtag\/js/);
+  assert.match(layoutSource, /gtag\('config', '\$\{googleAnalyticsId\}'\)/);
   assert.match(layoutSource, /NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION/);
   assert.match(layoutSource, /verification:/);
   assert.match(sentryClientSource, /NEXT_PUBLIC_SENTRY_DSN/);

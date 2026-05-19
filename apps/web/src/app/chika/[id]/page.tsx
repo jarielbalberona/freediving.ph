@@ -495,6 +495,11 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
               <Select
                 value={sortMode}
                 onValueChange={(value) => setSortMode(value as CommentSort)}
+                items={[
+                  { value: "hot", label: "Hot" },
+                  { value: "top", label: "Top" },
+                  { value: "new", label: "New" },
+                ]}
               >
                 <SelectTrigger size="sm" className="w-32">
                   <SelectValue />

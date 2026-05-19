@@ -5,7 +5,6 @@ import { ClerkProvider } from "@clerk/nextjs";
 
 import ReactQueryProvider from "@/providers/react-query";
 import { cn } from "@/lib/utils";
-import { GoogleAnalytics } from "@/components/google-analytics";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig, META_THEME_COLORS } from "@/config/site";
@@ -32,6 +31,7 @@ const inter = Inter({
 
 const googleSiteVerification =
   process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
+const googleAnalyticsId = "G-2ML3MWBFD8";
 
 export const metadata: Metadata = {
   title: {
@@ -88,6 +88,20 @@ export default async function RootLayout({
       <html lang="en" suppressHydrationWarning>
         <head>
           <script
+            async
+            src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
+          />
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${googleAnalyticsId}');
+              `,
+            }}
+          />
+          <script
             dangerouslySetInnerHTML={{
               __html: `
                 try {
@@ -139,7 +153,6 @@ export default async function RootLayout({
                 </SidebarProvider>
               </TooltipProvider>
               <Toaster />
-              <GoogleAnalytics />
             </ReactQueryProvider>
           </ThemeProvider>
         </body>

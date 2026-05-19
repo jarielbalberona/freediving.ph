@@ -225,6 +225,11 @@ export default function GroupsPage() {
               onValueChange={(value) =>
                 setVisibility(value as VisibilityFilter)
               }
+              items={[
+                { value: "all", label: "All groups" },
+                { value: "public", label: "Public groups" },
+                { value: "invite_only", label: "Invite-only groups" },
+              ]}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Visibility" />
@@ -377,6 +382,11 @@ export default function GroupsPage() {
                       value as "public" | "private" | "invite_only",
                     )
                   }
+                  items={[
+                    { value: "public", label: "Public" },
+                    { value: "private", label: "Private" },
+                    { value: "invite_only", label: "Invite only" },
+                  ]}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -395,6 +405,10 @@ export default function GroupsPage() {
                   onValueChange={(value) =>
                     setCreateJoinPolicy(value as "open" | "invite_only")
                   }
+                  items={[
+                    { value: "open", label: "Open join" },
+                    { value: "invite_only", label: "Invite only" },
+                  ]}
                 >
                   <SelectTrigger>
                     <SelectValue />

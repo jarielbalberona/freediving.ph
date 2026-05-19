@@ -90,10 +90,6 @@ services:
         sync: false
       - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
         sync: false
-      - key: NEXT_PUBLIC_GTM_ID
-        sync: false
-      - key: NEXT_PUBLIC_GA_MEASUREMENT_ID
-        sync: false
       - key: NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
         sync: false
       - key: NEXT_PUBLIC_SENTRY_DSN

@@ -102,9 +102,9 @@ Default local URLs:
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
 
-**Web SEO/analytics/monitoring (`apps/web/.env`)** – production:
+**Web SEO/monitoring (`apps/web/.env`)** – production:
 
-- `NEXT_PUBLIC_GTM_ID` or `NEXT_PUBLIC_GA_MEASUREMENT_ID` for Google analytics. Prefer GTM; if both are set, GTM is loaded.
+- Google Analytics is installed directly in the root layout with GA4 measurement ID `G-2ML3MWBFD8`.
 - `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` for repo-visible Google Search Console ownership.
 - `NEXT_PUBLIC_SENTRY_DSN` for browser error capture.
 - `SENTRY_DSN` for server/edge error capture. This can be the same Sentry SaaS or GlitchTip DSN destination, but do not configure two destinations.

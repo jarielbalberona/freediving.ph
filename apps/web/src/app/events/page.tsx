@@ -135,6 +135,27 @@ const createEventDefaultValues: CreateEventValues = {
   difficulty: "beginner",
 };
 
+const eventTypeItems = [
+  { value: "training", label: "Training" },
+  { value: "meetup", label: "Meetup" },
+  { value: "competition", label: "Competition" },
+  { value: "trip", label: "Trip" },
+  { value: "workshop", label: "Workshop" },
+];
+
+const eventDifficultyItems = [
+  { value: "beginner", label: "Beginner" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "advanced", label: "Advanced" },
+  { value: "expert", label: "Expert" },
+];
+
+const eventVisibilityItems = [
+  { value: "public", label: "Public" },
+  { value: "group_members", label: "Group members" },
+  { value: "invite_only", label: "Invite only" },
+];
+
 export default function EventsPage() {
   const session = useSession();
   const isSignedIn = session.status === "signed_in";
@@ -471,6 +492,7 @@ export default function EventsPage() {
                       <Select
                         value={field.value || "training"}
                         onValueChange={field.onChange}
+                        items={eventTypeItems}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -500,6 +522,7 @@ export default function EventsPage() {
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}
+                        items={eventDifficultyItems}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -530,6 +553,7 @@ export default function EventsPage() {
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}
+                        items={eventVisibilityItems}
                       >
                         <FormControl>
                           <SelectTrigger>
