@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +54,12 @@ func (h *Handlers) ListSites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bounds, boundsIssues := parseListSitesBounds(r)
+	if len(boundsIssues) > 0 {
+		httpx.WriteValidationError(w, boundsIssues)
+		return
+	}
+
 	viewerID := actorIDIfPresent(r)
 	result, svcErr := h.service.ListSites(r.Context(), exploreservice.ListSitesInput{
 		ViewerUserID: viewerID,
@@ -60,6 +67,7 @@ func (h *Handlers) ListSites(w http.ResponseWriter, r *http.Request) {
 		Difficulty:   r.URL.Query().Get("difficulty"),
 		VerifiedOnly: strings.EqualFold(r.URL.Query().Get("verifiedOnly"), "true"),
 		Search:       r.URL.Query().Get("search"),
+		Bounds:       bounds,
 		Cursor:       r.URL.Query().Get("cursor"),
 		Limit:        limit,
 	})
@@ -73,6 +81,53 @@ func (h *Handlers) ListSites(w http.ResponseWriter, r *http.Request) {
 		items = append(items, mapSiteCard(item))
 	}
 	httpx.JSON(w, http.StatusOK, ListSitesResponse{Items: items, NextCursor: result.NextCursor})
+}
+
+func parseListSitesBounds(r *http.Request) (*exploreservice.MapBounds, []validatex.Issue) {
+	query := r.URL.Query()
+	names := []string{"north", "south", "east", "west"}
+	present := 0
+	values := make(map[string]float64, len(names))
+	issues := make([]validatex.Issue, 0, 1)
+
+	for _, name := range names {
+		raw := strings.TrimSpace(query.Get(name))
+		if raw == "" {
+			continue
+		}
+		present++
+		parsed, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			issues = append(issues, validatex.Issue{
+				Path:    []any{name},
+				Code:    "invalid_type",
+				Message: name + " must be a number",
+			})
+			continue
+		}
+		values[name] = parsed
+	}
+
+	if len(issues) > 0 {
+		return nil, issues
+	}
+	if present == 0 {
+		return nil, nil
+	}
+	if present != len(names) {
+		return nil, []validatex.Issue{{
+			Path:    []any{"bounds"},
+			Code:    "custom",
+			Message: "north, south, east, and west must be provided together",
+		}}
+	}
+
+	return &exploreservice.MapBounds{
+		North: values["north"],
+		South: values["south"],
+		East:  values["east"],
+		West:  values["west"],
+	}, nil
 }
 
 func (h *Handlers) GetSiteBySlug(w http.ResponseWriter, r *http.Request) {

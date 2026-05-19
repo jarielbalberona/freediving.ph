@@ -197,6 +197,22 @@
       "pattern": "/v1/explore/updates"
     },
     {
+      "method": "POST",
+      "pattern": "/v1/feed/actions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/feed/activity"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/feed/home"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/feed/impressions"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/locations/barangays"
     },
@@ -266,7 +282,15 @@
     },
     {
       "method": "POST",
+      "pattern": "/v1/messages/threads/{threadId}/accept"
+    },
+    {
+      "method": "POST",
       "pattern": "/v1/messages/threads/{threadId}/category"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/messages/threads/{threadId}/decline"
     },
     {
       "method": "GET",

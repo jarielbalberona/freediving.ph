@@ -44,6 +44,9 @@ const getInitials = (value: string): string =>
     .map((segment) => segment[0]?.toUpperCase() ?? "")
     .join("");
 
+const getDisplayCaption = (item: ProfileMediaItem): string | null =>
+  item.postCaption?.trim() || item.caption?.trim() || null;
+
 export function ProfileGrid({
   items,
   isLoading,
@@ -112,12 +115,13 @@ export function ProfileGrid({
     .map((item) => {
       const src = galleryUrls.urlMap.get(item.mediaObjectId);
       if (!src) return null;
+      const caption = getDisplayCaption(item);
       return {
         key: item.id,
         src,
         width: item.width,
         height: item.height,
-        alt: item.caption || `${username} photo`,
+        alt: caption || `${username} photo`,
         mediaItem: item,
       };
     })
@@ -127,8 +131,8 @@ export function ProfileGrid({
     mediaObjectId: item.mediaObjectId,
     width: item.width,
     height: item.height,
-    caption: item.caption,
-    alt: item.caption || `${username} photo`,
+    caption: getDisplayCaption(item),
+    alt: getDisplayCaption(item) || `${username} photo`,
   }));
 
   return (
@@ -207,6 +211,7 @@ export function ProfileGrid({
           const selectedItem =
             validItems.find((item) => item.id === activeItem.id) ?? null;
           if (!selectedItem) return null;
+          const caption = getDisplayCaption(selectedItem);
 
           return (
             <>
@@ -235,7 +240,7 @@ export function ProfileGrid({
                   </p>
                 </div>
                 <p className="text-sm leading-6 text-foreground">
-                  {selectedItem.caption || "No caption added."}
+                  {caption || "No caption added."}
                 </p>
               </div>
             </>

@@ -1,8 +1,15 @@
 "use client";
 
+import type * as React from "react";
 import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { ArrowUpWideNarrow, LoaderCircle } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUpWideNarrow,
+  LoaderCircle,
+  MapPinned,
+  ShieldCheck,
+} from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -13,30 +20,44 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-import type { DiveSpot } from "../types";
+import type { DiveSpot, ExploreDifficulty, ExploreSortMode } from "../types";
 import { DiveSpotCard } from "./DiveSpotCard";
-
-type SortMode = "relevance" | "recent";
 
 type ExploreResultsPanelProps = {
   q: string;
+  area: string;
+  areaOptions: string[];
+  difficulty: ExploreDifficulty;
+  verifiedOnly: boolean;
   total: number;
   loading: boolean;
   fetching: boolean;
+  hasAppliedBounds: boolean;
+  errorMessage?: string;
   spots: DiveSpot[];
   selectedSpotId: string | null;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
-  filtersControl: React.ReactNode;
+  filtersControl?: React.ReactNode;
   onQueryChange: (q: string) => void;
+  onAreaChange: (area: string) => void;
+  onDifficultyChange: (difficulty: ExploreDifficulty) => void;
+  onVerifiedOnlyChange: (verifiedOnly: boolean) => void;
   onLoadMore: () => void;
   onSelectSpot: (spot: DiveSpot) => void;
-  sort: SortMode;
-  onSortChange: (sort: SortMode) => void;
+  sort: ExploreSortMode;
+  onSortChange: (sort: ExploreSortMode) => void;
   onResetFilters: () => void;
   className?: string;
   compactControls?: boolean;
@@ -44,16 +65,29 @@ type ExploreResultsPanelProps = {
   renderSpotActions?: (spot: DiveSpot) => React.ReactNode;
 };
 
-const sortLabels: Record<SortMode, string> = {
-  relevance: "Relevance",
+const sortLabels: Record<ExploreSortMode, string> = {
+  default: "Default order",
   recent: "Recent updates",
+};
+
+const difficultyLabels: Record<ExploreDifficulty, string> = {
+  all: "Any level",
+  easy: "Easy",
+  moderate: "Moderate",
+  hard: "Hard",
 };
 
 export function ExploreResultsPanel({
   q,
+  area,
+  areaOptions,
+  difficulty,
+  verifiedOnly,
   total,
   loading,
   fetching,
+  hasAppliedBounds,
+  errorMessage,
   spots,
   selectedSpotId,
   hasNextPage,
@@ -61,6 +95,9 @@ export function ExploreResultsPanel({
   searchInputRef,
   filtersControl,
   onQueryChange,
+  onAreaChange,
+  onDifficultyChange,
+  onVerifiedOnlyChange,
   onLoadMore,
   onSelectSpot,
   sort,
@@ -73,6 +110,7 @@ export function ExploreResultsPanel({
 }: ExploreResultsPanelProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const hasResults = spots.length > 0;
+  const areaSelectValue = area || "all";
 
   useEffect(() => {
     if (!selectedSpotId) return;
@@ -87,7 +125,7 @@ export function ExploreResultsPanel({
 
   const resultLabel = useMemo(() => {
     if (loading) return "Finding dive spots";
-    return `${total.toLocaleString()} dive spots`;
+    return `Showing ${total.toLocaleString()} loaded dive spot${total === 1 ? "" : "s"}`;
   }, [loading, total]);
 
   return (
@@ -99,43 +137,117 @@ export function ExploreResultsPanel({
     >
       <div className="border-b border-border px-4 pb-4 pt-4">
         {showSearchControls ? (
-          <div className="flex items-center gap-2">
-            <Input
-              ref={searchInputRef}
-              value={q}
-              autoFocus
-              onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="Search beaches, towns, or dive spots"
-              aria-label="Search beaches, towns, or dive spots"
-              className="h-11 rounded-full bg-slate-50"
-            />
-            {filtersControl}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    size={compactControls ? "icon" : "default"}
-                    className={cn(
-                      "h-11 rounded-full",
-                      compactControls && "size-11",
-                    )}
-                    aria-label="Sort results"
-                  />
-                }
+          <div className="mb-3">
+            <p className="text-base font-semibold text-foreground">
+              Find dive spots around the Philippines
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Verified and community-shared spots. Check site details before
+              planning a dive.
+            </p>
+          </div>
+        ) : null}
+        {showSearchControls ? (
+          <div>
+            <div className="flex items-center gap-2">
+              <Input
+                ref={searchInputRef}
+                value={q}
+                autoFocus
+                onChange={(event) => onQueryChange(event.target.value)}
+                placeholder="Search by site, town, or area"
+                aria-label="Search by site, town, or area"
+                className="h-11 rounded-full bg-background"
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size={compactControls ? "icon" : "default"}
+                      className={cn(
+                        "h-11 rounded-full",
+                        compactControls && "size-11",
+                      )}
+                      aria-label="Sort results"
+                    />
+                  }
+                >
+                  <ArrowUpWideNarrow className="size-4.5" />
+                  {!compactControls ? sortLabels[sort] : null}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => onSortChange("default")}>
+                    Default order
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSortChange("recent")}>
+                    Recent updates
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Select
+                value={difficulty}
+                onValueChange={(value) => {
+                  if (!value) return;
+                  onDifficultyChange(value as ExploreDifficulty);
+                }}
               >
-                <ArrowUpWideNarrow className="size-4.5" />
-                {!compactControls ? sortLabels[sort] : null}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem onClick={() => onSortChange("relevance")}>
-                  Relevance
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange("recent")}>
-                  Recent updates
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                <SelectTrigger
+                  aria-label="Filter by difficulty"
+                  className="h-9 rounded-full"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["all", "easy", "moderate", "hard"] as const).map(
+                    (value) => (
+                      <SelectItem key={value} value={value}>
+                        {difficultyLabels[value]}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={areaSelectValue}
+                onValueChange={(value) => {
+                  if (!value) return;
+                  onAreaChange(value === "all" ? "" : value);
+                }}
+              >
+                <SelectTrigger
+                  aria-label="Filter by area"
+                  className="h-9 max-w-[210px] rounded-full"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectItem value="all">All areas</SelectItem>
+                  {areaOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                type="button"
+                variant={verifiedOnly ? "default" : "outline"}
+                size="sm"
+                className="rounded-full"
+                aria-pressed={verifiedOnly}
+                onClick={() => onVerifiedOnlyChange(!verifiedOnly)}
+              >
+                <ShieldCheck className="size-4" />
+                Verified only
+              </Button>
+              {filtersControl}
+            </div>
           </div>
         ) : null}
 
@@ -150,7 +262,9 @@ export function ExploreResultsPanel({
           <p className="text-muted-foreground text-xs">
             {fetching && !loading
               ? "Refreshing results for this search."
-              : "Search or move the map to find dive spots."}
+              : hasAppliedBounds
+                ? "Results match the last searched map area."
+                : "Search or move the map to find dive spots."}
           </p>
           {!showSearchControls ? (
             <DropdownMenu>
@@ -167,8 +281,8 @@ export function ExploreResultsPanel({
                 <ArrowUpWideNarrow className="size-4.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem onClick={() => onSortChange("relevance")}>
-                  Relevance
+                <DropdownMenuItem onClick={() => onSortChange("default")}>
+                  Default order
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onSortChange("recent")}>
                   Recent updates
@@ -181,7 +295,30 @@ export function ExploreResultsPanel({
 
       <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1">
         <div className="pb-6">
-          {loading ? (
+          {errorMessage ? (
+            <div className="mx-4 mt-4 rounded-3xl border border-destructive/25 bg-destructive/5 px-5 py-5">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 size-5 text-destructive" />
+                <div>
+                  <p className="font-semibold text-foreground">
+                    Could not load dive spots
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    The list did not load. Try clearing search or changing the
+                    filters, then search the area again.
+                  </p>
+                  <Button
+                    className="mt-4 rounded-full"
+                    variant="outline"
+                    size="sm"
+                    onClick={onResetFilters}
+                  >
+                    Clear search and filters
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : loading ? (
             <>
               <div className="border-b border-border bg-muted/25 px-4 py-4">
                 <p className="text-base font-semibold text-foreground">
@@ -225,12 +362,18 @@ export function ExploreResultsPanel({
             ))
           ) : (
             <div className="rounded-4xl border border-dashed border-border/80 bg-muted/40 px-5 py-8">
+              {hasAppliedBounds ? (
+                <MapPinned className="mb-3 size-5 text-muted-foreground" />
+              ) : null}
               <p className="text-base font-semibold text-foreground">
-                We do not have a match for this area yet
+                {hasAppliedBounds
+                  ? "No dive spots loaded in this map area"
+                  : "No loaded dive spots match this search"}
               </p>
               <p className="text-muted-foreground mt-2 text-sm">
-                Try a nearby town, move the map to another coastline, or suggest
-                a dive site so the community can review it.
+                {hasAppliedBounds
+                  ? "Move the map and search another area, or clear search and filters if they are too narrow."
+                  : "Clear the search, change filters, or move the map and search that area. If a legit spot is missing, suggest it for review."}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button

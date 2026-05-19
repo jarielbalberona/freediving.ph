@@ -456,6 +456,7 @@ func mapProfileMediaDTOs(items []mediaservice.ProfileMediaItemResult) []ProfileM
 			ID:              item.ID,
 			MediaObjectID:   item.MediaObjectID,
 			PostID:          item.PostID,
+			PostCaption:     item.PostCaption,
 			UploadGroupID:   item.UploadGroupID,
 			AuthorAppUserID: item.AuthorAppUserID,
 			Type:            item.Type,

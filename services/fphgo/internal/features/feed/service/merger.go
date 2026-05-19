@@ -240,6 +240,16 @@ func formatRFC3339(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
 func (t ItemType) String() string {
 	return string(t)
 }

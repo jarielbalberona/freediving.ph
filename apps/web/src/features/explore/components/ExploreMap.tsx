@@ -17,7 +17,7 @@ type ExploreMapProps = {
   onSelectSpot: (spot: DiveSpot) => void;
 };
 
-const DEFAULT_MAP_ID = "fph-explore-map";
+const DEFAULT_MAP_ID = "c5170fc5a137d9ea8ef77423";
 
 const markerSvg = (selected: boolean) =>
   `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
@@ -88,14 +88,17 @@ function ExploreMarkers({
 
     for (const spot of spotsWithCoordinates) {
       const currentMarker = markersRef.current.get(spot.id);
+      const isSelected = spot.id === selectedSpotId;
       const icon = {
-        url: markerSvg(spot.id === selectedSpotId),
-        scaledSize: new google.maps.Size(38, 50),
+        url: markerSvg(isSelected),
+        scaledSize: isSelected
+          ? new google.maps.Size(46, 60)
+          : new google.maps.Size(38, 50),
       };
 
       if (currentMarker) {
         currentMarker.setIcon(icon);
-        currentMarker.setZIndex(spot.id === selectedSpotId ? 10 : 1);
+        currentMarker.setZIndex(isSelected ? 100 : 1);
         continue;
       }
 
@@ -103,7 +106,7 @@ function ExploreMarkers({
         position: { lat: spot.lat, lng: spot.lng },
         title: spot.name,
         icon,
-        zIndex: spot.id === selectedSpotId ? 10 : 1,
+        zIndex: isSelected ? 100 : 1,
       });
 
       marker.addListener("click", () => onSelectSpot(spot));

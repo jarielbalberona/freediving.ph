@@ -784,6 +784,35 @@ CREATE TABLE IF NOT EXISTS user_hidden_feed_items (
   PRIMARY KEY (user_id, entity_type, entity_id)
 );
 
+CREATE TABLE IF NOT EXISTS activity_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type TEXT NOT NULL,
+  source_module TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  source_id UUID NOT NULL,
+  actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  target_type TEXT NOT NULL,
+  target_id UUID NOT NULL,
+  visibility TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'active',
+  area TEXT,
+  dive_site_id UUID REFERENCES dive_sites(id) ON DELETE SET NULL,
+  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  occurred_at TIMESTAMPTZ NOT NULL,
+  source_created_at TIMESTAMPTZ,
+  title TEXT,
+  body TEXT,
+  media JSONB NOT NULL DEFAULT '[]'::jsonb,
+  stats JSONB NOT NULL DEFAULT '{}'::jsonb,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (source_module, source_type, source_id, type),
+  CHECK (visibility IN ('public', 'members', 'followers', 'group_members', 'private')),
+  CHECK (state IN ('active', 'hidden', 'deleted'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at ON messages (conversation_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_idempotency_key ON messages (conversation_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_user ON conversation_participants (user_id);
@@ -855,6 +884,13 @@ CREATE INDEX IF NOT EXISTS idx_feed_actions_entity_created_at ON feed_actions (e
 CREATE INDEX IF NOT EXISTS idx_feed_actions_action_created_at ON feed_actions (action_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_hidden_feed_items_user_created_at ON user_hidden_feed_items (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_hidden_feed_items_entity ON user_hidden_feed_items (entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_activity_items_public_cursor ON activity_items (occurred_at DESC, id DESC) WHERE state = 'active' AND visibility = 'public';
+CREATE INDEX IF NOT EXISTS idx_activity_items_visibility_cursor ON activity_items (visibility, occurred_at DESC, id DESC) WHERE state = 'active';
+CREATE INDEX IF NOT EXISTS idx_activity_items_actor_cursor ON activity_items (actor_user_id, occurred_at DESC, id DESC) WHERE state = 'active' AND actor_user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_activity_items_group_cursor ON activity_items (group_id, occurred_at DESC, id DESC) WHERE state = 'active' AND group_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_activity_items_dive_site_cursor ON activity_items (dive_site_id, occurred_at DESC, id DESC) WHERE state = 'active' AND dive_site_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_activity_items_event_cursor ON activity_items (event_id, occurred_at DESC, id DESC) WHERE state = 'active' AND event_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_activity_items_source_lookup ON activity_items (source_module, source_type, source_id, type);
 CREATE INDEX IF NOT EXISTS idx_reports_status_created_at ON reports (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_reporter_app_user ON reports (reporter_app_user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_target_uuid_lookup ON reports (target_type, target_uuid) WHERE target_uuid IS NOT NULL;

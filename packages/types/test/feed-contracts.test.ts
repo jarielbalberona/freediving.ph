@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type {
+  ActivityFeedFilter,
+  ActivityFeedItem,
+  ActivityFeedResponse,
   FeedActionsRequest,
   FeedImpressionsRequest,
   HomeFeedItem,
@@ -21,6 +24,15 @@ type _mode = Assert<
     HomeFeedMode,
     "latest" | "nearby" | "chika" | "dive-reports" | "events"
   >
+>;
+type _activityFilter = Assert<
+  IsEqual<
+    ActivityFeedFilter,
+    "latest" | "nearby" | "chika" | "dive-reports" | "events"
+  >
+>;
+type _activityItems = Assert<
+  IsEqual<ActivityFeedResponse["items"][number], ActivityFeedItem>
 >;
 type _items = Assert<IsEqual<HomeFeedResponse["items"][number], HomeFeedItem>>;
 type _impressions = Assert<
@@ -55,4 +67,32 @@ test("feed item contracts expose presentation metadata", () => {
   assert.equal(item.typeLabel, "Dive update");
   assert.equal(item.rankLabel, "Latest");
   assert.equal(item.detailHref, "/anilao-local");
+});
+
+test("activity feed contracts expose ledger response shape", () => {
+  const item = {
+    id: "activity_1",
+    type: "chika_thread_created",
+    sourceModule: "chika",
+    sourceType: "thread",
+    sourceId: "thread_1",
+    actor: {
+      id: "",
+      name: "anon-abc123",
+      username: "",
+    },
+    target: {
+      type: "chika_thread",
+      id: "thread_1",
+    },
+    visibility: "public",
+    occurredAt: "2026-05-19T00:00:00Z",
+    href: "/chika/thread_1",
+  } satisfies ActivityFeedItem;
+  const response = {
+    items: [item],
+    nextCursor: "opaque",
+  } satisfies ActivityFeedResponse;
+
+  assert.equal(response.items[0].type, "chika_thread_created");
 });

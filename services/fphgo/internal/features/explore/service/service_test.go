@@ -12,6 +12,8 @@ import (
 )
 
 type repoStub struct {
+	listInput    explorerepo.ListSitesInput
+	listResult   []explorerepo.SiteCard
 	created      explorerepo.CreateSiteSubmissionInput
 	createResult explorerepo.SiteSubmission
 	createErr    error
@@ -19,8 +21,9 @@ type repoStub struct {
 	duplicateErr error
 }
 
-func (r *repoStub) ListSites(context.Context, explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error) {
-	return nil, nil
+func (r *repoStub) ListSites(_ context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error) {
+	r.listInput = input
+	return r.listResult, nil
 }
 
 func (r *repoStub) GetSiteBySlug(context.Context, string) (explorerepo.SiteDetail, error) {
@@ -100,6 +103,82 @@ func (r *repoStub) GetSiteForWrite(context.Context, string) (explorerepo.SiteSum
 func (r *repoStub) SaveSite(context.Context, string, string) error { return nil }
 
 func (r *repoStub) UnsaveSite(context.Context, string, string) error { return nil }
+
+func TestListSitesPassesValidatedBoundsToRepo(t *testing.T) {
+	repo := &repoStub{listResult: []explorerepo.SiteCard{{
+		ID:            "550e8400-e29b-41d4-a716-446655440101",
+		LastUpdatedAt: time.Now().UTC(),
+	}}}
+	svc := New(repo)
+
+	_, err := svc.ListSites(context.Background(), ListSitesInput{
+		Bounds: &MapBounds{
+			North: 14.0,
+			South: 13.0,
+			East:  121.0,
+			West:  120.0,
+		},
+		Limit: 20,
+	})
+	if err != nil {
+		t.Fatalf("list sites: %v", err)
+	}
+	if repo.listInput.Bounds == nil {
+		t.Fatal("expected bounds to be passed to repo")
+	}
+	if repo.listInput.Bounds.North != 14.0 || repo.listInput.Bounds.South != 13.0 || repo.listInput.Bounds.East != 121.0 || repo.listInput.Bounds.West != 120.0 {
+		t.Fatalf("unexpected repo bounds: %+v", repo.listInput.Bounds)
+	}
+}
+
+func TestListSitesRejectsInvalidBounds(t *testing.T) {
+	tests := []struct {
+		name   string
+		bounds MapBounds
+		path   string
+	}{
+		{
+			name:   "latitude range",
+			bounds: MapBounds{North: 91, South: 13, East: 121, West: 120},
+			path:   "north",
+		},
+		{
+			name:   "longitude range",
+			bounds: MapBounds{North: 14, South: 13, East: 181, West: 120},
+			path:   "east",
+		},
+		{
+			name:   "north before south",
+			bounds: MapBounds{North: 13, South: 14, East: 121, West: 120},
+			path:   "bounds",
+		},
+		{
+			name:   "antimeridian unsupported",
+			bounds: MapBounds{North: 14, South: 13, East: 120, West: 121},
+			path:   "bounds",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := New(&repoStub{})
+			_, err := svc.ListSites(context.Background(), ListSitesInput{
+				Bounds: &tt.bounds,
+				Limit:  20,
+			})
+			if err == nil {
+				t.Fatal("expected validation error")
+			}
+			failure, ok := err.(ValidationFailure)
+			if !ok {
+				t.Fatalf("expected ValidationFailure, got %T", err)
+			}
+			if len(failure.Issues) == 0 || failure.Issues[0].Path[0] != tt.path {
+				t.Fatalf("expected first issue path %q, got %+v", tt.path, failure.Issues)
+			}
+		})
+	}
+}
 
 type geocoderStub struct {
 	area     string

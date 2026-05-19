@@ -120,6 +120,7 @@ export interface ProfileMediaItem {
   id: string;
   mediaObjectId: string;
   postId: string;
+  postCaption?: string | null;
   uploadGroupId: string;
   authorAppUserId: string;
   type: MediaItemType;

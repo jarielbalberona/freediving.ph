@@ -7,11 +7,12 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
-  Check,
   Compass,
   ExternalLink,
   Gavel,
   Heart,
+  LoaderCircle,
+  MapPin,
   MapPinned,
   Share2,
 } from "lucide-react";
@@ -34,6 +35,7 @@ import { useExploreQueryState } from "../hooks/useExploreQueryState";
 import {
   EXPLORE_DEFAULT_LIMIT,
   type DiveSpot,
+  type ExploreSortMode,
   getDiveSpotSlug,
 } from "../types";
 import { DiveSpotCard } from "./DiveSpotCard";
@@ -41,9 +43,7 @@ import { ExploreMap } from "./ExploreMap";
 import { ExploreMobileToggle } from "./ExploreMobileToggle";
 import { ExploreResultsPanel } from "./ExploreResultsPanel";
 
-type SortMode = "relevance" | "recent";
-
-const sortItems = (items: DiveSpot[], sort: SortMode) => {
+const sortItems = (items: DiveSpot[], sort: ExploreSortMode) => {
   switch (sort) {
     case "recent":
       return [...items].sort(
@@ -54,21 +54,49 @@ const sortItems = (items: DiveSpot[], sort: SortMode) => {
   }
 };
 
+const difficultyLabel = (value: DiveSpot["difficulty"]) => {
+  switch (value) {
+    case "easy":
+      return "Easy";
+    case "moderate":
+      return "Moderate";
+    case "hard":
+      return "Hard";
+  }
+};
+
+const verificationLabel = (value: DiveSpot["verificationStatus"]) => {
+  switch (value) {
+    case "verified":
+      return "Verified";
+    case "moderator":
+      return "Checked by team";
+    case "instructor":
+      return "Instructor noted";
+    case "community":
+    default:
+      return "Community shared";
+  }
+};
+
 export function ExploreLayout() {
   const session = useSession();
   const queryClient = useQueryClient();
   const { setOpen, setOpenMobile } = useSidebar();
   const didForceSidebarCloseRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [sort, setSort] = useState<SortMode>("relevance");
+  const [sort, setSort] = useState<ExploreSortMode>("default");
 
   const {
     state,
     resetFilters,
+    setArea,
     setBounds,
     setCamera,
+    setDifficulty,
     setQuery,
     setSelectedSpot,
+    setVerifiedOnly,
     setView,
   } = useExploreQueryState();
 
@@ -80,6 +108,9 @@ export function ExploreLayout() {
       "explore",
       {
         q: deferredQuery,
+        area: state.area,
+        difficulty: state.difficulty,
+        verifiedOnly: state.verifiedOnly,
         bounds: state.bounds,
         limit: EXPLORE_DEFAULT_LIMIT,
       },
@@ -87,6 +118,9 @@ export function ExploreLayout() {
     queryFn: ({ pageParam }: { pageParam?: string }) =>
       exploreApi.searchDiveSpots({
         q: deferredQuery,
+        area: state.area || undefined,
+        difficulty: state.difficulty === "all" ? undefined : state.difficulty,
+        verifiedOnly: state.verifiedOnly || undefined,
         bounds: state.bounds,
         limit: EXPLORE_DEFAULT_LIMIT,
         cursor: pageParam,
@@ -116,8 +150,26 @@ export function ExploreLayout() {
     () => sortItems(exploreItems, sort),
     [exploreItems, sort],
   );
+  const areaOptions = useMemo(() => {
+    const options = new Set<string>();
+    for (const spot of exploreItems) {
+      const area = spot.area.trim();
+      if (area) options.add(area);
+    }
+    if (state.area) options.add(state.area);
+    return Array.from(options).sort((left, right) => left.localeCompare(right));
+  }, [exploreItems, state.area]);
   const selectedSpot =
     sortedItems.find((spot) => spot.id === state.selectedSpotId) ?? null;
+  const exploreErrorMessage = exploreQuery.isError
+    ? "Could not load dive spots."
+    : undefined;
+  const hasAppliedBounds = Boolean(state.bounds);
+  const isAreaSearchFetching =
+    hasAppliedBounds &&
+    exploreQuery.isFetching &&
+    !exploreQuery.isFetchingNextPage;
+  const showAreaSearchStatus = boundsState.isDirty || isAreaSearchFetching;
 
   useEffect(() => {
     if (didForceSidebarCloseRef.current) return;
@@ -163,25 +215,26 @@ export function ExploreLayout() {
     return (
       <>
         <Link href={`/explore/sites/${getDiveSpotSlug(spot)}`}>
-          <Button size="xs" variant="outline" className="rounded-full px-2.5">
+          <Button size="xs" className="rounded-full px-2.5">
             <ExternalLink className="mr-1 size-3.5" />
             Open site
           </Button>
         </Link>
         <Button
-          size="xs"
-          variant="outline"
-          className="rounded-full px-2.5"
+          size="icon-xs"
+          variant="ghost"
+          tooltip={`Share ${spot.name}`}
+          aria-label={`Share ${spot.name}`}
           onClick={() => void shareSpot(spot)}
         >
-          <Share2 className="mr-1 size-3.5" />
-          Share
+          <Share2 className="size-3.5" />
         </Button>
         {session.status === "signed_in" ? (
           <Button
-            size="xs"
-            variant={isSaved ? "default" : "outline"}
-            className="rounded-full px-2.5"
+            size="icon-xs"
+            variant={isSaved ? "secondary" : "ghost"}
+            tooltip={isSaved ? `Unsave ${spot.name}` : `Save ${spot.name}`}
+            aria-label={isSaved ? `Unsave ${spot.name}` : `Save ${spot.name}`}
             disabled={saveSiteMutation.isPending}
             onClick={() =>
               saveSiteMutation.mutate({
@@ -190,8 +243,7 @@ export function ExploreLayout() {
               })
             }
           >
-            <Heart className={cn("mr-1 size-3.5", isSaved && "fill-current")} />
-            {isSaved ? "Saved" : "Save"}
+            <Heart className={cn("size-3.5", isSaved && "fill-current")} />
           </Button>
         ) : null}
       </>
@@ -199,62 +251,70 @@ export function ExploreLayout() {
   };
 
   return (
-    <MapProvider>
-      <div className="relative h-[calc(100vh-3.5rem)] min-h-[720px] overflow-hidden bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.12),_transparent_28%),linear-gradient(180deg,_hsl(var(--primary)/0.08)_0%,_hsl(var(--background))_42%,_hsl(var(--background))_100%)]">
-        <div className="absolute right-4 top-4 z-30 hidden flex-wrap items-center gap-2 lg:flex">
+    <div className="relative h-[calc(100vh-3.5rem)] min-h-[720px] overflow-hidden bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.12),_transparent_28%),linear-gradient(180deg,_hsl(var(--primary)/0.08)_0%,_hsl(var(--background))_42%,_hsl(var(--background))_100%)]">
+      <div className="absolute right-4 top-4 z-30 hidden flex-wrap items-center gap-2 lg:flex">
+        <Link
+          href="/explore/submit"
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "rounded-full bg-card/90",
+          )}
+        >
+          <MapPinned className="mr-2 size-4" />
+          Submit a site
+        </Link>
+        {session.status === "signed_in" ? (
           <Link
-            href="/explore/submit"
+            href="/explore/submissions"
             className={cn(
               buttonVariants({ variant: "outline" }),
               "rounded-full bg-card/90",
             )}
           >
-            <MapPinned className="mr-2 size-4" />
-            Submit a site
+            My submissions
           </Link>
-          {session.status === "signed_in" ? (
-            <Link
-              href="/explore/submissions"
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "rounded-full bg-card/90",
-              )}
-            >
-              My submissions
-            </Link>
-          ) : null}
-          {session.hasPermission("explore.moderate") ? (
-            <Link
-              href="/moderation/explore-sites"
-              className={cn(buttonVariants(), "rounded-full")}
-            >
-              <Gavel className="mr-2 size-4" />
-              Review pending
-            </Link>
-          ) : null}
-        </div>
-        <div className="hidden h-full lg:grid lg:grid-cols-[460px_minmax(0,1fr)]">
-          <ExploreResultsPanel
-            q={state.q}
-            total={sortedItems.length}
-            loading={exploreQuery.isPending}
-            fetching={exploreQuery.isFetching}
-            spots={sortedItems}
-            selectedSpotId={state.selectedSpotId}
-            hasNextPage={Boolean(exploreQuery.hasNextPage)}
-            isFetchingNextPage={exploreQuery.isFetchingNextPage}
-            searchInputRef={searchInputRef}
-            filtersControl={null}
-            onQueryChange={setQuery}
-            onLoadMore={() => void exploreQuery.fetchNextPage()}
-            onSelectSpot={handleSelectSpot}
-            sort={sort}
-            onSortChange={setSort}
-            onResetFilters={handleResetFilters}
-            renderSpotActions={renderSpotActions}
-          />
+        ) : null}
+        {session.hasPermission("explore.moderate") ? (
+          <Link
+            href="/moderation/explore-sites"
+            className={cn(buttonVariants(), "rounded-full")}
+          >
+            <Gavel className="mr-2 size-4" />
+            Review pending
+          </Link>
+        ) : null}
+      </div>
+      <div className="hidden h-full lg:grid lg:grid-cols-[460px_minmax(0,1fr)]">
+        <ExploreResultsPanel
+          q={state.q}
+          area={state.area}
+          areaOptions={areaOptions}
+          difficulty={state.difficulty}
+          verifiedOnly={state.verifiedOnly}
+          total={sortedItems.length}
+          loading={exploreQuery.isPending}
+          fetching={exploreQuery.isFetching}
+          hasAppliedBounds={hasAppliedBounds}
+          errorMessage={exploreErrorMessage}
+          spots={sortedItems}
+          selectedSpotId={state.selectedSpotId}
+          hasNextPage={Boolean(exploreQuery.hasNextPage)}
+          isFetchingNextPage={exploreQuery.isFetchingNextPage}
+          searchInputRef={searchInputRef}
+          onQueryChange={setQuery}
+          onAreaChange={setArea}
+          onDifficultyChange={setDifficulty}
+          onVerifiedOnlyChange={setVerifiedOnly}
+          onLoadMore={() => void exploreQuery.fetchNextPage()}
+          onSelectSpot={handleSelectSpot}
+          sort={sort}
+          onSortChange={setSort}
+          onResetFilters={handleResetFilters}
+          renderSpotActions={renderSpotActions}
+        />
 
-          <div className="relative h-full">
+        <div className="relative h-full">
+          <MapProvider>
             <ExploreMap
               spots={sortedItems}
               selectedSpotId={state.selectedSpotId}
@@ -264,9 +324,140 @@ export function ExploreLayout() {
               onCameraChange={setCamera}
               onSelectSpot={handleSelectSpot}
             />
-            {!exploreQuery.isPending && sortedItems.length === 0 ? (
-              <div className="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center px-6">
-                <Card className="pointer-events-auto max-w-md border-border/80 bg-card/95 p-4 text-sm shadow-xl">
+          </MapProvider>
+          {!exploreQuery.isPending && sortedItems.length === 0 ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center px-6">
+              <Card className="pointer-events-auto max-w-md border-border/80 bg-card/95 p-4 text-sm shadow-xl">
+                <p className="font-medium text-foreground">
+                  Try another part of the coast
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Move the map, search a nearby town, or suggest a dive site if
+                  this area should be listed.
+                </p>
+              </Card>
+            </div>
+          ) : null}
+
+          {selectedSpot ? (
+            <div className="pointer-events-none absolute bottom-5 left-5 z-20 w-[320px]">
+              <Card className="pointer-events-auto border-border/80 bg-card/95 p-4 shadow-xl">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="line-clamp-2 text-sm font-semibold text-foreground">
+                      {selectedSpot.name}
+                    </p>
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="size-3.5" />
+                      {selectedSpot.area}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/explore/sites/${getDiveSpotSlug(selectedSpot)}`}
+                  >
+                    <Button size="xs" className="rounded-full">
+                      Open site
+                    </Button>
+                  </Link>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <Badge variant="secondary" className="rounded-full text-xs">
+                    {difficultyLabel(selectedSpot.difficulty)}
+                  </Badge>
+                  <Badge variant="outline" className="rounded-full text-xs">
+                    {verificationLabel(selectedSpot.verificationStatus)}
+                  </Badge>
+                </div>
+              </Card>
+            </div>
+          ) : null}
+
+          <div className="desktop-view pointer-events-none absolute inset-x-0 top-5 flex justify-center">
+            <Button
+              variant="secondary"
+              className={`pointer-events-auto rounded-full px-5 shadow-xl transition-opacity ${showAreaSearchStatus ? "opacity-100" : "pointer-events-none opacity-0"}`}
+              aria-label="Search this map area"
+              disabled={isAreaSearchFetching}
+              onClick={handleApplyAreaSearch}
+            >
+              {isAreaSearchFetching ? (
+                <LoaderCircle className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Compass className="mr-2 size-4" />
+              )}
+              {isAreaSearchFetching
+                ? "Searching this area"
+                : "Search this area"}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <Tabs
+        value={state.view}
+        className="relative flex h-full flex-col gap-0 lg:hidden"
+      >
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 top-2 z-20 px-4",
+            state.view === "list" && "hidden",
+          )}
+        >
+          <Card className="pointer-events-auto border-border/80 bg-transparent p-3 shadow-xl backdrop-blur">
+            <div className="flex items-center gap-2">
+              <Input
+                ref={searchInputRef}
+                value={state.q}
+                autoFocus
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search by site, town, or area"
+                aria-label="Search by site, town, or area"
+                className="h-11 rounded-full bg-muted/40"
+              />
+            </div>
+          </Card>
+
+          <div className="mobile-view pointer-events-none px-4 w-full flex justify-center">
+            <div className="pointer-events-auto">
+              {showAreaSearchStatus ? (
+                <Button
+                  className="mt-3 rounded-full"
+                  variant="secondary"
+                  aria-label="Search this map area"
+                  disabled={isAreaSearchFetching}
+                  onClick={handleApplyAreaSearch}
+                >
+                  {isAreaSearchFetching ? (
+                    <LoaderCircle className="mr-2 size-4 animate-spin" />
+                  ) : null}
+                  {isAreaSearchFetching
+                    ? "Searching this area"
+                    : "Search this area"}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <TabsList className="hidden" />
+
+        <TabsContent value="map" className="mt-0 flex-1">
+          <div className="relative h-full pt-0">
+            <MapProvider>
+              <ExploreMap
+                spots={sortedItems}
+                selectedSpotId={state.selectedSpotId}
+                searchBounds={state.bounds}
+                initialCamera={state.camera}
+                onBoundsChange={boundsState.updateDraftBounds}
+                onCameraChange={setCamera}
+                onSelectSpot={handleSelectSpot}
+              />
+            </MapProvider>
+            {!exploreQuery.isPending &&
+            sortedItems.length === 0 &&
+            !selectedSpot ? (
+              <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">
+                <Card className="pointer-events-auto border-border/80 bg-card/95 p-4 text-sm shadow-xl">
                   <p className="font-medium text-foreground">
                     Try another part of the coast
                   </p>
@@ -278,132 +469,59 @@ export function ExploreLayout() {
               </div>
             ) : null}
 
-            <div className="desktop-view pointer-events-none absolute inset-x-0 top-5 flex justify-center">
-              <Button
-                variant="secondary"
-                className={`pointer-events-auto rounded-full px-5 shadow-xl transition-opacity ${boundsState.isDirty ? "opacity-100" : "pointer-events-none opacity-0"}`}
-                onClick={handleApplyAreaSearch}
-              >
-                <Compass className="mr-2 size-4" />
-                Search this area
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <Tabs
-          value={state.view}
-          className="relative flex h-full flex-col gap-0 lg:hidden"
-        >
-          <div
-            className={cn(
-              "pointer-events-none absolute inset-x-0 top-2 z-20 px-4",
-              state.view === "list" && "hidden",
-            )}
-          >
-            <Card className="pointer-events-auto border-border/80 bg-transparent p-3 shadow-xl backdrop-blur">
-              <div className="flex items-center gap-2">
-                <Input
-                  ref={searchInputRef}
-                  value={state.q}
-                  autoFocus
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search dive spots"
-                  aria-label="Search dive spots"
-                  className="h-11 rounded-full bg-muted/40"
-                />
-              </div>
-            </Card>
-
-            <div className="mobile-view pointer-events-none px-4 w-full flex justify-center">
-              <div className="pointer-events-auto">
-                {boundsState.isDirty ? (
-                  <Button
-                    className="mt-3 rounded-full"
-                    variant="secondary"
-                    onClick={handleApplyAreaSearch}
-                  >
-                    Search this area
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          <TabsList className="hidden" />
-
-          <TabsContent value="map" className="mt-0 flex-1">
-            <div className="relative h-full pt-0">
-              <ExploreMap
-                spots={sortedItems}
-                selectedSpotId={state.selectedSpotId}
-                searchBounds={state.bounds}
-                initialCamera={state.camera}
-                onBoundsChange={boundsState.updateDraftBounds}
-                onCameraChange={setCamera}
-                onSelectSpot={handleSelectSpot}
-              />
-              {!exploreQuery.isPending &&
-              sortedItems.length === 0 &&
-              !selectedSpot ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">
-                  <Card className="pointer-events-auto border-border/80 bg-card/95 p-4 text-sm shadow-xl">
-                    <p className="font-medium text-foreground">
-                      Try another part of the coast
-                    </p>
-                    <p className="mt-1 text-muted-foreground">
-                      Move the map, search a nearby town, or suggest a dive site
-                      if this area should be listed.
-                    </p>
-                  </Card>
+            {selectedSpot ? (
+              <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">
+                <div className="pointer-events-auto">
+                  <DiveSpotCard
+                    spot={selectedSpot}
+                    selected
+                    onSelect={handleSelectSpot}
+                    onClose={() => setSelectedSpot(null)}
+                    actions={renderSpotActions(selectedSpot)}
+                  />
                 </div>
-              ) : null}
+              </div>
+            ) : null}
+          </div>
+        </TabsContent>
 
-              {selectedSpot ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">
-                  <div className="pointer-events-auto">
-                    <DiveSpotCard
-                      spot={selectedSpot}
-                      selected
-                      onSelect={handleSelectSpot}
-                      onClose={() => setSelectedSpot(null)}
-                      actions={renderSpotActions(selectedSpot)}
-                    />
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="list" className="mt-0 min-h-0 flex-1">
-            <ExploreResultsPanel
-              q={state.q}
-              total={sortedItems.length}
-              loading={exploreQuery.isPending}
-              fetching={exploreQuery.isFetching}
-              spots={sortedItems}
-              selectedSpotId={state.selectedSpotId}
-              hasNextPage={Boolean(exploreQuery.hasNextPage)}
-              isFetchingNextPage={exploreQuery.isFetchingNextPage}
-              filtersControl={null}
-              onQueryChange={setQuery}
-              onLoadMore={() => void exploreQuery.fetchNextPage()}
-              onSelectSpot={handleSelectSpot}
-              sort={sort}
-              onSortChange={setSort}
-              onResetFilters={handleResetFilters}
-              className="border-r-0"
-              compactControls
-              showSearchControls={true}
-              renderSpotActions={renderSpotActions}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="list" className="mt-0 min-h-0 flex-1">
+          <ExploreResultsPanel
+            q={state.q}
+            area={state.area}
+            areaOptions={areaOptions}
+            difficulty={state.difficulty}
+            verifiedOnly={state.verifiedOnly}
+            total={sortedItems.length}
+            loading={exploreQuery.isPending}
+            fetching={exploreQuery.isFetching}
+            hasAppliedBounds={hasAppliedBounds}
+            errorMessage={exploreErrorMessage}
+            spots={sortedItems}
+            selectedSpotId={state.selectedSpotId}
+            hasNextPage={Boolean(exploreQuery.hasNextPage)}
+            isFetchingNextPage={exploreQuery.isFetchingNextPage}
+            onQueryChange={setQuery}
+            onAreaChange={setArea}
+            onDifficultyChange={setDifficulty}
+            onVerifiedOnlyChange={setVerifiedOnly}
+            onLoadMore={() => void exploreQuery.fetchNextPage()}
+            onSelectSpot={handleSelectSpot}
+            sort={sort}
+            onSortChange={setSort}
+            onResetFilters={handleResetFilters}
+            className="border-r-0"
+            compactControls
+            showSearchControls={true}
+            renderSpotActions={renderSpotActions}
+          />
+        </TabsContent>
+      </Tabs>
       <div className="relative">
         <div className="pointer-events-none fixed lg:hidden inset-x-0 bottom-20 z-50 flex justify-center px-4">
           <ExploreMobileToggle view={state.view} onChange={setView} />
         </div>
       </div>
-    </MapProvider>
+    </div>
   );
 }

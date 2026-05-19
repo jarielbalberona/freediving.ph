@@ -265,3 +265,132 @@ func TestSiteSubmissionWorkflowVisibility(t *testing.T) {
 		t.Fatalf("expected hidden owner detail with moderation reason, got %+v", ownerDetail)
 	}
 }
+
+func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T) {
+	pool := testExplorePool(t)
+	repo := explorerepo.New(pool)
+	ctx := context.Background()
+
+	viewerID := "43000000-0000-0000-0000-000000000001"
+	nonce := time.Now().UnixNano()
+	searchName := fmt.Sprintf("Bounds Reef %d", nonce)
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO users (id, username, display_name)
+		VALUES ($1, $2, 'Bounds Viewer')
+		ON CONFLICT (id) DO NOTHING
+	`, viewerID, fmt.Sprintf("bounds_viewer_%d", nonce)); err != nil {
+		t.Skipf("insert viewer: %v", err)
+	}
+
+	var insideID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO dive_sites (
+			name, slug, area, latitude, longitude, entry_difficulty,
+			verification_status, moderation_state, last_updated_at, updated_at
+		)
+		VALUES ($1, $2, 'Mabini, Batangas', 13.75, 120.90, 'easy', 'verified', 'approved', NOW(), NOW())
+		RETURNING id
+	`, searchName, fmt.Sprintf("bounds-inside-%d", nonce)).Scan(&insideID); err != nil {
+		t.Fatalf("insert inside site: %v", err)
+	}
+
+	var outsideID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO dive_sites (
+			name, slug, area, latitude, longitude, entry_difficulty,
+			verification_status, moderation_state, last_updated_at, updated_at
+		)
+		VALUES ($1, $2, 'Mabini, Batangas', 16.00, 123.00, 'easy', 'verified', 'approved', NOW(), NOW())
+		RETURNING id
+	`, searchName+" Outside", fmt.Sprintf("bounds-outside-%d", nonce)).Scan(&outsideID); err != nil {
+		t.Fatalf("insert outside site: %v", err)
+	}
+
+	var pendingID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO dive_sites (
+			name, slug, area, latitude, longitude, entry_difficulty,
+			verification_status, moderation_state, last_updated_at, updated_at
+		)
+		VALUES ($1, $2, 'Mabini, Batangas', 13.76, 120.91, 'easy', 'community', 'pending', NOW(), NOW())
+		RETURNING id
+	`, searchName+" Pending", fmt.Sprintf("bounds-pending-%d", nonce)).Scan(&pendingID); err != nil {
+		t.Fatalf("insert pending site: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_site_saves (app_user_id, dive_site_id)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+	`, viewerID, insideID); err != nil {
+		t.Fatalf("insert save: %v", err)
+	}
+
+	noBoundsItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
+		ViewerUserID:    viewerID,
+		Area:            "Mabini, Batangas",
+		Difficulty:      "easy",
+		VerifiedOnly:    true,
+		Search:          searchName,
+		CursorUpdatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           100,
+	})
+	if err != nil {
+		t.Fatalf("list sites without bounds: %v", err)
+	}
+	foundInsideWithoutBounds := false
+	foundOutsideWithoutBounds := false
+	for _, item := range noBoundsItems {
+		switch item.ID {
+		case insideID:
+			foundInsideWithoutBounds = true
+		case outsideID:
+			foundOutsideWithoutBounds = true
+		case pendingID:
+			t.Fatalf("pending site leaked without bounds: %+v", item)
+		}
+	}
+	if !foundInsideWithoutBounds || !foundOutsideWithoutBounds {
+		t.Fatalf("expected both approved matching sites without bounds, got %+v", noBoundsItems)
+	}
+
+	boundedItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
+		ViewerUserID: viewerID,
+		Area:         "Mabini, Batangas",
+		Difficulty:   "easy",
+		VerifiedOnly: true,
+		Search:       searchName,
+		Bounds: &explorerepo.MapBounds{
+			North: 14,
+			South: 13,
+			East:  121,
+			West:  120,
+		},
+		CursorUpdatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           100,
+	})
+	if err != nil {
+		t.Fatalf("list sites with bounds: %v", err)
+	}
+
+	foundInside := false
+	for _, item := range boundedItems {
+		switch item.ID {
+		case insideID:
+			foundInside = true
+			if !item.IsSaved {
+				t.Fatalf("expected saved state on bounded item: %+v", item)
+			}
+		case outsideID:
+			t.Fatalf("outside site leaked into bounded results: %+v", item)
+		case pendingID:
+			t.Fatalf("pending site leaked into bounded results: %+v", item)
+		}
+	}
+	if !foundInside {
+		t.Fatalf("expected inside site in bounded results, got %+v", boundedItems)
+	}
+}

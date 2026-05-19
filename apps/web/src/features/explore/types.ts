@@ -1,5 +1,9 @@
 export type MapViewMode = "map" | "list";
 
+export type ExploreDifficulty = "all" | "easy" | "moderate" | "hard";
+
+export type ExploreSortMode = "default" | "recent";
+
 export type DiveSpot = {
   id: string;
   slug: string;
@@ -8,6 +12,9 @@ export type DiveSpot = {
   lat?: number;
   lng?: number;
   difficulty: "easy" | "moderate" | "hard";
+  depthMinM?: number;
+  depthMaxM?: number;
+  hazards: string[];
   verificationStatus: "community" | "instructor" | "moderator" | "verified";
   recentUpdateCount: number;
   lastConditionSummary?: string;
@@ -44,6 +51,9 @@ export type ExploreCamera = {
 
 export type ExploreSearchParams = {
   q: string;
+  area?: string;
+  difficulty?: Exclude<ExploreDifficulty, "all">;
+  verifiedOnly?: boolean;
   bounds: ExploreBounds | null;
   limit: number;
   cursor?: string;
@@ -51,8 +61,9 @@ export type ExploreSearchParams = {
 
 export type ExploreQueryState = {
   q: string;
-  minRating: number | null;
-  tags: string[];
+  area: string;
+  difficulty: ExploreDifficulty;
+  verifiedOnly: boolean;
   view: MapViewMode;
   bounds: ExploreBounds | null;
   camera: ExploreCamera;
@@ -69,16 +80,3 @@ export const PHILIPPINES_ZOOM = 5.6;
 export const EXPLORE_DEFAULT_LIMIT = 48;
 
 export const getDiveSpotSlug = (spot: DiveSpot): string => spot.slug;
-
-export const EXPLORE_TAG_OPTIONS = [
-  "Beginner",
-  "Boat",
-  "Reef",
-  "Wall",
-  "Wreck",
-  "Macro",
-  "Drift",
-  "Training",
-  "Deep",
-  "Photography",
-] as const;

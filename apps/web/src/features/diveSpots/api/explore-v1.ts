@@ -19,11 +19,18 @@ export type ExploreFilters = {
   difficulty?: "easy" | "moderate" | "hard";
   verifiedOnly?: boolean;
   search?: string;
+  north?: number;
+  south?: number;
+  east?: number;
+  west?: number;
   cursor?: string;
   limit?: number;
 };
 
-const withQuery = (path: string, params: Record<string, string | number | boolean | undefined>) => {
+const withQuery = (
+  path: string,
+  params: Record<string, string | number | boolean | undefined>,
+) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === "") continue;
@@ -41,12 +48,18 @@ export const exploreApi = {
         difficulty: filters.difficulty,
         verifiedOnly: filters.verifiedOnly,
         search: filters.search,
+        north: filters.north,
+        south: filters.south,
+        east: filters.east,
+        west: filters.west,
         cursor: filters.cursor,
         limit: filters.limit,
       }),
     ),
 
-  listLatestUpdates: (params: { area?: string; cursor?: string; limit?: number } = {}) =>
+  listLatestUpdates: (
+    params: { area?: string; cursor?: string; limit?: number } = {},
+  ) =>
     fphgoFetchClient<ExploreLatestUpdatesResponse>(
       withQuery(routes.v1.explore.latestUpdates(), params),
     ),
@@ -87,10 +100,13 @@ export const exploreApi = {
     ),
 
   submitSite: (payload: CreateExploreSiteSubmissionRequest) =>
-    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.submitSite(), {
-      method: "POST",
-      body: payload as Record<string, unknown>,
-    }),
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(
+      routes.v1.explore.submitSite(),
+      {
+        method: "POST",
+        body: payload as Record<string, unknown>,
+      },
+    ),
 
   listMySubmissions: (cursor?: string, limit = 20) =>
     fphgoFetchClient<ExploreSiteSubmissionListResponse>(
@@ -98,7 +114,9 @@ export const exploreApi = {
     ),
 
   getMySubmissionById: (id: string) =>
-    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.mySubmissionById(id)),
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(
+      routes.v1.explore.mySubmissionById(id),
+    ),
 
   listPendingSites: (cursor?: string, limit = 20) =>
     fphgoFetchClient<ExploreSiteSubmissionListResponse>(
@@ -106,17 +124,25 @@ export const exploreApi = {
     ),
 
   getModerationSiteById: (id: string) =>
-    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.moderationSiteById(id)),
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(
+      routes.v1.explore.moderationSiteById(id),
+    ),
 
   approveSite: (id: string, payload: ModerateExploreSiteRequest) =>
-    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.approveSite(id), {
-      method: "POST",
-      body: payload as Record<string, unknown>,
-    }),
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(
+      routes.v1.explore.approveSite(id),
+      {
+        method: "POST",
+        body: payload as Record<string, unknown>,
+      },
+    ),
 
   rejectSite: (id: string, payload: ModerateExploreSiteRequest) =>
-    fphgoFetchClient<ExploreSiteSubmissionResponse>(routes.v1.explore.rejectSite(id), {
-      method: "POST",
-      body: payload as Record<string, unknown>,
-    }),
+    fphgoFetchClient<ExploreSiteSubmissionResponse>(
+      routes.v1.explore.rejectSite(id),
+      {
+        method: "POST",
+        body: payload as Record<string, unknown>,
+      },
+    ),
 };

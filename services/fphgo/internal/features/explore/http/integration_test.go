@@ -21,6 +21,7 @@ import (
 )
 
 type exploreServiceStub struct {
+	listInput        exploreservice.ListSitesInput
 	listResult       exploreservice.ListSitesResult
 	latest           exploreservice.ListLatestUpdatesResult
 	detail           exploreservice.SiteDetailResult
@@ -34,7 +35,8 @@ type exploreServiceStub struct {
 	err              error
 }
 
-func (s *exploreServiceStub) ListSites(context.Context, exploreservice.ListSitesInput) (exploreservice.ListSitesResult, error) {
+func (s *exploreServiceStub) ListSites(_ context.Context, input exploreservice.ListSitesInput) (exploreservice.ListSitesResult, error) {
+	s.listInput = input
 	return s.listResult, s.err
 }
 
@@ -218,6 +220,46 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	r.ServeHTTP(intentsRec, intentsReq)
 	if intentsRec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for signed-out buddy intents, got %d", intentsRec.Code)
+	}
+}
+
+func TestExploreListSitesParsesBounds(t *testing.T) {
+	svc := &exploreServiceStub{}
+	r := buildExploreRouter(t, svc, authz.Identity{})
+
+	req := httptest.NewRequest(http.MethodGet, "/sites?north=14&south=13&east=121&west=120&search=anilao&area=Mabini,%20Batangas&difficulty=easy&verifiedOnly=true", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for valid bounds, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if svc.listInput.Bounds == nil {
+		t.Fatal("expected bounds to be passed to service")
+	}
+	if svc.listInput.Bounds.North != 14 || svc.listInput.Bounds.South != 13 || svc.listInput.Bounds.East != 121 || svc.listInput.Bounds.West != 120 {
+		t.Fatalf("unexpected bounds: %+v", svc.listInput.Bounds)
+	}
+	if svc.listInput.Search != "anilao" || svc.listInput.Area != "Mabini, Batangas" || svc.listInput.Difficulty != "easy" || !svc.listInput.VerifiedOnly {
+		t.Fatalf("expected existing filters to be preserved, got %+v", svc.listInput)
+	}
+}
+
+func TestExploreListSitesRejectsPartialAndMalformedBounds(t *testing.T) {
+	tests := []string{
+		"/sites?north=14&south=13&east=121",
+		"/sites?north=nope&south=13&east=121&west=120",
+	}
+	for _, path := range tests {
+		t.Run(path, func(t *testing.T) {
+			r := buildExploreRouter(t, &exploreServiceStub{}, authz.Identity{})
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+			}
+		})
 	}
 }
 

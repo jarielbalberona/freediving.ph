@@ -171,6 +171,63 @@ type FeedHiddenItemInsert struct {
 	Reason     string
 }
 
+type ActivityListInput struct {
+	UserID           string
+	Mode             string
+	Area             string
+	CursorOccurredAt time.Time
+	CursorID         string
+	Limit            int32
+}
+
+type ActivityUpsert struct {
+	Type            string
+	SourceModule    string
+	SourceType      string
+	SourceID        string
+	ActorUserID     string
+	TargetType      string
+	TargetID        string
+	Visibility      string
+	State           string
+	Area            string
+	DiveSiteID      string
+	GroupID         string
+	EventID         string
+	OccurredAt      time.Time
+	SourceCreatedAt time.Time
+	Title           string
+	Body            string
+	Media           []map[string]any
+	Stats           map[string]any
+	Metadata        map[string]any
+}
+
+type ActivityRow struct {
+	ID             string
+	Type           string
+	SourceModule   string
+	SourceType     string
+	SourceID       string
+	ActorUserID    string
+	ActorName      string
+	ActorUsername  string
+	ActorAvatarURL string
+	TargetType     string
+	TargetID       string
+	Visibility     string
+	Area           string
+	DiveSiteID     string
+	GroupID        string
+	EventID        string
+	OccurredAt     time.Time
+	Title          string
+	Body           string
+	Media          []map[string]any
+	Stats          map[string]any
+	Metadata       map[string]any
+}
+
 func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
@@ -938,12 +995,355 @@ func (r *Repo) InsertHiddenItems(ctx context.Context, userID string, rows []Feed
 	return nil
 }
 
+func (r *Repo) UpsertActivityItem(ctx context.Context, input ActivityUpsert) error {
+	mediaRaw, err := json.Marshal(jsonMapSliceOrEmpty(input.Media))
+	if err != nil {
+		return err
+	}
+	statsRaw, err := json.Marshal(jsonMapOrEmpty(input.Stats))
+	if err != nil {
+		return err
+	}
+	metadataRaw, err := json.Marshal(jsonMapOrEmpty(input.Metadata))
+	if err != nil {
+		return err
+	}
+	const q = `
+		INSERT INTO activity_items (
+			type,
+			source_module,
+			source_type,
+			source_id,
+			actor_user_id,
+			target_type,
+			target_id,
+			visibility,
+			state,
+			area,
+			dive_site_id,
+			group_id,
+			event_id,
+			occurred_at,
+			source_created_at,
+			title,
+			body,
+			media,
+			stats,
+			metadata
+		)
+		VALUES (
+			$1, $2, $3, $4::uuid, $5::uuid, $6, $7::uuid, $8, $9,
+			$10, $11::uuid, $12::uuid, $13::uuid, $14, $15, $16, $17,
+			$18::jsonb, $19::jsonb, $20::jsonb
+		)
+		ON CONFLICT (source_module, source_type, source_id, type)
+		DO UPDATE SET
+			actor_user_id = EXCLUDED.actor_user_id,
+			target_type = EXCLUDED.target_type,
+			target_id = EXCLUDED.target_id,
+			visibility = EXCLUDED.visibility,
+			state = EXCLUDED.state,
+			area = EXCLUDED.area,
+			dive_site_id = EXCLUDED.dive_site_id,
+			group_id = EXCLUDED.group_id,
+			event_id = EXCLUDED.event_id,
+			occurred_at = EXCLUDED.occurred_at,
+			source_created_at = EXCLUDED.source_created_at,
+			title = EXCLUDED.title,
+			body = EXCLUDED.body,
+			media = EXCLUDED.media,
+			stats = EXCLUDED.stats,
+			metadata = EXCLUDED.metadata,
+			updated_at = NOW()
+	`
+	state := strings.TrimSpace(input.State)
+	if state == "" {
+		state = "active"
+	}
+	sourceCreatedAt := input.SourceCreatedAt
+	if sourceCreatedAt.IsZero() {
+		sourceCreatedAt = input.OccurredAt
+	}
+	_, err = r.pool.Exec(ctx, q,
+		input.Type,
+		input.SourceModule,
+		input.SourceType,
+		input.SourceID,
+		nullableText(input.ActorUserID),
+		input.TargetType,
+		input.TargetID,
+		input.Visibility,
+		state,
+		nullableText(input.Area),
+		nullableText(input.DiveSiteID),
+		nullableText(input.GroupID),
+		nullableText(input.EventID),
+		input.OccurredAt,
+		sourceCreatedAt,
+		nullableText(input.Title),
+		nullableText(input.Body),
+		mediaRaw,
+		statsRaw,
+		metadataRaw,
+	)
+	return err
+}
+
+func (r *Repo) MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID, state string) error {
+	const q = `
+		UPDATE activity_items
+		SET state = $4, updated_at = NOW()
+		WHERE source_module = $1
+		  AND source_type = $2
+		  AND source_id = $3::uuid
+	`
+	_, err := r.pool.Exec(ctx, q, sourceModule, sourceType, sourceID, state)
+	return err
+}
+
+func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) ([]ActivityRow, error) {
+	const q = `
+		SELECT
+			ai.id::text,
+			ai.type,
+			ai.source_module,
+			ai.source_type,
+			ai.source_id::text,
+			COALESCE(ai.actor_user_id::text, ''),
+			COALESCE(NULLIF(u.display_name, ''), u.username, ''),
+			COALESCE(u.username, ''),
+			COALESCE(p.avatar_url, ''),
+			ai.target_type,
+			ai.target_id::text,
+			ai.visibility,
+			COALESCE(ai.area, ''),
+			COALESCE(ai.dive_site_id::text, ''),
+			COALESCE(ai.group_id::text, ''),
+			COALESCE(ai.event_id::text, ''),
+			ai.occurred_at,
+			COALESCE(ai.title, ''),
+			COALESCE(ai.body, ''),
+			ai.media,
+			ai.stats,
+			ai.metadata
+		FROM activity_items ai
+		LEFT JOIN users u ON u.id = ai.actor_user_id
+		LEFT JOIN profiles p ON p.user_id = ai.actor_user_id
+		WHERE ai.state = 'active'
+		  AND (ai.actor_user_id IS NULL OR u.account_status = 'active')
+		  AND (
+		    $1::uuid IS NULL AND ai.visibility = 'public'
+		    OR
+		    $1::uuid IS NOT NULL AND (
+		      ai.visibility IN ('public', 'members')
+		      OR (
+		        ai.visibility = 'group_members'
+		        AND ai.group_id IS NOT NULL
+		        AND EXISTS (
+		          SELECT 1
+		          FROM group_memberships gm
+		          WHERE gm.group_id = ai.group_id
+		            AND gm.user_id = $1::uuid
+		            AND gm.status = 'active'
+		        )
+		      )
+		    )
+		  )
+		  AND ai.visibility <> 'private'
+		  AND ai.visibility <> 'followers'
+		  AND (
+		    $2 = 'latest'
+		    OR ($2 = 'nearby' AND $3 <> '' AND lower(COALESCE(ai.area, '')) LIKE '%' || lower($3) || '%')
+		    OR ($2 = 'chika' AND ai.type = 'chika_thread_created')
+		    OR ($2 = 'dive-reports' AND ai.type IN ('dive_site_update_added', 'media_post_created'))
+		    OR ($2 = 'events' AND ai.type = 'event_published')
+		  )
+		  AND (
+		    $1::uuid IS NULL
+		    OR ai.actor_user_id IS NULL
+		    OR ai.actor_user_id = $1::uuid
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_blocks ub
+		      WHERE (ub.blocker_app_user_id = $1::uuid AND ub.blocked_app_user_id = ai.actor_user_id)
+		         OR (ub.blocker_app_user_id = ai.actor_user_id AND ub.blocked_app_user_id = $1::uuid)
+		    )
+		  )
+		  AND (
+		    $1::uuid IS NULL
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_hidden_feed_items h
+		      WHERE h.user_id = $1::uuid
+		        AND (
+		          (h.entity_type = ai.source_type AND h.entity_id = ai.source_id::text)
+		          OR (h.entity_type = ai.type AND h.entity_id = ai.source_id::text)
+		          OR (h.entity_type = ai.target_type AND h.entity_id = ai.target_id::text)
+		        )
+		    )
+		  )
+		  AND (
+		    (ai.type = 'chika_thread_created' AND EXISTS (
+		      SELECT 1
+		      FROM chika_threads t
+		      WHERE t.id = ai.source_id
+		        AND t.hidden_at IS NULL
+		        AND t.deleted_at IS NULL
+		    ))
+		    OR (ai.type = 'dive_site_update_added' AND EXISTS (
+		      SELECT 1
+		      FROM dive_site_updates dsu
+		      JOIN dive_sites ds ON ds.id = dsu.dive_site_id
+		      WHERE dsu.id = ai.source_id
+		        AND dsu.state = 'active'
+		        AND ds.moderation_state = 'approved'
+		    ))
+		    OR (ai.type = 'event_published' AND EXISTS (
+		      SELECT 1
+		      FROM events e
+		      LEFT JOIN groups g ON g.id = e.group_id
+		      WHERE e.id = ai.source_id
+		        AND e.status = 'published'
+		        AND e.visibility IN ('public', 'group_members')
+		        AND (e.group_id IS NULL OR g.status = 'active')
+		    ))
+		    OR (ai.type = 'buddy_intent_created' AND EXISTS (
+		      SELECT 1
+		      FROM buddy_intents bi
+		      LEFT JOIN dive_sites ds ON ds.id = bi.dive_site_id
+		      WHERE bi.id = ai.source_id
+		        AND bi.state = 'active'
+		        AND bi.visibility = 'members'
+		        AND bi.expires_at > NOW()
+		        AND (bi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
+		    ))
+		    OR (ai.type = 'media_post_created' AND EXISTS (
+		      SELECT 1
+		      FROM media_posts mp
+		      JOIN dive_sites ds ON ds.id = mp.dive_site_id
+		      WHERE mp.id = ai.source_id
+		        AND mp.deleted_at IS NULL
+		        AND ds.moderation_state = 'approved'
+		        AND EXISTS (
+		          SELECT 1
+		          FROM media_items mi
+		          JOIN media_objects mo ON mo.id = mi.media_object_id
+		          WHERE mi.post_id = mp.id
+		            AND mi.status = 'active'
+		            AND mi.deleted_at IS NULL
+		            AND mo.state = 'active'
+		        )
+		    ))
+		  )
+		  AND (ai.occurred_at, ai.id) < ($4::timestamptz, $5::uuid)
+		ORDER BY ai.occurred_at DESC, ai.id DESC
+		LIMIT $6
+	`
+	rows, err := r.pool.Query(ctx, q,
+		userUUIDParam(input.UserID),
+		normalizeActivityMode(input.Mode),
+		strings.TrimSpace(input.Area),
+		input.CursorOccurredAt,
+		input.CursorID,
+		input.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]ActivityRow, 0)
+	for rows.Next() {
+		var item ActivityRow
+		var mediaRaw, statsRaw, metadataRaw []byte
+		if scanErr := rows.Scan(
+			&item.ID,
+			&item.Type,
+			&item.SourceModule,
+			&item.SourceType,
+			&item.SourceID,
+			&item.ActorUserID,
+			&item.ActorName,
+			&item.ActorUsername,
+			&item.ActorAvatarURL,
+			&item.TargetType,
+			&item.TargetID,
+			&item.Visibility,
+			&item.Area,
+			&item.DiveSiteID,
+			&item.GroupID,
+			&item.EventID,
+			&item.OccurredAt,
+			&item.Title,
+			&item.Body,
+			&mediaRaw,
+			&statsRaw,
+			&metadataRaw,
+		); scanErr != nil {
+			return nil, scanErr
+		}
+		item.Media = decodeMapSlice(mediaRaw)
+		item.Stats = decodeMap(statsRaw)
+		item.Metadata = decodeMap(metadataRaw)
+		items = append(items, item)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return items, nil
+}
+
 func nullableText(value string) *string {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return nil
 	}
 	return &trimmed
+}
+
+func normalizeActivityMode(mode string) string {
+	switch strings.TrimSpace(mode) {
+	case "nearby", "chika", "dive-reports", "events":
+		return strings.TrimSpace(mode)
+	default:
+		return "latest"
+	}
+}
+
+func jsonMapOrEmpty(value map[string]any) map[string]any {
+	if value == nil {
+		return map[string]any{}
+	}
+	return value
+}
+
+func jsonMapSliceOrEmpty(value []map[string]any) []map[string]any {
+	if value == nil {
+		return []map[string]any{}
+	}
+	return value
+}
+
+func decodeMap(raw []byte) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil || decoded == nil {
+		return map[string]any{}
+	}
+	return decoded
+}
+
+func decodeMapSlice(raw []byte) []map[string]any {
+	if len(raw) == 0 {
+		return []map[string]any{}
+	}
+	var decoded []map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil || decoded == nil {
+		return []map[string]any{}
+	}
+	return decoded
 }
 
 func numericToFloat64(value pgtype.Numeric) (float64, error) {

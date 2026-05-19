@@ -61,6 +61,17 @@ WHERE s.moderation_state = 'approved'
     OR s.name ILIKE '%' || sqlc.arg(search_text) || '%'
     OR s.area ILIKE '%' || sqlc.arg(search_text) || '%'
   )
+  AND (
+    NOT sqlc.arg(has_bounds)::bool
+    OR (
+      s.latitude IS NOT NULL
+      AND s.longitude IS NOT NULL
+      AND s.latitude <= sqlc.arg(north)::double precision
+      AND s.latitude >= sqlc.arg(south)::double precision
+      AND s.longitude <= sqlc.arg(east)::double precision
+      AND s.longitude >= sqlc.arg(west)::double precision
+    )
+  )
   AND (s.last_updated_at < sqlc.arg(cursor_updated_at) OR (s.last_updated_at = sqlc.arg(cursor_updated_at) AND s.id < sqlc.arg(cursor_id)))
 ORDER BY s.last_updated_at DESC, s.id DESC
 LIMIT sqlc.arg(limit_rows);

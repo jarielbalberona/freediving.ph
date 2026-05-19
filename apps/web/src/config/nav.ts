@@ -255,6 +255,21 @@ const MAIN_NAV_ORDER: string[] = [
   "more",
 ];
 
+const MOBILE_MAIN_NAV_ORDER: string[] = [
+  "home",
+  "chika",
+  "create",
+  "messages",
+  "profile",
+];
+
+const MOBILE_SIDEBAR_ORDER: string[] = [
+  "explore",
+  "buddies",
+  "groups",
+  "events",
+];
+
 function isVisible(item: NavItem, isSignedIn: boolean): boolean {
   if (item.kind === "action") return true;
   if (item.comingSoon) return false;
@@ -309,6 +324,43 @@ export function getMainNavItems(opts?: { isSignedIn: boolean }): NavItem[] {
       item != null &&
       (item.kind === "action" || isSignedIn || !item.isProtected),
   );
+}
+
+export function getMobileMainNavItems(_opts?: {
+  isSignedIn: boolean;
+}): NavItem[] {
+  return MOBILE_MAIN_NAV_ORDER.map((id) =>
+    NAV_ITEMS.find((i) => i.id === id),
+  ).filter((item): item is NavItem => item != null && !item.comingSoon);
+}
+
+export function getMobileSidebarNavGroups({
+  isSignedIn,
+}: {
+  isSignedIn: boolean;
+}): Array<{ group: NavGroupId; title: string; items: NavItem[] }> {
+  const items = MOBILE_SIDEBAR_ORDER.map((id) =>
+    NAV_ITEMS.find((item) => item.id === id),
+  ).filter(
+    (item): item is NavItem =>
+      item != null && item.kind === "link" && isVisible(item, isSignedIn),
+  );
+
+  const byGroup = new Map<NavGroupId, NavItem[]>();
+  for (const item of items) {
+    const list = byGroup.get(item.group) ?? [];
+    list.push(item);
+    byGroup.set(item.group, list);
+  }
+
+  const order: NavGroupId[] = ["core", "community"];
+  return order
+    .filter((group) => byGroup.has(group))
+    .map((group) => ({
+      group,
+      title: group === "core" ? "" : GROUP_DISPLAY_TITLES[group],
+      items: byGroup.get(group) ?? [],
+    }));
 }
 
 export function getMoreNavGroups({

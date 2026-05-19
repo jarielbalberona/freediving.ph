@@ -71,6 +71,66 @@ export interface HomeFeedResponse {
   nextCursor?: string;
 }
 
+export type ActivityFeedFilter =
+  | "latest"
+  | "nearby"
+  | "chika"
+  | "dive-reports"
+  | "events";
+
+export type ActivityFeedItemType =
+  | "chika_thread_created"
+  | "dive_site_update_added"
+  | "event_published"
+  | "buddy_intent_created"
+  | "media_post_created";
+
+export type ActivityFeedVisibility =
+  | "public"
+  | "members"
+  | "followers"
+  | "group_members"
+  | "private";
+
+export interface ActivityFeedActor {
+  id: string;
+  name: string;
+  username: string;
+  avatarUrl?: string;
+}
+
+export interface ActivityFeedTarget {
+  type: string;
+  id: string;
+}
+
+export interface ActivityFeedItem {
+  id: string;
+  type: ActivityFeedItemType;
+  sourceModule: string;
+  sourceType: string;
+  sourceId: string;
+  actor: ActivityFeedActor;
+  target: ActivityFeedTarget;
+  visibility: ActivityFeedVisibility;
+  occurredAt: string;
+  title?: string;
+  body?: string;
+  area?: string;
+  diveSiteId?: string;
+  groupId?: string;
+  eventId?: string;
+  media?: Array<Record<string, unknown>>;
+  stats?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  href?: string;
+}
+
+export interface ActivityFeedResponse {
+  items: ActivityFeedItem[];
+  nextCursor?: string;
+}
+
 export interface FeedImpressionItem {
   feedItemId: string;
   entityType: string;

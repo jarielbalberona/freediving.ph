@@ -98,7 +98,7 @@ export function MediaViewerDialog({
         <DialogContent
           containerClassName="p-0"
           showCloseButton={false}
-          className="relative h-dvh max-h-dvh w-full max-w-none rounded-none border-0 bg-background p-0 text-foreground shadow-none ring-0 md:max-w-[min(100vw-2rem,72rem)] md:rounded-2xl"
+          className="relative h-dvh max-h-dvh w-full max-w-none rounded-none! border-0 bg-background p-0 text-foreground shadow-none ring-0 md:max-w-[min(100vw-2rem,72rem)] md:rounded-2xl"
         >
           <div className="absolute right-4 top-4 z-30">
             <DialogClose

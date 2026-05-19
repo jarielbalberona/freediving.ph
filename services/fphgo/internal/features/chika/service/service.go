@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	chikarepo "fphgo/internal/features/chika/repo"
+	feedservice "fphgo/internal/features/feed/service"
 	"fphgo/internal/realtime/ws"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/pagination"
@@ -26,6 +27,7 @@ type Service struct {
 	limiter      rateLimiter
 	pseudonymKey string
 	rt           realtimeBroadcaster
+	activity     activityPublisher
 }
 
 type chikaRepository interface {
@@ -69,6 +71,11 @@ type rateLimiter interface {
 
 type realtimeBroadcaster interface {
 	BroadcastEnvelope(ws.Envelope)
+}
+
+type activityPublisher interface {
+	PublishActivity(ctx context.Context, input feedservice.ActivityPublishInput) error
+	MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID string, state feedservice.ActivityState) error
 }
 
 type noopLimiter struct{}
@@ -163,9 +170,9 @@ type ListThreadsResult struct {
 }
 
 type ListCommentsResult struct {
-	Items                 []Comment
-	NextCursor            string
-	CategoryPseudonymous  bool
+	Items                []Comment
+	NextCursor           string
+	CategoryPseudonymous bool
 }
 
 type UpdateCommentInput struct {
@@ -245,6 +252,12 @@ func WithRealtimeBroadcaster(broadcaster realtimeBroadcaster) Option {
 	}
 }
 
+func WithActivityPublisher(publisher activityPublisher) Option {
+	return func(s *Service) {
+		s.activity = publisher
+	}
+}
+
 func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Thread, error) {
 	if _, err := uuid.Parse(input.ActorID); err != nil {
 		return Thread{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
@@ -277,11 +290,14 @@ func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Th
 		return Thread{}, apperrors.New(http.StatusInternalServerError, "thread_create_failed", "failed to create thread", err)
 	}
 	created.Content = content
+	actorPseudonym := ""
 	if created.Mode == "pseudonymous" || created.Mode == "locked_pseudonymous" {
-		if _, err := s.ensureThreadAlias(ctx, created.ID, input.ActorID, true); err != nil {
+		pseudonym, err := s.ensureThreadAlias(ctx, created.ID, input.ActorID, true)
+		if err != nil {
 			_ = s.repo.SoftDeleteThread(ctx, created.ID)
 			return Thread{}, err
 		}
+		actorPseudonym = pseudonym
 	}
 	if content != "" {
 		pseudonym, err := s.resolvePseudonym(ctx, input.ActorID, created.Mode, created.ID)
@@ -298,6 +314,29 @@ func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Th
 		"threadId":     created.ID,
 		"authorUserId": input.ActorID,
 	})
+	if s.activity != nil {
+		_ = s.activity.PublishActivity(ctx, feedservice.ActivityPublishInput{
+			Type:         feedservice.ActivityChikaThreadCreated,
+			SourceModule: feedservice.ActivitySourceChika,
+			SourceType:   "thread",
+			SourceID:     created.ID,
+			ActorUserID:  input.ActorID,
+			TargetType:   "chika_thread",
+			TargetID:     created.ID,
+			Visibility:   feedservice.ActivityVisibilityPublic,
+			State:        feedservice.ActivityStateActive,
+			OccurredAt:   created.CreatedAt,
+			Title:        created.Title,
+			Stats:        map[string]any{"replies": 0, "reactions": 0},
+			Metadata: map[string]any{
+				"mode":                 created.Mode,
+				"categorySlug":         category.Slug,
+				"categoryName":         category.Name,
+				"categoryPseudonymous": category.Pseudonymous,
+				"actorPseudonym":       actorPseudonym,
+			},
+		})
+	}
 	return created, nil
 }
 
@@ -463,6 +502,9 @@ func (s *Service) DeleteThread(ctx context.Context, input DeleteThreadInput) err
 	}
 	if err := s.repo.SoftDeleteThread(ctx, input.ThreadID); err != nil {
 		return apperrors.New(http.StatusInternalServerError, "thread_delete_failed", "failed to delete thread", err)
+	}
+	if s.activity != nil {
+		_ = s.activity.MarkActivityBySource(ctx, string(feedservice.ActivitySourceChika), "thread", input.ThreadID, feedservice.ActivityStateDeleted)
 	}
 	s.broadcastChikaEvent("chika.thread.deleted", map[string]any{
 		"threadId": input.ThreadID,

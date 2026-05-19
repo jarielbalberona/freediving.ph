@@ -109,6 +109,7 @@ type CreateMediaItemInput struct {
 
 type ProfileMediaItem struct {
 	MediaItem
+	PostCaption  *string
 	DiveSiteSlug string
 	DiveSiteName string
 	DiveSiteArea string
@@ -380,6 +381,7 @@ func mapProfileMediaItem(row mediaqlc.ListProfileMediaByUsernameRow) ProfileMedi
 			UpdatedAt:       row.UpdatedAt.Time.UTC(),
 			DeletedAt:       timestamptzPtr(row.DeletedAt),
 		},
+		PostCaption:  stringPtr(row.PostCaption),
 		DiveSiteSlug: row.DiveSiteSlug,
 		DiveSiteName: row.DiveSiteName,
 		DiveSiteArea: row.DiveSiteArea,

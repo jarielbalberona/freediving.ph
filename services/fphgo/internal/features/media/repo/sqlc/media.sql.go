@@ -409,6 +409,7 @@ const listProfileMediaByUsername = `-- name: ListProfileMediaByUsername :many
 SELECT
   mi.id,
   mi.post_id,
+  mp.post_caption,
   mi.media_object_id,
   mi.author_app_user_id,
   mi.upload_group_id,
@@ -454,6 +455,7 @@ type ListProfileMediaByUsernameParams struct {
 type ListProfileMediaByUsernameRow struct {
 	ID              pgtype.UUID        `db:"id" json:"id"`
 	PostID          pgtype.UUID        `db:"post_id" json:"post_id"`
+	PostCaption     *string            `db:"post_caption" json:"post_caption"`
 	MediaObjectID   pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
 	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
 	UploadGroupID   pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
@@ -492,6 +494,7 @@ func (q *Queries) ListProfileMediaByUsername(ctx context.Context, arg ListProfil
 		if err := rows.Scan(
 			&i.ID,
 			&i.PostID,
+			&i.PostCaption,
 			&i.MediaObjectID,
 			&i.AuthorAppUserID,
 			&i.UploadGroupID,

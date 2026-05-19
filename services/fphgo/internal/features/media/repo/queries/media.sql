@@ -107,6 +107,7 @@ RETURNING
 SELECT
   mi.id,
   mi.post_id,
+  mp.post_caption,
   mi.media_object_id,
   mi.author_app_user_id,
   mi.upload_group_id,

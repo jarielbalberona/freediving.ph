@@ -17,6 +17,7 @@ import (
 	buddieshttp "fphgo/internal/features/buddies/http"
 	chikahttp "fphgo/internal/features/chika/http"
 	explorehttp "fphgo/internal/features/explore/http"
+	feedhttp "fphgo/internal/features/feed/http"
 	locationshttp "fphgo/internal/features/locations/http"
 	mediahttp "fphgo/internal/features/media/http"
 	messaginghttp "fphgo/internal/features/messaging/http"
@@ -158,6 +159,7 @@ func buildFullSurfaceRouter() chi.Router {
 		MessagingHandler:  messaginghttp.New(nil, nil, nil),
 		ChikaHandler:      chikahttp.New(nil, nil),
 		ExploreHandler:    explorehttp.New(nil, validatex.New()),
+		FeedHandler:       feedhttp.New(nil, nil),
 		LocationsHandler:  locationshttp.New(nil),
 		ProfilesHandler:   profileshttp.New(nil, nil),
 		BlocksHandler:     blockshttp.New(nil, nil),

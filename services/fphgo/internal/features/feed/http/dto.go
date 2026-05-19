@@ -75,3 +75,42 @@ type LogActionItemBody struct {
 	Value      map[string]any `json:"valueJson"`
 	CreatedAt  string         `json:"createdAt" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
 }
+
+type ActivityFeedResponse struct {
+	Items      []ActivityFeedItem `json:"items"`
+	NextCursor string             `json:"nextCursor,omitempty"`
+}
+
+type ActivityFeedItem struct {
+	ID           string             `json:"id"`
+	Type         string             `json:"type"`
+	SourceModule string             `json:"sourceModule"`
+	SourceType   string             `json:"sourceType"`
+	SourceID     string             `json:"sourceId"`
+	Actor        ActivityFeedActor  `json:"actor"`
+	Target       ActivityFeedTarget `json:"target"`
+	Visibility   string             `json:"visibility"`
+	OccurredAt   string             `json:"occurredAt"`
+	Title        string             `json:"title,omitempty"`
+	Body         string             `json:"body,omitempty"`
+	Area         string             `json:"area,omitempty"`
+	DiveSiteID   string             `json:"diveSiteId,omitempty"`
+	GroupID      string             `json:"groupId,omitempty"`
+	EventID      string             `json:"eventId,omitempty"`
+	Media        []map[string]any   `json:"media"`
+	Stats        map[string]any     `json:"stats"`
+	Metadata     map[string]any     `json:"metadata"`
+	Href         string             `json:"href,omitempty"`
+}
+
+type ActivityFeedActor struct {
+	ID        string `json:"id,omitempty"`
+	Name      string `json:"name"`
+	Username  string `json:"username,omitempty"`
+	AvatarURL string `json:"avatarUrl,omitempty"`
+}
+
+type ActivityFeedTarget struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}

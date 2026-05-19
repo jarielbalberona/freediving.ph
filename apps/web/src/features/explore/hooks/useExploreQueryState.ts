@@ -4,6 +4,7 @@ import { startTransition, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
+  type ExploreDifficulty,
   PHILIPPINES_CENTER,
   PHILIPPINES_ZOOM,
   type ExploreBounds,
@@ -12,19 +13,12 @@ import {
   type MapViewMode,
 } from "../types";
 
-const parseMinRating = (value: string | null): number | null => {
-  if (!value) return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+const parseDifficulty = (value: string | null): ExploreDifficulty => {
+  if (value === "easy" || value === "moderate" || value === "hard") {
+    return value;
+  }
+  return "all";
 };
-
-const parseTags = (value: string | null) =>
-  value
-    ? value
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-    : [];
 
 const parseBounds = (value: string | null): ExploreBounds | null => {
   if (!value) return null;
@@ -77,8 +71,9 @@ export const useExploreQueryState = () => {
 
     return {
       q: searchParams.get("q") ?? "",
-      minRating: parseMinRating(searchParams.get("minRating")),
-      tags: parseTags(searchParams.get("tags")),
+      area: searchParams.get("area") ?? "",
+      difficulty: parseDifficulty(searchParams.get("difficulty")),
+      verifiedOnly: searchParams.get("verifiedOnly") === "true",
       view,
       bounds: parseBounds(searchParams.get("bounds")),
       camera: parseCamera(searchParams),
@@ -106,22 +101,22 @@ export const useExploreQueryState = () => {
         else nextParams.delete("q");
       });
     },
-    setMinRating(minRating: number | null) {
+    setArea(area: string) {
       commitParams((nextParams) => {
-        if (typeof minRating === "number")
-          nextParams.set("minRating", String(minRating));
-        else nextParams.delete("minRating");
+        if (area) nextParams.set("area", area);
+        else nextParams.delete("area");
       });
     },
-    toggleTag(tag: string) {
+    setDifficulty(difficulty: ExploreDifficulty) {
       commitParams((nextParams) => {
-        const current = new Set(parseTags(nextParams.get("tags")));
-        if (current.has(tag)) current.delete(tag);
-        else current.add(tag);
-
-        if (current.size > 0)
-          nextParams.set("tags", Array.from(current).join(","));
-        else nextParams.delete("tags");
+        if (difficulty === "all") nextParams.delete("difficulty");
+        else nextParams.set("difficulty", difficulty);
+      });
+    },
+    setVerifiedOnly(verifiedOnly: boolean) {
+      commitParams((nextParams) => {
+        if (verifiedOnly) nextParams.set("verifiedOnly", "true");
+        else nextParams.delete("verifiedOnly");
       });
     },
     setView(view: MapViewMode) {
@@ -165,8 +160,9 @@ export const useExploreQueryState = () => {
     resetFilters() {
       commitParams((nextParams) => {
         nextParams.delete("q");
-        nextParams.delete("minRating");
-        nextParams.delete("tags");
+        nextParams.delete("area");
+        nextParams.delete("difficulty");
+        nextParams.delete("verifiedOnly");
       });
     },
   };

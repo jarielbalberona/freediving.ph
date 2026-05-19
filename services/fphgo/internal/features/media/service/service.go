@@ -27,6 +27,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	feedservice "fphgo/internal/features/feed/service"
 	mediarepo "fphgo/internal/features/media/repo"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/pagination"
@@ -70,6 +71,7 @@ type Service struct {
 	signingSecret     string
 	signingKeyVersion int
 	nowFn             func() time.Time
+	activity          activityPublisher
 }
 
 type siteLookup interface {
@@ -84,6 +86,10 @@ type SiteRecord struct {
 	ModerationState string
 }
 
+type activityPublisher interface {
+	PublishActivity(ctx context.Context, input feedservice.ActivityPublishInput) error
+}
+
 type Option func(*Service)
 
 func WithSiteLookup(lookup siteLookup) Option {
@@ -91,6 +97,12 @@ func WithSiteLookup(lookup siteLookup) Option {
 		if lookup != nil {
 			s.siteLookup = lookup
 		}
+	}
+}
+
+func WithActivityPublisher(publisher activityPublisher) Option {
+	return func(s *Service) {
+		s.activity = publisher
 	}
 }
 
@@ -206,6 +218,7 @@ type ProfileMediaItemResult struct {
 	ID              string
 	MediaObjectID   string
 	PostID          string
+	PostCaption     *string
 	UploadGroupID   string
 	AuthorAppUserID string
 	Type            string
@@ -933,6 +946,42 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 		})
 	}
 
+	if s.activity != nil {
+		media := make([]map[string]any, 0, len(resultItems))
+		for _, item := range resultItems {
+			media = append(media, map[string]any{
+				"id":            item.ID,
+				"mediaObjectId": item.MediaObjectID,
+				"type":          item.Type,
+				"width":         item.Width,
+				"height":        item.Height,
+			})
+		}
+		_ = s.activity.PublishActivity(ctx, feedservice.ActivityPublishInput{
+			Type:            feedservice.ActivityMediaPostCreated,
+			SourceModule:    feedservice.ActivitySourceMedia,
+			SourceType:      "media_post",
+			SourceID:        createdPost.ID,
+			ActorUserID:     createdPost.AuthorAppUserID,
+			TargetType:      "media_post",
+			TargetID:        createdPost.ID,
+			Visibility:      feedservice.ActivityVisibilityPublic,
+			State:           feedservice.ActivityStateActive,
+			Area:            site.Area,
+			DiveSiteID:      site.ID,
+			OccurredAt:      createdPost.CreatedAt,
+			SourceCreatedAt: createdPost.CreatedAt,
+			Title:           site.Name,
+			Body:            valueOrEmptyString(createdPost.PostCaption),
+			Media:           media,
+			Metadata: map[string]any{
+				"diveSiteName": site.Name,
+				"diveSiteSlug": site.Slug,
+				"source":       source,
+			},
+		})
+	}
+
 	return CreateMediaPostResult{
 		Post: MediaPostResult{
 			ID:              createdPost.ID,
@@ -998,6 +1047,7 @@ func (s *Service) ListProfileMedia(ctx context.Context, input ListProfileMediaIn
 			ID:              row.ID,
 			MediaObjectID:   row.MediaObjectID,
 			PostID:          row.PostID,
+			PostCaption:     row.PostCaption,
 			UploadGroupID:   row.UploadGroupID,
 			AuthorAppUserID: row.AuthorAppUserID,
 			Type:            row.Type,
@@ -1179,6 +1229,13 @@ func intPtrFromInt32(value *int32) *int {
 	}
 	result := int(*value)
 	return &result
+}
+
+func valueOrEmptyString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }
 
 func validateContext(contextType string, contextID *string) (contextRule, []validatex.Issue) {

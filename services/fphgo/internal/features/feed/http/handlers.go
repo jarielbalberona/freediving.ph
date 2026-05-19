@@ -17,6 +17,7 @@ import (
 
 type service interface {
 	Home(ctx context.Context, input feedservice.HomeInput) (feedservice.HomeResult, error)
+	Activity(ctx context.Context, input feedservice.ActivityInput) (feedservice.ActivityResult, error)
 	RecordImpressions(ctx context.Context, userID, sessionID string, mode feedservice.Mode, rows []feedservice.TelemetryImpression) error
 	RecordActions(ctx context.Context, userID, sessionID string, mode feedservice.Mode, rows []feedservice.TelemetryAction) error
 }
@@ -89,6 +90,69 @@ func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
 			Wind:       result.NearbyCondition.Wind,
 			Sunrise:    result.NearbyCondition.Sunrise,
 		},
+		Items:      items,
+		NextCursor: result.NextCursor,
+	})
+}
+
+func (h *Handlers) Activity(w http.ResponseWriter, r *http.Request) {
+	identity, _ := middleware.CurrentIdentity(r.Context())
+	userID := identity.UserID
+
+	mode := feedservice.ParseMode(r.URL.Query().Get("filter"))
+	if strings.TrimSpace(r.URL.Query().Get("filter")) == "" {
+		mode = feedservice.ParseMode(r.URL.Query().Get("mode"))
+	}
+	limit := 20
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		if parsed, err := strconv.Atoi(rawLimit); err == nil {
+			limit = parsed
+		}
+	}
+	result, err := h.service.Activity(r.Context(), feedservice.ActivityInput{
+		UserID: userID,
+		Mode:   mode,
+		Cursor: r.URL.Query().Get("cursor"),
+		Region: r.URL.Query().Get("region"),
+		Limit:  limit,
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	items := make([]ActivityFeedItem, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, ActivityFeedItem{
+			ID:           item.ID,
+			Type:         string(item.Type),
+			SourceModule: string(item.SourceModule),
+			SourceType:   item.SourceType,
+			SourceID:     item.SourceID,
+			Actor: ActivityFeedActor{
+				ID:        item.Actor.ID,
+				Name:      item.Actor.Name,
+				Username:  item.Actor.Username,
+				AvatarURL: item.Actor.AvatarURL,
+			},
+			Target: ActivityFeedTarget{
+				Type: item.Target.Type,
+				ID:   item.Target.ID,
+			},
+			Visibility: string(item.Visibility),
+			OccurredAt: item.OccurredAt,
+			Title:      item.Title,
+			Body:       item.Body,
+			Area:       item.Area,
+			DiveSiteID: item.DiveSiteID,
+			GroupID:    item.GroupID,
+			EventID:    item.EventID,
+			Media:      item.Media,
+			Stats:      item.Stats,
+			Metadata:   item.Metadata,
+			Href:       item.Href,
+		})
+	}
+	httpx.JSON(w, http.StatusOK, ActivityFeedResponse{
 		Items:      items,
 		NextCursor: result.NextCursor,
 	})

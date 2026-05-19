@@ -5,7 +5,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { getGroupedNavItems, isActiveRoute } from "@/config/nav";
+import {
+  getGroupedNavItems,
+  getMobileSidebarNavGroups,
+  isActiveRoute,
+} from "@/config/nav";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 
 import {
@@ -35,12 +39,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const isAuthReady = mounted && isLoaded;
   const effectiveSignedIn = isAuthReady && isSignedIn;
-  const grouped = getGroupedNavItems({
-    isSignedIn: effectiveSignedIn ?? false,
-  });
-  const groupedFiltered = isMobile
-    ? grouped.filter((g) => g.group !== "core")
-    : grouped;
+  const grouped = isMobile
+    ? getMobileSidebarNavGroups({
+        isSignedIn: effectiveSignedIn ?? false,
+      })
+    : getGroupedNavItems({
+        isSignedIn: effectiveSignedIn ?? false,
+      });
   const profileHref = useCurrentProfileHref();
 
   return (
@@ -55,7 +60,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         />
       </SidebarHeader>
       <SidebarContent>
-        {groupedFiltered.map(({ group, title, items }) => (
+        {grouped.map(({ group, title, items }) => (
           <SidebarGroup key={group}>
             {title && <SidebarGroupLabel>{title}</SidebarGroupLabel>}
             <SidebarMenu>

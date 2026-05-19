@@ -1125,9 +1125,20 @@ WHERE s.moderation_state = 'approved'
     OR s.name ILIKE '%' || $5 || '%'
     OR s.area ILIKE '%' || $5 || '%'
   )
-  AND (s.last_updated_at < $6 OR (s.last_updated_at = $6 AND s.id < $7))
+  AND (
+    NOT $6::bool
+    OR (
+      s.latitude IS NOT NULL
+      AND s.longitude IS NOT NULL
+      AND s.latitude <= $7::double precision
+      AND s.latitude >= $8::double precision
+      AND s.longitude <= $9::double precision
+      AND s.longitude >= $10::double precision
+    )
+  )
+  AND (s.last_updated_at < $11 OR (s.last_updated_at = $11 AND s.id < $12))
 ORDER BY s.last_updated_at DESC, s.id DESC
-LIMIT $8
+LIMIT $13
 `
 
 type ListSitesParams struct {
@@ -1136,6 +1147,11 @@ type ListSitesParams struct {
 	DifficultyFilter string             `db:"difficulty_filter" json:"difficulty_filter"`
 	VerifiedOnly     bool               `db:"verified_only" json:"verified_only"`
 	SearchText       string             `db:"search_text" json:"search_text"`
+	HasBounds        bool               `db:"has_bounds" json:"has_bounds"`
+	North            float64            `db:"north" json:"north"`
+	South            float64            `db:"south" json:"south"`
+	East             float64            `db:"east" json:"east"`
+	West             float64            `db:"west" json:"west"`
 	CursorUpdatedAt  pgtype.Timestamptz `db:"cursor_updated_at" json:"cursor_updated_at"`
 	CursorID         pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
 	LimitRows        int32              `db:"limit_rows" json:"limit_rows"`
@@ -1167,6 +1183,11 @@ func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSit
 		arg.DifficultyFilter,
 		arg.VerifiedOnly,
 		arg.SearchText,
+		arg.HasBounds,
+		arg.North,
+		arg.South,
+		arg.East,
+		arg.West,
 		arg.CursorUpdatedAt,
 		arg.CursorID,
 		arg.LimitRows,

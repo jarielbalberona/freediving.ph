@@ -30,6 +30,9 @@ type repository interface {
 	InsertImpressions(ctx context.Context, userID, sessionID string, rows []feedrepo.FeedImpressionInsert) error
 	InsertActions(ctx context.Context, userID, sessionID string, rows []feedrepo.FeedActionInsert) error
 	InsertHiddenItems(ctx context.Context, userID string, rows []feedrepo.FeedHiddenItemInsert) error
+	UpsertActivityItem(ctx context.Context, input feedrepo.ActivityUpsert) error
+	MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID, state string) error
+	ListActivityItems(ctx context.Context, input feedrepo.ActivityListInput) ([]feedrepo.ActivityRow, error)
 }
 
 type Service struct {

@@ -24,9 +24,17 @@ type ListSitesInput struct {
 	Difficulty      string
 	VerifiedOnly    bool
 	Search          string
+	Bounds          *MapBounds
 	CursorUpdatedAt time.Time
 	CursorID        string
 	Limit           int32
+}
+
+type MapBounds struct {
+	North float64
+	South float64
+	East  float64
+	West  float64
 }
 
 type SiteCard struct {
@@ -207,12 +215,27 @@ func New(pool *pgxpool.Pool) *Repo {
 }
 
 func (r *Repo) ListSites(ctx context.Context, input ListSitesInput) ([]SiteCard, error) {
+	bounds := input.Bounds
+	hasBounds := bounds != nil
+	var north, south, east, west float64
+	if bounds != nil {
+		north = bounds.North
+		south = bounds.South
+		east = bounds.East
+		west = bounds.West
+	}
+
 	rows, err := r.queries.ListSites(ctx, exploreqlc.ListSitesParams{
 		ViewerUserID:     toUUID(input.ViewerUserID),
 		AreaFilter:       input.Area,
 		DifficultyFilter: input.Difficulty,
 		VerifiedOnly:     input.VerifiedOnly,
 		SearchText:       input.Search,
+		HasBounds:        hasBounds,
+		North:            north,
+		South:            south,
+		East:             east,
+		West:             west,
 		CursorUpdatedAt:  timestamptz(input.CursorUpdatedAt),
 		CursorID:         toUUID(input.CursorID),
 		LimitRows:        input.Limit,

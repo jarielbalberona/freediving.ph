@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import * as React from "react";
-import { MapPin, Waves, X } from "lucide-react";
+import { Gauge, MapPin, TriangleAlert, Users, Waves, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,15 +38,39 @@ const verificationLabel = (value: DiveSpot["verificationStatus"]) => {
   }
 };
 
+const difficultyLabel = (value: DiveSpot["difficulty"]) => {
+  switch (value) {
+    case "easy":
+      return "Easy";
+    case "moderate":
+      return "Moderate";
+    case "hard":
+      return "Hard";
+  }
+};
+
+const depthLabel = (spot: DiveSpot) => {
+  const hasMin = typeof spot.depthMinM === "number";
+  const hasMax = typeof spot.depthMaxM === "number";
+  if (hasMin && hasMax) return `${spot.depthMinM}m-${spot.depthMaxM}m`;
+  if (hasMin) return `From ${spot.depthMinM}m`;
+  if (hasMax) return `Up to ${spot.depthMaxM}m`;
+  return null;
+};
+
 export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
   ({ spot, selected, onSelect, onClose, actions }, ref) => {
+    const depth = depthLabel(spot);
+    const visibleHazards = spot.hazards.slice(0, 2);
+
     return (
       <div
         ref={ref}
         id={`explore-spot-card-${spot.id}`}
         className={cn(
           "relative border-b border-border/70 bg-background px-3 py-3 transition-colors hover:bg-muted/35",
-          selected && "bg-primary/5 ring-primary/20 ring-1",
+          selected &&
+            "border-l-4 border-l-primary bg-primary/5 ring-1 ring-primary/25",
           onClose &&
             "rounded-3xl border border-border/70 bg-card/95 shadow-xl hover:bg-card",
         )}
@@ -76,6 +101,7 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
           role="button"
           tabIndex={0}
           aria-pressed={selected}
+          aria-label={`Select ${spot.name}`}
         >
           <div className="grid w-full grid-cols-[84px_minmax(0,1fr)] gap-3 sm:grid-cols-[96px_minmax(0,1fr)]">
             <div
@@ -109,16 +135,25 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
                 <div className="flex flex-wrap gap-2">
                   <Badge
                     variant="secondary"
-                    className="rounded-full bg-muted px-2.5 py-1 text-xs capitalize"
+                    className="rounded-full bg-muted px-2.5 py-1 text-xs"
                   >
-                    {spot.difficulty}
+                    {difficultyLabel(spot.difficulty)}
                   </Badge>
                   <Badge
                     variant="outline"
-                    className="rounded-full px-2.5 py-1 text-xs capitalize"
+                    className="rounded-full px-2.5 py-1 text-xs"
                   >
                     {verificationLabel(spot.verificationStatus)}
                   </Badge>
+                  {depth ? (
+                    <Badge
+                      variant="outline"
+                      className="rounded-full px-2.5 py-1 text-xs"
+                    >
+                      <Gauge className="mr-1.5 size-3.5" />
+                      {depth}
+                    </Badge>
+                  ) : null}
                   {spot.recentUpdateCount > 0 ? (
                     <Badge
                       variant="outline"
@@ -133,8 +168,16 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
               </div>
 
               {spot.lastConditionSummary ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="line-clamp-2 text-sm text-muted-foreground">
                   {spot.lastConditionSummary}
+                </p>
+              ) : null}
+
+              {visibleHazards.length > 0 ? (
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <TriangleAlert className="size-3.5" />
+                  Hazards noted: {visibleHazards.join(", ")}
+                  {spot.hazards.length > visibleHazards.length ? " +" : ""}
                 </p>
               ) : null}
 
@@ -146,6 +189,15 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
                   {actions}
                 </div>
               ) : null}
+
+              <Link
+                href={`/explore/sites/${spot.slug}`}
+                className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Users className="size-3.5" />
+                Check buddy activity
+              </Link>
             </div>
           </div>
         </div>

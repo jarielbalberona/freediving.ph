@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	buddyfinderrepo "fphgo/internal/features/buddyfinder/repo"
+	feedservice "fphgo/internal/features/feed/service"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/pagination"
 	sharedratelimit "fphgo/internal/shared/ratelimit"
@@ -23,6 +24,7 @@ type Service struct {
 	blocks   blockChecker
 	limiter  rateLimiter
 	siteRepo siteLookup
+	activity activityPublisher
 }
 
 type repository interface {
@@ -56,6 +58,11 @@ type rateLimiter interface {
 	Allow(ctx context.Context, scope, key string, maxEvents int, window time.Duration) (sharedratelimit.Result, error)
 }
 
+type activityPublisher interface {
+	PublishActivity(ctx context.Context, input feedservice.ActivityPublishInput) error
+	MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID string, state feedservice.ActivityState) error
+}
+
 type noopLimiter struct{}
 
 func (noopLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
@@ -85,6 +92,12 @@ func WithSiteLookup(repo siteLookup) Option {
 		if repo != nil {
 			s.siteRepo = repo
 		}
+	}
+}
+
+func WithActivityPublisher(publisher activityPublisher) Option {
+	return func(s *Service) {
+		s.activity = publisher
 	}
 }
 
@@ -440,6 +453,31 @@ func (s *Service) CreateIntent(ctx context.Context, input CreateIntentInput) (bu
 	if err != nil {
 		return buddyfinderrepo.Intent{}, apperrors.New(http.StatusInternalServerError, "buddy_create_failed", "failed to create buddy intent", err)
 	}
+	if s.activity != nil && intent.State == "active" && intent.Visibility == "members" && intent.ExpiresAt.After(time.Now().UTC()) {
+		_ = s.activity.PublishActivity(ctx, feedservice.ActivityPublishInput{
+			Type:            feedservice.ActivityBuddyIntentCreated,
+			SourceModule:    feedservice.ActivitySourceBuddyFinder,
+			SourceType:      "buddy_intent",
+			SourceID:        intent.ID,
+			ActorUserID:     intent.AuthorAppUserID,
+			TargetType:      "buddy_intent",
+			TargetID:        intent.ID,
+			Visibility:      feedservice.ActivityVisibilityMembers,
+			State:           feedservice.ActivityStateActive,
+			Area:            intent.Area,
+			DiveSiteID:      intent.DiveSiteID,
+			OccurredAt:      intent.CreatedAt,
+			SourceCreatedAt: intent.CreatedAt,
+			Title:           intent.IntentType,
+			Body:            intent.Note,
+			Metadata: map[string]any{
+				"timeWindow": intent.TimeWindow,
+				"dateStart":  intent.DateStart,
+				"dateEnd":    intent.DateEnd,
+				"expiresAt":  intent.ExpiresAt,
+			},
+		})
+	}
 	return intent, nil
 }
 
@@ -610,6 +648,9 @@ func (s *Service) DeleteIntent(ctx context.Context, actorID, intentID string) er
 	}
 	if rows == 0 {
 		return apperrors.New(http.StatusNotFound, "intent_not_found", "buddy intent not found", nil)
+	}
+	if s.activity != nil {
+		_ = s.activity.MarkActivityBySource(ctx, string(feedservice.ActivitySourceBuddyFinder), "buddy_intent", intentID, feedservice.ActivityStateDeleted)
 	}
 	return nil
 }

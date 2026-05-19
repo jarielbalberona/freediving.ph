@@ -9,6 +9,7 @@ import (
 func Routes(h *Handlers) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/home", h.Home)
+	r.Get("/activity", h.Activity)
 	r.Group(func(member chi.Router) {
 		member.Use(middleware.RequireMember)
 		member.Post("/impressions", h.Impressions)

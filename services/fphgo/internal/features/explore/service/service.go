@@ -13,6 +13,7 @@ import (
 	buddyfinderrepo "fphgo/internal/features/buddyfinder/repo"
 	buddyfinderservice "fphgo/internal/features/buddyfinder/service"
 	explorerepo "fphgo/internal/features/explore/repo"
+	feedservice "fphgo/internal/features/feed/service"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/pagination"
 	sharedratelimit "fphgo/internal/shared/ratelimit"
@@ -24,6 +25,7 @@ type Service struct {
 	buddies  buddyMatcher
 	limiter  rateLimiter
 	geocoder reverseGeocoder
+	activity activityPublisher
 }
 
 type repository interface {
@@ -57,6 +59,10 @@ type buddyMatcher interface {
 
 type reverseGeocoder interface {
 	ReverseGeocodeArea(ctx context.Context, lat, lng float64) (string, error)
+}
+
+type activityPublisher interface {
+	PublishActivity(ctx context.Context, input feedservice.ActivityPublishInput) error
 }
 
 type noopLimiter struct{}
@@ -97,14 +103,28 @@ func WithReverseGeocoder(geocoder reverseGeocoder) Option {
 	}
 }
 
+func WithActivityPublisher(publisher activityPublisher) Option {
+	return func(s *Service) {
+		s.activity = publisher
+	}
+}
+
 type ListSitesInput struct {
 	ViewerUserID string
 	Area         string
 	Difficulty   string
 	VerifiedOnly bool
 	Search       string
+	Bounds       *MapBounds
 	Cursor       string
 	Limit        int32
+}
+
+type MapBounds struct {
+	North float64
+	South float64
+	East  float64
+	West  float64
 }
 
 type ListSitesResult struct {
@@ -205,6 +225,10 @@ func New(repo repository, opts ...Option) *Service {
 }
 
 func (s *Service) ListSites(ctx context.Context, input ListSitesInput) (ListSitesResult, error) {
+	if issues := validateMapBounds(input.Bounds); len(issues) > 0 {
+		return ListSitesResult{}, ValidationFailure{Issues: issues}
+	}
+
 	limit := input.Limit
 	if limit <= 0 || limit > pagination.MaxLimit {
 		limit = pagination.DefaultLimit
@@ -230,6 +254,7 @@ func (s *Service) ListSites(ctx context.Context, input ListSitesInput) (ListSite
 		Difficulty:      strings.TrimSpace(input.Difficulty),
 		VerifiedOnly:    input.VerifiedOnly,
 		Search:          strings.TrimSpace(input.Search),
+		Bounds:          repoBounds(input.Bounds),
 		CursorUpdatedAt: cursorUpdated,
 		CursorID:        cursorID,
 		Limit:           limit + 1,
@@ -246,6 +271,44 @@ func (s *Service) ListSites(ctx context.Context, input ListSitesInput) (ListSite
 	}
 
 	return ListSitesResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func repoBounds(bounds *MapBounds) *explorerepo.MapBounds {
+	if bounds == nil {
+		return nil
+	}
+	return &explorerepo.MapBounds{
+		North: bounds.North,
+		South: bounds.South,
+		East:  bounds.East,
+		West:  bounds.West,
+	}
+}
+
+func validateMapBounds(bounds *MapBounds) []validatex.Issue {
+	if bounds == nil {
+		return nil
+	}
+	issues := make([]validatex.Issue, 0, 4)
+	if bounds.North < -90 || bounds.North > 90 {
+		issues = append(issues, validatex.Issue{Path: []any{"north"}, Code: "custom", Message: "north must be between -90 and 90"})
+	}
+	if bounds.South < -90 || bounds.South > 90 {
+		issues = append(issues, validatex.Issue{Path: []any{"south"}, Code: "custom", Message: "south must be between -90 and 90"})
+	}
+	if bounds.East < -180 || bounds.East > 180 {
+		issues = append(issues, validatex.Issue{Path: []any{"east"}, Code: "custom", Message: "east must be between -180 and 180"})
+	}
+	if bounds.West < -180 || bounds.West > 180 {
+		issues = append(issues, validatex.Issue{Path: []any{"west"}, Code: "custom", Message: "west must be between -180 and 180"})
+	}
+	if bounds.North < bounds.South {
+		issues = append(issues, validatex.Issue{Path: []any{"bounds"}, Code: "custom", Message: "north must be greater than or equal to south"})
+	}
+	if bounds.West > bounds.East {
+		issues = append(issues, validatex.Issue{Path: []any{"bounds"}, Code: "custom", Message: "antimeridian-crossing bounds are not supported"})
+	}
+	return issues
 }
 
 func (s *Service) GetSiteBySlug(ctx context.Context, slug, updatesCursor string, updatesLimit int32) (SiteDetailResult, error) {
@@ -606,6 +669,33 @@ func (s *Service) CreateUpdate(ctx context.Context, input CreateUpdateInput) (ex
 	})
 	if err != nil {
 		return explorerepo.SiteUpdate{}, apperrors.New(http.StatusInternalServerError, "site_update_failed", "failed to create site update", err)
+	}
+	if s.activity != nil {
+		_ = s.activity.PublishActivity(ctx, feedservice.ActivityPublishInput{
+			Type:            feedservice.ActivityDiveSiteUpdateAdded,
+			SourceModule:    feedservice.ActivitySourceExplore,
+			SourceType:      "dive_site_update",
+			SourceID:        update.ID,
+			ActorUserID:     input.ActorID,
+			TargetType:      "dive_site_update",
+			TargetID:        update.ID,
+			Visibility:      feedservice.ActivityVisibilityPublic,
+			State:           feedservice.ActivityStateActive,
+			Area:            site.Area,
+			DiveSiteID:      site.ID,
+			OccurredAt:      update.OccurredAt,
+			SourceCreatedAt: update.CreatedAt,
+			Title:           site.Name,
+			Body:            update.Note,
+			Metadata: map[string]any{
+				"diveSiteName":     site.Name,
+				"diveSiteSlug":     site.Slug,
+				"conditionCurrent": update.ConditionCurrent,
+				"conditionWaves":   update.ConditionWaves,
+				"conditionTempC":   update.ConditionTempC,
+				"visibilityMeters": update.ConditionVisibilityM,
+			},
+		})
 	}
 	return update, nil
 }

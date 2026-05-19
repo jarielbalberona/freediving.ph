@@ -8,12 +8,19 @@ import (
 	"github.com/google/uuid"
 
 	eventsrepo "fphgo/internal/features/events/repo"
+	feedservice "fphgo/internal/features/feed/service"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/validatex"
 )
 
 type Service struct {
-	repo repository
+	repo     repository
+	activity activityPublisher
+}
+
+type activityPublisher interface {
+	PublishActivity(ctx context.Context, input feedservice.ActivityPublishInput) error
+	MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID string, state feedservice.ActivityState) error
 }
 
 type repository interface {
@@ -35,8 +42,22 @@ type ValidationFailure struct {
 
 func (e ValidationFailure) Error() string { return "validation failed" }
 
-func New(repo repository) *Service {
-	return &Service{repo: repo}
+type Option func(*Service)
+
+func WithActivityPublisher(publisher activityPublisher) Option {
+	return func(s *Service) {
+		s.activity = publisher
+	}
+}
+
+func New(repo repository, opts ...Option) *Service {
+	svc := &Service{repo: repo}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func (s *Service) ListEvents(ctx context.Context, viewerUserID, search, status, groupID string, page, limit int) ([]eventsrepo.Event, int, error) {
@@ -164,7 +185,12 @@ func (s *Service) CreateEvent(ctx context.Context, actorID string, input eventsr
 	if err := s.repo.AddOrganizerMembership(ctx, created.ID, actorID); err != nil {
 		return eventsrepo.Event{}, apperrors.New(http.StatusInternalServerError, "event_membership_create_failed", "failed to create organizer membership", err)
 	}
-	return s.repo.GetEventByID(ctx, created.ID, actorID)
+	event, err := s.repo.GetEventByID(ctx, created.ID, actorID)
+	if err != nil {
+		return eventsrepo.Event{}, err
+	}
+	s.publishEventActivity(ctx, event)
+	return event, nil
 }
 
 func (s *Service) UpdateEvent(ctx context.Context, eventID string, input eventsrepo.UpdateEventInput) (eventsrepo.Event, error) {
@@ -203,7 +229,62 @@ func (s *Service) UpdateEvent(ctx context.Context, eventID string, input eventsr
 		}
 		return eventsrepo.Event{}, apperrors.New(http.StatusInternalServerError, "event_update_failed", "failed to update event", err)
 	}
+	s.publishEventActivity(ctx, updated)
 	return updated, nil
+}
+
+func (s *Service) publishEventActivity(ctx context.Context, event eventsrepo.Event) {
+	if s.activity == nil {
+		return
+	}
+	if event.Status != "published" {
+		_ = s.activity.MarkActivityBySource(ctx, string(feedservice.ActivitySourceEvents), "event", event.ID, feedservice.ActivityStateHidden)
+		return
+	}
+	visibility := feedservice.ActivityVisibility("")
+	switch event.Visibility {
+	case "public":
+		visibility = feedservice.ActivityVisibilityPublic
+	case "group_members":
+		visibility = feedservice.ActivityVisibilityGroupMembers
+	default:
+		_ = s.activity.MarkActivityBySource(ctx, string(feedservice.ActivitySourceEvents), "event", event.ID, feedservice.ActivityStateHidden)
+		return
+	}
+	area := strings.TrimSpace(event.LocationName)
+	if area == "" {
+		area = strings.TrimSpace(event.FormattedAddress)
+	}
+	if area == "" {
+		area = strings.TrimSpace(event.Location)
+	}
+	groupID := strings.TrimSpace(event.GroupID)
+	_ = s.activity.PublishActivity(ctx, feedservice.ActivityPublishInput{
+		Type:            feedservice.ActivityEventPublished,
+		SourceModule:    feedservice.ActivitySourceEvents,
+		SourceType:      "event",
+		SourceID:        event.ID,
+		ActorUserID:     event.OrganizerUserID,
+		TargetType:      "event",
+		TargetID:        event.ID,
+		Visibility:      visibility,
+		State:           feedservice.ActivityStateActive,
+		Area:            area,
+		GroupID:         groupID,
+		EventID:         event.ID,
+		OccurredAt:      event.UpdatedAt,
+		SourceCreatedAt: event.CreatedAt,
+		Title:           event.Title,
+		Body:            event.Description,
+		Metadata: map[string]any{
+			"eventType":        event.EventType,
+			"difficulty":       event.Difficulty,
+			"startsAt":         event.StartsAt,
+			"endsAt":           event.EndsAt,
+			"locationName":     event.LocationName,
+			"formattedAddress": event.FormattedAddress,
+		},
+	})
 }
 
 func (s *Service) JoinEvent(ctx context.Context, eventID, actorID, notes string) (eventsrepo.EventAttendee, error) {

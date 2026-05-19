@@ -5,8 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Lock } from "lucide-react";
-import { getMainNavItems, isActiveRoute } from "@/config/nav";
-import { useSidebar } from "@/components/ui/sidebar";
+import { getMobileMainNavItems, isActiveRoute } from "@/config/nav";
 import { Button } from "@/components/ui/button";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { cn } from "@/lib/utils";
@@ -16,7 +15,6 @@ type BottomNavProps = {
 };
 
 export function BottomNav({ onOpenCreate }: BottomNavProps) {
-  const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -25,12 +23,13 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
   const effectiveSignedIn = mounted && isLoaded && isSignedIn;
   const profileHref = useCurrentProfileHref();
 
-  const mainItems = getMainNavItems({ isSignedIn: effectiveSignedIn ?? false });
+  const mainItems = getMobileMainNavItems({
+    isSignedIn: effectiveSignedIn ?? false,
+  });
 
   const handleItemClick = (item: (typeof mainItems)[number]) => {
     if (item.kind === "action") {
       if (item.actionId === "create") onOpenCreate();
-      if (item.actionId === "more") setOpenMobile(true);
       return;
     }
     if (item.kind === "link" && item.isProtected && !effectiveSignedIn) {
@@ -62,7 +61,6 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
               aria-label={item.title}
               onClick={() => {
                 if (item.actionId === "create") onOpenCreate();
-                if (item.actionId === "more") setOpenMobile(true);
               }}
             >
               {item.icon != null && (

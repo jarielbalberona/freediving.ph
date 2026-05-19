@@ -4,11 +4,19 @@ import path from "node:path";
 import test from "node:test";
 
 const cwd = path.resolve(globalThis.process.cwd());
-const appRoot = cwd.endsWith(path.join("apps", "web")) ? cwd : path.join(cwd, "apps", "web");
+const appRoot = cwd.endsWith(path.join("apps", "web"))
+  ? cwd
+  : path.join(cwd, "apps", "web");
 
 const explorePagePath = path.join(appRoot, "src/app/explore/page.tsx");
-const exploreLayoutPath = path.join(appRoot, "src/features/explore/components/ExploreLayout.tsx");
-const sharePagePath = path.join(appRoot, "src/app/explore/sites/[slug]/page.tsx");
+const exploreLayoutPath = path.join(
+  appRoot,
+  "src/features/explore/components/ExploreLayout.tsx",
+);
+const sharePagePath = path.join(
+  appRoot,
+  "src/app/explore/sites/[slug]/page.tsx",
+);
 const routesPath = path.join(appRoot, "src/lib/api/fphgo-routes.ts");
 
 test("explore site pages are coupled to buddy preview and full intent flows", async () => {
@@ -31,5 +39,6 @@ test("explore site pages are coupled to buddy preview and full intent flows", as
 
   assert.match(sharePage, /getExploreSiteBuddyPreviewServer/);
   assert.match(sharePage, /Find a buddy for this spot/);
-  assert.match(sharePage, /Area fallback/);
+  assert.match(sharePage, /sourceBreakdown\.siteLinkedCount/);
+  assert.match(sharePage, /Near this area/);
 });

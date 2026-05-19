@@ -175,6 +175,10 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	messagingService := messagingservice.New(messagingRepo, hub, blocksService, messagingservice.WithLimiter(limiter))
 	messagingHandler := messaginghttp.New(messagingService, userService, v)
 
+	feedRepo := feedrepo.New(pool)
+	feedService := feedservice.New(feedRepo)
+	feedHandler := feedhttp.New(feedService, v)
+
 	chikaRepo := chikarepo.New(pool)
 	chikaService := chikaservice.New(
 		chikaRepo,
@@ -182,11 +186,9 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		chikaservice.WithLimiter(limiter),
 		chikaservice.WithPseudonymSecret(cfg.ChikaPseudonymSecret),
 		chikaservice.WithRealtimeBroadcaster(hub),
+		chikaservice.WithActivityPublisher(feedService),
 	)
 	chikaHandler := chikahttp.New(chikaService, v)
-	feedRepo := feedrepo.New(pool)
-	feedService := feedservice.New(feedRepo)
-	feedHandler := feedhttp.New(feedService, v)
 
 	profilesRepo := profilesrepo.New(pool)
 	profilesService := profilesservice.New(
@@ -232,6 +234,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		cfg.MediaSigningSecretV1,
 		cfg.MediaSigningKeyVersion,
 		mediaservice.WithSiteLookup(mediaSiteLookup{explore: exploreRepo}),
+		mediaservice.WithActivityPublisher(feedService),
 	)
 	mediaHandler := mediahttp.New(mediaService, v)
 	notificationsRepo := notificationsrepo.New(pool)
@@ -241,7 +244,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	groupsService := groupsservice.New(groupsRepo)
 	groupsHandler := groupshttp.New(groupsService, v)
 	eventsRepo := eventsrepo.New(pool)
-	eventsService := eventsservice.New(eventsRepo)
+	eventsService := eventsservice.New(eventsRepo, eventsservice.WithActivityPublisher(feedService))
 	eventsHandler := eventshttp.New(eventsService, v)
 	locationsRepo := locationsrepo.New(pool)
 	locationsService := locationsservice.New(locationsRepo)
@@ -257,6 +260,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		buddyfinderservice.WithLimiter(limiter),
 		buddyfinderservice.WithBlocks(blocksService),
 		buddyfinderservice.WithSiteLookup(buddyFinderSiteLookup{explore: exploreRepo}),
+		buddyfinderservice.WithActivityPublisher(feedService),
 	)
 	buddyFinderHandler := buddyfinderhttp.New(buddyFinderService, v)
 	exploreService := exploreservice.New(
@@ -264,6 +268,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		exploreservice.WithLimiter(limiter),
 		exploreservice.WithBuddyMatcher(buddyFinderService),
 		exploreservice.WithReverseGeocoder(siteGeocoder),
+		exploreservice.WithActivityPublisher(feedService),
 	)
 	exploreHandler := explorehttp.New(exploreService, v)
 

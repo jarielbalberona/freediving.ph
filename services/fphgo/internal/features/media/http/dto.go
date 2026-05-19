@@ -102,6 +102,7 @@ type ProfileMediaDTO struct {
 	ID              string              `json:"id"`
 	MediaObjectID   string              `json:"mediaObjectId"`
 	PostID          string              `json:"postId"`
+	PostCaption     *string             `json:"postCaption,omitempty"`
 	UploadGroupID   string              `json:"uploadGroupId"`
 	AuthorAppUserID string              `json:"authorAppUserId"`
 	Type            string              `json:"type"`

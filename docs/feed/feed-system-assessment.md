@@ -232,8 +232,9 @@ Feed-specific tables:
 - `feed_actions`
 - `user_feed_preferences`
 - `user_hidden_feed_items`
+- `activity_items` (Phase 2 foundation; new ledger used by `/v1/feed/activity`)
 
-There is no `feed_items` or `activity_items` table. Current feed identity is synthesized as strings such as `fi_post_<id>`, `fi_media_<id>`, `fi_community_<id>`, `fi_spot_<id>`, `fi_event_<id>`, and `fi_buddy_<id>`.
+`/v1/feed/home` still uses synthesized feed identity strings such as `fi_post_<id>`, `fi_media_<id>`, `fi_community_<id>`, `fi_spot_<id>`, `fi_event_<id>`, and `fi_buddy_<id>`. Phase 2 adds `activity_items` as a durable ledger and exposes it through `/v1/feed/activity`; it does not replace the deployed homepage mixer yet.
 
 Relevant source tables:
 - `users`
@@ -561,11 +562,13 @@ CREATE TABLE activity_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type TEXT NOT NULL,
   source_module TEXT NOT NULL,
-  source_id TEXT NOT NULL,
-  actor_app_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  source_type TEXT NOT NULL,
+  source_id UUID NOT NULL,
+  actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   target_type TEXT NOT NULL,
-  target_id TEXT NOT NULL,
+  target_id UUID NOT NULL,
   visibility TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'active',
   area TEXT,
   dive_site_id UUID REFERENCES dive_sites(id) ON DELETE SET NULL,
   group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
@@ -576,10 +579,10 @@ CREATE TABLE activity_items (
   body TEXT,
   media JSONB NOT NULL DEFAULT '[]'::jsonb,
   stats JSONB NOT NULL DEFAULT '{}'::jsonb,
-  state TEXT NOT NULL DEFAULT 'active',
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (source_module, type, source_id),
+  UNIQUE (source_module, source_type, source_id, type),
   CHECK (state IN ('active', 'hidden', 'deleted')),
   CHECK (visibility IN ('public', 'members', 'followers', 'group_members', 'private'))
 );
@@ -593,14 +596,14 @@ CREATE INDEX idx_activity_items_visibility_cursor
   WHERE state = 'active';
 
 CREATE INDEX idx_activity_items_actor_cursor
-  ON activity_items (actor_app_user_id, occurred_at DESC, id DESC)
-  WHERE state = 'active';
+  ON activity_items (actor_user_id, occurred_at DESC, id DESC)
+  WHERE state = 'active' AND actor_user_id IS NOT NULL;
 
 CREATE INDEX idx_activity_items_group_cursor
   ON activity_items (group_id, occurred_at DESC, id DESC)
   WHERE state = 'active' AND group_id IS NOT NULL;
 
-CREATE INDEX idx_activity_items_site_cursor
+CREATE INDEX idx_activity_items_dive_site_cursor
   ON activity_items (dive_site_id, occurred_at DESC, id DESC)
   WHERE state = 'active' AND dive_site_id IS NOT NULL;
 ```
@@ -712,7 +715,7 @@ Immediate UI state:
   - hidden/deleted/moderated source suppression
 - API contract tests:
   - `GET /v1/feed/home`
-  - `GET /v1/feed?filter=<filter>` if adding a new endpoint
+  - `GET /v1/feed/activity?filter=<filter>`
   - telemetry payload validation
 - Web tests:
   - route constant contract
@@ -865,6 +868,306 @@ Signed-in API smoke:
 Go/no-go for Phase 2:
 - **Go for Phase 2 planning and backend foundation work**, with the above issues accepted as Phase 1 closure issues.
 - Do not treat Phase 1 as fully production-proven for signed-in behavior until a member test token/account smoke covers signed-in feed, authorized events, pseudonymous Chika if test data exists, and `hide_item` persistence.
+
+## Phase 2 Activity Items Foundation
+
+Date: 2026-05-19
+
+Verdict: backend foundation implemented locally. `/v1/feed/home` remains stable and unchanged; the new ledger read path is exposed separately at `/v1/feed/activity`.
+
+### Route Strategy
+
+Chosen strategy: **Option B**.
+
+- Keep `/v1/feed/home` on the Phase 1 query-time mixer.
+- Add `GET /v1/feed/activity` for the `activity_items` foundation.
+- Do not swap homepage internals yet. That avoids regressing the deployed public homepage while the ledger is backfilled, tested with member data, and compared against current home-feed behavior.
+
+### Table And Index Summary
+
+Added forward-only Goose migration:
+- `services/fphgo/db/migrations/0034_feed_activity_items.sql`
+
+Schema mirror updated:
+- `services/fphgo/db/schema/000_schema.sql`
+
+New table:
+- `activity_items`
+
+Key fields:
+- normalized type/source/target identifiers
+- actor user id
+- visibility and state
+- coarse area, dive site id, group id, event id
+- occurred/source timestamps
+- title/body
+- JSONB media/stats/metadata
+
+Indexes added for:
+- public/latest cursor reads
+- visibility cursor reads
+- actor cursor reads
+- group cursor reads
+- dive-site cursor reads
+- event cursor reads
+- source lookup/idempotency
+
+The migration does not remove or reset existing feed tables:
+- `feed_impressions`
+- `feed_actions`
+- `user_hidden_feed_items`
+- `user_feed_preferences`
+
+### Source Types Covered
+
+Implemented source activity types:
+- `chika_thread_created`
+- `dive_site_update_added`
+- `event_published`
+- `buddy_intent_created`
+- `media_post_created`
+
+Publisher hooks were added to the existing create/update paths:
+- Chika thread creation
+- Dive-site update creation
+- Event create/update when status is published and visibility is eligible
+- Buddy intent creation when active, member-visible, and unexpired
+- Media post creation when tied to an approved dive site
+
+Publishing is intentionally non-blocking. If the ledger upsert fails, the source write still succeeds; the idempotent backfill path is the repair mechanism.
+
+Source transition hooks also mark ledger rows inactive for:
+- deleted Chika threads
+- deleted buddy intents
+- events updated out of published/eligible visibility
+
+### Source Types Deferred
+
+Deferred intentionally:
+- `chika_reply_added`
+- `group_created`
+- `group_post_created`
+- `event_joined`
+- `dive_site_saved`
+- competitive records
+- true following feed
+- invite-only event feed exposure
+
+Invite-only events remain excluded from the activity feed foundation until there is a clean viewer authorization contract for feed reads.
+
+### Cursor Behavior
+
+`GET /v1/feed/activity` uses keyset pagination:
+- opaque base64 JSON cursor
+- cursor contains `occurredAt` and `id`
+- stable ordering is `occurred_at DESC, id DESC`
+- no offset cursor on the new activity read path
+
+Guests are capped to a smaller page size, but guest cursors are still honored so public pagination works.
+
+### Privacy And Visibility Behavior
+
+The activity read path enforces:
+- guests see only `public`
+- signed-in users may see `public` and `members`
+- `group_members` requires active group membership
+- `followers` is not exposed until a real follow graph exists
+- `private` is never returned
+- blocked users are suppressed
+- hidden feed items are suppressed via `user_hidden_feed_items`
+- actor-backed rows require active actor accounts
+- live source checks suppress hidden/deleted/moderated source content
+
+Chika activity rows preserve pseudonymous masking. For pseudonymous or locked-pseudonymous Chika threads, normal viewers do not receive the real actor id, username, avatar, or display name. The actor label is the thread pseudonym where available.
+
+### Backfill Behavior
+
+The migration backfills safe existing rows idempotently using the ledger uniqueness key:
+- visible, non-deleted Chika threads
+- active dive-site updates on approved dive sites
+- published public/group-member events only
+- active, unexpired, member-visible buddy intents
+- active media posts with active media items on approved dive sites
+
+The backfill excludes private, deleted, hidden, draft, cancelled, expired, and unsupported invite-only source rows.
+
+### Verification Results
+
+Commands run:
+- `cd services/fphgo && goose -dir db/migrations validate` - failed locally because `goose` is not installed in PATH.
+- `cd services/fphgo && go run github.com/pressly/goose/v3/cmd/goose@v3.24.1 -dir db/migrations validate` - passed.
+- `cd services/fphgo && go test ./internal/features/feed/...` - passed.
+- `cd services/fphgo && go test ./internal/features/chika/... ./internal/features/buddyfinder/... ./internal/features/events/... ./internal/features/explore/... ./internal/features/media/...` - passed.
+- `cd services/fphgo && go test ./internal/app` - passed after fixing the route snapshot harness to include feed routes. The snapshot update also captured two pre-existing messaging routes.
+- `pnpm --filter @freediving.ph/types test` - passed.
+- `pnpm --filter @freediving.ph/web type-check` - failed due unrelated dirty Explore props: `ExploreResultsPanelProps` requires `hasAppliedBounds`, but `ExploreLayout.tsx` does not pass it.
+- `pnpm --filter @freediving.ph/web test` - failed with two non-feed contract failures:
+  - `apps/web/test/media-profile-flow-contract.test.mjs` expects `Apply to all`.
+  - `apps/web/test/phase7-explore-contract.test.mjs` expects `isWithinBounds`.
+
+### Remaining Risks
+
+- `/v1/feed/home` is still the query-time homepage mixer.
+- The new ledger endpoint is not yet wired into the web homepage.
+- Phase 1 signed-in/member live smoke is still outstanding due missing `MEMBER_TOKEN`.
+- Phase 1 `hide_item` live smoke is still outstanding.
+- Live pseudonymous Chika masking is still not data-proven.
+- One deployed browser-state issue remains: `Latest` once showed empty after tab cycling despite API items.
+- Recent commits still mix feed and unrelated page/community changes.
+- `Nearby` remains string-area based.
+- No `activity_items` fanout, ranking, Redis, queue, realtime, or recommendation infrastructure exists by design.
+
+Go/no-go for Phase 3:
+- **Go for Phase 3 publisher/web-rendering planning after reviewing this foundation.**
+- Do not route the production homepage to `/v1/feed/activity` until member live smoke, hide-item smoke, and a side-by-side activity-vs-home feed comparison are done with real test data.
+
+## Phase 2 Verification
+
+Date: 2026-05-19
+
+Verdict: **Phase 2 verification PASS WITH ISSUES**. The backend activity ledger foundation is code-wise ready for web integration planning, but the repo is not clean and web verification is blocked by unrelated Explore/media drift.
+
+### Repo State
+
+- Branch: `main`.
+- Recent commits include:
+  - `6957d2b update explore`
+  - `6944262 update pages`
+  - `ad9e855 update feed and pages`
+- Dirty Phase 2 feed files are mixed with unrelated dirty web/explore/media/profile/nav files.
+- Do not stage the whole worktree for a feed commit. Feed-only staging must use explicit paths for `docs/feed`, `packages/types/src/feed.ts`, `packages/types/test/feed-contracts.test.ts`, `services/fphgo/db`, `services/fphgo/internal/app`, and touched `services/fphgo/internal/features/*` publisher/feed files.
+- Unrelated dirty files to exclude from a feed commit include current Explore/nav/map/profile/media UI and tests unless intentionally pulled into a separate cleanup commit.
+
+### Migration And Backfill
+
+Verified:
+- `0034_feed_activity_items.sql` is forward-only; Down is intentionally no-op.
+- `activity_items` has visibility/state checks and source uniqueness.
+- Indexes support public/latest, visibility, actor, group, dive-site, event, and source lookup paths.
+- Existing feed tables remain intact: `feed_impressions`, `feed_actions`, `user_hidden_feed_items`, `user_feed_preferences`.
+- Backfill is idempotent via `ON CONFLICT (source_module, source_type, source_id, type)`.
+- Backfill excludes deleted/hidden Chika, inactive dive updates, unapproved dive sites, draft/cancelled/private/invite-only events, expired/non-member buddy intents, inactive actors, deleted media posts, and inactive media objects/items.
+
+Command:
+- `cd services/fphgo && go run github.com/pressly/goose/v3/cmd/goose@v3.24.1 -dir db/migrations validate` - passed.
+
+### Endpoint Contract
+
+Verified:
+- `GET /v1/feed/activity` is mounted under `/v1/feed`.
+- Query params:
+  - `filter`: preferred activity filter.
+  - `mode`: compatibility alias if `filter` is omitted.
+  - `cursor`: opaque keyset cursor.
+  - `region`: explicit area filter for `nearby`.
+  - `limit`: capped server-side; guests capped lower.
+- Filters supported:
+  - `latest`
+  - `nearby`
+  - `chika`
+  - `dive-reports`
+  - `events`
+- Legacy/unknown filters normalize safely:
+  - `following -> latest`
+  - `training -> latest`
+  - `spot-reports -> dive-reports`
+  - unknown -> `latest`
+- Invalid cursor returns a validation error.
+- Response shape is typed in Go DTOs and `packages/types/src/feed.ts`.
+- Route snapshot now includes:
+  - `GET /v1/feed/activity`
+  - `GET /v1/feed/home`
+  - `POST /v1/feed/actions`
+  - `POST /v1/feed/impressions`
+
+### Side-By-Side Comparison Notes
+
+This was a code-wise/manual comparison, not a deployed runtime comparison. `/v1/feed/activity` is not deployed as the homepage path and should not replace `/v1/feed/home` yet.
+
+- `latest`:
+  - Home: scored query-time mixer over source tables with synthesized item IDs.
+  - Activity: ledger rows ordered by `occurred_at DESC, id DESC`.
+  - Difference is intentional; activity is chronological foundation, not a ranked clone.
+- `nearby`:
+  - Home: current query-time area behavior.
+  - Activity: filters `activity_items.area` by explicit `region` or viewer home area.
+  - Same limitation remains: string-area matching, not precise location.
+- `chika`:
+  - Home: `community_hot_post` cards from Chika candidates.
+  - Activity: only `chika_thread_created`.
+  - Pseudonymous actor masking is preserved.
+- `dive-reports`:
+  - Home: can include current Phase 1 dive report/site briefing behavior.
+  - Activity: only `dive_site_update_added` and `media_post_created`.
+  - Difference is intentional; approved dive-site briefing cards are not activity rows.
+- `events`:
+  - Home: eligible event candidates.
+  - Activity: only `event_published` rows with live source checks.
+- Buddy intents:
+  - Home: member-only buddy signals may appear for members in mixed modes.
+  - Activity: `buddy_intent_created` is `members` visibility and excluded from guests.
+
+### Pagination
+
+Verified by tests and code inspection:
+- first page uses `occurred_at DESC, id DESC`
+- next cursor points at the last returned visible row
+- cursor is opaque base64 JSON with `occurredAt` and `id`
+- guest cursors are honored after verification fixed the reset bug
+- invalid cursors fail safely
+- inserting a newer item between page requests should not corrupt the next page because the repo predicate is `(occurred_at, id) < (cursorOccurredAt, cursorID)`
+
+### Privacy And Visibility
+
+Verified by tests and repo query inspection:
+- guests only see `public`
+- signed-in users may see `public` and `members`
+- `group_members` requires active group membership
+- `followers` is explicitly excluded until a real follow graph exists
+- `private` is explicitly excluded
+- block relationships suppress rows
+- `user_hidden_feed_items` suppress rows
+- inactive actor accounts are suppressed
+- live source-state checks suppress deleted/hidden/moderated/ineligible sources
+- pseudonymous Chika actor fields are masked through activity mapping
+- member-only buddy intents are not guest-visible
+- event activity requires published source status and eligible source visibility
+
+### Publisher Verification
+
+Verified by source inspection:
+- Chika publishes after successful thread creation, stores pseudonym only in metadata, and marks deleted thread activity deleted.
+- Explore publishes after successful approved-site update creation.
+- Events publish only when status is `published` and visibility is public/group-members; events moved out of eligibility mark ledger rows hidden.
+- Buddy Finder publishes only active, unexpired, member-visible intents and marks deleted intents deleted.
+- Media publishes after successful media post creation on an approved dive site with media ids/dimensions only.
+- Publisher failures are non-blocking and do not corrupt source creation.
+
+### Commands Run
+
+- `git status --short` - dirty worktree; feed changes mixed with unrelated Explore/nav/media/profile changes.
+- `git branch --show-current` - `main`.
+- `git log --oneline -10` - latest `6957d2b update explore`.
+- `cd services/fphgo && go run github.com/pressly/goose/v3/cmd/goose@v3.24.1 -dir db/migrations validate` - passed.
+- `cd services/fphgo && go test ./internal/features/feed/...` - passed.
+- `cd services/fphgo && go test ./internal/features/chika/... ./internal/features/buddyfinder/... ./internal/features/events/... ./internal/features/explore/... ./internal/features/media/...` - passed.
+- `cd services/fphgo && go test ./internal/app` - passed.
+- `pnpm --filter @freediving.ph/types test` - passed.
+- `pnpm --filter @freediving.ph/web type-check` - failed due unrelated Explore prop mismatch.
+- `pnpm --filter @freediving.ph/web test` - failed due non-feed media/explore contract drift.
+- `git diff --check` - passed.
+
+### Known Failures
+
+- Web type-check:
+  - `apps/web/src/features/explore/components/ExploreLayout.tsx` does not pass `hasAppliedBounds` required by `ExploreResultsPanelProps`.
+- Web tests:
+  - `apps/web/test/media-profile-flow-contract.test.mjs` expects `Apply to all`.
+  - `apps/web/test/phase7-explore-contract.test.mjs` expects `isWithinBounds`.
+
+### Web Integration Go/No-Go
+
+Web integration for `/v1/feed/activity` can start only after the unrelated web type-check failure is accepted or fixed. Do not swap the production homepage yet. The next step should be a hidden/dev activity-feed client or side-by-side web integration, not replacing `/v1/feed/home`.
 
 ## Do Not Build Yet
 
