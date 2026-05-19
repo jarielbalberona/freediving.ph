@@ -19,10 +19,19 @@ export type DiveSpot = {
   recentUpdateCount: number;
   lastConditionSummary?: string;
   isSaved: boolean;
+  buddySignal?: BuddySignal;
   rating?: number;
   reviewCount?: number;
   coverImageUrl?: string;
   tags?: string[];
+};
+
+export type BuddySignal = {
+  siteIntentCount: number;
+  areaIntentCount: number;
+  hasSiteActivity: boolean;
+  hasAreaActivity: boolean;
+  label: string;
 };
 
 export type ExploreResponse = {
@@ -54,6 +63,7 @@ export type ExploreSearchParams = {
   area?: string;
   difficulty?: Exclude<ExploreDifficulty, "all">;
   verifiedOnly?: boolean;
+  savedOnly?: boolean;
   bounds: ExploreBounds | null;
   limit: number;
   cursor?: string;
@@ -64,6 +74,7 @@ export type ExploreQueryState = {
   area: string;
   difficulty: ExploreDifficulty;
   verifiedOnly: boolean;
+  savedOnly: boolean;
   view: MapViewMode;
   bounds: ExploreBounds | null;
   camera: ExploreCamera;

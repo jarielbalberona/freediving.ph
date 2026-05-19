@@ -40,9 +40,11 @@ test("explore adapter preserves backend card facts and supported filters", async
   assert.match(apiSource, /depthMinM: site\.depthMinM/);
   assert.match(apiSource, /depthMaxM: site\.depthMaxM/);
   assert.match(apiSource, /hazards: site\.hazards/);
+  assert.match(apiSource, /buddySignal: site\.buddySignal/);
   assert.match(apiSource, /area: params\.area/);
   assert.match(apiSource, /difficulty: params\.difficulty/);
   assert.match(apiSource, /verifiedOnly: params\.verifiedOnly/);
+  assert.match(apiSource, /savedOnly: params\.savedOnly/);
   assert.match(apiSource, /north: bounds\?\.ne\.lat/);
   assert.match(apiSource, /south: bounds\?\.sw\.lat/);
   assert.match(apiSource, /east: bounds\?\.ne\.lng/);
@@ -52,7 +54,9 @@ test("explore adapter preserves backend card facts and supported filters", async
   assert.match(v1Source, /south\?: number/);
   assert.match(v1Source, /east\?: number/);
   assert.match(v1Source, /west\?: number/);
+  assert.match(v1Source, /savedOnly\?: boolean/);
   assert.match(v1Source, /north: filters\.north/);
+  assert.match(v1Source, /savedOnly: filters\.savedOnly/);
 });
 
 test("live explore layout wires filters, map selection, and selected preview", async () => {
@@ -62,9 +66,12 @@ test("live explore layout wires filters, map selection, and selected preview", a
   assert.match(layoutSource, /setArea/);
   assert.match(layoutSource, /setDifficulty/);
   assert.match(layoutSource, /setVerifiedOnly/);
+  assert.match(layoutSource, /setSavedOnly/);
+  assert.match(layoutSource, /savedOnly: state\.savedOnly/);
   assert.match(layoutSource, /bounds: state\.bounds/);
   assert.match(layoutSource, /areaOptions/);
   assert.match(layoutSource, /selectedSpot/);
+  assert.match(layoutSource, /selectedSpot\.buddySignal/);
   assert.match(layoutSource, /Open site/);
 
   assert.match(mapSource, /MarkerClusterer/);

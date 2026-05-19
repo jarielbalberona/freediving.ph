@@ -15,6 +15,7 @@ import {
   MapPin,
   MapPinned,
   Share2,
+  Users,
 } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
@@ -95,6 +96,7 @@ export function ExploreLayout() {
     setCamera,
     setDifficulty,
     setQuery,
+    setSavedOnly,
     setSelectedSpot,
     setVerifiedOnly,
     setView,
@@ -102,6 +104,12 @@ export function ExploreLayout() {
 
   const deferredQuery = useDeferredValue(state.q);
   const boundsState = useMapBounds(state.bounds);
+  const savedOnlyRequiresSignIn =
+    state.savedOnly && session.status === "signed_out";
+  const savedOnlyWaitingForSession =
+    state.savedOnly && session.status === "loading";
+  const canQueryExplore =
+    !savedOnlyRequiresSignIn && !savedOnlyWaitingForSession;
 
   const exploreQuery = useInfiniteQuery({
     queryKey: [
@@ -111,6 +119,7 @@ export function ExploreLayout() {
         area: state.area,
         difficulty: state.difficulty,
         verifiedOnly: state.verifiedOnly,
+        savedOnly: state.savedOnly,
         bounds: state.bounds,
         limit: EXPLORE_DEFAULT_LIMIT,
       },
@@ -121,12 +130,14 @@ export function ExploreLayout() {
         area: state.area || undefined,
         difficulty: state.difficulty === "all" ? undefined : state.difficulty,
         verifiedOnly: state.verifiedOnly || undefined,
+        savedOnly: state.savedOnly || undefined,
         bounds: state.bounds,
         limit: EXPLORE_DEFAULT_LIMIT,
         cursor: pageParam,
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    enabled: canQueryExplore,
   });
   const saveSiteMutation = useMutation({
     mutationFn: async ({
@@ -144,7 +155,9 @@ export function ExploreLayout() {
     },
   });
   const exploreItems =
-    exploreQuery.data?.pages.flatMap((page) => page.items) ?? [];
+    savedOnlyRequiresSignIn || savedOnlyWaitingForSession
+      ? []
+      : (exploreQuery.data?.pages.flatMap((page) => page.items) ?? []);
 
   const sortedItems = useMemo(
     () => sortItems(exploreItems, sort),
@@ -291,8 +304,11 @@ export function ExploreLayout() {
           areaOptions={areaOptions}
           difficulty={state.difficulty}
           verifiedOnly={state.verifiedOnly}
+          savedOnly={state.savedOnly}
+          canUseSavedFilter={session.status === "signed_in"}
+          savedOnlyRequiresSignIn={savedOnlyRequiresSignIn}
           total={sortedItems.length}
-          loading={exploreQuery.isPending}
+          loading={exploreQuery.isPending || savedOnlyWaitingForSession}
           fetching={exploreQuery.isFetching}
           hasAppliedBounds={hasAppliedBounds}
           errorMessage={exploreErrorMessage}
@@ -305,6 +321,7 @@ export function ExploreLayout() {
           onAreaChange={setArea}
           onDifficultyChange={setDifficulty}
           onVerifiedOnlyChange={setVerifiedOnly}
+          onSavedOnlyChange={setSavedOnly}
           onLoadMore={() => void exploreQuery.fetchNextPage()}
           onSelectSpot={handleSelectSpot}
           sort={sort}
@@ -325,7 +342,10 @@ export function ExploreLayout() {
               onSelectSpot={handleSelectSpot}
             />
           </MapProvider>
-          {!exploreQuery.isPending && sortedItems.length === 0 ? (
+          {!savedOnlyRequiresSignIn &&
+          !savedOnlyWaitingForSession &&
+          !exploreQuery.isPending &&
+          sortedItems.length === 0 ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center px-6">
               <Card className="pointer-events-auto max-w-md border-border/80 bg-card/95 p-4 text-sm shadow-xl">
                 <p className="font-medium text-foreground">
@@ -367,6 +387,12 @@ export function ExploreLayout() {
                   <Badge variant="outline" className="rounded-full text-xs">
                     {verificationLabel(selectedSpot.verificationStatus)}
                   </Badge>
+                  {selectedSpot.buddySignal ? (
+                    <Badge variant="outline" className="rounded-full text-xs">
+                      <Users className="mr-1 size-3.5" />
+                      {selectedSpot.buddySignal.label}
+                    </Badge>
+                  ) : null}
                 </div>
               </Card>
             </div>
@@ -454,6 +480,8 @@ export function ExploreLayout() {
               />
             </MapProvider>
             {!exploreQuery.isPending &&
+            !savedOnlyRequiresSignIn &&
+            !savedOnlyWaitingForSession &&
             sortedItems.length === 0 &&
             !selectedSpot ? (
               <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">
@@ -492,8 +520,11 @@ export function ExploreLayout() {
             areaOptions={areaOptions}
             difficulty={state.difficulty}
             verifiedOnly={state.verifiedOnly}
+            savedOnly={state.savedOnly}
+            canUseSavedFilter={session.status === "signed_in"}
+            savedOnlyRequiresSignIn={savedOnlyRequiresSignIn}
             total={sortedItems.length}
-            loading={exploreQuery.isPending}
+            loading={exploreQuery.isPending || savedOnlyWaitingForSession}
             fetching={exploreQuery.isFetching}
             hasAppliedBounds={hasAppliedBounds}
             errorMessage={exploreErrorMessage}
@@ -505,6 +536,7 @@ export function ExploreLayout() {
             onAreaChange={setArea}
             onDifficultyChange={setDifficulty}
             onVerifiedOnlyChange={setVerifiedOnly}
+            onSavedOnlyChange={setSavedOnly}
             onLoadMore={() => void exploreQuery.fetchNextPage()}
             onSelectSpot={handleSelectSpot}
             sort={sort}

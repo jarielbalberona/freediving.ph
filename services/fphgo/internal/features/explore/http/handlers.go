@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -54,6 +55,12 @@ func (h *Handlers) ListSites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	savedOnly, savedOnlyIssues := parseOptionalBoolQuery(r, "savedOnly")
+	if len(savedOnlyIssues) > 0 {
+		httpx.WriteValidationError(w, savedOnlyIssues)
+		return
+	}
+
 	bounds, boundsIssues := parseListSitesBounds(r)
 	if len(boundsIssues) > 0 {
 		httpx.WriteValidationError(w, boundsIssues)
@@ -61,11 +68,16 @@ func (h *Handlers) ListSites(w http.ResponseWriter, r *http.Request) {
 	}
 
 	viewerID := actorIDIfPresent(r)
+	if savedOnly && viewerID == "" {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusUnauthorized, "authentication_required", "sign in to view saved dive spots", nil))
+		return
+	}
 	result, svcErr := h.service.ListSites(r.Context(), exploreservice.ListSitesInput{
 		ViewerUserID: viewerID,
 		Area:         r.URL.Query().Get("area"),
 		Difficulty:   r.URL.Query().Get("difficulty"),
 		VerifiedOnly: strings.EqualFold(r.URL.Query().Get("verifiedOnly"), "true"),
+		SavedOnly:    savedOnly,
 		Search:       r.URL.Query().Get("search"),
 		Bounds:       bounds,
 		Cursor:       r.URL.Query().Get("cursor"),
@@ -81,6 +93,24 @@ func (h *Handlers) ListSites(w http.ResponseWriter, r *http.Request) {
 		items = append(items, mapSiteCard(item))
 	}
 	httpx.JSON(w, http.StatusOK, ListSitesResponse{Items: items, NextCursor: result.NextCursor})
+}
+
+func parseOptionalBoolQuery(r *http.Request, name string) (bool, []validatex.Issue) {
+	raw := strings.TrimSpace(r.URL.Query().Get(name))
+	if raw == "" {
+		return false, nil
+	}
+	if strings.EqualFold(raw, "true") {
+		return true, nil
+	}
+	if strings.EqualFold(raw, "false") {
+		return false, nil
+	}
+	return false, []validatex.Issue{{
+		Path:    []any{name},
+		Code:    "invalid_enum",
+		Message: name + " must be true or false",
+	}}
 }
 
 func parseListSitesBounds(r *http.Request) (*exploreservice.MapBounds, []validatex.Issue) {
@@ -570,7 +600,30 @@ func mapSiteCard(input explorerepo.SiteCard) SiteCard {
 		RecentUpdateCount:    input.RecentUpdateCount,
 		LastConditionSummary: input.LastConditionSummary,
 		IsSaved:              input.IsSaved,
+		BuddySignal:          mapBuddySignal(input),
 	}
+}
+
+func mapBuddySignal(input explorerepo.SiteCard) *BuddySignal {
+	if input.SiteBuddyIntentCount <= 0 && input.AreaBuddyIntentCount <= 0 {
+		return nil
+	}
+	signal := &BuddySignal{
+		SiteIntentCount: input.SiteBuddyIntentCount,
+		AreaIntentCount: input.AreaBuddyIntentCount,
+		HasSiteActivity: input.SiteBuddyIntentCount > 0,
+		HasAreaActivity: input.AreaBuddyIntentCount > 0,
+	}
+	if input.SiteBuddyIntentCount == 1 {
+		signal.Label = "1 buddy plan at this site"
+		return signal
+	}
+	if input.SiteBuddyIntentCount > 1 {
+		signal.Label = fmt.Sprintf("%d buddy plans at this site", input.SiteBuddyIntentCount)
+		return signal
+	}
+	signal.Label = "Buddy plans in this area"
+	return signal
 }
 
 func mapSiteDetail(input explorerepo.SiteDetail) SiteDetail {

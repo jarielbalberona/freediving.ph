@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   AlertCircle,
   ArrowUpWideNarrow,
+  Heart,
   LoaderCircle,
   MapPinned,
   ShieldCheck,
@@ -39,6 +40,9 @@ type ExploreResultsPanelProps = {
   areaOptions: string[];
   difficulty: ExploreDifficulty;
   verifiedOnly: boolean;
+  savedOnly: boolean;
+  canUseSavedFilter: boolean;
+  savedOnlyRequiresSignIn: boolean;
   total: number;
   loading: boolean;
   fetching: boolean;
@@ -54,6 +58,7 @@ type ExploreResultsPanelProps = {
   onAreaChange: (area: string) => void;
   onDifficultyChange: (difficulty: ExploreDifficulty) => void;
   onVerifiedOnlyChange: (verifiedOnly: boolean) => void;
+  onSavedOnlyChange: (savedOnly: boolean) => void;
   onLoadMore: () => void;
   onSelectSpot: (spot: DiveSpot) => void;
   sort: ExploreSortMode;
@@ -83,6 +88,9 @@ export function ExploreResultsPanel({
   areaOptions,
   difficulty,
   verifiedOnly,
+  savedOnly,
+  canUseSavedFilter,
+  savedOnlyRequiresSignIn,
   total,
   loading,
   fetching,
@@ -98,6 +106,7 @@ export function ExploreResultsPanel({
   onAreaChange,
   onDifficultyChange,
   onVerifiedOnlyChange,
+  onSavedOnlyChange,
   onLoadMore,
   onSelectSpot,
   sort,
@@ -246,6 +255,21 @@ export function ExploreResultsPanel({
                 <ShieldCheck className="size-4" />
                 Verified only
               </Button>
+              <Button
+                type="button"
+                variant={savedOnly ? "default" : "outline"}
+                size="sm"
+                className="rounded-full"
+                aria-pressed={savedOnly}
+                disabled={!canUseSavedFilter && !savedOnly}
+                onClick={() => {
+                  if (!canUseSavedFilter && !savedOnly) return;
+                  onSavedOnlyChange(!savedOnly);
+                }}
+              >
+                <Heart className={cn("size-4", savedOnly && "fill-current")} />
+                Saved
+              </Button>
               {filtersControl}
             </div>
           </div>
@@ -295,7 +319,34 @@ export function ExploreResultsPanel({
 
       <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1">
         <div className="pb-6">
-          {errorMessage ? (
+          {savedOnlyRequiresSignIn ? (
+            <div className="mx-4 mt-4 rounded-3xl border border-border bg-muted/40 px-5 py-6">
+              <Heart className="mb-3 size-5 text-muted-foreground" />
+              <p className="font-semibold text-foreground">
+                Sign in to view saved dive spots.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Saved filters use your account. Public dive spots are still
+                available without signing in.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href="/sign-in"
+                  className={cn(buttonVariants({ size: "sm" }), "rounded-full")}
+                >
+                  Sign in
+                </Link>
+                <Button
+                  className="rounded-full"
+                  variant="outline"
+                  size="sm"
+                  onClick={onResetFilters}
+                >
+                  Clear saved filter
+                </Button>
+              </div>
+            </div>
+          ) : errorMessage ? (
             <div className="mx-4 mt-4 rounded-3xl border border-destructive/25 bg-destructive/5 px-5 py-5">
               <div className="flex items-start gap-3">
                 <AlertCircle className="mt-0.5 size-5 text-destructive" />
@@ -366,14 +417,18 @@ export function ExploreResultsPanel({
                 <MapPinned className="mb-3 size-5 text-muted-foreground" />
               ) : null}
               <p className="text-base font-semibold text-foreground">
-                {hasAppliedBounds
-                  ? "No dive spots loaded in this map area"
-                  : "No loaded dive spots match this search"}
+                {savedOnly
+                  ? "No saved dive spots match this search"
+                  : hasAppliedBounds
+                    ? "No dive spots loaded in this map area"
+                    : "No loaded dive spots match this search"}
               </p>
               <p className="text-muted-foreground mt-2 text-sm">
-                {hasAppliedBounds
-                  ? "Move the map and search another area, or clear search and filters if they are too narrow."
-                  : "Clear the search, change filters, or move the map and search that area. If a legit spot is missing, suggest it for review."}
+                {savedOnly
+                  ? "Clear the saved filter, change search or filters, or save a dive spot from its card."
+                  : hasAppliedBounds
+                    ? "Move the map and search another area, or clear search and filters if they are too narrow."
+                    : "Clear the search, change filters, or move the map and search that area. If a legit spot is missing, suggest it for review."}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button

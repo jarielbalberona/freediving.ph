@@ -18,6 +18,7 @@ export type ExploreFilters = {
   area?: string;
   difficulty?: "easy" | "moderate" | "hard";
   verifiedOnly?: boolean;
+  savedOnly?: boolean;
   search?: string;
   north?: number;
   south?: number;
@@ -47,6 +48,7 @@ export const exploreApi = {
         area: filters.area,
         difficulty: filters.difficulty,
         verifiedOnly: filters.verifiedOnly,
+        savedOnly: filters.savedOnly,
         search: filters.search,
         north: filters.north,
         south: filters.south,

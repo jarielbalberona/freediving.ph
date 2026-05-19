@@ -1083,6 +1083,47 @@ recent_update_counts AS (
   WHERE state = 'active'
     AND occurred_at >= NOW() - INTERVAL '7 days'
   GROUP BY dive_site_id
+),
+active_buddy_intents AS (
+  SELECT
+    bi.id,
+    bi.dive_site_id,
+    bi.area
+  FROM buddy_intents bi
+  JOIN users u ON u.id = bi.author_app_user_id
+  LEFT JOIN dive_sites linked_site ON linked_site.id = bi.dive_site_id
+  WHERE bi.state = 'active'
+    AND bi.visibility = 'members'
+    AND bi.expires_at > NOW()
+    AND u.account_status = 'active'
+    AND (bi.dive_site_id IS NULL OR linked_site.moderation_state = 'approved')
+    AND (
+      $1::uuid IS NULL
+      OR (
+        bi.author_app_user_id <> $1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM user_blocks ub
+          WHERE (ub.blocker_app_user_id = $1 AND ub.blocked_app_user_id = bi.author_app_user_id)
+             OR (ub.blocker_app_user_id = bi.author_app_user_id AND ub.blocked_app_user_id = $1)
+        )
+      )
+    )
+),
+site_buddy_counts AS (
+  SELECT
+    dive_site_id,
+    COUNT(*)::bigint AS site_buddy_intent_count
+  FROM active_buddy_intents
+  WHERE dive_site_id IS NOT NULL
+  GROUP BY dive_site_id
+),
+area_buddy_counts AS (
+  SELECT
+    area,
+    COUNT(*)::bigint AS area_buddy_intent_count
+  FROM active_buddy_intents
+  GROUP BY area
 )
 SELECT
   s.id,
@@ -1099,6 +1140,11 @@ SELECT
   s.verification_status,
   s.last_updated_at,
   COALESCE(rc.recent_update_count, 0)::bigint AS recent_update_count,
+  COALESCE(sbc.site_buddy_intent_count, 0)::bigint AS active_site_buddy_intent_count,
+  GREATEST(
+    COALESCE(abc.area_buddy_intent_count, 0)::bigint - COALESCE(sbc.site_buddy_intent_count, 0)::bigint,
+    0
+  )::bigint AS active_area_buddy_intent_count,
   COALESCE(
     NULLIF(lu.note, ''),
     TRIM(BOTH ' ' FROM CONCAT(
@@ -1116,29 +1162,40 @@ SELECT
 FROM dive_sites s
 LEFT JOIN latest_update lu ON lu.dive_site_id = s.id
 LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
+LEFT JOIN site_buddy_counts sbc ON sbc.dive_site_id = s.id
+LEFT JOIN area_buddy_counts abc ON abc.area = s.area
 WHERE s.moderation_state = 'approved'
   AND ($2::text = '' OR s.area = $2)
   AND ($3::text = '' OR s.entry_difficulty = $3)
   AND (NOT $4::bool OR s.verification_status IN ('verified', 'instructor', 'moderator'))
   AND (
-    $5::text = ''
-    OR s.name ILIKE '%' || $5 || '%'
-    OR s.area ILIKE '%' || $5 || '%'
+    NOT $5::bool
+    OR EXISTS (
+      SELECT 1
+      FROM dive_site_saves saved_filter
+      WHERE saved_filter.dive_site_id = s.id
+        AND saved_filter.app_user_id = $1
+    )
   )
   AND (
-    NOT $6::bool
+    $6::text = ''
+    OR s.name ILIKE '%' || $6 || '%'
+    OR s.area ILIKE '%' || $6 || '%'
+  )
+  AND (
+    NOT $7::bool
     OR (
       s.latitude IS NOT NULL
       AND s.longitude IS NOT NULL
-      AND s.latitude <= $7::double precision
-      AND s.latitude >= $8::double precision
-      AND s.longitude <= $9::double precision
-      AND s.longitude >= $10::double precision
+      AND s.latitude <= $8::double precision
+      AND s.latitude >= $9::double precision
+      AND s.longitude <= $10::double precision
+      AND s.longitude >= $11::double precision
     )
   )
-  AND (s.last_updated_at < $11 OR (s.last_updated_at = $11 AND s.id < $12))
+  AND (s.last_updated_at < $12 OR (s.last_updated_at = $12 AND s.id < $13))
 ORDER BY s.last_updated_at DESC, s.id DESC
-LIMIT $13
+LIMIT $14
 `
 
 type ListSitesParams struct {
@@ -1146,6 +1203,7 @@ type ListSitesParams struct {
 	AreaFilter       string             `db:"area_filter" json:"area_filter"`
 	DifficultyFilter string             `db:"difficulty_filter" json:"difficulty_filter"`
 	VerifiedOnly     bool               `db:"verified_only" json:"verified_only"`
+	SavedOnly        bool               `db:"saved_only" json:"saved_only"`
 	SearchText       string             `db:"search_text" json:"search_text"`
 	HasBounds        bool               `db:"has_bounds" json:"has_bounds"`
 	North            float64            `db:"north" json:"north"`
@@ -1158,22 +1216,24 @@ type ListSitesParams struct {
 }
 
 type ListSitesRow struct {
-	ID                   pgtype.UUID        `db:"id" json:"id"`
-	Slug                 string             `db:"slug" json:"slug"`
-	Name                 string             `db:"name" json:"name"`
-	Area                 string             `db:"area" json:"area"`
-	Latitude             *float64           `db:"latitude" json:"latitude"`
-	Longitude            *float64           `db:"longitude" json:"longitude"`
-	Description          *string            `db:"description" json:"description"`
-	EntryDifficulty      string             `db:"entry_difficulty" json:"entry_difficulty"`
-	DepthMinM            pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
-	DepthMaxM            pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
-	Hazards              []string           `db:"hazards" json:"hazards"`
-	VerificationStatus   string             `db:"verification_status" json:"verification_status"`
-	LastUpdatedAt        pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
-	RecentUpdateCount    int64              `db:"recent_update_count" json:"recent_update_count"`
-	LastConditionSummary interface{}        `db:"last_condition_summary" json:"last_condition_summary"`
-	IsSaved              bool               `db:"is_saved" json:"is_saved"`
+	ID                         pgtype.UUID        `db:"id" json:"id"`
+	Slug                       string             `db:"slug" json:"slug"`
+	Name                       string             `db:"name" json:"name"`
+	Area                       string             `db:"area" json:"area"`
+	Latitude                   *float64           `db:"latitude" json:"latitude"`
+	Longitude                  *float64           `db:"longitude" json:"longitude"`
+	Description                *string            `db:"description" json:"description"`
+	EntryDifficulty            string             `db:"entry_difficulty" json:"entry_difficulty"`
+	DepthMinM                  pgtype.Numeric     `db:"depth_min_m" json:"depth_min_m"`
+	DepthMaxM                  pgtype.Numeric     `db:"depth_max_m" json:"depth_max_m"`
+	Hazards                    []string           `db:"hazards" json:"hazards"`
+	VerificationStatus         string             `db:"verification_status" json:"verification_status"`
+	LastUpdatedAt              pgtype.Timestamptz `db:"last_updated_at" json:"last_updated_at"`
+	RecentUpdateCount          int64              `db:"recent_update_count" json:"recent_update_count"`
+	ActiveSiteBuddyIntentCount int64              `db:"active_site_buddy_intent_count" json:"active_site_buddy_intent_count"`
+	ActiveAreaBuddyIntentCount int64              `db:"active_area_buddy_intent_count" json:"active_area_buddy_intent_count"`
+	LastConditionSummary       interface{}        `db:"last_condition_summary" json:"last_condition_summary"`
+	IsSaved                    bool               `db:"is_saved" json:"is_saved"`
 }
 
 func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSitesRow, error) {
@@ -1182,6 +1242,7 @@ func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSit
 		arg.AreaFilter,
 		arg.DifficultyFilter,
 		arg.VerifiedOnly,
+		arg.SavedOnly,
 		arg.SearchText,
 		arg.HasBounds,
 		arg.North,
@@ -1214,6 +1275,8 @@ func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSit
 			&i.VerificationStatus,
 			&i.LastUpdatedAt,
 			&i.RecentUpdateCount,
+			&i.ActiveSiteBuddyIntentCount,
+			&i.ActiveAreaBuddyIntentCount,
 			&i.LastConditionSummary,
 			&i.IsSaved,
 		); err != nil {

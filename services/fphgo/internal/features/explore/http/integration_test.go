@@ -114,14 +114,15 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	svc := &exploreServiceStub{
 		listResult: exploreservice.ListSitesResult{
 			Items: []explorerepo.SiteCard{{
-				ID:                 "550e8400-e29b-41d4-a716-446655440101",
-				Slug:               "twin-rocks-anilao",
-				Name:               "Twin Rocks",
-				Area:               "Mabini, Batangas",
-				Difficulty:         "easy",
-				Hazards:            []string{"boat traffic"},
-				VerificationStatus: "verified",
-				LastUpdatedAt:      time.Now().UTC(),
+				ID:                   "550e8400-e29b-41d4-a716-446655440101",
+				Slug:                 "twin-rocks-anilao",
+				Name:                 "Twin Rocks",
+				Area:                 "Mabini, Batangas",
+				Difficulty:           "easy",
+				Hazards:              []string{"boat traffic"},
+				VerificationStatus:   "verified",
+				LastUpdatedAt:        time.Now().UTC(),
+				SiteBuddyIntentCount: 2,
 			}},
 		},
 		latest: exploreservice.ListLatestUpdatesResult{
@@ -178,6 +179,19 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	r.ServeHTTP(getListRec, getList)
 	if getListRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for public list, got %d", getListRec.Code)
+	}
+	var listBody ListSitesResponse
+	if err := json.Unmarshal(getListRec.Body.Bytes(), &listBody); err != nil {
+		t.Fatalf("decode list response: %v", err)
+	}
+	if listBody.Items[0].BuddySignal == nil {
+		t.Fatal("expected aggregate buddy signal on list card")
+	}
+	if got := listBody.Items[0].BuddySignal.Label; got != "2 buddy plans at this site" {
+		t.Fatalf("unexpected buddy signal label: %q", got)
+	}
+	if bytes.Contains(getListRec.Body.Bytes(), []byte("authorAppUserId")) || bytes.Contains(getListRec.Body.Bytes(), []byte("displayName")) {
+		t.Fatalf("list buddy signal leaked private buddy identity fields: %s", getListRec.Body.String())
 	}
 
 	getDetail := httptest.NewRequest(http.MethodGet, "/sites/twin-rocks-anilao", nil)
@@ -245,10 +259,44 @@ func TestExploreListSitesParsesBounds(t *testing.T) {
 	}
 }
 
+func TestExploreListSitesSavedOnlyRequiresAuth(t *testing.T) {
+	r := buildExploreRouter(t, &exploreServiceStub{}, authz.Identity{})
+
+	req := httptest.NewRequest(http.MethodGet, "/sites?savedOnly=true", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for signed-out saved-only list, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestExploreListSitesParsesSavedOnlyForSignedInViewer(t *testing.T) {
+	svc := &exploreServiceStub{}
+	r := buildExploreRouter(t, svc, authz.Identity{
+		UserID:        "550e8400-e29b-41d4-a716-446655440000",
+		GlobalRole:    "member",
+		AccountStatus: "active",
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/sites?savedOnly=true&search=anilao", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for signed-in saved-only list, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !svc.listInput.SavedOnly {
+		t.Fatalf("expected savedOnly to be passed to service, got %+v", svc.listInput)
+	}
+	if svc.listInput.ViewerUserID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("expected viewer user id, got %+v", svc.listInput)
+	}
+}
+
 func TestExploreListSitesRejectsPartialAndMalformedBounds(t *testing.T) {
 	tests := []string{
 		"/sites?north=14&south=13&east=121",
 		"/sites?north=nope&south=13&east=121&west=120",
+		"/sites?savedOnly=maybe",
 	}
 	for _, path := range tests {
 		t.Run(path, func(t *testing.T) {

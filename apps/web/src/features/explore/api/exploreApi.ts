@@ -19,6 +19,7 @@ const mapSiteCard = (site: ExploreSiteCard): DiveSpot => ({
   recentUpdateCount: site.recentUpdateCount,
   lastConditionSummary: site.lastConditionSummary,
   isSaved: site.isSaved,
+  buddySignal: site.buddySignal,
 });
 
 export const exploreApi = {
@@ -29,6 +30,7 @@ export const exploreApi = {
       area: params.area,
       difficulty: params.difficulty,
       verifiedOnly: params.verifiedOnly,
+      savedOnly: params.savedOnly,
       north: bounds?.ne.lat,
       south: bounds?.sw.lat,
       east: bounds?.ne.lng,

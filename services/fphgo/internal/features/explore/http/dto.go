@@ -6,21 +6,30 @@ type ListSitesResponse struct {
 }
 
 type SiteCard struct {
-	ID                   string   `json:"id"`
-	Slug                 string   `json:"slug"`
-	Name                 string   `json:"name"`
-	Area                 string   `json:"area"`
-	Latitude             *float64 `json:"latitude,omitempty"`
-	Longitude            *float64 `json:"longitude,omitempty"`
-	Difficulty           string   `json:"difficulty"`
-	DepthMinM            *float64 `json:"depthMinM,omitempty"`
-	DepthMaxM            *float64 `json:"depthMaxM,omitempty"`
-	Hazards              []string `json:"hazards"`
-	VerificationStatus   string   `json:"verificationStatus"`
-	LastUpdatedAt        string   `json:"lastUpdatedAt"`
-	RecentUpdateCount    int64    `json:"recentUpdateCount"`
-	LastConditionSummary string   `json:"lastConditionSummary,omitempty"`
-	IsSaved              bool     `json:"isSaved"`
+	ID                   string       `json:"id"`
+	Slug                 string       `json:"slug"`
+	Name                 string       `json:"name"`
+	Area                 string       `json:"area"`
+	Latitude             *float64     `json:"latitude,omitempty"`
+	Longitude            *float64     `json:"longitude,omitempty"`
+	Difficulty           string       `json:"difficulty"`
+	DepthMinM            *float64     `json:"depthMinM,omitempty"`
+	DepthMaxM            *float64     `json:"depthMaxM,omitempty"`
+	Hazards              []string     `json:"hazards"`
+	VerificationStatus   string       `json:"verificationStatus"`
+	LastUpdatedAt        string       `json:"lastUpdatedAt"`
+	RecentUpdateCount    int64        `json:"recentUpdateCount"`
+	LastConditionSummary string       `json:"lastConditionSummary,omitempty"`
+	IsSaved              bool         `json:"isSaved"`
+	BuddySignal          *BuddySignal `json:"buddySignal,omitempty"`
+}
+
+type BuddySignal struct {
+	SiteIntentCount int64  `json:"siteIntentCount"`
+	AreaIntentCount int64  `json:"areaIntentCount"`
+	HasSiteActivity bool   `json:"hasSiteActivity"`
+	HasAreaActivity bool   `json:"hasAreaActivity"`
+	Label           string `json:"label"`
 }
 
 type SiteDetailResponse struct {

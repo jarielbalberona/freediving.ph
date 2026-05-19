@@ -272,15 +272,28 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 	ctx := context.Background()
 
 	viewerID := "43000000-0000-0000-0000-000000000001"
+	buddyAuthorID := "43000000-0000-0000-0000-000000000002"
+	blockedBuddyAuthorID := "43000000-0000-0000-0000-000000000003"
 	nonce := time.Now().UnixNano()
 	searchName := fmt.Sprintf("Bounds Reef %d", nonce)
+	quietName := fmt.Sprintf("Quiet Reef %d", nonce)
 
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO users (id, username, display_name)
-		VALUES ($1, $2, 'Bounds Viewer')
-		ON CONFLICT (id) DO NOTHING
-	`, viewerID, fmt.Sprintf("bounds_viewer_%d", nonce)); err != nil {
-		t.Skipf("insert viewer: %v", err)
+	for _, user := range []struct {
+		id       string
+		username string
+		name     string
+	}{
+		{id: viewerID, username: fmt.Sprintf("bounds_viewer_%d", nonce), name: "Bounds Viewer"},
+		{id: buddyAuthorID, username: fmt.Sprintf("bounds_buddy_%d", nonce), name: "Bounds Buddy"},
+		{id: blockedBuddyAuthorID, username: fmt.Sprintf("bounds_blocked_%d", nonce), name: "Blocked Buddy"},
+	} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (id) DO NOTHING
+		`, user.id, user.username, user.name); err != nil {
+			t.Skipf("insert user: %v", err)
+		}
 	}
 
 	var insideID string
@@ -319,12 +332,70 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 		t.Fatalf("insert pending site: %v", err)
 	}
 
+	var quietID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO dive_sites (
+			name, slug, area, latitude, longitude, entry_difficulty,
+			verification_status, moderation_state, last_updated_at, updated_at
+		)
+		VALUES ($1, $2, $3, 10.00, 124.00, 'easy', 'verified', 'approved', NOW(), NOW())
+		RETURNING id
+	`, quietName, fmt.Sprintf("quiet-reef-%d", nonce), fmt.Sprintf("Quiet Area %d", nonce)).Scan(&quietID); err != nil {
+		t.Fatalf("insert quiet site: %v", err)
+	}
+
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO dive_site_saves (app_user_id, dive_site_id)
+		VALUES ($1, $2), ($1, $3), ($1, $4)
+		ON CONFLICT DO NOTHING
+	`, viewerID, insideID, outsideID, pendingID); err != nil {
+		t.Fatalf("insert save: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO user_blocks (blocker_app_user_id, blocked_app_user_id)
 		VALUES ($1, $2)
 		ON CONFLICT DO NOTHING
-	`, viewerID, insideID); err != nil {
-		t.Fatalf("insert save: %v", err)
+	`, viewerID, blockedBuddyAuthorID); err != nil {
+		t.Skipf("insert user block: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO buddy_intents (
+			id, author_app_user_id, dive_site_id, area, intent_type, time_window,
+			visibility, state, expires_at
+		)
+		VALUES
+			(gen_random_uuid(), $1, $3, 'Mabini, Batangas', 'training', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days'),
+			(gen_random_uuid(), $2, $3, 'Mabini, Batangas', 'training', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days'),
+			(gen_random_uuid(), $1, NULL, 'Mabini, Batangas', 'fun_dive', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days'),
+			(gen_random_uuid(), $1, $3, 'Mabini, Batangas', 'training', 'weekend', 'members', 'active', NOW() - INTERVAL '1 hour'),
+			(gen_random_uuid(), $1, $3, 'Mabini, Batangas', 'training', 'weekend', 'members', 'hidden', NOW() + INTERVAL '2 days'),
+			(gen_random_uuid(), $1, $4, 'Mabini, Batangas', 'training', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days')
+	`, buddyAuthorID, blockedBuddyAuthorID, insideID, pendingID); err != nil {
+		t.Fatalf("insert buddy intents: %v", err)
+	}
+
+	quietItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
+		Search:          quietName,
+		CursorUpdatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           20,
+	})
+	if err != nil {
+		t.Fatalf("list quiet site: %v", err)
+	}
+	foundQuiet := false
+	for _, item := range quietItems {
+		if item.ID == quietID {
+			foundQuiet = true
+			if item.SiteBuddyIntentCount != 0 || item.AreaBuddyIntentCount != 0 {
+				t.Fatalf("expected no buddy signal for quiet site, got %+v", item)
+			}
+		}
+	}
+	if !foundQuiet {
+		t.Fatalf("expected quiet site in results, got %+v", quietItems)
 	}
 
 	noBoundsItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
@@ -346,8 +417,17 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 		switch item.ID {
 		case insideID:
 			foundInsideWithoutBounds = true
+			if item.SiteBuddyIntentCount != 1 {
+				t.Fatalf("expected one unblocked active site buddy intent, got %+v", item)
+			}
+			if item.AreaBuddyIntentCount != 1 {
+				t.Fatalf("expected one area fallback intent, got %+v", item)
+			}
 		case outsideID:
 			foundOutsideWithoutBounds = true
+			if item.SiteBuddyIntentCount != 0 || item.AreaBuddyIntentCount == 0 {
+				t.Fatalf("expected area buddy fallback on outside site, got %+v", item)
+			}
 		case pendingID:
 			t.Fatalf("pending site leaked without bounds: %+v", item)
 		}
@@ -356,8 +436,60 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 		t.Fatalf("expected both approved matching sites without bounds, got %+v", noBoundsItems)
 	}
 
+	guestItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
+		Area:            "Mabini, Batangas",
+		Difficulty:      "easy",
+		VerifiedOnly:    true,
+		Search:          searchName,
+		CursorUpdatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           100,
+	})
+	if err != nil {
+		t.Fatalf("list guest sites with buddy signal: %v", err)
+	}
+	for _, item := range guestItems {
+		if item.ID == insideID && item.SiteBuddyIntentCount != 2 {
+			t.Fatalf("expected guest aggregate to include active site intents without private detail, got %+v", item)
+		}
+	}
+
+	savedOnlyItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
+		ViewerUserID:    viewerID,
+		SavedOnly:       true,
+		Area:            "Mabini, Batangas",
+		Difficulty:      "easy",
+		VerifiedOnly:    true,
+		Search:          searchName,
+		CursorUpdatedAt: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
+		CursorID:        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		Limit:           100,
+	})
+	if err != nil {
+		t.Fatalf("list saved-only sites: %v", err)
+	}
+	foundSavedInside := false
+	foundSavedOutside := false
+	for _, item := range savedOnlyItems {
+		if !item.IsSaved {
+			t.Fatalf("expected saved state on saved-only item: %+v", item)
+		}
+		switch item.ID {
+		case insideID:
+			foundSavedInside = true
+		case outsideID:
+			foundSavedOutside = true
+		case pendingID:
+			t.Fatalf("saved pending site leaked into saved-only results: %+v", item)
+		}
+	}
+	if !foundSavedInside || !foundSavedOutside {
+		t.Fatalf("expected both approved saved matching sites, got %+v", savedOnlyItems)
+	}
+
 	boundedItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
 		ViewerUserID: viewerID,
+		SavedOnly:    true,
 		Area:         "Mabini, Batangas",
 		Difficulty:   "easy",
 		VerifiedOnly: true,

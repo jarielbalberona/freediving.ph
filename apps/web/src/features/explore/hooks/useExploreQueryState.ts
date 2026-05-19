@@ -74,6 +74,7 @@ export const useExploreQueryState = () => {
       area: searchParams.get("area") ?? "",
       difficulty: parseDifficulty(searchParams.get("difficulty")),
       verifiedOnly: searchParams.get("verifiedOnly") === "true",
+      savedOnly: searchParams.get("savedOnly") === "true",
       view,
       bounds: parseBounds(searchParams.get("bounds")),
       camera: parseCamera(searchParams),
@@ -117,6 +118,12 @@ export const useExploreQueryState = () => {
       commitParams((nextParams) => {
         if (verifiedOnly) nextParams.set("verifiedOnly", "true");
         else nextParams.delete("verifiedOnly");
+      });
+    },
+    setSavedOnly(savedOnly: boolean) {
+      commitParams((nextParams) => {
+        if (savedOnly) nextParams.set("savedOnly", "true");
+        else nextParams.delete("savedOnly");
       });
     },
     setView(view: MapViewMode) {
@@ -163,6 +170,7 @@ export const useExploreQueryState = () => {
         nextParams.delete("area");
         nextParams.delete("difficulty");
         nextParams.delete("verifiedOnly");
+        nextParams.delete("savedOnly");
       });
     },
   };

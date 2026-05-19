@@ -19,6 +19,47 @@ recent_update_counts AS (
   WHERE state = 'active'
     AND occurred_at >= NOW() - INTERVAL '7 days'
   GROUP BY dive_site_id
+),
+active_buddy_intents AS (
+  SELECT
+    bi.id,
+    bi.dive_site_id,
+    bi.area
+  FROM buddy_intents bi
+  JOIN users u ON u.id = bi.author_app_user_id
+  LEFT JOIN dive_sites linked_site ON linked_site.id = bi.dive_site_id
+  WHERE bi.state = 'active'
+    AND bi.visibility = 'members'
+    AND bi.expires_at > NOW()
+    AND u.account_status = 'active'
+    AND (bi.dive_site_id IS NULL OR linked_site.moderation_state = 'approved')
+    AND (
+      sqlc.arg(viewer_user_id)::uuid IS NULL
+      OR (
+        bi.author_app_user_id <> sqlc.arg(viewer_user_id)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM user_blocks ub
+          WHERE (ub.blocker_app_user_id = sqlc.arg(viewer_user_id) AND ub.blocked_app_user_id = bi.author_app_user_id)
+             OR (ub.blocker_app_user_id = bi.author_app_user_id AND ub.blocked_app_user_id = sqlc.arg(viewer_user_id))
+        )
+      )
+    )
+),
+site_buddy_counts AS (
+  SELECT
+    dive_site_id,
+    COUNT(*)::bigint AS site_buddy_intent_count
+  FROM active_buddy_intents
+  WHERE dive_site_id IS NOT NULL
+  GROUP BY dive_site_id
+),
+area_buddy_counts AS (
+  SELECT
+    area,
+    COUNT(*)::bigint AS area_buddy_intent_count
+  FROM active_buddy_intents
+  GROUP BY area
 )
 SELECT
   s.id,
@@ -35,6 +76,11 @@ SELECT
   s.verification_status,
   s.last_updated_at,
   COALESCE(rc.recent_update_count, 0)::bigint AS recent_update_count,
+  COALESCE(sbc.site_buddy_intent_count, 0)::bigint AS active_site_buddy_intent_count,
+  GREATEST(
+    COALESCE(abc.area_buddy_intent_count, 0)::bigint - COALESCE(sbc.site_buddy_intent_count, 0)::bigint,
+    0
+  )::bigint AS active_area_buddy_intent_count,
   COALESCE(
     NULLIF(lu.note, ''),
     TRIM(BOTH ' ' FROM CONCAT(
@@ -52,10 +98,21 @@ SELECT
 FROM dive_sites s
 LEFT JOIN latest_update lu ON lu.dive_site_id = s.id
 LEFT JOIN recent_update_counts rc ON rc.dive_site_id = s.id
+LEFT JOIN site_buddy_counts sbc ON sbc.dive_site_id = s.id
+LEFT JOIN area_buddy_counts abc ON abc.area = s.area
 WHERE s.moderation_state = 'approved'
   AND (sqlc.arg(area_filter)::text = '' OR s.area = sqlc.arg(area_filter))
   AND (sqlc.arg(difficulty_filter)::text = '' OR s.entry_difficulty = sqlc.arg(difficulty_filter))
   AND (NOT sqlc.arg(verified_only)::bool OR s.verification_status IN ('verified', 'instructor', 'moderator'))
+  AND (
+    NOT sqlc.arg(saved_only)::bool
+    OR EXISTS (
+      SELECT 1
+      FROM dive_site_saves saved_filter
+      WHERE saved_filter.dive_site_id = s.id
+        AND saved_filter.app_user_id = sqlc.arg(viewer_user_id)
+    )
+  )
   AND (
     sqlc.arg(search_text)::text = ''
     OR s.name ILIKE '%' || sqlc.arg(search_text) || '%'

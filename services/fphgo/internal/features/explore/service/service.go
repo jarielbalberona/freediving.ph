@@ -114,6 +114,7 @@ type ListSitesInput struct {
 	Area         string
 	Difficulty   string
 	VerifiedOnly bool
+	SavedOnly    bool
 	Search       string
 	Bounds       *MapBounds
 	Cursor       string
@@ -225,6 +226,9 @@ func New(repo repository, opts ...Option) *Service {
 }
 
 func (s *Service) ListSites(ctx context.Context, input ListSitesInput) (ListSitesResult, error) {
+	if input.SavedOnly && strings.TrimSpace(input.ViewerUserID) == "" {
+		return ListSitesResult{}, apperrors.New(http.StatusUnauthorized, "authentication_required", "sign in to view saved dive spots", nil)
+	}
 	if issues := validateMapBounds(input.Bounds); len(issues) > 0 {
 		return ListSitesResult{}, ValidationFailure{Issues: issues}
 	}
@@ -253,6 +257,7 @@ func (s *Service) ListSites(ctx context.Context, input ListSitesInput) (ListSite
 		Area:            strings.TrimSpace(input.Area),
 		Difficulty:      strings.TrimSpace(input.Difficulty),
 		VerifiedOnly:    input.VerifiedOnly,
+		SavedOnly:       input.SavedOnly,
 		Search:          strings.TrimSpace(input.Search),
 		Bounds:          repoBounds(input.Bounds),
 		CursorUpdatedAt: cursorUpdated,

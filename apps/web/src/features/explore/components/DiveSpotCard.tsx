@@ -164,6 +164,19 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
                       {spot.recentUpdateCount === 1 ? "" : "s"}
                     </Badge>
                   ) : null}
+                  {spot.buddySignal ? (
+                    <Badge
+                      variant={
+                        spot.buddySignal.hasSiteActivity
+                          ? "secondary"
+                          : "outline"
+                      }
+                      className="rounded-full px-2.5 py-1 text-xs"
+                    >
+                      <Users className="mr-1.5 size-3.5" />
+                      {spot.buddySignal.label}
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
 

@@ -23,6 +23,7 @@ type ListSitesInput struct {
 	Area            string
 	Difficulty      string
 	VerifiedOnly    bool
+	SavedOnly       bool
 	Search          string
 	Bounds          *MapBounds
 	CursorUpdatedAt time.Time
@@ -51,6 +52,8 @@ type SiteCard struct {
 	VerificationStatus   string
 	LastUpdatedAt        time.Time
 	RecentUpdateCount    int64
+	SiteBuddyIntentCount int64
+	AreaBuddyIntentCount int64
 	LastConditionSummary string
 	IsSaved              bool
 }
@@ -230,6 +233,7 @@ func (r *Repo) ListSites(ctx context.Context, input ListSitesInput) ([]SiteCard,
 		AreaFilter:       input.Area,
 		DifficultyFilter: input.Difficulty,
 		VerifiedOnly:     input.VerifiedOnly,
+		SavedOnly:        input.SavedOnly,
 		SearchText:       input.Search,
 		HasBounds:        hasBounds,
 		North:            north,
@@ -260,6 +264,8 @@ func (r *Repo) ListSites(ctx context.Context, input ListSitesInput) ([]SiteCard,
 			VerificationStatus:   row.VerificationStatus,
 			LastUpdatedAt:        row.LastUpdatedAt.Time.UTC(),
 			RecentUpdateCount:    row.RecentUpdateCount,
+			SiteBuddyIntentCount: row.ActiveSiteBuddyIntentCount,
+			AreaBuddyIntentCount: row.ActiveAreaBuddyIntentCount,
 			LastConditionSummary: anyString(row.LastConditionSummary),
 			IsSaved:              row.IsSaved,
 		})

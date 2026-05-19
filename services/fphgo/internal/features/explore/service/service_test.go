@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
 	explorerepo "fphgo/internal/features/explore/repo"
+	apperrors "fphgo/internal/shared/errors"
 )
 
 type repoStub struct {
@@ -112,6 +114,8 @@ func TestListSitesPassesValidatedBoundsToRepo(t *testing.T) {
 	svc := New(repo)
 
 	_, err := svc.ListSites(context.Background(), ListSitesInput{
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		SavedOnly:    true,
 		Bounds: &MapBounds{
 			North: 14.0,
 			South: 13.0,
@@ -128,6 +132,60 @@ func TestListSitesPassesValidatedBoundsToRepo(t *testing.T) {
 	}
 	if repo.listInput.Bounds.North != 14.0 || repo.listInput.Bounds.South != 13.0 || repo.listInput.Bounds.East != 121.0 || repo.listInput.Bounds.West != 120.0 {
 		t.Fatalf("unexpected repo bounds: %+v", repo.listInput.Bounds)
+	}
+	if !repo.listInput.SavedOnly {
+		t.Fatalf("expected saved-only to be passed to repo, got %+v", repo.listInput)
+	}
+}
+
+func TestListSitesSavedOnlyRequiresViewer(t *testing.T) {
+	svc := New(&repoStub{})
+
+	_, err := svc.ListSites(context.Background(), ListSitesInput{
+		SavedOnly: true,
+		Limit:     20,
+	})
+	if err == nil {
+		t.Fatal("expected saved-only auth error")
+	}
+	appErr, ok := err.(*apperrors.AppError)
+	if !ok {
+		t.Fatalf("expected AppError, got %T", err)
+	}
+	if appErr.Status != http.StatusUnauthorized || appErr.Code != "authentication_required" {
+		t.Fatalf("unexpected error: %+v", appErr)
+	}
+}
+
+func TestListSitesSavedOnlyStillPaginates(t *testing.T) {
+	updatedAt := time.Now().UTC()
+	repo := &repoStub{listResult: []explorerepo.SiteCard{
+		{
+			ID:            "550e8400-e29b-41d4-a716-446655440101",
+			LastUpdatedAt: updatedAt,
+			IsSaved:       true,
+		},
+		{
+			ID:            "550e8400-e29b-41d4-a716-446655440102",
+			LastUpdatedAt: updatedAt.Add(-time.Minute),
+			IsSaved:       true,
+		},
+	}}
+	svc := New(repo)
+
+	result, err := svc.ListSites(context.Background(), ListSitesInput{
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		SavedOnly:    true,
+		Limit:        1,
+	})
+	if err != nil {
+		t.Fatalf("list saved-only sites: %v", err)
+	}
+	if repo.listInput.Limit != 2 {
+		t.Fatalf("expected repo limit+1 pagination fetch, got %d", repo.listInput.Limit)
+	}
+	if len(result.Items) != 1 || result.NextCursor == "" {
+		t.Fatalf("expected one item and next cursor, got %+v", result)
 	}
 }
 

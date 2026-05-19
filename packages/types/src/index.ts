@@ -1194,6 +1194,15 @@ export type ExploreSiteCard = {
   recentUpdateCount: number;
   lastConditionSummary?: string;
   isSaved: boolean;
+  buddySignal?: ExploreBuddySignal;
+};
+
+export type ExploreBuddySignal = {
+  siteIntentCount: number;
+  areaIntentCount: number;
+  hasSiteActivity: boolean;
+  hasAreaActivity: boolean;
+  label: string;
 };
 
 export type ExploreSiteUpdate = {
