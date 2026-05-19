@@ -66,8 +66,8 @@ services:
     runtime: node
     plan: starter
     region: oregon
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @freediving.ph/web build
-    startCommand: pnpm --filter @freediving.ph/web start
+    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter @freediving.ph/web build
+    startCommand: corepack pnpm --filter @freediving.ph/web start
     healthCheckPath: /
     envVars:
       - key: NODE_ENV
