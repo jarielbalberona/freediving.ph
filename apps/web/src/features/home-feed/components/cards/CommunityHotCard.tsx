@@ -43,7 +43,7 @@ export function CommunityHotCard({
         </Badge>
       </div>
       <p className="line-clamp-2 text-base font-semibold tracking-tight">
-        {payload.title || "Untitled thread"}
+        {payload.title || "Untitled Chika"}
       </p>
       <p className="text-xs text-muted-foreground">
         {payload.replyCount ?? 0} replies · {payload.reactionCount ?? 0}{" "}

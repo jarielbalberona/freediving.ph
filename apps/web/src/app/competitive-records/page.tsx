@@ -14,7 +14,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ReportAction } from "@/components/report/report-action";
-import { useCompetitiveRecordsFiltered, useCreateCompetitiveRecord } from "@/features/competitiveRecords";
+import {
+  useCompetitiveRecordsFiltered,
+  useCreateCompetitiveRecord,
+} from "@/features/competitiveRecords";
 import {
   createRecordSchema,
   recordFilterSchema,
@@ -70,7 +73,10 @@ export default function CompetitiveRecordsPage() {
     <main className="container mx-auto space-y-6 p-6">
       <section className="space-y-2">
         <h1 className="text-3xl font-bold">Competitive Records</h1>
-        <p className="text-muted-foreground">Submit records as unverified, with moderator verification workflow.</p>
+        <p className="text-muted-foreground">
+          Share competition results for community review before they appear
+          publicly.
+        </p>
       </section>
 
       <Card>
@@ -79,7 +85,10 @@ export default function CompetitiveRecordsPage() {
         </CardHeader>
         <CardContent>
           <Form {...createForm}>
-            <form onSubmit={createForm.handleSubmit(onSubmitRecord)} className="grid gap-2 md:grid-cols-3">
+            <form
+              onSubmit={createForm.handleSubmit(onSubmitRecord)}
+              className="grid gap-2 md:grid-cols-3"
+            >
               <FormField
                 control={createForm.control}
                 name="athleteName"
@@ -155,7 +164,9 @@ export default function CompetitiveRecordsPage() {
               <div className="md:col-span-3">
                 <Button
                   type="submit"
-                  disabled={createForm.formState.isSubmitting || createRecord.isPending}
+                  disabled={
+                    createForm.formState.isSubmitting || createRecord.isPending
+                  }
                 >
                   Submit
                 </Button>
@@ -213,14 +224,24 @@ export default function CompetitiveRecordsPage() {
                 <div>
                   <p className="font-semibold">{record.athleteName}</p>
                   <p className="text-sm text-muted-foreground">
-                    {record.discipline} • {record.resultValue} {record.resultUnit} • {record.eventName}
+                    {record.discipline} • {record.resultValue}{" "}
+                    {record.resultUnit} • {record.eventName}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={record.verificationState === "VERIFIED" ? "default" : "outline"}>
+                  <Badge
+                    variant={
+                      record.verificationState === "VERIFIED"
+                        ? "default"
+                        : "outline"
+                    }
+                  >
                     {record.verificationState}
                   </Badge>
-                  <ReportAction targetType="COMPETITIVE_RECORD" targetId={String(record.id)} />
+                  <ReportAction
+                    targetType="COMPETITIVE_RECORD"
+                    targetId={String(record.id)}
+                  />
                 </div>
               </div>
             </article>

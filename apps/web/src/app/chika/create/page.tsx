@@ -7,12 +7,21 @@ import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useChikaCategories, useCreateThread } from "@/features/chika";
-import { createThreadPageSchema, type CreateThreadPageValues } from "@/features/chika/schemas/createThread.schema";
+import {
+  createThreadPageSchema,
+  type CreateThreadPageValues,
+} from "@/features/chika/schemas/createThread.schema";
 import { AuthGuard } from "@/components/auth/guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -48,17 +57,22 @@ export default function CreateThread() {
   });
 
   useEffect(() => {
-    const generalId = categories?.find((c) => c.slug === "general")?.id ?? categories?.[0]?.id ?? "";
+    const generalId =
+      categories?.find((c) => c.slug === "general")?.id ??
+      categories?.[0]?.id ??
+      "";
     if (!form.getValues("categoryId") && generalId) {
       form.setValue("categoryId", generalId);
     }
   }, [categories, form]);
 
-  const selectedCategory = (categories ?? []).find((c) => c.id === form.watch("categoryId"));
+  const selectedCategory = (categories ?? []).find(
+    (c) => c.id === form.watch("categoryId"),
+  );
 
   const onSubmit = async (values: CreateThreadPageValues) => {
     if (!user) {
-      toast.error("Please sign in to create a thread");
+      toast.error("Please sign in to post in Chika");
       return;
     }
 
@@ -68,33 +82,46 @@ export default function CreateThread() {
         content: values.content.trim(),
         categoryId: values.categoryId,
       });
-      toast.success("Thread created successfully!");
+      toast.success("Posted in Chika.");
       router.push("/chika");
     } catch (error) {
-      toast.error(getRateLimitMessage(error, getApiErrorMessage(error, "Failed to create thread")));
+      toast.error(
+        getRateLimitMessage(
+          error,
+          getApiErrorMessage(error, "Could not post in Chika"),
+        ),
+      );
     }
   };
 
   const categoryItems = [...(categories ?? [])]
-    .sort((a, b) => (a.pseudonymous === b.pseudonymous ? 0 : a.pseudonymous ? 1 : -1))
+    .sort((a, b) =>
+      a.pseudonymous === b.pseudonymous ? 0 : a.pseudonymous ? 1 : -1,
+    )
     .map((c) => ({
       value: c.id,
       label: `${c.name}${c.pseudonymous ? " (Anonymous)" : ""}`,
     }));
 
   return (
-    <AuthGuard title="Sign in to post in Chika" description="Posting in Chika requires an authenticated member account.">
+    <AuthGuard
+      title="Sign in to post in Chika"
+      description="Posting in Chika requires an authenticated member account."
+    >
       <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
         <Card asContainer>
           <CardHeader>
-            <CardTitle>Create New Chika</CardTitle>
+            <CardTitle>Post in Chika</CardTitle>
             <CardDescription>
               Share your thoughts, questions, or stories with the community.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="title"
@@ -145,7 +172,8 @@ export default function CreateThread() {
                       </Select>
                       {selectedCategory?.pseudonymous ? (
                         <FormDescription>
-                          Your identity will be hidden. You will appear as an anonymous pseudonym.
+                          Your identity will be hidden. You will appear as an
+                          anonymous pseudonym.
                         </FormDescription>
                       ) : null}
                       <FormMessage />
@@ -185,9 +213,13 @@ export default function CreateThread() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={form.formState.isSubmitting || createThread.isPending}
+                    disabled={
+                      form.formState.isSubmitting || createThread.isPending
+                    }
                   >
-                    {form.formState.isSubmitting || createThread.isPending ? "Creating..." : "Create Thread"}
+                    {form.formState.isSubmitting || createThread.isPending
+                      ? "Posting..."
+                      : "Post in Chika"}
                   </Button>
                 </div>
               </form>

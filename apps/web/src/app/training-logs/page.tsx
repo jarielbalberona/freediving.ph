@@ -23,7 +23,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateTrainingLog, useTrainingLogs } from "@/features/trainingLogs";
-import { createTrainingLogSchema, type CreateTrainingLogValues } from "@/features/trainingLogs/schemas/createLog.schema";
+import {
+  createTrainingLogSchema,
+  type CreateTrainingLogValues,
+} from "@/features/trainingLogs/schemas/createLog.schema";
 
 export default function TrainingLogsPage() {
   const { data: logs = [] } = useTrainingLogs();
@@ -39,7 +42,12 @@ export default function TrainingLogsPage() {
   });
 
   const onSubmit = (values: CreateTrainingLogValues) => {
-    createLog.mutate({ title: values.title, sessionDate: values.sessionDate, visibility: values.visibility, metrics: [] });
+    createLog.mutate({
+      title: values.title,
+      sessionDate: values.sessionDate,
+      visibility: values.visibility,
+      metrics: [],
+    });
     form.reset({ title: "", sessionDate: "", visibility: "PRIVATE" });
   };
 
@@ -47,7 +55,9 @@ export default function TrainingLogsPage() {
     <main className="container mx-auto space-y-6 p-6">
       <section className="space-y-2">
         <h1 className="text-3xl font-bold">Training Logs</h1>
-        <p className="text-muted-foreground">Private-first sessions with optional sharing to buddies or public.</p>
+        <p className="text-muted-foreground">
+          Private-first sessions with optional sharing to buddies or public.
+        </p>
       </section>
 
       <Card>
@@ -56,7 +66,10 @@ export default function TrainingLogsPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-2 md:grid-cols-3">
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="grid gap-2 md:grid-cols-3"
+            >
               <FormField
                 control={form.control}
                 name="title"
@@ -93,9 +106,9 @@ export default function TrainingLogsPage() {
                       value={field.value}
                       onValueChange={field.onChange}
                       items={[
-                        { value: "PRIVATE", label: "PRIVATE" },
-                        { value: "BUDDIES_ONLY", label: "BUDDIES_ONLY" },
-                        { value: "PUBLIC", label: "PUBLIC" },
+                        { value: "PRIVATE", label: "Only me" },
+                        { value: "BUDDIES_ONLY", label: "Buddies only" },
+                        { value: "PUBLIC", label: "Public" },
                       ]}
                     >
                       <FormControl>
@@ -105,9 +118,11 @@ export default function TrainingLogsPage() {
                       </FormControl>
                       <SelectContent>
                         <SelectGroup>
-                          <SelectItem value="PRIVATE">PRIVATE</SelectItem>
-                          <SelectItem value="BUDDIES_ONLY">BUDDIES_ONLY</SelectItem>
-                          <SelectItem value="PUBLIC">PUBLIC</SelectItem>
+                          <SelectItem value="PRIVATE">Only me</SelectItem>
+                          <SelectItem value="BUDDIES_ONLY">
+                            Buddies only
+                          </SelectItem>
+                          <SelectItem value="PUBLIC">Public</SelectItem>
                         </SelectGroup>
                       </SelectContent>
                     </Select>
@@ -134,12 +149,25 @@ export default function TrainingLogsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {logs.map((log) => (
-            <article key={log.id} className="flex items-center justify-between rounded-md border p-3">
+            <article
+              key={log.id}
+              className="flex items-center justify-between rounded-md border p-3"
+            >
               <div>
                 <p className="font-semibold">{log.title}</p>
-                <p className="text-sm text-muted-foreground">{new Date(log.sessionDate).toLocaleDateString()}</p>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(log.sessionDate).toLocaleDateString()}
+                </p>
               </div>
-              <Badge variant={log.visibility === "PUBLIC" ? "default" : "outline"}>{log.visibility}</Badge>
+              <Badge
+                variant={log.visibility === "PUBLIC" ? "default" : "outline"}
+              >
+                {log.visibility === "BUDDIES_ONLY"
+                  ? "Buddies only"
+                  : log.visibility === "PRIVATE"
+                    ? "Only me"
+                    : "Public"}
+              </Badge>
             </article>
           ))}
         </CardContent>

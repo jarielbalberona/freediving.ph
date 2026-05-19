@@ -10,7 +10,6 @@ import { z } from "zod";
 import {
   CalendarClock,
   Compass,
-  Filter,
   Lock,
   MapPin,
   Plus,
@@ -101,13 +100,15 @@ const createEventSchema = z
       .enum(["beginner", "intermediate", "advanced", "expert"])
       .default("beginner"),
   })
-  .refine((data) => !data.endsAt || !data.startsAt || data.endsAt >= data.startsAt, {
-    message: "End date must be on or after start date",
-    path: ["endsAt"],
-  });
+  .refine(
+    (data) => !data.endsAt || !data.startsAt || data.endsAt >= data.startsAt,
+    {
+      message: "End date must be on or after start date",
+      path: ["endsAt"],
+    },
+  );
 
 type CreateEventValues = z.infer<typeof createEventSchema>;
-type StatusFilter = "published" | "draft" | "cancelled" | "completed" | "all";
 
 const createEventDefaultValues: CreateEventValues = {
   title: "",
@@ -132,17 +133,16 @@ export default function EventsPage() {
 
   const [activeTab, setActiveTab] = useState<"discover" | "joined">("discover");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("published");
   const [createOpen, setCreateOpen] = useState(false);
 
   const filters = useMemo<EventFilters>(
     () => ({
-      status: status === "all" ? undefined : status,
+      status: "published",
       page: 1,
       limit: 24,
       search: search.trim() || undefined,
     }),
-    [search, status],
+    [search],
   );
 
   const todayStart = useMemo(() => {
@@ -269,7 +269,9 @@ export default function EventsPage() {
               <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
                 <EventStatCard
                   label="Events"
-                  value={String(eventsQuery.data?.pagination.total ?? allEvents.length)}
+                  value={String(
+                    eventsQuery.data?.pagination.total ?? allEvents.length,
+                  )}
                   icon={<Compass className="h-4 w-4" />}
                 />
                 <EventStatCard
@@ -279,7 +281,7 @@ export default function EventsPage() {
                 />
                 <EventStatCard
                   label="Access"
-                  value="Managed"
+                  value="Public or invite-only"
                   icon={<ShieldCheck className="h-4 w-4" />}
                 />
               </div>
@@ -293,7 +295,7 @@ export default function EventsPage() {
                 <CardDescription className="text-sm text-foreground/75">
                   {isSignedIn
                     ? "Join upcoming sessions or publish your own to gather a crew."
-                    : "Browse public events. Sign in to join or host."}
+                    : "Browse upcoming dives, trainings, and meetups. Sign in when you are ready to join or host."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 p-4 pt-0 text-sm text-foreground/80 sm:space-y-4 sm:p-6 sm:pt-0">
@@ -308,7 +310,7 @@ export default function EventsPage() {
                 {!isSignedIn ? (
                   <SignInButton mode="modal">
                     <Button className="w-full" size="default">
-                      Sign in to join events
+                      Sign in to join an event
                     </Button>
                   </SignInButton>
                 ) : (
@@ -330,38 +332,22 @@ export default function EventsPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1.5 sm:space-y-2">
               <h2 className="font-serif text-2xl tracking-tight text-foreground sm:text-[2rem]">
-                Discover
+                Browse events
               </h2>
               <p className="max-w-2xl text-sm text-muted-foreground">
-                Search by title or description.
+                Search by place, session type, or organizer note.
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_210px] sm:gap-3 lg:min-w-[520px]">
+            <div className="grid gap-2 sm:gap-3 lg:min-w-[360px]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-10"
-                  placeholder="Search events..."
+                  placeholder="Search dives, trainings, or places"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
               </div>
-              <Select
-                value={status}
-                onValueChange={(value) => setStatus(value as StatusFilter)}
-              >
-                <SelectTrigger>
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Filter status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="all">All statuses</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -375,8 +361,10 @@ export default function EventsPage() {
             <TabsList
               className={`grid ${isSignedIn ? "w-full max-w-md grid-cols-2" : "w-full max-w-[220px] grid-cols-1"}`}
             >
-              <TabsTrigger value="discover">Discover</TabsTrigger>
-              {isSignedIn ? <TabsTrigger value="joined">Joined</TabsTrigger> : null}
+              <TabsTrigger value="discover">All events</TabsTrigger>
+              {isSignedIn ? (
+                <TabsTrigger value="joined">My events</TabsTrigger>
+              ) : null}
             </TabsList>
 
             <TabsContent value="discover" className="mt-4 sm:mt-5">
@@ -387,8 +375,8 @@ export default function EventsPage() {
                 isSignedIn={isSignedIn}
                 onJoin={handleJoinEvent}
                 onLeave={handleLeaveEvent}
-                emptyTitle="No events found"
-                emptyDescription="Try adjusting your search or filters."
+                emptyTitle="The calendar is quiet right now"
+                emptyDescription="Try a broader search, browse groups for local plans, or sign in to publish a dive, training, or meetup."
               />
             </TabsContent>
 
@@ -401,8 +389,8 @@ export default function EventsPage() {
                   isSignedIn
                   onJoin={handleJoinEvent}
                   onLeave={handleLeaveEvent}
-                  emptyTitle="No joined events"
-                  emptyDescription="Join an event to see it here."
+                  emptyTitle="Your joined events will appear here"
+                  emptyDescription="When you join a dive, training, or meetup, it will be easy to find again from this tab."
                 />
               </TabsContent>
             ) : null}
@@ -509,7 +497,9 @@ export default function EventsPage() {
                         <SelectContent>
                           <SelectItem value="training">Training</SelectItem>
                           <SelectItem value="meetup">Meetup</SelectItem>
-                          <SelectItem value="competition">Competition</SelectItem>
+                          <SelectItem value="competition">
+                            Competition
+                          </SelectItem>
                           <SelectItem value="trip">Trip</SelectItem>
                           <SelectItem value="workshop">Workshop</SelectItem>
                         </SelectContent>
@@ -524,7 +514,10 @@ export default function EventsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Difficulty</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select difficulty" />
@@ -532,7 +525,9 @@ export default function EventsPage() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="beginner">Beginner</SelectItem>
-                          <SelectItem value="intermediate">Intermediate</SelectItem>
+                          <SelectItem value="intermediate">
+                            Intermediate
+                          </SelectItem>
                           <SelectItem value="advanced">Advanced</SelectItem>
                           <SelectItem value="expert">Expert</SelectItem>
                         </SelectContent>
@@ -549,7 +544,10 @@ export default function EventsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Visibility</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select visibility" />
@@ -639,7 +637,9 @@ export default function EventsPage() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={createEventMutation.isPending}>
-                  {createEventMutation.isPending ? "Publishing..." : "Publish event"}
+                  {createEventMutation.isPending
+                    ? "Publishing..."
+                    : "Publish event"}
                 </Button>
               </DialogFooter>
             </form>
@@ -671,10 +671,23 @@ function EventGrid({
 }) {
   if (isLoading) {
     return (
-      <div className="grid gap-4 xl:grid-cols-2">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <Skeleton key={index} className="h-72 rounded-[1.5rem]" />
-        ))}
+      <div className="space-y-4">
+        <Card className="border-border/70 bg-muted/30">
+          <CardContent className="p-5">
+            <p className="font-medium text-foreground">
+              Checking the community calendar
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We are looking for upcoming dives, trainings, workshops, and
+              meetups.
+            </p>
+          </CardContent>
+        </Card>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-72 rounded-[1.5rem]" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -683,7 +696,10 @@ function EventGrid({
     return (
       <Card className="border-destructive/30 bg-destructive/5">
         <CardContent className="p-6 text-sm text-destructive">
-          {getApiErrorMessage(error, "Failed to load events")}
+          {getApiErrorMessage(
+            error,
+            "Events are taking longer than expected. Try again in a moment.",
+          )}
         </CardContent>
       </Card>
     );
@@ -695,7 +711,9 @@ function EventGrid({
         <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
           <CalendarClock className="h-10 w-10 text-muted-foreground" />
           <div className="space-y-1">
-            <h3 className="text-lg font-semibold text-foreground">{emptyTitle}</h3>
+            <h3 className="text-lg font-semibold text-foreground">
+              {emptyTitle}
+            </h3>
             <p className="max-w-lg text-sm text-muted-foreground">
               {emptyDescription}
             </p>
@@ -736,13 +754,12 @@ function EventDiscoveryCard({
       <CardHeader className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="rounded-full bg-primary text-primary-foreground">
-            {titleCase(event.status)}
+            {titleCase(event.type || "training")}
           </Badge>
           <Badge variant="outline">
             {titleCase(event.visibility.replace("_", " "))}
           </Badge>
           <Badge variant="outline">{titleCase(event.difficulty)}</Badge>
-          <Badge variant="outline">{event.type || "training"}</Badge>
         </div>
         <div className="space-y-2">
           <CardTitle className="font-serif text-2xl tracking-tight text-foreground">
@@ -751,7 +768,7 @@ function EventDiscoveryCard({
             </Link>
           </CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
-            {event.description?.trim() || "No description."}
+            {event.description?.trim() || "Details have not been added yet."}
           </CardDescription>
         </div>
       </CardHeader>
@@ -829,7 +846,9 @@ function EventStatCard({
           <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground sm:text-xs sm:tracking-[0.24em]">
             {label}
           </p>
-          <p className="text-base font-semibold text-foreground sm:text-lg">{value}</p>
+          <p className="text-base font-semibold text-foreground sm:text-lg">
+            {value}
+          </p>
         </div>
         <div className="rounded-xl border border-border/60 bg-card p-1.5 text-muted-foreground sm:rounded-2xl sm:p-2">
           {icon}
@@ -849,7 +868,9 @@ function InfoBox({
   return (
     <div className="rounded-2xl border border-border/60 bg-background/80 p-3 sm:rounded-3xl sm:p-4">
       <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>
+      <p className="mt-1 text-sm leading-5 text-muted-foreground">
+        {description}
+      </p>
     </div>
   );
 }

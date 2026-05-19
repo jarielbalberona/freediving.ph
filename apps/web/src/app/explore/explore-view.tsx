@@ -7,11 +7,18 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { MapProvider } from "@/providers/map-provider";
-import { useDiveSpotsListQuery, useDiveSpotsMapQuery, useExploreUrlState } from "@/features/diveSpots";
+import {
+  useDiveSpotsListQuery,
+  useDiveSpotsMapQuery,
+  useExploreUrlState,
+} from "@/features/diveSpots";
 import { diveSpotsApi } from "@/features/diveSpots/api/diveSpots";
 import { useExploreStore } from "@/features/diveSpots/store/exploreStore";
 
-import { DiveSpotsContainer, DiveSpotsContainerMobile } from "./dive-spots-container";
+import {
+  DiveSpotsContainer,
+  DiveSpotsContainerMobile,
+} from "./dive-spots-container";
 import DiveSpotDetailSheet from "./dive-spot-detail-sheet";
 import { MapComponent } from "./maps/map-container";
 
@@ -26,8 +33,15 @@ const useDebouncedValue = <T,>(value: T, delay = 300) => {
   return debounced;
 };
 
-const toDifficultyFilter = (difficulty: string): DiveSpotFilters["difficulty"] | undefined => {
-  if (difficulty === "BEGINNER" || difficulty === "INTERMEDIATE" || difficulty === "ADVANCED" || difficulty === "EXPERT") {
+const toDifficultyFilter = (
+  difficulty: string,
+): DiveSpotFilters["difficulty"] | undefined => {
+  if (
+    difficulty === "BEGINNER" ||
+    difficulty === "INTERMEDIATE" ||
+    difficulty === "ADVANCED" ||
+    difficulty === "EXPERT"
+  ) {
     return difficulty;
   }
   return undefined;
@@ -122,9 +136,11 @@ export default function ExploreView() {
     location: filters.location,
     setLocation: (value: string) => setFilters({ location: value }),
     difficulty: filters.difficulty,
-    setDifficulty: (value: string) => setFilters({ difficulty: value as typeof filters.difficulty }),
+    setDifficulty: (value: string) =>
+      setFilters({ difficulty: value as typeof filters.difficulty }),
     sort: filters.sort,
-    setSort: (value: "newest" | "oldest" | "name") => setFilters({ sort: value }),
+    setSort: (value: "newest" | "oldest" | "name") =>
+      setFilters({ sort: value }),
     selectedPlace: selectedSpotId,
     setSelectedPlace: handleSelectSpot,
   };
@@ -138,7 +154,9 @@ export default function ExploreView() {
         <div className="flex items-center justify-between border-b px-4 py-2">
           <div className="space-y-0.5">
             <h1 className="text-xl font-semibold">Explore Dive Spots</h1>
-            <p className="text-xs text-muted-foreground">Map and list views stay synced using URL state.</p>
+            <p className="text-xs text-muted-foreground">
+              Search or move the map to find dive spots.
+            </p>
           </div>
 
           <div className="inline-flex rounded-md border p-1">
@@ -175,7 +193,9 @@ export default function ExploreView() {
                   diveSpots={mapDiveSpots}
                   togglePlaces={togglePlaces}
                   isLoading={isMapLoading}
-                  errorMessage={isMapError ? "Unable to load map dive spots." : null}
+                  errorMessage={
+                    isMapError ? "Dive spots could not load right now." : null
+                  }
                   onRetry={() => {
                     void refetchMap();
                   }}
@@ -210,28 +230,49 @@ export default function ExploreView() {
                   onClick={() => handleSelectSpot(selectedSpot.id)}
                 >
                   <p className="text-sm font-semibold">{selectedSpot.name}</p>
-                  <p className="text-xs text-muted-foreground">{selectedSpot.locationName ?? "Unknown location"}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Rating {selectedSpot.avgRating?.toFixed(1) ?? "0.0"} ({selectedSpot.ratingCount ?? 0})
+                  <p className="text-xs text-muted-foreground">
+                    {selectedSpot.locationName ?? "Location not shared"}
                   </p>
-                  <p className="mt-1 text-xs font-medium text-primary">Open details</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Rating {selectedSpot.avgRating?.toFixed(1) ?? "0.0"} (
+                    {selectedSpot.ratingCount ?? 0})
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-primary">
+                    Open details
+                  </p>
                 </Button>
               )}
 
               <div className="absolute bottom-6 right-6 hidden flex-col gap-2">
-                <Button variant="secondary" size="icon" className="rounded-full shadow-md">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="rounded-full shadow-md"
+                >
                   <Compass className="h-5 w-5" />
                 </Button>
-                <Button variant="secondary" size="icon" className="rounded-full shadow-md">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="rounded-full shadow-md"
+                >
                   <Layers className="h-5 w-5" />
                 </Button>
-                <Button variant="secondary" size="icon" className="rounded-full shadow-md">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="rounded-full shadow-md"
+                >
                   <Info className="h-5 w-5" />
                 </Button>
               </div>
 
               {!placesOpen && (
-                <Button variant="secondary" className="absolute left-4 top-4 hidden gap-2 md:flex" onClick={togglePlaces}>
+                <Button
+                  variant="secondary"
+                  className="absolute left-4 top-4 hidden gap-2 md:flex"
+                  onClick={togglePlaces}
+                >
                   <Menu className="h-5 w-5" />
                   <span>Places</span>
                 </Button>
@@ -244,7 +285,9 @@ export default function ExploreView() {
               diveSpots={listDiveSpots}
               togglePlaces={undefined}
               isLoading={isListLoading}
-              errorMessage={isListError ? "Unable to load list dive spots." : null}
+              errorMessage={
+                isListError ? "Dive spots could not load right now." : null
+              }
               onRetry={() => {
                 void refetchList();
               }}
@@ -256,7 +299,9 @@ export default function ExploreView() {
         <DiveSpotsContainerMobile
           diveSpots={activeSpots}
           isLoading={activeLoading}
-          errorMessage={activeError ? "Unable to load dive spots." : null}
+          errorMessage={
+            activeError ? "Dive spots could not load right now." : null
+          }
           onRetry={() => {
             if (viewMode === "map") {
               void refetchMap();

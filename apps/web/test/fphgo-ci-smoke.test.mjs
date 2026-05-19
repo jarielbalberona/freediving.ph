@@ -1,11 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const baseUrl = process.env.FPHGO_BASE_URL;
-
-if (!baseUrl) {
-  throw new Error("FPHGO_BASE_URL is required for smoke tests");
-}
+const baseUrl = process.env.FPHGO_BASE_URL || process.env.NEXT_PUBLIC_FPHGO_BASE_URL;
+const smokeTest = baseUrl ? test : test.skip;
 
 const SMOKE_USER = "ci-smoke-user";
 
@@ -26,14 +23,14 @@ const authedRequest = (path, init = {}) =>
 
 // ── Public endpoints ────────────────────────────────────────────────
 
-test("GET /healthz — public health check", async () => {
+smokeTest("GET /healthz — public health check", async () => {
   const { response, body } = await request("/healthz");
   assert.equal(response.status, 200);
   assert.equal(body.status, "ok");
   assert.equal(typeof body.version, "string");
 });
 
-test("GET /readyz — DB readiness check", async () => {
+smokeTest("GET /readyz — DB readiness check", async () => {
   const { response, body } = await request("/readyz");
   assert.equal(response.status, 200);
   assert.equal(body.status, "ready");
@@ -41,7 +38,7 @@ test("GET /readyz — DB readiness check", async () => {
 
 // ── Auth gate: unauthenticated requests are rejected ────────────────
 
-test("protected endpoints return 401 without auth", async () => {
+smokeTest("protected endpoints return 401 without auth", async () => {
   const paths = ["/v1/auth/session", "/v1/blocks", "/v1/buddies"];
   for (const path of paths) {
     const { response, body } = await request(path);
@@ -52,7 +49,7 @@ test("protected endpoints return 401 without auth", async () => {
 
 // ── Identity bootstrap + session ────────────────────────────────────
 
-test("GET /v1/auth/session — canonical session with dev auth harness", async () => {
+smokeTest("GET /v1/auth/session — canonical session with dev auth harness", async () => {
   const { response, body } = await authedRequest("/v1/auth/session");
   assert.equal(response.status, 200);
   assert.equal(body.clerkSubject, SMOKE_USER);
@@ -64,7 +61,7 @@ test("GET /v1/auth/session — canonical session with dev auth harness", async (
   assert.ok(body.permissions.length > 0, "member should have permissions");
 });
 
-test("GET /v1/me — legacy session alias remains readable", async () => {
+smokeTest("GET /v1/me — legacy session alias remains readable", async () => {
   const { response, body } = await authedRequest("/v1/me");
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("deprecation"), "true");
@@ -74,7 +71,7 @@ test("GET /v1/me — legacy session alias remains readable", async () => {
 
 // ── Migrated feature: blocks ────────────────────────────────────────
 
-test("GET /v1/blocks — blocks list", async () => {
+smokeTest("GET /v1/blocks — blocks list", async () => {
   const { response, body } = await authedRequest("/v1/blocks");
   assert.equal(response.status, 200);
   assert.equal(Array.isArray(body.items), true);
@@ -82,7 +79,7 @@ test("GET /v1/blocks — blocks list", async () => {
 
 // ── Migrated feature: buddies ───────────────────────────────────────
 
-test("GET /v1/buddies — buddies list", async () => {
+smokeTest("GET /v1/buddies — buddies list", async () => {
   const { response, body } = await authedRequest("/v1/buddies");
   assert.equal(response.status, 200);
   assert.equal(Array.isArray(body.items), true);
@@ -90,13 +87,13 @@ test("GET /v1/buddies — buddies list", async () => {
 
 // ── Migrated feature: chika ─────────────────────────────────────────
 
-test("GET /v1/chika/categories — category list", async () => {
+smokeTest("GET /v1/chika/categories — category list", async () => {
   const { response, body } = await authedRequest("/v1/chika/categories");
   assert.equal(response.status, 200);
   assert.equal(Array.isArray(body.items), true);
 });
 
-test("GET /v1/chika/threads — thread list", async () => {
+smokeTest("GET /v1/chika/threads — thread list", async () => {
   const { response, body } = await authedRequest("/v1/chika/threads");
   assert.equal(response.status, 200);
   assert.equal(Array.isArray(body.items), true);
@@ -107,7 +104,7 @@ test("GET /v1/chika/threads — thread list", async () => {
 
 // ── Migrated feature: messaging ─────────────────────────────────────
 
-test("GET /v1/messages/threads — messaging threads", async () => {
+smokeTest("GET /v1/messages/threads — messaging threads", async () => {
   const { response, body } = await authedRequest("/v1/messages/threads?category=primary");
   assert.equal(response.status, 200);
   assert.equal(Array.isArray(body.items), true);
@@ -115,7 +112,7 @@ test("GET /v1/messages/threads — messaging threads", async () => {
 
 // ── Migrated feature: profiles ──────────────────────────────────────
 
-test("GET /v1/me/profile — own profile", async () => {
+smokeTest("GET /v1/me/profile — own profile", async () => {
   const { response, body } = await authedRequest("/v1/me/profile");
   assert.equal(response.status, 200);
   assert.ok(body.profile != null, "expected profile object");
@@ -125,7 +122,7 @@ test("GET /v1/me/profile — own profile", async () => {
 
 // ── Migrated feature: reports ───────────────────────────────────────
 
-test("POST /v1/reports — validation error on empty body", async () => {
+smokeTest("POST /v1/reports — validation error on empty body", async () => {
   const { response, body } = await authedRequest("/v1/reports", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -143,13 +140,13 @@ test("POST /v1/reports — validation error on empty body", async () => {
 
 // ── Migrated feature: media ─────────────────────────────────────────
 
-test("GET /v1/media/mine — media list", async () => {
+smokeTest("GET /v1/media/mine — media list", async () => {
   const { response, body } = await authedRequest("/v1/media/mine");
   assert.equal(response.status, 200);
   assert.equal(Array.isArray(body.items), true);
 });
 
-test("POST /v1/media/urls — validation error on empty body", async () => {
+smokeTest("POST /v1/media/urls — validation error on empty body", async () => {
   const { response, body } = await authedRequest("/v1/media/urls", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

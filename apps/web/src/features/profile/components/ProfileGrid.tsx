@@ -81,10 +81,10 @@ export function ProfileGrid({
         <ImageOff className="size-8 text-muted-foreground" />
         <div className="space-y-1">
           <p className="text-base font-semibold text-foreground">
-            No photos yet
+            Photos will appear here
           </p>
           <p className="text-sm text-muted-foreground">
-            {username} has not published any profile photos yet.
+            When @{username} shares dive photos, they will appear here.
           </p>
         </div>
       </div>
@@ -97,11 +97,11 @@ export function ProfileGrid({
         <ImageOff className="size-8 text-muted-foreground" />
         <div className="space-y-1">
           <p className="text-base font-semibold text-foreground">
-            Media metadata missing
+            Some photos need a refresh
           </p>
           <p className="text-sm text-muted-foreground">
-            This profile has media records, but some older items are missing
-            dimensions.
+            A few older photos cannot be shown cleanly yet. New shared photos
+            will appear normally.
           </p>
         </div>
       </div>

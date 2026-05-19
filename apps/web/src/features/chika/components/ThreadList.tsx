@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChikaThreadView } from "../api/threads";
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from "@/components/ui/card";
 import ThreadCard from "./ThreadCard";
 
 interface ThreadListProps {
@@ -34,9 +34,14 @@ export default function ThreadList({ threads, isLoading }: ThreadListProps) {
 
   if (threads.length === 0) {
     return (
-      <div className="py-12 text-center">
-        <div className="mb-4 text-lg text-muted-foreground">No threads found</div>
-        <p className="text-muted-foreground">Be the first to start a conversation!</p>
+      <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-6 py-12 text-center">
+        <div className="mb-2 text-lg font-semibold text-foreground">
+          Start the first Chika
+        </div>
+        <p className="text-muted-foreground">
+          Ask a local question, share a dive update, or help another freediver
+          plan safely.
+        </p>
       </div>
     );
   }

@@ -7,12 +7,15 @@ import { MediaList, MediaUploadPanel } from "@/features/media";
 
 export default function MediaPage() {
   return (
-    <AuthGuard title="Sign in to view media" description="Please sign in to browse your media gallery.">
+    <AuthGuard
+      title="Sign in to view media"
+      description="Please sign in to browse your media gallery."
+    >
       <div className="container mx-auto space-y-6 p-6">
         <header>
           <h1 className="text-3xl font-bold">Media Gallery</h1>
           <p className="text-muted-foreground">
-            Upload originals once, then render optimized signed views via CDN presets.
+            Upload and organize your freediving photos.
           </p>
         </header>
 

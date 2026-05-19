@@ -31,9 +31,25 @@ const DiveSpotListContent = ({
   isLoading,
   errorMessage,
   onRetry,
-}: Pick<ContainerProps, "diveSpots" | "selectedPlace" | "setSelectedPlace" | "isLoading" | "errorMessage" | "onRetry">) => {
+}: Pick<
+  ContainerProps,
+  | "diveSpots"
+  | "selectedPlace"
+  | "setSelectedPlace"
+  | "isLoading"
+  | "errorMessage"
+  | "onRetry"
+>) => {
   if (isLoading) {
-    return <div className="px-1 py-4 text-sm text-muted-foreground">Loading dive spots...</div>;
+    return (
+      <div className="rounded-md border border-border bg-muted/30 p-4 text-sm">
+        <p className="font-medium text-foreground">Finding dive spots</p>
+        <p className="mt-1 text-muted-foreground">
+          Search by town, beach, or dive site. You can adjust filters if the
+          first result feels too narrow.
+        </p>
+      </div>
+    );
   }
 
   if (errorMessage) {
@@ -51,8 +67,14 @@ const DiveSpotListContent = ({
 
   if (diveSpots.length === 0) {
     return (
-      <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-        No dive spots found for the current filters.
+      <div className="rounded-md border border-dashed p-4 text-sm">
+        <p className="font-medium text-foreground">
+          We do not have a match here yet
+        </p>
+        <p className="mt-1 text-muted-foreground">
+          Try another place, widen your filters, or suggest a dive site for the
+          community to review.
+        </p>
       </div>
     );
   }

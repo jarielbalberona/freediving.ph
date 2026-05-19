@@ -12,10 +12,12 @@ export default function CollaborationPage() {
     <main className="container mx-auto space-y-6 p-6">
       <section className="space-y-2">
         <h1 className="text-3xl font-bold">Collaboration Hub</h1>
-        <p className="text-muted-foreground">Creator/diver collaboration posts without contract/payment workflows.</p>
+        <p className="text-muted-foreground">
+          Find divers, creators, and community partners for freediving projects.
+        </p>
       </section>
 
-      <Badge variant="outline">Controlled MVP: moderation-first collaboration board</Badge>
+      <Badge variant="outline">Community collaboration board</Badge>
 
       <Card>
         <CardHeader>
@@ -28,10 +30,14 @@ export default function CollaborationPage() {
                 <div>
                   <p className="font-semibold">{post.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    {post.postType} • {post.region || "No region"} • {post.specialty || "General"}
+                    {post.postType} • {post.region || "No region"} •{" "}
+                    {post.specialty || "General"}
                   </p>
                 </div>
-                <ReportAction targetType="OTHER" targetId={`collaboration:${post.id}`} />
+                <ReportAction
+                  targetType="OTHER"
+                  targetId={`collaboration:${post.id}`}
+                />
               </div>
             </article>
           ))}

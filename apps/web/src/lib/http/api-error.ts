@@ -1,5 +1,9 @@
 import { AxiosError } from "axios";
-import type { ApiError, ApiErrorIssue, RateLimitDetails } from "@freediving.ph/types";
+import type {
+  ApiError,
+  ApiErrorIssue,
+  RateLimitDetails,
+} from "@freediving.ph/types";
 
 const toIssuePath = (value: unknown): (string | number)[] => {
   if (Array.isArray(value)) {
@@ -16,7 +20,8 @@ const toIssue = (value: unknown): ApiErrorIssue | null => {
   if (!value || typeof value !== "object") return null;
 
   const record = value as Record<string, unknown>;
-  const message = typeof record.message === "string" ? record.message : "Invalid value";
+  const message =
+    typeof record.message === "string" ? record.message : "Invalid value";
   const path = toIssuePath(record.path);
   const code = typeof record.code === "string" ? record.code : "unknown";
 
@@ -24,19 +29,35 @@ const toIssue = (value: unknown): ApiErrorIssue | null => {
 };
 
 const toDetails = (value: unknown): Record<string, unknown> | undefined => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return undefined;
   return value as Record<string, unknown>;
 };
 
-const fallbackFromStatus = (status: number | null | undefined): Pick<ApiError, "code" | "message"> => {
-  if (status === 401) return { code: "unauthenticated", message: "authentication required" };
-  if (status === 403) return { code: "forbidden", message: "request forbidden" };
-  if (status === 404) return { code: "not_found", message: "resource not found" };
-  if (status === 422 || status === 400) return { code: "validation_error", message: "Invalid request" };
-  return { code: "request_failed", message: "request failed" };
+const fallbackFromStatus = (
+  status: number | null | undefined,
+): Pick<ApiError, "code" | "message"> => {
+  if (status === 401)
+    return { code: "unauthenticated", message: "authentication required" };
+  if (status === 403)
+    return { code: "forbidden", message: "You do not have access to this." };
+  if (status === 404)
+    return { code: "not_found", message: "We could not find that." };
+  if (status === 422 || status === 400)
+    return {
+      code: "validation_error",
+      message: "Please check the details and try again.",
+    };
+  return {
+    code: "request_failed",
+    message: "Something went wrong. Please try again.",
+  };
 };
 
-export const toApiError = (payload: unknown, status?: number | null): ApiError => {
+export const toApiError = (
+  payload: unknown,
+  status?: number | null,
+): ApiError => {
   const fallback = fallbackFromStatus(status);
 
   if (payload && typeof payload === "object") {
@@ -119,22 +140,34 @@ export const getApiErrorStatus = (error: unknown): number | null => {
   return null;
 };
 
-export const getRateLimitDetails = (error: unknown): RateLimitDetails | null => {
+export const getRateLimitDetails = (
+  error: unknown,
+): RateLimitDetails | null => {
   const parsed = getApiError(error);
-  if (parsed.code !== "rate_limited" || !parsed.details || typeof parsed.details !== "object") return null;
+  if (
+    parsed.code !== "rate_limited" ||
+    !parsed.details ||
+    typeof parsed.details !== "object"
+  )
+    return null;
   const details = parsed.details as Record<string, unknown>;
   const windowSeconds = Number(details.window_seconds);
   const retryAfterSeconds = Number(details.retry_after_seconds);
-  if (!Number.isFinite(windowSeconds) || !Number.isFinite(retryAfterSeconds)) return null;
+  if (!Number.isFinite(windowSeconds) || !Number.isFinite(retryAfterSeconds))
+    return null;
   return {
     window_seconds: Math.max(1, Math.floor(windowSeconds)),
     retry_after_seconds: Math.max(1, Math.floor(retryAfterSeconds)),
   };
 };
 
-export const getRateLimitMessage = (error: unknown, fallback: string): string => {
+export const getRateLimitMessage = (
+  error: unknown,
+  fallback: string,
+): string => {
   const parsed = getApiError(error);
-  if (parsed.code !== "rate_limited") return getApiErrorMessage(error, fallback);
+  if (parsed.code !== "rate_limited")
+    return getApiErrorMessage(error, fallback);
   const details = getRateLimitDetails(error);
   if (!details) return parsed.message || fallback;
   return `Rate limit reached. Try again in ${details.retry_after_seconds}s.`;

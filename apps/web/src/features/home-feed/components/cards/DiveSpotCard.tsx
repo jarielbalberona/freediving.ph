@@ -17,6 +17,20 @@ type DiveSpotPayload = {
   saveCount?: number;
 };
 
+const verificationLabel = (value?: string) => {
+  switch (value) {
+    case "verified":
+      return "Verified";
+    case "moderator":
+      return "Checked by team";
+    case "instructor":
+      return "Instructor noted";
+    case "community":
+    default:
+      return "Community shared";
+  }
+};
+
 export function DiveSpotCard({
   item,
   actions,
@@ -48,7 +62,7 @@ export function DiveSpotCard({
           variant="outline"
           className="mt-1 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
         >
-          {payload.verificationStatus || "community"}
+          {verificationLabel(payload.verificationStatus)}
         </Badge>
       </div>
       <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">

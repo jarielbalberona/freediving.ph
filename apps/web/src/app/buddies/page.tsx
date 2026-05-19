@@ -339,24 +339,23 @@ export default function BuddiesPage() {
                   Find buddies and coordinate sessions.
                 </h1>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
-                  Connect with divers for upcoming sessions or build your long-term dive network.
+                  Connect with divers for upcoming sessions or build your
+                  long-term dive network.
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
                 <StatCard
-                  label={isSignedIn ? "Buddies" : "Active posts"}
+                  label={isSignedIn ? "Buddies" : "Buddy posts"}
                   value={String(isSignedIn ? counts.buddies : counts.preview)}
                   icon={<Users className="h-4 w-4" />}
                 />
                 <StatCard
-                  label={
-                    isSignedIn ? "Requests" : "Messaging"
-                  }
+                  label={isSignedIn ? "Requests" : "Safe chats"}
                   value={String(isSignedIn ? counts.incoming : 1)}
                   icon={<HeartHandshake className="h-4 w-4" />}
                 />
                 <StatCard
-                  label={isSignedIn ? "Your posts" : "Areas"}
+                  label={isSignedIn ? "Your posts" : "Areas nearby"}
                   value={String(isSignedIn ? counts.activePosts : 0)}
                   icon={<ShieldCheck className="h-4 w-4" />}
                 />
@@ -366,35 +365,33 @@ export default function BuddiesPage() {
             <Card className="border-border/70 bg-[linear-gradient(180deg,_hsl(var(--primary)/0.16)_0%,_hsl(var(--card))_100%)]">
               <CardHeader className="space-y-2 p-4 sm:space-y-3 sm:p-6">
                 <CardTitle className="text-lg text-foreground sm:text-xl">
-                  {isSignedIn ? "Buddy Finder" : "Guest Preview"}
+                  {isSignedIn ? "Buddy Finder" : "Public buddy posts"}
                 </CardTitle>
                 <CardDescription className="text-sm text-foreground/75">
                   {isSignedIn
                     ? "Post your availability to find partners for specific sessions, or build your buddy list for future dives."
-                    : "Browse availability by area. Sign in to connect and coordinate."}
+                    : "Browse broad public buddy posts by area. Sign in when you want to see profiles, message safely, or save a diver for later."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 p-4 pt-0 text-sm text-foreground/80 sm:space-y-4 sm:p-6 sm:pt-0">
                 <div className="rounded-2xl border border-border/60 bg-background/80 p-3 sm:rounded-3xl sm:p-4">
-                  <p className="font-medium text-foreground">
-                    Privacy First
-                  </p>
+                  <p className="font-medium text-foreground">Privacy first</p>
                   <p className="mt-1">
-                    Exact locations are private. Guest view only shows general areas and times.
+                    Exact locations are private. Guest view only shows general
+                    areas and times.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-background/80 p-3 sm:rounded-3xl sm:p-4">
-                  <p className="font-medium text-foreground">
-                    Member Features
-                  </p>
+                  <p className="font-medium text-foreground">For members</p>
                   <p className="mt-1">
-                    Sign in to see profiles, send messages, and manage your buddy connections.
+                    Sign in to see profiles, send messages, and manage your
+                    buddy connections.
                   </p>
                 </div>
                 {!isSignedIn ? (
                   <SignInButton mode="modal">
                     <Button className="w-full" size="default">
-                      Sign in to manage buddies
+                      Sign in to connect safely
                     </Button>
                   </SignInButton>
                 ) : null}
@@ -413,7 +410,7 @@ export default function BuddiesPage() {
                     Your buddies
                   </div>
                   <CardTitle className="text-xl sm:text-2xl">
-                    Network & Requests
+                    Buddies and requests
                   </CardTitle>
                   <CardDescription>
                     Manage your trusted dive partners and incoming connections.
@@ -426,14 +423,19 @@ export default function BuddiesPage() {
                         Buddies ({counts.buddies})
                       </TabsTrigger>
                       <TabsTrigger value="incoming">
-                        Incoming ({counts.incoming})
+                        Requests ({counts.incoming})
                       </TabsTrigger>
                       <TabsTrigger value="outgoing">
-                        Outgoing ({counts.outgoing})
+                        Sent ({counts.outgoing})
                       </TabsTrigger>
                     </TabsList>
                     <TabsContent value="buddies" className="space-y-3">
-                      {buddies.length > 0 ? (
+                      {buddiesQuery.isPending ? (
+                        <LoadingState
+                          title="Checking your buddy list"
+                          description="Your trusted dive partners will appear here once your account is ready."
+                        />
+                      ) : buddies.length > 0 ? (
                         buddies.map((item) => (
                           <RelationshipCard
                             key={item.userId}
@@ -463,13 +465,18 @@ export default function BuddiesPage() {
                         ))
                       ) : (
                         <EmptyState
-                          title="No buddies yet"
-                          description="Use the Buddy Finder feed below or send requests from member profiles when someone looks reliable."
+                          title="Your buddy list is ready to grow"
+                          description="Use Buddy Finder below or send a request from a diver profile when someone feels like a reliable match."
                         />
                       )}
                     </TabsContent>
                     <TabsContent value="incoming" className="space-y-3">
-                      {incoming.length > 0 ? (
+                      {incomingQuery.isPending ? (
+                        <LoadingState
+                          title="Checking buddy requests"
+                          description="Incoming requests from other divers will appear here."
+                        />
+                      ) : incoming.length > 0 ? (
                         incoming.map((item) => (
                           <RelationshipCard
                             key={item.request.id}
@@ -506,13 +513,18 @@ export default function BuddiesPage() {
                         ))
                       ) : (
                         <EmptyState
-                          title="No incoming requests"
-                          description="When someone asks to connect, it will show up here."
+                          title="No one is waiting on you right now"
+                          description="When another diver asks to connect, you can review the request here before accepting."
                         />
                       )}
                     </TabsContent>
                     <TabsContent value="outgoing" className="space-y-3">
-                      {outgoing.length > 0 ? (
+                      {outgoingQuery.isPending ? (
+                        <LoadingState
+                          title="Checking sent requests"
+                          description="Requests you have sent to other divers will appear here."
+                        />
+                      ) : outgoing.length > 0 ? (
                         outgoing.map((item) => (
                           <RelationshipCard
                             key={item.request.id}
@@ -539,8 +551,8 @@ export default function BuddiesPage() {
                         ))
                       ) : (
                         <EmptyState
-                          title="No outgoing requests"
-                          description="Send buddy requests when you want a persistent connection, not just a one-off session."
+                          title="No sent requests right now"
+                          description="Send a buddy request when you meet someone you want to keep diving with."
                         />
                       )}
                     </TabsContent>
@@ -671,7 +683,8 @@ export default function BuddiesPage() {
                   </div>
 
                   <div className="rounded-3xl border border-border/70 bg-muted/45 p-4 text-sm text-muted-foreground">
-                    Area stays coarse. Conversations start in request mode unless you are already buddies.
+                    Area stays broad for privacy. New conversations start as
+                    requests unless you are already buddies.
                   </div>
 
                   <Button
@@ -702,7 +715,12 @@ export default function BuddiesPage() {
                         Posts expire automatically.
                       </span>
                     </div>
-                    {myIntents.length > 0 ? (
+                    {myIntentsQuery.isPending ? (
+                      <LoadingState
+                        title="Checking your availability posts"
+                        description="Active buddy posts you created will appear here."
+                      />
+                    ) : myIntents.length > 0 ? (
                       myIntents.map((item) => (
                         <Card
                           key={item.id}
@@ -744,8 +762,8 @@ export default function BuddiesPage() {
                       ))
                     ) : (
                       <EmptyState
-                        title="No active availability posts"
-                        description="Post when you have a real session in mind. Empty stale posts are useless."
+                        title="Your availability is clear"
+                        description="Post when you have a real session in mind so other divers know when and where to reach out."
                       />
                     )}
                   </div>
@@ -820,71 +838,83 @@ export default function BuddiesPage() {
                 <ErrorBlock
                   message={getApiErrorMessage(
                     intentsQuery.error,
-                    "Failed to load Buddy Finder posts",
+                    "Buddy posts are taking longer than expected. Try again in a moment.",
                   )}
                 />
               ) : null}
 
               <div className="grid gap-4 xl:grid-cols-2">
-                {memberItems.map((item) => (
-                  <IntentCard
-                    key={item.id}
-                    intent={item}
-                    isSaved={savedUserIds.has(item.authorAppUserId)}
-                    isBuddy={buddyUserIds.has(item.authorAppUserId)}
-                    incomingRequest={incomingByUserId.get(item.authorAppUserId)}
-                    outgoingRequest={outgoingByUserId.get(item.authorAppUserId)}
-                    onSaveToggle={() =>
-                      void handleSaveToggle(item.authorAppUserId)
-                    }
-                    onShare={() => void shareBuddy(item.id)}
-                    onMessage={() => messageMutation.mutate(item)}
-                    onSendBuddyRequest={() =>
-                      void handleSendBuddyRequest(item.authorAppUserId)
-                    }
-                    onAcceptRequest={(requestId) =>
-                      void handleAcceptRequest(requestId)
-                    }
-                    onDeclineRequest={(requestId) =>
-                      void handleDeclineRequest(requestId)
-                    }
-                    onCancelRequest={(requestId) =>
-                      void handleCancelRequest(requestId)
-                    }
-                    actionLoading={
-                      sendBuddyRequestMutation.isPending ||
-                      acceptBuddyRequestMutation.isPending ||
-                      declineBuddyRequestMutation.isPending ||
-                      cancelBuddyRequestMutation.isPending ||
-                      saveUserMutation.isPending ||
-                      unsaveUserMutation.isPending ||
-                      messageMutation.isPending
-                    }
+                {intentsQuery.isPending ? (
+                  <LoadingState
+                    title="Looking for dive partners"
+                    description="We are checking active buddy posts that match your area and timing."
                   />
-                ))}
+                ) : (
+                  memberItems.map((item) => (
+                    <IntentCard
+                      key={item.id}
+                      intent={item}
+                      isSaved={savedUserIds.has(item.authorAppUserId)}
+                      isBuddy={buddyUserIds.has(item.authorAppUserId)}
+                      incomingRequest={incomingByUserId.get(
+                        item.authorAppUserId,
+                      )}
+                      outgoingRequest={outgoingByUserId.get(
+                        item.authorAppUserId,
+                      )}
+                      onSaveToggle={() =>
+                        void handleSaveToggle(item.authorAppUserId)
+                      }
+                      onShare={() => void shareBuddy(item.id)}
+                      onMessage={() => messageMutation.mutate(item)}
+                      onSendBuddyRequest={() =>
+                        void handleSendBuddyRequest(item.authorAppUserId)
+                      }
+                      onAcceptRequest={(requestId) =>
+                        void handleAcceptRequest(requestId)
+                      }
+                      onDeclineRequest={(requestId) =>
+                        void handleDeclineRequest(requestId)
+                      }
+                      onCancelRequest={(requestId) =>
+                        void handleCancelRequest(requestId)
+                      }
+                      actionLoading={
+                        sendBuddyRequestMutation.isPending ||
+                        acceptBuddyRequestMutation.isPending ||
+                        declineBuddyRequestMutation.isPending ||
+                        cancelBuddyRequestMutation.isPending ||
+                        saveUserMutation.isPending ||
+                        unsaveUserMutation.isPending ||
+                        messageMutation.isPending
+                      }
+                    />
+                  ))
+                )}
               </div>
 
               {memberItems.length === 0 && !intentsQuery.isPending ? (
                 <EmptyState
-                  title="No matching availability posts"
-                  description="Try a broader area or clear the filters. If nothing shows up, that means nobody useful has posted yet."
+                  title="This buddy search is quiet right now"
+                  description="Try a broader area, clear the filters, or post your own availability so other divers can reach out."
                 />
               ) : null}
             </section>
           </>
         ) : (
-            <section className="space-y-4 rounded-[1.4rem] border border-border/70 bg-card/95 p-4 shadow-sm sm:rounded-[1.75rem] sm:p-5 lg:p-6">
+          <section className="space-y-4 rounded-[1.4rem] border border-border/70 bg-card/95 p-4 shadow-sm sm:rounded-[1.75rem] sm:p-5 lg:p-6">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-primary">
                   <ShieldCheck className="h-4 w-4" />
-                  Public preview
+                  Public buddy posts
                 </div>
                 <h2 className="font-serif text-3xl tracking-tight text-foreground">
-                  Public Preview
+                  Divers looking for buddies
                 </h2>
                 <p className="max-w-2xl text-sm text-muted-foreground">
-                  Sign in to see full profiles, send messages, and connect with buddies.
+                  Browse broad public posts first. Sign in when you want to see
+                  profiles, message safely, or save someone for later.
                 </p>
               </div>
               <div className="w-full max-w-sm">
@@ -900,21 +930,28 @@ export default function BuddiesPage() {
               <ErrorBlock
                 message={getApiErrorMessage(
                   previewQuery.error,
-                  "Failed to load guest preview",
+                  "Public buddy posts are taking longer than expected. Try again in a moment.",
                 )}
               />
             ) : null}
 
             <div className="grid gap-4 xl:grid-cols-2">
-              {previewItems.map((item) => (
-                <PreviewCard key={item.id} item={item} />
-              ))}
+              {previewQuery.isPending ? (
+                <LoadingState
+                  title="Looking for public buddy posts"
+                  description="We are checking broad areas and time windows without exposing exact plans."
+                />
+              ) : (
+                previewItems.map((item) => (
+                  <PreviewCard key={item.id} item={item} />
+                ))
+              )}
             </div>
 
             {previewItems.length === 0 && !previewQuery.isPending ? (
               <EmptyState
-                title="No public preview posts in this area"
-                description="Try a broader area or sign in and post your own availability."
+                title="This area is quiet right now"
+                description="Try a broader area, or sign in to post when you are looking for a real dive partner."
               />
             ) : null}
 
@@ -925,11 +962,12 @@ export default function BuddiesPage() {
                     Sign in to connect
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Messaging, saving, and buddy requests are for signed-in members.
+                    Member profiles, messages, saved divers, and buddy requests
+                    stay behind sign-in so coordination feels safer.
                   </p>
                 </div>
                 <SignInButton mode="modal">
-                  <Button size="lg">Sign in to manage buddies</Button>
+                  <Button size="lg">Sign in to connect safely</Button>
                 </SignInButton>
               </CardContent>
             </Card>
@@ -951,7 +989,9 @@ function StatCard({
         {icon}
         {label}
       </div>
-      <p className="mt-2 text-xl font-semibold text-foreground sm:mt-3 sm:text-2xl">{value}</p>
+      <p className="mt-2 text-xl font-semibold text-foreground sm:mt-3 sm:text-2xl">
+        {value}
+      </p>
     </div>
   );
 }
@@ -1174,6 +1214,20 @@ function EmptyState({
   return (
     <Card className="border-dashed border-border/70 bg-background/60">
       <CardContent className="p-6">
+        <p className="font-medium text-foreground">{title}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LoadingState({
+  title,
+  description,
+}: { title: string; description: string }) {
+  return (
+    <Card className="border-border/70 bg-muted/30">
+      <CardContent className="p-5">
         <p className="font-medium text-foreground">{title}</p>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </CardContent>

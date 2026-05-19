@@ -77,7 +77,7 @@ export default function GroupDetailPage() {
       const membership = await joinMutation.mutateAsync({ groupId });
       if (membership.status === "invited") {
         toast.error(
-          "Approval queues are not available at launch. Ask a group admin for an invite instead.",
+          "This group is invite-only right now. Ask an organizer for access.",
         );
         return;
       }
@@ -121,6 +121,15 @@ export default function GroupDetailPage() {
     return (
       <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-6">
+          <Card className="border-border/70 bg-muted/30">
+            <CardContent className="p-5">
+              <p className="font-medium text-foreground">Opening group</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                We are getting the group details, members, and recent posts
+                ready.
+              </p>
+            </CardContent>
+          </Card>
           <Skeleton className="h-10 w-40" />
           <Skeleton className="h-64 w-full rounded-[2rem]" />
           <div className="grid gap-6 lg:grid-cols-2">
@@ -140,7 +149,7 @@ export default function GroupDetailPage() {
             <CardContent className="p-6 text-sm text-destructive">
               {getApiErrorMessage(
                 groupQuery.error,
-                "Failed to load group details",
+                "This group is taking longer than expected to open. Try again in a moment.",
               )}
             </CardContent>
           </Card>
@@ -184,7 +193,8 @@ export default function GroupDetailPage() {
                   {group.name}
                 </h1>
                 <p className="max-w-3xl text-base text-muted-foreground">
-                  {group.description || "No description provided."}
+                  {group.description ||
+                    "This group has not added a description yet."}
                 </p>
               </div>
               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -213,7 +223,7 @@ export default function GroupDetailPage() {
                 <CardDescription className="text-sm text-foreground/75">
                   {group.visibility === "public"
                     ? "Public group. Anyone can see members and posts."
-                    : "Restricted group. Invite-only access is supported at launch; approval queues are not."}
+                    : "This group is private or invite-only."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -226,11 +236,11 @@ export default function GroupDetailPage() {
                       <Button
                         variant="outline"
                         className="w-full"
-                      disabled={leaveMutation.isPending}
-                      onClick={() => void onLeave()}
-                    >
-                      Leave group
-                    </Button>
+                        disabled={leaveMutation.isPending}
+                        onClick={() => void onLeave()}
+                      >
+                        Leave group
+                      </Button>
                     </>
                   ) : canJoin ? (
                     <Button
@@ -242,7 +252,7 @@ export default function GroupDetailPage() {
                     </Button>
                   ) : isApprovalOnly ? (
                     <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
-                      Approval-based access is not in launch scope yet. Ask a group admin for an invite.
+                      Ask a group organizer for an invite.
                     </div>
                   ) : (
                     <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
@@ -314,12 +324,12 @@ export default function GroupDetailPage() {
                 <p className="text-sm text-destructive">
                   {getApiErrorMessage(
                     membersQuery.error,
-                    "Failed to load members",
+                    "Members are taking longer than expected to appear.",
                   )}
                 </p>
               ) : members.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No members visible yet.
+                  Members will appear here once the group starts growing.
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -366,11 +376,15 @@ export default function GroupDetailPage() {
                 <Skeleton className="h-40 w-full rounded-3xl" />
               ) : postsQuery.error ? (
                 <p className="text-sm text-destructive">
-                  {getApiErrorMessage(postsQuery.error, "Failed to load posts")}
+                  {getApiErrorMessage(
+                    postsQuery.error,
+                    "Group posts are taking longer than expected to appear.",
+                  )}
                 </p>
               ) : posts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No posts yet.
+                  Recent group posts will appear here when members start sharing
+                  plans or updates.
                 </p>
               ) : (
                 <div className="space-y-3">

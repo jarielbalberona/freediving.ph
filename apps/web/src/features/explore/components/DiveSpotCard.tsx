@@ -24,6 +24,20 @@ const gradientFromName = (name: string) => {
   return `linear-gradient(135deg, hsl(${hue} 72% 60%) 0%, hsl(${(hue + 36) % 360} 76% 38%) 100%)`;
 };
 
+const verificationLabel = (value: DiveSpot["verificationStatus"]) => {
+  switch (value) {
+    case "verified":
+      return "Verified";
+    case "moderator":
+      return "Checked by team";
+    case "instructor":
+      return "Instructor noted";
+    case "community":
+    default:
+      return "Community shared";
+  }
+};
+
 export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
   ({ spot, selected, onSelect, onClose, actions }, ref) => {
     return (
@@ -102,7 +116,7 @@ export const DiveSpotCard = React.forwardRef<HTMLDivElement, DiveSpotCardProps>(
                     variant="outline"
                     className="rounded-full px-2.5 py-1 text-xs capitalize"
                   >
-                    {spot.verificationStatus}
+                    {verificationLabel(spot.verificationStatus)}
                   </Badge>
                   {spot.recentUpdateCount > 0 ? (
                     <Badge

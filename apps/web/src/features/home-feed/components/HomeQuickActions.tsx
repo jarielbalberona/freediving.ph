@@ -25,8 +25,6 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
 };
 
 const hrefMap: Record<string, string> = {
-  log_dive: "/training-logs",
-  log_training: "/training-logs",
   find_buddy: "/buddies",
   explore_spots: "/explore",
   create_session: "/events",
@@ -36,6 +34,8 @@ const hrefMap: Record<string, string> = {
   open_chika: "/chika",
   share_progress: "/chika/create",
 };
+
+const hiddenActionTypes = new Set(["log_dive", "log_training"]);
 
 export function HomeQuickActions({
   actions,
@@ -49,26 +49,30 @@ export function HomeQuickActions({
 
   return (
     <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {actions.map((action) => {
-        const Icon = iconMap[action.type] ?? Activity;
-        const href =
-          action.type === "post_update" || action.type === "share_progress"
-            ? profileCreateHref
-            : (hrefMap[action.type] ?? "/explore");
-        return (
-          <Link
-            key={`${action.type}-${action.label}`}
-            href={href}
-            className={cn(
-              buttonVariants({ variant: "secondary" }),
-              "h-11 gap-2 px-3",
-            )}
-          >
-            <Icon className="h-5 w-5" />
-            <span className="truncate text-sm font-medium">{action.label}</span>
-          </Link>
-        );
-      })}
+      {actions
+        .filter((action) => !hiddenActionTypes.has(action.type))
+        .map((action) => {
+          const Icon = iconMap[action.type] ?? Activity;
+          const href =
+            action.type === "post_update" || action.type === "share_progress"
+              ? profileCreateHref
+              : (hrefMap[action.type] ?? "/explore");
+          return (
+            <Link
+              key={`${action.type}-${action.label}`}
+              href={href}
+              className={cn(
+                buttonVariants({ variant: "secondary" }),
+                "h-11 gap-2 px-3",
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="truncate text-sm font-medium">
+                {action.label}
+              </span>
+            </Link>
+          );
+        })}
     </section>
   );
 }

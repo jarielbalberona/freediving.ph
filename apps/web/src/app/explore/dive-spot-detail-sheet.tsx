@@ -13,7 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Form,
   FormControl,
@@ -22,8 +28,16 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useCreateDiveSpotReview, useDiveSpot, useDiveSpotReviewSummary, useDiveSpotReviews } from "@/features/diveSpots";
-import { diveSpotReviewSchema, type DiveSpotReviewValues } from "@/features/diveSpots/schemas/review.schema";
+import {
+  useCreateDiveSpotReview,
+  useDiveSpot,
+  useDiveSpotReviewSummary,
+  useDiveSpotReviews,
+} from "@/features/diveSpots";
+import {
+  diveSpotReviewSchema,
+  type DiveSpotReviewValues,
+} from "@/features/diveSpots/schemas/review.schema";
 import { axiosInstance } from "@/lib/http/axios";
 
 type DiveSpotDetailSheetProps = {
@@ -32,21 +46,28 @@ type DiveSpotDetailSheetProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: DiveSpotDetailSheetProps) {
+export default function DiveSpotDetailSheet({
+  spotId,
+  open,
+  onOpenChange,
+}: DiveSpotDetailSheetProps) {
   const parseQueryError = (error: unknown) => {
     if (typeof error === "object" && error !== null && "response" in error) {
       const response = (error as { response?: { status?: number } }).response;
-      if (response?.status === 401) return "Create an account to view this section.";
-      if (response?.status === 403) return "You do not have access to this section.";
-      if (response?.status === 404) return "No linked data found.";
+      if (response?.status === 401)
+        return "Create an account to view this section.";
+      if (response?.status === 403)
+        return "You do not have access to this section.";
+      if (response?.status === 404) return "Nothing shared here yet.";
     }
-    return "Unable to load data.";
+    return "This section could not load right now.";
   };
 
   const { isSignedIn } = useUser();
   const { data, isLoading, isError } = useDiveSpot(spotId ?? 0);
   const { data: reviewSummary } = useDiveSpotReviewSummary(spotId ?? 0);
-  const { data: reviews = [], isLoading: isReviewsLoading } = useDiveSpotReviews(spotId ?? 0);
+  const { data: reviews = [], isLoading: isReviewsLoading } =
+    useDiveSpotReviews(spotId ?? 0);
   const createReview = useCreateDiveSpotReview();
   const {
     data: relatedEvents = [],
@@ -56,7 +77,9 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
   } = useQuery({
     queryKey: ["dive-spot-related-events", spotId],
     queryFn: async () => {
-      const response = await axiosInstance.get(`/events?diveSpotId=${spotId}&limit=5&offset=0`);
+      const response = await axiosInstance.get(
+        `/events?diveSpotId=${spotId}&limit=5&offset=0`,
+      );
       return Array.isArray(response.data?.data) ? response.data.data : [];
     },
     enabled: open && !!spotId,
@@ -70,7 +93,9 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
   } = useQuery({
     queryKey: ["dive-spot-related-buddies", spotId],
     queryFn: async () => {
-      const response = await axiosInstance.get(`/buddies/available?diveSpotId=${spotId}&limit=5&offset=0`);
+      const response = await axiosInstance.get(
+        `/buddies/available?diveSpotId=${spotId}&limit=5&offset=0`,
+      );
       return Array.isArray(response.data?.data) ? response.data.data : [];
     },
     enabled: open && !!spotId && isSignedIn,
@@ -85,7 +110,9 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
   } = useQuery({
     queryKey: ["dive-spot-related-records", spotId],
     queryFn: async () => {
-      const response = await axiosInstance.get(`/records?diveSpotId=${spotId}&limit=5&offset=0`);
+      const response = await axiosInstance.get(
+        `/records?diveSpotId=${spotId}&limit=5&offset=0`,
+      );
       return Array.isArray(response.data?.data) ? response.data.data : [];
     },
     enabled: open && !!spotId,
@@ -108,11 +135,22 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>Dive Spot Details</SheetTitle>
-          <SheetDescription>Overview, logistics, and community sentiment for this spot.</SheetDescription>
+          <SheetDescription>
+            Overview, logistics, and community sentiment for this spot.
+          </SheetDescription>
         </SheetHeader>
 
         {isLoading ? (
           <div className="space-y-4 px-4 pb-8">
+            <div className="rounded-md border bg-muted/30 p-4 text-sm">
+              <p className="font-medium text-foreground">
+                Opening dive spot details
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                We are getting conditions, reviews, nearby buddies, and events
+                ready.
+              </p>
+            </div>
             <Skeleton className="h-8 w-2/3" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-20 w-full" />
@@ -121,11 +159,16 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
         ) : null}
 
         {!isLoading && isError ? (
-          <div className="px-4 pb-8 text-sm text-destructive">Unable to load this dive spot right now.</div>
+          <div className="px-4 pb-8 text-sm text-destructive">
+            This dive spot could not load right now.
+          </div>
         ) : null}
 
         {!isLoading && !isError && !data ? (
-          <div className="px-4 pb-8 text-sm text-muted-foreground">Dive spot not found.</div>
+          <div className="px-4 pb-8 text-sm text-muted-foreground">
+            This dive spot is not available right now. Go back to Explore and
+            try another nearby site.
+          </div>
         ) : null}
 
         {!isLoading && !isError && data ? (
@@ -145,12 +188,13 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
             <div className="space-y-2 text-sm">
               <p className="inline-flex items-center gap-2 text-muted-foreground">
                 <MapPin className="h-4 w-4" />
-                {data.locationName ?? "Unknown location"}
+                {data.locationName ?? "Location not shared"}
               </p>
               <p className="inline-flex items-center gap-2 text-muted-foreground">
                 <Star className="h-4 w-4 text-amber-500" />
-                {(reviewSummary?.avgRating ?? data.avgRating ?? 0).toFixed(1)} avg from{" "}
-                {reviewSummary?.ratingCount ?? data.ratingCount ?? 0} ratings
+                {(reviewSummary?.avgRating ?? data.avgRating ?? 0).toFixed(1)}{" "}
+                avg from {reviewSummary?.ratingCount ?? data.ratingCount ?? 0}{" "}
+                ratings
               </p>
               <p className="inline-flex items-center gap-2 text-muted-foreground">
                 <MessageSquare className="h-4 w-4" />
@@ -161,14 +205,18 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
             {data.description ? (
               <section className="space-y-1">
                 <h3 className="text-sm font-semibold">Overview</h3>
-                <p className="text-sm text-muted-foreground">{data.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {data.description}
+                </p>
               </section>
             ) : null}
 
             {data.directions ? (
               <section className="space-y-1">
                 <h3 className="text-sm font-semibold">Directions</h3>
-                <p className="text-sm text-muted-foreground">{data.directions}</p>
+                <p className="text-sm text-muted-foreground">
+                  {data.directions}
+                </p>
               </section>
             ) : null}
 
@@ -206,7 +254,13 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
                                 min={1}
                                 max={5}
                                 value={field.value}
-                                onChange={(e) => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+                                onChange={(e) =>
+                                  field.onChange(
+                                    e.target.value === ""
+                                      ? 0
+                                      : Number(e.target.value),
+                                  )
+                                }
                               />
                             </FormControl>
                           </div>
@@ -232,27 +286,46 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
                     <Button
                       size="sm"
                       type="submit"
-                      disabled={form.formState.isSubmitting || createReview.isPending}
+                      disabled={
+                        form.formState.isSubmitting || createReview.isPending
+                      }
                     >
-                      {form.formState.isSubmitting || createReview.isPending ? "Saving..." : "Submit review"}
+                      {form.formState.isSubmitting || createReview.isPending
+                        ? "Saving..."
+                        : "Submit review"}
                     </Button>
                   </form>
                 </Form>
               ) : null}
 
               {isReviewsLoading ? (
-                <div className="text-sm text-muted-foreground">Loading reviews...</div>
+                <div className="text-sm text-muted-foreground">
+                  Checking recent reviews...
+                </div>
               ) : reviews.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No reviews yet.</div>
+                <div className="text-sm text-muted-foreground">
+                  Reviews from divers will appear here when the community starts
+                  sharing them.
+                </div>
               ) : (
                 <div className="space-y-2">
                   {reviews.map((review) => (
                     <article key={review.id} className="rounded-md border p-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">{review.userAlias || review.userName || `Diver #${review.userId}`}</p>
-                        <p className="text-xs text-muted-foreground">{review.rating}/5</p>
+                        <p className="text-sm font-medium">
+                          {review.userAlias ||
+                            review.userName ||
+                            `Diver #${review.userId}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {review.rating}/5
+                        </p>
                       </div>
-                      {review.comment ? <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p> : null}
+                      {review.comment ? (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {review.comment}
+                        </p>
+                      ) : null}
                     </article>
                   ))}
                 </div>
@@ -260,49 +333,77 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
             </section>
 
             {isSignedIn ? (
-            <section className="space-y-2 border-t pt-4">
-              <h3 className="text-sm font-semibold">Buddies Available Nearby</h3>
-              {isRelatedBuddiesLoading ? (
-                <p className="text-sm text-muted-foreground">Loading buddy availability...</p>
-              ) : isRelatedBuddiesError ? (
-                <p className="text-sm text-muted-foreground">{parseQueryError(relatedBuddiesError)}</p>
-              ) : relatedBuddies.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No buddy availability data for this spot yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {relatedBuddies.map((buddy: any) => (
-                    <div key={buddy.id} className="rounded-md border p-3 text-sm">
-                      <p className="font-medium">
-                        {buddy.alias ? (
-                          buddy.alias
-                        ) : buddy.username ? (
-                          <UsernameLink username={buddy.username} />
-                        ) : (
-                          `Diver #${buddy.id}`
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{buddy.homeDiveArea || buddy.location || "No location shared"}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+              <section className="space-y-2 border-t pt-4">
+                <h3 className="text-sm font-semibold">
+                  Buddies Available Nearby
+                </h3>
+                {isRelatedBuddiesLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Checking buddy posts near this spot...
+                  </p>
+                ) : isRelatedBuddiesError ? (
+                  <p className="text-sm text-muted-foreground">
+                    {parseQueryError(relatedBuddiesError)}
+                  </p>
+                ) : relatedBuddies.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Buddy posts near this spot will appear here when divers
+                    share availability.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {relatedBuddies.map((buddy: any) => (
+                      <div
+                        key={buddy.id}
+                        className="rounded-md border p-3 text-sm"
+                      >
+                        <p className="font-medium">
+                          {buddy.alias ? (
+                            buddy.alias
+                          ) : buddy.username ? (
+                            <UsernameLink username={buddy.username} />
+                          ) : (
+                            `Diver #${buddy.id}`
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {buddy.homeDiveArea ||
+                            buddy.location ||
+                            "No location shared"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             ) : null}
 
             <section className="space-y-2 border-t pt-4">
               <h3 className="text-sm font-semibold">Upcoming Events</h3>
               {isRelatedEventsLoading ? (
-                <p className="text-sm text-muted-foreground">Loading related events...</p>
+                <p className="text-sm text-muted-foreground">
+                  Checking events near this spot...
+                </p>
               ) : isRelatedEventsError ? (
-                <p className="text-sm text-muted-foreground">{parseQueryError(relatedEventsError)}</p>
+                <p className="text-sm text-muted-foreground">
+                  {parseQueryError(relatedEventsError)}
+                </p>
               ) : relatedEvents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No event data linked to this spot yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  Events near this spot will appear here when organizers share
+                  them.
+                </p>
               ) : (
                 <div className="space-y-2">
                   {relatedEvents.map((event: any) => (
-                    <div key={event.event.id} className="rounded-md border p-3 text-sm">
+                    <div
+                      key={event.event.id}
+                      className="rounded-md border p-3 text-sm"
+                    >
                       <p className="font-medium">{event.event.title}</p>
-                      <p className="text-xs text-muted-foreground">{event.event.location}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {event.event.location}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -312,20 +413,33 @@ export default function DiveSpotDetailSheet({ spotId, open, onOpenChange }: Dive
             <section className="space-y-2 border-t pt-4">
               <h3 className="text-sm font-semibold">Notable Records</h3>
               {isRelatedRecordsLoading ? (
-                <p className="text-sm text-muted-foreground">Loading related records...</p>
+                <p className="text-sm text-muted-foreground">
+                  Checking notable records near this spot...
+                </p>
               ) : isRelatedRecordsError ? (
-                <p className="text-sm text-muted-foreground">{parseQueryError(relatedRecordsError)}</p>
+                <p className="text-sm text-muted-foreground">
+                  {parseQueryError(relatedRecordsError)}
+                </p>
               ) : relatedRecords.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No competitive records linked to this spot yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  Notable records connected to this spot will appear here when
+                  they are available.
+                </p>
               ) : (
                 <div className="space-y-2">
                   {relatedRecords.map((record: any) => (
-                    <div key={record.id} className="rounded-md border p-3 text-sm">
+                    <div
+                      key={record.id}
+                      className="rounded-md border p-3 text-sm"
+                    >
                       <p className="font-medium">
-                        {record.athleteName} • {record.discipline} • {record.resultValue}
+                        {record.athleteName} • {record.discipline} •{" "}
+                        {record.resultValue}
                         {record.resultUnit}
                       </p>
-                      <p className="text-xs text-muted-foreground">{record.eventName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {record.eventName}
+                      </p>
                     </div>
                   ))}
                 </div>

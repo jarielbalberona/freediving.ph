@@ -10,7 +10,7 @@ export default async function ChikaList() {
     threads = await threadsApiServer.getAll();
   } catch (err) {
     console.error("Failed to fetch threads:", err);
-    error = "Failed to load threads";
+    error = "Chika is having trouble loading right now.";
   }
 
   return (

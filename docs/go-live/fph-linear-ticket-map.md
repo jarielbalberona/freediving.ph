@@ -27,17 +27,17 @@ The repo has real backend architecture, but verification discipline and route tr
 
 ### Child tickets
 
-#### 1.1 Fix `fphgo` route snapshot and feed strategy test failures
+#### 1.1 Resolve current `fphgo` verification drift
 
 - Type: hardening
-- Problem: backend verification is not green
+- Problem: backend verification must be green from the current checkout before launch
 - Scope:
   - update route snapshot intentionally or fix unintended route drift
-  - fix failing feed strategy assertions
+  - rerun feed strategy checks to confirm the prior fix still holds
 - Acceptance criteria:
   - `go test ./internal/app ./internal/features/...` passes
   - route snapshot reflects actual intended route surface
-  - feed strategy tests match current intended labels and context strings
+  - feed strategy tests remain aligned with current intended labels and context strings
 - Dependencies: none
 - Evidence:
   - `services/fphgo/internal/app/routes_snapshot_test.go`
@@ -79,7 +79,7 @@ The repo has real backend architecture, but verification discipline and route tr
 
 ### Why this exists
 
-Profiles are real and central, but the public route and edit story still carry compatibility clutter and fake tabs.
+Profiles are real and central. The fake launch tabs are gone, but the public route and edit story still carry compatibility clutter.
 
 ### Done means
 
@@ -231,7 +231,7 @@ Messaging is close enough to be worth launching, but the request flow is incompl
 
 ### Why this exists
 
-This is the differentiator, and right now it is the most dishonest main user flow because the main Explore page still uses mock data.
+This is the differentiator. The main Explore page now uses real `fphgo` data, so the remaining launch-truth risk is detail-route fallback behavior and end-to-end smoke coverage.
 
 ### Done means
 
@@ -246,30 +246,31 @@ This is the differentiator, and right now it is the most dishonest main user flo
 
 ### Child tickets
 
-#### 5.1 Replace mock Explore list/map with `fphgo` site APIs
+#### 5.1 Verify real Explore list/map uses `fphgo` site APIs
 
-- Type: feature
-- Problem: main Explore uses mock data instead of the real backend
+- Type: verification
+- Problem: main Explore previously used mock data; current launch scope depends on preserving the real backend contract
 - Scope:
-  - replace `features/explore/api/exploreApi.ts` usage on the main page
-  - use `fphgo` list/filter contracts
+  - confirm `features/explore/api/exploreApi.ts` delegates to `features/diveSpots/api/explore-v1.ts`
+  - confirm save state uses backend save/unsave endpoints
 - Acceptance criteria:
   - `/explore` list and map show data from `fphgo`
   - query/filter behavior works against backend responses
   - no mock-only save state remains on the primary path
-- Dependencies: 1.1
+- Dependencies: current checkout verification
 - Evidence:
   - `apps/web/src/features/explore/components/ExploreLayout.tsx`
   - `apps/web/src/features/explore/api/exploreApi.ts`
   - `apps/web/src/features/diveSpots/api/explore-v1.ts`
   - `services/fphgo/internal/features/explore/http/routes.go`
 
-#### 5.2 Fix Explore id/slug contract and broken links
+#### 5.2 Keep Explore id/slug contract and broken links fixed
 
-- Type: fix
-- Problem: UI links with ids while the route is named as slug-based
+- Type: verification
+- Problem: the route is slug-based and must not regress to id-as-slug coupling
 - Scope:
-  - align list items, detail route params, and server fetches on one identifier model
+  - confirm list cards and share URLs use the site slug
+  - confirm detail route fetches by slug
 - Acceptance criteria:
   - Explore cards and share links resolve correctly
   - route param naming matches actual data semantics
@@ -277,9 +278,26 @@ This is the differentiator, and right now it is the most dishonest main user flo
 - Evidence:
   - `apps/web/src/features/explore/components/ExploreLayout.tsx`
   - `apps/web/src/app/explore/sites/[slug]/page.tsx`
-  - `apps/web/src/features/explore/mock-data.ts`
 
-#### 5.3 Make site-linked Buddy Finder flow explicit from Explore
+#### 5.3 Remove Explore seeded/mock detail fallback
+
+- Type: fix
+- Problem: `/explore/sites/[slug]` can look real even when the backend detail fetch failed
+- Scope:
+  - remove `getMockDiveSpotBySlug` and mock-data imports from the public detail route
+  - delete the unused Explore mock-data module if no launch imports remain
+  - add a static web contract test that rejects mock detail fallback
+- Acceptance criteria:
+  - backend detail success renders the real site
+  - backend detail failure calls `notFound()`
+  - buddy preview failure remains non-fatal
+  - `rg -n "Mock explore|getMockDiveSpotBySlug|MOCK_EXPLORE_SPOTS|mock-data" apps/web/src` returns no launch source matches
+- Dependencies: 5.1, 5.2
+- Evidence:
+  - `apps/web/src/app/explore/sites/[slug]/page.tsx`
+  - `apps/web/test/explore-detail-truth-contract.test.mjs`
+
+#### 5.4 Make site-linked Buddy Finder flow explicit from Explore
 
 - Type: fix
 - Problem: backend supports site-linked + area fallback, but the main user journey still hides that advantage
@@ -288,7 +306,7 @@ This is the differentiator, and right now it is the most dishonest main user flo
 - Acceptance criteria:
   - user can understand and use site-linked buddy intent behavior from Explore
   - site-linked and area-fallback behavior is visible and testable
-- Dependencies: 5.1, 5.2
+- Dependencies: 5.1, 5.2, 5.3
 - Evidence:
   - `services/fphgo/internal/features/buddyfinder/service/service.go`
   - `apps/web/src/app/explore/sites/[slug]/page.tsx`
@@ -460,18 +478,21 @@ Launch failure will come from environment, storage, and operational blindness fa
   - `services/fphgo/internal/features/media/service/service.go`
   - `render.yaml`
 
-#### 9.3 Remove or hide non-launch fake routes from nav
+#### 9.3 Keep non-launch fake routes hidden from nav
 
-- Type: fix
-- Problem: navigation still advertises surfaces that are not actually launch-ready
+- Type: verification
+- Problem: navigation must not advertise surfaces that are not actually launch-ready
 - Scope:
-  - remove or hide Competitive Records and other fake/coming-soon routes from public launch nav as needed
+  - keep Competitive Records and other coming-soon routes hidden from public launch nav
+  - keep middleware redirecting direct hits to `/coming-soon`
 - Acceptance criteria:
   - launch nav does not advertise nonfunctional or UI-only pages as real product areas
+  - Competitive Records remains explicitly deferred until a real `fphgo` backend exists
 - Dependencies: product scope decision
 - Evidence:
   - `apps/web/src/config/nav.ts`
   - `apps/web/src/app/competitive-records/page.tsx`
+  - `apps/web/src/middleware.ts`
 
 ## Suggested Ordering
 
@@ -487,5 +508,5 @@ Launch failure will come from environment, storage, and operational blindness fa
 
 ## Notes
 
-- Competitive Records should not get its own launch parent right now because the repo truth says it is not a real `fphgo` feature. The honest ticket is either “build it properly” or “remove it from launch”.
+- Competitive Records should not get its own launch parent right now because the repo truth says it is not a real `fphgo` feature. The honest launch decision is to keep it deferred/hidden until someone funds and builds the backend properly.
 - Explore and Buddy Finder are grouped because the backend already couples them through site-linked matching and area fallback. Splitting them too early would create ticket theater.

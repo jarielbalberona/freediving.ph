@@ -49,29 +49,29 @@ export function HomeFeedPage() {
 
   const context = query.data?.context ?? {
     greeting: "Good day, diver",
-    message: "Loading your feed context...",
+    message: "Finding the latest from the freediving community...",
     safetyBadge: "Dive with a buddy",
   };
 
   const actions = useMemo(
     () =>
       query.data?.quickActions ?? [
-        { type: "log_dive", label: "Log dive" },
         { type: "find_buddy", label: "Find buddy" },
         { type: "explore_spots", label: "Explore spots" },
-        { type: "create_session", label: "Create session" },
+        { type: "open_chika", label: "Join Chika" },
+        { type: "join_event", label: "See events" },
       ],
     [query.data?.quickActions],
   );
 
   const nearbyCondition = query.data?.nearbyCondition ?? {
-    spot: "Loading",
-    safety: "Stable",
-    current: "--",
-    visibility: "--",
-    waterTemp: "--",
-    wind: "--",
-    sunrise: "--",
+    spot: "Philippines",
+    safety: "Check locally",
+    current: "Ask locally",
+    visibility: "Varies",
+    waterTemp: "Varies",
+    wind: "Check forecast",
+    sunrise: "Plan ahead",
   };
 
   return (
@@ -84,7 +84,8 @@ export function HomeFeedPage() {
 
         {query.error ? (
           <p className="text-sm text-destructive">
-            Failed to load feed. Sign in and try again.
+            Community updates are taking longer than expected. You can still
+            explore dive spots, find buddies, or open Chika.
           </p>
         ) : null}
 

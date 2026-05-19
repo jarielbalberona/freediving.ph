@@ -6,10 +6,10 @@ Do not launch this as-is.
 
 The backend is further along than the frontend truth, but the public product promise is still dishonest in a few places:
 
-- Explore looks real but the main list/map is still mock-backed.
-- Competitive Records exists in navigation and UI but is not implemented in the canonical backend.
-- Messaging claims request behavior, but recipient request resolution is not complete in the web app.
-- Backend verification is not green.
+- Explore is mostly real now, but the site detail route must never fall back to seeded/mock content when the backend record is missing.
+- Competitive Records exists as code, but it is intentionally deferred and hidden/redirected because there is no canonical `fphgo` backend.
+- Final verification must be rerun from a clean install/toolchain before go-live.
+- Deploy-time auth/media/messaging/community smoke still needs real target-environment evidence.
 
 That is enough to block a public launch.
 
@@ -28,31 +28,32 @@ If this product launches soon, the smallest believable scope is:
 - Explore dive sites with a real `fphgo`-backed list/detail flow
 - Groups and Events only if their restricted-access stories are either finished or explicitly narrowed
 
-Out of that list, Explore is still not in shape, and Competitive Records should be removed from launch scope unless it gets a real backend.
+Out of that list, Explore's remaining truth gate is real-data-or-404 site detail behavior. Competitive Records stays out of launch scope until it gets a real backend.
 
 ## What Must Be Done Before Public Go-Live
 
 ### 1. Fix platform truth first
 
-- Make repo verification green.
-- Stop carrying stale test snapshots and failing feed assertions.
-- Align documented commands with actual scripts (`type-check` vs `typecheck`).
+- Make repo verification green from the current checkout.
+- Stop carrying stale blocker docs that contradict merged code.
+- Keep documented commands aligned with actual scripts (`type-check` in workspaces, `typecheck` at the repo root).
 
-### 2. Replace fake Explore with real Explore
+### 2. Finish Explore truth
 
-- Main `/explore` must use `fphgo` site APIs, not mock data.
-- Fix the id/slug route contract.
-- Replace local-only “save” behavior with actual backend-backed saved-site behavior where intended.
+- Main `/explore` must continue using `fphgo` site APIs.
+- Site links must continue using the slug contract.
+- `/explore/sites/[slug]` must render real backend detail data or return `notFound()`.
+- Add a static contract test preventing mock Explore detail fallback from returning.
 
-### 3. Finish one honest messaging request flow
+### 3. Keep one honest messaging request flow
 
-- If first-time conversations are request-gated, the recipient must be able to accept or decline them in the actual inbox UI.
-- If not, remove the claim and simplify the behavior.
+- First-time conversations are request-gated, and the recipient-side accept/decline UI exists.
+- Verify accept, decline, send/read, and realtime behavior in target smoke testing.
 
 ### 4. Stop shipping fake or legacy surfaces
 
-- Remove or hide Competitive Records from launch scope unless it is implemented in `fphgo`.
-- Hide or explicitly defer placeholder profile tabs that are not real.
+- Keep Competitive Records hidden/redirected until it is implemented in `fphgo`.
+- Keep placeholder profile tabs out of launch UI.
 - Remove dead sample files and stale docs that misrepresent current architecture.
 
 ### 5. Enforce launch safety around storage and config
@@ -77,34 +78,32 @@ Out of that list, Explore is still not in shape, and Competitive Records should 
 
 ## Recommended Execution Order
 
-1. Platform truth and verification repair
-2. Explore real-data cutover and route-contract cleanup
-3. Messaging request-resolution completion
-4. Launch-scope cleanup: remove fake/placeholder surfaces
-5. Storage/media readiness hardening
-6. Groups/events restricted-flow hardening
-7. Final smoke verification and release checklist
+1. Explore real-data-or-404 detail cleanup
+2. Stale go-live doc cleanup
+3. Current-checkout verification repair/rerun
+4. Deploy-time storage/auth/messaging/community smoke
+5. Final release checklist signoff
 
-That order is not negotiable if the goal is an honest launch. Fixing fake surfaces after launch is the sort of lazy sequencing that burns trust.
+That order is not negotiable if the goal is an honest launch. The remaining fake public behavior must be removed before runtime smoke work has any meaning.
 
 ## Suggested Milestones
 
 ### Milestone 1: Release truth and verification discipline
 
-- Fix backend failing tests.
-- Fix command/documentation mismatches.
-- Freeze the launch checklist against actual scripts and actual routes.
+- Remove seeded/mock Explore detail fallback.
+- Fix stale audit/plan/ticket-map claims.
+- Rerun launch-critical checks from the current checkout.
 
 ### Milestone 2: Explore and Buddy differentiator
 
-- Cut `/explore` over to `fphgo`.
-- Fix slug/id mismatches.
+- Keep `/explore` on `fphgo`.
+- Keep slug/id route semantics aligned.
 - Verify site detail, buddy preview, and buddy fallback behavior end to end.
 
 ### Milestone 3: Profiles, media, and messaging completion
 
 - Verify avatar upload and profile media publishing in target env.
-- Add recipient-side message request resolution in web.
+- Verify recipient-side message request resolution in web.
 - Remove fake profile tabs from launch scope.
 
 ### Milestone 4: Community launch hardening
@@ -134,6 +133,7 @@ Required before go-live:
 - Messaging thread open/send/read works.
 - Buddy request and Buddy Finder core flow works.
 - Explore list/detail uses real backend data.
+- Missing Explore detail records return 404 instead of seeded/mock content.
 - No obviously fake main navigation route pretends to be launch-ready.
 
 Allowed post-launch:

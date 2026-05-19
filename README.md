@@ -69,9 +69,11 @@ Run the stack:
 **Option A – Docker (database + Go API)**
 
 ```bash
-docker compose up -d database fphgo
+docker compose up -d --build fphgo
 pnpm dev:web
 ```
+
+Compose starts PostgreSQL, waits for database health, runs the Go migrations, then starts `fphgo` with local `DEV_AUTH=true` on `http://localhost:4000`.
 
 **Option B – Local Go API**
 
@@ -102,7 +104,7 @@ Default local URLs:
 
 **Go API (`services/fphgo/.env`)** – see `services/fphgo/.env.example`. Typical local values:
 
-- `DB_DSN=postgres://postgres:postgres@localhost:5432/fph?sslmode=disable`
+- `DB_DSN=postgres://postgres:postgres@localhost:5433/fph?sslmode=disable`
 - `PORT=4000`
 - `APP_ENV=development`
 - `CORS_ORIGINS=http://localhost:3000`
@@ -156,13 +158,19 @@ pnpm --filter @freediving.ph/types test
 PostgreSQL and the Go API:
 
 ```bash
-docker compose up -d database fphgo
+docker compose up -d --build fphgo
 ```
 
 Or build and run in foreground:
 
 ```bash
 docker compose up --build fphgo
+```
+
+Run the web contract suite against the Compose API with:
+
+```bash
+FPHGO_BASE_URL=http://localhost:4000 pnpm --filter @freediving.ph/web test
 ```
 
 ## Deployment

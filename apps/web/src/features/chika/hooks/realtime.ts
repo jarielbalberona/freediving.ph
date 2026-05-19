@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ChikaCommentResponse, ChikaThreadResponse } from "@freediving.ph/types";
+import type {
+  ChikaCommentResponse,
+  ChikaThreadResponse,
+} from "@freediving.ph/types";
 import { toast } from "sonner";
 
 import { getFphgoBaseUrlClient } from "@/lib/api/fphgo-base-url";
@@ -29,7 +32,11 @@ const toWSUrl = async () => {
   return url.toString();
 };
 
-export const useChikaRealtime = (params: { enabled?: boolean; threadId?: string; currentUserId?: string }) => {
+export const useChikaRealtime = (params: {
+  enabled?: boolean;
+  threadId?: string;
+  currentUserId?: string;
+}) => {
   const queryClient = useQueryClient();
   const seenEventsRef = useRef<Set<string>>(new Set());
   const socketRef = useRef<WebSocket | null>(null);
@@ -52,33 +59,57 @@ export const useChikaRealtime = (params: { enabled?: boolean; threadId?: string;
 
     const invalidateThread = (threadId: string) => {
       queryClient.invalidateQueries({ queryKey: ["chika", "threads"] });
-      queryClient.invalidateQueries({ queryKey: ["chika", "threads", threadId] });
-      queryClient.invalidateQueries({ queryKey: ["chika", "threads", threadId, "comments"] });
+      queryClient.invalidateQueries({
+        queryKey: ["chika", "threads", threadId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["chika", "threads", threadId, "comments"],
+      });
     };
 
     const updateThreadVoteCount = (threadId: string, voteCount: number) => {
-      queryClient.setQueriesData({ queryKey: ["chika", "threads"] }, (current: ChikaThreadResponse[] | undefined) => {
-        if (!Array.isArray(current)) return current;
-        return current.map((thread) => (thread.id === threadId ? { ...thread, voteCount } : thread));
-      });
-      queryClient.setQueryData(["chika", "threads", threadId], (current: ChikaThreadResponse | undefined) => {
-        if (!current) return current;
-        return { ...current, voteCount };
-      });
+      queryClient.setQueriesData(
+        { queryKey: ["chika", "threads"] },
+        (current: ChikaThreadResponse[] | undefined) => {
+          if (!Array.isArray(current)) return current;
+          return current.map((thread) =>
+            thread.id === threadId ? { ...thread, voteCount } : thread,
+          );
+        },
+      );
+      queryClient.setQueryData(
+        ["chika", "threads", threadId],
+        (current: ChikaThreadResponse | undefined) => {
+          if (!current) return current;
+          return { ...current, voteCount };
+        },
+      );
     };
 
-    const updateCommentVoteCount = (threadId: string, commentId: string, voteCount: number) => {
-      queryClient.setQueryData(["chika", "threads", threadId, "comments"], (current: ChikaCommentResponse[] | undefined) => {
-        if (!Array.isArray(current)) return current;
-        return current.map((comment) => (comment.id === commentId ? { ...comment, voteCount } : comment));
-      });
+    const updateCommentVoteCount = (
+      threadId: string,
+      commentId: string,
+      voteCount: number,
+    ) => {
+      queryClient.setQueryData(
+        ["chika", "threads", threadId, "comments"],
+        (current: ChikaCommentResponse[] | undefined) => {
+          if (!Array.isArray(current)) return current;
+          return current.map((comment) =>
+            comment.id === commentId ? { ...comment, voteCount } : comment,
+          );
+        },
+      );
     };
 
     const scheduleReconnect = () => {
       if (stoppedRef.current) return;
       clearReconnectTimer();
       const attempts = reconnectAttemptsRef.current;
-      const backoff = Math.min(INITIAL_RECONNECT_DELAY_MS * 2 ** attempts, MAX_RECONNECT_DELAY_MS);
+      const backoff = Math.min(
+        INITIAL_RECONNECT_DELAY_MS * 2 ** attempts,
+        MAX_RECONNECT_DELAY_MS,
+      );
       const jitter = Math.floor(Math.random() * 300);
       reconnectTimerRef.current = window.setTimeout(() => {
         connect();
@@ -104,7 +135,8 @@ export const useChikaRealtime = (params: { enabled?: boolean; threadId?: string;
           } catch {
             return;
           }
-          if (!parsed || parsed.v !== 1 || !parsed.type.startsWith("chika.")) return;
+          if (!parsed || parsed.v !== 1 || !parsed.type.startsWith("chika."))
+            return;
 
           if (parsed.eventId) {
             const seen = seenEventsRef.current;
@@ -121,29 +153,52 @@ export const useChikaRealtime = (params: { enabled?: boolean; threadId?: string;
           const payload = parsed.payload ?? {};
           const threadId = String(payload.threadId ?? "");
           const voteCountRaw = payload.voteCount;
-          const voteCount = typeof voteCountRaw === "number" ? voteCountRaw : Number.NaN;
+          const voteCount =
+            typeof voteCountRaw === "number" ? voteCountRaw : Number.NaN;
           const actorUserId = String(payload.actorUserId ?? "");
           const commentId = String(payload.commentId ?? "");
           const authorUserId = String(payload.authorUserId ?? "");
 
-          if (parsed.type === "chika.thread.reaction.updated" && threadId && Number.isFinite(voteCount)) {
+          if (
+            parsed.type === "chika.thread.reaction.updated" &&
+            threadId &&
+            Number.isFinite(voteCount)
+          ) {
             updateThreadVoteCount(threadId, voteCount);
-            if (params.currentUserId && actorUserId && actorUserId === params.currentUserId) {
+            if (
+              params.currentUserId &&
+              actorUserId &&
+              actorUserId === params.currentUserId
+            ) {
               invalidateThread(threadId);
             }
             return;
           }
 
-          if (parsed.type === "chika.comment.reaction.updated" && threadId && commentId && Number.isFinite(voteCount)) {
+          if (
+            parsed.type === "chika.comment.reaction.updated" &&
+            threadId &&
+            commentId &&
+            Number.isFinite(voteCount)
+          ) {
             updateCommentVoteCount(threadId, commentId, voteCount);
-            if (params.currentUserId && actorUserId && actorUserId === params.currentUserId) {
+            if (
+              params.currentUserId &&
+              actorUserId &&
+              actorUserId === params.currentUserId
+            ) {
               invalidateThread(threadId);
             }
             return;
           }
 
           if (parsed.type === "chika.comment.created" && threadId) {
-            if (params.threadId && params.threadId === threadId && authorUserId && authorUserId !== params.currentUserId) {
+            if (
+              params.threadId &&
+              params.threadId === threadId &&
+              authorUserId &&
+              authorUserId !== params.currentUserId
+            ) {
               toast.info("New chika reply");
             }
             queryClient.invalidateQueries({ queryKey: ["notification-stats"] });
@@ -152,7 +207,7 @@ export const useChikaRealtime = (params: { enabled?: boolean; threadId?: string;
 
           if (parsed.type === "chika.thread.created") {
             if (authorUserId && authorUserId !== params.currentUserId) {
-              toast.info("New chika thread posted");
+              toast.info("New Chika posted");
             }
             queryClient.invalidateQueries({ queryKey: ["notification-stats"] });
             queryClient.invalidateQueries({ queryKey: ["notifications"] });

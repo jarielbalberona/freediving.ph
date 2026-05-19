@@ -13,8 +13,9 @@ test("best add-on pages and message plan card hooks are wired", async () => {
     buddySharePage,
     siteSharePage,
     explorePage,
+    exploreLayout,
     profilePage,
-    messagesPage,
+    messagingView,
     trustCard,
   ] = await Promise.all([
     readFile(path.join(appRoot, "src/app/explore/updates/page.tsx"), "utf8"),
@@ -22,8 +23,9 @@ test("best add-on pages and message plan card hooks are wired", async () => {
     readFile(path.join(appRoot, "src/app/buddy/[intentId]/page.tsx"), "utf8"),
     readFile(path.join(appRoot, "src/app/explore/sites/[slug]/page.tsx"), "utf8"),
     readFile(path.join(appRoot, "src/app/explore/page.tsx"), "utf8"),
+    readFile(path.join(appRoot, "src/features/explore/components/ExploreLayout.tsx"), "utf8"),
     readFile(path.join(appRoot, "src/components/profile/profile-view.tsx"), "utf8"),
-    readFile(path.join(appRoot, "src/app/messages/page.tsx"), "utf8"),
+    readFile(path.join(appRoot, "src/features/messages/components/MessagingView.tsx"), "utf8"),
     readFile(path.join(appRoot, "src/components/trust-card.tsx"), "utf8"),
   ]);
 
@@ -41,14 +43,15 @@ test("best add-on pages and message plan card hooks are wired", async () => {
   assert.match(siteSharePage, /generateMetadata/);
   assert.match(siteSharePage, /openGraph/);
 
-  assert.match(explorePage, /Save site|Save/);
+  assert.match(explorePage, /ExploreLayout/);
+  assert.match(exploreLayout, /Save site|Save/);
   assert.match(profilePage, /TrustCard/);
   assert.match(profilePage, /Save profile/);
 
-  assert.match(messagesPage, /Attach spot/);
-  assert.match(messagesPage, /type: "meet_at"/);
-  assert.match(messagesPage, /Meet at/);
-  assert.match(messagesPage, /Open site/);
+  assert.match(messagingView, /Message request/);
+  assert.match(messagingView, /Accept/);
+  assert.match(messagingView, /Decline/);
+  assert.match(messagingView, /Accept this request before you can reply/);
 
   assert.match(trustCard, /Email verified/);
   assert.match(trustCard, /reports/);

@@ -42,7 +42,7 @@ export type NavItem = {
   href?: string;
   actionId?: "create" | "more";
   items?: NavItem[];
-  /** When true, show a "Coming soon" badge in the sidebar. */
+  /** When true, keep the item out of launch navigation. */
   comingSoon?: boolean;
 };
 
@@ -201,6 +201,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Gavel,
     isProtected: true,
     group: "admin",
+    comingSoon: true,
   },
   {
     id: "marketplace",
@@ -224,7 +225,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "create",
-    title: "Create",
+    title: "Post",
     kind: "action",
     actionId: "create",
     icon: Plus,
@@ -249,9 +250,9 @@ const MAIN_NAV_ORDER: string[] = [
   "explore",
   "chika",
   "create",
+  "buddies",
   "messages",
   "more",
-  "profile",
 ];
 
 function isVisible(item: NavItem, isSignedIn: boolean): boolean {
@@ -301,9 +302,12 @@ export function getGroupedNavItems({
     }));
 }
 
-export function getMainNavItems(_opts?: { isSignedIn: boolean }): NavItem[] {
+export function getMainNavItems(opts?: { isSignedIn: boolean }): NavItem[] {
+  const isSignedIn = opts?.isSignedIn ?? false;
   return MAIN_NAV_ORDER.map((id) => NAV_ITEMS.find((i) => i.id === id)).filter(
-    (item): item is NavItem => item != null,
+    (item): item is NavItem =>
+      item != null &&
+      (item.kind === "action" || isSignedIn || !item.isProtected),
   );
 }
 
@@ -346,12 +350,12 @@ export function isActiveRoute(pathname: string, href: string): boolean {
 }
 
 /** @deprecated Use getVisibleNavItems + getGroupedNavItems. Kept for backward compatibility. */
-export const navigation = NAV_ITEMS.filter((i) => i.kind === "link" && !i.comingSoon).map(
-  (item) => ({
-    title: item.title,
-    url: item.href ?? "#",
-    icon: item.icon,
-    isActive: false,
-    isProtected: item.isProtected,
-  }),
-);
+export const navigation = NAV_ITEMS.filter(
+  (i) => i.kind === "link" && !i.comingSoon,
+).map((item) => ({
+  title: item.title,
+  url: item.href ?? "#",
+  icon: item.icon,
+  isActive: false,
+  isProtected: item.isProtected,
+}));

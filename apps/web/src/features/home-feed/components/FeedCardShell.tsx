@@ -57,7 +57,7 @@ const typeIcons: Record<HomeFeedItem["type"], LucideIcon> = {
 const detailLabels: Record<HomeFeedItem["type"], string> = {
   post: "View spot",
   media_post: "Open profile",
-  community_hot_post: "Open thread",
+  community_hot_post: "Open Chika",
   dive_spot: "View spot",
   event: "View event",
   buddy_signal: "Open listing",

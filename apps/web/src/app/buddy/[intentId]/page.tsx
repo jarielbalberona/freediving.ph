@@ -81,7 +81,7 @@ export default async function BuddySharePage({ params }: PageProps) {
                 reportCount={data.intent.reportCount}
               />
               <div className="rounded-2xl bg-primary p-4 text-primary-foreground">
-                <p className="font-medium">Sign in for the full workflow</p>
+                <p className="font-medium">Sign in to connect</p>
                 <p className="mt-1 text-sm text-primary-foreground/90">
                   Create an account to view the full listing, send a buddy
                   request, and start a message request.

@@ -54,7 +54,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-type VisibilityFilter = "all" | "public" | "private" | "invite_only";
+type VisibilityFilter = "all" | "public" | "invite_only";
 
 export default function GroupsPage() {
   const session = useSession();
@@ -100,7 +100,7 @@ export default function GroupsPage() {
       const membership = await joinMutation.mutateAsync({ groupId });
       if (membership.status === "invited") {
         toast.error(
-          "Approval queues are not available at launch. Ask a group admin for an invite instead.",
+          "This group is invite-only right now. Ask an organizer for access.",
         );
         return;
       }
@@ -177,8 +177,8 @@ export default function GroupsPage() {
                   icon={<Users className="h-4 w-4" />}
                 />
                 <StatCard
-                  label="Private"
-                  value="Supported"
+                  label="Invite-only"
+                  value="Available"
                   icon={<ShieldCheck className="h-4 w-4" />}
                 />
               </div>
@@ -202,12 +202,12 @@ export default function GroupsPage() {
                 />
                 <InfoBox
                   title="Restricted Groups"
-                  description="Invite-only access is supported at launch. Approval queues are not."
+                  description="Some groups are private or invite-only."
                 />
                 {!isSignedIn ? (
                   <SignInButton mode="modal">
                     <Button className="w-full" size="default">
-                      Sign in to join groups
+                      Sign in to join a group
                     </Button>
                   </SignInButton>
                 ) : (
@@ -229,10 +229,10 @@ export default function GroupsPage() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1.5 sm:space-y-2">
               <h2 className="font-serif text-2xl tracking-tight text-foreground sm:text-[2rem]">
-                Discover
+                Browse groups
               </h2>
               <p className="max-w-2xl text-sm text-muted-foreground">
-                Find groups by name or location.
+                Search by group name, club, or local area.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_200px] sm:gap-3 lg:min-w-[520px]">
@@ -240,7 +240,7 @@ export default function GroupsPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-10"
-                  placeholder="Search groups..."
+                  placeholder="Search groups or areas"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -255,10 +255,11 @@ export default function GroupsPage() {
                   <SelectValue placeholder="Visibility" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All visible</SelectItem>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                  <SelectItem value="invite_only">Invite only</SelectItem>
+                  <SelectItem value="all">All groups</SelectItem>
+                  <SelectItem value="public">Public groups</SelectItem>
+                  <SelectItem value="invite_only">
+                    Invite-only groups
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -274,7 +275,7 @@ export default function GroupsPage() {
             <TabsList
               className={`grid ${isSignedIn ? "w-full max-w-md grid-cols-2" : "w-full max-w-[220px] grid-cols-1"}`}
             >
-              <TabsTrigger value="discover">Discover</TabsTrigger>
+              <TabsTrigger value="discover">All groups</TabsTrigger>
               {isSignedIn ? (
                 <TabsTrigger value="mine">My groups</TabsTrigger>
               ) : null}
@@ -287,25 +288,25 @@ export default function GroupsPage() {
                 <ErrorBlock
                   message={getApiErrorMessage(
                     groupsQuery.error,
-                    "Failed to load groups",
+                    "Groups are taking longer than expected. Try again in a moment.",
                   )}
                 />
               ) : discoverGroups.length === 0 ? (
                 <EmptyState
-                  title="No groups found"
-                  description="Try a different search term or filter."
+                  title="This group search is quiet right now"
+                  description="Try a nearby area, clear the filters, or sign in to start a group for your dive crew."
                 />
               ) : (
                 <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                    {discoverGroups.map((group) => (
-                      <GroupCard
-                        key={group.id}
-                        group={group}
-                        isSignedIn={isSignedIn}
-                        isJoined={joinedGroupIds.has(group.id)}
-                        actionPending={
-                          joinMutation.isPending || leaveMutation.isPending
-                        }
+                  {discoverGroups.map((group) => (
+                    <GroupCard
+                      key={group.id}
+                      group={group}
+                      isSignedIn={isSignedIn}
+                      isJoined={joinedGroupIds.has(group.id)}
+                      actionPending={
+                        joinMutation.isPending || leaveMutation.isPending
+                      }
                       onJoin={() => void onJoin(group.id)}
                       onLeave={() => void onLeave(group.id)}
                     />
@@ -322,13 +323,13 @@ export default function GroupsPage() {
                   <ErrorBlock
                     message={getApiErrorMessage(
                       myGroupsQuery.error,
-                      "Failed to load your groups",
+                      "Your groups are taking longer than expected. Try again in a moment.",
                     )}
                   />
                 ) : myGroups.length === 0 ? (
                   <EmptyState
-                  title="No groups joined yet"
-                  description="Find a group to join or create your own."
+                    title="Your group list is waiting"
+                    description="Join a local group when you find one that fits, or create a group for your own dive crew."
                   />
                 ) : (
                   <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
@@ -410,9 +411,7 @@ export default function GroupsPage() {
                 <Select
                   value={createJoinPolicy}
                   onValueChange={(value) =>
-                    setCreateJoinPolicy(
-                      value as "open" | "invite_only",
-                    )
+                    setCreateJoinPolicy(value as "open" | "invite_only")
                   }
                 >
                   <SelectTrigger>
@@ -493,7 +492,7 @@ function GroupCard({
           ) : null}
         </div>
         <CardDescription className="line-clamp-3 min-h-[3.75rem] text-sm text-muted-foreground">
-          {group.description || "No description."}
+          {group.description || "This group has not added a description yet."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -539,7 +538,7 @@ function GroupCard({
             </Button>
           ) : isApprovalOnly ? (
             <Badge variant="outline" className="rounded-full px-3 py-1">
-              Invite required at launch
+              Ask organizer to join
             </Badge>
           ) : (
             <Badge variant="outline" className="rounded-full px-3 py-1">
@@ -563,7 +562,9 @@ function StatCard({
         {icon}
         {label}
       </div>
-      <p className="mt-2 text-xl font-semibold text-foreground sm:mt-3 sm:text-2xl">{value}</p>
+      <p className="mt-2 text-xl font-semibold text-foreground sm:mt-3 sm:text-2xl">
+        {value}
+      </p>
     </div>
   );
 }
@@ -606,10 +607,23 @@ function EmptyState({
 
 function CardGridSkeleton({ count }: { count: number }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: count }).map((_, index) => (
-        <Skeleton key={index} className="h-64 w-full rounded-[1.75rem]" />
-      ))}
+    <div className="space-y-4">
+      <Card className="border-border/70 bg-muted/30">
+        <CardContent className="p-5">
+          <p className="font-medium text-foreground">
+            Looking for community groups
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            We are checking public groups, clubs, and local dive crews you can
+            browse.
+          </p>
+        </CardContent>
+      </Card>
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: count }).map((_, index) => (
+          <Skeleton key={index} className="h-64 w-full rounded-[1.75rem]" />
+        ))}
+      </div>
     </div>
   );
 }

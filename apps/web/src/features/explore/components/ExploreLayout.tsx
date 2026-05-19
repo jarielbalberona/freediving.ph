@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   Check,
   Compass,
@@ -91,7 +95,10 @@ export function ExploreLayout() {
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
   });
   const saveSiteMutation = useMutation({
-    mutationFn: async ({ siteId, isSaved }: { siteId: string; isSaved: boolean }) => {
+    mutationFn: async ({
+      siteId,
+      isSaved,
+    }: { siteId: string; isSaved: boolean }) => {
       if (isSaved) {
         await exploreWriteApi.unsaveSite(siteId);
         return;
@@ -257,6 +264,19 @@ export function ExploreLayout() {
               onCameraChange={setCamera}
               onSelectSpot={handleSelectSpot}
             />
+            {!exploreQuery.isPending && sortedItems.length === 0 ? (
+              <div className="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center px-6">
+                <Card className="pointer-events-auto max-w-md border-border/80 bg-card/95 p-4 text-sm shadow-xl">
+                  <p className="font-medium text-foreground">
+                    Try another part of the coast
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    Move the map, search a nearby town, or suggest a dive site
+                    if this area should be listed.
+                  </p>
+                </Card>
+              </div>
+            ) : null}
 
             <div className="desktop-view pointer-events-none absolute inset-x-0 top-5 flex justify-center">
               <Button
@@ -268,7 +288,6 @@ export function ExploreLayout() {
                 Search this area
               </Button>
             </div>
-
           </div>
         </div>
 
@@ -323,6 +342,21 @@ export function ExploreLayout() {
                 onCameraChange={setCamera}
                 onSelectSpot={handleSelectSpot}
               />
+              {!exploreQuery.isPending &&
+              sortedItems.length === 0 &&
+              !selectedSpot ? (
+                <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">
+                  <Card className="pointer-events-auto border-border/80 bg-card/95 p-4 text-sm shadow-xl">
+                    <p className="font-medium text-foreground">
+                      Try another part of the coast
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      Move the map, search a nearby town, or suggest a dive site
+                      if this area should be listed.
+                    </p>
+                  </Card>
+                </div>
+              ) : null}
 
               {selectedSpot ? (
                 <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">

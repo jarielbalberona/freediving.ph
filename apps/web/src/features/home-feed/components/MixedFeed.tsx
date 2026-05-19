@@ -63,31 +63,43 @@ export function MixedFeed({
   if (items.length === 0 && loading) {
     return (
       <Card className="p-5">
-        <p className="text-sm font-semibold">Loading feed...</p>
+        <p className="text-sm font-semibold">Looking for community updates</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Pulling the latest dives, buddy calls, and local activity.
+          We are checking recent dives, buddy posts, Chika, and spot reports.
+          This usually only takes a moment.
         </p>
       </Card>
     );
   }
 
   if (items.length === 0 && !loading) {
-    const emptyCopy: Record<HomeFeedMode, { title: string; body: string }> = {
+    const emptyCopy: Record<
+      HomeFeedMode,
+      { title: string; body: string; href: string; action: string }
+    > = {
       following: {
-        title: "This lane needs people, not filler",
-        body: "Follow divers, post an update, or join a conversation so Following becomes a real social feed.",
+        title: "Your feed is ready to grow",
+        body: "Follow divers, join Chika, or browse dive spots to start shaping what appears here.",
+        href: "/chika",
+        action: "Open Chika",
       },
       nearby: {
-        title: "Nothing actionable nearby yet",
-        body: "Local buddy calls and fresh site activity will show here once the area has live movement.",
+        title: "Local updates will appear here",
+        body: "When divers share buddy posts or spot activity near you, this feed becomes your local pulse.",
+        href: "/explore",
+        action: "Explore spots",
       },
       training: {
         title: "Training is quiet right now",
-        body: "Log a session or share progress so this lane becomes useful instead of empty motivation wallpaper.",
+        body: "Training posts from the community will show here when divers share progress or sessions.",
+        href: "/chika",
+        action: "Start a Chika",
       },
       "spot-reports": {
-        title: "No fresh spot intel yet",
-        body: "Spot reports only matter when they help a real decision. Add one when conditions change.",
+        title: "Spot reports will appear here",
+        body: "Condition updates show up when divers share what they saw at a dive site.",
+        href: "/explore",
+        action: "Browse dive spots",
       },
     };
     const copy = emptyCopy[mode];
@@ -96,6 +108,11 @@ export function MixedFeed({
       <Card className="p-5">
         <p className="text-sm font-semibold">{copy.title}</p>
         <p className="mt-2 text-sm text-muted-foreground">{copy.body}</p>
+        <div className="mt-4">
+          <Link href={copy.href} className={cn(buttonVariants({ size: "sm" }))}>
+            {copy.action}
+          </Link>
+        </div>
       </Card>
     );
   }
@@ -110,7 +127,7 @@ export function MixedFeed({
           items.length > 0 ? (
             <div className="flex justify-center py-2">
               <p className="text-sm text-muted-foreground">
-                Loading more dives...
+                Bringing in more community updates...
               </p>
             </div>
           ) : null
@@ -133,7 +150,7 @@ export function MixedFeed({
         <Card className="p-4 text-center">
           <p className="text-sm font-medium">Public preview limit reached</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Sign in to see more contents.
+            Sign in to see more community updates.
           </p>
           <div className="mt-3">
             <Link

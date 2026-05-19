@@ -7,44 +7,45 @@ export default function ComingSoonPage() {
     <main className="container mx-auto min-h-[70vh] px-4 py-10 sm:px-6">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <header className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">Coming Soon</h1>
+          <h1 className="text-4xl font-bold tracking-tight">
+            This area is not open yet
+          </h1>
           <p className="text-muted-foreground">
-            This section is not live yet. We are shipping iteratively and keeping
-            standards high before opening each module.
+            We are keeping this part closed until it is useful enough for the
+            freediving community. For now, use Explore, Buddies, Chika, Groups,
+            and Events.
           </p>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>Open For Collaboration</CardTitle>
+            <CardTitle>Where to go instead</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p>
-              We are actively open for collaboration with divers, builders,
-              moderators, and community partners.
+              Looking for dive spots, buddies, local groups, or community
+              conversations? Those areas are open now.
             </p>
-            <p>
-              GitHub:{" "}
+            <div className="flex flex-wrap gap-3">
               <Link
                 className="font-medium underline underline-offset-4"
-                href="https://github.com/jarielbalberona/freediving.ph"
-                target="_blank"
-                rel="noreferrer"
+                href="/explore"
               >
-                github.com/jarielbalberona/freediving.ph
+                Explore dive spots
               </Link>
-            </p>
-            <p>
-              We also manage:{" "}
               <Link
                 className="font-medium underline underline-offset-4"
-                href="https://reddit.com/r/freedivingph"
-                target="_blank"
-                rel="noreferrer"
+                href="/buddies"
               >
-                reddit.com/r/freedivingph
+                Find buddies
               </Link>
-            </p>
+              <Link
+                className="font-medium underline underline-offset-4"
+                href="/chika"
+              >
+                Join Chika
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

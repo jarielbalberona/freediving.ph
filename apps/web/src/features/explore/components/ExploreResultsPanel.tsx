@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
 import { ArrowUpWideNarrow, LoaderCircle } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,7 +86,7 @@ export function ExploreResultsPanel({
   }, [selectedSpotId]);
 
   const resultLabel = useMemo(() => {
-    if (loading) return "Loading dive spots";
+    if (loading) return "Finding dive spots";
     return `${total.toLocaleString()} dive spots`;
   }, [loading, total]);
 
@@ -104,8 +105,8 @@ export function ExploreResultsPanel({
               value={q}
               autoFocus
               onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="Search dive spots"
-              aria-label="Search dive spots"
+              placeholder="Search beaches, towns, or dive spots"
+              aria-label="Search beaches, towns, or dive spots"
               className="h-11 rounded-full bg-slate-50"
             />
             {filtersControl}
@@ -148,8 +149,8 @@ export function ExploreResultsPanel({
           <p className="text-sm font-semibold text-foreground">{resultLabel}</p>
           <p className="text-muted-foreground text-xs">
             {fetching && !loading
-              ? "Refreshing results for the current query."
-              : "Map and list stay in sync."}
+              ? "Refreshing results for this search."
+              : "Search or move the map to find dive spots."}
           </p>
           {!showSearchControls ? (
             <DropdownMenu>
@@ -181,26 +182,37 @@ export function ExploreResultsPanel({
       <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1 p-2">
         <div className="space-y-3 pb-6">
           {loading ? (
-            Array.from({ length: 6 }).map((_, index) => (
-              <div
-                key={`explore-skeleton-${index}`}
-                className="rounded-4xl border border-border bg-card p-4"
-              >
-                <div className="grid gap-4 sm:grid-cols-[132px_1fr]">
-                  <Skeleton className="h-36" />
-                  <div className="space-y-3">
-                    <Skeleton className="h-5 w-2/3" />
-                    <Skeleton className="h-4 w-1/2" />
-                    <Skeleton className="h-4 w-1/3" />
-                    <div className="flex gap-2">
-                      <Skeleton className="h-6 w-20 rounded-full" />
-                      <Skeleton className="h-6 w-16 rounded-full" />
-                      <Skeleton className="h-6 w-20 rounded-full" />
+            <>
+              <div className="rounded-4xl border border-border bg-card p-5">
+                <p className="text-base font-semibold text-foreground">
+                  Finding dive spots around the Philippines
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Search by beach, town, or dive site. You can also move the map
+                  and search that area.
+                </p>
+              </div>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={`explore-skeleton-${index}`}
+                  className="rounded-4xl border border-border bg-card p-4"
+                >
+                  <div className="grid gap-4 sm:grid-cols-[132px_1fr]">
+                    <Skeleton className="h-36" />
+                    <div className="space-y-3">
+                      <Skeleton className="h-5 w-2/3" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-4 w-1/3" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                        <Skeleton className="h-6 w-16 rounded-full" />
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </>
           ) : hasResults ? (
             spots.map((spot) => (
               <DiveSpotCard
@@ -214,18 +226,27 @@ export function ExploreResultsPanel({
           ) : (
             <div className="rounded-4xl border border-dashed border-border/80 bg-muted/40 px-5 py-8">
               <p className="text-base font-semibold text-foreground">
-                No dive spots found
+                We do not have a match for this area yet
               </p>
               <p className="text-muted-foreground mt-2 text-sm">
-                Try widening the map area or resetting your filters.
+                Try a nearby town, move the map to another coastline, or suggest
+                a dive site so the community can review it.
               </p>
-              <Button
-                className="mt-4 rounded-full"
-                variant="outline"
-                onClick={onResetFilters}
-              >
-                Reset filters
-              </Button>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  className="rounded-full"
+                  variant="outline"
+                  onClick={onResetFilters}
+                >
+                  Reset search
+                </Button>
+                <Link
+                  href="/explore/submit"
+                  className={cn(buttonVariants({ size: "sm" }), "rounded-full")}
+                >
+                  Suggest a dive site
+                </Link>
+              </div>
             </div>
           )}
           {hasResults && hasNextPage ? (
@@ -240,7 +261,7 @@ export function ExploreResultsPanel({
                 {isFetchingNextPage ? (
                   <>
                     <LoaderCircle className="mr-2 size-4 animate-spin" />
-                    Loading more
+                    Finding more sites
                   </>
                 ) : (
                   "Load more sites"

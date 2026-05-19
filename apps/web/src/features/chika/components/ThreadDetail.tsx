@@ -11,7 +11,9 @@ interface ThreadDetailProps {
 
 export default function ThreadDetail({ thread }: ThreadDetailProps) {
   return (
-    <Card className={`p-4 ${thread.isHidden ? "border-dashed opacity-60" : ""}`}>
+    <Card
+      className={`p-4 ${thread.isHidden ? "border-dashed opacity-60" : ""}`}
+    >
       <div className="mb-2 flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {thread.categoryName} ·{" "}
@@ -23,15 +25,27 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
         </p>
         <div className="flex items-center gap-2">
           {thread.categoryPseudonymous ? (
-            <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Anonymous</Badge>
+            <Badge
+              variant="secondary"
+              className="text-[10px] uppercase tracking-wide"
+            >
+              Anonymous
+            </Badge>
           ) : null}
           {thread.isHidden ? (
-            <Badge variant="destructive" className="text-[10px] uppercase tracking-wide">Hidden</Badge>
+            <Badge
+              variant="destructive"
+              className="text-[10px] uppercase tracking-wide"
+            >
+              Hidden
+            </Badge>
           ) : null}
         </div>
       </div>
 
-      <h1 className="text-xl font-semibold leading-snug text-foreground">{thread.title}</h1>
+      <h1 className="text-xl font-semibold leading-snug text-foreground">
+        {thread.title}
+      </h1>
 
       {thread.content ? (
         <p className="mt-3 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
@@ -39,11 +53,6 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
         </p>
       ) : null}
 
-      {thread.realAuthorUserId ? (
-        <p className="mt-1 text-xs text-muted-foreground/70">
-          Real author: {thread.realAuthorUserId}
-        </p>
-      ) : null}
       {thread.isHidden && thread.hiddenAt ? (
         <p className="mt-2 text-xs text-destructive">
           Hidden since {new Date(thread.hiddenAt).toLocaleString()}

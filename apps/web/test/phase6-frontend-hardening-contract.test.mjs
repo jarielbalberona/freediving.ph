@@ -22,7 +22,10 @@ const threadDetailPath = path.join(
   repoRoot,
   "src/features/chika/components/ThreadDetail.tsx",
 );
-const messagesPagePath = path.join(repoRoot, "src/app/messages/page.tsx");
+const messagesViewPath = path.join(
+  repoRoot,
+  "src/features/messages/components/MessagingView.tsx",
+);
 
 test("phase 6 protects auth-required frontend routes in middleware", async () => {
   const middlewareSource = await readFile(middlewarePath, "utf8");
@@ -60,10 +63,12 @@ test("phase 6 hardens chika posting and moderation placeholders in UI", async ()
   const createSource = await readFile(chikaCreatePath, "utf8");
   const threadsSource = await readFile(chikaThreadsPath, "utf8");
   const detailSource = await readFile(threadDetailPath, "utf8");
-  const messagesSource = await readFile(messagesPagePath, "utf8");
+  const messagesSource = await readFile(messagesViewPath, "utf8");
 
   assert.match(createSource, /<AuthGuard/);
-  assert.match(threadsSource, /Content unavailable/);
-  assert.match(detailSource, /This content has been removed\./);
-  assert.match(messagesSource, /Removed by moderator/);
+  assert.match(threadsSource, /Hidden/);
+  assert.match(detailSource, /ReportAction/);
+  assert.match(detailSource, /Hidden since/);
+  assert.match(messagesSource, /Message request/);
+  assert.match(messagesSource, /Accept this request before you can reply/);
 });

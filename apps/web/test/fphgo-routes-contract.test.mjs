@@ -25,7 +25,7 @@ test("all FPHGO route literals are versioned with /v1", async () => {
 test("messages, chika, buddies, and add-on builders map to fphgo v1 prefixes", async () => {
   const source = await readFile(routesPath, "utf8");
 
-  assert.match(source, /me: \(\) => "\/v1\/auth\/session"/);
+  assert.match(source, /session: \(\) => "\/v1\/auth\/session"/);
   assert.match(source, /threads: \(\) => "\/v1\/messages\/threads"/);
   assert.match(source, /threadById: \(threadId: string \| number\) =>/);
   assert.match(source, /threadMessages: \(threadId: string \| number\) =>/);

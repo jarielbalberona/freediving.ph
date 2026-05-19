@@ -14,16 +14,27 @@ interface ThreadActionsProps {
   commentCount?: number;
 }
 
-export default function ThreadActions({ threadId, initialVoteCount, initialReaction, commentCount }: ThreadActionsProps) {
-  const [reaction, setReaction] = useState<ThreadReactionType | null>(initialReaction ?? null);
+export default function ThreadActions({
+  threadId,
+  initialVoteCount,
+  initialReaction,
+  commentCount,
+}: ThreadActionsProps) {
+  const [reaction, setReaction] = useState<ThreadReactionType | null>(
+    initialReaction ?? null,
+  );
   const setReactionMutation = useSetThreadReaction();
   const removeReactionMutation = useRemoveThreadReaction();
   const lockRef = useRef(false);
 
-  const isBusy = setReactionMutation.isPending || removeReactionMutation.isPending || lockRef.current;
+  const isBusy =
+    setReactionMutation.isPending ||
+    removeReactionMutation.isPending ||
+    lockRef.current;
 
   const buttonClass = useMemo(
-    () => "h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground",
+    () =>
+      "h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground",
     [],
   );
 
@@ -31,27 +42,30 @@ export default function ThreadActions({ threadId, initialVoteCount, initialReact
     setReaction(initialReaction ?? null);
   }, [initialReaction]);
 
-  const handleVote = useCallback(async (type: ThreadReactionType) => {
-    if (lockRef.current) return;
-    lockRef.current = true;
-    try {
-      if (reaction === type) {
-        await removeReactionMutation.mutateAsync({ threadId });
-        setReaction(null);
-        return;
+  const handleVote = useCallback(
+    async (type: ThreadReactionType) => {
+      if (lockRef.current) return;
+      lockRef.current = true;
+      try {
+        if (reaction === type) {
+          await removeReactionMutation.mutateAsync({ threadId });
+          setReaction(null);
+          return;
+        }
+        await setReactionMutation.mutateAsync({ threadId, type });
+        setReaction(type);
+      } finally {
+        lockRef.current = false;
       }
-      await setReactionMutation.mutateAsync({ threadId, type });
-      setReaction(type);
-    } finally {
-      lockRef.current = false;
-    }
-  }, [reaction, threadId, setReactionMutation, removeReactionMutation]);
+    },
+    [reaction, threadId, setReactionMutation, removeReactionMutation],
+  );
 
   const handleShare = async () => {
     const target = `${window.location.origin}/chika/${threadId}`;
     try {
       await navigator.clipboard.writeText(target);
-      toast.success("Thread link copied");
+      toast.success("Chika link copied.");
     } catch {
       toast.error("Unable to copy link");
     }

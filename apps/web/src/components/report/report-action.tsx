@@ -4,9 +4,15 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -25,7 +31,10 @@ import {
 } from "@/components/ui/select";
 import type { ReportReasonCode, ReportTargetType } from "@freediving.ph/types";
 import { useCreateReport } from "@/features/reports";
-import { reportSchema, type ReportValues } from "@/features/reports/schemas/report.schema";
+import {
+  reportSchema,
+  type ReportValues,
+} from "@/features/reports/schemas/report.schema";
 import { getRateLimitMessage, getApiErrorMessage } from "@/lib/http/api-error";
 
 interface ReportActionProps {
@@ -33,8 +42,19 @@ interface ReportActionProps {
   targetId: string;
 }
 
-const reasonOptions: ReportReasonCode[] = ["spam", "harassment", "impersonation", "unsafe", "other"];
-const supportedTargetTypes = new Set<ReportTargetType>(["user", "message", "chika_thread", "chika_comment"]);
+const reasonOptions: Array<{ value: ReportReasonCode; label: string }> = [
+  { value: "spam", label: "Spam or scam" },
+  { value: "harassment", label: "Harassment or bullying" },
+  { value: "impersonation", label: "Pretending to be someone else" },
+  { value: "unsafe", label: "Unsafe diving advice or behavior" },
+  { value: "other", label: "Something else" },
+];
+const supportedTargetTypes = new Set<ReportTargetType>([
+  "user",
+  "message",
+  "chika_thread",
+  "chika_comment",
+]);
 
 export function ReportAction({ targetType, targetId }: ReportActionProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -65,100 +85,120 @@ export function ReportAction({ targetType, targetId }: ReportActionProps) {
           setIsOpen(false);
         },
         onError: (error) => {
-          setSubmitError(getRateLimitMessage(error, getApiErrorMessage(error, "Failed to submit report")));
+          setSubmitError(
+            getRateLimitMessage(
+              error,
+              getApiErrorMessage(error, "Could not send your report"),
+            ),
+          );
         },
       },
     );
   };
 
-  if (!isOpen) {
-    return (
-      <Button type="button" variant="outline" size="sm" onClick={() => setIsOpen(true)}>
-        Report
-      </Button>
-    );
+  if (!isSupported) {
+    return null;
   }
 
   return (
-    <div className="space-y-3 rounded-md border p-3">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-          <FormField
-            control={form.control}
-            name="reasonCode"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Reason</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={createReport.isPending}
-                  items={reasonOptions.map((r) => ({ value: r, label: r }))}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectGroup>
-                      {reasonOptions.map((reason) => (
-                        <SelectItem key={reason} value={reason}>
-                          {reason}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="space-y-2">
-            <Label htmlFor="report-target">Target ID</Label>
-            <Input id="report-target" value={targetId} readOnly />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="details"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Details</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Describe the issue"
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) setSubmitError(null);
+      }}
+    >
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setIsOpen(true)}
+      >
+        Report
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Report a concern</DialogTitle>
+          <DialogDescription>
+            Tell us what feels unsafe, harmful, or out of place. Reports help
+            keep Chika useful for the freediving community.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="reasonCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>What is the concern?</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
                     disabled={createReport.isPending}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                    items={reasonOptions}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectGroup>
+                        {reasonOptions.map((reason) => (
+                          <SelectItem key={reason.value} value={reason.value}>
+                            {reason.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          {!isSupported && (
-            <p className="text-xs text-destructive">
-              This item type is not reportable in v1.
-            </p>
-          )}
+            <FormField
+              control={form.control}
+              name="details"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Anything else we should know?</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Share enough detail for the team to understand the concern."
+                      disabled={createReport.isPending}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <div className="flex gap-2">
-            <Button
-              type="submit"
-              size="sm"
-              disabled={form.formState.isSubmitting || createReport.isPending || !isSupported}
-            >
-              Submit Report
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setIsOpen(false)}>
-              Cancel
-            </Button>
-          </div>
-          {submitError ? <p className="text-xs text-destructive">{submitError}</p> : null}
-        </form>
-      </Form>
-    </div>
+            {submitError ? (
+              <p className="text-sm text-destructive">{submitError}</p>
+            ) : null}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsOpen(false)}
+                disabled={createReport.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={form.formState.isSubmitting || createReport.isPending}
+              >
+                {createReport.isPending ? "Sending..." : "Send report"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

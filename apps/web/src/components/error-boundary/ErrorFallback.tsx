@@ -1,14 +1,14 @@
 "use client";
 
-import { AlertTriangle, RefreshCw, Home, Bug, WifiOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle, RefreshCw, Home, Bug, WifiOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ErrorFallbackProps {
   error: Error;
   resetError: () => void;
-  level?: 'page' | 'feature' | 'component';
+  level?: "page" | "feature" | "component";
   isNetworkError?: boolean;
   errorId?: string;
 }
@@ -16,41 +16,41 @@ interface ErrorFallbackProps {
 export function ErrorFallback({
   error,
   resetError,
-  level = 'component',
+  level = "component",
   isNetworkError = false,
   errorId,
 }: ErrorFallbackProps) {
   const getErrorTitle = () => {
     if (isNetworkError) {
-      return 'Connection Problem';
+      return "Connection Problem";
     }
 
     switch (level) {
-      case 'page':
-        return 'Page Error';
-      case 'feature':
-        return 'Feature Unavailable';
-      case 'component':
-        return 'Component Error';
+      case "page":
+        return "Something went wrong";
+      case "feature":
+        return "This area is not available right now";
+      case "component":
+        return "Something did not load";
       default:
-        return 'Something went wrong';
+        return "Something went wrong";
     }
   };
 
   const getErrorDescription = () => {
     if (isNetworkError) {
-      return 'Please check your internet connection and try again.';
+      return "Please check your internet connection and try again.";
     }
 
     switch (level) {
-      case 'page':
-        return 'We encountered an error while loading this page. Please try refreshing.';
-      case 'feature':
-        return 'This feature is temporarily unavailable. You can continue using other parts of the app.';
-      case 'component':
-        return 'This component failed to load. The rest of the page should work normally.';
+      case "page":
+        return "We encountered an error while loading this page. Please try refreshing.";
+      case "feature":
+        return "This feature is temporarily unavailable. You can continue using other parts of the app.";
+      case "component":
+        return "This part of the page did not load. The rest of the page should still work.";
       default:
-        return 'An unexpected error occurred. Please try again.';
+        return "An unexpected error occurred. Please try again.";
     }
   };
 
@@ -63,9 +63,9 @@ export function ErrorFallback({
 
   const getIconBg = () => {
     if (isNetworkError) {
-      return 'bg-warning/15';
+      return "bg-warning/15";
     }
-    return 'bg-destructive/15';
+    return "bg-destructive/15";
   };
 
   return (
@@ -73,26 +73,26 @@ export function ErrorFallback({
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="text-center">
-          <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${getIconBg()}`}>
-            {getIcon()}
-          </div>
-          <CardTitle>
-            <span className="text-xl">{getErrorTitle()}</span>
-          </CardTitle>
+            <div
+              className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${getIconBg()}`}
+            >
+              {getIcon()}
+            </div>
+            <CardTitle>
+              <span className="text-xl">{getErrorTitle()}</span>
+            </CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Alert variant={isNetworkError ? 'default' : 'destructive'}>
+          <Alert variant={isNetworkError ? "default" : "destructive"}>
             <Bug className="h-4 w-4" />
-            <AlertDescription>
-              {getErrorDescription()}
-            </AlertDescription>
+            <AlertDescription>{getErrorDescription()}</AlertDescription>
           </Alert>
 
-          {process.env.NODE_ENV === 'development' && error && (
+          {process.env.NODE_ENV === "development" && error && (
             <details className="mt-4">
               <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
-                Error Details (Development)
+                Error details
               </summary>
               <div className="mt-2 rounded-md bg-muted p-3">
                 <p className="text-xs font-mono text-destructive">
@@ -113,7 +113,7 @@ export function ErrorFallback({
               Try Again
             </Button>
 
-            {level === 'page' && (
+            {level === "page" && (
               <>
                 <Button
                   variant="outline"
@@ -124,7 +124,7 @@ export function ErrorFallback({
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => window.location.href = '/'}
+                  onClick={() => (window.location.href = "/")}
                   className="w-full"
                 >
                   <Home className="h-4 w-4 mr-2" />
@@ -136,7 +136,7 @@ export function ErrorFallback({
 
           {errorId && (
             <p className="text-xs text-muted-foreground text-center">
-              Error ID: {errorId}
+              Reference: {errorId}
             </p>
           )}
         </CardContent>

@@ -59,7 +59,7 @@ export function NotificationCenter() {
         <SheetHeader className="border-b">
           <SheetTitle>Notifications</SheetTitle>
           <SheetDescription>
-            Realtime updates for messages and community activity.
+            Updates from messages and community activity.
           </SheetDescription>
         </SheetHeader>
         <div className="overflow-y-auto p-4">

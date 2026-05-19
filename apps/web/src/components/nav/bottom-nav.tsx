@@ -46,10 +46,9 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
       aria-label="Main navigation"
     >
       {mainItems.map((item) => {
-        const href = item.id === "profile" ? profileHref : item.href ?? "#";
+        const href = item.id === "profile" ? profileHref : (item.href ?? "#");
         const active =
-          item.kind === "link" &&
-          isActiveRoute(pathname ?? "", href);
+          item.kind === "link" && isActiveRoute(pathname ?? "", href);
         const isProtectedLink =
           item.kind === "link" && item.isProtected && !effectiveSignedIn;
 
@@ -59,7 +58,7 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
               key={item.id}
               type="button"
               variant="ghost"
-              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex min-w-0 flex-1 flex-col items-center justify-center py-5 transition-colors rounded-none h-auto"
+              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-14 min-w-0 flex-1 flex-col items-center justify-center rounded-none px-1 py-1.5 transition-colors"
               aria-label={item.title}
               onClick={() => {
                 if (item.actionId === "create") onOpenCreate();
@@ -69,6 +68,9 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
               {item.icon != null && (
                 <item.icon className="size-6 shrink-0" aria-hidden />
               )}
+              <span className="mt-1 max-w-full truncate text-[10px] font-medium leading-none">
+                {item.title}
+              </span>
             </Button>
           );
         }
@@ -79,7 +81,7 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
               key={item.id}
               type="button"
               variant="ghost"
-              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex min-w-0 flex-1 flex-col items-center justify-center py-5 transition-colors rounded-none h-auto"
+              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-14 min-w-0 flex-1 flex-col items-center justify-center rounded-none px-1 py-1.5 transition-colors"
               aria-label={`${item.title} (sign in required)`}
               title="Sign in to access"
               onClick={() => handleItemClick(item)}
@@ -88,7 +90,13 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
                 {item.icon != null && (
                   <item.icon className="size-6 shrink-0" aria-hidden />
                 )}
-                <Lock className="absolute -right-1.5 -top-0.5 size-3 shrink-0 opacity-80" aria-hidden />
+                <Lock
+                  className="absolute -right-1.5 -top-0.5 size-3 shrink-0 opacity-80"
+                  aria-hidden
+                />
+              </span>
+              <span className="mt-1 max-w-full truncate text-[10px] font-medium leading-none">
+                {item.title}
               </span>
             </Button>
           );
@@ -99,8 +107,9 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
             key={item.id}
             href={href}
             className={cn(
-              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex min-w-0 flex-1 flex-col items-center justify-center py-5 transition-colors",
-              active && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-14 min-w-0 flex-1 flex-col items-center justify-center px-1 py-1.5 transition-colors",
+              active &&
+                "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
             )}
             aria-current={active ? "page" : undefined}
             aria-label={item.title}
@@ -108,6 +117,9 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
             {item.icon != null && (
               <item.icon className="size-6 shrink-0" aria-hidden />
             )}
+            <span className="mt-1 max-w-full truncate text-[10px] font-medium leading-none">
+              {item.title}
+            </span>
           </Link>
         );
       })}

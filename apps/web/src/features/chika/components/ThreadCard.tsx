@@ -12,12 +12,18 @@ export default function ThreadCard({ thread }: ThreadCardProps) {
     <Card className={thread.isHidden ? "border-dashed opacity-60" : ""}>
       <CardContent className="p-6">
         <div className="mb-1 flex items-center gap-2">
-          <h3 className="text-lg font-semibold text-foreground">{thread.title}</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            {thread.title}
+          </h3>
           {thread.categoryPseudonymous ? (
-            <Badge variant="secondary" className="text-xs">Anonymous</Badge>
+            <Badge variant="secondary" className="text-xs">
+              Anonymous
+            </Badge>
           ) : null}
           {thread.isHidden ? (
-            <Badge variant="destructive" className="text-xs">Hidden</Badge>
+            <Badge variant="destructive" className="text-xs">
+              Hidden
+            </Badge>
           ) : null}
         </div>
         <p className="text-sm text-muted-foreground">
@@ -28,11 +34,6 @@ export default function ThreadCard({ thread }: ThreadCardProps) {
           <span className="mx-2">·</span>
           <span>{new Date(thread.createdAt).toLocaleString()}</span>
         </p>
-        {thread.realAuthorUserId ? (
-          <p className="mt-1 text-xs text-muted-foreground/70">
-            Real author: {thread.realAuthorUserId}
-          </p>
-        ) : null}
       </CardContent>
     </Card>
   );

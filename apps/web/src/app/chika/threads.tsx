@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { SignInButton } from "@clerk/nextjs";
 
 import { ThreadActions, useChikaRealtime, useThreads } from "@/features/chika";
 import type { ChikaThreadView } from "@/features/chika";
 import { useSession } from "@/features/auth/session/use-session";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { UserAvatarDetail } from "@/components/ui/user-avatar-detail";
 
@@ -35,18 +37,46 @@ const ThreadListClient = ({
   useChikaRealtime({ enabled: true, currentUserId: session.me?.userId });
 
   if (isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading threads...</div>;
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 p-5">
+        <p className="text-sm font-medium text-foreground">
+          Opening the community board
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Chika is where divers ask questions, share local updates, and keep the
+          conversation going between dives.
+        </p>
+      </div>
+    );
   }
 
   const threadList = threads ?? [];
 
   return (
     <>
-      {error ? <div className="mb-4 text-sm text-destructive">{error}</div> : null}
+      {error ? (
+        <div className="mb-4 text-sm text-destructive">{error}</div>
+      ) : null}
       {threadList.length === 0 ? (
         <div className="rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 px-6 py-12 text-center">
-          <p className="text-muted-foreground">No threads yet. Be the first to share!</p>
-          <p className="mt-1 text-sm text-muted-foreground">Start a conversation with the community.</p>
+          <p className="text-lg font-semibold text-foreground">
+            Start the first Chika
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ask about a dive spot, invite buddies for a session, or share a
+            local freediving update.
+          </p>
+          <div className="mt-5">
+            {session.status === "signed_in" ? (
+              <Link href="/chika/create">
+                <Button>Post in Chika</Button>
+              </Link>
+            ) : (
+              <SignInButton mode="modal">
+                <Button>Sign in to join Chika</Button>
+              </SignInButton>
+            )}
+          </div>
         </div>
       ) : (
         threadList.map((thread) => (
@@ -56,19 +86,27 @@ const ThreadListClient = ({
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
-                <UserAvatarDetail
-                  username={thread.authorDisplayName}
-                />
+                <UserAvatarDetail username={thread.authorDisplayName} />
                 <p className="truncate text-xs text-muted-foreground">
                   {thread.categoryName} · {toRelativeTime(thread.createdAt)}
                 </p>
               </div>
               <div className="shrink-0">
                 {thread.categoryPseudonymous ? (
-                  <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Anon</Badge>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] uppercase tracking-wide"
+                  >
+                    Anon
+                  </Badge>
                 ) : null}
                 {thread.isHidden ? (
-                  <Badge variant="destructive" className="ml-2 text-[10px] uppercase tracking-wide">Hidden</Badge>
+                  <Badge
+                    variant="destructive"
+                    className="ml-2 text-[10px] uppercase tracking-wide"
+                  >
+                    Hidden
+                  </Badge>
                 ) : null}
               </div>
             </div>
@@ -94,15 +132,20 @@ const ThreadListClient = ({
                 />
               </div>
             ) : (
-              <p className="mt-3 text-xs text-muted-foreground">Read-only preview. Sign in to react and comment.</p>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Preview only. Sign in to react, comment, or start your own
+                Chika.
+              </p>
             )}
           </Card>
         ))
       )}
       {session.status !== "signed_in" && threadList.length > 0 ? (
         <div className="mt-4 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center">
-          <p className="text-sm font-medium">Showing up to 10 public threads.</p>
-          <p className="mt-1 text-xs text-muted-foreground">Sign in to see more and participate.</p>
+          <p className="text-sm font-medium">Showing a public preview.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Sign in to react, comment, or start a Chika of your own.
+          </p>
         </div>
       ) : null}
     </>

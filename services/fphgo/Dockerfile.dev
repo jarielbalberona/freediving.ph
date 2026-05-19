@@ -1,9 +1,9 @@
-# Choose whatever you want, version >= 1.16
 FROM golang:1.26-alpine
 
 WORKDIR /app
 
-RUN go install github.com/air-verse/air@latest
+RUN apk add --no-cache make git && \
+    go install github.com/air-verse/air@latest
 
 COPY . .
 

@@ -19,32 +19,34 @@ export function DesktopCreateFab() {
   const session = useSession();
   const { user } = useUser();
   const username = session.me?.username ?? user?.username ?? null;
-  const profileCreateHref = username ? getProfileCreateRoute(username) : "/sign-in";
+  const profileCreateHref = username
+    ? getProfileCreateRoute(username)
+    : "/sign-in";
 
   return (
     <div className="fixed bottom-6 right-6 z-40 hidden md:block">
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={(
+          render={
             <Button
               type="button"
               size="lg"
               className="h-12 rounded-full px-4 shadow-lg"
-              aria-label="Open create options"
+              aria-label="Open sharing options"
             />
-          )}
+          }
         >
           <ImagePlus className="size-5" aria-hidden />
-          <span>Create</span>
+          <span>Post</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top" className="w-56">
           <DropdownMenuItem onClick={() => router.push("/chika/create")}>
             <MessageSquarePlus className="size-4" aria-hidden />
-            Create Community Post
+            Post in Chika
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push(profileCreateHref)}>
             <UserRoundPen className="size-4" aria-hidden />
-            Create Profile Post
+            Share photos
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

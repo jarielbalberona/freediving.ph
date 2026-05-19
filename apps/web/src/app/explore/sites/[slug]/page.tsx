@@ -4,16 +4,37 @@ import { notFound } from "next/navigation";
 import { UsernameLink } from "@/components/common/UsernameLink";
 import { TrustCard } from "@/components/trust-card";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   getExploreSiteBuddyPreviewServer,
   getExploreSiteBySlugServer,
 } from "@/features/diveSpots/api/explore-v1.server";
-import { getMockDiveSpotBySlug } from "@/features/explore/mock-data";
 import BackToExploreButton from "./back-to-explore-button";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+};
+
+const titleCase = (value: string) =>
+  value
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+
+const verificationLabel = (value: string) => {
+  switch (value) {
+    case "verified":
+      return "Verified";
+    case "moderator":
+      return "Checked by team";
+    case "instructor":
+      return "Instructor noted";
+    case "community":
+    default:
+      return "Community shared";
+  }
 };
 
 export async function generateMetadata({
@@ -31,13 +52,6 @@ export async function generateMetadata({
       },
     };
   } catch {
-    const mockSpot = getMockDiveSpotBySlug(slug);
-    if (mockSpot) {
-      return {
-        title: `${mockSpot.name} | Explore Dive Sites`,
-        description: `${mockSpot.area}. Mock explore preview while backend detail is unavailable.`,
-      };
-    }
     return {
       title: "Dive site not found",
     };
@@ -57,20 +71,22 @@ export default async function ExploreSharePage({ params }: PageProps) {
         <div className="mx-auto max-w-3xl space-y-6">
           <div className="space-y-3">
             <BackToExploreButton />
-            <p className="text-sm uppercase tracking-[0.2em] text-emerald-700">
+            <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
               Freediving Philippines
             </p>
-            <h1 className="font-serif text-4xl text-emerald-950">
+            <h1 className="font-serif text-4xl text-foreground">
               {data.site.name}
             </h1>
-            <p className="text-zinc-600">{data.site.area}</p>
+            <p className="text-muted-foreground">{data.site.area}</p>
           </div>
 
-          <Card className="border-border/80 bg-card/90">
+          <Card>
             <CardHeader className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                <Badge>{data.site.difficulty}</Badge>
-                <Badge variant="outline">{data.site.verificationStatus}</Badge>
+                <Badge>{titleCase(data.site.difficulty)}</Badge>
+                <Badge variant="outline">
+                  {verificationLabel(data.site.verificationStatus)}
+                </Badge>
                 {data.site.depthMinM || data.site.depthMaxM ? (
                   <Badge variant="outline">
                     {data.site.depthMinM ?? "?"}m - {data.site.depthMaxM ?? "?"}
@@ -79,19 +95,19 @@ export default async function ExploreSharePage({ params }: PageProps) {
                 ) : null}
               </div>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm text-zinc-700">
+            <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
                 {data.site.lastConditionSummary ||
                   data.site.typicalConditions ||
-                  "No public conditions summary yet."}
+                  "No recent condition reports yet."}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="font-medium text-emerald-950">Best season</p>
+                  <p className="font-medium text-foreground">Best season</p>
                   <p>{data.site.bestSeason || "Check local operator."}</p>
                 </div>
                 <div>
-                  <p className="font-medium text-emerald-950">Access</p>
+                  <p className="font-medium text-foreground">Access</p>
                   <p>{data.site.access || "Check local operator."}</p>
                 </div>
               </div>
@@ -99,84 +115,84 @@ export default async function ExploreSharePage({ params }: PageProps) {
           </Card>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-semibold text-emerald-950">
+            <h2 className="text-xl font-semibold text-foreground">
               Recent conditions
             </h2>
             <div className="space-y-3">
               {data.updates.map((update) => (
-                <div
-                  key={update.id}
-                  className="rounded-2xl border border-border bg-card/90 p-4 text-sm text-zinc-700"
-                >
-                  <div className="flex items-center justify-between gap-3 text-xs text-zinc-500">
-                    <UsernameLink
-                      username={update.authorDisplayName}
-                      className="text-zinc-500"
-                      fallback="Community report"
+                <Card key={update.id} size="sm">
+                  <CardContent className="space-y-3 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <UsernameLink
+                        username={update.authorDisplayName}
+                        className="text-muted-foreground"
+                        fallback="Community report"
+                      />
+                      <span>
+                        {new Date(update.occurredAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <p>{update.note}</p>
+                    <TrustCard
+                      emailVerified={update.authorTrust.emailVerified}
+                      phoneVerified={update.authorTrust.phoneVerified}
+                      certLevel={update.authorTrust.certLevel}
+                      buddyCount={update.authorTrust.buddyCount}
+                      reportCount={update.authorTrust.reportCount}
                     />
-                    <span>{new Date(update.occurredAt).toLocaleString()}</span>
-                  </div>
-                  <p className="mt-2">{update.note}</p>
-                  <TrustCard
-                    className="mt-3"
-                    emailVerified={update.authorTrust.emailVerified}
-                    phoneVerified={update.authorTrust.phoneVerified}
-                    certLevel={update.authorTrust.certLevel}
-                    buddyCount={update.authorTrust.buddyCount}
-                    reportCount={update.authorTrust.reportCount}
-                  />
-                </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </section>
 
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold text-emerald-950">
+              <h2 className="text-xl font-semibold text-foreground">
                 Find a buddy for this spot
               </h2>
               <Badge variant="outline">
-                {buddyPreview?.sourceBreakdown.siteLinkedCount ?? 0} site-linked
+                {buddyPreview?.sourceBreakdown.siteLinkedCount ?? 0} nearby
               </Badge>
             </div>
             <div className="space-y-3">
               {(buddyPreview?.items ?? []).length === 0 ? (
-                <div className="rounded-2xl border border-border bg-card/90 p-4 text-sm text-zinc-600">
-                  Buddy preview will show here once someone posts for this site
-                  or area.
-                </div>
+                <Card size="sm" className="border-dashed">
+                  <CardContent className="text-sm text-muted-foreground">
+                    Buddy preview will show here once someone posts for this
+                    site or area.
+                  </CardContent>
+                </Card>
               ) : (
                 buddyPreview?.items.map((intent) => (
-                  <div
-                    key={intent.id}
-                    className="rounded-2xl border border-border bg-card/90 p-4 text-sm text-zinc-700"
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      <Badge>{intent.intentType.replace("_", " ")}</Badge>
-                      <Badge variant="outline">
-                        {intent.timeWindow.replace("_", " ")}
-                      </Badge>
-                    </div>
-                    <p className="mt-3">
-                      {intent.notePreview ||
-                        "Create an account to view full buddy details and message."}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-500">
-                      {intent.diveSiteId === data.site.id ? (
-                        <span>Linked to this site</span>
-                      ) : (
-                        <span>Area fallback</span>
-                      )}
-                    </div>
-                    <TrustCard
-                      className="mt-3"
-                      emailVerified={intent.emailVerified}
-                      phoneVerified={intent.phoneVerified}
-                      certLevel={intent.certLevel}
-                      buddyCount={intent.buddyCount}
-                      reportCount={intent.reportCount}
-                    />
-                  </div>
+                  <Card key={intent.id} size="sm">
+                    <CardContent className="space-y-3 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge>{titleCase(intent.intentType)}</Badge>
+                        <Badge variant="outline">
+                          {titleCase(intent.timeWindow)}
+                        </Badge>
+                      </div>
+                      <p>
+                        {intent.notePreview ||
+                          "Create an account to view full buddy details and message."}
+                      </p>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {intent.diveSiteId === data.site.id ? (
+                          <span>Linked to this site</span>
+                        ) : (
+                          <span>Near this area</span>
+                        )}
+                      </div>
+                      <TrustCard
+                        emailVerified={intent.emailVerified}
+                        phoneVerified={intent.phoneVerified}
+                        certLevel={intent.certLevel}
+                        buddyCount={intent.buddyCount}
+                        reportCount={intent.reportCount}
+                      />
+                    </CardContent>
+                  </Card>
                 ))
               )}
             </div>
@@ -185,79 +201,6 @@ export default async function ExploreSharePage({ params }: PageProps) {
       </div>
     );
   } catch {
-    const mockSpot = getMockDiveSpotBySlug(slug);
-    if (mockSpot) {
-      return (
-        <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
-          <div className="mx-auto max-w-3xl space-y-6">
-            <div className="space-y-3">
-              <BackToExploreButton />
-              <p className="text-sm uppercase tracking-[0.2em] text-emerald-700">
-                Freediving Philippines
-              </p>
-              <h1 className="font-serif text-4xl text-emerald-950">
-                {mockSpot.name}
-              </h1>
-              <p className="text-zinc-600">{mockSpot.area}</p>
-            </div>
-
-            <Card className="border-border/80 bg-card/90">
-              <CardHeader className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {(mockSpot.tags ?? []).map((tag) => (
-                    <Badge key={tag}>{tag}</Badge>
-                  ))}
-                  {typeof mockSpot.rating === "number" ? (
-                    <Badge variant="outline">
-                      {mockSpot.rating.toFixed(1)} rating
-                    </Badge>
-                  ) : null}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm text-zinc-700">
-                <p>
-                  Mock explore detail page. The backend detail contract is not
-                  available for this spot yet, so this page falls back to the
-                  seeded map data instead of dumping you into a 404.
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="font-medium text-emerald-950">Area</p>
-                    <p>{mockSpot.area}</p>
-                  </div>
-                  <div>
-                    <p className="font-medium text-emerald-950">Reviews</p>
-                    <p>{mockSpot.reviewCount ?? 0}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-emerald-950">
-                Trust and community
-              </h2>
-              <Card className="border-border/80 bg-card/90">
-                <CardContent className="space-y-4 pt-6 text-sm text-zinc-700">
-                  <p>
-                    Save and share are available from Explore. Buddy previews
-                    and full condition history need the backend detail endpoint
-                    to be live.
-                  </p>
-                  <TrustCard
-                    emailVerified={true}
-                    phoneVerified={false}
-                    certLevel={undefined}
-                    buddyCount={0}
-                    reportCount={mockSpot.reviewCount ?? 0}
-                  />
-                </CardContent>
-              </Card>
-            </section>
-          </div>
-        </div>
-      );
-    }
     notFound();
   }
 }

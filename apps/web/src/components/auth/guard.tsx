@@ -34,7 +34,10 @@ const mapGlobalRoleToAppRole = (role: GlobalRole | undefined): AppRole => {
   return "MEMBER";
 };
 
-const Blocked = ({ title, description }: { title: string; description: string }) => (
+const Blocked = ({
+  title,
+  description,
+}: { title: string; description: string }) => (
   <div className="container mx-auto p-6">
     <Card>
       <CardContent>
@@ -52,7 +55,7 @@ export function AuthGuard({
   children,
   requiredRole = "MEMBER",
   title = "Account required",
-  description = "Create an account to access this page."
+  description = "Create an account to access this page.",
 }: GuardProps) {
   const router = useRouter();
   const { user, isLoaded } = useUser();
@@ -85,17 +88,17 @@ export function AuthGuard({
   }
 
   if (!session.me) {
-    return (
-      <Blocked
-        title={title}
-        description={description}
-      />
-    );
+    return <Blocked title={title} description={description} />;
   }
 
   const appRole = mapGlobalRoleToAppRole(session.me.globalRole);
   if (!hasRequiredRole(appRole, requiredRole)) {
-    return <Blocked title="Access denied" description="Your role does not allow access to this page." />;
+    return (
+      <Blocked
+        title="This area is not available"
+        description="Your account does not have access to this page."
+      />
+    );
   }
 
   return <>{children}</>;
@@ -104,8 +107,8 @@ export function AuthGuard({
 export function RequireRole({
   children,
   roles,
-  title = "Access denied",
-  description = "Your role does not allow access to this page."
+  title = "This area is not available",
+  description = "Your account does not have access to this page.",
 }: RoleGuardProps) {
   const session = useSession();
   const role = session.me?.globalRole;
@@ -124,8 +127,8 @@ export function RequireRole({
 export function RequirePermission({
   children,
   perm,
-  title = "Access denied",
-  description = "You do not have the required permission for this action."
+  title = "This action is not available",
+  description = "Your account does not have access to this action.",
 }: PermissionGuardProps) {
   const session = useSession();
 

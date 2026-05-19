@@ -10,7 +10,9 @@ export function RecordHighlightCard({
   return (
     <FeedCardShell item={item} actions={actions}>
       <p className="text-base font-semibold text-primary">Record highlight</p>
-      <p className="text-sm text-muted-foreground">Entity #{item.entityId}</p>
+      <p className="text-sm text-muted-foreground">
+        A community record worth checking out.
+      </p>
     </FeedCardShell>
   );
 }

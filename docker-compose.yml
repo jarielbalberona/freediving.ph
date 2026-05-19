@@ -1,16 +1,21 @@
 services:
   database:
     container_name: database
-    image: postgres:18-alpine
+    image: postgres:16-alpine
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fph
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fph"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   fphgo:
     container_name: fphgo
@@ -18,14 +23,34 @@ services:
       context: ./services/fphgo
       dockerfile: Dockerfile.dev
     depends_on:
-      - database
-    env_file:
-      - ./services/fphgo/.env
+      database:
+        condition: service_healthy
     environment:
+      APP_ENV: development
+      LOG_LEVEL: debug
+      PORT: 4000
       DB_DSN: postgres://postgres:postgres@database:5432/fph?sslmode=disable
+      CORS_ORIGINS: http://localhost:3000
+      DEV_AUTH: "true"
+      API_BASE_URL: http://localhost:4000
+      FPHGO_BASE_URL: http://localhost:4000
+      RATE_LIMIT_PER_MINUTE: 300
+      DB_MAX_CONNS: 20
+      DB_MIN_CONNS: 2
+      DB_CONN_MAX_LIFETIME: 30m
+      R2_REGION: auto
+      MEDIA_SIGNING_KEY_VERSION: 1
+      CHIKA_PSEUDONYM_SECRET: local-dev-chika-pseudonym-secret
     ports:
       - "4000:4000"
     volumes:
       - ./services/fphgo:/app
+    command: sh -lc "make migrate-up && air -c .air.toml"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:4000/healthz >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
 volumes:
   pgdata:

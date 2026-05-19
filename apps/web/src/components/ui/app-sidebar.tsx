@@ -5,10 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import {
-  getGroupedNavItems,
-  isActiveRoute,
-} from "@/config/nav";
+import { getGroupedNavItems, isActiveRoute } from "@/config/nav";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 
 import {
@@ -19,7 +16,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -52,7 +48,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <Image
           src="/images/fph-logo-white.png"
-          alt="Image"
+          alt="Freediving Philippines"
           className="object-cover rounded-md"
           width={60}
           height={60}
@@ -61,15 +57,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         {groupedFiltered.map(({ group, title, items }) => (
           <SidebarGroup key={group}>
-            {title && (
-              <SidebarGroupLabel>{title}</SidebarGroupLabel>
-            )}
+            {title && <SidebarGroupLabel>{title}</SidebarGroupLabel>}
             <SidebarMenu>
               {items.map((item) => {
-                const href = item.id === "profile" ? profileHref : item.href ?? "#";
+                const href =
+                  item.id === "profile" ? profileHref : (item.href ?? "#");
                 const active =
-                  item.kind === "link" &&
-                  isActiveRoute(pathname ?? "", href);
+                  item.kind === "link" && isActiveRoute(pathname ?? "", href);
                 if (item.items?.length) {
                   return (
                     <SidebarMenuItem key={item.id}>
@@ -95,7 +89,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                               <SidebarMenuSubButton
                                 isActive={subActive}
                                 render={
-                                  <Link href={sub.href ?? "#"}>{sub.title}</Link>
+                                  <Link href={sub.href ?? "#"}>
+                                    {sub.title}
+                                  </Link>
                                 }
                               />
                             </SidebarMenuSubItem>
@@ -118,13 +114,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         {item.icon != null && <item.icon />}
                         <span className="text-sm">{item.title}</span>
                       </SidebarMenuButton>
-                                          {item.comingSoon && (
-                      <SidebarMenuBadge className="bg-muted text-muted-foreground font-normal px-2">
-                        Coming soon
-                      </SidebarMenuBadge>
-                    )}
                     </Link>
-
                   </SidebarMenuItem>
                 );
               })}

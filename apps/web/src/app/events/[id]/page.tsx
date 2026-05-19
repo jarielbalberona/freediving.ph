@@ -55,6 +55,15 @@ export default function EventDetailPage() {
     return (
       <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-6">
+          <Card className="border-border/70 bg-muted/30">
+            <CardContent className="p-5">
+              <p className="font-medium text-foreground">Opening event</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                We are getting the schedule, location, and attendance details
+                ready.
+              </p>
+            </CardContent>
+          </Card>
           <Skeleton className="h-10 w-40" />
           <Skeleton className="h-72 w-full rounded-[2rem]" />
           <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
@@ -78,7 +87,10 @@ export default function EventDetailPage() {
           </Link>
           <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="p-6 text-sm text-destructive">
-              {getApiErrorMessage(eventQuery.error, "Failed to load event details")}
+              {getApiErrorMessage(
+                eventQuery.error,
+                "This event is taking longer than expected to open. Try again in a moment.",
+              )}
             </CardContent>
           </Card>
         </div>
@@ -142,12 +154,11 @@ export default function EventDetailPage() {
             <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className="rounded-full bg-primary text-primary-foreground">
-                  {titleCase(event.status)}
+                  {titleCase(event.type || "training")}
                 </Badge>
                 <Badge variant="outline">
                   {titleCase(event.visibility.replace("_", " "))}
                 </Badge>
-                <Badge variant="outline">{event.type || "training"}</Badge>
                 <Badge variant="outline">{titleCase(event.difficulty)}</Badge>
               </div>
               <div className="space-y-3">
@@ -156,7 +167,7 @@ export default function EventDetailPage() {
                 </h1>
                 <p className="max-w-3xl text-base text-muted-foreground">
                   {event.description?.trim() ||
-                    "No description. That is weak. People should know what they are joining before they commit."}
+                    "Details have not been added yet. Ask the organizer before joining."}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -191,11 +202,12 @@ export default function EventDetailPage() {
 
             <Card className="border-border/70 bg-[linear-gradient(180deg,_hsl(var(--primary)/0.14)_0%,_hsl(var(--card))_100%)]">
               <CardHeader className="space-y-3">
-                <CardTitle className="text-xl text-foreground">Attendance</CardTitle>
+                <CardTitle className="text-xl text-foreground">
+                  Attendance
+                </CardTitle>
                 <CardDescription className="text-sm text-foreground/75">
-                  Join and leave actions follow backend rules. Organizer
-                  memberships cannot leave directly, and restricted visibility
-                  is still restricted.
+                  Check whether this event is open to you, then join when you
+                  are ready to coordinate with the organizer.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -205,7 +217,9 @@ export default function EventDetailPage() {
                 {actionState.kind === "join" ? (
                   <Button
                     className="w-full"
-                    disabled={joinMutation.isPending || event.status !== "published"}
+                    disabled={
+                      joinMutation.isPending || event.status !== "published"
+                    }
                     onClick={handleJoin}
                   >
                     Join event
@@ -230,9 +244,9 @@ export default function EventDetailPage() {
                   <div className="flex items-start gap-2">
                     <ShieldCheck className="mt-0.5 h-4 w-4 text-muted-foreground" />
                     <p>
-                      Public events can be discovered by guests. Group-member
-                      and invite-only events depend on actual access, not
-                      frontend optimism.
+                      Public events are visible to guests. Private or
+                      invite-only events may require group access or an
+                      organizer invite.
                     </p>
                   </div>
                 </div>
@@ -246,22 +260,15 @@ export default function EventDetailPage() {
             <CardHeader>
               <CardTitle>What to expect</CardTitle>
               <CardDescription>
-                The detail page should answer practical questions first: what it
-                is, when it starts, where it happens, and whether you can
-                actually attend.
+                Quick details to help you decide whether this session fits your
+                level, schedule, and location.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <p>
-                Status:{" "}
+                Access:{" "}
                 <span className="font-medium text-foreground">
-                  {titleCase(event.status)}
-                </span>
-              </p>
-              <p>
-                Visibility:{" "}
-                <span className="font-medium text-foreground">
-                  {titleCase(event.visibility.replace("_", " "))}
+                  {visibilityDetail(event.visibility)}
                 </span>
               </p>
               <p>
@@ -295,11 +302,14 @@ export default function EventDetailPage() {
                 </div>
               ) : attendeesQuery.error ? (
                 <p className="text-sm text-destructive">
-                  {getApiErrorMessage(attendeesQuery.error, "Failed to load attendees")}
+                  {getApiErrorMessage(
+                    attendeesQuery.error,
+                    "Attendees are taking longer than expected to appear.",
+                  )}
                 </p>
               ) : attendees.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No active attendees yet.
+                  Attendees will appear here as divers join.
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -329,7 +339,9 @@ export default function EventDetailPage() {
                           </p>
                         </div>
                       </div>
-                      <Badge variant="outline">{titleCase(attendee.role)}</Badge>
+                      <Badge variant="outline">
+                        {titleCase(attendee.role)}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -375,7 +387,8 @@ function getEventActionState(
   }
   return {
     kind: "join" as const,
-    description: "This event is public and published. If it looks legitimate, join it.",
+    description:
+      "This event is public and published. If it looks legitimate, join it.",
   };
 }
 
@@ -402,7 +415,8 @@ function DetailFact({
 function formatEventDate(start?: string, end?: string) {
   const startDate = start ? new Date(start) : null;
   const endDate = end ? new Date(end) : null;
-  if (!startDate || Number.isNaN(startDate.getTime())) return "Schedule not set";
+  if (!startDate || Number.isNaN(startDate.getTime()))
+    return "Schedule not set";
   if (!endDate || Number.isNaN(endDate.getTime())) {
     return startDate.toLocaleString();
   }
