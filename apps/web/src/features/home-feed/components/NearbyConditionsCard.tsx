@@ -123,15 +123,15 @@ export function NearbyConditionsCard() {
     : "Availability varies by area";
 
   return (
-    <Card className="space-y-3 p-3 sm:p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
+    <Card className="space-y-3 p-3 sm:p-4 gap-1!">
+      <div className="flex flex-wrap items-start justify-between gap-1!">
+        <div className="min-w-0 space-y-1 w-full">
           <div className="flex justify-between">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <p className="text-sm font-semibold sm:text-base">
                 Nearby conditions
               </p>
-              <Badge variant="outline" className="h-6 px-2 text-[11px]">
+              <Badge variant="outline" className="px-2 text-[11px]">
                 {sourceLabel[conditions.source]}
               </Badge>
             </div>
