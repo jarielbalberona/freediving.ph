@@ -171,7 +171,7 @@ export function ExploreResultsPanel({
         ) : null}
         {showSearchControls ? (
           <div>
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(10rem,auto)] items-center gap-2">
               <Input
                 ref={searchInputRef}
                 value={q}
@@ -188,7 +188,7 @@ export function ExploreResultsPanel({
                       variant="outline"
                       size={compactControls ? "icon" : "default"}
                       className={cn(
-                        "h-11 rounded-full",
+                        "h-11 w-full rounded-full",
                         compactControls && "size-11",
                       )}
                       aria-label="Sort results"
@@ -209,7 +209,7 @@ export function ExploreResultsPanel({
               </DropdownMenu>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-3 grid grid-cols-3 items-center gap-2">
               <Select
                 value={difficulty}
                 onValueChange={(value) => {
@@ -220,7 +220,7 @@ export function ExploreResultsPanel({
               >
                 <SelectTrigger
                   aria-label="Filter by difficulty"
-                  className="h-9 rounded-full"
+                  className="h-9 w-full rounded-full"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -245,7 +245,7 @@ export function ExploreResultsPanel({
               >
                 <SelectTrigger
                   aria-label="Filter by area"
-                  className="h-9 max-w-[210px] rounded-full"
+                  className="h-9 w-full rounded-full"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -263,27 +263,12 @@ export function ExploreResultsPanel({
                 type="button"
                 variant={verifiedOnly ? "default" : "outline"}
                 size="sm"
-                className="rounded-full"
+                className="w-full rounded-full"
                 aria-pressed={verifiedOnly}
                 onClick={() => onVerifiedOnlyChange(!verifiedOnly)}
               >
                 <ShieldCheck className="size-4" />
                 Verified only
-              </Button>
-              <Button
-                type="button"
-                variant={savedOnly ? "default" : "outline"}
-                size="sm"
-                className="rounded-full"
-                aria-pressed={savedOnly}
-                disabled={!canUseSavedFilter && !savedOnly}
-                onClick={() => {
-                  if (!canUseSavedFilter && !savedOnly) return;
-                  onSavedOnlyChange(!savedOnly);
-                }}
-              >
-                <Heart className={cn("size-4", savedOnly && "fill-current")} />
-                Saved
               </Button>
               {filtersControl}
             </div>
@@ -292,43 +277,61 @@ export function ExploreResultsPanel({
 
         <div
           className={cn(
-            "mt-4",
-            !showSearchControls &&
-            "mt-0 flex items-center justify-between gap-3",
+            "mt-4 flex items-start justify-between gap-3",
+            !showSearchControls && "mt-0",
           )}
         >
-          <p className="text-sm font-semibold text-foreground">{resultLabel}</p>
-          <p className="text-muted-foreground text-xs">
-            {fetching && !loading
-              ? "Refreshing results for this search."
-              : hasAppliedBounds
-                ? "Results match the last searched map area."
-                : "Search or move the map to find dive spots."}
-          </p>
-          {!showSearchControls ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-10 rounded-full"
-                    aria-label="Sort results"
-                  />
-                }
-              >
-                <ArrowUpWideNarrow className="size-4.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem onClick={() => onSortChange("default")}>
-                  Default order
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange("recent")}>
-                  Recent updates
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">{resultLabel}</p>
+            <p className="text-muted-foreground text-xs">
+              {fetching && !loading
+                ? "Refreshing results for this search."
+                : hasAppliedBounds
+                  ? "Results match the last searched map area."
+                  : "Search or move the map to find dive spots."}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant={savedOnly ? "default" : "outline"}
+              size="sm"
+              className="rounded-full"
+              aria-pressed={savedOnly}
+              disabled={!canUseSavedFilter && !savedOnly}
+              onClick={() => {
+                if (!canUseSavedFilter && !savedOnly) return;
+                onSavedOnlyChange(!savedOnly);
+              }}
+            >
+              <Heart className={cn("size-4", savedOnly && "fill-current")} />
+              Saved
+            </Button>
+            {!showSearchControls ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-10 rounded-full"
+                      aria-label="Sort results"
+                    />
+                  }
+                >
+                  <ArrowUpWideNarrow className="size-4.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => onSortChange("default")}>
+                    Default order
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onSortChange("recent")}>
+                    Recent updates
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
         </div>
       </div>
 

@@ -12,8 +12,6 @@ Replace native form elements (`<input>`, `<select>`, `<textarea>`, `<button>`, `
 | `src/features/chika/components/CreateThreadModal.tsx` | CreateThreadModal | input, select, textarea, form | `features/chika/schemas/createThread.schema.ts` | RHF + Zod; categoryId default from first category |
 | `src/app/chika/create/page.tsx` | CreateThreadPage | input, select, textarea, form | `features/chika/schemas/createThread.schema.ts` | RHF + Zod; content required |
 | `src/app/chika/[id]/page.tsx` | CommentForm | textarea, form | `features/chika/schemas/comment.schema.ts` | RHF + Zod; single-field form |
-| `src/app/explore/dive-spot-detail-sheet.tsx` | DiveSpotReviewForm | input, textarea, form | `features/diveSpots/schemas/review.schema.ts` | RHF + Zod; rating 1-5; optional comment |
-| `src/app/explore/filters.tsx` | ExploreFilters | select | Input already shadcn | Replaced native select with shadcn Select |
 | `src/app/services/page.tsx` | ServicesSearch | input | N/A | Replaced native input with shadcn Input |
 | `src/app/events/page.tsx` | EventsSearch | input | N/A | Replaced native input with shadcn Input |
 | `src/app/groups/page.tsx` | GroupsSearch | input | N/A | Replaced native input with shadcn Input |
@@ -29,7 +27,6 @@ Replace native form elements (`<input>`, `<select>`, `<textarea>`, `<button>`, `
 
 | File | Element | Purpose |
 |------|---------|---------|
-| `src/app/explore/explore-view.tsx` | button | Map spot card - replaced with Button |
 | `src/app/messages/page.tsx` | button | Conversation list item - replaced with Button |
 | `src/components/nav/bottom-nav.tsx` | button | Nav actions - replaced with Button |
 | `src/components/nav/create-drawer.tsx` | button | Create options - replaced with Button |

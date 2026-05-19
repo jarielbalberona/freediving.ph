@@ -126,13 +126,30 @@ export function NearbyConditionsCard() {
     <Card className="space-y-3 p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="text-sm font-semibold sm:text-base">
-              Nearby conditions
-            </p>
-            <Badge variant="outline" className="h-6 px-2 text-[11px]">
-              {sourceLabel[conditions.source]}
-            </Badge>
+          <div className="flex justify-between">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="text-sm font-semibold sm:text-base">
+                Nearby conditions
+              </p>
+              <Badge variant="outline" className="h-6 px-2 text-[11px]">
+                {sourceLabel[conditions.source]}
+              </Badge>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 gap-1.5 px-2.5"
+              onClick={requestLocalConditions}
+              disabled={geoState === "locating"}
+            >
+              {geoState === "locating" ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <LocateFixed className="h-3.5 w-3.5" />
+              )}
+              <span>{geoState === "locating" ? "Checking" : "Check locally"}</span>
+            </Button>
           </div>
           <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground sm:text-sm">
             <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -145,22 +162,6 @@ export function NearbyConditionsCard() {
             otherwise unknown.
           </p>
         </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8 shrink-0 gap-1.5 px-2.5"
-          onClick={requestLocalConditions}
-          disabled={geoState === "locating"}
-        >
-          {geoState === "locating" ? (
-            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <LocateFixed className="h-3.5 w-3.5" />
-          )}
-          <span>{geoState === "locating" ? "Checking" : "Check locally"}</span>
-        </Button>
       </div>
 
       {query.error || geoMessage ? (

@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ExploreSiteDetailResponse } from "@freediving.ph/types";
 
 import { UsernameLink } from "@/components/common/UsernameLink";
 import { TrustCard } from "@/components/trust-card";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   getExploreSiteBySlugServer,
@@ -20,6 +18,7 @@ import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeBu
 import { FphgoFetchError } from "@/lib/api/fphgo-fetch-client";
 import BackToExploreButton from "./back-to-explore-button";
 import { DiveSiteRelatedTabs } from "./dive-site-related-tabs";
+import { SuggestEditLink } from "./suggest-edit-link";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -121,12 +120,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
               likeCount={data.site.likeCount}
               viewerHasLiked={data.site.viewerHasLiked}
             />
-            <Link
-              href={`/explore/sites/${data.site.slug}/suggest-edit`}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              Suggest edit
-            </Link>
+            <SuggestEditLink slug={data.site.slug} />
           </div>
         </div>
 

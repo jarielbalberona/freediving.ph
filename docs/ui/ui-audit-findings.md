@@ -104,12 +104,6 @@ Concrete fix:
 Severity: **High**
 
 Evidence:
-- `apps/web/src/app/explore/explore-view.tsx:58`
-
-```tsx
-<div className="h-full w-full bg-[#e5e3df]">
-```
-
 - `apps/web/src/app/auth/form.tsx:187`, `:200`, `:204`, `:208`, `:212`
 
 ```tsx
