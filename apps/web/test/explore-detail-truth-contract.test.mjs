@@ -15,6 +15,10 @@ const exploreServerApiPath = path.join(
   srcRoot,
   "features/diveSpots/api/explore-v1.server.ts",
 );
+const exploreClientApiPath = path.join(
+  srcRoot,
+  "features/diveSpots/api/explore-v1.ts",
+);
 const routesPath = path.join(srcRoot, "lib/api/fphgo-routes.ts");
 
 async function readSourceFiles(directory) {
@@ -43,25 +47,36 @@ test("explore site detail renders real backend data or 404s honestly", async () 
 });
 
 test("explore site detail renders related tabs without duplicating old buddy section", async () => {
-  const [sharePage, relatedTabs, routes, api] = await Promise.all([
+  const [sharePage, relatedTabs, routes, serverApi, clientApi] = await Promise.all([
     readFile(sharePagePath, "utf8"),
     readFile(relatedTabsPath, "utf8"),
     readFile(routesPath, "utf8"),
     readFile(exploreServerApiPath, "utf8"),
+    readFile(exploreClientApiPath, "utf8"),
   ]);
 
   assert.match(sharePage, /<DiveSiteRelatedTabs/);
   assert.doesNotMatch(sharePage, /Find a buddy for this spot/);
+  assert.match(sharePage, /getExploreSiteCommunityPostsServer\(slug, undefined, 6\)/);
+  assert.match(sharePage, /communityNextCursor=\{communityPostsPage\?\.nextCursor\}/);
   assert.match(relatedTabs, /Buddies \(\{buddyCount\}\)/);
   assert.match(relatedTabs, /Community posts \(\{counts\.communityPosts\}\)/);
   assert.match(relatedTabs, /No buddy posts for this spot yet\./);
   assert.match(relatedTabs, /No community posts tagged to this spot yet\./);
-  assert.match(relatedTabs, /activityToHomeFeedItems\(communityPosts\)/);
+  assert.match(relatedTabs, /activityToHomeFeedItems\(communityFeed\)/);
   assert.match(relatedTabs, /<FeedItemRenderer/);
+  assert.match(relatedTabs, /exploreApi\.getSiteCommunityPosts\(slug, nextCursor\)/);
+  assert.match(relatedTabs, /setCommunityFeed/);
+  assert.match(relatedTabs, /existing\.has\(item\.id\)/);
+  assert.match(relatedTabs, /setNextCursor\(page\.nextCursor\)/);
+  assert.match(relatedTabs, /"Load more"/);
   assert.match(routes, /siteRelated/);
   assert.match(routes, /siteCommunityPosts/);
-  assert.match(api, /getExploreSiteRelatedServer/);
-  assert.match(api, /getExploreSiteCommunityPostsServer/);
+  assert.match(serverApi, /getExploreSiteRelatedServer/);
+  assert.match(serverApi, /getExploreSiteCommunityPostsServer/);
+  assert.match(clientApi, /getSiteCommunityPosts/);
+  assert.doesNotMatch(relatedTabs, /location/i);
+  assert.doesNotMatch(relatedTabs, /area.*community/i);
 });
 
 test("launch source does not import seeded Explore mock data", async () => {

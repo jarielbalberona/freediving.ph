@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	explorerepo "fphgo/internal/features/explore/repo"
+	feedservice "fphgo/internal/features/feed/service"
 	apperrors "fphgo/internal/shared/errors"
 )
 
@@ -25,6 +26,7 @@ type repoStub struct {
 	likedSiteID   string
 	unlikedSiteID string
 	likeUserID    string
+	siteDetail    explorerepo.SiteDetail
 }
 
 func (r *repoStub) ListSites(_ context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error) {
@@ -33,7 +35,7 @@ func (r *repoStub) ListSites(_ context.Context, input explorerepo.ListSitesInput
 }
 
 func (r *repoStub) GetSiteBySlug(context.Context, string, string) (explorerepo.SiteDetail, error) {
-	return explorerepo.SiteDetail{}, nil
+	return r.siteDetail, nil
 }
 
 func (r *repoStub) FindApprovedSiteDuplicate(context.Context, string, string) (string, error) {
@@ -271,6 +273,70 @@ func TestUnlikeDiveSiteUpdatesState(t *testing.T) {
 	}
 	if result.TargetID != "550e8400-e29b-41d4-a716-446655440101" || result.LikeCount != 0 || result.ViewerHasLiked {
 		t.Fatalf("unexpected unlike result: %+v", result)
+	}
+}
+
+type activityFeedStub struct {
+	inputs []feedservice.ActivityInput
+	result feedservice.ActivityResult
+	count  int64
+}
+
+func (f *activityFeedStub) Activity(_ context.Context, input feedservice.ActivityInput) (feedservice.ActivityResult, error) {
+	f.inputs = append(f.inputs, input)
+	return f.result, nil
+}
+
+func (f *activityFeedStub) CountActivity(_ context.Context, input feedservice.ActivityInput) (int64, error) {
+	f.inputs = append(f.inputs, input)
+	return f.count, nil
+}
+
+func TestListCommunityPostsBySlugUsesExplicitDiveSiteAndMediaType(t *testing.T) {
+	siteID := "550e8400-e29b-41d4-a716-446655440101"
+	feed := &activityFeedStub{result: feedservice.ActivityResult{
+		Items: []feedservice.ActivityItem{{
+			ID:         "activity-1",
+			Type:       feedservice.ActivityMediaPostCreated,
+			DiveSiteID: siteID,
+		}},
+		NextCursor: "next-page",
+	}}
+	svc := New(&repoStub{siteDetail: explorerepo.SiteDetail{
+		ID:   siteID,
+		Slug: "napaling-reef-panglao",
+		Name: "Napaling Reef",
+		Area: "Panglao, Bohol",
+	}}, WithActivityFeed(feed))
+
+	result, err := svc.ListCommunityPostsBySlug(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"napaling-reef-panglao",
+		"cursor-1",
+		6,
+	)
+	if err != nil {
+		t.Fatalf("list community posts: %v", err)
+	}
+	if len(result.Items) != 1 || result.NextCursor != "next-page" {
+		t.Fatalf("unexpected community result: %+v", result)
+	}
+	if len(feed.inputs) != 1 {
+		t.Fatalf("expected one activity call, got %d", len(feed.inputs))
+	}
+	input := feed.inputs[0]
+	if input.DiveSiteID != siteID {
+		t.Fatalf("expected exact dive site id filter, got %+v", input)
+	}
+	if input.Region != "" || input.Mode != feedservice.ModeLatest {
+		t.Fatalf("expected no free-text region matching and latest mode, got %+v", input)
+	}
+	if input.Cursor != "cursor-1" || input.Limit != 6 {
+		t.Fatalf("expected cursor pagination, got %+v", input)
+	}
+	if len(input.Types) != 1 || input.Types[0] != feedservice.ActivityMediaPostCreated {
+		t.Fatalf("expected media-post-only filter, got %+v", input.Types)
 	}
 }
 

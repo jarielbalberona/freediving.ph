@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import type {
   ActivityFeedItem,
   BuddyFinderPreviewIntent,
@@ -9,6 +11,7 @@ import type {
 
 import { TrustCard } from "@/components/trust-card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Tabs,
@@ -16,15 +19,18 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { activityToHomeFeedItems } from "@/features/home-feed/adapters/activity-to-home-feed";
 import { FeedItemRenderer } from "@/features/home-feed/components/FeedItemRenderer";
 
 type DiveSiteRelatedTabsProps = {
   siteId: string;
+  slug: string;
   counts: ExploreSiteRelatedCounts;
   buddySourceBreakdown: ExploreSiteBuddySourceBreakdown;
   buddyPreview: BuddyFinderPreviewIntent[];
   communityPosts: ActivityFeedItem[];
+  communityNextCursor?: string;
 };
 
 const titleCase = (value: string) =>
@@ -37,15 +43,40 @@ const titleCase = (value: string) =>
 
 export function DiveSiteRelatedTabs({
   siteId,
+  slug,
   counts,
   buddySourceBreakdown,
   buddyPreview,
   communityPosts,
+  communityNextCursor,
 }: DiveSiteRelatedTabsProps) {
-  const communityItems = activityToHomeFeedItems(communityPosts);
+  const [communityFeed, setCommunityFeed] = useState(communityPosts);
+  const [nextCursor, setNextCursor] = useState(communityNextCursor);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const communityItems = activityToHomeFeedItems(communityFeed);
   const buddyCount =
     counts.buddies ||
     buddySourceBreakdown.siteLinkedCount + buddySourceBreakdown.areaFallbackCount;
+
+  const loadMoreCommunityPosts = async () => {
+    if (!nextCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    setLoadError("");
+    try {
+      const page = await exploreApi.getSiteCommunityPosts(slug, nextCursor);
+      setCommunityFeed((current) => {
+        const existing = new Set(current.map((item) => item.id));
+        const nextItems = page.items.filter((item) => !existing.has(item.id));
+        return [...current, ...nextItems];
+      });
+      setNextCursor(page.nextCursor);
+    } catch {
+      setLoadError("Could not load more community posts.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   return (
     <Tabs defaultValue="buddies" className="space-y-4">
@@ -113,6 +144,22 @@ export function DiveSiteRelatedTabs({
             />
           ))
         )}
+        {loadError ? (
+          <p className="text-sm text-destructive">{loadError}</p>
+        ) : null}
+        {nextCursor ? (
+          <div className="flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={loadMoreCommunityPosts}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? "Loading..." : "Load more"}
+            </Button>
+          </div>
+        ) : null}
       </TabsContent>
     </Tabs>
   );

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   getExploreSiteBySlugServer,
+  getExploreSiteCommunityPostsServer,
   getExploreSiteRelatedServer,
 } from "@/features/diveSpots/api/explore-v1.server";
 import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeButton";
@@ -64,9 +65,10 @@ export default async function ExploreSharePage({ params }: PageProps) {
   const { slug } = await params;
 
   try {
-    const [data, related] = await Promise.all([
+    const [data, related, communityPostsPage] = await Promise.all([
       getExploreSiteBySlugServer(slug),
       getExploreSiteRelatedServer(slug).catch(() => null),
+      getExploreSiteCommunityPostsServer(slug, undefined, 6).catch(() => null),
     ]);
     return (
       <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
@@ -157,6 +159,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
 
           <DiveSiteRelatedTabs
             siteId={data.site.id}
+            slug={slug}
             counts={
               related?.counts ?? {
                 buddies: 0,
@@ -171,7 +174,10 @@ export default async function ExploreSharePage({ params }: PageProps) {
               }
             }
             buddyPreview={related?.previews.buddies ?? []}
-            communityPosts={related?.previews.communityPosts ?? []}
+            communityPosts={
+              communityPostsPage?.items ?? related?.previews.communityPosts ?? []
+            }
+            communityNextCursor={communityPostsPage?.nextCursor}
           />
         </div>
       </div>
