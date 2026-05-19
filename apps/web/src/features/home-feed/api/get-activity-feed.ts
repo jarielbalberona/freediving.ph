@@ -35,5 +35,5 @@ export const getActivityFeed = (params: {
       region: params.region,
       limit: params.limit,
     }),
-    { auth: "ready-only", cache: "no-store" },
+    { cache: "no-store" },
   );

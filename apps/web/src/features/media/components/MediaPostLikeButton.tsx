@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Heart } from "lucide-react";
+import { FishSymbol } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -156,7 +156,9 @@ export function MediaPostLikeButton({
         mutation.mutate();
       }}
     >
-      <Heart className={cn("size-3.5", viewerHasLiked && "fill-current")} />
+      <FishSymbol
+        className={cn("size-3.5", viewerHasLiked && "fill-current")}
+      />
       <span>{likeCount.toLocaleString()}</span>
     </Button>
   );
