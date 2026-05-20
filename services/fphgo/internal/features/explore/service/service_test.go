@@ -1001,6 +1001,32 @@ func TestCreateSiteSubmissionUsesMapResolvedAreaWhenGeocodeFails(t *testing.T) {
 	}
 }
 
+func TestCreateSiteSubmissionDoesNotChargeRateLimitWhenLocationValidationFails(t *testing.T) {
+	lat := 9.192036826009222
+	lng := 123.27219128608704
+	limiter := &recordingLimiter{}
+	svc := New(
+		&repoStub{},
+		WithLimiter(limiter),
+		WithReverseGeocoder(&geocoderStub{err: errors.New("coarse area not found")}),
+	)
+
+	_, err := svc.CreateSiteSubmission(context.Background(), CreateSiteSubmissionInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Name:        "The Dauin Grouper Cage",
+		Description: "The artificial reef in front of the El Dorado resort in Dauin, Negros Island.",
+		Lat:         &lat,
+		Lng:         &lng,
+		Difficulty:  "moderate",
+	})
+	if err == nil {
+		t.Fatal("expected location validation error")
+	}
+	if len(limiter.calls) != 0 {
+		t.Fatalf("location validation failure must not charge rate limit, got %+v", limiter.calls)
+	}
+}
+
 func TestCreateSiteSubmissionReturnsLocationValidationErrorWhenGeocodeFails(t *testing.T) {
 	lat := 13.7244
 	lng := 120.8820

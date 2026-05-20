@@ -334,7 +334,7 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
               text={comment.content}
               className="text-sm leading-relaxed"
             />
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <CommentActions comment={comment} threadId={id} />
               <Button
                 type="button"
@@ -399,7 +399,7 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
             ) : null}
 
             {children.length > 0 ? (
-              <div className="mt-3 border-l border-border/60 pl-3 sm:pl-4">
+              <div className="mt-4 border-l border-border/60 pl-3 sm:pl-4">
                 <div className="divide-y divide-border/50">
                   {children.map((child) => renderComment(child, depth + 1))}
                 </div>

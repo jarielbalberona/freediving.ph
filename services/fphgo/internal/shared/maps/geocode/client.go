@@ -90,7 +90,6 @@ func (c *Client) reverseGeocodeAreaOnce(ctx context.Context, lat, lng float64) (
 	query.Set("latlng", fmt.Sprintf("%.7f,%.7f", lat, lng))
 	query.Set("language", "en")
 	query.Set("region", "ph")
-	query.Set("result_type", "locality|administrative_area_level_2|administrative_area_level_1")
 	query.Set("key", c.apiKey)
 	endpoint.RawQuery = query.Encode()
 
