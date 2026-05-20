@@ -571,8 +571,12 @@ func (r *Repo) ListCommunityCandidates(ctx context.Context, input CandidateInput
 			c.slug,
 			c.name,
 			c.pseudonymous,
-			COALESCE((SELECT COUNT(*) FROM chika_posts p WHERE p.thread_id = t.id AND p.deleted_at IS NULL), 0)::bigint,
-			COALESCE((SELECT COUNT(*) FROM chika_thread_reactions r WHERE r.thread_id = t.id), 0)::bigint,
+			COALESCE((SELECT COUNT(*) FROM chika_comments c WHERE c.thread_id = t.id AND c.deleted_at IS NULL), 0)::bigint,
+			COALESCE((
+				SELECT SUM(CASE WHEN r.reaction_type = 'upvote' THEN 1 WHEN r.reaction_type = 'downvote' THEN -1 ELSE 0 END)::bigint
+				FROM chika_thread_reactions r
+				WHERE r.thread_id = t.id
+			), 0)::bigint,
 			t.created_at
 		FROM chika_threads t
 		JOIN users u ON u.id = t.created_by_user_id
@@ -1208,6 +1212,20 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 				ELSE ai.media
 			END AS media,
 			CASE
+				WHEN ai.type = 'chika_thread_created' THEN
+					COALESCE(ai.stats, '{}'::jsonb) ||
+					jsonb_build_object(
+						'replies',
+						COALESCE(live_chika_stats.reply_count, 0),
+						'replyCount',
+						COALESCE(live_chika_stats.reply_count, 0),
+						'reactions',
+						COALESCE(live_chika_stats.vote_score, 0),
+						'reactionCount',
+						COALESCE(live_chika_stats.vote_score, 0),
+						'voteCount',
+						COALESCE(live_chika_stats.vote_score, 0)
+					)
 				WHEN ai.type = 'media_post_created' THEN
 					COALESCE(ai.stats, '{}'::jsonb) ||
 					jsonb_build_object(
@@ -1260,6 +1278,20 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 			  AND mi.type = 'photo'
 			  AND mo.state = 'active'
 		) live_media ON ai.type = 'media_post_created'
+		LEFT JOIN LATERAL (
+			SELECT
+				COALESCE((
+					SELECT COUNT(*)::bigint
+					FROM chika_comments cc
+					WHERE cc.thread_id = ai.source_id
+					  AND cc.deleted_at IS NULL
+				), 0) AS reply_count,
+				COALESCE((
+					SELECT SUM(CASE WHEN ctr.reaction_type = 'upvote' THEN 1 WHEN ctr.reaction_type = 'downvote' THEN -1 ELSE 0 END)::bigint
+					FROM chika_thread_reactions ctr
+					WHERE ctr.thread_id = ai.source_id
+				), 0) AS vote_score
+		) live_chika_stats ON ai.type = 'chika_thread_created'
 		WHERE ai.state = 'active'
 		  AND (ai.actor_user_id IS NULL OR u.account_status = 'active')
 		  AND (
