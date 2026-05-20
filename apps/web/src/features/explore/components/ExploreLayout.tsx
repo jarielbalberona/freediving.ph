@@ -361,9 +361,9 @@ export function ExploreLayout() {
             />
           </MapProvider>
           {!savedOnlyRequiresSignIn &&
-          !savedOnlyWaitingForSession &&
-          !exploreQuery.isPending &&
-          sortedItems.length === 0 ? (
+            !savedOnlyWaitingForSession &&
+            !exploreQuery.isPending &&
+            sortedItems.length === 0 ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center px-6">
               <Card className="pointer-events-auto max-w-md border-border/80 bg-card/95 p-4 text-sm shadow-xl">
                 <p className="font-medium text-foreground">
@@ -447,7 +447,7 @@ export function ExploreLayout() {
             state.view === "list" && "hidden",
           )}
         >
-          <Card className="pointer-events-auto border-border/80 bg-transparent p-3 shadow-xl backdrop-blur">
+          <Card className="pointer-events-auto border-border/80 bg-transparent p-3 shadow-xl backdrop-blur gap-1!">
             <div className="flex items-center gap-2">
               <Input
                 ref={searchInputRef}
@@ -499,10 +499,10 @@ export function ExploreLayout() {
               />
             </MapProvider>
             {!exploreQuery.isPending &&
-            !savedOnlyRequiresSignIn &&
-            !savedOnlyWaitingForSession &&
-            sortedItems.length === 0 &&
-            !selectedSpot ? (
+              !savedOnlyRequiresSignIn &&
+              !savedOnlyWaitingForSession &&
+              sortedItems.length === 0 &&
+              !selectedSpot ? (
               <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">
                 <Card className="pointer-events-auto border-border/80 bg-card/95 p-4 text-sm shadow-xl">
                   <p className="font-medium text-foreground">
