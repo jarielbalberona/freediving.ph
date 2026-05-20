@@ -82,6 +82,7 @@ type CommunityCandidate struct {
 	AuthorPseudonym      string
 	Mode                 string
 	Title                string
+	Content              string
 	CategorySlug         string
 	CategoryName         string
 	CategoryPseudonymous bool
@@ -568,6 +569,7 @@ func (r *Repo) ListCommunityCandidates(ctx context.Context, input CandidateInput
 			COALESCE(ta.pseudonym, ''),
 			t.mode,
 			t.title,
+			COALESCE(fp.content, ''),
 			c.slug,
 			c.name,
 			c.pseudonymous,
@@ -582,6 +584,13 @@ func (r *Repo) ListCommunityCandidates(ctx context.Context, input CandidateInput
 		JOIN users u ON u.id = t.created_by_user_id
 		JOIN chika_categories c ON c.id = t.category_id
 		LEFT JOIN chika_thread_aliases ta ON ta.thread_id = t.id AND ta.user_id = t.created_by_user_id
+		LEFT JOIN LATERAL (
+			SELECT cp.content
+			FROM chika_posts cp
+			WHERE cp.thread_id = t.id AND cp.deleted_at IS NULL
+			ORDER BY cp.created_at ASC, cp.id ASC
+			LIMIT 1
+		) fp ON TRUE
 		WHERE t.deleted_at IS NULL
 		  AND t.hidden_at IS NULL
 		  AND u.account_status = 'active'
@@ -616,6 +625,7 @@ func (r *Repo) ListCommunityCandidates(ctx context.Context, input CandidateInput
 			&item.AuthorPseudonym,
 			&item.Mode,
 			&item.Title,
+			&item.Content,
 			&item.CategorySlug,
 			&item.CategoryName,
 			&item.CategoryPseudonymous,
@@ -1206,7 +1216,10 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 			COALESCE(ai.event_id::text, ''),
 			ai.occurred_at,
 			COALESCE(ai.title, ''),
-			COALESCE(ai.body, ''),
+			CASE
+				WHEN ai.type = 'chika_thread_created' THEN COALESCE(NULLIF(ai.body, ''), live_chika_content.content, '')
+				ELSE COALESCE(ai.body, '')
+			END AS body,
 			CASE
 				WHEN ai.type = 'media_post_created' THEN COALESCE(live_media.items_json, '[]'::jsonb)
 				ELSE ai.media
@@ -1254,6 +1267,13 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 		FROM activity_items ai
 		LEFT JOIN users u ON u.id = ai.actor_user_id
 		LEFT JOIN profiles p ON p.user_id = ai.actor_user_id
+		LEFT JOIN LATERAL (
+			SELECT COALESCE(cp.content, '') AS content
+			FROM chika_posts cp
+			WHERE cp.thread_id = ai.source_id AND cp.deleted_at IS NULL
+			ORDER BY cp.created_at ASC, cp.id ASC
+			LIMIT 1
+		) live_chika_content ON ai.type = 'chika_thread_created'
 		LEFT JOIN LATERAL (
 			SELECT
 				jsonb_agg(

@@ -17,24 +17,25 @@ type Repo struct {
 }
 
 type Thread struct {
-	ID              string
-	Title           string
-	Content         string
-	VoteCount       int64
-	CommentCount    int64
-	ViewerReaction  string
-	Mode            string
-	CategoryID      string
-	CategorySlug    string
-	CategoryName    string
-	Pseudonymous    bool
-	CreatedByUserID string
-	AuthorUsername  string
-	AuthorAvatarURL string
-	AuthorPseudonym string
-	HiddenAt        *time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                string
+	Title             string
+	Content           string
+	VoteCount         int64
+	CommentCount      int64
+	ViewerReaction    string
+	Mode              string
+	CategoryID        string
+	CategorySlug      string
+	CategoryName      string
+	Pseudonymous      bool
+	CreatedByUserID   string
+	AuthorDisplayName string
+	AuthorUsername    string
+	AuthorAvatarURL   string
+	AuthorPseudonym   string
+	HiddenAt          *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 type Post struct {
@@ -233,11 +234,12 @@ func (r *Repo) CreateThread(ctx context.Context, title, mode, categoryID, actorI
 		return thread, err
 	}
 	if err := r.pool.QueryRow(ctx, `
-		SELECT COALESCE(u.username, ''), COALESCE(p.avatar_url, '')
+		SELECT COALESCE(NULLIF(u.display_name, ''), u.username, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, '')
 		FROM users u
 		LEFT JOIN profiles p ON p.user_id = u.id
 		WHERE u.id = $1
-	`, thread.CreatedByUserID).Scan(&thread.AuthorUsername, &thread.AuthorAvatarURL); err != nil {
+	`, thread.CreatedByUserID).Scan(&thread.AuthorDisplayName, &thread.AuthorUsername, &thread.AuthorAvatarURL); err != nil {
+		thread.AuthorDisplayName = ""
 		thread.AuthorUsername = ""
 		thread.AuthorAvatarURL = ""
 	}
@@ -248,7 +250,7 @@ func (r *Repo) GetThread(ctx context.Context, threadID string) (Thread, error) {
 	var thread Thread
 	err := r.pool.QueryRow(ctx, `
 		SELECT t.id, t.title, COALESCE(fp.content, ''), COALESCE(rv.score, 0), COALESCE(cc.comment_count, 0), ''::text AS viewer_reaction, t.mode, t.category_id, c.slug, c.name, c.pseudonymous,
-		       COALESCE(t.created_by_user_id::text, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
+		       COALESCE(t.created_by_user_id::text, ''), COALESCE(NULLIF(u.display_name, ''), u.username, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
 		       t.hidden_at, t.created_at, t.updated_at
 		FROM chika_threads t
 		JOIN chika_categories c ON c.id = t.category_id
@@ -286,6 +288,7 @@ func (r *Repo) GetThread(ctx context.Context, threadID string) (Thread, error) {
 		&thread.CategoryName,
 		&thread.Pseudonymous,
 		&thread.CreatedByUserID,
+		&thread.AuthorDisplayName,
 		&thread.AuthorUsername,
 		&thread.AuthorAvatarURL,
 		&thread.AuthorPseudonym,
@@ -300,7 +303,7 @@ func (r *Repo) GetThreadForViewer(ctx context.Context, threadID, viewerID string
 	var thread Thread
 	err := r.pool.QueryRow(ctx, `
 		SELECT t.id, t.title, COALESCE(fp.content, ''), COALESCE(rv.score, 0), COALESCE(cc.comment_count, 0), COALESCE(vr.reaction_type, ''), t.mode, t.category_id, c.slug, c.name, c.pseudonymous,
-		       COALESCE(t.created_by_user_id::text, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
+		       COALESCE(t.created_by_user_id::text, ''), COALESCE(NULLIF(u.display_name, ''), u.username, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
 		       t.hidden_at, t.created_at, t.updated_at
 		FROM chika_threads t
 		JOIN chika_categories c ON c.id = t.category_id
@@ -339,6 +342,7 @@ func (r *Repo) GetThreadForViewer(ctx context.Context, threadID, viewerID string
 		&thread.CategoryName,
 		&thread.Pseudonymous,
 		&thread.CreatedByUserID,
+		&thread.AuthorDisplayName,
 		&thread.AuthorUsername,
 		&thread.AuthorAvatarURL,
 		&thread.AuthorPseudonym,
@@ -352,7 +356,7 @@ func (r *Repo) GetThreadForViewer(ctx context.Context, threadID, viewerID string
 func (r *Repo) ListThreads(ctx context.Context, viewerID string, includeHidden bool, cursorCreated time.Time, cursorThreadID string, limit int32) ([]Thread, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT t.id, t.title, COALESCE(fp.content, ''), COALESCE(rv.score, 0), COALESCE(cc.comment_count, 0), COALESCE(vr.reaction_type, ''), t.mode, t.category_id, c.slug, c.name, c.pseudonymous,
-		       COALESCE(t.created_by_user_id::text, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
+		       COALESCE(t.created_by_user_id::text, ''), COALESCE(NULLIF(u.display_name, ''), u.username, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
 		       t.hidden_at, t.created_at, t.updated_at
 		FROM chika_threads t
 		JOIN chika_categories c ON c.id = t.category_id
@@ -410,6 +414,7 @@ func (r *Repo) ListThreads(ctx context.Context, viewerID string, includeHidden b
 			&item.CategoryName,
 			&item.Pseudonymous,
 			&item.CreatedByUserID,
+			&item.AuthorDisplayName,
 			&item.AuthorUsername,
 			&item.AuthorAvatarURL,
 			&item.AuthorPseudonym,
@@ -427,7 +432,7 @@ func (r *Repo) ListThreads(ctx context.Context, viewerID string, includeHidden b
 func (r *Repo) ListThreadsByCategory(ctx context.Context, viewerID string, includeHidden bool, categorySlug string, cursorCreated time.Time, cursorThreadID string, limit int32) ([]Thread, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT t.id, t.title, COALESCE(fp.content, ''), COALESCE(rv.score, 0), COALESCE(cc.comment_count, 0), COALESCE(vr.reaction_type, ''), t.mode, t.category_id, c.slug, c.name, c.pseudonymous,
-		       COALESCE(t.created_by_user_id::text, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
+		       COALESCE(t.created_by_user_id::text, ''), COALESCE(NULLIF(u.display_name, ''), u.username, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
 		       t.hidden_at, t.created_at, t.updated_at
 		FROM chika_threads t
 		JOIN chika_categories c ON c.id = t.category_id
@@ -486,6 +491,7 @@ func (r *Repo) ListThreadsByCategory(ctx context.Context, viewerID string, inclu
 			&item.CategoryName,
 			&item.Pseudonymous,
 			&item.CreatedByUserID,
+			&item.AuthorDisplayName,
 			&item.AuthorUsername,
 			&item.AuthorAvatarURL,
 			&item.AuthorPseudonym,
@@ -528,7 +534,7 @@ func (r *Repo) UpdateThread(ctx context.Context, threadID, title string) (Thread
 		) cc ON TRUE
 		WHERE t.id = $1 AND t.deleted_at IS NULL AND c.id = t.category_id
 		RETURNING t.id, t.title, COALESCE(fp.content, ''), COALESCE(rv.score, 0), COALESCE(cc.comment_count, 0), ''::text AS viewer_reaction, t.mode, t.category_id, c.slug, c.name, c.pseudonymous,
-		          COALESCE(t.created_by_user_id::text, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
+		          COALESCE(t.created_by_user_id::text, ''), COALESCE(NULLIF(u.display_name, ''), u.username, ''), COALESCE(u.username, ''), COALESCE(p.avatar_url, ''), COALESCE(ta.pseudonym, ''),
 		          t.hidden_at, t.created_at, t.updated_at
 	`, threadID, title).Scan(
 		&thread.ID,
@@ -543,6 +549,7 @@ func (r *Repo) UpdateThread(ctx context.Context, threadID, title string) (Thread
 		&thread.CategoryName,
 		&thread.Pseudonymous,
 		&thread.CreatedByUserID,
+		&thread.AuthorDisplayName,
 		&thread.AuthorUsername,
 		&thread.AuthorAvatarURL,
 		&thread.AuthorPseudonym,

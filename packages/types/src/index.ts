@@ -89,6 +89,7 @@ export interface ChikaThreadResponse {
   categoryName: string;
   categoryPseudonymous: boolean;
   authorDisplayName: string;
+  authorUsername?: string;
   authorAvatarUrl?: string;
   realAuthorUserId?: string;
   isHidden: boolean;

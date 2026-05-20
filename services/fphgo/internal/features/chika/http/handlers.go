@@ -623,18 +623,23 @@ func threadResponse(input chikaservice.Thread, viewerID string, includeRealAutho
 	if input.HiddenAt != nil {
 		hiddenAt = input.HiddenAt.UTC().Format(time.RFC3339)
 	}
-	authorDisplay := input.AuthorUsername
+	authorDisplay := strings.TrimSpace(input.AuthorDisplayName)
+	if authorDisplay == "" {
+		authorDisplay = strings.TrimSpace(input.AuthorUsername)
+	}
 	if authorDisplay == "" {
 		authorDisplay = input.CreatedByUserID
 	}
+	authorUsername := strings.TrimSpace(input.AuthorUsername)
 	realAuthorID := ""
 	if input.Mode == "pseudonymous" || input.Mode == "locked_pseudonymous" {
+		authorUsername = ""
 		if viewerID == input.CreatedByUserID {
 			authorDisplay = "You"
 		} else {
 			authorDisplay = input.AuthorPseudonym
 			if strings.TrimSpace(authorDisplay) == "" {
-				authorDisplay = "anon-UNKNOWN"
+				authorDisplay = "Pseudonymous"
 			}
 		}
 	}
@@ -658,6 +663,7 @@ func threadResponse(input chikaservice.Thread, viewerID string, includeRealAutho
 		CategoryName:     input.CategoryName,
 		CategoryPseudo:   input.Pseudonymous,
 		AuthorDisplay:    authorDisplay,
+		AuthorUsername:   authorUsername,
 		AuthorAvatarURL:  authorAvatarURL,
 		RealAuthorUserID: realAuthorID,
 		IsHidden:         input.HiddenAt != nil,

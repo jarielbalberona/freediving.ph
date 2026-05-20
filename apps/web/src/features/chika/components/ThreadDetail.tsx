@@ -17,7 +17,7 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
       <div className="mb-2 flex items-center justify-between gap-3">
         <UserIdentityHeader
           displayName={thread.authorDisplayName}
-          username={thread.authorDisplayName}
+          username={thread.authorUsername}
           avatarUrl={thread.authorAvatarUrl}
           showProfileImage={!thread.categoryPseudonymous}
           usernameDisabled={thread.categoryPseudonymous}

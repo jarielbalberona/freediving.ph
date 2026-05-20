@@ -339,7 +339,7 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 			} else {
 				authorName = strings.TrimSpace(row.AuthorPseudonym)
 				if authorName == "" {
-					authorName = "anon-UNKNOWN"
+					authorName = "Pseudonymous"
 				}
 			}
 		}
@@ -364,6 +364,8 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 					"authorUsername":       authorUsername,
 					"authorPseudonymous":   isPseudonymousChika(row.Mode),
 					"title":                row.Title,
+					"body":                 row.Content,
+					"excerpt":              row.Content,
 					"categorySlug":         row.CategorySlug,
 					"categoryName":         row.CategoryName,
 					"categoryPseudonymous": row.CategoryPseudonymous,

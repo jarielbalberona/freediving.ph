@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
@@ -7,6 +8,15 @@ const appRoot = path.resolve(globalThis.process.cwd());
 
 const readSource = (relativePath) =>
   readFile(path.join(appRoot, relativePath), "utf8");
+
+const runTsxFixture = (code) => {
+  const result = spawnSync(path.join(appRoot, "../../node_modules/.bin/tsx"), ["--eval", code], {
+    cwd: appRoot,
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result.stdout.trim();
+};
 
 test("chika vote transition math covers every click path", async () => {
   const source = await readSource("src/features/chika/lib/vote-state.ts");
@@ -82,8 +92,8 @@ test("chika display adapters preserve identity and excerpt contracts", async () 
     readSource("src/features/home-feed/adapters/activity-to-home-feed.ts"),
   ]);
 
-  assert.match(displayAdapter, /const username = thread\.categoryPseudonymous \? undefined : authorDisplayName/);
-  assert.match(displayAdapter, /displayName: authorDisplayName/);
+  assert.match(displayAdapter, /authorUsername/);
+  assert.match(displayAdapter, /cleanUsername/);
   assert.match(displayAdapter, /username: authorUsername/);
   assert.match(displayAdapter, /previewText/);
   assert.match(displayAdapter, /stringValue\(payload, "excerpt"\)/);
@@ -92,6 +102,116 @@ test("chika display adapters preserve identity and excerpt contracts", async () 
   assert.match(component, /displayName=\{post\.author\.displayName\}/);
   assert.match(component, /username=\{post\.author\.username\}/);
   assert.doesNotMatch(component, /Unknown/);
+});
+
+test("chika adapters normalize display name, username, and excerpts from real fixture", () => {
+  const fixtureOutput = runTsxFixture(`
+    import assert from "node:assert/strict";
+    import { activityToHomeFeedItem } from "./src/features/home-feed/adapters/activity-to-home-feed.ts";
+    import { chikaPostFromHomeFeedItem, chikaPostFromThread } from "./src/features/chika/types/post-display.ts";
+
+    const body = "We’re soft launching Freediving Philippines with rough edges, bugs, and unfinished parts.";
+    const activityItem = {
+      id: "activity-1",
+      type: "chika_thread_created",
+      sourceModule: "chika",
+      sourceType: "thread",
+      sourceId: "thread-1",
+      actor: {
+        id: "user-1",
+        name: "Freediving Philippines",
+        username: "freedivingph",
+        avatarUrl: null,
+      },
+      target: { type: "chika_thread", id: "thread-1" },
+      visibility: "public",
+      occurredAt: "2026-05-20T00:00:00.000Z",
+      title: "Welcome to Freediving Philippines",
+      body,
+      stats: { replies: 4, reactions: 10 },
+      metadata: { categoryName: "General" },
+      href: "/chika/thread-1",
+    };
+
+    const homeItem = activityToHomeFeedItem(activityItem);
+    assert.ok(homeItem);
+    const homepage = chikaPostFromHomeFeedItem(homeItem);
+    assert.equal(homepage.author.displayName, "Freediving Philippines");
+    assert.equal(homepage.author.username, "freedivingph");
+    assert.equal(homepage.category, "General");
+    assert.equal(homepage.title, "Welcome to Freediving Philippines");
+    assert.ok(homepage.excerpt?.startsWith("We’re soft launching"));
+    assert.equal(homepage.voteScore, 10);
+    assert.equal(homepage.replyCount, 4);
+
+    const list = chikaPostFromThread({
+      id: "thread-1",
+      title: "Welcome to Freediving Philippines",
+      content: body,
+      voteCount: 10,
+      commentCount: 4,
+      mode: "normal",
+      categoryId: "category-1",
+      categorySlug: "general",
+      categoryName: "General",
+      categoryPseudonymous: false,
+      authorDisplayName: "Freediving Philippines",
+      authorUsername: "freedivingph",
+      isHidden: false,
+      createdAt: "2026-05-20T00:00:00.000Z",
+      updatedAt: "2026-05-20T00:00:00.000Z",
+    });
+    assert.equal(list.author.displayName, "Freediving Philippines");
+    assert.equal(list.author.username, "freedivingph");
+    assert.equal(list.category, "General");
+    assert.equal(list.title, "Welcome to Freediving Philippines");
+    assert.ok(list.excerpt?.startsWith("We’re soft launching"));
+    assert.equal(list.voteScore, 10);
+    assert.equal(list.replyCount, 4);
+
+    const renderedContract = [
+      homepage.author.displayName,
+      "@" + homepage.author.username,
+      homepage.title,
+      homepage.excerpt,
+      list.author.displayName,
+      "@" + list.author.username,
+      list.title,
+      list.excerpt,
+    ].join(" ");
+    assert.match(renderedContract, /Freediving Philippines/);
+    assert.match(renderedContract, /@freedivingph/);
+    assert.match(renderedContract, /We’re soft launching/);
+    assert.doesNotMatch(renderedContract, /Unknown/);
+
+    console.log(JSON.stringify({
+      homepage: {
+        displayName: homepage.author.displayName,
+        username: homepage.author.username,
+        category: homepage.category,
+        createdAt: homepage.createdAt,
+        title: homepage.title,
+        excerpt: homepage.excerpt,
+        voteScore: homepage.voteScore,
+        replyCount: homepage.replyCount,
+      },
+      chikaList: {
+        displayName: list.author.displayName,
+        username: list.author.username,
+        category: list.category,
+        createdAt: list.createdAt,
+        title: list.title,
+        excerpt: list.excerpt,
+        voteScore: list.voteScore,
+        replyCount: list.replyCount,
+      },
+    }));
+  `);
+
+  const normalized = JSON.parse(fixtureOutput);
+  assert.equal(normalized.homepage.displayName, normalized.chikaList.displayName);
+  assert.equal(normalized.homepage.username, normalized.chikaList.username);
+  assert.equal(normalized.homepage.excerpt, normalized.chikaList.excerpt);
 });
 
 test("media post image reserves space while signed media loads", async () => {

@@ -8,7 +8,7 @@ export type ChikaPostDisplay = {
   author: {
     displayName: string;
     username?: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
     pseudonymous?: boolean;
   };
   createdAt: string;
@@ -45,16 +45,34 @@ const previewText = (...values: Array<string | undefined>) => {
   return undefined;
 };
 
+const cleanUsername = (value?: string) => {
+  const trimmed = value?.trim().replace(/^@+/, "");
+  return trimmed || undefined;
+};
+
+const authorDisplayName = ({
+  displayName,
+  username,
+}: {
+  displayName?: string;
+  username?: string;
+}) => displayName?.trim() || cleanUsername(username) || "Community member";
+
 export function chikaPostFromThread(thread: ChikaThreadView): ChikaPostDisplay {
-  const authorDisplayName = thread.authorDisplayName?.trim() || "Community member";
-  const username = thread.categoryPseudonymous ? undefined : authorDisplayName;
+  const username = thread.categoryPseudonymous
+    ? undefined
+    : cleanUsername(thread.authorUsername);
+  const displayName = authorDisplayName({
+    displayName: thread.authorDisplayName,
+    username,
+  });
   return {
     id: thread.id,
     href: `/chika/${thread.id}`,
     author: {
-      displayName: authorDisplayName,
+      displayName,
       username,
-      avatarUrl: thread.authorAvatarUrl,
+      avatarUrl: thread.authorAvatarUrl ?? null,
       pseudonymous: thread.categoryPseudonymous,
     },
     createdAt: thread.createdAt,
@@ -72,16 +90,18 @@ export function chikaPostFromThread(thread: ChikaThreadView): ChikaPostDisplay {
 
 export function chikaPostFromHomeFeedItem(item: HomeFeedItem): ChikaPostDisplay {
   const payload = item.payload ?? {};
-  const authorUsername = stringValue(payload, "authorUsername");
-  const authorDisplayName =
-    stringValue(payload, "authorName") || authorUsername || "Community member";
+  const authorUsername = cleanUsername(stringValue(payload, "authorUsername"));
+  const displayName = authorDisplayName({
+    displayName: stringValue(payload, "authorDisplayName") || stringValue(payload, "authorName"),
+    username: authorUsername,
+  });
   return {
     id: item.entityId,
     href: item.detailHref || `/chika/${item.entityId}`,
     author: {
-      displayName: authorDisplayName,
+      displayName,
       username: authorUsername,
-      avatarUrl: stringValue(payload, "authorAvatarUrl"),
+      avatarUrl: stringValue(payload, "authorAvatarUrl") ?? null,
       pseudonymous: Boolean(payload.authorPseudonymous),
     },
     createdAt: item.createdAt,

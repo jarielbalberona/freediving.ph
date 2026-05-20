@@ -327,6 +327,7 @@ func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Th
 			State:        feedservice.ActivityStateActive,
 			OccurredAt:   created.CreatedAt,
 			Title:        created.Title,
+			Body:         content,
 			Stats:        map[string]any{"replies": 0, "reactions": 0},
 			Metadata: map[string]any{
 				"mode":                 created.Mode,
