@@ -53,6 +53,7 @@ type ExploreResultsPanelProps = {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
+  headerActions?: React.ReactNode;
   filtersControl?: React.ReactNode;
   onQueryChange: (q: string) => void;
   onAreaChange: (area: string) => void;
@@ -111,6 +112,7 @@ export function ExploreResultsPanel({
   hasNextPage,
   isFetchingNextPage,
   searchInputRef,
+  headerActions,
   filtersControl,
   onQueryChange,
   onAreaChange,
@@ -167,6 +169,7 @@ export function ExploreResultsPanel({
             <p className="text-base font-semibold text-foreground">
               Find dive spots around the Philippines
             </p>
+            {headerActions ? <div className="mt-3">{headerActions}</div> : null}
           </div>
         ) : null}
         {showSearchControls ? (

@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import {
   Bookmark,
+  ClipboardList,
   Compass,
   ExternalLink,
   Gavel,
@@ -269,39 +270,50 @@ export function ExploreLayout() {
     );
   };
 
-  return (
-    <div className="relative h-[calc(100vh-3.5rem)] min-h-[720px] overflow-hidden bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.12),_transparent_28%),linear-gradient(180deg,_hsl(var(--primary)/0.08)_0%,_hsl(var(--background))_42%,_hsl(var(--background))_100%)]">
-      <div className="absolute right-4 top-4 z-30 hidden flex-wrap items-center gap-2 lg:flex">
-        <Link
-          href="/explore/submit"
-          className={cn(
-            buttonVariants({ variant: "outline" }),
-            "rounded-full bg-card/90",
-          )}
-        >
+  const renderSubmissionActions = (mode: "desktop" | "mobile") => {
+    const isMobile = mode === "mobile";
+    const linkClassName = cn(
+      buttonVariants({ variant: "outline", size: isMobile ? "sm" : "default" }),
+      "rounded-full bg-card/90",
+      isMobile && "h-9 flex-1 px-3",
+    );
+    const reviewClassName = cn(
+      buttonVariants({ size: isMobile ? "sm" : "default" }),
+      "rounded-full",
+      isMobile && "h-9 flex-1 px-3",
+    );
+
+    return (
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-2",
+          isMobile ? "w-full" : "justify-end",
+        )}
+      >
+        <Link href="/explore/submit" className={linkClassName}>
           <MapPinned className="mr-2 size-4" />
           Submit a site
         </Link>
         {session.status === "signed_in" ? (
-          <Link
-            href="/explore/submissions"
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "rounded-full bg-card/90",
-            )}
-          >
+          <Link href="/explore/submissions" className={linkClassName}>
+            <ClipboardList className="mr-2 size-4" />
             My submissions
           </Link>
         ) : null}
         {session.hasPermission("explore.moderate") ? (
-          <Link
-            href="/moderation/explore-sites"
-            className={cn(buttonVariants(), "rounded-full")}
-          >
+          <Link href="/moderation/explore-sites" className={reviewClassName}>
             <Gavel className="mr-2 size-4" />
             Review pending
           </Link>
         ) : null}
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative h-[calc(100vh-3.5rem)] min-h-[720px] overflow-hidden bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.12),_transparent_28%),linear-gradient(180deg,_hsl(var(--primary)/0.08)_0%,_hsl(var(--background))_42%,_hsl(var(--background))_100%)]">
+      <div className="absolute right-4 top-4 z-30 hidden lg:block">
+        {renderSubmissionActions("desktop")}
       </div>
       <div className="hidden h-full lg:grid lg:grid-cols-[460px_minmax(0,1fr)]">
         <ExploreResultsPanel
@@ -447,6 +459,7 @@ export function ExploreLayout() {
                 className="h-11 rounded-full bg-muted/40"
               />
             </div>
+            <div className="mt-3">{renderSubmissionActions("mobile")}</div>
           </Card>
 
           <div className="mobile-view pointer-events-none px-4 w-full flex justify-center">
@@ -538,6 +551,7 @@ export function ExploreLayout() {
             selectedSpotId={state.selectedSpotId}
             hasNextPage={Boolean(exploreQuery.hasNextPage)}
             isFetchingNextPage={exploreQuery.isFetchingNextPage}
+            headerActions={renderSubmissionActions("mobile")}
             onQueryChange={setQuery}
             onAreaChange={setArea}
             onDifficultyChange={setDifficulty}

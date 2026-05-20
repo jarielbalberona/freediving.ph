@@ -27,7 +27,7 @@ Freediving Philippines is an open-source social web app for the freediving commu
 ## What this repo contains
 
 - **`apps/web`** – Next.js App Router frontend.
-- **`apps/api`** – Legacy TypeScript API. Keep it for compatibility work only; new API work belongs in `services/fphgo`.
+- **`apps/api`** – Legacy Express + TypeScript API. Do not build new API features here; keep it only for compatibility fixes and migration support. New API work belongs in `services/fphgo`.
 - **`services/fphgo`** – Go API service and canonical backend for new product work.
 - **`services/cdn-worker`** – CDN/media delivery worker for signed image handling.
 - **`packages/types`** – Shared DTO/envelope contracts for API and web.
@@ -141,11 +141,13 @@ Shortcuts:
 ```bash
 pnpm dev:web
 pnpm build:web
-pnpm dev:go       # run Go API
+pnpm dev:go       # run canonical Go API
 pnpm test:go
 pnpm sqlc:go
 pnpm migrate:go   # run Go API DB migrations
 ```
+
+Legacy API maintenance commands still exist as `pnpm dev:api` and `pnpm build:api`, but `apps/api` is not the backend for new product work.
 
 ## Workspace commands
 

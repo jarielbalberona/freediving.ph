@@ -1,6 +1,12 @@
 # @freediving.ph/api
 
-Express + TypeScript API for the Freediving Philippines platform.
+Legacy Express + TypeScript API for the Freediving Philippines platform.
+
+## Legacy status
+
+This workspace is retained for compatibility and migration support only. Do not add new product API work here.
+
+The canonical backend is `services/fphgo`. New endpoints, domain logic, migrations, and runtime behavior belong there unless the change is explicitly a legacy compatibility fix.
 
 ## Stack
 
@@ -12,6 +18,8 @@ Express + TypeScript API for the Freediving Philippines platform.
 - Zod validation
 
 ## Scripts
+
+These commands are for legacy maintenance only:
 
 - `pnpm --filter @freediving.ph/api dev`
 - `pnpm --filter @freediving.ph/api build`
