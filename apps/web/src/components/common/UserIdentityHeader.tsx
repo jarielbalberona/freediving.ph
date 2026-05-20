@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 
+import Link from "next/link";
+
 import { UsernameLink } from "@/components/common/UsernameLink";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { canLinkToProfileUsername, getProfileRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type UserIdentityHeaderProps = {
@@ -38,9 +41,12 @@ export function UserIdentityHeader({
   metadataClassName,
 }: UserIdentityHeaderProps) {
   const name = displayName?.trim() || "Diver";
+  const usernameValue = username?.trim() ?? "";
+  const shouldLinkDisplayName =
+    !usernameDisabled && canLinkToProfileUsername(usernameValue);
   const usernameFallbackValue = usernameFallback.trim();
   const usernameNode =
-    username?.trim() || usernameFallbackValue ? (
+    usernameValue || usernameFallbackValue ? (
       <UsernameLink
         key="username"
         username={username}
@@ -71,7 +77,13 @@ export function UserIdentityHeader({
             displayNameClassName,
           )}
         >
-          {name}
+          {shouldLinkDisplayName ? (
+            <Link href={getProfileRoute(usernameValue)} className="hover:underline">
+              {name}
+            </Link>
+          ) : (
+            name
+          )}
         </p>
         {metadataItems.length > 0 ? (
           <div
