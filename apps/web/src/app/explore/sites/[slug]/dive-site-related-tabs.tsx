@@ -70,6 +70,11 @@ type DiveSiteRelatedTab = (typeof relatedTabValues)[number];
 
 const defaultRelatedTab = "available-buddies" satisfies DiveSiteRelatedTab;
 
+const relatedTabsListClassName =
+  "h-auto! w-full justify-start overflow-x-auto overflow-y-hidden";
+const relatedTabTriggerClassName =
+  "h-auto! min-h-8 shrink-0 whitespace-nowrap px-2 py-1.5";
+
 const tabFromParam = (value: string | null): DiveSiteRelatedTab =>
   relatedTabValues.includes(value as DiveSiteRelatedTab)
     ? (value as DiveSiteRelatedTab)
@@ -425,23 +430,33 @@ export function DiveSiteRelatedTabs({
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-      <TabsList className="w-full justify-start overflow-x-auto">
+      <TabsList className={relatedTabsListClassName}>
         <TabsTrigger
           value="available-buddies"
+          className={relatedTabTriggerClassName}
           onClick={() => setActiveTab("available-buddies")}
         >
           Available Buddies ({availableBuddyCount})
         </TabsTrigger>
-        <TabsTrigger value="locals" onClick={() => setActiveTab("locals")}>
+        <TabsTrigger
+          value="locals"
+          className={relatedTabTriggerClassName}
+          onClick={() => setActiveTab("locals")}
+        >
           Locals & Regulars ({localRegularCount})
         </TabsTrigger>
         <TabsTrigger
           value="community"
+          className={relatedTabTriggerClassName}
           onClick={() => setActiveTab("community")}
         >
           Community Posts ({communityPostCount})
         </TabsTrigger>
-        <TabsTrigger value="reviews" onClick={() => setActiveTab("reviews")}>
+        <TabsTrigger
+          value="reviews"
+          className={relatedTabTriggerClassName}
+          onClick={() => setActiveTab("reviews")}
+        >
           Reviews ({visibleReviewCount})
         </TabsTrigger>
       </TabsList>

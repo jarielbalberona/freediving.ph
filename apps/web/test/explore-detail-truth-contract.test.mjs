@@ -183,6 +183,7 @@ test("explore site detail renders related tabs without duplicating old buddy sec
   assert.match(relatedTabs, /useSearchParams/);
   assert.match(relatedTabs, /const activeTab = tabFromParam\(searchParams\.get\("tab"\)\)/);
   assert.match(relatedTabs, /nextParams\.set\("tab", nextTab\)/);
+  assert.match(relatedTabs, /overflow-x-auto overflow-y-hidden/);
   assert.match(relatedTabs, /<Tabs value=\{activeTab\} onValueChange=\{setActiveTab\}/);
   assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("available-buddies"\)\}/);
   assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("locals"\)\}/);
