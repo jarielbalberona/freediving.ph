@@ -137,7 +137,8 @@ test("chika create and display paths are wired to markdown components", async ()
   assert.match(createPage, /MarkdownEditor/);
   assert.match(threadDetail, /ChikaMarkdown content=\{thread\.content\}/);
   assert.match(threadList, /ChikaPostComponent/);
-  assert.match(postDisplay, /stripMarkdownForPreview\(thread\.content \|\| ""\)/);
+  assert.match(postDisplay, /excerpt: previewText\(thread\.content\)/);
+  assert.match(postDisplay, /stripMarkdownForPreview\(value \?\? ""\)/);
 });
 
 test("chika markdown renders safe basics and blocks unsafe output", () => {

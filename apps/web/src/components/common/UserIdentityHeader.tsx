@@ -38,14 +38,19 @@ export function UserIdentityHeader({
   metadataClassName,
 }: UserIdentityHeaderProps) {
   const name = displayName?.trim() || "Diver";
+  const usernameFallbackValue = usernameFallback.trim();
+  const usernameNode =
+    username?.trim() || usernameFallbackValue ? (
+      <UsernameLink
+        key="username"
+        username={username}
+        className="truncate"
+        disabled={usernameDisabled}
+        fallback={usernameFallbackValue}
+      />
+    ) : null;
   const metadataItems = [
-    <UsernameLink
-      key="username"
-      username={username}
-      className="truncate"
-      disabled={usernameDisabled}
-      fallback={usernameFallback}
-    />,
+    usernameNode,
     location,
     ...metadata,
     time,

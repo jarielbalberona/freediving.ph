@@ -37,12 +37,23 @@ const numberValue = (value: Record<string, unknown>, key: string) => {
     : undefined;
 };
 
+const previewText = (...values: Array<string | undefined>) => {
+  for (const value of values) {
+    const preview = stripMarkdownForPreview(value ?? "");
+    if (preview) return preview;
+  }
+  return undefined;
+};
+
 export function chikaPostFromThread(thread: ChikaThreadView): ChikaPostDisplay {
+  const authorDisplayName = thread.authorDisplayName?.trim() || "Community member";
+  const username = thread.categoryPseudonymous ? undefined : authorDisplayName;
   return {
     id: thread.id,
     href: `/chika/${thread.id}`,
     author: {
-      displayName: thread.authorDisplayName || "Community member",
+      displayName: authorDisplayName,
+      username,
       avatarUrl: thread.authorAvatarUrl,
       pseudonymous: thread.categoryPseudonymous,
     },
@@ -51,7 +62,7 @@ export function chikaPostFromThread(thread: ChikaThreadView): ChikaPostDisplay {
     badgeLabel: "Chika",
     category: thread.categoryName,
     title: thread.title || "Untitled Chika",
-    excerpt: stripMarkdownForPreview(thread.content || ""),
+    excerpt: previewText(thread.content),
     voteScore: thread.voteCount,
     viewerVote: thread.userReaction ?? null,
     replyCount: thread.commentCount,
@@ -61,12 +72,15 @@ export function chikaPostFromThread(thread: ChikaThreadView): ChikaPostDisplay {
 
 export function chikaPostFromHomeFeedItem(item: HomeFeedItem): ChikaPostDisplay {
   const payload = item.payload ?? {};
+  const authorUsername = stringValue(payload, "authorUsername");
+  const authorDisplayName =
+    stringValue(payload, "authorName") || authorUsername || "Community member";
   return {
     id: item.entityId,
     href: item.detailHref || `/chika/${item.entityId}`,
     author: {
-      displayName: stringValue(payload, "authorName") || "Community member",
-      username: stringValue(payload, "authorUsername"),
+      displayName: authorDisplayName,
+      username: authorUsername,
       avatarUrl: stringValue(payload, "authorAvatarUrl"),
       pseudonymous: Boolean(payload.authorPseudonymous),
     },
@@ -75,7 +89,12 @@ export function chikaPostFromHomeFeedItem(item: HomeFeedItem): ChikaPostDisplay 
     badgeLabel: item.typeLabel || "Chika",
     category: stringValue(payload, "categoryName"),
     title: stringValue(payload, "title") || "Untitled Chika",
-    excerpt: stringValue(payload, "excerpt"),
+    excerpt: previewText(
+      stringValue(payload, "excerpt"),
+      stringValue(payload, "body"),
+      stringValue(payload, "content"),
+      stringValue(payload, "previewContent"),
+    ),
     voteScore: numberValue(payload, "reactionCount") ?? 0,
     viewerVote: (stringValue(payload, "viewerVote") as ThreadReactionType) ?? null,
     replyCount: numberValue(payload, "replyCount") ?? 0,

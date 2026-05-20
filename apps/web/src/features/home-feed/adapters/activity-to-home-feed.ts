@@ -102,6 +102,7 @@ const mapChikaThread = (item: ActivityFeedItem): HomeFeedItem =>
     payload: {
       ...actorPayload(item),
       title: item.title,
+      excerpt: item.body,
       categoryName: stringValue(item.metadata, "categoryName"),
       replyCount:
         numberValue(item.stats, "replies") ??

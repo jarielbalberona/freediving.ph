@@ -15,17 +15,7 @@ const ThreadListClient = () => {
   useChikaRealtime({ enabled: true, currentUserId: session.me?.userId });
 
   if (isLoading) {
-    return (
-      <div className="rounded-lg border border-border bg-muted/30 p-5">
-        <p className="text-sm font-medium text-foreground">
-          Opening the community board
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Chika is where divers ask questions, share local updates, and keep the
-          conversation going between dives.
-        </p>
-      </div>
-    );
+    return <ChikaListSkeleton />;
   }
 
   const threadList = threads ?? [];
@@ -87,3 +77,37 @@ const ThreadListClient = () => {
 };
 
 export default ThreadListClient;
+
+function ChikaListSkeleton() {
+  return (
+    <div className="space-y-0" aria-label="Loading Chika posts">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <article
+          key={`chika-loading-${index + 1}`}
+          className="border-b border-border/70 py-4"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="size-9 shrink-0 animate-pulse rounded-full bg-muted" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-4 w-36 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-52 max-w-full animate-pulse rounded bg-muted" />
+              </div>
+            </div>
+            <div className="h-6 w-20 shrink-0 animate-pulse rounded-full bg-muted" />
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-full animate-pulse rounded bg-muted" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <div className="h-7 w-24 animate-pulse rounded-full bg-muted" />
+            <div className="h-7 w-16 animate-pulse rounded-full bg-muted" />
+            <div className="h-7 w-16 animate-pulse rounded-full bg-muted" />
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}

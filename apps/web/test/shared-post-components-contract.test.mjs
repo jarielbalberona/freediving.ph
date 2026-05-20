@@ -56,9 +56,10 @@ test("chika vote transition math covers every click path", async () => {
 });
 
 test("home and chika list surfaces render through shared post components", async () => {
-  const [renderer, chikaThreads] = await Promise.all([
+  const [renderer, chikaThreads, exploreTabs] = await Promise.all([
     readSource("src/features/home-feed/components/FeedItemRenderer.tsx"),
     readSource("src/app/chika/threads.tsx"),
+    readSource("src/app/explore/sites/[slug]/dive-site-related-tabs.tsx"),
   ]);
 
   assert.match(renderer, /MediaPostComponent/);
@@ -71,6 +72,51 @@ test("home and chika list surfaces render through shared post components", async
   assert.match(chikaThreads, /ChikaPostComponent/);
   assert.match(chikaThreads, /chikaPostFromThread/);
   assert.doesNotMatch(chikaThreads, /<Card/);
+  assert.match(exploreTabs, /FeedItemRenderer/);
+});
+
+test("chika display adapters preserve identity and excerpt contracts", async () => {
+  const [displayAdapter, component, activityAdapter] = await Promise.all([
+    readSource("src/features/chika/types/post-display.ts"),
+    readSource("src/features/chika/components/ChikaPostComponent.tsx"),
+    readSource("src/features/home-feed/adapters/activity-to-home-feed.ts"),
+  ]);
+
+  assert.match(displayAdapter, /const username = thread\.categoryPseudonymous \? undefined : authorDisplayName/);
+  assert.match(displayAdapter, /displayName: authorDisplayName/);
+  assert.match(displayAdapter, /username: authorUsername/);
+  assert.match(displayAdapter, /previewText/);
+  assert.match(displayAdapter, /stringValue\(payload, "excerpt"\)/);
+  assert.match(displayAdapter, /stringValue\(payload, "body"\)/);
+  assert.match(activityAdapter, /excerpt: item\.body/);
+  assert.match(component, /displayName=\{post\.author\.displayName\}/);
+  assert.match(component, /username=\{post\.author\.username\}/);
+  assert.doesNotMatch(component, /Unknown/);
+});
+
+test("media post image reserves space while signed media loads", async () => {
+  const component = await readSource(
+    "src/features/media/components/MediaPostComponent.tsx",
+  );
+
+  assert.match(component, /previewAspectRatio/);
+  assert.match(component, /style=\{\{ aspectRatio: previewAspectRatio \}\}/);
+  assert.match(component, /animate-pulse bg-muted/);
+  assert.match(component, /imageLoaded \? "opacity-100" : "opacity-0"/);
+  assert.match(component, /onLoad=\{\(\) => setImageLoaded\(true\)\}/);
+});
+
+test("chika loading states are skeletons without loading copy", async () => {
+  const [threads, loading] = await Promise.all([
+    readSource("src/app/chika/threads.tsx"),
+    readSource("src/app/chika/loading.tsx"),
+  ]);
+
+  assert.doesNotMatch(threads, /Opening the community board/);
+  assert.doesNotMatch(loading, /Opening the community board/);
+  assert.match(threads, /ChikaListSkeleton/);
+  assert.match(loading, /animate-pulse/);
+  assert.match(loading, /Loading Chika posts/);
 });
 
 test("shared media and chika cache updaters cover visible cache surfaces", async () => {

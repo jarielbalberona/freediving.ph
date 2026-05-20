@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Camera } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ export function MediaPostComponent({
 }: MediaPostComponentProps) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [commentFocusSignal, setCommentFocusSignal] = useState(0);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const preview = post.media[0];
   const minted = useMintedMediaMap(
     preview && !preview.displayUrl ? [preview.mediaObjectId] : [],
@@ -42,6 +43,12 @@ export function MediaPostComponent({
   const locationText = [post.diveSite?.name, post.diveSite?.area]
     .filter(Boolean)
     .join(" · ");
+  const previewAspectRatio =
+    preview?.width && preview.height ? `${preview.width} / ${preview.height}` : "4 / 3";
+
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [previewUrl]);
 
   return (
     <>
@@ -89,20 +96,33 @@ export function MediaPostComponent({
             </div>
           </header>
 
-          {preview && previewUrl ? (
+          {preview ? (
             <button
               type="button"
-              className="block overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-left"
-              onClick={() => setViewerOpen(true)}
+              className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-left"
+              style={{ aspectRatio: previewAspectRatio }}
+              onClick={() => {
+                if (previewUrl) setViewerOpen(true);
+              }}
+              disabled={!previewUrl}
             >
-              <Image
-                src={previewUrl}
-                alt={preview.alt}
-                width={preview.width}
-                height={preview.height}
-                className="h-auto w-full object-cover transition-transform duration-200 hover:scale-[1.01]"
-                unoptimized
-              />
+              {!imageLoaded ? (
+                <div className="absolute inset-0 animate-pulse bg-muted" />
+              ) : null}
+              {previewUrl ? (
+                <Image
+                  src={previewUrl}
+                  alt={preview.alt}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 672px"
+                  className={cn(
+                    "object-cover transition-[opacity,transform] duration-200 hover:scale-[1.01]",
+                    imageLoaded ? "opacity-100" : "opacity-0",
+                  )}
+                  unoptimized
+                  onLoad={() => setImageLoaded(true)}
+                />
+              ) : null}
             </button>
           ) : null}
 

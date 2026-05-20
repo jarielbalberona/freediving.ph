@@ -51,7 +51,7 @@ export function ChikaPostComponent({
               showProfileImage={!post.author.pseudonymous}
               usernameDisabled={post.author.pseudonymous}
               usernameFallback={
-                post.author.pseudonymous ? "Pseudonymous" : "Unknown"
+                post.author.pseudonymous ? "Pseudonymous" : ""
               }
               metadata={post.category ? [post.category] : []}
               time={formatElapsedTime(post.createdAt)}
