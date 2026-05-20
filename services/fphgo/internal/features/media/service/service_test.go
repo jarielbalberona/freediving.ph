@@ -20,21 +20,22 @@ import (
 )
 
 type fakeRepo struct {
-	created          []mediarepo.CreateMediaObjectInput
-	mediaByID        map[string]mediarepo.MediaObject
-	publishedPost    *mediarepo.PublishMediaPostInput
-	socialState      mediarepo.PostSocialState
-	commentLikeState mediarepo.CommentLikeState
-	likedPostID      string
-	unlikedPostID    string
-	savedPostID      string
-	unsavedPostID    string
-	likeUserID       string
-	saveUserID       string
-	comments         []mediarepo.MediaPostComment
-	deletedCommentID string
-	commentLikedID   string
-	commentUnlikedID string
+	created                      []mediarepo.CreateMediaObjectInput
+	mediaByID                    map[string]mediarepo.MediaObject
+	visibleProfileMediaObjectIDs map[string]bool
+	publishedPost                *mediarepo.PublishMediaPostInput
+	socialState                  mediarepo.PostSocialState
+	commentLikeState             mediarepo.CommentLikeState
+	likedPostID                  string
+	unlikedPostID                string
+	savedPostID                  string
+	unsavedPostID                string
+	likeUserID                   string
+	saveUserID                   string
+	comments                     []mediarepo.MediaPostComment
+	deletedCommentID             string
+	commentLikedID               string
+	commentUnlikedID             string
 }
 
 func (f *fakeRepo) CreateMediaObject(_ context.Context, input mediarepo.CreateMediaObjectInput) (mediarepo.MediaObject, error) {
@@ -68,6 +69,16 @@ func (f *fakeRepo) GetMediaObjectsByIDs(_ context.Context, mediaIDs []string) ([
 		}
 	}
 	return items, nil
+}
+
+func (f *fakeRepo) ListVisibleProfileMediaObjectIDs(_ context.Context, mediaIDs []string, _ string) (map[string]bool, error) {
+	visible := make(map[string]bool, len(mediaIDs))
+	for _, id := range mediaIDs {
+		if f.visibleProfileMediaObjectIDs[id] {
+			visible[id] = true
+		}
+	}
+	return visible, nil
 }
 
 func (f *fakeRepo) ListMediaByOwner(_ context.Context, input mediarepo.ListMediaByOwnerInput) ([]mediarepo.MediaObject, error) {
@@ -692,6 +703,74 @@ func TestMintURLsRejectsForeignOwner(t *testing.T) {
 	}
 	if len(result.Errors) != 1 || result.Errors[0].Code != "not_found" {
 		t.Fatalf("expected not_found error, got %+v", result.Errors)
+	}
+}
+
+func TestMintURLsAllowsVisibleForeignProfileFeedMedia(t *testing.T) {
+	repo := &fakeRepo{
+		mediaByID: map[string]mediarepo.MediaObject{
+			"11111111-1111-1111-1111-111111111111": {
+				ID:             "11111111-1111-1111-1111-111111111111",
+				OwnerAppUserID: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+				ContextType:    ContextProfileFeed,
+				ObjectKey:      "feed/user/2026/03/1700000000000-abcd1234.jpg",
+				State:          "active",
+			},
+		},
+		visibleProfileMediaObjectIDs: map[string]bool{
+			"11111111-1111-1111-1111-111111111111": true,
+		},
+	}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+	result, err := svc.MintURLs(context.Background(), MintURLsInput{
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		Items: []MintURLItemInput{{
+			MediaID: "11111111-1111-1111-1111-111111111111",
+			Preset:  PresetCard,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("expected mint result, got error: %v", err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("expected no mint errors, got %+v", result.Errors)
+	}
+	if len(result.Items) != 1 {
+		t.Fatalf("expected one minted profile media item, got %d", len(result.Items))
+	}
+}
+
+func TestMintURLsRejectsForeignProfileFeedOriginalPreset(t *testing.T) {
+	repo := &fakeRepo{
+		mediaByID: map[string]mediarepo.MediaObject{
+			"11111111-1111-1111-1111-111111111111": {
+				ID:             "11111111-1111-1111-1111-111111111111",
+				OwnerAppUserID: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+				ContextType:    ContextProfileFeed,
+				ObjectKey:      "feed/user/2026/03/1700000000000-abcd1234.jpg",
+				State:          "active",
+			},
+		},
+		visibleProfileMediaObjectIDs: map[string]bool{
+			"11111111-1111-1111-1111-111111111111": true,
+		},
+	}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+	result, err := svc.MintURLs(context.Background(), MintURLsInput{
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		Items: []MintURLItemInput{{
+			MediaID: "11111111-1111-1111-1111-111111111111",
+			Preset:  PresetOriginal,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("expected mint result, got error: %v", err)
+	}
+	if len(result.Items) != 0 {
+		t.Fatalf("expected no minted original items, got %d", len(result.Items))
+	}
+	if len(result.Errors) != 1 || result.Errors[0].Code != "preset_not_allowed" {
+		t.Fatalf("expected preset_not_allowed error, got %+v", result.Errors)
 	}
 }
 

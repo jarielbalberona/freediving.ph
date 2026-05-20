@@ -227,6 +227,54 @@ func (r *Repo) GetMediaObjectsByIDs(ctx context.Context, mediaIDs []string) ([]M
 	return items, nil
 }
 
+func (r *Repo) ListVisibleProfileMediaObjectIDs(ctx context.Context, mediaIDs []string, viewerUserID string) (map[string]bool, error) {
+	const q = `
+		SELECT DISTINCT mo.id
+		FROM media_objects mo
+		JOIN media_items mi ON mi.media_object_id = mo.id
+		JOIN media_posts mp ON mp.id = mi.post_id
+		JOIN users u ON u.id = mp.author_app_user_id
+		JOIN dive_sites ds ON ds.id = mp.dive_site_id
+		WHERE mo.id = ANY($1::uuid[])
+		  AND mo.state = 'active'
+		  AND mo.context_type = 'profile_feed'
+		  AND mi.status = 'active'
+		  AND mi.deleted_at IS NULL
+		  AND mp.deleted_at IS NULL
+		  AND u.account_status = 'active'
+		  AND ds.moderation_state = 'approved'
+		  AND NOT EXISTS (
+		    SELECT 1
+		    FROM user_blocks b
+		    WHERE (b.blocker_app_user_id = $2 AND b.blocked_app_user_id = mp.author_app_user_id)
+		       OR (b.blocker_app_user_id = mp.author_app_user_id AND b.blocked_app_user_id = $2)
+		  )
+	`
+
+	ids := make([]pgtype.UUID, 0, len(mediaIDs))
+	for _, id := range mediaIDs {
+		ids = append(ids, toUUID(id))
+	}
+	rows, err := r.pool.Query(ctx, q, ids, toUUID(viewerUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	visible := make(map[string]bool, len(mediaIDs))
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		visible[id.String()] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return visible, nil
+}
+
 func (r *Repo) ListMediaByOwner(ctx context.Context, input ListMediaByOwnerInput) ([]MediaObject, error) {
 	rows, err := r.queries.ListMediaByOwner(ctx, mediaqlc.ListMediaByOwnerParams{
 		OwnerAppUserID: toUUID(input.OwnerAppUserID),

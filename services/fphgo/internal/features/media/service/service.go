@@ -47,6 +47,7 @@ const (
 type repository interface {
 	CreateMediaObject(ctx context.Context, input mediarepo.CreateMediaObjectInput) (mediarepo.MediaObject, error)
 	GetMediaObjectsByIDs(ctx context.Context, mediaIDs []string) ([]mediarepo.MediaObject, error)
+	ListVisibleProfileMediaObjectIDs(ctx context.Context, mediaIDs []string, viewerUserID string) (map[string]bool, error)
 	ListMediaByOwner(ctx context.Context, input mediarepo.ListMediaByOwnerInput) ([]mediarepo.MediaObject, error)
 	ListMediaByContext(ctx context.Context, input mediarepo.ListMediaByContextInput) ([]mediarepo.MediaObject, error)
 	PublishMediaPost(ctx context.Context, input mediarepo.PublishMediaPostInput) (mediarepo.MediaPost, []mediarepo.MediaItem, error)
@@ -728,8 +729,21 @@ func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsRe
 		return MintURLsResult{}, apperrors.New(http.StatusInternalServerError, "media_lookup_failed", "failed to load media", err)
 	}
 	byID := make(map[string]mediarepo.MediaObject, len(rows))
+	foreignProfileFeedIDs := make([]string, 0)
 	for _, row := range rows {
 		byID[row.ID] = row
+		if row.OwnerAppUserID != input.ViewerUserID && row.ContextType == ContextProfileFeed {
+			foreignProfileFeedIDs = append(foreignProfileFeedIDs, row.ID)
+		}
+	}
+
+	visibleForeignProfileFeedIDs := map[string]bool{}
+	if len(foreignProfileFeedIDs) > 0 {
+		var err error
+		visibleForeignProfileFeedIDs, err = s.repo.ListVisibleProfileMediaObjectIDs(ctx, foreignProfileFeedIDs, input.ViewerUserID)
+		if err != nil {
+			return MintURLsResult{}, apperrors.New(http.StatusInternalServerError, "media_visibility_failed", "failed to verify visible profile media", err)
+		}
 	}
 
 	result := MintURLsResult{Items: make([]MintedURLItem, 0, len(input.Items)), Errors: make([]MintError, 0)}
@@ -739,7 +753,9 @@ func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsRe
 			result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: "not_found", Message: "media not found"})
 			continue
 		}
-		if row.OwnerAppUserID != input.ViewerUserID {
+		isOwner := row.OwnerAppUserID == input.ViewerUserID
+		isVisibleProfileFeed := row.ContextType == ContextProfileFeed && visibleForeignProfileFeedIDs[row.ID]
+		if !isOwner && !isVisibleProfileFeed {
 			result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: "not_found", Message: "media not found"})
 			continue
 		}
@@ -759,6 +775,10 @@ func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsRe
 		}
 		if _, ok := presetRules[preset]; !ok {
 			result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: "invalid_preset", Message: "preset is invalid"})
+			continue
+		}
+		if !isOwner && preset == PresetOriginal {
+			result.Errors = append(result.Errors, MintError{MediaID: item.MediaID, Code: "preset_not_allowed", Message: "preset is not allowed for media context"})
 			continue
 		}
 		if !rule.allowedPresets[preset] && preset != PresetOriginal {
