@@ -31,6 +31,15 @@ const threadDetailPath = path.join(
   "src/features/chika/components/ThreadDetail.tsx",
 );
 const threadListPath = path.join(appRoot, "src/app/chika/threads.tsx");
+const chikaDetailPagePath = path.join(appRoot, "src/app/chika/[id]/page.tsx");
+const linkedCommentTextPath = path.join(
+  appRoot,
+  "src/components/common/LinkedCommentText.tsx",
+);
+const mediaCommentsPath = path.join(
+  appRoot,
+  "src/features/media/components/MediaPostComments.tsx",
+);
 
 const testMarkdownSchema = {
   ...defaultSchema,
@@ -165,4 +174,23 @@ test("chika markdown renders safe basics and blocks unsafe output", () => {
   assert.doesNotMatch(unsafe, /<img/);
   assert.doesNotMatch(unsafe, /href="javascript:/);
   assert.doesNotMatch(unsafe, /href="\/\/example\.com"/);
+});
+
+test("comment renderers linkify plain https urls without enabling raw html", async () => {
+  const [linkedCommentText, chikaDetailPage, mediaComments] = await Promise.all([
+    readFile(linkedCommentTextPath, "utf8"),
+    readFile(chikaDetailPagePath, "utf8"),
+    readFile(mediaCommentsPath, "utf8"),
+  ]);
+
+  assert.match(linkedCommentText, /URL_PATTERN = \/https\?:/);
+  assert.match(linkedCommentText, /target="_blank"/);
+  assert.match(linkedCommentText, /rel="noopener noreferrer"/);
+  assert.match(linkedCommentText, /TRAILING_PUNCTUATION/);
+  assert.doesNotMatch(linkedCommentText, /dangerouslySetInnerHTML/);
+
+  assert.match(chikaDetailPage, /LinkedCommentText/);
+  assert.match(chikaDetailPage, /text=\{comment\.content\}/);
+  assert.match(mediaComments, /LinkedCommentText/);
+  assert.match(mediaComments, /text=\{comment\.body\}/);
 });

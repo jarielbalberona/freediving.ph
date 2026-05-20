@@ -12,6 +12,7 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { LinkedCommentText } from "@/components/common/LinkedCommentText";
 import { UsernameLink } from "@/components/common/UsernameLink";
 import { useSession } from "@/features/auth/session";
 import { cn } from "@/lib/utils";
@@ -251,9 +252,10 @@ export function MediaPostComments({ postId, className }: MediaPostCommentsProps)
                     className="text-xs text-muted-foreground"
                   />
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-foreground">
-                  {comment.body}
-                </p>
+                <LinkedCommentText
+                  text={comment.body}
+                  className="mt-1 text-sm leading-6 text-foreground"
+                />
               </div>
             </div>
             <div className="ml-10 flex items-center gap-1.5">

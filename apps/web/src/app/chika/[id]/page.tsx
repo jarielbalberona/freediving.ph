@@ -28,6 +28,7 @@ import {
 } from "@/features/chika/schemas/comment.schema";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
+import { LinkedCommentText } from "@/components/common/LinkedCommentText";
 import { ReportAction } from "@/components/report/report-action";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -317,7 +318,10 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
                   </Badge>
                 ) : null}
               </div>
-              <p className="text-sm leading-relaxed">{comment.content}</p>
+              <LinkedCommentText
+                text={comment.content}
+                className="text-sm leading-relaxed"
+              />
               <div className="mt-3 flex items-center gap-2">
                 <CommentActions comment={comment} threadId={id} />
                 {comment.replyCount > 0 ? (
