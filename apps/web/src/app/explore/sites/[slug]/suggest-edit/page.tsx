@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { PenLine } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { AuthGuard } from "@/components/auth/guard";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -36,6 +38,13 @@ import {
 import { getApiError, getApiErrorMessage } from "@/lib/http/api-error";
 import { queryKeys } from "@/lib/query/query-keys";
 
+import { MapPinPickerDialog } from "../../../submit/map-pin-picker-dialog";
+import {
+  formatPinnedAreaLabel,
+  hasSelectedLocation,
+  type SiteLocation,
+} from "../../../submit/location-utils";
+
 const toNumber = (value: string | undefined): number | undefined => {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
@@ -48,6 +57,7 @@ const hazardsToText = (hazards: string[] | undefined) =>
 
 const initialValues: SiteEditProposalValues = {
   name: "",
+  location: null,
   description: "",
   entryDifficulty: "moderate",
   depthMinM: "",
@@ -66,6 +76,7 @@ export default function SuggestDiveSiteEditPage() {
   const [submittedState, setSubmittedState] = useState<"pending" | "applied" | null>(
     null,
   );
+  const [isMapOpen, setIsMapOpen] = useState(false);
 
   const detailQuery = useQuery({
     queryKey: queryKeys.explore.siteDetail(slug),
@@ -77,12 +88,19 @@ export default function SuggestDiveSiteEditPage() {
     resolver: zodResolver(siteEditProposalSchema),
     defaultValues: initialValues,
   });
+  const selectedLocation = form.watch("location");
+  const canSubmit =
+    hasSelectedLocation(selectedLocation) && !form.formState.isSubmitting;
 
   useEffect(() => {
     const site = detailQuery.data?.site;
     if (!site) return;
     form.reset({
       name: site.name,
+      location:
+        site.latitude != null && site.longitude != null
+          ? { lat: site.latitude, lng: site.longitude, area: site.area }
+          : null,
       description: site.description ?? "",
       entryDifficulty: site.difficulty,
       depthMinM: site.depthMinM == null ? "" : String(site.depthMinM),
@@ -97,8 +115,13 @@ export default function SuggestDiveSiteEditPage() {
 
   const submitMutation = useMutation({
     mutationFn: async (values: SiteEditProposalValues) => {
+      if (!values.location) {
+        throw new Error("Dive spot location is required");
+      }
       const response = await exploreApi.createSiteEditProposal(slug, {
         name: values.name.trim(),
+        lat: values.location.lat,
+        lng: values.location.lng,
         description: values.description.trim(),
         entryDifficulty: values.entryDifficulty,
         depthMinM: toNumber(values.depthMinM),
@@ -126,6 +149,10 @@ export default function SuggestDiveSiteEditPage() {
       const apiError = getApiError(error);
       for (const issue of apiError.issues ?? []) {
         const field = String(issue.path[0] ?? "");
+        if (field === "lat" || field === "lng") {
+          form.setError("location", { message: issue.message });
+          continue;
+        }
         if (field in initialValues) {
           form.setError(field as keyof SiteEditProposalValues, {
             message: issue.message,
@@ -201,10 +228,80 @@ export default function SuggestDiveSiteEditPage() {
 
                     <FormField
                       control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Dive spot location</FormLabel>
+                          <div className="flex flex-wrap items-center gap-3">
+                            {!hasSelectedLocation(field.value) ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsMapOpen(true)}
+                              >
+                                Mark on map
+                              </Button>
+                            ) : (
+                              <>
+                                <Badge className="rounded-full bg-sky-100 px-3 py-1 text-sky-950">
+                                  {formatPinnedAreaLabel(field.value)}
+                                </Badge>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon-sm"
+                                  onClick={() => setIsMapOpen(true)}
+                                  aria-label="Edit pin"
+                                  title="Edit pin"
+                                >
+                                  <PenLine />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-500">
+                            Select a pin once. We store a coarse city or
+                            municipality plus province for privacy.
+                          </p>
+                          <FormMessage />
+                          <MapPinPickerDialog
+                            open={isMapOpen}
+                            value={field.value as SiteLocation | null}
+                            onOpenChange={setIsMapOpen}
+                            onConfirm={(location) => {
+                              field.onChange(location);
+                              form.clearErrors("location");
+                            }}
+                          />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem className="sm:col-span-3">
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Correct site layout, entry notes, marine life, or other useful planning details."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
                       name="entryDifficulty"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Difficulty</FormLabel>
+                          <FormLabel>Entry difficulty</FormLabel>
                           <Select
                             value={field.value}
                             onValueChange={field.onChange}
@@ -228,26 +325,6 @@ export default function SuggestDiveSiteEditPage() {
                         </FormItem>
                       )}
                     />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Correct site layout, entry notes, marine life, or other useful planning details."
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                       control={form.control}
                       name="depthMinM"
@@ -317,7 +394,7 @@ export default function SuggestDiveSiteEditPage() {
                         <FormItem>
                           <FormLabel>Fees</FormLabel>
                           <FormControl>
-                            <Input {...field} />
+                            <Textarea {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -364,7 +441,11 @@ export default function SuggestDiveSiteEditPage() {
 
                   <Button
                     type="submit"
-                    disabled={submitMutation.isPending || detailQuery.isLoading}
+                    disabled={
+                      !canSubmit ||
+                      submitMutation.isPending ||
+                      detailQuery.isLoading
+                    }
                   >
                     {submitMutation.isPending ? "Submitting..." : "Submit edit"}
                   </Button>

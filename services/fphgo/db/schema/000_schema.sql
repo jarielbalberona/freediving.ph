@@ -394,6 +394,9 @@ CREATE TABLE IF NOT EXISTS dive_site_edit_proposals (
   moderation_reason TEXT,
   state TEXT NOT NULL DEFAULT 'pending',
   proposed_name TEXT NOT NULL,
+  proposed_area TEXT NOT NULL DEFAULT '',
+  proposed_latitude DOUBLE PRECISION,
+  proposed_longitude DOUBLE PRECISION,
   proposed_description TEXT NOT NULL,
   proposed_entry_difficulty TEXT NOT NULL,
   proposed_depth_min_m NUMERIC,
@@ -407,7 +410,9 @@ CREATE TABLE IF NOT EXISTS dive_site_edit_proposals (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (state IN ('pending', 'applied', 'rejected')),
-  CHECK (proposed_entry_difficulty IN ('easy', 'moderate', 'hard'))
+  CHECK (proposed_entry_difficulty IN ('easy', 'moderate', 'hard')),
+  CHECK (proposed_latitude IS NULL OR (proposed_latitude >= -90 AND proposed_latitude <= 90)),
+  CHECK (proposed_longitude IS NULL OR (proposed_longitude >= -180 AND proposed_longitude <= 180))
 );
 
 CREATE TABLE IF NOT EXISTS dive_site_reviews (

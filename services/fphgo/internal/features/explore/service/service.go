@@ -43,6 +43,7 @@ type repository interface {
 	GetSiteByIDForModeration(ctx context.Context, id string) (explorerepo.SiteSubmission, error)
 	ApproveSite(ctx context.Context, id, slug, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteSubmission, error)
 	RejectOrHideSite(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteSubmission, error)
+	HideSiteByID(ctx context.Context, id, reviewedByAppUserID string, moderationReason *string) (int64, error)
 	CreateSiteEditProposal(ctx context.Context, input explorerepo.CreateSiteEditProposalInput) (explorerepo.SiteEditProposal, error)
 	CreateAndApplySiteEditProposal(ctx context.Context, input explorerepo.CreateSiteEditProposalInput, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (explorerepo.SiteEditProposal, error)
 	ListMySiteEditProposals(ctx context.Context, input explorerepo.ListSiteEditProposalsInput) ([]explorerepo.SiteEditProposal, error)
@@ -349,6 +350,8 @@ type CreateSiteEditProposalInput struct {
 	ActorRole         string
 	Slug              string
 	Name              string
+	Lat               *float64
+	Lng               *float64
 	Description       string
 	Difficulty        string
 	DepthMinM         *float64
@@ -786,6 +789,31 @@ func (s *Service) RejectSite(ctx context.Context, input ModerateSiteInput) (expl
 	return s.moderateSite(ctx, input, false)
 }
 
+func (s *Service) DeleteSite(ctx context.Context, actorID, actorRole, siteID string) error {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(siteID); err != nil {
+		return ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"siteId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if !strings.EqualFold(strings.TrimSpace(actorRole), "super_admin") {
+		return apperrors.New(http.StatusForbidden, "forbidden", "only super admins can delete dive sites", nil)
+	}
+	reason := "Deleted by super admin"
+	rows, err := s.repo.HideSiteByID(ctx, siteID, actorID, &reason)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "site_delete_failed", "failed to delete dive site", err)
+	}
+	if rows == 0 {
+		return apperrors.New(http.StatusNotFound, "site_not_found", "dive site not found", nil)
+	}
+	return nil
+}
+
 func (s *Service) CreateSiteEditProposal(ctx context.Context, input CreateSiteEditProposalInput) (CreateSiteEditProposalResult, error) {
 	if _, err := uuid.Parse(input.ActorID); err != nil {
 		return CreateSiteEditProposalResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
@@ -803,6 +831,15 @@ func (s *Service) CreateSiteEditProposal(ctx context.Context, input CreateSiteEd
 	if len(issues) > 0 {
 		return CreateSiteEditProposalResult{}, ValidationFailure{Issues: issues}
 	}
+	area, geoErr := s.geocoder.ReverseGeocodeArea(ctx, *input.Lat, *input.Lng)
+	if geoErr != nil {
+		return CreateSiteEditProposalResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"location"},
+			Code:    "invalid_location",
+			Message: "Unable to determine area from map pin. Please pick a different spot.",
+		}}}
+	}
+	proposed.Area = strings.TrimSpace(area)
 	if !siteEditChanged(site, proposed) {
 		return CreateSiteEditProposalResult{}, ValidationFailure{Issues: []validatex.Issue{{
 			Path:    []any{"changes"},
@@ -1728,6 +1765,18 @@ func normalizeSiteEditValues(input CreateSiteEditProposalInput) (explorerepo.Sit
 	if difficulty != "easy" && difficulty != "moderate" && difficulty != "hard" {
 		issues = append(issues, validatex.Issue{Path: []any{"entryDifficulty"}, Code: "invalid_enum", Message: "Must be one of: easy moderate hard"})
 	}
+	if input.Lat == nil {
+		issues = append(issues, validatex.Issue{Path: []any{"lat"}, Code: "required", Message: "Required"})
+	}
+	if input.Lng == nil {
+		issues = append(issues, validatex.Issue{Path: []any{"lng"}, Code: "required", Message: "Required"})
+	}
+	if input.Lat != nil && (*input.Lat < -90 || *input.Lat > 90) {
+		issues = append(issues, validatex.Issue{Path: []any{"lat"}, Code: "custom", Message: "Must be between -90 and 90"})
+	}
+	if input.Lng != nil && (*input.Lng < -180 || *input.Lng > 180) {
+		issues = append(issues, validatex.Issue{Path: []any{"lng"}, Code: "custom", Message: "Must be between -180 and 180"})
+	}
 	if input.DepthMinM != nil && *input.DepthMinM < 0 {
 		issues = append(issues, validatex.Issue{Path: []any{"depthMinM"}, Code: "too_small", Message: "Must be greater than or equal to 0"})
 	}
@@ -1740,6 +1789,8 @@ func normalizeSiteEditValues(input CreateSiteEditProposalInput) (explorerepo.Sit
 
 	values := explorerepo.SiteEditValues{
 		Name:              name,
+		Latitude:          input.Lat,
+		Longitude:         input.Lng,
 		Description:       description,
 		Difficulty:        difficulty,
 		DepthMinM:         input.DepthMinM,
@@ -1774,6 +1825,9 @@ func normalizeSiteEditValues(input CreateSiteEditProposalInput) (explorerepo.Sit
 func siteEditChanged(site explorerepo.SiteDetail, proposed explorerepo.SiteEditValues) bool {
 	current := explorerepo.SiteEditValues{
 		Name:              site.Name,
+		Area:              site.Area,
+		Latitude:          site.Latitude,
+		Longitude:         site.Longitude,
 		Description:       site.Description,
 		Difficulty:        site.Difficulty,
 		DepthMinM:         site.DepthMinM,
@@ -1785,6 +1839,9 @@ func siteEditChanged(site explorerepo.SiteDetail, proposed explorerepo.SiteEditV
 		Fees:              strings.TrimSpace(site.Fees),
 	}
 	return current.Name != proposed.Name ||
+		current.Area != proposed.Area ||
+		!floatPtrEqual(current.Latitude, proposed.Latitude) ||
+		!floatPtrEqual(current.Longitude, proposed.Longitude) ||
 		current.Description != proposed.Description ||
 		current.Difficulty != proposed.Difficulty ||
 		!floatPtrEqual(current.DepthMinM, proposed.DepthMinM) ||

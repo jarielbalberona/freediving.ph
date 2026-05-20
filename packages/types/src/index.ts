@@ -1488,6 +1488,8 @@ export type CreateExploreSiteSubmissionRequest = {
 
 export type CreateExploreSiteEditProposalRequest = {
   name: string;
+  lat: number;
+  lng: number;
   description: string;
   entryDifficulty: "easy" | "moderate" | "hard";
   depthMinM?: number;
@@ -1545,6 +1547,9 @@ export type ExploreSiteEditProposalState = "pending" | "applied" | "rejected";
 
 export type ExploreSiteEditValues = {
   name: string;
+  area: string;
+  latitude?: number;
+  longitude?: number;
   description: string;
   difficulty: "easy" | "moderate" | "hard";
   depthMinM?: number;

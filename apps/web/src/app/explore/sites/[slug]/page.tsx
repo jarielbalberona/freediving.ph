@@ -18,6 +18,7 @@ import {
 import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeButton";
 import { FphgoFetchError } from "@/lib/api/fphgo-fetch-client";
 import BackToExploreButton from "./back-to-explore-button";
+import { DeleteSiteButton } from "./delete-site-button";
 import { DiveSiteRelatedTabs } from "./dive-site-related-tabs";
 import { SuggestEditLink } from "./suggest-edit-link";
 
@@ -128,6 +129,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
               viewerHasLiked={data.site.viewerHasLiked}
             />
             <SuggestEditLink slug={data.site.slug} />
+            <DeleteSiteButton siteId={data.site.id} siteName={data.site.name} />
           </div>
         </div>
 

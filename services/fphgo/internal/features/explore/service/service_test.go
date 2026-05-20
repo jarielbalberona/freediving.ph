@@ -26,6 +26,8 @@ type repoStub struct {
 	editProposal   explorerepo.SiteEditProposal
 	editApplyErr   error
 	editApplyCalls int
+	hiddenSiteID   string
+	hideActorID    string
 	duplicateID    string
 	duplicateErr   error
 	likeState      explorerepo.LikeState
@@ -102,6 +104,12 @@ func (r *repoStub) ApproveSite(_ context.Context, _ string, _ string, _ string, 
 
 func (r *repoStub) RejectOrHideSite(_ context.Context, _ string, _ string, _ time.Time, _ *string) (explorerepo.SiteSubmission, error) {
 	return explorerepo.SiteSubmission{}, nil
+}
+
+func (r *repoStub) HideSiteByID(_ context.Context, siteID, actorID string, _ *string) (int64, error) {
+	r.hiddenSiteID = siteID
+	r.hideActorID = actorID
+	return 1, nil
 }
 
 func (r *repoStub) CreateSiteEditProposal(_ context.Context, input explorerepo.CreateSiteEditProposalInput) (explorerepo.SiteEditProposal, error) {
@@ -933,27 +941,76 @@ func TestCreateSiteSubmissionReturnsLocationValidationErrorWhenGeocodeFails(t *t
 	}
 }
 
+func TestDeleteSiteRequiresSuperAdmin(t *testing.T) {
+	repo := &repoStub{}
+	svc := New(repo)
+
+	err := svc.DeleteSite(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"admin",
+		"550e8400-e29b-41d4-a716-446655440101",
+	)
+	if err == nil {
+		t.Fatal("expected non-super-admin delete to fail")
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Status != http.StatusForbidden {
+		t.Fatalf("expected forbidden app error, got %v", err)
+	}
+	if repo.hiddenSiteID != "" {
+		t.Fatalf("delete must not reach repo for non-super-admin, got %s", repo.hiddenSiteID)
+	}
+}
+
+func TestDeleteSiteHidesSiteForSuperAdmin(t *testing.T) {
+	repo := &repoStub{}
+	svc := New(repo)
+
+	err := svc.DeleteSite(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"super_admin",
+		"550e8400-e29b-41d4-a716-446655440101",
+	)
+	if err != nil {
+		t.Fatalf("delete site: %v", err)
+	}
+	if repo.hiddenSiteID != "550e8400-e29b-41d4-a716-446655440101" {
+		t.Fatalf("expected hidden site id to be passed, got %s", repo.hiddenSiteID)
+	}
+	if repo.hideActorID != "550e8400-e29b-41d4-a716-446655440000" {
+		t.Fatalf("expected reviewer actor id to be passed, got %s", repo.hideActorID)
+	}
+}
+
 func TestCreateSiteEditProposalStoresPendingProposalForMember(t *testing.T) {
 	minDepth := 3.0
 	maxDepth := 18.0
+	lat := 9.945
+	lng := 123.37
 	repo := &repoStub{siteDetail: explorerepo.SiteDetail{
 		ID:          "550e8400-e29b-41d4-a716-446655440101",
 		Slug:        "sardine-run",
 		Name:        "Sardine Run",
 		Area:        "Moalboal, Cebu",
+		Latitude:    &lat,
+		Longitude:   &lng,
 		Description: "Known sardine bait ball site.",
 		Difficulty:  "easy",
 		DepthMinM:   &minDepth,
 		DepthMaxM:   &maxDepth,
 		Hazards:     []string{"boat traffic"},
 	}}
-	svc := New(repo)
+	svc := New(repo, WithReverseGeocoder(&geocoderStub{area: "Moalboal, Cebu"}))
 
 	result, err := svc.CreateSiteEditProposal(context.Background(), CreateSiteEditProposalInput{
 		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
 		ActorRole:   "member",
 		Slug:        "sardine-run",
 		Name:        "Sardine Run",
+		Lat:         &lat,
+		Lng:         &lng,
 		Description: "Known sardine bait ball site with shore entry.",
 		Difficulty:  "easy",
 		DepthMinM:   &minDepth,
@@ -981,21 +1038,27 @@ func TestCreateSiteEditProposalStoresPendingProposalForMember(t *testing.T) {
 }
 
 func TestCreateSiteEditProposalAppliesImmediatelyForSuperAdmin(t *testing.T) {
+	lat := 9.945
+	lng := 123.37
 	repo := &repoStub{siteDetail: explorerepo.SiteDetail{
 		ID:          "550e8400-e29b-41d4-a716-446655440101",
 		Slug:        "sardine-run",
 		Name:        "Sardine Run",
 		Area:        "Moalboal, Cebu",
+		Latitude:    &lat,
+		Longitude:   &lng,
 		Description: "Known sardine bait ball site.",
 		Difficulty:  "easy",
 	}}
-	svc := New(repo)
+	svc := New(repo, WithReverseGeocoder(&geocoderStub{area: "Moalboal, Cebu"}))
 
 	result, err := svc.CreateSiteEditProposal(context.Background(), CreateSiteEditProposalInput{
 		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
 		ActorRole:   "super_admin",
 		Slug:        "sardine-run",
 		Name:        "Sardine Run Updated",
+		Lat:         &lat,
+		Lng:         &lng,
 		Description: "Known sardine bait ball site.",
 		Difficulty:  "easy",
 	})
@@ -1020,6 +1083,8 @@ func TestCreateSiteEditProposalAppliesImmediatelyForSuperAdmin(t *testing.T) {
 }
 
 func TestCreateSiteEditProposalSuperAdminApplyFailureDoesNotUsePendingCreate(t *testing.T) {
+	lat := 9.945
+	lng := 123.37
 	repo := &repoStub{
 		editApplyErr: errors.New("apply failed"),
 		siteDetail: explorerepo.SiteDetail{
@@ -1027,17 +1092,21 @@ func TestCreateSiteEditProposalSuperAdminApplyFailureDoesNotUsePendingCreate(t *
 			Slug:        "sardine-run",
 			Name:        "Sardine Run",
 			Area:        "Moalboal, Cebu",
+			Latitude:    &lat,
+			Longitude:   &lng,
 			Description: "Known sardine bait ball site.",
 			Difficulty:  "easy",
 		},
 	}
-	svc := New(repo)
+	svc := New(repo, WithReverseGeocoder(&geocoderStub{area: "Moalboal, Cebu"}))
 
 	_, err := svc.CreateSiteEditProposal(context.Background(), CreateSiteEditProposalInput{
 		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
 		ActorRole:   "super_admin",
 		Slug:        "sardine-run",
 		Name:        "Sardine Run Updated",
+		Lat:         &lat,
+		Lng:         &lng,
 		Description: "Known sardine bait ball site.",
 		Difficulty:  "easy",
 	})

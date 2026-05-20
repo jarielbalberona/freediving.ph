@@ -90,6 +90,8 @@ export const routes = {
         `/v1/explore/sites/${toPathId(siteId)}/save`,
       siteLikes: (siteId: string | number) =>
         `/v1/explore/sites/${toPathId(siteId)}/likes`,
+      deleteSite: (siteId: string | number) =>
+        `/v1/explore/sites/${toPathId(siteId)}`,
       createUpdate: (siteId: string | number) =>
         `/v1/explore/sites/${toPathId(siteId)}/updates`,
       moderationPendingSites: () => "/v1/explore/moderation/sites/pending",

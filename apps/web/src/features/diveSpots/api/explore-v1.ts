@@ -230,6 +230,11 @@ export const exploreApi = {
       method: "DELETE",
     }),
 
+  deleteSite: (siteId: string) =>
+    fphgoFetchClient<void>(routes.v1.explore.deleteSite(siteId), {
+      method: "DELETE",
+    }),
+
   createUpdate: (siteId: string, payload: CreateExploreSiteUpdateRequest) =>
     fphgoFetchClient<{ update: ExploreSiteDetailResponse["updates"][number] }>(
       routes.v1.explore.createUpdate(siteId),

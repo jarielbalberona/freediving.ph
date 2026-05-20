@@ -28,11 +28,14 @@ WITH proposal AS (
         AND s.moderation_state = 'approved'
         AND s.updated_at = p.base_site_updated_at
     )
-  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, base_site_updated_at, created_at, updated_at
+  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_area, proposed_latitude, proposed_longitude, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, base_site_updated_at, created_at, updated_at
 ),
 updated_site AS (
   UPDATE dive_sites s
   SET name = p.proposed_name,
+      area = p.proposed_area,
+      latitude = p.proposed_latitude,
+      longitude = p.proposed_longitude,
       description = p.proposed_description,
       entry_difficulty = p.proposed_entry_difficulty,
       depth_min_m = p.proposed_depth_min_m,
@@ -65,6 +68,9 @@ SELECT
   p.base_site_updated_at,
   s.updated_at AS current_site_updated_at,
   s.name AS current_name,
+  s.area AS current_area,
+  s.latitude AS current_latitude,
+  s.longitude AS current_longitude,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
   s.depth_min_m AS current_depth_min_m,
@@ -75,6 +81,9 @@ SELECT
   COALESCE(s.access, '') AS current_access,
   COALESCE(s.fees, '') AS current_fees,
   p.proposed_name,
+  p.proposed_area,
+  p.proposed_latitude,
+  p.proposed_longitude,
   p.proposed_description,
   p.proposed_entry_difficulty,
   p.proposed_depth_min_m,
@@ -114,6 +123,9 @@ type ApplySiteEditProposalRow struct {
 	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
 	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentArea               string             `db:"current_area" json:"current_area"`
+	CurrentLatitude           *float64           `db:"current_latitude" json:"current_latitude"`
+	CurrentLongitude          *float64           `db:"current_longitude" json:"current_longitude"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
 	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
@@ -124,6 +136,9 @@ type ApplySiteEditProposalRow struct {
 	CurrentAccess             string             `db:"current_access" json:"current_access"`
 	CurrentFees               string             `db:"current_fees" json:"current_fees"`
 	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedArea              string             `db:"proposed_area" json:"proposed_area"`
+	ProposedLatitude          *float64           `db:"proposed_latitude" json:"proposed_latitude"`
+	ProposedLongitude         *float64           `db:"proposed_longitude" json:"proposed_longitude"`
 	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
 	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
 	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
@@ -160,6 +175,9 @@ func (q *Queries) ApplySiteEditProposal(ctx context.Context, arg ApplySiteEditPr
 		&i.BaseSiteUpdatedAt,
 		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
+		&i.CurrentArea,
+		&i.CurrentLatitude,
+		&i.CurrentLongitude,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,
 		&i.CurrentDepthMinM,
@@ -170,6 +188,9 @@ func (q *Queries) ApplySiteEditProposal(ctx context.Context, arg ApplySiteEditPr
 		&i.CurrentAccess,
 		&i.CurrentFees,
 		&i.ProposedName,
+		&i.ProposedArea,
+		&i.ProposedLatitude,
+		&i.ProposedLongitude,
 		&i.ProposedDescription,
 		&i.ProposedEntryDifficulty,
 		&i.ProposedDepthMinM,
@@ -478,6 +499,9 @@ WITH inserted AS (
     submitted_by_app_user_id,
     base_site_updated_at,
     proposed_name,
+    proposed_area,
+    proposed_latitude,
+    proposed_longitude,
     proposed_description,
     proposed_entry_difficulty,
     proposed_depth_min_m,
@@ -501,11 +525,14 @@ WITH inserted AS (
     $9,
     $10,
     $11,
-    $12
+    $12,
+    $13,
+    $14,
+    $15
   FROM dive_sites s
   WHERE s.id = $1
     AND s.moderation_state = 'approved'
-  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, base_site_updated_at, created_at, updated_at
+  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_area, proposed_latitude, proposed_longitude, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, base_site_updated_at, created_at, updated_at
 )
 SELECT
   p.id,
@@ -522,6 +549,9 @@ SELECT
   p.base_site_updated_at,
   s.updated_at AS current_site_updated_at,
   s.name AS current_name,
+  s.area AS current_area,
+  s.latitude AS current_latitude,
+  s.longitude AS current_longitude,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
   s.depth_min_m AS current_depth_min_m,
@@ -532,6 +562,9 @@ SELECT
   COALESCE(s.access, '') AS current_access,
   COALESCE(s.fees, '') AS current_fees,
   p.proposed_name,
+  p.proposed_area,
+  p.proposed_latitude,
+  p.proposed_longitude,
   p.proposed_description,
   p.proposed_entry_difficulty,
   p.proposed_depth_min_m,
@@ -553,6 +586,9 @@ type CreateSiteEditProposalParams struct {
 	DiveSiteID                pgtype.UUID    `db:"dive_site_id" json:"dive_site_id"`
 	SubmittedByAppUserID      pgtype.UUID    `db:"submitted_by_app_user_id" json:"submitted_by_app_user_id"`
 	ProposedName              string         `db:"proposed_name" json:"proposed_name"`
+	ProposedArea              string         `db:"proposed_area" json:"proposed_area"`
+	ProposedLatitude          *float64       `db:"proposed_latitude" json:"proposed_latitude"`
+	ProposedLongitude         *float64       `db:"proposed_longitude" json:"proposed_longitude"`
 	ProposedDescription       string         `db:"proposed_description" json:"proposed_description"`
 	ProposedEntryDifficulty   string         `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
 	ProposedDepthMinM         pgtype.Numeric `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
@@ -579,6 +615,9 @@ type CreateSiteEditProposalRow struct {
 	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
 	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentArea               string             `db:"current_area" json:"current_area"`
+	CurrentLatitude           *float64           `db:"current_latitude" json:"current_latitude"`
+	CurrentLongitude          *float64           `db:"current_longitude" json:"current_longitude"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
 	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
@@ -589,6 +628,9 @@ type CreateSiteEditProposalRow struct {
 	CurrentAccess             string             `db:"current_access" json:"current_access"`
 	CurrentFees               string             `db:"current_fees" json:"current_fees"`
 	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedArea              string             `db:"proposed_area" json:"proposed_area"`
+	ProposedLatitude          *float64           `db:"proposed_latitude" json:"proposed_latitude"`
+	ProposedLongitude         *float64           `db:"proposed_longitude" json:"proposed_longitude"`
 	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
 	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
 	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
@@ -607,6 +649,9 @@ func (q *Queries) CreateSiteEditProposal(ctx context.Context, arg CreateSiteEdit
 		arg.DiveSiteID,
 		arg.SubmittedByAppUserID,
 		arg.ProposedName,
+		arg.ProposedArea,
+		arg.ProposedLatitude,
+		arg.ProposedLongitude,
 		arg.ProposedDescription,
 		arg.ProposedEntryDifficulty,
 		arg.ProposedDepthMinM,
@@ -633,6 +678,9 @@ func (q *Queries) CreateSiteEditProposal(ctx context.Context, arg CreateSiteEdit
 		&i.BaseSiteUpdatedAt,
 		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
+		&i.CurrentArea,
+		&i.CurrentLatitude,
+		&i.CurrentLongitude,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,
 		&i.CurrentDepthMinM,
@@ -643,6 +691,9 @@ func (q *Queries) CreateSiteEditProposal(ctx context.Context, arg CreateSiteEdit
 		&i.CurrentAccess,
 		&i.CurrentFees,
 		&i.ProposedName,
+		&i.ProposedArea,
+		&i.ProposedLatitude,
+		&i.ProposedLongitude,
 		&i.ProposedDescription,
 		&i.ProposedEntryDifficulty,
 		&i.ProposedDepthMinM,
@@ -910,6 +961,9 @@ SELECT
   p.base_site_updated_at,
   s.updated_at AS current_site_updated_at,
   s.name AS current_name,
+  s.area AS current_area,
+  s.latitude AS current_latitude,
+  s.longitude AS current_longitude,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
   s.depth_min_m AS current_depth_min_m,
@@ -920,6 +974,9 @@ SELECT
   COALESCE(s.access, '') AS current_access,
   COALESCE(s.fees, '') AS current_fees,
   p.proposed_name,
+  p.proposed_area,
+  p.proposed_latitude,
+  p.proposed_longitude,
   p.proposed_description,
   p.proposed_entry_difficulty,
   p.proposed_depth_min_m,
@@ -959,6 +1016,9 @@ type GetMySiteEditProposalByIDRow struct {
 	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
 	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentArea               string             `db:"current_area" json:"current_area"`
+	CurrentLatitude           *float64           `db:"current_latitude" json:"current_latitude"`
+	CurrentLongitude          *float64           `db:"current_longitude" json:"current_longitude"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
 	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
@@ -969,6 +1029,9 @@ type GetMySiteEditProposalByIDRow struct {
 	CurrentAccess             string             `db:"current_access" json:"current_access"`
 	CurrentFees               string             `db:"current_fees" json:"current_fees"`
 	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedArea              string             `db:"proposed_area" json:"proposed_area"`
+	ProposedLatitude          *float64           `db:"proposed_latitude" json:"proposed_latitude"`
+	ProposedLongitude         *float64           `db:"proposed_longitude" json:"proposed_longitude"`
 	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
 	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
 	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
@@ -1000,6 +1063,9 @@ func (q *Queries) GetMySiteEditProposalByID(ctx context.Context, arg GetMySiteEd
 		&i.BaseSiteUpdatedAt,
 		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
+		&i.CurrentArea,
+		&i.CurrentLatitude,
+		&i.CurrentLongitude,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,
 		&i.CurrentDepthMinM,
@@ -1010,6 +1076,9 @@ func (q *Queries) GetMySiteEditProposalByID(ctx context.Context, arg GetMySiteEd
 		&i.CurrentAccess,
 		&i.CurrentFees,
 		&i.ProposedName,
+		&i.ProposedArea,
+		&i.ProposedLatitude,
+		&i.ProposedLongitude,
 		&i.ProposedDescription,
 		&i.ProposedEntryDifficulty,
 		&i.ProposedDepthMinM,
@@ -1457,6 +1526,9 @@ SELECT
   p.base_site_updated_at,
   s.updated_at AS current_site_updated_at,
   s.name AS current_name,
+  s.area AS current_area,
+  s.latitude AS current_latitude,
+  s.longitude AS current_longitude,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
   s.depth_min_m AS current_depth_min_m,
@@ -1467,6 +1539,9 @@ SELECT
   COALESCE(s.access, '') AS current_access,
   COALESCE(s.fees, '') AS current_fees,
   p.proposed_name,
+  p.proposed_area,
+  p.proposed_latitude,
+  p.proposed_longitude,
   p.proposed_description,
   p.proposed_entry_difficulty,
   p.proposed_depth_min_m,
@@ -1500,6 +1575,9 @@ type GetSiteEditProposalForModerationRow struct {
 	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
 	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentArea               string             `db:"current_area" json:"current_area"`
+	CurrentLatitude           *float64           `db:"current_latitude" json:"current_latitude"`
+	CurrentLongitude          *float64           `db:"current_longitude" json:"current_longitude"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
 	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
@@ -1510,6 +1588,9 @@ type GetSiteEditProposalForModerationRow struct {
 	CurrentAccess             string             `db:"current_access" json:"current_access"`
 	CurrentFees               string             `db:"current_fees" json:"current_fees"`
 	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedArea              string             `db:"proposed_area" json:"proposed_area"`
+	ProposedLatitude          *float64           `db:"proposed_latitude" json:"proposed_latitude"`
+	ProposedLongitude         *float64           `db:"proposed_longitude" json:"proposed_longitude"`
 	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
 	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
 	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
@@ -1541,6 +1622,9 @@ func (q *Queries) GetSiteEditProposalForModeration(ctx context.Context, id pgtyp
 		&i.BaseSiteUpdatedAt,
 		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
+		&i.CurrentArea,
+		&i.CurrentLatitude,
+		&i.CurrentLongitude,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,
 		&i.CurrentDepthMinM,
@@ -1551,6 +1635,9 @@ func (q *Queries) GetSiteEditProposalForModeration(ctx context.Context, id pgtyp
 		&i.CurrentAccess,
 		&i.CurrentFees,
 		&i.ProposedName,
+		&i.ProposedArea,
+		&i.ProposedLatitude,
+		&i.ProposedLongitude,
 		&i.ProposedDescription,
 		&i.ProposedEntryDifficulty,
 		&i.ProposedDepthMinM,
@@ -1994,6 +2081,9 @@ SELECT
   p.base_site_updated_at,
   s.updated_at AS current_site_updated_at,
   s.name AS current_name,
+  s.area AS current_area,
+  s.latitude AS current_latitude,
+  s.longitude AS current_longitude,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
   s.depth_min_m AS current_depth_min_m,
@@ -2004,6 +2094,9 @@ SELECT
   COALESCE(s.access, '') AS current_access,
   COALESCE(s.fees, '') AS current_fees,
   p.proposed_name,
+  p.proposed_area,
+  p.proposed_latitude,
+  p.proposed_longitude,
   p.proposed_description,
   p.proposed_entry_difficulty,
   p.proposed_depth_min_m,
@@ -2047,6 +2140,9 @@ type ListMySiteEditProposalsRow struct {
 	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
 	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentArea               string             `db:"current_area" json:"current_area"`
+	CurrentLatitude           *float64           `db:"current_latitude" json:"current_latitude"`
+	CurrentLongitude          *float64           `db:"current_longitude" json:"current_longitude"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
 	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
@@ -2057,6 +2153,9 @@ type ListMySiteEditProposalsRow struct {
 	CurrentAccess             string             `db:"current_access" json:"current_access"`
 	CurrentFees               string             `db:"current_fees" json:"current_fees"`
 	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedArea              string             `db:"proposed_area" json:"proposed_area"`
+	ProposedLatitude          *float64           `db:"proposed_latitude" json:"proposed_latitude"`
+	ProposedLongitude         *float64           `db:"proposed_longitude" json:"proposed_longitude"`
 	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
 	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
 	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
@@ -2271,6 +2370,9 @@ SELECT
   p.base_site_updated_at,
   s.updated_at AS current_site_updated_at,
   s.name AS current_name,
+  s.area AS current_area,
+  s.latitude AS current_latitude,
+  s.longitude AS current_longitude,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
   s.depth_min_m AS current_depth_min_m,
@@ -2281,6 +2383,9 @@ SELECT
   COALESCE(s.access, '') AS current_access,
   COALESCE(s.fees, '') AS current_fees,
   p.proposed_name,
+  p.proposed_area,
+  p.proposed_latitude,
+  p.proposed_longitude,
   p.proposed_description,
   p.proposed_entry_difficulty,
   p.proposed_depth_min_m,
@@ -2324,6 +2429,9 @@ type ListPendingSiteEditProposalsRow struct {
 	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
 	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentArea               string             `db:"current_area" json:"current_area"`
+	CurrentLatitude           *float64           `db:"current_latitude" json:"current_latitude"`
+	CurrentLongitude          *float64           `db:"current_longitude" json:"current_longitude"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
 	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
@@ -2334,6 +2442,9 @@ type ListPendingSiteEditProposalsRow struct {
 	CurrentAccess             string             `db:"current_access" json:"current_access"`
 	CurrentFees               string             `db:"current_fees" json:"current_fees"`
 	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedArea              string             `db:"proposed_area" json:"proposed_area"`
+	ProposedLatitude          *float64           `db:"proposed_latitude" json:"proposed_latitude"`
+	ProposedLongitude         *float64           `db:"proposed_longitude" json:"proposed_longitude"`
 	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
 	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
 	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
@@ -3575,7 +3686,7 @@ WITH proposal AS (
       updated_at = NOW()
   WHERE p.id = $4
     AND p.state = 'pending'
-  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, base_site_updated_at, created_at, updated_at
+  RETURNING id, dive_site_id, submitted_by_app_user_id, reviewed_by_app_user_id, reviewed_at, moderation_reason, state, proposed_name, proposed_area, proposed_latitude, proposed_longitude, proposed_description, proposed_entry_difficulty, proposed_depth_min_m, proposed_depth_max_m, proposed_hazards, proposed_best_season, proposed_typical_conditions, proposed_access, proposed_fees, base_site_updated_at, created_at, updated_at
 )
 SELECT
   p.id,
@@ -3592,6 +3703,9 @@ SELECT
   p.base_site_updated_at,
   s.updated_at AS current_site_updated_at,
   s.name AS current_name,
+  s.area AS current_area,
+  s.latitude AS current_latitude,
+  s.longitude AS current_longitude,
   COALESCE(s.description, '') AS current_description,
   s.entry_difficulty AS current_entry_difficulty,
   s.depth_min_m AS current_depth_min_m,
@@ -3602,6 +3716,9 @@ SELECT
   COALESCE(s.access, '') AS current_access,
   COALESCE(s.fees, '') AS current_fees,
   p.proposed_name,
+  p.proposed_area,
+  p.proposed_latitude,
+  p.proposed_longitude,
   p.proposed_description,
   p.proposed_entry_difficulty,
   p.proposed_depth_min_m,
@@ -3641,6 +3758,9 @@ type RejectSiteEditProposalRow struct {
 	BaseSiteUpdatedAt         pgtype.Timestamptz `db:"base_site_updated_at" json:"base_site_updated_at"`
 	CurrentSiteUpdatedAt      pgtype.Timestamptz `db:"current_site_updated_at" json:"current_site_updated_at"`
 	CurrentName               string             `db:"current_name" json:"current_name"`
+	CurrentArea               string             `db:"current_area" json:"current_area"`
+	CurrentLatitude           *float64           `db:"current_latitude" json:"current_latitude"`
+	CurrentLongitude          *float64           `db:"current_longitude" json:"current_longitude"`
 	CurrentDescription        string             `db:"current_description" json:"current_description"`
 	CurrentEntryDifficulty    string             `db:"current_entry_difficulty" json:"current_entry_difficulty"`
 	CurrentDepthMinM          pgtype.Numeric     `db:"current_depth_min_m" json:"current_depth_min_m"`
@@ -3651,6 +3771,9 @@ type RejectSiteEditProposalRow struct {
 	CurrentAccess             string             `db:"current_access" json:"current_access"`
 	CurrentFees               string             `db:"current_fees" json:"current_fees"`
 	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedArea              string             `db:"proposed_area" json:"proposed_area"`
+	ProposedLatitude          *float64           `db:"proposed_latitude" json:"proposed_latitude"`
+	ProposedLongitude         *float64           `db:"proposed_longitude" json:"proposed_longitude"`
 	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
 	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
 	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`
@@ -3687,6 +3810,9 @@ func (q *Queries) RejectSiteEditProposal(ctx context.Context, arg RejectSiteEdit
 		&i.BaseSiteUpdatedAt,
 		&i.CurrentSiteUpdatedAt,
 		&i.CurrentName,
+		&i.CurrentArea,
+		&i.CurrentLatitude,
+		&i.CurrentLongitude,
 		&i.CurrentDescription,
 		&i.CurrentEntryDifficulty,
 		&i.CurrentDepthMinM,
@@ -3697,6 +3823,9 @@ func (q *Queries) RejectSiteEditProposal(ctx context.Context, arg RejectSiteEdit
 		&i.CurrentAccess,
 		&i.CurrentFees,
 		&i.ProposedName,
+		&i.ProposedArea,
+		&i.ProposedLatitude,
+		&i.ProposedLongitude,
 		&i.ProposedDescription,
 		&i.ProposedEntryDifficulty,
 		&i.ProposedDepthMinM,
@@ -3741,6 +3870,32 @@ func (q *Queries) SlugExists(ctx context.Context, slug string) (bool, error) {
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const hideSiteByID = `-- name: HideSiteByID :execrows
+UPDATE dive_sites
+SET moderation_state = 'hidden',
+    moderation_reason = $1,
+    reviewed_by_app_user_id = $2,
+    reviewed_at = NOW(),
+    updated_at = NOW(),
+    last_updated_at = GREATEST(last_updated_at, NOW())
+WHERE id = $3
+  AND moderation_state <> 'hidden'
+`
+
+type HideSiteByIDParams struct {
+	ModerationReason    *string     `db:"moderation_reason" json:"moderation_reason"`
+	ReviewedByAppUserID pgtype.UUID `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ID                  pgtype.UUID `db:"id" json:"id"`
+}
+
+func (q *Queries) HideSiteByID(ctx context.Context, arg HideSiteByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, hideSiteByID, arg.ModerationReason, arg.ReviewedByAppUserID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const touchSiteLastUpdated = `-- name: TouchSiteLastUpdated :exec

@@ -1,8 +1,21 @@
 import { z } from "zod";
 
+const locationSchema = z.object({
+  lat: z
+    .number()
+    .min(-90, "Latitude must be at least -90")
+    .max(90, "Latitude must be at most 90"),
+  lng: z
+    .number()
+    .min(-180, "Longitude must be at least -180")
+    .max(180, "Longitude must be at most 180"),
+  area: z.string().max(120).optional(),
+});
+
 export const siteEditProposalSchema = z
   .object({
     name: z.string().min(3, "Name must be at least 3 characters").max(120),
+    location: locationSchema.nullable(),
     description: z
       .string()
       .min(12, "Description must be at least 12 characters")
@@ -15,6 +28,10 @@ export const siteEditProposalSchema = z
     typicalConditions: z.string().max(500).optional(),
     access: z.string().max(500).optional(),
     fees: z.string().max(280).optional(),
+  })
+  .refine((data) => data.location !== null, {
+    message: "Pick the dive spot on the map before submitting",
+    path: ["location"],
   })
   .refine(
     (data) => {

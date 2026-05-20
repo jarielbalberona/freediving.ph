@@ -55,6 +55,7 @@ func Routes(h *Handlers) chi.Router {
 		})
 		member.Group(func(moderation chi.Router) {
 			moderation.Use(middleware.RequirePermission(authz.PermissionExploreModerate))
+			moderation.Delete("/sites/{siteId}", h.DeleteSite)
 			moderation.Get("/moderation/sites/pending", h.ListPendingSites)
 			moderation.Get("/moderation/sites/{id}", h.GetSiteByIDForModeration)
 			moderation.Post("/moderation/sites/{id}/approve", h.ApproveSite)

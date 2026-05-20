@@ -55,6 +55,7 @@ type exploreService interface {
 	GetSiteByIDForModeration(ctx context.Context, siteID string) (explorerepo.SiteSubmission, error)
 	ApproveSite(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error)
 	RejectSite(ctx context.Context, input exploreservice.ModerateSiteInput) (explorerepo.SiteSubmission, error)
+	DeleteSite(ctx context.Context, actorID, actorRole, siteID string) error
 	CreateSiteEditProposal(ctx context.Context, input exploreservice.CreateSiteEditProposalInput) (exploreservice.CreateSiteEditProposalResult, error)
 	ListMySiteEditProposals(ctx context.Context, input exploreservice.SubmissionListInput) (exploreservice.SiteEditProposalListResult, error)
 	GetMySiteEditProposalByID(ctx context.Context, actorID, proposalID string) (explorerepo.SiteEditProposal, error)
@@ -487,6 +488,8 @@ func (h *Handlers) CreateSiteEditProposal(w http.ResponseWriter, r *http.Request
 		ActorRole:         identity.GlobalRole,
 		Slug:              chi.URLParam(r, "slug"),
 		Name:              req.Name,
+		Lat:               req.Lat,
+		Lng:               req.Lng,
 		Description:       req.Description,
 		Difficulty:        req.EntryDifficulty,
 		DepthMinM:         req.DepthMinM,
@@ -509,6 +512,19 @@ func (h *Handlers) CreateSiteEditProposal(w http.ResponseWriter, r *http.Request
 		Proposal:           mapSiteEditProposal(result.Proposal),
 		AppliedImmediately: result.AppliedImmediately,
 	})
+}
+
+func (h *Handlers) DeleteSite(w http.ResponseWriter, r *http.Request) {
+	identity, err := requireIdentity(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	if err := h.service.DeleteSite(r.Context(), identity.UserID, identity.GlobalRole, chi.URLParam(r, "siteId")); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handlers) ListMySiteSubmissions(w http.ResponseWriter, r *http.Request) {
@@ -1316,6 +1332,9 @@ func mapSiteEditProposal(input explorerepo.SiteEditProposal) SiteEditProposal {
 func mapSiteEditValues(input explorerepo.SiteEditValues) SiteEditValues {
 	return SiteEditValues{
 		Name:              input.Name,
+		Area:              input.Area,
+		Latitude:          input.Latitude,
+		Longitude:         input.Longitude,
 		Description:       input.Description,
 		Difficulty:        input.Difficulty,
 		DepthMinM:         input.DepthMinM,

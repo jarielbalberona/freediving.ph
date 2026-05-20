@@ -186,6 +186,10 @@ func (s *exploreServiceStub) RejectSite(context.Context, exploreservice.Moderate
 	return s.moderationDetail, nil
 }
 
+func (s *exploreServiceStub) DeleteSite(context.Context, string, string, string) error {
+	return s.err
+}
+
 func (s *exploreServiceStub) CreateSiteEditProposal(_ context.Context, input exploreservice.CreateSiteEditProposalInput) (exploreservice.CreateSiteEditProposalResult, error) {
 	s.createSiteEdit = input
 	if s.err != nil {
@@ -1019,6 +1023,8 @@ func TestExploreSubmissionAndModerationRoutes(t *testing.T) {
 	memberSvc.siteEdit = siteEdit
 	editBody, _ := json.Marshal(CreateSiteEditProposalRequest{
 		Name:            "Sardine Run",
+		Lat:             float64Ptr(9.945),
+		Lng:             float64Ptr(123.37),
 		Description:     "Known sardine bait ball site.",
 		EntryDifficulty: "easy",
 		Hazards:         []string{"boat traffic"},
