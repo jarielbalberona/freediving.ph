@@ -203,7 +203,9 @@ export const useChikaRealtime = (params: {
             return;
           }
 
-          queryClient.invalidateQueries({ queryKey: queryKeys.chika.threads() });
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.chika.threads(),
+          });
         };
 
         socket.onclose = () => {

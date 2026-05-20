@@ -40,18 +40,23 @@ export const threadsApi = {
   },
 
   getById: async (id: string): Promise<ChikaThreadView> => {
-    return fphgoFetchClient<ChikaThreadResponse>(routes.v1.chika.threads.byId(id));
+    return fphgoFetchClient<ChikaThreadResponse>(
+      routes.v1.chika.threads.byId(id),
+    );
   },
 
   create: async (payload: CreateThreadPayload): Promise<ChikaThreadView> => {
-    return fphgoFetchClient<ChikaThreadResponse>(routes.v1.chika.threads.list(), {
-      method: "POST",
-      body: {
-        title: payload.title,
-        content: payload.content,
-        categoryId: payload.categoryId,
+    return fphgoFetchClient<ChikaThreadResponse>(
+      routes.v1.chika.threads.list(),
+      {
+        method: "POST",
+        body: {
+          title: payload.title,
+          content: payload.content,
+          categoryId: payload.categoryId,
+        },
       },
-    });
+    );
   },
 
   getComments: async (threadId: string): Promise<ChikaCommentView[]> => {
@@ -66,13 +71,19 @@ export const threadsApi = {
     content: string,
     parentCommentId?: string,
   ): Promise<ChikaCommentView> => {
-    return fphgoFetchClient<ChikaCommentResponse>(routes.v1.chika.threads.comments(threadId), {
-      method: "POST",
-      body: { content, ...(parentCommentId ? { parentCommentId } : {}) },
-    });
+    return fphgoFetchClient<ChikaCommentResponse>(
+      routes.v1.chika.threads.comments(threadId),
+      {
+        method: "POST",
+        body: { content, ...(parentCommentId ? { parentCommentId } : {}) },
+      },
+    );
   },
 
-  setReaction: async (threadId: string, type: ThreadReactionType): Promise<void> => {
+  setReaction: async (
+    threadId: string,
+    type: ThreadReactionType,
+  ): Promise<void> => {
     await fphgoFetchClient(routes.v1.chika.threads.reactions(threadId), {
       method: "POST",
       body: { type },
@@ -89,15 +100,23 @@ export const threadsApi = {
     commentId: string,
     type: CommentReactionType,
   ): Promise<ChikaCommentReactionResponse> => {
-    return fphgoFetchClient<ChikaCommentReactionResponse>(routes.v1.chika.comments.reactions(commentId), {
-      method: "POST",
-      body: { type },
-    });
+    return fphgoFetchClient<ChikaCommentReactionResponse>(
+      routes.v1.chika.comments.reactions(commentId),
+      {
+        method: "POST",
+        body: { type },
+      },
+    );
   },
 
-  removeCommentReaction: async (commentId: string): Promise<ChikaCommentReactionResponse> => {
-    return fphgoFetchClient<ChikaCommentReactionResponse>(routes.v1.chika.comments.reactions(commentId), {
-      method: "DELETE",
-    });
+  removeCommentReaction: async (
+    commentId: string,
+  ): Promise<ChikaCommentReactionResponse> => {
+    return fphgoFetchClient<ChikaCommentReactionResponse>(
+      routes.v1.chika.comments.reactions(commentId),
+      {
+        method: "DELETE",
+      },
+    );
   },
 };

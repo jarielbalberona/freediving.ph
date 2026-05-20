@@ -17,7 +17,9 @@ type ChikaPatch = {
 const patchThread = (thread: ChikaThreadView, patch: ChikaPatch) => ({
   ...thread,
   ...(patch.voteCount !== undefined ? { voteCount: patch.voteCount } : null),
-  ...(patch.commentCount !== undefined ? { commentCount: patch.commentCount } : null),
+  ...(patch.commentCount !== undefined
+    ? { commentCount: patch.commentCount }
+    : null),
   userReaction:
     patch.userReaction === undefined
       ? thread.userReaction
@@ -29,9 +31,15 @@ const patchFeedPayload = (
   patch: ChikaPatch,
 ) => ({
   ...(payload ?? {}),
-  ...(patch.voteCount !== undefined ? { reactionCount: patch.voteCount } : null),
-  ...(patch.commentCount !== undefined ? { replyCount: patch.commentCount } : null),
-  ...(patch.userReaction !== undefined ? { viewerVote: patch.userReaction } : null),
+  ...(patch.voteCount !== undefined
+    ? { reactionCount: patch.voteCount }
+    : null),
+  ...(patch.commentCount !== undefined
+    ? { replyCount: patch.commentCount }
+    : null),
+  ...(patch.userReaction !== undefined
+    ? { viewerVote: patch.userReaction }
+    : null),
 });
 
 const patchActivityStats = (
@@ -45,7 +53,9 @@ const patchActivityStats = (
   ...(patch.commentCount !== undefined
     ? { replyCount: patch.commentCount, replies: patch.commentCount }
     : null),
-  ...(patch.userReaction !== undefined ? { viewerVote: patch.userReaction } : null),
+  ...(patch.userReaction !== undefined
+    ? { viewerVote: patch.userReaction }
+    : null),
 });
 
 const countWithDelta = (value: unknown, delta: number) =>
@@ -137,17 +147,20 @@ export function updateChikaThreadInCaches(
     },
   );
 
-  queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, (current: any) => {
-    if (!current?.items) return current;
-    return {
-      ...current,
-      items: current.items.map((item: any) =>
-        item.type === "community_hot_post" && item.entityId === threadId
-          ? { ...item, payload: patchFeedPayload(item.payload, patch) }
-          : item,
-      ),
-    };
-  });
+  queryClient.setQueriesData(
+    { queryKey: queryKeys.feed.all },
+    (current: any) => {
+      if (!current?.items) return current;
+      return {
+        ...current,
+        items: current.items.map((item: any) =>
+          item.type === "community_hot_post" && item.entityId === threadId
+            ? { ...item, payload: patchFeedPayload(item.payload, patch) }
+            : item,
+        ),
+      };
+    },
+  );
 
   queryClient.setQueriesData(
     { queryKey: queryKeys.feed.activityAll },
@@ -193,24 +206,32 @@ export function updateChikaThreadCommentCountDelta(
     },
   );
 
-  queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, (current: any) => {
-    if (!current?.items) return current;
-    return {
-      ...current,
-      items: current.items.map((item: any) => {
-        if (item.type !== "community_hot_post" || item.entityId !== threadId) {
-          return item;
-        }
-        const replyCount = countWithDelta(item.payload?.replyCount, delta);
-        return replyCount === undefined
-          ? item
-          : {
-              ...item,
-              payload: patchFeedPayload(item.payload, { commentCount: replyCount }),
-            };
-      }),
-    };
-  });
+  queryClient.setQueriesData(
+    { queryKey: queryKeys.feed.all },
+    (current: any) => {
+      if (!current?.items) return current;
+      return {
+        ...current,
+        items: current.items.map((item: any) => {
+          if (
+            item.type !== "community_hot_post" ||
+            item.entityId !== threadId
+          ) {
+            return item;
+          }
+          const replyCount = countWithDelta(item.payload?.replyCount, delta);
+          return replyCount === undefined
+            ? item
+            : {
+                ...item,
+                payload: patchFeedPayload(item.payload, {
+                  commentCount: replyCount,
+                }),
+              };
+        }),
+      };
+    },
+  );
 
   queryClient.setQueriesData(
     { queryKey: queryKeys.feed.activityAll },

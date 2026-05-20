@@ -26,11 +26,17 @@ export const useCreateComment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ threadId, content, parentCommentId }: { threadId: string; content: string; parentCommentId?: string }) =>
+    mutationFn: ({
+      threadId,
+      content,
+      parentCommentId,
+    }: { threadId: string; content: string; parentCommentId?: string }) =>
       threadsApi.createComment(threadId, content, parentCommentId),
     onSuccess: (_, { threadId }) => {
       updateChikaThreadCommentCountDelta(queryClient, threadId, 1);
-      queryClient.invalidateQueries({ queryKey: queryKeys.chika.threadComments(threadId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chika.threadComments(threadId),
+      });
     },
   });
 };
@@ -39,7 +45,10 @@ export const useSetThreadReaction = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ threadId, type }: { threadId: string; type: ThreadReactionType }) =>
+    mutationFn: ({
+      threadId,
+      type,
+    }: { threadId: string; type: ThreadReactionType }) =>
       threadsApi.setReaction(threadId, type),
   });
 };
@@ -48,7 +57,8 @@ export const useRemoveThreadReaction = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ threadId }: { threadId: string }) => threadsApi.removeReaction(threadId),
+    mutationFn: ({ threadId }: { threadId: string }) =>
+      threadsApi.removeReaction(threadId),
   });
 };
 
@@ -56,13 +66,20 @@ export const useSetCommentReaction = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ commentId, type }: { threadId: string; commentId: string; type: CommentReactionType }) =>
+    mutationFn: ({
+      commentId,
+      type,
+    }: { threadId: string; commentId: string; type: CommentReactionType }) =>
       threadsApi.setCommentReaction(commentId, type),
     onMutate: async ({ threadId, commentId, type }) => {
       const queryKey = queryKeys.chika.threadComments(threadId);
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData(queryKey);
-      const comment = getChikaCommentFromCache(queryClient, threadId, commentId);
+      const comment = getChikaCommentFromCache(
+        queryClient,
+        threadId,
+        commentId,
+      );
       if (comment) {
         updateChikaCommentInCache(
           queryClient,
@@ -73,11 +90,16 @@ export const useSetCommentReaction = () => {
       }
       return { previous, queryKey };
     },
-    onSuccess: (result, { threadId, commentId }) => {
-      updateChikaCommentInCache(queryClient, threadId, commentId, {
-        voteCount: result.voteCount,
-        userReaction: result.userReaction,
-      });
+    onSuccess: (result) => {
+      updateChikaCommentInCache(
+        queryClient,
+        result.threadId,
+        result.commentId,
+        {
+          voteCount: result.voteCount,
+          userReaction: result.userReaction,
+        },
+      );
     },
     onError: (_error, _variables, context) => {
       if (context?.previous) {
@@ -85,7 +107,9 @@ export const useSetCommentReaction = () => {
       }
     },
     onSettled: (_result, _error, { threadId }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.chika.threadComments(threadId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chika.threadComments(threadId),
+      });
     },
   });
 };
@@ -100,7 +124,11 @@ export const useRemoveCommentReaction = () => {
       const queryKey = queryKeys.chika.threadComments(threadId);
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData(queryKey);
-      const comment = getChikaCommentFromCache(queryClient, threadId, commentId);
+      const comment = getChikaCommentFromCache(
+        queryClient,
+        threadId,
+        commentId,
+      );
       if (comment) {
         updateChikaCommentInCache(
           queryClient,
@@ -111,11 +139,16 @@ export const useRemoveCommentReaction = () => {
       }
       return { previous, queryKey };
     },
-    onSuccess: (result, { threadId, commentId }) => {
-      updateChikaCommentInCache(queryClient, threadId, commentId, {
-        voteCount: result.voteCount,
-        userReaction: result.userReaction,
-      });
+    onSuccess: (result) => {
+      updateChikaCommentInCache(
+        queryClient,
+        result.threadId,
+        result.commentId,
+        {
+          voteCount: result.voteCount,
+          userReaction: result.userReaction,
+        },
+      );
     },
     onError: (_error, _variables, context) => {
       if (context?.previous) {
@@ -123,7 +156,9 @@ export const useRemoveCommentReaction = () => {
       }
     },
     onSettled: (_result, _error, { threadId }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.chika.threadComments(threadId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chika.threadComments(threadId),
+      });
     },
   });
 };

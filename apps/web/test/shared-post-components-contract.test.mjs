@@ -10,10 +10,14 @@ const readSource = (relativePath) =>
   readFile(path.join(appRoot, relativePath), "utf8");
 
 const runTsxFixture = (code) => {
-  const result = spawnSync(path.join(appRoot, "../../node_modules/.bin/tsx"), ["--eval", code], {
-    cwd: appRoot,
-    encoding: "utf8",
-  });
+  const result = spawnSync(
+    path.join(appRoot, "../../node_modules/.bin/tsx"),
+    ["--eval", code],
+    {
+      cwd: appRoot,
+      encoding: "utf8",
+    },
+  );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   return result.stdout.trim();
 };
@@ -29,12 +33,15 @@ test("chika vote transition math covers every click path", async () => {
   assert.match(source, /voteDelta\(current\.viewerVote, viewerVote\)/);
 
   const score = { upvote: 1, downvote: -1, none: 0 };
-  const nextVoteForClick = (current, clicked) => (current === clicked ? null : clicked);
+  const nextVoteForClick = (current, clicked) =>
+    current === clicked ? null : clicked;
   const apply = (state, clicked) => {
     const nextVote = nextVoteForClick(state.viewerVote, clicked);
     return {
       voteScore:
-        state.voteScore + score[nextVote ?? "none"] - score[state.viewerVote ?? "none"],
+        state.voteScore +
+        score[nextVote ?? "none"] -
+        score[state.viewerVote ?? "none"],
       viewerVote: nextVote,
     };
   };
@@ -51,10 +58,13 @@ test("chika vote transition math covers every click path", async () => {
     voteScore: 9,
     viewerVote: null,
   });
-  assert.deepEqual(apply({ voteScore: 10, viewerVote: "downvote" }, "downvote"), {
-    voteScore: 11,
-    viewerVote: null,
-  });
+  assert.deepEqual(
+    apply({ voteScore: 10, viewerVote: "downvote" }, "downvote"),
+    {
+      voteScore: 11,
+      viewerVote: null,
+    },
+  );
   assert.deepEqual(apply({ voteScore: 10, viewerVote: "upvote" }, "downvote"), {
     voteScore: 8,
     viewerVote: "downvote",
@@ -63,6 +73,87 @@ test("chika vote transition math covers every click path", async () => {
     voteScore: 12,
     viewerVote: "upvote",
   });
+});
+
+test("chika comment reaction cache patching covers vote and highlight transitions", async () => {
+  const output = runTsxFixture(`
+    import assert from "node:assert/strict";
+    import {
+      buildChikaCommentReactionPatch,
+      patchChikaCommentList,
+    } from "./src/features/chika/lib/cache-updaters";
+
+    const base = {
+      id: "c1",
+      threadId: "t1",
+      voteCount: 10,
+      replyCount: 0,
+      authorDisplayName: "Anon",
+      content: "hello",
+      isHidden: false,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    };
+    const apply = (comment, nextReaction) =>
+      patchChikaCommentList([comment], comment.id, buildChikaCommentReactionPatch(comment, nextReaction))[0];
+
+    assert.deepEqual(apply(base, "upvote"), { ...base, voteCount: 11, userReaction: "upvote" });
+    assert.deepEqual(apply(base, "downvote"), { ...base, voteCount: 9, userReaction: "downvote" });
+    assert.deepEqual(apply({ ...base, userReaction: "upvote" }, "downvote"), {
+      ...base,
+      voteCount: 8,
+      userReaction: "downvote",
+    });
+    assert.deepEqual(apply({ ...base, userReaction: "downvote" }, "upvote"), {
+      ...base,
+      voteCount: 12,
+      userReaction: "upvote",
+    });
+    assert.deepEqual(apply({ ...base, userReaction: "upvote" }, null), {
+      ...base,
+      voteCount: 9,
+      userReaction: undefined,
+    });
+    assert.deepEqual(apply({ ...base, userReaction: "downvote" }, null), {
+      ...base,
+      voteCount: 11,
+      userReaction: undefined,
+    });
+
+    const realtimePatched = patchChikaCommentList(
+      [{ ...base, userReaction: "upvote" }],
+      "c1",
+      { voteCount: 99 },
+    )[0];
+    assert.equal(realtimePatched.voteCount, 99);
+    assert.equal(realtimePatched.userReaction, "upvote");
+
+    console.log("ok");
+  `);
+  assert.equal(output, "ok");
+});
+
+test("chika comment actions use React Query comment data as the arrow source of truth", async () => {
+  const [pageSource, mutationSource, realtimeSource, apiSource] =
+    await Promise.all([
+      readSource("src/app/chika/[id]/page.tsx"),
+      readSource("src/features/chika/hooks/mutations.ts"),
+      readSource("src/features/chika/hooks/realtime.ts"),
+      readSource("src/features/chika/api/threads.ts"),
+    ]);
+
+  assert.match(pageSource, /const reaction = comment\.userReaction \?\? null/);
+  assert.doesNotMatch(pageSource, /setReaction/);
+  assert.doesNotMatch(pageSource, /useState<"upvote" \| "downvote" \| null>/);
+  assert.match(mutationSource, /onMutate/);
+  assert.match(mutationSource, /buildChikaCommentReactionPatch/);
+  assert.match(mutationSource, /onError/);
+  assert.match(mutationSource, /onSuccess: \(result/);
+  assert.match(mutationSource, /voteCount: result\.voteCount/);
+  assert.match(mutationSource, /userReaction: result\.userReaction/);
+  assert.match(apiSource, /ChikaCommentReactionResponse/);
+  assert.match(realtimeSource, /updateChikaCommentInCache/);
+  assert.doesNotMatch(realtimeSource, /userReaction: .*payload/);
 });
 
 test("home and chika list surfaces render through shared post components", async () => {
@@ -209,7 +300,10 @@ test("chika adapters normalize display name, username, and excerpts from real fi
   `);
 
   const normalized = JSON.parse(fixtureOutput);
-  assert.equal(normalized.homepage.displayName, normalized.chikaList.displayName);
+  assert.equal(
+    normalized.homepage.displayName,
+    normalized.chikaList.displayName,
+  );
   assert.equal(normalized.homepage.username, normalized.chikaList.username);
   assert.equal(normalized.homepage.excerpt, normalized.chikaList.excerpt);
 });
