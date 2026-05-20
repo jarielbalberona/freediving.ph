@@ -1070,11 +1070,46 @@ func TestCreateSiteEditProposalKeepsCurrentAreaWhenUnchangedPinGeocodeFails(t *t
 	}
 }
 
+func TestCreateSiteEditProposalKeepsCurrentAreaWhenNearbyPinGeocodeFails(t *testing.T) {
+	currentLat := 9.950185986821985
+	currentLng := 123.36548315395711
+	nearbyLat := 9.950535063385052
+	nearbyLng := 123.36550368637012
+	repo := &repoStub{siteDetail: explorerepo.SiteDetail{
+		ID:          "550e8400-e29b-41d4-a716-446655440101",
+		Slug:        "sardine-run-moalboal",
+		Name:        "The Moalboal Sardine Run",
+		Area:        "Moalboal, Cebu",
+		Latitude:    &currentLat,
+		Longitude:   &currentLng,
+		Description: "Known sardine bait ball site.",
+		Difficulty:  "moderate",
+	}}
+	svc := New(repo, WithReverseGeocoder(&geocoderStub{err: errors.New("coarse area not found")}))
+
+	_, err := svc.CreateSiteEditProposal(context.Background(), CreateSiteEditProposalInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		ActorRole:   "member",
+		Slug:        "sardine-run-moalboal",
+		Name:        "The Moalboal Sardine Run",
+		Lat:         &nearbyLat,
+		Lng:         &nearbyLng,
+		Description: "A mesmerizing underwater spectacle where millions of sardines gather in synchronized schools.",
+		Difficulty:  "easy",
+	})
+	if err != nil {
+		t.Fatalf("create site edit proposal with nearby pin: %v", err)
+	}
+	if repo.editCreated.Proposed.Area != "Moalboal, Cebu" {
+		t.Fatalf("expected current site area fallback, got %q", repo.editCreated.Proposed.Area)
+	}
+}
+
 func TestCreateSiteEditProposalRejectsMovedPinWhenGeocodeFails(t *testing.T) {
 	currentLat := 9.950185986821985
 	currentLng := 123.36548315395711
-	movedLat := 9.951
-	movedLng := 123.366
+	movedLat := 9.960
+	movedLng := 123.376
 	repo := &repoStub{siteDetail: explorerepo.SiteDetail{
 		ID:          "550e8400-e29b-41d4-a716-446655440101",
 		Slug:        "sardine-run-moalboal",

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"regexp"
 	"strings"
@@ -30,6 +31,8 @@ type Service struct {
 	feed        activityFeed
 	mediaSigner *mediasign.Signer
 }
+
+const siteEditAreaFallbackRadiusMeters = 500.0
 
 type repository interface {
 	ListSites(ctx context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error)
@@ -878,11 +881,35 @@ func (s *Service) resolveSiteEditArea(ctx context.Context, site explorerepo.Site
 	}
 
 	currentArea := strings.TrimSpace(site.Area)
-	if currentArea != "" && floatPtrEqual(site.Latitude, lat) && floatPtrEqual(site.Longitude, lng) {
+	if currentArea != "" && siteEditPinCanUseCurrentArea(site.Latitude, site.Longitude, lat, lng) {
 		return currentArea, nil
 	}
 
 	return "", err
+}
+
+func siteEditPinCanUseCurrentArea(currentLat, currentLng, proposedLat, proposedLng *float64) bool {
+	if floatPtrEqual(currentLat, proposedLat) && floatPtrEqual(currentLng, proposedLng) {
+		return true
+	}
+	if currentLat == nil || currentLng == nil || proposedLat == nil || proposedLng == nil {
+		return false
+	}
+	return haversineDistanceMeters(*currentLat, *currentLng, *proposedLat, *proposedLng) <= siteEditAreaFallbackRadiusMeters
+}
+
+func haversineDistanceMeters(lat1, lng1, lat2, lng2 float64) float64 {
+	const earthRadiusMeters = 6371000.0
+	const degreesToRadians = math.Pi / 180
+
+	lat1Rad := lat1 * degreesToRadians
+	lat2Rad := lat2 * degreesToRadians
+	dLat := (lat2 - lat1) * degreesToRadians
+	dLng := (lng2 - lng1) * degreesToRadians
+
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*math.Sin(dLng/2)*math.Sin(dLng/2)
+	return 2 * earthRadiusMeters * math.Asin(math.Min(1, math.Sqrt(a)))
 }
 
 func (s *Service) ListMySiteEditProposals(ctx context.Context, input SubmissionListInput) (SiteEditProposalListResult, error) {
