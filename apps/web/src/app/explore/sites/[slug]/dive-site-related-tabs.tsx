@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   ActivityFeedItem,
   CreateDivePresenceRequest,
@@ -19,7 +19,7 @@ import type {
 } from "@freediving.ph/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, MapPinned, MessageCircle, Star, Users } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -151,11 +151,11 @@ export function DiveSiteRelatedTabs({
   reviewCount,
   averageRating,
 }: DiveSiteRelatedTabsProps) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const activeTab = tabFromParam(searchParams.get("tab"));
+  const tabFromUrl = tabFromParam(searchParams.get("tab"));
+  const [activeTab, setActiveTabState] =
+    useState<DiveSiteRelatedTab>(tabFromUrl);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [presenceSaving, setPresenceSaving] = useState(false);
@@ -255,14 +255,22 @@ export function DiveSiteRelatedTabs({
     reviewItems.length,
   );
 
+  useEffect(() => {
+    setActiveTabState(tabFromUrl);
+  }, [tabFromUrl]);
+
   const setActiveTab = (value: string | null) => {
     const nextTab = tabFromParam(value);
-    const nextParams = new URLSearchParams(searchParams.toString());
+    setActiveTabState(nextTab);
+
+    const currentUrl = new URL(window.document.URL);
+    const nextParams = currentUrl.searchParams;
     nextParams.set("tab", nextTab);
-    const suffix = nextParams.toString();
-    router.replace(`${pathname}${suffix ? `?${suffix}` : ""}`, {
-      scroll: false,
-    });
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+    );
   };
 
   const patchRelatedCounts = (patch: Partial<ExploreSiteRelatedCounts>) => {
