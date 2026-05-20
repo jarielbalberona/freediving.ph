@@ -1105,11 +1105,11 @@ func TestCreateSiteEditProposalKeepsCurrentAreaWhenNearbyPinGeocodeFails(t *test
 	}
 }
 
-func TestCreateSiteEditProposalRejectsMovedPinWhenGeocodeFails(t *testing.T) {
-	currentLat := 9.950185986821985
-	currentLng := 123.36548315395711
-	movedLat := 9.960
-	movedLng := 123.376
+func TestCreateSiteEditProposalKeepsCurrentAreaWhenPinCorrectsBadStoredCoordinates(t *testing.T) {
+	currentLat := 9.9435
+	currentLng := 123.3763
+	correctedLat := 9.948968470165275
+	correctedLng := 123.36536049842834
 	repo := &repoStub{siteDetail: explorerepo.SiteDetail{
 		ID:          "550e8400-e29b-41d4-a716-446655440101",
 		Slug:        "sardine-run-moalboal",
@@ -1127,23 +1127,19 @@ func TestCreateSiteEditProposalRejectsMovedPinWhenGeocodeFails(t *testing.T) {
 		ActorRole:   "member",
 		Slug:        "sardine-run-moalboal",
 		Name:        "The Moalboal Sardine Run",
-		Lat:         &movedLat,
-		Lng:         &movedLng,
+		Lat:         &correctedLat,
+		Lng:         &correctedLng,
 		Description: "A mesmerizing underwater spectacle where millions of sardines gather in synchronized schools.",
-		Difficulty:  "moderate",
+		Difficulty:  "easy",
 	})
-	if err == nil {
-		t.Fatal("expected moved pin with failed geocode to be rejected")
+	if err != nil {
+		t.Fatalf("create site edit proposal with corrected pin: %v", err)
 	}
-	failure, ok := err.(ValidationFailure)
-	if !ok {
-		t.Fatalf("expected ValidationFailure, got %T", err)
+	if repo.editCreated.Proposed.Area != "Moalboal, Cebu" {
+		t.Fatalf("expected current site area fallback, got %q", repo.editCreated.Proposed.Area)
 	}
-	if len(failure.Issues) != 1 || failure.Issues[0].Path[0] != "location" {
-		t.Fatalf("expected location validation issue, got %+v", failure.Issues)
-	}
-	if repo.editCreated.DiveSiteID != "" {
-		t.Fatalf("failed moved pin must not create proposal, got %+v", repo.editCreated)
+	if repo.editCreated.Proposed.Latitude == nil || *repo.editCreated.Proposed.Latitude != correctedLat {
+		t.Fatalf("expected corrected latitude to be proposed, got %+v", repo.editCreated.Proposed.Latitude)
 	}
 }
 
