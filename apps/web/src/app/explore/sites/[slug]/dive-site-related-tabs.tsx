@@ -426,16 +426,24 @@ export function DiveSiteRelatedTabs({
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <TabsList className="w-full justify-start overflow-x-auto">
-        <TabsTrigger value="available-buddies">
+        <TabsTrigger
+          value="available-buddies"
+          onClick={() => setActiveTab("available-buddies")}
+        >
           Available Buddies ({availableBuddyCount})
         </TabsTrigger>
-        <TabsTrigger value="locals">
+        <TabsTrigger value="locals" onClick={() => setActiveTab("locals")}>
           Locals & Regulars ({localRegularCount})
         </TabsTrigger>
-        <TabsTrigger value="community">
+        <TabsTrigger
+          value="community"
+          onClick={() => setActiveTab("community")}
+        >
           Community Posts ({communityPostCount})
         </TabsTrigger>
-        <TabsTrigger value="reviews">Reviews ({visibleReviewCount})</TabsTrigger>
+        <TabsTrigger value="reviews" onClick={() => setActiveTab("reviews")}>
+          Reviews ({visibleReviewCount})
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="available-buddies" className="space-y-3">

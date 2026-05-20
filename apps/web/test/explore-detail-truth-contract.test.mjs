@@ -178,6 +178,16 @@ test("explore site detail renders related tabs without duplicating old buddy sec
   assert.match(relatedTabs, /Locals & Regulars \(\{localRegularCount\}\)/);
   assert.match(relatedTabs, /Community Posts \(\{communityPostCount\}\)/);
   assert.match(relatedTabs, /Reviews \(\{visibleReviewCount\}\)/);
+  assert.match(relatedTabs, /usePathname/);
+  assert.match(relatedTabs, /useRouter/);
+  assert.match(relatedTabs, /useSearchParams/);
+  assert.match(relatedTabs, /const activeTab = tabFromParam\(searchParams\.get\("tab"\)\)/);
+  assert.match(relatedTabs, /nextParams\.set\("tab", nextTab\)/);
+  assert.match(relatedTabs, /<Tabs value=\{activeTab\} onValueChange=\{setActiveTab\}/);
+  assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("available-buddies"\)\}/);
+  assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("locals"\)\}/);
+  assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("community"\)\}/);
+  assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("reviews"\)\}/);
   assert.match(
     relatedTabs,
     /No available buddies yet\. Be the first to mark your dive presence\./,
