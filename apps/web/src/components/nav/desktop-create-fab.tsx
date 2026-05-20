@@ -32,8 +32,10 @@ export function DesktopCreateFab() {
     pathname?.startsWith("/groups/") ||
     pathname === "/events" ||
     pathname?.startsWith("/events/");
+  const isMessagesRoute =
+    pathname === "/messages" || pathname?.startsWith("/messages/");
 
-  if (isExploreRoute || isCommunityRoute) return null;
+  if (isExploreRoute || isCommunityRoute || isMessagesRoute) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-40 hidden md:block">
