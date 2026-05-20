@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getActivityFeed } from "@/features/home-feed/api/get-activity-feed";
+import { queryKeys } from "@/lib/query/query-keys";
 import type { ActivityFeedFilter, HomeFeedMode } from "@freediving.ph/types";
 
 export const useActivityFeedQuery = (params: {
@@ -13,14 +14,14 @@ export const useActivityFeedQuery = (params: {
   enabled?: boolean;
 }) =>
   useQuery({
-    queryKey: [
-      "activity-feed",
-      "activity",
-      params.filter ?? "",
-      params.mode ?? "",
-      params.cursor ?? "",
-      params.region ?? "",
-    ],
+    queryKey: queryKeys.feed.activityList({
+      source: "activity",
+      filter: params.filter,
+      mode: params.mode,
+      cursor: params.cursor,
+      region: params.region,
+      limit: 20,
+    }),
     queryFn: () =>
       getActivityFeed({
         filter: params.filter,

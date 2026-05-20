@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { queryKeys } from "@/lib/query/query-keys";
 
 const badgeVariant = (state: string) =>
   state === "approved"
@@ -19,7 +20,7 @@ const badgeVariant = (state: string) =>
 
 export default function ExploreSubmissionsPage() {
   const submissionsQuery = useQuery({
-    queryKey: ["explore-submissions"],
+    queryKey: queryKeys.explore.submissions(),
     queryFn: () => exploreApi.listMySubmissions(),
   });
 

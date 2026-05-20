@@ -4,7 +4,7 @@ import { SignInButton } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, MapPinned, MessageCircle, Search, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import type {
@@ -44,6 +44,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/features/auth/session";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { queryKeys } from "@/lib/query/query-keys";
 
 type DateFilter = "any" | "today" | "weekend" | "flexible" | "custom";
 type BuddiesTab = "find" | "presence" | "sites";
@@ -99,6 +100,26 @@ const emptyAffinityDraft = (): AffinityDraft => ({
 });
 
 export default function BuddiesPage() {
+  return (
+    <Suspense fallback={<BuddiesFallback />}>
+      <BuddiesPageContent />
+    </Suspense>
+  );
+}
+
+function BuddiesFallback() {
+  return (
+    <CommunityPageShell>
+      <CommunityHeader
+        eyebrow="Buddies"
+        title="Find Available Buddies"
+        subtitle="Loading active Dive Presence across dive sites."
+      />
+    </CommunityPageShell>
+  );
+}
+
+function BuddiesPageContent() {
   const session = useSession();
   const router = useRouter();
   const pathname = usePathname();
@@ -117,7 +138,7 @@ export default function BuddiesPage() {
   const [affinityDraft, setAffinityDraft] = useState<AffinityDraft>(emptyAffinityDraft);
 
   const sitesQuery = useQuery({
-    queryKey: ["explore", "sites", "buddy-presence-selector"],
+    queryKey: queryKeys.explore.buddyPresenceSites(),
     queryFn: () => exploreApi.listSites({ limit: 100 }),
     staleTime: 5 * 60 * 1000,
   });
@@ -136,18 +157,18 @@ export default function BuddiesPage() {
   }, [area, dateFilter, dateFrom, dateTo, presenceType, siteSlug]);
 
   const globalPresencesQuery = useQuery({
-    queryKey: ["explore", "global-presences", presenceFilters],
+    queryKey: queryKeys.explore.globalPresences(presenceFilters),
     queryFn: () => exploreApi.getGlobalPresences(presenceFilters),
   });
 
   const myPresencesQuery = useQuery({
-    queryKey: ["explore", "my-dive-presences"],
+    queryKey: queryKeys.explore.myDivePresences(),
     queryFn: () => exploreApi.getMyDivePresences(),
     enabled: isSignedIn,
   });
 
   const myAffinitiesQuery = useQuery({
-    queryKey: ["explore", "my-dive-site-affinities"],
+    queryKey: queryKeys.explore.myDiveSiteAffinities(),
     queryFn: () => exploreApi.getMyDiveSiteAffinities(),
     enabled: isSignedIn,
   });
@@ -162,8 +183,12 @@ export default function BuddiesPage() {
     onSuccess: () => {
       toast.success("Dive Presence saved.");
       setPresenceDraft(emptyPresenceDraft());
-      queryClient.invalidateQueries({ queryKey: ["explore", "global-presences"] });
-      queryClient.invalidateQueries({ queryKey: ["explore", "my-dive-presences"] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.explore.globalPresences(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.explore.myDivePresences(),
+      });
     },
     onError: (error) => toast.error(getApiErrorMessage(error, "Could not save Dive Presence")),
   });
@@ -173,8 +198,12 @@ export default function BuddiesPage() {
       exploreApi.cancelSitePresence(item.diveSiteSlug ?? "", item.id),
     onSuccess: () => {
       toast.success("Dive Presence cancelled.");
-      queryClient.invalidateQueries({ queryKey: ["explore", "global-presences"] });
-      queryClient.invalidateQueries({ queryKey: ["explore", "my-dive-presences"] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.explore.globalPresences(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.explore.myDivePresences(),
+      });
     },
     onError: (error) => toast.error(getApiErrorMessage(error, "Could not cancel Dive Presence")),
   });
@@ -189,7 +218,9 @@ export default function BuddiesPage() {
     onSuccess: () => {
       toast.success("Dive site relationship saved.");
       setAffinityDraft(emptyAffinityDraft());
-      queryClient.invalidateQueries({ queryKey: ["explore", "my-dive-site-affinities"] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.explore.myDiveSiteAffinities(),
+      });
     },
     onError: (error) => toast.error(getApiErrorMessage(error, "Could not save dive site relationship")),
   });
@@ -199,7 +230,9 @@ export default function BuddiesPage() {
       exploreApi.deleteSiteAffinity(item.diveSiteSlug ?? "", item.id),
     onSuccess: () => {
       toast.success("Dive site relationship removed.");
-      queryClient.invalidateQueries({ queryKey: ["explore", "my-dive-site-affinities"] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.explore.myDiveSiteAffinities(),
+      });
     },
     onError: (error) => toast.error(getApiErrorMessage(error, "Could not remove dive site relationship")),
   });

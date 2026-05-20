@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { cookies } from "next/headers";
 import { ClerkProvider } from "@clerk/nextjs";
 
 import ReactQueryProvider from "@/providers/react-query";
@@ -76,13 +75,11 @@ export const viewport: Viewport = {
   themeColor: META_THEME_COLORS.light,
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
@@ -127,7 +124,7 @@ export default async function RootLayout({
           >
             <ReactQueryProvider>
               <TooltipProvider>
-                <SidebarProvider defaultOpen={defaultOpen}>
+                <SidebarProvider>
                   <AppSidebar />
                   <SidebarInset>
                     <AuthGate />
@@ -160,5 +157,3 @@ export default async function RootLayout({
     </ClerkProvider>
   );
 }
-
-export const dynamic = "force-dynamic";

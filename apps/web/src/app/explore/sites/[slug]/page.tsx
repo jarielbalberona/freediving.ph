@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import type { ExploreSiteDetailResponse } from "@freediving.ph/types";
 
 import { UsernameLink } from "@/components/common/UsernameLink";
@@ -23,6 +24,12 @@ import { SuggestEditLink } from "./suggest-edit-link";
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
+
+export const revalidate = 300;
+
+const getCachedExploreSiteBySlug = cache((slug: string) =>
+  getExploreSiteBySlugServer(slug),
+);
 
 const titleCase = (value: string) =>
   value
@@ -54,7 +61,7 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const data = await getExploreSiteBySlugServer(slug);
+    const data = await getCachedExploreSiteBySlug(slug);
     return {
       title: `${data.site.name} | Explore Dive Sites`,
       description: `${data.site.area}. ${data.site.lastConditionSummary || data.site.typicalConditions || "Real site conditions and trust signals."}`,
@@ -80,7 +87,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
   let data: ExploreSiteDetailResponse;
 
   try {
-    data = await getExploreSiteBySlugServer(slug);
+    data = await getCachedExploreSiteBySlug(slug);
   } catch (error) {
     if (isSiteNotFoundError(error)) {
       notFound();
@@ -95,11 +102,11 @@ export default async function ExploreSharePage({ params }: PageProps) {
     communityPostsPage,
     reviewsPage,
   ] = await Promise.all([
-    getExploreSiteRelatedServer(slug).catch(() => null),
-    getExploreSitePresenceServer(slug, 6).catch(() => null),
-    getExploreSiteAffinitiesServer(slug, 6).catch(() => null),
-    getExploreSiteCommunityPostsServer(slug, undefined, 6).catch(() => null),
-    getExploreSiteReviewsServer(slug, 6).catch(() => null),
+    getExploreSiteRelatedServer(slug),
+    getExploreSitePresenceServer(slug, 6),
+    getExploreSiteAffinitiesServer(slug, 6),
+    getExploreSiteCommunityPostsServer(slug, undefined, 6),
+    getExploreSiteReviewsServer(slug, 6),
   ]);
 
   return (

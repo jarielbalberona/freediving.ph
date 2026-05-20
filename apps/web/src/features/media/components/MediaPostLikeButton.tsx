@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { FishSymbol } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session";
+import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/lib/utils";
 
 import { mediaApi } from "../api/media";
@@ -51,34 +53,43 @@ export function MediaPostLikeButton({
   const router = useRouter();
   const session = useSession();
   const queryClient = useQueryClient();
+  const [state, setState] = useState<LikeState>({
+    likeCount,
+    viewerHasLiked,
+  });
 
-  const applyState = (state: LikeState) => {
-    queryClient.setQueriesData({ queryKey: ["media", "profile"] }, (current: any) => {
+  useEffect(() => {
+    setState({ likeCount, viewerHasLiked });
+  }, [likeCount, viewerHasLiked]);
+
+  const applyState = (nextState: LikeState) => {
+    setState(nextState);
+    queryClient.setQueriesData({ queryKey: queryKeys.media.profileLists() }, (current: any) => {
       if (!current?.pages) return current;
       return {
         ...current,
         pages: current.pages.map((page: any) => ({
           ...page,
           items: (page.items ?? []).map((item: any) =>
-            item.postId === postId ? { ...item, ...state } : item,
+            item.postId === postId ? { ...item, ...nextState } : item,
           ),
         })),
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["home-feed"] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, (current: any) => {
       if (!current?.items) return current;
       return {
         ...current,
         items: current.items.map((item: any) =>
           item.type === "media_post" && item.entityId === postId
-            ? { ...item, payload: updateMediaPostPayload(item.payload ?? {}, state) }
+            ? { ...item, payload: updateMediaPostPayload(item.payload ?? {}, nextState) }
             : item,
         ),
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["activity-feed"] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.feed.activityAll }, (current: any) => {
       if (!current?.items) return current;
       return {
         ...current,
@@ -86,14 +97,14 @@ export function MediaPostLikeButton({
           item.type === "media_post_created" && item.sourceId === postId
             ? {
                 ...item,
-                stats: updateMediaPostPayload(item.stats ?? {}, state),
+                stats: updateMediaPostPayload(item.stats ?? {}, nextState),
               }
             : item,
         ),
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["media", "post", postId] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.media.postDetail(postId) }, (current: any) => {
       if (!current?.post?.post) return current;
       return {
         ...current,
@@ -101,11 +112,11 @@ export function MediaPostLikeButton({
           ...current.post,
           post: {
             ...current.post.post,
-            ...state,
+            ...nextState,
           },
           items: (current.post.items ?? []).map((item: any) => ({
             ...item,
-            ...state,
+            ...nextState,
           })),
         },
       };
@@ -113,12 +124,12 @@ export function MediaPostLikeButton({
   };
 
   const mutation = useMutation({
-    mutationFn: async () =>
-      viewerHasLiked
+    mutationFn: async (currentlyLiked: boolean) =>
+      currentlyLiked
         ? mediaApi.unlikeMediaPost(postId)
         : mediaApi.likeMediaPost(postId),
     onMutate: async () => {
-      const previous = { likeCount, viewerHasLiked };
+      const previous = state;
       applyState(nextLikeState(previous));
       return { previous };
     },
@@ -135,15 +146,15 @@ export function MediaPostLikeButton({
     },
   });
 
-  const label = viewerHasLiked ? "Unlike media post" : "Like media post";
+  const label = state.viewerHasLiked ? "Unlike media post" : "Like media post";
 
   return (
     <Button
       type="button"
       size="xs"
-      variant={viewerHasLiked ? "secondary" : "ghost"}
+      variant={state.viewerHasLiked ? "secondary" : "ghost"}
       aria-label={label}
-      aria-pressed={viewerHasLiked}
+      aria-pressed={state.viewerHasLiked}
       disabled={mutation.isPending}
       className={cn("rounded-full px-2.5", className)}
       onClick={(event) => {
@@ -153,13 +164,13 @@ export function MediaPostLikeButton({
           router.push("/sign-in");
           return;
         }
-        mutation.mutate();
+        mutation.mutate(state.viewerHasLiked);
       }}
     >
       <FishSymbol
-        className={cn("size-3.5", viewerHasLiked && "fill-current")}
+        className={cn("size-3.5", state.viewerHasLiked && "fill-current")}
       />
-      <span>{likeCount.toLocaleString()}</span>
+      <span>{state.likeCount.toLocaleString()}</span>
     </Button>
   );
 }

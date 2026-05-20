@@ -7,11 +7,17 @@ import type {
   CreateDivePresenceRequest,
   CreateDiveSiteAffinityRequest,
   CreateDiveSiteReviewRequest,
+  DivePresenceListResponse,
   DivePresenceItem,
+  DiveSiteAffinityListResponse,
   DiveSiteAffinityItem,
+  DiveSiteReviewListResponse,
   DiveSiteReviewItem,
+  ExploreSiteCommunityPostsResponse,
   ExploreSiteRelatedCounts,
+  ExploreSiteRelatedResponse,
 } from "@freediving.ph/types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, MapPinned, MessageCircle, Star, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,6 +43,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { activityToHomeFeedItems } from "@/features/home-feed/adapters/activity-to-home-feed";
 import { FeedItemRenderer } from "@/features/home-feed/components/FeedItemRenderer";
+import { queryKeys } from "@/lib/query/query-keys";
 
 type DiveSiteRelatedTabsProps = {
   siteId: string;
@@ -122,11 +129,7 @@ export function DiveSiteRelatedTabs({
   reviewCount,
   averageRating,
 }: DiveSiteRelatedTabsProps) {
-  const [presenceItems, setPresenceItems] = useState(availableBuddies);
-  const [affinityItems, setAffinityItems] = useState(localRegulars);
-  const [reviewItems, setReviewItems] = useState(reviews);
-  const [communityFeed, setCommunityFeed] = useState(communityPosts);
-  const [nextCursor, setNextCursor] = useState(communityNextCursor);
+  const queryClient = useQueryClient();
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [presenceSaving, setPresenceSaving] = useState(false);
@@ -157,16 +160,87 @@ export function DiveSiteRelatedTabs({
     visibility: "members",
     comment: "",
   });
+  const relatedQuery = useQuery({
+    queryKey: queryKeys.explore.siteRelated(slug),
+    queryFn: () => exploreApi.getSiteRelated(slug),
+    initialData: {
+      counts,
+      previews: {
+        availableBuddies,
+        buddies: availableBuddies,
+        localRegulars,
+        communityPosts,
+        reviews,
+      },
+      sourceBreakdown: {
+        areaFallbackCount: 0,
+        siteLinkedCount: 0,
+      },
+    } as ExploreSiteRelatedResponse,
+    staleTime: 60_000,
+  });
+  const presenceQuery = useQuery({
+    queryKey: queryKeys.explore.sitePresence(slug),
+    queryFn: () => exploreApi.getSitePresence(slug, 20),
+    initialData: { items: availableBuddies } satisfies DivePresenceListResponse,
+    staleTime: 60_000,
+  });
+  const affinityQuery = useQuery({
+    queryKey: queryKeys.explore.siteAffinities(slug),
+    queryFn: () => exploreApi.getSiteAffinities(slug, 20),
+    initialData: { items: localRegulars } satisfies DiveSiteAffinityListResponse,
+    staleTime: 60_000,
+  });
+  const communityQuery = useQuery({
+    queryKey: queryKeys.explore.siteCommunityPosts(slug),
+    queryFn: () => exploreApi.getSiteCommunityPosts(slug),
+    initialData: {
+      items: communityPosts,
+      nextCursor: communityNextCursor,
+    } satisfies ExploreSiteCommunityPostsResponse,
+    staleTime: 60_000,
+  });
+  const reviewsQuery = useQuery({
+    queryKey: queryKeys.explore.siteReviews(slug),
+    queryFn: () => exploreApi.getSiteReviews(slug, 20),
+    initialData: {
+      items: reviews,
+      reviewCount,
+      averageRating,
+    } satisfies DiveSiteReviewListResponse,
+    staleTime: 60_000,
+  });
+  const relatedCounts = relatedQuery.data?.counts ?? counts;
+  const presenceItems = presenceQuery.data?.items ?? [];
+  const affinityItems = affinityQuery.data?.items ?? [];
+  const communityFeed = communityQuery.data?.items ?? [];
+  const nextCursor = communityQuery.data?.nextCursor;
+  const reviewItems = reviewsQuery.data?.items ?? [];
+  const currentReviewCount = reviewsQuery.data?.reviewCount ?? reviewCount;
+  const currentAverageRating = reviewsQuery.data?.averageRating ?? averageRating;
   const communityItems = activityToHomeFeedItems(communityFeed);
   const availableBuddyCount =
-    counts.availableBuddyCount ?? counts.buddies ?? presenceItems.length;
-  const localRegularCount = counts.localRegularCount ?? affinityItems.length;
+    relatedCounts.availableBuddyCount ?? relatedCounts.buddies ?? presenceItems.length;
+  const localRegularCount = relatedCounts.localRegularCount ?? affinityItems.length;
   const communityPostCount =
-    counts.communityPostCount ?? counts.communityPosts ?? communityItems.length;
+    relatedCounts.communityPostCount ?? relatedCounts.communityPosts ?? communityItems.length;
   const visibleReviewCount = Math.max(
-    reviewCount ?? counts.reviewCount ?? 0,
+    currentReviewCount ?? relatedCounts.reviewCount ?? 0,
     reviewItems.length,
   );
+
+  const patchRelatedCounts = (patch: Partial<ExploreSiteRelatedCounts>) => {
+    queryClient.setQueryData(
+      queryKeys.explore.siteRelated(slug),
+      (current: ExploreSiteRelatedResponse | undefined) => {
+        if (!current) return current;
+        return {
+          ...current,
+          counts: { ...current.counts, ...patch },
+        };
+      },
+    );
+  };
 
   const loadMoreCommunityPosts = async () => {
     if (!nextCursor || isLoadingMore) return;
@@ -174,12 +248,28 @@ export function DiveSiteRelatedTabs({
     setLoadError("");
     try {
       const page = await exploreApi.getSiteCommunityPosts(slug, nextCursor);
-      setCommunityFeed((current) => {
-        const existing = new Set(current.map((item) => item.id));
-        const nextItems = page.items.filter((item) => !existing.has(item.id));
-        return [...current, ...nextItems];
+      queryClient.setQueryData(
+        queryKeys.explore.siteCommunityPosts(slug),
+        (current: ExploreSiteCommunityPostsResponse | undefined) => {
+          const items = current?.items ?? [];
+          const existing = new Set(items.map((item) => item.id));
+          const nextItems = page.items.filter((item) => !existing.has(item.id));
+          return {
+            items: [...items, ...nextItems],
+            nextCursor: page.nextCursor,
+          };
+        },
+      );
+      patchRelatedCounts({
+        communityPostCount: Math.max(
+          communityPostCount,
+          communityFeed.length + page.items.length,
+        ),
+        communityPosts: Math.max(
+          relatedCounts.communityPosts ?? 0,
+          communityFeed.length + page.items.length,
+        ),
       });
-      setNextCursor(page.nextCursor);
     } catch {
       setLoadError("Could not load more community posts.");
     } finally {
@@ -202,7 +292,19 @@ export function DiveSiteRelatedTabs({
           : rfc3339FromLocal(presenceForm.endAt ?? ""),
         note: presenceForm.note?.trim() || undefined,
       });
-      setPresenceItems((current) => [response.presence, ...current]);
+      queryClient.setQueryData(
+        queryKeys.explore.sitePresence(slug),
+        (current: DivePresenceListResponse | undefined) => ({
+          items: [
+            response.presence,
+            ...(current?.items ?? []).filter((item) => item.id !== response.presence.id),
+          ],
+        }),
+      );
+      patchRelatedCounts({
+        availableBuddyCount: Math.max(availableBuddyCount + 1, presenceItems.length + 1),
+        buddies: Math.max(availableBuddyCount + 1, presenceItems.length + 1),
+      });
       setPresenceDialogOpen(false);
     } catch {
       setPresenceError("Could not mark your dive presence.");
@@ -220,7 +322,18 @@ export function DiveSiteRelatedTabs({
         ...affinityForm,
         note: affinityForm.note?.trim() || undefined,
       });
-      setAffinityItems((current) => [response.affinity, ...current]);
+      queryClient.setQueryData(
+        queryKeys.explore.siteAffinities(slug),
+        (current: DiveSiteAffinityListResponse | undefined) => ({
+          items: [
+            response.affinity,
+            ...(current?.items ?? []).filter((item) => item.id !== response.affinity.id),
+          ],
+        }),
+      );
+      patchRelatedCounts({
+        localRegularCount: Math.max(localRegularCount + 1, affinityItems.length + 1),
+      });
       setAffinityDialogOpen(false);
     } catch {
       setAffinityError("Could not add your local or regular connection.");
@@ -238,10 +351,39 @@ export function DiveSiteRelatedTabs({
         ...reviewForm,
         comment: reviewForm.comment?.trim() || undefined,
       });
-      setReviewItems((current) => [
-        response.review,
-        ...current.filter((item) => item.userId !== response.review.userId),
-      ]);
+      queryClient.setQueryData(
+        queryKeys.explore.siteReviews(slug),
+        (current: DiveSiteReviewListResponse | undefined) => {
+          const items = current?.items ?? [];
+          const replacesExistingUser = items.some(
+            (item) => item.userId === response.review.userId,
+          );
+          const nextItems = [
+            response.review,
+            ...items.filter((item) => item.userId !== response.review.userId),
+          ];
+          const nextReviewCount = replacesExistingUser
+            ? (current?.reviewCount ?? visibleReviewCount)
+            : Math.max(current?.reviewCount ?? 0, visibleReviewCount) + 1;
+          const loadedAverage =
+            nextItems.reduce((sum, item) => sum + item.rating, 0) / nextItems.length;
+          return {
+            items: nextItems,
+            reviewCount: nextReviewCount,
+            averageRating: Number.isFinite(loadedAverage)
+              ? loadedAverage
+              : (current?.averageRating ?? currentAverageRating),
+          };
+        },
+      );
+      patchRelatedCounts({
+        reviewCount: Math.max(
+          visibleReviewCount,
+          reviewItems.some((item) => item.userId === response.review.userId)
+            ? visibleReviewCount
+            : visibleReviewCount + 1,
+        ),
+      });
       setReviewDialogOpen(false);
     } catch {
       setReviewError("Could not save your review.");
@@ -437,7 +579,7 @@ export function DiveSiteRelatedTabs({
         </Dialog>
         {visibleReviewCount > 0 ? (
           <p className="text-sm text-muted-foreground">
-            {averageRating.toFixed(1)} average rating
+            {currentAverageRating.toFixed(1)} average rating
           </p>
         ) : null}
         {reviewItems.length === 0 ? (

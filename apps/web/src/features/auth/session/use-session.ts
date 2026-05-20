@@ -7,11 +7,12 @@ import type { MeResponse as SharedMeResponse } from "@freediving.ph/types";
 
 import { ApiClientError, apiClient } from "@/lib/api/client";
 import { routes } from "@/lib/api/fphgo-routes";
+import { queryKeys } from "@/lib/query/query-keys";
 
 export type SessionStatus = "signed_out" | "loading" | "signed_in";
 export type { MeResponse } from "@freediving.ph/types";
 
-export const SESSION_QUERY_KEY = ["session"] as const;
+export const SESSION_QUERY_KEY = queryKeys.session.current();
 
 export type SessionState = {
   status: SessionStatus;

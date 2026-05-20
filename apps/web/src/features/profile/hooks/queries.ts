@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { useSession } from "@/features/auth/session";
 import { profileApi } from "@/features/profile/api/profileApi";
+import { queryKeys } from "@/lib/query/query-keys";
 import { normalizeUsername } from "@/lib/routes";
 
 export const usePublicProfileQuery = (username: string) => {
@@ -11,7 +12,7 @@ export const usePublicProfileQuery = (username: string) => {
   const normalizedUsername = normalizeUsername(username);
 
   return useQuery({
-    queryKey: ["profile", "public", normalizedUsername],
+    queryKey: queryKeys.profile.public(normalizedUsername),
     enabled: session.status !== "loading",
     queryFn: () => profileApi.getPublicProfile(normalizedUsername),
     staleTime: 60_000,
@@ -23,7 +24,7 @@ export const useProfilePostsQuery = (username: string) => {
   const normalizedUsername = normalizeUsername(username);
 
   return useQuery({
-    queryKey: ["profile", "posts", normalizedUsername],
+    queryKey: queryKeys.profile.posts(normalizedUsername),
     queryFn: () => profileApi.getProfilePosts(normalizedUsername),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
@@ -34,7 +35,7 @@ export const useProfileBucketListQuery = (username: string) => {
   const normalizedUsername = normalizeUsername(username);
 
   return useQuery({
-    queryKey: ["profile", "bucketlist", normalizedUsername],
+    queryKey: queryKeys.profile.bucketList(normalizedUsername),
     queryFn: () => profileApi.getProfileBucketList(normalizedUsername),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
@@ -46,7 +47,7 @@ export const useProfileDivingQuery = (username: string, enabled = true) => {
   const normalizedUsername = normalizeUsername(username);
 
   return useQuery({
-    queryKey: ["profile", "diving", normalizedUsername],
+    queryKey: queryKeys.profile.diving(normalizedUsername),
     enabled: enabled && session.status !== "loading",
     queryFn: () => profileApi.getProfileDiving(normalizedUsername),
     staleTime: 60_000,

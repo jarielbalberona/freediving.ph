@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import type { ComboboxOption } from "@/components/ui/combobox";
 import { LocationCombobox } from "@/features/locations/components/LocationCombobox";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
+import { queryKeys } from "@/lib/query/query-keys";
 
 type DiveSitePickerProps = {
   value: string;
@@ -23,7 +24,7 @@ export function DiveSitePicker({
 }: DiveSitePickerProps) {
   const [search, setSearch] = useState("");
   const query = useQuery({
-    queryKey: ["explore", "sites", "picker", search],
+    queryKey: queryKeys.explore.sitePicker(search),
     queryFn: () =>
       exploreApi.listSites({
         search: search.trim() || undefined,

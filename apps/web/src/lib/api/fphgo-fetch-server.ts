@@ -20,4 +20,13 @@ const serverFetcher = createFphgoFetcher({
 export const fphgoFetchServer = <T>(path: string, init?: FphgoFetchInit) =>
   serverFetcher<T>(path, init);
 
+export const fphgoFetchPublicServer = <T>(
+  path: string,
+  init?: Omit<FphgoFetchInit, "auth" | "token">,
+) =>
+  serverFetcher<T>(path, {
+    ...init,
+    auth: "none",
+  });
+
 export type { FphgoFetchInit } from "@/lib/api/fphgo-fetch-client";

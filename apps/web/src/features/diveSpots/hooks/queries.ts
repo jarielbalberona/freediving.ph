@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { diveSpotsApi } from '../api/diveSpots';
 import type { DiveSpotFilters } from '@freediving.ph/types';
+import { queryKeys } from '@/lib/query/query-keys';
 
 export const useDiveSpots = (filters?: DiveSpotFilters) => {
   return useQuery({
-    queryKey: ['dive-spots', filters],
+    queryKey: queryKeys.diveSpots.list(filters),
     queryFn: () => diveSpotsApi.getDiveSpots(filters),
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 3,
@@ -14,7 +15,7 @@ export const useDiveSpots = (filters?: DiveSpotFilters) => {
 
 export const useDiveSpotsMapQuery = (filters?: DiveSpotFilters, enabled = true) => {
   return useQuery({
-    queryKey: ['dive-spots', 'map', filters],
+    queryKey: queryKeys.diveSpots.map(filters),
     queryFn: () => diveSpotsApi.getDiveSpots({
       ...filters,
       shape: 'map',
@@ -28,7 +29,7 @@ export const useDiveSpotsMapQuery = (filters?: DiveSpotFilters, enabled = true) 
 
 export const useDiveSpotsListQuery = (filters?: DiveSpotFilters, enabled = true) => {
   return useQuery({
-    queryKey: ['dive-spots', 'list', filters],
+    queryKey: queryKeys.diveSpots.list(filters),
     queryFn: () => diveSpotsApi.getDiveSpots({
       ...filters,
       shape: 'list',
@@ -42,7 +43,7 @@ export const useDiveSpotsListQuery = (filters?: DiveSpotFilters, enabled = true)
 
 export const useDiveSpot = (diveSpotId: number) => {
   return useQuery({
-    queryKey: ['dive-spot', diveSpotId],
+    queryKey: queryKeys.diveSpots.detail(diveSpotId),
     queryFn: () => diveSpotsApi.getDiveSpotById(diveSpotId),
     enabled: !!diveSpotId,
     staleTime: 5 * 60 * 1000,
@@ -51,7 +52,7 @@ export const useDiveSpot = (diveSpotId: number) => {
 
 export const useDiveSpotReviews = (diveSpotId: number) => {
   return useQuery({
-    queryKey: ['dive-spot-reviews', diveSpotId],
+    queryKey: queryKeys.diveSpots.reviews(diveSpotId),
     queryFn: () => diveSpotsApi.getDiveSpotReviews(diveSpotId),
     enabled: !!diveSpotId,
     staleTime: 10 * 60 * 1000, // 10 minutes
@@ -60,7 +61,7 @@ export const useDiveSpotReviews = (diveSpotId: number) => {
 
 export const useDiveSpotReviewSummary = (diveSpotId: number) => {
   return useQuery({
-    queryKey: ['dive-spot-review-summary', diveSpotId],
+    queryKey: queryKeys.diveSpots.reviewSummary(diveSpotId),
     queryFn: () => diveSpotsApi.getDiveSpotReviewSummary(diveSpotId),
     enabled: !!diveSpotId,
     staleTime: 5 * 60 * 1000,

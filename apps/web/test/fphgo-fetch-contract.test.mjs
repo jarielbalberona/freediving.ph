@@ -5,6 +5,7 @@ import test from "node:test";
 
 const repoRoot = path.resolve(globalThis.process.cwd());
 const fetchPath = path.join(repoRoot, "src/lib/api/fphgo-fetch-client.ts");
+const serverFetchPath = path.join(repoRoot, "src/lib/api/fphgo-fetch-server.ts");
 
 test("fphgo fetch attaches bearer token when present", async () => {
   const source = await readFile(fetchPath, "utf8");
@@ -24,4 +25,12 @@ test("fphgo fetch enforces /v1 path prefix in development", async () => {
     /if \(process\.env\.NODE_ENV === "development" && !path\.startsWith\("\/v1\/"\)\)/,
   );
   assert.match(source, /FPHGO path must start with \/v1\//);
+});
+
+test("server public fetch opts out of Clerk token resolution", async () => {
+  const source = await readFile(serverFetchPath, "utf8");
+
+  assert.match(source, /export const fphgoFetchPublicServer/);
+  assert.match(source, /auth: "none"/);
+  assert.match(source, /Omit<FphgoFetchInit, "auth" \| "token">/);
 });

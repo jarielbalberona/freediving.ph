@@ -6,19 +6,18 @@ import type {
 import { useMemo } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
+import {
+  normalizeMediaListParams,
+  normalizeMintMediaUrlItems,
+  queryKeys,
+} from "@/lib/query/query-keys";
+
 import { mediaApi } from "../api/media";
 
-const sortItems = (items: MintMediaUrlItemRequest[]) => {
-  return [...items].sort((a, b) => {
-    const keyA = `${a.mediaId}:${a.preset}:${a.width ?? ""}:${a.format ?? ""}:${a.quality ?? ""}`;
-    const keyB = `${b.mediaId}:${b.preset}:${b.width ?? ""}:${b.format ?? ""}:${b.quality ?? ""}`;
-    return keyA.localeCompare(keyB);
-  });
-};
-
 export const useListMyMedia = (params: ListMineParams = {}, enabled = true) => {
+  const normalizedParams = normalizeMediaListParams(params);
   return useQuery({
-    queryKey: ["media", "mine", params],
+    queryKey: queryKeys.media.mine(normalizedParams),
     queryFn: () => mediaApi.listMine(params),
     enabled,
     staleTime: 30_000,
@@ -29,10 +28,10 @@ export const useMintMediaUrls = (
   items: MintMediaUrlItemRequest[],
   enabled = true,
 ) => {
-  const normalizedItems = useMemo(() => sortItems(items), [items]);
+  const normalizedItems = useMemo(() => normalizeMintMediaUrlItems(items), [items]);
 
   return useQuery({
-    queryKey: ["media", "mint-urls", normalizedItems],
+    queryKey: queryKeys.media.mintUrls(normalizedItems),
     queryFn: () => mediaApi.mintUrls(normalizedItems),
     enabled: enabled && normalizedItems.length > 0,
     staleTime: 10 * 60 * 1000,
@@ -68,7 +67,7 @@ export const useMintedMediaMap = (
 
 export const useProfileMediaInfiniteQuery = (username: string, limit = 24) => {
   return useInfiniteQuery({
-    queryKey: ["media", "profile", username, limit],
+    queryKey: queryKeys.media.profile(username, limit),
     queryFn: ({ pageParam }: { pageParam?: string }) =>
       mediaApi.listProfileMedia(username, { limit, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
@@ -79,7 +78,7 @@ export const useProfileMediaInfiniteQuery = (username: string, limit = 24) => {
 
 export const useMediaPostQuery = (postId: string, enabled = true) => {
   return useQuery({
-    queryKey: ["media", "post", postId],
+    queryKey: queryKeys.media.postDetail(postId),
     queryFn: () => mediaApi.getPost(postId),
     enabled: enabled && Boolean(postId),
     staleTime: 30_000,
@@ -92,7 +91,7 @@ export const useMediaPostCommentsInfiniteQuery = (
   enabled = true,
 ) => {
   return useInfiniteQuery({
-    queryKey: ["media", "post", postId, "comments", limit],
+    queryKey: queryKeys.media.postComments(postId, limit),
     queryFn: ({ pageParam }: { pageParam?: string }) =>
       mediaApi.listPostComments(postId, { limit, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,

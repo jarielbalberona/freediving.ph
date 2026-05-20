@@ -15,6 +15,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { LinkedCommentText } from "@/components/common/LinkedCommentText";
 import { UsernameLink } from "@/components/common/UsernameLink";
 import { useSession } from "@/features/auth/session";
+import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/lib/utils";
 
 import { mediaApi } from "../api/media";
@@ -53,13 +54,13 @@ export function MediaPostComments({ postId, className }: MediaPostCommentsProps)
     () => commentsQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [commentsQuery.data?.pages],
   );
-  const commentsKey = ["media", "post", postId, "comments", 20] as const;
+  const commentsKey = queryKeys.media.postComments(postId, 20);
 
   const applyCommentCountDelta = (delta: number) => {
     const updateCount = (value: unknown) =>
       Math.max(0, Number(value ?? 0) + delta);
 
-    queryClient.setQueriesData({ queryKey: ["media", "profile"] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.media.profileLists() }, (current: any) => {
       if (!current?.pages) return current;
       return {
         ...current,
@@ -74,7 +75,7 @@ export function MediaPostComments({ postId, className }: MediaPostCommentsProps)
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["home-feed"] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, (current: any) => {
       if (!current?.items) return current;
       return {
         ...current,
@@ -92,7 +93,7 @@ export function MediaPostComments({ postId, className }: MediaPostCommentsProps)
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["activity-feed"] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.feed.activityAll }, (current: any) => {
       if (!current?.items) return current;
       return {
         ...current,
@@ -110,7 +111,7 @@ export function MediaPostComments({ postId, className }: MediaPostCommentsProps)
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["media", "post", postId] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.media.postDetail(postId) }, (current: any) => {
       if (!current?.post?.post) return current;
       const commentCount = updateCount(current.post.post.commentCount);
       return {
@@ -174,9 +175,8 @@ export function MediaPostComments({ postId, className }: MediaPostCommentsProps)
         : mediaApi.likeMediaPostComment(postId, comment.id),
     onMutate: async (comment) => {
       const previous = commentsQuery.data;
-      queryClient.setQueryData(
-        commentsKey,
-        patchComment(commentsQuery.data, comment.id, {
+      queryClient.setQueryData(commentsKey, (current: unknown) =>
+        patchComment(current, comment.id, {
           viewerHasLiked: !comment.viewerHasLiked,
           likeCount: Math.max(
             0,
@@ -187,9 +187,8 @@ export function MediaPostComments({ postId, className }: MediaPostCommentsProps)
       return { previous };
     },
     onSuccess: (result) => {
-      queryClient.setQueryData(
-        commentsKey,
-        patchComment(commentsQuery.data, result.commentId, {
+      queryClient.setQueryData(commentsKey, (current: unknown) =>
+        patchComment(current, result.commentId, {
           likeCount: result.likeCount,
           viewerHasLiked: result.viewerHasLiked,
         }),

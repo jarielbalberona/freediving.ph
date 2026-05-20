@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bookmark, MessageCircle, Share2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session";
+import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/lib/utils";
 
 import { mediaApi } from "../api/media";
@@ -51,55 +53,61 @@ export function MediaPostActions({
   const session = useSession();
   const queryClient = useQueryClient();
   const postHref = href || "#";
+  const [saveState, setSaveState] = useState<SaveState>({ viewerHasSaved });
 
-  const applySaveState = (state: SaveState) => {
-    queryClient.setQueriesData({ queryKey: ["media", "profile"] }, (current: any) => {
+  useEffect(() => {
+    setSaveState({ viewerHasSaved });
+  }, [viewerHasSaved]);
+
+  const applySaveState = (nextState: SaveState) => {
+    setSaveState(nextState);
+    queryClient.setQueriesData({ queryKey: queryKeys.media.profileLists() }, (current: any) => {
       if (!current?.pages) return current;
       return {
         ...current,
         pages: current.pages.map((page: any) => ({
           ...page,
           items: (page.items ?? []).map((item: any) =>
-            item.postId === postId ? { ...item, ...state } : item,
+            item.postId === postId ? { ...item, ...nextState } : item,
           ),
         })),
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["home-feed"] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, (current: any) => {
       if (!current?.items) return current;
       return {
         ...current,
         items: current.items.map((item: any) =>
           item.type === "media_post" && item.entityId === postId
-            ? { ...item, payload: updatePayload(item.payload ?? {}, state) }
+            ? { ...item, payload: updatePayload(item.payload ?? {}, nextState) }
             : item,
         ),
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["activity-feed"] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.feed.activityAll }, (current: any) => {
       if (!current?.items) return current;
       return {
         ...current,
         items: current.items.map((item: any) =>
           item.type === "media_post_created" && item.sourceId === postId
-            ? { ...item, stats: updatePayload(item.stats ?? {}, state) }
+            ? { ...item, stats: updatePayload(item.stats ?? {}, nextState) }
             : item,
         ),
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["media", "post", postId] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.media.postDetail(postId) }, (current: any) => {
       if (!current?.post?.post) return current;
       return {
         ...current,
         post: {
           ...current.post,
-          post: { ...current.post.post, ...state },
+          post: { ...current.post.post, ...nextState },
           items: (current.post.items ?? []).map((item: any) => ({
             ...item,
-            ...state,
+            ...nextState,
           })),
         },
       };
@@ -107,13 +115,13 @@ export function MediaPostActions({
   };
 
   const saveMutation = useMutation({
-    mutationFn: async () =>
-      viewerHasSaved
+    mutationFn: async (currentlySaved: boolean) =>
+      currentlySaved
         ? mediaApi.unsaveMediaPost(postId)
         : mediaApi.saveMediaPost(postId),
     onMutate: async () => {
-      const previous = { viewerHasSaved };
-      applySaveState({ viewerHasSaved: !viewerHasSaved });
+      const previous = saveState;
+      applySaveState({ viewerHasSaved: !previous.viewerHasSaved });
       return { previous };
     },
     onSuccess: (result) => {
@@ -180,9 +188,11 @@ export function MediaPostActions({
         <Button
           type="button"
           size="xs"
-          variant={viewerHasSaved ? "secondary" : "ghost"}
-          aria-label={viewerHasSaved ? "Unsave media post" : "Save media post"}
-          aria-pressed={viewerHasSaved}
+          variant={saveState.viewerHasSaved ? "secondary" : "ghost"}
+          aria-label={
+            saveState.viewerHasSaved ? "Unsave media post" : "Save media post"
+          }
+          aria-pressed={saveState.viewerHasSaved}
           disabled={saveMutation.isPending}
           className="rounded-full px-2.5"
           onClick={(event) => {
@@ -192,10 +202,12 @@ export function MediaPostActions({
               router.push("/sign-in");
               return;
             }
-            saveMutation.mutate();
+            saveMutation.mutate(saveState.viewerHasSaved);
           }}
         >
-          <Bookmark className={cn("size-3.5", viewerHasSaved && "fill-current")} />
+          <Bookmark
+            className={cn("size-3.5", saveState.viewerHasSaved && "fill-current")}
+          />
         </Button>
       ) : null}
     </div>

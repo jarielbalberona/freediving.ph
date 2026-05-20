@@ -67,7 +67,8 @@ test("saved-only flow is server-backed, auth-aware, and cache-safe", async () =>
   assert.match(source, /enabled: canQueryExplore/);
   assert.match(source, /savedOnly: state\.savedOnly/);
   assert.match(source, /savedOnly: state\.savedOnly \|\| undefined/);
-  assert.match(source, /invalidateQueries\(\{ queryKey: \["explore"\] \}\)/);
+  assert.match(source, /queryKeys\.explore\.lists\(\)/);
+  assert.match(source, /setQueriesData/);
 });
 
 test("dive spot cards expose only real list-card facts and non-claiming buddy CTA", async () => {

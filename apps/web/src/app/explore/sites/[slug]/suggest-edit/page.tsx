@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useParams } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -34,6 +34,7 @@ import {
   type SiteEditProposalValues,
 } from "@/features/diveSpots/schemas/siteEditProposal.schema";
 import { getApiError, getApiErrorMessage } from "@/lib/http/api-error";
+import { queryKeys } from "@/lib/query/query-keys";
 
 const toNumber = (value: string | undefined): number | undefined => {
   const trimmed = value?.trim();
@@ -60,14 +61,14 @@ const initialValues: SiteEditProposalValues = {
 
 export default function SuggestDiveSiteEditPage() {
   const params = useParams<{ slug: string }>();
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const slug = String(params.slug ?? "");
   const [submittedState, setSubmittedState] = useState<"pending" | "applied" | null>(
     null,
   );
 
   const detailQuery = useQuery({
-    queryKey: ["explore-site-detail", slug],
+    queryKey: queryKeys.explore.siteDetail(slug),
     enabled: slug.length > 0,
     queryFn: () => exploreApi.getSiteBySlug(slug),
   });
@@ -116,7 +117,9 @@ export default function SuggestDiveSiteEditPage() {
     onSuccess: (response) => {
       setSubmittedState(response.appliedImmediately ? "applied" : "pending");
       if (response.appliedImmediately) {
-        router.refresh();
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.explore.siteDetail(slug),
+        });
       }
     },
     onError: (error) => {

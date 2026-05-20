@@ -10,12 +10,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { queryKeys } from "@/lib/query/query-keys";
 
 export default function ExploreUpdatesPage() {
   const [area, setArea] = useState("");
   const [recency, setRecency] = useState<"24h" | "7d" | "30d">("7d");
   const updatesQuery = useQuery({
-    queryKey: ["explore", "latest-updates", area],
+    queryKey: queryKeys.explore.latestUpdates(area),
     queryFn: () => exploreApi.listLatestUpdates({ area: area || undefined, limit: 20 }),
   });
 

@@ -11,7 +11,10 @@ import type {
   ExploreSiteRelatedResponse,
 } from "@freediving.ph/types";
 
-import { fphgoFetchServer } from "@/lib/api/fphgo-fetch-server";
+import {
+  fphgoFetchPublicServer,
+  fphgoFetchServer,
+} from "@/lib/api/fphgo-fetch-server";
 import { routes } from "@/lib/api/fphgo-routes";
 
 const withQuery = (path: string, params: Record<string, string | number | boolean | undefined>) => {
@@ -25,7 +28,7 @@ const withQuery = (path: string, params: Record<string, string | number | boolea
 };
 
 export const getExploreSiteBySlugServer = (slug: string, updatesCursor?: string, updatesLimit = 10) =>
-  fphgoFetchServer<ExploreSiteDetailResponse>(
+  fphgoFetchPublicServer<ExploreSiteDetailResponse>(
     withQuery(routes.v1.explore.siteBySlug(slug), {
       updatesCursor,
       updatesLimit,
@@ -33,12 +36,12 @@ export const getExploreSiteBySlugServer = (slug: string, updatesCursor?: string,
   );
 
 export const getExploreSiteBuddyPreviewServer = (slug: string, limit = 6) =>
-  fphgoFetchServer<ExploreSiteBuddyPreviewResponse>(
+  fphgoFetchPublicServer<ExploreSiteBuddyPreviewResponse>(
     withQuery(routes.v1.explore.siteBuddyPreview(slug), { limit }),
   );
 
 export const getExploreSiteRelatedServer = (slug: string) =>
-  fphgoFetchServer<ExploreSiteRelatedResponse>(
+  fphgoFetchPublicServer<ExploreSiteRelatedResponse>(
     routes.v1.explore.siteRelated(slug),
   );
 
@@ -47,22 +50,22 @@ export const getExploreSiteCommunityPostsServer = (
   cursor?: string,
   limit = 20,
 ) =>
-  fphgoFetchServer<ExploreSiteCommunityPostsResponse>(
+  fphgoFetchPublicServer<ExploreSiteCommunityPostsResponse>(
     withQuery(routes.v1.explore.siteCommunityPosts(slug), { cursor, limit }),
   );
 
 export const getExploreSitePresenceServer = (slug: string, limit = 6) =>
-  fphgoFetchServer<DivePresenceListResponse>(
+  fphgoFetchPublicServer<DivePresenceListResponse>(
     withQuery(routes.v1.explore.sitePresence(slug), { limit }),
   );
 
 export const getExploreSiteAffinitiesServer = (slug: string, limit = 6) =>
-  fphgoFetchServer<DiveSiteAffinityListResponse>(
+  fphgoFetchPublicServer<DiveSiteAffinityListResponse>(
     withQuery(routes.v1.explore.siteAffinities(slug), { limit }),
   );
 
 export const getExploreSiteReviewsServer = (slug: string, limit = 6) =>
-  fphgoFetchServer<DiveSiteReviewListResponse>(
+  fphgoFetchPublicServer<DiveSiteReviewListResponse>(
     withQuery(routes.v1.explore.siteReviews(slug), { limit }),
   );
 

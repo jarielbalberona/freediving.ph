@@ -4,6 +4,8 @@ import type {
 } from "@freediving.ph/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { queryKeys } from "@/lib/query/query-keys";
+
 import { mediaApi } from "../api/media";
 
 export interface UploadMediaInput {
@@ -24,7 +26,7 @@ export const useUploadMedia = () => {
     mutationFn: ({ file, contextType, contextId }: UploadMediaInput) =>
       mediaApi.upload(file, contextType, contextId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["media", "mine"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.mineLists() });
     },
   });
 };
@@ -35,7 +37,7 @@ export const useUploadMultipleMedia = () => {
     mutationFn: ({ files, contextType, contextId }: UploadMultipleMediaInput) =>
       mediaApi.uploadMultiple(files, contextType, contextId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["media", "mine"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.mineLists() });
     },
   });
 };
@@ -45,12 +47,12 @@ export const useCreateMediaPost = () => {
   return useMutation({
     mutationFn: (payload: CreateMediaPostRequest) =>
       mediaApi.createPost(payload),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["media", "mine"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.mineLists() });
       queryClient.invalidateQueries({
-        queryKey: ["media", "profile"],
+        queryKey: queryKeys.media.profileLists(),
       });
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.all });
     },
   });
 };

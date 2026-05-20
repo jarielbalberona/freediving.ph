@@ -62,9 +62,9 @@ test("home feed keeps legacy client while activity feed is the default client", 
   assert.match(activityClient, /mode: params\.mode/);
   assert.match(activityClient, /cursor: params\.cursor/);
   assert.match(activityClient, /region: params\.region/);
-  assert.match(homeHook, /queryKey: \["home-feed", "home"/);
-  assert.match(activityHook, /"activity-feed"/);
-  assert.match(activityHook, /"activity"/);
+  assert.match(homeHook, /queryKeys\.feed\.list/);
+  assert.match(activityHook, /queryKeys\.feed\.activityList/);
+  assert.match(activityHook, /source: "activity"/);
   assert.doesNotMatch(activityClient, /auth: "ready-only"/);
   assert.match(activityClient, /cache: "no-store"/);
   assert.doesNotMatch(homeClient, /auth: "ready-only"/);

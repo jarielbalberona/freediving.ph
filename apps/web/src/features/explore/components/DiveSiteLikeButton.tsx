@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
+import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/lib/utils";
 
 type DiveSiteLikeButtonProps = {
@@ -47,28 +49,45 @@ export function DiveSiteLikeButton({
   const router = useRouter();
   const session = useSession();
   const queryClient = useQueryClient();
+  const [state, setState] = useState<LikeState>({
+    likeCount,
+    viewerHasLiked,
+  });
 
-  const applyState = (state: LikeState) => {
-    queryClient.setQueriesData({ queryKey: ["explore"] }, (current: any) => {
+  useEffect(() => {
+    setState({ likeCount, viewerHasLiked });
+  }, [likeCount, viewerHasLiked]);
+
+  const applyState = (nextState: LikeState) => {
+    setState(nextState);
+    queryClient.setQueriesData({ queryKey: queryKeys.explore.lists() }, (current: any) => {
       if (!current?.pages) return current;
       return {
         ...current,
         pages: current.pages.map((page: any) => ({
           ...page,
           items: (page.items ?? []).map((item: any) =>
-            item.id === siteId ? { ...item, ...state } : item,
+            item.id === siteId ? { ...item, ...nextState } : item,
           ),
         })),
       };
     });
 
-    queryClient.setQueriesData({ queryKey: ["home-feed"] }, (current: any) => {
+    queryClient.setQueriesData({ queryKey: queryKeys.explore.sites() }, (current: any) => {
+      if (!current?.site || current.site.id !== siteId) return current;
+      return {
+        ...current,
+        site: { ...current.site, ...nextState },
+      };
+    });
+
+    queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, (current: any) => {
       if (!current?.items) return current;
       return {
         ...current,
         items: current.items.map((item: any) =>
           item.type === "dive_spot" && item.entityId === siteId
-            ? { ...item, payload: updatePayload(item.payload ?? {}, state) }
+            ? { ...item, payload: updatePayload(item.payload ?? {}, nextState) }
             : item,
         ),
       };
@@ -76,12 +95,12 @@ export function DiveSiteLikeButton({
   };
 
   const mutation = useMutation({
-    mutationFn: async () =>
-      viewerHasLiked
+    mutationFn: async (currentlyLiked: boolean) =>
+      currentlyLiked
         ? exploreApi.unlikeDiveSite(siteId)
         : exploreApi.likeDiveSite(siteId),
     onMutate: async () => {
-      const previous = { likeCount, viewerHasLiked };
+      const previous = state;
       applyState(nextLikeState(previous));
       return { previous };
     },
@@ -98,15 +117,15 @@ export function DiveSiteLikeButton({
     },
   });
 
-  const label = viewerHasLiked ? "Unlike dive spot" : "Like dive spot";
+  const label = state.viewerHasLiked ? "Unlike dive spot" : "Like dive spot";
 
   return (
     <Button
       type="button"
       size="xs"
-      variant={viewerHasLiked ? "secondary" : "ghost"}
+      variant={state.viewerHasLiked ? "secondary" : "ghost"}
       aria-label={label}
-      aria-pressed={viewerHasLiked}
+      aria-pressed={state.viewerHasLiked}
       disabled={mutation.isPending}
       className={cn("rounded-full px-2.5", className)}
       onClick={(event) => {
@@ -116,11 +135,11 @@ export function DiveSiteLikeButton({
           router.push("/sign-in");
           return;
         }
-        mutation.mutate();
+        mutation.mutate(state.viewerHasLiked);
       }}
     >
-      <Heart className={cn("size-3.5", viewerHasLiked && "fill-current")} />
-      <span>{likeCount.toLocaleString()}</span>
+      <Heart className={cn("size-3.5", state.viewerHasLiked && "fill-current")} />
+      <span>{state.likeCount.toLocaleString()}</span>
     </Button>
   );
 }

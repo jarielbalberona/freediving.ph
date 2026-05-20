@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { diveSpotsApi } from '../api/diveSpots';
+import { queryKeys } from '@/lib/query/query-keys';
 import type {
   CreateDiveSpotRequest,
   UpdateDiveSpotRequest,
@@ -15,7 +16,7 @@ export const useCreateDiveSpot = () => {
     onSuccess: (response, variables) => {
       // Invalidate dive spots list
       queryClient.invalidateQueries({
-        queryKey: ['dive-spots']
+        queryKey: queryKeys.diveSpots.all
       });
     },
   });
@@ -30,11 +31,11 @@ export const useUpdateDiveSpot = () => {
     onSuccess: (response, variables) => {
       // Invalidate specific dive spot
       queryClient.invalidateQueries({
-        queryKey: ['dive-spot', variables.diveSpotId]
+        queryKey: queryKeys.diveSpots.detail(variables.diveSpotId)
       });
       // Invalidate dive spots list
       queryClient.invalidateQueries({
-        queryKey: ['dive-spots']
+        queryKey: queryKeys.diveSpots.all
       });
     },
   });
@@ -49,17 +50,17 @@ export const useCreateDiveSpotReview = () => {
     onSuccess: (response, variables) => {
       // Invalidate dive spot reviews
       queryClient.invalidateQueries({
-        queryKey: ['dive-spot-reviews', variables.diveSpotId]
+        queryKey: queryKeys.diveSpots.reviews(variables.diveSpotId)
       });
       queryClient.invalidateQueries({
-        queryKey: ['dive-spot-review-summary', variables.diveSpotId]
+        queryKey: queryKeys.diveSpots.reviewSummary(variables.diveSpotId)
       });
       queryClient.invalidateQueries({
-        queryKey: ['dive-spots']
+        queryKey: queryKeys.diveSpots.all
       });
       // Invalidate specific dive spot to update rating
       queryClient.invalidateQueries({
-        queryKey: ['dive-spot', variables.diveSpotId]
+        queryKey: queryKeys.diveSpots.detail(variables.diveSpotId)
       });
     },
   });

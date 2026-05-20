@@ -36,8 +36,7 @@ test("nearby conditions uses backend endpoint and never calls weather providers 
     /nearbyConditions: \(\) => "\/v1\/home\/nearby-conditions"/,
   );
   assert.match(client, /routes\.v1\.home\.nearbyConditions\(\)/);
-  assert.match(hook, /queryKey: \[/);
-  assert.match(hook, /"nearby-conditions"/);
+  assert.match(hook, /queryKeys\.feed\.nearbyConditions\(params\)/);
   assert.match(homePage, /<NearbyConditionsCard \/>/);
   assert.match(card, /navigator\.geolocation\.getCurrentPosition/);
   assert.match(card, /Check locally/);

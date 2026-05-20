@@ -26,6 +26,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { queryKeys } from "@/lib/query/query-keys";
 import { MapProvider } from "@/providers/map-provider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useSession } from "@/features/auth/session";
@@ -117,18 +118,15 @@ export function ExploreLayout() {
     !savedOnlyRequiresSignIn && !savedOnlyWaitingForSession;
 
   const exploreQuery = useInfiniteQuery({
-    queryKey: [
-      "explore",
-      {
-        q: state.q,
-        area: state.area,
-        difficulty: state.difficulty,
-        verifiedOnly: state.verifiedOnly,
-        savedOnly: state.savedOnly,
-        bounds: state.bounds,
-        limit: EXPLORE_DEFAULT_LIMIT,
-      },
-    ],
+    queryKey: queryKeys.explore.list({
+      q: state.q,
+      area: state.area,
+      difficulty: state.difficulty,
+      verifiedOnly: state.verifiedOnly,
+      savedOnly: state.savedOnly,
+      bounds: state.bounds,
+      limit: EXPLORE_DEFAULT_LIMIT,
+    }),
     queryFn: ({ pageParam }: { pageParam?: string }) =>
       exploreApi.searchDiveSpots({
         q: state.q,
@@ -151,12 +149,56 @@ export function ExploreLayout() {
     }: { siteId: string; isSaved: boolean }) => {
       if (isSaved) {
         await exploreWriteApi.unsaveSite(siteId);
-        return;
+        return { siteId, isSaved: false };
       }
       await exploreWriteApi.saveSite(siteId);
+      return { siteId, isSaved: true };
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["explore"] });
+    onMutate: async ({ siteId, isSaved }) => {
+      const previous = queryClient.getQueriesData({
+        queryKey: queryKeys.explore.lists(),
+      });
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.explore.lists() },
+        (current: any) => {
+          if (!current?.pages) return current;
+          return {
+            ...current,
+            pages: current.pages.map((page: any) => ({
+              ...page,
+              items: (page.items ?? []).map((item: any) =>
+                item.id === siteId ? { ...item, isSaved: !isSaved } : item,
+              ),
+            })),
+          };
+        },
+      );
+      return { previous };
+    },
+    onSuccess: (result) => {
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.explore.lists() },
+        (current: any) => {
+          if (!current?.pages) return current;
+          return {
+            ...current,
+            pages: current.pages.map((page: any) => ({
+              ...page,
+              items: (page.items ?? []).map((item: any) =>
+                item.id === result.siteId
+                  ? { ...item, isSaved: result.isSaved }
+                  : item,
+              ),
+            })),
+          };
+        },
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.profile.saved() });
+    },
+    onError: (_error, _variables, context) => {
+      for (const [queryKey, data] of context?.previous ?? []) {
+        queryClient.setQueryData(queryKey, data);
+      }
     },
   });
   const exploreItems =

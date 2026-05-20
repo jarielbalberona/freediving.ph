@@ -9,6 +9,10 @@ const appRoot = cwd.endsWith(path.join("apps", "web"))
   : path.join(cwd, "apps", "web");
 const srcRoot = path.join(appRoot, "src");
 const sharePagePath = path.join(srcRoot, "app/explore/sites/[slug]/page.tsx");
+const shareLoadingPath = path.join(
+  srcRoot,
+  "app/explore/sites/[slug]/loading.tsx",
+);
 const suggestEditPagePath = path.join(
   srcRoot,
   "app/explore/sites/[slug]/suggest-edit/page.tsx",
@@ -50,15 +54,19 @@ async function readSourceFiles(directory) {
 }
 
 test("explore site detail renders real backend data or 404s honestly", async () => {
-  const [sharePage, suggestEditLink] = await Promise.all([
+  const [sharePage, suggestEditLink, loadingPage] = await Promise.all([
     readFile(sharePagePath, "utf8"),
     readFile(suggestEditLinkPath, "utf8"),
+    readFile(shareLoadingPath, "utf8"),
   ]);
 
   assert.doesNotMatch(sharePage, /mock-data/);
   assert.doesNotMatch(sharePage, /getMockDiveSpotBySlug/);
   assert.doesNotMatch(sharePage, /Mock explore detail page/);
+  assert.match(sharePage, /cache\(/);
   assert.match(sharePage, /getExploreSiteBySlugServer\(slug\)/);
+  assert.match(sharePage, /getCachedExploreSiteBySlug\(slug\)/);
+  assert.match(sharePage, /export const revalidate = 300/);
   assert.match(sharePage, /getExploreSiteRelatedServer\(slug\)/);
   assert.match(sharePage, /<SuggestEditLink slug=\{data\.site\.slug\} \/>/);
   assert.doesNotMatch(sharePage, /buttonVariants/);
@@ -69,6 +77,8 @@ test("explore site detail renders real backend data or 404s honestly", async () 
   assert.match(sharePage, /error\.status === 404/);
   assert.match(sharePage, /notFound\(\)/);
   assert.match(sharePage, /throw error/);
+  assert.match(loadingPage, /ExploreSiteLoading/);
+  assert.doesNotMatch(loadingPage, /"use client"/);
 });
 
 test("explore site edits use a separate proposal workflow", async () => {
@@ -169,9 +179,10 @@ test("explore site detail renders related tabs without duplicating old buddy sec
     relatedTabs,
     /exploreApi\.getSiteCommunityPosts\(slug, nextCursor\)/,
   );
-  assert.match(relatedTabs, /setCommunityFeed/);
+  assert.match(relatedTabs, /queryKeys\.explore\.siteCommunityPosts\(slug\)/);
+  assert.match(relatedTabs, /queryClient\.setQueryData/);
   assert.match(relatedTabs, /existing\.has\(item\.id\)/);
-  assert.match(relatedTabs, /setNextCursor\(page\.nextCursor\)/);
+  assert.match(relatedTabs, /nextCursor: page\.nextCursor/);
   assert.match(relatedTabs, /"Load more"/);
   assert.match(routes, /siteRelated/);
   assert.match(routes, /sitePresence/);
@@ -179,6 +190,7 @@ test("explore site detail renders related tabs without duplicating old buddy sec
   assert.match(routes, /siteReviews/);
   assert.match(routes, /siteCommunityPosts/);
   assert.match(serverApi, /getExploreSiteRelatedServer/);
+  assert.match(serverApi, /fphgoFetchPublicServer/);
   assert.match(serverApi, /getExploreSitePresenceServer/);
   assert.match(serverApi, /getExploreSiteAffinitiesServer/);
   assert.match(serverApi, /getExploreSiteCommunityPostsServer/);

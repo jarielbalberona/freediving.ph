@@ -10,13 +10,14 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { queryKeys } from "@/lib/query/query-keys";
 
 export default function ExploreSubmissionDetailPage() {
   const params = useParams<{ id: string }>();
   const id = String(params.id ?? "");
 
   const detailQuery = useQuery({
-    queryKey: ["explore-submission", id],
+    queryKey: queryKeys.explore.submission(id),
     enabled: id.length > 0,
     queryFn: async () => (await exploreApi.getMySubmissionById(id)).submission,
   });

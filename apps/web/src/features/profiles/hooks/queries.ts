@@ -1,10 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 
+import {
+  normalizeProfileSearchParams,
+  queryKeys,
+} from "@/lib/query/query-keys";
+
 import { profilesApi } from "../api/profiles";
 
 export const useMyProfile = (enabled = true) => {
   return useQuery({
-    queryKey: ["profiles", "me"],
+    queryKey: queryKeys.profile.me(),
     queryFn: () => profilesApi.getMyProfile(),
     enabled,
     staleTime: 60_000,
@@ -13,7 +18,7 @@ export const useMyProfile = (enabled = true) => {
 
 export const useProfileByUserId = (userId?: string | null) => {
   return useQuery({
-    queryKey: ["profiles", userId],
+    queryKey: queryKeys.profile.byUserId(String(userId)),
     queryFn: () => profilesApi.getProfileByUserId(String(userId)),
     enabled: Boolean(userId),
     staleTime: 60_000,
@@ -21,9 +26,10 @@ export const useProfileByUserId = (userId?: string | null) => {
 };
 
 export const useUserSearch = (query?: string, limit = 10) => {
+  const params = normalizeProfileSearchParams({ query, limit });
   return useQuery({
-    queryKey: ["profiles", "search", query, limit],
-    queryFn: () => profilesApi.searchUsers(String(query), limit),
+    queryKey: queryKeys.profile.search(params),
+    queryFn: () => profilesApi.searchUsers(String(params.query), params.limit ?? limit),
     enabled: Boolean(query && query.trim().length > 0),
     staleTime: 30_000,
   });
@@ -31,7 +37,7 @@ export const useUserSearch = (query?: string, limit = 10) => {
 
 export const useSavedHub = (enabled = true) => {
   return useQuery({
-    queryKey: ["profiles", "saved"],
+    queryKey: queryKeys.profile.saved(),
     queryFn: () => profilesApi.getSavedHub(),
     enabled,
     staleTime: 30_000,
