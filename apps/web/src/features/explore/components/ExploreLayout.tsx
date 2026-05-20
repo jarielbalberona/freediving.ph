@@ -18,7 +18,7 @@ import {
   Share2,
   Users,
 } from "lucide-react";
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -104,7 +104,10 @@ export function ExploreLayout() {
     setView,
   } = useExploreQueryState();
 
-  const deferredQuery = useDeferredValue(state.q);
+  const [queryDraft, setQueryDraft] = useState(state.q);
+  const queryDraftRef = useRef(queryDraft);
+  const lastSyncedQueryRef = useRef(state.q);
+
   const boundsState = useMapBounds(state.bounds);
   const savedOnlyRequiresSignIn =
     state.savedOnly && session.status === "signed_out";
@@ -117,7 +120,7 @@ export function ExploreLayout() {
     queryKey: [
       "explore",
       {
-        q: deferredQuery,
+        q: state.q,
         area: state.area,
         difficulty: state.difficulty,
         verifiedOnly: state.verifiedOnly,
@@ -128,7 +131,7 @@ export function ExploreLayout() {
     ],
     queryFn: ({ pageParam }: { pageParam?: string }) =>
       exploreApi.searchDiveSpots({
-        q: deferredQuery,
+        q: state.q,
         area: state.area || undefined,
         difficulty: state.difficulty === "all" ? undefined : state.difficulty,
         verifiedOnly: state.verifiedOnly || undefined,
@@ -194,6 +197,29 @@ export function ExploreLayout() {
   }, [setOpen, setOpenMobile]);
 
   useEffect(() => {
+    queryDraftRef.current = queryDraft;
+  }, [queryDraft]);
+
+  useEffect(() => {
+    const previousSyncedQuery = lastSyncedQueryRef.current;
+    lastSyncedQueryRef.current = state.q;
+
+    if (queryDraftRef.current === previousSyncedQuery) {
+      setQueryDraft(state.q);
+    }
+  }, [state.q]);
+
+  useEffect(() => {
+    if (queryDraft === state.q) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setQuery(queryDraft);
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [queryDraft, setQuery, state.q]);
+
+  useEffect(() => {
     if (!state.selectedSpotId) return;
     if (sortedItems.some((spot) => spot.id === state.selectedSpotId)) return;
     setSelectedSpot(null);
@@ -210,6 +236,7 @@ export function ExploreLayout() {
   };
 
   const handleResetFilters = () => {
+    setQueryDraft("");
     resetFilters();
     setSelectedSpot(null);
   };
@@ -317,7 +344,7 @@ export function ExploreLayout() {
       </div>
       <div className="hidden h-full lg:grid lg:grid-cols-[460px_minmax(0,1fr)]">
         <ExploreResultsPanel
-          q={state.q}
+          q={queryDraft}
           area={state.area}
           areaOptions={areaOptions}
           difficulty={state.difficulty}
@@ -335,7 +362,7 @@ export function ExploreLayout() {
           hasNextPage={Boolean(exploreQuery.hasNextPage)}
           isFetchingNextPage={exploreQuery.isFetchingNextPage}
           searchInputRef={searchInputRef}
-          onQueryChange={setQuery}
+          onQueryChange={setQueryDraft}
           onAreaChange={setArea}
           onDifficultyChange={setDifficulty}
           onVerifiedOnlyChange={setVerifiedOnly}
@@ -451,9 +478,9 @@ export function ExploreLayout() {
             <div className="flex items-center gap-2">
               <Input
                 ref={searchInputRef}
-                value={state.q}
+                value={queryDraft}
                 autoFocus
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => setQueryDraft(event.target.value)}
                 placeholder="Search by site, town, or area"
                 aria-label="Search by site, town, or area"
                 className="h-11 rounded-full bg-muted/40"
@@ -534,7 +561,7 @@ export function ExploreLayout() {
 
         <TabsContent value="list" className="mt-0 min-h-0 flex-1">
           <ExploreResultsPanel
-            q={state.q}
+            q={queryDraft}
             area={state.area}
             areaOptions={areaOptions}
             difficulty={state.difficulty}
@@ -552,7 +579,7 @@ export function ExploreLayout() {
             hasNextPage={Boolean(exploreQuery.hasNextPage)}
             isFetchingNextPage={exploreQuery.isFetchingNextPage}
             headerActions={renderSubmissionActions("mobile")}
-            onQueryChange={setQuery}
+            onQueryChange={setQueryDraft}
             onAreaChange={setArea}
             onDifficultyChange={setDifficulty}
             onVerifiedOnlyChange={setVerifiedOnly}
