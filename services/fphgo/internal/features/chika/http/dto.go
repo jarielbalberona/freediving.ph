@@ -106,9 +106,10 @@ type ReactionResponse struct {
 }
 
 type CommentReactionResponse struct {
-	CommentID string `json:"commentId"`
-	UserID    string `json:"userId"`
-	Type      string `json:"type"`
+	CommentID    string  `json:"commentId"`
+	ThreadID     string  `json:"threadId"`
+	VoteCount    int64   `json:"voteCount"`
+	UserReaction *string `json:"userReaction"`
 }
 
 type MediaAssetResponse struct {

@@ -117,6 +117,13 @@ export interface ChikaCommentResponse {
   updatedAt: string;
 }
 
+export interface ChikaCommentReactionResponse {
+  commentId: string;
+  threadId: string;
+  voteCount: number;
+  userReaction: "upvote" | "downvote" | null;
+}
+
 export interface ChikaCategoryResponse {
   id: string;
   slug: string;

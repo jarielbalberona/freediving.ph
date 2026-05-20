@@ -86,6 +86,120 @@ func TestSetThreadReactionIdempotent(t *testing.T) {
 	}
 }
 
+func TestGetCommentProjectionTracksVotesAndViewerReaction(t *testing.T) {
+	pool := testPool(t)
+	repo := chikarepo.New(pool)
+	ctx := context.Background()
+
+	authorID := uuid.New().String()
+	viewerID := uuid.New().String()
+	otherViewerID := uuid.New().String()
+	for idx, id := range []string{authorID, viewerID, otherViewerID} {
+		username := fmt.Sprintf("chika_comment_projection_%d_%d", idx, time.Now().UnixNano())
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name)
+			VALUES ($1, $2, 'Test')
+		`, id, username); err != nil {
+			t.Skipf("insert user: %v (ensure migrations applied)", err)
+		}
+	}
+
+	var threadID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO chika_threads (title, mode, created_by_user_id)
+		VALUES ('test', 'normal', $1)
+		RETURNING id
+	`, authorID).Scan(&threadID); err != nil {
+		t.Fatalf("create thread: %v", err)
+	}
+
+	var commentID int64
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO chika_comments (thread_id, author_user_id, pseudonym, content)
+		VALUES ($1, $2, 'author', 'parent comment')
+		RETURNING id
+	`, threadID, authorID).Scan(&commentID); err != nil {
+		t.Fatalf("create comment: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO chika_comments (thread_id, parent_comment_id, author_user_id, pseudonym, content)
+		VALUES ($1, $2, $3, 'author', 'reply')
+	`, threadID, commentID, authorID); err != nil {
+		t.Fatalf("create reply: %v", err)
+	}
+
+	assertProjection := func(viewer string, wantCount int64, wantReaction string) {
+		t.Helper()
+		got, err := repo.GetComment(ctx, commentID, viewer)
+		if err != nil {
+			t.Fatalf("GetComment: %v", err)
+		}
+		if got.VoteCount != wantCount {
+			t.Fatalf("GetComment VoteCount = %d, want %d", got.VoteCount, wantCount)
+		}
+		if got.ViewerReaction != wantReaction {
+			t.Fatalf("GetComment ViewerReaction = %q, want %q", got.ViewerReaction, wantReaction)
+		}
+		if got.ReplyCount != 1 {
+			t.Fatalf("GetComment ReplyCount = %d, want 1", got.ReplyCount)
+		}
+
+		items, err := repo.ListComments(ctx, threadID, viewer, false, time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC), math.MaxInt64, 20)
+		if err != nil {
+			t.Fatalf("ListComments: %v", err)
+		}
+		var listed *chikarepo.Comment
+		for idx := range items {
+			if items[idx].ID == commentID {
+				listed = &items[idx]
+				break
+			}
+		}
+		if listed == nil {
+			t.Fatal("ListComments did not include parent comment")
+		}
+		if listed.VoteCount != got.VoteCount || listed.ViewerReaction != got.ViewerReaction || listed.ReplyCount != got.ReplyCount {
+			t.Fatalf("ListComments projection = count %d reaction %q replies %d, GetComment = count %d reaction %q replies %d",
+				listed.VoteCount, listed.ViewerReaction, listed.ReplyCount,
+				got.VoteCount, got.ViewerReaction, got.ReplyCount)
+		}
+	}
+
+	assertProjection(viewerID, 0, "")
+
+	if _, err := repo.SetCommentReaction(ctx, commentID, viewerID, "upvote"); err != nil {
+		t.Fatalf("set upvote: %v", err)
+	}
+	assertProjection(viewerID, 1, "upvote")
+	assertProjection(otherViewerID, 1, "")
+
+	if _, err := repo.SetCommentReaction(ctx, commentID, viewerID, "downvote"); err != nil {
+		t.Fatalf("switch to downvote: %v", err)
+	}
+	assertProjection(viewerID, -1, "downvote")
+
+	if _, err := repo.SetCommentReaction(ctx, commentID, viewerID, "upvote"); err != nil {
+		t.Fatalf("switch to upvote: %v", err)
+	}
+	assertProjection(viewerID, 1, "upvote")
+
+	if err := repo.RemoveCommentReaction(ctx, commentID, viewerID); err != nil {
+		t.Fatalf("remove upvote: %v", err)
+	}
+	assertProjection(viewerID, 0, "")
+
+	if _, err := repo.SetCommentReaction(ctx, commentID, viewerID, "downvote"); err != nil {
+		t.Fatalf("set downvote: %v", err)
+	}
+	assertProjection(viewerID, -1, "downvote")
+
+	if err := repo.RemoveCommentReaction(ctx, commentID, viewerID); err != nil {
+		t.Fatalf("remove downvote: %v", err)
+	}
+	assertProjection(viewerID, 0, "")
+}
+
 func TestListThreadsExcludesBlockedAuthorsBothDirections(t *testing.T) {
 	pool := testPool(t)
 	repo := chikarepo.New(pool)

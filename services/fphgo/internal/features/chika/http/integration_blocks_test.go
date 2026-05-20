@@ -147,7 +147,7 @@ func (r *filteredChikaRepo) ListComments(_ context.Context, _ string, viewerID s
 	}
 	return out, nil
 }
-func (r *filteredChikaRepo) GetComment(context.Context, int64) (chikarepo.Comment, error) {
+func (r *filteredChikaRepo) GetComment(context.Context, int64, string) (chikarepo.Comment, error) {
 	return chikarepo.Comment{}, nil
 }
 func (r *filteredChikaRepo) UpdateComment(context.Context, int64, string) (chikarepo.Comment, error) {

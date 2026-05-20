@@ -626,15 +626,15 @@ func (r *Repo) CreateComment(ctx context.Context, threadID, userID, pseudonym, c
 	return comment, err
 }
 
-func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, includeHidden bool, cursorCreated time.Time, cursorCommentID int64, limit int32) ([]Comment, error) {
-	rows, err := r.pool.Query(ctx, `
+func commentProjectionSQL(viewerIDParam string) string {
+	return fmt.Sprintf(`
 		SELECT c.id, c.thread_id, c.parent_comment_id, c.author_user_id, COALESCE(p.avatar_url, '') AS author_avatar_url, c.pseudonym, c.content, c.hidden_at, c.created_at, c.updated_at,
 		       COALESCE(rv.score, 0) AS vote_count,
 		       COALESCE(rc.reply_count, 0) AS reply_count,
 		       COALESCE(vr.reaction_type, '') AS viewer_reaction
 		FROM chika_comments c
 		LEFT JOIN profiles p ON p.user_id = c.author_user_id
-		LEFT JOIN chika_comment_reactions vr ON vr.comment_id = c.id AND vr.user_id = $2
+		LEFT JOIN chika_comment_reactions vr ON vr.comment_id = c.id AND vr.user_id = %s
 		LEFT JOIN LATERAL (
 			SELECT SUM(CASE WHEN r.reaction_type = 'upvote' THEN 1 WHEN r.reaction_type = 'downvote' THEN -1 ELSE 0 END)::bigint AS score
 			FROM chika_comment_reactions r
@@ -645,6 +645,11 @@ func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, incl
 			FROM chika_comments child
 			WHERE child.parent_comment_id = c.id AND child.deleted_at IS NULL
 		) rc ON TRUE
+	`, viewerIDParam)
+}
+
+func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, includeHidden bool, cursorCreated time.Time, cursorCommentID int64, limit int32) ([]Comment, error) {
+	rows, err := r.pool.Query(ctx, commentProjectionSQL("$2")+`
 		WHERE c.thread_id = $1 AND c.deleted_at IS NULL
 		  AND ($3::boolean OR c.hidden_at IS NULL)
 		  AND (c.created_at < $4 OR (c.created_at = $4 AND c.id < $5))
@@ -687,15 +692,11 @@ func (r *Repo) ListComments(ctx context.Context, threadID, viewerID string, incl
 	return items, rows.Err()
 }
 
-func (r *Repo) GetComment(ctx context.Context, commentID int64) (Comment, error) {
+func (r *Repo) GetComment(ctx context.Context, commentID int64, viewerID string) (Comment, error) {
 	var comment Comment
-	err := r.pool.QueryRow(ctx, `
-		SELECT c.id, c.thread_id, c.parent_comment_id, c.author_user_id, COALESCE(p.avatar_url, '') AS author_avatar_url, c.pseudonym, c.content, c.hidden_at, c.created_at, c.updated_at,
-		       0::bigint AS vote_count, 0::bigint AS reply_count, ''::text AS viewer_reaction
-		FROM chika_comments c
-		LEFT JOIN profiles p ON p.user_id = c.author_user_id
+	err := r.pool.QueryRow(ctx, commentProjectionSQL("$2")+`
 		WHERE c.id = $1 AND c.deleted_at IS NULL
-	`, commentID).Scan(&comment.ID, &comment.ThreadID, &comment.ParentID, &comment.AuthorUserID, &comment.AuthorAvatarURL, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt, &comment.UpdatedAt, &comment.VoteCount, &comment.ReplyCount, &comment.ViewerReaction)
+	`, commentID, viewerID).Scan(&comment.ID, &comment.ThreadID, &comment.ParentID, &comment.AuthorUserID, &comment.AuthorAvatarURL, &comment.Pseudonym, &comment.Content, &comment.HiddenAt, &comment.CreatedAt, &comment.UpdatedAt, &comment.VoteCount, &comment.ReplyCount, &comment.ViewerReaction)
 	return comment, err
 }
 

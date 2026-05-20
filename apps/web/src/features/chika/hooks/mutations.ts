@@ -1,5 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { updateChikaThreadCommentCountDelta } from "@/features/chika/lib/cache-updaters";
+import {
+  buildChikaCommentReactionPatch,
+  getChikaCommentFromCache,
+  updateChikaCommentInCache,
+  updateChikaThreadCommentCountDelta,
+} from "@/features/chika/lib/cache-updaters";
 import { queryKeys } from "@/lib/query/query-keys";
 import { threadsApi } from "../api/threads";
 import type { CreateThreadPayload } from "../api/threads";
@@ -51,9 +56,35 @@ export const useSetCommentReaction = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ threadId, commentId, type }: { threadId: string; commentId: string; type: CommentReactionType }) =>
+    mutationFn: ({ commentId, type }: { threadId: string; commentId: string; type: CommentReactionType }) =>
       threadsApi.setCommentReaction(commentId, type),
-    onSuccess: (_, { threadId }) => {
+    onMutate: async ({ threadId, commentId, type }) => {
+      const queryKey = queryKeys.chika.threadComments(threadId);
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData(queryKey);
+      const comment = getChikaCommentFromCache(queryClient, threadId, commentId);
+      if (comment) {
+        updateChikaCommentInCache(
+          queryClient,
+          threadId,
+          commentId,
+          buildChikaCommentReactionPatch(comment, type),
+        );
+      }
+      return { previous, queryKey };
+    },
+    onSuccess: (result, { threadId, commentId }) => {
+      updateChikaCommentInCache(queryClient, threadId, commentId, {
+        voteCount: result.voteCount,
+        userReaction: result.userReaction,
+      });
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
+    },
+    onSettled: (_result, _error, { threadId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chika.threadComments(threadId) });
     },
   });
@@ -63,9 +94,35 @@ export const useRemoveCommentReaction = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ threadId, commentId }: { threadId: string; commentId: string }) =>
+    mutationFn: ({ commentId }: { threadId: string; commentId: string }) =>
       threadsApi.removeCommentReaction(commentId),
-    onSuccess: (_, { threadId }) => {
+    onMutate: async ({ threadId, commentId }) => {
+      const queryKey = queryKeys.chika.threadComments(threadId);
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData(queryKey);
+      const comment = getChikaCommentFromCache(queryClient, threadId, commentId);
+      if (comment) {
+        updateChikaCommentInCache(
+          queryClient,
+          threadId,
+          commentId,
+          buildChikaCommentReactionPatch(comment, null),
+        );
+      }
+      return { previous, queryKey };
+    },
+    onSuccess: (result, { threadId, commentId }) => {
+      updateChikaCommentInCache(queryClient, threadId, commentId, {
+        voteCount: result.voteCount,
+        userReaction: result.userReaction,
+      });
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
+    },
+    onSettled: (_result, _error, { threadId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chika.threadComments(threadId) });
     },
   });

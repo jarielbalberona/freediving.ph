@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,7 +14,10 @@ import (
 )
 
 type chikaRepoStub struct {
-	thread chikarepo.Thread
+	thread           chikarepo.Thread
+	comment          chikarepo.Comment
+	comments         map[int64]chikarepo.Comment
+	commentReactions map[int64]map[string]string
 }
 
 func (s *chikaRepoStub) ListCategories(context.Context) ([]chikarepo.Category, error) {
@@ -53,8 +57,34 @@ func (s *chikaRepoStub) CreateComment(context.Context, string, string, string, s
 func (s *chikaRepoStub) ListComments(context.Context, string, string, bool, time.Time, int64, int32) ([]chikarepo.Comment, error) {
 	return []chikarepo.Comment{}, nil
 }
-func (s *chikaRepoStub) GetComment(context.Context, int64) (chikarepo.Comment, error) {
-	return chikarepo.Comment{}, nil
+func (s *chikaRepoStub) GetComment(_ context.Context, commentID int64, viewerID string) (chikarepo.Comment, error) {
+	comment := s.comment
+	if s.comments != nil {
+		if item, ok := s.comments[commentID]; ok {
+			comment = item
+		}
+	}
+	if comment.ID == 0 {
+		comment.ID = commentID
+	}
+	if comment.ThreadID == "" {
+		comment.ThreadID = s.thread.ID
+	}
+	reactions := s.commentReactions[commentID]
+	comment.VoteCount = 0
+	comment.ViewerReaction = ""
+	for userID, reaction := range reactions {
+		switch reaction {
+		case "upvote":
+			comment.VoteCount++
+		case "downvote":
+			comment.VoteCount--
+		}
+		if userID == viewerID {
+			comment.ViewerReaction = reaction
+		}
+	}
+	return comment, nil
 }
 func (s *chikaRepoStub) UpdateComment(context.Context, int64, string) (chikarepo.Comment, error) {
 	return chikarepo.Comment{}, nil
@@ -64,10 +94,22 @@ func (s *chikaRepoStub) SetThreadReaction(context.Context, string, string, strin
 	return chikarepo.Reaction{}, nil
 }
 func (s *chikaRepoStub) RemoveThreadReaction(context.Context, string, string) error { return nil }
-func (s *chikaRepoStub) SetCommentReaction(context.Context, int64, string, string) (chikarepo.Reaction, error) {
-	return chikarepo.Reaction{}, nil
+func (s *chikaRepoStub) SetCommentReaction(_ context.Context, commentID int64, userID, reactionType string) (chikarepo.Reaction, error) {
+	if s.commentReactions == nil {
+		s.commentReactions = map[int64]map[string]string{}
+	}
+	if s.commentReactions[commentID] == nil {
+		s.commentReactions[commentID] = map[string]string{}
+	}
+	s.commentReactions[commentID][userID] = reactionType
+	return chikarepo.Reaction{ThreadID: strconv.FormatInt(commentID, 10), UserID: userID, Type: reactionType}, nil
 }
-func (s *chikaRepoStub) RemoveCommentReaction(context.Context, int64, string) error { return nil }
+func (s *chikaRepoStub) RemoveCommentReaction(_ context.Context, commentID int64, userID string) error {
+	if s.commentReactions != nil {
+		delete(s.commentReactions[commentID], userID)
+	}
+	return nil
+}
 func (s *chikaRepoStub) CreateMediaAsset(context.Context, chikarepo.CreateMediaAssetInput) (chikarepo.MediaAsset, error) {
 	return chikarepo.MediaAsset{}, nil
 }

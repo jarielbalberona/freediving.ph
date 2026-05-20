@@ -458,7 +458,7 @@ func (h *Handlers) SetCommentReaction(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteValidationError(w, issues)
 		return
 	}
-	reaction, err := h.service.SetCommentReaction(r.Context(), chikaservice.SetCommentReactionInput{
+	result, err := h.service.SetCommentReaction(r.Context(), chikaservice.SetCommentReactionInput{
 		CommentID: commentID,
 		UserID:    actor.ID,
 		Type:      req.Type,
@@ -467,11 +467,7 @@ func (h *Handlers) SetCommentReaction(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, CommentReactionResponse{
-		CommentID: strconv.FormatInt(commentID, 10),
-		UserID:    reaction.UserID,
-		Type:      reaction.Type,
-	})
+	httpx.JSON(w, http.StatusOK, commentReactionResponse(result))
 }
 
 func (h *Handlers) RemoveCommentReaction(w http.ResponseWriter, r *http.Request) {
@@ -486,14 +482,15 @@ func (h *Handlers) RemoveCommentReaction(w http.ResponseWriter, r *http.Request)
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusBadRequest, "invalid_comment_id", "invalid comment id", parseErr))
 		return
 	}
-	if err := h.service.RemoveCommentReaction(r.Context(), chikaservice.RemoveCommentReactionInput{
+	result, err := h.service.RemoveCommentReaction(r.Context(), chikaservice.RemoveCommentReactionInput{
 		CommentID: commentID,
 		UserID:    actor.ID,
-	}); err != nil {
+	})
+	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"status": "removed"})
+	httpx.JSON(w, http.StatusOK, commentReactionResponse(result))
 }
 
 func (h *Handlers) CreateMediaAsset(w http.ResponseWriter, r *http.Request) {
@@ -715,6 +712,20 @@ func commentResponse(input chikaservice.Comment, includeRealAuthor bool, categor
 		HiddenAt:         hiddenAt,
 		CreatedAt:        input.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:        input.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func commentReactionResponse(input chikaservice.CommentReactionResult) CommentReactionResponse {
+	var userReaction *string
+	if strings.TrimSpace(input.UserReaction) != "" {
+		reaction := input.UserReaction
+		userReaction = &reaction
+	}
+	return CommentReactionResponse{
+		CommentID:    strconv.FormatInt(input.CommentID, 10),
+		ThreadID:     input.ThreadID,
+		VoteCount:    input.VoteCount,
+		UserReaction: userReaction,
 	}
 }
 

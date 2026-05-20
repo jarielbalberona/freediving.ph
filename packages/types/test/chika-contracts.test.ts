@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type {
   ChikaCategoryResponse,
+  ChikaCommentReactionResponse,
   ChikaCommentResponse,
   ChikaThreadResponse,
 } from "../src/index.ts";
@@ -43,6 +44,17 @@ test("chika comment contract uses string ids", () => {
     updatedAt: "2026-02-27T00:00:00Z",
   };
   assert.equal(typeof comment.id, "string");
+});
+
+test("chika comment reaction contract returns fresh cache patch state", () => {
+  const reaction: ChikaCommentReactionResponse = {
+    commentId: "123",
+    threadId: "550e8400-e29b-41d4-a716-446655440001",
+    voteCount: 9,
+    userReaction: null,
+  };
+  assert.equal(reaction.userReaction, null);
+  assert.equal(reaction.voteCount, 9);
 });
 
 test("chika category contract includes pseudonymous flag", () => {

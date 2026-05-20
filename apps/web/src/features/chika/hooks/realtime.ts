@@ -1,11 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ChikaCommentResponse } from "@freediving.ph/types";
 import { toast } from "sonner";
 
 import { getFphgoBaseUrlClient } from "@/lib/api/fphgo-base-url";
 import { getAuthToken } from "@/lib/api/fphgo-fetch-client";
-import { updateChikaThreadInCaches } from "@/features/chika/lib/cache-updaters";
+import {
+  updateChikaCommentInCache,
+  updateChikaThreadInCaches,
+} from "@/features/chika/lib/cache-updaters";
 import { queryKeys } from "@/lib/query/query-keys";
 
 const DEDUP_SET_SIZE = 300;
@@ -75,15 +77,9 @@ export const useChikaRealtime = (params: {
       commentId: string,
       voteCount: number,
     ) => {
-      queryClient.setQueryData(
-        queryKeys.chika.threadComments(threadId),
-        (current: ChikaCommentResponse[] | undefined) => {
-          if (!Array.isArray(current)) return current;
-          return current.map((comment) =>
-            comment.id === commentId ? { ...comment, voteCount } : comment,
-          );
-        },
-      );
+      updateChikaCommentInCache(queryClient, threadId, commentId, {
+        voteCount,
+      });
     };
 
     const scheduleReconnect = () => {

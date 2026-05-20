@@ -1,5 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { ChikaThreadView, ThreadReactionType } from "@/features/chika/api/threads";
+import type {
+  ChikaCommentView,
+  ChikaThreadView,
+  CommentReactionType,
+  ThreadReactionType,
+} from "@/features/chika/api/threads";
+import { voteDelta } from "@/features/chika/lib/vote-state";
 import { queryKeys } from "@/lib/query/query-keys";
 
 type ChikaPatch = {
@@ -46,6 +52,71 @@ const countWithDelta = (value: unknown, delta: number) =>
   typeof value === "number" && Number.isFinite(value)
     ? Math.max(0, value + delta)
     : undefined;
+
+type ChikaCommentPatch = {
+  voteCount?: number;
+  userReaction?: CommentReactionType | null;
+};
+
+const patchComment = (
+  comment: ChikaCommentView,
+  patch: ChikaCommentPatch,
+): ChikaCommentView => ({
+  ...comment,
+  ...(patch.voteCount !== undefined ? { voteCount: patch.voteCount } : null),
+  userReaction:
+    patch.userReaction === undefined
+      ? comment.userReaction
+      : (patch.userReaction ?? undefined),
+});
+
+export function buildChikaCommentReactionPatch(
+  comment: ChikaCommentView,
+  nextReaction: CommentReactionType | null,
+): Required<ChikaCommentPatch> {
+  const currentReaction = comment.userReaction ?? null;
+  return {
+    voteCount: comment.voteCount + voteDelta(currentReaction, nextReaction),
+    userReaction: nextReaction,
+  };
+}
+
+export function patchChikaCommentList(
+  current: ChikaCommentView[] | undefined,
+  commentId: string,
+  patch: ChikaCommentPatch,
+) {
+  if (!Array.isArray(current)) return current;
+  return current.map((comment) =>
+    comment.id === commentId ? patchComment(comment, patch) : comment,
+  );
+}
+
+export function getChikaCommentFromCache(
+  queryClient: QueryClient,
+  threadId: string,
+  commentId: string,
+) {
+  const current = queryClient.getQueryData<ChikaCommentView[]>(
+    queryKeys.chika.threadComments(threadId),
+  );
+  return Array.isArray(current)
+    ? current.find((comment) => comment.id === commentId)
+    : undefined;
+}
+
+export function updateChikaCommentInCache(
+  queryClient: QueryClient,
+  threadId: string,
+  commentId: string,
+  patch: ChikaCommentPatch,
+) {
+  queryClient.setQueryData(
+    queryKeys.chika.threadComments(threadId),
+    (current: ChikaCommentView[] | undefined) =>
+      patchChikaCommentList(current, commentId, patch),
+  );
+}
 
 export function updateChikaThreadInCaches(
   queryClient: QueryClient,

@@ -44,7 +44,7 @@ type chikaRepository interface {
 	ListPosts(ctx context.Context, threadID, viewerID string, limit, offset int32) ([]chikarepo.Post, error)
 	CreateComment(ctx context.Context, threadID, userID, pseudonym, content string, parentCommentID *int64) (chikarepo.Comment, error)
 	ListComments(ctx context.Context, threadID, viewerID string, includeHidden bool, cursorCreated time.Time, cursorCommentID int64, limit int32) ([]chikarepo.Comment, error)
-	GetComment(ctx context.Context, commentID int64) (chikarepo.Comment, error)
+	GetComment(ctx context.Context, commentID int64, viewerID string) (chikarepo.Comment, error)
 	UpdateComment(ctx context.Context, commentID int64, content string) (chikarepo.Comment, error)
 	SoftDeleteComment(ctx context.Context, commentID int64) error
 	SetThreadReaction(ctx context.Context, threadID, userID, reactionType string) (chikarepo.Reaction, error)
@@ -173,6 +173,14 @@ type ListCommentsResult struct {
 	Items                []Comment
 	NextCursor           string
 	CategoryPseudonymous bool
+}
+
+type CommentReactionResult struct {
+	CommentID    int64
+	ThreadID     string
+	UserID       string
+	VoteCount    int64
+	UserReaction string
 }
 
 type UpdateCommentInput struct {
@@ -609,7 +617,7 @@ func (s *Service) CreateComment(ctx context.Context, input CreateCommentInput) (
 		}
 	}
 	if input.ParentCommentID != nil {
-		parent, err := s.repo.GetComment(ctx, *input.ParentCommentID)
+		parent, err := s.repo.GetComment(ctx, *input.ParentCommentID, input.UserID)
 		if err != nil {
 			if chikarepo.IsNoRows(err) {
 				return Comment{}, apperrors.New(http.StatusBadRequest, "invalid_parent_comment_id", "parent comment not found", err)
@@ -699,7 +707,7 @@ func (s *Service) UpdateComment(ctx context.Context, input UpdateCommentInput) (
 		return Comment{}, apperrors.New(http.StatusBadRequest, "invalid_content", "content is required", nil)
 	}
 
-	comment, err := s.repo.GetComment(ctx, input.CommentID)
+	comment, err := s.repo.GetComment(ctx, input.CommentID, input.ActorID)
 	if err != nil {
 		if chikarepo.IsNoRows(err) {
 			return Comment{}, apperrors.New(http.StatusNotFound, "comment_not_found", "comment not found", err)
@@ -735,7 +743,7 @@ func (s *Service) DeleteComment(ctx context.Context, input DeleteCommentInput) e
 		return err
 	}
 
-	comment, err := s.repo.GetComment(ctx, input.CommentID)
+	comment, err := s.repo.GetComment(ctx, input.CommentID, input.ActorID)
 	if err != nil {
 		if chikarepo.IsNoRows(err) {
 			return apperrors.New(http.StatusNotFound, "comment_not_found", "comment not found", err)
@@ -845,54 +853,53 @@ func (s *Service) RemoveThreadReaction(ctx context.Context, input RemoveThreadRe
 	return nil
 }
 
-func (s *Service) SetCommentReaction(ctx context.Context, input SetCommentReactionInput) (Reaction, error) {
+func (s *Service) SetCommentReaction(ctx context.Context, input SetCommentReactionInput) (CommentReactionResult, error) {
 	if input.CommentID <= 0 {
-		return Reaction{}, apperrors.New(http.StatusBadRequest, "invalid_comment_id", "invalid comment id", nil)
+		return CommentReactionResult{}, apperrors.New(http.StatusBadRequest, "invalid_comment_id", "invalid comment id", nil)
 	}
 	if _, err := uuid.Parse(input.UserID); err != nil {
-		return Reaction{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid user id", err)
+		return CommentReactionResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid user id", err)
 	}
-	comment, err := s.repo.GetComment(ctx, input.CommentID)
+	comment, err := s.repo.GetComment(ctx, input.CommentID, input.UserID)
 	if err != nil {
 		if chikarepo.IsNoRows(err) {
-			return Reaction{}, apperrors.New(http.StatusNotFound, "comment_not_found", "comment not found", err)
+			return CommentReactionResult{}, apperrors.New(http.StatusNotFound, "comment_not_found", "comment not found", err)
 		}
-		return Reaction{}, apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
+		return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
 	}
 	if input.UserID != comment.AuthorUserID {
 		blocked, checkErr := s.isBlockedEither(ctx, input.UserID, comment.AuthorUserID)
 		if checkErr != nil {
-			return Reaction{}, apperrors.New(http.StatusInternalServerError, "block_check_failed", "failed to validate block state", checkErr)
+			return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "block_check_failed", "failed to validate block state", checkErr)
 		}
 		if blocked {
-			return Reaction{}, apperrors.New(http.StatusForbidden, "blocked", "interaction is blocked between users", nil)
+			return CommentReactionResult{}, apperrors.New(http.StatusForbidden, "blocked", "interaction is blocked between users", nil)
 		}
 	}
 	commentThread, err := s.repo.GetThread(ctx, comment.ThreadID)
 	if err != nil {
 		if chikarepo.IsNoRows(err) {
-			return Reaction{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
+			return CommentReactionResult{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
 		}
-		return Reaction{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
+		return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
 	}
 	reactionRateMax := 150
 	if commentThread.Mode == "pseudonymous" || commentThread.Mode == "locked_pseudonymous" {
 		reactionRateMax = 100
 	}
 	if err := s.enforceRateLimit(ctx, "chika.set_comment_reaction", input.UserID, reactionRateMax, time.Minute, "comment reaction rate exceeded"); err != nil {
-		return Reaction{}, err
+		return CommentReactionResult{}, err
 	}
 	reactionType := strings.TrimSpace(strings.ToLower(input.Type))
 	if reactionType != "upvote" && reactionType != "downvote" {
-		return Reaction{}, apperrors.New(http.StatusBadRequest, "invalid_reaction", "reaction must be upvote or downvote", nil)
+		return CommentReactionResult{}, apperrors.New(http.StatusBadRequest, "invalid_reaction", "reaction must be upvote or downvote", nil)
 	}
-	reaction, err := s.repo.SetCommentReaction(ctx, input.CommentID, input.UserID, reactionType)
-	if err != nil {
-		return Reaction{}, apperrors.New(http.StatusInternalServerError, "reaction_set_failed", "failed to set reaction", err)
+	if _, err := s.repo.SetCommentReaction(ctx, input.CommentID, input.UserID, reactionType); err != nil {
+		return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "reaction_set_failed", "failed to set reaction", err)
 	}
-	updatedComment, err := s.repo.GetComment(ctx, input.CommentID)
+	updatedComment, err := s.repo.GetComment(ctx, input.CommentID, input.UserID)
 	if err != nil {
-		return Reaction{}, apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
+		return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
 	}
 	s.broadcastChikaEvent("chika.comment.reaction.updated", map[string]any{
 		"threadId":    comment.ThreadID,
@@ -903,32 +910,38 @@ func (s *Service) SetCommentReaction(ctx context.Context, input SetCommentReacti
 	s.broadcastChikaEvent("chika.thread.updated", map[string]any{
 		"threadId": comment.ThreadID,
 	})
-	return reaction, nil
+	return CommentReactionResult{
+		CommentID:    updatedComment.ID,
+		ThreadID:     updatedComment.ThreadID,
+		UserID:       input.UserID,
+		VoteCount:    updatedComment.VoteCount,
+		UserReaction: updatedComment.ViewerReaction,
+	}, nil
 }
 
-func (s *Service) RemoveCommentReaction(ctx context.Context, input RemoveCommentReactionInput) error {
+func (s *Service) RemoveCommentReaction(ctx context.Context, input RemoveCommentReactionInput) (CommentReactionResult, error) {
 	if input.CommentID <= 0 {
-		return apperrors.New(http.StatusBadRequest, "invalid_comment_id", "invalid comment id", nil)
+		return CommentReactionResult{}, apperrors.New(http.StatusBadRequest, "invalid_comment_id", "invalid comment id", nil)
 	}
 	if _, err := uuid.Parse(input.UserID); err != nil {
-		return apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid user id", err)
+		return CommentReactionResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid user id", err)
 	}
 	if err := s.enforceRateLimit(ctx, "chika.remove_comment_reaction", input.UserID, 150, time.Minute, "comment reaction rate exceeded"); err != nil {
-		return err
+		return CommentReactionResult{}, err
 	}
-	comment, err := s.repo.GetComment(ctx, input.CommentID)
+	comment, err := s.repo.GetComment(ctx, input.CommentID, input.UserID)
 	if err != nil {
 		if chikarepo.IsNoRows(err) {
-			return apperrors.New(http.StatusNotFound, "comment_not_found", "comment not found", err)
+			return CommentReactionResult{}, apperrors.New(http.StatusNotFound, "comment_not_found", "comment not found", err)
 		}
-		return apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
+		return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
 	}
 	if err := s.repo.RemoveCommentReaction(ctx, input.CommentID, input.UserID); err != nil {
-		return apperrors.New(http.StatusInternalServerError, "reaction_remove_failed", "failed to remove reaction", err)
+		return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "reaction_remove_failed", "failed to remove reaction", err)
 	}
-	updatedComment, err := s.repo.GetComment(ctx, input.CommentID)
+	updatedComment, err := s.repo.GetComment(ctx, input.CommentID, input.UserID)
 	if err != nil {
-		return apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
+		return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
 	}
 	s.broadcastChikaEvent("chika.comment.reaction.updated", map[string]any{
 		"threadId":    comment.ThreadID,
@@ -939,7 +952,13 @@ func (s *Service) RemoveCommentReaction(ctx context.Context, input RemoveComment
 	s.broadcastChikaEvent("chika.thread.updated", map[string]any{
 		"threadId": comment.ThreadID,
 	})
-	return nil
+	return CommentReactionResult{
+		CommentID:    updatedComment.ID,
+		ThreadID:     updatedComment.ThreadID,
+		UserID:       input.UserID,
+		VoteCount:    updatedComment.VoteCount,
+		UserReaction: updatedComment.ViewerReaction,
+	}, nil
 }
 
 func (s *Service) broadcastChikaEvent(eventType string, payload map[string]any) {

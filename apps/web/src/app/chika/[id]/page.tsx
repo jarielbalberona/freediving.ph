@@ -3,9 +3,7 @@
 import {
   use as usePromise,
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { ArrowBigDown, ArrowBigUp, MessageCircle } from "lucide-react";
@@ -184,44 +182,35 @@ function CommentActions({
 }) {
   const setCommentReaction = useSetCommentReaction();
   const removeCommentReaction = useRemoveCommentReaction();
-  const [reaction, setReaction] = useState<"upvote" | "downvote" | null>(
-    comment.userReaction ?? null,
-  );
-  const lockRef = useRef(false);
-
-  useEffect(() => {
-    setReaction(comment.userReaction ?? null);
-  }, [comment.userReaction]);
+  const reaction = comment.userReaction ?? null;
 
   const isBusy =
-    setCommentReaction.isPending ||
-    removeCommentReaction.isPending ||
-    lockRef.current;
+    setCommentReaction.isPending || removeCommentReaction.isPending;
 
   const onVote = useCallback(
-    async (nextReaction: "upvote" | "downvote") => {
-      if (lockRef.current) return;
-      lockRef.current = true;
-      try {
-        if (reaction === nextReaction) {
-          await removeCommentReaction.mutateAsync({
-            threadId,
-            commentId: comment.id,
-          });
-          setReaction(null);
-          return;
-        }
-        await setCommentReaction.mutateAsync({
+    (nextReaction: "upvote" | "downvote") => {
+      if (isBusy) return;
+      if (reaction === nextReaction) {
+        removeCommentReaction.mutate({
           threadId,
           commentId: comment.id,
-          type: nextReaction,
         });
-        setReaction(nextReaction);
-      } finally {
-        lockRef.current = false;
+        return;
       }
+      setCommentReaction.mutate({
+        threadId,
+        commentId: comment.id,
+        type: nextReaction,
+      });
     },
-    [reaction, threadId, comment.id, setCommentReaction, removeCommentReaction],
+    [
+      comment.id,
+      isBusy,
+      reaction,
+      removeCommentReaction,
+      setCommentReaction,
+      threadId,
+    ],
   );
 
   return (

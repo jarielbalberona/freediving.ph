@@ -2,6 +2,7 @@ import type {
   ChikaCategoryListResponse,
   ChikaCategoryResponse,
   ChikaCommentListResponse,
+  ChikaCommentReactionResponse,
   ChikaCommentResponse,
   ChikaThreadListResponse,
   ChikaThreadResponse,
@@ -84,15 +85,18 @@ export const threadsApi = {
     });
   },
 
-  setCommentReaction: async (commentId: string, type: CommentReactionType): Promise<void> => {
-    await fphgoFetchClient(routes.v1.chika.comments.reactions(commentId), {
+  setCommentReaction: async (
+    commentId: string,
+    type: CommentReactionType,
+  ): Promise<ChikaCommentReactionResponse> => {
+    return fphgoFetchClient<ChikaCommentReactionResponse>(routes.v1.chika.comments.reactions(commentId), {
       method: "POST",
       body: { type },
     });
   },
 
-  removeCommentReaction: async (commentId: string): Promise<void> => {
-    await fphgoFetchClient(routes.v1.chika.comments.reactions(commentId), {
+  removeCommentReaction: async (commentId: string): Promise<ChikaCommentReactionResponse> => {
+    return fphgoFetchClient<ChikaCommentReactionResponse>(routes.v1.chika.comments.reactions(commentId), {
       method: "DELETE",
     });
   },
