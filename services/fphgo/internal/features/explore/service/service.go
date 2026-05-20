@@ -639,10 +639,6 @@ func (s *Service) CreateSiteSubmission(ctx context.Context, input CreateSiteSubm
 		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_lookup_failed", "failed to check for duplicate dive sites", err)
 	}
 
-	if err := s.enforceRateLimit(ctx, "explore.submit_site.day", input.ActorID, 5, 24*time.Hour, "daily site submission cap exceeded"); err != nil {
-		return explorerepo.SiteSubmission{}, err
-	}
-
 	submission, err := s.repo.CreateSiteSubmission(ctx, explorerepo.CreateSiteSubmissionInput{
 		Name:                 name,
 		Slug:                 pendingSlug(),

@@ -935,7 +935,7 @@ func TestCreateSiteSubmissionDerivesAreaBeforePersisting(t *testing.T) {
 	}
 }
 
-func TestCreateSiteSubmissionUsesDailyLimitWithoutHourlyCooldown(t *testing.T) {
+func TestCreateSiteSubmissionDoesNotUseSubmitSpecificRateLimit(t *testing.T) {
 	lat := 9.192036826009222
 	lng := 123.27219128608704
 	limiter := &recordingLimiter{}
@@ -957,15 +957,8 @@ func TestCreateSiteSubmissionUsesDailyLimitWithoutHourlyCooldown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create submission: %v", err)
 	}
-	if len(limiter.calls) != 1 {
-		t.Fatalf("expected only daily rate limit, got %+v", limiter.calls)
-	}
-	call := limiter.calls[0]
-	if call.scope != "explore.submit_site.day" {
-		t.Fatalf("expected daily submission scope, got %q", call.scope)
-	}
-	if call.maxEvents != 5 || call.window != 24*time.Hour {
-		t.Fatalf("expected daily cap of 5, got max=%d window=%s", call.maxEvents, call.window)
+	if len(limiter.calls) != 0 {
+		t.Fatalf("site submissions must not use a submit-specific rate limit, got %+v", limiter.calls)
 	}
 }
 

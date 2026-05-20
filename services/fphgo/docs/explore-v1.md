@@ -67,9 +67,7 @@ Base path: `/v1/explore`
     1. inserts into `dive_sites`
     2. forces `moderation_state='pending'`
     3. stores `submitted_by_app_user_id`
-  - rate limits:
-    - 1 submission per hour per actor
-    - 5 submissions per day per actor
+  - rate limits: none beyond the platform-wide abuse guard
   - dedupe:
     - rejects a submission when an approved site already exists with the same `name + area`
 
@@ -168,7 +166,7 @@ Base path: `/v1/explore`
 - Site buddy preview is redacted server-side, not by client convention.
 - Write routes require auth and permission.
 - Update creation is rate-limited in the service layer.
-- Site submission creation is rate-limited and duplicate-checked in the service layer.
+- Site submission creation is duplicate-checked in the service layer.
 - Share URLs are slug-based and stable for Messenger/social preview pages.
 
 ## Conditions Pulse add-on

@@ -147,7 +147,7 @@ PermissionExploreModerate Permission = "explore.moderate"
 
 - `CreateSiteSubmission` (lines 306-358):
   - Validates actor UUID; returns 401 if invalid
-  - Rate limits: 1/hour and 5/day per actor (lines 318-322)
+  - No submit-specific rate limit; submissions rely on moderation and duplicate checks
   - Dedupe: `FindApprovedSiteDuplicate` rejects when approved site exists with same name+area (lines 324-332)
   - Inserts via `CreateSiteSubmission` with `moderation_state='pending'` (sqlc query line 335)
   - Slug: `pendingSlug()` generates `pending-{uuid12}` (lines 481-484)
