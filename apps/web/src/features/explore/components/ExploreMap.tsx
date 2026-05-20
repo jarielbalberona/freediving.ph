@@ -189,11 +189,11 @@ function ExploreMarkers({
   useEffect(() => {
     if (!map || !markerLibrary || !clustererRef.current) return;
 
+    clustererRef.current.clearMarkers();
     const nextIds = new Set(spotsWithCoordinates.map((spot) => spot.id));
 
     for (const [spotId, marker] of markersRef.current.entries()) {
       if (!nextIds.has(spotId)) {
-        clustererRef.current.removeMarker(marker);
         marker.map = null;
         removeMarkerContent(marker.content);
         markersRef.current.delete(spotId);
@@ -223,10 +223,10 @@ function ExploreMarkers({
       markersRef.current.set(spot.id, marker);
     }
 
-    clustererRef.current.clearMarkers();
     clustererRef.current.addMarkers(
       Array.from(markersRef.current.values()) as ClusterMarker[],
     );
+    clustererRef.current.render();
   }, [map, markerLibrary, onSelectSpot, selectedSpotId, spotsWithCoordinates]);
 
   useEffect(() => {

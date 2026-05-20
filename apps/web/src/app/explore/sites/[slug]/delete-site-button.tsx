@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthGate } from "@/features/auth/auth-gate";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { queryKeys } from "@/lib/query/query-keys";
 
 type DeleteSiteButtonProps = {
   siteId: string;
@@ -28,12 +29,31 @@ type DeleteSiteButtonProps = {
 
 export function DeleteSiteButton({ siteId, siteName }: DeleteSiteButtonProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { roleIsAtLeast, isLoading } = useAuthGate();
   const canDelete = roleIsAtLeast("super_admin");
 
   const deleteMutation = useMutation({
     mutationFn: () => exploreApi.deleteSite(siteId),
     onSuccess: () => {
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.explore.lists() },
+        (current: any) => {
+          if (!current?.pages) return current;
+          return {
+            ...current,
+            pages: current.pages.map((page: any) => ({
+              ...page,
+              items: (page.items ?? []).filter(
+                (item: any) => item.id !== siteId,
+              ),
+            })),
+          };
+        },
+      );
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.explore.lists(),
+      });
       toast.success("Dive site deleted.");
       router.push("/explore");
       router.refresh();

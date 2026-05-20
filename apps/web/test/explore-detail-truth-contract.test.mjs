@@ -29,6 +29,14 @@ const suggestEditLinkPath = path.join(
   srcRoot,
   "app/explore/sites/[slug]/suggest-edit-link.tsx",
 );
+const deleteSiteButtonPath = path.join(
+  srcRoot,
+  "app/explore/sites/[slug]/delete-site-button.tsx",
+);
+const exploreMapPath = path.join(
+  srcRoot,
+  "features/explore/components/ExploreMap.tsx",
+);
 const exploreServerApiPath = path.join(
   srcRoot,
   "features/diveSpots/api/explore-v1.server.ts",
@@ -112,6 +120,31 @@ test("explore site edits use a separate proposal workflow", async () => {
   assert.match(clientApi, /listPendingSiteEdits/);
   assert.match(clientApi, /approveSiteEdit/);
   assert.match(clientApi, /rejectSiteEdit/);
+});
+
+test("super admin dive site delete clears Explore list and map state", async () => {
+  const [sharePage, deleteButton, exploreMap, routes, clientApi] =
+    await Promise.all([
+      readFile(sharePagePath, "utf8"),
+      readFile(deleteSiteButtonPath, "utf8"),
+      readFile(exploreMapPath, "utf8"),
+      readFile(routesPath, "utf8"),
+      readFile(exploreClientApiPath, "utf8"),
+    ]);
+
+  assert.match(sharePage, /<DeleteSiteButton/);
+  assert.match(deleteButton, /AlertDialog/);
+  assert.doesNotMatch(deleteButton, /window\.confirm/);
+  assert.match(deleteButton, /queryKeys\.explore\.lists\(\)/);
+  assert.match(deleteButton, /setQueriesData/);
+  assert.match(deleteButton, /item\.id !== siteId/);
+  assert.match(deleteButton, /invalidateQueries/);
+  assert.match(exploreMap, /clustererRef\.current\.clearMarkers\(\)/);
+  assert.match(exploreMap, /marker\.map = null/);
+  assert.match(exploreMap, /markersRef\.current\.delete\(spotId\)/);
+  assert.match(exploreMap, /clustererRef\.current\.render\(\)/);
+  assert.match(routes, /deleteSite/);
+  assert.match(clientApi, /deleteSite/);
 });
 
 test("explore site detail renders related tabs without duplicating old buddy section", async () => {
