@@ -1037,6 +1037,81 @@ func TestCreateSiteEditProposalStoresPendingProposalForMember(t *testing.T) {
 	}
 }
 
+func TestCreateSiteEditProposalKeepsCurrentAreaWhenUnchangedPinGeocodeFails(t *testing.T) {
+	lat := 9.950185986821985
+	lng := 123.36548315395711
+	repo := &repoStub{siteDetail: explorerepo.SiteDetail{
+		ID:          "550e8400-e29b-41d4-a716-446655440101",
+		Slug:        "sardine-run-moalboal",
+		Name:        "The Moalboal Sardine Run",
+		Area:        "Moalboal, Cebu",
+		Latitude:    &lat,
+		Longitude:   &lng,
+		Description: "Known sardine bait ball site.",
+		Difficulty:  "moderate",
+	}}
+	svc := New(repo, WithReverseGeocoder(&geocoderStub{err: errors.New("coarse area not found")}))
+
+	_, err := svc.CreateSiteEditProposal(context.Background(), CreateSiteEditProposalInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		ActorRole:   "member",
+		Slug:        "sardine-run-moalboal",
+		Name:        "The Moalboal Sardine Run",
+		Lat:         &lat,
+		Lng:         &lng,
+		Description: "A mesmerizing underwater spectacle where millions of sardines gather in synchronized schools.",
+		Difficulty:  "moderate",
+	})
+	if err != nil {
+		t.Fatalf("create site edit proposal with unchanged pin: %v", err)
+	}
+	if repo.editCreated.Proposed.Area != "Moalboal, Cebu" {
+		t.Fatalf("expected current site area fallback, got %q", repo.editCreated.Proposed.Area)
+	}
+}
+
+func TestCreateSiteEditProposalRejectsMovedPinWhenGeocodeFails(t *testing.T) {
+	currentLat := 9.950185986821985
+	currentLng := 123.36548315395711
+	movedLat := 9.951
+	movedLng := 123.366
+	repo := &repoStub{siteDetail: explorerepo.SiteDetail{
+		ID:          "550e8400-e29b-41d4-a716-446655440101",
+		Slug:        "sardine-run-moalboal",
+		Name:        "The Moalboal Sardine Run",
+		Area:        "Moalboal, Cebu",
+		Latitude:    &currentLat,
+		Longitude:   &currentLng,
+		Description: "Known sardine bait ball site.",
+		Difficulty:  "moderate",
+	}}
+	svc := New(repo, WithReverseGeocoder(&geocoderStub{err: errors.New("coarse area not found")}))
+
+	_, err := svc.CreateSiteEditProposal(context.Background(), CreateSiteEditProposalInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		ActorRole:   "member",
+		Slug:        "sardine-run-moalboal",
+		Name:        "The Moalboal Sardine Run",
+		Lat:         &movedLat,
+		Lng:         &movedLng,
+		Description: "A mesmerizing underwater spectacle where millions of sardines gather in synchronized schools.",
+		Difficulty:  "moderate",
+	})
+	if err == nil {
+		t.Fatal("expected moved pin with failed geocode to be rejected")
+	}
+	failure, ok := err.(ValidationFailure)
+	if !ok {
+		t.Fatalf("expected ValidationFailure, got %T", err)
+	}
+	if len(failure.Issues) != 1 || failure.Issues[0].Path[0] != "location" {
+		t.Fatalf("expected location validation issue, got %+v", failure.Issues)
+	}
+	if repo.editCreated.DiveSiteID != "" {
+		t.Fatalf("failed moved pin must not create proposal, got %+v", repo.editCreated)
+	}
+}
+
 func TestCreateSiteEditProposalAppliesImmediatelyForSuperAdmin(t *testing.T) {
 	lat := 9.945
 	lng := 123.37

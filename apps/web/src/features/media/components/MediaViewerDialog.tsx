@@ -142,7 +142,7 @@ export function MediaViewerDialog({
                           key={item.id}
                           className="flex h-full items-center pl-0"
                         >
-                          <div className="flex h-full w-full items-center justify-center p-4">
+                          <div className="flex h-full w-full items-center justify-center">
                             {src ? (
                               <Image
                                 src={src}

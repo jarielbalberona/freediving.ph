@@ -831,7 +831,7 @@ func (s *Service) CreateSiteEditProposal(ctx context.Context, input CreateSiteEd
 	if len(issues) > 0 {
 		return CreateSiteEditProposalResult{}, ValidationFailure{Issues: issues}
 	}
-	area, geoErr := s.geocoder.ReverseGeocodeArea(ctx, *input.Lat, *input.Lng)
+	area, geoErr := s.resolveSiteEditArea(ctx, site, input.Lat, input.Lng)
 	if geoErr != nil {
 		return CreateSiteEditProposalResult{}, ValidationFailure{Issues: []validatex.Issue{{
 			Path:    []any{"location"},
@@ -869,6 +869,20 @@ func (s *Service) CreateSiteEditProposal(ctx context.Context, input CreateSiteEd
 	}
 
 	return CreateSiteEditProposalResult{Proposal: proposal}, nil
+}
+
+func (s *Service) resolveSiteEditArea(ctx context.Context, site explorerepo.SiteDetail, lat, lng *float64) (string, error) {
+	area, err := s.geocoder.ReverseGeocodeArea(ctx, *lat, *lng)
+	if err == nil {
+		return strings.TrimSpace(area), nil
+	}
+
+	currentArea := strings.TrimSpace(site.Area)
+	if currentArea != "" && floatPtrEqual(site.Latitude, lat) && floatPtrEqual(site.Longitude, lng) {
+		return currentArea, nil
+	}
+
+	return "", err
 }
 
 func (s *Service) ListMySiteEditProposals(ctx context.Context, input SubmissionListInput) (SiteEditProposalListResult, error) {
