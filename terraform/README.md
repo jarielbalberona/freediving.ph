@@ -12,7 +12,7 @@
 **Location:** `modules/ecs/api.tf`
 
 ```hcl
-{ name = "RESEND_EMAIL_KEY", value = "re_MWcm3XnE_MPLJ8MbwpGZiAoXjmefHNu1X" }
+{ name = "RESEND_EMAIL_KEY", value = "xxxx" }
 ```
 
 **Actions Required:**

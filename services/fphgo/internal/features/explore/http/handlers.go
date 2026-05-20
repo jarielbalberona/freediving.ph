@@ -1389,7 +1389,7 @@ func mapActivityFeedItems(items []feedservice.ActivityItem) []ActivityFeedItem {
 				ID:        item.Actor.ID,
 				Name:      item.Actor.Name,
 				Username:  item.Actor.Username,
-				AvatarURL: item.Actor.AvatarURL,
+				AvatarURL: mediaurl.MaterializeWithDefault(item.Actor.AvatarURL),
 			},
 			Target: ActivityFeedTarget{
 				Type: item.Target.Type,

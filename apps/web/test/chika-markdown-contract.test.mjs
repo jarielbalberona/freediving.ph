@@ -183,7 +183,7 @@ test("chika markdown renders safe basics and blocks unsafe output", () => {
   assert.doesNotMatch(unsafe, /href="\/\/example\.com"/);
 });
 
-test("comment renderers linkify plain https urls without enabling raw html", async () => {
+test("comment renderers linkify plain https urls in the current tab without enabling raw html", async () => {
   const [linkedCommentText, chikaDetailPage, mediaComments] = await Promise.all([
     readFile(linkedCommentTextPath, "utf8"),
     readFile(chikaDetailPagePath, "utf8"),
@@ -191,8 +191,8 @@ test("comment renderers linkify plain https urls without enabling raw html", asy
   ]);
 
   assert.match(linkedCommentText, /URL_PATTERN = \/https\?:/);
-  assert.match(linkedCommentText, /target="_blank"/);
-  assert.match(linkedCommentText, /rel="noopener noreferrer"/);
+  assert.doesNotMatch(linkedCommentText, /target="_blank"/);
+  assert.doesNotMatch(linkedCommentText, /rel="noopener noreferrer"/);
   assert.match(linkedCommentText, /TRAILING_PUNCTUATION/);
   assert.doesNotMatch(linkedCommentText, /dangerouslySetInnerHTML/);
 

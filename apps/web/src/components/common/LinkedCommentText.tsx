@@ -35,8 +35,6 @@ export function LinkedCommentText({ text, className }: LinkedCommentTextProps) {
         <a
           key={`${url}-${start}`}
           href={url}
-          target="_blank"
-          rel="noopener noreferrer"
           className="font-medium text-primary underline underline-offset-4 break-words"
         >
           {url}

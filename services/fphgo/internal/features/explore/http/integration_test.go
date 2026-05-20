@@ -273,6 +273,8 @@ func (s *exploreServiceStub) UnlikeDiveSite(context.Context, string, string) (ex
 }
 
 func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
+	t.Setenv("CDN_BASE_URL", "https://cdn.example")
+
 	svc := &exploreServiceStub{
 		listResult: exploreservice.ListSitesResult{
 			Items: []explorerepo.SiteCard{{
@@ -368,7 +370,7 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 					SourceModule: feedservice.ActivitySourceMedia,
 					SourceType:   "media_post",
 					SourceID:     "550e8400-e29b-41d4-a716-446655440902",
-					Actor:        feedservice.ActivityActor{Name: "Photo Diver", Username: "photo_diver"},
+					Actor:        feedservice.ActivityActor{Name: "Photo Diver", Username: "photo_diver", AvatarURL: "avatars/photo-diver.jpg"},
 					Target:       feedservice.ActivityTarget{Type: "media_post", ID: "550e8400-e29b-41d4-a716-446655440902"},
 					Visibility:   feedservice.ActivityVisibilityPublic,
 					OccurredAt:   time.Now().UTC().Format(time.RFC3339),
@@ -422,7 +424,7 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 				SourceModule: feedservice.ActivitySourceMedia,
 				SourceType:   "media_post",
 				SourceID:     "550e8400-e29b-41d4-a716-446655440902",
-				Actor:        feedservice.ActivityActor{Name: "Photo Diver", Username: "photo_diver"},
+				Actor:        feedservice.ActivityActor{Name: "Photo Diver", Username: "photo_diver", AvatarURL: "avatars/photo-diver.jpg"},
 				Target:       feedservice.ActivityTarget{Type: "media_post", ID: "550e8400-e29b-41d4-a716-446655440902"},
 				Visibility:   feedservice.ActivityVisibilityPublic,
 				OccurredAt:   time.Now().UTC().Format(time.RFC3339),
@@ -497,6 +499,9 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	if got := relatedBody.Previews.CommunityPosts[0].Type; got != "media_post_created" {
 		t.Fatalf("expected media post activity preview, got %q", got)
 	}
+	if got := relatedBody.Previews.CommunityPosts[0].Actor.AvatarURL; got != "https://cdn.example/avatars/photo-diver.jpg" {
+		t.Fatalf("expected materialized related community avatar URL, got %q", got)
+	}
 	if got := relatedBody.Previews.Reviews[0].Rating; got != 5 {
 		t.Fatalf("expected review preview, got %d", got)
 	}
@@ -527,6 +532,9 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	}
 	if len(communityBody.Items) != 1 || communityBody.Items[0].DiveSiteID != "550e8400-e29b-41d4-a716-446655440101" {
 		t.Fatalf("expected site-linked community item, got %+v", communityBody.Items)
+	}
+	if got := communityBody.Items[0].Actor.AvatarURL; got != "https://cdn.example/avatars/photo-diver.jpg" {
+		t.Fatalf("expected materialized community avatar URL, got %q", got)
 	}
 
 	updatesReq := httptest.NewRequest(http.MethodGet, "/updates?area=Mabini,%20Batangas", nil)

@@ -77,7 +77,7 @@ resource "aws_ecs_task_definition" "api" {
         { name = "ORIGIN_URL", value = "https://app.dev.freediving.ph" },
         { name = "APP_URL", value = "https://app.dev.freediving.ph" },
         { name = "API_URL", value = "https://api.dev.freediving.ph" },
-        { name = "RESEND_EMAIL_KEY", value = "re_MWcm3XnE_MPLJ8MbwpGZiAoXjmefHNu1X" },
+        { name = "RESEND_EMAIL_KEY", value = "xxx" },
         { name = "RESEND_EMAIL_FROM", value = "admin@freediving.ph" },
         { name = "NEXT_PUBLIC_API_URL", value = "https://api.dev.freediving.ph" },
         { name = "NEXT_PUBLIC_APP_URL", value = "https://app.dev.freediving.ph" },

@@ -48,7 +48,7 @@ export function HomeQuickActions({
     : "/sign-in";
 
   return (
-    <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <section className="grid grid-flow-col auto-cols-fr gap-1 sm:gap-2">
       {actions
         .filter((action) => !hiddenActionTypes.has(action.type))
         .map((action) => {
@@ -62,14 +62,12 @@ export function HomeQuickActions({
               key={`${action.type}-${action.label}`}
               href={href}
               className={cn(
-                buttonVariants({ variant: "secondary" }),
-                "h-11 gap-2 px-3",
+                buttonVariants({ variant: "secondary", size: "xs" }),
+                "h-8 min-w-0 gap-1 px-1.5 text-[10px] leading-none sm:px-2 sm:text-xs",
               )}
             >
-              <Icon className="h-5 w-5" />
-              <span className="truncate text-sm font-medium">
-                {action.label}
-              </span>
+              <Icon className="h-3.5 w-3.5" />
+              <span className="min-w-0 truncate font-medium">{action.label}</span>
             </Link>
           );
         })}
