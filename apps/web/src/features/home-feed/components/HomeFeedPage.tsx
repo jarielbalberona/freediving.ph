@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 
 import type { HomeFeedItem, HomeFeedMode } from "@freediving.ph/types";
 
@@ -11,6 +11,7 @@ import { HomeHero } from "@/features/home-feed/components/HomeHero";
 import { HomeQuickActions } from "@/features/home-feed/components/HomeQuickActions";
 import { MixedFeed } from "@/features/home-feed/components/MixedFeed";
 import { NearbyConditionsCard } from "@/features/home-feed/components/NearbyConditionsCard";
+import { useSession } from "@/features/auth/session";
 import { useActivityFeedQuery } from "@/features/home-feed/hooks/queries/useActivityFeedQuery";
 import { useHomeFeedQuery } from "@/features/home-feed/hooks/queries/useHomeFeedQuery";
 
@@ -32,9 +33,12 @@ export function HomeFeedPage({
   initialFeedSource?: FeedSource;
 }) {
   const { isSignedIn } = useAuth();
+  const { user } = useUser();
+  const session = useSession();
   const [mode, setMode] = useState<HomeFeedMode>("latest");
   const [cursor, setCursor] = useState<FeedCursor | undefined>(undefined);
   const [itemsState, setItemsState] = useState<FeedItemsState | undefined>();
+  const username = session.me?.username ?? user?.username ?? null;
 
   const feedSource: FeedSource =
     initialFeedSource === "home" ? "home" : "activity";
@@ -122,10 +126,15 @@ export function HomeFeedPage({
     });
   };
 
-  const context = homeQuery.data?.context ?? {
-    greeting: "Good day, diver",
-    message: "Finding the latest from the freediving community...",
-    safetyBadge: "Dive with a buddy",
+  const context = {
+    ...(homeQuery.data?.context ?? {
+      greeting: "Good day, diver",
+      message: "Finding the latest from the freediving community...",
+      safetyBadge: "Dive with a buddy",
+    }),
+    greeting: username
+      ? `Good day, @${username.replace(/^@+/, "")}`
+      : (homeQuery.data?.context.greeting ?? "Good day, diver"),
   };
 
   const actions = useMemo(
