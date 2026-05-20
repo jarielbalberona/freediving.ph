@@ -13,6 +13,7 @@ import (
 	explorerepo "fphgo/internal/features/explore/repo"
 	feedservice "fphgo/internal/features/feed/service"
 	apperrors "fphgo/internal/shared/errors"
+	sharedratelimit "fphgo/internal/shared/ratelimit"
 )
 
 type repoStub struct {
@@ -41,6 +42,35 @@ type repoStub struct {
 	affinities     []explorerepo.VisibleDiveSiteAffinity
 	myAffinities   []explorerepo.DiveSiteAffinity
 	reviews        []explorerepo.VisibleDiveSiteReview
+}
+
+type rateLimitCall struct {
+	scope     string
+	key       string
+	maxEvents int
+	window    time.Duration
+}
+
+type recordingLimiter struct {
+	calls  []rateLimitCall
+	result sharedratelimit.Result
+	err    error
+}
+
+func (l *recordingLimiter) Allow(_ context.Context, scope, key string, maxEvents int, window time.Duration) (sharedratelimit.Result, error) {
+	l.calls = append(l.calls, rateLimitCall{
+		scope:     scope,
+		key:       key,
+		maxEvents: maxEvents,
+		window:    window,
+	})
+	if l.err != nil {
+		return sharedratelimit.Result{}, l.err
+	}
+	if !l.result.Allowed && l.result.RetryAfter == 0 {
+		return sharedratelimit.Result{Allowed: true}, nil
+	}
+	return l.result, nil
 }
 
 func (r *repoStub) ListSites(_ context.Context, input explorerepo.ListSitesInput) ([]explorerepo.SiteCard, error) {
@@ -902,6 +932,40 @@ func TestCreateSiteSubmissionDerivesAreaBeforePersisting(t *testing.T) {
 	}
 	if len(repo.created.Hazards) != 1 || repo.created.Hazards[0] != "surge" {
 		t.Fatalf("expected hazards to be cleaned, got %+v", repo.created.Hazards)
+	}
+}
+
+func TestCreateSiteSubmissionUsesDailyLimitWithoutHourlyCooldown(t *testing.T) {
+	lat := 9.192036826009222
+	lng := 123.27219128608704
+	limiter := &recordingLimiter{}
+	repo := &repoStub{duplicateErr: pgx.ErrNoRows}
+	svc := New(
+		repo,
+		WithLimiter(limiter),
+		WithReverseGeocoder(&geocoderStub{area: "Dauin, Negros Oriental"}),
+	)
+
+	_, err := svc.CreateSiteSubmission(context.Background(), CreateSiteSubmissionInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Name:        "The Dauin Grouper Cage",
+		Description: "Artificial reef with cages, pyramids, reef balls, groupers, and puffer fish.",
+		Lat:         &lat,
+		Lng:         &lng,
+		Difficulty:  "moderate",
+	})
+	if err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	if len(limiter.calls) != 1 {
+		t.Fatalf("expected only daily rate limit, got %+v", limiter.calls)
+	}
+	call := limiter.calls[0]
+	if call.scope != "explore.submit_site.day" {
+		t.Fatalf("expected daily submission scope, got %q", call.scope)
+	}
+	if call.maxEvents != 5 || call.window != 24*time.Hour {
+		t.Fatalf("expected daily cap of 5, got max=%d window=%s", call.maxEvents, call.window)
 	}
 }
 

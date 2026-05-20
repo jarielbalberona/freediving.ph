@@ -27,6 +27,7 @@ import {
   type CommentValues,
 } from "@/features/chika/schemas/comment.schema";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
+import { cn } from "@/lib/utils";
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import { LinkedCommentText } from "@/components/common/LinkedCommentText";
 import { ReportAction } from "@/components/report/report-action";
@@ -102,27 +103,29 @@ function ChikaDetailSkeleton() {
               <Skeleton className="h-8 w-32 rounded-4xl" />
             </div>
 
-            <div className="space-y-3">
+            <div className="divide-y divide-border/60">
               {Array.from({ length: 3 }, (_, index) => (
-                <Card key={`chika-comment-skeleton-${index + 1}`}>
-                  <CardContent className="space-y-3 p-4">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="size-10 rounded-full" />
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <Skeleton className="h-4 w-40 max-w-full" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
+                <article
+                  key={`chika-comment-skeleton-${index + 1}`}
+                  className="space-y-3 py-4 first:pt-0 last:pb-0"
+                >
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="size-8 rounded-full" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton className="h-4 w-40 max-w-full" />
+                      <Skeleton className="h-3 w-24" />
                     </div>
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-5/6" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-7 w-20 rounded-full" />
-                      <Skeleton className="h-7 w-16 rounded-md" />
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  <div className="space-y-2 pl-11">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                  </div>
+                  <div className="flex items-center gap-2 pl-11">
+                    <Skeleton className="h-7 w-20 rounded-full" />
+                    <Skeleton className="h-7 w-16 rounded-md" />
+                    <Skeleton className="size-7 rounded-full" />
+                  </div>
+                </article>
               ))}
             </div>
           </div>
@@ -222,29 +225,33 @@ function CommentActions({
   );
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-background px-1 py-0.5">
+    <div className="inline-flex items-center gap-0.5 text-muted-foreground">
       <Button
         type="button"
         variant="ghost"
-        size="icon"
-        className={`h-6 w-6 p-0 ${reaction === "upvote" ? "text-primary" : "text-muted-foreground"}`}
+        size="icon-xs"
+        aria-label="Upvote comment"
+        aria-pressed={reaction === "upvote"}
+        className={`size-7 p-0 ${reaction === "upvote" ? "text-primary" : "text-muted-foreground"}`}
         onClick={() => onVote("upvote")}
         disabled={isBusy}
       >
-        <ArrowBigUp className="h-4 w-4" />
+        <ArrowBigUp className="size-4" />
       </Button>
-      <span className="min-w-6 text-center text-xs font-semibold">
+      <span className="min-w-5 text-center text-xs font-semibold text-foreground">
         {comment.voteCount}
       </span>
       <Button
         type="button"
         variant="ghost"
-        size="icon"
-        className={`h-6 w-6 p-0 ${reaction === "downvote" ? "text-primary" : "text-muted-foreground"}`}
+        size="icon-xs"
+        aria-label="Downvote comment"
+        aria-pressed={reaction === "downvote"}
+        className={`size-7 p-0 ${reaction === "downvote" ? "text-primary" : "text-muted-foreground"}`}
         onClick={() => onVote("downvote")}
         disabled={isBusy}
       >
-        <ArrowBigDown className="h-4 w-4" />
+        <ArrowBigDown className="size-4" />
       </Button>
     </div>
   );
@@ -291,109 +298,116 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
     setActiveReplyId(null);
   };
 
-  const renderComment = (comment: ChikaCommentView) => {
+  const renderComment = (comment: ChikaCommentView, depth = 0) => {
     const children = sortComments(commentTree.get(comment.id) ?? [], sortMode);
     return (
-      <div key={comment.id} className="space-y-2">
-        <Card
-          className={`p-4 ${comment.isHidden ? "border-dashed opacity-60" : ""}`}
-        >
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="mb-1 flex items-center gap-2">
-                <UserIdentityHeader
-                  displayName={comment.authorDisplayName}
-                  username={comment.authorDisplayName}
-                  avatarUrl={comment.authorAvatarUrl}
-                  showProfileImage={Boolean(comment.authorAvatarUrl)}
-                  time={toRelativeTime(comment.createdAt)}
-                  className="flex-1"
-                />
-                {comment.isHidden ? (
-                  <Badge
-                    variant="destructive"
-                    className="text-[10px] uppercase tracking-wide"
-                  >
-                    Hidden
-                  </Badge>
-                ) : null}
-              </div>
-              <LinkedCommentText
-                text={comment.content}
-                className="text-sm leading-relaxed"
+      <article
+        key={comment.id}
+        className={cn(
+          depth === 0
+            ? "py-4 first:pt-0 last:pb-0"
+            : "py-3 first:pt-0 last:pb-0",
+          comment.isHidden && "opacity-60",
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-2">
+              <UserIdentityHeader
+                displayName={comment.authorDisplayName}
+                username={comment.authorDisplayName}
+                avatarUrl={comment.authorAvatarUrl}
+                showProfileImage={Boolean(comment.authorAvatarUrl)}
+                time={toRelativeTime(comment.createdAt)}
+                className="min-w-0 flex-1"
               />
-              <div className="mt-3 flex items-center gap-2">
-                <CommentActions comment={comment} threadId={id} />
-                {comment.replyCount > 0 ? (
-                  <span className="text-xs text-muted-foreground">
-                    {comment.replyCount} repl
-                    {comment.replyCount === 1 ? "y" : "ies"}
-                  </span>
-                ) : null}
-                <ReportAction
-                  targetType="chika_comment"
-                  targetId={comment.id}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 text-muted-foreground"
-                  onClick={() => {
-                    setReplyContent("");
-                    setActiveReplyId((current) =>
-                      current === comment.id ? null : comment.id,
-                    );
-                  }}
+              {comment.isHidden ? (
+                <Badge
+                  variant="destructive"
+                  className="text-[10px] uppercase tracking-wide"
                 >
-                  <MessageCircle className="h-4 w-4" />
-                  Reply
-                </Button>
-              </div>
-
-              {activeReplyId === comment.id ? (
-                <div className="mt-2 space-y-2">
-                  <Textarea
-                    value={replyContent}
-                    onChange={(event) => setReplyContent(event.target.value)}
-                    placeholder="Write a reply..."
-                    rows={3}
-                    className="rounded-xl"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setActiveReplyId(null);
-                        setReplyContent("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => submitReply(comment.id)}
-                      disabled={createComment.isPending || !replyContent.trim()}
-                    >
-                      {createComment.isPending ? "Replying..." : "Reply"}
-                    </Button>
-                  </div>
-                </div>
+                  Hidden
+                </Badge>
               ) : null}
             </div>
-          </div>
-        </Card>
-        {children.length > 0 ? (
-          <div className="ml-5 border-l border-border/60 pl-3 sm:ml-7 sm:pl-4">
-            <div className="space-y-2">
-              {children.map((child) => renderComment(child))}
+            <LinkedCommentText
+              text={comment.content}
+              className="text-sm leading-relaxed"
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <CommentActions comment={comment} threadId={id} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                className="h-7 px-2 text-muted-foreground"
+                onClick={() => {
+                  setReplyContent("");
+                  setActiveReplyId((current) =>
+                    current === comment.id ? null : comment.id,
+                  );
+                }}
+              >
+                <MessageCircle className="size-3.5" />
+                Reply
+              </Button>
+              {comment.replyCount > 0 ? (
+                <span className="px-1 text-xs text-muted-foreground">
+                  {comment.replyCount} repl
+                  {comment.replyCount === 1 ? "y" : "ies"}
+                </span>
+              ) : null}
+              <ReportAction
+                targetType="chika_comment"
+                targetId={comment.id}
+                appearance="icon"
+                className="size-7"
+              />
             </div>
+
+            {activeReplyId === comment.id ? (
+              <div className="mt-3 space-y-2">
+                <Textarea
+                  value={replyContent}
+                  onChange={(event) => setReplyContent(event.target.value)}
+                  placeholder="Write a reply..."
+                  rows={3}
+                  className="rounded-xl"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setActiveReplyId(null);
+                      setReplyContent("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => submitReply(comment.id)}
+                    disabled={createComment.isPending || !replyContent.trim()}
+                  >
+                    {createComment.isPending ? "Replying..." : "Reply"}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {children.length > 0 ? (
+              <div className="mt-3 border-l border-border/60 pl-3 sm:pl-4">
+                <div className="divide-y divide-border/50">
+                  {children.map((child) => renderComment(child, depth + 1))}
+                </div>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
+        </div>
+      </article>
     );
   };
 
@@ -516,7 +530,7 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
               </Select>
             </div>
 
-            <div className="space-y-3">
+            <div>
               {(comments ?? []).length === 0 ? (
                 <Card className="border-dashed border-border/70 bg-muted/30">
                   <CardContent className="p-5 text-sm text-muted-foreground">
@@ -528,11 +542,14 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
                     </p>
                   </CardContent>
                 </Card>
-              ) : null}
-              {sortComments(
-                commentTree.get(ROOT_COMMENT_KEY) ?? [],
-                sortMode,
-              ).map((comment) => renderComment(comment))}
+              ) : (
+                <div className="divide-y divide-border/60">
+                  {sortComments(
+                    commentTree.get(ROOT_COMMENT_KEY) ?? [],
+                    sortMode,
+                  ).map((comment) => renderComment(comment))}
+                </div>
+              )}
             </div>
           </div>
         </div>

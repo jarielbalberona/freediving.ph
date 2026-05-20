@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Flag } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -36,10 +37,13 @@ import {
   type ReportValues,
 } from "@/features/reports/schemas/report.schema";
 import { getRateLimitMessage, getApiErrorMessage } from "@/lib/http/api-error";
+import { cn } from "@/lib/utils";
 
 interface ReportActionProps {
   targetType: ReportTargetType | string;
   targetId: string;
+  appearance?: "default" | "icon";
+  className?: string;
 }
 
 const reasonOptions: Array<{ value: ReportReasonCode; label: string }> = [
@@ -56,11 +60,17 @@ const supportedTargetTypes = new Set<ReportTargetType>([
   "chika_comment",
 ]);
 
-export function ReportAction({ targetType, targetId }: ReportActionProps) {
+export function ReportAction({
+  targetType,
+  targetId,
+  appearance = "default",
+  className,
+}: ReportActionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const createReport = useCreateReport();
   const isSupported = supportedTargetTypes.has(targetType as ReportTargetType);
+  const iconOnly = appearance === "icon";
 
   const form = useForm<ReportValues>({
     resolver: zodResolver(reportSchema),
@@ -110,11 +120,18 @@ export function ReportAction({ targetType, targetId }: ReportActionProps) {
     >
       <Button
         type="button"
-        variant="outline"
-        size="sm"
+        variant={iconOnly ? "ghost" : "outline"}
+        size={iconOnly ? "icon-xs" : "sm"}
+        aria-label={iconOnly ? "Report" : undefined}
+        title={iconOnly ? "Report" : undefined}
+        className={cn(
+          iconOnly &&
+            "size-7 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+          className,
+        )}
         onClick={() => setIsOpen(true)}
       >
-        Report
+        {iconOnly ? <Flag className="size-3.5" aria-hidden="true" /> : "Report"}
       </Button>
       <DialogContent>
         <DialogHeader>

@@ -11,9 +11,7 @@ interface ThreadDetailProps {
 
 export default function ThreadDetail({ thread }: ThreadDetailProps) {
   return (
-    <div
-      className={`${thread.isHidden ? "border-dashed opacity-60" : ""}`}
-    >
+    <div className={`${thread.isHidden ? "border-dashed opacity-60" : ""}`}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <UserIdentityHeader
           displayName={thread.authorDisplayName}
@@ -66,7 +64,11 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
           viewerVote={thread.userReaction}
           replyCount={thread.commentCount}
         />
-        <ReportAction targetType="chika_thread" targetId={thread.id} />
+        <ReportAction
+          targetType="chika_thread"
+          targetId={thread.id}
+          appearance="icon"
+        />
       </div>
     </div>
   );

@@ -619,9 +619,6 @@ func (s *Service) CreateSiteSubmission(ctx context.Context, input CreateSiteSubm
 		return explorerepo.SiteSubmission{}, ValidationFailure{Issues: issues}
 	}
 
-	if err := s.enforceRateLimit(ctx, "explore.submit_site.hour", input.ActorID, 1, time.Hour, "site submission cooldown active"); err != nil {
-		return explorerepo.SiteSubmission{}, err
-	}
 	if err := s.enforceRateLimit(ctx, "explore.submit_site.day", input.ActorID, 5, 24*time.Hour, "daily site submission cap exceeded"); err != nil {
 		return explorerepo.SiteSubmission{}, err
 	}
