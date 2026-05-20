@@ -5,6 +5,17 @@ import { useMutation } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuthGate } from "@/features/auth/auth-gate";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
@@ -37,23 +48,40 @@ export function DeleteSiteButton({ siteId, siteName }: DeleteSiteButtonProps) {
   }
 
   return (
-    <Button
-      type="button"
-      variant="destructive"
-      size="icon-sm"
-      disabled={deleteMutation.isPending}
-      onClick={() => {
-        const confirmed = window.confirm(
-          `Delete ${siteName}? This removes it from public Explore.`,
-        );
-        if (confirmed) {
-          deleteMutation.mutate();
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon-sm"
+            disabled={deleteMutation.isPending}
+            aria-label={`Delete ${siteName}`}
+            title="Delete dive site"
+          />
         }
-      }}
-      aria-label={`Delete ${siteName}`}
-      title="Delete dive site"
-    >
-      <Trash2 />
-    </Button>
+      >
+        <Trash2 />
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete dive site?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes {siteName} from public Explore. Existing linked media
+            stays preserved, but the dive site will no longer appear as an
+            approved public listing.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={deleteMutation.isPending}
+            onClick={() => deleteMutation.mutate()}
+          >
+            {deleteMutation.isPending ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
