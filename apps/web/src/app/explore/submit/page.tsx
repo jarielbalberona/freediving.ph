@@ -93,6 +93,7 @@ export default function ExploreSubmitPage() {
         name: values.name.trim(),
         lat: values.location.lat,
         lng: values.location.lng,
+        area: values.location.area?.trim() || undefined,
         description: values.description.trim(),
         entryDifficulty: values.entryDifficulty,
         depthMinM: toNumber(values.depthMinM),

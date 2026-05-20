@@ -334,6 +334,7 @@ type CreateSiteSubmissionInput struct {
 	Name              string
 	Lat               *float64
 	Lng               *float64
+	Area              *string
 	Description       string
 	Difficulty        string
 	DepthMinM         *float64
@@ -623,7 +624,7 @@ func (s *Service) CreateSiteSubmission(ctx context.Context, input CreateSiteSubm
 		return explorerepo.SiteSubmission{}, err
 	}
 
-	area, err := s.geocoder.ReverseGeocodeArea(ctx, *input.Lat, *input.Lng)
+	area, err := s.resolveSiteSubmissionArea(ctx, input.Lat, input.Lng, input.Area)
 	if err != nil {
 		return explorerepo.SiteSubmission{}, ValidationFailure{Issues: []validatex.Issue{{
 			Path:    []any{"location"},
@@ -663,6 +664,20 @@ func (s *Service) CreateSiteSubmission(ctx context.Context, input CreateSiteSubm
 		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_submission_failed", "failed to submit dive site", err)
 	}
 	return submission, nil
+}
+
+func (s *Service) resolveSiteSubmissionArea(ctx context.Context, lat, lng *float64, fallbackArea *string) (string, error) {
+	area, err := s.geocoder.ReverseGeocodeArea(ctx, *lat, *lng)
+	if err == nil {
+		return strings.TrimSpace(area), nil
+	}
+
+	area = strings.TrimSpace(stringValue(trimPtr(fallbackArea)))
+	if area != "" {
+		return area, nil
+	}
+
+	return "", err
 }
 
 func (s *Service) ListMySiteSubmissions(ctx context.Context, input SubmissionListInput) (SubmissionListResult, error) {

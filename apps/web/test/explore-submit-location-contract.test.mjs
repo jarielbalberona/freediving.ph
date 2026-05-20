@@ -36,6 +36,7 @@ test("explore submit flow stores map-picked location and does not expose manual 
   assert.match(pageSource, /description:\s*values\.description\.trim\(\)/);
   assert.match(pageSource, /lat:\s*values\.location\.lat/);
   assert.match(pageSource, /lng:\s*values\.location\.lng/);
+  assert.match(pageSource, /area:\s*values\.location\.area\?\.trim\(\)\s*\|\|\s*undefined/);
   assert.doesNotMatch(pageSource, /name="area"/);
   assert.doesNotMatch(pageSource, /name="latitude"/);
   assert.doesNotMatch(pageSource, /name="longitude"/);

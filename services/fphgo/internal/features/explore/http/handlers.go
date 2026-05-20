@@ -455,6 +455,7 @@ func (h *Handlers) CreateSiteSubmission(w http.ResponseWriter, r *http.Request) 
 		Name:              req.Name,
 		Lat:               req.Lat,
 		Lng:               req.Lng,
+		Area:              req.Area,
 		Description:       req.Description,
 		Difficulty:        req.EntryDifficulty,
 		DepthMinM:         req.DepthMinM,

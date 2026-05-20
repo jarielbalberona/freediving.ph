@@ -288,6 +288,7 @@ type CreateSiteSubmissionRequest struct {
 	Name              string   `json:"name" validate:"required,min=3,max=120"`
 	Lat               *float64 `json:"lat" validate:"required,gte=-90,lte=90"`
 	Lng               *float64 `json:"lng" validate:"required,gte=-180,lte=180"`
+	Area              *string  `json:"area" validate:"omitempty,max=120"`
 	Description       string   `json:"description" validate:"required,min=12,max=2000"`
 	EntryDifficulty   string   `json:"entryDifficulty" validate:"required,oneof=easy moderate hard"`
 	DepthMinM         *float64 `json:"depthMinM" validate:"omitempty,gte=0,lte=2000"`

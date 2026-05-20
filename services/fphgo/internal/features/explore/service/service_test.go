@@ -969,6 +969,38 @@ func TestCreateSiteSubmissionUsesDailyLimitWithoutHourlyCooldown(t *testing.T) {
 	}
 }
 
+func TestCreateSiteSubmissionUsesMapResolvedAreaWhenGeocodeFails(t *testing.T) {
+	lat := 9.192036826009222
+	lng := 123.27219128608704
+	area := "Dauin, Negros Oriental"
+	repo := &repoStub{duplicateErr: pgx.ErrNoRows}
+	geocoder := &geocoderStub{err: errors.New("coarse area not found")}
+	svc := New(repo, WithReverseGeocoder(geocoder))
+
+	_, err := svc.CreateSiteSubmission(context.Background(), CreateSiteSubmissionInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Name:        "The Dauin Grouper Cage",
+		Description: "The artificial reef in front of the El Dorado resort in Dauin, Negros Island.",
+		Lat:         &lat,
+		Lng:         &lng,
+		Area:        &area,
+		Difficulty:  "moderate",
+		Hazards:     []string{"boat traffic", "strong current", "sometimes muddy"},
+	})
+	if err != nil {
+		t.Fatalf("create submission with map-resolved area fallback: %v", err)
+	}
+	if !geocoder.called {
+		t.Fatal("expected reverse geocoder to remain first-choice")
+	}
+	if repo.created.Area != "Dauin, Negros Oriental" {
+		t.Fatalf("expected map-resolved area fallback to be persisted, got %q", repo.created.Area)
+	}
+	if len(repo.created.Hazards) != 3 {
+		t.Fatalf("expected hazards to be persisted, got %+v", repo.created.Hazards)
+	}
+}
+
 func TestCreateSiteSubmissionReturnsLocationValidationErrorWhenGeocodeFails(t *testing.T) {
 	lat := 13.7244
 	lng := 120.8820

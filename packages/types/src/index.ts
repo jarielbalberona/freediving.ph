@@ -1475,6 +1475,7 @@ export type CreateExploreSiteSubmissionRequest = {
   name: string;
   lat: number;
   lng: number;
+  area?: string;
   description: string;
   entryDifficulty: "easy" | "moderate" | "hard";
   depthMinM?: number;
