@@ -102,7 +102,7 @@ export function MediaViewerDialog({
         <DialogContent
           containerClassName="p-0"
           showCloseButton={false}
-          className="relative h-dvh max-h-dvh w-full max-w-none rounded-none! border-0 bg-background p-0 text-foreground shadow-none ring-0 md:max-w-[min(100vw-2rem,72rem)] md:rounded-2xl"
+          className="relative h-dvh max-h-dvh w-full max-w-none overflow-y-auto rounded-none! border-0 bg-background p-0 text-foreground shadow-none ring-0 md:max-w-[min(100vw-2rem,72rem)] md:overflow-hidden md:rounded-2xl"
         >
           <div className="absolute right-4 top-4 z-30">
             <DialogClose
@@ -119,8 +119,8 @@ export function MediaViewerDialog({
             </DialogClose>
           </div>
 
-          <div className="flex h-full flex-col md:flex-row">
-            <div className="relative min-h-[55vh] flex-1 bg-muted/30 md:min-h-full">
+          <div className="flex min-h-full flex-col md:h-full md:min-h-0 md:flex-row">
+            <div className="relative h-[55dvh] shrink-0 bg-muted/30 md:h-auto md:min-h-full md:flex-1">
               {needsMintedUrls && dialogUrls.isPending ? (
                 <div className="flex h-full items-center justify-center">
                   <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
@@ -175,7 +175,7 @@ export function MediaViewerDialog({
             </div>
 
             {renderSidebar ? (
-              <aside className="flex w-full max-w-md flex-col border-t bg-background md:border-l md:border-t-0">
+              <aside className="flex w-full shrink-0 flex-col border-t bg-background md:h-full md:max-w-md md:shrink md:border-l md:border-t-0">
                 {renderSidebar(activeItem)}
               </aside>
             ) : null}
