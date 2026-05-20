@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 import { mediaApi } from "../api/media";
 import { useMediaPostCommentsInfiniteQuery } from "../hooks";
+import { updateMediaPostCommentCountDelta } from "../lib/cache-updaters";
 
 type MediaPostCommentsProps = {
   postId: string;
@@ -57,75 +58,7 @@ export function MediaPostComments({ postId, className }: MediaPostCommentsProps)
   const commentsKey = queryKeys.media.postComments(postId, 20);
 
   const applyCommentCountDelta = (delta: number) => {
-    const updateCount = (value: unknown) =>
-      Math.max(0, Number(value ?? 0) + delta);
-
-    queryClient.setQueriesData({ queryKey: queryKeys.media.profileLists() }, (current: any) => {
-      if (!current?.pages) return current;
-      return {
-        ...current,
-        pages: current.pages.map((page: any) => ({
-          ...page,
-          items: (page.items ?? []).map((item: any) =>
-            item.postId === postId
-              ? { ...item, commentCount: updateCount(item.commentCount) }
-              : item,
-          ),
-        })),
-      };
-    });
-
-    queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, (current: any) => {
-      if (!current?.items) return current;
-      return {
-        ...current,
-        items: current.items.map((item: any) =>
-          item.type === "media_post" && item.entityId === postId
-            ? {
-                ...item,
-                payload: {
-                  ...(item.payload ?? {}),
-                  commentCount: updateCount(item.payload?.commentCount),
-                },
-              }
-            : item,
-        ),
-      };
-    });
-
-    queryClient.setQueriesData({ queryKey: queryKeys.feed.activityAll }, (current: any) => {
-      if (!current?.items) return current;
-      return {
-        ...current,
-        items: current.items.map((item: any) =>
-          item.type === "media_post_created" && item.sourceId === postId
-            ? {
-                ...item,
-                stats: {
-                  ...(item.stats ?? {}),
-                  commentCount: updateCount(item.stats?.commentCount),
-                },
-              }
-            : item,
-        ),
-      };
-    });
-
-    queryClient.setQueriesData({ queryKey: queryKeys.media.postDetail(postId) }, (current: any) => {
-      if (!current?.post?.post) return current;
-      const commentCount = updateCount(current.post.post.commentCount);
-      return {
-        ...current,
-        post: {
-          ...current.post,
-          post: { ...current.post.post, commentCount },
-          items: (current.post.items ?? []).map((item: any) => ({
-            ...item,
-            commentCount,
-          })),
-        },
-      };
-    });
+    updateMediaPostCommentCountDelta(queryClient, postId, delta);
   };
 
   const createMutation = useMutation({

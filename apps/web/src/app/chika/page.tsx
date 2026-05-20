@@ -1,18 +1,7 @@
-import { threadsApiServer } from "@/features/chika/api/threads.server";
 import ChikaClient from "./threads";
 import CreateThreadButton from "./create-thread-button";
 
-export default async function ChikaList() {
-  let threads = null;
-  let error = null;
-
-  try {
-    threads = await threadsApiServer.getAll();
-  } catch (err) {
-    console.error("Failed to fetch threads:", err);
-    error = "Chika is having trouble loading right now.";
-  }
-
+export default function ChikaList() {
   return (
     <main className="">
       <div className="xl:pr-96">
@@ -22,7 +11,7 @@ export default async function ChikaList() {
               <h1 className="text-2xl font-bold text-foreground">Chika</h1>
               <CreateThreadButton />
             </div>
-            <ChikaClient initialThreads={threads || null} error={error} />
+            <ChikaClient />
           </div>
         </div>
       </div>

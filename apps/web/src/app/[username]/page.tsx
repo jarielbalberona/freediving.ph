@@ -9,6 +9,8 @@ type PageProps = {
   params: Promise<{ username: string }>;
 };
 
+export const dynamic = "force-static";
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {

@@ -72,7 +72,7 @@ export const useProfileMediaInfiniteQuery = (username: string, limit = 24) => {
       mediaApi.listProfileMedia(username, { limit, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
-    staleTime: 60_000,
+    staleTime: 2 * 60_000,
   });
 };
 

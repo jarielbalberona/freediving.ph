@@ -3,38 +3,15 @@
 import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
 
-import { ThreadActions, useChikaRealtime, useThreads } from "@/features/chika";
-import type { ChikaThreadView } from "@/features/chika";
+import { useChikaRealtime, useThreads } from "@/features/chika";
 import { useSession } from "@/features/auth/session/use-session";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
-import { stripMarkdownForPreview } from "@/features/chika/lib/markdown";
+import { ChikaPostComponent } from "@/features/chika/components/ChikaPostComponent";
+import { chikaPostFromThread } from "@/features/chika/types/post-display";
 
-const toRelativeTime = (value: string) => {
-  const date = new Date(value);
-  const diffMs = Date.now() - date.getTime();
-  if (Number.isNaN(diffMs)) return "just now";
-
-  const minute = 60 * 1000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diffMs < hour) return `${Math.max(1, Math.floor(diffMs / minute))}m ago`;
-  if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
-  return `${Math.floor(diffMs / day)}d ago`;
-};
-
-const ThreadListClient = ({
-  initialThreads,
-  error,
-}: {
-  initialThreads: ChikaThreadView[] | null;
-  error?: string | null;
-}) => {
+const ThreadListClient = () => {
   const session = useSession();
-  const { data: threads, isLoading } = useThreads(initialThreads || undefined);
+  const { data: threads, error, isLoading } = useThreads();
   useChikaRealtime({ enabled: true, currentUserId: session.me?.userId });
 
   if (isLoading) {
@@ -56,7 +33,9 @@ const ThreadListClient = ({
   return (
     <>
       {error ? (
-        <div className="mb-4 text-sm text-destructive">{error}</div>
+        <div className="mb-4 text-sm text-destructive">
+          Chika is having trouble loading right now.
+        </div>
       ) : null}
       {threadList.length === 0 ? (
         <div className="rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 px-6 py-12 text-center">
@@ -81,68 +60,18 @@ const ThreadListClient = ({
         </div>
       ) : (
         threadList.map((thread) => (
-          <Card
+          <ChikaPostComponent
             key={thread.id}
-            className={`mb-3 p-4 transition-colors hover:bg-accent/30 ${thread.isHidden ? "border-dashed opacity-60" : ""}`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <UserIdentityHeader
-                displayName={thread.authorDisplayName}
-                username={thread.authorDisplayName}
-                avatarUrl={thread.authorAvatarUrl}
-                showProfileImage={!thread.categoryPseudonymous}
-                usernameDisabled={thread.categoryPseudonymous}
-                location={thread.categoryName}
-                time={toRelativeTime(thread.createdAt)}
-                className="flex-1"
-              />
-              <div className="shrink-0">
-                {thread.categoryPseudonymous ? (
-                  <Badge
-                    variant="secondary"
-                    className="text-[10px] uppercase tracking-wide"
-                  >
-                    Anon
-                  </Badge>
-                ) : null}
-                {thread.isHidden ? (
-                  <Badge
-                    variant="destructive"
-                    className="ml-2 text-[10px] uppercase tracking-wide"
-                  >
-                    Hidden
-                  </Badge>
-                ) : null}
-              </div>
-            </div>
-
-            <Link href={`/chika/${thread.id}`} className="block">
-              <h2 className="mt-2 line-clamp-2 text-lg font-semibold leading-snug text-foreground">
-                {thread.title}
-              </h2>
-
-              {thread.content ? (
-                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                  {stripMarkdownForPreview(thread.content)}
+            post={chikaPostFromThread(thread)}
+            actions={
+              session.status === "signed_in" ? null : (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Preview only. Sign in to react, comment, or start your own
+                  Chika.
                 </p>
-              ) : null}
-            </Link>
-            {session.status === "signed_in" ? (
-              <div className="mt-3">
-                <ThreadActions
-                  threadId={thread.id}
-                  initialVoteCount={thread.voteCount}
-                  initialReaction={thread.userReaction}
-                  commentCount={thread.commentCount}
-                />
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Preview only. Sign in to react, comment, or start your own
-                Chika.
-              </p>
-            )}
-          </Card>
+              )
+            }
+          />
         ))
       )}
       {session.status !== "signed_in" && threadList.length > 0 ? (

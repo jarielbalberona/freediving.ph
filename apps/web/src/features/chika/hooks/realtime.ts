@@ -1,13 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type {
-  ChikaCommentResponse,
-  ChikaThreadResponse,
-} from "@freediving.ph/types";
+import type { ChikaCommentResponse } from "@freediving.ph/types";
 import { toast } from "sonner";
 
 import { getFphgoBaseUrlClient } from "@/lib/api/fphgo-base-url";
 import { getAuthToken } from "@/lib/api/fphgo-fetch-client";
+import { updateChikaThreadInCaches } from "@/features/chika/lib/cache-updaters";
+import { queryKeys } from "@/lib/query/query-keys";
 
 const DEDUP_SET_SIZE = 300;
 const INITIAL_RECONNECT_DELAY_MS = 500;
@@ -58,32 +57,17 @@ export const useChikaRealtime = (params: {
     };
 
     const invalidateThread = (threadId: string) => {
-      queryClient.invalidateQueries({ queryKey: ["chika", "threads"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chika.threads() });
       queryClient.invalidateQueries({
-        queryKey: ["chika", "threads", threadId],
+        queryKey: queryKeys.chika.thread(threadId),
       });
       queryClient.invalidateQueries({
-        queryKey: ["chika", "threads", threadId, "comments"],
+        queryKey: queryKeys.chika.threadComments(threadId),
       });
     };
 
     const updateThreadVoteCount = (threadId: string, voteCount: number) => {
-      queryClient.setQueriesData(
-        { queryKey: ["chika", "threads"] },
-        (current: ChikaThreadResponse[] | undefined) => {
-          if (!Array.isArray(current)) return current;
-          return current.map((thread) =>
-            thread.id === threadId ? { ...thread, voteCount } : thread,
-          );
-        },
-      );
-      queryClient.setQueryData(
-        ["chika", "threads", threadId],
-        (current: ChikaThreadResponse | undefined) => {
-          if (!current) return current;
-          return { ...current, voteCount };
-        },
-      );
+      updateChikaThreadInCaches(queryClient, threadId, { voteCount });
     };
 
     const updateCommentVoteCount = (
@@ -92,7 +76,7 @@ export const useChikaRealtime = (params: {
       voteCount: number,
     ) => {
       queryClient.setQueryData(
-        ["chika", "threads", threadId, "comments"],
+        queryKeys.chika.threadComments(threadId),
         (current: ChikaCommentResponse[] | undefined) => {
           if (!Array.isArray(current)) return current;
           return current.map((comment) =>
@@ -223,7 +207,7 @@ export const useChikaRealtime = (params: {
             return;
           }
 
-          queryClient.invalidateQueries({ queryKey: ["chika", "threads"] });
+          queryClient.invalidateQueries({ queryKey: queryKeys.chika.threads() });
         };
 
         socket.onclose = () => {

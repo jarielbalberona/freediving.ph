@@ -8,10 +8,10 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session";
-import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/lib/utils";
 
 import { mediaApi } from "../api/media";
+import { updateMediaPostInCaches } from "../lib/cache-updaters";
 import { MediaPostLikeButton } from "./MediaPostLikeButton";
 
 type MediaPostActionsProps = {
@@ -29,14 +29,6 @@ type MediaPostActionsProps = {
 type SaveState = {
   viewerHasSaved: boolean;
 };
-
-const updatePayload = (
-  payload: Record<string, unknown>,
-  state: SaveState,
-): Record<string, unknown> => ({
-  ...payload,
-  viewerHasSaved: state.viewerHasSaved,
-});
 
 export function MediaPostActions({
   postId,
@@ -61,57 +53,7 @@ export function MediaPostActions({
 
   const applySaveState = (nextState: SaveState) => {
     setSaveState(nextState);
-    queryClient.setQueriesData({ queryKey: queryKeys.media.profileLists() }, (current: any) => {
-      if (!current?.pages) return current;
-      return {
-        ...current,
-        pages: current.pages.map((page: any) => ({
-          ...page,
-          items: (page.items ?? []).map((item: any) =>
-            item.postId === postId ? { ...item, ...nextState } : item,
-          ),
-        })),
-      };
-    });
-
-    queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, (current: any) => {
-      if (!current?.items) return current;
-      return {
-        ...current,
-        items: current.items.map((item: any) =>
-          item.type === "media_post" && item.entityId === postId
-            ? { ...item, payload: updatePayload(item.payload ?? {}, nextState) }
-            : item,
-        ),
-      };
-    });
-
-    queryClient.setQueriesData({ queryKey: queryKeys.feed.activityAll }, (current: any) => {
-      if (!current?.items) return current;
-      return {
-        ...current,
-        items: current.items.map((item: any) =>
-          item.type === "media_post_created" && item.sourceId === postId
-            ? { ...item, stats: updatePayload(item.stats ?? {}, nextState) }
-            : item,
-        ),
-      };
-    });
-
-    queryClient.setQueriesData({ queryKey: queryKeys.media.postDetail(postId) }, (current: any) => {
-      if (!current?.post?.post) return current;
-      return {
-        ...current,
-        post: {
-          ...current.post,
-          post: { ...current.post.post, ...nextState },
-          items: (current.post.items ?? []).map((item: any) => ({
-            ...item,
-            ...nextState,
-          })),
-        },
-      };
-    });
+    updateMediaPostInCaches(queryClient, postId, nextState);
   };
 
   const saveMutation = useMutation({

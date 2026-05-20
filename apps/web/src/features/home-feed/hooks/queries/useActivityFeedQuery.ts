@@ -31,4 +31,5 @@ export const useActivityFeedQuery = (params: {
         limit: 20,
       }),
     enabled: params.enabled ?? true,
+    staleTime: 2 * 60 * 1000,
   });

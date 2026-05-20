@@ -5,13 +5,15 @@ import { Bookmark, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { HomeFeedItem } from "@freediving.ph/types";
 
+import { ChikaPostComponent } from "@/features/chika/components/ChikaPostComponent";
+import { chikaPostFromHomeFeedItem } from "@/features/chika/types/post-display";
 import { BuddySignalCard } from "@/features/home-feed/components/cards/BuddySignalCard";
-import { CommunityHotCard } from "@/features/home-feed/components/cards/CommunityHotCard";
 import { DiveSpotCard } from "@/features/home-feed/components/cards/DiveSpotCard";
 import { EventCard } from "@/features/home-feed/components/cards/EventCard";
-import { MediaPostCard } from "@/features/home-feed/components/cards/MediaPostCard";
 import { PostFeedCard } from "@/features/home-feed/components/cards/PostFeedCard";
 import { RecordHighlightCard } from "@/features/home-feed/components/cards/RecordHighlightCard";
+import { MediaPostComponent } from "@/features/media/components/MediaPostComponent";
+import { mediaPostFromHomeFeedItem } from "@/features/media/types/post-display";
 
 export function FeedItemRenderer({
   item,
@@ -24,17 +26,21 @@ export function FeedItemRenderer({
   onAction: (item: HomeFeedItem, actionType: string) => void;
   showActions?: boolean;
 }) {
+  const showGenericSave =
+    showActions && !["media_post", "community_hot_post"].includes(item.type);
   const actions = showActions ? (
     <div className="flex items-center justify-end gap-1">
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={() => onAction(item, "save_item")}
-        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-      >
-        <Bookmark className="h-4 w-4" />
-        <span className="sr-only">Save</span>
-      </Button>
+      {showGenericSave ? (
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => onAction(item, "save_item")}
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+        >
+          <Bookmark className="h-4 w-4" />
+          <span className="sr-only">Save</span>
+        </Button>
+      ) : null}
       <Button
         size="icon"
         variant="ghost"
@@ -59,10 +65,16 @@ export function FeedItemRenderer({
         <PostFeedCard item={item} actions={actions} />
       ) : null}
       {item.type === "media_post" ? (
-        <MediaPostCard item={item} actions={actions} />
+        <MediaPostComponent
+          post={mediaPostFromHomeFeedItem(item)}
+          actions={actions}
+        />
       ) : null}
       {item.type === "community_hot_post" ? (
-        <CommunityHotCard item={item} actions={actions} />
+        <ChikaPostComponent
+          post={chikaPostFromHomeFeedItem(item)}
+          actions={actions}
+        />
       ) : null}
       {item.type === "dive_spot" ? (
         <DiveSpotCard item={item} actions={actions} />

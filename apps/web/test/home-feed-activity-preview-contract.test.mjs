@@ -78,10 +78,10 @@ test("activity source is default and home source is explicit fallback", async ()
     readFile(feedModeTabsPath, "utf8"),
   ]);
 
-  assert.match(appPage, /rawFeedSource === "home" \? "home" : "activity"/);
-  assert.match(appPage, /initialFeedSource=\{feedSource\}/);
-  assert.match(homePage, /initialFeedSource = "activity"/);
-  assert.match(homePage, /initialFeedSource === "home" \? "home" : "activity"/);
+  assert.doesNotMatch(appPage, /searchParams/);
+  assert.match(appPage, /<HomeFeedPage \/>/);
+  assert.match(homePage, /useSearchParams/);
+  assert.match(homePage, /searchParams\.get\("feedSource"\) === "home" \? "home" : "activity"/);
   assert.match(homePage, /enabled: !usingActivityFeed/);
   assert.match(homePage, /enabled: usingActivityFeed/);
   assert.doesNotMatch(homePage, /Activity feed preview/);
@@ -104,13 +104,15 @@ test("activity preview adapts supported ledger types and skips unknown types saf
 });
 
 test("activity media posts preserve display URLs and avoid caption-only downgrade", async () => {
-  const [adapter, card, dialog] = await Promise.all([
+  const [adapter, renderer, displayAdapter, component, dialog] = await Promise.all([
     readFile(adapterPath, "utf8"),
+    readFile(rendererPath, "utf8"),
     readFile(
-      path.join(
-        appRoot,
-        "src/features/home-feed/components/cards/MediaPostCard.tsx",
-      ),
+      path.join(appRoot, "src/features/media/types/post-display.ts"),
+      "utf8",
+    ),
+    readFile(
+      path.join(appRoot, "src/features/media/components/MediaPostComponent.tsx"),
       "utf8",
     ),
     readFile(
@@ -122,15 +124,17 @@ test("activity media posts preserve display URLs and avoid caption-only downgrad
   assert.match(adapter, /previewDisplayUrl/);
   assert.match(adapter, /displayUrl: mediaStringValue\(media, "displayUrl"\)/);
   assert.match(adapter, /mediaUnavailableReason/);
-  assert.match(card, /previewMediaId && !previewDisplayUrl/);
-  assert.match(card, /previewDisplayUrl\s*\?/);
-  assert.match(card, /canLinkToProfileUsername\(payload\.authorUsername\)/);
-  assert.match(card, /getProfileRoute\(payload\.authorUsername\)\}\/posts/);
-  assert.match(card, /href=\{postHref\}/);
-  assert.match(card, /avatarUrl=\{payload\.authorAvatarUrl\}/);
-  assert.match(card, /authorAvatarUrl=\{payload\.authorAvatarUrl\}/);
-  assert.match(card, /<p className="line-clamp-3 text-sm leading-relaxed text-foreground">/);
-  assert.doesNotMatch(card, /className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"/);
+  assert.match(renderer, /MediaPostComponent/);
+  assert.match(renderer, /mediaPostFromHomeFeedItem/);
+  assert.match(displayAdapter, /previewMediaId/);
+  assert.match(displayAdapter, /previewDisplayUrl/);
+  assert.match(displayAdapter, /canLinkToProfileUsername\(authorUsername\)/);
+  assert.match(displayAdapter, /getProfileRoute\(authorUsername\)/);
+  assert.match(component, /href=\{post\.href\}/);
+  assert.match(component, /avatarUrl=\{post\.author\.avatarUrl\}/);
+  assert.match(component, /authorAvatarUrl=\{post\.author\.avatarUrl\}/);
+  assert.match(component, /line-clamp-3 text-sm leading-relaxed text-foreground/);
+  assert.doesNotMatch(component, /className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"/);
   assert.match(dialog, /filter\(\(item\) => !item\.displayUrl\)/);
   assert.match(dialog, /needsMintedUrls && dialogUrls\.isPending/);
   assert.match(dialog, /item\.displayUrl \?\?/);
@@ -162,7 +166,7 @@ test("activity default sends activity-safe telemetry and card actions", async ()
   assert.match(homePage, /source=\{feedSource\}/);
   assert.match(homePage, /telemetryEnabled/);
   assert.match(homePage, /const feedSource: FeedSource =/);
-  assert.match(homePage, /initialFeedSource === "home" \? "home" : "activity"/);
+  assert.match(homePage, /searchParams\.get\("feedSource"\) === "home" \? "home" : "activity"/);
   assert.match(mixedFeed, /enabled: telemetryEnabled/);
   assert.match(mixedFeed, /source,/);
   assert.match(

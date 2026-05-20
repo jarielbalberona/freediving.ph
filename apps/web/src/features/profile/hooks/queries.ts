@@ -2,20 +2,18 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-import { useSession } from "@/features/auth/session";
 import { profileApi } from "@/features/profile/api/profileApi";
 import { queryKeys } from "@/lib/query/query-keys";
 import { normalizeUsername } from "@/lib/routes";
 
 export const usePublicProfileQuery = (username: string) => {
-  const session = useSession();
   const normalizedUsername = normalizeUsername(username);
 
   return useQuery({
     queryKey: queryKeys.profile.public(normalizedUsername),
-    enabled: session.status !== "loading",
+    enabled: Boolean(normalizedUsername),
     queryFn: () => profileApi.getPublicProfile(normalizedUsername),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
   });
 };
@@ -26,7 +24,7 @@ export const useProfilePostsQuery = (username: string) => {
   return useQuery({
     queryKey: queryKeys.profile.posts(normalizedUsername),
     queryFn: () => profileApi.getProfilePosts(normalizedUsername),
-    staleTime: 60_000,
+    staleTime: 2 * 60_000,
     placeholderData: keepPreviousData,
   });
 };
@@ -37,20 +35,19 @@ export const useProfileBucketListQuery = (username: string) => {
   return useQuery({
     queryKey: queryKeys.profile.bucketList(normalizedUsername),
     queryFn: () => profileApi.getProfileBucketList(normalizedUsername),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
   });
 };
 
 export const useProfileDivingQuery = (username: string, enabled = true) => {
-  const session = useSession();
   const normalizedUsername = normalizeUsername(username);
 
   return useQuery({
     queryKey: queryKeys.profile.diving(normalizedUsername),
-    enabled: enabled && session.status !== "loading",
+    enabled: enabled && Boolean(normalizedUsername),
     queryFn: () => profileApi.getProfileDiving(normalizedUsername),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
   });
 };

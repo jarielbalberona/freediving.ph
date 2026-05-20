@@ -347,4 +347,16 @@ export const queryKeys = {
         normalizeFeedParams({ ...params, source: "nearby-conditions" }),
       ] as const,
   },
+
+  chika: {
+    all: ["chika"] as const,
+    threads: () => [...queryKeys.chika.all, "threads"] as const,
+    threadList: (category?: string | Nil) =>
+      [...queryKeys.chika.threads(), cleanString(category) ?? ""] as const,
+    thread: (threadId: string) =>
+      [...queryKeys.chika.threads(), threadId] as const,
+    threadComments: (threadId: string) =>
+      [...queryKeys.chika.thread(threadId), "comments"] as const,
+    categories: () => [...queryKeys.chika.all, "categories"] as const,
+  },
 } as const;

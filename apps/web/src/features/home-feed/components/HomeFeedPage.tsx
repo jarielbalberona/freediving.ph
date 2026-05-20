@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
 
 import type { HomeFeedItem, HomeFeedMode } from "@freediving.ph/types";
 
@@ -27,21 +28,18 @@ type FeedItemsState = {
   items: HomeFeedItem[];
 };
 
-export function HomeFeedPage({
-  initialFeedSource = "activity",
-}: {
-  initialFeedSource?: FeedSource;
-}) {
+export function HomeFeedPage() {
   const { isSignedIn } = useAuth();
   const { user } = useUser();
   const session = useSession();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<HomeFeedMode>("latest");
   const [cursor, setCursor] = useState<FeedCursor | undefined>(undefined);
   const [itemsState, setItemsState] = useState<FeedItemsState | undefined>();
   const username = session.me?.username ?? user?.username ?? null;
 
   const feedSource: FeedSource =
-    initialFeedSource === "home" ? "home" : "activity";
+    searchParams.get("feedSource") === "home" ? "home" : "activity";
   const usingActivityFeed = feedSource === "activity";
   const cursorValue =
     cursor?.source === feedSource && cursor.mode === mode

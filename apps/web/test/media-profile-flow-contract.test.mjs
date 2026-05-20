@@ -39,7 +39,8 @@ test("profile create flow and masonry gallery are wired to the media posting sta
 
 test("media dialog is wired as an in-place social post view", async () => {
   const [
-    mediaCard,
+    feedRenderer,
+    mediaPostComponent,
     profileGrid,
     socialPanel,
     actions,
@@ -51,7 +52,14 @@ test("media dialog is wired as an in-place social post view", async () => {
       fs.readFile(
         path.join(
           repoRoot,
-          "src/features/home-feed/components/cards/MediaPostCard.tsx",
+          "src/features/home-feed/components/FeedItemRenderer.tsx",
+        ),
+        "utf8",
+      ),
+      fs.readFile(
+        path.join(
+          repoRoot,
+          "src/features/media/components/MediaPostComponent.tsx",
         ),
         "utf8",
       ),
@@ -84,9 +92,11 @@ test("media dialog is wired as an in-place social post view", async () => {
       ),
     ]);
 
-  assert.match(mediaCard, /setViewerOpen\(true\)/);
-  assert.match(mediaCard, /setCommentFocusSignal/);
-  assert.match(mediaCard, /<MediaPostSocialPanel/);
+  assert.match(feedRenderer, /MediaPostComponent/);
+  assert.match(feedRenderer, /mediaPostFromHomeFeedItem/);
+  assert.match(mediaPostComponent, /setViewerOpen\(true\)/);
+  assert.match(mediaPostComponent, /setCommentFocusSignal/);
+  assert.match(mediaPostComponent, /<MediaPostSocialPanel/);
   assert.match(profileGrid, /<MediaPostSocialPanel/);
   assert.match(detailPage, /<MediaPostSocialPanel/);
   assert.match(socialPanel, /<UserIdentityHeader/);

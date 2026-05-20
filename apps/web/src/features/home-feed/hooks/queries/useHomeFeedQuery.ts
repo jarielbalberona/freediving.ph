@@ -21,4 +21,5 @@ export const useHomeFeedQuery = (params: {
     queryFn: () =>
       getHomeFeed({ mode: params.mode, cursor: params.cursor, limit: 20 }),
     enabled: params.enabled ?? true,
+    staleTime: 2 * 60 * 1000,
   });

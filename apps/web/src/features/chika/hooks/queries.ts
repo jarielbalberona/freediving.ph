@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query/query-keys";
 import { threadsApi } from "../api/threads";
 import type { ChikaThreadView } from "../api/threads";
 
 export const useThreads = (initialData?: ChikaThreadView[], category?: string) => {
   return useQuery({
-    queryKey: ["chika", "threads", category],
+    queryKey: queryKeys.chika.threadList(category),
     queryFn: () => threadsApi.getAll(category),
     initialData: initialData,
     staleTime: 5 * 60 * 1000,
@@ -13,7 +14,7 @@ export const useThreads = (initialData?: ChikaThreadView[], category?: string) =
 
 export const useThread = (id: string) => {
   return useQuery({
-    queryKey: ["chika", "threads", id],
+    queryKey: queryKeys.chika.thread(id),
     queryFn: () => threadsApi.getById(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -22,7 +23,7 @@ export const useThread = (id: string) => {
 
 export const useThreadComments = (threadId: string) => {
   return useQuery({
-    queryKey: ["chika", "threads", threadId, "comments"],
+    queryKey: queryKeys.chika.threadComments(threadId),
     queryFn: () => threadsApi.getComments(threadId),
     enabled: !!threadId,
     staleTime: 2 * 60 * 1000,
@@ -31,7 +32,7 @@ export const useThreadComments = (threadId: string) => {
 
 export const useChikaCategories = () => {
   return useQuery({
-    queryKey: ["chika", "categories"],
+    queryKey: queryKeys.chika.categories(),
     queryFn: () => threadsApi.getCategories(),
     staleTime: 5 * 60 * 1000,
   });

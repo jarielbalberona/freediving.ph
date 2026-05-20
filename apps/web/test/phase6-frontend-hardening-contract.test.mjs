@@ -55,18 +55,24 @@ test("phase 6 removes unsafe optimistic chika reaction updates", async () => {
   assert.doesNotMatch(source, /setQueryData\(\["threads", id\]/);
   assert.match(
     source,
-    /invalidateQueries\(\{ queryKey: \["threads", id\] \}\)/,
+    /queryKeys\.chika\.threadComments\(threadId\)/,
   );
+  assert.doesNotMatch(source, /queryKey: \["threads"/);
 });
 
 test("phase 6 hardens chika posting and moderation placeholders in UI", async () => {
   const createSource = await readFile(chikaCreatePath, "utf8");
   const threadsSource = await readFile(chikaThreadsPath, "utf8");
+  const postComponentSource = await readFile(
+    path.join(repoRoot, "src/features/chika/components/ChikaPostComponent.tsx"),
+    "utf8",
+  );
   const detailSource = await readFile(threadDetailPath, "utf8");
   const messagesSource = await readFile(messagesViewPath, "utf8");
 
   assert.match(createSource, /<AuthGuard/);
-  assert.match(threadsSource, /Hidden/);
+  assert.match(threadsSource, /ChikaPostComponent/);
+  assert.match(postComponentSource, /Hidden/);
   assert.match(detailSource, /ReportAction/);
   assert.match(detailSource, /Hidden since/);
   assert.match(messagesSource, /Message request/);

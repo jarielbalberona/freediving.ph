@@ -60,7 +60,7 @@ export const NAV_ITEMS: NavItem[] = [
     id: "home",
     title: "Home",
     kind: "link",
-    href: "/#",
+    href: "/",
     icon: Waves,
     isProtected: false,
     group: "core",

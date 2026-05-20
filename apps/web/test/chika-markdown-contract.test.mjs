@@ -31,6 +31,10 @@ const threadDetailPath = path.join(
   "src/features/chika/components/ThreadDetail.tsx",
 );
 const threadListPath = path.join(appRoot, "src/app/chika/threads.tsx");
+const chikaPostDisplayPath = path.join(
+  appRoot,
+  "src/features/chika/types/post-display.ts",
+);
 const chikaDetailPagePath = path.join(appRoot, "src/app/chika/[id]/page.tsx");
 const linkedCommentTextPath = path.join(
   appRoot,
@@ -113,11 +117,12 @@ test("chika markdown renderer uses safe basic markdown only", async () => {
 });
 
 test("chika create and display paths are wired to markdown components", async () => {
-  const [editor, createPage, threadDetail, threadList] = await Promise.all([
+  const [editor, createPage, threadDetail, threadList, postDisplay] = await Promise.all([
     readFile(editorPath, "utf8"),
     readFile(createPagePath, "utf8"),
     readFile(threadDetailPath, "utf8"),
     readFile(threadListPath, "utf8"),
+    readFile(chikaPostDisplayPath, "utf8"),
   ]);
 
   assert.match(editor, /TabsTrigger value="write"/);
@@ -131,7 +136,8 @@ test("chika create and display paths are wired to markdown components", async ()
 
   assert.match(createPage, /MarkdownEditor/);
   assert.match(threadDetail, /ChikaMarkdown content=\{thread\.content\}/);
-  assert.match(threadList, /stripMarkdownForPreview\(thread\.content\)/);
+  assert.match(threadList, /ChikaPostComponent/);
+  assert.match(postDisplay, /stripMarkdownForPreview\(thread\.content \|\| ""\)/);
 });
 
 test("chika markdown renders safe basics and blocks unsafe output", () => {
