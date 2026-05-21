@@ -5,7 +5,7 @@ import test from "node:test";
 
 const repoRoot = path.resolve(globalThis.process.cwd());
 
-const middlewarePath = path.join(repoRoot, "src/middleware.ts");
+const proxyPath = path.join(repoRoot, "src/proxy.ts");
 const authGuardPath = path.join(repoRoot, "src/components/auth/guard.tsx");
 const rolesPath = path.join(repoRoot, "src/lib/auth/roles.ts");
 const notificationsHooksPath = path.join(
@@ -27,12 +27,12 @@ const messagesViewPath = path.join(
   "src/features/messages/components/MessagingView.tsx",
 );
 
-test("phase 6 protects auth-required frontend routes in middleware", async () => {
-  const middlewareSource = await readFile(middlewarePath, "utf8");
-  assert.match(middlewareSource, /createRouteMatcher/);
-  assert.match(middlewareSource, /"\/messages\(\.\*\)"/);
-  assert.match(middlewareSource, /"\/chika\/create\(\.\*\)"/);
-  assert.match(middlewareSource, /await auth\.protect\(\)/);
+test("phase 6 protects auth-required frontend routes in proxy", async () => {
+  const proxySource = await readFile(proxyPath, "utf8");
+  assert.match(proxySource, /createRouteMatcher/);
+  assert.match(proxySource, /"\/messages\(\.\*\)"/);
+  assert.match(proxySource, /"\/chika\/create\(\.\*\)"/);
+  assert.match(proxySource, /await auth\.protect\(\)/);
 });
 
 test("phase 6 has centralized auth guard and role normalization helpers", async () => {
@@ -46,17 +46,14 @@ test("phase 6 has centralized auth guard and role normalization helpers", async 
 
 test("phase 6 uses identity-scoped notification queries", async () => {
   const source = await readFile(notificationsHooksPath, "utf8");
-  assert.match(source, /queryKey: \['notifications', filters\]/);
+  assert.match(source, /queryKeys\.notifications\.list/);
   assert.doesNotMatch(source, /Number\.isInteger\(userId\)/);
 });
 
 test("phase 6 removes unsafe optimistic chika reaction updates", async () => {
   const source = await readFile(chikaMutationsPath, "utf8");
   assert.doesNotMatch(source, /setQueryData\(\["threads", id\]/);
-  assert.match(
-    source,
-    /queryKeys\.chika\.threadComments\(threadId\)/,
-  );
+  assert.match(source, /queryKeys\.chika\.threadComments\(threadId\)/);
   assert.doesNotMatch(source, /queryKey: \["threads"/);
 });
 

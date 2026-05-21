@@ -44,7 +44,7 @@ export function ErrorFallback({
 
     switch (level) {
       case "page":
-        return "We encountered an error while loading this page. Please try refreshing.";
+        return "We encountered an error while loading this page. Please try again.";
       case "feature":
         return "This feature is temporarily unavailable. You can continue using other parts of the app.";
       case "component":
@@ -114,23 +114,14 @@ export function ErrorFallback({
             </Button>
 
             {level === "page" && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => window.location.reload()}
-                  className="w-full"
-                >
-                  Reload Page
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => (window.location.href = "/")}
-                  className="w-full"
-                >
-                  <Home className="h-4 w-4 mr-2" />
-                  Go Home
-                </Button>
-              </>
+              <Button
+                variant="outline"
+                onClick={() => (window.location.href = "/")}
+                className="w-full"
+              >
+                <Home className="h-4 w-4 mr-2" />
+                Go Home
+              </Button>
             )}
           </div>
 

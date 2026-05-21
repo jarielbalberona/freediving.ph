@@ -54,6 +54,25 @@ func TestMessagingRoutesRequireReadAndWritePermissions(t *testing.T) {
 	})
 }
 
+func TestRequireLocalActorIDPrefersAttachedIdentity(t *testing.T) {
+	h := New(nil, nil, validatex.New())
+	const actorID = "550e8400-e29b-41d4-a716-446655440000"
+	req := httptest.NewRequest(http.MethodGet, "/threads", nil)
+	req = req.WithContext(middleware.WithIdentity(req.Context(), authz.Identity{
+		UserID:        actorID,
+		GlobalRole:    "member",
+		AccountStatus: "active",
+	}))
+
+	got, err := h.requireLocalActorID(req)
+	if err != nil {
+		t.Fatalf("requireLocalActorID returned error: %v", err)
+	}
+	if got != actorID {
+		t.Fatalf("expected attached identity actor %s, got %s", actorID, got)
+	}
+}
+
 func buildMessagingPermissionRouter(identity authz.Identity, h *Handlers) chi.Router {
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {

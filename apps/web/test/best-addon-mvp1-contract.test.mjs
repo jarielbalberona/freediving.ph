@@ -4,7 +4,9 @@ import path from "node:path";
 import test from "node:test";
 
 const cwd = path.resolve(globalThis.process.cwd());
-const appRoot = cwd.endsWith(path.join("apps", "web")) ? cwd : path.join(cwd, "apps", "web");
+const appRoot = cwd.endsWith(path.join("apps", "web"))
+  ? cwd
+  : path.join(cwd, "apps", "web");
 
 test("best add-on pages and message plan card hooks are wired", async () => {
   const [
@@ -15,17 +17,34 @@ test("best add-on pages and message plan card hooks are wired", async () => {
     explorePage,
     exploreLayout,
     profilePage,
+    profileHeader,
     messagingView,
     trustCard,
   ] = await Promise.all([
     readFile(path.join(appRoot, "src/app/explore/updates/page.tsx"), "utf8"),
     readFile(path.join(appRoot, "src/app/saved/page.tsx"), "utf8"),
     readFile(path.join(appRoot, "src/app/buddy/[intentId]/page.tsx"), "utf8"),
-    readFile(path.join(appRoot, "src/app/explore/sites/[slug]/page.tsx"), "utf8"),
+    readFile(
+      path.join(appRoot, "src/app/explore/sites/[slug]/page.tsx"),
+      "utf8",
+    ),
     readFile(path.join(appRoot, "src/app/explore/page.tsx"), "utf8"),
-    readFile(path.join(appRoot, "src/features/explore/components/ExploreLayout.tsx"), "utf8"),
-    readFile(path.join(appRoot, "src/components/profile/profile-view.tsx"), "utf8"),
-    readFile(path.join(appRoot, "src/features/messages/components/MessagingView.tsx"), "utf8"),
+    readFile(
+      path.join(appRoot, "src/features/explore/components/ExploreLayout.tsx"),
+      "utf8",
+    ),
+    readFile(
+      path.join(appRoot, "src/features/profile/pages/ProfilePage.tsx"),
+      "utf8",
+    ),
+    readFile(
+      path.join(appRoot, "src/features/profile/components/ProfileHeader.tsx"),
+      "utf8",
+    ),
+    readFile(
+      path.join(appRoot, "src/features/messages/components/MessagingView.tsx"),
+      "utf8",
+    ),
     readFile(path.join(appRoot, "src/components/trust-card.tsx"), "utf8"),
   ]);
 
@@ -45,8 +64,9 @@ test("best add-on pages and message plan card hooks are wired", async () => {
 
   assert.match(explorePage, /ExploreLayout/);
   assert.match(exploreLayout, /Save site|Save/);
-  assert.match(profilePage, /TrustCard/);
-  assert.match(profilePage, /Save profile/);
+  assert.match(profilePage, /useSaveUser/);
+  assert.match(profileHeader, /Follow/);
+  assert.match(profileHeader, /Message/);
 
   assert.match(messagingView, /Message request/);
   assert.match(messagingView, /Accept/);

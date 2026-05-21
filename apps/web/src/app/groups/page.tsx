@@ -35,13 +35,7 @@ import { useGroups, useUserGroups } from "@/features/groups/hooks/queries";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -155,16 +149,16 @@ export default function GroupsPage() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Groups"
-        title="Join local freediving crews"
-        subtitle="Find clubs, training squads, and island communities planning dives near you."
+        eyebrow="Community"
+        title="Groups"
+        subtitle="Find clubs, training squads, and local communities planning dives near you."
         action={
           !isSignedIn ? (
             <SignInButton mode="modal">
-              <Button size="lg">Sign in to create</Button>
+              <Button size="sm">Sign in to create</Button>
             </SignInButton>
           ) : (
-            <Button size="lg" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Create group
             </Button>
@@ -179,17 +173,17 @@ export default function GroupsPage() {
             value: String(
               groupsQuery.data?.pagination.total ?? discoverGroups.length,
             ),
-            icon: <Compass className="h-4 w-4" />,
+            icon: <Compass className="h-3.5 w-3.5" />,
           },
           {
             label: "Your groups",
             value: String(isSignedIn ? myGroups.length : 0),
-            icon: <Users className="h-4 w-4" />,
+            icon: <Users className="h-3.5 w-3.5" />,
           },
           {
             label: "Invite-only",
             value: "Supported",
-            icon: <ShieldCheck className="h-4 w-4" />,
+            icon: <ShieldCheck className="h-3.5 w-3.5" />,
           },
         ]}
       />
@@ -199,18 +193,18 @@ export default function GroupsPage() {
         invite.
       </CommunityAccessNote>
 
-      <section className="space-y-5">
+      <section className="space-y-3">
         <CommunityBrowseToolbar
           label={
             <>
-              <Search className="h-4 w-4" />
-              Browse groups
+              <Search className="h-3.5 w-3.5" />
+              Browse
             </>
           }
-          title="Find a crew"
+          title="Browse groups"
           description="Search by group name, club, or local area."
         >
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_200px] sm:gap-3 lg:min-w-[520px]">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -246,18 +240,16 @@ export default function GroupsPage() {
         <Tabs
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as "discover" | "mine")}
-          className="mt-4 gap-4 sm:mt-5 sm:gap-5"
+          className="gap-3"
         >
-          <TabsList
-            className={`grid ${isSignedIn ? "w-full max-w-md grid-cols-2" : "w-full max-w-[220px] grid-cols-1"}`}
-          >
-            <TabsTrigger value="discover">All groups</TabsTrigger>
-            {isSignedIn ? (
+          {isSignedIn ? (
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="discover">All groups</TabsTrigger>
               <TabsTrigger value="mine">My groups</TabsTrigger>
-            ) : null}
-          </TabsList>
+            </TabsList>
+          ) : null}
 
-          <TabsContent value="discover" className="space-y-4">
+          <TabsContent value="discover" className="space-y-3">
             {groupsQuery.isLoading ? (
               <CardGridSkeleton count={6} />
             ) : groupsQuery.error ? (
@@ -280,7 +272,7 @@ export default function GroupsPage() {
                 }
               />
             ) : (
-              <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 lg:grid-cols-2">
                 {discoverGroups.map((group) => (
                   <GroupCard
                     key={group.id}
@@ -299,7 +291,7 @@ export default function GroupsPage() {
           </TabsContent>
 
           {isSignedIn ? (
-            <TabsContent value="mine" className="space-y-4">
+            <TabsContent value="mine" className="space-y-3">
               {myGroupsQuery.isLoading ? (
                 <CardGridSkeleton count={3} />
               ) : myGroupsQuery.error ? (
@@ -320,7 +312,7 @@ export default function GroupsPage() {
                   }
                 />
               ) : (
-                <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-3 lg:grid-cols-2">
                   {myGroups.map((group) => (
                     <GroupCard
                       key={group.id}
@@ -458,52 +450,50 @@ function GroupCard({
   const isApprovalOnly = group.joinPolicy === "approval";
 
   return (
-    <Card className="overflow-hidden rounded-[1.75rem] border-border/70 bg-background/80">
-      <CardHeader className="space-y-4">
+    <Card className="rounded-xl border-border/70 bg-background/80 py-0 shadow-none">
+      <CardContent className="space-y-3 p-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="space-y-2">
-            <CardTitle className="text-xl">
-              <Link
-                href={`/groups/${group.id}`}
-                className="transition-colors hover:text-primary"
-              >
-                {group.name}
-              </Link>
-            </CardTitle>
-            <div className="flex flex-wrap gap-2">
-              <Badge
-                variant={
-                  group.visibility === "public" ? "secondary" : "outline"
-                }
-              >
-                {visibilityLabel(group.visibility)}
-              </Badge>
-              <Badge variant="outline">
-                {joinPolicyLabel(group.joinPolicy)}
-              </Badge>
-            </div>
+          <div className="min-w-0 space-y-1">
+            <Link
+              href={`/groups/${group.id}`}
+              className="block truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
+            >
+              {group.name}
+            </Link>
+            <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
+              {group.description ||
+                "This group has not added a description yet."}
+            </p>
           </div>
           {group.visibility !== "public" ? (
             <Lock className="mt-1 h-4 w-4 text-muted-foreground" />
           ) : null}
         </div>
-        <CardDescription className="line-clamp-3 min-h-[3.75rem] text-sm text-muted-foreground">
-          {group.description || "This group has not added a description yet."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Users className="h-4 w-4" />
+
+        <div className="flex flex-wrap gap-1.5">
+          <Badge
+            variant={group.visibility === "public" ? "secondary" : "outline"}
+            className="h-5 px-2 text-[11px]"
+          >
+            {visibilityLabel(group.visibility)}
+          </Badge>
+          <Badge variant="outline" className="h-5 px-2 text-[11px]">
+            {joinPolicyLabel(group.joinPolicy)}
+          </Badge>
+        </div>
+
+        <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" />
             {group.memberCount} members
           </div>
-          <div className="flex items-center gap-1">
-            <MessageSquare className="h-4 w-4" />
+          <div className="flex items-center gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" />
             {group.postCount} posts
           </div>
           {group.location ? (
-            <div className="flex items-center gap-1">
-              <MapPin className="h-4 w-4" />
+            <div className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" />
               {group.location}
             </div>
           ) : null}
@@ -511,33 +501,39 @@ function GroupCard({
 
         <div className="flex flex-wrap gap-2">
           <Link href={`/groups/${group.id}`}>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="xs">
               Open group
             </Button>
           </Link>
           {!isSignedIn ? (
             <SignInButton mode="modal">
-              <Button size="sm">{canJoin ? "Join" : "Sign in"}</Button>
+              <Button size="xs">{canJoin ? "Join" : "Sign in"}</Button>
             </SignInButton>
           ) : isJoined ? (
             <Button
               variant="outline"
-              size="sm"
+              size="xs"
               disabled={actionPending}
               onClick={onLeave}
             >
               Leave
             </Button>
           ) : canJoin ? (
-            <Button size="sm" disabled={actionPending} onClick={onJoin}>
+            <Button size="xs" disabled={actionPending} onClick={onJoin}>
               Join
             </Button>
           ) : isApprovalOnly ? (
-            <Badge variant="outline" className="rounded-full px-3 py-1">
+            <Badge
+              variant="outline"
+              className="h-6 rounded-full px-2 text-[11px]"
+            >
               Ask organizer to join
             </Badge>
           ) : (
-            <Badge variant="outline" className="rounded-full px-3 py-1">
+            <Badge
+              variant="outline"
+              className="h-6 rounded-full px-2 text-[11px]"
+            >
               Invite only
             </Badge>
           )}
@@ -549,8 +545,8 @@ function GroupCard({
 
 function ErrorBlock({ message }: { message: string }) {
   return (
-    <Card className="border-destructive/30 bg-destructive/5">
-      <CardContent className="p-4 text-sm text-destructive">
+    <Card className="border-destructive/30 bg-destructive/5 py-0">
+      <CardContent className="p-3 text-xs text-destructive">
         {message}
       </CardContent>
     </Card>
@@ -559,21 +555,21 @@ function ErrorBlock({ message }: { message: string }) {
 
 function CardGridSkeleton({ count }: { count: number }) {
   return (
-    <div className="space-y-4">
-      <Card className="border-border/70 bg-muted/30">
-        <CardContent className="p-5">
-          <p className="font-medium text-foreground">
+    <div className="space-y-3">
+      <Card className="border-border/70 bg-muted/30 py-0">
+        <CardContent className="p-3">
+          <p className="text-sm font-medium text-foreground">
             Looking for community groups
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             We are checking public groups, clubs, and local dive crews you can
             browse.
           </p>
         </CardContent>
       </Card>
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-2">
         {Array.from({ length: count }).map((_, index) => (
-          <Skeleton key={index} className="h-64 w-full rounded-[1.75rem]" />
+          <Skeleton key={index} className="h-28 w-full rounded-xl" />
         ))}
       </div>
     </div>

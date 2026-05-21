@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { queryKeys } from "@/lib/query/query-keys";
+
 import { buddiesApi } from "../api/buddies";
 
 export const useSendBuddyRequest = () => {
@@ -7,7 +9,7 @@ export const useSendBuddyRequest = () => {
   return useMutation({
     mutationFn: (targetUserId: string) => buddiesApi.sendRequest(targetUserId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["buddies"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.buddies.all });
     },
   });
 };
@@ -17,7 +19,7 @@ export const useAcceptBuddyRequest = () => {
   return useMutation({
     mutationFn: (requestId: string) => buddiesApi.acceptRequest(requestId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["buddies"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.buddies.all });
     },
   });
 };
@@ -27,7 +29,7 @@ export const useDeclineBuddyRequest = () => {
   return useMutation({
     mutationFn: (requestId: string) => buddiesApi.declineRequest(requestId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["buddies"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.buddies.all });
     },
   });
 };
@@ -37,7 +39,7 @@ export const useCancelBuddyRequest = () => {
   return useMutation({
     mutationFn: (requestId: string) => buddiesApi.cancelRequest(requestId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["buddies"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.buddies.all });
     },
   });
 };
@@ -47,7 +49,7 @@ export const useRemoveBuddy = () => {
   return useMutation({
     mutationFn: (buddyUserId: string) => buddiesApi.removeBuddy(buddyUserId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["buddies"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.buddies.all });
     },
   });
 };

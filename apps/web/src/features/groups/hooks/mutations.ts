@@ -1,11 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { groupsApi } from '../api/groups';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { groupsApi } from "../api/groups";
+import { queryKeys } from "@/lib/query/query-keys";
 import type {
   CreateGroupRequest,
   UpdateGroupRequest,
   JoinGroupRequest,
   CreateGroupPostRequest,
-} from '@freediving.ph/types';
+} from "@freediving.ph/types";
 
 export const useCreateGroup = () => {
   const queryClient = useQueryClient();
@@ -13,8 +14,8 @@ export const useCreateGroup = () => {
   return useMutation({
     mutationFn: (data: CreateGroupRequest) => groupsApi.createGroup(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['groups'] });
-      queryClient.invalidateQueries({ queryKey: ['user-groups'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.all });
     },
   });
 };
@@ -31,9 +32,11 @@ export const useUpdateGroup = () => {
       data: UpdateGroupRequest;
     }) => groupsApi.updateGroup(groupId, data),
     onSuccess: (_response, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['group', variables.groupId] });
-      queryClient.invalidateQueries({ queryKey: ['groups'] });
-      queryClient.invalidateQueries({ queryKey: ['user-groups'] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.detail(variables.groupId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.all });
     },
   });
 };
@@ -44,10 +47,14 @@ export const useJoinGroup = () => {
   return useMutation({
     mutationFn: (data: JoinGroupRequest) => groupsApi.joinGroup(data),
     onSuccess: (_response, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['group', variables.groupId] });
-      queryClient.invalidateQueries({ queryKey: ['group-members', variables.groupId] });
-      queryClient.invalidateQueries({ queryKey: ['groups'] });
-      queryClient.invalidateQueries({ queryKey: ['user-groups'] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.detail(variables.groupId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.members(variables.groupId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.all });
     },
   });
 };
@@ -56,12 +63,17 @@ export const useLeaveGroup = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ groupId }: { groupId: string }) => groupsApi.leaveGroup(groupId),
+    mutationFn: ({ groupId }: { groupId: string }) =>
+      groupsApi.leaveGroup(groupId),
     onSuccess: (_response, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['group', variables.groupId] });
-      queryClient.invalidateQueries({ queryKey: ['group-members', variables.groupId] });
-      queryClient.invalidateQueries({ queryKey: ['groups'] });
-      queryClient.invalidateQueries({ queryKey: ['user-groups'] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.detail(variables.groupId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.members(variables.groupId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.all });
     },
   });
 };
@@ -70,11 +82,16 @@ export const useCreateGroupPost = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateGroupPostRequest) => groupsApi.createGroupPost(data),
+    mutationFn: (data: CreateGroupPostRequest) =>
+      groupsApi.createGroupPost(data),
     onSuccess: (_response, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['group-posts', variables.groupId] });
-      queryClient.invalidateQueries({ queryKey: ['group', variables.groupId] });
-      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.posts(variables.groupId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.detail(variables.groupId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
     },
   });
 };

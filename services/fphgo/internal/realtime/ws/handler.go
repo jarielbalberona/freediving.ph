@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	usersservice "fphgo/internal/features/users/service"
 	"fphgo/internal/middleware"
@@ -25,16 +26,43 @@ func NewHandler(logger *slog.Logger, hub *Hub, userResolver *usersservice.Servic
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	clerkUserID, ok := middleware.CurrentAuth(r.Context())
 	if !ok || clerkUserID == "" {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil))
 		return
 	}
-	user, err := h.userResolver.EnsureLocalUserForClerk(r.Context(), clerkUserID)
-	if err != nil {
-		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+
+	localUserID := ""
+	actorSource := "identity"
+	if identity, ok := middleware.CurrentIdentity(r.Context()); ok && identity.UserID != "" {
+		localUserID = identity.UserID
+	} else if h.userResolver != nil {
+		actorSource = "clerk_bootstrap"
+		user, err := h.userResolver.EnsureLocalUserForClerk(r.Context(), clerkUserID)
+		if err != nil {
+			h.logger.Debug("messaging_perf.ws_actor_resolution",
+				slog.String("source", actorSource),
+				slog.Duration("duration", time.Since(start)),
+				slog.Bool("error", true),
+			)
+			httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+			return
+		}
+		localUserID = user.ID
+	} else {
+		actorSource = "missing"
+		h.logger.Debug("messaging_perf.ws_actor_resolution",
+			slog.String("source", actorSource),
+			slog.Duration("duration", time.Since(start)),
+		)
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil))
 		return
 	}
+	h.logger.Debug("messaging_perf.ws_actor_resolution",
+		slog.String("source", actorSource),
+		slog.Duration("duration", time.Since(start)),
+	)
 
 	acceptOptions := &websocket.AcceptOptions{}
 	originPatterns := resolveOriginPatterns(h.origins)
@@ -44,13 +72,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Development fallback when CORS_ORIGINS is set to "*".
 		acceptOptions.InsecureSkipVerify = true
 	}
+	acceptStart := time.Now()
 	conn, err := websocket.Accept(w, r, acceptOptions)
 	if err != nil {
 		h.logger.Error("ws accept failed", "error", err)
 		return
 	}
+	h.logger.Debug("messaging_perf.ws_accept",
+		slog.String("request_id", middleware.RequestIDFromContext(r.Context())),
+		slog.String("actor_source", actorSource),
+		slog.Duration("duration", time.Since(acceptStart)),
+		slog.Duration("total_before_run", time.Since(start)),
+	)
 
-	client := NewClient(h.logger, h.hub, conn, clerkUserID, user.ID)
+	client := NewClient(h.logger, h.hub, conn, clerkUserID, localUserID)
 	client.Run(r.Context())
 }
 

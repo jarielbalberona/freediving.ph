@@ -44,13 +44,7 @@ import {
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
@@ -281,16 +275,16 @@ export default function EventsPage() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Events"
-        title="Discover dives, trainings, and meetups"
+        eyebrow="Calendar"
+        title="Events"
         subtitle="Browse upcoming community plans or publish a session for other freedivers to join."
         action={
           !isSignedIn ? (
             <SignInButton mode="modal">
-              <Button size="lg">Sign in to join</Button>
+              <Button size="sm">Sign in to join</Button>
             </SignInButton>
           ) : (
-            <Button size="lg" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Publish event
             </Button>
@@ -305,17 +299,17 @@ export default function EventsPage() {
             value: String(
               eventsQuery.data?.pagination.total ?? allEvents.length,
             ),
-            icon: <Compass className="h-4 w-4" />,
+            icon: <Compass className="h-3.5 w-3.5" />,
           },
           {
             label: "Joined",
             value: isSignedIn ? String(joinedEvents.length) : "0",
-            icon: <Ticket className="h-4 w-4" />,
+            icon: <Ticket className="h-3.5 w-3.5" />,
           },
           {
             label: "Access",
-            value: "Public or invite-only",
-            icon: <ShieldCheck className="h-4 w-4" />,
+            value: "Public/invite",
+            icon: <ShieldCheck className="h-3.5 w-3.5" />,
           },
         ]}
       />
@@ -325,18 +319,18 @@ export default function EventsPage() {
         invitees or group members.
       </CommunityAccessNote>
 
-      <section className="space-y-5">
+      <section className="space-y-3">
         <CommunityBrowseToolbar
           label={
             <>
-              <CalendarClock className="h-4 w-4" />
-              Browse events
+              <CalendarClock className="h-3.5 w-3.5" />
+              Browse
             </>
           }
-          title="Upcoming plans"
+          title="Browse events"
           description="Search by place, session type, or organizer note."
         >
-          <div className="grid gap-2 sm:gap-3 lg:min-w-[360px]">
+          <div className="grid gap-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -350,22 +344,20 @@ export default function EventsPage() {
         </CommunityBrowseToolbar>
 
         <Tabs
-          className="mt-4 sm:mt-5"
+          className="gap-3"
           value={activeTab}
           onValueChange={(value) =>
             setActiveTab(value as "discover" | "joined")
           }
         >
-          <TabsList
-            className={`grid ${isSignedIn ? "w-full max-w-md grid-cols-2" : "w-full max-w-[220px] grid-cols-1"}`}
-          >
-            <TabsTrigger value="discover">All events</TabsTrigger>
-            {isSignedIn ? (
+          {isSignedIn ? (
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="discover">All events</TabsTrigger>
               <TabsTrigger value="joined">My events</TabsTrigger>
-            ) : null}
-          </TabsList>
+            </TabsList>
+          ) : null}
 
-          <TabsContent value="discover" className="mt-4 sm:mt-5">
+          <TabsContent value="discover">
             <EventGrid
               isLoading={eventsQuery.isLoading}
               error={eventsQuery.error}
@@ -386,7 +378,7 @@ export default function EventsPage() {
           </TabsContent>
 
           {isSignedIn ? (
-            <TabsContent value="joined" className="mt-4 sm:mt-5">
+            <TabsContent value="joined">
               <EventGrid
                 isLoading={eventsQuery.isLoading}
                 error={eventsQuery.error}
@@ -680,21 +672,21 @@ function EventGrid({
 }) {
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Card className="border-border/70 bg-muted/30">
-          <CardContent className="p-5">
-            <p className="font-medium text-foreground">
+      <div className="space-y-3">
+        <Card className="border-border/70 bg-muted/30 py-0">
+          <CardContent className="p-3">
+            <p className="text-sm font-medium text-foreground">
               Checking the community calendar
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               We are looking for upcoming dives, trainings, workshops, and
               meetups.
             </p>
           </CardContent>
         </Card>
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-72 rounded-[1.5rem]" />
+            <Skeleton key={index} className="h-28 rounded-xl" />
           ))}
         </div>
       </div>
@@ -703,8 +695,8 @@ function EventGrid({
 
   if (error) {
     return (
-      <Card className="border-destructive/30 bg-destructive/5">
-        <CardContent className="p-6 text-sm text-destructive">
+      <Card className="border-destructive/30 bg-destructive/5 py-0">
+        <CardContent className="p-3 text-xs text-destructive">
           {getApiErrorMessage(
             error,
             "Events are taking longer than expected. Try again in a moment.",
@@ -719,14 +711,14 @@ function EventGrid({
       <CommunityEmptyState
         title={emptyTitle}
         description={emptyDescription}
-        icon={<CalendarClock className="h-9 w-9" />}
+        icon={<CalendarClock className="h-5 w-5" />}
         action={emptyAction}
       />
     );
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-3 lg:grid-cols-2">
       {events.map((event) => (
         <EventDiscoveryCard
           key={event.id}
@@ -752,48 +744,50 @@ function EventDiscoveryCard({
   onLeave: (eventId: string) => void;
 }) {
   return (
-    <Card className="overflow-hidden rounded-[1.5rem] border-border/70 bg-card/95 shadow-sm">
-      <CardHeader className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge className="rounded-full bg-primary text-primary-foreground">
+    <Card className="rounded-xl border-border/70 bg-background/80 py-0 shadow-none">
+      <CardContent className="space-y-3 p-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge className="h-5 rounded-full px-2 text-[11px]">
             {titleCase(event.type || "training")}
           </Badge>
-          <Badge variant="outline">
+          <Badge variant="outline" className="h-5 px-2 text-[11px]">
             {titleCase(event.visibility.replace("_", " "))}
           </Badge>
-          <Badge variant="outline">{titleCase(event.difficulty)}</Badge>
+          <Badge variant="outline" className="h-5 px-2 text-[11px]">
+            {titleCase(event.difficulty)}
+          </Badge>
         </div>
-        <div className="space-y-2">
-          <CardTitle className="font-serif text-2xl tracking-tight text-foreground">
-            <Link href={`/events/${event.id}`} className="hover:underline">
-              {event.title}
-            </Link>
-          </CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">
+        <div className="space-y-1">
+          <Link
+            href={`/events/${event.id}`}
+            className="block text-sm font-semibold text-foreground hover:underline"
+          >
+            {event.title}
+          </Link>
+          <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
             {event.description?.trim() || "Details have not been added yet."}
-          </CardDescription>
+          </p>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+
+        <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
           <InlineFact
-            icon={<CalendarClock className="h-4 w-4" />}
+            icon={<CalendarClock className="h-3.5 w-3.5" />}
             label={formatEventDate(event.startsAt)}
           />
           <InlineFact
-            icon={<Users className="h-4 w-4" />}
+            icon={<Users className="h-3.5 w-3.5" />}
             label={`${event.currentAttendees}${event.maxAttendees ? ` / ${event.maxAttendees}` : ""} attendees`}
           />
           <InlineFact
-            icon={<MapPin className="h-4 w-4" />}
+            icon={<MapPin className="h-3.5 w-3.5" />}
             label={event.location || "Location not set"}
           />
           <InlineFact
             icon={
               event.visibility === "public" ? (
-                <Compass className="h-4 w-4" />
+                <Compass className="h-3.5 w-3.5" />
               ) : (
-                <Lock className="h-4 w-4" />
+                <Lock className="h-3.5 w-3.5" />
               )
             }
             label={
@@ -804,17 +798,24 @@ function EventDiscoveryCard({
           />
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           <Link href={`/events/${event.id}`}>
-            <Button variant="outline">Open details</Button>
+            <Button variant="outline" size="xs">
+              Open details
+            </Button>
           </Link>
           {isSignedIn ? (
             event.viewerJoined ? (
-              <Button variant="outline" onClick={() => onLeave(event.id)}>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => onLeave(event.id)}
+              >
                 Leave event
               </Button>
             ) : (
               <Button
+                size="xs"
                 onClick={() => onJoin(event.id)}
                 disabled={event.status !== "published"}
               >
@@ -823,7 +824,7 @@ function EventDiscoveryCard({
             )
           ) : (
             <SignInButton mode="modal">
-              <Button>Sign in to join</Button>
+              <Button size="xs">Sign in to join</Button>
             </SignInButton>
           )}
         </div>
@@ -834,9 +835,9 @@ function EventDiscoveryCard({
 
 function InlineFact({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <div className="flex items-start gap-2 rounded-2xl border border-border/60 bg-background/70 p-3">
-      <div className="mt-0.5 text-muted-foreground">{icon}</div>
-      <span>{label}</span>
+    <div className="flex min-w-0 items-start gap-1.5">
+      <div className="mt-0.5 shrink-0 text-muted-foreground">{icon}</div>
+      <span className="min-w-0">{label}</span>
     </div>
   );
 }

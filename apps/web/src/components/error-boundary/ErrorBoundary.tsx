@@ -1,11 +1,11 @@
 "use client";
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle, RefreshCw, Home, Bug } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Props {
   children: ReactNode;
@@ -13,7 +13,7 @@ interface Props {
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
   resetKeys?: Array<string | number>;
   resetOnPropsChange?: boolean;
-  level?: 'page' | 'feature' | 'component';
+  level?: "page" | "feature" | "component";
 }
 
 interface State {
@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
-      errorId: '',
+      errorId: "",
     };
   }
 
@@ -51,8 +51,8 @@ export class ErrorBoundary extends Component<Props, State> {
     });
 
     // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('ErrorBoundary caught an error:', error, errorInfo);
+    if (process.env.NODE_ENV === "development") {
+      console.error("ErrorBoundary caught an error:", error, errorInfo);
     }
 
     // Call custom error handler
@@ -85,8 +85,8 @@ export class ErrorBoundary extends Component<Props, State> {
     const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN?.trim();
     const sentryEnabled =
       Boolean(sentryDsn) &&
-      (process.env.NODE_ENV === 'production' ||
-        process.env.NEXT_PUBLIC_SENTRY_ENABLE_LOCAL === 'true');
+      (process.env.NODE_ENV === "production" ||
+        process.env.NEXT_PUBLIC_SENTRY_ENABLE_LOCAL === "true");
 
     const errorReport = {
       errorId: this.state.errorId,
@@ -96,13 +96,13 @@ export class ErrorBoundary extends Component<Props, State> {
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
       url: window.location.href,
-      level: this.props.level || 'component',
+      level: this.props.level || "component",
     };
 
     if (sentryEnabled) {
       Sentry.captureException(error, {
         tags: {
-          errorBoundaryLevel: this.props.level || 'component',
+          errorBoundaryLevel: this.props.level || "component",
         },
         extra: {
           errorId: this.state.errorId,
@@ -111,8 +111,8 @@ export class ErrorBoundary extends Component<Props, State> {
       });
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error Report:', errorReport);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error Report:", errorReport);
     }
   };
 
@@ -121,7 +121,7 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
-      errorId: '',
+      errorId: "",
     });
   };
 
@@ -129,41 +129,37 @@ export class ErrorBoundary extends Component<Props, State> {
     this.resetErrorBoundary();
   };
 
-  private handleReload = () => {
-    window.location.reload();
-  };
-
   private handleGoHome = () => {
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   private renderErrorFallback = () => {
     const { error, errorId } = this.state;
-    const { level = 'component' } = this.props;
+    const { level = "component" } = this.props;
 
     const getErrorTitle = () => {
       switch (level) {
-        case 'page':
-          return 'Something went wrong with this page';
-        case 'feature':
-          return 'This feature is temporarily unavailable';
-        case 'component':
-          return 'This component encountered an error';
+        case "page":
+          return "Something went wrong with this page";
+        case "feature":
+          return "This feature is temporarily unavailable";
+        case "component":
+          return "This component encountered an error";
         default:
-          return 'Something went wrong';
+          return "Something went wrong";
       }
     };
 
     const getErrorDescription = () => {
       switch (level) {
-        case 'page':
-          return 'We encountered an unexpected error while loading this page. Please try refreshing or contact support if the problem persists.';
-        case 'feature':
-          return 'This feature is experiencing issues. You can continue using other parts of the application.';
-        case 'component':
-          return 'This component failed to render properly. The rest of the page should work normally.';
+        case "page":
+          return "We encountered an unexpected error while loading this page. Please try again or contact support if the problem persists.";
+        case "feature":
+          return "This feature is experiencing issues. You can continue using other parts of the application.";
+        case "component":
+          return "This component failed to render properly. The rest of the page should work normally.";
         default:
-          return 'An unexpected error occurred. Please try again.';
+          return "An unexpected error occurred. Please try again.";
       }
     };
 
@@ -172,23 +168,21 @@ export class ErrorBoundary extends Component<Props, State> {
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15">
-              <AlertTriangle className="h-6 w-6 text-destructive" />
-            </div>
-            <CardTitle>
-              <span className="text-xl">{getErrorTitle()}</span>
-            </CardTitle>
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+              </div>
+              <CardTitle>
+                <span className="text-xl">{getErrorTitle()}</span>
+              </CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert variant="destructive">
               <Bug className="h-4 w-4" />
-              <AlertDescription>
-                {getErrorDescription()}
-              </AlertDescription>
+              <AlertDescription>{getErrorDescription()}</AlertDescription>
             </Alert>
 
-            {process.env.NODE_ENV === 'development' && error && (
+            {process.env.NODE_ENV === "development" && error && (
               <details className="mt-4">
                 <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
                   Error Details (Development)
@@ -212,16 +206,15 @@ export class ErrorBoundary extends Component<Props, State> {
                 Try Again
               </Button>
 
-              {level === 'page' && (
-                <>
-                  <Button variant="outline" onClick={this.handleReload} className="w-full">
-                    Reload Page
-                  </Button>
-                  <Button variant="outline" onClick={this.handleGoHome} className="w-full">
-                    <Home className="h-4 w-4 mr-2" />
-                    Go Home
-                  </Button>
-                </>
+              {level === "page" && (
+                <Button
+                  variant="outline"
+                  onClick={this.handleGoHome}
+                  className="w-full"
+                >
+                  <Home className="h-4 w-4 mr-2" />
+                  Go Home
+                </Button>
               )}
             </div>
 

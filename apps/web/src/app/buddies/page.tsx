@@ -2,7 +2,13 @@
 
 import { SignInButton } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, MapPinned, MessageCircle, Search, Trash2 } from "lucide-react";
+import {
+  CalendarClock,
+  MapPinned,
+  MessageCircle,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +23,7 @@ import type {
   ExploreSiteCard,
 } from "@freediving.ph/types";
 
+import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import {
   CommunityAccessNote,
   CommunityBrowseToolbar,
@@ -25,7 +32,6 @@ import {
   CommunityPageShell,
   CommunityStats,
 } from "@/components/community/community-page";
-import { UserAvatar } from "@/components/ui/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,7 +72,10 @@ const PRESENCE_TYPES: Array<{ value: DivePresenceType; label: string }> = [
   { value: "fun_dive", label: "Fun dive" },
 ];
 
-const RELATIONSHIPS: Array<{ value: DiveSiteAffinityRelationship; label: string }> = [
+const RELATIONSHIPS: Array<{
+  value: DiveSiteAffinityRelationship;
+  label: string;
+}> = [
   { value: "local", label: "Local" },
   { value: "regular", label: "Regular" },
   { value: "instructor", label: "Instructor" },
@@ -79,6 +88,9 @@ const VISIBILITY_ITEMS = [
   { value: "public", label: "Public" },
   { value: "private", label: "Private" },
 ] as const;
+
+const DIVE_PRESENCE_ACCESS_NOTE =
+  "Available Buddies come from active Dive Presence only. Locals and regulars come from long-term dive-site relationships and do not imply availability.";
 
 const emptyPresenceDraft = (): PresenceDraft => ({
   siteSlug: "",
@@ -111,9 +123,9 @@ function BuddiesFallback() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Buddies"
-        title="Find Available Buddies"
-        subtitle="Loading active Dive Presence across dive sites."
+        eyebrow="Dive Presence"
+        title="Buddies"
+        subtitle="Loading active availability across dive sites."
       />
     </CommunityPageShell>
   );
@@ -134,8 +146,10 @@ function BuddiesPageContent() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("any");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
-  const [presenceDraft, setPresenceDraft] = useState<PresenceDraft>(emptyPresenceDraft);
-  const [affinityDraft, setAffinityDraft] = useState<AffinityDraft>(emptyAffinityDraft);
+  const [presenceDraft, setPresenceDraft] =
+    useState<PresenceDraft>(emptyPresenceDraft);
+  const [affinityDraft, setAffinityDraft] =
+    useState<AffinityDraft>(emptyAffinityDraft);
 
   const sitesQuery = useQuery({
     queryKey: queryKeys.explore.buddyPresenceSites(),
@@ -177,7 +191,11 @@ function BuddiesPageContent() {
     mutationFn: async (draft: PresenceDraft) => {
       const payload = presencePayload(draft);
       return draft.presenceId
-        ? exploreApi.updateSitePresence(draft.siteSlug, draft.presenceId, payload)
+        ? exploreApi.updateSitePresence(
+            draft.siteSlug,
+            draft.presenceId,
+            payload,
+          )
         : exploreApi.createSitePresence(draft.siteSlug, payload);
     },
     onSuccess: () => {
@@ -190,7 +208,8 @@ function BuddiesPageContent() {
         queryKey: queryKeys.explore.myDivePresences(),
       });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "Could not save Dive Presence")),
+    onError: (error) =>
+      toast.error(getApiErrorMessage(error, "Could not save Dive Presence")),
   });
 
   const cancelPresence = useMutation({
@@ -205,14 +224,19 @@ function BuddiesPageContent() {
         queryKey: queryKeys.explore.myDivePresences(),
       });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "Could not cancel Dive Presence")),
+    onError: (error) =>
+      toast.error(getApiErrorMessage(error, "Could not cancel Dive Presence")),
   });
 
   const saveAffinity = useMutation({
     mutationFn: async (draft: AffinityDraft) => {
       const payload = affinityPayload(draft);
       return draft.affinityId
-        ? exploreApi.updateSiteAffinity(draft.siteSlug, draft.affinityId, payload)
+        ? exploreApi.updateSiteAffinity(
+            draft.siteSlug,
+            draft.affinityId,
+            payload,
+          )
         : exploreApi.createSiteAffinity(draft.siteSlug, payload);
     },
     onSuccess: () => {
@@ -222,7 +246,10 @@ function BuddiesPageContent() {
         queryKey: queryKeys.explore.myDiveSiteAffinities(),
       });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "Could not save dive site relationship")),
+    onError: (error) =>
+      toast.error(
+        getApiErrorMessage(error, "Could not save dive site relationship"),
+      ),
   });
 
   const deleteAffinity = useMutation({
@@ -234,7 +261,10 @@ function BuddiesPageContent() {
         queryKey: queryKeys.explore.myDiveSiteAffinities(),
       });
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, "Could not remove dive site relationship")),
+    onError: (error) =>
+      toast.error(
+        getApiErrorMessage(error, "Could not remove dive site relationship"),
+      ),
   });
 
   const sites = sitesQuery.data?.items ?? [];
@@ -251,18 +281,18 @@ function BuddiesPageContent() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Buddies"
-        title="Find Available Buddies"
-        subtitle="Discover active Dive Presence across dive sites, manage your own availability, and keep long-term site relationships separate."
+        eyebrow="Dive Presence"
+        title="Buddies"
+        subtitle="Find active availability, manage your own status, and keep long-term site relationships separate."
         action={
           isSignedIn ? (
-            <Button size="lg" onClick={() => setActiveTab("presence")}>
+            <Button size="sm" onClick={() => setActiveTab("presence")}>
               <CalendarClock className="mr-2 h-4 w-4" />
               Mark my Dive Presence
             </Button>
           ) : (
             <SignInButton mode="modal">
-              <Button size="lg">Sign in to mark Dive Presence</Button>
+              <Button size="sm">Sign in to mark Dive Presence</Button>
             </SignInButton>
           )
         }
@@ -270,47 +300,89 @@ function BuddiesPageContent() {
 
       <CommunityStats
         items={[
-          { label: "Available Buddies", value: String(globalPresences.length), icon: <Search className="h-4 w-4" /> },
-          { label: "My Dive Presence", value: String(myPresences.length), icon: <CalendarClock className="h-4 w-4" /> },
-          { label: "My Dive Sites", value: String(myAffinities.length), icon: <MapPinned className="h-4 w-4" /> },
+          {
+            label: "Available",
+            value: String(globalPresences.length),
+            icon: <Search className="h-3.5 w-3.5" />,
+          },
+          {
+            label: "My presence",
+            value: String(myPresences.length),
+            icon: <CalendarClock className="h-3.5 w-3.5" />,
+          },
+          {
+            label: "My sites",
+            value: String(myAffinities.length),
+            icon: <MapPinned className="h-3.5 w-3.5" />,
+          },
         ]}
       />
 
-      <CommunityAccessNote>
-        Available Buddies come from active Dive Presence only. Locals and regulars come from long-term dive-site relationships and do not imply availability.
-      </CommunityAccessNote>
+      <CommunityAccessNote>{DIVE_PRESENCE_ACCESS_NOTE}</CommunityAccessNote>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-3">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="find">Find Buddies</TabsTrigger>
           <TabsTrigger value="presence">My Dive Presence</TabsTrigger>
           <TabsTrigger value="sites">My Dive Sites</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="find" className="space-y-5">
+        <TabsContent value="find" className="space-y-3">
           <CommunityBrowseToolbar
-            label={<><Search className="h-4 w-4" /> Global discovery</>}
-            title="Available Buddies across dive sites"
-            description="Filter active Dive Presence by real dive-site data."
+            label={
+              <>
+                <Search className="h-3.5 w-3.5" /> Browse
+              </>
+            }
+            title="Available buddies"
+            description="Filter active Dive Presence by site, area, or date."
           >
-            <div className="grid gap-3 md:grid-cols-4 xl:min-w-[720px]">
-              <SiteSelect sites={sites} value={siteSlug} onValueChange={setSiteSlug} includeAll />
-              <Input placeholder="Area or province" value={area} onChange={(event) => setArea(event.target.value)} />
-              <Select value={presenceType} onValueChange={(value) => setPresenceType(value ?? "all")} items={[{ value: "all", label: "All types" }, ...PRESENCE_TYPES]}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[560px] lg:grid-cols-4">
+              <SiteSelect
+                sites={sites}
+                value={siteSlug}
+                onValueChange={setSiteSlug}
+                includeAll
+              />
+              <Input
+                placeholder="Area or province"
+                value={area}
+                onChange={(event) => setArea(event.target.value)}
+              />
+              <Select
+                value={presenceType}
+                onValueChange={(value) => setPresenceType(value ?? "all")}
+                items={[
+                  { value: "all", label: "All types" },
+                  ...PRESENCE_TYPES,
+                ]}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All types</SelectItem>
-                  {PRESENCE_TYPES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                  {PRESENCE_TYPES.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <Select value={dateFilter} onValueChange={(value) => setDateFilter(value as DateFilter)} items={[
-                { value: "any", label: "Any time" },
-                { value: "today", label: "Today" },
-                { value: "weekend", label: "This weekend" },
-                { value: "flexible", label: "Flexible" },
-                { value: "custom", label: "Custom range" },
-              ]}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <Select
+                value={dateFilter}
+                onValueChange={(value) => setDateFilter(value as DateFilter)}
+                items={[
+                  { value: "any", label: "Any time" },
+                  { value: "today", label: "Today" },
+                  { value: "weekend", label: "This weekend" },
+                  { value: "flexible", label: "Flexible" },
+                  { value: "custom", label: "Custom range" },
+                ]}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="any">Any time</SelectItem>
                   <SelectItem value="today">Today</SelectItem>
@@ -323,28 +395,55 @@ function BuddiesPageContent() {
           </CommunityBrowseToolbar>
 
           {dateFilter === "custom" ? (
-            <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2">
-              <Field label="From"><DatePicker value={dateFrom} onSelect={setDateFrom} placeholder="Pick start date" /></Field>
-              <Field label="To"><DatePicker value={dateTo} min={dateFrom} onSelect={setDateTo} placeholder="Pick end date" /></Field>
+            <div className="grid gap-3 rounded-xl border border-border/70 p-3 sm:grid-cols-2">
+              <Field label="From">
+                <DatePicker
+                  value={dateFrom}
+                  onSelect={setDateFrom}
+                  placeholder="Pick start date"
+                />
+              </Field>
+              <Field label="To">
+                <DatePicker
+                  value={dateTo}
+                  min={dateFrom}
+                  onSelect={setDateTo}
+                  placeholder="Pick end date"
+                />
+              </Field>
             </div>
           ) : null}
 
           {globalPresencesQuery.isPending ? (
-            <StatusCard title="Finding Available Buddies" description="Checking active Dive Presence across dive sites." />
+            <StatusCard
+              title="Finding Available Buddies"
+              description="Checking active Dive Presence across dive sites."
+            />
           ) : globalPresences.length > 0 ? (
-            <div className="grid gap-4 xl:grid-cols-2">
-              {globalPresences.map((item) => <PresenceCard key={item.id} item={item} />)}
+            <div className="divide-y divide-border/70 border-y border-border/70">
+              {globalPresences.map((item) => (
+                <PresenceCard key={item.id} item={item} />
+              ))}
             </div>
           ) : (
-            <CommunityEmptyState title="No available buddies found" description="Try another dive site or mark your own Dive Presence." />
+            <CommunityEmptyState
+              title="No available buddies found"
+              description="Try another dive site or mark your own Dive Presence."
+            />
           )}
         </TabsContent>
 
-        <TabsContent value="presence" className="space-y-5">
-          {!isSignedIn ? <SignInPrompt /> : (
+        <TabsContent value="presence" className="space-y-3">
+          {!isSignedIn ? (
+            <SignInPrompt />
+          ) : (
             <>
               <PresenceForm
-                title={presenceDraft.presenceId ? "Edit Dive Presence" : "Create Dive Presence"}
+                title={
+                  presenceDraft.presenceId
+                    ? "Edit Dive Presence"
+                    : "Create Dive Presence"
+                }
                 draft={presenceDraft}
                 setDraft={setPresenceDraft}
                 sites={sites}
@@ -369,11 +468,17 @@ function BuddiesPageContent() {
           )}
         </TabsContent>
 
-        <TabsContent value="sites" className="space-y-5">
-          {!isSignedIn ? <SignInPrompt /> : (
+        <TabsContent value="sites" className="space-y-3">
+          {!isSignedIn ? (
+            <SignInPrompt />
+          ) : (
             <>
               <AffinityForm
-                title={affinityDraft.affinityId ? "Edit My Dive Site" : "Add My Dive Site"}
+                title={
+                  affinityDraft.affinityId
+                    ? "Edit My Dive Site"
+                    : "Add My Dive Site"
+                }
                 draft={affinityDraft}
                 setDraft={setAffinityDraft}
                 sites={sites}
@@ -402,7 +507,14 @@ function BuddiesPageContent() {
   );
 }
 
-function PresenceForm({ title, draft, setDraft, sites, saving, onSubmit }: {
+function PresenceForm({
+  title,
+  draft,
+  setDraft,
+  sites,
+  saving,
+  onSubmit,
+}: {
   title: string;
   draft: PresenceDraft;
   setDraft: React.Dispatch<React.SetStateAction<PresenceDraft>>;
@@ -411,28 +523,103 @@ function PresenceForm({ title, draft, setDraft, sites, saving, onSubmit }: {
   onSubmit: () => void;
 }) {
   return (
-    <Card>
-      <CardContent className="space-y-4 p-4">
-        <h2 className="text-lg font-semibold">{title}</h2>
+    <Card className="py-0">
+      <CardContent className="space-y-3 p-3">
+        <h2 className="text-base font-semibold">{title}</h2>
         <div className="grid gap-3 md:grid-cols-3">
-          <Field label="Dive site"><SiteSelect sites={sites} value={draft.siteSlug} onValueChange={(value) => setDraft((current) => ({ ...current, siteSlug: value }))} /></Field>
-          <Field label="Presence type"><Select value={draft.presenceType} onValueChange={(value) => setDraft((current) => ({ ...current, presenceType: value as DivePresenceType }))} items={PRESENCE_TYPES}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>{PRESENCE_TYPES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
-          </Select></Field>
-          <Field label="Visibility"><VisibilitySelect value={draft.visibility} onValueChange={(value) => setDraft((current) => ({ ...current, visibility: value }))} /></Field>
+          <Field label="Dive site">
+            <SiteSelect
+              sites={sites}
+              value={draft.siteSlug}
+              onValueChange={(value) =>
+                setDraft((current) => ({ ...current, siteSlug: value }))
+              }
+            />
+          </Field>
+          <Field label="Presence type">
+            <Select
+              value={draft.presenceType}
+              onValueChange={(value) =>
+                setDraft((current) => ({
+                  ...current,
+                  presenceType: value as DivePresenceType,
+                }))
+              }
+              items={PRESENCE_TYPES}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRESENCE_TYPES.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Visibility">
+            <VisibilitySelect
+              value={draft.visibility}
+              onValueChange={(value) =>
+                setDraft((current) => ({ ...current, visibility: value }))
+              }
+            />
+          </Field>
         </div>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.flexible} onChange={(event) => setDraft((current) => ({ ...current, flexible: event.target.checked }))} /> Flexible availability</label>
-        {!draft.flexible ? <DateTimeRange draft={draft} setDraft={setDraft} /> : null}
-        <Textarea placeholder="Note" value={draft.note ?? ""} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} />
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.contactEnabled} onChange={(event) => setDraft((current) => ({ ...current, contactEnabled: event.target.checked }))} /> Allow contact</label>
-        <Button disabled={saving || !draft.siteSlug} onClick={onSubmit}>{saving ? "Saving..." : "Save Dive Presence"}</Button>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={draft.flexible}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                flexible: event.target.checked,
+              }))
+            }
+          />{" "}
+          Flexible availability
+        </label>
+        {!draft.flexible ? (
+          <DateTimeRange draft={draft} setDraft={setDraft} />
+        ) : null}
+        <Textarea
+          placeholder="Note"
+          value={draft.note ?? ""}
+          onChange={(event) =>
+            setDraft((current) => ({ ...current, note: event.target.value }))
+          }
+        />
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={draft.contactEnabled}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                contactEnabled: event.target.checked,
+              }))
+            }
+          />{" "}
+          Allow contact
+        </label>
+        <Button disabled={saving || !draft.siteSlug} onClick={onSubmit}>
+          {saving ? "Saving..." : "Save Dive Presence"}
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function AffinityForm({ title, draft, setDraft, sites, saving, onSubmit }: {
+function AffinityForm({
+  title,
+  draft,
+  setDraft,
+  sites,
+  saving,
+  onSubmit,
+}: {
   title: string;
   draft: AffinityDraft;
   setDraft: React.Dispatch<React.SetStateAction<AffinityDraft>>;
@@ -441,67 +628,179 @@ function AffinityForm({ title, draft, setDraft, sites, saving, onSubmit }: {
   onSubmit: () => void;
 }) {
   return (
-    <Card>
-      <CardContent className="space-y-4 p-4">
-        <h2 className="text-lg font-semibold">{title}</h2>
+    <Card className="py-0">
+      <CardContent className="space-y-3 p-3">
+        <h2 className="text-base font-semibold">{title}</h2>
         <div className="grid gap-3 md:grid-cols-3">
-          <Field label="Dive site"><SiteSelect sites={sites} value={draft.siteSlug} onValueChange={(value) => setDraft((current) => ({ ...current, siteSlug: value }))} /></Field>
-          <Field label="Relationship"><Select value={draft.relationship} onValueChange={(value) => setDraft((current) => ({ ...current, relationship: value as DiveSiteAffinityRelationship }))} items={RELATIONSHIPS}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>{RELATIONSHIPS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
-          </Select></Field>
-          <Field label="Visibility"><VisibilitySelect value={draft.visibility} onValueChange={(value) => setDraft((current) => ({ ...current, visibility: value }))} /></Field>
+          <Field label="Dive site">
+            <SiteSelect
+              sites={sites}
+              value={draft.siteSlug}
+              onValueChange={(value) =>
+                setDraft((current) => ({ ...current, siteSlug: value }))
+              }
+            />
+          </Field>
+          <Field label="Relationship">
+            <Select
+              value={draft.relationship}
+              onValueChange={(value) =>
+                setDraft((current) => ({
+                  ...current,
+                  relationship: value as DiveSiteAffinityRelationship,
+                }))
+              }
+              items={RELATIONSHIPS}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RELATIONSHIPS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Visibility">
+            <VisibilitySelect
+              value={draft.visibility}
+              onValueChange={(value) =>
+                setDraft((current) => ({ ...current, visibility: value }))
+              }
+            />
+          </Field>
         </div>
-        <Textarea placeholder="Note" value={draft.note ?? ""} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} />
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.contactEnabled} onChange={(event) => setDraft((current) => ({ ...current, contactEnabled: event.target.checked }))} /> Allow contact</label>
-        <Button disabled={saving || !draft.siteSlug} onClick={onSubmit}>{saving ? "Saving..." : "Save My Dive Site"}</Button>
+        <Textarea
+          placeholder="Note"
+          value={draft.note ?? ""}
+          onChange={(event) =>
+            setDraft((current) => ({ ...current, note: event.target.value }))
+          }
+        />
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={draft.contactEnabled}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                contactEnabled: event.target.checked,
+              }))
+            }
+          />{" "}
+          Allow contact
+        </label>
+        <Button disabled={saving || !draft.siteSlug} onClick={onSubmit}>
+          {saving ? "Saving..." : "Save My Dive Site"}
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function SiteSelect({ sites, value, onValueChange, includeAll = false }: {
+function SiteSelect({
+  sites,
+  value,
+  onValueChange,
+  includeAll = false,
+}: {
   sites: ExploreSiteCard[];
   value: string;
   onValueChange: (value: string) => void;
   includeAll?: boolean;
 }) {
   return (
-    <Select value={includeAll ? value : value || null} onValueChange={(next) => onValueChange(next ?? (includeAll ? "all" : ""))} items={[...(includeAll ? [{ value: "all", label: "All dive sites" }] : []), ...sites.map((site) => ({ value: site.slug, label: site.name }))]}>
-      <SelectTrigger className="w-full"><SelectValue placeholder="Select dive site" /></SelectTrigger>
+    <Select
+      value={includeAll ? value : value || null}
+      onValueChange={(next) => onValueChange(next ?? (includeAll ? "all" : ""))}
+      items={[
+        ...(includeAll ? [{ value: "all", label: "All dive sites" }] : []),
+        ...sites.map((site) => ({ value: site.slug, label: site.name })),
+      ]}
+    >
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Select dive site" />
+      </SelectTrigger>
       <SelectContent>
-        {includeAll ? <SelectItem value="all">All dive sites</SelectItem> : null}
-        {sites.map((site) => <SelectItem key={site.id} value={site.slug}>{site.name}</SelectItem>)}
+        {includeAll ? (
+          <SelectItem value="all">All dive sites</SelectItem>
+        ) : null}
+        {sites.map((site) => (
+          <SelectItem key={site.id} value={site.slug}>
+            {site.name}
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );
 }
 
-function VisibilitySelect({ value, onValueChange }: {
+function VisibilitySelect({
+  value,
+  onValueChange,
+}: {
   value: CreateDivePresenceRequest["visibility"];
   onValueChange: (value: CreateDivePresenceRequest["visibility"]) => void;
 }) {
   return (
-    <Select value={value} onValueChange={(next) => onValueChange(next as CreateDivePresenceRequest["visibility"])} items={VISIBILITY_ITEMS}>
-      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-      <SelectContent>{VISIBILITY_ITEMS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
+    <Select
+      value={value}
+      onValueChange={(next) =>
+        onValueChange(next as CreateDivePresenceRequest["visibility"])
+      }
+      items={VISIBILITY_ITEMS}
+    >
+      <SelectTrigger className="w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {VISIBILITY_ITEMS.map((item) => (
+          <SelectItem key={item.value} value={item.value}>
+            {item.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
     </Select>
   );
 }
 
-function DateTimeRange({ draft, setDraft }: {
+function DateTimeRange({
+  draft,
+  setDraft,
+}: {
   draft: PresenceDraft;
   setDraft: React.Dispatch<React.SetStateAction<PresenceDraft>>;
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      <DateTimeField label="Start" value={draft.startAt} onChange={(value) => setDraft((current) => ({ ...current, startAt: value }))} />
-      <DateTimeField label="End" value={draft.endAt} min={dateFromLocalValue(draft.startAt)} onChange={(value) => setDraft((current) => ({ ...current, endAt: value }))} />
+      <DateTimeField
+        label="Start"
+        value={draft.startAt}
+        onChange={(value) =>
+          setDraft((current) => ({ ...current, startAt: value }))
+        }
+      />
+      <DateTimeField
+        label="End"
+        value={draft.endAt}
+        min={dateFromLocalValue(draft.startAt)}
+        onChange={(value) =>
+          setDraft((current) => ({ ...current, endAt: value }))
+        }
+      />
     </div>
   );
 }
 
-function DateTimeField({ label, value, min, onChange }: {
+function DateTimeField({
+  label,
+  value,
+  min,
+  onChange,
+}: {
   label: string;
   value?: string;
   min?: Date;
@@ -512,92 +811,216 @@ function DateTimeField({ label, value, min, onChange }: {
   return (
     <Field label={label}>
       <div className="grid gap-2">
-        <DatePicker value={selectedDate} min={min} placeholder={`Pick ${label.toLowerCase()} date`} onSelect={(date) => onChange(date ? localValueFromDateTime(date, selectedTime) : "")} />
-        <Input type="time" value={selectedTime} onChange={(event) => onChange(selectedDate ? localValueFromDateTime(selectedDate, event.target.value) : "")} />
+        <DatePicker
+          value={selectedDate}
+          min={min}
+          placeholder={`Pick ${label.toLowerCase()} date`}
+          onSelect={(date) =>
+            onChange(date ? localValueFromDateTime(date, selectedTime) : "")
+          }
+        />
+        <Input
+          type="time"
+          value={selectedTime}
+          onChange={(event) =>
+            onChange(
+              selectedDate
+                ? localValueFromDateTime(selectedDate, event.target.value)
+                : "",
+            )
+          }
+        />
       </div>
     </Field>
   );
 }
 
 function PresenceCard({ item }: { item: DivePresenceItem }) {
-  const name = item.displayName || item.username || "Freediver";
+  const siteLabel = [item.diveSiteName, item.diveSiteArea]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <Card className="border-border/60 bg-background/80">
-      <CardContent className="space-y-3 p-4 text-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <UserAvatar src={item.avatarUrl} displayName={name} />
-            <div>
-              <p className="font-medium text-foreground">{name}</p>
-              <p className="text-xs text-muted-foreground">{item.diveSiteName ?? "Dive site"} · {item.diveSiteArea ?? "Philippines"}</p>
-            </div>
-          </div>
-          <Badge>{labelForPresenceType(item.presenceType)}</Badge>
-        </div>
-        <Badge variant="outline">{availabilityLabel(item)}</Badge>
-        {item.note ? <p className="text-muted-foreground">{item.note}</p> : null}
-        {item.contactAllowed ? <Button size="sm" variant="outline"><MessageCircle className="mr-2 h-4 w-4" />Contact</Button> : null}
-      </CardContent>
-    </Card>
+    <article className="space-y-2 py-3 text-sm">
+      <UserIdentityHeader
+        displayName={item.displayName || item.username || "Freediver"}
+        username={item.username}
+        avatarUrl={item.avatarUrl}
+        usernameFallback="Diver"
+      />
+      <p className="text-xs text-muted-foreground">
+        {siteLabel || "Dive site · Philippines"}
+      </p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge className="h-5 px-2 text-[11px]">
+          {labelForPresenceType(item.presenceType)}
+        </Badge>
+        <Badge variant="outline" className="h-5 px-2 text-[11px]">
+          {availabilityLabel(item)}
+        </Badge>
+      </div>
+      {item.note ? (
+        <p className="text-xs leading-5 text-muted-foreground">{item.note}</p>
+      ) : null}
+      {item.contactAllowed ? (
+        <Button size="xs" variant="outline">
+          <MessageCircle className="mr-1 h-3 w-3" />
+          Contact
+        </Button>
+      ) : null}
+    </article>
   );
 }
 
-function PresenceManagementCard({ item, onEdit, onCancel, cancelling }: {
+function PresenceManagementCard({
+  item,
+  onEdit,
+  onCancel,
+  cancelling,
+}: {
   item: DivePresenceItem;
   onEdit: () => void;
   onCancel: () => void;
   cancelling: boolean;
 }) {
   return (
-    <Card><CardContent className="flex flex-wrap items-start justify-between gap-3 p-4">
-      <div className="space-y-2 text-sm">
-        <div className="flex flex-wrap gap-2"><Badge>{labelForPresenceType(item.presenceType)}</Badge><Badge variant="outline">{item.status}</Badge></div>
-        <p className="font-medium">{item.diveSiteName}</p>
-        <p className="text-muted-foreground">{availabilityLabel(item)}</p>
-        {item.note ? <p className="text-muted-foreground">{item.note}</p> : null}
-      </div>
-      <div className="flex gap-2"><Button size="sm" variant="outline" onClick={onEdit}>Edit</Button><Button size="sm" variant="destructive" disabled={cancelling || !item.diveSiteSlug} onClick={onCancel}><Trash2 className="mr-2 h-4 w-4" />Cancel</Button></div>
-    </CardContent></Card>
+    <Card className="py-0">
+      <CardContent className="flex flex-wrap items-start justify-between gap-3 p-3">
+        <div className="space-y-2 text-sm">
+          <div className="flex flex-wrap gap-2">
+            <Badge>{labelForPresenceType(item.presenceType)}</Badge>
+            <Badge variant="outline">{item.status}</Badge>
+          </div>
+          <p className="font-medium">{item.diveSiteName}</p>
+          <p className="text-muted-foreground">{availabilityLabel(item)}</p>
+          {item.note ? (
+            <p className="text-muted-foreground">{item.note}</p>
+          ) : null}
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={cancelling || !item.diveSiteSlug}
+            onClick={onCancel}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function AffinityManagementCard({ item, onEdit, onDelete, deleting }: {
+function AffinityManagementCard({
+  item,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
   item: DiveSiteAffinityItem;
   onEdit: () => void;
   onDelete: () => void;
   deleting: boolean;
 }) {
   return (
-    <Card><CardContent className="flex flex-wrap items-start justify-between gap-3 p-4">
-      <div className="space-y-2 text-sm">
-        <div className="flex flex-wrap gap-2"><Badge>{titleCase(item.relationship)}</Badge><Badge variant="outline">{item.visibility}</Badge></div>
-        <p className="font-medium">{item.diveSiteName}</p>
-        {item.note ? <p className="text-muted-foreground">{item.note}</p> : null}
-      </div>
-      <div className="flex gap-2"><Button size="sm" variant="outline" onClick={onEdit}>Edit</Button><Button size="sm" variant="destructive" disabled={deleting || !item.diveSiteSlug} onClick={onDelete}><Trash2 className="mr-2 h-4 w-4" />Remove</Button></div>
-    </CardContent></Card>
+    <Card className="py-0">
+      <CardContent className="flex flex-wrap items-start justify-between gap-3 p-3">
+        <div className="space-y-2 text-sm">
+          <div className="flex flex-wrap gap-2">
+            <Badge>{titleCase(item.relationship)}</Badge>
+            <Badge variant="outline">{item.visibility}</Badge>
+          </div>
+          <p className="font-medium">{item.diveSiteName}</p>
+          {item.note ? (
+            <p className="text-muted-foreground">{item.note}</p>
+          ) : null}
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={deleting || !item.diveSiteSlug}
+            onClick={onDelete}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Remove
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function ManagementList({ children, emptyTitle, emptyDescription }: {
+function ManagementList({
+  children,
+  emptyTitle,
+  emptyDescription,
+}: {
   children: React.ReactNode;
   emptyTitle: string;
   emptyDescription: string;
 }) {
   const items = Array.isArray(children) ? children.filter(Boolean) : children;
-  return <div className="space-y-3">{Array.isArray(items) && items.length === 0 ? <CommunityEmptyState title={emptyTitle} description={emptyDescription} /> : children}</div>;
+  return (
+    <div className="space-y-3">
+      {Array.isArray(items) && items.length === 0 ? (
+        <CommunityEmptyState
+          title={emptyTitle}
+          description={emptyDescription}
+        />
+      ) : (
+        children
+      )}
+    </div>
+  );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-2"><Label>{label}</Label>{children}</div>;
+function Field({
+  label,
+  children,
+}: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      {children}
+    </div>
+  );
 }
 
-function StatusCard({ title, description }: { title: string; description: string }) {
-  return <Card className="border-dashed"><CardContent className="p-4"><p className="font-medium">{title}</p><p className="text-sm text-muted-foreground">{description}</p></CardContent></Card>;
+function StatusCard({
+  title,
+  description,
+}: { title: string; description: string }) {
+  return (
+    <Card className="border-dashed py-0">
+      <CardContent className="p-3">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function SignInPrompt() {
-  return <CommunityEmptyState title="Sign in required" description="Sign in to manage your Dive Presence and dive-site relationships." action={<SignInButton mode="modal"><Button>Sign in</Button></SignInButton>} />;
+  return (
+    <CommunityEmptyState
+      title="Sign in required"
+      description="Sign in to manage your Dive Presence and dive-site relationships."
+      action={
+        <SignInButton mode="modal">
+          <Button size="sm">Sign in</Button>
+        </SignInButton>
+      }
+    />
+  );
 }
 
 function presencePayload(draft: PresenceDraft): CreateDivePresenceRequest {
@@ -646,7 +1069,11 @@ function draftFromAffinity(item: DiveSiteAffinityItem): AffinityDraft {
   };
 }
 
-function dateRangeForFilter(filter: DateFilter, customFrom?: Date, customTo?: Date) {
+function dateRangeForFilter(
+  filter: DateFilter,
+  customFrom?: Date,
+  customTo?: Date,
+) {
   const now = new Date();
   if (filter === "today") {
     const start = new Date(now);
@@ -666,7 +1093,10 @@ function dateRangeForFilter(filter: DateFilter, customFrom?: Date, customTo?: Da
     return { dateFrom: start.toISOString(), dateTo: end.toISOString() };
   }
   if (filter === "custom") {
-    return { dateFrom: customFrom?.toISOString(), dateTo: customTo?.toISOString() };
+    return {
+      dateFrom: customFrom?.toISOString(),
+      dateTo: customTo?.toISOString(),
+    };
   }
   return {};
 }
@@ -706,7 +1136,8 @@ function localValueFromDateTime(date?: Date, time = "08:00") {
 
 function availabilityLabel(item: DivePresenceItem) {
   if (!item.startAt && !item.endAt) return "Flexible";
-  if (item.startAt && item.endAt) return `${new Date(item.startAt).toLocaleString()} - ${new Date(item.endAt).toLocaleString()}`;
+  if (item.startAt && item.endAt)
+    return `${new Date(item.startAt).toLocaleString()} - ${new Date(item.endAt).toLocaleString()}`;
   if (item.startAt) return `From ${new Date(item.startAt).toLocaleString()}`;
   return `Until ${new Date(item.endAt ?? "").toLocaleString()}`;
 }
@@ -716,7 +1147,12 @@ function labelForPresenceType(value: string) {
 }
 
 function titleCase(value: string) {
-  return value.replace(/_/g, " ").split(" ").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+  return value
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function tabFromParam(value: string | null): BuddiesTab {

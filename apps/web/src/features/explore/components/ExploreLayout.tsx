@@ -30,6 +30,10 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { MapProvider } from "@/providers/map-provider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useSession } from "@/features/auth/session";
+import {
+  buildDiveSiteSavePatch,
+  updateDiveSiteInCaches,
+} from "@/features/explore/lib/cache-updaters";
 
 import { exploreApi } from "../api/exploreApi";
 import { exploreApi as exploreWriteApi } from "@/features/diveSpots/api/explore-v1";
@@ -155,48 +159,38 @@ export function ExploreLayout() {
       return { siteId, isSaved: true };
     },
     onMutate: async ({ siteId, isSaved }) => {
-      const previous = queryClient.getQueriesData({
+      const previousExploreLists = queryClient.getQueriesData({
         queryKey: queryKeys.explore.lists(),
       });
-      queryClient.setQueriesData(
-        { queryKey: queryKeys.explore.lists() },
-        (current: any) => {
-          if (!current?.pages) return current;
-          return {
-            ...current,
-            pages: current.pages.map((page: any) => ({
-              ...page,
-              items: (page.items ?? []).map((item: any) =>
-                item.id === siteId ? { ...item, isSaved: !isSaved } : item,
-              ),
-            })),
-          };
-        },
+      const previousExploreSites = queryClient.getQueriesData({
+        queryKey: queryKeys.explore.sites(),
+      });
+      const previousHomeFeed = queryClient.getQueriesData({
+        queryKey: queryKeys.feed.all,
+      });
+      updateDiveSiteInCaches(
+        queryClient,
+        siteId,
+        buildDiveSiteSavePatch({ isSaved }),
       );
-      return { previous };
+      return { previousExploreLists, previousExploreSites, previousHomeFeed };
     },
     onSuccess: (result) => {
-      queryClient.setQueriesData(
-        { queryKey: queryKeys.explore.lists() },
-        (current: any) => {
-          if (!current?.pages) return current;
-          return {
-            ...current,
-            pages: current.pages.map((page: any) => ({
-              ...page,
-              items: (page.items ?? []).map((item: any) =>
-                item.id === result.siteId
-                  ? { ...item, isSaved: result.isSaved }
-                  : item,
-              ),
-            })),
-          };
-        },
-      );
-      void queryClient.invalidateQueries({ queryKey: queryKeys.profile.saved() });
+      updateDiveSiteInCaches(queryClient, result.siteId, {
+        isSaved: result.isSaved,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.profile.saved(),
+      });
     },
     onError: (_error, _variables, context) => {
-      for (const [queryKey, data] of context?.previous ?? []) {
+      for (const [queryKey, data] of context?.previousExploreLists ?? []) {
+        queryClient.setQueryData(queryKey, data);
+      }
+      for (const [queryKey, data] of context?.previousExploreSites ?? []) {
+        queryClient.setQueryData(queryKey, data);
+      }
+      for (const [queryKey, data] of context?.previousHomeFeed ?? []) {
         queryClient.setQueryData(queryKey, data);
       }
     },
@@ -430,9 +424,9 @@ export function ExploreLayout() {
             />
           </MapProvider>
           {!savedOnlyRequiresSignIn &&
-            !savedOnlyWaitingForSession &&
-            !exploreQuery.isPending &&
-            sortedItems.length === 0 ? (
+          !savedOnlyWaitingForSession &&
+          !exploreQuery.isPending &&
+          sortedItems.length === 0 ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center px-6">
               <Card className="pointer-events-auto max-w-md border-border/80 bg-card/95 p-4 text-sm shadow-xl">
                 <p className="font-medium text-foreground">
@@ -568,10 +562,10 @@ export function ExploreLayout() {
               />
             </MapProvider>
             {!exploreQuery.isPending &&
-              !savedOnlyRequiresSignIn &&
-              !savedOnlyWaitingForSession &&
-              sortedItems.length === 0 &&
-              !selectedSpot ? (
+            !savedOnlyRequiresSignIn &&
+            !savedOnlyWaitingForSession &&
+            sortedItems.length === 0 &&
+            !selectedSpot ? (
               <div className="pointer-events-none absolute inset-x-0 bottom-34 z-20 px-4">
                 <Card className="pointer-events-auto border-border/80 bg-card/95 p-4 text-sm shadow-xl">
                   <p className="font-medium text-foreground">

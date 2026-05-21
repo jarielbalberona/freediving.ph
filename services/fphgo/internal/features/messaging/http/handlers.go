@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -256,20 +257,46 @@ func (h *Handlers) MarkRead(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) requireLocalActorID(r *http.Request) (string, error) {
+	start := time.Now()
+	if identity, ok := middleware.CurrentIdentity(r.Context()); ok && identity.UserID != "" {
+		logMessagingActorResolution("identity", start, nil)
+		return identity.UserID, nil
+	}
+
 	clerkUserID, ok := middleware.CurrentAuth(r.Context())
 	if ok && clerkUserID != "" && h.userResolver != nil {
 		user, err := h.userResolver.EnsureLocalUserForClerk(r.Context(), clerkUserID)
 		if err != nil {
+			logMessagingActorResolution("clerk_bootstrap", start, err)
 			return "", err
 		}
+		logMessagingActorResolution("clerk_bootstrap", start, nil)
 		return user.ID, nil
 	}
 
-	if identity, ok := middleware.CurrentIdentity(r.Context()); ok && identity.UserID != "" {
-		return identity.UserID, nil
-	}
-
+	logMessagingActorResolution("missing", start, nil)
 	return "", apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
+}
+
+func logMessagingActorResolution(source string, start time.Time, err error) {
+	attrs := []any{
+		slog.String("source", source),
+		slog.Duration("duration", time.Since(start)),
+	}
+	if err != nil {
+		attrs = append(attrs, slog.Bool("error", true))
+	}
+	slog.Default().Debug("messaging_perf.actor_resolution", attrs...)
+}
+
+func logMessagingHandler(r *http.Request, operation string, start time.Time) {
+	slog.Default().Debug("messaging_perf.handler",
+		slog.String("operation", operation),
+		slog.String("request_id", middleware.RequestIDFromContext(r.Context())),
+		slog.String("method", r.Method),
+		slog.String("path", r.URL.Path),
+		slog.Duration("duration", time.Since(start)),
+	)
 }
 
 func mapMessage(input messagingrepo.Message) MessageItem {
@@ -326,6 +353,7 @@ func idempotencyKeyFromHeader(r *http.Request) *string {
 }
 
 func (h *Handlers) OpenDirectThread(w http.ResponseWriter, r *http.Request) {
+	defer logMessagingHandler(r, "open_direct_thread", time.Now())
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
@@ -348,6 +376,7 @@ func (h *Handlers) OpenDirectThread(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListThreads(w http.ResponseWriter, r *http.Request) {
+	defer logMessagingHandler(r, "list_threads", time.Now())
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
@@ -402,6 +431,7 @@ func (h *Handlers) ListThreads(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetThread(w http.ResponseWriter, r *http.Request) {
+	defer logMessagingHandler(r, "get_thread", time.Now())
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
@@ -454,6 +484,7 @@ func (h *Handlers) resolveThreadRequest(w http.ResponseWriter, r *http.Request, 
 }
 
 func (h *Handlers) ListThreadMessages(w http.ResponseWriter, r *http.Request) {
+	defer logMessagingHandler(r, "list_thread_messages", time.Now())
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
@@ -491,6 +522,7 @@ func (h *Handlers) ListThreadMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) SendThreadMessage(w http.ResponseWriter, r *http.Request) {
+	defer logMessagingHandler(r, "send_thread_message", time.Now())
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
@@ -525,6 +557,7 @@ func (h *Handlers) SendThreadMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) MarkThreadRead(w http.ResponseWriter, r *http.Request) {
+	defer logMessagingHandler(r, "mark_thread_read", time.Now())
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)

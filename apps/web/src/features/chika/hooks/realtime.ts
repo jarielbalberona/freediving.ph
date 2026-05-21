@@ -4,11 +4,11 @@ import { toast } from "sonner";
 
 import { getFphgoBaseUrlClient } from "@/lib/api/fphgo-base-url";
 import { getAuthToken } from "@/lib/api/fphgo-fetch-client";
+import { queryKeys } from "@/lib/query/query-keys";
 import {
   updateChikaCommentInCache,
   updateChikaThreadInCaches,
 } from "@/features/chika/lib/cache-updaters";
-import { queryKeys } from "@/lib/query/query-keys";
 
 const DEDUP_SET_SIZE = 300;
 const INITIAL_RECONNECT_DELAY_MS = 500;
@@ -181,16 +181,24 @@ export const useChikaRealtime = (params: {
             ) {
               toast.info("New chika reply");
             }
-            queryClient.invalidateQueries({ queryKey: ["notification-stats"] });
-            queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.notifications.stats(),
+            });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.notifications.lists(),
+            });
           }
 
           if (parsed.type === "chika.thread.created") {
             if (authorUserId && authorUserId !== params.currentUserId) {
               toast.info("New Chika posted");
             }
-            queryClient.invalidateQueries({ queryKey: ["notification-stats"] });
-            queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.notifications.stats(),
+            });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.notifications.lists(),
+            });
           }
 
           if (threadId) {

@@ -22,6 +22,10 @@ const exploreLayoutPath = path.join(
   appRoot,
   "src/features/explore/components/ExploreLayout.tsx",
 );
+const exploreCacheUpdatersPath = path.join(
+  appRoot,
+  "src/features/explore/lib/cache-updaters.ts",
+);
 
 test("live explore URL state uses current shareable filters", async () => {
   const source = await readFile(queryStatePath, "utf8");
@@ -62,13 +66,18 @@ test("results panel has honest search, filter, count, empty, and error copy", as
 
 test("saved-only flow is server-backed, auth-aware, and cache-safe", async () => {
   const source = await readFile(exploreLayoutPath, "utf8");
+  const cacheUpdaterSource = await readFile(exploreCacheUpdatersPath, "utf8");
 
   assert.match(source, /savedOnlyRequiresSignIn/);
   assert.match(source, /enabled: canQueryExplore/);
   assert.match(source, /savedOnly: state\.savedOnly/);
   assert.match(source, /savedOnly: state\.savedOnly \|\| undefined/);
   assert.match(source, /queryKeys\.explore\.lists\(\)/);
-  assert.match(source, /setQueriesData/);
+  assert.match(source, /updateDiveSiteInCaches/);
+  assert.match(cacheUpdaterSource, /setQueriesData/);
+  assert.match(cacheUpdaterSource, /queryKeys\.explore\.lists\(\)/);
+  assert.match(cacheUpdaterSource, /queryKeys\.explore\.sites\(\)/);
+  assert.match(cacheUpdaterSource, /queryKeys\.feed\.all/);
 });
 
 test("dive spot cards expose only real list-card facts and non-claiming buddy CTA", async () => {

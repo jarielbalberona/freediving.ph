@@ -56,7 +56,6 @@ export function DeleteSiteButton({ siteId, siteName }: DeleteSiteButtonProps) {
       });
       toast.success("Dive site deleted.");
       router.push("/explore");
-      router.refresh();
     },
     onError: (error) => {
       toast.error(getApiErrorMessage(error, "Failed to delete dive site"));

@@ -1,11 +1,21 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type {
+  ActivityFeedResponse,
+  HomeFeedResponse,
+  HomeFeedItem,
+  ActivityFeedItem,
+} from "@freediving.ph/types";
+import type {
   ChikaCommentView,
   ChikaThreadView,
   CommentReactionType,
   ThreadReactionType,
 } from "@/features/chika/api/threads";
-import { voteDelta } from "@/features/chika/lib/vote-state";
+import {
+  applyVoteTransition,
+  type ChikaVoteState,
+  voteDelta,
+} from "@/features/chika/lib/vote-state";
 import { queryKeys } from "@/lib/query/query-keys";
 
 type ChikaPatch = {
@@ -62,6 +72,17 @@ const countWithDelta = (value: unknown, delta: number) =>
   typeof value === "number" && Number.isFinite(value)
     ? Math.max(0, value + delta)
     : undefined;
+
+export function buildChikaThreadVotePatch(
+  current: ChikaVoteState,
+  clicked: ThreadReactionType,
+): Required<Pick<ChikaPatch, "voteCount" | "userReaction">> {
+  const next = applyVoteTransition(current, clicked);
+  return {
+    voteCount: next.voteScore,
+    userReaction: next.viewerVote,
+  };
+}
 
 type ChikaCommentPatch = {
   voteCount?: number;
@@ -136,47 +157,75 @@ export function updateChikaThreadInCaches(
   queryClient.setQueriesData(
     { queryKey: queryKeys.chika.threads() },
     (current: unknown) => {
-      if (Array.isArray(current)) {
-        return current.map((thread) =>
-          thread?.id === threadId ? patchThread(thread, patch) : thread,
-        );
-      }
-      const detail = current as ChikaThreadView | undefined;
-      if (detail?.id === threadId) return patchThread(detail, patch);
-      return current;
+      return patchChikaThreadCache(current, threadId, patch);
     },
   );
 
   queryClient.setQueriesData(
     { queryKey: queryKeys.feed.all },
-    (current: any) => {
-      if (!current?.items) return current;
-      return {
-        ...current,
-        items: current.items.map((item: any) =>
-          item.type === "community_hot_post" && item.entityId === threadId
-            ? { ...item, payload: patchFeedPayload(item.payload, patch) }
-            : item,
-        ),
-      };
-    },
+    (current: HomeFeedResponse | undefined) =>
+      patchChikaHomeFeedCache(current, threadId, patch),
   );
 
   queryClient.setQueriesData(
     { queryKey: queryKeys.feed.activityAll },
-    (current: any) => {
-      if (!current?.items) return current;
-      return {
-        ...current,
-        items: current.items.map((item: any) =>
-          item.type === "chika_thread_created" &&
-          (item.target?.id === threadId || item.sourceId === threadId)
-            ? { ...item, stats: patchActivityStats(item.stats, patch) }
-            : item,
-        ),
-      };
-    },
+    (current: ActivityFeedResponse | undefined) =>
+      patchChikaActivityFeedCache(current, threadId, patch),
   );
+}
+
+export function patchChikaThreadCache(
+  current: unknown,
+  threadId: string,
+  patch: ChikaPatch,
+) {
+  if (Array.isArray(current)) {
+    return current.map((thread: ChikaThreadView) =>
+      thread?.id === threadId ? patchThread(thread, patch) : thread,
+    );
+  }
+  const detail = current as ChikaThreadView | undefined;
+  if (detail?.id === threadId) return patchThread(detail, patch);
+  return current;
+}
+
+export function patchChikaHomeFeedCache(
+  current: HomeFeedResponse | undefined,
+  threadId: string,
+  patch: ChikaPatch,
+) {
+  if (!current?.items) return current;
+  return {
+    ...current,
+    items: current.items.map((item) =>
+      item.type === "community_hot_post" && item.entityId === threadId
+        ? ({
+            ...item,
+            payload: patchFeedPayload(item.payload, patch),
+          } satisfies HomeFeedItem)
+        : item,
+    ),
+  };
+}
+
+export function patchChikaActivityFeedCache(
+  current: ActivityFeedResponse | undefined,
+  threadId: string,
+  patch: ChikaPatch,
+) {
+  if (!current?.items) return current;
+  return {
+    ...current,
+    items: current.items.map((item) =>
+      item.type === "chika_thread_created" &&
+      (item.target?.id === threadId || item.sourceId === threadId)
+        ? ({
+            ...item,
+            stats: patchActivityStats(item.stats, patch),
+          } satisfies ActivityFeedItem)
+        : item,
+    ),
+  };
 }
 
 export function updateChikaThreadCommentCountDelta(
@@ -208,11 +257,11 @@ export function updateChikaThreadCommentCountDelta(
 
   queryClient.setQueriesData(
     { queryKey: queryKeys.feed.all },
-    (current: any) => {
+    (current: HomeFeedResponse | undefined) => {
       if (!current?.items) return current;
       return {
         ...current,
-        items: current.items.map((item: any) => {
+        items: current.items.map((item) => {
           if (
             item.type !== "community_hot_post" ||
             item.entityId !== threadId
@@ -235,11 +284,11 @@ export function updateChikaThreadCommentCountDelta(
 
   queryClient.setQueriesData(
     { queryKey: queryKeys.feed.activityAll },
-    (current: any) => {
+    (current: ActivityFeedResponse | undefined) => {
       if (!current?.items) return current;
       return {
         ...current,
-        items: current.items.map((item: any) => {
+        items: current.items.map((item) => {
           if (
             item.type !== "chika_thread_created" ||
             (item.target?.id !== threadId && item.sourceId !== threadId)

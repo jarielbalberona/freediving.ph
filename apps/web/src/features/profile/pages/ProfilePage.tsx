@@ -1,15 +1,22 @@
 "use client";
 
+import { useRef } from "react";
 import { AlertCircle } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import { useSession } from "@/features/auth/session";
+import { messagesApi } from "@/features/messages/api/messages";
+import { messageQueryKeys } from "@/features/messages/hooks/queries";
+import {
+  currentMessagePerfTime,
+  logMessagingPerf,
+  markThreadOpenStart,
+} from "@/features/messages/lib/perf";
 import { useProfileMediaInfiniteQuery } from "@/features/media/hooks";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
-import { messagesApi } from "@/features/messages/api/messages";
 import { ProfileBucketList } from "@/features/profile/components/ProfileBucketList";
 import { ProfileSkeleton } from "@/features/profile/components/ProfileSkeleton";
 import { ProfileTabs } from "@/features/profile/components/ProfileTabs";
@@ -31,8 +38,10 @@ type ProfilePageProps = {
 
 export default function ProfilePage({ username }: ProfilePageProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const session = useSession();
   const { user } = useUser();
+  const messageClickStartRef = useRef<number | null>(null);
   const normalizedUsername = normalizeUsername(username);
   const profileQuery = usePublicProfileQuery(normalizedUsername);
   const mediaQuery = useProfileMediaInfiniteQuery(normalizedUsername);
@@ -49,10 +58,30 @@ export default function ProfilePage({ username }: ProfilePageProps) {
     normalizeUsername(viewerUsername) === normalizedUsername;
   const openThreadMutation = useMutation({
     mutationFn: async ({ profileUserId }: { profileUserId: string }) => {
-      return messagesApi.openDirectThread({ targetUserId: profileUserId });
+      const startedAt = currentMessagePerfTime();
+      logMessagingPerf("profile_direct_thread_start");
+      try {
+        return await messagesApi.openDirectThread({
+          targetUserId: profileUserId,
+        });
+      } finally {
+        logMessagingPerf("profile_direct_thread_end", {
+          durationMs: Math.round(currentMessagePerfTime() - startedAt),
+        });
+      }
     },
     onSuccess: (thread) => {
+      queryClient.setQueryData(messageQueryKeys.thread(thread.id), thread);
+      queryClient.invalidateQueries({ queryKey: messageQueryKeys.threads() });
+      markThreadOpenStart(
+        thread.id,
+        "profile",
+        messageClickStartRef.current ?? currentMessagePerfTime(),
+      );
       router.push(`/messages/${thread.id}`);
+    },
+    onSettled: () => {
+      messageClickStartRef.current = null;
     },
   });
   const isFollowPending =
@@ -113,11 +142,15 @@ export default function ProfilePage({ username }: ProfilePageProps) {
             saveUserMutation.mutate(profileQuery.data.id);
           }}
           isFollowPending={isFollowPending}
-          onMessageClick={() =>
+          onMessageClick={() => {
+            messageClickStartRef.current = currentMessagePerfTime();
+            logMessagingPerf("profile_message_click", {
+              targetKnown: Boolean(profileQuery.data.id),
+            });
             openThreadMutation.mutate({
               profileUserId: profileQuery.data.id,
-            })
-          }
+            });
+          }}
           isMessagePending={openThreadMutation.isPending}
         />
         <ProfileBucketList items={bucketListQuery.data ?? []} />

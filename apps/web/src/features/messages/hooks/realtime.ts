@@ -10,6 +10,8 @@ import { toast } from "sonner";
 
 import { getFphgoBaseUrlClient } from "@/lib/api/fphgo-base-url";
 import { getAuthToken } from "@/lib/api/fphgo-fetch-client";
+import { queryKeys } from "@/lib/query/query-keys";
+import { currentMessagePerfTime, logMessagingPerf } from "../lib/perf";
 import { messageQueryKeys } from "./queries";
 
 const DEDUP_SET_SIZE = 300;
@@ -39,9 +41,27 @@ export const useMessagesRealtime = (params: {
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef<number>(0);
   const stoppedRef = useRef<boolean>(false);
-  const [networkOnline, setNetworkOnline] = useState<boolean>(typeof navigator === "undefined" ? true : navigator.onLine);
-  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("disconnected");
-  const [peerReadMessageByThread, setPeerReadMessageByThread] = useState<Record<string, string>>({});
+  const activeThreadIdRef = useRef<string | null>(
+    params.activeThreadId ?? null,
+  );
+  const currentUserIdRef = useRef<string | undefined>(params.currentUserId);
+  const [networkOnline, setNetworkOnline] = useState<boolean>(
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
+  const [connectionStatus, setConnectionStatus] = useState<
+    "connecting" | "connected" | "reconnecting" | "disconnected"
+  >("disconnected");
+  const [peerReadMessageByThread, setPeerReadMessageByThread] = useState<
+    Record<string, string>
+  >({});
+
+  useEffect(() => {
+    activeThreadIdRef.current = params.activeThreadId ?? null;
+  }, [params.activeThreadId]);
+
+  useEffect(() => {
+    currentUserIdRef.current = params.currentUserId;
+  }, [params.currentUserId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -62,7 +82,10 @@ export const useMessagesRealtime = (params: {
       clearReconnectTimer();
       setConnectionStatus("reconnecting");
       const attempts = reconnectAttemptsRef.current;
-      const backoff = Math.min(INITIAL_RECONNECT_DELAY_MS * 2 ** attempts, MAX_RECONNECT_DELAY_MS);
+      const backoff = Math.min(
+        INITIAL_RECONNECT_DELAY_MS * 2 ** attempts,
+        MAX_RECONNECT_DELAY_MS,
+      );
       const jitter = Math.floor(Math.random() * 300);
       reconnectTimerRef.current = window.setTimeout(() => {
         connect();
@@ -72,18 +95,37 @@ export const useMessagesRealtime = (params: {
 
     const connect = async () => {
       if (stoppedRef.current) return;
+      if (
+        socketRef.current &&
+        (socketRef.current.readyState === WebSocket.OPEN ||
+          socketRef.current.readyState === WebSocket.CONNECTING)
+      ) {
+        return;
+      }
       clearReconnectTimer();
+      const connectStartedAt = currentMessagePerfTime();
+      logMessagingPerf("socket_connect_start");
       try {
-        const socket = new WebSocket(await toWSUrl(getFphgoBaseUrlClient()));
+        const wsUrl = await toWSUrl(getFphgoBaseUrlClient());
+        logMessagingPerf("socket_auth_token_ready", {
+          durationMs: Math.round(currentMessagePerfTime() - connectStartedAt),
+        });
+        if (stoppedRef.current) return;
+        const socket = new WebSocket(wsUrl);
         socketRef.current = socket;
 
         socket.onopen = () => {
           reconnectAttemptsRef.current = 0;
           setConnectionStatus("connected");
+          logMessagingPerf("socket_open", {
+            durationMs: Math.round(currentMessagePerfTime() - connectStartedAt),
+          });
         };
 
         socket.onmessage = (event) => {
-          let parsed: MessagingRealtimeEnvelope<Record<string, unknown>> | null = null;
+          let parsed: MessagingRealtimeEnvelope<
+            Record<string, unknown>
+          > | null = null;
           try {
             parsed = JSON.parse(event.data);
           } catch {
@@ -112,85 +154,149 @@ export const useMessagesRealtime = (params: {
               id: String(payload.id ?? ""),
               threadId,
               senderUserId: String(payload.senderUserId ?? ""),
-              kind: String(payload.kind ?? "text") as MessagingThreadMessage["kind"],
+              kind: String(
+                payload.kind ?? "text",
+              ) as MessagingThreadMessage["kind"],
               body: String(payload.body ?? ""),
               createdAt: String(payload.createdAt ?? new Date().toISOString()),
-              clientId: typeof payload.clientId === "string" ? payload.clientId : undefined,
-              isOwn: params.currentUserId ? String(payload.senderUserId ?? "") === params.currentUserId : false,
+              clientId:
+                typeof payload.clientId === "string"
+                  ? payload.clientId
+                  : undefined,
+              isOwn: currentUserIdRef.current
+                ? String(payload.senderUserId ?? "") ===
+                  currentUserIdRef.current
+                : false,
               status: "sent",
             };
 
-            queryClient.setQueryData(messageQueryKeys.threadMessages(threadId), (current: { pages: MessagingThreadMessagesResponse[]; pageParams: string[] } | undefined) => {
-              if (!current) return current;
-              const [firstPage, ...rest] = current.pages;
-              if (!firstPage) return current;
-              const exists = firstPage.items.some((item) => item.id === message.id || (message.clientId && item.clientId === message.clientId));
-              if (exists) return current;
-              return {
-                ...current,
-                pages: [{ ...firstPage, items: [...firstPage.items, message] }, ...rest],
-              };
-            });
+            queryClient.setQueryData(
+              messageQueryKeys.threadMessages(threadId),
+              (
+                current:
+                  | {
+                      pages: MessagingThreadMessagesResponse[];
+                      pageParams: string[];
+                    }
+                  | undefined,
+              ) => {
+                if (!current) return current;
+                const [firstPage, ...rest] = current.pages;
+                if (!firstPage) return current;
+                const exists = firstPage.items.some(
+                  (item) =>
+                    item.id === message.id ||
+                    (message.clientId && item.clientId === message.clientId),
+                );
+                if (exists) return current;
+                return {
+                  ...current,
+                  pages: [
+                    { ...firstPage, items: [...firstPage.items, message] },
+                    ...rest,
+                  ],
+                };
+              },
+            );
 
             let foundThread = false;
-            queryClient.setQueriesData({ queryKey: ["messages", "threads"] }, (current: { pages: { items: MessagingThreadSummary[] }[] } | undefined) => {
-              if (!current) return current;
-              const pages = current.pages.map((page) => ({
-                ...page,
-                items: page.items.map((item) => {
-                  if (item.id !== threadId) return item;
-                  foundThread = true;
-                  const incoming = params.currentUserId && message.senderUserId !== params.currentUserId;
-                  const active = params.activeThreadId === threadId;
-                  return {
-                    ...item,
-                    lastMessage: message,
-                    lastMessageAt: message.createdAt,
-                    unreadCount: incoming && !active ? item.unreadCount + 1 : item.unreadCount,
-                    hasUnread: incoming && !active ? true : item.hasUnread,
-                  };
-                }),
-              }));
-              return { ...current, pages };
-            });
+            queryClient.setQueriesData(
+              { queryKey: messageQueryKeys.threads() },
+              (
+                current:
+                  | { pages: { items: MessagingThreadSummary[] }[] }
+                  | undefined,
+              ) => {
+                if (!current) return current;
+                const pages = current.pages.map((page) => ({
+                  ...page,
+                  items: page.items.map((item) => {
+                    if (item.id !== threadId) return item;
+                    foundThread = true;
+                    const incoming =
+                      currentUserIdRef.current &&
+                      message.senderUserId !== currentUserIdRef.current;
+                    const active = activeThreadIdRef.current === threadId;
+                    return {
+                      ...item,
+                      lastMessage: message,
+                      lastMessageAt: message.createdAt,
+                      unreadCount:
+                        incoming && !active
+                          ? item.unreadCount + 1
+                          : item.unreadCount,
+                      hasUnread: incoming && !active ? true : item.hasUnread,
+                    };
+                  }),
+                }));
+                return { ...current, pages };
+              },
+            );
             if (!foundThread) {
-              queryClient.invalidateQueries({ queryKey: ["messages", "threads"] });
+              queryClient.invalidateQueries({
+                queryKey: messageQueryKeys.threads(),
+              });
             }
 
-            const incoming = params.currentUserId && message.senderUserId !== params.currentUserId;
-            const active = params.activeThreadId === threadId;
+            const incoming =
+              currentUserIdRef.current &&
+              message.senderUserId !== currentUserIdRef.current;
+            const active = activeThreadIdRef.current === threadId;
             if (incoming) {
-              queryClient.invalidateQueries({ queryKey: ["notification-stats"] });
-              queryClient.invalidateQueries({ queryKey: ["notifications"] });
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.notifications.stats(),
+              });
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.notifications.lists(),
+              });
               if (!active) {
-                const preview = message.body.length > 80 ? `${message.body.slice(0, 80)}...` : message.body;
-                toast.info("New message", { description: preview || "You received a new message." });
+                const preview =
+                  message.body.length > 80
+                    ? `${message.body.slice(0, 80)}...`
+                    : message.body;
+                toast.info("New message", {
+                  description: preview || "You received a new message.",
+                });
               }
             }
           }
 
           if (parsed.type === "thread.updated") {
             const threadId = String(parsed.payload.threadId ?? "");
-            queryClient.invalidateQueries({ queryKey: ["messages", "threads"] });
+            queryClient.invalidateQueries({
+              queryKey: messageQueryKeys.threads(),
+            });
             if (threadId) {
-              queryClient.invalidateQueries({ queryKey: messageQueryKeys.thread(threadId) });
+              queryClient.invalidateQueries({
+                queryKey: messageQueryKeys.thread(threadId),
+              });
             }
           }
 
           if (parsed.type === "thread.read") {
             const threadId = String(parsed.payload.threadId ?? "");
             const readerUserId = String(parsed.payload.readerUserId ?? "");
-            const lastReadMessageId = String(parsed.payload.lastReadMessageId ?? "");
+            const lastReadMessageId = String(
+              parsed.payload.lastReadMessageId ?? "",
+            );
             if (!threadId || !readerUserId) return;
-            if (params.currentUserId && readerUserId !== params.currentUserId && lastReadMessageId) {
+            if (
+              currentUserIdRef.current &&
+              readerUserId !== currentUserIdRef.current &&
+              lastReadMessageId
+            ) {
               setPeerReadMessageByThread((current) => ({
                 ...current,
                 [threadId]: lastReadMessageId,
               }));
             }
 
-            queryClient.invalidateQueries({ queryKey: ["messages", "threads"] });
-            queryClient.invalidateQueries({ queryKey: messageQueryKeys.thread(threadId) });
+            queryClient.invalidateQueries({
+              queryKey: messageQueryKeys.threads(),
+            });
+            queryClient.invalidateQueries({
+              queryKey: messageQueryKeys.thread(threadId),
+            });
           }
         };
 
@@ -227,7 +333,7 @@ export const useMessagesRealtime = (params: {
       }
       setConnectionStatus("disconnected");
     };
-  }, [queryClient, params.activeThreadId, params.currentUserId, params.enabled]);
+  }, [queryClient, params.currentUserId, params.enabled]);
 
   return {
     networkOnline,

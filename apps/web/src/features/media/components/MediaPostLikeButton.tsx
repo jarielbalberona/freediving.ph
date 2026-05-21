@@ -10,7 +10,10 @@ import { useSession } from "@/features/auth/session";
 import { cn } from "@/lib/utils";
 
 import { mediaApi } from "../api/media";
-import { updateMediaPostInCaches } from "../lib/cache-updaters";
+import {
+  buildMediaPostLikePatch,
+  updateMediaPostInCaches,
+} from "../lib/cache-updaters";
 
 type MediaPostLikeButtonProps = {
   postId: string;
@@ -22,17 +25,6 @@ type MediaPostLikeButtonProps = {
 type LikeState = {
   likeCount: number;
   viewerHasLiked: boolean;
-};
-
-const nextLikeState = (current: LikeState): LikeState => {
-  const viewerHasLiked = !current.viewerHasLiked;
-  return {
-    viewerHasLiked,
-    likeCount: Math.max(
-      0,
-      current.likeCount + (viewerHasLiked ? 1 : -1),
-    ),
-  };
 };
 
 export function MediaPostLikeButton({
@@ -65,7 +57,7 @@ export function MediaPostLikeButton({
         : mediaApi.likeMediaPost(postId),
     onMutate: async () => {
       const previous = state;
-      applyState(nextLikeState(previous));
+      applyState(buildMediaPostLikePatch(previous));
       return { previous };
     },
     onSuccess: (result) => {

@@ -1,10 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
-import { eventsApi } from '../api/events';
-import type { EventFilters } from '@freediving.ph/types';
+import { useQuery } from "@tanstack/react-query";
+import { eventsApi } from "../api/events";
+import type { EventFilters } from "@freediving.ph/types";
+import { queryKeys } from "@/lib/query/query-keys";
 
 export const useEvents = (filters?: EventFilters, enabled = true) => {
   return useQuery({
-    queryKey: ['events', filters],
+    queryKey: queryKeys.events.list(
+      filters as Record<string, unknown> | undefined,
+    ),
     queryFn: () => eventsApi.getEvents(filters),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -15,7 +18,7 @@ export const useEvents = (filters?: EventFilters, enabled = true) => {
 
 export const useEvent = (eventId: string, enabled = true) => {
   return useQuery({
-    queryKey: ['event', eventId],
+    queryKey: queryKeys.events.detail(eventId),
     queryFn: () => eventsApi.getEventById(eventId),
     enabled: enabled && !!eventId,
     staleTime: 5 * 60 * 1000,
@@ -24,7 +27,7 @@ export const useEvent = (eventId: string, enabled = true) => {
 
 export const useEventAttendees = (eventId: string, enabled = true) => {
   return useQuery({
-    queryKey: ['event-attendees', eventId],
+    queryKey: queryKeys.events.attendees(eventId),
     queryFn: () => eventsApi.getEventAttendees(eventId),
     enabled: enabled && !!eventId,
     staleTime: 2 * 60 * 1000,

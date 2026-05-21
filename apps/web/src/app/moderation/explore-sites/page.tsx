@@ -9,14 +9,15 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { queryKeys } from "@/lib/query/query-keys";
 
 export default function ModerationExploreSitesPage() {
   const pendingQuery = useQuery({
-    queryKey: ["moderation-explore-pending"],
+    queryKey: queryKeys.moderation.pendingExploreSites(),
     queryFn: () => exploreApi.listPendingSites(),
   });
   const pendingEditsQuery = useQuery({
-    queryKey: ["moderation-explore-site-edits-pending"],
+    queryKey: queryKeys.moderation.pendingExploreSiteEdits(),
     queryFn: () => exploreApi.listPendingSiteEdits(),
   });
 
@@ -24,49 +25,81 @@ export default function ModerationExploreSitesPage() {
   const editItems = pendingEditsQuery.data?.items ?? [];
 
   return (
-    <AuthGuard requiredRole="MODERATOR" title="Moderator access required" description="Only moderators can review dive site submissions.">
-      <RequirePermission perm="explore.moderate" title="Missing explore.moderate permission" description="Your account cannot review dive site submissions.">
+    <AuthGuard
+      requiredRole="MODERATOR"
+      title="Moderator access required"
+      description="Only moderators can review dive site submissions."
+    >
+      <RequirePermission
+        perm="explore.moderate"
+        title="Missing explore.moderate permission"
+        description="Your account cannot review dive site submissions."
+      >
         <div className="container mx-auto p-6">
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold">Pending Dive Sites</h1>
-              <p className="text-muted-foreground">Approve real sites. Reject weak or unsafe submissions.</p>
+              <p className="text-muted-foreground">
+                Approve real sites. Reject weak or unsafe submissions.
+              </p>
             </div>
 
             {pendingQuery.error ? (
-              <p className="text-sm text-red-600">{getApiErrorMessage(pendingQuery.error, "Failed to load pending dive sites")}</p>
+              <p className="text-sm text-red-600">
+                {getApiErrorMessage(
+                  pendingQuery.error,
+                  "Failed to load pending dive sites",
+                )}
+              </p>
             ) : null}
             {pendingEditsQuery.error ? (
-              <p className="text-sm text-red-600">{getApiErrorMessage(pendingEditsQuery.error, "Failed to load pending dive site edits")}</p>
+              <p className="text-sm text-red-600">
+                {getApiErrorMessage(
+                  pendingEditsQuery.error,
+                  "Failed to load pending dive site edits",
+                )}
+              </p>
             ) : null}
 
             <section className="space-y-4">
               <div>
                 <h2 className="text-xl font-semibold">Suggested edits</h2>
-                <p className="text-sm text-muted-foreground">Review proposed changes before they alter approved site data.</p>
+                <p className="text-sm text-muted-foreground">
+                  Review proposed changes before they alter approved site data.
+                </p>
               </div>
               {editItems.map((item) => (
                 <Card key={item.id}>
                   <CardHeader className="flex flex-row items-start justify-between gap-4">
                     <div>
                       <CardTitle>{item.current.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{item.siteArea}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {item.siteArea}
+                      </p>
                     </div>
                     <Badge variant="secondary">{item.state}</Badge>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      Suggested by {item.submittedByDisplayName || item.submittedByAppUserId || "member"} on{" "}
-                      {new Date(item.createdAt).toLocaleString()}
+                      Suggested by{" "}
+                      {item.submittedByDisplayName ||
+                        item.submittedByAppUserId ||
+                        "member"}{" "}
+                      on {new Date(item.createdAt).toLocaleString()}
                     </p>
                     <p className="text-sm">
                       {item.current.name !== item.proposed.name ? (
-                        <>Name: {item.current.name} to {item.proposed.name}</>
+                        <>
+                          Name: {item.current.name} to {item.proposed.name}
+                        </>
                       ) : (
                         <>Site details changed</>
                       )}
                     </p>
-                    <Link href={`/moderation/explore-site-edits/${item.id}`} className={buttonVariants()}>
+                    <Link
+                      href={`/moderation/explore-site-edits/${item.id}`}
+                      className={buttonVariants()}
+                    >
                       Review edit
                     </Link>
                   </CardContent>
@@ -75,7 +108,9 @@ export default function ModerationExploreSitesPage() {
 
               {!pendingEditsQuery.isLoading && editItems.length === 0 ? (
                 <Card>
-                  <CardContent className="p-6 text-sm text-muted-foreground">No pending site edits right now.</CardContent>
+                  <CardContent className="p-6 text-sm text-muted-foreground">
+                    No pending site edits right now.
+                  </CardContent>
                 </Card>
               ) : null}
             </section>
@@ -89,22 +124,34 @@ export default function ModerationExploreSitesPage() {
                   <CardHeader className="flex flex-row items-start justify-between gap-4">
                     <div>
                       <CardTitle>{item.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{item.area}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {item.area}
+                      </p>
                     </div>
                     <Badge variant="secondary">{item.moderationState}</Badge>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      Submitted by {item.submittedByDisplayName || item.submittedByAppUserId || "member"} on{" "}
-                      {new Date(item.createdAt).toLocaleString()}
+                      Submitted by{" "}
+                      {item.submittedByDisplayName ||
+                        item.submittedByAppUserId ||
+                        "member"}{" "}
+                      on {new Date(item.createdAt).toLocaleString()}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="capitalize">{item.difficulty}</Badge>
+                      <Badge variant="outline" className="capitalize">
+                        {item.difficulty}
+                      </Badge>
                       {item.hazards.slice(0, 3).map((hazard) => (
-                        <Badge key={hazard} variant="outline">{hazard}</Badge>
+                        <Badge key={hazard} variant="outline">
+                          {hazard}
+                        </Badge>
                       ))}
                     </div>
-                    <Link href={`/moderation/explore-sites/${item.id}`} className={buttonVariants()}>
+                    <Link
+                      href={`/moderation/explore-sites/${item.id}`}
+                      className={buttonVariants()}
+                    >
                       Review submission
                     </Link>
                   </CardContent>
@@ -113,7 +160,9 @@ export default function ModerationExploreSitesPage() {
 
               {!pendingQuery.isLoading && items.length === 0 ? (
                 <Card>
-                  <CardContent className="p-6 text-sm text-muted-foreground">No pending dive sites right now.</CardContent>
+                  <CardContent className="p-6 text-sm text-muted-foreground">
+                    No pending dive sites right now.
+                  </CardContent>
                 </Card>
               ) : null}
             </section>

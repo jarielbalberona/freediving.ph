@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type {
@@ -19,6 +20,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { UserAvatarDetail } from "@/components/ui/user-avatar-detail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSession } from "@/features/auth/session/use-session";
+import { cn } from "@/lib/utils";
 
 import {
   useMarkThreadRead,
@@ -31,6 +33,11 @@ import {
   useThreadMessages,
 } from "../hooks/queries";
 import { useMessagesRealtime } from "../hooks/realtime";
+import {
+  getThreadOpenDelta,
+  logMessagingPerf,
+  markThreadOpenStart,
+} from "../lib/perf";
 
 const categories: MessagingThreadCategory[] = ["primary", "requests"];
 const categoryLabels: Record<MessagingThreadCategory, string> = {
@@ -88,6 +95,47 @@ const flattenMessages = (
     });
 };
 
+const skeletonRows = ["one", "two", "three", "four", "five", "six"] as const;
+
+const ThreadListSkeleton = () => (
+  <div className="space-y-2">
+    {skeletonRows.map((row) => (
+      <div
+        key={row}
+        className="flex items-center gap-3 rounded-lg border border-transparent px-3 py-2"
+      >
+        <div className="size-10 shrink-0 rounded-full bg-muted" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="h-3 w-32 rounded bg-muted" />
+          <div className="h-2.5 w-44 rounded bg-muted" />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const MessageListSkeleton = () => (
+  <div className="space-y-4 pt-2">
+    {skeletonRows.map((row, index) => {
+      const own = index % 2 === 1;
+      return (
+        <div
+          key={row}
+          className={`flex ${own ? "justify-end" : "justify-start"}`}
+        >
+          <div
+            className={`space-y-2 rounded-2xl bg-muted px-3 py-3 ${index % 3 === 0 ? "w-48" : "w-64"
+              } max-w-[80%]`}
+          >
+            <div className="h-3 rounded bg-muted-foreground/10" />
+            <div className="h-2.5 w-20 rounded bg-muted-foreground/10" />
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
+
 export function MessagingView({ threadId }: { threadId: string | null }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -107,32 +155,45 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [composer, setComposer] = useState("");
+  const [viewportMeasured, setViewportMeasured] = useState(false);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const lastMarkedReadRef = useRef<string | null>(null);
+  const loggedMessageListForThreadRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setViewportMeasured(true);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 250);
     return () => clearTimeout(timer);
   }, [search]);
 
+  const activeThreadId = threadId;
+  const shouldLoadInboxQueries =
+    canLoadProtectedData &&
+    (!activeThreadId || viewportMeasured) &&
+    !(isMobile && Boolean(activeThreadId));
+
   const threadListQuery = useThreadList(
     category,
     debouncedSearch,
-    canLoadProtectedData,
+    shouldLoadInboxQueries,
   );
   const threads = useMemo(
-    () => flattenThreads(threadListQuery.data?.pages),
-    [threadListQuery.data?.pages],
+    () =>
+      shouldLoadInboxQueries ? flattenThreads(threadListQuery.data?.pages) : [],
+    [shouldLoadInboxQueries, threadListQuery.data?.pages],
   );
   const primaryThreadsQuery = useThreadList(
     "primary",
     "",
-    canLoadProtectedData,
+    shouldLoadInboxQueries,
   );
   const requestThreadsQuery = useThreadList(
     "requests",
     "",
-    canLoadProtectedData,
+    shouldLoadInboxQueries,
   );
   const tabUnreadCounts = useMemo(
     () => ({
@@ -143,7 +204,6 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
     [primaryThreadsQuery.data?.pages, requestThreadsQuery.data?.pages],
   );
 
-  const activeThreadId = threadId;
   const threadDetailQuery = useThreadDetail(
     activeThreadId,
     canLoadProtectedData,
@@ -167,6 +227,48 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
   const markReadMutation = useMarkThreadRead();
   const resolveRequestMutation = useResolveThreadRequest();
   const serverLastReadMessageId = threadDetailQuery.data?.lastReadMessageId;
+  const isInitialMessagesLoading =
+    Boolean(activeThreadId) &&
+    threadMessagesQuery.isPending &&
+    messages.length === 0;
+  const hasLoadedMessages = Boolean(threadMessagesQuery.data);
+  const isThreadStateLoading =
+    Boolean(activeThreadId) &&
+    threadDetailQuery.isPending &&
+    !threadDetailQuery.data;
+  const canSend = threadDetailQuery.data?.canSend === true;
+  const isInboxLoading =
+    shouldLoadInboxQueries && threadListQuery.isPending && threads.length === 0;
+
+  useEffect(() => {
+    if (!canLoadProtectedData) return;
+    logMessagingPerf("auth_ready", { userReady: Boolean(session.me?.userId) });
+  }, [canLoadProtectedData, session.me?.userId]);
+
+  useEffect(() => {
+    if (!activeThreadId) return;
+    loggedMessageListForThreadRef.current = null;
+    logMessagingPerf("route_thread_ready", { threadId: activeThreadId });
+  }, [activeThreadId]);
+
+  useEffect(() => {
+    if (!activeThreadId) return;
+    logMessagingPerf("room_shell_rendered", {
+      threadId: activeThreadId,
+      sinceClickMs: getThreadOpenDelta(activeThreadId),
+    });
+  }, [activeThreadId]);
+
+  useEffect(() => {
+    if (!activeThreadId || !threadMessagesQuery.data) return;
+    if (loggedMessageListForThreadRef.current === activeThreadId) return;
+    loggedMessageListForThreadRef.current = activeThreadId;
+    logMessagingPerf("first_message_list_rendered", {
+      threadId: activeThreadId,
+      messageCount: messages.length,
+      sinceClickMs: getThreadOpenDelta(activeThreadId),
+    });
+  }, [activeThreadId, messages.length, threadMessagesQuery.data]);
 
   useEffect(() => {
     if (!activeThreadId || messages.length === 0 || !session.me?.userId) return;
@@ -198,6 +300,7 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", category);
     if (debouncedSearch) params.set("q", debouncedSearch);
+    markThreadOpenStart(id, "inbox");
     router.push(`/messages/${id}?${params.toString()}`);
   };
 
@@ -247,7 +350,7 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
     realtime.networkOnline && realtime.connectionStatus !== "connected";
   const isActionableRequest = Boolean(
     threadDetailQuery.data?.activeRequest &&
-      threadDetailQuery.data?.canResolveRequest,
+    threadDetailQuery.data?.canResolveRequest,
   );
 
   const inboxPanel = (
@@ -291,7 +394,9 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-2">
-          {threads.length === 0 ? (
+          {isInboxLoading ? <ThreadListSkeleton /> : null}
+
+          {!isInboxLoading && threads.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted-foreground">
               {debouncedSearch
                 ? "No conversations match your search."
@@ -306,11 +411,10 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
                 key={item.id}
                 type="button"
                 onClick={() => onSelectThread(item.id)}
-                className={`mb-1 flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
-                  active
+                className={`mb-1 flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${active
                     ? "border-border bg-accent"
                     : "border-transparent bg-card hover:bg-accent/60"
-                }`}
+                  }`}
               >
                 <UserAvatar
                   src={item.participant.avatarUrl}
@@ -363,12 +467,22 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
       Select a conversation.
     </div>
   ) : (
-    <div className="flex h-full min-h-0 flex-col bg-background">
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card px-4 py-3">
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-col bg-background",
+        isMobile && "pb-[calc(3.5rem+env(safe-area-inset-bottom))]",
+      )}
+    >
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card p-2">
         {isMobile ? (
           <Link href={`/messages?tab=${category}`}>
-            <Button variant="ghost" size="icon" className="shrink-0">
-              Back
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              aria-label="Back"
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
             </Button>
           </Link>
         ) : null}
@@ -461,7 +575,11 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
           </div>
         ) : null}
 
-        {messages.length === 0 ? (
+        {isInitialMessagesLoading ? <MessageListSkeleton /> : null}
+
+        {!isInitialMessagesLoading &&
+          hasLoadedMessages &&
+          messages.length === 0 ? (
           <div className="mt-16 text-center text-sm text-muted-foreground">
             No messages yet.
           </div>
@@ -472,7 +590,7 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
           const showDay =
             !previous ||
             formatDayKey(previous.createdAt) !==
-              formatDayKey(message.createdAt);
+            formatDayKey(message.createdAt);
           const own = message.senderUserId === session.me?.userId;
           return (
             <div key={message.id}>
@@ -508,7 +626,7 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
       </div>
 
       <div className="border-t border-border bg-card p-3">
-        {threadDetailQuery.data?.canSend ? (
+        {canSend ? (
           <div className="flex items-end gap-2">
             <Textarea
               rows={1}
@@ -529,6 +647,17 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
             >
               Send
             </Button>
+          </div>
+        ) : isThreadStateLoading ? (
+          <div className="flex items-end gap-2">
+            <Textarea
+              rows={1}
+              value=""
+              disabled
+              placeholder="Checking conversation..."
+              className="min-h-10 resize-none"
+            />
+            <Button disabled>Send</Button>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">

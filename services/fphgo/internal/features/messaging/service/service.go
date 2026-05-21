@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -642,6 +643,7 @@ func (s *Service) ListThreads(ctx context.Context, input ThreadListInput) (Threa
 		cursorID = id
 	}
 
+	dbStart := time.Now()
 	items, err := repo.ListThreads(ctx, messagingrepo.ListThreadsInput{
 		UserID:              input.ActorID,
 		Category:            category,
@@ -650,6 +652,7 @@ func (s *Service) ListThreads(ctx context.Context, input ThreadListInput) (Threa
 		CursorThreadID:      cursorID,
 		Limit:               input.Limit + 1,
 	})
+	logMessagingDB("thread_list.list_threads", dbStart)
 	if err != nil {
 		return ThreadListResult{}, apperrors.New(http.StatusInternalServerError, "threads_list_failed", "failed to list threads", err)
 	}
@@ -660,6 +663,13 @@ func (s *Service) ListThreads(ctx context.Context, input ThreadListInput) (Threa
 		items = items[:input.Limit]
 	}
 	return ThreadListResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func logMessagingDB(operation string, start time.Time) {
+	slog.Default().Debug("messaging_perf.db",
+		slog.String("operation", operation),
+		slog.Duration("duration", time.Since(start)),
+	)
 }
 
 func (s *Service) UpdateThreadCategory(ctx context.Context, input UpdateThreadCategoryInput) error {
@@ -703,21 +713,27 @@ func (s *Service) GetThreadDetail(ctx context.Context, actorID, threadID string)
 	if err != nil {
 		return ThreadDetailResult{}, err
 	}
+	dbStart := time.Now()
 	member, err := repo.IsThreadMember(ctx, threadID, actorID)
+	logMessagingDB("thread_detail.member_check", dbStart)
 	if err != nil {
 		return ThreadDetailResult{}, apperrors.New(http.StatusInternalServerError, "thread_member_check_failed", "failed to validate membership", err)
 	}
 	if !member {
 		return ThreadDetailResult{}, apperrors.New(http.StatusForbidden, "forbidden", "not a thread member", nil)
 	}
+	dbStart = time.Now()
 	thread, err := repo.GetThread(ctx, threadID, actorID)
+	logMessagingDB("thread_detail.get_thread", dbStart)
 	if err != nil {
 		if messagingrepo.IsNoRows(err) {
 			return ThreadDetailResult{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
 		}
 		return ThreadDetailResult{}, apperrors.New(http.StatusInternalServerError, "thread_detail_failed", "failed to load thread", err)
 	}
+	dbStart = time.Now()
 	participants, err := repo.ListThreadParticipants(ctx, threadID)
+	logMessagingDB("thread_detail.list_participants", dbStart)
 	if err != nil {
 		return ThreadDetailResult{}, apperrors.New(http.StatusInternalServerError, "thread_detail_failed", "failed to load participants", err)
 	}
@@ -797,7 +813,9 @@ func (s *Service) ListThreadMessages(ctx context.Context, input ThreadMessagesIn
 	if err != nil {
 		return ThreadMessagesResult{}, err
 	}
+	dbStart := time.Now()
 	member, err := repo.IsThreadMember(ctx, input.ThreadID, input.ActorID)
+	logMessagingDB("thread_messages.member_check", dbStart)
 	if err != nil {
 		return ThreadMessagesResult{}, apperrors.New(http.StatusInternalServerError, "thread_member_check_failed", "failed to validate membership", err)
 	}
@@ -817,12 +835,14 @@ func (s *Service) ListThreadMessages(ctx context.Context, input ThreadMessagesIn
 		cursorCreated = created
 		cursorID = id
 	}
+	dbStart = time.Now()
 	items, err := repo.ListThreadMessages(ctx, messagingrepo.ListThreadMessagesInput{
 		ThreadID:        input.ThreadID,
 		CursorCreatedAt: cursorCreated,
 		CursorMessageID: cursorID,
 		Limit:           input.Limit + 1,
 	})
+	logMessagingDB("thread_messages.list_messages", dbStart)
 	if err != nil {
 		return ThreadMessagesResult{}, apperrors.New(http.StatusInternalServerError, "thread_messages_failed", "failed to list messages", err)
 	}
@@ -854,7 +874,9 @@ func (s *Service) OpenOrCreateDirectThread(ctx context.Context, input OpenDirect
 	}
 
 	targetCategory := messagingrepo.ThreadCategoryRequests
+	dbStart := time.Now()
 	buddies, err := repo.AreUsersBuddies(ctx, input.ActorID, input.TargetUserID)
+	logMessagingDB("direct_thread.buddy_check", dbStart)
 	if err != nil {
 		// Policy probe should not take down thread creation.
 		// If this check fails, default to requests inbox (safer than primary).
@@ -864,11 +886,15 @@ func (s *Service) OpenOrCreateDirectThread(ctx context.Context, input OpenDirect
 		targetCategory = messagingrepo.ThreadCategoryPrimary
 	}
 
+	dbStart = time.Now()
 	thread, err := repo.OpenOrCreateDirectThread(ctx, input.ActorID, input.TargetUserID, targetCategory)
+	logMessagingDB("direct_thread.open_or_create", dbStart)
 	if err != nil {
 		return ThreadDetailResult{}, apperrors.New(http.StatusInternalServerError, "thread_open_failed", "failed to open direct thread", err)
 	}
+	dbStart = time.Now()
 	participants, err := repo.ListThreadParticipants(ctx, thread.ID)
+	logMessagingDB("direct_thread.list_participants", dbStart)
 	if err != nil {
 		return ThreadDetailResult{}, apperrors.New(http.StatusInternalServerError, "thread_open_failed", "failed to load participants", err)
 	}
@@ -887,7 +913,9 @@ func (s *Service) SendThreadMessage(ctx context.Context, input SendThreadMessage
 	if err := s.enforceRateLimit(ctx, "messages.thread.send", input.ActorID, 60, time.Minute, "sender message rate exceeded"); err != nil {
 		return messagingrepo.ThreadMessage{}, err
 	}
+	dbStart := time.Now()
 	member, err := repo.IsThreadMember(ctx, input.ThreadID, input.ActorID)
+	logMessagingDB("thread_send.member_check", dbStart)
 	if err != nil {
 		return messagingrepo.ThreadMessage{}, apperrors.New(http.StatusInternalServerError, "thread_member_check_failed", "failed to validate membership", err)
 	}
@@ -895,15 +923,22 @@ func (s *Service) SendThreadMessage(ctx context.Context, input SendThreadMessage
 		return messagingrepo.ThreadMessage{}, apperrors.New(http.StatusForbidden, "forbidden", "not a thread member", nil)
 	}
 	if promoter, ok := repo.(threadRequestPromoter); ok {
+		dbStart = time.Now()
 		if err := promoter.PromoteThreadRequestToPrimary(ctx, input.ThreadID, input.ActorID); err != nil {
+			logMessagingDB("thread_send.promote_request", dbStart)
 			return messagingrepo.ThreadMessage{}, apperrors.New(http.StatusInternalServerError, "thread_category_update_failed", "failed to update thread category", err)
 		}
+		logMessagingDB("thread_send.promote_request", dbStart)
 	}
+	dbStart = time.Now()
 	msg, err := repo.CreateThreadMessage(ctx, input.ThreadID, input.ActorID, body, input.ClientID)
+	logMessagingDB("thread_send.create_message", dbStart)
 	if err != nil {
 		return messagingrepo.ThreadMessage{}, apperrors.New(http.StatusInternalServerError, "thread_message_create_failed", "failed to create message", err)
 	}
+	dbStart = time.Now()
 	memberIDs, err := repo.ThreadMemberIDs(ctx, input.ThreadID)
+	logMessagingDB("thread_send.member_ids", dbStart)
 	if err == nil {
 		s.broadcastThreadEnvelope(memberIDs, input.RequestID, "message.created", map[string]any{
 			"threadId":     msg.ThreadID,

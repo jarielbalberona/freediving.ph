@@ -11,7 +11,10 @@ import { useSession } from "@/features/auth/session";
 import { cn } from "@/lib/utils";
 
 import { mediaApi } from "../api/media";
-import { updateMediaPostInCaches } from "../lib/cache-updaters";
+import {
+  buildMediaPostSavePatch,
+  updateMediaPostInCaches,
+} from "../lib/cache-updaters";
 import { MediaPostLikeButton } from "./MediaPostLikeButton";
 
 type MediaPostActionsProps = {
@@ -63,7 +66,7 @@ export function MediaPostActions({
         : mediaApi.saveMediaPost(postId),
     onMutate: async () => {
       const previous = saveState;
-      applySaveState({ viewerHasSaved: !previous.viewerHasSaved });
+      applySaveState(buildMediaPostSavePatch(previous));
       return { previous };
     },
     onSuccess: (result) => {
@@ -95,9 +98,9 @@ export function MediaPostActions({
         variant="ghost"
         className="rounded-full px-2.5"
         render={
-          onCommentClick
-            ? undefined
-            : <Link href={postHref} aria-label="View media post comments" />
+          onCommentClick ? undefined : (
+            <Link href={postHref} aria-label="View media post comments" />
+          )
         }
         onClick={(event) => {
           event.preventDefault();
@@ -148,7 +151,10 @@ export function MediaPostActions({
           }}
         >
           <Bookmark
-            className={cn("size-3.5", saveState.viewerHasSaved && "fill-current")}
+            className={cn(
+              "size-3.5",
+              saveState.viewerHasSaved && "fill-current",
+            )}
           />
         </Button>
       ) : null}

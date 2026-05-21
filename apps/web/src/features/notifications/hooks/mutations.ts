@@ -1,18 +1,24 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { notificationsApi } from '../api/notifications';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { notificationsApi } from "../api/notifications";
+import { queryKeys } from "@/lib/query/query-keys";
 import type {
   CreateNotificationRequest,
-  UpdateNotificationSettingsRequest
-} from '@freediving.ph/types';
+  UpdateNotificationSettingsRequest,
+} from "@freediving.ph/types";
 
 export const useCreateNotification = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateNotificationRequest) => notificationsApi.createNotification(data),
+    mutationFn: (data: CreateNotificationRequest) =>
+      notificationsApi.createNotification(data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      await queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.lists(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.stats(),
+      });
     },
   });
 };
@@ -21,11 +27,18 @@ export const useMarkAsRead = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (notificationId: number) => notificationsApi.markAsRead(notificationId),
+    mutationFn: (notificationId: number) =>
+      notificationsApi.markAsRead(notificationId),
     onSuccess: async (_, notificationId) => {
-      await queryClient.invalidateQueries({ queryKey: ['notification', notificationId] });
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      await queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.detail(notificationId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.lists(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.stats(),
+      });
     },
   });
 };
@@ -36,8 +49,12 @@ export const useMarkAllAsRead = () => {
   return useMutation({
     mutationFn: () => notificationsApi.markAllAsRead(),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      await queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.lists(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.stats(),
+      });
     },
   });
 };
@@ -46,11 +63,18 @@ export const useDeleteNotification = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (notificationId: number) => notificationsApi.deleteNotification(notificationId),
+    mutationFn: (notificationId: number) =>
+      notificationsApi.deleteNotification(notificationId),
     onSuccess: async (_, notificationId) => {
-      queryClient.removeQueries({ queryKey: ['notification', notificationId] });
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      await queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      queryClient.removeQueries({
+        queryKey: queryKeys.notifications.detail(notificationId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.lists(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.stats(),
+      });
     },
   });
 };
@@ -62,7 +86,9 @@ export const useUpdateNotificationSettings = () => {
     mutationFn: (data: UpdateNotificationSettingsRequest) =>
       notificationsApi.updateNotificationSettings(data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notification-settings'] });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.settings(),
+      });
     },
   });
 };

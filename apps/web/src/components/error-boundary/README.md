@@ -140,9 +140,7 @@ export default withFeatureErrorBoundary(
   fallback={
     <div className="custom-error">
       <h2>Something went wrong</h2>
-      <button onClick={() => window.location.reload()}>
-        Reload Page
-      </button>
+      <p>Please go back and try again.</p>
     </div>
   }
 >

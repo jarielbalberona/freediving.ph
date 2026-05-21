@@ -18,6 +18,7 @@ declare global {
 export type FphgoFetchInit = Omit<RequestInit, "body"> & {
   auth?: "wait" | "ready-only" | "none";
   body?: BodyInit | JsonObject | null;
+  perfLabel?: string;
   token?: string | null;
 };
 
@@ -74,6 +75,22 @@ const resolveBody = (
   return JSON.stringify(body);
 };
 
+const currentPerfTime = () =>
+  typeof performance !== "undefined" ? performance.now() : Date.now();
+
+const logFphgoFetchPerf = (
+  event: string,
+  details: Record<string, unknown> = {},
+) => {
+  if (
+    process.env.NODE_ENV !== "development" ||
+    typeof console === "undefined"
+  ) {
+    return;
+  }
+  console.debug("[fphgo-fetch-perf]", event, details);
+};
+
 export const createFphgoFetcher = ({
   baseUrlProvider,
   tokenProvider,
@@ -87,26 +104,52 @@ export const createFphgoFetcher = ({
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     assertV1Path(normalizedPath);
 
-    const headers = new Headers(init.headers);
+    const {
+      body: initBody,
+      perfLabel,
+      token: initToken,
+      ...requestInit
+    } = init;
+    delete requestInit.auth;
+
+    const headers = new Headers(requestInit.headers);
     const auth = init.auth ?? "wait";
+    const startedAt = currentPerfTime();
+    const tokenStartedAt = currentPerfTime();
     const token =
-      init.token === undefined
+      initToken === undefined
         ? auth === "none"
           ? null
           : await tokenProvider(auth)
-        : init.token;
+        : initToken;
+    if (perfLabel) {
+      logFphgoFetchPerf("auth_token_ready", {
+        auth,
+        durationMs: Math.round(currentPerfTime() - tokenStartedAt),
+        label: perfLabel,
+      });
+    }
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const resolvedBody = resolveBody(headers, init.body);
+    const resolvedBody = resolveBody(headers, initBody);
     const url = `${baseUrlProvider()}${normalizedPath}`;
+    const requestStartedAt = currentPerfTime();
     const response = await fetchImpl(url, {
-      ...init,
+      ...requestInit,
       body: resolvedBody,
       headers,
-      credentials: init.credentials ?? "include",
+      credentials: requestInit.credentials ?? "include",
     });
+    if (perfLabel) {
+      logFphgoFetchPerf("request_end", {
+        durationMs: Math.round(currentPerfTime() - requestStartedAt),
+        label: perfLabel,
+        status: response.status,
+        totalMs: Math.round(currentPerfTime() - startedAt),
+      });
+    }
 
     if (response.status === 204) {
       if (!response.ok) {

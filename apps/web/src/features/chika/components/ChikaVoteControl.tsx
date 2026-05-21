@@ -7,9 +7,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session";
-import { updateChikaThreadInCaches } from "@/features/chika/lib/cache-updaters";
 import {
-  applyVoteTransition,
+  buildChikaThreadVotePatch,
+  updateChikaThreadInCaches,
+} from "@/features/chika/lib/cache-updaters";
+import {
   nextVoteForClick,
   type ChikaVoteState,
 } from "@/features/chika/lib/vote-state";
@@ -66,7 +68,11 @@ export function ChikaVoteControl({
     },
     onMutate: async ({ clicked }: VoteMutationVariables) => {
       const previous = state;
-      const nextState = applyVoteTransition(previous, clicked);
+      const patch = buildChikaThreadVotePatch(previous, clicked);
+      const nextState = {
+        voteScore: patch.voteCount,
+        viewerVote: patch.userReaction,
+      };
       applyState(nextState);
       return { nextState, previous };
     },
@@ -83,7 +89,10 @@ export function ChikaVoteControl({
       router.push("/sign-in");
       return;
     }
-    mutation.mutate({ clicked, nextVote: nextVoteForClick(state.viewerVote, clicked) });
+    mutation.mutate({
+      clicked,
+      nextVote: nextVoteForClick(state.viewerVote, clicked),
+    });
   };
 
   const buttonClass =
@@ -100,7 +109,10 @@ export function ChikaVoteControl({
         type="button"
         variant="ghost"
         size="icon"
-        className={cn(buttonClass, state.viewerVote === "upvote" && "text-primary")}
+        className={cn(
+          buttonClass,
+          state.viewerVote === "upvote" && "text-primary",
+        )}
         aria-label="Upvote"
         aria-pressed={state.viewerVote === "upvote"}
         onClick={() => handleVote("upvote")}

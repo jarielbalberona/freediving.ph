@@ -8,7 +8,10 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
-import { queryKeys } from "@/lib/query/query-keys";
+import {
+  buildDiveSiteLikePatch,
+  updateDiveSiteInCaches,
+} from "@/features/explore/lib/cache-updaters";
 import { cn } from "@/lib/utils";
 
 type DiveSiteLikeButtonProps = {
@@ -22,23 +25,6 @@ type LikeState = {
   likeCount: number;
   viewerHasLiked: boolean;
 };
-
-const nextLikeState = (current: LikeState): LikeState => {
-  const viewerHasLiked = !current.viewerHasLiked;
-  return {
-    viewerHasLiked,
-    likeCount: Math.max(0, current.likeCount + (viewerHasLiked ? 1 : -1)),
-  };
-};
-
-const updatePayload = (
-  payload: Record<string, unknown>,
-  state: LikeState,
-) => ({
-  ...payload,
-  likeCount: state.likeCount,
-  viewerHasLiked: state.viewerHasLiked,
-});
 
 export function DiveSiteLikeButton({
   siteId,
@@ -60,38 +46,7 @@ export function DiveSiteLikeButton({
 
   const applyState = (nextState: LikeState) => {
     setState(nextState);
-    queryClient.setQueriesData({ queryKey: queryKeys.explore.lists() }, (current: any) => {
-      if (!current?.pages) return current;
-      return {
-        ...current,
-        pages: current.pages.map((page: any) => ({
-          ...page,
-          items: (page.items ?? []).map((item: any) =>
-            item.id === siteId ? { ...item, ...nextState } : item,
-          ),
-        })),
-      };
-    });
-
-    queryClient.setQueriesData({ queryKey: queryKeys.explore.sites() }, (current: any) => {
-      if (!current?.site || current.site.id !== siteId) return current;
-      return {
-        ...current,
-        site: { ...current.site, ...nextState },
-      };
-    });
-
-    queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, (current: any) => {
-      if (!current?.items) return current;
-      return {
-        ...current,
-        items: current.items.map((item: any) =>
-          item.type === "dive_spot" && item.entityId === siteId
-            ? { ...item, payload: updatePayload(item.payload ?? {}, nextState) }
-            : item,
-        ),
-      };
-    });
+    updateDiveSiteInCaches(queryClient, siteId, nextState);
   };
 
   const mutation = useMutation({
@@ -101,7 +56,7 @@ export function DiveSiteLikeButton({
         : exploreApi.likeDiveSite(siteId),
     onMutate: async () => {
       const previous = state;
-      applyState(nextLikeState(previous));
+      applyState(buildDiveSiteLikePatch(previous));
       return { previous };
     },
     onSuccess: (result) => {
@@ -138,7 +93,9 @@ export function DiveSiteLikeButton({
         mutation.mutate(state.viewerHasLiked);
       }}
     >
-      <Heart className={cn("size-3.5", state.viewerHasLiked && "fill-current")} />
+      <Heart
+        className={cn("size-3.5", state.viewerHasLiked && "fill-current")}
+      />
       <span>{state.likeCount.toLocaleString()}</span>
     </Button>
   );

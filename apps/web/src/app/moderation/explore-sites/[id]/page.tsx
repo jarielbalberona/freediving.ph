@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { queryKeys } from "@/lib/query/query-keys";
 
 const MODERATION_GOOGLE_MAP_ID =
   process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "c5170fc5a137d9ea8ef77423";
@@ -25,9 +26,10 @@ export default function ModerationExploreSiteDetailPage() {
   const [reason, setReason] = useState("");
 
   const detailQuery = useQuery({
-    queryKey: ["moderation-explore-site", id],
+    queryKey: queryKeys.moderation.exploreSite(id),
     enabled: id.length > 0,
-    queryFn: async () => (await exploreApi.getModerationSiteById(id)).submission,
+    queryFn: async () =>
+      (await exploreApi.getModerationSiteById(id)).submission,
   });
 
   const approveMutation = useMutation({

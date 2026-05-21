@@ -14,10 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import type { ExploreSiteEditValues } from "@freediving.ph/types";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { queryKeys } from "@/lib/query/query-keys";
 
-const formatValue = (
-  value: string | number | string[] | undefined,
-): string => {
+const formatValue = (value: string | number | string[] | undefined): string => {
   if (Array.isArray(value)) {
     return value.length > 0 ? value.join(", ") : "Not provided";
   }
@@ -50,7 +49,7 @@ export default function ModerationExploreSiteEditPage() {
   const [reason, setReason] = useState("");
 
   const detailQuery = useQuery({
-    queryKey: ["moderation-explore-site-edit", id],
+    queryKey: queryKeys.moderation.exploreSiteEdit(id),
     enabled: id.length > 0,
     queryFn: async () =>
       (await exploreApi.getModerationSiteEditById(id)).proposal,

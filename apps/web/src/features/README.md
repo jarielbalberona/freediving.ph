@@ -72,9 +72,11 @@ export const notificationsApi = {
 ### **React Query Hooks**
 ```typescript
 // features/notifications/hooks/queries.ts
+import { queryKeys } from "@/lib/query/query-keys";
+
 export const useNotifications = (userId: number, filters?: NotificationFilters) => {
   return useQuery({
-    queryKey: ['notifications', userId, filters],
+    queryKey: queryKeys.notifications.list({ userId, ...filters }),
     queryFn: () => notificationsApi.getUserNotifications(userId, filters),
     staleTime: 5 * 60 * 1000,
     retry: 3,
@@ -94,11 +96,11 @@ export const useMarkAsRead = () => {
     onSuccess: (response, variables) => {
       // Optimistic update
       queryClient.setQueryData(
-        ['notification', variables.userId, variables.notificationId],
+        queryKeys.notifications.detail(variables.notificationId),
         (old) => ({ ...old, status: 'READ' })
       );
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['notifications', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.lists() });
     },
   });
 };
@@ -202,9 +204,11 @@ export const newFeatureApi = {
 ### **4. Create React Query Hooks**
 ```typescript
 // features/newFeature/hooks/queries.ts
+import { queryKeys } from "@/lib/query/query-keys";
+
 export const useNewFeatureItems = () => {
   return useQuery({
-    queryKey: ['newFeatureItems'],
+    queryKey: queryKeys.newFeature.list(),
     queryFn: newFeatureApi.getItems,
   });
 };
