@@ -793,10 +793,10 @@ SELECT
   p.username AS participant_username,
   p.display_name AS participant_display_name,
   p.avatar_url AS participant_avatar_url,
-  lm.id AS last_message_id,
-  lm.kind::text AS last_message_kind,
-  lm.body AS last_message_body,
-  lm.sender_user_id AS last_message_sender_user_id,
+  COALESCE(lm.id, 0)::bigint AS last_message_id,
+  COALESCE(lm.kind::text, '') AS last_message_kind,
+  COALESCE(lm.body, '') AS last_message_body,
+  COALESCE(lm.sender_user_id, '00000000-0000-0000-0000-000000000000'::uuid) AS last_message_sender_user_id,
   lm.created_at AS last_message_created_at,
   COALESCE(unread.unread_count, 0)::bigint AS unread_count
 FROM message_thread_members m
@@ -867,7 +867,7 @@ type ListMessageThreadsRow struct {
 	ParticipantDisplayName  string             `db:"participant_display_name" json:"participant_display_name"`
 	ParticipantAvatarUrl    string             `db:"participant_avatar_url" json:"participant_avatar_url"`
 	LastMessageID           int64              `db:"last_message_id" json:"last_message_id"`
-	LastMessageKind         string             `db:"last_message_kind" json:"last_message_kind"`
+	LastMessageKind         interface{}        `db:"last_message_kind" json:"last_message_kind"`
 	LastMessageBody         string             `db:"last_message_body" json:"last_message_body"`
 	LastMessageSenderUserID pgtype.UUID        `db:"last_message_sender_user_id" json:"last_message_sender_user_id"`
 	LastMessageCreatedAt    pgtype.Timestamptz `db:"last_message_created_at" json:"last_message_created_at"`
