@@ -171,6 +171,9 @@ func (r *outboxAdminRepoStub) CreateDefaultSettingsForUser(context.Context, stri
 func (r *outboxAdminRepoStub) UpdateSettingsForUser(context.Context, string, notificationsrepo.SettingsUpdateInput) (notificationsrepo.NotificationSettings, error) {
 	return notificationsrepo.NotificationSettings{}, nil
 }
+func (r *outboxAdminRepoStub) ListActiveExploreModeratorRecipients(context.Context, string) ([]string, error) {
+	return nil, nil
+}
 func (r *outboxAdminRepoStub) ListActiveNewDiveSiteRecipients(context.Context, string) ([]string, error) {
 	return nil, nil
 }

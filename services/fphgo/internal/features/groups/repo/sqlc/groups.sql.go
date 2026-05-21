@@ -110,6 +110,7 @@ const createGroup = `-- name: CreateGroup :one
 INSERT INTO groups (
   name,
   slug,
+  bio,
   description,
   visibility,
   status,
@@ -132,8 +133,8 @@ VALUES (
   $2,
   $3,
   $4,
-  'active',
   $5,
+  'active',
   $6,
   $7,
   $8,
@@ -145,12 +146,14 @@ VALUES (
   $14,
   $15,
   $16,
-  $17::uuid
+  $17,
+  $18::uuid
 )
 RETURNING
   id,
   name,
   slug,
+  COALESCE(bio, '') AS bio,
   COALESCE(description, '') AS description,
   visibility,
   status,
@@ -181,6 +184,7 @@ RETURNING
 type CreateGroupParams struct {
 	Name                 string      `db:"name" json:"name"`
 	Slug                 string      `db:"slug" json:"slug"`
+	Bio                  *string     `db:"bio" json:"bio"`
 	Description          *string     `db:"description" json:"description"`
 	Visibility           string      `db:"visibility" json:"visibility"`
 	JoinPolicy           string      `db:"join_policy" json:"join_policy"`
@@ -202,6 +206,7 @@ type CreateGroupRow struct {
 	ID                     pgtype.UUID        `db:"id" json:"id"`
 	Name                   string             `db:"name" json:"name"`
 	Slug                   string             `db:"slug" json:"slug"`
+	Bio                    string             `db:"bio" json:"bio"`
 	Description            string             `db:"description" json:"description"`
 	Visibility             string             `db:"visibility" json:"visibility"`
 	Status                 string             `db:"status" json:"status"`
@@ -233,6 +238,7 @@ func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Creat
 	row := q.db.QueryRow(ctx, createGroup,
 		arg.Name,
 		arg.Slug,
+		arg.Bio,
 		arg.Description,
 		arg.Visibility,
 		arg.JoinPolicy,
@@ -254,6 +260,7 @@ func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Creat
 		&i.ID,
 		&i.Name,
 		&i.Slug,
+		&i.Bio,
 		&i.Description,
 		&i.Visibility,
 		&i.Status,
@@ -365,6 +372,7 @@ SELECT
   g.id,
   g.name,
   g.slug,
+  COALESCE(g.bio, '') AS bio,
   COALESCE(g.description, '') AS description,
   g.visibility,
   g.status,
@@ -406,6 +414,7 @@ type GetGroupByIDRow struct {
 	ID                     pgtype.UUID        `db:"id" json:"id"`
 	Name                   string             `db:"name" json:"name"`
 	Slug                   string             `db:"slug" json:"slug"`
+	Bio                    string             `db:"bio" json:"bio"`
 	Description            string             `db:"description" json:"description"`
 	Visibility             string             `db:"visibility" json:"visibility"`
 	Status                 string             `db:"status" json:"status"`
@@ -440,6 +449,7 @@ func (q *Queries) GetGroupByID(ctx context.Context, arg GetGroupByIDParams) (Get
 		&i.ID,
 		&i.Name,
 		&i.Slug,
+		&i.Bio,
 		&i.Description,
 		&i.Visibility,
 		&i.Status,
@@ -667,6 +677,7 @@ SELECT
   g.id,
   g.name,
   g.slug,
+  COALESCE(g.bio, '') AS bio,
   COALESCE(g.description, '') AS description,
   g.visibility,
   g.status,
@@ -718,6 +729,7 @@ WHERE g.status = 'active'
   AND (
     $4::text IS NULL
     OR lower(g.name) LIKE '%' || lower($4::text) || '%'
+    OR lower(COALESCE(g.bio, '')) LIKE '%' || lower($4::text) || '%'
     OR lower(COALESCE(g.description, '')) LIKE '%' || lower($4::text) || '%'
     OR lower(COALESCE(g.location, '')) LIKE '%' || lower($4::text) || '%'
     OR lower(COALESCE(g.location_name, '')) LIKE '%' || lower($4::text) || '%'
@@ -740,6 +752,7 @@ type ListGroupsRow struct {
 	ID                     pgtype.UUID        `db:"id" json:"id"`
 	Name                   string             `db:"name" json:"name"`
 	Slug                   string             `db:"slug" json:"slug"`
+	Bio                    string             `db:"bio" json:"bio"`
 	Description            string             `db:"description" json:"description"`
 	Visibility             string             `db:"visibility" json:"visibility"`
 	Status                 string             `db:"status" json:"status"`
@@ -788,6 +801,7 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]ListG
 			&i.ID,
 			&i.Name,
 			&i.Slug,
+			&i.Bio,
 			&i.Description,
 			&i.Visibility,
 			&i.Status,
@@ -1068,27 +1082,29 @@ const updateGroup = `-- name: UpdateGroup :one
 UPDATE groups
 SET
   name = CASE WHEN $1::boolean THEN $2 ELSE name END,
-  description = CASE WHEN $3::boolean THEN $4 ELSE description END,
-  visibility = CASE WHEN $5::boolean THEN $6 ELSE visibility END,
-  status = CASE WHEN $7::boolean THEN $8 ELSE status END,
-  join_policy = CASE WHEN $9::boolean THEN $10 ELSE join_policy END,
-  location = CASE WHEN $11::boolean THEN $12 ELSE location END,
-  location_name = CASE WHEN $13::boolean THEN $14 ELSE location_name END,
-  formatted_address = CASE WHEN $15::boolean THEN $16 ELSE formatted_address END,
-  lat = CASE WHEN $17::boolean THEN $18 ELSE lat END,
-  lng = CASE WHEN $19::boolean THEN $20 ELSE lng END,
-  google_place_id = CASE WHEN $21::boolean THEN $22 ELSE google_place_id END,
-  region_code = CASE WHEN $23::boolean THEN $24 ELSE region_code END,
-  province_code = CASE WHEN $25::boolean THEN $26 ELSE province_code END,
-  city_municipality_code = CASE WHEN $27::boolean THEN $28 ELSE city_municipality_code END,
-  barangay_code = CASE WHEN $29::boolean THEN $30 ELSE barangay_code END,
-  location_source = CASE WHEN $31::boolean THEN $32 ELSE location_source END,
+  bio = CASE WHEN $3::boolean THEN $4 ELSE bio END,
+  description = CASE WHEN $5::boolean THEN $6 ELSE description END,
+  visibility = CASE WHEN $7::boolean THEN $8 ELSE visibility END,
+  status = CASE WHEN $9::boolean THEN $10 ELSE status END,
+  join_policy = CASE WHEN $11::boolean THEN $12 ELSE join_policy END,
+  location = CASE WHEN $13::boolean THEN $14 ELSE location END,
+  location_name = CASE WHEN $15::boolean THEN $16 ELSE location_name END,
+  formatted_address = CASE WHEN $17::boolean THEN $18 ELSE formatted_address END,
+  lat = CASE WHEN $19::boolean THEN $20 ELSE lat END,
+  lng = CASE WHEN $21::boolean THEN $22 ELSE lng END,
+  google_place_id = CASE WHEN $23::boolean THEN $24 ELSE google_place_id END,
+  region_code = CASE WHEN $25::boolean THEN $26 ELSE region_code END,
+  province_code = CASE WHEN $27::boolean THEN $28 ELSE province_code END,
+  city_municipality_code = CASE WHEN $29::boolean THEN $30 ELSE city_municipality_code END,
+  barangay_code = CASE WHEN $31::boolean THEN $32 ELSE barangay_code END,
+  location_source = CASE WHEN $33::boolean THEN $34 ELSE location_source END,
   updated_at = NOW()
-WHERE id = $33::uuid
+WHERE id = $35::uuid
 RETURNING
   id,
   name,
   slug,
+  COALESCE(bio, '') AS bio,
   COALESCE(description, '') AS description,
   visibility,
   status,
@@ -1119,6 +1135,8 @@ RETURNING
 type UpdateGroupParams struct {
 	SetName                 bool        `db:"set_name" json:"set_name"`
 	Name                    string      `db:"name" json:"name"`
+	SetBio                  bool        `db:"set_bio" json:"set_bio"`
+	Bio                     *string     `db:"bio" json:"bio"`
 	SetDescription          bool        `db:"set_description" json:"set_description"`
 	Description             *string     `db:"description" json:"description"`
 	SetVisibility           bool        `db:"set_visibility" json:"set_visibility"`
@@ -1156,6 +1174,7 @@ type UpdateGroupRow struct {
 	ID                     pgtype.UUID        `db:"id" json:"id"`
 	Name                   string             `db:"name" json:"name"`
 	Slug                   string             `db:"slug" json:"slug"`
+	Bio                    string             `db:"bio" json:"bio"`
 	Description            string             `db:"description" json:"description"`
 	Visibility             string             `db:"visibility" json:"visibility"`
 	Status                 string             `db:"status" json:"status"`
@@ -1187,6 +1206,8 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Updat
 	row := q.db.QueryRow(ctx, updateGroup,
 		arg.SetName,
 		arg.Name,
+		arg.SetBio,
+		arg.Bio,
 		arg.SetDescription,
 		arg.Description,
 		arg.SetVisibility,
@@ -1224,6 +1245,7 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Updat
 		&i.ID,
 		&i.Name,
 		&i.Slug,
+		&i.Bio,
 		&i.Description,
 		&i.Visibility,
 		&i.Status,

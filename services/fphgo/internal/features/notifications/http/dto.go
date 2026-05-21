@@ -2,7 +2,7 @@ package http
 
 type CreateNotificationRequest struct {
 	UserID            string         `json:"userId" validate:"required,uuid"`
-	Type              string         `json:"type" validate:"required,oneof=SYSTEM MESSAGE EVENT GROUP SERVICE BOOKING REVIEW MENTION LIKE COMMENT FRIEND_REQUEST GROUP_INVITE EVENT_REMINDER PAYMENT SECURITY NEW_DIVE_SITE_PUBLISHED CHIKA_THREAD_COMMENTED CHIKA_COMMENT_REPLIED GROUP_INVITE_RECEIVED GROUP_POST_CREATED EVENT_CREATED_FOR_GROUP EVENT_ATTENDEE_JOINED EVENT_UPDATED EVENT_CANCELLED"`
+	Type              string         `json:"type" validate:"required,oneof=SYSTEM MESSAGE EVENT GROUP SERVICE BOOKING REVIEW MENTION LIKE COMMENT FRIEND_REQUEST GROUP_INVITE EVENT_REMINDER PAYMENT SECURITY NEW_DIVE_SITE_PUBLISHED DIVE_SITE_SUBMITTED_FOR_REVIEW CHIKA_THREAD_COMMENTED CHIKA_COMMENT_REPLIED GROUP_INVITE_RECEIVED GROUP_POST_CREATED EVENT_CREATED_FOR_GROUP EVENT_ATTENDEE_JOINED EVENT_UPDATED EVENT_CANCELLED"`
 	Category          string         `json:"category,omitempty" validate:"omitempty,max=80"`
 	Title             string         `json:"title" validate:"required,max=255"`
 	Message           string         `json:"message" validate:"required,max=2000"`

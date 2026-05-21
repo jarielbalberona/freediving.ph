@@ -20,6 +20,7 @@ type Group struct {
 	ID                     string
 	Name                   string
 	Slug                   string
+	Bio                    string
 	Description            string
 	Visibility             string
 	Status                 string
@@ -104,6 +105,7 @@ type ListGroupPostsInput struct {
 type CreateGroupInput struct {
 	Name             string
 	Slug             string
+	Bio              string
 	Description      string
 	Visibility       string
 	JoinPolicy       string
@@ -124,6 +126,7 @@ type CreateGroupInput struct {
 type UpdateGroupInput struct {
 	GroupID          string
 	Name             *string
+	Bio              *string
 	Description      *string
 	Visibility       *string
 	Status           *string
@@ -195,6 +198,7 @@ func (r *Repo) CreateGroup(ctx context.Context, input CreateGroupInput) (Group, 
 	row, err := r.queries.CreateGroup(ctx, groupsqlc.CreateGroupParams{
 		Name:                 input.Name,
 		Slug:                 input.Slug,
+		Bio:                  optionalString(input.Bio),
 		Description:          optionalString(input.Description),
 		Visibility:           input.Visibility,
 		JoinPolicy:           input.JoinPolicy,
@@ -231,6 +235,10 @@ func (r *Repo) UpdateGroup(ctx context.Context, input UpdateGroupInput) (Group, 
 	if input.Name != nil {
 		params.SetName = true
 		params.Name = *input.Name
+	}
+	if input.Bio != nil {
+		params.SetBio = true
+		params.Bio = optionalString(*input.Bio)
 	}
 	if input.Description != nil {
 		params.SetDescription = true
@@ -423,6 +431,7 @@ func mapListGroup(row groupsqlc.ListGroupsRow) Group {
 		ID:                     uuidString(row.ID),
 		Name:                   row.Name,
 		Slug:                   row.Slug,
+		Bio:                    row.Bio,
 		Description:            row.Description,
 		Visibility:             row.Visibility,
 		Status:                 row.Status,
@@ -456,6 +465,7 @@ func mapGetGroup(row groupsqlc.GetGroupByIDRow) Group {
 		ID:                     uuidString(row.ID),
 		Name:                   row.Name,
 		Slug:                   row.Slug,
+		Bio:                    row.Bio,
 		Description:            row.Description,
 		Visibility:             row.Visibility,
 		Status:                 row.Status,
@@ -490,6 +500,7 @@ func mapCreateGroup(row groupsqlc.CreateGroupRow) Group {
 		ID:                     uuidString(row.ID),
 		Name:                   row.Name,
 		Slug:                   row.Slug,
+		Bio:                    row.Bio,
 		Description:            row.Description,
 		Visibility:             row.Visibility,
 		Status:                 row.Status,
@@ -523,6 +534,7 @@ func mapUpdateGroup(row groupsqlc.UpdateGroupRow) Group {
 		ID:                     uuidString(row.ID),
 		Name:                   row.Name,
 		Slug:                   row.Slug,
+		Bio:                    row.Bio,
 		Description:            row.Description,
 		Visibility:             row.Visibility,
 		Status:                 row.Status,

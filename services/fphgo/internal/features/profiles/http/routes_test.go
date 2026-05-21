@@ -27,7 +27,6 @@ func TestProfilesRoutesRequireAuth(t *testing.T) {
 		"/profiles/by-username/member",
 		"/profiles/by-username/member/posts",
 		"/profiles/by-username/member/bucketlist",
-		"/users/search?q=test",
 	}
 	for _, path := range paths {
 		req := httptest.NewRequest(http.MethodGet, path, nil)

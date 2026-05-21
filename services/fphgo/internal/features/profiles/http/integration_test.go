@@ -267,7 +267,6 @@ func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 			{method: http.MethodGet, path: "/profiles/by-username/member"},
 			{method: http.MethodGet, path: "/profiles/by-username/member/posts"},
 			{method: http.MethodGet, path: "/profiles/by-username/member/bucketlist"},
-			{method: http.MethodGet, path: "/users/search?q=member"},
 		}
 
 		for _, tc := range cases {
@@ -368,12 +367,6 @@ func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 			t.Fatalf("expected 200 for GET /profiles/by-username/{username}/bucketlist, got %d", bucketRec.Code)
 		}
 
-		searchReq := httptest.NewRequest(http.MethodGet, "/users/search?q=member", nil)
-		searchRec := httptest.NewRecorder()
-		router.ServeHTTP(searchRec, searchReq)
-		if searchRec.Code != http.StatusOK {
-			t.Fatalf("expected 200 for GET /users/search, got %d", searchRec.Code)
-		}
 	})
 }
 

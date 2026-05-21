@@ -43,8 +43,6 @@ export function MediaPostComponent({
   const locationText = [post.diveSite?.name, post.diveSite?.area]
     .filter(Boolean)
     .join(" · ");
-  const previewAspectRatio =
-    preview?.width && preview.height ? `${preview.width} / ${preview.height}` : "4 / 3";
 
   useEffect(() => {
     setImageLoaded(false);
@@ -99,8 +97,7 @@ export function MediaPostComponent({
           {preview ? (
             <button
               type="button"
-              className="relative block w-full overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-left"
-              style={{ aspectRatio: previewAspectRatio }}
+              className="relative block aspect-[4/5] w-full overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-left"
               onClick={() => {
                 if (previewUrl) setViewerOpen(true);
               }}

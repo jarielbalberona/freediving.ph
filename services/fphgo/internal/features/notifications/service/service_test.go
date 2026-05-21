@@ -197,6 +197,46 @@ func TestNotifyDiveSiteApprovedFansOutToOptedInUsersAndExcludesSubmitterFromPubl
 	}
 }
 
+func TestNotifyDiveSiteSubmittedForReviewNotifiesExploreModeratorsAndExcludesSubmitter(t *testing.T) {
+	repo := newNotificationRepoStub()
+	submitterID := "550e8400-e29b-41d4-a716-446655440001"
+	adminID := "550e8400-e29b-41d4-a716-446655440002"
+	superAdminID := "550e8400-e29b-41d4-a716-446655440003"
+	repo.exploreModeratorRecipients = []string{submitterID, adminID, superAdminID}
+	broadcaster := &notificationBroadcasterStub{}
+	svc := New(repo, WithBroadcaster(broadcaster))
+
+	err := svc.NotifyDiveSiteSubmittedForReview(context.Background(), DiveSiteSubmittedForReviewInput{
+		SiteID:          "770e8400-e29b-41d4-a716-446655440000",
+		Name:            "Secret Reef",
+		Area:            "Batangas",
+		SubmitterUserID: submitterID,
+	})
+	if err != nil {
+		t.Fatalf("NotifyDiveSiteSubmittedForReview returned error: %v", err)
+	}
+	if len(repo.created) != 2 {
+		t.Fatalf("expected two moderator notifications, got %d", len(repo.created))
+	}
+	for _, input := range repo.created {
+		if input.Type != "DIVE_SITE_SUBMITTED_FOR_REVIEW" {
+			t.Fatalf("unexpected notification type %q", input.Type)
+		}
+		if input.UserID == submitterID {
+			t.Fatal("submitter should not receive their own moderation notification")
+		}
+		if input.ActionURL == nil || *input.ActionURL != "/moderation/explore-sites/770e8400-e29b-41d4-a716-446655440000" {
+			t.Fatalf("unexpected action url: %v", input.ActionURL)
+		}
+		if _, ok := input.Metadata["moderationNotes"]; ok {
+			t.Fatal("review notification metadata leaked moderation notes")
+		}
+	}
+	if len(broadcaster.targets) != 2 {
+		t.Fatalf("expected two targeted realtime emissions, got %d", len(broadcaster.targets))
+	}
+}
+
 func TestNotifyChikaThreadCommentedUsesPseudonymousSafePayload(t *testing.T) {
 	repo := newNotificationRepoStub()
 	recipientID := "550e8400-e29b-41d4-a716-446655440101"
@@ -407,6 +447,37 @@ func TestProcessDueOutboxCreatesDiveSiteNotificationsAndMarksProcessed(t *testin
 	}
 }
 
+func TestProcessDueOutboxCreatesDiveSiteReviewNotificationsAndMarksProcessed(t *testing.T) {
+	repo := newNotificationRepoStub()
+	submitterID := "550e8400-e29b-41d4-a716-446655440001"
+	adminID := "550e8400-e29b-41d4-a716-446655440002"
+	repo.exploreModeratorRecipients = []string{adminID}
+	repo.claimedOutbox = []notificationsrepo.NotificationOutbox{newDiveSiteSubmissionOutboxEvent(1, submitterID)}
+	broadcaster := &notificationBroadcasterStub{}
+	svc := New(repo, WithBroadcaster(broadcaster))
+
+	result, err := svc.ProcessDueOutbox(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ProcessDueOutbox returned error: %v", err)
+	}
+	if result.Claimed != 1 || result.Processed != 1 || result.Retried != 0 || result.Failed != 0 {
+		t.Fatalf("unexpected process result: %+v", result)
+	}
+	if len(repo.processedOutboxIDs) != 1 || repo.processedOutboxIDs[0] != repo.claimedOutbox[0].ID {
+		t.Fatalf("expected outbox marked processed, got %#v", repo.processedOutboxIDs)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one review notification, got %d", len(repo.created))
+	}
+	created := repo.created[0]
+	if created.Type != "DIVE_SITE_SUBMITTED_FOR_REVIEW" || created.UserID != adminID {
+		t.Fatalf("unexpected review notification: type=%s user=%s", created.Type, created.UserID)
+	}
+	if len(broadcaster.targets) != 1 {
+		t.Fatalf("expected one targeted realtime emission after persistence, got %d", len(broadcaster.targets))
+	}
+}
+
 func TestProcessDueOutboxRetriesOnFailureWithBackoff(t *testing.T) {
 	repo := newNotificationRepoStub()
 	repo.claimedOutbox = []notificationsrepo.NotificationOutbox{newDiveSiteOutboxEvent(1, "550e8400-e29b-41d4-a716-446655440001")}
@@ -578,6 +649,7 @@ type notificationRepoStub struct {
 	notifications                        []notificationsrepo.Notification
 	created                              []notificationsrepo.CreateInput
 	nextID                               int64
+	exploreModeratorRecipients           []string
 	newDiveSiteRecipients                []string
 	excludedNewDiveSiteRecipientIDs      map[string]bool
 	chikaRepliesEnabled                  map[string]bool
@@ -727,6 +799,10 @@ func (r *notificationRepoStub) UpdateSettingsForUser(context.Context, string, no
 	return notificationsrepo.NotificationSettings{}, nil
 }
 
+func (r *notificationRepoStub) ListActiveExploreModeratorRecipients(_ context.Context, excludeUserID string) ([]string, error) {
+	return filteredRecipients(r.exploreModeratorRecipients, excludeUserID), nil
+}
+
 func (r *notificationRepoStub) ListActiveNewDiveSiteRecipients(_ context.Context, excludeUserID string) ([]string, error) {
 	recipients := make([]string, 0, len(r.newDiveSiteRecipients))
 	for _, userID := range r.newDiveSiteRecipients {
@@ -857,6 +933,20 @@ func newDiveSiteOutboxEvent(attempts int, submitterID string) notificationsrepo.
 			"siteId":          "770e8400-e29b-41d4-a716-446655440000",
 			"slug":            "reef-point",
 			"name":            "Reef Point",
+			"area":            "Batangas",
+			"submitterUserId": submitterID,
+		},
+	}
+}
+
+func newDiveSiteSubmissionOutboxEvent(attempts int, submitterID string) notificationsrepo.NotificationOutbox {
+	return notificationsrepo.NotificationOutbox{
+		ID:        "660e8400-e29b-41d4-a716-446655440010",
+		EventType: notificationsrepo.OutboxEventDiveSiteSubmittedForReview,
+		Attempts:  attempts,
+		Payload: map[string]any{
+			"siteId":          "770e8400-e29b-41d4-a716-446655440000",
+			"name":            "Secret Reef",
 			"area":            "Batangas",
 			"submitterUserId": submitterID,
 		},

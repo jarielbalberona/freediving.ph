@@ -912,7 +912,7 @@ func TestCreateSiteSubmissionRequiresCoordinates(t *testing.T) {
 	}
 }
 
-func TestCreateSiteSubmissionDoesNotNotifyAllUsers(t *testing.T) {
+func TestCreateSiteSubmissionProcessesReviewNotificationOutboxWithoutPublicFanout(t *testing.T) {
 	lat := 13.7244
 	lng := 120.8820
 	notifications := &exploreNotificationStub{}
@@ -935,6 +935,9 @@ func TestCreateSiteSubmissionDoesNotNotifyAllUsers(t *testing.T) {
 	}
 	if len(notifications.approved) != 0 || len(notifications.rejected) != 0 {
 		t.Fatalf("pending submission should not emit notifications, got approved=%d rejected=%d", len(notifications.approved), len(notifications.rejected))
+	}
+	if notifications.processed != 1 {
+		t.Fatalf("expected pending submission to opportunistically process review outbox, got %d calls", notifications.processed)
 	}
 }
 

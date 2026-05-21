@@ -308,13 +308,14 @@ test("chika adapters normalize display name, username, and excerpts from real fi
   assert.equal(normalized.homepage.excerpt, normalized.chikaList.excerpt);
 });
 
-test("media post image reserves space while signed media loads", async () => {
+test("media post image uses a stable portrait preview while signed media loads", async () => {
   const component = await readSource(
     "src/features/media/components/MediaPostComponent.tsx",
   );
 
-  assert.match(component, /previewAspectRatio/);
-  assert.match(component, /style=\{\{ aspectRatio: previewAspectRatio \}\}/);
+  assert.match(component, /aspect-\[4\/5\]/);
+  assert.doesNotMatch(component, /previewAspectRatio/);
+  assert.doesNotMatch(component, /style=\{\{ aspectRatio:/);
   assert.match(component, /animate-pulse bg-muted/);
   assert.match(component, /imageLoaded \? "opacity-100" : "opacity-0"/);
   assert.match(component, /onLoad=\{\(\) => setImageLoaded\(true\)\}/);

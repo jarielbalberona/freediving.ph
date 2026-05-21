@@ -211,6 +211,45 @@ func TestSiteSubmissionWorkflowVisibility(t *testing.T) {
 	if pendingOutboxCount != 0 {
 		t.Fatalf("pending submission should not enqueue public notification outbox rows, got %d", pendingOutboxCount)
 	}
+	var reviewOutboxCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int
+		FROM notification_outbox
+		WHERE aggregate_type = 'dive_site'
+		  AND aggregate_id = $1
+		  AND event_type = $2
+		  AND idempotency_key = $3
+	`, submission.ID, notificationsrepo.OutboxEventDiveSiteSubmittedForReview, "explore:site:"+submission.ID+":submitted-for-review").Scan(&reviewOutboxCount); err != nil {
+		t.Fatalf("count review outbox rows: %v", err)
+	}
+	if reviewOutboxCount != 1 {
+		t.Fatalf("expected one review notification outbox row, got %d", reviewOutboxCount)
+	}
+	var reviewOutboxPayload []byte
+	if err := pool.QueryRow(ctx, `
+		SELECT payload
+		FROM notification_outbox
+		WHERE aggregate_type = 'dive_site'
+		  AND aggregate_id = $1
+		  AND event_type = $2
+		  AND idempotency_key = $3
+	`, submission.ID, notificationsrepo.OutboxEventDiveSiteSubmittedForReview, "explore:site:"+submission.ID+":submitted-for-review").Scan(&reviewOutboxPayload); err != nil {
+		t.Fatalf("load review outbox payload: %v", err)
+	}
+	var reviewPayload map[string]any
+	if err := json.Unmarshal(reviewOutboxPayload, &reviewPayload); err != nil {
+		t.Fatalf("decode review outbox payload: %v", err)
+	}
+	for _, privateField := range []string{"moderationNotes", "reviewerNotes", "contactInfo"} {
+		if _, ok := reviewPayload[privateField]; ok {
+			t.Fatalf("review outbox payload leaked private field %q: %+v", privateField, reviewPayload)
+		}
+	}
+	for _, publicField := range []string{"siteId", "name", "area", "submitterUserId"} {
+		if _, ok := reviewPayload[publicField]; !ok {
+			t.Fatalf("review outbox payload missing %q: %+v", publicField, reviewPayload)
+		}
+	}
 
 	approved, err := repo.ApproveSite(ctx, submission.ID, fmt.Sprintf("secret-reef-%d", time.Now().UnixNano()), reviewerID, time.Now().UTC(), nil)
 	if err != nil {

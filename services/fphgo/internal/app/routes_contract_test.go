@@ -12,6 +12,10 @@ import (
 
 	"fphgo/internal/config"
 	authhttp "fphgo/internal/features/auth/http"
+	profileshttp "fphgo/internal/features/profiles/http"
+	profilesrepo "fphgo/internal/features/profiles/repo"
+	profilesservice "fphgo/internal/features/profiles/service"
+	usershttp "fphgo/internal/features/users/http"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/authz"
 	"fphgo/internal/shared/httpx"
@@ -243,6 +247,33 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		assertStringField(t, profile, "userId")
 		assertStringField(t, profile, "username")
 		assertStringField(t, profile, "displayName")
+	})
+
+	t.Run("GET /v1/users/search hits search route before username route", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/users/search?q=theaikokitane&limit=8", nil)
+		req.Header.Set("Authorization", "Bearer contract-ok")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		items, ok := payload["items"].([]any)
+		if !ok || len(items) != 1 {
+			t.Fatalf("expected one search item, got %v", payload["items"])
+		}
+		first, ok := items[0].(map[string]any)
+		if !ok {
+			t.Fatal("expected search item object")
+		}
+		if first["username"] != "theaikokitane" {
+			t.Fatalf("expected search result username theaikokitane, got %v", first["username"])
+		}
 	})
 
 	t.Run("GET /v1/blocks", func(t *testing.T) {
@@ -532,20 +563,6 @@ func buildContractRouter() chi.Router {
 			},
 		})
 	})
-	profilesRoutes.Get("/users/search", func(w http.ResponseWriter, r *http.Request) {
-		httpx.JSON(w, http.StatusOK, map[string]any{
-			"items": []map[string]any{{
-				"userId":      "550e8400-e29b-41d4-a716-446655440050",
-				"username":    "diver1",
-				"displayName": "Diver One",
-				"bio":         "",
-				"avatarUrl":   "",
-				"location":    "Cebu",
-				"socials":     map[string]string{},
-			}},
-		})
-	})
-
 	blocksRoutes := chi.NewRouter()
 	blocksRoutes.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusOK, map[string]any{
@@ -608,6 +625,8 @@ func buildContractRouter() chi.Router {
 	deps := &Dependencies{
 		AuthHandler:         authhttp.New(),
 		AuthRoutes:          authRoutes,
+		UsersHandler:        usershttp.New(nil, nil),
+		ProfilesHandler:     profileshttp.New(&contractProfilesService{}, validatex.New()),
 		MessagingRoutes:     messagesRoutes,
 		ChikaRoutes:         chikaRoutes,
 		ProfilesRoutes:      profilesRoutes,
@@ -620,6 +639,47 @@ func buildContractRouter() chi.Router {
 
 	cfg := config.Config{CORSOrigins: []string{"*"}}
 	return NewRouter(cfg, deps, testLogger(), middleware.Recover(testLogger()), WithAuthMiddleware(contractAuthMiddleware()))
+}
+
+type contractProfilesService struct{}
+
+func (s *contractProfilesService) GetProfileByUserID(_ context.Context, userID string) (profilesservice.Profile, error) {
+	return profilesservice.Profile{UserID: userID, Username: "member", DisplayName: "Member User"}, nil
+}
+
+func (s *contractProfilesService) UpdateMyProfile(_ context.Context, input profilesservice.UpdateMyProfileInput) (profilesservice.Profile, error) {
+	return profilesservice.Profile{UserID: input.ActorID, Username: "member", DisplayName: "Member User"}, nil
+}
+
+func (s *contractProfilesService) SearchUsers(_ context.Context, _ string, _ string, _ int32) ([]profilesservice.Profile, error) {
+	return []profilesservice.Profile{{
+		UserID:      "550e8400-e29b-41d4-a716-446655440099",
+		Username:    "theaikokitane",
+		DisplayName: "Aiko Kitane",
+		AvatarURL:   "",
+		Location:    "Philippines",
+		Socials:     map[string]string{},
+	}}, nil
+}
+
+func (s *contractProfilesService) GetSavedHub(_ context.Context, _ string) (profilesservice.SavedHub, error) {
+	return profilesservice.SavedHub{Sites: []profilesrepo.SavedSite{}, Users: []profilesrepo.SavedUser{}}, nil
+}
+
+func (s *contractProfilesService) GetPublicProfileByUsername(_ context.Context, username string) (profilesservice.PublicProfile, error) {
+	return profilesservice.PublicProfile{UserID: "550e8400-e29b-41d4-a716-446655440099", Username: username, DisplayName: "Member User"}, nil
+}
+
+func (s *contractProfilesService) ListPublicProfilePostsByUsername(_ context.Context, _ string, _ int32) ([]profilesservice.PublicProfilePost, error) {
+	return []profilesservice.PublicProfilePost{}, nil
+}
+
+func (s *contractProfilesService) ListProfileBucketListByUsername(_ context.Context, _ string, _ int32) ([]profilesservice.ProfileBucketListItem, error) {
+	return []profilesservice.ProfileBucketListItem{}, nil
+}
+
+func (s *contractProfilesService) GetProfileDivingByUsername(_ context.Context, _ string, _ string) (profilesservice.ProfileDiving, error) {
+	return profilesservice.ProfileDiving{}, nil
 }
 
 func contractAuthMiddleware() func(http.Handler) http.Handler {

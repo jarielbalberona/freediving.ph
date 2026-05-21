@@ -128,7 +128,10 @@ type SettingsUpdateInput struct {
 	Timezone                   *string
 }
 
-const OutboxEventNewDiveSitePublished = "NEW_DIVE_SITE_PUBLISHED"
+const (
+	OutboxEventNewDiveSitePublished       = "NEW_DIVE_SITE_PUBLISHED"
+	OutboxEventDiveSiteSubmittedForReview = "DIVE_SITE_SUBMITTED_FOR_REVIEW"
+)
 
 type NotificationOutbox struct {
 	ID             string
@@ -759,6 +762,32 @@ func (r *Repo) CountVisibleForUser(ctx context.Context, userID string) (int64, e
 		return 0, err
 	}
 	return count, nil
+}
+
+func (r *Repo) ListActiveExploreModeratorRecipients(ctx context.Context, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT u.id::text
+		FROM users u
+		LEFT JOIN notification_settings ns ON ns.user_id = u.id
+		WHERE u.account_status = 'active'
+		  AND u.global_role IN ('moderator', 'admin', 'super_admin')
+		  AND (NULLIF($1, '') IS NULL OR u.id <> $1::uuid)
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.system_notifications, TRUE) = TRUE
+		ORDER BY
+		  CASE u.global_role
+		    WHEN 'super_admin' THEN 0
+		    WHEN 'admin' THEN 1
+		    ELSE 2
+		  END,
+		  u.created_at ASC,
+		  u.id ASC
+	`, strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanUserIDs(rows)
 }
 
 func (r *Repo) ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error) {

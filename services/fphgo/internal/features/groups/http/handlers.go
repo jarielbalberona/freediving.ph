@@ -66,6 +66,7 @@ func (h *Handlers) CreateGroup(w http.ResponseWriter, r *http.Request) {
 	group, err := h.service.CreateGroup(r.Context(), actorID, groupsrepo.CreateGroupInput{
 		Name:             req.Name,
 		Slug:             req.Slug,
+		Bio:              req.Bio,
 		Description:      req.Description,
 		Visibility:       req.Visibility,
 		JoinPolicy:       req.JoinPolicy,
@@ -97,6 +98,7 @@ func (h *Handlers) UpdateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	group, err := h.service.UpdateGroup(r.Context(), groupID, groupsrepo.UpdateGroupInput{
 		Name:             req.Name,
+		Bio:              req.Bio,
 		Description:      req.Description,
 		Visibility:       req.Visibility,
 		Status:           req.Status,
@@ -314,6 +316,7 @@ func mapGroup(item groupsrepo.Group) GroupResponse {
 		ID:                       item.ID,
 		Name:                     item.Name,
 		Slug:                     item.Slug,
+		Bio:                      item.Bio,
 		Description:              item.Description,
 		Visibility:               item.Visibility,
 		Status:                   item.Status,

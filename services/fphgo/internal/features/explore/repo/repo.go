@@ -550,8 +550,15 @@ func (r *Repo) HideSiteByID(ctx context.Context, id, reviewedByAppUserID string,
 }
 
 func (r *Repo) CreateSiteSubmission(ctx context.Context, input CreateSiteSubmissionInput) (SiteSubmission, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return SiteSubmission{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
 	description := input.Description
-	row, err := r.queries.CreateSiteSubmission(ctx, exploreqlc.CreateSiteSubmissionParams{
+	q := r.queries.WithTx(tx)
+	row, err := q.CreateSiteSubmission(ctx, exploreqlc.CreateSiteSubmissionParams{
 		Name:                 input.Name,
 		Slug:                 input.Slug,
 		Area:                 input.Area,
@@ -572,7 +579,25 @@ func (r *Repo) CreateSiteSubmission(ctx context.Context, input CreateSiteSubmiss
 	if err != nil {
 		return SiteSubmission{}, err
 	}
-	return mapDiveSiteSubmission(row, "", ""), nil
+	item := mapDiveSiteSubmission(row, "", "")
+	if _, err := notificationsrepo.EnqueueOutboxWithExecutor(ctx, tx, notificationsrepo.OutboxEnqueueInput{
+		EventType:     notificationsrepo.OutboxEventDiveSiteSubmittedForReview,
+		AggregateType: "dive_site",
+		AggregateID:   item.ID,
+		Payload: map[string]any{
+			"siteId":          item.ID,
+			"name":            item.Name,
+			"area":            item.Area,
+			"submitterUserId": item.SubmittedByAppUserID,
+		},
+		IdempotencyKey: "explore:site:" + item.ID + ":submitted-for-review",
+	}); err != nil {
+		return SiteSubmission{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return SiteSubmission{}, err
+	}
+	return item, nil
 }
 
 func (r *Repo) ListMySiteSubmissions(ctx context.Context, input ListSiteSubmissionsInput) ([]SiteSubmission, error) {

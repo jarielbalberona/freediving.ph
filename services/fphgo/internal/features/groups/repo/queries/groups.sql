@@ -3,6 +3,7 @@ SELECT
   g.id,
   g.name,
   g.slug,
+  COALESCE(g.bio, '') AS bio,
   COALESCE(g.description, '') AS description,
   g.visibility,
   g.status,
@@ -54,6 +55,7 @@ WHERE g.status = 'active'
   AND (
     sqlc.narg(search)::text IS NULL
     OR lower(g.name) LIKE '%' || lower(sqlc.narg(search)::text) || '%'
+    OR lower(COALESCE(g.bio, '')) LIKE '%' || lower(sqlc.narg(search)::text) || '%'
     OR lower(COALESCE(g.description, '')) LIKE '%' || lower(sqlc.narg(search)::text) || '%'
     OR lower(COALESCE(g.location, '')) LIKE '%' || lower(sqlc.narg(search)::text) || '%'
     OR lower(COALESCE(g.location_name, '')) LIKE '%' || lower(sqlc.narg(search)::text) || '%'
@@ -67,6 +69,7 @@ SELECT
   g.id,
   g.name,
   g.slug,
+  COALESCE(g.bio, '') AS bio,
   COALESCE(g.description, '') AS description,
   g.visibility,
   g.status,
@@ -102,6 +105,7 @@ WHERE g.id = sqlc.arg(group_id)::uuid;
 INSERT INTO groups (
   name,
   slug,
+  bio,
   description,
   visibility,
   status,
@@ -122,6 +126,7 @@ INSERT INTO groups (
 VALUES (
   sqlc.arg(name),
   sqlc.arg(slug),
+  sqlc.narg(bio),
   sqlc.narg(description),
   sqlc.arg(visibility),
   'active',
@@ -143,6 +148,7 @@ RETURNING
   id,
   name,
   slug,
+  COALESCE(bio, '') AS bio,
   COALESCE(description, '') AS description,
   visibility,
   status,
@@ -173,6 +179,7 @@ RETURNING
 UPDATE groups
 SET
   name = CASE WHEN sqlc.arg(set_name)::boolean THEN sqlc.arg(name) ELSE name END,
+  bio = CASE WHEN sqlc.arg(set_bio)::boolean THEN sqlc.narg(bio) ELSE bio END,
   description = CASE WHEN sqlc.arg(set_description)::boolean THEN sqlc.narg(description) ELSE description END,
   visibility = CASE WHEN sqlc.arg(set_visibility)::boolean THEN sqlc.arg(visibility) ELSE visibility END,
   status = CASE WHEN sqlc.arg(set_status)::boolean THEN sqlc.arg(status) ELSE status END,
@@ -194,6 +201,7 @@ RETURNING
   id,
   name,
   slug,
+  COALESCE(bio, '') AS bio,
   COALESCE(description, '') AS description,
   visibility,
   status,

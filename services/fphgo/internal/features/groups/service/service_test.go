@@ -442,6 +442,7 @@ func (r *fakeRepo) CreateGroup(_ context.Context, input groupsrepo.CreateGroupIn
 	group := fakeGroup(openGroupID, input.Visibility, input.JoinPolicy)
 	group.Name = input.Name
 	group.Slug = input.Slug
+	group.Bio = input.Bio
 	group.Description = input.Description
 	group.Location = input.Location
 	group.LocationName = input.LocationName
@@ -468,6 +469,9 @@ func (r *fakeRepo) UpdateGroup(_ context.Context, input groupsrepo.UpdateGroupIn
 	}
 	if input.Name != nil {
 		group.Name = *input.Name
+	}
+	if input.Bio != nil {
+		group.Bio = *input.Bio
 	}
 	if input.Description != nil {
 		group.Description = *input.Description

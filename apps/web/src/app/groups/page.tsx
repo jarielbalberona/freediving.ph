@@ -77,7 +77,7 @@ export default function GroupsPage() {
   const [visibility, setVisibility] = useState<VisibilityFilter>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
-  const [createDescription, setCreateDescription] = useState("");
+  const [createBio, setCreateBio] = useState("");
   const [createLocation, setCreateLocation] = useState<LocationSearchValue>(
     EMPTY_LOCATION_SEARCH_VALUE,
   );
@@ -168,7 +168,7 @@ export default function GroupsPage() {
     try {
       const created = await createMutation.mutateAsync({
         name: createName.trim(),
-        description: createDescription.trim() || undefined,
+        bio: createBio.trim() || undefined,
         location,
         locationName: createLocation.locationName?.trim() || undefined,
         formattedAddress: createLocation.formattedAddress?.trim() || undefined,
@@ -182,7 +182,7 @@ export default function GroupsPage() {
       });
       setCreateOpen(false);
       setCreateName("");
-      setCreateDescription("");
+      setCreateBio("");
       setCreateLocation(EMPTY_LOCATION_SEARCH_VALUE);
       setCreateVisibility("public");
       setCreateJoinPolicy("open");
@@ -385,7 +385,7 @@ export default function GroupsPage() {
       </section>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl!">
           <DialogHeader>
             <DialogTitle>Create a group</DialogTitle>
           </DialogHeader>
@@ -400,13 +400,17 @@ export default function GroupsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-group-description">Description</Label>
+              <Label htmlFor="create-group-bio">Bio</Label>
               <Textarea
-                id="create-group-description"
-                placeholder="What is this group for?"
-                value={createDescription}
-                onChange={(event) => setCreateDescription(event.target.value)}
+                id="create-group-bio"
+                maxLength={280}
+                placeholder="Short preview shown on group cards"
+                value={createBio}
+                onChange={(event) => setCreateBio(event.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                {createBio.length}/280
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="create-group-location">Location</Label>
@@ -529,8 +533,7 @@ function GroupCard({
               {group.name}
             </Link>
             <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
-              {group.description ||
-                "This group has not added a description yet."}
+              {group.bio || "This group has not added a bio yet."}
             </p>
           </div>
           {group.visibility !== "public" ? (

@@ -344,6 +344,7 @@ type Group struct {
 	ID                   pgtype.UUID        `db:"id" json:"id"`
 	Name                 string             `db:"name" json:"name"`
 	Slug                 string             `db:"slug" json:"slug"`
+	Bio                  *string            `db:"bio" json:"bio"`
 	Description          *string            `db:"description" json:"description"`
 	Visibility           string             `db:"visibility" json:"visibility"`
 	Status               string             `db:"status" json:"status"`

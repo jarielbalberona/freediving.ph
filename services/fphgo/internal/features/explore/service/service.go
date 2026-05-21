@@ -673,6 +673,15 @@ func (s *Service) CreateSiteSubmission(ctx context.Context, input CreateSiteSubm
 	if err != nil {
 		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_submission_failed", "failed to submit dive site", err)
 	}
+	if s.notifications != nil {
+		if _, err := s.notifications.ProcessDueOutbox(ctx, 10); err != nil {
+			slog.Default().Warn("explore.submitted_site_outbox_process_failed",
+				slog.String("site_id", submission.ID),
+				slog.String("submitter_user_id", submission.SubmittedByAppUserID),
+				slog.Any("error", err),
+			)
+		}
+	}
 	return submission, nil
 }
 

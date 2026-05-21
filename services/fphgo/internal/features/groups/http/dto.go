@@ -15,6 +15,7 @@ type GroupResponse struct {
 	ID                       string     `json:"id"`
 	Name                     string     `json:"name"`
 	Slug                     string     `json:"slug"`
+	Bio                      string     `json:"bio,omitempty"`
 	Description              string     `json:"description,omitempty"`
 	Visibility               string     `json:"visibility"`
 	Status                   string     `json:"status"`
@@ -97,6 +98,7 @@ type ListGroupPostsResponse struct {
 type CreateGroupRequest struct {
 	Name             string   `json:"name" validate:"required,min=3,max=120"`
 	Slug             string   `json:"slug,omitempty" validate:"omitempty,min=3,max=80"`
+	Bio              string   `json:"bio,omitempty" validate:"omitempty,max=280"`
 	Description      string   `json:"description,omitempty" validate:"omitempty,max=2000"`
 	Visibility       string   `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
 	JoinPolicy       string   `json:"joinPolicy,omitempty" validate:"omitempty,oneof=open invite_only"`
@@ -115,6 +117,7 @@ type CreateGroupRequest struct {
 
 type UpdateGroupRequest struct {
 	Name             *string  `json:"name,omitempty" validate:"omitempty,min=3,max=120"`
+	Bio              *string  `json:"bio,omitempty" validate:"omitempty,max=280"`
 	Description      *string  `json:"description,omitempty" validate:"omitempty,max=2000"`
 	Visibility       *string  `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
 	Status           *string  `json:"status,omitempty" validate:"omitempty,oneof=active archived deleted"`

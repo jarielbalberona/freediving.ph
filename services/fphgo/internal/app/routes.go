@@ -223,7 +223,11 @@ func resolveUsersRouter(deps *Dependencies) chi.Router {
 	if deps.UsersHandler == nil {
 		return nil
 	}
-	return usershttp.Routes(deps.UsersHandler)
+	var opts []usershttp.RouteOption
+	if deps.ProfilesHandler != nil {
+		opts = append(opts, usershttp.WithSearchUsersHandler(deps.ProfilesHandler.SearchUsers))
+	}
+	return usershttp.Routes(deps.UsersHandler, opts...)
 }
 
 func resolveMessagingRouter(deps *Dependencies) chi.Router {

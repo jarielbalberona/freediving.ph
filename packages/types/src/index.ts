@@ -402,6 +402,7 @@ export interface Group {
   id: string;
   name: string;
   slug: string;
+  bio?: string;
   description?: string;
   visibility: "public" | "private";
   status: "active" | "archived" | "deleted";
@@ -470,6 +471,7 @@ export interface GroupPost {
 export interface CreateGroupRequest {
   name: string;
   slug?: string;
+  bio?: string;
   description?: string;
   visibility?: "public" | "private";
   joinPolicy?: "open" | "invite_only";
@@ -488,6 +490,7 @@ export interface CreateGroupRequest {
 
 export interface UpdateGroupRequest {
   name?: string;
+  bio?: string;
   description?: string;
   visibility?: "public" | "private";
   status?: "active" | "archived" | "deleted";
@@ -749,6 +752,7 @@ export interface Notification {
     | "PAYMENT"
     | "SECURITY"
     | "NEW_DIVE_SITE_PUBLISHED"
+    | "DIVE_SITE_SUBMITTED_FOR_REVIEW"
     | "CHIKA_THREAD_COMMENTED"
     | "CHIKA_COMMENT_REPLIED"
     | "GROUP_INVITE_RECEIVED"

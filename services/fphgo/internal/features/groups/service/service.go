@@ -141,6 +141,7 @@ func (s *Service) CreateGroup(ctx context.Context, actorID string, input groupsr
 	created, err := s.repo.CreateGroup(ctx, groupsrepo.CreateGroupInput{
 		Name:             name,
 		Slug:             slug,
+		Bio:              strings.TrimSpace(input.Bio),
 		Description:      strings.TrimSpace(input.Description),
 		Visibility:       visibility,
 		JoinPolicy:       joinPolicy,
@@ -180,6 +181,14 @@ func (s *Service) UpdateGroup(ctx context.Context, groupID string, input groupsr
 	if input.Visibility != nil {
 		v := normalizeVisibility(*input.Visibility)
 		input.Visibility = &v
+	}
+	if input.Bio != nil {
+		v := strings.TrimSpace(*input.Bio)
+		input.Bio = &v
+	}
+	if input.Description != nil {
+		v := strings.TrimSpace(*input.Description)
+		input.Description = &v
 	}
 	if input.Status != nil {
 		s := normalizeGroupStatus(*input.Status)

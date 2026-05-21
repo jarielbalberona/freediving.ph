@@ -33,6 +33,7 @@ type repository interface {
 	GetSettingsForUser(ctx context.Context, userID string) (notificationsrepo.NotificationSettings, error)
 	CreateDefaultSettingsForUser(ctx context.Context, userID string) (notificationsrepo.NotificationSettings, error)
 	UpdateSettingsForUser(ctx context.Context, userID string, input notificationsrepo.SettingsUpdateInput) (notificationsrepo.NotificationSettings, error)
+	ListActiveExploreModeratorRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ChikaRepliesEnabled(ctx context.Context, userID string) (bool, error)
 	EventNotificationsEnabled(ctx context.Context, userID string) (bool, error)
@@ -209,6 +210,13 @@ type DiveSiteRejectedInput struct {
 	ReviewerUserID  string
 }
 
+type DiveSiteSubmittedForReviewInput struct {
+	SiteID          string
+	Name            string
+	Area            string
+	SubmitterUserID string
+}
+
 type ChikaThreadCommentedInput struct {
 	ThreadID         string
 	ThreadTitle      string
@@ -286,7 +294,7 @@ var (
 		"SYSTEM", "MESSAGE", "EVENT", "GROUP", "SERVICE",
 		"BOOKING", "REVIEW", "MENTION", "LIKE", "COMMENT",
 		"FRIEND_REQUEST", "GROUP_INVITE", "EVENT_REMINDER", "PAYMENT", "SECURITY",
-		"NEW_DIVE_SITE_PUBLISHED",
+		"NEW_DIVE_SITE_PUBLISHED", "DIVE_SITE_SUBMITTED_FOR_REVIEW",
 		"CHIKA_THREAD_COMMENTED", "CHIKA_COMMENT_REPLIED",
 		"GROUP_INVITE_RECEIVED", "GROUP_POST_CREATED",
 		"EVENT_CREATED_FOR_GROUP", "EVENT_ATTENDEE_JOINED", "EVENT_UPDATED", "EVENT_CANCELLED",
@@ -459,6 +467,36 @@ func (s *Service) NotifyDiveSiteRejected(ctx context.Context, input DiveSiteReje
 			"name":       input.Name,
 		},
 		IdempotencyKey: "explore:site:" + input.SiteID + ":rejected:submitter",
+	})
+	return err
+}
+
+func (s *Service) NotifyDiveSiteSubmittedForReview(ctx context.Context, input DiveSiteSubmittedForReviewInput) error {
+	recipients, err := s.repo.ListActiveExploreModeratorRecipients(ctx, input.SubmitterUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve dive site moderation notification recipients", err)
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              "DIVE_SITE_SUBMITTED_FOR_REVIEW",
+		Category:          "explore",
+		Title:             "Dive site needs review",
+		Message:           fallbackTitle(input.Name, "A dive site") + " in " + fallbackTitle(input.Area, "an unknown area") + " was submitted for moderation.",
+		Priority:          "NORMAL",
+		RelatedEntityType: "dive_site",
+		RelatedEntityID:   strings.TrimSpace(input.SiteID),
+		ActionURL:         "/moderation/explore-sites/" + strings.TrimSpace(input.SiteID),
+		Metadata: map[string]any{
+			"diveSiteId":      strings.TrimSpace(input.SiteID),
+			"name":            strings.TrimSpace(input.Name),
+			"area":            strings.TrimSpace(input.Area),
+			"submitterUserId": strings.TrimSpace(input.SubmitterUserID),
+			"notificationV1":  true,
+		},
+		IdempotencyKey: "explore:site:" + strings.TrimSpace(input.SiteID) + ":submitted-for-review",
 	})
 	return err
 }
@@ -846,6 +884,17 @@ func (s *Service) RunOutboxProcessor(ctx context.Context, interval time.Duration
 
 func (s *Service) processOutboxEvent(ctx context.Context, event notificationsrepo.NotificationOutbox) error {
 	switch strings.TrimSpace(event.EventType) {
+	case notificationsrepo.OutboxEventDiveSiteSubmittedForReview:
+		input := DiveSiteSubmittedForReviewInput{
+			SiteID:          payloadString(event.Payload, "siteId"),
+			Name:            payloadString(event.Payload, "name"),
+			Area:            payloadString(event.Payload, "area"),
+			SubmitterUserID: payloadString(event.Payload, "submitterUserId"),
+		}
+		if strings.TrimSpace(input.SiteID) == "" || strings.TrimSpace(input.Name) == "" {
+			return fmt.Errorf("submitted dive site outbox payload is missing required review fields")
+		}
+		return s.NotifyDiveSiteSubmittedForReview(ctx, input)
 	case notificationsrepo.OutboxEventNewDiveSitePublished:
 		input := DiveSiteApprovedInput{
 			SiteID:          payloadString(event.Payload, "siteId"),

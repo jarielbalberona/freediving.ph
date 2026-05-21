@@ -122,6 +122,7 @@ test("notification settings and schemas include scoped social notification contr
     readFile(notificationSchemasPath, "utf8"),
   ]);
 
+  assert.match(schemas, /DIVE_SITE_SUBMITTED_FOR_REVIEW/);
   assert.match(page, /chikaReplies/);
   assert.match(page, /Chika Replies/);
   for (const type of [
@@ -146,6 +147,7 @@ test("notification card renders friendly social labels and app-relative actions"
   assert.match(source, /GROUP_INVITE_RECEIVED: "Group invite"/);
   assert.match(source, /GROUP_POST_CREATED: "Group post"/);
   assert.match(source, /EVENT_CANCELLED: "Event cancelled"/);
+  assert.match(source, /DIVE_SITE_SUBMITTED_FOR_REVIEW: "Dive site review"/);
   assert.match(source, /notification\.actionUrl\?\.startsWith\("\/"\)/);
   assert.match(source, /!notification\.actionUrl\.startsWith\("\/\/"\)/);
   assert.match(source, /href=\{actionURL\}/);
