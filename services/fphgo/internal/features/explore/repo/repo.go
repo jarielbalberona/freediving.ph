@@ -656,7 +656,6 @@ func (r *Repo) ApproveSite(ctx context.Context, id, slug, reviewedByAppUserID st
 			"name":            item.Name,
 			"area":            item.Area,
 			"submitterUserId": item.SubmittedByAppUserID,
-			"reviewerUserId":  reviewedByAppUserID,
 		},
 		IdempotencyKey: "explore:site:" + item.ID + ":published",
 	}); err != nil {

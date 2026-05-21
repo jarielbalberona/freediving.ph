@@ -527,7 +527,6 @@ func (s *Service) processOutboxEvent(ctx context.Context, event notificationsrep
 			Name:            payloadString(event.Payload, "name"),
 			Area:            payloadString(event.Payload, "area"),
 			SubmitterUserID: payloadString(event.Payload, "submitterUserId"),
-			ReviewerUserID:  payloadString(event.Payload, "reviewerUserId"),
 		}
 		if strings.TrimSpace(input.SiteID) == "" || strings.TrimSpace(input.Slug) == "" || strings.TrimSpace(input.Name) == "" {
 			return fmt.Errorf("published dive site outbox payload is missing required public fields")

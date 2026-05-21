@@ -2,6 +2,7 @@ package repo_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -231,6 +232,31 @@ func TestSiteSubmissionWorkflowVisibility(t *testing.T) {
 	}
 	if approvedOutboxCount != 1 {
 		t.Fatalf("expected one approval outbox row, got %d", approvedOutboxCount)
+	}
+	var approvedOutboxPayload []byte
+	if err := pool.QueryRow(ctx, `
+		SELECT payload
+		FROM notification_outbox
+		WHERE aggregate_type = 'dive_site'
+		  AND aggregate_id = $1
+		  AND event_type = $2
+		  AND idempotency_key = $3
+	`, submission.ID, notificationsrepo.OutboxEventNewDiveSitePublished, "explore:site:"+submission.ID+":published").Scan(&approvedOutboxPayload); err != nil {
+		t.Fatalf("load approved outbox payload: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(approvedOutboxPayload, &payload); err != nil {
+		t.Fatalf("decode approved outbox payload: %v", err)
+	}
+	for _, privateField := range []string{"reviewerUserId", "moderationNotes", "reviewerNotes"} {
+		if _, ok := payload[privateField]; ok {
+			t.Fatalf("approval outbox payload leaked private field %q: %+v", privateField, payload)
+		}
+	}
+	for _, publicField := range []string{"siteId", "slug", "name", "area", "submitterUserId"} {
+		if _, ok := payload[publicField]; !ok {
+			t.Fatalf("approval outbox payload missing %q: %+v", publicField, payload)
+		}
 	}
 
 	publicItems, err = repo.ListSites(ctx, explorerepo.ListSitesInput{

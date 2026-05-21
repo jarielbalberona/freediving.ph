@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -29,20 +29,18 @@ import {
   useUserGroups,
 } from "@/features/groups/hooks/queries";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
+import {
+  CommunityEmptyState,
+  CommunityHeader,
+  CommunityPageShell,
+} from "@/components/community/community-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { UserAvatar } from "@/components/ui/user-avatar";
 
 export default function GroupDetailPage() {
   const params = useParams<{ id: string }>();
@@ -119,42 +117,56 @@ export default function GroupDetailPage() {
 
   if (groupQuery.isLoading) {
     return (
-      <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-6xl space-y-6">
-          <Card className="border-border/70 bg-muted/30">
-            <CardContent className="p-5">
-              <p className="font-medium text-foreground">Opening group</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                We are getting the group details, members, and recent posts
-                ready.
-              </p>
-            </CardContent>
-          </Card>
-          <Skeleton className="h-10 w-40" />
-          <Skeleton className="h-64 w-full rounded-[2rem]" />
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Skeleton className="h-80 w-full rounded-[1.75rem]" />
-            <Skeleton className="h-80 w-full rounded-[1.75rem]" />
-          </div>
+      <CommunityPageShell>
+        <CommunityHeader
+          eyebrow="Groups"
+          title="Opening group"
+          subtitle="Loading group details, members, and recent posts."
+          action={
+            <Button
+              size="sm"
+              variant="outline"
+              render={<Link href="/groups" />}
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Groups
+            </Button>
+          }
+        />
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
         </div>
-      </div>
+      </CommunityPageShell>
     );
   }
 
   if (groupQuery.error || !group) {
     return (
-      <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl">
-          <Card className="border-destructive/30 bg-destructive/5">
-            <CardContent className="p-6 text-sm text-destructive">
-              {getApiErrorMessage(
-                groupQuery.error,
-                "This group is taking longer than expected to open. Try again in a moment.",
-              )}
-            </CardContent>
-          </Card>
+      <CommunityPageShell>
+        <CommunityHeader
+          eyebrow="Groups"
+          title="Group unavailable"
+          subtitle="This group is taking longer than expected to open."
+          action={
+            <Button
+              size="sm"
+              variant="outline"
+              render={<Link href="/groups" />}
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Groups
+            </Button>
+          }
+        />
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {getApiErrorMessage(
+            groupQuery.error,
+            "This group is taking longer than expected to open. Try again in a moment.",
+          )}
         </div>
-      </div>
+      </CommunityPageShell>
     );
   }
 
@@ -163,256 +175,239 @@ export default function GroupDetailPage() {
   const isApprovalOnly = group.joinPolicy === "approval";
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top_left,_hsl(var(--primary)/0.1),_transparent_26%),linear-gradient(180deg,_hsl(var(--background))_0%,_hsl(var(--muted)/0.24)_100%)] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <Link href="/groups">
-            <Button variant="outline">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to groups
-            </Button>
-          </Link>
+    <CommunityPageShell>
+      <CommunityHeader
+        eyebrow="Groups"
+        title={group.name}
+        subtitle={
+          group.description || "This group has not added a description yet."
+        }
+        action={
+          <Button size="sm" variant="outline" render={<Link href="/groups" />}>
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Groups
+          </Button>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge className="h-5 px-2 text-[11px]">
+            {visibilityLabel(group.visibility)}
+          </Badge>
+          <Badge variant="outline" className="h-5 px-2 text-[11px]">
+            {joinPolicyLabel(group.joinPolicy)}
+          </Badge>
+          {group.visibility !== "public" ? (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              Restricted
+            </span>
+          ) : null}
         </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <Users className="h-3.5 w-3.5" />
+            {group.memberCount} members
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <MessageSquare className="h-3.5 w-3.5" />
+            {group.postCount} posts
+          </span>
+          {group.location ? (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5" />
+              {group.location}
+            </span>
+          ) : null}
+        </div>
+      </CommunityHeader>
 
-        <section className="overflow-hidden rounded-[2rem] border border-border/70 bg-card/95 shadow-sm">
-          <div className="grid gap-6 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
-            <div className="space-y-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="rounded-full bg-primary text-primary-foreground">
-                  {visibilityLabel(group.visibility)}
-                </Badge>
-                <Badge variant="outline">
-                  {joinPolicyLabel(group.joinPolicy)}
-                </Badge>
-                {group.visibility !== "public" ? (
-                  <Lock className="h-4 w-4 text-muted-foreground" />
-                ) : null}
-              </div>
-              <div className="space-y-3">
-                <h1 className="font-serif text-4xl tracking-tight text-foreground sm:text-5xl">
-                  {group.name}
-                </h1>
-                <p className="max-w-3xl text-base text-muted-foreground">
-                  {group.description ||
-                    "This group has not added a description yet."}
+      <section className="rounded-xl border border-border/70 bg-background/70 px-3 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold text-foreground">
+              Membership
+            </h2>
+            <p className="text-xs leading-5 text-muted-foreground">
+              {group.visibility === "public"
+                ? "Public group. Anyone can see members and posts."
+                : "Private or invite-only group."}
+            </p>
+          </div>
+          <div className="shrink-0">
+            {isSignedIn ? (
+              isMember ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={leaveMutation.isPending}
+                  onClick={() => void onLeave()}
+                >
+                  Leave group
+                </Button>
+              ) : canJoin ? (
+                <Button
+                  size="sm"
+                  disabled={joinMutation.isPending}
+                  onClick={() => void onJoin()}
+                >
+                  Join group
+                </Button>
+              ) : isApprovalOnly ? (
+                <p className="text-xs text-muted-foreground">
+                  Ask an organizer for access.
                 </p>
-              </div>
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Users className="h-4 w-4" />
-                  {group.memberCount} members
-                </div>
-                <div className="flex items-center gap-1">
-                  <MessageSquare className="h-4 w-4" />
-                  {group.postCount} posts
-                </div>
-                {group.location ? (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {group.location}
-                  </div>
-                ) : null}
-              </div>
-            </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Invite only.</p>
+              )
+            ) : (
+              <SignInButton mode="modal">
+                <Button size="sm">Sign in to join</Button>
+              </SignInButton>
+            )}
+          </div>
+        </div>
+      </section>
 
-            <Card className="border-border/70 bg-[linear-gradient(180deg,_hsl(var(--primary)/0.14)_0%,_hsl(var(--card))_100%)]">
-              <CardHeader className="space-y-3">
-                <CardTitle className="text-xl text-foreground">
-                  Membership
-                </CardTitle>
-                <CardDescription className="text-sm text-foreground/75">
-                  {group.visibility === "public"
-                    ? "Public group. Anyone can see members and posts."
-                    : "This group is private or invite-only."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isSignedIn ? (
-                  isMember ? (
-                    <>
-                      <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
-                        You are a member.
-                      </div>
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        disabled={leaveMutation.isPending}
-                        onClick={() => void onLeave()}
-                      >
-                        Leave group
-                      </Button>
-                    </>
-                  ) : canJoin ? (
-                    <Button
-                      className="w-full"
-                      disabled={joinMutation.isPending}
-                      onClick={() => void onJoin()}
-                    >
-                      Join group
-                    </Button>
-                  ) : isApprovalOnly ? (
-                    <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
-                      Ask a group organizer for an invite.
-                    </div>
-                  ) : (
-                    <div className="rounded-3xl border border-border/60 bg-background/80 p-4 text-sm text-foreground/80">
-                      Invite only.
-                    </div>
-                  )
-                ) : (
-                  <SignInButton mode="modal">
-                    <Button className="w-full">
-                      Sign in to join or participate
-                    </Button>
-                  </SignInButton>
-                )}
-              </CardContent>
-            </Card>
+      {isSignedIn && isMember ? (
+        <section className="rounded-xl border border-border/70 bg-background/70 px-3 py-3">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <PenSquare className="h-4 w-4" />
+            Post to the group
+          </div>
+          <div className="grid gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="group-post-title">Title</Label>
+              <Input
+                id="group-post-title"
+                placeholder="Optional short title"
+                value={postTitle}
+                onChange={(event) => setPostTitle(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="group-post-content">Content</Label>
+              <Textarea
+                id="group-post-content"
+                placeholder="Write something..."
+                value={postContent}
+                onChange={(event) => setPostContent(event.target.value)}
+              />
+            </div>
+            <Button
+              size="sm"
+              className="w-full sm:w-fit"
+              disabled={createPostMutation.isPending}
+              onClick={() => void onCreatePost()}
+            >
+              {createPostMutation.isPending ? "Publishing..." : "Publish post"}
+            </Button>
           </div>
         </section>
+      ) : null}
 
-        {isSignedIn && isMember ? (
-          <section className="rounded-[2rem] border border-border/70 bg-card/95 p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 text-sm font-medium text-primary">
-              <PenSquare className="h-4 w-4" />
-              Post to the group
-            </div>
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="group-post-title">Title</Label>
-                <Input
-                  id="group-post-title"
-                  placeholder="Optional short title"
-                  value={postTitle}
-                  onChange={(event) => setPostTitle(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="group-post-content">Content</Label>
-                <Textarea
-                  id="group-post-content"
-                  placeholder="Write something..."
-                  value={postContent}
-                  onChange={(event) => setPostContent(event.target.value)}
-                />
-              </div>
-              <Button
-                className="w-full sm:w-fit"
-                disabled={createPostMutation.isPending}
-                onClick={() => void onCreatePost()}
+      <DetailSection
+        title="Members"
+        description="Current member list for this group."
+      >
+        {membersQuery.isLoading ? (
+          <Skeleton className="h-24 w-full rounded-xl" />
+        ) : membersQuery.error ? (
+          <p className="text-sm text-destructive">
+            {getApiErrorMessage(
+              membersQuery.error,
+              "Members are taking longer than expected to appear.",
+            )}
+          </p>
+        ) : members.length === 0 ? (
+          <CommunityEmptyState
+            title="No members yet"
+            description="Members will appear here once the group starts growing."
+          />
+        ) : (
+          <div className="divide-y divide-border/70 border-y border-border/70">
+            {members.map((member) => (
+              <div
+                key={member.userId}
+                className="flex items-center justify-between gap-3 py-3"
               >
-                {createPostMutation.isPending
-                  ? "Publishing..."
-                  : "Publish post"}
-              </Button>
-            </div>
-          </section>
-        ) : null}
+                <UserIdentityHeader
+                  displayName={
+                    member.displayName || member.username || member.userId
+                  }
+                  username={member.username}
+                  avatarUrl={member.avatarUrl}
+                  usernameFallback="member"
+                />
+                <Badge variant="outline" className="h-5 px-2 text-[11px]">
+                  {member.role}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </DetailSection>
 
-        <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <Card className="rounded-[1.75rem] border-border/70 bg-card/95">
-            <CardHeader>
-              <CardTitle>Members</CardTitle>
-              <CardDescription>
-                Current member list for this group.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {membersQuery.isLoading ? (
-                <Skeleton className="h-40 w-full rounded-3xl" />
-              ) : membersQuery.error ? (
-                <p className="text-sm text-destructive">
-                  {getApiErrorMessage(
-                    membersQuery.error,
-                    "Members are taking longer than expected to appear.",
-                  )}
-                </p>
-              ) : members.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Members will appear here once the group starts growing.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {members.map((member) => (
-                    <div
-                      key={member.userId}
-                      className="flex items-center justify-between gap-3 rounded-3xl border border-border/60 bg-background/70 p-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <UserAvatar
-                          src={member.avatarUrl}
-                          displayName={
-                            member.displayName ||
-                            member.username ||
-                            member.userId
-                          }
-                        />
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {member.displayName ||
-                              member.username ||
-                              member.userId}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            @{member.username || "member"}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline">{member.role}</Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-[1.75rem] border-border/70 bg-card/95">
-            <CardHeader>
-              <CardTitle>Recent posts</CardTitle>
-              <CardDescription>Latest activity in this group.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {postsQuery.isLoading ? (
-                <Skeleton className="h-40 w-full rounded-3xl" />
-              ) : postsQuery.error ? (
-                <p className="text-sm text-destructive">
-                  {getApiErrorMessage(
-                    postsQuery.error,
-                    "Group posts are taking longer than expected to appear.",
-                  )}
-                </p>
-              ) : posts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Recent group posts will appear here when members start sharing
-                  plans or updates.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {posts.map((post) => (
-                    <PostCard key={post.id} post={post} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-      </div>
-    </div>
+      <DetailSection title="Recent posts" description="Latest group activity.">
+        {postsQuery.isLoading ? (
+          <Skeleton className="h-24 w-full rounded-xl" />
+        ) : postsQuery.error ? (
+          <p className="text-sm text-destructive">
+            {getApiErrorMessage(
+              postsQuery.error,
+              "Group posts are taking longer than expected to appear.",
+            )}
+          </p>
+        ) : posts.length === 0 ? (
+          <CommunityEmptyState
+            title="No posts yet"
+            description="Recent group posts will appear here when members start sharing plans or updates."
+          />
+        ) : (
+          <div className="divide-y divide-border/70 border-y border-border/70">
+            {posts.map((post) => (
+              <PostItem key={post.id} post={post} />
+            ))}
+          </div>
+        )}
+      </DetailSection>
+    </CommunityPageShell>
   );
 }
 
-function PostCard({ post }: { post: GroupPost }) {
+function PostItem({ post }: { post: GroupPost }) {
   return (
-    <div className="rounded-3xl border border-border/60 bg-background/70 p-4">
+    <article className="py-3 text-sm">
       {post.title ? (
         <p className="font-medium text-foreground">{post.title}</p>
       ) : null}
-      <p className="mt-1 text-sm text-foreground/85">{post.content}</p>
-      <p className="mt-3 text-xs text-muted-foreground">
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        {post.content}
+      </p>
+      <p className="mt-2 text-[11px] text-muted-foreground">
         {post.authorName || post.authorUsername || post.authorUserId} ·{" "}
         {new Date(post.createdAt).toLocaleString()}
       </p>
-    </div>
+    </article>
+  );
+}
+
+function DetailSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+      </div>
+      {children}
+    </section>
   );
 }
 

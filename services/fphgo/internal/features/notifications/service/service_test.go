@@ -257,6 +257,9 @@ func TestProcessDueOutboxCreatesDiveSiteNotificationsAndMarksProcessed(t *testin
 		case "SYSTEM":
 			if input.UserID == submitterID {
 				submitterApproval++
+				if input.ActorUserID != nil {
+					t.Fatalf("outbox processor should not depend on reviewer user id payload, got actor %s", *input.ActorUserID)
+				}
 			}
 		case "NEW_DIVE_SITE_PUBLISHED":
 			publicAnnouncement++
@@ -663,7 +666,6 @@ func newDiveSiteOutboxEvent(attempts int, submitterID string) notificationsrepo.
 			"name":            "Reef Point",
 			"area":            "Batangas",
 			"submitterUserId": submitterID,
-			"reviewerUserId":  "550e8400-e29b-41d4-a716-446655440099",
 		},
 	}
 }
