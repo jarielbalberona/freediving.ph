@@ -122,6 +122,20 @@ func (h *Handlers) UpdateGroup(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, CreateGroupResponse{Group: mapGroup(group)})
 }
 
+func (h *Handlers) ArchiveGroup(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	groupID := chi.URLParam(r, "groupId")
+	if err := h.service.ArchiveGroup(r.Context(), groupID, actorID); err != nil {
+		handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handlers) JoinGroup(w http.ResponseWriter, r *http.Request) {
 	actorID, err := requireActorID(r)
 	if err != nil {

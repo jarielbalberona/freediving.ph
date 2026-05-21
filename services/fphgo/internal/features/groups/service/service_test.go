@@ -237,6 +237,48 @@ func TestPrivateGroupsRequireInviteOnlyJoinPolicy(t *testing.T) {
 	}
 }
 
+func TestArchiveGroupIsCreatorOnlyAndHiddenFromLists(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	svc := New(repo)
+	repo.groups[openGroupID] = fakeGroup(openGroupID, "public", "open")
+	repo.members[key(openGroupID, testOwnerID)] = fakeMember(openGroupID, testOwnerID, "owner", "active")
+	repo.members[key(openGroupID, testMemberID)] = fakeMember(openGroupID, testMemberID, "moderator", "active")
+
+	if err := svc.ArchiveGroup(ctx, openGroupID, testMemberID); !hasAppError(err, http.StatusForbidden, "creator_required") {
+		t.Fatalf("ArchiveGroup(non-creator) err = %v, want creator_required", err)
+	}
+
+	if err := svc.ArchiveGroup(ctx, openGroupID, testOwnerID); err != nil {
+		t.Fatalf("ArchiveGroup(creator) returned error: %v", err)
+	}
+	if repo.groups[openGroupID].Status != "archived" {
+		t.Fatalf("ArchiveGroup() status = %q, want archived", repo.groups[openGroupID].Status)
+	}
+
+	groups, total, err := svc.ListGroups(ctx, testOwnerID, "", "", false, 1, 20)
+	if err != nil {
+		t.Fatalf("ListGroups() returned error: %v", err)
+	}
+	if total != 0 || len(groups) != 0 {
+		t.Fatalf("archived group appeared in list: total %d groups %#v", total, groups)
+	}
+}
+
+func TestUpdateGroupDoesNotArchiveThroughGenericEdit(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	svc := New(repo)
+	repo.groups[openGroupID] = fakeGroup(openGroupID, "public", "open")
+	status := "archived"
+
+	if _, err := svc.UpdateGroup(ctx, openGroupID, groupsrepo.UpdateGroupInput{
+		Status: &status,
+	}); !hasValidationIssue(err, "status", "unsupported_status_update") {
+		t.Fatalf("UpdateGroup(status archived) err = %v, want unsupported_status_update", err)
+	}
+}
+
 func TestInviteOnlyLifecycle(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeRepo()

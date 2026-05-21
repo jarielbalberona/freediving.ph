@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  Archive,
   Check,
   Lock,
   LogOut,
@@ -34,6 +35,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -58,6 +70,7 @@ import { ChikaMarkdown } from "@/features/chika/components/ChikaMarkdown";
 import { MarkdownEditor } from "@/features/chika/components/MarkdownEditor";
 import {
   useAcceptGroupInvite,
+  useArchiveGroup,
   useCreateGroupPost,
   useInviteGroupMember,
   useJoinGroup,
@@ -76,6 +89,7 @@ import { getApiErrorMessage } from "@/lib/http/api-error";
 
 export default function GroupDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const groupId = typeof params?.id === "string" ? params.id : "";
   const session = useSession();
   const isSignedIn = session.status === "signed_in";
@@ -109,6 +123,7 @@ export default function GroupDetailPage() {
   const rejectInviteMutation = useRejectGroupInvite();
   const createPostMutation = useCreateGroupPost();
   const updateGroupMutation = useUpdateGroup();
+  const archiveGroupMutation = useArchiveGroup();
 
   const group = groupQuery.data;
   const members = membersQuery.data?.members ?? [];
@@ -234,6 +249,17 @@ export default function GroupDetailPage() {
     }
   };
 
+  const onArchiveGroup = async () => {
+    if (!groupId) return;
+    try {
+      await archiveGroupMutation.mutateAsync({ groupId });
+      toast.success("Group archived.");
+      router.push("/groups");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to archive group"));
+    }
+  };
+
   if (groupQuery.isLoading) {
     return (
       <CommunityPageShell>
@@ -267,6 +293,7 @@ export default function GroupDetailPage() {
     group.viewerRole === "owner" ||
     group.viewerRole === "moderator" ||
     session.hasPermission("groups.manage");
+  const canArchiveGroup = isSignedIn && group.createdBy === session.me?.userId;
   const actionPending =
     joinMutation.isPending ||
     leaveMutation.isPending ||
@@ -287,18 +314,27 @@ export default function GroupDetailPage() {
               {group.bio || "This group has not added a bio yet."}
             </p>
           </div>
-          {canManageGroup ? (
-            <Button
-              size="icon-sm"
-              variant="outline"
-              tooltip="Edit group"
-              aria-label="Edit group"
-              disabled={updateGroupMutation.isPending}
-              onClick={() => openEditDialog(group)}
-            >
-              <Pencil />
-            </Button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            {canManageGroup ? (
+              <Button
+                size="icon-sm"
+                variant="outline"
+                tooltip="Edit group"
+                aria-label="Edit group"
+                disabled={updateGroupMutation.isPending}
+                onClick={() => openEditDialog(group)}
+              >
+                <Pencil />
+              </Button>
+            ) : null}
+            {canArchiveGroup ? (
+              <ArchiveGroupButton
+                groupName={group.name}
+                isPending={archiveGroupMutation.isPending}
+                onArchive={() => void onArchiveGroup()}
+              />
+            ) : null}
+          </div>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -370,18 +406,17 @@ export default function GroupDetailPage() {
         </TabsList>
 
         <TabsContent value="home" className="space-y-4">
-          {isSignedIn && isMember ? (
-            <div className="flex justify-end">
-              <Button size="sm" onClick={() => setPostOpen(true)}>
-                <PenSquare className="mr-1 h-4 w-4" />
-                Post to group
-              </Button>
-            </div>
-          ) : null}
-
           <DetailSection
             title="Recent posts"
             description="Latest group activity."
+            action={
+              isSignedIn && isMember ? (
+                <Button size="sm" onClick={() => setPostOpen(true)}>
+                  <PenSquare className="mr-1 h-4 w-4" />
+                  Post to group
+                </Button>
+              ) : null
+            }
           >
             {postsQuery.isLoading ? (
               <Skeleton className="h-24 w-full rounded-xl" />
@@ -776,6 +811,50 @@ function BackToGroupsButton() {
   );
 }
 
+function ArchiveGroupButton({
+  groupName,
+  isPending,
+  onArchive,
+}: {
+  groupName: string;
+  isPending: boolean;
+  onArchive: () => void;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="destructive"
+            disabled={isPending}
+            aria-label={`Archive ${groupName}`}
+            tooltip="Archive group"
+          />
+        }
+      >
+        <Archive />
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Archive group?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This hides {groupName} from group lists. The group record is
+            preserved.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={isPending} onClick={onArchive}>
+            {isPending ? "Archiving..." : "Archive group"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function MemberList({ members }: { members: GroupMember[] }) {
   return (
     <div className="divide-y divide-border/70 border-y border-border/70">
@@ -820,17 +899,24 @@ function PostItem({ post }: { post: GroupPost }) {
 function DetailSection({
   title,
   description,
+  action,
   children,
 }: {
   title: string;
   description: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="space-y-3">
-      <div className="space-y-1">
-        <h2 className="text-base font-semibold text-foreground">{title}</h2>
-        <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-foreground">{title}</h2>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {description}
+          </p>
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       {children}
     </section>

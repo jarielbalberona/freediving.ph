@@ -79,6 +79,22 @@ export const useLeaveGroup = () => {
   });
 };
 
+export const useArchiveGroup = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ groupId }: { groupId: string }) =>
+      groupsApi.archiveGroup(groupId),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.detail(variables.groupId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.all });
+    },
+  });
+};
+
 export const useInviteGroupMember = () => {
   const queryClient = useQueryClient();
 

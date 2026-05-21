@@ -104,6 +104,10 @@ export const groupsApi = {
     await axiosInstance.post(`/v1/groups/${groupId}/leave`);
   },
 
+  archiveGroup: async (groupId: string): Promise<void> => {
+    await axiosInstance.post(`/v1/groups/${groupId}/archive`);
+  },
+
   inviteMember: async (
     data: InviteGroupMemberRequest,
   ): Promise<GroupMember> => {

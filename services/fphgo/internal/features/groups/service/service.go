@@ -192,6 +192,13 @@ func (s *Service) UpdateGroup(ctx context.Context, groupID string, input groupsr
 	}
 	if input.Status != nil {
 		s := normalizeGroupStatus(*input.Status)
+		if s != "active" {
+			return groupsrepo.Group{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"status"},
+				Code:    "unsupported_status_update",
+				Message: "Use the archive endpoint to archive a group.",
+			}}}
+		}
 		input.Status = &s
 	}
 	if input.JoinPolicy != nil {
@@ -232,6 +239,48 @@ func (s *Service) UpdateGroup(ctx context.Context, groupID string, input groupsr
 		return groupsrepo.Group{}, apperrors.New(http.StatusInternalServerError, "group_update_failed", "failed to update group", err)
 	}
 	return updated, nil
+}
+
+func (s *Service) ArchiveGroup(ctx context.Context, groupID, actorID string) error {
+	if _, err := uuid.Parse(groupID); err != nil {
+		return ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"groupId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := uuid.Parse(actorID); err != nil {
+		return apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+
+	group, err := s.repo.GetGroupByID(ctx, groupID, actorID)
+	if err != nil {
+		if groupsrepo.IsNoRows(err) {
+			return apperrors.New(http.StatusNotFound, "group_not_found", "group not found", err)
+		}
+		return apperrors.New(http.StatusInternalServerError, "group_get_failed", "failed to fetch group", err)
+	}
+	if group.CreatedBy != actorID {
+		return apperrors.New(http.StatusForbidden, "creator_required", "only the group creator can archive this group", nil)
+	}
+	if group.Status == "archived" {
+		return nil
+	}
+	if group.Status != "active" {
+		return apperrors.New(http.StatusConflict, "group_inactive", "group is not active", nil)
+	}
+
+	status := "archived"
+	if _, err := s.repo.UpdateGroup(ctx, groupsrepo.UpdateGroupInput{
+		GroupID: groupID,
+		Status:  &status,
+	}); err != nil {
+		if groupsrepo.IsNoRows(err) {
+			return apperrors.New(http.StatusNotFound, "group_not_found", "group not found", err)
+		}
+		return apperrors.New(http.StatusInternalServerError, "group_archive_failed", "failed to archive group", err)
+	}
+	return nil
 }
 
 func (s *Service) JoinGroup(ctx context.Context, groupID, actorID string) (groupsrepo.GroupMember, error) {

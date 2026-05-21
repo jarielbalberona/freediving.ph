@@ -437,7 +437,7 @@ export default function GroupsPage() {
                     { value: "private", label: "Private" },
                   ]}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -460,7 +460,7 @@ export default function GroupsPage() {
                     { value: "invite_only", label: "Invite only" },
                   ]}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
