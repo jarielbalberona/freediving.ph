@@ -28,15 +28,46 @@ test("explore submit flow stores map-picked location and does not expose manual 
   assert.match(schemaSource, /location:\s*locationSchema\.nullable\(\)/);
   assert.match(schemaSource, /description:\s*z/);
   assert.match(schemaSource, /Pick the dive spot on the map before submitting/);
+  assert.match(schemaSource, /siteSubmissionLimits\s*=\s*\{/);
+  assert.match(schemaSource, /name:\s*\{\s*min:\s*3,\s*max:\s*120\s*\}/);
+  assert.match(
+    schemaSource,
+    /description:\s*\{\s*min:\s*12,\s*max:\s*2000\s*\}/,
+  );
+  assert.match(schemaSource, /hazard:\s*\{\s*max:\s*60\s*\}/);
+  assert.match(schemaSource, /bestSeason:\s*\{\s*max:\s*160\s*\}/);
+  assert.match(schemaSource, /typicalConditions:\s*\{\s*max:\s*500\s*\}/);
+  assert.match(schemaSource, /access:\s*\{\s*max:\s*500\s*\}/);
+  assert.match(schemaSource, /fees:\s*\{\s*max:\s*280\s*\}/);
+  assert.match(schemaSource, /depthM:\s*\{\s*min:\s*0,\s*max:\s*2000\s*\}/);
+  assert.match(schemaSource, /Each hazard must be at most/);
+  assert.match(schemaSource, /Depth must be between 0 and 2000 meters/);
 
   assert.match(pageSource, /Dive spot location/);
   assert.match(pageSource, /Description/);
   assert.match(pageSource, /Mark on map/);
   assert.match(pageSource, /aria-label="Edit pin"/);
+  assert.match(pageSource, /siteSubmissionLimits/);
+  assert.match(pageSource, /maxLength=\{siteSubmissionLimits\.name\.max\}/);
+  assert.match(
+    pageSource,
+    /maxLength=\{siteSubmissionLimits\.description\.max\}/,
+  );
+  assert.match(pageSource, /siteSubmissionLimits\.hazard\.max/);
+  assert.match(
+    pageSource,
+    /maxLength=\{siteSubmissionLimits\.bestSeason\.max\}/,
+  );
+  assert.match(pageSource, /siteSubmissionLimits\.typicalConditions\.max/);
+  assert.match(pageSource, /maxLength=\{siteSubmissionLimits\.access\.max\}/);
+  assert.match(pageSource, /maxLength=\{siteSubmissionLimits\.fees\.max\}/);
   assert.match(pageSource, /description:\s*values\.description\.trim\(\)/);
   assert.match(pageSource, /lat:\s*values\.location\.lat/);
   assert.match(pageSource, /lng:\s*values\.location\.lng/);
-  assert.match(pageSource, /area:\s*values\.location\.area\?\.trim\(\)\s*\|\|\s*undefined/);
+  assert.match(
+    pageSource,
+    /area:\s*values\.location\.area\?\.trim\(\)\s*\|\|\s*undefined/,
+  );
   assert.doesNotMatch(pageSource, /name="area"/);
   assert.doesNotMatch(pageSource, /name="latitude"/);
   assert.doesNotMatch(pageSource, /name="longitude"/);
@@ -55,5 +86,8 @@ test("explore submit flow stores map-picked location and does not expose manual 
     /className="flex! h-dvh w-dvw max-w-none! flex-col gap-0 overflow-hidden rounded-none border-0 p-0/,
   );
   assert.match(dialogSource, /containerClassName="p-0 sm:p-4"/);
-  assert.match(dialogSource, /className="relative min-h-0 flex-1 bg-sky-950\/5"/);
+  assert.match(
+    dialogSource,
+    /className="relative min-h-0 flex-1 bg-sky-950\/5"/,
+  );
 });

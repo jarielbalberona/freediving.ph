@@ -32,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import {
   siteSubmissionSchema,
+  siteSubmissionLimits,
   type SiteSubmissionValues,
 } from "@/features/diveSpots/schemas/siteSubmission.schema";
 import { getApiError, getApiErrorMessage } from "@/lib/http/api-error";
@@ -192,7 +193,11 @@ export default function ExploreSubmitPage() {
                             {requiredAsterisk}
                           </FormLabel>
                           <FormControl>
-                            <Input id="site-name" {...field} />
+                            <Input
+                              id="site-name"
+                              maxLength={siteSubmissionLimits.name.max}
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -267,6 +272,7 @@ export default function ExploreSubmitPage() {
                           <FormControl>
                             <Textarea
                               id="site-description"
+                              maxLength={siteSubmissionLimits.description.max}
                               placeholder="Describe the dive site, layout, marine life, and what divers should expect."
                               {...field}
                             />
@@ -369,6 +375,10 @@ export default function ExploreSubmitPage() {
                             {...field}
                           />
                         </FormControl>
+                        <p className="text-xs text-zinc-500">
+                          Each item can be up to{" "}
+                          {siteSubmissionLimits.hazard.max} characters.
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -383,7 +393,11 @@ export default function ExploreSubmitPage() {
                           Best season
                         </FormLabel>
                         <FormControl>
-                          <Input id="site-best-season" {...field} />
+                          <Input
+                            id="site-best-season"
+                            maxLength={siteSubmissionLimits.bestSeason.max}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -399,7 +413,13 @@ export default function ExploreSubmitPage() {
                           Typical conditions
                         </FormLabel>
                         <FormControl>
-                          <Textarea id="site-conditions" {...field} />
+                          <Textarea
+                            id="site-conditions"
+                            maxLength={
+                              siteSubmissionLimits.typicalConditions.max
+                            }
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -413,7 +433,11 @@ export default function ExploreSubmitPage() {
                       <FormItem>
                         <FormLabel htmlFor="site-access">Access</FormLabel>
                         <FormControl>
-                          <Textarea id="site-access" {...field} />
+                          <Textarea
+                            id="site-access"
+                            maxLength={siteSubmissionLimits.access.max}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -421,18 +445,22 @@ export default function ExploreSubmitPage() {
                   />
 
                   <FormField
-                      control={form.control}
-                      name="fees"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel htmlFor="site-fees">Fees</FormLabel>
-                          <FormControl>
-                            <Textarea id="site-fees" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    control={form.control}
+                    name="fees"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel htmlFor="site-fees">Fees</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            id="site-fees"
+                            maxLength={siteSubmissionLimits.fees.max}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   {submitMutation.error ? (
                     <p className="text-sm text-red-600">
