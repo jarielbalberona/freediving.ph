@@ -224,6 +224,7 @@ export function ProfileGrid({
               commentCount={selectedItem.commentCount}
               viewerHasLiked={selectedItem.viewerHasLiked}
               viewerHasSaved={selectedItem.viewerHasSaved}
+              commentsScrollMode="desktop"
             />
           );
         }}

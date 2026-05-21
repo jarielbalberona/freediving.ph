@@ -41,6 +41,7 @@ test("media dialog is wired as an in-place social post view", async () => {
   const [
     feedRenderer,
     mediaPostComponent,
+    mediaViewerDialog,
     profileGrid,
     socialPanel,
     actions,
@@ -60,6 +61,13 @@ test("media dialog is wired as an in-place social post view", async () => {
         path.join(
           repoRoot,
           "src/features/media/components/MediaPostComponent.tsx",
+        ),
+        "utf8",
+      ),
+      fs.readFile(
+        path.join(
+          repoRoot,
+          "src/features/media/components/MediaViewerDialog.tsx",
         ),
         "utf8",
       ),
@@ -97,9 +105,15 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(mediaPostComponent, /setViewerOpen\(true\)/);
   assert.match(mediaPostComponent, /setCommentFocusSignal/);
   assert.match(mediaPostComponent, /<MediaPostSocialPanel/);
+  assert.match(mediaPostComponent, /commentsScrollMode="desktop"/);
+  assert.match(mediaViewerDialog, /h-\[42dvh\]/);
+  assert.doesNotMatch(mediaViewerDialog, /h-\[55dvh\]/);
   assert.match(profileGrid, /<MediaPostSocialPanel/);
+  assert.match(profileGrid, /commentsScrollMode="desktop"/);
   assert.match(detailPage, /<MediaPostSocialPanel/);
   assert.match(socialPanel, /<UserIdentityHeader/);
+  assert.match(socialPanel, /commentsScrollMode\?: "always" \| "desktop"/);
+  assert.match(socialPanel, /md:overflow-y-auto/);
   assert.match(socialPanel, /showProfileImage=\{showAuthorProfileImage\}/);
   assert.match(socialPanel, /location=\{/);
   assert.match(identityHeader, /showProfileImage = true/);

@@ -178,6 +178,7 @@ export function MediaPostComponent({
               viewerHasLiked={post.viewerHasLiked}
               viewerHasSaved={post.viewerHasSaved}
               focusCommentsSignal={commentFocusSignal}
+              commentsScrollMode="desktop"
             />
           );
         }}

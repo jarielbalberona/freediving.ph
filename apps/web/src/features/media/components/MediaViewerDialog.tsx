@@ -120,7 +120,7 @@ export function MediaViewerDialog({
           </div>
 
           <div className="flex min-h-full flex-col md:h-full md:min-h-0 md:flex-row">
-            <div className="relative h-[55dvh] shrink-0 bg-muted/30 md:h-auto md:min-h-full md:flex-1">
+            <div className="relative h-[42dvh] shrink-0 bg-muted/30 md:h-auto md:min-h-full md:flex-1">
               {needsMintedUrls && dialogUrls.isPending ? (
                 <div className="flex h-full items-center justify-center">
                   <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
@@ -149,8 +149,7 @@ export function MediaViewerDialog({
                                 alt={item.alt}
                                 width={item.width}
                                 height={item.height}
-
-                                className="max-h-full w-auto max-w-full rounded-[0.5rem] object-contain"
+                                className="max-h-full w-auto max-w-full object-contain"
                                 unoptimized
                               />
                             ) : (

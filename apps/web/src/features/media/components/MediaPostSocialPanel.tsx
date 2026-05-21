@@ -25,6 +25,7 @@ type MediaPostSocialPanelProps = {
   viewerHasLiked: boolean;
   viewerHasSaved: boolean;
   focusCommentsSignal?: number;
+  commentsScrollMode?: "always" | "desktop";
   className?: string;
   commentsClassName?: string;
 };
@@ -45,6 +46,7 @@ export function MediaPostSocialPanel({
   viewerHasLiked,
   viewerHasSaved,
   focusCommentsSignal = 0,
+  commentsScrollMode = "always",
   className,
   commentsClassName,
 }: MediaPostSocialPanelProps) {
@@ -65,9 +67,20 @@ export function MediaPostSocialPanel({
   }, [focusCommentsSignal]);
 
   const locationText = [diveSiteName, diveSiteArea].filter(Boolean).join(" · ");
+  const commentsScrollClassName =
+    commentsScrollMode === "desktop"
+      ? "px-5 py-4 md:min-h-0 md:flex-1 md:overflow-y-auto"
+      : "min-h-0 flex-1 overflow-y-auto px-5 py-4";
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
+    <div
+      className={cn(
+        commentsScrollMode === "desktop"
+          ? "flex flex-col md:min-h-0 md:flex-1"
+          : "flex min-h-0 flex-1 flex-col",
+        className,
+      )}
+    >
       <div className="space-y-4 border-b px-5 py-4">
         <UserIdentityHeader
           displayName={authorName || "Diver"}
@@ -105,10 +118,7 @@ export function MediaPostSocialPanel({
 
       <div
         ref={commentsRef}
-        className={cn(
-          "min-h-0 flex-1 overflow-y-auto px-5 py-4",
-          commentsClassName,
-        )}
+        className={cn(commentsScrollClassName, commentsClassName)}
       >
         <MediaPostComments postId={postId} />
       </div>
