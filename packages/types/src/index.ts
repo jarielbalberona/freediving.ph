@@ -403,24 +403,47 @@ export interface Group {
   name: string;
   slug: string;
   description?: string;
-  visibility: "public" | "private" | "invite_only";
+  visibility: "public" | "private";
   status: "active" | "archived" | "deleted";
-  joinPolicy: "open" | "approval" | "invite_only";
+  joinPolicy: "open" | "invite_only";
   memberCount: number;
   eventCount: number;
   postCount: number;
   location?: string;
+  locationName?: string;
+  formattedAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  googlePlaceId?: string;
+  regionCode?: string;
+  provinceCode?: string;
+  cityCode?: string;
+  barangayCode?: string;
+  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+  viewerRole?: "owner" | "moderator" | "member";
+  viewerMembershipStatus?:
+    | "active"
+    | "invited"
+    | "left"
+    | "declined"
+    | "blocked";
+  viewerMembershipJoinedAt?: string;
+  viewerInviteCreatedAt?: string;
 }
 
 export interface GroupMember {
   groupId: string;
   userId: string;
   role: "owner" | "moderator" | "member";
-  status: "active" | "invited" | "blocked";
+  status: "active" | "invited" | "left" | "declined" | "blocked";
+  invitedBy?: string;
+  invitedAt?: string;
+  respondedAt?: string;
   joinedAt?: string;
+  leftAt?: string;
   createdAt: string;
   updatedAt: string;
   username?: string;
@@ -448,22 +471,47 @@ export interface CreateGroupRequest {
   name: string;
   slug?: string;
   description?: string;
-  visibility?: "public" | "private" | "invite_only";
-  joinPolicy?: "open" | "approval" | "invite_only";
+  visibility?: "public" | "private";
+  joinPolicy?: "open" | "invite_only";
   location?: string;
+  locationName?: string;
+  formattedAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  googlePlaceId?: string;
+  regionCode?: string;
+  provinceCode?: string;
+  cityCode?: string;
+  barangayCode?: string;
+  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
 }
 
 export interface UpdateGroupRequest {
   name?: string;
   description?: string;
-  visibility?: "public" | "private" | "invite_only";
+  visibility?: "public" | "private";
   status?: "active" | "archived" | "deleted";
-  joinPolicy?: "open" | "approval" | "invite_only";
+  joinPolicy?: "open" | "invite_only";
   location?: string;
+  locationName?: string;
+  formattedAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  googlePlaceId?: string;
+  regionCode?: string;
+  provinceCode?: string;
+  cityCode?: string;
+  barangayCode?: string;
+  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
 }
 
 export interface JoinGroupRequest {
   groupId: string;
+}
+
+export interface InviteGroupMemberRequest {
+  groupId: string;
+  userId: string;
 }
 
 export interface CreateGroupPostRequest {
@@ -475,7 +523,7 @@ export interface CreateGroupPostRequest {
 export interface GroupFilters {
   page?: number;
   limit?: number;
-  visibility?: "public" | "private" | "invite_only";
+  visibility?: "public" | "private";
   search?: string;
   mine?: boolean;
 }
@@ -700,7 +748,15 @@ export interface Notification {
     | "EVENT_REMINDER"
     | "PAYMENT"
     | "SECURITY"
-    | "NEW_DIVE_SITE_PUBLISHED";
+    | "NEW_DIVE_SITE_PUBLISHED"
+    | "CHIKA_THREAD_COMMENTED"
+    | "CHIKA_COMMENT_REPLIED"
+    | "GROUP_INVITE_RECEIVED"
+    | "GROUP_POST_CREATED"
+    | "EVENT_CREATED_FOR_GROUP"
+    | "EVENT_ATTENDEE_JOINED"
+    | "EVENT_UPDATED"
+    | "EVENT_CANCELLED";
   category: string;
   title: string;
   message: string;
@@ -747,6 +803,7 @@ export interface NotificationSettings {
   paymentNotifications: boolean;
   securityNotifications: boolean;
   newDiveSitePublished: boolean;
+  chikaReplies: boolean;
   digestFrequency: "IMMEDIATE" | "DAILY" | "WEEKLY" | "NEVER";
   quietHoursStart?: string;
   quietHoursEnd?: string;
@@ -803,6 +860,7 @@ export interface UpdateNotificationSettingsRequest {
   paymentNotifications?: boolean;
   securityNotifications?: boolean;
   newDiveSitePublished?: boolean;
+  chikaReplies?: boolean;
   digestFrequency?: NotificationSettings["digestFrequency"];
   quietHoursStart?: string;
   quietHoursEnd?: string;

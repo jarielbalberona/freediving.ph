@@ -64,12 +64,22 @@ func (h *Handlers) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	group, err := h.service.CreateGroup(r.Context(), actorID, groupsrepo.CreateGroupInput{
-		Name:        req.Name,
-		Slug:        req.Slug,
-		Description: req.Description,
-		Visibility:  req.Visibility,
-		JoinPolicy:  req.JoinPolicy,
-		Location:    req.Location,
+		Name:             req.Name,
+		Slug:             req.Slug,
+		Description:      req.Description,
+		Visibility:       req.Visibility,
+		JoinPolicy:       req.JoinPolicy,
+		Location:         req.Location,
+		LocationName:     req.LocationName,
+		FormattedAddress: req.FormattedAddress,
+		Latitude:         req.Latitude,
+		Longitude:        req.Longitude,
+		GooglePlaceID:    req.GooglePlaceID,
+		RegionCode:       req.RegionCode,
+		ProvinceCode:     req.ProvinceCode,
+		CityCode:         req.CityCode,
+		BarangayCode:     req.BarangayCode,
+		LocationSource:   req.LocationSource,
 	})
 	if err != nil {
 		handleError(w, r, err)
@@ -86,12 +96,22 @@ func (h *Handlers) UpdateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	group, err := h.service.UpdateGroup(r.Context(), groupID, groupsrepo.UpdateGroupInput{
-		Name:        req.Name,
-		Description: req.Description,
-		Visibility:  req.Visibility,
-		Status:      req.Status,
-		JoinPolicy:  req.JoinPolicy,
-		Location:    req.Location,
+		Name:             req.Name,
+		Description:      req.Description,
+		Visibility:       req.Visibility,
+		Status:           req.Status,
+		JoinPolicy:       req.JoinPolicy,
+		Location:         req.Location,
+		LocationName:     req.LocationName,
+		FormattedAddress: req.FormattedAddress,
+		Latitude:         req.Latitude,
+		Longitude:        req.Longitude,
+		GooglePlaceID:    req.GooglePlaceID,
+		RegionCode:       req.RegionCode,
+		ProvinceCode:     req.ProvinceCode,
+		CityCode:         req.CityCode,
+		BarangayCode:     req.BarangayCode,
+		LocationSource:   req.LocationSource,
 	})
 	if err != nil {
 		handleError(w, r, err)
@@ -127,6 +147,56 @@ func (h *Handlers) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) InviteMember(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	groupID := chi.URLParam(r, "groupId")
+	req, issues, ok := httpx.DecodeAndValidate[InviteGroupMemberRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	member, err := h.service.InviteMember(r.Context(), groupID, actorID, req.UserID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, InviteGroupMemberResponse{Membership: mapMember(member)})
+}
+
+func (h *Handlers) AcceptInvite(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	groupID := chi.URLParam(r, "groupId")
+	member, err := h.service.AcceptInvite(r.Context(), groupID, actorID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, JoinGroupResponse{Membership: mapMember(member)})
+}
+
+func (h *Handlers) RejectInvite(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	groupID := chi.URLParam(r, "groupId")
+	member, err := h.service.RejectInvite(r.Context(), groupID, actorID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, JoinGroupResponse{Membership: mapMember(member)})
 }
 
 func (h *Handlers) ListGroupMembers(w http.ResponseWriter, r *http.Request) {
@@ -241,20 +311,34 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 
 func mapGroup(item groupsrepo.Group) GroupResponse {
 	return GroupResponse{
-		ID:          item.ID,
-		Name:        item.Name,
-		Slug:        item.Slug,
-		Description: item.Description,
-		Visibility:  item.Visibility,
-		Status:      item.Status,
-		JoinPolicy:  item.JoinPolicy,
-		Location:    item.Location,
-		MemberCount: item.MemberCount,
-		EventCount:  item.EventCount,
-		PostCount:   item.PostCount,
-		CreatedBy:   item.CreatedBy,
-		CreatedAt:   item.CreatedAt,
-		UpdatedAt:   item.UpdatedAt,
+		ID:                       item.ID,
+		Name:                     item.Name,
+		Slug:                     item.Slug,
+		Description:              item.Description,
+		Visibility:               item.Visibility,
+		Status:                   item.Status,
+		JoinPolicy:               item.JoinPolicy,
+		Location:                 item.Location,
+		LocationName:             item.LocationName,
+		FormattedAddress:         item.FormattedAddress,
+		Latitude:                 item.Latitude,
+		Longitude:                item.Longitude,
+		GooglePlaceID:            item.GooglePlaceID,
+		RegionCode:               item.RegionCode,
+		ProvinceCode:             item.ProvinceCode,
+		CityCode:                 item.CityCode,
+		BarangayCode:             item.BarangayCode,
+		LocationSource:           item.LocationSource,
+		MemberCount:              item.MemberCount,
+		EventCount:               item.EventCount,
+		PostCount:                item.PostCount,
+		CreatedBy:                item.CreatedBy,
+		CreatedAt:                item.CreatedAt,
+		UpdatedAt:                item.UpdatedAt,
+		ViewerRole:               item.ViewerRole,
+		ViewerMembershipStatus:   item.ViewerMembershipStatus,
+		ViewerMembershipJoinedAt: item.ViewerJoinedAt,
+		ViewerInviteCreatedAt:    item.ViewerInvitedAt,
 	}
 }
 
@@ -264,7 +348,11 @@ func mapMember(item groupsrepo.GroupMember) GroupMemberResponse {
 		UserID:      item.UserID,
 		Role:        item.Role,
 		Status:      item.Status,
+		InvitedBy:   item.InvitedBy,
+		InvitedAt:   item.InvitedAt,
+		RespondedAt: item.RespondedAt,
 		JoinedAt:    item.JoinedAt,
+		LeftAt:      item.LeftAt,
 		CreatedAt:   item.CreatedAt,
 		UpdatedAt:   item.UpdatedAt,
 		Username:    item.Username,

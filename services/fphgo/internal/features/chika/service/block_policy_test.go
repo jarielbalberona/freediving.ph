@@ -16,8 +16,10 @@ import (
 type chikaRepoStub struct {
 	thread           chikarepo.Thread
 	comment          chikarepo.Comment
+	createdComment   chikarepo.Comment
 	comments         map[int64]chikarepo.Comment
 	commentReactions map[int64]map[string]string
+	usernameByID     map[string]string
 }
 
 func (s *chikaRepoStub) ListCategories(context.Context) ([]chikarepo.Category, error) {
@@ -51,8 +53,21 @@ func (s *chikaRepoStub) CreatePost(context.Context, string, string, string, stri
 func (s *chikaRepoStub) ListPosts(context.Context, string, string, int32, int32) ([]chikarepo.Post, error) {
 	return []chikarepo.Post{}, nil
 }
-func (s *chikaRepoStub) CreateComment(context.Context, string, string, string, string, *int64) (chikarepo.Comment, error) {
-	return chikarepo.Comment{}, nil
+func (s *chikaRepoStub) CreateComment(_ context.Context, threadID, userID, pseudonym, content string, parentID *int64) (chikarepo.Comment, error) {
+	if s.createdComment.ID != 0 {
+		return s.createdComment, nil
+	}
+	now := time.Now().UTC()
+	return chikarepo.Comment{
+		ID:           1,
+		ThreadID:     threadID,
+		ParentID:     parentID,
+		AuthorUserID: userID,
+		Pseudonym:    pseudonym,
+		Content:      content,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}, nil
 }
 func (s *chikaRepoStub) ListComments(context.Context, string, string, bool, time.Time, int64, int32) ([]chikarepo.Comment, error) {
 	return []chikarepo.Comment{}, nil
@@ -127,7 +142,14 @@ func (s *chikaRepoStub) UpsertThreadAlias(_ context.Context, _ string, _ string,
 	return pseudonym, nil
 }
 func (s *chikaRepoStub) PseudonymEnabled(context.Context, string) (bool, error) { return true, nil }
-func (s *chikaRepoStub) Username(context.Context, string) (string, error)       { return "user", nil }
+func (s *chikaRepoStub) Username(_ context.Context, userID string) (string, error) {
+	if s.usernameByID != nil {
+		if username, ok := s.usernameByID[userID]; ok {
+			return username, nil
+		}
+	}
+	return "user", nil
+}
 
 type blockCheckerStub struct {
 	blocked bool

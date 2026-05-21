@@ -3,31 +3,38 @@
 import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
 import { useParams } from "next/navigation";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  Check,
   Lock,
   MapPin,
   MessageSquare,
   PenSquare,
+  UserPlus,
   Users,
+  X,
 } from "lucide-react";
 
-import type { Group, GroupPost } from "@freediving.ph/types";
+import type { Group, GroupPost, Profile } from "@freediving.ph/types";
 
 import { useSession } from "@/features/auth/session";
 import {
+  useAcceptGroupInvite,
   useCreateGroupPost,
+  useInviteGroupMember,
   useJoinGroup,
   useLeaveGroup,
+  useRejectGroupInvite,
 } from "@/features/groups/hooks/mutations";
 import {
   useGroup,
   useGroupMembers,
   useGroupPosts,
-  useUserGroups,
 } from "@/features/groups/hooks/queries";
+import { useUserSearch } from "@/features/profiles/hooks/queries";
+import { buildDisplayLocation } from "@/features/locations/types";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import {
@@ -50,38 +57,75 @@ export default function GroupDetailPage() {
 
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
+  const [inviteSearch, setInviteSearch] = useState("");
 
   const groupQuery = useGroup(groupId);
   const membersQuery = useGroupMembers(groupId, 1, 20);
   const postsQuery = useGroupPosts(groupId, 1, 20);
-  const myGroupsQuery = useUserGroups(1, 50, isSignedIn);
+  const userSearchQuery = useUserSearch(inviteSearch, 8);
 
   const joinMutation = useJoinGroup();
   const leaveMutation = useLeaveGroup();
+  const inviteMutation = useInviteGroupMember();
+  const acceptInviteMutation = useAcceptGroupInvite();
+  const rejectInviteMutation = useRejectGroupInvite();
   const createPostMutation = useCreateGroupPost();
 
   const group = groupQuery.data;
   const members = membersQuery.data?.members ?? [];
   const posts = postsQuery.data?.posts ?? [];
-  const myGroups = myGroupsQuery.data?.groups ?? [];
-  const isMember = useMemo(
-    () => myGroups.some((item) => item.id === groupId),
-    [myGroups, groupId],
+  const membershipStatus = group?.viewerMembershipStatus;
+  const isMember = membershipStatus === "active";
+  const hasPendingInvite = membershipStatus === "invited";
+  const activeMemberIds = new Set(
+    members
+      .filter((member) => member.status === "active")
+      .map((member) => member.userId),
+  );
+  const inviteResults = (userSearchQuery.data ?? []).filter(
+    (profile) =>
+      profile.userId !== session.me?.userId &&
+      !activeMemberIds.has(profile.userId),
   );
 
   const onJoin = async () => {
     if (!groupId) return;
     try {
-      const membership = await joinMutation.mutateAsync({ groupId });
-      if (membership.status === "invited") {
-        toast.error(
-          "This group is invite-only right now. Ask an organizer for access.",
-        );
-        return;
-      }
+      await joinMutation.mutateAsync({ groupId });
       toast.success("Joined group.");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to join group"));
+    }
+  };
+
+  const onAcceptInvite = async () => {
+    if (!groupId) return;
+    try {
+      await acceptInviteMutation.mutateAsync({ groupId });
+      toast.success("Joined group.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to accept invite"));
+    }
+  };
+
+  const onRejectInvite = async () => {
+    if (!groupId) return;
+    try {
+      await rejectInviteMutation.mutateAsync({ groupId });
+      toast.success("Invite declined.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to reject invite"));
+    }
+  };
+
+  const onInviteMember = async (profile: Profile) => {
+    if (!groupId) return;
+    try {
+      await inviteMutation.mutateAsync({ groupId, userId: profile.userId });
+      setInviteSearch("");
+      toast.success(`Invited ${profile.displayName || profile.username}.`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to invite member"));
     }
   };
 
@@ -170,9 +214,8 @@ export default function GroupDetailPage() {
     );
   }
 
-  const canJoin =
-    group.visibility !== "invite_only" && group.joinPolicy === "open";
-  const isApprovalOnly = group.joinPolicy === "approval";
+  const canJoin = group.visibility === "public" && group.joinPolicy === "open";
+  const locationLabel = groupLocationLabel(group);
 
   return (
     <CommunityPageShell>
@@ -212,10 +255,10 @@ export default function GroupDetailPage() {
             <MessageSquare className="h-3.5 w-3.5" />
             {group.postCount} posts
           </span>
-          {group.location ? (
+          {locationLabel ? (
             <span className="inline-flex items-center gap-1">
               <MapPin className="h-3.5 w-3.5" />
-              {group.location}
+              {locationLabel}
             </span>
           ) : null}
         </div>
@@ -230,7 +273,7 @@ export default function GroupDetailPage() {
             <p className="text-xs leading-5 text-muted-foreground">
               {group.visibility === "public"
                 ? "Public group. Anyone can see members and posts."
-                : "Private or invite-only group."}
+                : "Private group. Members can see members and posts."}
             </p>
           </div>
           <div className="shrink-0">
@@ -244,6 +287,26 @@ export default function GroupDetailPage() {
                 >
                   Leave group
                 </Button>
+              ) : hasPendingInvite ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    disabled={acceptInviteMutation.isPending}
+                    onClick={() => void onAcceptInvite()}
+                  >
+                    <Check className="mr-1 h-4 w-4" />
+                    Accept invite
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={rejectInviteMutation.isPending}
+                    onClick={() => void onRejectInvite()}
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    Reject
+                  </Button>
+                </div>
               ) : canJoin ? (
                 <Button
                   size="sm"
@@ -252,21 +315,73 @@ export default function GroupDetailPage() {
                 >
                   Join group
                 </Button>
-              ) : isApprovalOnly ? (
-                <p className="text-xs text-muted-foreground">
-                  Ask an organizer for access.
-                </p>
               ) : (
-                <p className="text-xs text-muted-foreground">Invite only.</p>
+                <p className="text-xs text-muted-foreground">
+                  Invite required.
+                </p>
               )
             ) : (
               <SignInButton mode="modal">
-                <Button size="sm">Sign in to join</Button>
+                <Button size="sm">
+                  {canJoin ? "Sign in to join" : "Sign in"}
+                </Button>
               </SignInButton>
             )}
           </div>
         </div>
       </section>
+
+      {isSignedIn && isMember ? (
+        <section className="rounded-xl border border-border/70 bg-background/70 px-3 py-3">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <UserPlus className="h-4 w-4" />
+            Invite member
+          </div>
+          <div className="space-y-3">
+            <Input
+              placeholder="Search people by name or username"
+              value={inviteSearch}
+              onChange={(event) => setInviteSearch(event.target.value)}
+            />
+            {inviteSearch.trim().length > 0 ? (
+              userSearchQuery.isLoading ? (
+                <Skeleton className="h-12 w-full rounded-lg" />
+              ) : inviteResults.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No available users found.
+                </p>
+              ) : (
+                <div className="divide-y divide-border/70 border-y border-border/70">
+                  {inviteResults.map((profile) => (
+                    <div
+                      key={profile.userId}
+                      className="flex items-center justify-between gap-3 py-2"
+                    >
+                      <UserIdentityHeader
+                        displayName={
+                          profile.displayName ||
+                          profile.username ||
+                          profile.userId
+                        }
+                        username={profile.username}
+                        avatarUrl={profile.avatarUrl}
+                        usernameFallback="user"
+                      />
+                      <Button
+                        size="xs"
+                        disabled={inviteMutation.isPending}
+                        onClick={() => void onInviteMember(profile)}
+                      >
+                        Invite
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {isSignedIn && isMember ? (
         <section className="rounded-xl border border-border/70 bg-background/70 px-3 py-3">
@@ -413,8 +528,6 @@ function DetailSection({
 
 function visibilityLabel(value: Group["visibility"]) {
   switch (value) {
-    case "invite_only":
-      return "Invite only";
     case "private":
       return "Private";
     default:
@@ -424,11 +537,24 @@ function visibilityLabel(value: Group["visibility"]) {
 
 function joinPolicyLabel(value: Group["joinPolicy"]) {
   switch (value) {
-    case "approval":
-      return "Restricted";
     case "invite_only":
       return "Invite only";
     default:
       return "Open join";
   }
+}
+
+function groupLocationLabel(group: Group) {
+  return (
+    group.location ||
+    buildDisplayLocation({
+      locationName: group.locationName,
+      formattedAddress: group.formattedAddress,
+      regionCode: group.regionCode,
+      provinceCode: group.provinceCode,
+      cityCode: group.cityCode,
+      barangayCode: group.barangayCode,
+      locationSource: group.locationSource,
+    })
+  );
 }

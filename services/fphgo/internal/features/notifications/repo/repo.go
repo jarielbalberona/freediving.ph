@@ -66,6 +66,7 @@ type NotificationSettings struct {
 	PaymentNotifications       bool
 	SecurityNotifications      bool
 	NewDiveSitePublished       bool
+	ChikaReplies               bool
 	DigestFrequency            string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
@@ -120,6 +121,7 @@ type SettingsUpdateInput struct {
 	PaymentNotifications       *bool
 	SecurityNotifications      *bool
 	NewDiveSitePublished       *bool
+	ChikaReplies               *bool
 	DigestFrequency            *string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
@@ -789,6 +791,100 @@ func (r *Repo) ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserI
 	return ids, nil
 }
 
+func (r *Repo) ChikaRepliesEnabled(ctx context.Context, userID string) (bool, error) {
+	return r.settingEnabled(ctx, userID, "chika_replies")
+}
+
+func (r *Repo) EventNotificationsEnabled(ctx context.Context, userID string) (bool, error) {
+	return r.settingEnabled(ctx, userID, "event_notifications")
+}
+
+func (r *Repo) GroupInviteNotificationsEnabled(ctx context.Context, userID string) (bool, error) {
+	return r.settingEnabled(ctx, userID, "group_invite_notifications")
+}
+
+func (r *Repo) ListGroupPostRecipients(ctx context.Context, groupID, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT gm.user_id::text
+		FROM group_memberships gm
+		JOIN users u ON u.id = gm.user_id
+		LEFT JOIN notification_settings ns ON ns.user_id = gm.user_id
+		WHERE gm.group_id = $1::uuid
+		  AND gm.status = 'active'
+		  AND (NULLIF($2, '') IS NULL OR gm.user_id <> $2::uuid)
+		  AND u.account_status = 'active'
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.group_notifications, TRUE) = TRUE
+		ORDER BY gm.joined_at ASC NULLS LAST, gm.created_at ASC, gm.user_id ASC
+	`, strings.TrimSpace(groupID), strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanUserIDs(rows)
+}
+
+func (r *Repo) ListGroupEventRecipients(ctx context.Context, groupID, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT gm.user_id::text
+		FROM group_memberships gm
+		JOIN users u ON u.id = gm.user_id
+		LEFT JOIN notification_settings ns ON ns.user_id = gm.user_id
+		WHERE gm.group_id = $1::uuid
+		  AND gm.status = 'active'
+		  AND (NULLIF($2, '') IS NULL OR gm.user_id <> $2::uuid)
+		  AND u.account_status = 'active'
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.event_notifications, TRUE) = TRUE
+		ORDER BY gm.joined_at ASC NULLS LAST, gm.created_at ASC, gm.user_id ASC
+	`, strings.TrimSpace(groupID), strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanUserIDs(rows)
+}
+
+func (r *Repo) ListEventAttendeeRecipients(ctx context.Context, eventID, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT em.user_id::text
+		FROM event_memberships em
+		JOIN users u ON u.id = em.user_id
+		LEFT JOIN notification_settings ns ON ns.user_id = em.user_id
+		WHERE em.event_id = $1::uuid
+		  AND em.status = 'active'
+		  AND (NULLIF($2, '') IS NULL OR em.user_id <> $2::uuid)
+		  AND u.account_status = 'active'
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.event_notifications, TRUE) = TRUE
+		ORDER BY em.joined_at ASC NULLS LAST, em.user_id ASC
+	`, strings.TrimSpace(eventID), strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanUserIDs(rows)
+}
+
+func (r *Repo) settingEnabled(ctx context.Context, userID string, column string) (bool, error) {
+	switch column {
+	case "chika_replies", "event_notifications", "group_invite_notifications":
+	default:
+		return false, fmt.Errorf("unsupported notification setting column %q", column)
+	}
+	var enabled bool
+	err := r.pool.QueryRow(ctx, fmt.Sprintf(`
+		SELECT
+			u.account_status = 'active'
+			AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+			AND COALESCE(ns.%s, TRUE) = TRUE
+		FROM users u
+		LEFT JOIN notification_settings ns ON ns.user_id = u.id
+		WHERE u.id = $1::uuid
+	`, column), strings.TrimSpace(userID)).Scan(&enabled)
+	return enabled, err
+}
+
 func (r *Repo) GetSettingsForUser(ctx context.Context, userID string) (NotificationSettings, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT
@@ -813,6 +909,7 @@ func (r *Repo) GetSettingsForUser(ctx context.Context, userID string) (Notificat
 				payment_notifications,
 				security_notifications,
 				new_dive_site_published,
+				chika_replies,
 				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
@@ -852,6 +949,7 @@ func (r *Repo) CreateDefaultSettingsForUser(ctx context.Context, userID string) 
 				payment_notifications,
 				security_notifications,
 				new_dive_site_published,
+				chika_replies,
 				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
@@ -930,6 +1028,9 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 	if input.NewDiveSitePublished != nil {
 		addSet("new_dive_site_published", *input.NewDiveSitePublished)
 	}
+	if input.ChikaReplies != nil {
+		addSet("chika_replies", *input.ChikaReplies)
+	}
 	if input.DigestFrequency != nil {
 		addSet("digest_frequency", *input.DigestFrequency)
 	}
@@ -977,6 +1078,7 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 				payment_notifications,
 				security_notifications,
 				new_dive_site_published,
+				chika_replies,
 				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
@@ -995,6 +1097,21 @@ func IsNoRows(err error) bool {
 
 type rowScanner interface {
 	Scan(dest ...any) error
+}
+
+func scanUserIDs(rows pgx.Rows) ([]string, error) {
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return ids, nil
 }
 
 func scanNotificationRow(row rowScanner) (Notification, error) {
@@ -1104,6 +1221,7 @@ func scanSettingsRow(row rowScanner) (NotificationSettings, error) {
 		&item.PaymentNotifications,
 		&item.SecurityNotifications,
 		&item.NewDiveSitePublished,
+		&item.ChikaReplies,
 		&item.DigestFrequency,
 		&item.QuietHoursStart,
 		&item.QuietHoursEnd,

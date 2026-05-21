@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base32"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	chikarepo "fphgo/internal/features/chika/repo"
 	feedservice "fphgo/internal/features/feed/service"
+	notificationsservice "fphgo/internal/features/notifications/service"
 	"fphgo/internal/realtime/ws"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/pagination"
@@ -22,12 +24,13 @@ import (
 )
 
 type Service struct {
-	repo         chikaRepository
-	blockService blockChecker
-	limiter      rateLimiter
-	pseudonymKey string
-	rt           realtimeBroadcaster
-	activity     activityPublisher
+	repo          chikaRepository
+	blockService  blockChecker
+	limiter       rateLimiter
+	pseudonymKey  string
+	rt            realtimeBroadcaster
+	activity      activityPublisher
+	notifications notificationPublisher
 }
 
 type chikaRepository interface {
@@ -76,6 +79,11 @@ type realtimeBroadcaster interface {
 type activityPublisher interface {
 	PublishActivity(ctx context.Context, input feedservice.ActivityPublishInput) error
 	MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID string, state feedservice.ActivityState) error
+}
+
+type notificationPublisher interface {
+	NotifyChikaThreadCommented(ctx context.Context, input notificationsservice.ChikaThreadCommentedInput) error
+	NotifyChikaCommentReplied(ctx context.Context, input notificationsservice.ChikaCommentRepliedInput) error
 }
 
 type noopLimiter struct{}
@@ -266,6 +274,12 @@ func WithActivityPublisher(publisher activityPublisher) Option {
 	}
 }
 
+func WithNotifications(publisher notificationPublisher) Option {
+	return func(s *Service) {
+		s.notifications = publisher
+	}
+}
+
 func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Thread, error) {
 	if _, err := uuid.Parse(input.ActorID); err != nil {
 		return Thread{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
@@ -319,8 +333,7 @@ func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Th
 		}
 	}
 	s.broadcastChikaEvent("chika.thread.created", map[string]any{
-		"threadId":     created.ID,
-		"authorUserId": input.ActorID,
+		"threadId": created.ID,
 	})
 	if s.activity != nil {
 		_ = s.activity.PublishActivity(ctx, feedservice.ActivityPublishInput{
@@ -616,6 +629,7 @@ func (s *Service) CreateComment(ctx context.Context, input CreateCommentInput) (
 			return Comment{}, apperrors.New(http.StatusForbidden, "blocked", "interaction is blocked between users", nil)
 		}
 	}
+	var parentComment *chikarepo.Comment
 	if input.ParentCommentID != nil {
 		parent, err := s.repo.GetComment(ctx, *input.ParentCommentID, input.UserID)
 		if err != nil {
@@ -627,6 +641,7 @@ func (s *Service) CreateComment(ctx context.Context, input CreateCommentInput) (
 		if parent.ThreadID != input.ThreadID {
 			return Comment{}, apperrors.New(http.StatusBadRequest, "invalid_parent_comment_id", "parent comment belongs to a different thread", nil)
 		}
+		parentComment = &parent
 	}
 	commentRateMax := 60
 	if thread.Mode == "pseudonymous" || thread.Mode == "locked_pseudonymous" {
@@ -646,13 +661,13 @@ func (s *Service) CreateComment(ctx context.Context, input CreateCommentInput) (
 		return Comment{}, apperrors.New(http.StatusInternalServerError, "comment_create_failed", "failed to create comment", err)
 	}
 	s.broadcastChikaEvent("chika.comment.created", map[string]any{
-		"threadId":     comment.ThreadID,
-		"commentId":    strconv.FormatInt(comment.ID, 10),
-		"authorUserId": comment.AuthorUserID,
+		"threadId":  comment.ThreadID,
+		"commentId": strconv.FormatInt(comment.ID, 10),
 	})
 	s.broadcastChikaEvent("chika.thread.updated", map[string]any{
 		"threadId": comment.ThreadID,
 	})
+	s.notifyCommentCreated(ctx, thread, parentComment, comment, comment.Pseudonym)
 	return comment, nil
 }
 
@@ -809,9 +824,8 @@ func (s *Service) SetThreadReaction(ctx context.Context, input SetThreadReaction
 		return Reaction{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
 	}
 	s.broadcastChikaEvent("chika.thread.reaction.updated", map[string]any{
-		"threadId":    input.ThreadID,
-		"voteCount":   updatedThread.VoteCount,
-		"actorUserId": input.UserID,
+		"threadId":  input.ThreadID,
+		"voteCount": updatedThread.VoteCount,
 	})
 	s.broadcastChikaEvent("chika.thread.updated", map[string]any{
 		"threadId": input.ThreadID,
@@ -843,9 +857,8 @@ func (s *Service) RemoveThreadReaction(ctx context.Context, input RemoveThreadRe
 		return apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
 	}
 	s.broadcastChikaEvent("chika.thread.reaction.updated", map[string]any{
-		"threadId":    input.ThreadID,
-		"voteCount":   updatedThread.VoteCount,
-		"actorUserId": input.UserID,
+		"threadId":  input.ThreadID,
+		"voteCount": updatedThread.VoteCount,
 	})
 	s.broadcastChikaEvent("chika.thread.updated", map[string]any{
 		"threadId": input.ThreadID,
@@ -902,10 +915,9 @@ func (s *Service) SetCommentReaction(ctx context.Context, input SetCommentReacti
 		return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
 	}
 	s.broadcastChikaEvent("chika.comment.reaction.updated", map[string]any{
-		"threadId":    comment.ThreadID,
-		"commentId":   strconv.FormatInt(comment.ID, 10),
-		"voteCount":   updatedComment.VoteCount,
-		"actorUserId": input.UserID,
+		"threadId":  comment.ThreadID,
+		"commentId": strconv.FormatInt(comment.ID, 10),
+		"voteCount": updatedComment.VoteCount,
 	})
 	s.broadcastChikaEvent("chika.thread.updated", map[string]any{
 		"threadId": comment.ThreadID,
@@ -944,10 +956,9 @@ func (s *Service) RemoveCommentReaction(ctx context.Context, input RemoveComment
 		return CommentReactionResult{}, apperrors.New(http.StatusInternalServerError, "comment_get_failed", "failed to get comment", err)
 	}
 	s.broadcastChikaEvent("chika.comment.reaction.updated", map[string]any{
-		"threadId":    comment.ThreadID,
-		"commentId":   strconv.FormatInt(comment.ID, 10),
-		"voteCount":   updatedComment.VoteCount,
-		"actorUserId": input.UserID,
+		"threadId":  comment.ThreadID,
+		"commentId": strconv.FormatInt(comment.ID, 10),
+		"voteCount": updatedComment.VoteCount,
 	})
 	s.broadcastChikaEvent("chika.thread.updated", map[string]any{
 		"threadId": comment.ThreadID,
@@ -959,6 +970,98 @@ func (s *Service) RemoveCommentReaction(ctx context.Context, input RemoveComment
 		VoteCount:    updatedComment.VoteCount,
 		UserReaction: updatedComment.ViewerReaction,
 	}, nil
+}
+
+func (s *Service) notifyCommentCreated(ctx context.Context, thread chikarepo.Thread, parent *chikarepo.Comment, comment chikarepo.Comment, actorPseudonym string) {
+	if s.notifications == nil || thread.HiddenAt != nil || comment.HiddenAt != nil {
+		return
+	}
+	actorLabel := s.chikaNotificationActorLabel(ctx, thread, comment.AuthorUserID, actorPseudonym)
+	if parent != nil {
+		if parent.HiddenAt != nil || strings.TrimSpace(parent.AuthorUserID) == "" || parent.AuthorUserID == comment.AuthorUserID {
+			return
+		}
+		blocked, err := s.isBlockedEither(ctx, comment.AuthorUserID, parent.AuthorUserID)
+		if err != nil {
+			slog.Default().Warn("chika.notification.block_check_failed",
+				slog.String("thread_id", thread.ID),
+				slog.Int64("comment_id", comment.ID),
+				slog.String("recipient_user_id", parent.AuthorUserID),
+				slog.Any("error", err),
+			)
+			return
+		}
+		if blocked {
+			return
+		}
+		if err := s.notifications.NotifyChikaCommentReplied(ctx, notificationsservice.ChikaCommentRepliedInput{
+			ThreadID:         thread.ID,
+			ThreadTitle:      thread.Title,
+			ParentCommentID:  parent.ID,
+			ReplyCommentID:   comment.ID,
+			RecipientUserID:  parent.AuthorUserID,
+			ActorDisplayName: actorLabel,
+			Pseudonymous:     isPseudonymousThread(thread),
+		}); err != nil {
+			slog.Default().Warn("chika.notification.reply_failed",
+				slog.String("thread_id", thread.ID),
+				slog.Int64("comment_id", comment.ID),
+				slog.String("recipient_user_id", parent.AuthorUserID),
+				slog.Any("error", err),
+			)
+		}
+		return
+	}
+
+	if strings.TrimSpace(thread.CreatedByUserID) == "" || thread.CreatedByUserID == comment.AuthorUserID {
+		return
+	}
+	blocked, err := s.isBlockedEither(ctx, comment.AuthorUserID, thread.CreatedByUserID)
+	if err != nil {
+		slog.Default().Warn("chika.notification.block_check_failed",
+			slog.String("thread_id", thread.ID),
+			slog.Int64("comment_id", comment.ID),
+			slog.String("recipient_user_id", thread.CreatedByUserID),
+			slog.Any("error", err),
+		)
+		return
+	}
+	if blocked {
+		return
+	}
+	if err := s.notifications.NotifyChikaThreadCommented(ctx, notificationsservice.ChikaThreadCommentedInput{
+		ThreadID:         thread.ID,
+		ThreadTitle:      thread.Title,
+		CommentID:        comment.ID,
+		RecipientUserID:  thread.CreatedByUserID,
+		ActorDisplayName: actorLabel,
+		Pseudonymous:     isPseudonymousThread(thread),
+	}); err != nil {
+		slog.Default().Warn("chika.notification.comment_failed",
+			slog.String("thread_id", thread.ID),
+			slog.Int64("comment_id", comment.ID),
+			slog.String("recipient_user_id", thread.CreatedByUserID),
+			slog.Any("error", err),
+		)
+	}
+}
+
+func (s *Service) chikaNotificationActorLabel(ctx context.Context, thread chikarepo.Thread, actorUserID string, actorPseudonym string) string {
+	if isPseudonymousThread(thread) {
+		if trimmed := strings.TrimSpace(actorPseudonym); trimmed != "" {
+			return trimmed
+		}
+		return "A Chika diver"
+	}
+	username, err := s.repo.Username(ctx, actorUserID)
+	if err != nil || strings.TrimSpace(username) == "" {
+		return "Someone"
+	}
+	return strings.TrimSpace(username)
+}
+
+func isPseudonymousThread(thread chikarepo.Thread) bool {
+	return thread.Pseudonymous || thread.Mode == "pseudonymous" || thread.Mode == "locked_pseudonymous"
 }
 
 func (s *Service) broadcastChikaEvent(eventType string, payload map[string]any) {

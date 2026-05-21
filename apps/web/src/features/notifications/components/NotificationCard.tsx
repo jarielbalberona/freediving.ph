@@ -1,10 +1,11 @@
 "use client";
 
 import type { Notification } from "@freediving.ph/types";
-import { CheckCircle, Clock } from "lucide-react";
+import { CheckCircle, Clock, ExternalLink } from "lucide-react";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useDeleteNotification, useMarkAsRead } from "../hooks";
 
@@ -38,6 +39,11 @@ export function NotificationCard({ notification }: NotificationCardProps) {
   const handleDelete = () => {
     deleteNotificationMutation.mutate(notification.id);
   };
+  const actionURL =
+    notification.actionUrl?.startsWith("/") &&
+    !notification.actionUrl.startsWith("//")
+      ? notification.actionUrl
+      : null;
 
   return (
     <article className="flex gap-2 py-3 text-sm">
@@ -97,6 +103,15 @@ export function NotificationCard({ notification }: NotificationCardProps) {
               Mark read
             </Button>
           ) : null}
+          {actionURL ? (
+            <Link
+              href={actionURL}
+              className={buttonVariants({ size: "xs", variant: "outline" })}
+            >
+              <ExternalLink className="h-3 w-3" />
+              Open
+            </Link>
+          ) : null}
           <Button
             size="xs"
             variant="destructive"
@@ -112,6 +127,20 @@ export function NotificationCard({ notification }: NotificationCardProps) {
 }
 
 function formatNotificationType(value: Notification["type"]) {
+  const labels: Partial<Record<Notification["type"], string>> = {
+    CHIKA_THREAD_COMMENTED: "Chika comment",
+    CHIKA_COMMENT_REPLIED: "Chika reply",
+    GROUP_INVITE_RECEIVED: "Group invite",
+    GROUP_POST_CREATED: "Group post",
+    EVENT_CREATED_FOR_GROUP: "Group event",
+    EVENT_ATTENDEE_JOINED: "Event attendee",
+    EVENT_UPDATED: "Event update",
+    EVENT_CANCELLED: "Event cancelled",
+    NEW_DIVE_SITE_PUBLISHED: "Dive site",
+  };
+  if (labels[value]) {
+    return labels[value];
+  }
   return value
     .replace(/^NEW_/, "")
     .toLowerCase()

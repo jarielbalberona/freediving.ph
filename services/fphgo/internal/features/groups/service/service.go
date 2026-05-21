@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -9,26 +10,37 @@ import (
 	"github.com/google/uuid"
 
 	groupsrepo "fphgo/internal/features/groups/repo"
+	notificationsservice "fphgo/internal/features/notifications/service"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/validatex"
 )
 
 type Service struct {
-	repo repository
+	repo          repository
+	notifications notificationPublisher
 }
 
 type repository interface {
 	ListGroups(ctx context.Context, input groupsrepo.ListGroupsInput) ([]groupsrepo.Group, int, error)
-	GetGroupByID(ctx context.Context, groupID string) (groupsrepo.Group, error)
+	GetGroupByID(ctx context.Context, groupID, viewerUserID string) (groupsrepo.Group, error)
 	CreateGroup(ctx context.Context, input groupsrepo.CreateGroupInput) (groupsrepo.Group, error)
 	AddOwnerMembership(ctx context.Context, groupID, userID string) error
 	UpdateGroup(ctx context.Context, input groupsrepo.UpdateGroupInput) (groupsrepo.Group, error)
 	GetMembership(ctx context.Context, groupID, userID string) (groupsrepo.GroupMember, error)
 	UpsertMembership(ctx context.Context, groupID, userID, role, status string) (groupsrepo.GroupMember, error)
+	InviteMember(ctx context.Context, groupID, userID, invitedBy string) (groupsrepo.GroupMember, error)
+	AcceptInvite(ctx context.Context, groupID, userID string) (groupsrepo.GroupMember, error)
+	RejectInvite(ctx context.Context, groupID, userID string) (groupsrepo.GroupMember, error)
 	LeaveGroup(ctx context.Context, groupID, userID string) error
 	ListMembers(ctx context.Context, input groupsrepo.ListGroupMembersInput) ([]groupsrepo.GroupMember, int, error)
 	ListPosts(ctx context.Context, input groupsrepo.ListGroupPostsInput) ([]groupsrepo.GroupPost, int, error)
 	CreatePost(ctx context.Context, input groupsrepo.CreateGroupPostInput) (groupsrepo.GroupPost, error)
+	UserIsActive(ctx context.Context, userID string) (bool, error)
+}
+
+type notificationPublisher interface {
+	NotifyGroupPostCreated(ctx context.Context, input notificationsservice.GroupPostCreatedInput) error
+	NotifyGroupInviteReceived(ctx context.Context, input notificationsservice.GroupInviteReceivedInput) error
 }
 
 type ValidationFailure struct {
@@ -37,15 +49,33 @@ type ValidationFailure struct {
 
 func (e ValidationFailure) Error() string { return "validation failed" }
 
-func New(repo repository) *Service {
-	return &Service{repo: repo}
+type Option func(*Service)
+
+func WithNotifications(publisher notificationPublisher) Option {
+	return func(s *Service) {
+		s.notifications = publisher
+	}
+}
+
+func New(repo repository, opts ...Option) *Service {
+	svc := &Service{repo: repo}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func (s *Service) ListGroups(ctx context.Context, viewerUserID, search, visibility string, mine bool, page, limit int) ([]groupsrepo.Group, int, error) {
+	viewerUserID = strings.TrimSpace(viewerUserID)
+	if mine && viewerUserID == "" {
+		return []groupsrepo.Group{}, 0, nil
+	}
 	return s.repo.ListGroups(ctx, groupsrepo.ListGroupsInput{
-		ViewerUserID: strings.TrimSpace(viewerUserID),
+		ViewerUserID: viewerUserID,
 		Search:       strings.TrimSpace(search),
-		Visibility:   strings.TrimSpace(visibility),
+		Visibility:   normalizeVisibilityFilter(visibility),
 		Mine:         mine,
 		Page:         normalizePage(page),
 		Limit:        normalizeLimit(limit),
@@ -60,7 +90,8 @@ func (s *Service) GetGroup(ctx context.Context, groupID, viewerUserID string) (g
 			Message: "Must be a valid UUID",
 		}}}
 	}
-	group, err := s.repo.GetGroupByID(ctx, groupID)
+	viewerUserID = strings.TrimSpace(viewerUserID)
+	group, err := s.repo.GetGroupByID(ctx, groupID, viewerUserID)
 	if err != nil {
 		if groupsrepo.IsNoRows(err) {
 			return groupsrepo.Group{}, apperrors.New(http.StatusNotFound, "group_not_found", "group not found", err)
@@ -73,12 +104,11 @@ func (s *Service) GetGroup(ctx context.Context, groupID, viewerUserID string) (g
 	if group.Visibility == "public" {
 		return group, nil
 	}
-	viewerUserID = strings.TrimSpace(viewerUserID)
 	if viewerUserID == "" {
 		return groupsrepo.Group{}, apperrors.New(http.StatusForbidden, "forbidden", "group is not public", nil)
 	}
 	membership, err := s.repo.GetMembership(ctx, groupID, viewerUserID)
-	if err != nil || membership.Status != "active" {
+	if err != nil || (membership.Status != "active" && membership.Status != "invited") {
 		return groupsrepo.Group{}, apperrors.New(http.StatusForbidden, "forbidden", "group is not public", nil)
 	}
 	return group, nil
@@ -98,6 +128,9 @@ func (s *Service) CreateGroup(ctx context.Context, actorID string, input groupsr
 	}
 	visibility := normalizeVisibility(input.Visibility)
 	joinPolicy := normalizeJoinPolicy(input.JoinPolicy)
+	if visibility == "private" && joinPolicy == "open" {
+		return groupsrepo.Group{}, privateGroupJoinPolicyFailure()
+	}
 	slug := sanitizeSlug(input.Slug)
 	if slug == "" {
 		slug = sanitizeSlug(name)
@@ -106,13 +139,23 @@ func (s *Service) CreateGroup(ctx context.Context, actorID string, input groupsr
 		slug = "group-" + strings.ToLower(strings.ReplaceAll(uuid.NewString()[:8], "-", ""))
 	}
 	created, err := s.repo.CreateGroup(ctx, groupsrepo.CreateGroupInput{
-		Name:        name,
-		Slug:        slug,
-		Description: strings.TrimSpace(input.Description),
-		Visibility:  visibility,
-		JoinPolicy:  joinPolicy,
-		Location:    strings.TrimSpace(input.Location),
-		CreatedBy:   actorID,
+		Name:             name,
+		Slug:             slug,
+		Description:      strings.TrimSpace(input.Description),
+		Visibility:       visibility,
+		JoinPolicy:       joinPolicy,
+		Location:         strings.TrimSpace(input.Location),
+		LocationName:     strings.TrimSpace(input.LocationName),
+		FormattedAddress: strings.TrimSpace(input.FormattedAddress),
+		Latitude:         input.Latitude,
+		Longitude:        input.Longitude,
+		GooglePlaceID:    strings.TrimSpace(input.GooglePlaceID),
+		RegionCode:       strings.TrimSpace(input.RegionCode),
+		ProvinceCode:     strings.TrimSpace(input.ProvinceCode),
+		CityCode:         strings.TrimSpace(input.CityCode),
+		BarangayCode:     strings.TrimSpace(input.BarangayCode),
+		LocationSource:   normalizeLocationSource(input.LocationSource),
+		CreatedBy:        actorID,
 	})
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "idx_groups_slug") || strings.Contains(strings.ToLower(err.Error()), "groups_slug") {
@@ -123,7 +166,7 @@ func (s *Service) CreateGroup(ctx context.Context, actorID string, input groupsr
 	if err := s.repo.AddOwnerMembership(ctx, created.ID, actorID); err != nil {
 		return groupsrepo.Group{}, apperrors.New(http.StatusInternalServerError, "group_membership_create_failed", "failed to create owner membership", err)
 	}
-	return s.repo.GetGroupByID(ctx, created.ID)
+	return s.repo.GetGroupByID(ctx, created.ID, actorID)
 }
 
 func (s *Service) UpdateGroup(ctx context.Context, groupID string, input groupsrepo.UpdateGroupInput) (groupsrepo.Group, error) {
@@ -145,6 +188,31 @@ func (s *Service) UpdateGroup(ctx context.Context, groupID string, input groupsr
 	if input.JoinPolicy != nil {
 		v := normalizeJoinPolicy(*input.JoinPolicy)
 		input.JoinPolicy = &v
+	}
+	if input.Visibility != nil && *input.Visibility == "private" {
+		if input.JoinPolicy != nil && *input.JoinPolicy == "open" {
+			return groupsrepo.Group{}, privateGroupJoinPolicyFailure()
+		}
+		if input.JoinPolicy == nil {
+			v := "invite_only"
+			input.JoinPolicy = &v
+		}
+	}
+	if input.Visibility == nil && input.JoinPolicy != nil && *input.JoinPolicy == "open" {
+		current, err := s.repo.GetGroupByID(ctx, groupID, "")
+		if err != nil {
+			if groupsrepo.IsNoRows(err) {
+				return groupsrepo.Group{}, apperrors.New(http.StatusNotFound, "group_not_found", "group not found", err)
+			}
+			return groupsrepo.Group{}, apperrors.New(http.StatusInternalServerError, "group_get_failed", "failed to fetch group", err)
+		}
+		if current.Visibility == "private" {
+			return groupsrepo.Group{}, privateGroupJoinPolicyFailure()
+		}
+	}
+	if input.LocationSource != nil {
+		v := normalizeLocationSource(*input.LocationSource)
+		input.LocationSource = &v
 	}
 	input.GroupID = groupID
 	updated, err := s.repo.UpdateGroup(ctx, input)
@@ -168,7 +236,7 @@ func (s *Service) JoinGroup(ctx context.Context, groupID, actorID string) (group
 	if _, err := uuid.Parse(actorID); err != nil {
 		return groupsrepo.GroupMember{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
 	}
-	group, err := s.repo.GetGroupByID(ctx, groupID)
+	group, err := s.repo.GetGroupByID(ctx, groupID, actorID)
 	if err != nil {
 		if groupsrepo.IsNoRows(err) {
 			return groupsrepo.GroupMember{}, apperrors.New(http.StatusNotFound, "group_not_found", "group not found", err)
@@ -178,19 +246,158 @@ func (s *Service) JoinGroup(ctx context.Context, groupID, actorID string) (group
 	if group.Status != "active" {
 		return groupsrepo.GroupMember{}, apperrors.New(http.StatusConflict, "group_inactive", "group is not active", nil)
 	}
-	if group.JoinPolicy == "invite_only" || group.Visibility == "invite_only" {
-		existing, err := s.repo.GetMembership(ctx, groupID, actorID)
-		if err != nil || existing.Status != "invited" {
-			return groupsrepo.GroupMember{}, apperrors.New(http.StatusForbidden, "invite_required", "group requires invite", nil)
+	existing, hasMembership, err := s.lookupMembership(ctx, groupID, actorID)
+	if err != nil {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusInternalServerError, "membership_get_failed", "failed to fetch membership", err)
+	}
+	if hasMembership {
+		switch existing.Status {
+		case "active":
+			return existing, nil
+		case "blocked":
+			return groupsrepo.GroupMember{}, apperrors.New(http.StatusForbidden, "member_blocked", "user is blocked from this group", nil)
 		}
 	}
-	status := "active"
-	if group.JoinPolicy == "approval" {
-		status = "invited"
+	if group.Visibility == "private" && (!hasMembership || existing.Status != "invited") {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusForbidden, "invite_required", "group requires invite", nil)
 	}
-	member, err := s.repo.UpsertMembership(ctx, groupID, actorID, "member", status)
+	if group.JoinPolicy == "invite_only" && (!hasMembership || existing.Status != "invited") {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusForbidden, "invite_required", "group requires invite", nil)
+	}
+	member, err := s.repo.UpsertMembership(ctx, groupID, actorID, "member", "active")
 	if err != nil {
 		return groupsrepo.GroupMember{}, apperrors.New(http.StatusInternalServerError, "group_join_failed", "failed to join group", err)
+	}
+	return member, nil
+}
+
+func (s *Service) InviteMember(ctx context.Context, groupID, actorID, inviteeID string) (groupsrepo.GroupMember, error) {
+	if _, err := uuid.Parse(groupID); err != nil {
+		return groupsrepo.GroupMember{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"groupId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := uuid.Parse(actorID); err != nil {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(inviteeID); err != nil {
+		return groupsrepo.GroupMember{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"userId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if actorID == inviteeID {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusConflict, "self_invite_blocked", "cannot invite yourself", nil)
+	}
+	group, err := s.repo.GetGroupByID(ctx, groupID, actorID)
+	if err != nil {
+		if groupsrepo.IsNoRows(err) {
+			return groupsrepo.GroupMember{}, apperrors.New(http.StatusNotFound, "group_not_found", "group not found", err)
+		}
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusInternalServerError, "group_get_failed", "failed to fetch group", err)
+	}
+	if group.Status != "active" {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusConflict, "group_inactive", "group is not active", nil)
+	}
+	actorMembership, err := s.repo.GetMembership(ctx, groupID, actorID)
+	if err != nil || actorMembership.Status != "active" {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusForbidden, "forbidden", "only active members can invite", nil)
+	}
+	activeUser, err := s.repo.UserIsActive(ctx, inviteeID)
+	if err != nil {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusInternalServerError, "user_get_failed", "failed to fetch invitee", err)
+	}
+	if !activeUser {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusNotFound, "user_not_found", "invitee not found", nil)
+	}
+	existing, hasMembership, err := s.lookupMembership(ctx, groupID, inviteeID)
+	if err != nil {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusInternalServerError, "membership_get_failed", "failed to fetch invitee membership", err)
+	}
+	if hasMembership {
+		switch existing.Status {
+		case "active":
+			return groupsrepo.GroupMember{}, apperrors.New(http.StatusConflict, "already_member", "user is already an active member", nil)
+		case "blocked":
+			return groupsrepo.GroupMember{}, apperrors.New(http.StatusForbidden, "member_blocked", "user is blocked from this group", nil)
+		case "invited":
+			return existing, nil
+		}
+	}
+	member, err := s.repo.InviteMember(ctx, groupID, inviteeID, actorID)
+	if err != nil {
+		if groupsrepo.IsNoRows(err) {
+			return groupsrepo.GroupMember{}, apperrors.New(http.StatusConflict, "invite_conflict", "user cannot be invited", err)
+		}
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusInternalServerError, "group_invite_failed", "failed to invite member", err)
+	}
+	if s.notifications != nil {
+		if err := s.notifications.NotifyGroupInviteReceived(ctx, notificationsservice.GroupInviteReceivedInput{
+			GroupID:       groupID,
+			GroupName:     group.Name,
+			InviterUserID: actorID,
+			InvitedUserID: inviteeID,
+		}); err != nil {
+			slog.Default().Warn("groups.notification.invite_received_failed",
+				slog.String("group_id", groupID),
+				slog.String("inviter_user_id", actorID),
+				slog.String("invited_user_id", inviteeID),
+				slog.Any("error", err),
+			)
+		}
+	}
+	return member, nil
+}
+
+func (s *Service) AcceptInvite(ctx context.Context, groupID, actorID string) (groupsrepo.GroupMember, error) {
+	if _, err := uuid.Parse(groupID); err != nil {
+		return groupsrepo.GroupMember{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"groupId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := uuid.Parse(actorID); err != nil {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	membership, err := s.repo.GetMembership(ctx, groupID, actorID)
+	if err != nil || membership.Status != "invited" {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusNotFound, "invite_not_found", "pending invite not found", nil)
+	}
+	member, err := s.repo.AcceptInvite(ctx, groupID, actorID)
+	if err != nil {
+		if groupsrepo.IsNoRows(err) {
+			return groupsrepo.GroupMember{}, apperrors.New(http.StatusNotFound, "invite_not_found", "pending invite not found", err)
+		}
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusInternalServerError, "group_invite_accept_failed", "failed to accept invite", err)
+	}
+	return member, nil
+}
+
+func (s *Service) RejectInvite(ctx context.Context, groupID, actorID string) (groupsrepo.GroupMember, error) {
+	if _, err := uuid.Parse(groupID); err != nil {
+		return groupsrepo.GroupMember{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"groupId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	if _, err := uuid.Parse(actorID); err != nil {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	membership, err := s.repo.GetMembership(ctx, groupID, actorID)
+	if err != nil || membership.Status != "invited" {
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusNotFound, "invite_not_found", "pending invite not found", nil)
+	}
+	member, err := s.repo.RejectInvite(ctx, groupID, actorID)
+	if err != nil {
+		if groupsrepo.IsNoRows(err) {
+			return groupsrepo.GroupMember{}, apperrors.New(http.StatusNotFound, "invite_not_found", "pending invite not found", err)
+		}
+		return groupsrepo.GroupMember{}, apperrors.New(http.StatusInternalServerError, "group_invite_reject_failed", "failed to reject invite", err)
 	}
 	return member, nil
 }
@@ -228,7 +435,8 @@ func (s *Service) ListMembers(ctx context.Context, groupID, viewerUserID string,
 		return nil, 0, err
 	}
 	if group.Visibility != "public" {
-		if strings.TrimSpace(viewerUserID) == "" {
+		membership, err := s.repo.GetMembership(ctx, groupID, strings.TrimSpace(viewerUserID))
+		if err != nil || membership.Status != "active" {
 			return nil, 0, apperrors.New(http.StatusForbidden, "forbidden", "group is not public", nil)
 		}
 	}
@@ -240,8 +448,15 @@ func (s *Service) ListMembers(ctx context.Context, groupID, viewerUserID string,
 }
 
 func (s *Service) ListPosts(ctx context.Context, groupID, viewerUserID string, page, limit int) ([]groupsrepo.GroupPost, int, error) {
-	if _, err := s.GetGroup(ctx, groupID, viewerUserID); err != nil {
+	group, err := s.GetGroup(ctx, groupID, viewerUserID)
+	if err != nil {
 		return nil, 0, err
+	}
+	if group.Visibility != "public" {
+		membership, err := s.repo.GetMembership(ctx, groupID, strings.TrimSpace(viewerUserID))
+		if err != nil || membership.Status != "active" {
+			return nil, 0, apperrors.New(http.StatusForbidden, "forbidden", "group is not public", nil)
+		}
 	}
 	items, total, err := s.repo.ListPosts(ctx, groupsrepo.ListGroupPostsInput{GroupID: groupID, Page: normalizePage(page), Limit: normalizeLimit(limit)})
 	if err != nil {
@@ -268,6 +483,16 @@ func (s *Service) CreatePost(ctx context.Context, groupID, actorID, title, conte
 			Message: "This field is required",
 		}}}
 	}
+	group, err := s.repo.GetGroupByID(ctx, groupID, actorID)
+	if err != nil {
+		if groupsrepo.IsNoRows(err) {
+			return groupsrepo.GroupPost{}, apperrors.New(http.StatusNotFound, "group_not_found", "group not found", err)
+		}
+		return groupsrepo.GroupPost{}, apperrors.New(http.StatusInternalServerError, "group_get_failed", "failed to fetch group", err)
+	}
+	if group.Status != "active" {
+		return groupsrepo.GroupPost{}, apperrors.New(http.StatusConflict, "group_inactive", "group is not active", nil)
+	}
 	membership, err := s.repo.GetMembership(ctx, groupID, actorID)
 	if err != nil || membership.Status != "active" {
 		return groupsrepo.GroupPost{}, apperrors.New(http.StatusForbidden, "forbidden", "only active group members can post", nil)
@@ -280,6 +505,22 @@ func (s *Service) CreatePost(ctx context.Context, groupID, actorID, title, conte
 	})
 	if err != nil {
 		return groupsrepo.GroupPost{}, apperrors.New(http.StatusInternalServerError, "group_post_create_failed", "failed to create group post", err)
+	}
+	if s.notifications != nil {
+		if err := s.notifications.NotifyGroupPostCreated(ctx, notificationsservice.GroupPostCreatedInput{
+			GroupID:      groupID,
+			GroupName:    group.Name,
+			PostID:       post.ID,
+			PostTitle:    post.Title,
+			AuthorUserID: actorID,
+		}); err != nil {
+			slog.Default().Warn("groups.notification.post_created_failed",
+				slog.String("group_id", groupID),
+				slog.String("post_id", post.ID),
+				slog.String("author_user_id", actorID),
+				slog.Any("error", err),
+			)
+		}
 	}
 	return post, nil
 }
@@ -301,14 +542,42 @@ func normalizeLimit(value int) int {
 	return value
 }
 
+func (s *Service) lookupMembership(ctx context.Context, groupID, userID string) (groupsrepo.GroupMember, bool, error) {
+	membership, err := s.repo.GetMembership(ctx, groupID, userID)
+	if err != nil {
+		if groupsrepo.IsNoRows(err) {
+			return groupsrepo.GroupMember{}, false, nil
+		}
+		return groupsrepo.GroupMember{}, false, err
+	}
+	return membership, true, nil
+}
+
+func privateGroupJoinPolicyFailure() ValidationFailure {
+	return ValidationFailure{Issues: []validatex.Issue{{
+		Path:    []any{"joinPolicy"},
+		Code:    "private_invite_only",
+		Message: "Private groups are invite-only.",
+	}}}
+}
+
 func normalizeVisibility(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "private":
+	case "private", "invite_only", "invite-only":
 		return "private"
-	case "invite_only", "invite-only":
-		return "invite_only"
 	default:
 		return "public"
+	}
+}
+
+func normalizeVisibilityFilter(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "public":
+		return "public"
+	case "private":
+		return "private"
+	default:
+		return ""
 	}
 }
 
@@ -325,12 +594,19 @@ func normalizeGroupStatus(value string) string {
 
 func normalizeJoinPolicy(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "approval":
-		return "approval"
-	case "invite_only", "invite-only":
+	case "approval", "invite_only", "invite-only":
 		return "invite_only"
 	default:
 		return "open"
+	}
+}
+
+func normalizeLocationSource(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "google_places", "psgc_mapped", "unmapped":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return "manual"
 	}
 }
 
@@ -340,9 +616,8 @@ func sanitizeSlug(value string) string {
 	s := strings.ToLower(strings.TrimSpace(value))
 	s = slugReplace.ReplaceAllString(s, "-")
 	s = strings.Trim(s, "-")
-	if len(s) > 64 {
-		s = s[:64]
-		s = strings.Trim(s, "-")
+	if len(s) > 80 {
+		s = strings.Trim(s[:80], "-")
 	}
 	return s
 }

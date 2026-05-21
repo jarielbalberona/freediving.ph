@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 import { getFphgoBaseUrlClient } from "@/lib/api/fphgo-base-url";
 import { getAuthToken } from "@/lib/api/fphgo-fetch-client";
@@ -135,9 +134,7 @@ export const useChikaRealtime = (params: {
           const voteCountRaw = payload.voteCount;
           const voteCount =
             typeof voteCountRaw === "number" ? voteCountRaw : Number.NaN;
-          const actorUserId = String(payload.actorUserId ?? "");
           const commentId = String(payload.commentId ?? "");
-          const authorUserId = String(payload.authorUserId ?? "");
 
           if (
             parsed.type === "chika.thread.reaction.updated" &&
@@ -145,13 +142,6 @@ export const useChikaRealtime = (params: {
             Number.isFinite(voteCount)
           ) {
             updateThreadVoteCount(threadId, voteCount);
-            if (
-              params.currentUserId &&
-              actorUserId &&
-              actorUserId === params.currentUserId
-            ) {
-              invalidateThread(threadId);
-            }
             return;
           }
 
@@ -162,43 +152,19 @@ export const useChikaRealtime = (params: {
             Number.isFinite(voteCount)
           ) {
             updateCommentVoteCount(threadId, commentId, voteCount);
-            if (
-              params.currentUserId &&
-              actorUserId &&
-              actorUserId === params.currentUserId
-            ) {
-              invalidateThread(threadId);
-            }
             return;
           }
 
           if (parsed.type === "chika.comment.created" && threadId) {
-            if (
-              params.threadId &&
-              params.threadId === threadId &&
-              authorUserId &&
-              authorUserId !== params.currentUserId
-            ) {
-              toast.info("New chika reply");
-            }
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.notifications.stats(),
-            });
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.notifications.lists(),
-            });
+            invalidateThread(threadId);
+            return;
           }
 
           if (parsed.type === "chika.thread.created") {
-            if (authorUserId && authorUserId !== params.currentUserId) {
-              toast.info("New Chika posted");
+            if (threadId) {
+              invalidateThread(threadId);
+              return;
             }
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.notifications.stats(),
-            });
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.notifications.lists(),
-            });
           }
 
           if (threadId) {

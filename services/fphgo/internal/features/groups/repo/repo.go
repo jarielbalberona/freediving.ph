@@ -2,33 +2,49 @@ package repo
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	groupsqlc "fphgo/internal/features/groups/repo/sqlc"
 )
 
 type Repo struct {
-	pool *pgxpool.Pool
+	queries *groupsqlc.Queries
 }
 
 type Group struct {
-	ID          string
-	Name        string
-	Slug        string
-	Description string
-	Visibility  string
-	Status      string
-	JoinPolicy  string
-	Location    string
-	MemberCount int
-	EventCount  int
-	PostCount   int
-	CreatedBy   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                     string
+	Name                   string
+	Slug                   string
+	Description            string
+	Visibility             string
+	Status                 string
+	JoinPolicy             string
+	Location               string
+	LocationName           string
+	FormattedAddress       string
+	Latitude               *float64
+	Longitude              *float64
+	GooglePlaceID          string
+	RegionCode             string
+	ProvinceCode           string
+	CityCode               string
+	BarangayCode           string
+	LocationSource         string
+	MemberCount            int
+	EventCount             int
+	PostCount              int
+	CreatedBy              string
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+	ViewerRole             string
+	ViewerMembershipStatus string
+	ViewerJoinedAt         *time.Time
+	ViewerInvitedAt        *time.Time
 }
 
 type GroupMember struct {
@@ -36,7 +52,11 @@ type GroupMember struct {
 	UserID      string
 	Role        string
 	Status      string
+	InvitedBy   string
+	InvitedAt   *time.Time
+	RespondedAt *time.Time
 	JoinedAt    *time.Time
+	LeftAt      *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	Username    string
@@ -82,23 +102,43 @@ type ListGroupPostsInput struct {
 }
 
 type CreateGroupInput struct {
-	Name        string
-	Slug        string
-	Description string
-	Visibility  string
-	JoinPolicy  string
-	Location    string
-	CreatedBy   string
+	Name             string
+	Slug             string
+	Description      string
+	Visibility       string
+	JoinPolicy       string
+	Location         string
+	LocationName     string
+	FormattedAddress string
+	Latitude         *float64
+	Longitude        *float64
+	GooglePlaceID    string
+	RegionCode       string
+	ProvinceCode     string
+	CityCode         string
+	BarangayCode     string
+	LocationSource   string
+	CreatedBy        string
 }
 
 type UpdateGroupInput struct {
-	GroupID     string
-	Name        *string
-	Description *string
-	Visibility  *string
-	Status      *string
-	JoinPolicy  *string
-	Location    *string
+	GroupID          string
+	Name             *string
+	Description      *string
+	Visibility       *string
+	Status           *string
+	JoinPolicy       *string
+	Location         *string
+	LocationName     *string
+	FormattedAddress *string
+	Latitude         *float64
+	Longitude        *float64
+	GooglePlaceID    *string
+	RegionCode       *string
+	ProvinceCode     *string
+	CityCode         *string
+	BarangayCode     *string
+	LocationSource   *string
 }
 
 type CreateGroupPostInput struct {
@@ -109,498 +149,523 @@ type CreateGroupPostInput struct {
 }
 
 func New(pool *pgxpool.Pool) *Repo {
-	return &Repo{pool: pool}
+	return &Repo{queries: groupsqlc.New(pool)}
 }
 
 func (r *Repo) ListGroups(ctx context.Context, input ListGroupsInput) ([]Group, int, error) {
-	where := []string{"g.status = 'active'"}
-	args := []any{}
-	idx := 1
-
-	if input.Mine {
-		if strings.TrimSpace(input.ViewerUserID) == "" {
-			return []Group{}, 0, nil
-		}
-		args = append(args, input.ViewerUserID)
-		where = append(where, fmt.Sprintf("EXISTS (SELECT 1 FROM group_memberships gm WHERE gm.group_id = g.id AND gm.user_id = $%d::uuid AND gm.status = 'active')", idx))
-		idx++
-	} else if strings.TrimSpace(input.ViewerUserID) == "" {
-		where = append(where, "g.visibility = 'public'")
-	} else {
-		args = append(args, input.ViewerUserID)
-		where = append(where, fmt.Sprintf("(g.visibility = 'public' OR EXISTS (SELECT 1 FROM group_memberships gm WHERE gm.group_id = g.id AND gm.user_id = $%d::uuid AND gm.status = 'active'))", idx))
-		idx++
-	}
-
-	if value := strings.TrimSpace(input.Visibility); value != "" {
-		args = append(args, value)
-		where = append(where, fmt.Sprintf("g.visibility = $%d", idx))
-		idx++
-	}
-	if value := strings.TrimSpace(input.Search); value != "" {
-		args = append(args, "%"+strings.ToLower(value)+"%")
-		where = append(where, fmt.Sprintf("(lower(g.name) LIKE $%d OR lower(coalesce(g.description, '')) LIKE $%d)", idx, idx))
-		idx++
-	}
-
 	if input.Page < 1 {
 		input.Page = 1
 	}
 	if input.Limit < 1 {
 		input.Limit = 20
 	}
-	offset := (input.Page - 1) * input.Limit
-	args = append(args, input.Limit, offset)
-	limitArg := idx
-	offsetArg := idx + 1
-
-	q := fmt.Sprintf(`
-		SELECT
-			g.id::text,
-			g.name,
-			g.slug,
-			coalesce(g.description, ''),
-			g.visibility,
-			g.status,
-			g.join_policy,
-			coalesce(g.location, ''),
-			coalesce((SELECT COUNT(*) FROM group_memberships m WHERE m.group_id = g.id AND m.status = 'active'), 0)::int,
-			coalesce((SELECT COUNT(*) FROM events e WHERE e.group_id = g.id AND e.status = 'published'), 0)::int,
-			coalesce((SELECT COUNT(*) FROM group_posts p WHERE p.group_id = g.id AND p.status = 'active'), 0)::int,
-			coalesce(g.created_by::text, ''),
-			g.created_at,
-			g.updated_at,
-			COUNT(*) OVER()::int AS total_count
-		FROM groups g
-		WHERE %s
-		ORDER BY g.created_at DESC, g.id DESC
-		LIMIT $%d OFFSET $%d
-	`, strings.Join(where, " AND "), limitArg, offsetArg)
-
-	rows, err := r.pool.Query(ctx, q, args...)
+	rows, err := r.queries.ListGroups(ctx, groupsqlc.ListGroupsParams{
+		ViewerUserID: uuidParam(input.ViewerUserID),
+		Mine:         input.Mine,
+		Visibility:   optionalString(input.Visibility),
+		Search:       optionalString(input.Search),
+		OffsetRows:   int32((input.Page - 1) * input.Limit),
+		LimitRows:    int32(input.Limit),
+	})
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
 
-	items := make([]Group, 0)
+	items := make([]Group, 0, len(rows))
 	total := 0
-	for rows.Next() {
-		var item Group
-		if err := rows.Scan(
-			&item.ID,
-			&item.Name,
-			&item.Slug,
-			&item.Description,
-			&item.Visibility,
-			&item.Status,
-			&item.JoinPolicy,
-			&item.Location,
-			&item.MemberCount,
-			&item.EventCount,
-			&item.PostCount,
-			&item.CreatedBy,
-			&item.CreatedAt,
-			&item.UpdatedAt,
-			&total,
-		); err != nil {
-			return nil, 0, err
-		}
-		item.CreatedAt = item.CreatedAt.UTC()
-		item.UpdatedAt = item.UpdatedAt.UTC()
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
+	for _, row := range rows {
+		items = append(items, mapListGroup(row))
+		total = int(row.TotalCount)
 	}
 	return items, total, nil
 }
 
-func (r *Repo) GetGroupByID(ctx context.Context, groupID string) (Group, error) {
-	const q = `
-		SELECT
-			g.id::text,
-			g.name,
-			g.slug,
-			coalesce(g.description, ''),
-			g.visibility,
-			g.status,
-			g.join_policy,
-			coalesce(g.location, ''),
-			coalesce((SELECT COUNT(*) FROM group_memberships m WHERE m.group_id = g.id AND m.status = 'active'), 0)::int,
-			coalesce((SELECT COUNT(*) FROM events e WHERE e.group_id = g.id AND e.status = 'published'), 0)::int,
-			coalesce((SELECT COUNT(*) FROM group_posts p WHERE p.group_id = g.id AND p.status = 'active'), 0)::int,
-			coalesce(g.created_by::text, ''),
-			g.created_at,
-			g.updated_at
-		FROM groups g
-		WHERE g.id = $1::uuid
-	`
-	var item Group
-	if err := r.pool.QueryRow(ctx, q, groupID).Scan(
-		&item.ID,
-		&item.Name,
-		&item.Slug,
-		&item.Description,
-		&item.Visibility,
-		&item.Status,
-		&item.JoinPolicy,
-		&item.Location,
-		&item.MemberCount,
-		&item.EventCount,
-		&item.PostCount,
-		&item.CreatedBy,
-		&item.CreatedAt,
-		&item.UpdatedAt,
-	); err != nil {
+func (r *Repo) GetGroupByID(ctx context.Context, groupID, viewerUserID string) (Group, error) {
+	row, err := r.queries.GetGroupByID(ctx, groupsqlc.GetGroupByIDParams{
+		ViewerUserID: uuidParam(viewerUserID),
+		GroupID:      uuidParam(groupID),
+	})
+	if err != nil {
 		return Group{}, err
 	}
-	item.CreatedAt = item.CreatedAt.UTC()
-	item.UpdatedAt = item.UpdatedAt.UTC()
-	return item, nil
+	return mapGetGroup(row), nil
 }
 
 func (r *Repo) CreateGroup(ctx context.Context, input CreateGroupInput) (Group, error) {
-	const q = `
-		INSERT INTO groups (name, slug, description, visibility, status, join_policy, location, created_by)
-		VALUES ($1, $2, $3, $4, 'active', $5, $6, $7::uuid)
-		RETURNING id::text, name, slug, coalesce(description, ''), visibility, status, join_policy, coalesce(location, ''), coalesce(created_by::text, ''), created_at, updated_at
-	`
-	var item Group
-	if err := r.pool.QueryRow(ctx, q,
-		input.Name,
-		input.Slug,
-		input.Description,
-		input.Visibility,
-		input.JoinPolicy,
-		input.Location,
-		input.CreatedBy,
-	).Scan(
-		&item.ID,
-		&item.Name,
-		&item.Slug,
-		&item.Description,
-		&item.Visibility,
-		&item.Status,
-		&item.JoinPolicy,
-		&item.Location,
-		&item.CreatedBy,
-		&item.CreatedAt,
-		&item.UpdatedAt,
-	); err != nil {
+	row, err := r.queries.CreateGroup(ctx, groupsqlc.CreateGroupParams{
+		Name:                 input.Name,
+		Slug:                 input.Slug,
+		Description:          optionalString(input.Description),
+		Visibility:           input.Visibility,
+		JoinPolicy:           input.JoinPolicy,
+		Location:             optionalString(input.Location),
+		LocationName:         optionalString(input.LocationName),
+		FormattedAddress:     optionalString(input.FormattedAddress),
+		Lat:                  input.Latitude,
+		Lng:                  input.Longitude,
+		GooglePlaceID:        optionalString(input.GooglePlaceID),
+		RegionCode:           optionalString(input.RegionCode),
+		ProvinceCode:         optionalString(input.ProvinceCode),
+		CityMunicipalityCode: optionalString(input.CityCode),
+		BarangayCode:         optionalString(input.BarangayCode),
+		LocationSource:       input.LocationSource,
+		CreatedBy:            uuidParam(input.CreatedBy),
+	})
+	if err != nil {
 		return Group{}, err
 	}
-	item.CreatedAt = item.CreatedAt.UTC()
-	item.UpdatedAt = item.UpdatedAt.UTC()
-	return item, nil
+	return mapCreateGroup(row), nil
 }
 
 func (r *Repo) AddOwnerMembership(ctx context.Context, groupID, userID string) error {
-	const q = `
-		INSERT INTO group_memberships (group_id, user_id, role, status, invited_by, joined_at)
-		VALUES ($1::uuid, $2::uuid, 'owner', 'active', $2::uuid, NOW())
-		ON CONFLICT (group_id, user_id)
-		DO UPDATE SET role = 'owner', status = 'active', updated_at = NOW(), joined_at = COALESCE(group_memberships.joined_at, NOW())
-	`
-	_, err := r.pool.Exec(ctx, q, groupID, userID)
-	return err
+	return r.queries.AddOwnerMembership(ctx, groupsqlc.AddOwnerMembershipParams{
+		GroupID: uuidParam(groupID),
+		UserID:  uuidParam(userID),
+	})
 }
 
 func (r *Repo) UpdateGroup(ctx context.Context, input UpdateGroupInput) (Group, error) {
-	set := []string{"updated_at = NOW()"}
-	args := []any{}
-	idx := 1
+	params := groupsqlc.UpdateGroupParams{
+		GroupID: uuidParam(input.GroupID),
+	}
 	if input.Name != nil {
-		args = append(args, strings.TrimSpace(*input.Name))
-		set = append(set, fmt.Sprintf("name = $%d", idx))
-		idx++
+		params.SetName = true
+		params.Name = *input.Name
 	}
 	if input.Description != nil {
-		args = append(args, strings.TrimSpace(*input.Description))
-		set = append(set, fmt.Sprintf("description = $%d", idx))
-		idx++
+		params.SetDescription = true
+		params.Description = optionalString(*input.Description)
 	}
 	if input.Visibility != nil {
-		args = append(args, strings.TrimSpace(*input.Visibility))
-		set = append(set, fmt.Sprintf("visibility = $%d", idx))
-		idx++
+		params.SetVisibility = true
+		params.Visibility = *input.Visibility
 	}
 	if input.Status != nil {
-		args = append(args, strings.TrimSpace(*input.Status))
-		set = append(set, fmt.Sprintf("status = $%d", idx))
-		idx++
+		params.SetStatus = true
+		params.Status = *input.Status
 	}
 	if input.JoinPolicy != nil {
-		args = append(args, strings.TrimSpace(*input.JoinPolicy))
-		set = append(set, fmt.Sprintf("join_policy = $%d", idx))
-		idx++
+		params.SetJoinPolicy = true
+		params.JoinPolicy = *input.JoinPolicy
 	}
 	if input.Location != nil {
-		args = append(args, strings.TrimSpace(*input.Location))
-		set = append(set, fmt.Sprintf("location = $%d", idx))
-		idx++
+		params.SetLocation = true
+		params.Location = optionalString(*input.Location)
+	}
+	if input.LocationName != nil {
+		params.SetLocationName = true
+		params.LocationName = optionalString(*input.LocationName)
+	}
+	if input.FormattedAddress != nil {
+		params.SetFormattedAddress = true
+		params.FormattedAddress = optionalString(*input.FormattedAddress)
+	}
+	if input.Latitude != nil {
+		params.SetLat = true
+		params.Lat = input.Latitude
+	}
+	if input.Longitude != nil {
+		params.SetLng = true
+		params.Lng = input.Longitude
+	}
+	if input.GooglePlaceID != nil {
+		params.SetGooglePlaceID = true
+		params.GooglePlaceID = optionalString(*input.GooglePlaceID)
+	}
+	if input.RegionCode != nil {
+		params.SetRegionCode = true
+		params.RegionCode = optionalString(*input.RegionCode)
+	}
+	if input.ProvinceCode != nil {
+		params.SetProvinceCode = true
+		params.ProvinceCode = optionalString(*input.ProvinceCode)
+	}
+	if input.CityCode != nil {
+		params.SetCityMunicipalityCode = true
+		params.CityMunicipalityCode = optionalString(*input.CityCode)
+	}
+	if input.BarangayCode != nil {
+		params.SetBarangayCode = true
+		params.BarangayCode = optionalString(*input.BarangayCode)
+	}
+	if input.LocationSource != nil {
+		params.SetLocationSource = true
+		params.LocationSource = *input.LocationSource
 	}
 
-	args = append(args, input.GroupID)
-	q := fmt.Sprintf(`
-		UPDATE groups
-		SET %s
-		WHERE id = $%d::uuid
-		RETURNING id::text, name, slug, coalesce(description, ''), visibility, status, join_policy, coalesce(location, ''), coalesce(created_by::text, ''), created_at, updated_at
-	`, strings.Join(set, ", "), idx)
-
-	var item Group
-	if err := r.pool.QueryRow(ctx, q, args...).Scan(
-		&item.ID,
-		&item.Name,
-		&item.Slug,
-		&item.Description,
-		&item.Visibility,
-		&item.Status,
-		&item.JoinPolicy,
-		&item.Location,
-		&item.CreatedBy,
-		&item.CreatedAt,
-		&item.UpdatedAt,
-	); err != nil {
+	row, err := r.queries.UpdateGroup(ctx, params)
+	if err != nil {
 		return Group{}, err
 	}
-	item.CreatedAt = item.CreatedAt.UTC()
-	item.UpdatedAt = item.UpdatedAt.UTC()
-	return item, nil
+	return mapUpdateGroup(row), nil
 }
 
 func (r *Repo) GetMembership(ctx context.Context, groupID, userID string) (GroupMember, error) {
-	const q = `
-		SELECT group_id::text, user_id::text, role, status, joined_at, created_at, updated_at
-		FROM group_memberships
-		WHERE group_id = $1::uuid AND user_id = $2::uuid
-	`
-	var item GroupMember
-	if err := r.pool.QueryRow(ctx, q, groupID, userID).Scan(
-		&item.GroupID,
-		&item.UserID,
-		&item.Role,
-		&item.Status,
-		&item.JoinedAt,
-		&item.CreatedAt,
-		&item.UpdatedAt,
-	); err != nil {
+	row, err := r.queries.GetMembership(ctx, groupsqlc.GetMembershipParams{
+		GroupID: uuidParam(groupID),
+		UserID:  uuidParam(userID),
+	})
+	if err != nil {
 		return GroupMember{}, err
 	}
-	item.CreatedAt = item.CreatedAt.UTC()
-	item.UpdatedAt = item.UpdatedAt.UTC()
-	if item.JoinedAt != nil {
-		t := item.JoinedAt.UTC()
-		item.JoinedAt = &t
-	}
-	return item, nil
+	return mapGetMembership(row), nil
 }
 
 func (r *Repo) UpsertMembership(ctx context.Context, groupID, userID, role, status string) (GroupMember, error) {
-	const q = `
-		INSERT INTO group_memberships (group_id, user_id, role, status, invited_by, joined_at)
-		VALUES ($1::uuid, $2::uuid, $3, $4, $2::uuid, CASE WHEN $4 = 'active' THEN NOW() ELSE NULL END)
-		ON CONFLICT (group_id, user_id)
-		DO UPDATE SET
-			role = EXCLUDED.role,
-			status = EXCLUDED.status,
-			joined_at = CASE
-				WHEN EXCLUDED.status = 'active' THEN COALESCE(group_memberships.joined_at, NOW())
-				ELSE group_memberships.joined_at
-			END,
-			left_at = CASE
-				WHEN EXCLUDED.status = 'active' THEN NULL
-				ELSE group_memberships.left_at
-			END,
-			updated_at = NOW()
-		RETURNING group_id::text, user_id::text, role, status, joined_at, created_at, updated_at
-	`
-	var item GroupMember
-	if err := r.pool.QueryRow(ctx, q, groupID, userID, role, status).Scan(
-		&item.GroupID,
-		&item.UserID,
-		&item.Role,
-		&item.Status,
-		&item.JoinedAt,
-		&item.CreatedAt,
-		&item.UpdatedAt,
-	); err != nil {
+	row, err := r.queries.UpsertMembership(ctx, groupsqlc.UpsertMembershipParams{
+		GroupID: uuidParam(groupID),
+		UserID:  uuidParam(userID),
+		Role:    role,
+		Status:  status,
+	})
+	if err != nil {
 		return GroupMember{}, err
 	}
-	item.CreatedAt = item.CreatedAt.UTC()
-	item.UpdatedAt = item.UpdatedAt.UTC()
-	if item.JoinedAt != nil {
-		t := item.JoinedAt.UTC()
-		item.JoinedAt = &t
+	return mapUpsertMembership(row), nil
+}
+
+func (r *Repo) InviteMember(ctx context.Context, groupID, userID, invitedBy string) (GroupMember, error) {
+	row, err := r.queries.InviteMember(ctx, groupsqlc.InviteMemberParams{
+		GroupID:   uuidParam(groupID),
+		UserID:    uuidParam(userID),
+		InvitedBy: uuidParam(invitedBy),
+	})
+	if err != nil {
+		return GroupMember{}, err
 	}
-	return item, nil
+	return mapInviteMember(row), nil
+}
+
+func (r *Repo) AcceptInvite(ctx context.Context, groupID, userID string) (GroupMember, error) {
+	row, err := r.queries.AcceptInvite(ctx, groupsqlc.AcceptInviteParams{
+		GroupID: uuidParam(groupID),
+		UserID:  uuidParam(userID),
+	})
+	if err != nil {
+		return GroupMember{}, err
+	}
+	return mapAcceptInvite(row), nil
+}
+
+func (r *Repo) RejectInvite(ctx context.Context, groupID, userID string) (GroupMember, error) {
+	row, err := r.queries.RejectInvite(ctx, groupsqlc.RejectInviteParams{
+		GroupID: uuidParam(groupID),
+		UserID:  uuidParam(userID),
+	})
+	if err != nil {
+		return GroupMember{}, err
+	}
+	return mapRejectInvite(row), nil
 }
 
 func (r *Repo) LeaveGroup(ctx context.Context, groupID, userID string) error {
-	const q = `
-		UPDATE group_memberships
-		SET status = 'blocked', left_at = NOW(), updated_at = NOW()
-		WHERE group_id = $1::uuid AND user_id = $2::uuid AND status = 'active'
-	`
-	res, err := r.pool.Exec(ctx, q, groupID, userID)
-	if err != nil {
-		return err
-	}
-	if res.RowsAffected() == 0 {
-		return pgx.ErrNoRows
-	}
-	return nil
+	return r.queries.LeaveGroup(ctx, groupsqlc.LeaveGroupParams{
+		GroupID: uuidParam(groupID),
+		UserID:  uuidParam(userID),
+	})
 }
 
 func (r *Repo) ListMembers(ctx context.Context, input ListGroupMembersInput) ([]GroupMember, int, error) {
-	const q = `
-		SELECT
-			gm.group_id::text,
-			gm.user_id::text,
-			gm.role,
-			gm.status,
-			gm.joined_at,
-			gm.created_at,
-			gm.updated_at,
-			coalesce(u.username, ''),
-			coalesce(u.display_name, ''),
-			coalesce(p.avatar_url, ''),
-			COUNT(*) OVER()::int AS total_count
-		FROM group_memberships gm
-		LEFT JOIN users u ON u.id = gm.user_id
-		LEFT JOIN profiles p ON p.user_id = gm.user_id
-		WHERE gm.group_id = $1::uuid AND gm.status = 'active'
-		ORDER BY gm.joined_at DESC NULLS LAST, gm.created_at DESC, gm.user_id DESC
-		LIMIT $2 OFFSET $3
-	`
-	offset := (input.Page - 1) * input.Limit
-	rows, err := r.pool.Query(ctx, q, input.GroupID, input.Limit, offset)
+	rows, err := r.queries.ListMembers(ctx, groupsqlc.ListMembersParams{
+		GroupID:    uuidParam(input.GroupID),
+		OffsetRows: int32((input.Page - 1) * input.Limit),
+		LimitRows:  int32(input.Limit),
+	})
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
-
-	items := make([]GroupMember, 0)
+	items := make([]GroupMember, 0, len(rows))
 	total := 0
-	for rows.Next() {
-		var item GroupMember
-		if err := rows.Scan(
-			&item.GroupID,
-			&item.UserID,
-			&item.Role,
-			&item.Status,
-			&item.JoinedAt,
-			&item.CreatedAt,
-			&item.UpdatedAt,
-			&item.Username,
-			&item.DisplayName,
-			&item.AvatarURL,
-			&total,
-		); err != nil {
-			return nil, 0, err
-		}
-		item.CreatedAt = item.CreatedAt.UTC()
-		item.UpdatedAt = item.UpdatedAt.UTC()
-		if item.JoinedAt != nil {
-			t := item.JoinedAt.UTC()
-			item.JoinedAt = &t
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
+	for _, row := range rows {
+		items = append(items, mapListMember(row))
+		total = int(row.TotalCount)
 	}
 	return items, total, nil
 }
 
 func (r *Repo) ListPosts(ctx context.Context, input ListGroupPostsInput) ([]GroupPost, int, error) {
-	const q = `
-		SELECT
-			p.id::text,
-			p.group_id::text,
-			p.author_user_id::text,
-			coalesce(p.title, ''),
-			p.content,
-			p.status,
-			p.like_count,
-			p.comment_count,
-			p.created_at,
-			p.updated_at,
-			coalesce(u.display_name, ''),
-			coalesce(u.username, ''),
-			coalesce(pr.avatar_url, ''),
-			COUNT(*) OVER()::int AS total_count
-		FROM group_posts p
-		LEFT JOIN users u ON u.id = p.author_user_id
-		LEFT JOIN profiles pr ON pr.user_id = p.author_user_id
-		WHERE p.group_id = $1::uuid AND p.status = 'active'
-		ORDER BY p.created_at DESC, p.id DESC
-		LIMIT $2 OFFSET $3
-	`
-	offset := (input.Page - 1) * input.Limit
-	rows, err := r.pool.Query(ctx, q, input.GroupID, input.Limit, offset)
+	rows, err := r.queries.ListPosts(ctx, groupsqlc.ListPostsParams{
+		GroupID:    uuidParam(input.GroupID),
+		OffsetRows: int32((input.Page - 1) * input.Limit),
+		LimitRows:  int32(input.Limit),
+	})
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
-
-	items := make([]GroupPost, 0)
+	items := make([]GroupPost, 0, len(rows))
 	total := 0
-	for rows.Next() {
-		var item GroupPost
-		if err := rows.Scan(
-			&item.ID,
-			&item.GroupID,
-			&item.AuthorUserID,
-			&item.Title,
-			&item.Content,
-			&item.Status,
-			&item.LikeCount,
-			&item.CommentCount,
-			&item.CreatedAt,
-			&item.UpdatedAt,
-			&item.AuthorName,
-			&item.AuthorUsername,
-			&item.AuthorAvatarURL,
-			&total,
-		); err != nil {
-			return nil, 0, err
-		}
-		item.CreatedAt = item.CreatedAt.UTC()
-		item.UpdatedAt = item.UpdatedAt.UTC()
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
+	for _, row := range rows {
+		items = append(items, mapListPost(row))
+		total = int(row.TotalCount)
 	}
 	return items, total, nil
 }
 
 func (r *Repo) CreatePost(ctx context.Context, input CreateGroupPostInput) (GroupPost, error) {
-	const q = `
-		INSERT INTO group_posts (group_id, author_user_id, title, content, status)
-		VALUES ($1::uuid, $2::uuid, nullif($3, ''), $4, 'active')
-		RETURNING id::text, group_id::text, author_user_id::text, coalesce(title, ''), content, status, like_count, comment_count, created_at, updated_at
-	`
-	var item GroupPost
-	if err := r.pool.QueryRow(ctx, q, input.GroupID, input.AuthorUserID, input.Title, input.Content).Scan(
-		&item.ID,
-		&item.GroupID,
-		&item.AuthorUserID,
-		&item.Title,
-		&item.Content,
-		&item.Status,
-		&item.LikeCount,
-		&item.CommentCount,
-		&item.CreatedAt,
-		&item.UpdatedAt,
-	); err != nil {
+	row, err := r.queries.CreatePost(ctx, groupsqlc.CreatePostParams{
+		GroupID:      uuidParam(input.GroupID),
+		AuthorUserID: uuidParam(input.AuthorUserID),
+		Title:        input.Title,
+		Content:      input.Content,
+	})
+	if err != nil {
 		return GroupPost{}, err
 	}
-	item.CreatedAt = item.CreatedAt.UTC()
-	item.UpdatedAt = item.UpdatedAt.UTC()
-	return item, nil
+	return mapCreatePost(row), nil
+}
+
+func (r *Repo) UserIsActive(ctx context.Context, userID string) (bool, error) {
+	return r.queries.UserIsActive(ctx, uuidParam(userID))
+}
+
+func mapListGroup(row groupsqlc.ListGroupsRow) Group {
+	return Group{
+		ID:                     uuidString(row.ID),
+		Name:                   row.Name,
+		Slug:                   row.Slug,
+		Description:            row.Description,
+		Visibility:             row.Visibility,
+		Status:                 row.Status,
+		JoinPolicy:             row.JoinPolicy,
+		Location:               row.Location,
+		LocationName:           row.LocationName,
+		FormattedAddress:       row.FormattedAddress,
+		Latitude:               row.Lat,
+		Longitude:              row.Lng,
+		GooglePlaceID:          row.GooglePlaceID,
+		RegionCode:             row.RegionCode,
+		ProvinceCode:           row.ProvinceCode,
+		CityCode:               row.CityMunicipalityCode,
+		BarangayCode:           row.BarangayCode,
+		LocationSource:         row.LocationSource,
+		MemberCount:            int(row.MemberCount),
+		EventCount:             int(row.EventCount),
+		PostCount:              int(row.PostCount),
+		CreatedBy:              uuidString(row.CreatedBy),
+		CreatedAt:              timeValue(row.CreatedAt),
+		UpdatedAt:              timeValue(row.UpdatedAt),
+		ViewerRole:             row.ViewerRole,
+		ViewerMembershipStatus: row.ViewerMembershipStatus,
+		ViewerJoinedAt:         timePtr(row.ViewerJoinedAt),
+		ViewerInvitedAt:        timePtr(row.ViewerInvitedAt),
+	}
+}
+
+func mapGetGroup(row groupsqlc.GetGroupByIDRow) Group {
+	group := Group{
+		ID:                     uuidString(row.ID),
+		Name:                   row.Name,
+		Slug:                   row.Slug,
+		Description:            row.Description,
+		Visibility:             row.Visibility,
+		Status:                 row.Status,
+		JoinPolicy:             row.JoinPolicy,
+		Location:               row.Location,
+		LocationName:           row.LocationName,
+		FormattedAddress:       row.FormattedAddress,
+		Latitude:               row.Lat,
+		Longitude:              row.Lng,
+		GooglePlaceID:          row.GooglePlaceID,
+		RegionCode:             row.RegionCode,
+		ProvinceCode:           row.ProvinceCode,
+		CityCode:               row.CityMunicipalityCode,
+		BarangayCode:           row.BarangayCode,
+		LocationSource:         row.LocationSource,
+		MemberCount:            int(row.MemberCount),
+		EventCount:             int(row.EventCount),
+		PostCount:              int(row.PostCount),
+		CreatedBy:              uuidString(row.CreatedBy),
+		CreatedAt:              timeValue(row.CreatedAt),
+		UpdatedAt:              timeValue(row.UpdatedAt),
+		ViewerRole:             row.ViewerRole,
+		ViewerMembershipStatus: row.ViewerMembershipStatus,
+		ViewerJoinedAt:         timePtr(row.ViewerJoinedAt),
+		ViewerInvitedAt:        timePtr(row.ViewerInvitedAt),
+	}
+	return group
+}
+
+func mapCreateGroup(row groupsqlc.CreateGroupRow) Group {
+	return Group{
+		ID:                     uuidString(row.ID),
+		Name:                   row.Name,
+		Slug:                   row.Slug,
+		Description:            row.Description,
+		Visibility:             row.Visibility,
+		Status:                 row.Status,
+		JoinPolicy:             row.JoinPolicy,
+		Location:               row.Location,
+		LocationName:           row.LocationName,
+		FormattedAddress:       row.FormattedAddress,
+		Latitude:               row.Lat,
+		Longitude:              row.Lng,
+		GooglePlaceID:          row.GooglePlaceID,
+		RegionCode:             row.RegionCode,
+		ProvinceCode:           row.ProvinceCode,
+		CityCode:               row.CityMunicipalityCode,
+		BarangayCode:           row.BarangayCode,
+		LocationSource:         row.LocationSource,
+		MemberCount:            int(row.MemberCount),
+		EventCount:             int(row.EventCount),
+		PostCount:              int(row.PostCount),
+		CreatedBy:              uuidString(row.CreatedBy),
+		CreatedAt:              timeValue(row.CreatedAt),
+		UpdatedAt:              timeValue(row.UpdatedAt),
+		ViewerRole:             row.ViewerRole,
+		ViewerMembershipStatus: row.ViewerMembershipStatus,
+		ViewerJoinedAt:         timePtr(row.ViewerJoinedAt),
+		ViewerInvitedAt:        timePtr(row.ViewerInvitedAt),
+	}
+}
+
+func mapUpdateGroup(row groupsqlc.UpdateGroupRow) Group {
+	return Group{
+		ID:                     uuidString(row.ID),
+		Name:                   row.Name,
+		Slug:                   row.Slug,
+		Description:            row.Description,
+		Visibility:             row.Visibility,
+		Status:                 row.Status,
+		JoinPolicy:             row.JoinPolicy,
+		Location:               row.Location,
+		LocationName:           row.LocationName,
+		FormattedAddress:       row.FormattedAddress,
+		Latitude:               row.Lat,
+		Longitude:              row.Lng,
+		GooglePlaceID:          row.GooglePlaceID,
+		RegionCode:             row.RegionCode,
+		ProvinceCode:           row.ProvinceCode,
+		CityCode:               row.CityMunicipalityCode,
+		BarangayCode:           row.BarangayCode,
+		LocationSource:         row.LocationSource,
+		MemberCount:            int(row.MemberCount),
+		EventCount:             int(row.EventCount),
+		PostCount:              int(row.PostCount),
+		CreatedBy:              uuidString(row.CreatedBy),
+		CreatedAt:              timeValue(row.CreatedAt),
+		UpdatedAt:              timeValue(row.UpdatedAt),
+		ViewerRole:             row.ViewerRole,
+		ViewerMembershipStatus: row.ViewerMembershipStatus,
+		ViewerJoinedAt:         timePtr(row.ViewerJoinedAt),
+		ViewerInvitedAt:        timePtr(row.ViewerInvitedAt),
+	}
+}
+
+func mapGetMembership(row groupsqlc.GetMembershipRow) GroupMember {
+	return groupMember(row.GroupID, row.UserID, row.Role, row.Status, row.InvitedBy, row.InvitedAt, row.RespondedAt, row.JoinedAt, row.LeftAt, row.CreatedAt, row.UpdatedAt, row.Username, row.DisplayName, row.AvatarUrl)
+}
+
+func mapUpsertMembership(row groupsqlc.UpsertMembershipRow) GroupMember {
+	return groupMember(row.GroupID, row.UserID, row.Role, row.Status, row.InvitedBy, row.InvitedAt, row.RespondedAt, row.JoinedAt, row.LeftAt, row.CreatedAt, row.UpdatedAt, row.Username, row.DisplayName, row.AvatarUrl)
+}
+
+func mapInviteMember(row groupsqlc.InviteMemberRow) GroupMember {
+	return groupMember(row.GroupID, row.UserID, row.Role, row.Status, row.InvitedBy, row.InvitedAt, row.RespondedAt, row.JoinedAt, row.LeftAt, row.CreatedAt, row.UpdatedAt, row.Username, row.DisplayName, row.AvatarUrl)
+}
+
+func mapAcceptInvite(row groupsqlc.AcceptInviteRow) GroupMember {
+	return groupMember(row.GroupID, row.UserID, row.Role, row.Status, row.InvitedBy, row.InvitedAt, row.RespondedAt, row.JoinedAt, row.LeftAt, row.CreatedAt, row.UpdatedAt, row.Username, row.DisplayName, row.AvatarUrl)
+}
+
+func mapRejectInvite(row groupsqlc.RejectInviteRow) GroupMember {
+	return groupMember(row.GroupID, row.UserID, row.Role, row.Status, row.InvitedBy, row.InvitedAt, row.RespondedAt, row.JoinedAt, row.LeftAt, row.CreatedAt, row.UpdatedAt, row.Username, row.DisplayName, row.AvatarUrl)
+}
+
+func mapListMember(row groupsqlc.ListMembersRow) GroupMember {
+	return groupMember(row.GroupID, row.UserID, row.Role, row.Status, row.InvitedBy, row.InvitedAt, row.RespondedAt, row.JoinedAt, row.LeftAt, row.CreatedAt, row.UpdatedAt, row.Username, row.DisplayName, row.AvatarUrl)
+}
+
+func groupMember(groupID, userID pgtype.UUID, role, status string, invitedBy pgtype.UUID, invitedAt, respondedAt, joinedAt, leftAt, createdAt, updatedAt pgtype.Timestamptz, username, displayName, avatarURL string) GroupMember {
+	return GroupMember{
+		GroupID:     uuidString(groupID),
+		UserID:      uuidString(userID),
+		Role:        role,
+		Status:      status,
+		InvitedBy:   uuidString(invitedBy),
+		InvitedAt:   timePtr(invitedAt),
+		RespondedAt: timePtr(respondedAt),
+		JoinedAt:    timePtr(joinedAt),
+		LeftAt:      timePtr(leftAt),
+		CreatedAt:   timeValue(createdAt),
+		UpdatedAt:   timeValue(updatedAt),
+		Username:    username,
+		DisplayName: displayName,
+		AvatarURL:   avatarURL,
+	}
+}
+
+func mapListPost(row groupsqlc.ListPostsRow) GroupPost {
+	return GroupPost{
+		ID:              uuidString(row.ID),
+		GroupID:         uuidString(row.GroupID),
+		AuthorUserID:    uuidString(row.AuthorUserID),
+		Title:           row.Title,
+		Content:         row.Content,
+		Status:          row.Status,
+		LikeCount:       row.LikeCount,
+		CommentCount:    row.CommentCount,
+		CreatedAt:       timeValue(row.CreatedAt),
+		UpdatedAt:       timeValue(row.UpdatedAt),
+		AuthorName:      row.AuthorName,
+		AuthorUsername:  row.AuthorUsername,
+		AuthorAvatarURL: row.AuthorAvatarUrl,
+	}
+}
+
+func mapCreatePost(row groupsqlc.CreatePostRow) GroupPost {
+	return GroupPost{
+		ID:              uuidString(row.ID),
+		GroupID:         uuidString(row.GroupID),
+		AuthorUserID:    uuidString(row.AuthorUserID),
+		Title:           row.Title,
+		Content:         row.Content,
+		Status:          row.Status,
+		LikeCount:       row.LikeCount,
+		CommentCount:    row.CommentCount,
+		CreatedAt:       timeValue(row.CreatedAt),
+		UpdatedAt:       timeValue(row.UpdatedAt),
+		AuthorName:      row.AuthorName,
+		AuthorUsername:  row.AuthorUsername,
+		AuthorAvatarURL: row.AuthorAvatarUrl,
+	}
+}
+
+func uuidParam(value string) pgtype.UUID {
+	parsed, err := uuid.Parse(value)
+	if err != nil {
+		return pgtype.UUID{}
+	}
+	return pgtype.UUID{Bytes: parsed, Valid: true}
+}
+
+func uuidString(value pgtype.UUID) string {
+	if !value.Valid {
+		return ""
+	}
+	return uuid.UUID(value.Bytes).String()
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	v := value
+	return &v
+}
+
+func timeValue(value pgtype.Timestamptz) time.Time {
+	if !value.Valid {
+		return time.Time{}
+	}
+	return value.Time.UTC()
+}
+
+func timePtr(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	t := value.Time.UTC()
+	return &t
 }
 
 func IsNoRows(err error) bool {

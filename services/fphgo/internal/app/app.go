@@ -193,6 +193,13 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	)
 	feedHandler := feedhttp.New(feedService, v)
 
+	notificationsRepo := notificationsrepo.New(pool)
+	notificationsService := notificationsservice.New(
+		notificationsRepo,
+		notificationsservice.WithBroadcaster(hub),
+	)
+	notificationsHandler := notificationshttp.New(notificationsService, v)
+
 	chikaRepo := chikarepo.New(pool)
 	chikaService := chikaservice.New(
 		chikaRepo,
@@ -201,6 +208,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		chikaservice.WithPseudonymSecret(cfg.ChikaPseudonymSecret),
 		chikaservice.WithRealtimeBroadcaster(hub),
 		chikaservice.WithActivityPublisher(feedService),
+		chikaservice.WithNotifications(notificationsService),
 	)
 	chikaHandler := chikahttp.New(chikaService, v)
 
@@ -251,17 +259,15 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		mediaservice.WithActivityPublisher(feedService),
 	)
 	mediaHandler := mediahttp.New(mediaService, v)
-	notificationsRepo := notificationsrepo.New(pool)
-	notificationsService := notificationsservice.New(
-		notificationsRepo,
-		notificationsservice.WithBroadcaster(hub),
-	)
-	notificationsHandler := notificationshttp.New(notificationsService, v)
 	groupsRepo := groupsrepo.New(pool)
-	groupsService := groupsservice.New(groupsRepo)
+	groupsService := groupsservice.New(groupsRepo, groupsservice.WithNotifications(notificationsService))
 	groupsHandler := groupshttp.New(groupsService, v)
 	eventsRepo := eventsrepo.New(pool)
-	eventsService := eventsservice.New(eventsRepo, eventsservice.WithActivityPublisher(feedService))
+	eventsService := eventsservice.New(
+		eventsRepo,
+		eventsservice.WithActivityPublisher(feedService),
+		eventsservice.WithNotifications(notificationsService),
+	)
 	eventsHandler := eventshttp.New(eventsService, v)
 	locationsRepo := locationsrepo.New(pool)
 	locationsService := locationsservice.New(locationsRepo)

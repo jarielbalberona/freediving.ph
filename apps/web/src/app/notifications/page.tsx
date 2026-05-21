@@ -20,10 +20,17 @@ export default function NotificationsPage() {
   const updateSettingsMutation = useUpdateNotificationSettings();
   const newDiveSiteEnabled =
     settingsQuery.data?.newDiveSitePublished ?? true;
+  const chikaRepliesEnabled = settingsQuery.data?.chikaReplies ?? true;
 
   const handleToggleNewDiveSites = () => {
     updateSettingsMutation.mutate({
       newDiveSitePublished: !newDiveSiteEnabled,
+    });
+  };
+
+  const handleToggleChikaReplies = () => {
+    updateSettingsMutation.mutate({
+      chikaReplies: !chikaRepliesEnabled,
     });
   };
 
@@ -132,6 +139,34 @@ export default function NotificationsPage() {
                 disabled={settingsQuery.isLoading || updateSettingsMutation.isPending}
               >
                 {newDiveSiteEnabled ? "Turn off" : "Turn on"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+              <div>
+                <CardTitle>Chika Replies</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Comments and replies on your Chika activity are sent in-app.
+                </p>
+              </div>
+              <Badge variant={chikaRepliesEnabled ? "default" : "secondary"}>
+                {chikaRepliesEnabled ? "Enabled" : "Off"}
+              </Badge>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Receive a bell notification when someone comments on your Chika
+                thread or replies to your comment.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleToggleChikaReplies}
+                disabled={settingsQuery.isLoading || updateSettingsMutation.isPending}
+              >
+                {chikaRepliesEnabled ? "Turn off" : "Turn on"}
               </Button>
             </CardContent>
           </Card>

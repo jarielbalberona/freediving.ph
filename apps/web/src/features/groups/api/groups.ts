@@ -1,4 +1,4 @@
-import { axiosInstance } from '@/lib/http/axios';
+import { axiosInstance } from "@/lib/http/axios";
 import type {
   Group,
   GroupMember,
@@ -6,9 +6,10 @@ import type {
   CreateGroupRequest,
   UpdateGroupRequest,
   JoinGroupRequest,
+  InviteGroupMemberRequest,
   CreateGroupPostRequest,
   GroupFilters,
-} from '@freediving.ph/types';
+} from "@freediving.ph/types";
 
 type Pagination = {
   page: number;
@@ -53,35 +54,49 @@ type CreatePostPayload = {
 export const groupsApi = {
   getGroups: async (filters?: GroupFilters): Promise<ListGroupsPayload> => {
     const params = new URLSearchParams();
-    if (filters?.page) params.append('page', filters.page.toString());
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    if (filters?.visibility) params.append('visibility', filters.visibility);
-    if (filters?.search) params.append('search', filters.search);
+    if (filters?.page) params.append("page", filters.page.toString());
+    if (filters?.limit) params.append("limit", filters.limit.toString());
+    if (filters?.visibility) params.append("visibility", filters.visibility);
+    if (filters?.search) params.append("search", filters.search);
+    if (filters?.mine) params.append("mine", "true");
 
     const queryString = params.toString();
-    const url = `/v1/groups${queryString ? `?${queryString}` : ''}`;
+    const url = `/v1/groups${queryString ? `?${queryString}` : ""}`;
 
     const response = await axiosInstance.get<ListGroupsPayload>(url);
     return response.data;
   },
 
   getGroupById: async (groupId: string): Promise<Group> => {
-    const response = await axiosInstance.get<GroupDetailPayload>(`/v1/groups/${groupId}`);
+    const response = await axiosInstance.get<GroupDetailPayload>(
+      `/v1/groups/${groupId}`,
+    );
     return response.data.group;
   },
 
   createGroup: async (data: CreateGroupRequest): Promise<Group> => {
-    const response = await axiosInstance.post<CreateGroupPayload>('/v1/groups', data);
+    const response = await axiosInstance.post<CreateGroupPayload>(
+      "/v1/groups",
+      data,
+    );
     return response.data.group;
   },
 
-  updateGroup: async (groupId: string, data: UpdateGroupRequest): Promise<Group> => {
-    const response = await axiosInstance.patch<CreateGroupPayload>(`/v1/groups/${groupId}`, data);
+  updateGroup: async (
+    groupId: string,
+    data: UpdateGroupRequest,
+  ): Promise<Group> => {
+    const response = await axiosInstance.patch<CreateGroupPayload>(
+      `/v1/groups/${groupId}`,
+      data,
+    );
     return response.data.group;
   },
 
   joinGroup: async (data: JoinGroupRequest): Promise<GroupMember> => {
-    const response = await axiosInstance.post<JoinGroupPayload>(`/v1/groups/${data.groupId}/join`);
+    const response = await axiosInstance.post<JoinGroupPayload>(
+      `/v1/groups/${data.groupId}/join`,
+    );
     return response.data.membership;
   },
 
@@ -89,35 +104,72 @@ export const groupsApi = {
     await axiosInstance.post(`/v1/groups/${groupId}/leave`);
   },
 
-  getGroupMembers: async (groupId: string, page?: number, limit?: number): Promise<ListMembersPayload> => {
+  inviteMember: async (
+    data: InviteGroupMemberRequest,
+  ): Promise<GroupMember> => {
+    const response = await axiosInstance.post<JoinGroupPayload>(
+      `/v1/groups/${data.groupId}/invites`,
+      {
+        userId: data.userId,
+      },
+    );
+    return response.data.membership;
+  },
+
+  acceptInvite: async (groupId: string): Promise<GroupMember> => {
+    const response = await axiosInstance.post<JoinGroupPayload>(
+      `/v1/groups/${groupId}/invites/accept`,
+    );
+    return response.data.membership;
+  },
+
+  rejectInvite: async (groupId: string): Promise<GroupMember> => {
+    const response = await axiosInstance.post<JoinGroupPayload>(
+      `/v1/groups/${groupId}/invites/reject`,
+    );
+    return response.data.membership;
+  },
+
+  getGroupMembers: async (
+    groupId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<ListMembersPayload> => {
     const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
 
     const queryString = params.toString();
-    const url = `/v1/groups/${groupId}/members${queryString ? `?${queryString}` : ''}`;
+    const url = `/v1/groups/${groupId}/members${queryString ? `?${queryString}` : ""}`;
 
     const response = await axiosInstance.get<ListMembersPayload>(url);
     return response.data;
   },
 
-  getGroupPosts: async (groupId: string, page?: number, limit?: number): Promise<ListPostsPayload> => {
+  getGroupPosts: async (
+    groupId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<ListPostsPayload> => {
     const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
 
     const queryString = params.toString();
-    const url = `/v1/groups/${groupId}/posts${queryString ? `?${queryString}` : ''}`;
+    const url = `/v1/groups/${groupId}/posts${queryString ? `?${queryString}` : ""}`;
 
     const response = await axiosInstance.get<ListPostsPayload>(url);
     return response.data;
   },
 
   createGroupPost: async (data: CreateGroupPostRequest): Promise<GroupPost> => {
-    const response = await axiosInstance.post<CreatePostPayload>(`/v1/groups/${data.groupId}/posts`, {
-      title: data.title,
-      content: data.content,
-    });
+    const response = await axiosInstance.post<CreatePostPayload>(
+      `/v1/groups/${data.groupId}/posts`,
+      {
+        title: data.title,
+        content: data.content,
+      },
+    );
     return response.data.post;
   },
 };

@@ -34,6 +34,12 @@ type repository interface {
 	CreateDefaultSettingsForUser(ctx context.Context, userID string) (notificationsrepo.NotificationSettings, error)
 	UpdateSettingsForUser(ctx context.Context, userID string, input notificationsrepo.SettingsUpdateInput) (notificationsrepo.NotificationSettings, error)
 	ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error)
+	ChikaRepliesEnabled(ctx context.Context, userID string) (bool, error)
+	EventNotificationsEnabled(ctx context.Context, userID string) (bool, error)
+	GroupInviteNotificationsEnabled(ctx context.Context, userID string) (bool, error)
+	ListGroupPostRecipients(ctx context.Context, groupID, excludeUserID string) ([]string, error)
+	ListGroupEventRecipients(ctx context.Context, groupID, excludeUserID string) ([]string, error)
+	ListEventAttendeeRecipients(ctx context.Context, eventID, excludeUserID string) ([]string, error)
 	ClaimPendingOutbox(ctx context.Context, now time.Time, limit int) ([]notificationsrepo.NotificationOutbox, error)
 	ListOutbox(ctx context.Context, input notificationsrepo.OutboxListInput) ([]notificationsrepo.NotificationOutbox, error)
 	RetryOutbox(ctx context.Context, id string, now time.Time) (notificationsrepo.NotificationOutbox, error)
@@ -110,6 +116,7 @@ type NotificationSettings struct {
 	PaymentNotifications       bool
 	SecurityNotifications      bool
 	NewDiveSitePublished       bool
+	ChikaReplies               bool
 	DigestFrequency            string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
@@ -202,6 +209,68 @@ type DiveSiteRejectedInput struct {
 	ReviewerUserID  string
 }
 
+type ChikaThreadCommentedInput struct {
+	ThreadID         string
+	ThreadTitle      string
+	CommentID        int64
+	RecipientUserID  string
+	ActorDisplayName string
+	Pseudonymous     bool
+}
+
+type ChikaCommentRepliedInput struct {
+	ThreadID         string
+	ThreadTitle      string
+	ParentCommentID  int64
+	ReplyCommentID   int64
+	RecipientUserID  string
+	ActorDisplayName string
+	Pseudonymous     bool
+}
+
+type GroupPostCreatedInput struct {
+	GroupID      string
+	GroupName    string
+	PostID       string
+	PostTitle    string
+	AuthorUserID string
+}
+
+type GroupInviteReceivedInput struct {
+	GroupID       string
+	GroupName     string
+	InviterUserID string
+	InvitedUserID string
+}
+
+type EventCreatedForGroupInput struct {
+	EventID         string
+	EventTitle      string
+	GroupID         string
+	OrganizerUserID string
+}
+
+type EventAttendeeJoinedInput struct {
+	EventID         string
+	EventTitle      string
+	OrganizerUserID string
+	AttendeeUserID  string
+}
+
+type EventUpdatedInput struct {
+	EventID     string
+	EventTitle  string
+	ActorUserID string
+	UpdatedAt   time.Time
+}
+
+type EventCancelledInput struct {
+	EventID     string
+	EventTitle  string
+	ActorUserID string
+	UpdatedAt   time.Time
+}
+
 type ListInput struct {
 	Limit    int
 	Offset   int
@@ -218,6 +287,9 @@ var (
 		"BOOKING", "REVIEW", "MENTION", "LIKE", "COMMENT",
 		"FRIEND_REQUEST", "GROUP_INVITE", "EVENT_REMINDER", "PAYMENT", "SECURITY",
 		"NEW_DIVE_SITE_PUBLISHED",
+		"CHIKA_THREAD_COMMENTED", "CHIKA_COMMENT_REPLIED",
+		"GROUP_INVITE_RECEIVED", "GROUP_POST_CREATED",
+		"EVENT_CREATED_FOR_GROUP", "EVENT_ATTENDEE_JOINED", "EVENT_UPDATED", "EVENT_CANCELLED",
 	)
 	allowedStatus          = toSet("UNREAD", "READ", "ARCHIVED", "DELETED")
 	allowedPriority        = toSet("LOW", "NORMAL", "HIGH", "URGENT")
@@ -387,6 +459,260 @@ func (s *Service) NotifyDiveSiteRejected(ctx context.Context, input DiveSiteReje
 			"name":       input.Name,
 		},
 		IdempotencyKey: "explore:site:" + input.SiteID + ":rejected:submitter",
+	})
+	return err
+}
+
+func (s *Service) NotifyChikaThreadCommented(ctx context.Context, input ChikaThreadCommentedInput) error {
+	recipientID := strings.TrimSpace(input.RecipientUserID)
+	if recipientID == "" {
+		return nil
+	}
+	enabled, err := s.repo.ChikaRepliesEnabled(ctx, recipientID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_settings_failed", "failed to check Chika notification settings", err)
+	}
+	if !enabled {
+		return nil
+	}
+	commentID := fmt.Sprintf("%d", input.CommentID)
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  []string{recipientID},
+		Type:              "CHIKA_THREAD_COMMENTED",
+		Category:          "chika",
+		Title:             "New Chika comment",
+		Message:           safeActorLabel(input.ActorDisplayName) + " commented on your Chika thread.",
+		Priority:          "NORMAL",
+		RelatedEntityType: "chika_thread",
+		RelatedEntityID:   strings.TrimSpace(input.ThreadID),
+		ActionURL:         "/chika/" + strings.TrimSpace(input.ThreadID),
+		Metadata: map[string]any{
+			"threadId":       strings.TrimSpace(input.ThreadID),
+			"commentId":      commentID,
+			"threadTitle":    strings.TrimSpace(input.ThreadTitle),
+			"actorLabel":     safeActorLabel(input.ActorDisplayName),
+			"pseudonymous":   input.Pseudonymous,
+			"notificationV1": true,
+		},
+		IdempotencyKey: "chika:thread:" + strings.TrimSpace(input.ThreadID) + ":comment:" + commentID + ":owner",
+	})
+	return err
+}
+
+func (s *Service) NotifyChikaCommentReplied(ctx context.Context, input ChikaCommentRepliedInput) error {
+	recipientID := strings.TrimSpace(input.RecipientUserID)
+	if recipientID == "" {
+		return nil
+	}
+	enabled, err := s.repo.ChikaRepliesEnabled(ctx, recipientID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_settings_failed", "failed to check Chika notification settings", err)
+	}
+	if !enabled {
+		return nil
+	}
+	parentID := fmt.Sprintf("%d", input.ParentCommentID)
+	replyID := fmt.Sprintf("%d", input.ReplyCommentID)
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  []string{recipientID},
+		Type:              "CHIKA_COMMENT_REPLIED",
+		Category:          "chika",
+		Title:             "New Chika reply",
+		Message:           safeActorLabel(input.ActorDisplayName) + " replied to your Chika comment.",
+		Priority:          "NORMAL",
+		RelatedEntityType: "chika_thread",
+		RelatedEntityID:   strings.TrimSpace(input.ThreadID),
+		ActionURL:         "/chika/" + strings.TrimSpace(input.ThreadID),
+		Metadata: map[string]any{
+			"threadId":        strings.TrimSpace(input.ThreadID),
+			"parentCommentId": parentID,
+			"replyCommentId":  replyID,
+			"threadTitle":     strings.TrimSpace(input.ThreadTitle),
+			"actorLabel":      safeActorLabel(input.ActorDisplayName),
+			"pseudonymous":    input.Pseudonymous,
+			"notificationV1":  true,
+		},
+		IdempotencyKey: "chika:comment:" + parentID + ":reply:" + replyID + ":parent",
+	})
+	return err
+}
+
+func (s *Service) NotifyGroupPostCreated(ctx context.Context, input GroupPostCreatedInput) error {
+	recipients, err := s.repo.ListGroupPostRecipients(ctx, input.GroupID, input.AuthorUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve group post notification recipients", err)
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              "GROUP_POST_CREATED",
+		Category:          "groups",
+		Title:             "New group post",
+		Message:           "New post in " + fallbackTitle(input.GroupName, "your group") + ".",
+		Priority:          "NORMAL",
+		RelatedEntityType: "group",
+		RelatedEntityID:   strings.TrimSpace(input.GroupID),
+		ActionURL:         "/groups/" + strings.TrimSpace(input.GroupID),
+		Metadata: map[string]any{
+			"groupId":        strings.TrimSpace(input.GroupID),
+			"groupName":      strings.TrimSpace(input.GroupName),
+			"postId":         strings.TrimSpace(input.PostID),
+			"postTitle":      strings.TrimSpace(input.PostTitle),
+			"notificationV1": true,
+		},
+		IdempotencyKey: "groups:group:" + strings.TrimSpace(input.GroupID) + ":post:" + strings.TrimSpace(input.PostID) + ":created",
+	})
+	return err
+}
+
+func (s *Service) NotifyGroupInviteReceived(ctx context.Context, input GroupInviteReceivedInput) error {
+	invitedID := strings.TrimSpace(input.InvitedUserID)
+	if invitedID == "" || invitedID == strings.TrimSpace(input.InviterUserID) {
+		return nil
+	}
+	enabled, err := s.repo.GroupInviteNotificationsEnabled(ctx, invitedID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_settings_failed", "failed to check group invite notification settings", err)
+	}
+	if !enabled {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  []string{invitedID},
+		Type:              "GROUP_INVITE_RECEIVED",
+		Category:          "groups",
+		Title:             "Group invite",
+		Message:           "You were invited to " + fallbackTitle(input.GroupName, "a group") + ".",
+		Priority:          "NORMAL",
+		RelatedEntityType: "group",
+		RelatedEntityID:   strings.TrimSpace(input.GroupID),
+		ActionURL:         "/groups/" + strings.TrimSpace(input.GroupID),
+		Metadata: map[string]any{
+			"groupId":        strings.TrimSpace(input.GroupID),
+			"groupName":      strings.TrimSpace(input.GroupName),
+			"notificationV1": true,
+		},
+		IdempotencyKey: "groups:group:" + strings.TrimSpace(input.GroupID) + ":invite:" + invitedID,
+	})
+	return err
+}
+
+func (s *Service) NotifyEventCreatedForGroup(ctx context.Context, input EventCreatedForGroupInput) error {
+	recipients, err := s.repo.ListGroupEventRecipients(ctx, input.GroupID, input.OrganizerUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve group event notification recipients", err)
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              "EVENT_CREATED_FOR_GROUP",
+		Category:          "events",
+		Title:             "New group event",
+		Message:           fallbackTitle(input.EventTitle, "A new event") + " was added to your group.",
+		Priority:          "NORMAL",
+		RelatedEntityType: "event",
+		RelatedEntityID:   strings.TrimSpace(input.EventID),
+		ActionURL:         "/events/" + strings.TrimSpace(input.EventID),
+		Metadata: map[string]any{
+			"eventId":        strings.TrimSpace(input.EventID),
+			"groupId":        strings.TrimSpace(input.GroupID),
+			"eventTitle":     strings.TrimSpace(input.EventTitle),
+			"notificationV1": true,
+		},
+		IdempotencyKey: "events:event:" + strings.TrimSpace(input.EventID) + ":created-for-group",
+	})
+	return err
+}
+
+func (s *Service) NotifyEventAttendeeJoined(ctx context.Context, input EventAttendeeJoinedInput) error {
+	organizerID := strings.TrimSpace(input.OrganizerUserID)
+	attendeeID := strings.TrimSpace(input.AttendeeUserID)
+	if organizerID == "" || organizerID == attendeeID {
+		return nil
+	}
+	enabled, err := s.repo.EventNotificationsEnabled(ctx, organizerID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_settings_failed", "failed to check event notification settings", err)
+	}
+	if !enabled {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  []string{organizerID},
+		Type:              "EVENT_ATTENDEE_JOINED",
+		Category:          "events",
+		Title:             "New event attendee",
+		Message:           "Someone joined " + fallbackTitle(input.EventTitle, "your event") + ".",
+		Priority:          "NORMAL",
+		RelatedEntityType: "event",
+		RelatedEntityID:   strings.TrimSpace(input.EventID),
+		ActionURL:         "/events/" + strings.TrimSpace(input.EventID),
+		Metadata: map[string]any{
+			"eventId":        strings.TrimSpace(input.EventID),
+			"eventTitle":     strings.TrimSpace(input.EventTitle),
+			"notificationV1": true,
+		},
+		IdempotencyKey: "events:event:" + strings.TrimSpace(input.EventID) + ":attendee:" + attendeeID + ":joined",
+	})
+	return err
+}
+
+func (s *Service) NotifyEventUpdated(ctx context.Context, input EventUpdatedInput) error {
+	recipients, err := s.repo.ListEventAttendeeRecipients(ctx, input.EventID, input.ActorUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve event attendee notification recipients", err)
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              "EVENT_UPDATED",
+		Category:          "events",
+		Title:             "Event updated",
+		Message:           fallbackTitle(input.EventTitle, "An event") + " has updated time or location details.",
+		Priority:          "NORMAL",
+		RelatedEntityType: "event",
+		RelatedEntityID:   strings.TrimSpace(input.EventID),
+		ActionURL:         "/events/" + strings.TrimSpace(input.EventID),
+		Metadata: map[string]any{
+			"eventId":        strings.TrimSpace(input.EventID),
+			"eventTitle":     strings.TrimSpace(input.EventTitle),
+			"notificationV1": true,
+		},
+		IdempotencyKey: "events:event:" + strings.TrimSpace(input.EventID) + ":updated:" + fmt.Sprintf("%d", input.UpdatedAt.UnixNano()),
+	})
+	return err
+}
+
+func (s *Service) NotifyEventCancelled(ctx context.Context, input EventCancelledInput) error {
+	recipients, err := s.repo.ListEventAttendeeRecipients(ctx, input.EventID, input.ActorUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve event attendee notification recipients", err)
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              "EVENT_CANCELLED",
+		Category:          "events",
+		Title:             "Event cancelled",
+		Message:           fallbackTitle(input.EventTitle, "An event") + " was cancelled.",
+		Priority:          "HIGH",
+		RelatedEntityType: "event",
+		RelatedEntityID:   strings.TrimSpace(input.EventID),
+		ActionURL:         "/events/" + strings.TrimSpace(input.EventID),
+		Metadata: map[string]any{
+			"eventId":        strings.TrimSpace(input.EventID),
+			"eventTitle":     strings.TrimSpace(input.EventTitle),
+			"notificationV1": true,
+		},
+		IdempotencyKey: "events:event:" + strings.TrimSpace(input.EventID) + ":cancelled:" + fmt.Sprintf("%d", input.UpdatedAt.UnixNano()),
 	})
 	return err
 }
@@ -957,15 +1283,33 @@ func normalizeCategory(value string, typ string) string {
 	switch strings.TrimSpace(typ) {
 	case "MESSAGE":
 		return "messages"
-	case "EVENT", "EVENT_REMINDER":
+	case "EVENT", "EVENT_REMINDER", "EVENT_CREATED_FOR_GROUP", "EVENT_ATTENDEE_JOINED", "EVENT_UPDATED", "EVENT_CANCELLED":
 		return "events"
-	case "GROUP", "GROUP_INVITE":
+	case "GROUP", "GROUP_INVITE", "GROUP_INVITE_RECEIVED", "GROUP_POST_CREATED":
 		return "groups"
+	case "CHIKA_THREAD_COMMENTED", "CHIKA_COMMENT_REPLIED":
+		return "chika"
 	case "NEW_DIVE_SITE_PUBLISHED":
 		return "explore"
 	default:
 		return "system"
 	}
+}
+
+func safeActorLabel(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "Someone"
+	}
+	return trimmed
+}
+
+func fallbackTitle(value string, fallback string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return fallback
+	}
+	return trimmed
 }
 
 func normalizeEnumPtr(value *string) *string {
@@ -1164,6 +1508,7 @@ func mapSettings(input notificationsrepo.NotificationSettings) NotificationSetti
 		PaymentNotifications:       input.PaymentNotifications,
 		SecurityNotifications:      input.SecurityNotifications,
 		NewDiveSitePublished:       input.NewDiveSitePublished,
+		ChikaReplies:               input.ChikaReplies,
 		DigestFrequency:            input.DigestFrequency,
 		QuietHoursStart:            input.QuietHoursStart,
 		QuietHoursEnd:              input.QuietHoursEnd,

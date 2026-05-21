@@ -35,6 +35,18 @@ const notificationMutationsPath = path.join(
   "features/notifications/hooks/mutations.ts",
 );
 const notificationsPagePath = path.join(srcRoot, "app/notifications/page.tsx");
+const notificationCardPath = path.join(
+  srcRoot,
+  "features/notifications/components/NotificationCard.tsx",
+);
+const chikaRealtimePath = path.join(
+  srcRoot,
+  "features/chika/hooks/realtime.ts",
+);
+const notificationSchemasPath = path.join(
+  srcRoot,
+  "features/notifications/schemas.ts",
+);
 
 test("notification realtime provider is mounted globally and uses persisted queries as source of truth", async () => {
   const [provider, layout] = await Promise.all([
@@ -102,4 +114,48 @@ test("notification settings page can toggle new dive-site announcements", async 
   assert.match(page, /useUpdateNotificationSettings/);
   assert.match(page, /newDiveSitePublished/);
   assert.match(page, /New approved dive-site announcements/);
+});
+
+test("notification settings and schemas include scoped social notification controls", async () => {
+  const [page, schemas] = await Promise.all([
+    readFile(notificationsPagePath, "utf8"),
+    readFile(notificationSchemasPath, "utf8"),
+  ]);
+
+  assert.match(page, /chikaReplies/);
+  assert.match(page, /Chika Replies/);
+  for (const type of [
+    "CHIKA_THREAD_COMMENTED",
+    "CHIKA_COMMENT_REPLIED",
+    "GROUP_INVITE_RECEIVED",
+    "GROUP_POST_CREATED",
+    "EVENT_CREATED_FOR_GROUP",
+    "EVENT_ATTENDEE_JOINED",
+    "EVENT_UPDATED",
+    "EVENT_CANCELLED",
+  ]) {
+    assert.match(schemas, new RegExp(type));
+  }
+});
+
+test("notification card renders friendly social labels and app-relative actions", async () => {
+  const source = await readFile(notificationCardPath, "utf8");
+
+  assert.match(source, /CHIKA_THREAD_COMMENTED: "Chika comment"/);
+  assert.match(source, /CHIKA_COMMENT_REPLIED: "Chika reply"/);
+  assert.match(source, /GROUP_INVITE_RECEIVED: "Group invite"/);
+  assert.match(source, /GROUP_POST_CREATED: "Group post"/);
+  assert.match(source, /EVENT_CANCELLED: "Event cancelled"/);
+  assert.match(source, /notification\.actionUrl\?\.startsWith\("\/"\)/);
+  assert.match(source, /!notification\.actionUrl\.startsWith\("\/\/"\)/);
+  assert.match(source, /href=\{actionURL\}/);
+});
+
+test("chika realtime no longer emits broad toast notifications or consumes real actor ids", async () => {
+  const source = await readFile(chikaRealtimePath, "utf8");
+
+  assert.doesNotMatch(source, /authorUserId/);
+  assert.doesNotMatch(source, /actorUserId/);
+  assert.doesNotMatch(source, /New Chika posted/);
+  assert.doesNotMatch(source, /New chika reply/);
 });

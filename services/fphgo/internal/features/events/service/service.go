@@ -2,25 +2,36 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	eventsrepo "fphgo/internal/features/events/repo"
 	feedservice "fphgo/internal/features/feed/service"
+	notificationsservice "fphgo/internal/features/notifications/service"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/validatex"
 )
 
 type Service struct {
-	repo     repository
-	activity activityPublisher
+	repo          repository
+	activity      activityPublisher
+	notifications notificationPublisher
 }
 
 type activityPublisher interface {
 	PublishActivity(ctx context.Context, input feedservice.ActivityPublishInput) error
 	MarkActivityBySource(ctx context.Context, sourceModule, sourceType, sourceID string, state feedservice.ActivityState) error
+}
+
+type notificationPublisher interface {
+	NotifyEventCreatedForGroup(ctx context.Context, input notificationsservice.EventCreatedForGroupInput) error
+	NotifyEventAttendeeJoined(ctx context.Context, input notificationsservice.EventAttendeeJoinedInput) error
+	NotifyEventUpdated(ctx context.Context, input notificationsservice.EventUpdatedInput) error
+	NotifyEventCancelled(ctx context.Context, input notificationsservice.EventCancelledInput) error
 }
 
 type repository interface {
@@ -47,6 +58,12 @@ type Option func(*Service)
 func WithActivityPublisher(publisher activityPublisher) Option {
 	return func(s *Service) {
 		s.activity = publisher
+	}
+}
+
+func WithNotifications(publisher notificationPublisher) Option {
+	return func(s *Service) {
+		s.notifications = publisher
 	}
 }
 
@@ -190,16 +207,41 @@ func (s *Service) CreateEvent(ctx context.Context, actorID string, input eventsr
 		return eventsrepo.Event{}, err
 	}
 	s.publishEventActivity(ctx, event)
+	if s.notifications != nil && event.Status == "published" && strings.TrimSpace(event.GroupID) != "" {
+		if err := s.notifications.NotifyEventCreatedForGroup(ctx, notificationsservice.EventCreatedForGroupInput{
+			EventID:         event.ID,
+			EventTitle:      event.Title,
+			GroupID:         event.GroupID,
+			OrganizerUserID: actorID,
+		}); err != nil {
+			slog.Default().Warn("events.notification.created_for_group_failed",
+				slog.String("event_id", event.ID),
+				slog.String("group_id", event.GroupID),
+				slog.String("organizer_user_id", actorID),
+				slog.Any("error", err),
+			)
+		}
+	}
 	return event, nil
 }
 
-func (s *Service) UpdateEvent(ctx context.Context, eventID string, input eventsrepo.UpdateEventInput) (eventsrepo.Event, error) {
+func (s *Service) UpdateEvent(ctx context.Context, eventID, actorID string, input eventsrepo.UpdateEventInput) (eventsrepo.Event, error) {
 	if _, err := uuid.Parse(eventID); err != nil {
 		return eventsrepo.Event{}, ValidationFailure{Issues: []validatex.Issue{{
 			Path:    []any{"eventId"},
 			Code:    "invalid_uuid",
 			Message: "Must be a valid UUID",
 		}}}
+	}
+	if _, err := uuid.Parse(actorID); err != nil {
+		return eventsrepo.Event{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	before, err := s.repo.GetEventByID(ctx, eventID, "")
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return eventsrepo.Event{}, apperrors.New(http.StatusNotFound, "event_not_found", "event not found", err)
+		}
+		return eventsrepo.Event{}, apperrors.New(http.StatusInternalServerError, "event_get_failed", "failed to fetch event", err)
 	}
 	if input.Status != nil {
 		value := normalizeEventStatus(*input.Status)
@@ -230,7 +272,92 @@ func (s *Service) UpdateEvent(ctx context.Context, eventID string, input eventsr
 		return eventsrepo.Event{}, apperrors.New(http.StatusInternalServerError, "event_update_failed", "failed to update event", err)
 	}
 	s.publishEventActivity(ctx, updated)
+	s.notifyEventUpdated(ctx, before, updated, actorID)
 	return updated, nil
+}
+
+func (s *Service) notifyEventUpdated(ctx context.Context, before eventsrepo.Event, updated eventsrepo.Event, actorID string) {
+	if s.notifications == nil {
+		return
+	}
+	if before.Status != "cancelled" && updated.Status == "cancelled" {
+		if err := s.notifications.NotifyEventCancelled(ctx, notificationsservice.EventCancelledInput{
+			EventID:     updated.ID,
+			EventTitle:  updated.Title,
+			ActorUserID: actorID,
+			UpdatedAt:   updated.UpdatedAt,
+		}); err != nil {
+			slog.Default().Warn("events.notification.cancelled_failed",
+				slog.String("event_id", updated.ID),
+				slog.String("actor_user_id", actorID),
+				slog.Any("error", err),
+			)
+		}
+		return
+	}
+	if updated.Status != "published" || !meaningfulEventUpdate(before, updated) {
+		return
+	}
+	if err := s.notifications.NotifyEventUpdated(ctx, notificationsservice.EventUpdatedInput{
+		EventID:     updated.ID,
+		EventTitle:  updated.Title,
+		ActorUserID: actorID,
+		UpdatedAt:   updated.UpdatedAt,
+	}); err != nil {
+		slog.Default().Warn("events.notification.updated_failed",
+			slog.String("event_id", updated.ID),
+			slog.String("actor_user_id", actorID),
+			slog.Any("error", err),
+		)
+	}
+}
+
+func meaningfulEventUpdate(before eventsrepo.Event, updated eventsrepo.Event) bool {
+	if !sameTimePtr(before.StartsAt, updated.StartsAt) || !sameTimePtr(before.EndsAt, updated.EndsAt) {
+		return true
+	}
+	if strings.TrimSpace(before.Location) != strings.TrimSpace(updated.Location) {
+		return true
+	}
+	if strings.TrimSpace(before.LocationName) != strings.TrimSpace(updated.LocationName) {
+		return true
+	}
+	if strings.TrimSpace(before.FormattedAddress) != strings.TrimSpace(updated.FormattedAddress) {
+		return true
+	}
+	if !sameFloatPtr(before.Latitude, updated.Latitude) || !sameFloatPtr(before.Longitude, updated.Longitude) {
+		return true
+	}
+	if strings.TrimSpace(before.GooglePlaceID) != strings.TrimSpace(updated.GooglePlaceID) {
+		return true
+	}
+	if strings.TrimSpace(before.RegionCode) != strings.TrimSpace(updated.RegionCode) {
+		return true
+	}
+	if strings.TrimSpace(before.ProvinceCode) != strings.TrimSpace(updated.ProvinceCode) {
+		return true
+	}
+	if strings.TrimSpace(before.CityCode) != strings.TrimSpace(updated.CityCode) {
+		return true
+	}
+	if strings.TrimSpace(before.BarangayCode) != strings.TrimSpace(updated.BarangayCode) {
+		return true
+	}
+	return false
+}
+
+func sameTimePtr(a *time.Time, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.UTC().Equal(b.UTC())
+}
+
+func sameFloatPtr(a *float64, b *float64) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 func (s *Service) publishEventActivity(ctx context.Context, event eventsrepo.Event) {
@@ -324,6 +451,21 @@ func (s *Service) JoinEvent(ctx context.Context, eventID, actorID, notes string)
 	attendee, err := s.repo.UpsertAttendee(ctx, eventID, actorID, "attendee", "active", strings.TrimSpace(notes))
 	if err != nil {
 		return eventsrepo.EventAttendee{}, apperrors.New(http.StatusInternalServerError, "event_join_failed", "failed to join event", err)
+	}
+	if s.notifications != nil {
+		if err := s.notifications.NotifyEventAttendeeJoined(ctx, notificationsservice.EventAttendeeJoinedInput{
+			EventID:         event.ID,
+			EventTitle:      event.Title,
+			OrganizerUserID: event.OrganizerUserID,
+			AttendeeUserID:  actorID,
+		}); err != nil {
+			slog.Default().Warn("events.notification.attendee_joined_failed",
+				slog.String("event_id", event.ID),
+				slog.String("attendee_user_id", actorID),
+				slog.String("organizer_user_id", event.OrganizerUserID),
+				slog.Any("error", err),
+			)
+		}
 	}
 	return attendee, nil
 }

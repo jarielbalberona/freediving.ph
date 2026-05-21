@@ -174,6 +174,24 @@ func (r *outboxAdminRepoStub) UpdateSettingsForUser(context.Context, string, not
 func (r *outboxAdminRepoStub) ListActiveNewDiveSiteRecipients(context.Context, string) ([]string, error) {
 	return nil, nil
 }
+func (r *outboxAdminRepoStub) ChikaRepliesEnabled(context.Context, string) (bool, error) {
+	return true, nil
+}
+func (r *outboxAdminRepoStub) EventNotificationsEnabled(context.Context, string) (bool, error) {
+	return true, nil
+}
+func (r *outboxAdminRepoStub) GroupInviteNotificationsEnabled(context.Context, string) (bool, error) {
+	return true, nil
+}
+func (r *outboxAdminRepoStub) ListGroupPostRecipients(context.Context, string, string) ([]string, error) {
+	return nil, nil
+}
+func (r *outboxAdminRepoStub) ListGroupEventRecipients(context.Context, string, string) ([]string, error) {
+	return nil, nil
+}
+func (r *outboxAdminRepoStub) ListEventAttendeeRecipients(context.Context, string, string) ([]string, error) {
+	return nil, nil
+}
 func (r *outboxAdminRepoStub) ClaimPendingOutbox(context.Context, time.Time, int) ([]notificationsrepo.NotificationOutbox, error) {
 	return nil, nil
 }

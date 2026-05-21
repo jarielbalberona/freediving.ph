@@ -20,6 +20,9 @@ func Routes(h *Handlers) chi.Router {
 		write.Post("/", h.CreateGroup)
 		write.Post("/{groupId}/join", h.JoinGroup)
 		write.Post("/{groupId}/leave", h.LeaveGroup)
+		write.Post("/{groupId}/invites", h.InviteMember)
+		write.Post("/{groupId}/invites/accept", h.AcceptInvite)
+		write.Post("/{groupId}/invites/reject", h.RejectInvite)
 		write.Post("/{groupId}/posts", h.CreateGroupPost)
 	})
 

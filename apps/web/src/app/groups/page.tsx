@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  Check,
   Compass,
   Lock,
   MapPin,
@@ -13,6 +14,7 @@ import {
   Search,
   ShieldCheck,
   Users,
+  X,
 } from "lucide-react";
 
 import type { Group } from "@freediving.ph/types";
@@ -27,11 +29,19 @@ import {
   CommunityStats,
 } from "@/components/community/community-page";
 import {
+  useAcceptGroupInvite,
   useCreateGroup,
+  useRejectGroupInvite,
   useJoinGroup,
   useLeaveGroup,
 } from "@/features/groups/hooks/mutations";
 import { useGroups, useUserGroups } from "@/features/groups/hooks/queries";
+import { LocationSearch } from "@/features/locations/components";
+import {
+  buildDisplayLocation,
+  EMPTY_LOCATION_SEARCH_VALUE,
+  type LocationSearchValue,
+} from "@/features/locations/types";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,7 +66,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-type VisibilityFilter = "all" | "public" | "invite_only";
+type VisibilityFilter = "all" | "public" | "private";
 
 export default function GroupsPage() {
   const session = useSession();
@@ -68,9 +78,11 @@ export default function GroupsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDescription, setCreateDescription] = useState("");
-  const [createLocation, setCreateLocation] = useState("");
+  const [createLocation, setCreateLocation] = useState<LocationSearchValue>(
+    EMPTY_LOCATION_SEARCH_VALUE,
+  );
   const [createVisibility, setCreateVisibility] = useState<
-    "public" | "private" | "invite_only"
+    "public" | "private"
   >("public");
   const [createJoinPolicy, setCreateJoinPolicy] = useState<
     "open" | "invite_only"
@@ -92,20 +104,23 @@ export default function GroupsPage() {
   const joinMutation = useJoinGroup();
   const leaveMutation = useLeaveGroup();
   const createMutation = useCreateGroup();
+  const acceptInviteMutation = useAcceptGroupInvite();
+  const rejectInviteMutation = useRejectGroupInvite();
 
   const discoverGroups = groupsQuery.data?.groups ?? [];
   const myGroups = myGroupsQuery.data?.groups ?? [];
   const joinedGroupIds = new Set(myGroups.map((group) => group.id));
+  const isPrivateCreate = createVisibility === "private";
+
+  useEffect(() => {
+    if (isPrivateCreate && createJoinPolicy !== "invite_only") {
+      setCreateJoinPolicy("invite_only");
+    }
+  }, [createJoinPolicy, isPrivateCreate]);
 
   const onJoin = async (groupId: string) => {
     try {
-      const membership = await joinMutation.mutateAsync({ groupId });
-      if (membership.status === "invited") {
-        toast.error(
-          "This group is invite-only right now. Ask an organizer for access.",
-        );
-        return;
-      }
+      await joinMutation.mutateAsync({ groupId });
       toast.success("Joined group.");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to join group"));
@@ -121,23 +136,54 @@ export default function GroupsPage() {
     }
   };
 
+  const onAcceptInvite = async (groupId: string) => {
+    try {
+      await acceptInviteMutation.mutateAsync({ groupId });
+      toast.success("Joined group.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to accept invite"));
+    }
+  };
+
+  const onRejectInvite = async (groupId: string) => {
+    try {
+      await rejectInviteMutation.mutateAsync({ groupId });
+      toast.success("Invite declined.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to reject invite"));
+    }
+  };
+
   const onCreateGroup = async () => {
     if (createName.trim().length < 3) {
       toast.error("Group name must be at least 3 characters.");
       return;
     }
+    const structuredLocation = buildDisplayLocation(createLocation);
+    const location =
+      structuredLocation ||
+      createLocation.formattedAddress?.trim() ||
+      createLocation.locationName?.trim() ||
+      undefined;
     try {
       const created = await createMutation.mutateAsync({
         name: createName.trim(),
         description: createDescription.trim() || undefined,
-        location: createLocation.trim() || undefined,
+        location,
+        locationName: createLocation.locationName?.trim() || undefined,
+        formattedAddress: createLocation.formattedAddress?.trim() || undefined,
+        regionCode: createLocation.regionCode?.trim() || undefined,
+        provinceCode: createLocation.provinceCode?.trim() || undefined,
+        cityCode: createLocation.cityCode?.trim() || undefined,
+        barangayCode: createLocation.barangayCode?.trim() || undefined,
+        locationSource: createLocation.locationSource || undefined,
         visibility: createVisibility,
-        joinPolicy: createJoinPolicy,
+        joinPolicy: isPrivateCreate ? "invite_only" : createJoinPolicy,
       });
       setCreateOpen(false);
       setCreateName("");
       setCreateDescription("");
-      setCreateLocation("");
+      setCreateLocation(EMPTY_LOCATION_SEARCH_VALUE);
       setCreateVisibility("public");
       setCreateJoinPolicy("open");
       toast.success(`Created ${created.name}.`);
@@ -181,16 +227,16 @@ export default function GroupsPage() {
             icon: <Users className="h-3.5 w-3.5" />,
           },
           {
-            label: "Invite-only",
-            value: "Supported",
+            label: "Access",
+            value: "Public/private",
             icon: <ShieldCheck className="h-3.5 w-3.5" />,
           },
         ]}
       />
 
       <CommunityAccessNote>
-        Public groups are discoverable. Restricted groups require approval or an
-        invite.
+        Public groups are discoverable. Private groups stay hidden unless you
+        are already a member or have a pending invite.
       </CommunityAccessNote>
 
       <section className="space-y-3">
@@ -222,7 +268,7 @@ export default function GroupsPage() {
               items={[
                 { value: "all", label: "All groups" },
                 { value: "public", label: "Public groups" },
-                { value: "invite_only", label: "Invite-only groups" },
+                { value: "private", label: "Private groups" },
               ]}
             >
               <SelectTrigger>
@@ -231,7 +277,7 @@ export default function GroupsPage() {
               <SelectContent>
                 <SelectItem value="all">All groups</SelectItem>
                 <SelectItem value="public">Public groups</SelectItem>
-                <SelectItem value="invite_only">Invite-only groups</SelectItem>
+                <SelectItem value="private">Private groups</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -280,10 +326,15 @@ export default function GroupsPage() {
                     isSignedIn={isSignedIn}
                     isJoined={joinedGroupIds.has(group.id)}
                     actionPending={
-                      joinMutation.isPending || leaveMutation.isPending
+                      joinMutation.isPending ||
+                      leaveMutation.isPending ||
+                      acceptInviteMutation.isPending ||
+                      rejectInviteMutation.isPending
                     }
                     onJoin={() => void onJoin(group.id)}
                     onLeave={() => void onLeave(group.id)}
+                    onAcceptInvite={() => void onAcceptInvite(group.id)}
+                    onRejectInvite={() => void onRejectInvite(group.id)}
                   />
                 ))}
               </div>
@@ -322,6 +373,8 @@ export default function GroupsPage() {
                       actionPending={leaveMutation.isPending}
                       onJoin={() => undefined}
                       onLeave={() => void onLeave(group.id)}
+                      onAcceptInvite={() => undefined}
+                      onRejectInvite={() => undefined}
                     />
                   ))}
                 </div>
@@ -357,11 +410,10 @@ export default function GroupsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="create-group-location">Location</Label>
-              <Input
-                id="create-group-location"
-                placeholder="Example: Batangas or Metro Manila"
+              <LocationSearch
                 value={createLocation}
-                onChange={(event) => setCreateLocation(event.target.value)}
+                onChange={setCreateLocation}
+                disabled={createMutation.isPending}
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -369,15 +421,16 @@ export default function GroupsPage() {
                 <Label>Visibility</Label>
                 <Select
                   value={createVisibility}
-                  onValueChange={(value) =>
-                    setCreateVisibility(
-                      value as "public" | "private" | "invite_only",
-                    )
-                  }
+                  onValueChange={(value) => {
+                    const nextVisibility = value as "public" | "private";
+                    setCreateVisibility(nextVisibility);
+                    if (nextVisibility === "private") {
+                      setCreateJoinPolicy("invite_only");
+                    }
+                  }}
                   items={[
                     { value: "public", label: "Public" },
                     { value: "private", label: "Private" },
-                    { value: "invite_only", label: "Invite only" },
                   ]}
                 >
                   <SelectTrigger>
@@ -386,7 +439,6 @@ export default function GroupsPage() {
                   <SelectContent>
                     <SelectItem value="public">Public</SelectItem>
                     <SelectItem value="private">Private</SelectItem>
-                    <SelectItem value="invite_only">Invite only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -398,7 +450,9 @@ export default function GroupsPage() {
                     setCreateJoinPolicy(value as "open" | "invite_only")
                   }
                   items={[
-                    { value: "open", label: "Open join" },
+                    ...(isPrivateCreate
+                      ? []
+                      : [{ value: "open", label: "Open join" }]),
                     { value: "invite_only", label: "Invite only" },
                   ]}
                 >
@@ -406,10 +460,17 @@ export default function GroupsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="open">Open join</SelectItem>
+                    {isPrivateCreate ? null : (
+                      <SelectItem value="open">Open join</SelectItem>
+                    )}
                     <SelectItem value="invite_only">Invite only</SelectItem>
                   </SelectContent>
                 </Select>
+                {isPrivateCreate ? (
+                  <p className="text-xs text-muted-foreground">
+                    Private groups are invite-only.
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -437,6 +498,8 @@ function GroupCard({
   actionPending,
   onJoin,
   onLeave,
+  onAcceptInvite,
+  onRejectInvite,
 }: {
   group: Group;
   isSignedIn: boolean;
@@ -444,10 +507,15 @@ function GroupCard({
   actionPending: boolean;
   onJoin: () => void;
   onLeave: () => void;
+  onAcceptInvite: () => void;
+  onRejectInvite: () => void;
 }) {
-  const canJoin =
-    group.visibility !== "invite_only" && group.joinPolicy === "open";
-  const isApprovalOnly = group.joinPolicy === "approval";
+  const membershipStatus =
+    group.viewerMembershipStatus ?? (isJoined ? "active" : undefined);
+  const isActiveMember = membershipStatus === "active";
+  const hasPendingInvite = membershipStatus === "invited";
+  const canJoin = group.visibility === "public" && group.joinPolicy === "open";
+  const locationLabel = groupLocationLabel(group);
 
   return (
     <Card className="rounded-xl border-border/70 bg-background/80 py-0 shadow-none">
@@ -491,10 +559,10 @@ function GroupCard({
             <MessageSquare className="h-3.5 w-3.5" />
             {group.postCount} posts
           </div>
-          {group.location ? (
+          {locationLabel ? (
             <div className="flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5" />
-              {group.location}
+              {locationLabel}
             </div>
           ) : null}
         </div>
@@ -509,7 +577,7 @@ function GroupCard({
             <SignInButton mode="modal">
               <Button size="xs">{canJoin ? "Join" : "Sign in"}</Button>
             </SignInButton>
-          ) : isJoined ? (
+          ) : isActiveMember ? (
             <Button
               variant="outline"
               size="xs"
@@ -518,23 +586,36 @@ function GroupCard({
             >
               Leave
             </Button>
+          ) : hasPendingInvite ? (
+            <>
+              <Button
+                size="xs"
+                disabled={actionPending}
+                onClick={onAcceptInvite}
+              >
+                <Check className="mr-1 h-3 w-3" />
+                Accept
+              </Button>
+              <Button
+                variant="outline"
+                size="xs"
+                disabled={actionPending}
+                onClick={onRejectInvite}
+              >
+                <X className="mr-1 h-3 w-3" />
+                Reject
+              </Button>
+            </>
           ) : canJoin ? (
             <Button size="xs" disabled={actionPending} onClick={onJoin}>
               Join
             </Button>
-          ) : isApprovalOnly ? (
-            <Badge
-              variant="outline"
-              className="h-6 rounded-full px-2 text-[11px]"
-            >
-              Ask organizer to join
-            </Badge>
           ) : (
             <Badge
               variant="outline"
               className="h-6 rounded-full px-2 text-[11px]"
             >
-              Invite only
+              Invite required
             </Badge>
           )}
         </div>
@@ -578,8 +659,6 @@ function CardGridSkeleton({ count }: { count: number }) {
 
 function visibilityLabel(value: Group["visibility"]) {
   switch (value) {
-    case "invite_only":
-      return "Invite only";
     case "private":
       return "Private";
     default:
@@ -589,11 +668,24 @@ function visibilityLabel(value: Group["visibility"]) {
 
 function joinPolicyLabel(value: Group["joinPolicy"]) {
   switch (value) {
-    case "approval":
-      return "Restricted";
     case "invite_only":
       return "Invite only";
     default:
       return "Open join";
   }
+}
+
+function groupLocationLabel(group: Group) {
+  return (
+    group.location ||
+    buildDisplayLocation({
+      locationName: group.locationName,
+      formattedAddress: group.formattedAddress,
+      regionCode: group.regionCode,
+      provinceCode: group.provinceCode,
+      cityCode: group.cityCode,
+      barangayCode: group.barangayCode,
+      locationSource: group.locationSource,
+    })
+  );
 }

@@ -341,35 +341,45 @@ type FeedImpression struct {
 }
 
 type Group struct {
-	ID          pgtype.UUID        `db:"id" json:"id"`
-	Name        string             `db:"name" json:"name"`
-	Slug        string             `db:"slug" json:"slug"`
-	Description *string            `db:"description" json:"description"`
-	Visibility  string             `db:"visibility" json:"visibility"`
-	Status      string             `db:"status" json:"status"`
-	JoinPolicy  string             `db:"join_policy" json:"join_policy"`
-	Location    *string            `db:"location" json:"location"`
-	Lat         *float64           `db:"lat" json:"lat"`
-	Lng         *float64           `db:"lng" json:"lng"`
-	MemberCount int32              `db:"member_count" json:"member_count"`
-	EventCount  int32              `db:"event_count" json:"event_count"`
-	PostCount   int32              `db:"post_count" json:"post_count"`
-	CreatedBy   pgtype.UUID        `db:"created_by" json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID                   pgtype.UUID        `db:"id" json:"id"`
+	Name                 string             `db:"name" json:"name"`
+	Slug                 string             `db:"slug" json:"slug"`
+	Description          *string            `db:"description" json:"description"`
+	Visibility           string             `db:"visibility" json:"visibility"`
+	Status               string             `db:"status" json:"status"`
+	JoinPolicy           string             `db:"join_policy" json:"join_policy"`
+	Location             *string            `db:"location" json:"location"`
+	LocationName         *string            `db:"location_name" json:"location_name"`
+	FormattedAddress     *string            `db:"formatted_address" json:"formatted_address"`
+	Lat                  *float64           `db:"lat" json:"lat"`
+	Lng                  *float64           `db:"lng" json:"lng"`
+	GooglePlaceID        *string            `db:"google_place_id" json:"google_place_id"`
+	RegionCode           *string            `db:"region_code" json:"region_code"`
+	ProvinceCode         *string            `db:"province_code" json:"province_code"`
+	CityMunicipalityCode *string            `db:"city_municipality_code" json:"city_municipality_code"`
+	BarangayCode         *string            `db:"barangay_code" json:"barangay_code"`
+	LocationSource       string             `db:"location_source" json:"location_source"`
+	MemberCount          int32              `db:"member_count" json:"member_count"`
+	EventCount           int32              `db:"event_count" json:"event_count"`
+	PostCount            int32              `db:"post_count" json:"post_count"`
+	CreatedBy            pgtype.UUID        `db:"created_by" json:"created_by"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type GroupMembership struct {
-	GroupID   pgtype.UUID        `db:"group_id" json:"group_id"`
-	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
-	Role      string             `db:"role" json:"role"`
-	Status    string             `db:"status" json:"status"`
-	InvitedBy pgtype.UUID        `db:"invited_by" json:"invited_by"`
-	JoinedAt  pgtype.Timestamptz `db:"joined_at" json:"joined_at"`
-	LeftAt    pgtype.Timestamptz `db:"left_at" json:"left_at"`
-	Muted     bool               `db:"muted" json:"muted"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	GroupID     pgtype.UUID        `db:"group_id" json:"group_id"`
+	UserID      pgtype.UUID        `db:"user_id" json:"user_id"`
+	Role        string             `db:"role" json:"role"`
+	Status      string             `db:"status" json:"status"`
+	InvitedBy   pgtype.UUID        `db:"invited_by" json:"invited_by"`
+	InvitedAt   pgtype.Timestamptz `db:"invited_at" json:"invited_at"`
+	RespondedAt pgtype.Timestamptz `db:"responded_at" json:"responded_at"`
+	JoinedAt    pgtype.Timestamptz `db:"joined_at" json:"joined_at"`
+	LeftAt      pgtype.Timestamptz `db:"left_at" json:"left_at"`
+	Muted       bool               `db:"muted" json:"muted"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type GroupPost struct {
@@ -594,6 +604,7 @@ type NotificationSetting struct {
 	PaymentNotifications       bool               `db:"payment_notifications" json:"payment_notifications"`
 	SecurityNotifications      bool               `db:"security_notifications" json:"security_notifications"`
 	NewDiveSitePublished       bool               `db:"new_dive_site_published" json:"new_dive_site_published"`
+	ChikaReplies               bool               `db:"chika_replies" json:"chika_replies"`
 	DigestFrequency            interface{}        `db:"digest_frequency" json:"digest_frequency"`
 	QuietHoursStart            *string            `db:"quiet_hours_start" json:"quiet_hours_start"`
 	QuietHoursEnd              *string            `db:"quiet_hours_end" json:"quiet_hours_end"`

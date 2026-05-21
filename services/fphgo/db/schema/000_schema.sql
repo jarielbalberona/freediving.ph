@@ -137,7 +137,15 @@ BEGIN
       'EVENT_REMINDER',
       'PAYMENT',
       'SECURITY',
-      'NEW_DIVE_SITE_PUBLISHED'
+      'NEW_DIVE_SITE_PUBLISHED',
+      'CHIKA_THREAD_COMMENTED',
+      'CHIKA_COMMENT_REPLIED',
+      'GROUP_INVITE_RECEIVED',
+      'GROUP_POST_CREATED',
+      'EVENT_CREATED_FOR_GROUP',
+      'EVENT_ATTENDEE_JOINED',
+      'EVENT_UPDATED',
+      'EVENT_CANCELLED'
     );
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notification_priority') THEN
@@ -264,6 +272,7 @@ CREATE TABLE IF NOT EXISTS notification_settings (
   payment_notifications BOOLEAN NOT NULL DEFAULT TRUE,
   security_notifications BOOLEAN NOT NULL DEFAULT TRUE,
   new_dive_site_published BOOLEAN NOT NULL DEFAULT TRUE,
+  chika_replies BOOLEAN NOT NULL DEFAULT TRUE,
   digest_frequency notification_digest_frequency NOT NULL DEFAULT 'IMMEDIATE',
   quiet_hours_start TEXT,
   quiet_hours_end TEXT,
@@ -533,17 +542,26 @@ CREATE TABLE IF NOT EXISTS groups (
   status TEXT NOT NULL DEFAULT 'active',
   join_policy TEXT NOT NULL DEFAULT 'open',
   location TEXT,
+  location_name TEXT,
+  formatted_address TEXT,
   lat DOUBLE PRECISION,
   lng DOUBLE PRECISION,
+  google_place_id TEXT,
+  region_code TEXT,
+  province_code TEXT,
+  city_municipality_code TEXT,
+  barangay_code TEXT,
+  location_source TEXT NOT NULL DEFAULT 'manual',
   member_count INTEGER NOT NULL DEFAULT 0,
   event_count INTEGER NOT NULL DEFAULT 0,
   post_count INTEGER NOT NULL DEFAULT 0,
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (visibility IN ('public', 'private', 'invite_only')),
+  CHECK (visibility IN ('public', 'private')),
   CHECK (status IN ('active', 'archived', 'deleted')),
-  CHECK (join_policy IN ('open', 'approval', 'invite_only'))
+  CHECK (join_policy IN ('open', 'invite_only')),
+  CHECK (location_source IN ('manual', 'google_places', 'psgc_mapped', 'unmapped'))
 );
 
 CREATE TABLE IF NOT EXISTS psgc_regions (
@@ -607,6 +625,12 @@ CREATE TABLE IF NOT EXISTS psgc_import_history (
   barangays_count INTEGER NOT NULL DEFAULT 0,
   imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE groups
+  ADD CONSTRAINT groups_region_code_fkey FOREIGN KEY (region_code) REFERENCES psgc_regions(code),
+  ADD CONSTRAINT groups_province_code_fkey FOREIGN KEY (province_code) REFERENCES psgc_provinces(code),
+  ADD CONSTRAINT groups_city_municipality_code_fkey FOREIGN KEY (city_municipality_code) REFERENCES psgc_cities_municipalities(code),
+  ADD CONSTRAINT groups_barangay_code_fkey FOREIGN KEY (barangay_code) REFERENCES psgc_barangays(code);
 
 CREATE TABLE IF NOT EXISTS events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -837,6 +861,8 @@ CREATE TABLE IF NOT EXISTS group_memberships (
   role TEXT NOT NULL DEFAULT 'member',
   status TEXT NOT NULL DEFAULT 'active',
   invited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  invited_at TIMESTAMPTZ,
+  responded_at TIMESTAMPTZ,
   joined_at TIMESTAMPTZ,
   left_at TIMESTAMPTZ,
   muted BOOLEAN NOT NULL DEFAULT FALSE,
@@ -844,7 +870,7 @@ CREATE TABLE IF NOT EXISTS group_memberships (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (group_id, user_id),
   CHECK (role IN ('member', 'moderator', 'owner')),
-  CHECK (status IN ('active', 'invited', 'blocked'))
+  CHECK (status IN ('active', 'invited', 'left', 'declined', 'blocked'))
 );
 
 CREATE TABLE IF NOT EXISTS group_posts (
@@ -1009,6 +1035,7 @@ CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker_created_at ON user_blocks (bl
 CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_slug ON groups (slug);
 CREATE INDEX IF NOT EXISTS idx_groups_visibility_status_created ON groups (visibility, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_groups_created_by ON groups (created_by);
+CREATE INDEX IF NOT EXISTS idx_groups_location_search ON groups (location_source, region_code, province_code, city_municipality_code, barangay_code);
 CREATE INDEX IF NOT EXISTS idx_group_memberships_user ON group_memberships (user_id);
 CREATE INDEX IF NOT EXISTS idx_group_posts_group_created ON group_posts (group_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_group_posts_author ON group_posts (author_user_id, created_at DESC);

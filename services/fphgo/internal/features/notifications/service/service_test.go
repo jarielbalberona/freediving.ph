@@ -197,6 +197,137 @@ func TestNotifyDiveSiteApprovedFansOutToOptedInUsersAndExcludesSubmitterFromPubl
 	}
 }
 
+func TestNotifyChikaThreadCommentedUsesPseudonymousSafePayload(t *testing.T) {
+	repo := newNotificationRepoStub()
+	recipientID := "550e8400-e29b-41d4-a716-446655440101"
+	svc := New(repo)
+
+	err := svc.NotifyChikaThreadCommented(context.Background(), ChikaThreadCommentedInput{
+		ThreadID:         "550e8400-e29b-41d4-a716-446655440201",
+		ThreadTitle:      "Depth talk",
+		CommentID:        44,
+		RecipientUserID:  recipientID,
+		ActorDisplayName: "Blue Fin",
+		Pseudonymous:     true,
+	})
+	if err != nil {
+		t.Fatalf("NotifyChikaThreadCommented returned error: %v", err)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one notification, got %d", len(repo.created))
+	}
+	created := repo.created[0]
+	if created.Type != "CHIKA_THREAD_COMMENTED" || created.UserID != recipientID {
+		t.Fatalf("unexpected notification: type=%s user=%s", created.Type, created.UserID)
+	}
+	if created.ActorUserID != nil {
+		t.Fatal("Chika notification must not expose real actor user id")
+	}
+	if _, ok := created.Metadata["authorUserId"]; ok {
+		t.Fatal("Chika notification metadata must not expose authorUserId")
+	}
+	if got := created.Metadata["actorLabel"]; got != "Blue Fin" {
+		t.Fatalf("expected pseudonymous actor label, got %v", got)
+	}
+	if got := created.Metadata["pseudonymous"]; got != true {
+		t.Fatalf("expected pseudonymous metadata marker, got %v", got)
+	}
+}
+
+func TestNotifyChikaThreadCommentedHonorsOptOut(t *testing.T) {
+	repo := newNotificationRepoStub()
+	recipientID := "550e8400-e29b-41d4-a716-446655440101"
+	repo.chikaRepliesEnabled = map[string]bool{recipientID: false}
+	svc := New(repo)
+
+	err := svc.NotifyChikaThreadCommented(context.Background(), ChikaThreadCommentedInput{
+		ThreadID:         "550e8400-e29b-41d4-a716-446655440201",
+		CommentID:        44,
+		RecipientUserID:  recipientID,
+		ActorDisplayName: "Blue Fin",
+		Pseudonymous:     true,
+	})
+	if err != nil {
+		t.Fatalf("NotifyChikaThreadCommented returned error: %v", err)
+	}
+	if len(repo.created) != 0 {
+		t.Fatalf("expected opt-out to prevent notification row, got %d", len(repo.created))
+	}
+}
+
+func TestNotifyGroupPostCreatedUsesActiveOptedInRecipients(t *testing.T) {
+	repo := newNotificationRepoStub()
+	groupID := "550e8400-e29b-41d4-a716-446655440301"
+	authorID := "550e8400-e29b-41d4-a716-446655440302"
+	recipientID := "550e8400-e29b-41d4-a716-446655440303"
+	repo.groupPostRecipients = map[string][]string{groupID: []string{authorID, recipientID}}
+	svc := New(repo)
+
+	err := svc.NotifyGroupPostCreated(context.Background(), GroupPostCreatedInput{
+		GroupID:      groupID,
+		GroupName:    "Batangas Line Divers",
+		PostID:       "550e8400-e29b-41d4-a716-446655440304",
+		PostTitle:    "Training this weekend",
+		AuthorUserID: authorID,
+	})
+	if err != nil {
+		t.Fatalf("NotifyGroupPostCreated returned error: %v", err)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one notification, got %d", len(repo.created))
+	}
+	if repo.created[0].Type != "GROUP_POST_CREATED" || repo.created[0].UserID != recipientID {
+		t.Fatalf("unexpected group notification: type=%s user=%s", repo.created[0].Type, repo.created[0].UserID)
+	}
+}
+
+func TestNotifyGroupInviteReceivedTargetsInviteeOnly(t *testing.T) {
+	repo := newNotificationRepoStub()
+	svc := New(repo)
+	groupID := "550e8400-e29b-41d4-a716-446655440305"
+	inviterID := "550e8400-e29b-41d4-a716-446655440306"
+	inviteeID := "550e8400-e29b-41d4-a716-446655440307"
+
+	err := svc.NotifyGroupInviteReceived(context.Background(), GroupInviteReceivedInput{
+		GroupID:       groupID,
+		GroupName:     "Batangas Line Divers",
+		InviterUserID: inviterID,
+		InvitedUserID: inviteeID,
+	})
+	if err != nil {
+		t.Fatalf("NotifyGroupInviteReceived returned error: %v", err)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one invite notification, got %d", len(repo.created))
+	}
+	if repo.created[0].Type != "GROUP_INVITE_RECEIVED" || repo.created[0].UserID != inviteeID {
+		t.Fatalf("unexpected invite notification: type=%s user=%s", repo.created[0].Type, repo.created[0].UserID)
+	}
+	if _, ok := repo.created[0].Metadata["inviterUserId"]; ok {
+		t.Fatal("group invite notification metadata should not expose inviterUserId")
+	}
+}
+
+func TestNotifyEventAttendeeJoinedHonorsOrganizerSetting(t *testing.T) {
+	repo := newNotificationRepoStub()
+	organizerID := "550e8400-e29b-41d4-a716-446655440401"
+	repo.eventNotificationsEnabled = map[string]bool{organizerID: false}
+	svc := New(repo)
+
+	err := svc.NotifyEventAttendeeJoined(context.Background(), EventAttendeeJoinedInput{
+		EventID:         "550e8400-e29b-41d4-a716-446655440402",
+		EventTitle:      "Pool session",
+		OrganizerUserID: organizerID,
+		AttendeeUserID:  "550e8400-e29b-41d4-a716-446655440403",
+	})
+	if err != nil {
+		t.Fatalf("NotifyEventAttendeeJoined returned error: %v", err)
+	}
+	if len(repo.created) != 0 {
+		t.Fatalf("expected event opt-out to prevent notification row, got %d", len(repo.created))
+	}
+}
+
 func TestNotifyDiveSiteApprovedIsIdempotentOnRetry(t *testing.T) {
 	repo := newNotificationRepoStub()
 	submitterID := "550e8400-e29b-41d4-a716-446655440001"
@@ -449,6 +580,12 @@ type notificationRepoStub struct {
 	nextID                               int64
 	newDiveSiteRecipients                []string
 	excludedNewDiveSiteRecipientIDs      map[string]bool
+	chikaRepliesEnabled                  map[string]bool
+	eventNotificationsEnabled            map[string]bool
+	groupInviteNotificationsEnabled      map[string]bool
+	groupPostRecipients                  map[string][]string
+	groupEventRecipients                 map[string][]string
+	eventAttendeeRecipients              map[string][]string
 	notificationsByUserAndIdempotencyKey map[string]notificationsrepo.Notification
 	claimedOutbox                        []notificationsrepo.NotificationOutbox
 	listedOutbox                         []notificationsrepo.NotificationOutbox
@@ -601,6 +738,51 @@ func (r *notificationRepoStub) ListActiveNewDiveSiteRecipients(_ context.Context
 	return recipients, nil
 }
 
+func (r *notificationRepoStub) ChikaRepliesEnabled(_ context.Context, userID string) (bool, error) {
+	if r.chikaRepliesEnabled == nil {
+		return true, nil
+	}
+	enabled, ok := r.chikaRepliesEnabled[userID]
+	if !ok {
+		return true, nil
+	}
+	return enabled, nil
+}
+
+func (r *notificationRepoStub) EventNotificationsEnabled(_ context.Context, userID string) (bool, error) {
+	if r.eventNotificationsEnabled == nil {
+		return true, nil
+	}
+	enabled, ok := r.eventNotificationsEnabled[userID]
+	if !ok {
+		return true, nil
+	}
+	return enabled, nil
+}
+
+func (r *notificationRepoStub) GroupInviteNotificationsEnabled(_ context.Context, userID string) (bool, error) {
+	if r.groupInviteNotificationsEnabled == nil {
+		return true, nil
+	}
+	enabled, ok := r.groupInviteNotificationsEnabled[userID]
+	if !ok {
+		return true, nil
+	}
+	return enabled, nil
+}
+
+func (r *notificationRepoStub) ListGroupPostRecipients(_ context.Context, groupID, excludeUserID string) ([]string, error) {
+	return filteredRecipients(r.groupPostRecipients[groupID], excludeUserID), nil
+}
+
+func (r *notificationRepoStub) ListGroupEventRecipients(_ context.Context, groupID, excludeUserID string) ([]string, error) {
+	return filteredRecipients(r.groupEventRecipients[groupID], excludeUserID), nil
+}
+
+func (r *notificationRepoStub) ListEventAttendeeRecipients(_ context.Context, eventID, excludeUserID string) ([]string, error) {
+	return filteredRecipients(r.eventAttendeeRecipients[eventID], excludeUserID), nil
+}
+
 func (r *notificationRepoStub) ClaimPendingOutbox(context.Context, time.Time, int) ([]notificationsrepo.NotificationOutbox, error) {
 	return r.claimedOutbox, nil
 }
@@ -651,6 +833,17 @@ func derefString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func filteredRecipients(values []string, excludeUserID string) []string {
+	recipients := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == excludeUserID {
+			continue
+		}
+		recipients = append(recipients, value)
+	}
+	return recipients
 }
 
 func ptr[T any](v T) *T { return &v }

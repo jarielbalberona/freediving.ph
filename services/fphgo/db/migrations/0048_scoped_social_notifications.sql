@@ -1,0 +1,19 @@
+-- +goose Up
+-- +goose NO TRANSACTION
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'CHIKA_THREAD_COMMENTED';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'CHIKA_COMMENT_REPLIED';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'GROUP_INVITE_RECEIVED';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'GROUP_POST_CREATED';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'EVENT_CREATED_FOR_GROUP';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'EVENT_ATTENDEE_JOINED';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'EVENT_UPDATED';
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'EVENT_CANCELLED';
+
+ALTER TABLE notification_settings
+  ADD COLUMN IF NOT EXISTS chika_replies BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- +goose Down
+ALTER TABLE notification_settings
+  DROP COLUMN IF EXISTS chika_replies;
+
+-- notification_type enum values cannot be removed safely in PostgreSQL.

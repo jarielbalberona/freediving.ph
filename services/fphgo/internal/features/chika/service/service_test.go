@@ -6,6 +6,7 @@ import (
 	"time"
 
 	chikarepo "fphgo/internal/features/chika/repo"
+	notificationsservice "fphgo/internal/features/notifications/service"
 	"fphgo/internal/realtime/ws"
 )
 
@@ -182,3 +183,161 @@ func TestCommentReactionMutationsReturnFreshStateAndBroadcastAggregate(t *testin
 	assertCommentReactionState(t, downvoted, -1, "downvote")
 	assertLastBroadcastVoteCount(t, rt, -1)
 }
+
+func TestCreateCommentNotifiesThreadOwnerWithPseudonymousLabel(t *testing.T) {
+	const (
+		threadID  = "550e8400-e29b-41d4-a716-446655441010"
+		ownerID   = "550e8400-e29b-41d4-a716-446655441011"
+		actorID   = "550e8400-e29b-41d4-a716-446655441012"
+		commentID = int64(77)
+	)
+	repo := &chikaRepoStub{
+		thread: chikarepo.Thread{
+			ID:              threadID,
+			Title:           "Mabini line check",
+			Mode:            "pseudonymous",
+			Pseudonymous:    true,
+			CreatedByUserID: ownerID,
+		},
+		createdComment: chikarepo.Comment{
+			ID:           commentID,
+			ThreadID:     threadID,
+			AuthorUserID: actorID,
+			Pseudonym:    "Blue Fin",
+			Content:      "Safe conditions today.",
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+	}
+	rt := &chikaRealtimeCapture{}
+	notifications := &chikaNotificationCapture{}
+	svc := New(repo, blockCheckerStub{}, WithRealtimeBroadcaster(rt), WithNotifications(notifications))
+
+	if _, err := svc.CreateComment(context.Background(), CreateCommentInput{
+		ThreadID: threadID,
+		UserID:   actorID,
+		Content:  "Safe conditions today.",
+	}); err != nil {
+		t.Fatalf("CreateComment returned error: %v", err)
+	}
+	if len(notifications.threadComments) != 1 {
+		t.Fatalf("expected one thread owner notification, got %d", len(notifications.threadComments))
+	}
+	got := notifications.threadComments[0]
+	if got.RecipientUserID != ownerID {
+		t.Fatalf("expected owner recipient %s, got %s", ownerID, got.RecipientUserID)
+	}
+	if got.ActorDisplayName != "Blue Fin" || !got.Pseudonymous {
+		t.Fatalf("expected pseudonymous actor label, got label=%q pseudonymous=%v", got.ActorDisplayName, got.Pseudonymous)
+	}
+	for _, event := range rt.events {
+		payload, ok := event.Payload.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, ok := payload["authorUserId"]; ok {
+			t.Fatal("Chika realtime comment payload must not expose authorUserId")
+		}
+	}
+}
+
+func TestCreateCommentDoesNotNotifyCommenter(t *testing.T) {
+	const (
+		threadID = "550e8400-e29b-41d4-a716-446655441020"
+		actorID  = "550e8400-e29b-41d4-a716-446655441021"
+	)
+	repo := &chikaRepoStub{
+		thread: chikarepo.Thread{
+			ID:              threadID,
+			Mode:            "normal",
+			CreatedByUserID: actorID,
+		},
+	}
+	notifications := &chikaNotificationCapture{}
+	svc := New(repo, blockCheckerStub{}, WithNotifications(notifications))
+
+	if _, err := svc.CreateComment(context.Background(), CreateCommentInput{
+		ThreadID: threadID,
+		UserID:   actorID,
+		Content:  "self comment",
+	}); err != nil {
+		t.Fatalf("CreateComment returned error: %v", err)
+	}
+	if len(notifications.threadComments) != 0 || len(notifications.commentReplies) != 0 {
+		t.Fatalf("expected no self-notification, got thread=%d replies=%d", len(notifications.threadComments), len(notifications.commentReplies))
+	}
+}
+
+func TestCreateCommentReplyNotifiesParentOnly(t *testing.T) {
+	const (
+		threadID        = "550e8400-e29b-41d4-a716-446655441030"
+		threadOwnerID   = "550e8400-e29b-41d4-a716-446655441031"
+		replierID       = "550e8400-e29b-41d4-a716-446655441032"
+		parentCommentID = int64(55)
+		replyCommentID  = int64(56)
+	)
+	repo := &chikaRepoStub{
+		thread: chikarepo.Thread{
+			ID:              threadID,
+			Title:           "Pool line",
+			Mode:            "normal",
+			CreatedByUserID: threadOwnerID,
+		},
+		comments: map[int64]chikarepo.Comment{
+			parentCommentID: {
+				ID:           parentCommentID,
+				ThreadID:     threadID,
+				AuthorUserID: threadOwnerID,
+				Content:      "Parent",
+			},
+		},
+		createdComment: chikarepo.Comment{
+			ID:           replyCommentID,
+			ThreadID:     threadID,
+			ParentID:     ptr(parentCommentID),
+			AuthorUserID: replierID,
+			Content:      "Reply",
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+		usernameByID: map[string]string{replierID: "linebuddy"},
+	}
+	notifications := &chikaNotificationCapture{}
+	svc := New(repo, blockCheckerStub{}, WithNotifications(notifications))
+
+	if _, err := svc.CreateComment(context.Background(), CreateCommentInput{
+		ThreadID:        threadID,
+		UserID:          replierID,
+		Content:         "Reply",
+		ParentCommentID: ptr(parentCommentID),
+	}); err != nil {
+		t.Fatalf("CreateComment returned error: %v", err)
+	}
+	if len(notifications.commentReplies) != 1 {
+		t.Fatalf("expected one reply notification, got %d", len(notifications.commentReplies))
+	}
+	if len(notifications.threadComments) != 0 {
+		t.Fatalf("expected no duplicate thread owner notification, got %d", len(notifications.threadComments))
+	}
+	got := notifications.commentReplies[0]
+	if got.RecipientUserID != threadOwnerID || got.ActorDisplayName != "linebuddy" {
+		t.Fatalf("unexpected reply notification recipient=%s actor=%s", got.RecipientUserID, got.ActorDisplayName)
+	}
+}
+
+type chikaNotificationCapture struct {
+	threadComments []notificationsservice.ChikaThreadCommentedInput
+	commentReplies []notificationsservice.ChikaCommentRepliedInput
+}
+
+func (c *chikaNotificationCapture) NotifyChikaThreadCommented(_ context.Context, input notificationsservice.ChikaThreadCommentedInput) error {
+	c.threadComments = append(c.threadComments, input)
+	return nil
+}
+
+func (c *chikaNotificationCapture) NotifyChikaCommentReplied(_ context.Context, input notificationsservice.ChikaCommentRepliedInput) error {
+	c.commentReplies = append(c.commentReplies, input)
+	return nil
+}
+
+func ptr[T any](value T) *T { return &value }

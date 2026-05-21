@@ -5,6 +5,7 @@ import type {
   CreateGroupRequest,
   UpdateGroupRequest,
   JoinGroupRequest,
+  InviteGroupMemberRequest,
   CreateGroupPostRequest,
 } from "@freediving.ph/types";
 
@@ -71,6 +72,60 @@ export const useLeaveGroup = () => {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.groups.members(variables.groupId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.all });
+    },
+  });
+};
+
+export const useInviteGroupMember = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: InviteGroupMemberRequest) =>
+      groupsApi.inviteMember(data),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.detail(variables.groupId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.members(variables.groupId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.all });
+    },
+  });
+};
+
+export const useAcceptGroupInvite = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ groupId }: { groupId: string }) =>
+      groupsApi.acceptInvite(groupId),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.detail(variables.groupId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.members(variables.groupId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.all });
+    },
+  });
+};
+
+export const useRejectGroupInvite = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ groupId }: { groupId: string }) =>
+      groupsApi.rejectInvite(groupId),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.groups.detail(variables.groupId),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.lists() });
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.all });

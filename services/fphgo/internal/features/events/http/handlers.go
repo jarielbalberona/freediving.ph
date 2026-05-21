@@ -127,6 +127,11 @@ func (h *Handlers) CreateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) UpdateEvent(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
 	eventID := chi.URLParam(r, "eventId")
 	req, issues, ok := httpx.DecodeAndValidate[UpdateEventRequest](r, h.validator)
 	if !ok {
@@ -151,7 +156,7 @@ func (h *Handlers) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		}})
 		return
 	}
-	event, err := h.service.UpdateEvent(r.Context(), eventID, eventsrepo.UpdateEventInput{
+	event, err := h.service.UpdateEvent(r.Context(), eventID, actorID, eventsrepo.UpdateEventInput{
 		Title:            req.Title,
 		Description:      req.Description,
 		Location:         req.Location,
