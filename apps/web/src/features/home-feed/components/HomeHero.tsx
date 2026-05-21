@@ -36,10 +36,10 @@ export function HomeHero({
         </Badge>
       </div>
       <div>
-        <h1 className="text-2xl font-medium tracking-tight">
+        <h1 className="text-lg font-medium tracking-tight">
           {context.greeting}
         </h1>
-        <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+        <p className="mt-1 max-w-xl text-xs text-muted-foreground">
           {context.message}
         </p>
       </div>

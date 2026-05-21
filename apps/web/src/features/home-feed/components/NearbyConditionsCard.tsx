@@ -165,22 +165,22 @@ export function NearbyConditionsCard() {
               <p className="text-sm font-semibold sm:text-base">
                 Nearby conditions
               </p>
-              <Badge variant="outline" className="px-2 text-[11px]">
+              <Badge variant="outline" className="px-2 text-xs font-normal">
                 {sourceLabel[conditions.source]}
               </Badge>
             </div>
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              className="h-8 shrink-0 gap-1.5 px-2.5"
+              size="xs"
+              className="h-7 shrink-0 gap-1.5 px-2.5 text-xs"
               onClick={requestLocalConditions}
               disabled={geoState === "locating"}
             >
               {geoState === "locating" ? (
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <RefreshCw className="h-3 w-3 animate-spin" />
               ) : (
-                <LocateFixed className="h-3.5 w-3.5" />
+                <LocateFixed className="h-3 w-3" />
               )}
               <span>
                 {geoState === "locating" ? "Checking" : "Check locally"}

@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
-import { Activity, MapPin, Plus, Users } from "lucide-react";
+import {
+  Activity,
+  CalendarDays,
+  Compass,
+  MessageCircle,
+  Plus,
+  Users,
+} from "lucide-react";
 import type { ComponentType } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -15,13 +22,20 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   log_dive: Plus,
   log_training: Activity,
   find_buddy: Users,
-  explore_spots: MapPin,
+  explore_spots: Compass,
   create_session: Activity,
   report_conditions: Activity,
-  join_event: Users,
+  join_event: CalendarDays,
   post_update: Plus,
-  open_chika: Users,
+  open_chika: MessageCircle,
   share_progress: Plus,
+};
+
+const labelMap: Record<string, string> = {
+  find_buddy: "Buddies",
+  explore_spots: "Explore",
+  open_chika: "Chika",
+  join_event: "Events",
 };
 
 const hrefMap: Record<string, string> = {
@@ -67,7 +81,9 @@ export function HomeQuickActions({
               )}
             >
               <Icon className="h-3.5 w-3.5" />
-              <span className="min-w-0 truncate font-medium">{action.label}</span>
+              <span className="min-w-0 truncate font-medium">
+                {labelMap[action.type] ?? action.label}
+              </span>
             </Link>
           );
         })}
