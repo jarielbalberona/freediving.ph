@@ -3,7 +3,6 @@ import type {
   Notification,
   NotificationSettings,
   NotificationStats,
-  CreateNotificationRequest,
   UpdateNotificationSettingsRequest,
   NotificationFilters
 } from '@freediving.ph/types';
@@ -41,11 +40,6 @@ export const notificationsApi = {
 
   getNotificationById: async (notificationId: number): Promise<Notification> => {
     const response = await axiosInstance.get<Notification>(`/v1/notifications/${notificationId}`);
-    return response.data;
-  },
-
-  createNotification: async (data: CreateNotificationRequest): Promise<Notification> => {
-    const response = await axiosInstance.post<Notification>('/v1/notifications', data);
     return response.data;
   },
 

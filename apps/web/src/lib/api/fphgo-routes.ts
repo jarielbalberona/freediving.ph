@@ -6,6 +6,7 @@ export const routes = {
     session: () => "/v1/auth/session",
     messages: {
       threads: () => "/v1/messages/threads",
+      unreadCount: () => "/v1/messages/unread-count",
       threadById: (threadId: string | number) =>
         `/v1/messages/threads/${toPathId(threadId)}`,
       threadMessages: (threadId: string | number) =>

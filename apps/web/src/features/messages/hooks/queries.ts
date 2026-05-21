@@ -8,6 +8,15 @@ import { currentMessagePerfTime, logMessagingPerf } from "../lib/perf";
 
 export const messageQueryKeys = queryKeys.messages;
 
+export const useMessageUnreadCount = (enabled = true) => {
+  return useQuery({
+    queryKey: messageQueryKeys.unreadCount(),
+    queryFn: () => messagesApi.getUnreadCount(),
+    enabled,
+    staleTime: 30_000,
+  });
+};
+
 export const useThreadList = (
   category: MessagingThreadCategory,
   q: string,

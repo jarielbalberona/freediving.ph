@@ -260,3 +260,6 @@ func (s *threadRepoStub) ArchiveThreadForUser(_ context.Context, threadID, userI
 	s.archived = true
 	return nil
 }
+func (s *threadRepoStub) CountUnreadMessages(context.Context, string) (int64, error) {
+	return 0, nil
+}

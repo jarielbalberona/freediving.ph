@@ -122,6 +122,10 @@ type ListThreadsResponse struct {
 	NextCursor string              `json:"nextCursor,omitempty"`
 }
 
+type MessageUnreadCountResponse struct {
+	UnreadCount int64 `json:"unreadCount"`
+}
+
 type ThreadParticipantItem struct {
 	ID          string `json:"id"`
 	Username    string `json:"username"`

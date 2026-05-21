@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	buddyfinderservice "fphgo/internal/features/buddyfinder/service"
 	explorerepo "fphgo/internal/features/explore/repo"
 	feedservice "fphgo/internal/features/feed/service"
+	notificationsservice "fphgo/internal/features/notifications/service"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/mediasign"
 	"fphgo/internal/shared/pagination"
@@ -22,13 +24,14 @@ import (
 )
 
 type Service struct {
-	repo        repository
-	buddies     buddyMatcher
-	limiter     rateLimiter
-	geocoder    reverseGeocoder
-	activity    activityPublisher
-	feed        activityFeed
-	mediaSigner *mediasign.Signer
+	repo          repository
+	buddies       buddyMatcher
+	limiter       rateLimiter
+	geocoder      reverseGeocoder
+	activity      activityPublisher
+	feed          activityFeed
+	notifications notificationPublisher
+	mediaSigner   *mediasign.Signer
 }
 
 type repository interface {
@@ -104,6 +107,11 @@ type activityFeed interface {
 	CountActivity(ctx context.Context, input feedservice.ActivityInput) (int64, error)
 }
 
+type notificationPublisher interface {
+	NotifyDiveSiteRejected(ctx context.Context, input notificationsservice.DiveSiteRejectedInput) error
+	ProcessDueOutbox(ctx context.Context, limit int) (notificationsservice.OutboxProcessResult, error)
+}
+
 type noopLimiter struct{}
 
 func (noopLimiter) Allow(context.Context, string, string, int, time.Duration) (sharedratelimit.Result, error) {
@@ -151,6 +159,12 @@ func WithActivityPublisher(publisher activityPublisher) Option {
 func WithActivityFeed(feed activityFeed) Option {
 	return func(s *Service) {
 		s.feed = feed
+	}
+}
+
+func WithNotifications(notifications notificationPublisher) Option {
+	return func(s *Service) {
+		s.notifications = notifications
 	}
 }
 
@@ -1992,6 +2006,15 @@ func (s *Service) moderateSite(ctx context.Context, input ModerateSiteInput, app
 			return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_approve_failed", "failed to approve dive site", approveErr)
 		}
 		item.SubmittedByDisplayName = site.SubmittedByDisplayName
+		if s.notifications != nil {
+			if _, err := s.notifications.ProcessDueOutbox(ctx, 10); err != nil {
+				slog.Default().Warn("explore.approved_site_outbox_process_failed",
+					slog.String("site_id", item.ID),
+					slog.String("submitter_user_id", item.SubmittedByAppUserID),
+					slog.Any("error", err),
+				)
+			}
+		}
 		return item, nil
 	}
 	item, rejectErr := s.repo.RejectOrHideSite(ctx, input.SiteID, input.ActorID, reviewedAt, reason)
@@ -1999,6 +2022,20 @@ func (s *Service) moderateSite(ctx context.Context, input ModerateSiteInput, app
 		return explorerepo.SiteSubmission{}, apperrors.New(http.StatusInternalServerError, "site_reject_failed", "failed to reject dive site", rejectErr)
 	}
 	item.SubmittedByDisplayName = site.SubmittedByDisplayName
+	if s.notifications != nil {
+		if err := s.notifications.NotifyDiveSiteRejected(ctx, notificationsservice.DiveSiteRejectedInput{
+			SiteID:          item.ID,
+			Name:            item.Name,
+			SubmitterUserID: item.SubmittedByAppUserID,
+			ReviewerUserID:  input.ActorID,
+		}); err != nil {
+			slog.Default().Warn("explore.rejected_site_notification_failed",
+				slog.String("site_id", item.ID),
+				slog.String("submitter_user_id", item.SubmittedByAppUserID),
+				slog.Any("error", err),
+			)
+		}
+	}
 	return item, nil
 }
 

@@ -532,10 +532,12 @@ type Notification struct {
 	ID                int64              `db:"id" json:"id"`
 	UserID            pgtype.UUID        `db:"user_id" json:"user_id"`
 	Type              interface{}        `db:"type" json:"type"`
+	Category          string             `db:"category" json:"category"`
 	Title             string             `db:"title" json:"title"`
 	Message           string             `db:"message" json:"message"`
 	Status            interface{}        `db:"status" json:"status"`
 	Priority          interface{}        `db:"priority" json:"priority"`
+	ActorUserID       pgtype.UUID        `db:"actor_user_id" json:"actor_user_id"`
 	RelatedUserID     pgtype.UUID        `db:"related_user_id" json:"related_user_id"`
 	RelatedEntityType *string            `db:"related_entity_type" json:"related_entity_type"`
 	RelatedEntityID   *string            `db:"related_entity_id" json:"related_entity_id"`
@@ -547,9 +549,27 @@ type Notification struct {
 	EmailSentAt       pgtype.Timestamptz `db:"email_sent_at" json:"email_sent_at"`
 	PushSentAt        pgtype.Timestamptz `db:"push_sent_at" json:"push_sent_at"`
 	ReadAt            pgtype.Timestamptz `db:"read_at" json:"read_at"`
+	SeenAt            pgtype.Timestamptz `db:"seen_at" json:"seen_at"`
 	ArchivedAt        pgtype.Timestamptz `db:"archived_at" json:"archived_at"`
+	IdempotencyKey    *string            `db:"idempotency_key" json:"idempotency_key"`
 	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type NotificationOutbox struct {
+	ID             pgtype.UUID        `db:"id" json:"id"`
+	EventType      string             `db:"event_type" json:"event_type"`
+	AggregateType  string             `db:"aggregate_type" json:"aggregate_type"`
+	AggregateID    pgtype.UUID        `db:"aggregate_id" json:"aggregate_id"`
+	Payload        []byte             `db:"payload" json:"payload"`
+	Status         string             `db:"status" json:"status"`
+	Attempts       int32              `db:"attempts" json:"attempts"`
+	NextRetryAt    pgtype.Timestamptz `db:"next_retry_at" json:"next_retry_at"`
+	LastError      *string            `db:"last_error" json:"last_error"`
+	IdempotencyKey string             `db:"idempotency_key" json:"idempotency_key"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ProcessedAt    pgtype.Timestamptz `db:"processed_at" json:"processed_at"`
 }
 
 type NotificationSetting struct {
@@ -573,6 +593,7 @@ type NotificationSetting struct {
 	EventReminderNotifications bool               `db:"event_reminder_notifications" json:"event_reminder_notifications"`
 	PaymentNotifications       bool               `db:"payment_notifications" json:"payment_notifications"`
 	SecurityNotifications      bool               `db:"security_notifications" json:"security_notifications"`
+	NewDiveSitePublished       bool               `db:"new_dive_site_published" json:"new_dive_site_published"`
 	DigestFrequency            interface{}        `db:"digest_frequency" json:"digest_frequency"`
 	QuietHoursStart            *string            `db:"quiet_hours_start" json:"quiet_hours_start"`
 	QuietHoursEnd              *string            `db:"quiet_hours_end" json:"quiet_hours_end"`

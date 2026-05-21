@@ -19,6 +19,7 @@ import {
 import { ModeSwitcher } from "@/components/ui/mode-switcher";
 import { NotificationCenter } from "@/components/nav/notification-center";
 import { NavUser } from "@/components/ui/nav-user";
+import { NotificationRealtimeProvider } from "@/features/notifications/components/NotificationRealtimeProvider";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLogo } from "@/components/ui/app-logo";
@@ -124,6 +125,7 @@ export default function RootLayout({
           >
             <ReactQueryProvider>
               <TooltipProvider>
+                <NotificationRealtimeProvider />
                 <SidebarProvider>
                   <AppSidebar />
                   <SidebarInset>

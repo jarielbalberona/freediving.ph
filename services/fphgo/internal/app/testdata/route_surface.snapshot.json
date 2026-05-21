@@ -449,6 +449,10 @@
       "pattern": "/v1/messages/threads/{threadId}/read"
     },
     {
+      "method": "GET",
+      "pattern": "/v1/messages/unread-count"
+    },
+    {
       "method": "POST",
       "pattern": "/v1/moderation/chika/comments/{commentId}/hide"
     },

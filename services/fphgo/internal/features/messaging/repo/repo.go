@@ -499,6 +499,22 @@ func (r *Repo) ListThreads(ctx context.Context, input ListThreadsInput) ([]Threa
 	return items, nil
 }
 
+func (r *Repo) CountUnreadMessages(ctx context.Context, userID string) (int64, error) {
+	var count int64
+	err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*)::bigint
+		FROM message_thread_members m
+		JOIN thread_messages tm ON tm.thread_id = m.thread_id
+		WHERE m.user_id = $1
+		  AND m.left_at IS NULL
+		  AND m.is_archived = FALSE
+		  AND tm.deleted_at IS NULL
+		  AND tm.sender_user_id <> $1
+		  AND tm.created_at > COALESCE(m.last_read_at, 'epoch'::timestamptz)
+	`, toUUID(userID)).Scan(&count)
+	return count, err
+}
+
 func (r *Repo) GetThread(ctx context.Context, threadID, userID string) (Thread, error) {
 	row, err := r.queries.GetThreadDetail(ctx, messagingqlc.GetThreadDetailParams{
 		ID:     toUUID(threadID),

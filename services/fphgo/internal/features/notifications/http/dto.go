@@ -2,7 +2,8 @@ package http
 
 type CreateNotificationRequest struct {
 	UserID            string         `json:"userId" validate:"required,uuid"`
-	Type              string         `json:"type" validate:"required,oneof=SYSTEM MESSAGE EVENT GROUP SERVICE BOOKING REVIEW MENTION LIKE COMMENT FRIEND_REQUEST GROUP_INVITE EVENT_REMINDER PAYMENT SECURITY"`
+	Type              string         `json:"type" validate:"required,oneof=SYSTEM MESSAGE EVENT GROUP SERVICE BOOKING REVIEW MENTION LIKE COMMENT FRIEND_REQUEST GROUP_INVITE EVENT_REMINDER PAYMENT SECURITY NEW_DIVE_SITE_PUBLISHED"`
+	Category          string         `json:"category,omitempty" validate:"omitempty,max=80"`
 	Title             string         `json:"title" validate:"required,max=255"`
 	Message           string         `json:"message" validate:"required,max=2000"`
 	Priority          string         `json:"priority,omitempty" validate:"omitempty,oneof=LOW NORMAL HIGH URGENT"`
@@ -10,7 +11,7 @@ type CreateNotificationRequest struct {
 	RelatedEntityType *string        `json:"relatedEntityType,omitempty" validate:"omitempty,max=100"`
 	RelatedEntityID   *string        `json:"relatedEntityId,omitempty" validate:"omitempty,max=100"`
 	ImageURL          *string        `json:"imageUrl,omitempty" validate:"omitempty,url"`
-	ActionURL         *string        `json:"actionUrl,omitempty" validate:"omitempty,url"`
+	ActionURL         *string        `json:"actionUrl,omitempty" validate:"omitempty,max=2048"`
 	Metadata          map[string]any `json:"metadata,omitempty"`
 }
 
@@ -18,10 +19,12 @@ type Notification struct {
 	ID                int64          `json:"id"`
 	UserID            string         `json:"userId"`
 	Type              string         `json:"type"`
+	Category          string         `json:"category"`
 	Title             string         `json:"title"`
 	Message           string         `json:"message"`
 	Status            string         `json:"status"`
 	Priority          string         `json:"priority"`
+	ActorUserID       *string        `json:"actorUserId,omitempty"`
 	RelatedUserID     *string        `json:"relatedUserId,omitempty"`
 	RelatedEntityType *string        `json:"relatedEntityType,omitempty"`
 	RelatedEntityID   *string        `json:"relatedEntityId,omitempty"`
@@ -33,7 +36,9 @@ type Notification struct {
 	EmailSentAt       *string        `json:"emailSentAt,omitempty"`
 	PushSentAt        *string        `json:"pushSentAt,omitempty"`
 	ReadAt            *string        `json:"readAt,omitempty"`
+	SeenAt            *string        `json:"seenAt,omitempty"`
 	ArchivedAt        *string        `json:"archivedAt,omitempty"`
+	IdempotencyKey    *string        `json:"idempotencyKey,omitempty"`
 	CreatedAt         string         `json:"createdAt"`
 	UpdatedAt         string         `json:"updatedAt"`
 }
@@ -73,6 +78,7 @@ type NotificationSettings struct {
 	EventReminderNotifications bool    `json:"eventReminderNotifications"`
 	PaymentNotifications       bool    `json:"paymentNotifications"`
 	SecurityNotifications      bool    `json:"securityNotifications"`
+	NewDiveSitePublished       bool    `json:"newDiveSitePublished"`
 	DigestFrequency            string  `json:"digestFrequency"`
 	QuietHoursStart            *string `json:"quietHoursStart,omitempty"`
 	QuietHoursEnd              *string `json:"quietHoursEnd,omitempty"`
@@ -100,6 +106,7 @@ type UpdateNotificationSettingsRequest struct {
 	EventReminderNotifications *bool   `json:"eventReminderNotifications,omitempty"`
 	PaymentNotifications       *bool   `json:"paymentNotifications,omitempty"`
 	SecurityNotifications      *bool   `json:"securityNotifications,omitempty"`
+	NewDiveSitePublished       *bool   `json:"newDiveSitePublished,omitempty"`
 	DigestFrequency            *string `json:"digestFrequency,omitempty" validate:"omitempty,oneof=IMMEDIATE DAILY WEEKLY NEVER"`
 	QuietHoursStart            *string `json:"quietHoursStart,omitempty" validate:"omitempty,max=5"`
 	QuietHoursEnd              *string `json:"quietHoursEnd,omitempty" validate:"omitempty,max=5"`

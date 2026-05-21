@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	exploreqlc "fphgo/internal/features/explore/repo/sqlc"
+	notificationsrepo "fphgo/internal/features/notifications/repo"
 )
 
 type Repo struct {
@@ -627,7 +628,14 @@ func (r *Repo) GetSiteByIDForModeration(ctx context.Context, id string) (SiteSub
 }
 
 func (r *Repo) ApproveSite(ctx context.Context, id, slug, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (SiteSubmission, error) {
-	row, err := r.queries.ApproveSite(ctx, exploreqlc.ApproveSiteParams{
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return SiteSubmission{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	q := r.queries.WithTx(tx)
+	row, err := q.ApproveSite(ctx, exploreqlc.ApproveSiteParams{
 		Slug:                slug,
 		ReviewedByAppUserID: toUUID(reviewedByAppUserID),
 		ReviewedAt:          timestamptz(reviewedAt),
@@ -637,7 +645,27 @@ func (r *Repo) ApproveSite(ctx context.Context, id, slug, reviewedByAppUserID st
 	if err != nil {
 		return SiteSubmission{}, err
 	}
-	return mapDiveSiteSubmission(row, "", ""), nil
+	item := mapDiveSiteSubmission(row, "", "")
+	if _, err := notificationsrepo.EnqueueOutboxWithExecutor(ctx, tx, notificationsrepo.OutboxEnqueueInput{
+		EventType:     notificationsrepo.OutboxEventNewDiveSitePublished,
+		AggregateType: "dive_site",
+		AggregateID:   item.ID,
+		Payload: map[string]any{
+			"siteId":          item.ID,
+			"slug":            item.Slug,
+			"name":            item.Name,
+			"area":            item.Area,
+			"submitterUserId": item.SubmittedByAppUserID,
+			"reviewerUserId":  reviewedByAppUserID,
+		},
+		IdempotencyKey: "explore:site:" + item.ID + ":published",
+	}); err != nil {
+		return SiteSubmission{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return SiteSubmission{}, err
+	}
+	return item, nil
 }
 
 func (r *Repo) RejectOrHideSite(ctx context.Context, id, reviewedByAppUserID string, reviewedAt time.Time, moderationReason *string) (SiteSubmission, error) {

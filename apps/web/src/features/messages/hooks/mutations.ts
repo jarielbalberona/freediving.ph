@@ -140,6 +140,7 @@ export const useSendThreadMessage = (actorId?: string) => {
       );
 
       queryClient.invalidateQueries({ queryKey: messageQueryKeys.threads() });
+      queryClient.invalidateQueries({ queryKey: messageQueryKeys.unreadCount() });
     },
   });
 };
@@ -188,6 +189,7 @@ export const useMarkThreadRead = () => {
           };
         },
       );
+      queryClient.invalidateQueries({ queryKey: messageQueryKeys.unreadCount() });
     },
   });
 };
@@ -202,6 +204,7 @@ export const useUpdateThreadCategory = () => {
       messagesApi.updateThreadCategory(threadId, { category }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: messageQueryKeys.threads() });
+      queryClient.invalidateQueries({ queryKey: messageQueryKeys.unreadCount() });
     },
   });
 };

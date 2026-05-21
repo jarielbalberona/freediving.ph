@@ -582,6 +582,7 @@ type threadRepository interface {
 	OpenOrCreateDirectThread(ctx context.Context, actorID, targetUserID string, targetCategory messagingrepo.ThreadCategory) (messagingrepo.Thread, error)
 	AreUsersBuddies(ctx context.Context, a, b string) (bool, error)
 	ListThreads(ctx context.Context, input messagingrepo.ListThreadsInput) ([]messagingrepo.ThreadSummary, error)
+	CountUnreadMessages(ctx context.Context, userID string) (int64, error)
 	GetThread(ctx context.Context, threadID, userID string) (messagingrepo.Thread, error)
 	ListThreadParticipants(ctx context.Context, threadID string) ([]messagingrepo.ThreadParticipant, error)
 	ListThreadMessages(ctx context.Context, input messagingrepo.ListThreadMessagesInput) ([]messagingrepo.ThreadMessage, error)
@@ -663,6 +664,21 @@ func (s *Service) ListThreads(ctx context.Context, input ThreadListInput) (Threa
 		items = items[:input.Limit]
 	}
 	return ThreadListResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) GetUnreadCount(ctx context.Context, actorID string) (int64, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(actorID)); err != nil {
+		return 0, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	repo, err := s.threadRepo()
+	if err != nil {
+		return 0, err
+	}
+	count, err := repo.CountUnreadMessages(ctx, actorID)
+	if err != nil {
+		return 0, apperrors.New(http.StatusInternalServerError, "message_unread_count_failed", "failed to load message unread count", err)
+	}
+	return count, nil
 }
 
 func logMessagingDB(operation string, start time.Time) {

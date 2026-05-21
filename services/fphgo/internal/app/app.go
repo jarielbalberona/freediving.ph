@@ -90,6 +90,7 @@ type Dependencies struct {
 	ModerationHandler    *moderationhttp.Handlers
 	MediaHandler         *mediahttp.Handlers
 	NotificationsHandler *notificationshttp.Handlers
+	NotificationsService *notificationsservice.Service
 	GroupsHandler        *groupshttp.Handlers
 	EventsHandler        *eventshttp.Handlers
 	LocationsHandler     *locationshttp.Handlers
@@ -250,7 +251,10 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	)
 	mediaHandler := mediahttp.New(mediaService, v)
 	notificationsRepo := notificationsrepo.New(pool)
-	notificationsService := notificationsservice.New(notificationsRepo)
+	notificationsService := notificationsservice.New(
+		notificationsRepo,
+		notificationsservice.WithBroadcaster(hub),
+	)
 	notificationsHandler := notificationshttp.New(notificationsService, v)
 	groupsRepo := groupsrepo.New(pool)
 	groupsService := groupsservice.New(groupsRepo)
@@ -285,6 +289,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		exploreservice.WithReverseGeocoder(siteGeocoder),
 		exploreservice.WithActivityPublisher(feedService),
 		exploreservice.WithActivityFeed(feedService),
+		exploreservice.WithNotifications(notificationsService),
 		exploreservice.WithMediaDisplayURLs(
 			cfg.MediaCDNBaseURL,
 			cfg.MediaSigningSecretV1,
@@ -313,6 +318,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		ModerationHandler:    moderationHandler,
 		MediaHandler:         mediaHandler,
 		NotificationsHandler: notificationsHandler,
+		NotificationsService: notificationsService,
 		GroupsHandler:        groupsHandler,
 		EventsHandler:        eventsHandler,
 		LocationsHandler:     locationsHandler,

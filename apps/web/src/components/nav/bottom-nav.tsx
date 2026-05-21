@@ -6,13 +6,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Lock } from "lucide-react";
 import { getMobileMainNavItems, isActiveRoute } from "@/config/nav";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useMessageUnreadCount } from "@/features/messages/hooks/queries";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { cn } from "@/lib/utils";
 
 type BottomNavProps = {
   onOpenCreate: () => void;
 };
+
+const formatBadgeCount = (count: number) => (count > 99 ? "99+" : String(count));
 
 export function BottomNav({ onOpenCreate }: BottomNavProps) {
   const pathname = usePathname();
@@ -22,6 +26,8 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
   React.useEffect(() => setMounted(true), []);
   const effectiveSignedIn = mounted && isLoaded && isSignedIn;
   const profileHref = useCurrentProfileHref();
+  const messageUnreadQuery = useMessageUnreadCount(Boolean(effectiveSignedIn));
+  const messageUnreadCount = messageUnreadQuery.data?.unreadCount ?? 0;
 
   const mainItems = getMobileMainNavItems({
     isSignedIn: effectiveSignedIn ?? false,
@@ -112,9 +118,19 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
             aria-current={active ? "page" : undefined}
             aria-label={item.title}
           >
-            {item.icon != null && (
-              <item.icon className="size-6 shrink-0" aria-hidden />
-            )}
+            <span className="relative inline-block">
+              {item.icon != null && (
+                <item.icon className="size-6 shrink-0" aria-hidden />
+              )}
+              {item.id === "messages" && messageUnreadCount > 0 ? (
+                <Badge
+                  variant="destructive"
+                  className="absolute -right-2 -top-1 h-4 min-w-4 rounded-full px-1 text-[10px] leading-none"
+                >
+                  {formatBadgeCount(messageUnreadCount)}
+                </Badge>
+              ) : null}
+            </span>
             <span className="mt-1 max-w-full truncate text-[10px] font-medium leading-none">
               {item.title}
             </span>

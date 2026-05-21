@@ -28,6 +28,10 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
+import { useMessageUnreadCount } from "@/features/messages/hooks/queries";
+
+const formatBadgeCount = (count: number) => (count > 99 ? "99+" : String(count));
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
@@ -47,6 +51,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         isSignedIn: effectiveSignedIn ?? false,
       });
   const profileHref = useCurrentProfileHref();
+  const messageUnreadQuery = useMessageUnreadCount(Boolean(effectiveSignedIn));
+  const messageUnreadCount = messageUnreadQuery.data?.unreadCount ?? 0;
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -118,6 +124,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       >
                         {item.icon != null && <item.icon />}
                         <span className="text-sm">{item.title}</span>
+                        {item.id === "messages" && messageUnreadCount > 0 ? (
+                          <Badge
+                            variant="destructive"
+                            className="ml-auto h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+                          >
+                            {formatBadgeCount(messageUnreadCount)}
+                          </Badge>
+                        ) : null}
                       </SidebarMenuButton>
                     </Link>
                   </SidebarMenuItem>

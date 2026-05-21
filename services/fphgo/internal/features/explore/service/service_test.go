@@ -12,6 +12,7 @@ import (
 
 	explorerepo "fphgo/internal/features/explore/repo"
 	feedservice "fphgo/internal/features/feed/service"
+	notificationsservice "fphgo/internal/features/notifications/service"
 	apperrors "fphgo/internal/shared/errors"
 	sharedratelimit "fphgo/internal/shared/ratelimit"
 )
@@ -22,6 +23,11 @@ type repoStub struct {
 	created        explorerepo.CreateSiteSubmissionInput
 	createResult   explorerepo.SiteSubmission
 	createErr      error
+	moderationSite explorerepo.SiteSubmission
+	approveResult  explorerepo.SiteSubmission
+	approveCalled  bool
+	rejectResult   explorerepo.SiteSubmission
+	rejectCalled   bool
 	editCreated    explorerepo.CreateSiteEditProposalInput
 	editApplied    explorerepo.CreateSiteEditProposalInput
 	editProposal   explorerepo.SiteEditProposal
@@ -125,15 +131,28 @@ func (r *repoStub) ListPendingSites(context.Context, explorerepo.ListPendingSite
 }
 
 func (r *repoStub) GetSiteByIDForModeration(context.Context, string) (explorerepo.SiteSubmission, error) {
-	return explorerepo.SiteSubmission{}, nil
+	return r.moderationSite, nil
 }
 
-func (r *repoStub) ApproveSite(_ context.Context, _ string, _ string, _ string, _ time.Time, _ *string) (explorerepo.SiteSubmission, error) {
-	return explorerepo.SiteSubmission{}, nil
+func (r *repoStub) ApproveSite(_ context.Context, _ string, slug string, _ string, _ time.Time, _ *string) (explorerepo.SiteSubmission, error) {
+	r.approveCalled = true
+	result := r.approveResult
+	if result.ID == "" {
+		result = r.moderationSite
+		result.Slug = slug
+		result.ModerationState = "approved"
+	}
+	return result, nil
 }
 
 func (r *repoStub) RejectOrHideSite(_ context.Context, _ string, _ string, _ time.Time, _ *string) (explorerepo.SiteSubmission, error) {
-	return explorerepo.SiteSubmission{}, nil
+	r.rejectCalled = true
+	result := r.rejectResult
+	if result.ID == "" {
+		result = r.moderationSite
+		result.ModerationState = "rejected"
+	}
+	return result, nil
 }
 
 func (r *repoStub) HideSiteByID(_ context.Context, siteID, actorID string, _ *string) (int64, error) {
@@ -850,6 +869,27 @@ func (g *geocoderStub) ReverseGeocodeArea(_ context.Context, lat, lng float64) (
 	return g.area, nil
 }
 
+type exploreNotificationStub struct {
+	approved  []notificationsservice.DiveSiteApprovedInput
+	rejected  []notificationsservice.DiveSiteRejectedInput
+	processed int
+}
+
+func (n *exploreNotificationStub) NotifyDiveSiteApproved(_ context.Context, input notificationsservice.DiveSiteApprovedInput) error {
+	n.approved = append(n.approved, input)
+	return nil
+}
+
+func (n *exploreNotificationStub) NotifyDiveSiteRejected(_ context.Context, input notificationsservice.DiveSiteRejectedInput) error {
+	n.rejected = append(n.rejected, input)
+	return nil
+}
+
+func (n *exploreNotificationStub) ProcessDueOutbox(context.Context, int) (notificationsservice.OutboxProcessResult, error) {
+	n.processed++
+	return notificationsservice.OutboxProcessResult{Claimed: 1, Processed: 1}, nil
+}
+
 func TestCreateSiteSubmissionRequiresCoordinates(t *testing.T) {
 	svc := New(&repoStub{}, WithReverseGeocoder(&geocoderStub{area: "Mabini, Batangas"}))
 
@@ -869,6 +909,79 @@ func TestCreateSiteSubmissionRequiresCoordinates(t *testing.T) {
 	}
 	if len(failure.Issues) != 2 {
 		t.Fatalf("expected 2 issues, got %+v", failure.Issues)
+	}
+}
+
+func TestCreateSiteSubmissionDoesNotNotifyAllUsers(t *testing.T) {
+	lat := 13.7244
+	lng := 120.8820
+	notifications := &exploreNotificationStub{}
+	svc := New(
+		&repoStub{duplicateErr: pgx.ErrNoRows},
+		WithReverseGeocoder(&geocoderStub{area: "Mabini, Batangas"}),
+		WithNotifications(notifications),
+	)
+
+	_, err := svc.CreateSiteSubmission(context.Background(), CreateSiteSubmissionInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Name:        "Cathedral",
+		Description: "Steep wall with reef fish.",
+		Lat:         &lat,
+		Lng:         &lng,
+		Difficulty:  "easy",
+	})
+	if err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	if len(notifications.approved) != 0 || len(notifications.rejected) != 0 {
+		t.Fatalf("pending submission should not emit notifications, got approved=%d rejected=%d", len(notifications.approved), len(notifications.rejected))
+	}
+}
+
+func TestApproveSiteTriggersOutboxProcessingAfterApproval(t *testing.T) {
+	submitterID := "550e8400-e29b-41d4-a716-446655440001"
+	reviewerID := "550e8400-e29b-41d4-a716-446655440099"
+	siteID := "550e8400-e29b-41d4-a716-446655440901"
+	notifications := &exploreNotificationStub{}
+	repo := &repoStub{
+		moderationSite: explorerepo.SiteSubmission{
+			ID:                     siteID,
+			Name:                   "Reef Point",
+			Area:                   "Batangas",
+			ModerationState:        "pending",
+			SubmittedByAppUserID:   submitterID,
+			SubmittedByDisplayName: "Member",
+			CreatedAt:              time.Now().UTC(),
+			UpdatedAt:              time.Now().UTC(),
+		},
+		approveResult: explorerepo.SiteSubmission{
+			ID:                   siteID,
+			Slug:                 "reef-point",
+			Name:                 "Reef Point",
+			Area:                 "Batangas",
+			ModerationState:      "approved",
+			SubmittedByAppUserID: submitterID,
+			CreatedAt:            time.Now().UTC(),
+			UpdatedAt:            time.Now().UTC(),
+		},
+	}
+	svc := New(repo, WithNotifications(notifications))
+
+	_, err := svc.ApproveSite(context.Background(), ModerateSiteInput{
+		ActorID: reviewerID,
+		SiteID:  siteID,
+	})
+	if err != nil {
+		t.Fatalf("approve site: %v", err)
+	}
+	if !repo.approveCalled {
+		t.Fatal("expected repository approval before notification")
+	}
+	if notifications.processed != 1 {
+		t.Fatalf("expected one outbox processing call, got %d", notifications.processed)
+	}
+	if len(notifications.approved) != 0 {
+		t.Fatalf("approval notification should be produced by outbox processor, got direct calls=%d", len(notifications.approved))
 	}
 }
 

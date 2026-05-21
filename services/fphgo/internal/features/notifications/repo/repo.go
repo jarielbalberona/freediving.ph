@@ -19,10 +19,12 @@ type Notification struct {
 	ID                int64
 	UserID            string
 	Type              string
+	Category          string
 	Title             string
 	Message           string
 	Status            string
 	Priority          string
+	ActorUserID       *string
 	RelatedUserID     *string
 	RelatedEntityType *string
 	RelatedEntityID   *string
@@ -34,7 +36,10 @@ type Notification struct {
 	EmailSentAt       *time.Time
 	PushSentAt        *time.Time
 	ReadAt            *time.Time
+	SeenAt            *time.Time
 	ArchivedAt        *time.Time
+	IdempotencyKey    *string
+	Deduplicated      bool
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -60,6 +65,7 @@ type NotificationSettings struct {
 	EventReminderNotifications bool
 	PaymentNotifications       bool
 	SecurityNotifications      bool
+	NewDiveSitePublished       bool
 	DigestFrequency            string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
@@ -71,15 +77,18 @@ type NotificationSettings struct {
 type CreateInput struct {
 	UserID            string
 	Type              string
+	Category          string
 	Title             string
 	Message           string
 	Priority          string
+	ActorUserID       *string
 	RelatedUserID     *string
 	RelatedEntityType *string
 	RelatedEntityID   *string
 	ImageURL          *string
 	ActionURL         *string
 	Metadata          map[string]any
+	IdempotencyKey    *string
 }
 
 type ListInput struct {
@@ -110,14 +119,215 @@ type SettingsUpdateInput struct {
 	EventReminderNotifications *bool
 	PaymentNotifications       *bool
 	SecurityNotifications      *bool
+	NewDiveSitePublished       *bool
 	DigestFrequency            *string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
 	Timezone                   *string
 }
 
+const OutboxEventNewDiveSitePublished = "NEW_DIVE_SITE_PUBLISHED"
+
+type NotificationOutbox struct {
+	ID             string
+	EventType      string
+	AggregateType  string
+	AggregateID    string
+	Payload        map[string]any
+	Status         string
+	Attempts       int
+	NextRetryAt    time.Time
+	LastError      *string
+	IdempotencyKey string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	ProcessedAt    *time.Time
+}
+
+type OutboxEnqueueInput struct {
+	EventType      string
+	AggregateType  string
+	AggregateID    string
+	Payload        map[string]any
+	IdempotencyKey string
+}
+
+type outboxExecutor interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
+}
+
+func (r *Repo) EnqueueOutbox(ctx context.Context, input OutboxEnqueueInput) (NotificationOutbox, error) {
+	return EnqueueOutboxWithExecutor(ctx, r.pool, input)
+}
+
+func EnqueueOutboxWithExecutor(ctx context.Context, exec outboxExecutor, input OutboxEnqueueInput) (NotificationOutbox, error) {
+	if strings.TrimSpace(input.EventType) == "" || strings.TrimSpace(input.AggregateType) == "" || strings.TrimSpace(input.AggregateID) == "" || strings.TrimSpace(input.IdempotencyKey) == "" {
+		return NotificationOutbox{}, fmt.Errorf("notification outbox event requires event type, aggregate, and idempotency key")
+	}
+	payload := input.Payload
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return NotificationOutbox{}, fmt.Errorf("marshal notification outbox payload: %w", err)
+	}
+
+	row := exec.QueryRow(ctx, `
+		INSERT INTO notification_outbox (
+			event_type,
+			aggregate_type,
+			aggregate_id,
+			payload,
+			idempotency_key
+		) VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (idempotency_key) DO UPDATE
+		SET updated_at = notification_outbox.updated_at
+		RETURNING
+			id::text,
+			event_type,
+			aggregate_type,
+			aggregate_id::text,
+			payload,
+			status,
+			attempts,
+			next_retry_at,
+			last_error,
+			idempotency_key,
+			created_at,
+			updated_at,
+			processed_at
+	`,
+		strings.TrimSpace(input.EventType),
+		strings.TrimSpace(input.AggregateType),
+		strings.TrimSpace(input.AggregateID),
+		payloadJSON,
+		strings.TrimSpace(input.IdempotencyKey),
+	)
+	return scanOutboxRow(row)
+}
+
+func (r *Repo) ClaimPendingOutbox(ctx context.Context, now time.Time, limit int) ([]NotificationOutbox, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := r.pool.Query(ctx, `
+		WITH due AS (
+			SELECT id
+			FROM notification_outbox
+			WHERE (
+				status = 'pending'
+				AND next_retry_at <= $1
+			) OR (
+				status = 'processing'
+				AND updated_at <= $1::timestamptz - INTERVAL '15 minutes'
+			)
+			ORDER BY next_retry_at ASC, created_at ASC
+			LIMIT $2
+			FOR UPDATE SKIP LOCKED
+		)
+		UPDATE notification_outbox outbox
+		SET
+			status = 'processing',
+			attempts = attempts + 1,
+			last_error = NULL,
+			updated_at = NOW()
+		FROM due
+		WHERE outbox.id = due.id
+		RETURNING
+			outbox.id::text,
+			outbox.event_type,
+			outbox.aggregate_type,
+			outbox.aggregate_id::text,
+			outbox.payload,
+			outbox.status,
+			outbox.attempts,
+			outbox.next_retry_at,
+			outbox.last_error,
+			outbox.idempotency_key,
+			outbox.created_at,
+			outbox.updated_at,
+			outbox.processed_at
+	`, now, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]NotificationOutbox, 0)
+	for rows.Next() {
+		item, scanErr := scanOutboxRow(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		items = append(items, item)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return items, nil
+}
+
+func (r *Repo) MarkOutboxProcessed(ctx context.Context, id string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE notification_outbox
+		SET
+			status = 'processed',
+			processed_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $1
+		  AND status = 'processing'
+	`, strings.TrimSpace(id))
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repo) MarkOutboxRetry(ctx context.Context, id string, nextRetryAt time.Time, lastError string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE notification_outbox
+		SET
+			status = 'pending',
+			next_retry_at = $2,
+			last_error = $3,
+			updated_at = NOW()
+		WHERE id = $1
+		  AND status = 'processing'
+	`, strings.TrimSpace(id), nextRetryAt, truncateError(lastError))
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repo) MarkOutboxFailed(ctx context.Context, id string, lastError string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE notification_outbox
+		SET
+			status = 'failed',
+			last_error = $2,
+			updated_at = NOW()
+		WHERE id = $1
+		  AND status = 'processing'
+	`, strings.TrimSpace(id), truncateError(lastError))
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *Repo) Create(ctx context.Context, input CreateInput) (Notification, error) {
@@ -131,27 +341,93 @@ func (r *Repo) Create(ctx context.Context, input CreateInput) (Notification, err
 	}
 
 	row := r.pool.QueryRow(ctx, `
-		INSERT INTO notifications (
-			user_id,
-			type,
-			title,
-			message,
-			priority,
-			related_user_id,
-			related_entity_type,
-			related_entity_id,
+			INSERT INTO notifications (
+				user_id,
+				type,
+				category,
+				title,
+				message,
+				priority,
+				actor_user_id,
+				related_user_id,
+				related_entity_type,
+				related_entity_id,
+				image_url,
+				action_url,
+				metadata,
+				idempotency_key
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+			ON CONFLICT (user_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+			DO NOTHING
+			RETURNING
+				id,
+				user_id::text,
+				type::text,
+				category,
+				title,
+				message,
+				status::text,
+				priority::text,
+				actor_user_id::text,
+				related_user_id::text,
+				related_entity_type,
+				related_entity_id,
 			image_url,
 			action_url,
-			metadata
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		RETURNING
+			metadata,
+			is_email_sent,
+			is_push_sent,
+				email_sent_at,
+				push_sent_at,
+				read_at,
+				seen_at,
+				archived_at,
+				idempotency_key,
+				created_at,
+				updated_at
+		`,
+		input.UserID,
+		input.Type,
+		input.Category,
+		input.Title,
+		input.Message,
+		input.Priority,
+		input.ActorUserID,
+		input.RelatedUserID,
+		input.RelatedEntityType,
+		input.RelatedEntityID,
+		input.ImageURL,
+		input.ActionURL,
+		metadataJSON,
+		input.IdempotencyKey,
+	)
+	item, err := scanNotificationRow(row)
+	if err != nil {
+		if IsNoRows(err) && input.IdempotencyKey != nil && strings.TrimSpace(*input.IdempotencyKey) != "" {
+			existing, getErr := r.GetByIdempotencyKey(ctx, input.UserID, strings.TrimSpace(*input.IdempotencyKey))
+			if getErr != nil {
+				return Notification{}, getErr
+			}
+			existing.Deduplicated = true
+			return existing, nil
+		}
+		return Notification{}, err
+	}
+	return item, nil
+}
+
+func (r *Repo) GetByIdempotencyKey(ctx context.Context, userID, idempotencyKey string) (Notification, error) {
+	row := r.pool.QueryRow(ctx, `
+		SELECT
 			id,
 			user_id::text,
 			type::text,
+			category,
 			title,
 			message,
 			status::text,
 			priority::text,
+			actor_user_id::text,
 			related_user_id::text,
 			related_entity_type,
 			related_entity_id,
@@ -163,22 +439,16 @@ func (r *Repo) Create(ctx context.Context, input CreateInput) (Notification, err
 			email_sent_at,
 			push_sent_at,
 			read_at,
+			seen_at,
 			archived_at,
+			idempotency_key,
 			created_at,
 			updated_at
-	`,
-		input.UserID,
-		input.Type,
-		input.Title,
-		input.Message,
-		input.Priority,
-		input.RelatedUserID,
-		input.RelatedEntityType,
-		input.RelatedEntityID,
-		input.ImageURL,
-		input.ActionURL,
-		metadataJSON,
-	)
+		FROM notifications
+		WHERE user_id = $1
+		  AND idempotency_key = $2
+		  AND status <> 'DELETED'
+	`, userID, idempotencyKey)
 	return scanNotificationRow(row)
 }
 
@@ -209,14 +479,16 @@ func (r *Repo) ListByUser(ctx context.Context, input ListInput) ([]Notification,
 
 	query := fmt.Sprintf(`
 		SELECT
-			id,
-			user_id::text,
-			type::text,
-			title,
-			message,
-			status::text,
-			priority::text,
-			related_user_id::text,
+				id,
+				user_id::text,
+				type::text,
+				category,
+				title,
+				message,
+				status::text,
+				priority::text,
+				actor_user_id::text,
+				related_user_id::text,
 			related_entity_type,
 			related_entity_id,
 			image_url,
@@ -224,12 +496,14 @@ func (r *Repo) ListByUser(ctx context.Context, input ListInput) ([]Notification,
 			metadata,
 			is_email_sent,
 			is_push_sent,
-			email_sent_at,
-			push_sent_at,
-			read_at,
-			archived_at,
-			created_at,
-			updated_at
+				email_sent_at,
+				push_sent_at,
+				read_at,
+				seen_at,
+				archived_at,
+				idempotency_key,
+				created_at,
+				updated_at
 		FROM notifications
 		WHERE %s
 		ORDER BY created_at DESC, id DESC
@@ -260,14 +534,16 @@ func (r *Repo) ListByUser(ctx context.Context, input ListInput) ([]Notification,
 func (r *Repo) GetByIDForUser(ctx context.Context, userID string, notificationID int64) (Notification, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT
-			id,
-			user_id::text,
-			type::text,
-			title,
-			message,
-			status::text,
-			priority::text,
-			related_user_id::text,
+				id,
+				user_id::text,
+				type::text,
+				category,
+				title,
+				message,
+				status::text,
+				priority::text,
+				actor_user_id::text,
+				related_user_id::text,
 			related_entity_type,
 			related_entity_id,
 			image_url,
@@ -275,12 +551,14 @@ func (r *Repo) GetByIDForUser(ctx context.Context, userID string, notificationID
 			metadata,
 			is_email_sent,
 			is_push_sent,
-			email_sent_at,
-			push_sent_at,
-			read_at,
-			archived_at,
-			created_at,
-			updated_at
+				email_sent_at,
+				push_sent_at,
+				read_at,
+				seen_at,
+				archived_at,
+				idempotency_key,
+				created_at,
+				updated_at
 		FROM notifications
 		WHERE id = $1 AND user_id = $2 AND status <> 'DELETED'
 	`, notificationID, userID)
@@ -296,14 +574,16 @@ func (r *Repo) MarkReadForUser(ctx context.Context, userID string, notificationI
 			updated_at = NOW()
 		WHERE id = $1 AND user_id = $2 AND status <> 'DELETED'
 		RETURNING
-			id,
-			user_id::text,
-			type::text,
-			title,
-			message,
-			status::text,
-			priority::text,
-			related_user_id::text,
+				id,
+				user_id::text,
+				type::text,
+				category,
+				title,
+				message,
+				status::text,
+				priority::text,
+				actor_user_id::text,
+				related_user_id::text,
 			related_entity_type,
 			related_entity_id,
 			image_url,
@@ -311,12 +591,14 @@ func (r *Repo) MarkReadForUser(ctx context.Context, userID string, notificationI
 			metadata,
 			is_email_sent,
 			is_push_sent,
-			email_sent_at,
-			push_sent_at,
-			read_at,
-			archived_at,
-			created_at,
-			updated_at
+				email_sent_at,
+				push_sent_at,
+				read_at,
+				seen_at,
+				archived_at,
+				idempotency_key,
+				created_at,
+				updated_at
 	`, notificationID, userID)
 	return scanNotificationRow(row)
 }
@@ -377,6 +659,36 @@ func (r *Repo) CountVisibleForUser(ctx context.Context, userID string) (int64, e
 	return count, nil
 }
 
+func (r *Repo) ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT u.id::text
+		FROM users u
+		LEFT JOIN notification_settings ns ON ns.user_id = u.id
+		WHERE u.account_status = 'active'
+		  AND (NULLIF($1, '') IS NULL OR u.id <> $1::uuid)
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.new_dive_site_published, TRUE) = TRUE
+		ORDER BY u.created_at ASC, u.id ASC
+	`, strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return ids, nil
+}
+
 func (r *Repo) GetSettingsForUser(ctx context.Context, userID string) (NotificationSettings, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT
@@ -397,10 +709,11 @@ func (r *Repo) GetSettingsForUser(ctx context.Context, userID string) (Notificat
 			comment_notifications,
 			friend_request_notifications,
 			group_invite_notifications,
-			event_reminder_notifications,
-			payment_notifications,
-			security_notifications,
-			digest_frequency::text,
+				event_reminder_notifications,
+				payment_notifications,
+				security_notifications,
+				new_dive_site_published,
+				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
 			timezone,
@@ -435,10 +748,11 @@ func (r *Repo) CreateDefaultSettingsForUser(ctx context.Context, userID string) 
 			comment_notifications,
 			friend_request_notifications,
 			group_invite_notifications,
-			event_reminder_notifications,
-			payment_notifications,
-			security_notifications,
-			digest_frequency::text,
+				event_reminder_notifications,
+				payment_notifications,
+				security_notifications,
+				new_dive_site_published,
+				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
 			timezone,
@@ -513,6 +827,9 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 	if input.SecurityNotifications != nil {
 		addSet("security_notifications", *input.SecurityNotifications)
 	}
+	if input.NewDiveSitePublished != nil {
+		addSet("new_dive_site_published", *input.NewDiveSitePublished)
+	}
 	if input.DigestFrequency != nil {
 		addSet("digest_frequency", *input.DigestFrequency)
 	}
@@ -556,10 +873,11 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 			comment_notifications,
 			friend_request_notifications,
 			group_invite_notifications,
-			event_reminder_notifications,
-			payment_notifications,
-			security_notifications,
-			digest_frequency::text,
+				event_reminder_notifications,
+				payment_notifications,
+				security_notifications,
+				new_dive_site_published,
+				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
 			timezone,
@@ -586,10 +904,12 @@ func scanNotificationRow(row rowScanner) (Notification, error) {
 		&item.ID,
 		&item.UserID,
 		&item.Type,
+		&item.Category,
 		&item.Title,
 		&item.Message,
 		&item.Status,
 		&item.Priority,
+		&item.ActorUserID,
 		&item.RelatedUserID,
 		&item.RelatedEntityType,
 		&item.RelatedEntityID,
@@ -601,7 +921,9 @@ func scanNotificationRow(row rowScanner) (Notification, error) {
 		&item.EmailSentAt,
 		&item.PushSentAt,
 		&item.ReadAt,
+		&item.SeenAt,
 		&item.ArchivedAt,
+		&item.IdempotencyKey,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 	)
@@ -619,7 +941,42 @@ func scanNotificationRow(row rowScanner) (Notification, error) {
 	item.EmailSentAt = toUTCPtr(item.EmailSentAt)
 	item.PushSentAt = toUTCPtr(item.PushSentAt)
 	item.ReadAt = toUTCPtr(item.ReadAt)
+	item.SeenAt = toUTCPtr(item.SeenAt)
 	item.ArchivedAt = toUTCPtr(item.ArchivedAt)
+	return item, nil
+}
+
+func scanOutboxRow(row rowScanner) (NotificationOutbox, error) {
+	var item NotificationOutbox
+	var payloadRaw []byte
+	err := row.Scan(
+		&item.ID,
+		&item.EventType,
+		&item.AggregateType,
+		&item.AggregateID,
+		&payloadRaw,
+		&item.Status,
+		&item.Attempts,
+		&item.NextRetryAt,
+		&item.LastError,
+		&item.IdempotencyKey,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		&item.ProcessedAt,
+	)
+	if err != nil {
+		return NotificationOutbox{}, err
+	}
+	item.Payload = map[string]any{}
+	if len(payloadRaw) > 0 {
+		if unmarshalErr := json.Unmarshal(payloadRaw, &item.Payload); unmarshalErr != nil {
+			return NotificationOutbox{}, fmt.Errorf("unmarshal notification outbox payload: %w", unmarshalErr)
+		}
+	}
+	item.NextRetryAt = item.NextRetryAt.UTC()
+	item.CreatedAt = item.CreatedAt.UTC()
+	item.UpdatedAt = item.UpdatedAt.UTC()
+	item.ProcessedAt = toUTCPtr(item.ProcessedAt)
 	return item, nil
 }
 
@@ -646,6 +1003,7 @@ func scanSettingsRow(row rowScanner) (NotificationSettings, error) {
 		&item.EventReminderNotifications,
 		&item.PaymentNotifications,
 		&item.SecurityNotifications,
+		&item.NewDiveSitePublished,
 		&item.DigestFrequency,
 		&item.QuietHoursStart,
 		&item.QuietHoursEnd,
@@ -659,6 +1017,14 @@ func scanSettingsRow(row rowScanner) (NotificationSettings, error) {
 	item.CreatedAt = item.CreatedAt.UTC()
 	item.UpdatedAt = item.UpdatedAt.UTC()
 	return item, nil
+}
+
+func truncateError(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) <= 2000 {
+		return trimmed
+	}
+	return trimmed[:2000]
 }
 
 func toUTCPtr(value *time.Time) *time.Time {

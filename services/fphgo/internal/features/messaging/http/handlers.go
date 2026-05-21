@@ -89,6 +89,20 @@ func (h *Handlers) resolveRequest(w http.ResponseWriter, r *http.Request, accept
 	httpx.JSON(w, http.StatusOK, RequestActionResponse(result))
 }
 
+func (h *Handlers) GetUnreadCount(w http.ResponseWriter, r *http.Request) {
+	actorID, err := h.requireLocalActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	count, err := h.service.GetUnreadCount(r.Context(), actorID)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, MessageUnreadCountResponse{UnreadCount: count})
+}
+
 func (h *Handlers) Inbox(w http.ResponseWriter, r *http.Request) {
 	actorID, err := h.requireLocalActorID(r)
 	if err != nil {

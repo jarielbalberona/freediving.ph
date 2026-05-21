@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	explorerepo "fphgo/internal/features/explore/repo"
+	notificationsrepo "fphgo/internal/features/notifications/repo"
 )
 
 func testExplorePool(t *testing.T) *pgxpool.Pool {
@@ -196,6 +197,19 @@ func TestSiteSubmissionWorkflowVisibility(t *testing.T) {
 	if !foundPending {
 		t.Fatalf("expected submission in pending moderation list")
 	}
+	var pendingOutboxCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int
+		FROM notification_outbox
+		WHERE aggregate_type = 'dive_site'
+		  AND aggregate_id = $1
+		  AND event_type = $2
+	`, submission.ID, notificationsrepo.OutboxEventNewDiveSitePublished).Scan(&pendingOutboxCount); err != nil {
+		t.Fatalf("count pending outbox rows: %v", err)
+	}
+	if pendingOutboxCount != 0 {
+		t.Fatalf("pending submission should not enqueue public notification outbox rows, got %d", pendingOutboxCount)
+	}
 
 	approved, err := repo.ApproveSite(ctx, submission.ID, fmt.Sprintf("secret-reef-%d", time.Now().UnixNano()), reviewerID, time.Now().UTC(), nil)
 	if err != nil {
@@ -203,6 +217,20 @@ func TestSiteSubmissionWorkflowVisibility(t *testing.T) {
 	}
 	if got := approved.ModerationState; got != "approved" {
 		t.Fatalf("expected approved state, got %q", got)
+	}
+	var approvedOutboxCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int
+		FROM notification_outbox
+		WHERE aggregate_type = 'dive_site'
+		  AND aggregate_id = $1
+		  AND event_type = $2
+		  AND idempotency_key = $3
+	`, submission.ID, notificationsrepo.OutboxEventNewDiveSitePublished, "explore:site:"+submission.ID+":published").Scan(&approvedOutboxCount); err != nil {
+		t.Fatalf("count approved outbox rows: %v", err)
+	}
+	if approvedOutboxCount != 1 {
+		t.Fatalf("expected one approval outbox row, got %d", approvedOutboxCount)
 	}
 
 	publicItems, err = repo.ListSites(ctx, explorerepo.ListSitesInput{
@@ -267,6 +295,39 @@ func TestSiteSubmissionWorkflowVisibility(t *testing.T) {
 	}
 }
 
+func TestApproveMissingSiteDoesNotEnqueueNotificationOutbox(t *testing.T) {
+	pool := testExplorePool(t)
+	repo := explorerepo.New(pool)
+	ctx := context.Background()
+
+	missingSiteID := uuid.NewString()
+	reviewerID := uuid.NewString()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO users (id, username, display_name)
+		VALUES ($1, $2, 'Reviewer')
+		ON CONFLICT (id) DO NOTHING
+	`, reviewerID, fmt.Sprintf("missing_approval_reviewer_%d", time.Now().UnixNano())); err != nil {
+		t.Skipf("insert reviewer: %v", err)
+	}
+
+	_, err := repo.ApproveSite(ctx, missingSiteID, "missing-site", reviewerID, time.Now().UTC(), nil)
+	if err == nil {
+		t.Fatal("expected missing site approval to fail")
+	}
+	var outboxCount int
+	if countErr := pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int
+		FROM notification_outbox
+		WHERE aggregate_type = 'dive_site'
+		  AND aggregate_id = $1
+	`, missingSiteID).Scan(&outboxCount); countErr != nil {
+		t.Fatalf("count outbox rows: %v", countErr)
+	}
+	if outboxCount != 0 {
+		t.Fatalf("failed approval should not enqueue outbox rows, got %d", outboxCount)
+	}
+}
+
 func TestSiteEditProposalWorkflowAppliesOnlyAfterApproval(t *testing.T) {
 	pool := testExplorePool(t)
 	repo := explorerepo.New(pool)
@@ -316,6 +377,18 @@ func TestSiteEditProposalWorkflowAppliesOnlyAfterApproval(t *testing.T) {
 	}
 	if proposal.State != "pending" {
 		t.Fatalf("expected pending proposal, got %q", proposal.State)
+	}
+	var editProposalOutboxCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int
+		FROM notification_outbox
+		WHERE aggregate_type = 'dive_site'
+		  AND aggregate_id = $1
+	`, siteID).Scan(&editProposalOutboxCount); err != nil {
+		t.Fatalf("count edit proposal outbox rows: %v", err)
+	}
+	if editProposalOutboxCount != 0 {
+		t.Fatalf("edit proposal should not enqueue public notification outbox rows, got %d", editProposalOutboxCount)
 	}
 
 	detail, err := repo.GetSiteBySlug(ctx, proposal.SiteSlug, "")
@@ -457,6 +530,7 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 	nonce := time.Now().UnixNano()
 	searchName := fmt.Sprintf("Bounds Reef %d", nonce)
 	quietName := fmt.Sprintf("Quiet Reef %d", nonce)
+	boundsArea := fmt.Sprintf("Mabini, Batangas %d", nonce)
 
 	for _, user := range []struct {
 		id       string
@@ -482,9 +556,9 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 			name, slug, area, latitude, longitude, entry_difficulty,
 			verification_status, moderation_state, last_updated_at, updated_at
 		)
-		VALUES ($1, $2, 'Mabini, Batangas', 13.75, 120.90, 'easy', 'verified', 'approved', NOW(), NOW())
+		VALUES ($1, $2, $3, 13.75, 120.90, 'easy', 'verified', 'approved', NOW(), NOW())
 		RETURNING id
-	`, searchName, fmt.Sprintf("bounds-inside-%d", nonce)).Scan(&insideID); err != nil {
+	`, searchName, fmt.Sprintf("bounds-inside-%d", nonce), boundsArea).Scan(&insideID); err != nil {
 		t.Fatalf("insert inside site: %v", err)
 	}
 
@@ -494,9 +568,9 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 			name, slug, area, latitude, longitude, entry_difficulty,
 			verification_status, moderation_state, last_updated_at, updated_at
 		)
-		VALUES ($1, $2, 'Mabini, Batangas', 16.00, 123.00, 'easy', 'verified', 'approved', NOW(), NOW())
+		VALUES ($1, $2, $3, 16.00, 123.00, 'easy', 'verified', 'approved', NOW(), NOW())
 		RETURNING id
-	`, searchName+" Outside", fmt.Sprintf("bounds-outside-%d", nonce)).Scan(&outsideID); err != nil {
+	`, searchName+" Outside", fmt.Sprintf("bounds-outside-%d", nonce), boundsArea).Scan(&outsideID); err != nil {
 		t.Fatalf("insert outside site: %v", err)
 	}
 
@@ -506,9 +580,9 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 			name, slug, area, latitude, longitude, entry_difficulty,
 			verification_status, moderation_state, last_updated_at, updated_at
 		)
-		VALUES ($1, $2, 'Mabini, Batangas', 13.76, 120.91, 'easy', 'community', 'pending', NOW(), NOW())
+		VALUES ($1, $2, $3, 13.76, 120.91, 'easy', 'community', 'pending', NOW(), NOW())
 		RETURNING id
-	`, searchName+" Pending", fmt.Sprintf("bounds-pending-%d", nonce)).Scan(&pendingID); err != nil {
+	`, searchName+" Pending", fmt.Sprintf("bounds-pending-%d", nonce), boundsArea).Scan(&pendingID); err != nil {
 		t.Fatalf("insert pending site: %v", err)
 	}
 
@@ -546,13 +620,13 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 			visibility, state, expires_at
 		)
 		VALUES
-			(gen_random_uuid(), $1, $3, 'Mabini, Batangas', 'training', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days'),
-			(gen_random_uuid(), $2, $3, 'Mabini, Batangas', 'training', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days'),
-			(gen_random_uuid(), $1, NULL, 'Mabini, Batangas', 'fun_dive', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days'),
-			(gen_random_uuid(), $1, $3, 'Mabini, Batangas', 'training', 'weekend', 'members', 'active', NOW() - INTERVAL '1 hour'),
-			(gen_random_uuid(), $1, $3, 'Mabini, Batangas', 'training', 'weekend', 'members', 'hidden', NOW() + INTERVAL '2 days'),
-			(gen_random_uuid(), $1, $4, 'Mabini, Batangas', 'training', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days')
-	`, buddyAuthorID, blockedBuddyAuthorID, insideID, pendingID); err != nil {
+			(gen_random_uuid(), $1, $3, $5, 'training', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days'),
+			(gen_random_uuid(), $2, $3, $5, 'training', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days'),
+			(gen_random_uuid(), $1, NULL, $5, 'fun_dive', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days'),
+			(gen_random_uuid(), $1, $3, $5, 'training', 'weekend', 'members', 'active', NOW() - INTERVAL '1 hour'),
+			(gen_random_uuid(), $1, $3, $5, 'training', 'weekend', 'members', 'hidden', NOW() + INTERVAL '2 days'),
+			(gen_random_uuid(), $1, $4, $5, 'training', 'weekend', 'members', 'active', NOW() + INTERVAL '2 days')
+	`, buddyAuthorID, blockedBuddyAuthorID, insideID, pendingID, boundsArea); err != nil {
 		t.Fatalf("insert buddy intents: %v", err)
 	}
 
@@ -580,7 +654,7 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 
 	noBoundsItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
 		ViewerUserID:    viewerID,
-		Area:            "Mabini, Batangas",
+		Area:            boundsArea,
 		Difficulty:      "easy",
 		VerifiedOnly:    true,
 		Search:          searchName,
@@ -617,7 +691,7 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 	}
 
 	guestItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
-		Area:            "Mabini, Batangas",
+		Area:            boundsArea,
 		Difficulty:      "easy",
 		VerifiedOnly:    true,
 		Search:          searchName,
@@ -637,7 +711,7 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 	savedOnlyItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
 		ViewerUserID:    viewerID,
 		SavedOnly:       true,
-		Area:            "Mabini, Batangas",
+		Area:            boundsArea,
 		Difficulty:      "easy",
 		VerifiedOnly:    true,
 		Search:          searchName,
@@ -670,7 +744,7 @@ func TestListSitesBoundsFiltersApprovedSitesAndPreservesSavedState(t *testing.T)
 	boundedItems, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
 		ViewerUserID: viewerID,
 		SavedOnly:    true,
-		Area:         "Mabini, Batangas",
+		Area:         boundsArea,
 		Difficulty:   "easy",
 		VerifiedOnly: true,
 		Search:       searchName,
@@ -712,16 +786,19 @@ func TestListSitesSelectsEligibleLinkedCoverMedia(t *testing.T) {
 	repo := explorerepo.New(pool)
 	ctx := context.Background()
 	nonce := time.Now().UnixNano()
+	userSeq := 0
 
 	insertUser := func(username, status string) string {
 		t.Helper()
+		userSeq++
+		username = fmt.Sprintf("%s_%d", username, userSeq)
 		var id string
 		if err := pool.QueryRow(ctx, `
 			INSERT INTO users (id, username, display_name, account_status)
 			VALUES (gen_random_uuid(), $1, $2, $3)
 			RETURNING id
 		`, username, username, status).Scan(&id); err != nil {
-			t.Skipf("insert user: %v", err)
+			t.Fatalf("insert user: %v", err)
 		}
 		return id
 	}
@@ -749,6 +826,9 @@ func TestListSitesSelectsEligibleLinkedCoverMedia(t *testing.T) {
 	noMediaSiteID := insertSite("Bare Reef", "approved")
 	otherSiteID := insertSite("Other Cover Reef", "approved")
 	pendingSiteID := insertSite("Pending Cover Reef", "pending")
+	mediaKey := func(key string) string {
+		return fmt.Sprintf("media/%d/%s", nonce, key)
+	}
 
 	addMedia := func(siteID, authorID, key, itemStatus, objectState string, createdAt time.Time, likes int, deleted bool) {
 		t.Helper()
@@ -778,7 +858,7 @@ func TestListSitesSelectsEligibleLinkedCoverMedia(t *testing.T) {
 			INSERT INTO media_posts (
 				author_app_user_id, upload_group_id, dive_site_id, post_caption, created_at, updated_at, deleted_at
 			)
-			VALUES ($1, $2, $3, 'cover candidate', $4, $4, CASE WHEN $5 THEN $4 ELSE NULL END)
+			VALUES ($1, $2, $3, 'cover candidate', $4, $4, CASE WHEN $5::bool THEN $4::timestamptz ELSE NULL END)
 			RETURNING id
 		`, authorID, groupID, siteID, createdAt, deleted).Scan(&postID); err != nil {
 			t.Fatalf("insert media post: %v", err)
@@ -806,15 +886,15 @@ func TestListSitesSelectsEligibleLinkedCoverMedia(t *testing.T) {
 	}
 
 	now := time.Now().UTC()
-	addMedia(siteID, activeAuthorID, "media/low-liked-newer.jpg", "active", "active", now.Add(-1*time.Hour), 1, false)
-	addMedia(siteID, activeAuthorID, "media/top-liked-older.jpg", "active", "active", now.Add(-3*time.Hour), 3, false)
-	addMedia(siteID, activeAuthorID, "media/top-liked-newer.jpg", "active", "active", now.Add(-2*time.Hour), 3, false)
-	addMedia(siteID, activeAuthorID, "media/hidden-item.jpg", "hidden", "active", now, 9, false)
-	addMedia(siteID, activeAuthorID, "media/hidden-object.jpg", "active", "hidden", now, 9, false)
-	addMedia(siteID, inactiveAuthorID, "media/inactive-author.jpg", "active", "active", now, 10, false)
-	addMedia(siteID, activeAuthorID, "media/deleted-post.jpg", "active", "active", now, 11, true)
-	addMedia(otherSiteID, activeAuthorID, "media/other-site.jpg", "active", "active", now, 12, false)
-	addMedia(pendingSiteID, activeAuthorID, "media/pending-site.jpg", "active", "active", now, 13, false)
+	addMedia(siteID, activeAuthorID, mediaKey("low-liked-newer.jpg"), "active", "active", now.Add(-1*time.Hour), 1, false)
+	addMedia(siteID, activeAuthorID, mediaKey("top-liked-older.jpg"), "active", "active", now.Add(-3*time.Hour), 3, false)
+	addMedia(siteID, activeAuthorID, mediaKey("top-liked-newer.jpg"), "active", "active", now.Add(-2*time.Hour), 3, false)
+	addMedia(siteID, activeAuthorID, mediaKey("hidden-item.jpg"), "hidden", "active", now, 9, false)
+	addMedia(siteID, activeAuthorID, mediaKey("hidden-object.jpg"), "active", "hidden", now, 9, false)
+	addMedia(siteID, inactiveAuthorID, mediaKey("inactive-author.jpg"), "active", "active", now, 10, false)
+	addMedia(siteID, activeAuthorID, mediaKey("deleted-post.jpg"), "active", "active", now, 11, true)
+	addMedia(otherSiteID, activeAuthorID, mediaKey("other-site.jpg"), "active", "active", now, 12, false)
+	addMedia(pendingSiteID, activeAuthorID, mediaKey("pending-site.jpg"), "active", "active", now, 13, false)
 
 	items, err := repo.ListSites(ctx, explorerepo.ListSitesInput{
 		Area:            "Dauin, Negros Oriental",
@@ -836,7 +916,7 @@ func TestListSitesSelectsEligibleLinkedCoverMedia(t *testing.T) {
 			if item.CoverMedia == nil {
 				t.Fatalf("expected cover media for linked site: %+v", item)
 			}
-			if item.CoverMedia.ObjectKey != "media/top-liked-newer.jpg" {
+			if item.CoverMedia.ObjectKey != mediaKey("top-liked-newer.jpg") {
 				t.Fatalf("expected highest-liked newest cover, got %+v", item.CoverMedia)
 			}
 			if item.CoverMedia.LikeCount != 3 {
@@ -849,7 +929,7 @@ func TestListSitesSelectsEligibleLinkedCoverMedia(t *testing.T) {
 			}
 		case otherSiteID:
 			foundOther = true
-			if item.CoverMedia == nil || item.CoverMedia.ObjectKey != "media/other-site.jpg" {
+			if item.CoverMedia == nil || item.CoverMedia.ObjectKey != mediaKey("other-site.jpg") {
 				t.Fatalf("expected only directly linked media for other site, got %+v", item.CoverMedia)
 			}
 		case pendingSiteID:
@@ -917,14 +997,14 @@ func TestListVisibleDivePresencesGlobalAppliesVisibilityBlocksAndFilters(t *test
 			user_id, dive_site_id, presence_type, start_at, end_at, visibility, contact_enabled, note, status
 		)
 		VALUES
-			($1, $7, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'public', true, 'public visible', 'active'),
-			($2, $7, 'training', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'members', true, 'member visible', 'active'),
-			($3, $7, 'planning', NULL, NULL, 'private', true, 'private owner only', 'active'),
-			($4, $7, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'members', true, 'blocked', 'active'),
-			($5, $7, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'public', true, 'inactive', 'active'),
-			($1, $7, 'available', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '1 hour', 'public', true, 'expired', 'active'),
-			($1, $7, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'public', true, 'cancelled', 'cancelled')
-	`, publicAuthorID, memberAuthorID, privateAuthorID, blockedAuthorID, inactiveAuthorID, viewerID, siteID); err != nil {
+			($1, $6, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'public', true, 'public visible', 'active'),
+			($2, $6, 'training', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'members', true, 'member visible', 'active'),
+			($3, $6, 'planning', NULL, NULL, 'private', true, 'private owner only', 'active'),
+			($4, $6, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'members', true, 'blocked', 'active'),
+			($5, $6, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'public', true, 'inactive', 'active'),
+			($1, $6, 'available', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '1 hour', 'public', true, 'expired', 'active'),
+			($1, $6, 'available', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '3 hours', 'public', true, 'cancelled', 'cancelled')
+	`, publicAuthorID, memberAuthorID, privateAuthorID, blockedAuthorID, inactiveAuthorID, siteID); err != nil {
 		t.Fatalf("insert presences: %v", err)
 	}
 

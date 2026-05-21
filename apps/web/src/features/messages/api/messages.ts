@@ -8,6 +8,7 @@ import type {
   MessagingThreadDetailResponse,
   MessagingThreadListResponse,
   MessagingThreadMessagesResponse,
+  MessagingUnreadCountResponse,
   MessagingUpdateThreadCategoryRequest,
   MessagingUpdateThreadCategoryResponse,
 } from "@freediving.ph/types";
@@ -23,6 +24,13 @@ export type ListThreadsParams = {
 };
 
 export const messagesApi = {
+  getUnreadCount: async (): Promise<MessagingUnreadCountResponse> => {
+    return fphgoFetchClient<MessagingUnreadCountResponse>(
+      routes.v1.messages.unreadCount(),
+      { perfLabel: "messages.unread_count" },
+    );
+  },
+
   listThreads: async ({
     category,
     limit = 20,

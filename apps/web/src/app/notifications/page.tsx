@@ -1,16 +1,31 @@
 "use client";
 
 import { NotificationList } from '@/features/notifications';
-import { useNotificationStats } from '@/features/notifications';
+import {
+  useNotificationSettings,
+  useNotificationStats,
+} from '@/features/notifications';
+import { useUpdateNotificationSettings } from '@/features/notifications/hooks/mutations';
 import { AuthGuard } from '@/components/auth/guard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FeatureErrorBoundary } from '@/components/error-boundary';
 import { Bell, Calendar, MessageSquare } from 'lucide-react';
 
 export default function NotificationsPage() {
   const { data: stats, isLoading: statsLoading, error: statsError } = useNotificationStats();
+  const settingsQuery = useNotificationSettings();
+  const updateSettingsMutation = useUpdateNotificationSettings();
+  const newDiveSiteEnabled =
+    settingsQuery.data?.newDiveSitePublished ?? true;
+
+  const handleToggleNewDiveSites = () => {
+    updateSettingsMutation.mutate({
+      newDiveSitePublished: !newDiveSiteEnabled,
+    });
+  };
 
   return (
     <AuthGuard title="Sign in to view notifications" description="Please sign in to access your notifications.">
@@ -92,6 +107,34 @@ export default function NotificationsPage() {
               </div>
             )
           )}
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+              <div>
+                <CardTitle>Explore Notifications</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  New approved dive-site announcements are sent in-app.
+                </p>
+              </div>
+              <Badge variant={newDiveSiteEnabled ? "default" : "secondary"}>
+                {newDiveSiteEnabled ? "Enabled" : "Off"}
+              </Badge>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Receive a bell notification when a newly approved public dive
+                site is added to Explore.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleToggleNewDiveSites}
+                disabled={settingsQuery.isLoading || updateSettingsMutation.isPending}
+              >
+                {newDiveSiteEnabled ? "Turn off" : "Turn on"}
+              </Button>
+            </CardContent>
+          </Card>
 
           <FeatureErrorBoundary featureName="notifications">
             <Card>

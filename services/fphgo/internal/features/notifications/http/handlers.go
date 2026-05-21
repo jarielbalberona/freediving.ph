@@ -90,6 +90,10 @@ func (h *Handlers) CreateNotification(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
+	if identity, ok := middleware.CurrentIdentity(r.Context()); !ok || (identity.GlobalRole != "admin" && identity.GlobalRole != "super_admin") {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusForbidden, "forbidden", "client notification creation is restricted", nil))
+		return
+	}
 	req, issues, ok := httpx.DecodeAndValidate[CreateNotificationRequest](r, h.validator)
 	if !ok {
 		httpx.WriteValidationError(w, issues)
@@ -99,6 +103,7 @@ func (h *Handlers) CreateNotification(w http.ResponseWriter, r *http.Request) {
 	item, err := h.service.Create(r.Context(), actorID, notificationsservice.CreateInput{
 		UserID:            req.UserID,
 		Type:              req.Type,
+		Category:          req.Category,
 		Title:             req.Title,
 		Message:           req.Message,
 		Priority:          req.Priority,
@@ -246,6 +251,7 @@ func (h *Handlers) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		EventReminderNotifications: req.EventReminderNotifications,
 		PaymentNotifications:       req.PaymentNotifications,
 		SecurityNotifications:      req.SecurityNotifications,
+		NewDiveSitePublished:       req.NewDiveSitePublished,
 		DigestFrequency:            req.DigestFrequency,
 		QuietHoursStart:            req.QuietHoursStart,
 		QuietHoursEnd:              req.QuietHoursEnd,
@@ -353,10 +359,12 @@ func mapNotification(input notificationsservice.Notification) Notification {
 		ID:                input.ID,
 		UserID:            input.UserID,
 		Type:              input.Type,
+		Category:          input.Category,
 		Title:             input.Title,
 		Message:           input.Message,
 		Status:            input.Status,
 		Priority:          input.Priority,
+		ActorUserID:       input.ActorUserID,
 		RelatedUserID:     input.RelatedUserID,
 		RelatedEntityType: input.RelatedEntityType,
 		RelatedEntityID:   input.RelatedEntityID,
@@ -368,7 +376,9 @@ func mapNotification(input notificationsservice.Notification) Notification {
 		EmailSentAt:       formatTimePtr(input.EmailSentAt),
 		PushSentAt:        formatTimePtr(input.PushSentAt),
 		ReadAt:            formatTimePtr(input.ReadAt),
+		SeenAt:            formatTimePtr(input.SeenAt),
 		ArchivedAt:        formatTimePtr(input.ArchivedAt),
+		IdempotencyKey:    input.IdempotencyKey,
 		CreatedAt:         input.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:         input.UpdatedAt.UTC().Format(time.RFC3339),
 	}
@@ -396,6 +406,7 @@ func mapSettings(input notificationsservice.NotificationSettings) NotificationSe
 		EventReminderNotifications: input.EventReminderNotifications,
 		PaymentNotifications:       input.PaymentNotifications,
 		SecurityNotifications:      input.SecurityNotifications,
+		NewDiveSitePublished:       input.NewDiveSitePublished,
 		DigestFrequency:            input.DigestFrequency,
 		QuietHoursStart:            input.QuietHoursStart,
 		QuietHoursEnd:              input.QuietHoursEnd,

@@ -12,6 +12,7 @@ func Routes(h *Handlers) chi.Router {
 
 	r.Group(func(read chi.Router) {
 		read.Use(middleware.RequirePermission(authz.PermissionMessagingRead))
+		read.Get("/unread-count", h.GetUnreadCount)
 		read.Get("/threads", h.ListThreads)
 		read.Get("/threads/{threadId}", h.GetThread)
 		read.Get("/threads/{threadId}/messages", h.ListThreadMessages)

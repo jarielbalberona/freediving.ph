@@ -57,6 +57,32 @@ func TestNotificationRoutesRequireReadAndWritePermissions(t *testing.T) {
 			t.Fatalf("expected 403 for missing notifications.write, got %d", rec.Code)
 		}
 	})
+
+	t.Run("member with write permission cannot client-create arbitrary notification", func(t *testing.T) {
+		router := buildNotificationPermissionRouter(authz.Identity{
+			UserID:        "550e8400-e29b-41d4-a716-446655440000",
+			GlobalRole:    "member",
+			AccountStatus: "active",
+			Permissions: map[authz.Permission]bool{
+				authz.PermissionNotificationsRead:  true,
+				authz.PermissionNotificationsWrite: true,
+			},
+		}, h)
+
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{
+			"userId":"550e8400-e29b-41d4-a716-446655440001",
+			"type":"SYSTEM",
+			"title":"hello",
+			"message":"world"
+		}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 for member client-create, got %d", rec.Code)
+		}
+	})
 }
 
 func buildNotificationPermissionRouter(identity authz.Identity, h *Handlers) chi.Router {

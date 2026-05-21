@@ -585,6 +585,10 @@ export interface MessagingThreadListResponse {
   nextCursor?: string;
 }
 
+export interface MessagingUnreadCountResponse {
+  unreadCount: number;
+}
+
 export interface MessagingThreadDetailResponse {
   id: string;
   type: MessagingThreadType;
@@ -649,6 +653,15 @@ export type MessagingRealtimeEnvelope<T = unknown> = {
   payload: T;
 };
 
+export type NotificationRealtimeEnvelope<T = Notification> = {
+  v: 1;
+  type: "notification.created";
+  ts: string;
+  eventId?: string;
+  requestId?: string;
+  payload: T;
+};
+
 export type ChikaRealtimeEventType =
   | "chika.thread.created"
   | "chika.thread.updated"
@@ -686,11 +699,14 @@ export interface Notification {
     | "GROUP_INVITE"
     | "EVENT_REMINDER"
     | "PAYMENT"
-    | "SECURITY";
+    | "SECURITY"
+    | "NEW_DIVE_SITE_PUBLISHED";
+  category: string;
   title: string;
   message: string;
   status: "UNREAD" | "READ" | "ARCHIVED" | "DELETED";
   priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+  actorUserId?: string;
   relatedUserId?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
@@ -702,7 +718,9 @@ export interface Notification {
   emailSentAt?: string;
   pushSentAt?: string;
   readAt?: string;
+  seenAt?: string;
   archivedAt?: string;
+  idempotencyKey?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -728,6 +746,7 @@ export interface NotificationSettings {
   eventReminderNotifications: boolean;
   paymentNotifications: boolean;
   securityNotifications: boolean;
+  newDiveSitePublished: boolean;
   digestFrequency: "IMMEDIATE" | "DAILY" | "WEEKLY" | "NEVER";
   quietHoursStart?: string;
   quietHoursEnd?: string;
@@ -746,6 +765,7 @@ export interface NotificationStats {
 export interface CreateNotificationRequest {
   userId: string;
   type: Notification["type"];
+  category?: string;
   title: string;
   message: string;
   priority?: Notification["priority"];
@@ -782,6 +802,7 @@ export interface UpdateNotificationSettingsRequest {
   eventReminderNotifications?: boolean;
   paymentNotifications?: boolean;
   securityNotifications?: boolean;
+  newDiveSitePublished?: boolean;
   digestFrequency?: NotificationSettings["digestFrequency"];
   quietHoursStart?: string;
   quietHoursEnd?: string;

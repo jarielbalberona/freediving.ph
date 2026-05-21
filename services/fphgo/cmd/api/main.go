@@ -50,6 +50,9 @@ func main() {
 	hubCtx, cancelHub := context.WithCancel(ctx)
 	defer cancelHub()
 	go deps.Hub.Run(hubCtx)
+	if deps.NotificationsService != nil {
+		go deps.NotificationsService.RunOutboxProcessor(hubCtx, 30*time.Second, 25)
+	}
 
 	router := app.NewRouterWithBuildInfo(cfg, deps, logger, mid.Recover(logger), app.BuildInfo{
 		Version:   Version,

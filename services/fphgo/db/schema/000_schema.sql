@@ -136,7 +136,8 @@ BEGIN
       'GROUP_INVITE',
       'EVENT_REMINDER',
       'PAYMENT',
-      'SECURITY'
+      'SECURITY',
+      'NEW_DIVE_SITE_PUBLISHED'
     );
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notification_priority') THEN
@@ -199,10 +200,12 @@ CREATE TABLE IF NOT EXISTS notifications (
   id BIGSERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   type notification_type NOT NULL,
+  category TEXT NOT NULL DEFAULT 'system',
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   status notification_status NOT NULL DEFAULT 'UNREAD',
   priority notification_priority NOT NULL DEFAULT 'NORMAL',
+  actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   related_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   related_entity_type TEXT,
   related_entity_id TEXT,
@@ -214,9 +217,29 @@ CREATE TABLE IF NOT EXISTS notifications (
   email_sent_at TIMESTAMPTZ,
   push_sent_at TIMESTAMPTZ,
   read_at TIMESTAMPTZ,
+  seen_at TIMESTAMPTZ,
   archived_at TIMESTAMPTZ,
+  idempotency_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notification_outbox (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,
+  aggregate_type TEXT NOT NULL,
+  aggregate_id UUID NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status TEXT NOT NULL DEFAULT 'pending',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_retry_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_error TEXT,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  processed_at TIMESTAMPTZ,
+  CHECK (status IN ('pending', 'processing', 'processed', 'failed')),
+  CHECK (attempts >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS notification_settings (
@@ -240,6 +263,7 @@ CREATE TABLE IF NOT EXISTS notification_settings (
   event_reminder_notifications BOOLEAN NOT NULL DEFAULT TRUE,
   payment_notifications BOOLEAN NOT NULL DEFAULT TRUE,
   security_notifications BOOLEAN NOT NULL DEFAULT TRUE,
+  new_dive_site_published BOOLEAN NOT NULL DEFAULT TRUE,
   digest_frequency notification_digest_frequency NOT NULL DEFAULT 'IMMEDIATE',
   quiet_hours_start TEXT,
   quiet_hours_end TEXT,
@@ -948,8 +972,12 @@ CREATE INDEX IF NOT EXISTS idx_thread_messages_thread_created ON thread_messages
 CREATE UNIQUE INDEX IF NOT EXISTS idx_thread_messages_client_id ON thread_messages (thread_id, sender_user_id, client_id) WHERE client_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications (user_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_status_created ON notifications (user_id, status, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_status_category_created ON notifications (user_id, status, category, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_type_created ON notifications (user_id, type, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_priority_created ON notifications (user_id, priority, created_at DESC, id DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_idempotency_key ON notifications (user_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_pending ON notification_outbox (status, next_retry_at, created_at);
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_aggregate ON notification_outbox (aggregate_type, aggregate_id);
 CREATE INDEX IF NOT EXISTS idx_dive_sites_name ON dive_sites (name);
 CREATE INDEX IF NOT EXISTS idx_dive_sites_slug ON dive_sites (slug);
 CREATE INDEX IF NOT EXISTS idx_dive_sites_area ON dive_sites (area);

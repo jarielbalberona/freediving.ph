@@ -528,6 +528,7 @@ export const queryKeys = {
   messages: {
     all: ["messages"] as const,
     threads: () => [...queryKeys.messages.all, "threads"] as const,
+    unreadCount: () => [...queryKeys.messages.all, "unread-count"] as const,
     threadList: (category: string, q: string) =>
       [
         ...queryKeys.messages.threads(),

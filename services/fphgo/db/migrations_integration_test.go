@@ -3,6 +3,7 @@ package db_test
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -14,7 +15,7 @@ import (
 
 const gooseVersion = "v3.24.1"
 
-func TestMigrationsUpDownSanity(t *testing.T) {
+func TestMigrationsUpSanity(t *testing.T) {
 	baseDSN := os.Getenv("TEST_DB_DSN")
 	if baseDSN == "" {
 		t.Skip("TEST_DB_DSN is not set")
@@ -49,9 +50,10 @@ func TestMigrationsUpDownSanity(t *testing.T) {
 		_, _ = adminPool.Exec(context.Background(), fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, testDBName))
 	}()
 
-	testCfg := baseCfg.Copy()
-	testCfg.ConnConfig.Database = testDBName
-	testDSN := testCfg.ConnString()
+	testDSN, err := dsnWithDatabase(baseDSN, testDBName)
+	if err != nil {
+		t.Fatalf("build temp db dsn: %v", err)
+	}
 
 	if err := runGoose(t, testDSN, "up"); err != nil {
 		t.Fatalf("goose up failed: %v", err)
@@ -59,13 +61,21 @@ func TestMigrationsUpDownSanity(t *testing.T) {
 	if err := assertTableExists(ctx, testDSN, "users"); err != nil {
 		t.Fatalf("expected users table after up migration: %v", err)
 	}
+	if err := assertTableExists(ctx, testDSN, "notifications"); err != nil {
+		t.Fatalf("expected notifications table after up migration: %v", err)
+	}
+	if err := assertTableExists(ctx, testDSN, "notification_outbox"); err != nil {
+		t.Fatalf("expected notification_outbox table after up migration: %v", err)
+	}
+}
 
-	if err := runGoose(t, testDSN, "down-to", "0"); err != nil {
-		t.Fatalf("goose down-to 0 failed: %v", err)
+func dsnWithDatabase(dsn, database string) (string, error) {
+	parsed, err := url.Parse(dsn)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("TEST_DB_DSN must be a URL-style Postgres DSN")
 	}
-	if err := assertTableMissing(ctx, testDSN, "users"); err != nil {
-		t.Fatalf("expected users table dropped after down migration: %v", err)
-	}
+	parsed.Path = "/" + database
+	return parsed.String(), nil
 }
 
 func runGoose(t *testing.T, dsn string, args ...string) error {

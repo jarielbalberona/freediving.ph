@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 export const createNotificationSchema = z.object({
   userId: z.string().uuid(),
-  type: z.enum(['SYSTEM', 'MESSAGE', 'EVENT', 'GROUP', 'SERVICE', 'BOOKING', 'REVIEW', 'MENTION', 'LIKE', 'COMMENT', 'FRIEND_REQUEST', 'GROUP_INVITE', 'EVENT_REMINDER', 'PAYMENT', 'SECURITY']),
+  type: z.enum(['SYSTEM', 'MESSAGE', 'EVENT', 'GROUP', 'SERVICE', 'BOOKING', 'REVIEW', 'MENTION', 'LIKE', 'COMMENT', 'FRIEND_REQUEST', 'GROUP_INVITE', 'EVENT_REMINDER', 'PAYMENT', 'SECURITY', 'NEW_DIVE_SITE_PUBLISHED']),
+  category: z.string().max(80).optional(),
   title: z.string().min(1).max(255),
   message: z.string().min(1),
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).optional(),
@@ -39,6 +40,7 @@ export const updateNotificationSettingsSchema = z.object({
   eventReminderNotifications: z.boolean().optional(),
   paymentNotifications: z.boolean().optional(),
   securityNotifications: z.boolean().optional(),
+  newDiveSitePublished: z.boolean().optional(),
   digestFrequency: z.enum(['IMMEDIATE', 'DAILY', 'WEEKLY', 'NEVER']).optional(),
   quietHoursStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
   quietHoursEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
@@ -49,7 +51,7 @@ export const notificationFiltersSchema = z.object({
   page: z.number().int().positive().optional(),
   limit: z.number().int().positive().max(100).optional(),
   status: z.enum(['UNREAD', 'READ', 'ARCHIVED', 'DELETED']).optional(),
-  type: z.enum(['SYSTEM', 'MESSAGE', 'EVENT', 'GROUP', 'SERVICE', 'BOOKING', 'REVIEW', 'MENTION', 'LIKE', 'COMMENT', 'FRIEND_REQUEST', 'GROUP_INVITE', 'EVENT_REMINDER', 'PAYMENT', 'SECURITY']).optional(),
+  type: z.enum(['SYSTEM', 'MESSAGE', 'EVENT', 'GROUP', 'SERVICE', 'BOOKING', 'REVIEW', 'MENTION', 'LIKE', 'COMMENT', 'FRIEND_REQUEST', 'GROUP_INVITE', 'EVENT_REMINDER', 'PAYMENT', 'SECURITY', 'NEW_DIVE_SITE_PUBLISHED']).optional(),
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).optional(),
 });
 

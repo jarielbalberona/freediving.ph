@@ -1,27 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { notificationsApi } from "../api/notifications";
 import { queryKeys } from "@/lib/query/query-keys";
-import type {
-  CreateNotificationRequest,
-  UpdateNotificationSettingsRequest,
-} from "@freediving.ph/types";
-
-export const useCreateNotification = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: CreateNotificationRequest) =>
-      notificationsApi.createNotification(data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.notifications.lists(),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.notifications.stats(),
-      });
-    },
-  });
-};
+import type { UpdateNotificationSettingsRequest } from "@freediving.ph/types";
 
 export const useMarkAsRead = () => {
   const queryClient = useQueryClient();

@@ -252,6 +252,21 @@ func (m *memoryMessagingRepo) ArchiveThreadForUser(_ context.Context, threadID, 
 	return nil
 }
 
+func (m *memoryMessagingRepo) CountUnreadMessages(_ context.Context, userID string) (int64, error) {
+	var count int64
+	for threadID, threadMembers := range m.members {
+		if _, ok := threadMembers[userID]; !ok {
+			continue
+		}
+		for _, msg := range m.msgs[threadID] {
+			if msg.SenderID != userID {
+				count++
+			}
+		}
+	}
+	return count, nil
+}
+
 type messagingNoRows struct{}
 
 func (messagingNoRows) Error() string { return "no rows" }
