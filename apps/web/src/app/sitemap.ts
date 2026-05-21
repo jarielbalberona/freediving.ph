@@ -4,7 +4,15 @@ import type { ExploreListResponse } from "@freediving.ph/types";
 import { siteConfig } from "@/config/site";
 import { getFphgoBaseUrlServer } from "@/lib/api/fphgo-base-url";
 
-const stablePublicRoutes = ["/", "/explore", "/buddies", "/chika", "/events", "/groups"];
+const stablePublicRoutes = [
+  "/",
+  "/founder-note",
+  "/explore",
+  "/buddies",
+  "/chika",
+  "/events",
+  "/groups",
+];
 
 const toAbsoluteUrl = (path: string): string => `${siteConfig.url}${path}`;
 

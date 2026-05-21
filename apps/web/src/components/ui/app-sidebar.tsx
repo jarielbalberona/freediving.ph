@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import { Info } from "lucide-react";
 import {
   getGroupedNavItems,
   getMobileSidebarNavGroups,
@@ -53,6 +54,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const profileHref = useCurrentProfileHref();
   const messageUnreadQuery = useMessageUnreadCount(Boolean(effectiveSignedIn));
   const messageUnreadCount = messageUnreadQuery.data?.unreadCount ?? 0;
+  const founderNoteActive = isActiveRoute(pathname ?? "", "/founder-note");
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -141,6 +143,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroup>
         ))}
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <Link href="/founder-note" className="flex items-center gap-2 w-full">
+              <SidebarMenuButton
+                className="cursor-pointer!"
+                isActive={founderNoteActive}
+              >
+                <Info />
+                <span className="text-sm">Founder's Note</span>
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
