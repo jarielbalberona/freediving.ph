@@ -310,6 +310,7 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 				Area:               "Mabini, Batangas",
 				Difficulty:         "easy",
 				Hazards:            []string{"boat traffic"},
+				ContactInfo:        "VHF 16 or local operator desk",
 				VerificationStatus: "verified",
 				LastUpdatedAt:      time.Now().UTC(),
 				CreatedAt:          time.Now().UTC(),
@@ -475,6 +476,13 @@ func TestExplorePublicReadsAndWriteAuthGates(t *testing.T) {
 	r.ServeHTTP(getDetailRec, getDetail)
 	if getDetailRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for public detail, got %d", getDetailRec.Code)
+	}
+	var detailBody SiteDetailResponse
+	if err := json.Unmarshal(getDetailRec.Body.Bytes(), &detailBody); err != nil {
+		t.Fatalf("decode detail response: %v", err)
+	}
+	if got := detailBody.Site.ContactInfo; got != "VHF 16 or local operator desk" {
+		t.Fatalf("expected contact info to be mapped in detail response, got %q", got)
 	}
 
 	relatedReq := httptest.NewRequest(http.MethodGet, "/sites/twin-rocks-anilao/related", nil)

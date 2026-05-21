@@ -1222,6 +1222,7 @@ func mapSiteDetail(input explorerepo.SiteDetail) SiteDetail {
 		TypicalConditions:     input.TypicalConditions,
 		Access:                input.Access,
 		Fees:                  input.Fees,
+		ContactInfo:           input.ContactInfo,
 		VerificationStatus:    input.VerificationStatus,
 		VerifiedByUserID:      input.VerifiedByUserID,
 		VerifiedByDisplayName: input.VerifiedByDisplayName,

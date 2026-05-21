@@ -76,7 +76,13 @@ test("explore site detail renders real backend data or 404s honestly", async () 
   assert.match(sharePage, /getCachedExploreSiteBySlug\(slug\)/);
   assert.match(sharePage, /export const revalidate = 300/);
   assert.match(sharePage, /getExploreSiteRelatedServer\(slug\)/);
-  assert.match(sharePage, /<SuggestEditLink slug=\{data\.site\.slug\} \/>/);
+  assert.match(sharePage, /const site = data\.site/);
+  assert.match(sharePage, /<SuggestEditLink slug=\{site\.slug\} \/>/);
+  assert.match(sharePage, /site\.description/);
+  assert.match(sharePage, /site\.typicalConditions/);
+  assert.match(sharePage, /site\.contactInfo/);
+  assert.match(sharePage, /formatCoordinates\(site\)/);
+  assert.match(sharePage, /site\.hazards\.map/);
   assert.doesNotMatch(sharePage, /buttonVariants/);
   assert.match(suggestEditLink, /"use client"/);
   assert.match(suggestEditLink, /Suggest edit/);
@@ -181,14 +187,23 @@ test("explore site detail renders related tabs without duplicating old buddy sec
   assert.doesNotMatch(relatedTabs, /useRouter/);
   assert.doesNotMatch(relatedTabs, /router\.replace/);
   assert.match(relatedTabs, /useSearchParams/);
-  assert.match(relatedTabs, /const tabFromUrl = tabFromParam\(searchParams\.get\("tab"\)\)/);
+  assert.match(
+    relatedTabs,
+    /const tabFromUrl = tabFromParam\(searchParams\.get\("tab"\)\)/,
+  );
   assert.match(relatedTabs, /useState<DiveSiteRelatedTab>\(tabFromUrl\)/);
   assert.match(relatedTabs, /setActiveTabState\(nextTab\)/);
   assert.match(relatedTabs, /nextParams\.set\("tab", nextTab\)/);
   assert.match(relatedTabs, /window\.history\.replaceState/);
   assert.match(relatedTabs, /overflow-x-auto overflow-y-hidden/);
-  assert.match(relatedTabs, /<Tabs value=\{activeTab\} onValueChange=\{setActiveTab\}/);
-  assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("available-buddies"\)\}/);
+  assert.match(
+    relatedTabs,
+    /<Tabs value=\{activeTab\} onValueChange=\{setActiveTab\}/,
+  );
+  assert.match(
+    relatedTabs,
+    /onClick=\{\(\) => setActiveTab\("available-buddies"\)\}/,
+  );
   assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("locals"\)\}/);
   assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("community"\)\}/);
   assert.match(relatedTabs, /onClick=\{\(\) => setActiveTab\("reviews"\)\}/);
