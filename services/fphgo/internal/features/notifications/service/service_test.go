@@ -362,6 +362,84 @@ func TestProcessDueOutboxDoesNotDuplicateNotificationsAfterPartialFailureRetry(t
 	}
 }
 
+func TestListOutboxReturnsSafeSummary(t *testing.T) {
+	repo := newNotificationRepoStub()
+	now := time.Now().UTC()
+	repo.listedOutbox = []notificationsrepo.NotificationOutbox{{
+		ID:             "550e8400-e29b-41d4-a716-446655440099",
+		EventType:      "NEW_DIVE_SITE_PUBLISHED",
+		AggregateType:  "dive_site",
+		AggregateID:    "550e8400-e29b-41d4-a716-446655440010",
+		Status:         "failed",
+		Attempts:       8,
+		NextRetryAt:    now,
+		LastError:      ptr("failed"),
+		IdempotencyKey: "explore:site:550e8400-e29b-41d4-a716-446655440010:published",
+		Payload: map[string]any{
+			"siteId":          "550e8400-e29b-41d4-a716-446655440010",
+			"slug":            "secret-reef",
+			"name":            "Secret Reef",
+			"area":            "Batangas",
+			"submitterUserId": "550e8400-e29b-41d4-a716-446655440001",
+			"reviewerUserId":  "550e8400-e29b-41d4-a716-446655440002",
+			"moderationNotes": "private",
+		},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}}
+	svc := New(repo)
+	status := "failed"
+
+	items, err := svc.ListOutbox(context.Background(), OutboxListInput{Status: &status, Limit: 10})
+	if err != nil {
+		t.Fatalf("ListOutbox returned error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected one outbox item, got %d", len(items))
+	}
+	if repo.listOutboxInput.Status == nil || *repo.listOutboxInput.Status != "failed" {
+		t.Fatalf("expected failed status filter passed to repo, got %+v", repo.listOutboxInput.Status)
+	}
+	if items[0].Summary["name"] != "Secret Reef" {
+		t.Fatalf("expected public summary field, got %+v", items[0].Summary)
+	}
+	if _, ok := items[0].Summary["moderationNotes"]; ok {
+		t.Fatal("outbox summary leaked private moderation notes")
+	}
+	if _, ok := items[0].Summary["reviewerUserId"]; ok {
+		t.Fatal("outbox summary leaked reviewer user id")
+	}
+}
+
+func TestRetryOutboxSchedulesFailedRowDueWithoutResettingAttempts(t *testing.T) {
+	repo := newNotificationRepoStub()
+	now := time.Now().UTC()
+	repo.retryOutboxResult = notificationsrepo.NotificationOutbox{
+		ID:             "550e8400-e29b-41d4-a716-446655440099",
+		EventType:      "NEW_DIVE_SITE_PUBLISHED",
+		AggregateType:  "dive_site",
+		AggregateID:    "550e8400-e29b-41d4-a716-446655440010",
+		Status:         "pending",
+		Attempts:       8,
+		NextRetryAt:    now,
+		IdempotencyKey: "explore:site:550e8400-e29b-41d4-a716-446655440010:published",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	svc := New(repo)
+
+	item, err := svc.RetryOutbox(context.Background(), repo.retryOutboxResult.ID)
+	if err != nil {
+		t.Fatalf("RetryOutbox returned error: %v", err)
+	}
+	if repo.retriedOutboxID != repo.retryOutboxResult.ID {
+		t.Fatalf("expected retry id passed to repo, got %s", repo.retriedOutboxID)
+	}
+	if item.Status != "pending" || item.Attempts != 8 {
+		t.Fatalf("expected retry to preserve attempts and schedule pending, got status=%s attempts=%d", item.Status, item.Attempts)
+	}
+}
+
 type notificationRepoStub struct {
 	notifications                        []notificationsrepo.Notification
 	created                              []notificationsrepo.CreateInput
@@ -370,6 +448,10 @@ type notificationRepoStub struct {
 	excludedNewDiveSiteRecipientIDs      map[string]bool
 	notificationsByUserAndIdempotencyKey map[string]notificationsrepo.Notification
 	claimedOutbox                        []notificationsrepo.NotificationOutbox
+	listedOutbox                         []notificationsrepo.NotificationOutbox
+	listOutboxInput                      notificationsrepo.OutboxListInput
+	retryOutboxResult                    notificationsrepo.NotificationOutbox
+	retriedOutboxID                      string
 	processedOutboxIDs                   []string
 	retryOutbox                          []outboxRetry
 	failedOutboxIDs                      []string
@@ -518,6 +600,16 @@ func (r *notificationRepoStub) ListActiveNewDiveSiteRecipients(_ context.Context
 
 func (r *notificationRepoStub) ClaimPendingOutbox(context.Context, time.Time, int) ([]notificationsrepo.NotificationOutbox, error) {
 	return r.claimedOutbox, nil
+}
+
+func (r *notificationRepoStub) ListOutbox(_ context.Context, input notificationsrepo.OutboxListInput) ([]notificationsrepo.NotificationOutbox, error) {
+	r.listOutboxInput = input
+	return r.listedOutbox, nil
+}
+
+func (r *notificationRepoStub) RetryOutbox(_ context.Context, id string, _ time.Time) (notificationsrepo.NotificationOutbox, error) {
+	r.retriedOutboxID = id
+	return r.retryOutboxResult, nil
 }
 
 func (r *notificationRepoStub) MarkOutboxProcessed(_ context.Context, id string) error {

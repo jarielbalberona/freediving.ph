@@ -80,6 +80,10 @@ test("explore site detail renders real backend data or 404s honestly", async () 
   assert.match(sharePage, /<SuggestEditLink slug=\{site\.slug\} \/>/);
   assert.match(sharePage, /site\.description/);
   assert.match(sharePage, /site\.typicalConditions/);
+  assert.match(sharePage, /site\.depthMinM/);
+  assert.match(sharePage, /site\.depthMaxM/);
+  assert.match(sharePage, /Minimum depth/);
+  assert.match(sharePage, /Maximum depth/);
   assert.match(sharePage, /site\.contactInfo/);
   assert.match(sharePage, /formatCoordinates\(site\)/);
   assert.match(sharePage, /site\.hazards\.map/);

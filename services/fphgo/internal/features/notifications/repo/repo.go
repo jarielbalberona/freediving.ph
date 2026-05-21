@@ -152,6 +152,12 @@ type OutboxEnqueueInput struct {
 	IdempotencyKey string
 }
 
+type OutboxListInput struct {
+	Status *string
+	Limit  int
+	Offset int
+}
+
 type outboxExecutor interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
@@ -270,6 +276,100 @@ func (r *Repo) ClaimPendingOutbox(ctx context.Context, now time.Time, limit int)
 		return nil, rows.Err()
 	}
 	return items, nil
+}
+
+func (r *Repo) ListOutbox(ctx context.Context, input OutboxListInput) ([]NotificationOutbox, error) {
+	limit := input.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := input.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	status := strings.TrimSpace(valueOrEmpty(input.Status))
+	where := "status IN ('failed', 'pending')"
+	args := []any{limit, offset}
+	if status != "" {
+		where = "status = $3"
+		args = append(args, status)
+	}
+
+	rows, err := r.pool.Query(ctx, fmt.Sprintf(`
+		SELECT
+			id::text,
+			event_type,
+			aggregate_type,
+			aggregate_id::text,
+			payload,
+			status,
+			attempts,
+			next_retry_at,
+			last_error,
+			idempotency_key,
+			created_at,
+			updated_at,
+			processed_at
+		FROM notification_outbox
+		WHERE %s
+		ORDER BY created_at DESC, id DESC
+		LIMIT $1 OFFSET $2
+	`, where), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]NotificationOutbox, 0)
+	for rows.Next() {
+		item, scanErr := scanOutboxRow(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		items = append(items, item)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return items, nil
+}
+
+func (r *Repo) RetryOutbox(ctx context.Context, id string, now time.Time) (NotificationOutbox, error) {
+	row := r.pool.QueryRow(ctx, `
+		UPDATE notification_outbox
+		SET
+			status = 'pending',
+			next_retry_at = $2,
+			last_error = NULL,
+			updated_at = NOW()
+		WHERE id = $1
+		  AND (
+			status = 'failed'
+			OR (
+				status = 'processing'
+				AND updated_at <= $2::timestamptz - INTERVAL '15 minutes'
+			)
+		  )
+		RETURNING
+			id::text,
+			event_type,
+			aggregate_type,
+			aggregate_id::text,
+			payload,
+			status,
+			attempts,
+			next_retry_at,
+			last_error,
+			idempotency_key,
+			created_at,
+			updated_at,
+			processed_at
+	`, strings.TrimSpace(id), now)
+	return scanOutboxRow(row)
 }
 
 func (r *Repo) MarkOutboxProcessed(ctx context.Context, id string) error {
@@ -1025,6 +1125,13 @@ func truncateError(value string) string {
 		return trimmed
 	}
 	return trimmed[:2000]
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func toUTCPtr(value *time.Time) *time.Time {

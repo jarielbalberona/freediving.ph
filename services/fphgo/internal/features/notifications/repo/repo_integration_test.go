@@ -174,6 +174,65 @@ func TestOutboxClaimRetryStaleRecoveryAndProcessedState(t *testing.T) {
 	}
 }
 
+func TestOutboxAdminListAndRetryFailedRow(t *testing.T) {
+	pool := testNotificationsPool(t)
+	repo := notificationsrepo.New(pool)
+	ctx := context.Background()
+
+	siteID := uuid.NewString()
+	key := "test:notification-outbox-admin:" + siteID
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM notification_outbox WHERE idempotency_key = $1`, key)
+	})
+
+	enqueued, err := repo.EnqueueOutbox(ctx, notificationsrepo.OutboxEnqueueInput{
+		EventType:     notificationsrepo.OutboxEventNewDiveSitePublished,
+		AggregateType: "dive_site",
+		AggregateID:   siteID,
+		Payload: map[string]any{
+			"siteId": siteID,
+			"slug":   "test-site",
+			"name":   "Test Site",
+			"area":   "Batangas",
+		},
+		IdempotencyKey: key,
+	})
+	if err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		UPDATE notification_outbox
+		SET status = 'failed',
+		    attempts = 8,
+		    last_error = 'dead letter',
+		    next_retry_at = NOW() + INTERVAL '1 hour'
+		WHERE id = $1
+	`, enqueued.ID); err != nil {
+		t.Fatalf("mark failed fixture: %v", err)
+	}
+
+	status := "failed"
+	items, err := repo.ListOutbox(ctx, notificationsrepo.OutboxListInput{Status: &status, Limit: 10})
+	if err != nil {
+		t.Fatalf("list outbox: %v", err)
+	}
+	item, ok := findOutboxEvent(items, enqueued.ID)
+	if !ok || item.Status != "failed" || item.Attempts != 8 || item.LastError == nil {
+		t.Fatalf("expected failed outbox row in admin list, got %+v", items)
+	}
+
+	retried, err := repo.RetryOutbox(ctx, enqueued.ID, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("retry outbox: %v", err)
+	}
+	if retried.Status != "pending" || retried.Attempts != 8 || retried.LastError != nil {
+		t.Fatalf("expected failed row reset to due pending without resetting attempts, got %+v", retried)
+	}
+	if retried.NextRetryAt.After(time.Now().UTC().Add(5 * time.Second)) {
+		t.Fatalf("expected retry to be due immediately, got %s", retried.NextRetryAt)
+	}
+}
+
 func findOutboxEvent(events []notificationsrepo.NotificationOutbox, id string) (notificationsrepo.NotificationOutbox, bool) {
 	for _, event := range events {
 		if event.ID == id {

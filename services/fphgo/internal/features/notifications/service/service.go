@@ -35,6 +35,8 @@ type repository interface {
 	UpdateSettingsForUser(ctx context.Context, userID string, input notificationsrepo.SettingsUpdateInput) (notificationsrepo.NotificationSettings, error)
 	ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ClaimPendingOutbox(ctx context.Context, now time.Time, limit int) ([]notificationsrepo.NotificationOutbox, error)
+	ListOutbox(ctx context.Context, input notificationsrepo.OutboxListInput) ([]notificationsrepo.NotificationOutbox, error)
+	RetryOutbox(ctx context.Context, id string, now time.Time) (notificationsrepo.NotificationOutbox, error)
 	MarkOutboxProcessed(ctx context.Context, id string) error
 	MarkOutboxRetry(ctx context.Context, id string, nextRetryAt time.Time, lastError string) error
 	MarkOutboxFailed(ctx context.Context, id string, lastError string) error
@@ -128,6 +130,28 @@ type OutboxProcessResult struct {
 	Processed int
 	Retried   int
 	Failed    int
+}
+
+type OutboxListInput struct {
+	Status *string
+	Limit  int
+	Offset int
+}
+
+type OutboxItem struct {
+	ID             string
+	EventType      string
+	AggregateType  string
+	AggregateID    string
+	Status         string
+	Attempts       int
+	NextRetryAt    time.Time
+	LastError      *string
+	IdempotencyKey string
+	Summary        map[string]any
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	ProcessedAt    *time.Time
 }
 
 type CreateInput struct {
@@ -411,6 +435,44 @@ func (s *Service) ProcessDueOutbox(ctx context.Context, limit int) (OutboxProces
 		result.Processed++
 	}
 	return result, nil
+}
+
+func (s *Service) ListOutbox(ctx context.Context, input OutboxListInput) ([]OutboxItem, error) {
+	issues := validateOutboxListInput(input)
+	if len(issues) > 0 {
+		return nil, ValidationFailure{Issues: issues}
+	}
+	items, err := s.repo.ListOutbox(ctx, notificationsrepo.OutboxListInput{
+		Status: normalizeOutboxStatusPtr(input.Status),
+		Limit:  input.Limit,
+		Offset: input.Offset,
+	})
+	if err != nil {
+		return nil, apperrors.New(http.StatusInternalServerError, "notification_outbox_list_failed", "failed to list notification outbox rows", err)
+	}
+	result := make([]OutboxItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, mapOutboxItem(item))
+	}
+	return result, nil
+}
+
+func (s *Service) RetryOutbox(ctx context.Context, id string) (OutboxItem, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(id)); err != nil {
+		return OutboxItem{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"id"},
+			Code:    "invalid_uuid",
+			Message: "outbox id must be a valid UUID",
+		}}}
+	}
+	item, err := s.repo.RetryOutbox(ctx, id, time.Now().UTC())
+	if err != nil {
+		if notificationsrepo.IsNoRows(err) {
+			return OutboxItem{}, apperrors.New(http.StatusConflict, "outbox_not_retryable", "outbox row is not failed or stale processing", err)
+		}
+		return OutboxItem{}, apperrors.New(http.StatusInternalServerError, "notification_outbox_retry_failed", "failed to schedule notification outbox retry", err)
+	}
+	return mapOutboxItem(item), nil
 }
 
 func (s *Service) RunOutboxProcessor(ctx context.Context, interval time.Duration, limit int) {
@@ -835,6 +897,36 @@ func validateListInput(input ListInput) []validatex.Issue {
 	return issues
 }
 
+func validateOutboxListInput(input OutboxListInput) []validatex.Issue {
+	issues := []validatex.Issue{}
+	if input.Limit < 0 || input.Limit > 100 {
+		issues = append(issues, validatex.Issue{Path: []any{"limit"}, Code: "custom", Message: "limit must be between 1 and 100"})
+	}
+	if input.Offset < 0 {
+		issues = append(issues, validatex.Issue{Path: []any{"offset"}, Code: "custom", Message: "offset must be 0 or greater"})
+	}
+	if input.Status != nil {
+		status := strings.ToLower(strings.TrimSpace(*input.Status))
+		switch status {
+		case "pending", "processing", "processed", "failed":
+		default:
+			issues = append(issues, validatex.Issue{Path: []any{"status"}, Code: "invalid_enum", Message: "invalid outbox status"})
+		}
+	}
+	return issues
+}
+
+func normalizeOutboxStatusPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	normalized := strings.ToLower(strings.TrimSpace(*value))
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
+}
+
 func validateSettingsInput(input UpdateSettingsInput) []validatex.Issue {
 	issues := []validatex.Issue{}
 	if input.DigestFrequency != nil {
@@ -1014,6 +1106,40 @@ func mapNotification(input notificationsrepo.Notification) Notification {
 		CreatedAt:         input.CreatedAt,
 		UpdatedAt:         input.UpdatedAt,
 	}
+}
+
+func mapOutboxItem(input notificationsrepo.NotificationOutbox) OutboxItem {
+	return OutboxItem{
+		ID:             input.ID,
+		EventType:      input.EventType,
+		AggregateType:  input.AggregateType,
+		AggregateID:    input.AggregateID,
+		Status:         input.Status,
+		Attempts:       input.Attempts,
+		NextRetryAt:    input.NextRetryAt,
+		LastError:      input.LastError,
+		IdempotencyKey: input.IdempotencyKey,
+		Summary:        safeOutboxSummary(input.Payload),
+		CreatedAt:      input.CreatedAt,
+		UpdatedAt:      input.UpdatedAt,
+		ProcessedAt:    input.ProcessedAt,
+	}
+}
+
+func safeOutboxSummary(payload map[string]any) map[string]any {
+	if len(payload) == 0 {
+		return nil
+	}
+	summary := map[string]any{}
+	for _, key := range []string{"siteId", "slug", "name", "area"} {
+		if value, ok := payload[key]; ok {
+			summary[key] = value
+		}
+	}
+	if len(summary) == 0 {
+		return nil
+	}
+	return summary
 }
 
 func mapSettings(input notificationsrepo.NotificationSettings) NotificationSettings {

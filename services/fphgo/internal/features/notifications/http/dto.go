@@ -123,3 +123,24 @@ type NotificationStatsResponse struct {
 type UnreadCountResponse struct {
 	UnreadCount int64 `json:"unreadCount"`
 }
+
+type NotificationOutboxItem struct {
+	ID             string         `json:"id"`
+	EventType      string         `json:"eventType"`
+	AggregateType  string         `json:"aggregateType"`
+	AggregateID    string         `json:"aggregateId"`
+	Status         string         `json:"status"`
+	Attempts       int            `json:"attempts"`
+	NextRetryAt    string         `json:"nextRetryAt"`
+	LastError      *string        `json:"lastError,omitempty"`
+	IdempotencyKey string         `json:"idempotencyKey"`
+	Summary        map[string]any `json:"summary,omitempty"`
+	CreatedAt      string         `json:"createdAt"`
+	UpdatedAt      string         `json:"updatedAt"`
+	ProcessedAt    *string        `json:"processedAt,omitempty"`
+}
+
+type ListNotificationOutboxResponse struct {
+	Items      []NotificationOutboxItem `json:"items"`
+	Pagination NotificationsCursor      `json:"pagination"`
+}

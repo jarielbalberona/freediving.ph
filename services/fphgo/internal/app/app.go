@@ -76,47 +76,48 @@ type App struct {
 }
 
 type Dependencies struct {
-	AuthHandler          *authhttp.Handlers
-	UsersHandler         *usershttp.Handlers
-	MessagingHandler     *messaginghttp.Handlers
-	ChikaHandler         *chikahttp.Handlers
-	ExploreHandler       *explorehttp.Handlers
-	FeedHandler          *feedhttp.Handlers
-	BuddyFinderHandler   *buddyfinderhttp.Handlers
-	ProfilesHandler      *profileshttp.Handlers
-	BlocksHandler        *blockshttp.Handlers
-	BuddiesHandler       *buddieshttp.Handlers
-	ReportsHandler       *reportshttp.Handlers
-	ModerationHandler    *moderationhttp.Handlers
-	MediaHandler         *mediahttp.Handlers
-	NotificationsHandler *notificationshttp.Handlers
-	NotificationsService *notificationsservice.Service
-	GroupsHandler        *groupshttp.Handlers
-	EventsHandler        *eventshttp.Handlers
-	LocationsHandler     *locationshttp.Handlers
-	HomeHandler          *homehttp.Handlers
-	AuthRoutes           chi.Router
-	UsersRoutes          chi.Router
-	MessagingRoutes      chi.Router
-	ChikaRoutes          chi.Router
-	ExploreRoutes        chi.Router
-	FeedRoutes           chi.Router
-	BuddyFinderRoutes    chi.Router
-	ProfilesRoutes       chi.Router
-	BlocksRoutes         chi.Router
-	BuddiesRoutes        chi.Router
-	ReportsRoutes        chi.Router
-	ModerationRoutes     chi.Router
-	MediaRoutes          chi.Router
-	NotificationsRoutes  chi.Router
-	GroupsRoutes         chi.Router
-	EventsRoutes         chi.Router
-	LocationsRoutes      chi.Router
-	HomeRoutes           chi.Router
-	IdentityService      *identityservice.Service
-	WSHandler            *ws.Handler
-	Hub                  *ws.Hub
-	ReadyCheck           func(context.Context) error
+	AuthHandler              *authhttp.Handlers
+	UsersHandler             *usershttp.Handlers
+	MessagingHandler         *messaginghttp.Handlers
+	ChikaHandler             *chikahttp.Handlers
+	ExploreHandler           *explorehttp.Handlers
+	FeedHandler              *feedhttp.Handlers
+	BuddyFinderHandler       *buddyfinderhttp.Handlers
+	ProfilesHandler          *profileshttp.Handlers
+	BlocksHandler            *blockshttp.Handlers
+	BuddiesHandler           *buddieshttp.Handlers
+	ReportsHandler           *reportshttp.Handlers
+	ModerationHandler        *moderationhttp.Handlers
+	MediaHandler             *mediahttp.Handlers
+	NotificationsHandler     *notificationshttp.Handlers
+	NotificationsService     *notificationsservice.Service
+	GroupsHandler            *groupshttp.Handlers
+	EventsHandler            *eventshttp.Handlers
+	LocationsHandler         *locationshttp.Handlers
+	HomeHandler              *homehttp.Handlers
+	AuthRoutes               chi.Router
+	UsersRoutes              chi.Router
+	MessagingRoutes          chi.Router
+	ChikaRoutes              chi.Router
+	ExploreRoutes            chi.Router
+	FeedRoutes               chi.Router
+	BuddyFinderRoutes        chi.Router
+	ProfilesRoutes           chi.Router
+	BlocksRoutes             chi.Router
+	BuddiesRoutes            chi.Router
+	ReportsRoutes            chi.Router
+	ModerationRoutes         chi.Router
+	MediaRoutes              chi.Router
+	NotificationsRoutes      chi.Router
+	NotificationsAdminRoutes chi.Router
+	GroupsRoutes             chi.Router
+	EventsRoutes             chi.Router
+	LocationsRoutes          chi.Router
+	HomeRoutes               chi.Router
+	IdentityService          *identityservice.Service
+	WSHandler                *ws.Handler
+	Hub                      *ws.Hub
+	ReadyCheck               func(context.Context) error
 }
 
 type buddyFinderSiteLookup struct {

@@ -180,6 +180,11 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 					notifications.Mount("/v1/notifications", notificationsRouter)
 				}
 			})
+			member.Group(func(notificationAdmin chi.Router) {
+				if notificationAdminRouter := resolveNotificationsAdminRouter(deps); notificationAdminRouter != nil {
+					notificationAdmin.Mount("/v1/admin/notification-outbox", notificationAdminRouter)
+				}
+			})
 			if authRouter := resolveAuthRouter(deps); authRouter != nil {
 				member.Mount("/v1/auth", authRouter)
 			}
@@ -369,6 +374,16 @@ func resolveNotificationsRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return notificationshttp.Routes(deps.NotificationsHandler)
+}
+
+func resolveNotificationsAdminRouter(deps *Dependencies) chi.Router {
+	if deps.NotificationsAdminRoutes != nil {
+		return deps.NotificationsAdminRoutes
+	}
+	if deps.NotificationsHandler == nil {
+		return nil
+	}
+	return notificationshttp.AdminOutboxRoutes(deps.NotificationsHandler)
 }
 
 func resolveModerationRouter(deps *Dependencies) chi.Router {

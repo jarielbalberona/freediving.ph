@@ -264,6 +264,44 @@ func (h *Handlers) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, mapSettings(updated))
 }
 
+func (h *Handlers) ListOutbox(w http.ResponseWriter, r *http.Request) {
+	input, issues, ok := parseOutboxListInput(r)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	items, err := h.service.ListOutbox(r.Context(), input)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	resp := make([]NotificationOutboxItem, 0, len(items))
+	for _, item := range items {
+		resp = append(resp, mapOutboxItem(item))
+	}
+	httpx.JSON(w, http.StatusOK, ListNotificationOutboxResponse{
+		Items: resp,
+		Pagination: NotificationsCursor{
+			Limit:  input.Limit,
+			Offset: input.Offset,
+		},
+	})
+}
+
+func (h *Handlers) RetryOutbox(w http.ResponseWriter, r *http.Request) {
+	id, issues, ok := parseOutboxID(chi.URLParam(r, "outboxId"))
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, err := h.service.RetryOutbox(r.Context(), id)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapOutboxItem(item))
+}
+
 func parseNotificationID(raw string) (int64, []validatex.Issue, bool) {
 	value := strings.TrimSpace(raw)
 	if value == "" {
@@ -282,6 +320,18 @@ func parseNotificationID(raw string) (int64, []validatex.Issue, bool) {
 		}}, false
 	}
 	return id, nil, true
+}
+
+func parseOutboxID(raw string) (string, []validatex.Issue, bool) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", []validatex.Issue{{
+			Path:    []any{"outboxId"},
+			Code:    "required",
+			Message: "This field is required",
+		}}, false
+	}
+	return value, nil, true
 }
 
 func parseListInput(r *http.Request) (notificationsservice.ListInput, []validatex.Issue, bool) {
@@ -341,6 +391,53 @@ func parseListInput(r *http.Request) (notificationsservice.ListInput, []validate
 	}, nil, true
 }
 
+func parseOutboxListInput(r *http.Request) (notificationsservice.OutboxListInput, []validatex.Issue, bool) {
+	query := r.URL.Query()
+	issues := []validatex.Issue{}
+
+	limit := 50
+	if rawLimit := strings.TrimSpace(query.Get("limit")); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed < 1 || parsed > maxLimit {
+			issues = append(issues, validatex.Issue{
+				Path:    []any{"limit"},
+				Code:    "custom",
+				Message: "limit must be between 1 and 100",
+			})
+		} else {
+			limit = parsed
+		}
+	}
+
+	offset := 0
+	if rawOffset := strings.TrimSpace(query.Get("offset")); rawOffset != "" {
+		parsed, err := strconv.Atoi(rawOffset)
+		if err != nil || parsed < 0 {
+			issues = append(issues, validatex.Issue{
+				Path:    []any{"offset"},
+				Code:    "custom",
+				Message: "offset must be 0 or greater",
+			})
+		} else {
+			offset = parsed
+		}
+	}
+
+	var status *string
+	if raw := strings.TrimSpace(query.Get("status")); raw != "" {
+		status = &raw
+	}
+
+	if len(issues) > 0 {
+		return notificationsservice.OutboxListInput{}, issues, false
+	}
+	return notificationsservice.OutboxListInput{
+		Status: status,
+		Limit:  limit,
+		Offset: offset,
+	}, nil, true
+}
+
 func requireActorID(r *http.Request) (string, error) {
 	identity, ok := middleware.CurrentIdentity(r.Context())
 	if !ok || identity.UserID == "" {
@@ -381,6 +478,24 @@ func mapNotification(input notificationsservice.Notification) Notification {
 		IdempotencyKey:    input.IdempotencyKey,
 		CreatedAt:         input.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:         input.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func mapOutboxItem(input notificationsservice.OutboxItem) NotificationOutboxItem {
+	return NotificationOutboxItem{
+		ID:             input.ID,
+		EventType:      input.EventType,
+		AggregateType:  input.AggregateType,
+		AggregateID:    input.AggregateID,
+		Status:         input.Status,
+		Attempts:       input.Attempts,
+		NextRetryAt:    input.NextRetryAt.UTC().Format(time.RFC3339),
+		LastError:      input.LastError,
+		IdempotencyKey: input.IdempotencyKey,
+		Summary:        input.Summary,
+		CreatedAt:      input.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:      input.UpdatedAt.UTC().Format(time.RFC3339),
+		ProcessedAt:    formatTimePtr(input.ProcessedAt),
 	}
 }
 

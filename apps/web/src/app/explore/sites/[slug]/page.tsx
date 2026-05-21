@@ -88,6 +88,9 @@ const formatDepthRange = (site: ExploreSiteDetailResponse["site"]) => {
   return "";
 };
 
+const formatDepthValue = (value: number | undefined) =>
+  typeof value === "number" ? `${value}m` : "Not listed yet.";
+
 const formatCoordinates = (site: ExploreSiteDetailResponse["site"]) => {
   if (typeof site.latitude !== "number" || typeof site.longitude !== "number") {
     return "";
@@ -240,8 +243,17 @@ export default async function ExploreSharePage({ params }: PageProps) {
                 <DetailItem label="Contact" icon={<Radio className="size-4" />}>
                   {site.contactInfo || "Not listed yet."}
                 </DetailItem>
-                <DetailItem label="Depth" icon={<Gauge className="size-4" />}>
-                  {depthRange || "Not listed yet."}
+                <DetailItem
+                  label="Minimum depth"
+                  icon={<Gauge className="size-4" />}
+                >
+                  {formatDepthValue(site.depthMinM)}
+                </DetailItem>
+                <DetailItem
+                  label="Maximum depth"
+                  icon={<Gauge className="size-4" />}
+                >
+                  {formatDepthValue(site.depthMaxM)}
                 </DetailItem>
                 <DetailItem
                   label="Coordinates"
