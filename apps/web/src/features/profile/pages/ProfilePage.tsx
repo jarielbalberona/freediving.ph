@@ -4,8 +4,10 @@ import { useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { buttonVariants } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session";
 import { messagesApi } from "@/features/messages/api/messages";
 import { messageQueryKeys } from "@/features/messages/hooks/queries";
@@ -119,9 +121,14 @@ export default function ProfilePage({ username }: ProfilePageProps) {
           Profile unavailable
         </h1>
         <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
-          This public profile could not be loaded right now. It may have moved,
-          been set private, or the connection failed.
+          This public profile could not be loaded right now.
         </p>
+        <p className="mt-2 text-sm font-medium text-foreground">
+          Sign in to view this profile.
+        </p>
+        <Link href="/sign-in" className={buttonVariants({ className: "mt-6" })}>
+          Sign in
+        </Link>
       </div>
     );
   }
