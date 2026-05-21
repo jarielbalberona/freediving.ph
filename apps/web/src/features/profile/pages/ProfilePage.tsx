@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef } from "react";
-import { AlertCircle } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import { useSession } from "@/features/auth/session";
@@ -35,6 +35,8 @@ import { getProfileSettingsRoute, normalizeUsername } from "@/lib/routes";
 type ProfilePageProps = {
   username: string;
 };
+
+const FPH_LOGO_WHITE_URL = "https://cdn.freediving.ph/images/fph-logo-white.png";
 
 export default function ProfilePage({ username }: ProfilePageProps) {
   const router = useRouter();
@@ -104,18 +106,22 @@ export default function ProfilePage({ username }: ProfilePageProps) {
 
   if (!profileQuery.data) {
     return (
-      <div className="mx-auto flex min-h-[60vh] max-w-[935px] items-center justify-center px-4 py-10 md:px-6">
-        <div className="flex max-w-md flex-col items-center gap-3 rounded-[2rem] border border-dashed border-border bg-muted/20 px-8 py-10 text-center">
-          <AlertCircle className="size-8 text-muted-foreground" />
-          <div className="space-y-1">
-            <p className="text-lg font-semibold text-foreground">
-              Profile unavailable
-            </p>
-            <p className="text-sm text-muted-foreground">
-              This public profile could not be loaded.
-            </p>
-          </div>
-        </div>
+      <div className="mx-auto flex min-h-[70vh] max-w-[935px] flex-col items-center justify-center px-4 py-10 text-center md:px-6">
+        <Image
+          src={FPH_LOGO_WHITE_URL}
+          alt="Freediving Philippines"
+          width={112}
+          height={112}
+          className="size-28 object-contain"
+          priority
+        />
+        <h1 className="mt-8 text-2xl font-semibold text-foreground">
+          Profile unavailable
+        </h1>
+        <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
+          This public profile could not be loaded right now. It may have moved,
+          been set private, or the connection failed.
+        </p>
       </div>
     );
   }
