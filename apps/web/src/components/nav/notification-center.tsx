@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
 
 import { useSession } from "@/features/auth/session/use-session";
 import { useNotificationStats } from "@/features/notifications/hooks/queries";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -54,15 +55,29 @@ export function NotificationCenter() {
       </SheetTrigger>
       <SheetContent
         side="right"
-        className="data-[side=right]:w-full data-[side=right]:sm:max-w-sm p-0"
+        showCloseButton={false}
+        className="data-[side=right]:w-[calc(100vw-0.75rem)] data-[side=right]:sm:w-[22rem] data-[side=right]:sm:max-w-[22rem] p-0"
       >
-        <SheetHeader className="border-b">
-          <SheetTitle>Notifications</SheetTitle>
-          <SheetDescription>
+        <SheetClose
+          render={
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              className="absolute top-3 right-3"
+              aria-label="Close notifications"
+            />
+          }
+        >
+          <X className="size-3.5" />
+          <span className="sr-only">Close notifications</span>
+        </SheetClose>
+        <SheetHeader className="border-b px-4 py-4">
+          <SheetTitle className="text-base">Notifications</SheetTitle>
+          <SheetDescription className="text-xs leading-5">
             Updates from messages and community activity.
           </SheetDescription>
         </SheetHeader>
-        <div className="overflow-y-auto p-4">
+        <div className="overflow-y-auto px-3 py-3">
           <NotificationList />
         </div>
       </SheetContent>

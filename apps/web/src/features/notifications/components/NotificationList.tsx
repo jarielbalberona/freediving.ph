@@ -1,12 +1,13 @@
 "use client";
 
-import { useNotifications, useMarkAllAsRead } from '../hooks';
-import { NotificationCard } from './NotificationCard';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Bell, CheckCircle } from 'lucide-react';
-import type { NotificationFilters } from '@freediving.ph/types';
+import type { NotificationFilters } from "@freediving.ph/types";
+import { Bell, CheckCircle } from "lucide-react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { NotificationCard } from "./NotificationCard";
+import { useMarkAllAsRead, useNotifications } from "../hooks";
 
 interface NotificationListProps {
   filters?: NotificationFilters;
@@ -22,12 +23,15 @@ export function NotificationList({ filters }: NotificationListProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="space-y-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-            <Skeleton className="h-20 w-full" />
+          <div key={i} className="flex gap-2 py-2">
+            <Skeleton className="mt-1 size-2 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-3 w-2/3" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
           </div>
         ))}
       </div>
@@ -45,16 +49,18 @@ export function NotificationList({ filters }: NotificationListProps) {
   }
 
   const notifications = data ?? [];
-  const unreadCount = notifications.filter(n => n.status === 'UNREAD').length;
+  const unreadCount = notifications.filter(
+    (notification) => notification.status === "UNREAD",
+  ).length;
 
   if (notifications.length === 0) {
     return (
-      <div className="text-center py-8">
-        <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-muted-foreground mb-2">
+      <div className="py-6 text-center">
+        <Bell className="mx-auto mb-3 h-7 w-7 text-muted-foreground" />
+        <h3 className="mb-1 text-sm font-medium text-foreground">
           No notifications
         </h3>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs leading-5 text-muted-foreground">
           You're all caught up! New notifications will appear here.
         </p>
       </div>
@@ -62,34 +68,30 @@ export function NotificationList({ filters }: NotificationListProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {unreadCount > 0 && (
-        <div className="flex items-center justify-between p-4 bg-info/10 rounded-lg border border-info/30">
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-info" />
-            <span className="text-sm font-medium text-info-foreground">
-              {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Bell className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="text-xs font-medium text-foreground">
+              {unreadCount} unread notification{unreadCount !== 1 ? "s" : ""}
             </span>
           </div>
           <Button
-            size="sm"
+            size="xs"
             variant="outline"
             onClick={handleMarkAllAsRead}
             disabled={markAllAsReadMutation.isPending}
-            className="border-info/40 text-info-foreground hover:bg-info/20"
           >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Mark All as Read
+            <CheckCircle className="mr-1 h-3 w-3" />
+            Mark read
           </Button>
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="divide-y divide-border/70 border-y border-border/70">
         {notifications.map((notification) => (
-          <NotificationCard
-            key={notification.id}
-            notification={notification}
-          />
+          <NotificationCard key={notification.id} notification={notification} />
         ))}
       </div>
     </div>

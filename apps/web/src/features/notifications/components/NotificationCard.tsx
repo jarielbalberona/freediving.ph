@@ -1,11 +1,12 @@
 "use client";
 
-import { Bell, Clock, CheckCircle, Archive } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useMarkAsRead, useDeleteNotification } from '../hooks';
-import type { Notification } from '@freediving.ph/types';
+import type { Notification } from "@freediving.ph/types";
+import { CheckCircle, Clock } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useDeleteNotification, useMarkAsRead } from "../hooks";
 
 interface NotificationCardProps {
   notification: Notification;
@@ -15,36 +16,21 @@ export function NotificationCard({ notification }: NotificationCardProps) {
   const markAsReadMutation = useMarkAsRead();
   const deleteNotificationMutation = useDeleteNotification();
 
-  const getPriorityColor = (priority: Notification['priority']) => {
+  const getPriorityColor = (priority: Notification["priority"]) => {
     switch (priority) {
-      case 'URGENT':
-        return 'destructive';
-      case 'HIGH':
-        return 'destructive';
-      case 'NORMAL':
-        return 'default';
-      case 'LOW':
-        return 'secondary';
+      case "URGENT":
+        return "destructive";
+      case "HIGH":
+        return "destructive";
+      case "LOW":
+        return "secondary";
       default:
-        return 'default';
-    }
-  };
-
-  const getStatusIcon = (status: Notification['status']) => {
-    switch (status) {
-      case 'UNREAD':
-        return <Bell className="h-4 w-4 text-info" />;
-      case 'READ':
-        return <CheckCircle className="h-4 w-4 text-success" />;
-      case 'ARCHIVED':
-        return <Archive className="h-4 w-4 text-muted-foreground" />;
-      default:
-        return <Bell className="h-4 w-4" />;
+        return "outline";
     }
   };
 
   const handleMarkAsRead = () => {
-    if (notification.status === 'UNREAD') {
+    if (notification.status === "UNREAD") {
       markAsReadMutation.mutate(notification.id);
     }
   };
@@ -54,64 +40,86 @@ export function NotificationCard({ notification }: NotificationCardProps) {
   };
 
   return (
-    <Card className={`transition-all duration-200 hover:shadow-md ${
-      notification.status === 'UNREAD' ? 'border-l-4 border-l-info bg-info/10' : ''
-    }`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            {getStatusIcon(notification.status)}
-            <CardTitle className="text-sm font-medium">{notification.title}</CardTitle>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant={getPriorityColor(notification.priority)}>
-              {notification.priority}
-            </Badge>
-            <Badge variant="outline">
-              {notification.type}
-            </Badge>
+    <article className="flex gap-2 py-3 text-sm">
+      <span
+        className={cn(
+          "mt-1.5 size-1.5 shrink-0 rounded-full",
+          notification.status === "UNREAD"
+            ? "bg-primary"
+            : "bg-muted-foreground/35",
+        )}
+        aria-hidden="true"
+      />
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <h3 className="line-clamp-2 text-sm font-medium leading-5 text-foreground">
+            {notification.title}
+          </h3>
+          <div className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            {new Date(notification.createdAt).toLocaleDateString()}
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <p className="text-sm text-muted-foreground mb-3">{notification.message}</p>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {new Date(notification.createdAt).toLocaleDateString()}
-            </div>
-            {notification.readAt && (
-              <div className="flex items-center gap-1">
-                <CheckCircle className="h-3 w-3" />
-                Read {new Date(notification.readAt).toLocaleDateString()}
-              </div>
-            )}
-          </div>
+        <p className="line-clamp-3 text-xs leading-5 text-muted-foreground">
+          {notification.message}
+        </p>
 
-          <div className="flex items-center gap-2">
-            {notification.status === 'UNREAD' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleMarkAsRead}
-                disabled={markAsReadMutation.isPending}
-              >
-                Mark as Read
-              </Button>
-            )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge
+            variant={getPriorityColor(notification.priority)}
+            className="h-5 px-2 text-[11px] font-normal"
+          >
+            {formatLabel(notification.priority)}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="h-5 min-w-0 max-w-full shrink truncate px-2 text-[11px] font-normal text-muted-foreground"
+          >
+            {formatNotificationType(notification.type)}
+          </Badge>
+          {notification.readAt ? (
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <CheckCircle className="h-3 w-3" />
+              Read {new Date(notification.readAt).toLocaleDateString()}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {notification.status === "UNREAD" ? (
             <Button
-              size="sm"
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleteNotificationMutation.isPending}
+              size="xs"
+              variant="outline"
+              onClick={handleMarkAsRead}
+              disabled={markAsReadMutation.isPending}
             >
-              Delete
+              Mark read
             </Button>
-          </div>
+          ) : null}
+          <Button
+            size="xs"
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={deleteNotificationMutation.isPending}
+          >
+            Delete
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   );
+}
+
+function formatNotificationType(value: Notification["type"]) {
+  return value
+    .replace(/^NEW_/, "")
+    .toLowerCase()
+    .split("_")
+    .map((word) => word[0]?.toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatLabel(value: string) {
+  return value.toLowerCase().replace(/^\w/, (match) => match.toUpperCase());
 }
