@@ -51,7 +51,7 @@ export function NotificationCard({ notification }: NotificationCardProps) {
         className={cn(
           "mt-1.5 size-1.5 shrink-0 rounded-full",
           notification.status === "UNREAD"
-            ? "bg-primary"
+            ? "bg-sky-500 shadow-sm shadow-sky-500/40"
             : "bg-muted-foreground/35",
         )}
         aria-hidden="true"
@@ -80,7 +80,7 @@ export function NotificationCard({ notification }: NotificationCardProps) {
           </Badge>
           <Badge
             variant="outline"
-            className="h-5 min-w-0 max-w-full shrink truncate px-2 text-[11px] font-normal text-muted-foreground"
+            className="h-5 min-w-0 max-w-full shrink truncate border-sky-500/30 bg-sky-500/10 px-2 text-[11px] font-normal text-sky-800 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-200"
           >
             {formatNotificationType(notification.type)}
           </Badge>

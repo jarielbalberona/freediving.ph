@@ -20,7 +20,6 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { UserAvatarDetail } from "@/components/ui/user-avatar-detail";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSession } from "@/features/auth/session/use-session";
-import { cn } from "@/lib/utils";
 
 import {
   useMarkThreadRead,
@@ -163,6 +162,23 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
   useEffect(() => {
     setViewportMeasured(true);
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
+  }, [isMobile]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 250);
@@ -467,13 +483,8 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
       Select a conversation.
     </div>
   ) : (
-    <div
-      className={cn(
-        "flex h-full min-h-0 flex-col bg-background",
-        isMobile && "pb-[calc(3.5rem+env(safe-area-inset-bottom))]",
-      )}
-    >
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card p-2">
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="z-10 flex shrink-0 items-center gap-3 border-b border-border bg-card p-2">
         {isMobile ? (
           <Link href={`/messages?tab=${category}`}>
             <Button
@@ -554,7 +565,7 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
         <span className="sr-only">Messages reconnecting</span>
       ) : null}
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {showRealtimeLagBanner ? (
           <div
             className="pointer-events-none absolute inset-x-0 top-0 z-20 h-1 overflow-hidden bg-amber-100"
@@ -635,7 +646,7 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
         </div>
       </div>
 
-      <div className="border-t border-border bg-card p-3">
+      <div className="shrink-0 border-t border-border bg-card p-3">
         {canSend ? (
           <div className="flex items-end gap-2">
             <Textarea
@@ -684,7 +695,7 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
         title="Sign in to access messages"
         description="Messaging is available for authenticated members."
       >
-        <div className="h-[calc(100vh-4rem)] overflow-hidden bg-background">
+        <div className="fixed inset-x-0 top-14 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] overflow-hidden bg-background">
           {activeThreadId ? threadPanel : inboxPanel}
         </div>
       </AuthGuard>

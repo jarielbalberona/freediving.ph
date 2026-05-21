@@ -72,6 +72,8 @@ test("bell badge reads server notification stats", async () => {
   assert.match(source, /useNotificationStats\(\)/);
   assert.match(source, /statsQuery\.data\?\.unread/);
   assert.match(source, /formatBadge\(unreadCount\)/);
+  assert.match(source, /bg-sky-500/);
+  assert.doesNotMatch(source, /variant="destructive"/);
 });
 
 test("message nav badges use message unread count, not generic notification count", async () => {
@@ -142,6 +144,8 @@ test("notification settings and schemas include scoped social notification contr
 test("notification card renders friendly social labels and app-relative actions", async () => {
   const source = await readFile(notificationCardPath, "utf8");
 
+  assert.match(source, /bg-sky-500/);
+  assert.match(source, /border-sky-500\/30 bg-sky-500\/10/);
   assert.match(source, /CHIKA_THREAD_COMMENTED: "Chika comment"/);
   assert.match(source, /CHIKA_COMMENT_REPLIED: "Chika reply"/);
   assert.match(source, /GROUP_INVITE_RECEIVED: "Group invite"/);

@@ -125,6 +125,8 @@ export function NotificationRealtimeProvider() {
       });
 
       const toastOptions = {
+        className:
+          "border-sky-500/30 bg-sky-50 text-sky-950 dark:border-sky-400/30 dark:bg-sky-950 dark:text-sky-50",
         description: notification.message,
         action: isAppRelativeUrl(notification.actionUrl)
           ? {
