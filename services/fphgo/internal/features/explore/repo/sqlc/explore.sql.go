@@ -1766,6 +1766,32 @@ func (q *Queries) GetVisibleDiveSiteReviewSummaryBySite(ctx context.Context, arg
 	return i, err
 }
 
+const hideSiteByID = `-- name: HideSiteByID :execrows
+UPDATE dive_sites
+SET moderation_state = 'hidden',
+    moderation_reason = $1,
+    reviewed_by_app_user_id = $2,
+    reviewed_at = NOW(),
+    updated_at = NOW(),
+    last_updated_at = GREATEST(last_updated_at, NOW())
+WHERE id = $3
+  AND moderation_state <> 'hidden'
+`
+
+type HideSiteByIDParams struct {
+	ModerationReason    *string     `db:"moderation_reason" json:"moderation_reason"`
+	ReviewedByAppUserID pgtype.UUID `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
+	ID                  pgtype.UUID `db:"id" json:"id"`
+}
+
+func (q *Queries) HideSiteByID(ctx context.Context, arg HideSiteByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, hideSiteByID, arg.ModerationReason, arg.ReviewedByAppUserID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const likeDiveSite = `-- name: LikeDiveSite :exec
 INSERT INTO dive_site_likes (dive_site_id, user_id)
 VALUES ($1, $2)
@@ -2198,6 +2224,9 @@ func (q *Queries) ListMySiteEditProposals(ctx context.Context, arg ListMySiteEdi
 			&i.BaseSiteUpdatedAt,
 			&i.CurrentSiteUpdatedAt,
 			&i.CurrentName,
+			&i.CurrentArea,
+			&i.CurrentLatitude,
+			&i.CurrentLongitude,
 			&i.CurrentDescription,
 			&i.CurrentEntryDifficulty,
 			&i.CurrentDepthMinM,
@@ -2208,6 +2237,9 @@ func (q *Queries) ListMySiteEditProposals(ctx context.Context, arg ListMySiteEdi
 			&i.CurrentAccess,
 			&i.CurrentFees,
 			&i.ProposedName,
+			&i.ProposedArea,
+			&i.ProposedLatitude,
+			&i.ProposedLongitude,
 			&i.ProposedDescription,
 			&i.ProposedEntryDifficulty,
 			&i.ProposedDepthMinM,
@@ -2482,6 +2514,9 @@ func (q *Queries) ListPendingSiteEditProposals(ctx context.Context, arg ListPend
 			&i.BaseSiteUpdatedAt,
 			&i.CurrentSiteUpdatedAt,
 			&i.CurrentName,
+			&i.CurrentArea,
+			&i.CurrentLatitude,
+			&i.CurrentLongitude,
 			&i.CurrentDescription,
 			&i.CurrentEntryDifficulty,
 			&i.CurrentDepthMinM,
@@ -2492,6 +2527,9 @@ func (q *Queries) ListPendingSiteEditProposals(ctx context.Context, arg ListPend
 			&i.CurrentAccess,
 			&i.CurrentFees,
 			&i.ProposedName,
+			&i.ProposedArea,
+			&i.ProposedLatitude,
+			&i.ProposedLongitude,
 			&i.ProposedDescription,
 			&i.ProposedEntryDifficulty,
 			&i.ProposedDepthMinM,
@@ -3870,32 +3908,6 @@ func (q *Queries) SlugExists(ctx context.Context, slug string) (bool, error) {
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
-}
-
-const hideSiteByID = `-- name: HideSiteByID :execrows
-UPDATE dive_sites
-SET moderation_state = 'hidden',
-    moderation_reason = $1,
-    reviewed_by_app_user_id = $2,
-    reviewed_at = NOW(),
-    updated_at = NOW(),
-    last_updated_at = GREATEST(last_updated_at, NOW())
-WHERE id = $3
-  AND moderation_state <> 'hidden'
-`
-
-type HideSiteByIDParams struct {
-	ModerationReason    *string     `db:"moderation_reason" json:"moderation_reason"`
-	ReviewedByAppUserID pgtype.UUID `db:"reviewed_by_app_user_id" json:"reviewed_by_app_user_id"`
-	ID                  pgtype.UUID `db:"id" json:"id"`
-}
-
-func (q *Queries) HideSiteByID(ctx context.Context, arg HideSiteByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, hideSiteByID, arg.ModerationReason, arg.ReviewedByAppUserID, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }
 
 const touchSiteLastUpdated = `-- name: TouchSiteLastUpdated :exec

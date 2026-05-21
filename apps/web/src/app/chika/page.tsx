@@ -1,19 +1,30 @@
 import ChikaClient from "./threads";
 import CreateThreadButton from "./create-thread-button";
+import { Badge } from "@/components/ui/badge";
 
 export default function ChikaList() {
   return (
-    <main className="">
-      <div className="xl:pr-96">
-        <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
-          <div className="container max-w-screen-lg px-4 mx-auto sm:px-6 lg:px-8">
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <h1 className="text-2xl font-bold text-foreground">Chika</h1>
-              <CreateThreadButton />
+    <main className="min-h-full bg-gradient-to-b from-background to-muted/20 px-3 py-3 text-foreground sm:px-4 sm:py-4">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+        <header className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+          <div className="min-w-0 space-y-3">
+            <Badge
+              variant="outline"
+              className="border-border/60 bg-background text-muted-foreground"
+            >
+              Community
+            </Badge>
+            <div>
+              <h1 className="max-w-2xl text-lg font-medium tracking-tight text-foreground">
+                Chika
+              </h1>
             </div>
-            <ChikaClient />
           </div>
-        </div>
+          <div className="flex sm:justify-end">
+            <CreateThreadButton />
+          </div>
+        </header>
+        <ChikaClient />
       </div>
     </main>
   );

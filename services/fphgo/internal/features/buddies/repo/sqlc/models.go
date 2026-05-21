@@ -215,6 +215,9 @@ type DiveSiteEditProposal struct {
 	ModerationReason          *string            `db:"moderation_reason" json:"moderation_reason"`
 	State                     string             `db:"state" json:"state"`
 	ProposedName              string             `db:"proposed_name" json:"proposed_name"`
+	ProposedArea              string             `db:"proposed_area" json:"proposed_area"`
+	ProposedLatitude          *float64           `db:"proposed_latitude" json:"proposed_latitude"`
+	ProposedLongitude         *float64           `db:"proposed_longitude" json:"proposed_longitude"`
 	ProposedDescription       string             `db:"proposed_description" json:"proposed_description"`
 	ProposedEntryDifficulty   string             `db:"proposed_entry_difficulty" json:"proposed_entry_difficulty"`
 	ProposedDepthMinM         pgtype.Numeric     `db:"proposed_depth_min_m" json:"proposed_depth_min_m"`

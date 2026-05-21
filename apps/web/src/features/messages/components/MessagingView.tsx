@@ -551,78 +551,88 @@ export function MessagingView({ threadId }: { threadId: string | null }) {
         </div>
       ) : null}
       {showRealtimeLagBanner ? (
-        <div className="border-b border-amber-300/40 bg-amber-50 px-4 py-2 text-xs text-amber-800">
-          Messages are reconnecting. New replies may take a moment to appear.
-        </div>
+        <span className="sr-only">Messages reconnecting</span>
       ) : null}
 
-      <div
-        ref={timelineRef}
-        className="min-h-0 flex-1 overflow-y-auto px-3 py-4"
-      >
-        {threadMessagesQuery.hasNextPage ? (
-          <div className="mb-3 flex justify-center">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={threadMessagesQuery.isFetchingNextPage}
-              onClick={() => threadMessagesQuery.fetchNextPage()}
-            >
-              {threadMessagesQuery.isFetchingNextPage
-                ? "Loading..."
-                : "Load older messages"}
-            </Button>
+      <div className="relative min-h-0 flex-1">
+        {showRealtimeLagBanner ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-20 h-1 overflow-hidden bg-amber-100"
+            role="status"
+            aria-label="Messages reconnecting"
+          >
+            <div className="h-full w-full animate-pulse bg-amber-500/70" />
           </div>
         ) : null}
 
-        {isInitialMessagesLoading ? <MessageListSkeleton /> : null}
+        <div
+          ref={timelineRef}
+          className="h-full min-h-0 overflow-y-auto px-3 py-4"
+        >
+          {threadMessagesQuery.hasNextPage ? (
+            <div className="mb-3 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={threadMessagesQuery.isFetchingNextPage}
+                onClick={() => threadMessagesQuery.fetchNextPage()}
+              >
+                {threadMessagesQuery.isFetchingNextPage
+                  ? "Loading..."
+                  : "Load older messages"}
+              </Button>
+            </div>
+          ) : null}
 
-        {!isInitialMessagesLoading &&
+          {isInitialMessagesLoading ? <MessageListSkeleton /> : null}
+
+          {!isInitialMessagesLoading &&
           hasLoadedMessages &&
           messages.length === 0 ? (
-          <div className="mt-16 text-center text-sm text-muted-foreground">
-            No messages yet.
-          </div>
-        ) : null}
+            <div className="mt-16 text-center text-sm text-muted-foreground">
+              No messages yet.
+            </div>
+          ) : null}
 
-        {messages.map((message, index) => {
-          const previous = index > 0 ? messages[index - 1] : null;
-          const showDay =
-            !previous ||
-            formatDayKey(previous.createdAt) !==
-            formatDayKey(message.createdAt);
-          const own = message.senderUserId === session.me?.userId;
-          return (
-            <div key={message.id}>
-              {showDay ? (
-                <div className="my-4 text-center text-xs text-muted-foreground">
-                  {formatDayLabel(message.createdAt)}
-                </div>
-              ) : null}
-              <div
-                className={`mb-1 flex ${own ? "justify-end" : "justify-start"}`}
-              >
+          {messages.map((message, index) => {
+            const previous = index > 0 ? messages[index - 1] : null;
+            const showDay =
+              !previous ||
+              formatDayKey(previous.createdAt) !==
+                formatDayKey(message.createdAt);
+            const own = message.senderUserId === session.me?.userId;
+            return (
+              <div key={message.id}>
+                {showDay ? (
+                  <div className="my-4 text-center text-xs text-muted-foreground">
+                    {formatDayLabel(message.createdAt)}
+                  </div>
+                ) : null}
                 <div
-                  className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${own ? "bg-primary text-primary-foreground" : "bg-card text-foreground"}`}
+                  className={`mb-1 flex ${own ? "justify-end" : "justify-start"}`}
                 >
-                  <p className="whitespace-pre-wrap break-words">
-                    {message.body}
-                  </p>
-                  <p
-                    className={`mt-1 text-[10px] ${own ? "text-primary-foreground/80" : "text-muted-foreground"}`}
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${own ? "bg-primary text-primary-foreground" : "bg-card text-foreground"}`}
                   >
-                    {formatTimeLabel(message.createdAt)}
-                  </p>
-                  {own && latestSeenOwnMessageId === message.id ? (
-                    <p className="mt-0.5 text-[10px] text-primary-foreground/80">
-                      Seen
+                    <p className="whitespace-pre-wrap break-words">
+                      {message.body}
                     </p>
-                  ) : null}
+                    <p
+                      className={`mt-1 text-[10px] ${own ? "text-primary-foreground/80" : "text-muted-foreground"}`}
+                    >
+                      {formatTimeLabel(message.createdAt)}
+                    </p>
+                    {own && latestSeenOwnMessageId === message.id ? (
+                      <p className="mt-0.5 text-[10px] text-primary-foreground/80">
+                        Seen
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       <div className="border-t border-border bg-card p-3">

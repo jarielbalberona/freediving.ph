@@ -12,14 +12,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileGrid } from "@/features/profile/components/ProfileGrid";
 
 type ProfileTabsProps = {
@@ -138,7 +132,7 @@ function ProfileDivingTab({
 }) {
   if (isLoading && !data) {
     return (
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="space-y-4">
         <StatusCard title="Loading Dive Presence" />
         <StatusCard title="Loading Dive Sites" />
       </div>
@@ -146,7 +140,7 @@ function ProfileDivingTab({
   }
 
   return (
-    <div className="grid gap-5 md:grid-cols-2">
+    <div className="space-y-5">
       <ProfileDivePresenceSection
         items={data?.presences ?? []}
         isOwner={isOwner}
@@ -173,11 +167,11 @@ function ProfileDivePresenceSection({
         title="Dive Presence"
       />
       {items.length > 0 ? (
-        <div className="space-y-3">
+        <DivingList>
           {items.map((item) => (
-            <ProfileDivePresenceCard key={item.id} item={item} />
+            <ProfileDivePresenceItem key={item.id} item={item} />
           ))}
-        </div>
+        </DivingList>
       ) : (
         <EmptyDivingState
           title={
@@ -192,7 +186,10 @@ function ProfileDivePresenceSection({
           }
           cta={
             isOwner
-              ? { label: "Create dive presence", href: "/buddies?tab=my-dive-presence" }
+              ? {
+                  label: "Create dive presence",
+                  href: "/buddies?tab=my-dive-presence",
+                }
               : undefined
           }
         />
@@ -215,11 +212,11 @@ function ProfileDiveSitesSection({
         title="Dive Sites"
       />
       {items.length > 0 ? (
-        <div className="space-y-3">
+        <DivingList>
           {items.map((item) => (
-            <ProfileDiveSiteAffinityCard key={item.id} item={item} />
+            <ProfileDiveSiteAffinityItem key={item.id} item={item} />
           ))}
-        </div>
+        </DivingList>
       ) : (
         <EmptyDivingState
           title={
@@ -243,9 +240,9 @@ function ProfileDiveSitesSection({
   );
 }
 
-function ProfileDivePresenceCard({ item }: { item: ProfileDivePresence }) {
+function ProfileDivePresenceItem({ item }: { item: ProfileDivePresence }) {
   return (
-    <DivingCard
+    <DivingListItem
       href={`/explore/sites/${item.diveSiteSlug}`}
       title={item.diveSiteName}
       area={item.diveSiteArea}
@@ -257,13 +254,13 @@ function ProfileDivePresenceCard({ item }: { item: ProfileDivePresence }) {
   );
 }
 
-function ProfileDiveSiteAffinityCard({
+function ProfileDiveSiteAffinityItem({
   item,
 }: {
   item: ProfileDiveSiteAffinity;
 }) {
   return (
-    <DivingCard
+    <DivingListItem
       href={`/explore/sites/${item.diveSiteSlug}`}
       title={item.diveSiteName}
       area={item.diveSiteArea}
@@ -274,7 +271,15 @@ function ProfileDiveSiteAffinityCard({
   );
 }
 
-function DivingCard({
+function DivingList({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="divide-y divide-border/70 border-y border-border/70">
+      {children}
+    </div>
+  );
+}
+
+function DivingListItem({
   href,
   title,
   area,
@@ -292,34 +297,36 @@ function DivingCard({
   viewerCanContact: boolean;
 }) {
   return (
-    <Card size="sm" className="rounded-lg">
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <Link
-              href={href}
-              className="line-clamp-1 font-medium text-foreground hover:underline"
-            >
-              {title}
-            </Link>
-            {area ? (
-              <p className="line-clamp-1 text-xs text-muted-foreground">
-                {area}
-              </p>
-            ) : null}
-          </div>
-          <Badge>{badge}</Badge>
-        </div>
-        {meta ? <Badge variant="outline">{meta}</Badge> : null}
-        {note ? <p className="text-sm text-muted-foreground">{note}</p> : null}
-        {viewerCanContact ? (
-          <Button size="sm" variant="outline" className="rounded-full">
-            <MessageCircle className="mr-2 h-4 w-4" />
-            Contact
-          </Button>
+    <article className="space-y-2 py-3 text-sm">
+      <div className="min-w-0 space-y-1">
+        <Link
+          href={href}
+          className="line-clamp-1 font-semibold text-foreground hover:underline"
+        >
+          {title}
+        </Link>
+        {area ? (
+          <p className="line-clamp-1 text-xs text-muted-foreground">{area}</p>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge className="h-5 px-2 text-[11px]">{badge}</Badge>
+        {meta ? (
+          <Badge variant="outline" className="h-5 px-2 text-[11px]">
+            {meta}
+          </Badge>
+        ) : null}
+      </div>
+      {note ? (
+        <p className="text-xs leading-5 text-muted-foreground">{note}</p>
+      ) : null}
+      {viewerCanContact ? (
+        <Button size="xs" variant="outline">
+          <MessageCircle className="mr-1 h-3 w-3" />
+          Contact
+        </Button>
+      ) : null}
+    </article>
   );
 }
 
@@ -348,31 +355,29 @@ function EmptyDivingState({
   cta?: { label: string; href: string };
 }) {
   return (
-    <Card className="rounded-lg border-dashed">
-      <CardContent className="space-y-3 p-4">
-        <div className="space-y-1">
-          <p className="font-medium">{title}</p>
-          {description ? (
-            <p className="text-sm text-muted-foreground">{description}</p>
-          ) : null}
-        </div>
-        {cta ? (
-          <Button size="sm" render={<Link href={cta.href} />}>
-            {cta.label}
-          </Button>
+    <div className="rounded-xl border border-dashed border-border/70 bg-background/55 px-4 py-4">
+      <div className="space-y-1">
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        {description ? (
+          <p className="text-xs leading-5 text-muted-foreground">
+            {description}
+          </p>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+      {cta ? (
+        <Button size="sm" className="mt-3" render={<Link href={cta.href} />}>
+          {cta.label}
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
 function StatusCard({ title }: { title: string }) {
   return (
-    <Card className="rounded-lg border-dashed">
-      <CardContent className="p-4 text-sm text-muted-foreground">
-        {title}
-      </CardContent>
-    </Card>
+    <div className="rounded-xl border border-dashed border-border/70 bg-background/55 px-4 py-3 text-sm text-muted-foreground">
+      {title}
+    </div>
   );
 }
 

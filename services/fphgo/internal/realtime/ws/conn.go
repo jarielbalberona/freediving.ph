@@ -39,12 +39,12 @@ func NewClient(logger *slog.Logger, hub *Hub, conn *websocket.Conn, userID, loca
 }
 
 func (c *Client) Run(ctx context.Context) {
-	c.logger.Info("ws connected", "connection_id", c.connectionID, "user_id", c.userID, "local_user_id", c.localUserID)
+	c.logger.Info("ws connected", "connection_id", c.connectionID)
 	c.hub.Register(c)
 	defer func() {
 		c.hub.Unregister(c)
 		_ = c.conn.Close(websocket.StatusNormalClosure, "closing")
-		c.logger.Info("ws disconnected", "connection_id", c.connectionID, "user_id", c.userID, "local_user_id", c.localUserID)
+		c.logger.Info("ws disconnected", "connection_id", c.connectionID)
 	}()
 
 	go c.writeLoop(ctx)

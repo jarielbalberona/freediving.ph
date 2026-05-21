@@ -206,6 +206,10 @@
     },
     {
       "method": "DELETE",
+      "pattern": "/v1/explore/sites/{siteId}"
+    },
+    {
+      "method": "DELETE",
       "pattern": "/v1/explore/sites/{siteId}/likes"
     },
     {

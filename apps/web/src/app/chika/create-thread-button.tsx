@@ -18,8 +18,8 @@ export default function CreateThreadButton() {
   };
 
   return (
-    <Button onClick={handleClick} className="flex items-center gap-2">
-      <Plus className="w-4 h-4" />
+    <Button size="sm" onClick={handleClick} className="flex items-center gap-2">
+      <Plus className="h-4 w-4" />
       New Chika
     </Button>
   );
