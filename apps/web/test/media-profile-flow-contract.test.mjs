@@ -42,6 +42,7 @@ test("media dialog is wired as an in-place social post view", async () => {
     feedRenderer,
     mediaPostComponent,
     mediaViewerDialog,
+    carousel,
     profileGrid,
     socialPanel,
     actions,
@@ -69,6 +70,10 @@ test("media dialog is wired as an in-place social post view", async () => {
           repoRoot,
           "src/features/media/components/MediaViewerDialog.tsx",
         ),
+        "utf8",
+      ),
+      fs.readFile(
+        path.join(repoRoot, "src/components/ui/carousel.tsx"),
         "utf8",
       ),
       fs.readFile(
@@ -107,7 +112,11 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(mediaPostComponent, /<MediaPostSocialPanel/);
   assert.match(mediaPostComponent, /commentsScrollMode="desktop"/);
   assert.match(mediaViewerDialog, /h-\[42dvh\]/);
+  assert.match(mediaViewerDialog, /h-\[42dvh\][^"]*overflow-hidden/);
+  assert.match(mediaViewerDialog, /className="h-full w-full overflow-hidden"/);
+  assert.match(mediaViewerDialog, /className="h-full w-full object-contain"/);
   assert.doesNotMatch(mediaViewerDialog, /h-\[55dvh\]/);
+  assert.match(carousel, /className="h-full w-full overflow-hidden"/);
   assert.match(profileGrid, /<MediaPostSocialPanel/);
   assert.match(profileGrid, /commentsScrollMode="desktop"/);
   assert.match(detailPage, /<MediaPostSocialPanel/);

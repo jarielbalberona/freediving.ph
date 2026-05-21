@@ -127,10 +127,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         {item.icon != null && <item.icon />}
                         <span className="text-sm">{item.title}</span>
                         {item.id === "messages" && messageUnreadCount > 0 ? (
-                          <Badge
-                            variant="destructive"
-                            className="ml-auto h-5 min-w-5 rounded-full px-1.5 text-[10px]"
-                          >
+                          <Badge className="ml-auto h-5 min-w-5 rounded-full px-1.5 text-[10px]">
                             {formatBadgeCount(messageUnreadCount)}
                           </Badge>
                         ) : null}

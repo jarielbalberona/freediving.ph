@@ -120,7 +120,7 @@ export function MediaViewerDialog({
           </div>
 
           <div className="flex min-h-full flex-col md:h-full md:min-h-0 md:flex-row">
-            <div className="relative h-[42dvh] shrink-0 bg-muted/30 md:h-auto md:min-h-full md:flex-1">
+            <div className="relative h-[42dvh] shrink-0 overflow-hidden bg-muted/30 md:h-auto md:min-h-full md:flex-1">
               {needsMintedUrls && dialogUrls.isPending ? (
                 <div className="flex h-full items-center justify-center">
                   <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
@@ -129,7 +129,7 @@ export function MediaViewerDialog({
                 <Carousel
                   setApi={setCarouselApi}
                   opts={{ startIndex: initialIndex }}
-                  className="flex h-full items-center"
+                  className="h-full w-full overflow-hidden"
                 >
                   <CarouselContent className="ml-0 h-full items-center">
                     {normalizedItems.map((item) => {
@@ -140,16 +140,16 @@ export function MediaViewerDialog({
                       return (
                         <CarouselItem
                           key={item.id}
-                          className="flex h-full items-center pl-0"
+                          className="flex h-full min-w-0 items-center overflow-hidden pl-0"
                         >
-                          <div className="flex h-full w-full items-center justify-center">
+                          <div className="flex h-full w-full items-center justify-center overflow-hidden">
                             {src ? (
                               <Image
                                 src={src}
                                 alt={item.alt}
                                 width={item.width}
                                 height={item.height}
-                                className="max-h-full w-auto max-w-full object-contain"
+                                className="h-full w-full object-contain"
                                 unoptimized
                               />
                             ) : (

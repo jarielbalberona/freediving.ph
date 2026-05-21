@@ -76,10 +76,10 @@ export default function NotificationsPage() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Unread</CardTitle>
-                    <Badge variant="destructive" className="h-4 w-4 rounded-full" />
+                    <Badge className="h-4 w-4 rounded-full" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-destructive">
+                    <div className="text-2xl font-bold text-primary">
                       {stats?.unread || 0}
                     </div>
                     <p className="text-xs text-muted-foreground">Need attention</p>

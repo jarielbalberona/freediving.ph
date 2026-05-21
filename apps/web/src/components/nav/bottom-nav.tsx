@@ -123,10 +123,7 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
                 <item.icon className="size-6 shrink-0" aria-hidden />
               )}
               {item.id === "messages" && messageUnreadCount > 0 ? (
-                <Badge
-                  variant="destructive"
-                  className="absolute -right-2 -top-1 h-4 min-w-4 rounded-full px-1 text-[10px] leading-none"
-                >
+                <Badge className="absolute -right-2 -top-1 h-4 min-w-4 rounded-full px-1 text-[10px] leading-none">
                   {formatBadgeCount(messageUnreadCount)}
                 </Badge>
               ) : null}
