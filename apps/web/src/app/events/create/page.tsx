@@ -184,12 +184,13 @@ export default function CreateEventPage() {
                 placeholder="A relaxed line-training session for certified freedivers."
               />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <Field label="Event type">
                 <Select
                   value={form.type}
+                  items={eventTypeOptions}
                   onValueChange={(value) =>
-                    updateForm("type", value as EventType)
+                    updateForm("type", (value ?? "fun_dive") as EventType)
                   }
                 >
                   <SelectTrigger className="w-full">
@@ -364,7 +365,7 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="grid gap-2">
+    <label className="grid min-w-0 gap-2">
       <span className="text-sm font-medium text-foreground">{label}</span>
       {children}
       {helper ? (

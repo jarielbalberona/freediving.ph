@@ -703,10 +703,7 @@ CREATE TABLE IF NOT EXISTS events (
   CHECK (location_source IN ('manual', 'google_places', 'psgc_mapped', 'unmapped')),
   CHECK (entry_type IS NULL OR entry_type IN ('shore', 'boat', 'pool', 'classroom_online')),
   CHECK (capacity IS NULL OR capacity > 0),
-  CHECK (
-    (is_paid = FALSE AND price_amount IS NULL)
-    OR (is_paid = TRUE AND price_amount IS NOT NULL AND price_amount >= 0)
-  ),
+  CHECK (price_amount IS NULL OR price_amount >= 0),
   CHECK (max_depth_m IS NULL OR max_depth_m >= 0)
 );
 

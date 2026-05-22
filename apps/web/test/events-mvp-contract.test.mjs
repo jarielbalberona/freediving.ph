@@ -32,6 +32,8 @@ test("events create payload defaults Philippine time and defers advanced setup",
   assert.match(createPage, /toISO\(form\.startsAt, CREATE_EVENT_TIMEZONE\)/);
   assert.match(createPage, /timezone: CREATE_EVENT_TIMEZONE/);
   assert.match(createPage, /isPaid: form\.isPaid/);
+  assert.match(createPage, /items=\{eventTypeOptions\}/);
+  assert.match(createPage, /value \?\? "fun_dive"/);
   assert.match(createPage, /Create event/);
   assert.doesNotMatch(createPage, /descriptionMarkdown,/);
   assert.doesNotMatch(createPage, /capacity,/);
