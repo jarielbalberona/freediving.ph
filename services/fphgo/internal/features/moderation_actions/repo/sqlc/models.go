@@ -120,6 +120,7 @@ type ChikaPost struct {
 
 type ChikaThread struct {
 	ID              pgtype.UUID        `db:"id" json:"id"`
+	Slug            string             `db:"slug" json:"slug"`
 	Title           string             `db:"title" json:"title"`
 	Mode            string             `db:"mode" json:"mode"`
 	CategoryID      pgtype.UUID        `db:"category_id" json:"category_id"`
@@ -272,8 +273,11 @@ type DiveSiteUpdate struct {
 
 type Event struct {
 	ID                   pgtype.UUID        `db:"id" json:"id"`
+	Slug                 string             `db:"slug" json:"slug"`
 	Title                string             `db:"title" json:"title"`
 	Description          *string            `db:"description" json:"description"`
+	ShortDescription     *string            `db:"short_description" json:"short_description"`
+	DescriptionMarkdown  *string            `db:"description_markdown" json:"description_markdown"`
 	Location             *string            `db:"location" json:"location"`
 	LocationName         *string            `db:"location_name" json:"location_name"`
 	FormattedAddress     *string            `db:"formatted_address" json:"formatted_address"`
@@ -287,14 +291,32 @@ type Event struct {
 	LocationSource       string             `db:"location_source" json:"location_source"`
 	StartsAt             pgtype.Timestamptz `db:"starts_at" json:"starts_at"`
 	EndsAt               pgtype.Timestamptz `db:"ends_at" json:"ends_at"`
+	Timezone             string             `db:"timezone" json:"timezone"`
 	Status               string             `db:"status" json:"status"`
 	Visibility           string             `db:"visibility" json:"visibility"`
 	EventType            string             `db:"event_type" json:"event_type"`
 	Difficulty           string             `db:"difficulty" json:"difficulty"`
 	MaxAttendees         *int32             `db:"max_attendees" json:"max_attendees"`
+	Capacity             *int32             `db:"capacity" json:"capacity"`
 	CurrentAttendees     int32              `db:"current_attendees" json:"current_attendees"`
 	OrganizerUserID      pgtype.UUID        `db:"organizer_user_id" json:"organizer_user_id"`
 	GroupID              pgtype.UUID        `db:"group_id" json:"group_id"`
+	DiveSiteID           pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	RequiresApproval     bool               `db:"requires_approval" json:"requires_approval"`
+	IsPaid               bool               `db:"is_paid" json:"is_paid"`
+	PriceAmount          pgtype.Numeric     `db:"price_amount" json:"price_amount"`
+	Currency             string             `db:"currency" json:"currency"`
+	PaymentInstructions  *string            `db:"payment_instructions" json:"payment_instructions"`
+	MeetingPoint         *string            `db:"meeting_point" json:"meeting_point"`
+	BeginnerFriendly     bool               `db:"beginner_friendly" json:"beginner_friendly"`
+	MaxDepthM            *int32             `db:"max_depth_m" json:"max_depth_m"`
+	EntryType            *string            `db:"entry_type" json:"entry_type"`
+	EquipmentNotes       *string            `db:"equipment_notes" json:"equipment_notes"`
+	SafetyNotes          *string            `db:"safety_notes" json:"safety_notes"`
+	CancellationPolicy   *string            `db:"cancellation_policy" json:"cancellation_policy"`
+	PublishedAt          pgtype.Timestamptz `db:"published_at" json:"published_at"`
+	CancelledAt          pgtype.Timestamptz `db:"cancelled_at" json:"cancelled_at"`
+	CancelReason         *string            `db:"cancel_reason" json:"cancel_reason"`
 	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
@@ -310,6 +332,59 @@ type EventMembership struct {
 	Notes     *string            `db:"notes" json:"notes"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type EventParticipantPayment struct {
+	ID                   pgtype.UUID        `db:"id" json:"id"`
+	EventID              pgtype.UUID        `db:"event_id" json:"event_id"`
+	EventParticipationID pgtype.UUID        `db:"event_participation_id" json:"event_participation_id"`
+	UserID               pgtype.UUID        `db:"user_id" json:"user_id"`
+	PaymentMethodID      pgtype.UUID        `db:"payment_method_id" json:"payment_method_id"`
+	Amount               pgtype.Numeric     `db:"amount" json:"amount"`
+	Currency             string             `db:"currency" json:"currency"`
+	ProofMediaID         pgtype.UUID        `db:"proof_media_id" json:"proof_media_id"`
+	ProofAttachmentUrl   *string            `db:"proof_attachment_url" json:"proof_attachment_url"`
+	ReferenceNumber      *string            `db:"reference_number" json:"reference_number"`
+	Status               string             `db:"status" json:"status"`
+	ReviewedBy           pgtype.UUID        `db:"reviewed_by" json:"reviewed_by"`
+	ReviewedAt           pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ReviewNotes          *string            `db:"review_notes" json:"review_notes"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type EventParticipation struct {
+	ID                    pgtype.UUID        `db:"id" json:"id"`
+	EventID               pgtype.UUID        `db:"event_id" json:"event_id"`
+	UserID                pgtype.UUID        `db:"user_id" json:"user_id"`
+	Role                  string             `db:"role" json:"role"`
+	Status                string             `db:"status" json:"status"`
+	ParticipantNote       *string            `db:"participant_note" json:"participant_note"`
+	EmergencyContactName  *string            `db:"emergency_contact_name" json:"emergency_contact_name"`
+	EmergencyContactPhone *string            `db:"emergency_contact_phone" json:"emergency_contact_phone"`
+	CreatedAt             pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ApprovedAt            pgtype.Timestamptz `db:"approved_at" json:"approved_at"`
+	ApprovedBy            pgtype.UUID        `db:"approved_by" json:"approved_by"`
+	RejectedAt            pgtype.Timestamptz `db:"rejected_at" json:"rejected_at"`
+	RejectedBy            pgtype.UUID        `db:"rejected_by" json:"rejected_by"`
+	CancelledAt           pgtype.Timestamptz `db:"cancelled_at" json:"cancelled_at"`
+	LeftAt                pgtype.Timestamptz `db:"left_at" json:"left_at"`
+}
+
+type EventPaymentMethod struct {
+	ID            pgtype.UUID        `db:"id" json:"id"`
+	EventID       pgtype.UUID        `db:"event_id" json:"event_id"`
+	Type          string             `db:"type" json:"type"`
+	Name          string             `db:"name" json:"name"`
+	Instructions  *string            `db:"instructions" json:"instructions"`
+	QrImageUrl    *string            `db:"qr_image_url" json:"qr_image_url"`
+	AccountName   *string            `db:"account_name" json:"account_name"`
+	AccountNumber *string            `db:"account_number" json:"account_number"`
+	BankName      *string            `db:"bank_name" json:"bank_name"`
+	IsActive      bool               `db:"is_active" json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type FeedAction struct {
@@ -344,6 +419,7 @@ type Group struct {
 	ID                   pgtype.UUID        `db:"id" json:"id"`
 	Name                 string             `db:"name" json:"name"`
 	Slug                 string             `db:"slug" json:"slug"`
+	Bio                  *string            `db:"bio" json:"bio"`
 	Description          *string            `db:"description" json:"description"`
 	Visibility           string             `db:"visibility" json:"visibility"`
 	Status               string             `db:"status" json:"status"`

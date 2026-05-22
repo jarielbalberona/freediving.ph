@@ -35,7 +35,10 @@ const chikaPostDisplayPath = path.join(
   appRoot,
   "src/features/chika/types/post-display.ts",
 );
-const chikaDetailPagePath = path.join(appRoot, "src/app/chika/[id]/page.tsx");
+const chikaDetailPagePath = path.join(
+  appRoot,
+  "src/app/chika/[slug]/client-page.tsx",
+);
 const linkedCommentTextPath = path.join(
   appRoot,
   "src/components/common/LinkedCommentText.tsx",
@@ -55,7 +58,10 @@ const testSafeMarkdownUrl = (value) => {
   if (!trimmed || trimmed.startsWith("//")) {
     return "";
   }
-  if (/^[a-z][a-z\d+.-]*:/i.test(trimmed) && !/^(?:https?|mailto|tel):/i.test(trimmed)) {
+  if (
+    /^[a-z][a-z\d+.-]*:/i.test(trimmed) &&
+    !/^(?:https?|mailto|tel):/i.test(trimmed)
+  ) {
     return "";
   }
   return trimmed;
@@ -117,13 +123,14 @@ test("chika markdown renderer uses safe basic markdown only", async () => {
 });
 
 test("chika create and display paths are wired to markdown components", async () => {
-  const [editor, createPage, threadDetail, threadList, postDisplay] = await Promise.all([
-    readFile(editorPath, "utf8"),
-    readFile(createPagePath, "utf8"),
-    readFile(threadDetailPath, "utf8"),
-    readFile(threadListPath, "utf8"),
-    readFile(chikaPostDisplayPath, "utf8"),
-  ]);
+  const [editor, createPage, threadDetail, threadList, postDisplay] =
+    await Promise.all([
+      readFile(editorPath, "utf8"),
+      readFile(createPagePath, "utf8"),
+      readFile(threadDetailPath, "utf8"),
+      readFile(threadListPath, "utf8"),
+      readFile(chikaPostDisplayPath, "utf8"),
+    ]);
 
   assert.match(editor, /TabsTrigger value="write"/);
   assert.match(editor, /TabsTrigger value="preview"/);
@@ -135,6 +142,12 @@ test("chika create and display paths are wired to markdown components", async ()
   assert.match(editor, /ListOrdered/);
 
   assert.match(createPage, /MarkdownEditor/);
+  assert.match(createPage, /const thread = await createThread\.mutateAsync/);
+  assert.match(createPage, /router\.push\(`\/chika\/\$\{thread\.slug\}`\)/);
+  assert.doesNotMatch(
+    createPage,
+    /router\.push\(`\/chika\/\$\{thread\.id\}`\)/,
+  );
   assert.match(threadDetail, /ChikaMarkdown content=\{thread\.content\}/);
   assert.match(threadList, /ChikaPostComponent/);
   assert.match(postDisplay, /excerpt: previewText\(thread\.content\)/);
@@ -156,7 +169,7 @@ test("chika markdown renders safe basics and blocks unsafe output", () => {
       "`inline`",
       "",
       "```go",
-      "fmt.Println(\"depth\")",
+      'fmt.Println("depth")',
       "```",
     ].join("\n"),
   );
@@ -184,11 +197,13 @@ test("chika markdown renders safe basics and blocks unsafe output", () => {
 });
 
 test("comment renderers linkify plain https urls in the current tab without enabling raw html", async () => {
-  const [linkedCommentText, chikaDetailPage, mediaComments] = await Promise.all([
-    readFile(linkedCommentTextPath, "utf8"),
-    readFile(chikaDetailPagePath, "utf8"),
-    readFile(mediaCommentsPath, "utf8"),
-  ]);
+  const [linkedCommentText, chikaDetailPage, mediaComments] = await Promise.all(
+    [
+      readFile(linkedCommentTextPath, "utf8"),
+      readFile(chikaDetailPagePath, "utf8"),
+      readFile(mediaCommentsPath, "utf8"),
+    ],
+  );
 
   assert.match(linkedCommentText, /URL_PATTERN = \/https\?:/);
   assert.doesNotMatch(linkedCommentText, /target="_blank"/);

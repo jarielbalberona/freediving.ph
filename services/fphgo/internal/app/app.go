@@ -272,6 +272,11 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		eventsRepo,
 		eventsservice.WithActivityPublisher(feedService),
 		eventsservice.WithNotifications(notificationsService),
+		eventsservice.WithPaymentProofSigning(
+			cfg.MediaCDNBaseURL,
+			cfg.MediaSigningSecretV1,
+			cfg.MediaSigningKeyVersion,
+		),
 	)
 	eventsHandler := eventshttp.New(eventsService, v)
 	locationsRepo := locationsrepo.New(pool)

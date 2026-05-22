@@ -10,7 +10,7 @@ func Routes(h *Handlers) chi.Router {
 	r := chi.NewRouter()
 
 	r.Get("/", h.ListGroups)
-	r.Get("/{groupId}", h.GetGroup)
+	r.Get("/{slug}", h.GetGroup)
 	r.Get("/{groupId}/members", h.ListGroupMembers)
 	r.Get("/{groupId}/posts", h.ListGroupPosts)
 

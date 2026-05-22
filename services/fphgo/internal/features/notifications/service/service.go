@@ -219,6 +219,7 @@ type DiveSiteSubmittedForReviewInput struct {
 
 type ChikaThreadCommentedInput struct {
 	ThreadID         string
+	ThreadSlug       string
 	ThreadTitle      string
 	CommentID        int64
 	RecipientUserID  string
@@ -228,6 +229,7 @@ type ChikaThreadCommentedInput struct {
 
 type ChikaCommentRepliedInput struct {
 	ThreadID         string
+	ThreadSlug       string
 	ThreadTitle      string
 	ParentCommentID  int64
 	ReplyCommentID   int64
@@ -238,6 +240,7 @@ type ChikaCommentRepliedInput struct {
 
 type GroupPostCreatedInput struct {
 	GroupID      string
+	GroupSlug    string
 	GroupName    string
 	PostID       string
 	PostTitle    string
@@ -246,6 +249,7 @@ type GroupPostCreatedInput struct {
 
 type GroupInviteReceivedInput struct {
 	GroupID       string
+	GroupSlug     string
 	GroupName     string
 	InviterUserID string
 	InvitedUserID string
@@ -253,6 +257,7 @@ type GroupInviteReceivedInput struct {
 
 type EventCreatedForGroupInput struct {
 	EventID         string
+	EventSlug       string
 	EventTitle      string
 	GroupID         string
 	OrganizerUserID string
@@ -260,6 +265,7 @@ type EventCreatedForGroupInput struct {
 
 type EventAttendeeJoinedInput struct {
 	EventID         string
+	EventSlug       string
 	EventTitle      string
 	OrganizerUserID string
 	AttendeeUserID  string
@@ -267,6 +273,7 @@ type EventAttendeeJoinedInput struct {
 
 type EventUpdatedInput struct {
 	EventID     string
+	EventSlug   string
 	EventTitle  string
 	ActorUserID string
 	UpdatedAt   time.Time
@@ -274,6 +281,7 @@ type EventUpdatedInput struct {
 
 type EventCancelledInput struct {
 	EventID     string
+	EventSlug   string
 	EventTitle  string
 	ActorUserID string
 	UpdatedAt   time.Time
@@ -523,9 +531,10 @@ func (s *Service) NotifyChikaThreadCommented(ctx context.Context, input ChikaThr
 		Priority:          "NORMAL",
 		RelatedEntityType: "chika_thread",
 		RelatedEntityID:   strings.TrimSpace(input.ThreadID),
-		ActionURL:         "/chika/" + strings.TrimSpace(input.ThreadID),
+		ActionURL:         entityActionURL("chika", input.ThreadSlug),
 		Metadata: map[string]any{
 			"threadId":       strings.TrimSpace(input.ThreadID),
+			"threadSlug":     strings.TrimSpace(input.ThreadSlug),
 			"commentId":      commentID,
 			"threadTitle":    strings.TrimSpace(input.ThreadTitle),
 			"actorLabel":     safeActorLabel(input.ActorDisplayName),
@@ -560,9 +569,10 @@ func (s *Service) NotifyChikaCommentReplied(ctx context.Context, input ChikaComm
 		Priority:          "NORMAL",
 		RelatedEntityType: "chika_thread",
 		RelatedEntityID:   strings.TrimSpace(input.ThreadID),
-		ActionURL:         "/chika/" + strings.TrimSpace(input.ThreadID),
+		ActionURL:         entityActionURL("chika", input.ThreadSlug),
 		Metadata: map[string]any{
 			"threadId":        strings.TrimSpace(input.ThreadID),
+			"threadSlug":      strings.TrimSpace(input.ThreadSlug),
 			"parentCommentId": parentID,
 			"replyCommentId":  replyID,
 			"threadTitle":     strings.TrimSpace(input.ThreadTitle),
@@ -592,9 +602,10 @@ func (s *Service) NotifyGroupPostCreated(ctx context.Context, input GroupPostCre
 		Priority:          "NORMAL",
 		RelatedEntityType: "group",
 		RelatedEntityID:   strings.TrimSpace(input.GroupID),
-		ActionURL:         "/groups/" + strings.TrimSpace(input.GroupID),
+		ActionURL:         entityActionURL("groups", input.GroupSlug),
 		Metadata: map[string]any{
 			"groupId":        strings.TrimSpace(input.GroupID),
+			"groupSlug":      strings.TrimSpace(input.GroupSlug),
 			"groupName":      strings.TrimSpace(input.GroupName),
 			"postId":         strings.TrimSpace(input.PostID),
 			"postTitle":      strings.TrimSpace(input.PostTitle),
@@ -626,9 +637,10 @@ func (s *Service) NotifyGroupInviteReceived(ctx context.Context, input GroupInvi
 		Priority:          "NORMAL",
 		RelatedEntityType: "group",
 		RelatedEntityID:   strings.TrimSpace(input.GroupID),
-		ActionURL:         "/groups/" + strings.TrimSpace(input.GroupID),
+		ActionURL:         entityActionURL("groups", input.GroupSlug),
 		Metadata: map[string]any{
 			"groupId":        strings.TrimSpace(input.GroupID),
+			"groupSlug":      strings.TrimSpace(input.GroupSlug),
 			"groupName":      strings.TrimSpace(input.GroupName),
 			"notificationV1": true,
 		},
@@ -654,9 +666,10 @@ func (s *Service) NotifyEventCreatedForGroup(ctx context.Context, input EventCre
 		Priority:          "NORMAL",
 		RelatedEntityType: "event",
 		RelatedEntityID:   strings.TrimSpace(input.EventID),
-		ActionURL:         "/events/" + strings.TrimSpace(input.EventID),
+		ActionURL:         entityActionURL("events", input.EventSlug),
 		Metadata: map[string]any{
 			"eventId":        strings.TrimSpace(input.EventID),
+			"eventSlug":      strings.TrimSpace(input.EventSlug),
 			"groupId":        strings.TrimSpace(input.GroupID),
 			"eventTitle":     strings.TrimSpace(input.EventTitle),
 			"notificationV1": true,
@@ -688,9 +701,10 @@ func (s *Service) NotifyEventAttendeeJoined(ctx context.Context, input EventAtte
 		Priority:          "NORMAL",
 		RelatedEntityType: "event",
 		RelatedEntityID:   strings.TrimSpace(input.EventID),
-		ActionURL:         "/events/" + strings.TrimSpace(input.EventID),
+		ActionURL:         entityActionURL("events", input.EventSlug),
 		Metadata: map[string]any{
 			"eventId":        strings.TrimSpace(input.EventID),
+			"eventSlug":      strings.TrimSpace(input.EventSlug),
 			"eventTitle":     strings.TrimSpace(input.EventTitle),
 			"notificationV1": true,
 		},
@@ -716,9 +730,10 @@ func (s *Service) NotifyEventUpdated(ctx context.Context, input EventUpdatedInpu
 		Priority:          "NORMAL",
 		RelatedEntityType: "event",
 		RelatedEntityID:   strings.TrimSpace(input.EventID),
-		ActionURL:         "/events/" + strings.TrimSpace(input.EventID),
+		ActionURL:         entityActionURL("events", input.EventSlug),
 		Metadata: map[string]any{
 			"eventId":        strings.TrimSpace(input.EventID),
+			"eventSlug":      strings.TrimSpace(input.EventSlug),
 			"eventTitle":     strings.TrimSpace(input.EventTitle),
 			"notificationV1": true,
 		},
@@ -744,9 +759,10 @@ func (s *Service) NotifyEventCancelled(ctx context.Context, input EventCancelled
 		Priority:          "HIGH",
 		RelatedEntityType: "event",
 		RelatedEntityID:   strings.TrimSpace(input.EventID),
-		ActionURL:         "/events/" + strings.TrimSpace(input.EventID),
+		ActionURL:         entityActionURL("events", input.EventSlug),
 		Metadata: map[string]any{
 			"eventId":        strings.TrimSpace(input.EventID),
+			"eventSlug":      strings.TrimSpace(input.EventSlug),
 			"eventTitle":     strings.TrimSpace(input.EventTitle),
 			"notificationV1": true,
 		},
@@ -1359,6 +1375,14 @@ func fallbackTitle(value string, fallback string) string {
 		return fallback
 	}
 	return trimmed
+}
+
+func entityActionURL(module string, slug string) string {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return ""
+	}
+	return "/" + strings.Trim(strings.TrimSpace(module), "/") + "/" + slug
 }
 
 func normalizeEnumPtr(value *string) *string {

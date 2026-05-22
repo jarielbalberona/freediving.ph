@@ -15,7 +15,10 @@ test("SEO system assets are implemented as App Router metadata routes", async ()
     readSource("src/features/profile/utils/reservedSlugs.ts"),
   ]);
 
-  assert.match(robotsSource, /sitemap:\s*`\$\{siteConfig\.url\}\/sitemap\.xml`/);
+  assert.match(
+    robotsSource,
+    /sitemap:\s*`\$\{siteConfig\.url\}\/sitemap\.xml`/,
+  );
   assert.match(sitemapSource, /stablePublicRoutes/);
   assert.match(sitemapSource, /\/explore/);
 
@@ -29,6 +32,62 @@ test("SEO system assets are implemented as App Router metadata routes", async ()
     "twitter-image",
   ]) {
     assert.match(reservedSlugsSource, new RegExp(`"${slug}"`));
+  }
+});
+
+test("group, event, and chika SEO URLs use slug detail paths", async () => {
+  const [sitemapSource, groupPageSource, eventPageSource, chikaPageSource] =
+    await Promise.all([
+      readSource("src/app/sitemap.ts"),
+      readSource("src/app/groups/[slug]/page.tsx"),
+      readSource("src/app/events/[slug]/page.tsx"),
+      readSource("src/app/chika/[slug]/page.tsx"),
+    ]);
+
+  assert.match(
+    sitemapSource,
+    /\/groups\/\$\{encodeURIComponent\(group\.slug\)\}/,
+  );
+  assert.match(
+    sitemapSource,
+    /\/events\/\$\{encodeURIComponent\(event\.slug\)\}/,
+  );
+  assert.match(
+    sitemapSource,
+    /\/chika\/\$\{encodeURIComponent\(thread\.slug\)\}/,
+  );
+  assert.doesNotMatch(
+    sitemapSource,
+    /\/groups\/\$\{encodeURIComponent\(group\.id\)\}/,
+  );
+  assert.doesNotMatch(
+    sitemapSource,
+    /\/events\/\$\{encodeURIComponent\(event\.id\)\}/,
+  );
+  assert.doesNotMatch(
+    sitemapSource,
+    /\/chika\/\$\{encodeURIComponent\(thread\.id\)\}/,
+  );
+  assert.doesNotMatch(
+    sitemapSource,
+    /\/(?:groups|events|chika)\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/,
+  );
+
+  for (const [source, path] of [
+    [groupPageSource, "groups"],
+    [eventPageSource, "events"],
+    [chikaPageSource, "chika"],
+  ]) {
+    assert.match(
+      source,
+      new RegExp(`/${path}/\\$\\{encodeURIComponent\\(slug\\)\\}`),
+    );
+    assert.match(source, /alternates:\s*\{\s*canonical\s*\}/);
+    assert.match(source, /url:\s*canonical/);
+    assert.doesNotMatch(
+      source,
+      new RegExp(`/${path}/\\$\\{encodeURIComponent\\(id\\)\\}`),
+    );
   }
 });
 

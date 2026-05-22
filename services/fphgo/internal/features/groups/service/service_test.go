@@ -102,6 +102,14 @@ func (r *groupsRepoStub) GetGroupByID(context.Context, string, string) (groupsre
 	return r.group, nil
 }
 
+func (r *groupsRepoStub) GetGroupBySlug(context.Context, string, string) (groupsrepo.Group, error) {
+	return r.group, nil
+}
+
+func (r *groupsRepoStub) SlugExists(context.Context, string) (bool, error) {
+	return false, nil
+}
+
 func (r *groupsRepoStub) CreateGroup(context.Context, groupsrepo.CreateGroupInput) (groupsrepo.Group, error) {
 	return groupsrepo.Group{}, nil
 }
@@ -434,6 +442,47 @@ func TestPrivateGroupsAreHiddenAndContentRequiresActiveMembership(t *testing.T) 
 	}
 }
 
+func TestGetGroupBySlugUsesAccessPolicy(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	privateGroup := fakeGroup(privateGroupID, "private", "invite_only")
+	privateGroup.Slug = "mabini-training-group"
+	repo.groups[privateGroupID] = privateGroup
+	repo.members[key(privateGroupID, testOwnerID)] = fakeMember(privateGroupID, testOwnerID, "owner", "active")
+
+	svc := New(repo)
+
+	if _, err := svc.GetGroupBySlug(ctx, "mabini-training-group", testStrangerID); !hasAppError(err, http.StatusForbidden, "forbidden") {
+		t.Fatalf("GetGroupBySlug(non-member private) err = %v, want forbidden", err)
+	}
+	group, err := svc.GetGroupBySlug(ctx, "mabini-training-group", testOwnerID)
+	if err != nil {
+		t.Fatalf("GetGroupBySlug(owner) returned error: %v", err)
+	}
+	if group.ID != privateGroupID {
+		t.Fatalf("GetGroupBySlug() id = %q, want %q", group.ID, privateGroupID)
+	}
+}
+
+func TestCreateGroupGeneratesUniqueSafeSlugFromName(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	repo.existingSlugs["create-group"] = true
+
+	svc := New(repo)
+	created, err := svc.CreateGroup(ctx, testOwnerID, groupsrepo.CreateGroupInput{
+		Name:       "Create",
+		Visibility: "public",
+		JoinPolicy: "open",
+	})
+	if err != nil {
+		t.Fatalf("CreateGroup() returned error: %v", err)
+	}
+	if created.Slug != "create-group-2" {
+		t.Fatalf("CreateGroup() slug = %q, want create-group-2", created.Slug)
+	}
+}
+
 func TestLeaveSetsLeftNotBlocked(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeRepo()
@@ -473,17 +522,19 @@ func TestBlockedUserCannotJoinOrBeInvited(t *testing.T) {
 }
 
 type fakeRepo struct {
-	groups      map[string]groupsrepo.Group
-	members     map[string]groupsrepo.GroupMember
-	posts       map[string][]groupsrepo.GroupPost
-	activeUsers map[string]bool
+	groups        map[string]groupsrepo.Group
+	members       map[string]groupsrepo.GroupMember
+	posts         map[string][]groupsrepo.GroupPost
+	existingSlugs map[string]bool
+	activeUsers   map[string]bool
 }
 
 func newFakeRepo() *fakeRepo {
 	return &fakeRepo{
-		groups:  map[string]groupsrepo.Group{},
-		members: map[string]groupsrepo.GroupMember{},
-		posts:   map[string][]groupsrepo.GroupPost{},
+		groups:        map[string]groupsrepo.Group{},
+		members:       map[string]groupsrepo.GroupMember{},
+		posts:         map[string][]groupsrepo.GroupPost{},
+		existingSlugs: map[string]bool{},
 		activeUsers: map[string]bool{
 			testOwnerID:    true,
 			testMemberID:   true,
@@ -536,6 +587,27 @@ func (r *fakeRepo) GetGroupByID(_ context.Context, groupID, viewerUserID string)
 	return r.withViewer(group, viewerUserID), nil
 }
 
+func (r *fakeRepo) GetGroupBySlug(_ context.Context, slug, viewerUserID string) (groupsrepo.Group, error) {
+	for _, group := range r.groups {
+		if group.Slug == slug {
+			return r.withViewer(group, viewerUserID), nil
+		}
+	}
+	return groupsrepo.Group{}, pgx.ErrNoRows
+}
+
+func (r *fakeRepo) SlugExists(_ context.Context, slug string) (bool, error) {
+	if r.existingSlugs[slug] {
+		return true, nil
+	}
+	for _, group := range r.groups {
+		if group.Slug == slug {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (r *fakeRepo) CreateGroup(_ context.Context, input groupsrepo.CreateGroupInput) (groupsrepo.Group, error) {
 	group := fakeGroup(openGroupID, input.Visibility, input.JoinPolicy)
 	group.Name = input.Name
@@ -552,6 +624,7 @@ func (r *fakeRepo) CreateGroup(_ context.Context, input groupsrepo.CreateGroupIn
 	group.LocationSource = input.LocationSource
 	group.CreatedBy = input.CreatedBy
 	r.groups[group.ID] = group
+	r.existingSlugs[group.Slug] = true
 	return group, nil
 }
 

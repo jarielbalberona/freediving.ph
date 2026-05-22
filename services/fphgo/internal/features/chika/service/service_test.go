@@ -52,6 +52,34 @@ func TestIsModeratorRole(t *testing.T) {
 	}
 }
 
+func TestCreateThreadSlugUsesTitleContentFallbackAndNumericSuffix(t *testing.T) {
+	const actorID = "550e8400-e29b-41d4-a716-446655440101"
+	const categoryID = "550e8400-e29b-41d4-a716-446655440102"
+	repo := &chikaRepoStub{
+		existingSlugs: map[string]bool{
+			"welcome-to-freediving-philippines":                    true,
+			"welcome-to-freediving-philippines-community":          true,
+			"welcome-to-freediving-philippines-community-plan":     true,
+			"welcome-to-freediving-philippines-community-plan-apo": true,
+		},
+	}
+	svc := New(repo, blockCheckerStub{})
+
+	thread, err := svc.CreateThread(context.Background(), CreateThreadInput{
+		ActorID:    actorID,
+		Title:      "Welcome to Freediving Philippines",
+		Content:    "The community plan Apo Reef rollout starts here.",
+		CategoryID: categoryID,
+	})
+	if err != nil {
+		t.Fatalf("CreateThread returned error: %v", err)
+	}
+	want := "welcome-to-freediving-philippines-community-plan-apo-2"
+	if thread.Slug != want {
+		t.Fatalf("CreateThread slug = %q, want %q", thread.Slug, want)
+	}
+}
+
 type chikaRealtimeCapture struct {
 	events []ws.Envelope
 }

@@ -121,10 +121,9 @@ func (h *Handlers) GetThread(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
 		return
 	}
-	threadID := chi.URLParam(r, "threadId")
-	thread, err := h.service.GetThreadForViewer(r.Context(), chikaservice.GetThreadInput{
+	thread, err := h.service.GetThreadBySlugForViewer(r.Context(), chikaservice.GetThreadInput{
 		ViewerID:   actor.ID,
-		ThreadID:   threadID,
+		ThreadID:   chi.URLParam(r, "slug"),
 		ViewerRole: actor.Role,
 	})
 	if err != nil {
@@ -649,6 +648,7 @@ func threadResponse(input chikaservice.Thread, viewerID string, includeRealAutho
 	}
 	return ThreadResponse{
 		ID:               input.ID,
+		Slug:             input.Slug,
 		Title:            input.Title,
 		Content:          input.Content,
 		VoteCount:        input.VoteCount,

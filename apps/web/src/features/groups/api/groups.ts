@@ -67,9 +67,9 @@ export const groupsApi = {
     return response.data;
   },
 
-  getGroupById: async (groupId: string): Promise<Group> => {
+  getGroupBySlug: async (slug: string): Promise<Group> => {
     const response = await axiosInstance.get<GroupDetailPayload>(
-      `/v1/groups/${groupId}`,
+      `/v1/groups/${encodeURIComponent(slug)}`,
     );
     return response.data.group;
   },

@@ -523,6 +523,10 @@ export const queryKeys = {
       [...queryKeys.events.all, "detail", eventId] as const,
     attendees: (eventId: string) =>
       [...queryKeys.events.detail(eventId), "attendees"] as const,
+    participants: (eventId: string) =>
+      [...queryKeys.events.detail(eventId), "participants"] as const,
+    paymentMethods: (eventId: string) =>
+      [...queryKeys.events.detail(eventId), "payment-methods"] as const,
   },
 
   messages: {

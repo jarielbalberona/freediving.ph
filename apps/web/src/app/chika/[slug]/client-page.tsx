@@ -1,6 +1,6 @@
 "use client";
 
-import { use as usePromise, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ArrowBigDown, ArrowBigUp, MessageCircle } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -241,16 +241,16 @@ function CommentActions({
   );
 }
 
-export default function Chika({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = usePromise(params);
+export default function ChikaDetailClient({ slug }: { slug: string }) {
   const session = useSession();
+  const { data: thread, isLoading, error } = useThread(slug);
+  const threadId = thread?.id ?? "";
   useChikaRealtime({
-    enabled: true,
-    threadId: id,
+    enabled: Boolean(threadId),
+    threadId,
     currentUserId: session.me?.userId,
   });
-  const { data: thread, isLoading, error } = useThread(id);
-  const { data: comments } = useThreadComments(id);
+  const { data: comments } = useThreadComments(threadId, Boolean(threadId));
   const createComment = useCreateComment();
   const [sortMode, setSortMode] = useState<CommentSort>("hot");
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
@@ -263,7 +263,7 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
 
   const onSubmit = async (values: CommentValues) => {
     await createComment.mutateAsync({
-      threadId: id,
+      threadId,
       content: values.content.trim(),
     });
     form.reset({ content: "" });
@@ -277,7 +277,7 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
   const submitReply = async (parentCommentId: string) => {
     const content = replyContent.trim();
     if (!content) return;
-    await createComment.mutateAsync({ threadId: id, content, parentCommentId });
+    await createComment.mutateAsync({ threadId, content, parentCommentId });
     setReplyContent("");
     setActiveReplyId(null);
   };
@@ -319,7 +319,7 @@ export default function Chika({ params }: { params: Promise<{ id: string }> }) {
               className="text-sm leading-relaxed"
             />
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <CommentActions comment={comment} threadId={id} />
+              <CommentActions comment={comment} threadId={threadId} />
               <Button
                 type="button"
                 variant="ghost"

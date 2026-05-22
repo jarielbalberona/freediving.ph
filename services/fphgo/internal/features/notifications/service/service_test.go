@@ -368,6 +368,84 @@ func TestNotifyEventAttendeeJoinedHonorsOrganizerSetting(t *testing.T) {
 	}
 }
 
+func TestEventNotificationsUseSlugActionURLs(t *testing.T) {
+	const (
+		eventID     = "550e8400-e29b-41d4-a716-446655440402"
+		groupID     = "550e8400-e29b-41d4-a716-446655440404"
+		organizerID = "550e8400-e29b-41d4-a716-446655440405"
+		attendeeID  = "550e8400-e29b-41d4-a716-446655440406"
+		recipientID = "550e8400-e29b-41d4-a716-446655440407"
+	)
+	updatedAt := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
+
+	t.Run("created for group", func(t *testing.T) {
+		repo := newNotificationRepoStub()
+		repo.groupEventRecipients = map[string][]string{groupID: []string{organizerID, recipientID}}
+		svc := New(repo)
+
+		if err := svc.NotifyEventCreatedForGroup(context.Background(), EventCreatedForGroupInput{
+			EventID:         eventID,
+			EventSlug:       "freediving-cleanup-dive",
+			EventTitle:      "Freediving cleanup dive",
+			GroupID:         groupID,
+			OrganizerUserID: organizerID,
+		}); err != nil {
+			t.Fatalf("NotifyEventCreatedForGroup returned error: %v", err)
+		}
+		assertCreatedActionURL(t, repo, "/events/freediving-cleanup-dive")
+	})
+
+	t.Run("attendee joined", func(t *testing.T) {
+		repo := newNotificationRepoStub()
+		svc := New(repo)
+
+		if err := svc.NotifyEventAttendeeJoined(context.Background(), EventAttendeeJoinedInput{
+			EventID:         eventID,
+			EventSlug:       "intro-freediving-session",
+			EventTitle:      "Intro freediving session",
+			OrganizerUserID: organizerID,
+			AttendeeUserID:  attendeeID,
+		}); err != nil {
+			t.Fatalf("NotifyEventAttendeeJoined returned error: %v", err)
+		}
+		assertCreatedActionURL(t, repo, "/events/intro-freediving-session")
+	})
+
+	t.Run("updated", func(t *testing.T) {
+		repo := newNotificationRepoStub()
+		repo.eventAttendeeRecipients = map[string][]string{eventID: []string{organizerID, attendeeID}}
+		svc := New(repo)
+
+		if err := svc.NotifyEventUpdated(context.Background(), EventUpdatedInput{
+			EventID:     eventID,
+			EventSlug:   "intro-freediving-session",
+			EventTitle:  "Intro freediving session",
+			ActorUserID: organizerID,
+			UpdatedAt:   updatedAt,
+		}); err != nil {
+			t.Fatalf("NotifyEventUpdated returned error: %v", err)
+		}
+		assertCreatedActionURL(t, repo, "/events/intro-freediving-session")
+	})
+
+	t.Run("cancelled", func(t *testing.T) {
+		repo := newNotificationRepoStub()
+		repo.eventAttendeeRecipients = map[string][]string{eventID: []string{organizerID, attendeeID}}
+		svc := New(repo)
+
+		if err := svc.NotifyEventCancelled(context.Background(), EventCancelledInput{
+			EventID:     eventID,
+			EventSlug:   "freediving-cleanup-dive",
+			EventTitle:  "Freediving cleanup dive",
+			ActorUserID: organizerID,
+			UpdatedAt:   updatedAt,
+		}); err != nil {
+			t.Fatalf("NotifyEventCancelled returned error: %v", err)
+		}
+		assertCreatedActionURL(t, repo, "/events/freediving-cleanup-dive")
+	})
+}
+
 func TestNotifyDiveSiteApprovedIsIdempotentOnRetry(t *testing.T) {
 	repo := newNotificationRepoStub()
 	submitterID := "550e8400-e29b-41d4-a716-446655440001"
@@ -909,6 +987,16 @@ func derefString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func assertCreatedActionURL(t *testing.T, repo *notificationRepoStub, want string) {
+	t.Helper()
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one notification, got %d", len(repo.created))
+	}
+	if got := derefString(repo.created[0].ActionURL); got != want {
+		t.Fatalf("notification action URL = %q, want %q", got, want)
+	}
 }
 
 func filteredRecipients(values []string, excludeUserID string) []string {

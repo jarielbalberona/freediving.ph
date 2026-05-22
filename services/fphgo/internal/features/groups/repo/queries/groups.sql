@@ -101,6 +101,43 @@ LEFT JOIN group_memberships vm
  AND vm.user_id = sqlc.narg(viewer_user_id)::uuid
 WHERE g.id = sqlc.arg(group_id)::uuid;
 
+-- name: GetGroupBySlug :one
+SELECT
+  g.id,
+  g.name,
+  g.slug,
+  COALESCE(g.bio, '') AS bio,
+  COALESCE(g.description, '') AS description,
+  g.visibility,
+  g.status,
+  g.join_policy,
+  COALESCE(g.location, '') AS location,
+  COALESCE(g.location_name, '') AS location_name,
+  COALESCE(g.formatted_address, '') AS formatted_address,
+  g.lat,
+  g.lng,
+  COALESCE(g.google_place_id, '') AS google_place_id,
+  COALESCE(g.region_code, '') AS region_code,
+  COALESCE(g.province_code, '') AS province_code,
+  COALESCE(g.city_municipality_code, '') AS city_municipality_code,
+  COALESCE(g.barangay_code, '') AS barangay_code,
+  COALESCE(g.location_source, 'manual') AS location_source,
+  COALESCE((SELECT COUNT(*) FROM group_memberships m WHERE m.group_id = g.id AND m.status = 'active'), 0)::int AS member_count,
+  COALESCE((SELECT COUNT(*) FROM events e WHERE e.group_id = g.id AND e.status = 'published'), 0)::int AS event_count,
+  COALESCE((SELECT COUNT(*) FROM group_posts p WHERE p.group_id = g.id AND p.status = 'active'), 0)::int AS post_count,
+  g.created_by,
+  g.created_at,
+  g.updated_at,
+  COALESCE(vm.role, '') AS viewer_role,
+  COALESCE(vm.status, '') AS viewer_membership_status,
+  vm.joined_at AS viewer_joined_at,
+  vm.invited_at AS viewer_invited_at
+FROM groups g
+LEFT JOIN group_memberships vm
+  ON vm.group_id = g.id
+ AND vm.user_id = sqlc.narg(viewer_user_id)::uuid
+WHERE g.slug = sqlc.arg(slug);
+
 -- name: CreateGroup :one
 INSERT INTO groups (
   name,
@@ -516,4 +553,11 @@ SELECT EXISTS (
   FROM users
   WHERE id = sqlc.arg(user_id)::uuid
     AND account_status = 'active'
+)::boolean;
+
+-- name: SlugExists :one
+SELECT EXISTS (
+  SELECT 1
+  FROM groups
+  WHERE slug = sqlc.arg(slug)
 )::boolean;

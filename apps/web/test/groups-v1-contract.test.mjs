@@ -67,7 +67,7 @@ test("groups list/create UI uses V1 visibility, join policy, and structured loca
 });
 
 test("groups detail UI renders invite lifecycle instead of fake self-join", async () => {
-  const detailSource = await readApp("src/app/groups/[id]/page.tsx");
+  const detailSource = await readApp("src/app/groups/[slug]/client-page.tsx");
 
   assert.match(detailSource, /useInviteGroupMember/);
   assert.match(detailSource, /useAcceptGroupInvite/);
@@ -89,6 +89,8 @@ test("groups detail UI renders invite lifecycle instead of fake self-join", asyn
   assert.match(detailSource, /Reject/);
   assert.match(detailSource, /Invite member/);
   assert.match(detailSource, /hasPendingInvite/);
+  assert.match(detailSource, /useGroup\(\s*slug,/);
+  assert.doesNotMatch(detailSource, /useGroupMembers\(\s*slug/);
   assert.match(
     detailSource,
     /canJoin = group\.visibility === "public" && group\.joinPolicy === "open"/,
@@ -118,6 +120,7 @@ test("super admin group management is isolated to admin pages", async () => {
     adminPageSource,
     /href=\{`\/groups\/\$\{group\.id\}`\}/,
   );
+  assert.doesNotMatch(adminPageSource, /href=\{`\/groups\/\$\{groupId\}`\}/);
   assert.doesNotMatch(adminPageSource, /\/v1\/groups\/\$\{groupId\}\/archive/);
 });
 

@@ -194,6 +194,21 @@ func (r *Repo) GetGroupByID(ctx context.Context, groupID, viewerUserID string) (
 	return mapGetGroup(row), nil
 }
 
+func (r *Repo) GetGroupBySlug(ctx context.Context, slug, viewerUserID string) (Group, error) {
+	row, err := r.queries.GetGroupBySlug(ctx, groupsqlc.GetGroupBySlugParams{
+		ViewerUserID: uuidParam(viewerUserID),
+		Slug:         slug,
+	})
+	if err != nil {
+		return Group{}, err
+	}
+	return mapGetGroupBySlug(row), nil
+}
+
+func (r *Repo) SlugExists(ctx context.Context, slug string) (bool, error) {
+	return r.queries.SlugExists(ctx, slug)
+}
+
 func (r *Repo) CreateGroup(ctx context.Context, input CreateGroupInput) (Group, error) {
 	row, err := r.queries.CreateGroup(ctx, groupsqlc.CreateGroupParams{
 		Name:                 input.Name,
@@ -493,6 +508,40 @@ func mapGetGroup(row groupsqlc.GetGroupByIDRow) Group {
 		ViewerInvitedAt:        timePtr(row.ViewerInvitedAt),
 	}
 	return group
+}
+
+func mapGetGroupBySlug(row groupsqlc.GetGroupBySlugRow) Group {
+	return Group{
+		ID:                     uuidString(row.ID),
+		Name:                   row.Name,
+		Slug:                   row.Slug,
+		Bio:                    row.Bio,
+		Description:            row.Description,
+		Visibility:             row.Visibility,
+		Status:                 row.Status,
+		JoinPolicy:             row.JoinPolicy,
+		Location:               row.Location,
+		LocationName:           row.LocationName,
+		FormattedAddress:       row.FormattedAddress,
+		Latitude:               row.Lat,
+		Longitude:              row.Lng,
+		GooglePlaceID:          row.GooglePlaceID,
+		RegionCode:             row.RegionCode,
+		ProvinceCode:           row.ProvinceCode,
+		CityCode:               row.CityMunicipalityCode,
+		BarangayCode:           row.BarangayCode,
+		LocationSource:         row.LocationSource,
+		MemberCount:            int(row.MemberCount),
+		EventCount:             int(row.EventCount),
+		PostCount:              int(row.PostCount),
+		CreatedBy:              uuidString(row.CreatedBy),
+		CreatedAt:              timeValue(row.CreatedAt),
+		UpdatedAt:              timeValue(row.UpdatedAt),
+		ViewerRole:             row.ViewerRole,
+		ViewerMembershipStatus: row.ViewerMembershipStatus,
+		ViewerJoinedAt:         timePtr(row.ViewerJoinedAt),
+		ViewerInvitedAt:        timePtr(row.ViewerInvitedAt),
+	}
 }
 
 func mapCreateGroup(row groupsqlc.CreateGroupRow) Group {

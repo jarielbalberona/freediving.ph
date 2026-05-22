@@ -136,7 +136,7 @@ test("chika comment reaction cache patching covers vote and highlight transition
 test("chika comment actions use React Query comment data as the arrow source of truth", async () => {
   const [pageSource, mutationSource, realtimeSource, apiSource] =
     await Promise.all([
-      readSource("src/app/chika/[id]/page.tsx"),
+      readSource("src/app/chika/[slug]/client-page.tsx"),
       readSource("src/features/chika/hooks/mutations.ts"),
       readSource("src/features/chika/hooks/realtime.ts"),
       readSource("src/features/chika/api/threads.ts"),
@@ -221,7 +221,7 @@ test("chika adapters normalize display name, username, and excerpts from real fi
       body,
       stats: { replies: 4, reactions: 10 },
       metadata: { categoryName: "General" },
-      href: "/chika/thread-1",
+      href: "/chika/welcome-to-freediving-philippines",
     };
 
     const homeItem = activityToHomeFeedItem(activityItem);
@@ -237,6 +237,7 @@ test("chika adapters normalize display name, username, and excerpts from real fi
 
     const list = chikaPostFromThread({
       id: "thread-1",
+      slug: "welcome-to-freediving-philippines",
       title: "Welcome to Freediving Philippines",
       content: body,
       voteCount: 10,

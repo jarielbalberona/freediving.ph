@@ -19,6 +19,7 @@ type chikaRepoStub struct {
 	createdComment   chikarepo.Comment
 	comments         map[int64]chikarepo.Comment
 	commentReactions map[int64]map[string]string
+	existingSlugs    map[string]bool
 	usernameByID     map[string]string
 }
 
@@ -28,8 +29,19 @@ func (s *chikaRepoStub) ListCategories(context.Context) ([]chikarepo.Category, e
 func (s *chikaRepoStub) GetCategoryByID(context.Context, string) (chikarepo.Category, error) {
 	return chikarepo.Category{}, nil
 }
-func (s *chikaRepoStub) CreateThread(context.Context, string, string, string, string) (chikarepo.Thread, error) {
-	return chikarepo.Thread{}, nil
+func (s *chikaRepoStub) SlugExists(_ context.Context, slug string) (bool, error) {
+	return s.existingSlugs[slug], nil
+}
+func (s *chikaRepoStub) CreateThread(_ context.Context, slug, title, mode, categoryID, actorID string) (chikarepo.Thread, error) {
+	s.thread.Slug = slug
+	s.thread.Title = title
+	s.thread.Mode = mode
+	s.thread.CategoryID = categoryID
+	s.thread.CreatedByUserID = actorID
+	if s.thread.ID == "" {
+		s.thread.ID = "550e8400-e29b-41d4-a716-446655440100"
+	}
+	return s.thread, nil
 }
 func (s *chikaRepoStub) ListThreads(context.Context, string, bool, time.Time, string, int32) ([]chikarepo.Thread, error) {
 	return []chikarepo.Thread{}, nil
@@ -41,6 +53,9 @@ func (s *chikaRepoStub) GetThread(context.Context, string) (chikarepo.Thread, er
 	return s.thread, nil
 }
 func (s *chikaRepoStub) GetThreadForViewer(context.Context, string, string) (chikarepo.Thread, error) {
+	return s.thread, nil
+}
+func (s *chikaRepoStub) GetThreadBySlugForViewer(context.Context, string, string) (chikarepo.Thread, error) {
 	return s.thread, nil
 }
 func (s *chikaRepoStub) UpdateThread(context.Context, string, string) (chikarepo.Thread, error) {

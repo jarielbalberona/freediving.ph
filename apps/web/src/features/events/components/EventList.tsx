@@ -21,7 +21,6 @@ export function EventList({
   showCreateButton = false,
   onEventJoin,
   onEventLeave,
-  joinedEventIds = [],
 }: EventListProps) {
   const { data, isLoading, error } = useEvents(filters);
 
@@ -75,7 +74,6 @@ export function EventList({
           event={event}
           onJoin={onEventJoin}
           onLeave={onEventLeave}
-          isJoined={joinedEventIds.includes(event.id)}
           showActions={!!onEventJoin || !!onEventLeave}
         />
       ))}

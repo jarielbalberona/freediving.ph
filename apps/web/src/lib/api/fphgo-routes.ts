@@ -34,7 +34,8 @@ export const routes = {
       categories: () => "/v1/chika/categories",
       threads: {
         list: () => "/v1/chika/threads",
-        byId: (id: string | number) => `/v1/chika/threads/${toPathId(id)}`,
+        bySlug: (slug: string | number) =>
+          `/v1/chika/threads/${toPathId(slug)}`,
         reactions: (id: string | number) =>
           `/v1/chika/threads/${toPathId(id)}/reactions`,
         comments: (id: string | number) =>

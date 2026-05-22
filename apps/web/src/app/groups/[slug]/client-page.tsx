@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 
@@ -87,10 +87,8 @@ import { buildDisplayLocation } from "@/features/locations/types";
 import { useUserSearch } from "@/features/profiles/hooks/queries";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 
-export default function GroupDetailPage() {
-  const params = useParams<{ id: string }>();
+export default function GroupDetailClient({ slug }: { slug: string }) {
   const router = useRouter();
-  const groupId = typeof params?.id === "string" ? params.id : "";
   const session = useSession();
   const isSignedIn = session.status === "signed_in";
   const viewerScope = isSignedIn ? "signed_in" : "public";
@@ -113,10 +111,11 @@ export default function GroupDetailPage() {
   );
 
   const groupQuery = useGroup(
-    groupId,
+    slug,
     viewerScope,
     session.status !== "loading",
   );
+  const groupId = groupQuery.data?.id ?? "";
   const canLoadGroupResources = !!groupQuery.data;
   const membersQuery = useGroupMembers(
     groupId,

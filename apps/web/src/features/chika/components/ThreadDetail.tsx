@@ -59,7 +59,7 @@ export default function ThreadDetail({ thread }: ThreadDetailProps) {
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <ChikaPostActions
           threadId={thread.id}
-          href={`/chika/${thread.id}`}
+          href={`/chika/${thread.slug}`}
           voteScore={thread.voteCount}
           viewerVote={thread.userReaction}
           replyCount={thread.commentCount}

@@ -24,14 +24,14 @@ export const useGroups = (
 };
 
 export const useGroup = (
-  groupId: string,
+  slug: string,
   viewerScope = "public",
   enabled = true,
 ) => {
   return useQuery({
-    queryKey: [...queryKeys.groups.detail(groupId), viewerScope],
-    queryFn: () => groupsApi.getGroupById(groupId),
-    enabled: !!groupId && enabled,
+    queryKey: [...queryKeys.groups.detail(slug), viewerScope],
+    queryFn: () => groupsApi.getGroupBySlug(slug),
+    enabled: !!slug && enabled,
     staleTime: 5 * 60 * 1000,
     retry: (failureCount, error) => {
       const status = getApiErrorStatus(error);

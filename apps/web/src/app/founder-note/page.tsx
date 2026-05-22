@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { ExternalLink } from "lucide-react";
 
+import { FounderNoteLike } from "./founder-note-like";
+
 export const metadata: Metadata = {
   title: {
     absolute: "Founder's Note | Freediving Philippines",
@@ -27,7 +29,7 @@ const features = [
   "Be part of the Philippine freediving community",
   {
     label: "Suggest features and help prioritize what should improve next",
-    href: "https://freediving.ph/chika/dfe4ab16-5b88-4812-a58f-21e15d246d5e",
+    href: "https://freediving.ph/chika/suggest-features-and-help-prioritize-what-should-improve-next",
   },
 ];
 
@@ -114,6 +116,7 @@ export default function FounderNotePage() {
               The goal is not to replace real local communities. The goal is to
               make them easier to discover, support, and connect.
             </p>
+            <FounderNoteLike />
           </div>
         </section>
 

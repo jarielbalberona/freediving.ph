@@ -127,11 +127,11 @@ func mediaPostHref(username, postID string) string {
 	return profilePath + "/posts/" + postID
 }
 
-func eventHref(id string) string {
-	if strings.TrimSpace(id) == "" {
+func eventHref(slug string) string {
+	if strings.TrimSpace(slug) == "" {
 		return ""
 	}
-	return "/events/" + strings.TrimSpace(id)
+	return "/events/" + strings.TrimSpace(slug)
 }
 
 func buddyHref(id string) string {
@@ -141,11 +141,11 @@ func buddyHref(id string) string {
 	return "/buddy/" + strings.TrimSpace(id)
 }
 
-func chikaHref(id string) string {
-	if strings.TrimSpace(id) == "" {
+func chikaHref(slug string) string {
+	if strings.TrimSpace(slug) == "" {
 		return ""
 	}
-	return "/chika/" + strings.TrimSpace(id)
+	return "/chika/" + strings.TrimSpace(slug)
 }
 
 func diveSiteHref(slug string) string {

@@ -219,6 +219,120 @@ Replace manual area and coordinate entry with a map-pin flow in `apps/web`, and 
 
 ## 11. Outcomes And Follow-Ups
 
+# ExecPlan: Events MVP
+
+## 1. Title
+
+Freediving events MVP with dive-site backed creation, approval-based joining, manual payments, and privacy controls
+
+## 2. Objective
+
+Upgrade `/events` from a basic listing/join surface into a usable freediving event-management MVP. `services/fphgo` is the canonical backend, `apps/web` remains a thin client, and shared contracts live in `packages/types`.
+
+## 3. Scope
+
+- `services/fphgo` event schema migration, repo/service/http layers, and route surface.
+- `packages/types` event request/response contracts.
+- `apps/web` `/events`, `/events/create`, `/events/[id]`, events API hooks, and reusable event card behavior.
+- Targeted backend and shared/web contract tests.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch `apps/api`.
+- Require a valid approved `dive_site_id` for every new event.
+- Public/private privacy behavior must be enforced by the Go API, not only by the UI.
+- Payment gateway, refunds, waiver signing, medical enforcement, notifications beyond existing hooks, full dashboards, buddy matching, comments, and group booking are out of scope.
+- Existing unrelated dirty worktree changes must not be reverted or staged.
+
+## 5. Acceptance Criteria
+
+- `/events/create` exists and creates events through `POST /v1/events`.
+- Event creation requires title, short description, Markdown description, type, dive site, start/end time, timezone, capacity, visibility, approval toggle, and free/paid state.
+- Events store freediving-specific fields and organizer-defined manual payment methods.
+- Joining creates `confirmed` or `pending_approval` based on `requiresApproval`.
+- Leaving uses `left`, not `blocked`.
+- Capacity is enforced for confirmed participants and re-checked on organizer approval.
+- Participants can see participation and payment status.
+- Organizers can approve/reject participants and verify/reject payment proof.
+- Private events hide description, payment details, attendee identities, and private fields from unauthorized viewers.
+
+## 6. Repo Evidence
+
+- Current web event pages: `apps/web/src/app/events/page.tsx`, `apps/web/src/app/events/[id]/page.tsx`
+- Current web events client/hooks: `apps/web/src/features/events/api/events.ts`, `apps/web/src/features/events/hooks`
+- Current Go event routes/service/repo: `services/fphgo/internal/features/events/http`, `services/fphgo/internal/features/events/service/service.go`, `services/fphgo/internal/features/events/repo/repo.go`
+- Current canonical events tables: `services/fphgo/db/schema/000_schema.sql`, `services/fphgo/db/migrations/0027_groups_events_v1.sql`
+- Existing approved dive-site picker: `apps/web/src/features/diveSpots/components/DiveSiteCombobox.tsx`
+- Existing event media upload context: `packages/types/src/media.ts`, `services/fphgo/db/schema/000_schema.sql`
+
+## 7. Risks And Rollback
+
+- Risk: changing event visibility semantics from legacy `group_members/invite_only` to `public/private` can affect feed and notification assumptions.
+- Risk: route snapshot changes may expose unrelated dirty test state.
+- Risk: adding manual payment proof by media object ID requires UI/backend agreement on whether display URLs are minted later.
+- Rollback Notes:
+  - Revert the new event migration and repo/service/http changes as one backend unit if schema behavior fails.
+  - Revert web pages/hooks independently if API compiles but UX needs redesign.
+  - Keep legacy `event_memberships` compatibility columns until feed/identity consumers are intentionally migrated.
+
+## 8. Milestones
+
+### Milestone 1: Backend schema and contracts
+- Goal: add canonical event MVP fields/tables and shared TS contracts.
+- Inputs/Dependencies: `services/fphgo/db/schema/000_schema.sql`, `services/fphgo/db/migrations`, `packages/types/src/index.ts`
+- Changes: migration, schema baseline, event enums, request/response interfaces.
+- Validation Commands: `pnpm --filter @freediving.ph/types test`
+- Expected Evidence: shared contract test matches MVP enum/status lifecycle.
+- Rollback Notes: revert migration/schema/types before Go service wiring if contract is wrong.
+- Status: `done`
+
+### Milestone 2: Go API implementation
+- Goal: implement create/detail/list/join/leave/participant/payment routes in `services/fphgo`.
+- Inputs/Dependencies: event repo/service/http files and route snapshot tests.
+- Changes: transaction-backed create, privacy mapping, capacity checks, organizer controls.
+- Validation Commands: `cd services/fphgo && go test ./internal/features/events/...`
+- Expected Evidence: targeted service tests cover required MVP behaviors.
+- Rollback Notes: revert event feature package and new migration together if compile or behavior breaks.
+- Status: `done`
+
+### Milestone 3: Web event pages
+- Goal: move creation to `/events/create`, add list filters, detail join/payment/organizer controls.
+- Inputs/Dependencies: events API hooks, UI primitives, dive-site combobox, media upload API.
+- Changes: `/events`, `/events/create`, `/events/[id]`, `EventCard`, events API/hooks/query keys.
+- Validation Commands: `pnpm --filter @freediving.ph/web type-check`
+- Expected Evidence: event form and detail page compile against shared contracts.
+- Rollback Notes: revert web files independently if backend checks pass but UI compile fails.
+- Status: `done`
+
+### Milestone 4: Verification and cleanup
+- Goal: run targeted checks, update route snapshot if intentional, document residual risk.
+- Inputs/Dependencies: completed backend/web changes.
+- Changes: test updates only.
+- Validation Commands: `pnpm --filter @freediving.ph/types test`, `cd services/fphgo && go test ./internal/features/events/...`, `pnpm --filter @freediving.ph/web type-check`
+- Expected Evidence: passing targeted checks or explicit blocker list.
+- Rollback Notes: revert only failing milestone files; do not touch unrelated dirty changes.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `pnpm --filter @freediving.ph/types test`
+- `cd services/fphgo && go test ./internal/features/events/...`
+- `cd services/fphgo && go test ./internal/app -run TestRouteSurface`
+- `pnpm --filter @freediving.ph/web type-check`
+- `pnpm --filter @freediving.ph/web test` if targeted contracts are added and baseline allows it.
+
+## 10. Progress Log
+
+- 2026-05-22: Re-opened current events implementation, confirmed `services/fphgo` is the canonical backend and current leave behavior still maps to `blocked`.
+- 2026-05-22: Added events MVP schema migration and baseline schema updates for dive-site linkage, event-specific fields, participations, payment methods, and participant payments.
+- 2026-05-22: Reworked `services/fphgo/internal/features/events` around event participations, approval, capacity checks, manual payment review, private-event redaction, and organizer-scoped controls.
+- 2026-05-22: Replaced modal creation with `/events/create`, updated `/events` discovery filters/load-more, and added detail-page join/payment/organizer management UI.
+- 2026-05-22: Verified `pnpm --filter @freediving.ph/types test`, `go test ./internal/features/events/...`, `go test ./...` in `services/fphgo`, `pnpm --filter @freediving.ph/web type-check`, and `pnpm --filter @freediving.ph/web test -- test/events-mvp-contract.test.mjs`.
+
+## 11. Outcomes And Follow-Ups
+
+- Follow-up: add DB integration tests for event creation, privacy redaction, approval capacity races, and payment proof review once a stable event/dive-site test fixture exists.
+
 # ExecPlan: FPH Media Post Composer And Profile Masonry
 
 ## 1. Title

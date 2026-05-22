@@ -479,6 +479,118 @@ func (q *Queries) GetGroupByID(ctx context.Context, arg GetGroupByIDParams) (Get
 	return i, err
 }
 
+const getGroupBySlug = `-- name: GetGroupBySlug :one
+SELECT
+  g.id,
+  g.name,
+  g.slug,
+  COALESCE(g.bio, '') AS bio,
+  COALESCE(g.description, '') AS description,
+  g.visibility,
+  g.status,
+  g.join_policy,
+  COALESCE(g.location, '') AS location,
+  COALESCE(g.location_name, '') AS location_name,
+  COALESCE(g.formatted_address, '') AS formatted_address,
+  g.lat,
+  g.lng,
+  COALESCE(g.google_place_id, '') AS google_place_id,
+  COALESCE(g.region_code, '') AS region_code,
+  COALESCE(g.province_code, '') AS province_code,
+  COALESCE(g.city_municipality_code, '') AS city_municipality_code,
+  COALESCE(g.barangay_code, '') AS barangay_code,
+  COALESCE(g.location_source, 'manual') AS location_source,
+  COALESCE((SELECT COUNT(*) FROM group_memberships m WHERE m.group_id = g.id AND m.status = 'active'), 0)::int AS member_count,
+  COALESCE((SELECT COUNT(*) FROM events e WHERE e.group_id = g.id AND e.status = 'published'), 0)::int AS event_count,
+  COALESCE((SELECT COUNT(*) FROM group_posts p WHERE p.group_id = g.id AND p.status = 'active'), 0)::int AS post_count,
+  g.created_by,
+  g.created_at,
+  g.updated_at,
+  COALESCE(vm.role, '') AS viewer_role,
+  COALESCE(vm.status, '') AS viewer_membership_status,
+  vm.joined_at AS viewer_joined_at,
+  vm.invited_at AS viewer_invited_at
+FROM groups g
+LEFT JOIN group_memberships vm
+  ON vm.group_id = g.id
+ AND vm.user_id = $1::uuid
+WHERE g.slug = $2
+`
+
+type GetGroupBySlugParams struct {
+	ViewerUserID pgtype.UUID `db:"viewer_user_id" json:"viewer_user_id"`
+	Slug         string      `db:"slug" json:"slug"`
+}
+
+type GetGroupBySlugRow struct {
+	ID                     pgtype.UUID        `db:"id" json:"id"`
+	Name                   string             `db:"name" json:"name"`
+	Slug                   string             `db:"slug" json:"slug"`
+	Bio                    string             `db:"bio" json:"bio"`
+	Description            string             `db:"description" json:"description"`
+	Visibility             string             `db:"visibility" json:"visibility"`
+	Status                 string             `db:"status" json:"status"`
+	JoinPolicy             string             `db:"join_policy" json:"join_policy"`
+	Location               string             `db:"location" json:"location"`
+	LocationName           string             `db:"location_name" json:"location_name"`
+	FormattedAddress       string             `db:"formatted_address" json:"formatted_address"`
+	Lat                    *float64           `db:"lat" json:"lat"`
+	Lng                    *float64           `db:"lng" json:"lng"`
+	GooglePlaceID          string             `db:"google_place_id" json:"google_place_id"`
+	RegionCode             string             `db:"region_code" json:"region_code"`
+	ProvinceCode           string             `db:"province_code" json:"province_code"`
+	CityMunicipalityCode   string             `db:"city_municipality_code" json:"city_municipality_code"`
+	BarangayCode           string             `db:"barangay_code" json:"barangay_code"`
+	LocationSource         string             `db:"location_source" json:"location_source"`
+	MemberCount            int32              `db:"member_count" json:"member_count"`
+	EventCount             int32              `db:"event_count" json:"event_count"`
+	PostCount              int32              `db:"post_count" json:"post_count"`
+	CreatedBy              pgtype.UUID        `db:"created_by" json:"created_by"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ViewerRole             string             `db:"viewer_role" json:"viewer_role"`
+	ViewerMembershipStatus string             `db:"viewer_membership_status" json:"viewer_membership_status"`
+	ViewerJoinedAt         pgtype.Timestamptz `db:"viewer_joined_at" json:"viewer_joined_at"`
+	ViewerInvitedAt        pgtype.Timestamptz `db:"viewer_invited_at" json:"viewer_invited_at"`
+}
+
+func (q *Queries) GetGroupBySlug(ctx context.Context, arg GetGroupBySlugParams) (GetGroupBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getGroupBySlug, arg.ViewerUserID, arg.Slug)
+	var i GetGroupBySlugRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Bio,
+		&i.Description,
+		&i.Visibility,
+		&i.Status,
+		&i.JoinPolicy,
+		&i.Location,
+		&i.LocationName,
+		&i.FormattedAddress,
+		&i.Lat,
+		&i.Lng,
+		&i.GooglePlaceID,
+		&i.RegionCode,
+		&i.ProvinceCode,
+		&i.CityMunicipalityCode,
+		&i.BarangayCode,
+		&i.LocationSource,
+		&i.MemberCount,
+		&i.EventCount,
+		&i.PostCount,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ViewerRole,
+		&i.ViewerMembershipStatus,
+		&i.ViewerJoinedAt,
+		&i.ViewerInvitedAt,
+	)
+	return i, err
+}
+
 const getMembership = `-- name: GetMembership :one
 SELECT
   gm.group_id,
@@ -1076,6 +1188,21 @@ func (q *Queries) RejectInvite(ctx context.Context, arg RejectInviteParams) (Rej
 		&i.AvatarUrl,
 	)
 	return i, err
+}
+
+const slugExists = `-- name: SlugExists :one
+SELECT EXISTS (
+  SELECT 1
+  FROM groups
+  WHERE slug = $1
+)::boolean
+`
+
+func (q *Queries) SlugExists(ctx context.Context, slug string) (bool, error) {
+	row := q.db.QueryRow(ctx, slugExists, slug)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const updateGroup = `-- name: UpdateGroup :one

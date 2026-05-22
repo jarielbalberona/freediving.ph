@@ -11,6 +11,7 @@ import type {
 test("chika thread contracts support pseudonymous and moderator fields", () => {
   const thread: ChikaThreadResponse = {
     id: "550e8400-e29b-41d4-a716-446655440001",
+    slug: "confession",
     title: "Confession",
     content: "Long-form thread content",
     voteCount: 12,

@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -12,6 +12,7 @@ import (
 	groupsrepo "fphgo/internal/features/groups/repo"
 	notificationsservice "fphgo/internal/features/notifications/service"
 	apperrors "fphgo/internal/shared/errors"
+	sharedslug "fphgo/internal/shared/slug"
 	"fphgo/internal/shared/validatex"
 )
 
@@ -23,6 +24,8 @@ type Service struct {
 type repository interface {
 	ListGroups(ctx context.Context, input groupsrepo.ListGroupsInput) ([]groupsrepo.Group, int, error)
 	GetGroupByID(ctx context.Context, groupID, viewerUserID string) (groupsrepo.Group, error)
+	GetGroupBySlug(ctx context.Context, slug, viewerUserID string) (groupsrepo.Group, error)
+	SlugExists(ctx context.Context, slug string) (bool, error)
 	CreateGroup(ctx context.Context, input groupsrepo.CreateGroupInput) (groupsrepo.Group, error)
 	AddOwnerMembership(ctx context.Context, groupID, userID string) error
 	UpdateGroup(ctx context.Context, input groupsrepo.UpdateGroupInput) (groupsrepo.Group, error)
@@ -98,20 +101,23 @@ func (s *Service) GetGroup(ctx context.Context, groupID, viewerUserID string) (g
 		}
 		return groupsrepo.Group{}, apperrors.New(http.StatusInternalServerError, "group_get_failed", "failed to fetch group", err)
 	}
-	if group.Status != "active" {
+	return s.enforceGroupReadAccess(ctx, group, viewerUserID)
+}
+
+func (s *Service) GetGroupBySlug(ctx context.Context, slug, viewerUserID string) (groupsrepo.Group, error) {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
 		return groupsrepo.Group{}, apperrors.New(http.StatusNotFound, "group_not_found", "group not found", nil)
 	}
-	if group.Visibility == "public" {
-		return group, nil
+	viewerUserID = strings.TrimSpace(viewerUserID)
+	group, err := s.repo.GetGroupBySlug(ctx, slug, viewerUserID)
+	if err != nil {
+		if groupsrepo.IsNoRows(err) {
+			return groupsrepo.Group{}, apperrors.New(http.StatusNotFound, "group_not_found", "group not found", err)
+		}
+		return groupsrepo.Group{}, apperrors.New(http.StatusInternalServerError, "group_get_failed", "failed to fetch group", err)
 	}
-	if viewerUserID == "" {
-		return groupsrepo.Group{}, apperrors.New(http.StatusForbidden, "forbidden", "group is not public", nil)
-	}
-	membership, err := s.repo.GetMembership(ctx, groupID, viewerUserID)
-	if err != nil || (membership.Status != "active" && membership.Status != "invited") {
-		return groupsrepo.Group{}, apperrors.New(http.StatusForbidden, "forbidden", "group is not public", nil)
-	}
-	return group, nil
+	return s.enforceGroupReadAccess(ctx, group, viewerUserID)
 }
 
 func (s *Service) CreateGroup(ctx context.Context, actorID string, input groupsrepo.CreateGroupInput) (groupsrepo.Group, error) {
@@ -131,12 +137,13 @@ func (s *Service) CreateGroup(ctx context.Context, actorID string, input groupsr
 	if visibility == "private" && joinPolicy == "open" {
 		return groupsrepo.Group{}, privateGroupJoinPolicyFailure()
 	}
-	slug := sanitizeSlug(input.Slug)
-	if slug == "" {
-		slug = sanitizeSlug(name)
+	slugSource := input.Slug
+	if strings.TrimSpace(slugSource) == "" {
+		slugSource = name
 	}
-	if slug == "" {
-		slug = "group-" + strings.ToLower(strings.ReplaceAll(uuid.NewString()[:8], "-", ""))
+	slug, err := s.uniqueSlug(ctx, sharedslug.Make(slugSource, "group"))
+	if err != nil {
+		return groupsrepo.Group{}, apperrors.New(http.StatusInternalServerError, "group_slug_failed", "failed to generate group slug", err)
 	}
 	created, err := s.repo.CreateGroup(ctx, groupsrepo.CreateGroupInput{
 		Name:             name,
@@ -168,6 +175,38 @@ func (s *Service) CreateGroup(ctx context.Context, actorID string, input groupsr
 		return groupsrepo.Group{}, apperrors.New(http.StatusInternalServerError, "group_membership_create_failed", "failed to create owner membership", err)
 	}
 	return s.repo.GetGroupByID(ctx, created.ID, actorID)
+}
+
+func (s *Service) enforceGroupReadAccess(ctx context.Context, group groupsrepo.Group, viewerUserID string) (groupsrepo.Group, error) {
+	if group.Status != "active" {
+		return groupsrepo.Group{}, apperrors.New(http.StatusNotFound, "group_not_found", "group not found", nil)
+	}
+	if group.Visibility == "public" {
+		return group, nil
+	}
+	if viewerUserID == "" {
+		return groupsrepo.Group{}, apperrors.New(http.StatusForbidden, "forbidden", "group is not public", nil)
+	}
+	membership, err := s.repo.GetMembership(ctx, group.ID, viewerUserID)
+	if err != nil || (membership.Status != "active" && membership.Status != "invited") {
+		return groupsrepo.Group{}, apperrors.New(http.StatusForbidden, "forbidden", "group is not public", nil)
+	}
+	return group, nil
+}
+
+func (s *Service) uniqueSlug(ctx context.Context, base string) (string, error) {
+	candidate := sharedslug.Make(base, "group")
+	for i := 0; i < 50; i++ {
+		exists, err := s.repo.SlugExists(ctx, candidate)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+		candidate = sharedslug.Append(base, strconv.Itoa(i+2), sharedslug.DefaultMaxLength)
+	}
+	return sharedslug.Append(base, strings.ReplaceAll(uuid.NewString(), "-", "")[:8], sharedslug.DefaultMaxLength), nil
 }
 
 func (s *Service) UpdateGroup(ctx context.Context, groupID string, input groupsrepo.UpdateGroupInput) (groupsrepo.Group, error) {
@@ -409,6 +448,7 @@ func (s *Service) InviteMember(ctx context.Context, groupID, actorID, inviteeID 
 	if s.notifications != nil {
 		if err := s.notifications.NotifyGroupInviteReceived(ctx, notificationsservice.GroupInviteReceivedInput{
 			GroupID:       groupID,
+			GroupSlug:     group.Slug,
 			GroupName:     group.Name,
 			InviterUserID: actorID,
 			InvitedUserID: inviteeID,
@@ -581,6 +621,7 @@ func (s *Service) CreatePost(ctx context.Context, groupID, actorID, title, conte
 	if s.notifications != nil {
 		if err := s.notifications.NotifyGroupPostCreated(ctx, notificationsservice.GroupPostCreatedInput{
 			GroupID:      groupID,
+			GroupSlug:    group.Slug,
 			GroupName:    group.Name,
 			PostID:       post.ID,
 			PostTitle:    post.Title,
@@ -680,16 +721,4 @@ func normalizeLocationSource(value string) string {
 	default:
 		return "manual"
 	}
-}
-
-var slugReplace = regexp.MustCompile(`[^a-z0-9]+`)
-
-func sanitizeSlug(value string) string {
-	s := strings.ToLower(strings.TrimSpace(value))
-	s = slugReplace.ReplaceAllString(s, "-")
-	s = strings.Trim(s, "-")
-	if len(s) > 80 {
-		s = strings.Trim(s[:80], "-")
-	}
-	return s
 }

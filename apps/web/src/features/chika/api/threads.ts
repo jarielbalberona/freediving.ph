@@ -39,9 +39,9 @@ export const threadsApi = {
     return response.items ?? [];
   },
 
-  getById: async (id: string): Promise<ChikaThreadView> => {
+  getBySlug: async (slug: string): Promise<ChikaThreadView> => {
     return fphgoFetchClient<ChikaThreadResponse>(
-      routes.v1.chika.threads.byId(id),
+      routes.v1.chika.threads.bySlug(slug),
     );
   },
 

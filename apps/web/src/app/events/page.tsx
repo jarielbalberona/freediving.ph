@@ -1,33 +1,12 @@
 "use client";
 
+import type { EventDifficulty, EventFilters, EventType } from "@freediving.ph/types";
 import { SignInButton } from "@clerk/nextjs";
-import { zodResolver } from "@hookform/resolvers/zod";
-import type { Event, EventFilters } from "@freediving.ph/types";
-import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import {
-  CalendarClock,
-  Compass,
-  Lock,
-  MapPin,
-  Plus,
-  Search,
-  ShieldCheck,
-  Ticket,
-  Users,
-} from "lucide-react";
+import { CalendarClock, Compass, Plus, Search, Ticket } from "lucide-react";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { useSession } from "@/features/auth/session";
-import {
-  useCreateEvent,
-  useEvents,
-  useJoinEvent,
-  useLeaveEvent,
-} from "@/features/events";
 import {
   CommunityAccessNote,
   CommunityBrowseToolbar,
@@ -36,31 +15,9 @@ import {
   CommunityPageShell,
   CommunityStats,
 } from "@/components/community/community-page";
-import {
-  buildDisplayLocation,
-  LocationSearch,
-  type LocationSearchValue,
-} from "@/features/locations";
-import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DatePicker } from "@/components/ui/date-picker";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -70,137 +27,86 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-
-const createEventSchema = z
-  .object({
-    title: z.string().min(3, "Event title must be at least 3 characters"),
-    description: z.string().optional(),
-    location: z.string().optional(),
-    locationData: z
-      .object({
-        locationName: z.string().optional(),
-        formattedAddress: z.string().optional(),
-        regionCode: z.string().optional(),
-        provinceCode: z.string().optional(),
-        cityCode: z.string().optional(),
-        barangayCode: z.string().optional(),
-        locationSource: z
-          .enum(["manual", "google_places", "psgc_mapped", "unmapped"])
-          .optional(),
-      })
-      .optional(),
-    startsAt: z.date().optional(),
-    endsAt: z.date().optional(),
-    maxAttendees: z.coerce.number().int().min(1).max(500).optional(),
-    visibility: z
-      .enum(["public", "group_members", "invite_only"])
-      .default("public"),
-    type: z.string().optional(),
-    difficulty: z
-      .enum(["beginner", "intermediate", "advanced", "expert"])
-      .default("beginner"),
-  })
-  .refine(
-    (data) => !data.endsAt || !data.startsAt || data.endsAt >= data.startsAt,
-    {
-      message: "End date must be on or after start date",
-      path: ["endsAt"],
-    },
-  );
-
-type CreateEventValues = z.infer<typeof createEventSchema>;
-
-const createEventDefaultValues: CreateEventValues = {
-  title: "",
-  description: "",
-  location: "",
-  locationData: {
-    locationName: "",
-    formattedAddress: "",
-    locationSource: "manual",
-  },
-  startsAt: undefined,
-  endsAt: undefined,
-  maxAttendees: undefined,
-  visibility: "public",
-  type: "training",
-  difficulty: "beginner",
-};
-
-const eventTypeItems = [
-  { value: "training", label: "Training" },
-  { value: "meetup", label: "Meetup" },
-  { value: "competition", label: "Competition" },
-  { value: "trip", label: "Trip" },
-  { value: "workshop", label: "Workshop" },
-];
-
-const eventDifficultyItems = [
-  { value: "beginner", label: "Beginner" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
-  { value: "expert", label: "Expert" },
-];
-
-const eventVisibilityItems = [
-  { value: "public", label: "Public" },
-  { value: "group_members", label: "Group members" },
-  { value: "invite_only", label: "Invite only" },
-];
+import { DiveSiteCombobox } from "@/features/diveSpots/components/DiveSiteCombobox";
+import {
+  difficultyOptions,
+  EventCard,
+  eventTypeOptions,
+  useEvents,
+  useJoinEvent,
+  useLeaveEvent,
+  useMarkEventInterested,
+  useMarkEventUninterested,
+} from "@/features/events";
+import { useSession } from "@/features/auth/session";
+import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 
 export default function EventsPage() {
   const session = useSession();
   const isSignedIn = session.status === "signed_in";
-
-  const [activeTab, setActiveTab] = useState<"discover" | "joined">("discover");
   const [search, setSearch] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [limit, setLimit] = useState(24);
+  const [diveSiteId, setDiveSiteId] = useState("");
+  const [diveSiteLabel, setDiveSiteLabel] = useState("");
+  const [eventType, setEventType] = useState<EventType | "all">("all");
+  const [difficulty, setDifficulty] = useState<EventDifficulty | "all">("all");
+  const [beginnerFriendly, setBeginnerFriendly] = useState<"all" | "true">(
+    "all",
+  );
+  const [price, setPrice] = useState<"all" | "free" | "paid">("all");
+  const [upcoming, setUpcoming] = useState(true);
 
   const filters = useMemo<EventFilters>(
     () => ({
       status: "published",
       page: 1,
-      limit: 24,
+      limit,
       search: search.trim() || undefined,
+      diveSiteId: diveSiteId || undefined,
+      type: eventType === "all" ? undefined : eventType,
+      difficulty: difficulty === "all" ? undefined : difficulty,
+      beginnerFriendly: beginnerFriendly === "true" ? true : undefined,
+      price: price === "all" ? undefined : price,
+      upcoming,
     }),
-    [search],
+    [
+      beginnerFriendly,
+      difficulty,
+      diveSiteId,
+      eventType,
+      limit,
+      price,
+      search,
+      upcoming,
+    ],
   );
-
-  const todayStart = useMemo(() => {
-    const value = new Date();
-    value.setHours(0, 0, 0, 0);
-    return value;
-  }, []);
-
-  const form = useForm<CreateEventValues>({
-    resolver: zodResolver(createEventSchema),
-    defaultValues: createEventDefaultValues,
-  });
 
   const eventsQuery = useEvents(filters);
-  const createEventMutation = useCreateEvent();
   const joinEventMutation = useJoinEvent();
   const leaveEventMutation = useLeaveEvent();
-
-  const allEvents = eventsQuery.data?.events ?? [];
-  const joinedEvents = useMemo(
-    () => allEvents.filter((event) => event.viewerJoined),
-    [allEvents],
-  );
+  const markInterestedMutation = useMarkEventInterested();
+  const markUninterestedMutation = useMarkEventUninterested();
+  const events = eventsQuery.data?.events ?? [];
+  const total = eventsQuery.data?.pagination.total ?? events.length;
+  const joinedCount = events.filter(
+    (event) => event.viewerEventState === "going",
+  ).length;
 
   const handleJoinEvent = (eventId: string) => {
     joinEventMutation.mutate(
       { eventId },
       {
-        onSuccess: () => toast.success("Joined event."),
+        onSuccess: (participant) => {
+          toast.success(
+            participant.status === "pending_approval"
+              ? "Request sent."
+              : "Joined event.",
+          );
+        },
         onError: (error) => {
           const statusCode = getApiErrorStatus(error);
           if (statusCode === 401 || statusCode === 403) {
-            toast.error(
-              "Sign in first, or make sure you actually have access to this event.",
-            );
+            toast.error("Sign in first before joining this event.");
             return;
           }
           toast.error(getApiErrorMessage(error, "Failed to join event"));
@@ -215,78 +121,60 @@ export default function EventsPage() {
       {
         onSuccess: () => toast.success("Left event."),
         onError: (error) => {
-          const statusCode = getApiErrorStatus(error);
-          if (statusCode === 401 || statusCode === 403) {
-            toast.error("You do not have permission to leave this event.");
-            return;
-          }
           toast.error(getApiErrorMessage(error, "Failed to leave event"));
         },
       },
     );
   };
 
-  const onCreateEventSubmit = (values: CreateEventValues) => {
-    const locationData = values.locationData ?? {};
-    const structuredLocation = buildDisplayLocation(
-      locationData as LocationSearchValue,
-    );
-    const location =
-      values.location?.trim() ||
-      structuredLocation ||
-      locationData.formattedAddress?.trim() ||
-      undefined;
-
-    createEventMutation.mutate(
+  const handleMarkInterested = (eventId: string) => {
+    markInterestedMutation.mutate(
+      { eventId },
       {
-        title: values.title.trim(),
-        description: values.description?.trim() || undefined,
-        location,
-        locationName: locationData.locationName?.trim() || undefined,
-        formattedAddress: locationData.formattedAddress?.trim() || undefined,
-        regionCode: locationData.regionCode?.trim() || undefined,
-        provinceCode: locationData.provinceCode?.trim() || undefined,
-        cityCode: locationData.cityCode?.trim() || undefined,
-        barangayCode: locationData.barangayCode?.trim() || undefined,
-        locationSource: locationData.locationSource || undefined,
-        startsAt: values.startsAt?.toISOString(),
-        endsAt: values.endsAt?.toISOString(),
-        maxAttendees: values.maxAttendees,
-        visibility: values.visibility,
-        type: values.type?.trim() || "training",
-        difficulty: values.difficulty,
-        status: "published",
-      },
-      {
-        onSuccess: () => {
-          setCreateOpen(false);
-          form.reset(createEventDefaultValues);
-          toast.success("Event published.");
-        },
+        onSuccess: () => toast.success("Marked interested."),
         onError: (error) => {
-          toast.error(getApiErrorMessage(error, "Failed to create event"));
+          const statusCode = getApiErrorStatus(error);
+          if (statusCode === 401 || statusCode === 403) {
+            toast.error("Sign in first before marking interest.");
+            return;
+          }
+          toast.error(
+            getApiErrorMessage(error, "Failed to mark event interested"),
+          );
         },
       },
     );
   };
 
-  const visibleEvents = activeTab === "joined" ? joinedEvents : allEvents;
+  const handleMarkUninterested = (eventId: string) => {
+    markUninterestedMutation.mutate(
+      { eventId },
+      {
+        onSuccess: () => toast.success("Removed interest."),
+        onError: (error) => {
+          toast.error(
+            getApiErrorMessage(error, "Failed to remove event interest"),
+          );
+        },
+      },
+    );
+  };
 
   return (
     <CommunityPageShell>
       <CommunityHeader
         eyebrow="Calendar"
         title="Events"
-        subtitle="Browse upcoming community plans or publish a session for other freedivers to join."
+        subtitle="Browse freediving trainings, trips, fun dives, workshops, and community sessions around the Philippines."
         action={
           !isSignedIn ? (
             <SignInButton mode="modal">
               <Button size="sm">Sign in to join</Button>
             </SignInButton>
           ) : (
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" render={<Link href="/events/create" />}>
               <Plus className="mr-2 h-4 w-4" />
-              Publish event
+              Create event
             </Button>
           )
         }
@@ -295,28 +183,27 @@ export default function EventsPage() {
       <CommunityStats
         items={[
           {
-            label: "Events",
-            value: String(
-              eventsQuery.data?.pagination.total ?? allEvents.length,
-            ),
+            label: "Published",
+            value: String(total),
             icon: <Compass className="h-3.5 w-3.5" />,
           },
           {
             label: "Joined",
-            value: isSignedIn ? String(joinedEvents.length) : "0",
+            value: isSignedIn ? String(joinedCount) : "0",
             icon: <Ticket className="h-3.5 w-3.5" />,
           },
           {
-            label: "Access",
-            value: "Public/invite",
-            icon: <ShieldCheck className="h-3.5 w-3.5" />,
+            label: "Default zone",
+            value: "Asia/Manila",
+            icon: <CalendarClock className="h-3.5 w-3.5" />,
           },
         ]}
       />
 
       <CommunityAccessNote>
-        Public events are visible to members. Restricted events are limited to
-        invitees or group members.
+        Public events expose full details. Private events can appear here, but
+        details, payment instructions, and attendee identities stay hidden until
+        you are an approved participant or organizer.
       </CommunityAccessNote>
 
       <section className="space-y-3">
@@ -327,531 +214,195 @@ export default function EventsPage() {
               Browse
             </>
           }
-          title="Browse events"
-          description="Search by place, session type, or organizer note."
+          title="Discover events"
+          description="Filter by dive site, event type, difficulty, price, and beginner fit."
         >
-          <div className="grid gap-2">
+          <div className="grid gap-2 lg:grid-cols-[1.35fr_1fr]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-10"
-                placeholder="Search dives, trainings, or places"
+                placeholder="Search events, dive sites, or places"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setLimit(24);
+                  setSearch(event.target.value);
+                }}
               />
             </div>
+            <DiveSiteCombobox
+              value={diveSiteId}
+              valueLabel={diveSiteLabel}
+              onValueChange={(value, site) => {
+                setLimit(24);
+                setDiveSiteId(value);
+                setDiveSiteLabel(
+                  site ? `${site.name} · ${site.area}` : "",
+                );
+              }}
+              allOption={{ value: "", label: "All dive sites" }}
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <Select
+              value={eventType}
+              onValueChange={(value) => {
+                setLimit(24);
+                setEventType(value as EventType | "all");
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Event type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {eventTypeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={difficulty}
+              onValueChange={(value) => {
+                setLimit(24);
+                setDifficulty(value as EventDifficulty | "all");
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All difficulty</SelectItem>
+                {difficultyOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={beginnerFriendly}
+              onValueChange={(value) => {
+                setLimit(24);
+                setBeginnerFriendly(value as "all" | "true");
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Beginner fit" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All levels</SelectItem>
+                <SelectItem value="true">Beginner-friendly</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={price}
+              onValueChange={(value) => {
+                setLimit(24);
+                setPrice(value as "all" | "free" | "paid");
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Price" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Free or paid</SelectItem>
+                <SelectItem value="free">Free</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant={upcoming ? "default" : "outline"}
+              onClick={() => {
+                setLimit(24);
+                setUpcoming((value) => !value);
+              }}
+            >
+              Upcoming
+            </Button>
           </div>
         </CommunityBrowseToolbar>
 
-        <Tabs
-          className="gap-3"
-          value={activeTab}
-          onValueChange={(value) =>
-            setActiveTab(value as "discover" | "joined")
-          }
-        >
-          {isSignedIn ? (
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="discover">All events</TabsTrigger>
-              <TabsTrigger value="joined">My events</TabsTrigger>
-            </TabsList>
-          ) : null}
-
-          <TabsContent value="discover">
-            <EventGrid
-              isLoading={eventsQuery.isLoading}
-              error={eventsQuery.error}
-              events={visibleEvents}
-              isSignedIn={isSignedIn}
-              onJoin={handleJoinEvent}
-              onLeave={handleLeaveEvent}
-              emptyTitle="No upcoming events yet"
-              emptyDescription="Publish a dive, training, or meetup to get the calendar moving."
-              emptyAction={
-                isSignedIn ? (
-                  <Button size="sm" onClick={() => setCreateOpen(true)}>
-                    Publish event
-                  </Button>
-                ) : null
-              }
-            />
-          </TabsContent>
-
-          {isSignedIn ? (
-            <TabsContent value="joined">
-              <EventGrid
-                isLoading={eventsQuery.isLoading}
-                error={eventsQuery.error}
-                events={visibleEvents}
-                isSignedIn
-                onJoin={handleJoinEvent}
-                onLeave={handleLeaveEvent}
-                emptyTitle="Your joined events will appear here"
-                emptyDescription="When you join a dive, training, or meetup, it will be easy to find again from this tab."
-              />
-            </TabsContent>
-          ) : null}
-        </Tabs>
-      </section>
-
-      <Dialog
-        open={createOpen}
-        onOpenChange={(open) => {
-          setCreateOpen(open);
-          if (!open) form.reset(createEventDefaultValues);
-        }}
-      >
-        <DialogContent className="max-w-2xl!">
-          <DialogHeader>
-            <DialogTitle>Publish event</DialogTitle>
-          </DialogHeader>
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onCreateEventSubmit)}
-              className="space-y-4"
-            >
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Cebu line training, Mabini depth session, Manila pool workshop"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        className="min-h-28"
-                        placeholder="Event description"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="locationData"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <LocationSearch
-                        value={
-                          (field.value ?? {
-                            locationName: "",
-                            formattedAddress: "",
-                            locationSource: "manual",
-                          }) as LocationSearchValue
-                        }
-                        onChange={(value) => {
-                          field.onChange(value);
-                          form.setValue(
-                            "location",
-                            buildDisplayLocation(value) ||
-                              value.formattedAddress ||
-                              "",
-                          );
-                        }}
-                        disabled={createEventMutation.isPending}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Event type</FormLabel>
-                      <Select
-                        value={field.value || "training"}
-                        onValueChange={field.onChange}
-                        items={eventTypeItems}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="training">Training</SelectItem>
-                          <SelectItem value="meetup">Meetup</SelectItem>
-                          <SelectItem value="competition">
-                            Competition
-                          </SelectItem>
-                          <SelectItem value="trip">Trip</SelectItem>
-                          <SelectItem value="workshop">Workshop</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+        {eventsQuery.isLoading ? (
+          <EventGridSkeleton />
+        ) : eventsQuery.error ? (
+          <Card className="border-destructive/30 bg-destructive/5 py-0">
+            <CardContent className="p-3 text-xs text-destructive">
+              {getApiErrorMessage(
+                eventsQuery.error,
+                "Events are taking longer than expected. Try again in a moment.",
+              )}
+            </CardContent>
+          </Card>
+        ) : events.length === 0 ? (
+          <CommunityEmptyState
+            title="No matching events"
+            description="Try a broader filter or create the first session for this dive site."
+            icon={<CalendarClock className="h-5 w-5" />}
+            action={
+              isSignedIn ? (
+                <Button size="sm" render={<Link href="/events/create" />}>
+                  Create event
+                </Button>
+              ) : null
+            }
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>
+                Showing {events.length} of {total} events
+              </span>
+              <Badge variant="outline">
+                {upcoming ? "Upcoming only" : "All published"}
+              </Badge>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              {events.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  onJoin={isSignedIn ? handleJoinEvent : undefined}
+                  onLeave={handleLeaveEvent}
+                  onMarkInterested={handleMarkInterested}
+                  onMarkUninterested={handleMarkUninterested}
+                  isInterestPending={
+                    (markInterestedMutation.isPending &&
+                      markInterestedMutation.variables?.eventId === event.id) ||
+                    (markUninterestedMutation.isPending &&
+                      markUninterestedMutation.variables?.eventId === event.id)
+                  }
+                  showActions={isSignedIn}
                 />
-                <FormField
-                  control={form.control}
-                  name="difficulty"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Difficulty</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        items={eventDifficultyItems}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select difficulty" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="beginner">Beginner</SelectItem>
-                          <SelectItem value="intermediate">
-                            Intermediate
-                          </SelectItem>
-                          <SelectItem value="advanced">Advanced</SelectItem>
-                          <SelectItem value="expert">Expert</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="visibility"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Visibility</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        items={eventVisibilityItems}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select visibility" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="public">Public</SelectItem>
-                          <SelectItem value="group_members">
-                            Group members
-                          </SelectItem>
-                          <SelectItem value="invite_only">
-                            Invite only
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="maxAttendees"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Capacity</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={500}
-                          placeholder="Optional attendee cap"
-                          value={field.value ?? ""}
-                          onChange={(event) =>
-                            field.onChange(event.target.value || undefined)
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="startsAt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Start</FormLabel>
-                      <FormControl>
-                        <DatePicker
-                          placeholder="Pick a start date"
-                          value={field.value}
-                          min={todayStart}
-                          onSelect={field.onChange}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="endsAt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>End</FormLabel>
-                      <FormControl>
-                        <DatePicker
-                          placeholder="Pick an end date"
-                          value={field.value}
-                          min={form.watch("startsAt") ?? todayStart}
-                          onSelect={field.onChange}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <DialogFooter>
+              ))}
+            </div>
+            {events.length < total ? (
+              <div className="flex justify-center">
                 <Button
-                  type="button"
                   variant="outline"
-                  onClick={() => setCreateOpen(false)}
+                  onClick={() => setLimit((value) => value + 24)}
+                  disabled={eventsQuery.isFetching}
                 >
-                  Cancel
+                  Load more
                 </Button>
-                <Button type="submit" disabled={createEventMutation.isPending}>
-                  {createEventMutation.isPending
-                    ? "Publishing..."
-                    : "Publish event"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+              </div>
+            ) : null}
+          </>
+        )}
+      </section>
     </CommunityPageShell>
   );
 }
 
-function EventGrid({
-  isLoading,
-  error,
-  events,
-  isSignedIn,
-  onJoin,
-  onLeave,
-  emptyTitle,
-  emptyDescription,
-  emptyAction,
-}: {
-  isLoading: boolean;
-  error: unknown;
-  events: Event[];
-  isSignedIn: boolean;
-  onJoin: (eventId: string) => void;
-  onLeave: (eventId: string) => void;
-  emptyTitle: string;
-  emptyDescription: string;
-  emptyAction?: ReactNode;
-}) {
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        <Card className="border-border/70 bg-muted/30 py-0">
-          <CardContent className="p-3">
-            <p className="text-sm font-medium text-foreground">
-              Checking the community calendar
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              We are looking for upcoming dives, trainings, workshops, and
-              meetups.
-            </p>
-          </CardContent>
-        </Card>
-        <div className="grid gap-3 lg:grid-cols-2">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-28 rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="border-destructive/30 bg-destructive/5 py-0">
-        <CardContent className="p-3 text-xs text-destructive">
-          {getApiErrorMessage(
-            error,
-            "Events are taking longer than expected. Try again in a moment.",
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (events.length === 0) {
-    return (
-      <CommunityEmptyState
-        title={emptyTitle}
-        description={emptyDescription}
-        icon={<CalendarClock className="h-5 w-5" />}
-        action={emptyAction}
-      />
-    );
-  }
-
+function EventGridSkeleton() {
   return (
     <div className="grid gap-3 lg:grid-cols-2">
-      {events.map((event) => (
-        <EventDiscoveryCard
-          key={event.id}
-          event={event}
-          isSignedIn={isSignedIn}
-          onJoin={onJoin}
-          onLeave={onLeave}
-        />
+      {Array.from({ length: 6 }).map((_, index) => (
+        <Skeleton key={index} className="h-56 rounded-xl" />
       ))}
     </div>
   );
-}
-
-function EventDiscoveryCard({
-  event,
-  isSignedIn,
-  onJoin,
-  onLeave,
-}: {
-  event: Event;
-  isSignedIn: boolean;
-  onJoin: (eventId: string) => void;
-  onLeave: (eventId: string) => void;
-}) {
-  return (
-    <Card className="rounded-xl border-border/70 bg-background/80 py-0 shadow-none">
-      <CardContent className="space-y-3 p-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge className="h-5 rounded-full px-2 text-[11px]">
-            {titleCase(event.type || "training")}
-          </Badge>
-          <Badge variant="outline" className="h-5 px-2 text-[11px]">
-            {titleCase(event.visibility.replace("_", " "))}
-          </Badge>
-          <Badge variant="outline" className="h-5 px-2 text-[11px]">
-            {titleCase(event.difficulty)}
-          </Badge>
-        </div>
-        <div className="space-y-1">
-          <Link
-            href={`/events/${event.id}`}
-            className="block text-sm font-semibold text-foreground hover:underline"
-          >
-            {event.title}
-          </Link>
-          <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
-            {event.description?.trim() || "Details have not been added yet."}
-          </p>
-        </div>
-
-        <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-          <InlineFact
-            icon={<CalendarClock className="h-3.5 w-3.5" />}
-            label={formatEventDate(event.startsAt)}
-          />
-          <InlineFact
-            icon={<Users className="h-3.5 w-3.5" />}
-            label={`${event.currentAttendees}${event.maxAttendees ? ` / ${event.maxAttendees}` : ""} attendees`}
-          />
-          <InlineFact
-            icon={<MapPin className="h-3.5 w-3.5" />}
-            label={event.location || "Location not set"}
-          />
-          <InlineFact
-            icon={
-              event.visibility === "public" ? (
-                <Compass className="h-3.5 w-3.5" />
-              ) : (
-                <Lock className="h-3.5 w-3.5" />
-              )
-            }
-            label={
-              event.visibility === "public"
-                ? "Public discovery"
-                : "Restricted visibility"
-            }
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/events/${event.id}`}>
-            <Button variant="outline" size="xs">
-              Open details
-            </Button>
-          </Link>
-          {isSignedIn ? (
-            event.viewerJoined ? (
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() => onLeave(event.id)}
-              >
-                Leave event
-              </Button>
-            ) : (
-              <Button
-                size="xs"
-                onClick={() => onJoin(event.id)}
-                disabled={event.status !== "published"}
-              >
-                Join event
-              </Button>
-            )
-          ) : (
-            <SignInButton mode="modal">
-              <Button size="xs">Sign in to join</Button>
-            </SignInButton>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function InlineFact({ icon, label }: { icon: ReactNode; label: string }) {
-  return (
-    <div className="flex min-w-0 items-start gap-1.5">
-      <div className="mt-0.5 shrink-0 text-muted-foreground">{icon}</div>
-      <span className="min-w-0">{label}</span>
-    </div>
-  );
-}
-
-function formatEventDate(value?: string) {
-  if (!value) return "Schedule not set";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Schedule not set";
-  return date.toLocaleString();
-}
-
-function titleCase(value: string) {
-  return value
-    .split(" ")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }

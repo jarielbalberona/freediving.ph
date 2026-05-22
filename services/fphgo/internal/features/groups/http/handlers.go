@@ -43,8 +43,7 @@ func (h *Handlers) ListGroups(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetGroup(w http.ResponseWriter, r *http.Request) {
-	groupID := chi.URLParam(r, "groupId")
-	group, err := h.service.GetGroup(r.Context(), groupID, optionalActorID(r))
+	group, err := h.service.GetGroupBySlug(r.Context(), chi.URLParam(r, "slug"), optionalActorID(r))
 	if err != nil {
 		handleError(w, r, err)
 		return

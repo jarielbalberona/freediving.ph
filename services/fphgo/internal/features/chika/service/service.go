@@ -21,6 +21,7 @@ import (
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/pagination"
 	sharedratelimit "fphgo/internal/shared/ratelimit"
+	sharedslug "fphgo/internal/shared/slug"
 )
 
 type Service struct {
@@ -36,11 +37,13 @@ type Service struct {
 type chikaRepository interface {
 	ListCategories(ctx context.Context) ([]chikarepo.Category, error)
 	GetCategoryByID(ctx context.Context, categoryID string) (chikarepo.Category, error)
-	CreateThread(ctx context.Context, title, mode, categoryID, actorID string) (chikarepo.Thread, error)
+	SlugExists(ctx context.Context, slug string) (bool, error)
+	CreateThread(ctx context.Context, slug, title, mode, categoryID, actorID string) (chikarepo.Thread, error)
 	ListThreads(ctx context.Context, viewerID string, includeHidden bool, cursorCreated time.Time, cursorThreadID string, limit int32) ([]chikarepo.Thread, error)
 	ListThreadsByCategory(ctx context.Context, viewerID string, includeHidden bool, categorySlug string, cursorCreated time.Time, cursorThreadID string, limit int32) ([]chikarepo.Thread, error)
 	GetThread(ctx context.Context, threadID string) (chikarepo.Thread, error)
 	GetThreadForViewer(ctx context.Context, threadID, viewerID string) (chikarepo.Thread, error)
+	GetThreadBySlugForViewer(ctx context.Context, slug, viewerID string) (chikarepo.Thread, error)
 	UpdateThread(ctx context.Context, threadID, title string) (chikarepo.Thread, error)
 	SoftDeleteThread(ctx context.Context, threadID string) error
 	CreatePost(ctx context.Context, threadID, userID, pseudonym, content string) (chikarepo.Post, error)
@@ -307,7 +310,11 @@ func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Th
 		mode = "locked_pseudonymous"
 	}
 
-	created, err := s.repo.CreateThread(ctx, title, mode, input.CategoryID, input.ActorID)
+	slug, err := s.generateThreadSlug(ctx, title, content)
+	if err != nil {
+		return Thread{}, apperrors.New(http.StatusInternalServerError, "thread_slug_failed", "failed to generate thread slug", err)
+	}
+	created, err := s.repo.CreateThread(ctx, slug, title, mode, input.CategoryID, input.ActorID)
 	if err != nil {
 		return Thread{}, apperrors.New(http.StatusInternalServerError, "thread_create_failed", "failed to create thread", err)
 	}
@@ -351,6 +358,7 @@ func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Th
 			Body:         content,
 			Stats:        map[string]any{"replies": 0, "reactions": 0},
 			Metadata: map[string]any{
+				"threadSlug":           created.Slug,
 				"mode":                 created.Mode,
 				"categorySlug":         category.Slug,
 				"categoryName":         category.Name,
@@ -360,6 +368,46 @@ func (s *Service) CreateThread(ctx context.Context, input CreateThreadInput) (Th
 		})
 	}
 	return created, nil
+}
+
+func (s *Service) generateThreadSlug(ctx context.Context, title, content string) (string, error) {
+	titleBase := sharedslug.Make(title, "chika")
+	exists, err := s.repo.SlugExists(ctx, titleBase)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return titleBase, nil
+	}
+
+	contentWords := sharedslug.FirstMeaningfulWords(content, 3)
+	fallbackBase := titleBase
+	if contentWords != "" {
+		parts := strings.Split(contentWords, "-")
+		for i := range parts {
+			candidateBase := sharedslug.Append(titleBase, strings.Join(parts[:i+1], "-"), sharedslug.DefaultMaxLength)
+			exists, err = s.repo.SlugExists(ctx, candidateBase)
+			if err != nil {
+				return "", err
+			}
+			if !exists {
+				return candidateBase, nil
+			}
+			fallbackBase = candidateBase
+		}
+	}
+
+	for i := 2; i <= 50; i++ {
+		candidate := sharedslug.Append(fallbackBase, strconv.Itoa(i), sharedslug.DefaultMaxLength)
+		exists, err = s.repo.SlugExists(ctx, candidate)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+	return sharedslug.Append(fallbackBase, strings.ReplaceAll(uuid.NewString(), "-", "")[:8], sharedslug.DefaultMaxLength), nil
 }
 
 func (s *Service) ListCategories(ctx context.Context) ([]Category, error) {
@@ -436,8 +484,26 @@ func (s *Service) GetThreadForViewer(ctx context.Context, input GetThreadInput) 
 		}
 		return Thread{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
 	}
-	if input.ViewerID != thread.CreatedByUserID {
-		blocked, checkErr := s.isBlockedEither(ctx, input.ViewerID, thread.CreatedByUserID)
+	return s.enforceThreadViewerAccess(ctx, thread, input.ViewerID, input.ViewerRole)
+}
+
+func (s *Service) GetThreadBySlugForViewer(ctx context.Context, input GetThreadInput) (Thread, error) {
+	if _, err := uuid.Parse(input.ViewerID); err != nil {
+		return Thread{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+	}
+	thread, err := s.repo.GetThreadBySlugForViewer(ctx, strings.TrimSpace(input.ThreadID), input.ViewerID)
+	if err != nil {
+		if chikarepo.IsNoRows(err) {
+			return Thread{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", err)
+		}
+		return Thread{}, apperrors.New(http.StatusInternalServerError, "thread_get_failed", "failed to get thread", err)
+	}
+	return s.enforceThreadViewerAccess(ctx, thread, input.ViewerID, input.ViewerRole)
+}
+
+func (s *Service) enforceThreadViewerAccess(ctx context.Context, thread Thread, viewerID, viewerRole string) (Thread, error) {
+	if viewerID != thread.CreatedByUserID {
+		blocked, checkErr := s.isBlockedEither(ctx, viewerID, thread.CreatedByUserID)
 		if checkErr != nil {
 			return Thread{}, apperrors.New(http.StatusInternalServerError, "block_check_failed", "failed to validate block state", checkErr)
 		}
@@ -445,7 +511,7 @@ func (s *Service) GetThreadForViewer(ctx context.Context, input GetThreadInput) 
 			return Thread{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", nil)
 		}
 	}
-	if thread.HiddenAt != nil && !isModeratorRole(input.ViewerRole) {
+	if thread.HiddenAt != nil && !isModeratorRole(viewerRole) {
 		return Thread{}, apperrors.New(http.StatusNotFound, "thread_not_found", "thread not found", nil)
 	}
 	if thread.Mode == "pseudonymous" || thread.Mode == "locked_pseudonymous" {
@@ -996,6 +1062,7 @@ func (s *Service) notifyCommentCreated(ctx context.Context, thread chikarepo.Thr
 		}
 		if err := s.notifications.NotifyChikaCommentReplied(ctx, notificationsservice.ChikaCommentRepliedInput{
 			ThreadID:         thread.ID,
+			ThreadSlug:       thread.Slug,
 			ThreadTitle:      thread.Title,
 			ParentCommentID:  parent.ID,
 			ReplyCommentID:   comment.ID,
@@ -1031,6 +1098,7 @@ func (s *Service) notifyCommentCreated(ctx context.Context, thread chikarepo.Thr
 	}
 	if err := s.notifications.NotifyChikaThreadCommented(ctx, notificationsservice.ChikaThreadCommentedInput{
 		ThreadID:         thread.ID,
+		ThreadSlug:       thread.Slug,
 		ThreadTitle:      thread.Title,
 		CommentID:        comment.ID,
 		RecipientUserID:  thread.CreatedByUserID,

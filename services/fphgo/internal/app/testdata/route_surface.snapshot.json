@@ -117,11 +117,11 @@
       "pattern": "/v1/chika/threads"
     },
     {
-      "method": "DELETE",
-      "pattern": "/v1/chika/threads/{threadId}"
+      "method": "GET",
+      "pattern": "/v1/chika/threads/{slug}"
     },
     {
-      "method": "GET",
+      "method": "DELETE",
       "pattern": "/v1/chika/threads/{threadId}"
     },
     {
@@ -155,6 +155,82 @@
     {
       "method": "POST",
       "pattern": "/v1/chika/threads/{threadId}/reactions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/attendees"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/events/{eventId}/interest"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/v1/events/{eventId}/interest"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/join"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/leave"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/participants"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/participants/{participantId}/approve"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/participants/{participantId}/reject"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/payment-methods"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/payment-methods"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/payment-methods/{paymentMethodId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/payments"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/payments/{paymentId}/proof-url"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/payments/{paymentId}/reject"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/payments/{paymentId}/verify"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{slug}"
     },
     {
       "method": "GET",
@@ -331,6 +407,58 @@
     {
       "method": "POST",
       "pattern": "/v1/feed/impressions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/groups/"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/groups/"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/groups/{groupId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/groups/{groupId}/archive"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/groups/{groupId}/invites"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/groups/{groupId}/invites/accept"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/groups/{groupId}/invites/reject"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/groups/{groupId}/join"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/groups/{groupId}/leave"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/groups/{groupId}/members"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/groups/{groupId}/posts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/groups/{groupId}/posts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/groups/{slug}"
     },
     {
       "method": "GET",

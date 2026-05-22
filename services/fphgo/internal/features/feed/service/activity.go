@@ -351,13 +351,17 @@ func (s *Service) hydrateActivityMedia(media []map[string]any) []map[string]any 
 func activityHref(row feedrepo.ActivityRow) string {
 	switch row.Type {
 	case string(ActivityChikaThreadCreated):
-		return "/chika/" + row.TargetID
+		if slug := stringValue(row.Metadata, "threadSlug"); slug != "" {
+			return "/chika/" + slug
+		}
 	case string(ActivityDiveSiteUpdateAdded), string(ActivityMediaPostCreated):
 		if slug := stringValue(row.Metadata, "diveSiteSlug"); slug != "" {
 			return "/explore/sites/" + slug
 		}
 	case string(ActivityEventPublished):
-		return "/events/" + row.TargetID
+		if slug := stringValue(row.Metadata, "eventSlug"); slug != "" {
+			return "/events/" + slug
+		}
 	case string(ActivityBuddyIntentCreated):
 		return "/buddies"
 	}

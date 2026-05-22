@@ -76,6 +76,7 @@ type MediaPostCandidateItem struct {
 
 type CommunityCandidate struct {
 	ID                   string
+	Slug                 string
 	AuthorUserID         string
 	AuthorName           string
 	AuthorUsername       string
@@ -126,6 +127,7 @@ type BuddySignalCandidate struct {
 
 type EventCandidate struct {
 	ID               string
+	Slug             string
 	Title            string
 	Area             string
 	Status           string
@@ -563,6 +565,7 @@ func (r *Repo) ListCommunityCandidates(ctx context.Context, input CandidateInput
 	const q = `
 		SELECT
 			t.id::text,
+			t.slug,
 			t.created_by_user_id::text,
 			COALESCE(NULLIF(u.display_name, ''), u.username),
 			u.username,
@@ -619,6 +622,7 @@ func (r *Repo) ListCommunityCandidates(ctx context.Context, input CandidateInput
 		var item CommunityCandidate
 		if scanErr := rows.Scan(
 			&item.ID,
+			&item.Slug,
 			&item.AuthorUserID,
 			&item.AuthorName,
 			&item.AuthorUsername,
@@ -787,6 +791,7 @@ func (r *Repo) ListEventCandidates(ctx context.Context, input CandidateInput) ([
 	const q = `
 		SELECT
 			e.id::text,
+			e.slug,
 			e.title,
 			COALESCE(e.location, e.location_name, ''),
 			e.status,
@@ -856,7 +861,7 @@ func (r *Repo) ListEventCandidates(ctx context.Context, input CandidateInput) ([
 	items := make([]EventCandidate, 0)
 	for rows.Next() {
 		var item EventCandidate
-		if scanErr := rows.Scan(&item.ID, &item.Title, &item.Area, &item.Status, &item.Visibility, &item.CreatedAt, &item.MemberCount, &item.ViewerMember, &item.ViewerAuthorized); scanErr != nil {
+		if scanErr := rows.Scan(&item.ID, &item.Slug, &item.Title, &item.Area, &item.Status, &item.Visibility, &item.CreatedAt, &item.MemberCount, &item.ViewerMember, &item.ViewerAuthorized); scanErr != nil {
 			return nil, scanErr
 		}
 		item.CreatedAt = item.CreatedAt.UTC()
@@ -1263,10 +1268,20 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 					)
 				ELSE ai.stats
 			END AS stats,
-			ai.metadata
+			CASE
+				WHEN ai.type = 'chika_thread_created' THEN
+					COALESCE(ai.metadata, '{}'::jsonb) ||
+					jsonb_build_object('threadSlug', COALESCE(live_chika_thread.slug, ''))
+				WHEN ai.type = 'event_published' THEN
+					COALESCE(ai.metadata, '{}'::jsonb) ||
+					jsonb_build_object('eventSlug', COALESCE(live_event.slug, ''))
+				ELSE ai.metadata
+			END AS metadata
 		FROM activity_items ai
 		LEFT JOIN users u ON u.id = ai.actor_user_id
 		LEFT JOIN profiles p ON p.user_id = ai.actor_user_id
+		LEFT JOIN chika_threads live_chika_thread ON ai.type = 'chika_thread_created' AND live_chika_thread.id = ai.source_id
+		LEFT JOIN events live_event ON ai.type = 'event_published' AND live_event.id = ai.source_id
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(cp.content, '') AS content
 			FROM chika_posts cp

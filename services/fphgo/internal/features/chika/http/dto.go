@@ -45,6 +45,7 @@ type CreateMediaAssetRequest struct {
 
 type ThreadResponse struct {
 	ID               string `json:"id"`
+	Slug             string `json:"slug"`
 	Title            string `json:"title"`
 	Content          string `json:"content"`
 	VoteCount        int64  `json:"voteCount"`

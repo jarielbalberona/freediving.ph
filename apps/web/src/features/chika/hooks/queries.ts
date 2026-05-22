@@ -12,20 +12,20 @@ export const useThreads = (initialData?: ChikaThreadView[], category?: string) =
   });
 };
 
-export const useThread = (id: string) => {
+export const useThread = (slug: string) => {
   return useQuery({
-    queryKey: queryKeys.chika.thread(id),
-    queryFn: () => threadsApi.getById(id),
-    enabled: !!id,
+    queryKey: queryKeys.chika.thread(slug),
+    queryFn: () => threadsApi.getBySlug(slug),
+    enabled: !!slug,
     staleTime: 5 * 60 * 1000,
   });
 };
 
-export const useThreadComments = (threadId: string) => {
+export const useThreadComments = (threadId: string, enabled = true) => {
   return useQuery({
     queryKey: queryKeys.chika.threadComments(threadId),
     queryFn: () => threadsApi.getComments(threadId),
-    enabled: !!threadId,
+    enabled: enabled && !!threadId,
     staleTime: 2 * 60 * 1000,
   });
 };

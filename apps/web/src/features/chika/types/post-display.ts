@@ -68,7 +68,7 @@ export function chikaPostFromThread(thread: ChikaThreadView): ChikaPostDisplay {
   });
   return {
     id: thread.id,
-    href: `/chika/${thread.id}`,
+    href: `/chika/${thread.slug}`,
     author: {
       displayName,
       username,
@@ -90,6 +90,7 @@ export function chikaPostFromThread(thread: ChikaThreadView): ChikaPostDisplay {
 
 export function chikaPostFromHomeFeedItem(item: HomeFeedItem): ChikaPostDisplay {
   const payload = item.payload ?? {};
+  const slug = stringValue(payload, "slug") || stringValue(payload, "threadSlug");
   const authorUsername = cleanUsername(stringValue(payload, "authorUsername"));
   const displayName = authorDisplayName({
     displayName: stringValue(payload, "authorDisplayName") || stringValue(payload, "authorName"),
@@ -97,7 +98,7 @@ export function chikaPostFromHomeFeedItem(item: HomeFeedItem): ChikaPostDisplay 
   });
   return {
     id: item.entityId,
-    href: item.detailHref || `/chika/${item.entityId}`,
+    href: item.detailHref || (slug ? `/chika/${slug}` : "/chika"),
     author: {
       displayName,
       username: authorUsername,

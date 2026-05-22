@@ -293,6 +293,7 @@ CREATE TABLE IF NOT EXISTS chika_categories (
 
 CREATE TABLE IF NOT EXISTS chika_threads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL,
   title TEXT NOT NULL DEFAULT '',
   mode TEXT NOT NULL DEFAULT 'normal',
   category_id UUID NOT NULL REFERENCES chika_categories(id) ON DELETE RESTRICT,
@@ -637,8 +638,11 @@ ALTER TABLE groups
 
 CREATE TABLE IF NOT EXISTS events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
+  short_description TEXT,
+  description_markdown TEXT,
   location TEXT,
   location_name TEXT,
   formatted_address TEXT,
@@ -652,21 +656,58 @@ CREATE TABLE IF NOT EXISTS events (
   location_source TEXT NOT NULL DEFAULT 'manual',
   starts_at TIMESTAMPTZ,
   ends_at TIMESTAMPTZ,
+  timezone TEXT NOT NULL DEFAULT 'Asia/Manila',
   status TEXT NOT NULL DEFAULT 'draft',
   visibility TEXT NOT NULL DEFAULT 'public',
-  event_type TEXT NOT NULL DEFAULT 'meetup',
+  event_type TEXT NOT NULL DEFAULT 'fun_dive',
   difficulty TEXT NOT NULL DEFAULT 'beginner',
   max_attendees INTEGER,
+  capacity INTEGER,
   current_attendees INTEGER NOT NULL DEFAULT 0,
   organizer_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   group_id UUID REFERENCES groups(id) ON DELETE SET NULL,
+  dive_site_id UUID REFERENCES dive_sites(id) ON DELETE RESTRICT,
+  requires_approval BOOLEAN NOT NULL DEFAULT FALSE,
+  is_paid BOOLEAN NOT NULL DEFAULT FALSE,
+  price_amount NUMERIC(12,2),
+  currency TEXT NOT NULL DEFAULT 'PHP',
+  payment_instructions TEXT,
+  meeting_point TEXT,
+  beginner_friendly BOOLEAN NOT NULL DEFAULT FALSE,
+  max_depth_m INTEGER,
+  entry_type TEXT,
+  equipment_notes TEXT,
+  safety_notes TEXT,
+  cancellation_policy TEXT,
+  published_at TIMESTAMPTZ,
+  cancelled_at TIMESTAMPTZ,
+  cancel_reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (status IN ('draft', 'published', 'cancelled', 'completed')),
-  CHECK (visibility IN ('public', 'group_members', 'invite_only')),
+  CHECK (visibility IN ('public', 'private')),
+  CHECK (event_type IN (
+    'intro_session',
+    'pool_training',
+    'line_training',
+    'fun_dive',
+    'depth_training',
+    'certification_course',
+    'workshop',
+    'competition',
+    'cleanup_dive',
+    'trip_retreat'
+  )),
   CHECK (difficulty IN ('beginner', 'intermediate', 'advanced', 'expert')),
   CHECK (starts_at IS NULL OR ends_at IS NULL OR starts_at <= ends_at),
-  CHECK (location_source IN ('manual', 'google_places', 'psgc_mapped', 'unmapped'))
+  CHECK (location_source IN ('manual', 'google_places', 'psgc_mapped', 'unmapped')),
+  CHECK (entry_type IS NULL OR entry_type IN ('shore', 'boat', 'pool', 'classroom_online')),
+  CHECK (capacity IS NULL OR capacity > 0),
+  CHECK (
+    (is_paid = FALSE AND price_amount IS NULL)
+    OR (is_paid = TRUE AND price_amount IS NOT NULL AND price_amount >= 0)
+  ),
+  CHECK (max_depth_m IS NULL OR max_depth_m >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS user_permission_overrides (
@@ -905,7 +946,86 @@ CREATE TABLE IF NOT EXISTS event_memberships (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (event_id, user_id),
   CHECK (role IN ('attendee', 'staff', 'organizer')),
-  CHECK (status IN ('active', 'invited', 'blocked'))
+  CHECK (status IN ('active', 'invited', 'left', 'cancelled', 'blocked'))
+);
+
+CREATE TABLE IF NOT EXISTS event_participations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'participant',
+  status TEXT NOT NULL DEFAULT 'pending_approval',
+  participant_note TEXT,
+  emergency_contact_name TEXT,
+  emergency_contact_phone TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  approved_at TIMESTAMPTZ,
+  approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  rejected_at TIMESTAMPTZ,
+  rejected_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  cancelled_at TIMESTAMPTZ,
+  left_at TIMESTAMPTZ,
+  UNIQUE (event_id, user_id),
+  CHECK (role IN ('participant', 'staff', 'organizer')),
+  CHECK (status IN (
+    'pending_approval',
+    'confirmed',
+    'rejected',
+    'cancelled',
+    'left',
+    'attended',
+    'no_show'
+  ))
+);
+
+CREATE TABLE IF NOT EXISTS event_interests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  UNIQUE (event_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS event_payment_methods (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  instructions TEXT,
+  qr_image_url TEXT,
+  account_name TEXT,
+  account_number TEXT,
+  bank_name TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (type IN ('MANUAL_QR', 'MANUAL_BANK_TRANSFER')),
+  CHECK (length(trim(name)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS event_participant_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  event_participation_id UUID NOT NULL REFERENCES event_participations(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  payment_method_id UUID REFERENCES event_payment_methods(id) ON DELETE SET NULL,
+  amount NUMERIC(12,2),
+  currency TEXT NOT NULL DEFAULT 'PHP',
+  proof_media_id UUID REFERENCES media_objects(id) ON DELETE SET NULL,
+  proof_attachment_url TEXT,
+  reference_number TEXT,
+  status TEXT NOT NULL DEFAULT 'pending_upload',
+  reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMPTZ,
+  review_notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (event_participation_id),
+  CHECK (status IN ('not_required', 'pending_upload', 'submitted', 'verified', 'rejected')),
+  CHECK (amount IS NULL OR amount >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS feed_impressions (
@@ -1053,6 +1173,17 @@ CREATE INDEX IF NOT EXISTS idx_events_barangay_code ON events (barangay_code);
 CREATE INDEX IF NOT EXISTS idx_events_lat_lng ON events (latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_events_google_place_id ON events (google_place_id) WHERE google_place_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_event_memberships_user ON event_memberships (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_slug_unique ON events (slug);
+CREATE INDEX IF NOT EXISTS idx_events_dive_site_id ON events (dive_site_id);
+CREATE INDEX IF NOT EXISTS idx_events_event_type ON events (event_type);
+CREATE INDEX IF NOT EXISTS idx_events_visibility_status_starts_v2 ON events (visibility, status, starts_at DESC);
+CREATE INDEX IF NOT EXISTS idx_event_participations_event_status ON event_participations (event_id, status);
+CREATE INDEX IF NOT EXISTS idx_event_participations_user ON event_participations (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_event_interests_event_active ON event_interests (event_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_interests_user_active ON event_interests (user_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_payment_methods_event ON event_payment_methods (event_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_event_participant_payments_event_status ON event_participant_payments (event_id, status);
+CREATE INDEX IF NOT EXISTS idx_event_participant_payments_user ON event_participant_payments (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_psgc_regions_active_name ON psgc_regions (is_active, name);
 CREATE INDEX IF NOT EXISTS idx_psgc_provinces_region_active_name ON psgc_provinces (region_code, is_active, name);
 CREATE INDEX IF NOT EXISTS idx_psgc_cities_province_active_name ON psgc_cities_municipalities (province_code, is_active, name);
@@ -1095,6 +1226,7 @@ CREATE INDEX IF NOT EXISTS idx_moderation_actions_report_created_at ON moderatio
 CREATE INDEX IF NOT EXISTS idx_rate_limit_events_scope_key_created_at ON rate_limit_events (scope, key_hash, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rate_limit_events_created_at ON rate_limit_events (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chika_threads_created_at ON chika_threads (created_at DESC) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chika_threads_slug_unique ON chika_threads (slug);
 CREATE INDEX IF NOT EXISTS idx_chika_threads_visible_created_at ON chika_threads (created_at DESC) WHERE deleted_at IS NULL AND hidden_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_threads_category_created_at ON chika_threads (category_id, created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_chika_posts_thread_created_at ON chika_posts (thread_id, created_at DESC) WHERE deleted_at IS NULL;

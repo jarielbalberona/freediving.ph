@@ -532,7 +532,7 @@ function GroupCard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <Link
-              href={`/groups/${group.id}`}
+              href={`/groups/${group.slug}`}
               className="block truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
             >
               {group.name}
@@ -576,7 +576,7 @@ function GroupCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Link href={`/groups/${group.id}`}>
+          <Link href={`/groups/${group.slug}`}>
             <Button variant="outline" size="xs">
               Open group
             </Button>

@@ -42,7 +42,10 @@ func (r *filteredChikaRepo) GetCategoryByID(_ context.Context, id string) (chika
 	}
 	return chikarepo.Category{}, nil
 }
-func (r *filteredChikaRepo) CreateThread(context.Context, string, string, string, string) (chikarepo.Thread, error) {
+func (r *filteredChikaRepo) SlugExists(context.Context, string) (bool, error) {
+	return false, nil
+}
+func (r *filteredChikaRepo) CreateThread(context.Context, string, string, string, string, string) (chikarepo.Thread, error) {
 	return chikarepo.Thread{}, nil
 }
 func (r *filteredChikaRepo) ListThreads(_ context.Context, viewerID string, includeHidden bool, cursorCreated time.Time, cursorThreadID string, limit int32) ([]chikarepo.Thread, error) {
@@ -108,6 +111,14 @@ func (r *filteredChikaRepo) GetThread(_ context.Context, id string) (chikarepo.T
 }
 func (r *filteredChikaRepo) GetThreadForViewer(ctx context.Context, id string, _ string) (chikarepo.Thread, error) {
 	return r.GetThread(ctx, id)
+}
+func (r *filteredChikaRepo) GetThreadBySlugForViewer(ctx context.Context, slug string, _ string) (chikarepo.Thread, error) {
+	for _, t := range r.threads {
+		if t.Slug == slug {
+			return t, nil
+		}
+	}
+	return chikarepo.Thread{}, pgx.ErrNoRows
 }
 func (r *filteredChikaRepo) UpdateThread(context.Context, string, string) (chikarepo.Thread, error) {
 	return chikarepo.Thread{}, nil
@@ -259,14 +270,16 @@ func TestChikaReadHiddenContentMemberVsModerator(t *testing.T) {
 	viewerID := "550e8400-e29b-41d4-a716-446655440000"
 	authorID := "550e8400-e29b-41d4-a716-446655440002"
 	hiddenThreadID := "550e8400-e29b-41d4-a716-446655440010"
+	hiddenThreadSlug := "hidden-thread"
 	visibleThreadID := "550e8400-e29b-41d4-a716-446655440011"
+	visibleThreadSlug := "visible-thread"
 	hiddenAt := time.Now().UTC().Add(-10 * time.Minute)
 
 	repo := &filteredChikaRepo{
 		blocks: map[string]bool{},
 		threads: []chikarepo.Thread{
-			{ID: hiddenThreadID, Title: "hidden", Mode: "normal", CreatedByUserID: authorID, HiddenAt: &hiddenAt, CreatedAt: time.Now(), UpdatedAt: time.Now()},
-			{ID: visibleThreadID, Title: "visible", Mode: "normal", CreatedByUserID: authorID, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			{ID: hiddenThreadID, Slug: hiddenThreadSlug, Title: "hidden", Mode: "normal", CreatedByUserID: authorID, HiddenAt: &hiddenAt, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			{ID: visibleThreadID, Slug: visibleThreadSlug, Title: "visible", Mode: "normal", CreatedByUserID: authorID, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		},
 		comments: []chikarepo.Comment{
 			{ID: 1, ThreadID: "550e8400-e29b-41d4-a716-446655440099", AuthorUserID: authorID, Pseudonym: "hidden", Content: "hidden", HiddenAt: &hiddenAt, CreatedAt: time.Now()},
@@ -380,14 +393,16 @@ func TestChikaGetThreadHiddenVisibilityExtended(t *testing.T) {
 	viewerID := "550e8400-e29b-41d4-a716-446655440000"
 	authorID := "550e8400-e29b-41d4-a716-446655440002"
 	hiddenThreadID := "550e8400-e29b-41d4-a716-446655440010"
+	hiddenThreadSlug := "hidden-thread"
 	visibleThreadID := "550e8400-e29b-41d4-a716-446655440011"
+	visibleThreadSlug := "visible-thread"
 	hiddenAt := time.Now().UTC().Add(-10 * time.Minute)
 
 	repo := &filteredChikaRepo{
 		blocks: map[string]bool{},
 		threads: []chikarepo.Thread{
-			{ID: hiddenThreadID, Title: "hidden", Mode: "normal", CreatedByUserID: authorID, HiddenAt: &hiddenAt, CreatedAt: time.Now(), UpdatedAt: time.Now()},
-			{ID: visibleThreadID, Title: "visible", Mode: "normal", CreatedByUserID: authorID, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			{ID: hiddenThreadID, Slug: hiddenThreadSlug, Title: "hidden", Mode: "normal", CreatedByUserID: authorID, HiddenAt: &hiddenAt, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			{ID: visibleThreadID, Slug: visibleThreadSlug, Title: "visible", Mode: "normal", CreatedByUserID: authorID, CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		},
 		comments:         []chikarepo.Comment{},
 		hiddenThreadIDs:  map[string]bool{hiddenThreadID: true},
@@ -400,7 +415,7 @@ func TestChikaGetThreadHiddenVisibilityExtended(t *testing.T) {
 	modRouter := buildChikaReadRouter(h, viewerID, "moderator")
 
 	t.Run("member gets 404 for hidden thread", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadID, nil)
+		req := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadSlug, nil)
 		rec := httptest.NewRecorder()
 		memberRouter.ServeHTTP(rec, req)
 		if rec.Code != http.StatusNotFound {
@@ -409,7 +424,7 @@ func TestChikaGetThreadHiddenVisibilityExtended(t *testing.T) {
 	})
 
 	t.Run("member gets 200 for visible thread", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/threads/"+visibleThreadID, nil)
+		req := httptest.NewRequest(http.MethodGet, "/threads/"+visibleThreadSlug, nil)
 		rec := httptest.NewRecorder()
 		memberRouter.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
@@ -425,7 +440,7 @@ func TestChikaGetThreadHiddenVisibilityExtended(t *testing.T) {
 	})
 
 	t.Run("moderator gets 200 for hidden thread with markers", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadID, nil)
+		req := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadSlug, nil)
 		rec := httptest.NewRecorder()
 		modRouter.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
@@ -465,7 +480,7 @@ func TestChikaGetThreadHiddenVisibilityExtended(t *testing.T) {
 
 	t.Run("admin sees hidden content like moderator", func(t *testing.T) {
 		adminRouter := buildChikaReadRouter(h, viewerID, "admin")
-		req := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadID, nil)
+		req := httptest.NewRequest(http.MethodGet, "/threads/"+hiddenThreadSlug, nil)
 		rec := httptest.NewRecorder()
 		adminRouter.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
@@ -659,6 +674,7 @@ func TestChikaPseudonymousCategoryVisibility(t *testing.T) {
 	viewerID := "550e8400-e29b-41d4-a716-446655440000"
 	authorID := "550e8400-e29b-41d4-a716-446655440002"
 	threadID := "550e8400-e29b-41d4-a716-446655440010"
+	threadSlug := "anon-thread"
 	now := time.Now().UTC()
 
 	repo := &filteredChikaRepo{
@@ -669,6 +685,7 @@ func TestChikaPseudonymousCategoryVisibility(t *testing.T) {
 		threads: []chikarepo.Thread{
 			{
 				ID:              threadID,
+				Slug:            threadSlug,
 				Title:           "Anon thread",
 				Mode:            "pseudonymous",
 				CategoryID:      "550e8400-e29b-41d4-a716-446655440090",
@@ -699,7 +716,7 @@ func TestChikaPseudonymousCategoryVisibility(t *testing.T) {
 	memberRouter := buildChikaReadRouter(h, viewerID, "member")
 	modRouter := buildChikaReadRouter(h, viewerID, "moderator")
 
-	memberThreadReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	memberThreadReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadSlug, nil)
 	memberThreadRec := httptest.NewRecorder()
 	memberRouter.ServeHTTP(memberThreadRec, memberThreadReq)
 	if memberThreadRec.Code != http.StatusOK {
@@ -716,7 +733,7 @@ func TestChikaPseudonymousCategoryVisibility(t *testing.T) {
 		t.Fatalf("expected pseudonymous author display, got %q", memberThread.AuthorDisplay)
 	}
 
-	modThreadReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadID+"?includeRealAuthor=true", nil)
+	modThreadReq := httptest.NewRequest(http.MethodGet, "/threads/"+threadSlug+"?includeRealAuthor=true", nil)
 	modThreadRec := httptest.NewRecorder()
 	modRouter.ServeHTTP(modThreadRec, modThreadReq)
 	if modThreadRec.Code != http.StatusOK {
@@ -769,12 +786,13 @@ func TestChikaPseudonymStability(t *testing.T) {
 	viewerID := "550e8400-e29b-41d4-a716-446655440000"
 	authorID := "550e8400-e29b-41d4-a716-446655440002"
 	threadID := "550e8400-e29b-41d4-a716-446655440010"
+	threadSlug := "anon"
 	now := time.Now().UTC()
 
 	repo := &filteredChikaRepo{
 		blocks: map[string]bool{},
 		threads: []chikarepo.Thread{
-			{ID: threadID, Title: "Anon", Mode: "pseudonymous", CategoryID: "c1", CategorySlug: "confessions", CategoryName: "Community Stories", Pseudonymous: true, CreatedByUserID: authorID, AuthorUsername: "hidden_user", CreatedAt: now, UpdatedAt: now},
+			{ID: threadID, Slug: threadSlug, Title: "Anon", Mode: "pseudonymous", CategoryID: "c1", CategorySlug: "confessions", CategoryName: "Community Stories", Pseudonymous: true, CreatedByUserID: authorID, AuthorUsername: "hidden_user", CreatedAt: now, UpdatedAt: now},
 		},
 		comments:         []chikarepo.Comment{},
 		hiddenThreadIDs:  map[string]bool{},
@@ -784,7 +802,7 @@ func TestChikaPseudonymStability(t *testing.T) {
 	h := New(svc, validatex.New())
 	router := buildChikaReadRouter(h, viewerID, "member")
 
-	first := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	first := httptest.NewRequest(http.MethodGet, "/threads/"+threadSlug, nil)
 	firstRec := httptest.NewRecorder()
 	router.ServeHTTP(firstRec, first)
 	if firstRec.Code != http.StatusOK {
@@ -795,7 +813,7 @@ func TestChikaPseudonymStability(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	second := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	second := httptest.NewRequest(http.MethodGet, "/threads/"+threadSlug, nil)
 	secondRec := httptest.NewRecorder()
 	router.ServeHTTP(secondRec, second)
 	var r2 ThreadResponse
@@ -895,12 +913,13 @@ func TestChikaNonPseudonymousThreadUsesUsername(t *testing.T) {
 	viewerID := "550e8400-e29b-41d4-a716-446655440000"
 	authorID := "550e8400-e29b-41d4-a716-446655440002"
 	threadID := "550e8400-e29b-41d4-a716-446655440010"
+	threadSlug := "normal-thread"
 	now := time.Now().UTC()
 
 	repo := &filteredChikaRepo{
 		blocks: map[string]bool{},
 		threads: []chikarepo.Thread{
-			{ID: threadID, Title: "Normal thread", Mode: "normal", CreatedByUserID: authorID, AuthorUsername: "diver42", CreatedAt: now, UpdatedAt: now},
+			{ID: threadID, Slug: threadSlug, Title: "Normal thread", Mode: "normal", CreatedByUserID: authorID, AuthorUsername: "diver42", CreatedAt: now, UpdatedAt: now},
 		},
 		comments:         []chikarepo.Comment{},
 		hiddenThreadIDs:  map[string]bool{},
@@ -910,7 +929,7 @@ func TestChikaNonPseudonymousThreadUsesUsername(t *testing.T) {
 	h := New(svc, validatex.New())
 	router := buildChikaReadRouter(h, viewerID, "member")
 
-	req := httptest.NewRequest(http.MethodGet, "/threads/"+threadID, nil)
+	req := httptest.NewRequest(http.MethodGet, "/threads/"+threadSlug, nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {

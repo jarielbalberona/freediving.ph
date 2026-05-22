@@ -16,19 +16,30 @@ export const useEvents = (filters?: EventFilters, enabled = true) => {
   });
 };
 
-export const useEvent = (eventId: string, enabled = true) => {
+export const useEvent = (slug: string, enabled = true) => {
   return useQuery({
-    queryKey: queryKeys.events.detail(eventId),
-    queryFn: () => eventsApi.getEventById(eventId),
-    enabled: enabled && !!eventId,
+    queryKey: queryKeys.events.detail(slug),
+    queryFn: () => eventsApi.getEventBySlug(slug),
+    enabled: enabled && !!slug,
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useEventAttendees = (eventId: string, enabled = true) => {
   return useQuery({
-    queryKey: queryKeys.events.attendees(eventId),
-    queryFn: () => eventsApi.getEventAttendees(eventId),
+    queryKey: queryKeys.events.participants(eventId),
+    queryFn: () => eventsApi.getEventParticipants(eventId),
+    enabled: enabled && !!eventId,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+export const useEventParticipants = useEventAttendees;
+
+export const useEventPaymentMethods = (eventId: string, enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.events.paymentMethods(eventId),
+    queryFn: () => eventsApi.getPaymentMethods(eventId),
     enabled: enabled && !!eventId,
     staleTime: 2 * 60 * 1000,
   });

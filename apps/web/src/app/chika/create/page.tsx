@@ -77,13 +77,13 @@ export default function CreateThread() {
     }
 
     try {
-      await createThread.mutateAsync({
+      const thread = await createThread.mutateAsync({
         title: values.title.trim(),
         content: values.content.trim(),
         categoryId: values.categoryId,
       });
       toast.success("Posted in Chika.");
-      router.push("/chika");
+      router.push(`/chika/${thread.slug}`);
     } catch (error) {
       toast.error(
         getRateLimitMessage(

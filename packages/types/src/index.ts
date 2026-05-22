@@ -79,6 +79,7 @@ export type ThreadComment = ThreadCommentDto;
 
 export interface ChikaThreadResponse {
   id: string;
+  slug: string;
   title: string;
   content: string;
   voteCount: number;
@@ -297,106 +298,272 @@ export interface DiveSpotFilters {
   sort?: "newest" | "oldest" | "name";
 }
 
-export interface Event {
+export type EventVisibility = "public" | "private";
+export type EventStatus = "draft" | "published" | "cancelled" | "completed";
+export type EventType =
+  | "intro_session"
+  | "pool_training"
+  | "line_training"
+  | "fun_dive"
+  | "depth_training"
+  | "certification_course"
+  | "workshop"
+  | "competition"
+  | "cleanup_dive"
+  | "trip_retreat";
+export type EventDifficulty =
+  | "beginner"
+  | "intermediate"
+  | "advanced"
+  | "expert";
+export type EventEntryType = "shore" | "boat" | "pool" | "classroom_online";
+export type EventParticipantRole = "participant" | "staff" | "organizer";
+export type EventParticipantStatus =
+  | "pending_approval"
+  | "confirmed"
+  | "rejected"
+  | "cancelled"
+  | "left"
+  | "attended"
+  | "no_show";
+export type EventPaymentMethodType = "MANUAL_QR" | "MANUAL_BANK_TRANSFER";
+export type EventPaymentStatus =
+  | "not_required"
+  | "pending_upload"
+  | "submitted"
+  | "verified"
+  | "rejected";
+export type EventViewerEventState =
+  | "anonymous"
+  | "none"
+  | "interested"
+  | "pending_approval"
+  | "going"
+  | "rejected"
+  | "left"
+  | "cancelled";
+
+export interface EventDiveSiteSummary {
   id: string;
-  title: string;
-  description?: string;
-  location?: string;
-  locationName?: string;
-  formattedAddress?: string;
+  slug: string;
+  name: string;
+  area: string;
   latitude?: number;
   longitude?: number;
-  googlePlaceId?: string;
-  regionCode?: string;
-  provinceCode?: string;
-  cityCode?: string;
-  barangayCode?: string;
-  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
-  startsAt?: string;
-  endsAt?: string;
-  maxAttendees?: number;
-  currentAttendees: number;
-  status: "draft" | "published" | "cancelled" | "completed";
-  visibility: "public" | "group_members" | "invite_only";
-  type: string;
-  difficulty: "beginner" | "intermediate" | "advanced" | "expert";
-  organizerUserId?: string;
-  groupId?: string;
-  viewerJoined: boolean;
+}
+
+export interface EventPaymentMethod {
+  id: string;
+  eventId: string;
+  type: EventPaymentMethodType;
+  name: string;
+  instructions?: string;
+  qrImageUrl?: string;
+  accountName?: string;
+  accountNumber?: string;
+  bankName?: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface EventAttendee {
+export interface CreateEventPaymentMethodRequest {
+  type: EventPaymentMethodType;
+  name: string;
+  instructions?: string;
+  qrImageUrl?: string;
+  accountName?: string;
+  accountNumber?: string;
+  bankName?: string;
+  isActive?: boolean;
+}
+
+export type UpdateEventPaymentMethodRequest =
+  Partial<CreateEventPaymentMethodRequest>;
+
+export interface EventParticipantPayment {
+  id: string;
+  eventId: string;
+  eventParticipationId: string;
+  userId: string;
+  paymentMethodId?: string;
+  amount?: number;
+  currency: string;
+  proofMediaId?: string;
+  proofAttachmentUrl?: string;
+  proofFileName?: string;
+  proofContentType?: string;
+  proofStatus?: EventPaymentStatus;
+  referenceNumber?: string;
+  status: EventPaymentStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EventPaymentProofUrl {
+  url: string;
+  expiresAt: number;
+  paymentId: string;
+  proofMediaId: string;
+  proofFileName?: string;
+  proofContentType?: string;
+}
+
+export interface EventParticipant {
+  id: string;
   eventId: string;
   userId: string;
-  role: "attendee" | "staff" | "organizer";
-  status: "active" | "invited" | "blocked";
-  joinedAt?: string;
-  notes?: string;
+  role: EventParticipantRole;
+  status: EventParticipantStatus;
+  participantNote?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  createdAt: string;
+  updatedAt: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  cancelledAt?: string;
+  leftAt?: string;
   displayName?: string;
   username?: string;
   avatarUrl?: string;
+  payment?: EventParticipantPayment;
+}
+
+export type EventAttendee = EventParticipant;
+
+export interface Event {
+  id: string;
+  slug: string;
+  title: string;
+  shortDescription?: string;
+  description?: string;
+  descriptionMarkdown?: string;
+  location?: string;
+  locationName?: string;
+  formattedAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  googlePlaceId?: string;
+  regionCode?: string;
+  provinceCode?: string;
+  cityCode?: string;
+  barangayCode?: string;
+  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
+  diveSiteId?: string;
+  diveSite?: EventDiveSiteSummary;
+  startsAt?: string;
+  endsAt?: string;
+  timezone: string;
+  maxAttendees?: number;
+  capacity?: number;
+  currentAttendees: number;
+  availableSlots?: number;
+  interestedCount: number;
+  goingCount: number;
+  status: EventStatus;
+  visibility: EventVisibility;
+  type: EventType;
+  difficulty: EventDifficulty;
+  organizerUserId?: string;
+  groupId?: string;
+  requiresApproval: boolean;
+  isPaid: boolean;
+  priceAmount?: number;
+  currency: string;
+  paymentInstructions?: string;
+  meetingPoint?: string;
+  beginnerFriendly: boolean;
+  maxDepthM?: number;
+  entryType?: EventEntryType;
+  equipmentNotes?: string;
+  safetyNotes?: string;
+  cancellationPolicy?: string;
+  publishedAt?: string;
+  cancelledAt?: string;
+  cancelReason?: string;
+  viewerJoined: boolean;
+  viewerInterested: boolean;
+  viewerParticipationStatus?: EventParticipantStatus;
+  viewerEventState: EventViewerEventState;
+  viewerCanManage: boolean;
+  viewerCanViewPrivateDetails: boolean;
+  viewerParticipation?: EventParticipant;
+  viewerPayment?: EventParticipantPayment;
+  paymentMethods?: EventPaymentMethod[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateEventRequest {
   title: string;
-  description?: string;
-  location?: string;
-  locationName?: string;
-  formattedAddress?: string;
-  latitude?: number;
-  longitude?: number;
-  googlePlaceId?: string;
-  regionCode?: string;
-  provinceCode?: string;
-  cityCode?: string;
-  barangayCode?: string;
-  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
-  startsAt?: string;
-  endsAt?: string;
-  maxAttendees?: number;
-  status?: "draft" | "published" | "cancelled" | "completed";
-  visibility?: "public" | "group_members" | "invite_only";
-  type?: string;
-  difficulty?: "beginner" | "intermediate" | "advanced" | "expert";
+  shortDescription: string;
+  descriptionMarkdown: string;
+  type: EventType;
+  diveSiteId: string;
+  startsAt: string;
+  endsAt: string;
+  timezone?: string;
+  capacity: number;
+  status?: EventStatus;
+  visibility: EventVisibility;
+  difficulty: EventDifficulty;
+  requiresApproval: boolean;
+  isPaid: boolean;
+  priceAmount?: number;
+  currency?: string;
+  paymentInstructions?: string;
+  meetingPoint?: string;
+  beginnerFriendly?: boolean;
+  maxDepthM?: number;
+  entryType?: EventEntryType;
+  equipmentNotes?: string;
+  safetyNotes?: string;
+  cancellationPolicy?: string;
+  paymentMethods?: CreateEventPaymentMethodRequest[];
   groupId?: string;
 }
 
-export interface UpdateEventRequest {
-  title?: string;
-  description?: string;
-  location?: string;
-  locationName?: string;
-  formattedAddress?: string;
-  latitude?: number;
-  longitude?: number;
-  googlePlaceId?: string;
-  regionCode?: string;
-  provinceCode?: string;
-  cityCode?: string;
-  barangayCode?: string;
-  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
-  startsAt?: string;
-  endsAt?: string;
-  maxAttendees?: number;
-  status?: "draft" | "published" | "cancelled" | "completed";
-  visibility?: "public" | "group_members" | "invite_only";
-  type?: string;
-  difficulty?: "beginner" | "intermediate" | "advanced" | "expert";
-}
+export type UpdateEventRequest = Partial<CreateEventRequest> & {
+  status?: EventStatus;
+  cancelReason?: string;
+};
 
 export interface JoinEventRequest {
   eventId: string;
+  participantNote?: string;
   notes?: string;
+}
+
+export interface SubmitEventPaymentRequest {
+  eventId: string;
+  paymentMethodId: string;
+  proofMediaId?: string;
+  proofAttachmentUrl?: string;
+  referenceNumber?: string;
+}
+
+export interface ReviewEventPaymentRequest {
+  reviewNotes?: string;
 }
 
 export interface EventFilters {
   page?: number;
   limit?: number;
-  status?: "draft" | "published" | "cancelled" | "completed";
+  status?: EventStatus;
   search?: string;
   groupId?: string;
+  diveSiteId?: string;
+  type?: EventType;
+  difficulty?: EventDifficulty;
+  beginnerFriendly?: boolean;
+  price?: "free" | "paid";
+  upcoming?: boolean;
 }
 
 export interface Group {
