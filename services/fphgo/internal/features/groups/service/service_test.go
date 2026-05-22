@@ -218,6 +218,14 @@ func TestPrivateGroupsRequireInviteOnlyJoinPolicy(t *testing.T) {
 
 	repo.groups[openGroupID] = fakeGroup(openGroupID, "public", "open")
 	privateVisibility := "private"
+	openJoin := "open"
+	if _, err := svc.UpdateGroup(ctx, openGroupID, groupsrepo.UpdateGroupInput{
+		Visibility: &privateVisibility,
+		JoinPolicy: &openJoin,
+	}); !hasValidationIssue(err, "joinPolicy", "private_invite_only") {
+		t.Fatalf("UpdateGroup(private/open) err = %v, want private_invite_only validation", err)
+	}
+
 	updated, err := svc.UpdateGroup(ctx, openGroupID, groupsrepo.UpdateGroupInput{
 		Visibility: &privateVisibility,
 	})
@@ -229,11 +237,32 @@ func TestPrivateGroupsRequireInviteOnlyJoinPolicy(t *testing.T) {
 	}
 
 	repo.groups[privateGroupID] = fakeGroup(privateGroupID, "private", "invite_only")
-	openJoin := "open"
 	if _, err := svc.UpdateGroup(ctx, privateGroupID, groupsrepo.UpdateGroupInput{
 		JoinPolicy: &openJoin,
 	}); !hasValidationIssue(err, "joinPolicy", "private_invite_only") {
 		t.Fatalf("UpdateGroup(private join open) err = %v, want private_invite_only validation", err)
+	}
+}
+
+func TestPublicGroupsRemainDiscoverableWhilePrivateGroupsStayHidden(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	repo.groups[openGroupID] = fakeGroup(openGroupID, "public", "open")
+	repo.groups[inviteOnlyGroupID] = fakeGroup(inviteOnlyGroupID, "public", "invite_only")
+	repo.groups[privateGroupID] = fakeGroup(privateGroupID, "private", "invite_only")
+
+	svc := New(repo)
+	groups, total, err := svc.ListGroups(ctx, testStrangerID, "", "", false, 1, 20)
+	if err != nil {
+		t.Fatalf("ListGroups() returned error: %v", err)
+	}
+	if total != 2 || len(groups) != 2 {
+		t.Fatalf("ListGroups() = total %d groups %#v, want only public groups", total, groups)
+	}
+	for _, group := range groups {
+		if group.Visibility != "public" {
+			t.Fatalf("ListGroups() leaked private group: %#v", group)
+		}
 	}
 }
 

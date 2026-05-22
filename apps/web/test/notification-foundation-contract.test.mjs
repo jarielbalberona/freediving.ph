@@ -72,7 +72,7 @@ test("bell badge reads server notification stats", async () => {
   assert.match(source, /useNotificationStats\(\)/);
   assert.match(source, /statsQuery\.data\?\.unread/);
   assert.match(source, /formatBadge\(unreadCount\)/);
-  assert.match(source, /bg-sky-500/);
+  assert.match(source, /border-primary\/30/);
   assert.doesNotMatch(source, /variant="destructive"/);
 });
 

@@ -4,12 +4,14 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	adminrepo "fphgo/internal/features/admin/repo"
 	adminservice "fphgo/internal/features/admin/service"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/authz"
+	"fphgo/internal/shared/validatex"
 )
 
 type stubAdminService struct{}
@@ -35,7 +37,7 @@ func (stubAdminService) ArchiveGroup(context.Context, string) (adminrepo.Group, 
 }
 
 func TestRoutesRequireSuperAdmin(t *testing.T) {
-	router := Routes(New(stubAdminService{}))
+	router := Routes(New(stubAdminService{}, validatex.New()))
 
 	tests := []struct {
 		name       string
@@ -64,5 +66,65 @@ func TestRoutesRequireSuperAdmin(t *testing.T) {
 				t.Fatalf("expected status %d, got %d", tc.wantStatus, rec.Code)
 			}
 		})
+	}
+}
+
+func TestGroupAdminRoutesRejectNormalMembers(t *testing.T) {
+	router := Routes(New(stubAdminService{}, validatex.New()))
+	groupID := "550e8400-e29b-41d4-a716-446655440000"
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   string
+	}{
+		{name: "list groups", method: http.MethodGet, path: "/groups"},
+		{name: "update group", method: http.MethodPatch, path: "/groups/" + groupID, body: `{"name":"Updated Group"}`},
+		{name: "archive group", method: http.MethodPost, path: "/groups/" + groupID + "/archive"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			req = req.WithContext(middleware.WithIdentity(req.Context(), authz.Identity{
+				UserID:        "550e8400-e29b-41d4-a716-446655440001",
+				GlobalRole:    "member",
+				AccountStatus: "active",
+				Permissions:   authz.RolePermissions("member"),
+			}))
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
+			}
+		})
+	}
+}
+
+func TestUpdateGroupRejectsLegacyEnumsAtHandlerValidation(t *testing.T) {
+	router := Routes(New(stubAdminService{}, validatex.New()))
+	req := httptest.NewRequest(
+		http.MethodPatch,
+		"/groups/550e8400-e29b-41d4-a716-446655440000",
+		strings.NewReader(`{"visibility":"invite_only","joinPolicy":"approval"}`),
+	)
+	req = req.WithContext(middleware.WithIdentity(req.Context(), authz.Identity{
+		UserID:        "550e8400-e29b-41d4-a716-446655440001",
+		GlobalRole:    "super_admin",
+		AccountStatus: "active",
+		Permissions:   authz.RolePermissions("super_admin"),
+	}))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "visibility") || !strings.Contains(body, "joinPolicy") {
+		t.Fatalf("expected validation body to mention legacy enum fields, got %s", body)
 	}
 }

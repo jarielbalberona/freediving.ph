@@ -282,7 +282,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	homeHandler := homehttp.New(homeService)
 	adminRepo := adminrepo.New(pool)
 	adminService := adminservice.New(adminRepo)
-	adminHandler := adminhttp.New(adminService)
+	adminHandler := adminhttp.New(adminService, v)
 	var siteGeocoder *sharedmapsgeocode.Client
 	siteGeocoder, err = sharedmapsgeocode.New(cfg.GoogleMapsAPIKey)
 	if err != nil {

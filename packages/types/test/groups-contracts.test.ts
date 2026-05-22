@@ -5,6 +5,10 @@ import test from "node:test";
 
 const packageRoot = path.resolve(globalThis.process.cwd());
 const source = await readFile(path.join(packageRoot, "src/index.ts"), "utf8");
+const adminSource = await readFile(
+  path.join(packageRoot, "src/api/admin.ts"),
+  "utf8",
+);
 
 test("groups contracts only expose V1 visibility and join policy values", () => {
   assert.match(source, /visibility:\s*"public" \| "private"/);
@@ -16,6 +20,19 @@ test("groups contracts only expose V1 visibility and join policy values", () => 
     /visibility:\s*"public" \| "private" \| "invite_only"/,
   );
   assert.doesNotMatch(source, /joinPolicy:\s*"open" \| "approval"/);
+});
+
+test("admin group contracts only expose V1 visibility and join policy values", () => {
+  assert.match(adminSource, /visibility:\s*"public" \| "private"/);
+  assert.match(adminSource, /visibility\?:\s*"public" \| "private"/);
+  assert.match(adminSource, /joinPolicy:\s*"open" \| "invite_only"/);
+  assert.match(adminSource, /joinPolicy\?:\s*"open" \| "invite_only"/);
+  assert.match(adminSource, /type AdminUpdateGroupRequest/);
+  assert.doesNotMatch(
+    adminSource,
+    /visibility:\s*"public" \| "private" \| "invite_only"/,
+  );
+  assert.doesNotMatch(adminSource, /joinPolicy:\s*"open" \| "approval"/);
 });
 
 test("groups contracts include real invite and viewer membership states", () => {

@@ -2,7 +2,6 @@
 
 import type { AdminGroup } from "@freediving.ph/types";
 import { Archive, Pencil } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -145,12 +144,7 @@ function AdminGroupsContent() {
           ? items.map((group) => (
               <AdminTableRow key={group.id} gridClassName={GRID}>
                 <div className="min-w-0">
-                  <Link
-                    href={`/groups/${group.id}`}
-                    className="block truncate font-medium hover:underline"
-                  >
-                    {group.name}
-                  </Link>
+                  <div className="truncate font-medium">{group.name}</div>
                   <SmallMuted>{group.slug}</SmallMuted>
                 </div>
                 <Badge variant="outline">{label(group.visibility)}</Badge>

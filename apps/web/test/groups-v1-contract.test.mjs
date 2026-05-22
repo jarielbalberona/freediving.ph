@@ -105,9 +105,19 @@ test("super admin group management is isolated to admin pages", async () => {
 
   assert.match(adminPageSource, /useAdminUpdateGroup/);
   assert.match(adminPageSource, /useAdminArchiveGroup/);
+  assert.match(
+    adminPageSource,
+    /joinPolicy:\s*isPrivateEdit \? "invite_only" : editJoinPolicy/,
+  );
+  assert.match(adminPageSource, /isPrivateEdit \? null : \(/);
+  assert.match(adminPageSource, /Private groups are invite-only\./);
   assert.match(adminApiSource, /routes\.v1\.admin\.group\(groupId\)/);
   assert.match(adminApiSource, /routes\.v1\.admin\.archiveGroup\(groupId\)/);
   assert.match(routesSource, /\/v1\/admin\/groups\/\$\{toPathId\(groupId\)\}/);
+  assert.doesNotMatch(
+    adminPageSource,
+    /href=\{`\/groups\/\$\{group\.id\}`\}/,
+  );
   assert.doesNotMatch(adminPageSource, /\/v1\/groups\/\$\{groupId\}\/archive/);
 });
 

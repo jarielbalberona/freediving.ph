@@ -13,9 +13,7 @@ import (
 	adminrepo "fphgo/internal/features/admin/repo"
 	adminservice "fphgo/internal/features/admin/service"
 	"fphgo/internal/middleware"
-	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
-	"fphgo/internal/shared/validatex"
 )
 
 type adminService interface {
@@ -27,11 +25,12 @@ type adminService interface {
 }
 
 type Handlers struct {
-	service adminService
+	service   adminService
+	validator httpx.Validator
 }
 
-func New(service adminService) *Handlers {
-	return &Handlers{service: service}
+func New(service adminService, validator httpx.Validator) *Handlers {
+	return &Handlers{service: service, validator: validator}
 }
 
 func (h *Handlers) ListProfiles(w http.ResponseWriter, r *http.Request) {
@@ -88,9 +87,9 @@ func (h *Handlers) UpdateGroup(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteValidationError(w, issues)
 		return
 	}
-	var req UpdateGroupRequest
-	if err := httpx.DecodeJSON(r, &req); err != nil {
-		handleDecodeError(w, r, err)
+	req, issues, ok := httpx.DecodeAndValidate[UpdateGroupRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
 		return
 	}
 	group, err := h.service.UpdateGroup(r.Context(), groupID, adminservice.UpdateGroupInput{
@@ -124,14 +123,6 @@ func parseListInput(r *http.Request) adminservice.ListInput {
 		Page:  parseIntQuery(r, "page", 1),
 		Limit: parseIntQuery(r, "limit", adminservice.DefaultLimit),
 	}
-}
-
-func handleDecodeError(w http.ResponseWriter, r *http.Request, err error) {
-	if validationErr, ok := validatex.FromJSONDecodeError(err); ok {
-		httpx.WriteValidationError(w, validationErr.Issues)
-		return
-	}
-	httpx.Error(w, middleware.RequestIDFromContext(r.Context()), apperrors.New(http.StatusBadRequest, "invalid_json", "invalid request body", err))
 }
 
 func handleError(w http.ResponseWriter, r *http.Request, err error) {

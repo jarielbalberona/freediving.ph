@@ -29,9 +29,9 @@ type GroupResponse struct {
 }
 
 type UpdateGroupRequest struct {
-	Name       *string `json:"name,omitempty"`
-	Visibility *string `json:"visibility,omitempty"`
-	JoinPolicy *string `json:"joinPolicy,omitempty"`
+	Name       *string `json:"name,omitempty" validate:"omitempty,min=3,max=120"`
+	Visibility *string `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
+	JoinPolicy *string `json:"joinPolicy,omitempty" validate:"omitempty,oneof=open invite_only"`
 }
 
 type AdminProfile struct {

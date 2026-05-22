@@ -563,6 +563,7 @@ CREATE TABLE IF NOT EXISTS groups (
   CHECK (visibility IN ('public', 'private')),
   CHECK (status IN ('active', 'archived', 'deleted')),
   CHECK (join_policy IN ('open', 'invite_only')),
+  CONSTRAINT groups_private_invite_only_check CHECK (visibility <> 'private' OR join_policy = 'invite_only'),
   CHECK (location_source IN ('manual', 'google_places', 'psgc_mapped', 'unmapped'))
 );
 

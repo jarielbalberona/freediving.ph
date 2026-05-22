@@ -156,7 +156,7 @@ func collectRoutes(t *testing.T, router chi.Router) []routeSnapshotEntry {
 // patterns without invoking handlers, so nil services are safe here.
 func buildFullSurfaceRouter() chi.Router {
 	deps := &Dependencies{
-		AdminHandler:      adminhttp.New(nil),
+		AdminHandler:      adminhttp.New(nil, validatex.New()),
 		AuthHandler:       authhttp.New(),
 		UsersHandler:      usershttp.New(nil, nil),
 		MessagingHandler:  messaginghttp.New(nil, nil, nil),
