@@ -503,16 +503,16 @@ export interface Event {
 export interface CreateEventRequest {
   title: string;
   shortDescription: string;
-  descriptionMarkdown: string;
+  descriptionMarkdown?: string;
   type: EventType;
   diveSiteId: string;
   startsAt: string;
   endsAt: string;
   timezone?: string;
-  capacity: number;
+  capacity?: number;
   status?: EventStatus;
   visibility: EventVisibility;
-  difficulty: EventDifficulty;
+  difficulty?: EventDifficulty;
   requiresApproval: boolean;
   isPaid: boolean;
   priceAmount?: number;

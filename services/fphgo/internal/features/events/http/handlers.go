@@ -95,7 +95,6 @@ func (h *Handlers) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		value := strings.TrimSpace(req.GroupID)
 		groupID = &value
 	}
-	capacity := req.Capacity
 	event, err := h.service.CreateEvent(r.Context(), actorID, eventsrepo.CreateEventInput{
 		Title:               req.Title,
 		ShortDescription:    req.ShortDescription,
@@ -109,7 +108,7 @@ func (h *Handlers) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		Visibility:          req.Visibility,
 		EventType:           req.Type,
 		Difficulty:          req.Difficulty,
-		Capacity:            &capacity,
+		Capacity:            req.Capacity,
 		RequiresApproval:    req.RequiresApproval,
 		IsPaid:              req.IsPaid,
 		PriceAmount:         req.PriceAmount,

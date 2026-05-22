@@ -242,31 +242,48 @@ func TestCreateEventRequiresDiveSite(t *testing.T) {
 	}
 }
 
-func TestCreatePaidEventRequiresPaymentMethods(t *testing.T) {
+func TestCreateMinimalPaidEventAllowsDeferredPaymentSetup(t *testing.T) {
 	const actorID = "550e8400-e29b-41d4-a716-446655443043"
 	start := time.Now().UTC().Add(24 * time.Hour)
 	end := start.Add(2 * time.Hour)
-	repo := &eventsRepoStub{}
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:         "550e8400-e29b-41d4-a716-446655443045",
+			Title:      "Depth training",
+			Status:     "published",
+			Visibility: "public",
+			IsPaid:     true,
+		},
+	}
 	svc := New(repo)
-	capacity := 8
-	price := 1500.0
 
 	_, err := svc.CreateEvent(context.Background(), actorID, eventsrepo.CreateEventInput{
-		Title:               "Depth training",
-		ShortDescription:    "Depth session",
-		DescriptionMarkdown: "Depth training details.",
-		EventType:           "depth_training",
-		DiveSiteID:          "550e8400-e29b-41d4-a716-446655443044",
-		StartsAt:            &start,
-		EndsAt:              &end,
-		Capacity:            &capacity,
-		Visibility:          "public",
-		Difficulty:          "advanced",
-		IsPaid:              true,
-		PriceAmount:         &price,
+		Title:            "Depth training",
+		ShortDescription: "Depth session",
+		EventType:        "depth_training",
+		DiveSiteID:       "550e8400-e29b-41d4-a716-446655443044",
+		StartsAt:         &start,
+		EndsAt:           &end,
+		Visibility:       "public",
+		IsPaid:           true,
 	})
-	if err == nil {
-		t.Fatalf("expected paid event without payment methods to fail")
+	if err != nil {
+		t.Fatalf("CreateEvent returned error: %v", err)
+	}
+	if repo.createInput.Timezone != "Asia/Manila" {
+		t.Fatalf("timezone default = %q, want Asia/Manila", repo.createInput.Timezone)
+	}
+	if repo.createInput.Capacity != nil {
+		t.Fatalf("capacity should stay unset for minimal create, got %#v", *repo.createInput.Capacity)
+	}
+	if repo.createInput.DescriptionMarkdown != "" {
+		t.Fatalf("description should stay unset for minimal create, got %q", repo.createInput.DescriptionMarkdown)
+	}
+	if repo.createInput.Difficulty != "beginner" {
+		t.Fatalf("difficulty default = %q, want beginner", repo.createInput.Difficulty)
+	}
+	if repo.createInput.PriceAmount != nil || len(repo.createInput.PaymentMethods) != 0 {
+		t.Fatalf("payment setup should be deferred, got price=%#v methods=%d", repo.createInput.PriceAmount, len(repo.createInput.PaymentMethods))
 	}
 }
 
@@ -498,7 +515,7 @@ func TestCreateEventRejectsInvalidTimezone(t *testing.T) {
 	}
 }
 
-func TestUpdateEventRejectsPaidToggleWithoutPrice(t *testing.T) {
+func TestUpdateEventAllowsPaidToggleWithoutPrice(t *testing.T) {
 	const (
 		eventID = "550e8400-e29b-41d4-a716-446655443053"
 		actorID = "550e8400-e29b-41d4-a716-446655443054"
@@ -514,8 +531,11 @@ func TestUpdateEventRejectsPaidToggleWithoutPrice(t *testing.T) {
 	svc := New(repo)
 
 	isPaid := true
-	if _, err := svc.UpdateEvent(context.Background(), eventID, actorID, eventsrepo.UpdateEventInput{IsPaid: &isPaid}); err == nil {
-		t.Fatalf("expected paid toggle without price to be rejected")
+	if _, err := svc.UpdateEvent(context.Background(), eventID, actorID, eventsrepo.UpdateEventInput{IsPaid: &isPaid}); err != nil {
+		t.Fatalf("UpdateEvent returned error: %v", err)
+	}
+	if repo.updateInput.IsPaid == nil || !*repo.updateInput.IsPaid {
+		t.Fatalf("expected paid toggle to reach repo, got %#v", repo.updateInput.IsPaid)
 	}
 }
 
@@ -807,6 +827,8 @@ type eventsRepoStub struct {
 	proof                    eventsrepo.EventPaymentProof
 	proofErr                 error
 	joinInput                eventsrepo.JoinEventInput
+	createInput              eventsrepo.CreateEventInput
+	updateInput              eventsrepo.UpdateEventInput
 	updatePaymentMethodInput eventsrepo.UpdatePaymentMethodInput
 	leftStatus               string
 	markInterestedCalled     bool
@@ -827,11 +849,13 @@ func (r *eventsRepoStub) GetEventBySlug(context.Context, string, string) (events
 	return r.event, nil
 }
 
-func (r *eventsRepoStub) CreateEvent(context.Context, eventsrepo.CreateEventInput) (eventsrepo.Event, error) {
+func (r *eventsRepoStub) CreateEvent(_ context.Context, input eventsrepo.CreateEventInput) (eventsrepo.Event, error) {
+	r.createInput = input
 	return r.event, nil
 }
 
-func (r *eventsRepoStub) UpdateEvent(context.Context, eventsrepo.UpdateEventInput) (eventsrepo.Event, error) {
+func (r *eventsRepoStub) UpdateEvent(_ context.Context, input eventsrepo.UpdateEventInput) (eventsrepo.Event, error) {
+	r.updateInput = input
 	return r.updatedEvent, nil
 }
 

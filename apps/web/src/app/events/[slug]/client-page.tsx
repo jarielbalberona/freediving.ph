@@ -2,8 +2,12 @@
 
 import type {
   Event,
+  EventDifficulty,
+  EventEntryType,
   EventParticipant,
+  EventPaymentMethodType,
   EventPaymentMethod,
+  UpdateEventRequest,
 } from "@freediving.ph/types";
 import { SignInButton } from "@clerk/nextjs";
 import {
@@ -47,8 +51,11 @@ import { useSession } from "@/features/auth/session";
 import { ChikaMarkdown } from "@/features/chika/components/ChikaMarkdown";
 import {
   eventOptionLabel,
+  difficultyOptions,
+  entryTypeOptions,
   titleCase,
   useApproveEventParticipant,
+  useCreateEventPaymentMethod,
   useEvent,
   useEventPaymentProofUrl,
   useEventParticipants,
@@ -59,6 +66,7 @@ import {
   useRejectEventParticipant,
   useRejectEventPayment,
   useSubmitEventPayment,
+  useUpdateEvent,
   useVerifyEventPayment,
 } from "@/features/events";
 import { mediaApi } from "@/features/media/api/media";
@@ -233,7 +241,11 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     }
     setIsUploadingProof(true);
     try {
-      const upload = await mediaApi.upload(proofFile, "event_attachment", event.id);
+      const upload = await mediaApi.upload(
+        proofFile,
+        "event_attachment",
+        event.id,
+      );
       submitPaymentMutation.mutate(
         {
           eventId: event.id,
@@ -301,9 +313,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
             {event.visibility === "private" ? "Private" : "Public"}
           </Badge>
           <Badge variant="secondary" className="h-5 px-2 text-[11px]">
-            {event.isPaid
-              ? `${event.currency} ${event.priceAmount ?? 0}`
-              : "Free"}
+            {formatEventPriceLabel(event)}
           </Badge>
         </div>
       </CommunityHeader>
@@ -375,7 +385,10 @@ export default function EventDetailClient({ slug }: { slug: string }) {
           <DetailSection title="Event fit">
             <div className="divide-y divide-border/70 border-y border-border/70 text-sm">
               <DetailRow label="Type" value={eventOptionLabel(event.type)} />
-              <DetailRow label="Difficulty" value={titleCase(event.difficulty)} />
+              <DetailRow
+                label="Difficulty"
+                value={titleCase(event.difficulty)}
+              />
               <DetailRow
                 label="Beginner-friendly"
                 value={event.beginnerFriendly ? "Yes" : "No"}
@@ -426,7 +439,10 @@ export default function EventDetailClient({ slug }: { slug: string }) {
                   onSuccess: () => toast.success("Participant approved."),
                   onError: (error) =>
                     toast.error(
-                      getApiErrorMessage(error, "Failed to approve participant"),
+                      getApiErrorMessage(
+                        error,
+                        "Failed to approve participant",
+                      ),
                     ),
                 },
               )
@@ -477,6 +493,15 @@ export default function EventDetailClient({ slug }: { slug: string }) {
         </div>
 
         <div className="space-y-4">
+          {event.viewerCanManage ? (
+            <OrganizerSetupCard
+              event={event}
+              onSaved={() => {
+                void eventQuery.refetch();
+              }}
+            />
+          ) : null}
+
           <JoinCard
             event={event}
             isSignedIn={isSignedIn}
@@ -542,6 +567,661 @@ function getViewerStateLabel(state: Event["viewerEventState"]) {
     default:
       return null;
   }
+}
+
+type OrganizerSetupEditor =
+  | "description"
+  | "capacity"
+  | "payment"
+  | "fit"
+  | "logistics";
+
+function OrganizerSetupCard({
+  event,
+  onSaved,
+}: {
+  event: Event;
+  onSaved: () => void;
+}) {
+  const updateEventMutation = useUpdateEvent();
+  const createPaymentMethodMutation = useCreateEventPaymentMethod();
+  const [activeEditor, setActiveEditor] = useState<OrganizerSetupEditor | null>(
+    null,
+  );
+  const [descriptionMarkdown, setDescriptionMarkdown] = useState(
+    event.descriptionMarkdown ?? "",
+  );
+  const [capacity, setCapacity] = useState(
+    event.capacity ? String(event.capacity) : "",
+  );
+  const [difficulty, setDifficulty] = useState<EventDifficulty>(
+    event.difficulty,
+  );
+  const [beginnerFriendly, setBeginnerFriendly] = useState(
+    event.beginnerFriendly,
+  );
+  const [maxDepthM, setMaxDepthM] = useState(
+    event.maxDepthM ? String(event.maxDepthM) : "",
+  );
+  const [entryType, setEntryType] = useState<EventEntryType | "">(
+    event.entryType ?? "",
+  );
+  const [meetingPoint, setMeetingPoint] = useState(event.meetingPoint ?? "");
+  const [equipmentNotes, setEquipmentNotes] = useState(
+    event.equipmentNotes ?? "",
+  );
+  const [safetyNotes, setSafetyNotes] = useState(event.safetyNotes ?? "");
+  const [cancellationPolicy, setCancellationPolicy] = useState(
+    event.cancellationPolicy ?? "",
+  );
+  const [priceAmount, setPriceAmount] = useState(
+    event.priceAmount != null ? String(event.priceAmount) : "",
+  );
+  const [currency, setCurrency] = useState(event.currency || "PHP");
+  const [paymentInstructions, setPaymentInstructions] = useState(
+    event.paymentInstructions ?? "",
+  );
+  const [paymentMethodType, setPaymentMethodType] =
+    useState<EventPaymentMethodType>("MANUAL_QR");
+  const [paymentMethodName, setPaymentMethodName] = useState("");
+  const [paymentMethodInstructions, setPaymentMethodInstructions] =
+    useState("");
+  const [qrImageUrl, setQrImageUrl] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+
+  const activePaymentMethods = (event.paymentMethods ?? []).filter(
+    (method) => method.isActive,
+  );
+  const isSaving =
+    updateEventMutation.isPending || createPaymentMethodMutation.isPending;
+
+  const savePatch = (data: UpdateEventRequest, successMessage: string) => {
+    updateEventMutation.mutate(
+      { eventId: event.id, data },
+      {
+        onSuccess: () => {
+          toast.success(successMessage);
+          setActiveEditor(null);
+          onSaved();
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error, "Failed to update event"));
+        },
+      },
+    );
+  };
+
+  const saveDescription = () => {
+    const value = descriptionMarkdown.trim();
+    if (!value) {
+      toast.error("Full description is required before saving.");
+      return;
+    }
+    savePatch({ descriptionMarkdown: value }, "Description saved.");
+  };
+
+  const saveCapacity = () => {
+    const value = Number.parseInt(capacity, 10);
+    if (!Number.isFinite(value) || value < 1) {
+      toast.error("Capacity must be at least 1.");
+      return;
+    }
+    savePatch({ capacity: value }, "Capacity saved.");
+  };
+
+  const saveFit = () => {
+    const maxDepth = maxDepthM.trim()
+      ? Number.parseInt(maxDepthM.trim(), 10)
+      : undefined;
+    if (
+      maxDepth !== undefined &&
+      (!Number.isFinite(maxDepth) || maxDepth < 0)
+    ) {
+      toast.error("Max depth must be zero or higher.");
+      return;
+    }
+    savePatch(
+      {
+        beginnerFriendly,
+        difficulty,
+        entryType: (entryType || "") as EventEntryType,
+        maxDepthM: maxDepth,
+      },
+      "Freediving details saved.",
+    );
+  };
+
+  const saveLogistics = () => {
+    savePatch(
+      {
+        meetingPoint: meetingPoint.trim(),
+        equipmentNotes: equipmentNotes.trim(),
+        safetyNotes: safetyNotes.trim(),
+        cancellationPolicy: cancellationPolicy.trim(),
+      },
+      "Safety and logistics saved.",
+    );
+  };
+
+  const savePayment = () => {
+    const trimmedPrice = priceAmount.trim();
+    const parsedPrice = trimmedPrice
+      ? Number.parseFloat(trimmedPrice)
+      : undefined;
+    const methodName = paymentMethodName.trim();
+    const hasMethodDraft =
+      methodName ||
+      paymentMethodInstructions.trim() ||
+      qrImageUrl.trim() ||
+      bankName.trim() ||
+      accountName.trim() ||
+      accountNumber.trim();
+
+    if (
+      parsedPrice !== undefined &&
+      (!Number.isFinite(parsedPrice) || parsedPrice < 0)
+    ) {
+      toast.error("Price must be zero or higher.");
+      return;
+    }
+    if (activePaymentMethods.length === 0 && !methodName) {
+      toast.error("Add a payment method name before saving payment setup.");
+      return;
+    }
+    if (hasMethodDraft && !methodName) {
+      toast.error("Payment method name is required.");
+      return;
+    }
+
+    updateEventMutation.mutate(
+      {
+        eventId: event.id,
+        data: {
+          isPaid: true,
+          priceAmount: parsedPrice,
+          currency: currency.trim().toUpperCase() || "PHP",
+          paymentInstructions: paymentInstructions.trim(),
+        },
+      },
+      {
+        onSuccess: () => {
+          if (!methodName) {
+            toast.success("Payment setup saved.");
+            setActiveEditor(null);
+            onSaved();
+            return;
+          }
+          createPaymentMethodMutation.mutate(
+            {
+              eventId: event.id,
+              data: {
+                type: paymentMethodType,
+                name: methodName,
+                instructions: paymentMethodInstructions.trim() || undefined,
+                qrImageUrl:
+                  paymentMethodType === "MANUAL_QR"
+                    ? qrImageUrl.trim() || undefined
+                    : undefined,
+                bankName:
+                  paymentMethodType === "MANUAL_BANK_TRANSFER"
+                    ? bankName.trim() || undefined
+                    : undefined,
+                accountName:
+                  paymentMethodType === "MANUAL_BANK_TRANSFER"
+                    ? accountName.trim() || undefined
+                    : undefined,
+                accountNumber:
+                  paymentMethodType === "MANUAL_BANK_TRANSFER"
+                    ? accountNumber.trim() || undefined
+                    : undefined,
+                isActive: true,
+              },
+            },
+            {
+              onSuccess: () => {
+                toast.success("Payment setup saved.");
+                setActiveEditor(null);
+                setPaymentMethodName("");
+                setPaymentMethodInstructions("");
+                setQrImageUrl("");
+                setBankName("");
+                setAccountName("");
+                setAccountNumber("");
+                onSaved();
+              },
+              onError: (error) => {
+                toast.error(
+                  getApiErrorMessage(error, "Failed to add payment method"),
+                );
+              },
+            },
+          );
+        },
+        onError: (error) => {
+          toast.error(
+            getApiErrorMessage(error, "Failed to update payment setup"),
+          );
+        },
+      },
+    );
+  };
+
+  return (
+    <Card className="py-0">
+      <CardHeader className="p-4 pb-2">
+        <CardTitle className="text-base">Organizer setup</CardTitle>
+        <p className="text-xs leading-5 text-muted-foreground">
+          Complete advanced details after the event exists.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-2 p-4 pt-0">
+        <SetupRow
+          title="Full description"
+          status={event.descriptionMarkdown ? "Added" : "Missing"}
+          actionLabel={event.descriptionMarkdown ? "Edit" : "Add"}
+          isOpen={activeEditor === "description"}
+          onToggle={() =>
+            setActiveEditor(
+              activeEditor === "description" ? null : "description",
+            )
+          }
+        >
+          <SetupField label="Full description">
+            <Textarea
+              className="min-h-28"
+              value={descriptionMarkdown}
+              onChange={(item) => setDescriptionMarkdown(item.target.value)}
+              placeholder="Schedule, inclusions, what to bring, and organizer notes"
+            />
+          </SetupField>
+          <SetupActions
+            isSaving={isSaving}
+            onCancel={() => setActiveEditor(null)}
+            onSave={saveDescription}
+          />
+        </SetupRow>
+
+        <SetupRow
+          title="Capacity"
+          status={event.capacity ? `${event.capacity} spots` : "Not set"}
+          actionLabel={event.capacity ? "Edit" : "Set"}
+          isOpen={activeEditor === "capacity"}
+          onToggle={() =>
+            setActiveEditor(activeEditor === "capacity" ? null : "capacity")
+          }
+        >
+          <SetupField label="Capacity">
+            <Input
+              type="number"
+              min={1}
+              value={capacity}
+              onChange={(item) => setCapacity(item.target.value)}
+              placeholder="8"
+            />
+          </SetupField>
+          <SetupActions
+            isSaving={isSaving}
+            onCancel={() => setActiveEditor(null)}
+            onSave={saveCapacity}
+          />
+        </SetupRow>
+
+        <SetupRow
+          title="Payment setup"
+          status={getPaymentSetupStatus(event, activePaymentMethods.length)}
+          actionLabel={event.isPaid ? "Manage" : "Set paid"}
+          isOpen={activeEditor === "payment"}
+          onToggle={() =>
+            setActiveEditor(activeEditor === "payment" ? null : "payment")
+          }
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SetupField label="Price">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={priceAmount}
+                onChange={(item) => setPriceAmount(item.target.value)}
+                placeholder="1500"
+              />
+            </SetupField>
+            <SetupField label="Currency">
+              <Input
+                value={currency}
+                onChange={(item) => setCurrency(item.target.value)}
+                placeholder="PHP"
+              />
+            </SetupField>
+          </div>
+          <SetupField label="Payment instructions">
+            <Textarea
+              className="min-h-20"
+              value={paymentInstructions}
+              onChange={(item) => setPaymentInstructions(item.target.value)}
+              placeholder="Tell participants when and how to pay."
+            />
+          </SetupField>
+          <div className="rounded-lg border border-border/70 p-3">
+            <p className="text-sm font-medium text-foreground">
+              Add payment method
+            </p>
+            {activePaymentMethods.length > 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Existing active methods:{" "}
+                {activePaymentMethods.map((method) => method.name).join(", ")}
+              </p>
+            ) : null}
+            <div className="mt-3 grid gap-3">
+              <SetupField label="Type">
+                <Select
+                  value={paymentMethodType}
+                  onValueChange={(value) =>
+                    setPaymentMethodType(value as EventPaymentMethodType)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MANUAL_QR">QR payment</SelectItem>
+                    <SelectItem value="MANUAL_BANK_TRANSFER">
+                      Bank transfer
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </SetupField>
+              <SetupField label="Name">
+                <Input
+                  value={paymentMethodName}
+                  onChange={(item) => setPaymentMethodName(item.target.value)}
+                  placeholder={
+                    paymentMethodType === "MANUAL_QR" ? "GCash" : "BPI"
+                  }
+                />
+              </SetupField>
+              <SetupField label="Instructions">
+                <Textarea
+                  className="min-h-16"
+                  value={paymentMethodInstructions}
+                  onChange={(item) =>
+                    setPaymentMethodInstructions(item.target.value)
+                  }
+                />
+              </SetupField>
+              {paymentMethodType === "MANUAL_QR" ? (
+                <SetupField label="QR image URL">
+                  <Input
+                    value={qrImageUrl}
+                    onChange={(item) => setQrImageUrl(item.target.value)}
+                    placeholder="https://..."
+                  />
+                </SetupField>
+              ) : (
+                <div className="grid gap-3">
+                  <SetupField label="Bank name">
+                    <Input
+                      value={bankName}
+                      onChange={(item) => setBankName(item.target.value)}
+                      placeholder="BPI"
+                    />
+                  </SetupField>
+                  <SetupField label="Account name">
+                    <Input
+                      value={accountName}
+                      onChange={(item) => setAccountName(item.target.value)}
+                    />
+                  </SetupField>
+                  <SetupField label="Account number">
+                    <Input
+                      value={accountNumber}
+                      onChange={(item) => setAccountNumber(item.target.value)}
+                    />
+                  </SetupField>
+                </div>
+              )}
+            </div>
+          </div>
+          <SetupActions
+            isSaving={isSaving}
+            onCancel={() => setActiveEditor(null)}
+            onSave={savePayment}
+          />
+        </SetupRow>
+
+        <SetupRow
+          title="Freediving details"
+          status={getFitStatus(event)}
+          actionLabel="Edit"
+          isOpen={activeEditor === "fit"}
+          onToggle={() =>
+            setActiveEditor(activeEditor === "fit" ? null : "fit")
+          }
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SetupField label="Difficulty">
+              <Select
+                value={difficulty}
+                onValueChange={(value) =>
+                  setDifficulty(value as EventDifficulty)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {difficultyOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SetupField>
+            <SetupField label="Entry type">
+              <Select
+                value={entryType || "none"}
+                onValueChange={(value) =>
+                  setEntryType(
+                    value === "none" ? "" : (value as EventEntryType),
+                  )
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not set</SelectItem>
+                  {entryTypeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SetupField>
+          </div>
+          <SetupField label="Max depth (m)">
+            <Input
+              type="number"
+              min={0}
+              value={maxDepthM}
+              onChange={(item) => setMaxDepthM(item.target.value)}
+            />
+          </SetupField>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              className="mt-1"
+              type="checkbox"
+              checked={beginnerFriendly}
+              onChange={(item) => setBeginnerFriendly(item.target.checked)}
+            />
+            Beginner-friendly
+          </label>
+          <SetupActions
+            isSaving={isSaving}
+            onCancel={() => setActiveEditor(null)}
+            onSave={saveFit}
+          />
+        </SetupRow>
+
+        <SetupRow
+          title="Safety and logistics"
+          status={getLogisticsStatus(event)}
+          actionLabel="Edit"
+          isOpen={activeEditor === "logistics"}
+          onToggle={() =>
+            setActiveEditor(activeEditor === "logistics" ? null : "logistics")
+          }
+        >
+          <SetupField label="Meeting point">
+            <Input
+              value={meetingPoint}
+              onChange={(item) => setMeetingPoint(item.target.value)}
+              placeholder="Resort lobby, pier, or pool entrance"
+            />
+          </SetupField>
+          <SetupField label="Equipment notes">
+            <Textarea
+              className="min-h-20"
+              value={equipmentNotes}
+              onChange={(item) => setEquipmentNotes(item.target.value)}
+            />
+          </SetupField>
+          <SetupField label="Safety notes">
+            <Textarea
+              className="min-h-20"
+              value={safetyNotes}
+              onChange={(item) => setSafetyNotes(item.target.value)}
+            />
+          </SetupField>
+          <SetupField label="Cancellation policy">
+            <Textarea
+              className="min-h-20"
+              value={cancellationPolicy}
+              onChange={(item) => setCancellationPolicy(item.target.value)}
+            />
+          </SetupField>
+          <SetupActions
+            isSaving={isSaving}
+            onCancel={() => setActiveEditor(null)}
+            onSave={saveLogistics}
+          />
+        </SetupRow>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SetupRow({
+  title,
+  status,
+  actionLabel,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  title: string;
+  status: string;
+  actionLabel: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-border/70">
+      <div className="flex items-center justify-between gap-3 p-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{status}</p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={onToggle}>
+          {isOpen ? "Close" : actionLabel}
+        </Button>
+      </div>
+      {isOpen ? (
+        <div className="space-y-3 border-t border-border/70 p-3">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SetupField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function SetupActions({
+  isSaving,
+  onCancel,
+  onSave,
+}: {
+  isSaving: boolean;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={isSaving}
+        onClick={onCancel}
+      >
+        Cancel
+      </Button>
+      <Button type="button" size="sm" disabled={isSaving} onClick={onSave}>
+        {isSaving ? "Saving..." : "Save"}
+      </Button>
+    </div>
+  );
+}
+
+function formatEventPriceLabel(event: Event) {
+  if (!event.isPaid) return "Free";
+  if (event.priceAmount == null) return "Paid";
+  return `${event.currency} ${event.priceAmount}`;
+}
+
+function getPaymentSetupStatus(event: Event, activePaymentMethodCount: number) {
+  if (!event.isPaid) return "Not paid";
+  if (activePaymentMethodCount === 0) return "Payment setup incomplete";
+  if (event.priceAmount == null) return "Amount pending";
+  return "Ready";
+}
+
+function getFitStatus(event: Event) {
+  const parts = [
+    titleCase(event.difficulty),
+    event.entryType ? titleCase(event.entryType) : "",
+    event.maxDepthM ? `${event.maxDepthM}m` : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : "Not set";
+}
+
+function getLogisticsStatus(event: Event) {
+  const completed = [
+    event.meetingPoint,
+    event.equipmentNotes,
+    event.safetyNotes,
+    event.cancellationPolicy,
+  ].filter(Boolean).length;
+  return completed > 0 ? `${completed} of 4 added` : "Missing";
 }
 
 function JoinCard({
@@ -613,7 +1293,9 @@ function JoinCard({
 
         {!isSignedIn ? (
           <SignInButton mode="modal">
-            <Button className="w-full">Sign in to join or mark interested</Button>
+            <Button className="w-full">
+              Sign in to join or mark interested
+            </Button>
           </SignInButton>
         ) : (
           <>
@@ -717,7 +1399,9 @@ function PaymentCard({
       <CardContent className="space-y-4 p-4 pt-0">
         <div className="rounded-lg border border-border/70 p-3 text-sm">
           <p className="font-medium">
-            {event.currency} {event.priceAmount ?? 0}
+            {event.priceAmount == null
+              ? "Payment amount pending"
+              : `${event.currency} ${event.priceAmount}`}
           </p>
           <p className="mt-1 text-muted-foreground">
             Status: {titleCase(payment?.status ?? "pending_upload")}
@@ -741,7 +1425,8 @@ function PaymentCard({
         ) : null}
         {paymentMethods.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No active payment methods are currently available.
+            Payment setup is not ready yet. Check back after the organizer adds
+            payment details.
           </p>
         ) : (
           <>
@@ -782,7 +1467,9 @@ function PaymentCard({
               id="payment-proof"
               type="file"
               accept="image/*"
-              onChange={(event) => setProofFile(event.target.files?.[0] ?? null)}
+              onChange={(event) =>
+                setProofFile(event.target.files?.[0] ?? null)
+              }
             />
             {proofFile ? (
               <p className="text-xs text-muted-foreground">{proofFile.name}</p>
@@ -806,7 +1493,9 @@ function PaymentMethodDetails({ method }: { method?: EventPaymentMethod }) {
   return (
     <div className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
       <p className="font-medium text-foreground">{method.name}</p>
-      {method.instructions ? <p className="mt-1">{method.instructions}</p> : null}
+      {method.instructions ? (
+        <p className="mt-1">{method.instructions}</p>
+      ) : null}
       {method.type === "MANUAL_BANK_TRANSFER" ? (
         <div className="mt-2 grid gap-1">
           {method.bankName ? <span>Bank: {method.bankName}</span> : null}
@@ -871,7 +1560,9 @@ function ParticipantsSection({
 
   return (
     <DetailSection
-      title={event.viewerCanManage ? "Participants and payments" : "Participants"}
+      title={
+        event.viewerCanManage ? "Participants and payments" : "Participants"
+      }
     >
       {isLoading ? (
         <div className="space-y-2">

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { eventOptionLabel, titleCase } from "@/features/events/constants";
+import { eventOptionLabel } from "@/features/events/constants";
 
 type EventCardProps = {
   event: Event;
@@ -50,14 +50,13 @@ export function EventCard({
             {eventOptionLabel(event.type)}
           </Badge>
           <Badge variant="outline" className="h-5 px-2 text-[11px]">
-            {titleCase(event.difficulty)}
-          </Badge>
-          <Badge variant="outline" className="h-5 px-2 text-[11px]">
             {event.visibility === "private" ? "Private" : "Public"}
           </Badge>
           {event.isPaid ? (
             <Badge variant="secondary" className="h-5 px-2 text-[11px]">
-              {event.currency} {event.priceAmount ?? 0}
+              {event.priceAmount == null
+                ? "Paid"
+                : `${event.currency} ${event.priceAmount}`}
             </Badge>
           ) : (
             <Badge variant="secondary" className="h-5 px-2 text-[11px]">

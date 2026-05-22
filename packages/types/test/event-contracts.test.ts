@@ -16,8 +16,7 @@ import type {
 } from "../src/index.ts";
 
 type Assert<T extends true> = T;
-type IsEqual<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type IsEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
 type BackendEventType =
   | "intro_session"
@@ -59,23 +58,62 @@ type BackendViewerEventState =
   | "cancelled";
 
 type _eventTypeMatches = Assert<IsEqual<Event["type"], BackendEventType>>;
-type _createTypeMatches = Assert<IsEqual<CreateEventRequest["type"], BackendEventType>>;
-type _updateTypeMatches = Assert<IsEqual<Exclude<UpdateEventRequest["type"], undefined>, BackendEventType>>;
-type _filterTypeMatches = Assert<IsEqual<Exclude<EventFilters["type"], undefined>, BackendEventType>>;
+type _createTypeMatches = Assert<
+  IsEqual<CreateEventRequest["type"], BackendEventType>
+>;
+type _createDescriptionIsOptional = Assert<
+  IsEqual<CreateEventRequest["descriptionMarkdown"], string | undefined>
+>;
+type _createCapacityIsOptional = Assert<
+  IsEqual<CreateEventRequest["capacity"], number | undefined>
+>;
+type _createDifficultyIsOptional = Assert<
+  IsEqual<CreateEventRequest["difficulty"], Event["difficulty"] | undefined>
+>;
+type _updateTypeMatches = Assert<
+  IsEqual<Exclude<UpdateEventRequest["type"], undefined>, BackendEventType>
+>;
+type _filterTypeMatches = Assert<
+  IsEqual<Exclude<EventFilters["type"], undefined>, BackendEventType>
+>;
 type _eventStatusMatches = Assert<IsEqual<Event["status"], BackendEventStatus>>;
-type _updateStatusMatches = Assert<IsEqual<Exclude<UpdateEventRequest["status"], undefined>, BackendEventStatus>>;
-type _filterStatusMatches = Assert<IsEqual<Exclude<EventFilters["status"], undefined>, BackendEventStatus>>;
-type _eventVisibilityMatches = Assert<IsEqual<Event["visibility"], BackendEventVisibility>>;
-type _participantStatusMatches = Assert<IsEqual<EventParticipant["status"], BackendParticipantStatus>>;
-type _paymentMethodMatches = Assert<IsEqual<EventPaymentMethod["type"], BackendPaymentMethodType>>;
-type _paymentStatusMatches = Assert<IsEqual<EventParticipantPayment["status"], BackendPaymentStatus>>;
-type _viewerEventStateMatches = Assert<IsEqual<EventViewerEventState, BackendViewerEventState>>;
-type _eventViewerEventStateMatches = Assert<IsEqual<Event["viewerEventState"], BackendViewerEventState>>;
-type _eventInterestedCountShape = Assert<IsEqual<Event["interestedCount"], number>>;
+type _updateStatusMatches = Assert<
+  IsEqual<Exclude<UpdateEventRequest["status"], undefined>, BackendEventStatus>
+>;
+type _filterStatusMatches = Assert<
+  IsEqual<Exclude<EventFilters["status"], undefined>, BackendEventStatus>
+>;
+type _eventVisibilityMatches = Assert<
+  IsEqual<Event["visibility"], BackendEventVisibility>
+>;
+type _participantStatusMatches = Assert<
+  IsEqual<EventParticipant["status"], BackendParticipantStatus>
+>;
+type _paymentMethodMatches = Assert<
+  IsEqual<EventPaymentMethod["type"], BackendPaymentMethodType>
+>;
+type _paymentStatusMatches = Assert<
+  IsEqual<EventParticipantPayment["status"], BackendPaymentStatus>
+>;
+type _viewerEventStateMatches = Assert<
+  IsEqual<EventViewerEventState, BackendViewerEventState>
+>;
+type _eventViewerEventStateMatches = Assert<
+  IsEqual<Event["viewerEventState"], BackendViewerEventState>
+>;
+type _eventInterestedCountShape = Assert<
+  IsEqual<Event["interestedCount"], number>
+>;
 type _eventGoingCountShape = Assert<IsEqual<Event["goingCount"], number>>;
-type _eventViewerInterestedShape = Assert<IsEqual<Event["viewerInterested"], boolean>>;
-type _joinNoteMatches = Assert<IsEqual<JoinEventRequest["participantNote"], string | undefined>>;
-type _paymentProofUrlShape = Assert<IsEqual<EventPaymentProofUrl["url"], string>>;
+type _eventViewerInterestedShape = Assert<
+  IsEqual<Event["viewerInterested"], boolean>
+>;
+type _joinNoteMatches = Assert<
+  IsEqual<JoinEventRequest["participantNote"], string | undefined>
+>;
+type _paymentProofUrlShape = Assert<
+  IsEqual<EventPaymentProofUrl["url"], string>
+>;
 type _paymentMethodUpdateIsPartial = Assert<
   IsEqual<UpdateEventPaymentMethodRequest["name"], string | undefined>
 >;

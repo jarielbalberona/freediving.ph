@@ -2,17 +2,56 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const read = (path) =>
+  readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("events MVP uses dedicated create page with required dive-site selection", () => {
+test("events create page stays limited to first-step event fields", () => {
   const createPage = read("src/app/events/create/page.tsx");
   assert.match(createPage, /DiveSiteCombobox/);
   assert.match(createPage, /diveSiteId/);
-  assert.match(createPage, /MarkdownEditor/);
-  assert.match(createPage, /paymentMethods/);
-  assert.match(createPage, /MANUAL_QR/);
-  assert.match(createPage, /MANUAL_BANK_TRANSFER/);
+  assert.match(createPage, /Event details/);
+  assert.match(createPage, /Schedule/);
+  assert.match(createPage, /Access/);
+  assert.match(createPage, /Paid event/);
+  assert.match(createPage, /pb-24/);
+  assert.doesNotMatch(createPage, /MarkdownEditor/);
+  assert.doesNotMatch(createPage, /Full description/);
+  assert.doesNotMatch(createPage, /label="Timezone"/);
+  assert.doesNotMatch(createPage, /Freediving specifics/);
+  assert.doesNotMatch(createPage, /Capacity/);
+  assert.doesNotMatch(createPage, /Payment methods/);
+  assert.doesNotMatch(createPage, /MANUAL_QR/);
+  assert.doesNotMatch(createPage, /MANUAL_BANK_TRANSFER/);
+  assert.doesNotMatch(createPage, /priceAmount/);
   assert.doesNotMatch(createPage, /LocationSearch/);
+});
+
+test("events create payload defaults Philippine time and defers advanced setup", () => {
+  const createPage = read("src/app/events/create/page.tsx");
+  assert.match(createPage, /CREATE_EVENT_TIMEZONE = "Asia\/Manila"/);
+  assert.match(createPage, /toISO\(form\.startsAt, CREATE_EVENT_TIMEZONE\)/);
+  assert.match(createPage, /timezone: CREATE_EVENT_TIMEZONE/);
+  assert.match(createPage, /isPaid: form\.isPaid/);
+  assert.match(createPage, /Create event/);
+  assert.doesNotMatch(createPage, /descriptionMarkdown,/);
+  assert.doesNotMatch(createPage, /capacity,/);
+  assert.doesNotMatch(createPage, /difficulty,/);
+  assert.doesNotMatch(createPage, /paymentMethods/);
+});
+
+test("events create and management use user-facing labels", () => {
+  const createPage = read("src/app/events/create/page.tsx");
+  const constants = read("src/features/events/constants.ts");
+  const detailPage = read("src/app/events/[slug]/client-page.tsx");
+  assert.match(createPage, /Anyone can view the event/);
+  assert.match(createPage, /Only limited details are shown publicly/);
+  assert.match(constants, /label: "Fun dive"/);
+  assert.doesNotMatch(createPage, />fun_dive</);
+  assert.match(detailPage, /Organizer setup/);
+  assert.match(detailPage, /Payment setup incomplete/);
+  assert.match(detailPage, /Full description/);
+  assert.match(detailPage, /Freediving details/);
+  assert.match(detailPage, /Safety and logistics/);
 });
 
 test("events listing links to create page and no longer owns create dialog", () => {
@@ -22,6 +61,58 @@ test("events listing links to create page and no longer owns create dialog", () 
   assert.match(eventsPage, /Load more/);
   assert.doesNotMatch(eventsPage, /DialogContent/);
   assert.doesNotMatch(eventsPage, /useCreateEvent/);
+});
+
+test("events discovery page keeps compact friendly filters", () => {
+  const eventsPage = read("src/app/events/page.tsx");
+  assert.match(
+    eventsPage,
+    /Find freediving sessions, trips, courses, and community events/,
+  );
+  assert.match(eventsPage, /Browse events/);
+  assert.match(eventsPage, /placeholder="Search events"/);
+  assert.match(eventsPage, /All dive sites/);
+  assert.match(
+    eventsPage,
+    /diveSiteId: diveSiteId === "all" \? undefined : diveSiteId/,
+  );
+  assert.match(
+    eventsPage,
+    /allOption=\{\{ value: "all", label: "All dive sites" \}\}/,
+  );
+  assert.match(eventsPage, /All types/);
+  assert.match(eventsPage, /Free or paid/);
+  assert.match(eventsPage, /Free events/);
+  assert.match(eventsPage, /Paid events/);
+  assert.match(eventsPage, /items=\{EVENT_TYPE_FILTER_ITEMS\}/);
+  assert.match(eventsPage, /items=\{PRICE_FILTER_ITEMS\}/);
+  assert.match(
+    eventsPage,
+    /setEventType\(\(value \?\? "all"\) as EventTypeFilter\)/,
+  );
+  assert.match(eventsPage, /setPrice\(\(value \?\? "all"\) as PriceFilter\)/);
+  assert.doesNotMatch(eventsPage, /difficulty/i);
+  assert.doesNotMatch(eventsPage, /beginner/i);
+  assert.doesNotMatch(eventsPage, /Default zone/);
+  assert.doesNotMatch(eventsPage, /payment instructions/i);
+  assert.doesNotMatch(eventsPage, /attendee identities/i);
+  assert.doesNotMatch(eventsPage, /placeholder="Event type"/);
+  assert.doesNotMatch(eventsPage, /placeholder="Price"/);
+});
+
+test("events empty state and cards avoid raw discovery labels", () => {
+  const eventsPage = read("src/app/events/page.tsx");
+  const eventCard = read("src/features/events/components/EventCard.tsx");
+  const eventList = read("src/features/events/components/EventList.tsx");
+  assert.match(eventsPage, /No events found/);
+  assert.match(eventsPage, /Try changing your filters or create a new event/);
+  assert.match(eventList, /No events found/);
+  assert.match(eventList, /Try changing your filters or create a new event/);
+  assert.match(eventCard, /eventOptionLabel\(event\.type\)/);
+  assert.doesNotMatch(eventCard, /titleCase\(event\.difficulty\)/);
+  assert.doesNotMatch(eventCard, />fun_dive</);
+  assert.doesNotMatch(eventCard, />pool_training</);
+  assert.doesNotMatch(eventCard, />certification_course</);
 });
 
 test("events detail exposes join, payment proof, and organizer review controls", () => {
@@ -61,7 +152,7 @@ test("events expose interested and going state without interested identities", (
 
 test("event create converts datetime-local as event timezone wall-clock time", () => {
   const createPage = read("src/app/events/create/page.tsx");
-  assert.match(createPage, /toISO\(form\.startsAt, timezone\)/);
+  assert.match(createPage, /toISO\(form\.startsAt, CREATE_EVENT_TIMEZONE\)/);
   assert.match(createPage, /Intl\.DateTimeFormat/);
   assert.match(createPage, /timeZone/);
   assert.doesNotMatch(createPage, /new Date\(value\)\.toISOString\(\)/);

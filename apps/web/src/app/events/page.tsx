@@ -1,19 +1,16 @@
 "use client";
 
-import type { EventDifficulty, EventFilters, EventType } from "@freediving.ph/types";
-import { SignInButton } from "@clerk/nextjs";
-import { CalendarClock, Compass, Plus, Search, Ticket } from "lucide-react";
+import type { EventFilters, EventType } from "@freediving.ph/types";
+import { CalendarClock, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
-  CommunityAccessNote,
   CommunityBrowseToolbar,
   CommunityEmptyState,
   CommunityHeader,
   CommunityPageShell,
-  CommunityStats,
 } from "@/components/community/community-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +26,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { DiveSiteCombobox } from "@/features/diveSpots/components/DiveSiteCombobox";
 import {
-  difficultyOptions,
   EventCard,
   eventTypeOptions,
   useEvents,
@@ -41,19 +37,29 @@ import {
 import { useSession } from "@/features/auth/session";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 
+type EventTypeFilter = EventType | "all";
+type PriceFilter = "all" | "free" | "paid";
+
+const EVENT_TYPE_FILTER_ITEMS: Array<{
+  value: EventTypeFilter;
+  label: string;
+}> = [{ value: "all", label: "All types" }, ...eventTypeOptions];
+
+const PRICE_FILTER_ITEMS: Array<{ value: PriceFilter; label: string }> = [
+  { value: "all", label: "Free or paid" },
+  { value: "free", label: "Free events" },
+  { value: "paid", label: "Paid events" },
+];
+
 export default function EventsPage() {
   const session = useSession();
   const isSignedIn = session.status === "signed_in";
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(24);
-  const [diveSiteId, setDiveSiteId] = useState("");
+  const [diveSiteId, setDiveSiteId] = useState("all");
   const [diveSiteLabel, setDiveSiteLabel] = useState("");
-  const [eventType, setEventType] = useState<EventType | "all">("all");
-  const [difficulty, setDifficulty] = useState<EventDifficulty | "all">("all");
-  const [beginnerFriendly, setBeginnerFriendly] = useState<"all" | "true">(
-    "all",
-  );
-  const [price, setPrice] = useState<"all" | "free" | "paid">("all");
+  const [eventType, setEventType] = useState<EventTypeFilter>("all");
+  const [price, setPrice] = useState<PriceFilter>("all");
   const [upcoming, setUpcoming] = useState(true);
 
   const filters = useMemo<EventFilters>(
@@ -62,23 +68,12 @@ export default function EventsPage() {
       page: 1,
       limit,
       search: search.trim() || undefined,
-      diveSiteId: diveSiteId || undefined,
+      diveSiteId: diveSiteId === "all" ? undefined : diveSiteId,
       type: eventType === "all" ? undefined : eventType,
-      difficulty: difficulty === "all" ? undefined : difficulty,
-      beginnerFriendly: beginnerFriendly === "true" ? true : undefined,
       price: price === "all" ? undefined : price,
       upcoming,
     }),
-    [
-      beginnerFriendly,
-      difficulty,
-      diveSiteId,
-      eventType,
-      limit,
-      price,
-      search,
-      upcoming,
-    ],
+    [diveSiteId, eventType, limit, price, search, upcoming],
   );
 
   const eventsQuery = useEvents(filters);
@@ -88,9 +83,6 @@ export default function EventsPage() {
   const markUninterestedMutation = useMarkEventUninterested();
   const events = eventsQuery.data?.events ?? [];
   const total = eventsQuery.data?.pagination.total ?? events.length;
-  const joinedCount = events.filter(
-    (event) => event.viewerEventState === "going",
-  ).length;
 
   const handleJoinEvent = (eventId: string) => {
     joinEventMutation.mutate(
@@ -163,66 +155,34 @@ export default function EventsPage() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Calendar"
+        eyebrow="Community"
         title="Events"
-        subtitle="Browse freediving trainings, trips, fun dives, workshops, and community sessions around the Philippines."
+        subtitle="Find freediving sessions, trips, courses, and community events."
         action={
-          !isSignedIn ? (
-            <SignInButton mode="modal">
-              <Button size="sm">Sign in to join</Button>
-            </SignInButton>
-          ) : (
-            <Button size="sm" render={<Link href="/events/create" />}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create event
-            </Button>
-          )
+          <Button size="sm" render={<Link href="/events/create" />}>
+            <Plus className="mr-1 h-4 w-4" />
+            Create event
+          </Button>
         }
       />
-
-      <CommunityStats
-        items={[
-          {
-            label: "Published",
-            value: String(total),
-            icon: <Compass className="h-3.5 w-3.5" />,
-          },
-          {
-            label: "Joined",
-            value: isSignedIn ? String(joinedCount) : "0",
-            icon: <Ticket className="h-3.5 w-3.5" />,
-          },
-          {
-            label: "Default zone",
-            value: "Asia/Manila",
-            icon: <CalendarClock className="h-3.5 w-3.5" />,
-          },
-        ]}
-      />
-
-      <CommunityAccessNote>
-        Public events expose full details. Private events can appear here, but
-        details, payment instructions, and attendee identities stay hidden until
-        you are an approved participant or organizer.
-      </CommunityAccessNote>
 
       <section className="space-y-3">
         <CommunityBrowseToolbar
           label={
             <>
-              <CalendarClock className="h-3.5 w-3.5" />
+              <Search className="h-3.5 w-3.5" />
               Browse
             </>
           }
-          title="Discover events"
-          description="Filter by dive site, event type, difficulty, price, and beginner fit."
+          title="Browse events"
+          description="Search by event name, dive site, or place."
         >
-          <div className="grid gap-2 lg:grid-cols-[1.35fr_1fr]">
+          <div className="grid gap-2 sm:grid-cols-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-10"
-                placeholder="Search events, dive sites, or places"
+                placeholder="Search events"
                 value={search}
                 onChange={(event) => {
                   setLimit(24);
@@ -232,89 +192,59 @@ export default function EventsPage() {
             </div>
             <DiveSiteCombobox
               value={diveSiteId}
-              valueLabel={diveSiteLabel}
+              valueLabel={diveSiteId === "all" ? undefined : diveSiteLabel}
               onValueChange={(value, site) => {
                 setLimit(24);
                 setDiveSiteId(value);
-                setDiveSiteLabel(
-                  site ? `${site.name} · ${site.area}` : "",
-                );
+                setDiveSiteLabel(site ? `${site.name} · ${site.area}` : "");
               }}
-              allOption={{ value: "", label: "All dive sites" }}
+              allOption={{ value: "all", label: "All dive sites" }}
+              searchPlaceholder="All dive sites"
             />
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
             <Select
               value={eventType}
               onValueChange={(value) => {
                 setLimit(24);
-                setEventType(value as EventType | "all");
+                setEventType((value ?? "all") as EventTypeFilter);
               }}
+              items={EVENT_TYPE_FILTER_ITEMS}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Event type" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                {eventTypeOptions.map((option) => (
+                {EVENT_TYPE_FILTER_ITEMS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={difficulty}
-              onValueChange={(value) => {
-                setLimit(24);
-                setDifficulty(value as EventDifficulty | "all");
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Difficulty" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All difficulty</SelectItem>
-                {difficultyOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={beginnerFriendly}
-              onValueChange={(value) => {
-                setLimit(24);
-                setBeginnerFriendly(value as "all" | "true");
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Beginner fit" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All levels</SelectItem>
-                <SelectItem value="true">Beginner-friendly</SelectItem>
               </SelectContent>
             </Select>
             <Select
               value={price}
               onValueChange={(value) => {
                 setLimit(24);
-                setPrice(value as "all" | "free" | "paid");
+                setPrice((value ?? "all") as PriceFilter);
               }}
+              items={PRICE_FILTER_ITEMS}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Price" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Free or paid</SelectItem>
-                <SelectItem value="free">Free</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
+                {PRICE_FILTER_ITEMS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button
               type="button"
+              size="sm"
+              className="w-fit justify-self-start"
               variant={upcoming ? "default" : "outline"}
               onClick={() => {
                 setLimit(24);
@@ -339,22 +269,20 @@ export default function EventsPage() {
           </Card>
         ) : events.length === 0 ? (
           <CommunityEmptyState
-            title="No matching events"
-            description="Try a broader filter or create the first session for this dive site."
+            title="No events found"
+            description="Try changing your filters or create a new event."
             icon={<CalendarClock className="h-5 w-5" />}
             action={
-              isSignedIn ? (
-                <Button size="sm" render={<Link href="/events/create" />}>
-                  Create event
-                </Button>
-              ) : null
+              <Button size="sm" render={<Link href="/events/create" />}>
+                Create event
+              </Button>
             }
           />
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
-                Showing {events.length} of {total} events
+                Showing {events.length} of {total}
               </span>
               <Badge variant="outline">
                 {upcoming ? "Upcoming only" : "All published"}

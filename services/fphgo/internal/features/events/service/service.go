@@ -255,9 +255,6 @@ func validateCreateEventInput(input *eventsrepo.CreateEventInput) error {
 	if input.ShortDescription == "" {
 		return required("shortDescription")
 	}
-	if input.DescriptionMarkdown == "" {
-		return required("descriptionMarkdown")
-	}
 	if input.DiveSiteID == "" {
 		return required("diveSiteId")
 	}
@@ -280,27 +277,20 @@ func validateCreateEventInput(input *eventsrepo.CreateEventInput) error {
 			Message: "end time must be after start time",
 		}}}
 	}
-	if input.Capacity == nil || *input.Capacity < 1 {
+	if input.Capacity != nil && *input.Capacity < 1 {
 		return ValidationFailure{Issues: []validatex.Issue{{
 			Path:    []any{"capacity"},
-			Code:    "required",
+			Code:    "invalid",
 			Message: "Capacity must be at least 1",
 		}}}
 	}
 	input.MaxAttendees = input.Capacity
 	if input.IsPaid {
-		if input.PriceAmount == nil || *input.PriceAmount < 0 {
+		if input.PriceAmount != nil && *input.PriceAmount < 0 {
 			return ValidationFailure{Issues: []validatex.Issue{{
 				Path:    []any{"priceAmount"},
-				Code:    "required",
-				Message: "Paid events require a non-negative price",
-			}}}
-		}
-		if len(input.PaymentMethods) == 0 {
-			return ValidationFailure{Issues: []validatex.Issue{{
-				Path:    []any{"paymentMethods"},
-				Code:    "required",
-				Message: "Paid events require at least one manual payment method",
+				Code:    "invalid",
+				Message: "Price must be non-negative",
 			}}}
 		}
 	} else {
@@ -982,11 +972,11 @@ func validateUpdateEventInput(input *eventsrepo.UpdateEventInput, before eventsr
 		priceAmount = input.PriceAmount
 	}
 	if isPaid {
-		if priceAmount == nil || *priceAmount < 0 {
+		if priceAmount != nil && *priceAmount < 0 {
 			return ValidationFailure{Issues: []validatex.Issue{{
 				Path:    []any{"priceAmount"},
-				Code:    "required",
-				Message: "Paid events require a non-negative price",
+				Code:    "invalid",
+				Message: "Price must be non-negative",
 			}}}
 		}
 		return nil

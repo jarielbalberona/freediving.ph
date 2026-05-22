@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "../api/events";
 import { queryKeys } from "@/lib/query/query-keys";
 import type {
+  CreateEventPaymentMethodRequest,
   CreateEventRequest,
   ReviewEventPaymentRequest,
   SubmitEventPaymentRequest,
@@ -34,6 +35,28 @@ export const useUpdateEvent = () => {
         queryKey: queryKeys.events.detail(variables.eventId),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.events.lists() });
+    },
+  });
+};
+
+export const useCreateEventPaymentMethod = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: CreateEventPaymentMethodRequest;
+    }) => eventsApi.createPaymentMethod(eventId, data),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.detail(variables.eventId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.paymentMethods(variables.eventId),
+      });
     },
   });
 };

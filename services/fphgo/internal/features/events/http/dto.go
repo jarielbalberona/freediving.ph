@@ -185,16 +185,16 @@ type UpdatePaymentMethodRequest struct {
 type CreateEventRequest struct {
 	Title               string                       `json:"title" validate:"required,min=3,max=200"`
 	ShortDescription    string                       `json:"shortDescription" validate:"required,min=3,max=500"`
-	DescriptionMarkdown string                       `json:"descriptionMarkdown" validate:"required,min=3,max=20000"`
+	DescriptionMarkdown string                       `json:"descriptionMarkdown,omitempty" validate:"omitempty,min=3,max=20000"`
 	Type                string                       `json:"type" validate:"required,oneof=intro_session pool_training line_training fun_dive depth_training certification_course workshop competition cleanup_dive trip_retreat"`
 	DiveSiteID          string                       `json:"diveSiteId" validate:"required,uuid4"`
 	StartsAt            string                       `json:"startsAt" validate:"required,datetime=2006-01-02T15:04:05Z07:00"`
 	EndsAt              string                       `json:"endsAt" validate:"required,datetime=2006-01-02T15:04:05Z07:00"`
 	Timezone            string                       `json:"timezone,omitempty" validate:"omitempty,max=80"`
-	Capacity            int                          `json:"capacity" validate:"required,min=1,max=100000"`
+	Capacity            *int                         `json:"capacity,omitempty" validate:"omitempty,min=1,max=100000"`
 	Status              string                       `json:"status,omitempty" validate:"omitempty,oneof=draft published cancelled completed"`
 	Visibility          string                       `json:"visibility" validate:"required,oneof=public private"`
-	Difficulty          string                       `json:"difficulty" validate:"required,oneof=beginner intermediate advanced expert"`
+	Difficulty          string                       `json:"difficulty,omitempty" validate:"omitempty,oneof=beginner intermediate advanced expert"`
 	RequiresApproval    bool                         `json:"requiresApproval"`
 	IsPaid              bool                         `json:"isPaid"`
 	PriceAmount         *float64                     `json:"priceAmount,omitempty" validate:"omitempty,min=0"`
