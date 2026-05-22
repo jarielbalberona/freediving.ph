@@ -90,13 +90,18 @@ func (h *Handlers) CreateGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) UpdateGroup(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
 	groupID := chi.URLParam(r, "groupId")
 	req, issues, ok := httpx.DecodeAndValidate[UpdateGroupRequest](r, h.validator)
 	if !ok {
 		httpx.WriteValidationError(w, issues)
 		return
 	}
-	group, err := h.service.UpdateGroup(r.Context(), groupID, groupsrepo.UpdateGroupInput{
+	group, err := h.service.UpdateGroupForMember(r.Context(), groupID, actorID, groupsrepo.UpdateGroupInput{
 		Name:             req.Name,
 		Bio:              req.Bio,
 		Description:      req.Description,

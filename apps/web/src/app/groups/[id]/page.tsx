@@ -1,13 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
-import { useParams, useRouter } from "next/navigation";
-import { type ReactNode, useState } from "react";
-import { toast } from "sonner";
 import {
-  ArrowLeft,
   Archive,
+  ArrowLeft,
   Check,
   Lock,
   LogOut,
@@ -19,6 +15,10 @@ import {
   Users,
   X,
 } from "lucide-react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { type ReactNode, useState } from "react";
+import { toast } from "sonner";
 
 import type {
   Group,
@@ -32,8 +32,6 @@ import {
   CommunityEmptyState,
   CommunityPageShell,
 } from "@/components/community/community-page";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +43,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -85,7 +85,7 @@ import {
 } from "@/features/groups/hooks/queries";
 import { buildDisplayLocation } from "@/features/locations/types";
 import { useUserSearch } from "@/features/profiles/hooks/queries";
-import { getApiErrorMessage } from "@/lib/http/api-error";
+import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 
 export default function GroupDetailPage() {
   const params = useParams<{ id: string }>();
@@ -93,6 +93,7 @@ export default function GroupDetailPage() {
   const groupId = typeof params?.id === "string" ? params.id : "";
   const session = useSession();
   const isSignedIn = session.status === "signed_in";
+  const viewerScope = isSignedIn ? "signed_in" : "public";
 
   const [activeTab, setActiveTab] = useState<"home" | "members">("home");
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -111,9 +112,26 @@ export default function GroupDetailPage() {
     "open",
   );
 
-  const groupQuery = useGroup(groupId);
-  const membersQuery = useGroupMembers(groupId, 1, 20);
-  const postsQuery = useGroupPosts(groupId, 1, 20);
+  const groupQuery = useGroup(
+    groupId,
+    viewerScope,
+    session.status !== "loading",
+  );
+  const canLoadGroupResources = !!groupQuery.data;
+  const membersQuery = useGroupMembers(
+    groupId,
+    1,
+    20,
+    canLoadGroupResources,
+    viewerScope,
+  );
+  const postsQuery = useGroupPosts(
+    groupId,
+    1,
+    20,
+    canLoadGroupResources,
+    viewerScope,
+  );
   const userSearchQuery = useUserSearch(inviteSearch, 8);
 
   const joinMutation = useJoinGroup();
@@ -273,6 +291,10 @@ export default function GroupDetailPage() {
     );
   }
 
+  if (groupQuery.error && getApiErrorStatus(groupQuery.error) === 403) {
+    return <GroupAccessDeniedPage />;
+  }
+
   if (groupQuery.error || !group) {
     return (
       <CommunityPageShell>
@@ -290,9 +312,7 @@ export default function GroupDetailPage() {
   const canJoin = group.visibility === "public" && group.joinPolicy === "open";
   const locationLabel = groupLocationLabel(group);
   const canManageGroup =
-    group.viewerRole === "owner" ||
-    group.viewerRole === "moderator" ||
-    session.hasPermission("groups.manage");
+    group.viewerRole === "owner" || group.viewerRole === "moderator";
   const canArchiveGroup = isSignedIn && group.createdBy === session.me?.userId;
   const actionPending =
     joinMutation.isPending ||
@@ -633,6 +653,38 @@ export default function GroupDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </CommunityPageShell>
+  );
+}
+
+function GroupAccessDeniedPage() {
+  return (
+    <CommunityPageShell>
+      <BackToGroupsButton />
+      <section className="max-w-2xl space-y-4 rounded-xl border border-border bg-card px-5 py-6 text-sm shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-muted">
+            <Lock className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="min-w-0 space-y-1.5">
+            <h1 className="text-base font-semibold text-foreground">
+              Access not allowed
+            </h1>
+            <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+              This is a private group. You need an invite or active membership
+              to view its details, members, and posts.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" render={<Link href="/groups" />}>
+            Browse groups
+          </Button>
+          <Button size="sm" variant="outline" render={<Link href="/" />}>
+            Home
+          </Button>
+        </div>
+      </section>
     </CommunityPageShell>
   );
 }

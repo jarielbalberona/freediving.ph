@@ -4,6 +4,15 @@ const toPathId = (id: string | number): string =>
 export const routes = {
   v1: {
     session: () => "/v1/auth/session",
+    admin: {
+      profiles: () => "/v1/admin/profiles",
+      diveSites: () => "/v1/admin/dive-sites",
+      groups: () => "/v1/admin/groups",
+      group: (groupId: string | number) =>
+        `/v1/admin/groups/${toPathId(groupId)}`,
+      archiveGroup: (groupId: string | number) =>
+        `/v1/admin/groups/${toPathId(groupId)}/archive`,
+    },
     messages: {
       threads: () => "/v1/messages/threads",
       unreadCount: () => "/v1/messages/unread-count",

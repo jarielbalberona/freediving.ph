@@ -1,18 +1,19 @@
 "use client";
 
-import * as React from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
-import { Info } from "lucide-react";
 import {
   getGroupedNavItems,
   getMobileSidebarNavGroups,
   isActiveRoute,
 } from "@/config/nav";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
+import { useAuth } from "@clerk/nextjs";
+import { Info, Map, Shield, UsersRound } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import * as React from "react";
 
+import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
@@ -29,10 +30,17 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
+import { useSession } from "@/features/auth/session";
 import { useMessageUnreadCount } from "@/features/messages/hooks/queries";
 
-const formatBadgeCount = (count: number) => (count > 99 ? "99+" : String(count));
+const formatBadgeCount = (count: number) =>
+  count > 99 ? "99+" : String(count);
+
+const adminLinks = [
+  { href: "/admin/buddies", title: "Buddies", icon: UsersRound },
+  { href: "/admin/dive-sites", title: "Dive Sites", icon: Map },
+  { href: "/admin/groups", title: "Groups", icon: Shield },
+];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
@@ -52,6 +60,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         isSignedIn: effectiveSignedIn ?? false,
       });
   const profileHref = useCurrentProfileHref();
+  const session = useSession();
+  const canViewAdmin = session.hasRole("super_admin");
   const messageUnreadQuery = useMessageUnreadCount(Boolean(effectiveSignedIn));
   const messageUnreadCount = messageUnreadQuery.data?.unreadCount ?? 0;
   const founderNoteActive = isActiveRoute(pathname ?? "", "/founder-note");
@@ -142,8 +152,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
+          {canViewAdmin
+            ? adminLinks.map((item) => {
+                const active = isActiveRoute(pathname ?? "", item.href);
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-2 w-full"
+                    >
+                      <SidebarMenuButton
+                        className="cursor-pointer!"
+                        isActive={active}
+                      >
+                        <item.icon />
+                        <span className="text-sm">{item.title}</span>
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                );
+              })
+            : null}
           <SidebarMenuItem>
-            <Link href="/founder-note" className="flex items-center gap-2 w-full">
+            <Link
+              href="/founder-note"
+              className="flex items-center gap-2 w-full"
+            >
               <SidebarMenuButton
                 className="cursor-pointer!"
                 isActive={founderNoteActive}

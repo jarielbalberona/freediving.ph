@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"fphgo/internal/config"
+	adminhttp "fphgo/internal/features/admin/http"
 	authhttp "fphgo/internal/features/auth/http"
 	blockshttp "fphgo/internal/features/blocks/http"
 	buddieshttp "fphgo/internal/features/buddies/http"
@@ -155,6 +156,7 @@ func collectRoutes(t *testing.T, router chi.Router) []routeSnapshotEntry {
 // patterns without invoking handlers, so nil services are safe here.
 func buildFullSurfaceRouter() chi.Router {
 	deps := &Dependencies{
+		AdminHandler:      adminhttp.New(nil),
 		AuthHandler:       authhttp.New(),
 		UsersHandler:      usershttp.New(nil, nil),
 		MessagingHandler:  messaginghttp.New(nil, nil, nil),

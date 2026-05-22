@@ -35,12 +35,14 @@ import {
 } from "@/components/ui/form";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DiveSiteCombobox,
+  formatDiveSiteOptionLabel,
+} from "@/features/diveSpots/components/DiveSiteCombobox";
 import { useCreateMediaPost, useUploadMedia } from "@/features/media/hooks";
 import { createMediaPostSchema } from "@/features/media/schemas/create-media-post.schema";
 import { getProfileRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
-
-import { DiveSitePicker } from "./DiveSitePicker";
 
 type ProfileMediaComposerProps = {
   username: string;
@@ -468,15 +470,16 @@ export function ProfileMediaComposer({
                 <FormItem>
                   <FormLabel>Dive site</FormLabel>
                   <FormControl>
-                    <DiveSitePicker
+                    <DiveSiteCombobox
                       value={field.value}
                       valueLabel={
                         selectedDiveSite
-                          ? `${selectedDiveSite.name} · ${selectedDiveSite.area}`
+                          ? formatDiveSiteOptionLabel(selectedDiveSite)
                           : undefined
                       }
-                      onValueChange={(site) => {
-                        field.onChange(site?.id ?? "");
+                      limit={12}
+                      onValueChange={(value, site) => {
+                        field.onChange(value);
                         setSelectedDiveSite(site);
                       }}
                       disabled={createPostMutation.isPending}
@@ -537,10 +540,7 @@ export function ProfileMediaComposer({
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        void uploadPhoto(
-                          activePhoto.localId,
-                          activePhoto.file,
-                        )
+                        void uploadPhoto(activePhoto.localId, activePhoto.file)
                       }
                     >
                       <RefreshCcw className="size-4" />

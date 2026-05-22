@@ -14,6 +14,26 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/admin/dive-sites"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/admin/groups"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/admin/groups/{groupId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/admin/groups/{groupId}/archive"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/admin/profiles"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/auth/session"
     },
     {

@@ -2,6 +2,7 @@ import type { ActivityFeedItem } from "./feed";
 import type { ReportReasonCode } from "./reports";
 
 export * from "./api/authz";
+export * from "./api/admin";
 export * from "./api/error";
 export * from "./api/me";
 export * from "./api/profile";

@@ -21,6 +21,7 @@ type LocationComboboxProps = {
   emptyMessage: string;
   disabled?: boolean;
   id?: string;
+  showClear?: boolean;
 };
 
 export function LocationCombobox({
@@ -34,6 +35,7 @@ export function LocationCombobox({
   emptyMessage,
   disabled,
   id,
+  showClear,
 }: LocationComboboxProps) {
   const selectedOption =
     value !== ""
@@ -56,18 +58,22 @@ export function LocationCombobox({
         onValueChange((nextValue as ComboboxOption).value);
       }}
       inputValue={inputValue}
-      onInputValueChange={(nextInputValue) => onInputValueChange(nextInputValue ?? "")}
+      onInputValueChange={(nextInputValue) =>
+        onInputValueChange(nextInputValue ?? "")
+      }
       items={options}
       filteredItems={options}
       itemToStringValue={(item) => (item as ComboboxOption).value}
       itemToStringLabel={(item) => (item as ComboboxOption).label}
-      isItemEqualToValue={(a, b) => (a as ComboboxOption).value === (b as ComboboxOption).value}
+      isItemEqualToValue={(a, b) =>
+        (a as ComboboxOption).value === (b as ComboboxOption).value
+      }
       disabled={disabled}
     >
       <ComboboxInput
         id={id}
         placeholder={searchPlaceholder}
-        showClear={!!value}
+        showClear={showClear ?? !!value}
         disabled={disabled}
         autoComplete="off"
       />

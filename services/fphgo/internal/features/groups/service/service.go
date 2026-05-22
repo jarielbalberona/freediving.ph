@@ -241,6 +241,20 @@ func (s *Service) UpdateGroup(ctx context.Context, groupID string, input groupsr
 	return updated, nil
 }
 
+func (s *Service) UpdateGroupForMember(ctx context.Context, groupID, actorID string, input groupsrepo.UpdateGroupInput) (groupsrepo.Group, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return groupsrepo.Group{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	membership, err := s.repo.GetMembership(ctx, groupID, actorID)
+	if err != nil || membership.Status != "active" {
+		return groupsrepo.Group{}, apperrors.New(http.StatusForbidden, "forbidden", "only active group managers can edit this group", nil)
+	}
+	if membership.Role != "owner" && membership.Role != "moderator" {
+		return groupsrepo.Group{}, apperrors.New(http.StatusForbidden, "forbidden", "only group owners and moderators can edit this group", nil)
+	}
+	return s.UpdateGroup(ctx, groupID, input)
+}
+
 func (s *Service) ArchiveGroup(ctx context.Context, groupID, actorID string) error {
 	if _, err := uuid.Parse(groupID); err != nil {
 		return ValidationFailure{Issues: []validatex.Issue{{

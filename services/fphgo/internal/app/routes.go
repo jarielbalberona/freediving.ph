@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"fphgo/internal/config"
+	adminhttp "fphgo/internal/features/admin/http"
 	authhttp "fphgo/internal/features/auth/http"
 	blockshttp "fphgo/internal/features/blocks/http"
 	buddieshttp "fphgo/internal/features/buddies/http"
@@ -185,6 +186,11 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 					notificationAdmin.Mount("/v1/admin/notification-outbox", notificationAdminRouter)
 				}
 			})
+			member.Group(func(admin chi.Router) {
+				if adminRouter := resolveAdminRouter(deps); adminRouter != nil {
+					admin.Mount("/v1/admin", adminRouter)
+				}
+			})
 			if authRouter := resolveAuthRouter(deps); authRouter != nil {
 				member.Mount("/v1/auth", authRouter)
 			}
@@ -204,6 +210,16 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 	})
 
 	return r
+}
+
+func resolveAdminRouter(deps *Dependencies) chi.Router {
+	if deps.AdminRoutes != nil {
+		return deps.AdminRoutes
+	}
+	if deps.AdminHandler == nil {
+		return nil
+	}
+	return adminhttp.Routes(deps.AdminHandler)
 }
 
 func resolveAuthRouter(deps *Dependencies) chi.Router {

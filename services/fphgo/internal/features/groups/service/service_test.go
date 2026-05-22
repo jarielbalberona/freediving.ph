@@ -237,6 +237,33 @@ func TestPrivateGroupsRequireInviteOnlyJoinPolicy(t *testing.T) {
 	}
 }
 
+func TestUpdateGroupForMemberRequiresActiveManager(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	repo.groups[openGroupID] = fakeGroup(openGroupID, "public", "open")
+	repo.members[key(openGroupID, testOwnerID)] = fakeMember(openGroupID, testOwnerID, "owner", "active")
+	repo.members[key(openGroupID, testMemberID)] = fakeMember(openGroupID, testMemberID, "member", "active")
+	repo.members[key(openGroupID, testInviteeID)] = fakeMember(openGroupID, testInviteeID, "moderator", "invited")
+
+	svc := New(repo)
+	newName := "Updated Group"
+
+	if _, err := svc.UpdateGroupForMember(ctx, openGroupID, testMemberID, groupsrepo.UpdateGroupInput{Name: &newName}); !hasAppError(err, http.StatusForbidden, "forbidden") {
+		t.Fatalf("UpdateGroupForMember(member) err = %v, want forbidden", err)
+	}
+	if _, err := svc.UpdateGroupForMember(ctx, openGroupID, testInviteeID, groupsrepo.UpdateGroupInput{Name: &newName}); !hasAppError(err, http.StatusForbidden, "forbidden") {
+		t.Fatalf("UpdateGroupForMember(invited moderator) err = %v, want forbidden", err)
+	}
+
+	updated, err := svc.UpdateGroupForMember(ctx, openGroupID, testOwnerID, groupsrepo.UpdateGroupInput{Name: &newName})
+	if err != nil {
+		t.Fatalf("UpdateGroupForMember(owner) returned error: %v", err)
+	}
+	if updated.Name != newName {
+		t.Fatalf("UpdateGroupForMember(owner) name = %q, want %q", updated.Name, newName)
+	}
+}
+
 func TestArchiveGroupIsCreatorOnlyAndHiddenFromLists(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeRepo()

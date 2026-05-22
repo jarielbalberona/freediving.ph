@@ -4,7 +4,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"fphgo/internal/middleware"
-	"fphgo/internal/shared/authz"
 )
 
 func Routes(h *Handlers) chi.Router {
@@ -25,12 +24,7 @@ func Routes(h *Handlers) chi.Router {
 		write.Post("/{groupId}/invites/reject", h.RejectInvite)
 		write.Post("/{groupId}/posts", h.CreateGroupPost)
 		write.Post("/{groupId}/archive", h.ArchiveGroup)
-	})
-
-	r.Group(func(manage chi.Router) {
-		manage.Use(middleware.RequireMember)
-		manage.Use(middleware.RequirePermission(authz.PermissionGroupsManage))
-		manage.Patch("/{groupId}", h.UpdateGroup)
+		write.Patch("/{groupId}", h.UpdateGroup)
 	})
 
 	return r

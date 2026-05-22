@@ -48,6 +48,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/features/auth/session";
+import {
+  DiveSiteCombobox,
+  formatDiveSiteOptionLabel,
+} from "@/features/diveSpots/components/DiveSiteCombobox";
 import { exploreApi } from "@/features/diveSpots/api/explore-v1";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 import { queryKeys } from "@/lib/query/query-keys";
@@ -57,11 +61,13 @@ type BuddiesTab = "find" | "presence" | "sites";
 
 type PresenceDraft = CreateDivePresenceRequest & {
   siteSlug: string;
+  siteLabel?: string;
   presenceId?: string;
 };
 
 type AffinityDraft = CreateDiveSiteAffinityRequest & {
   siteSlug: string;
+  siteLabel?: string;
   affinityId?: string;
 };
 
@@ -91,6 +97,11 @@ const VISIBILITY_ITEMS = [
 
 const DIVE_PRESENCE_ACCESS_NOTE =
   "Available Buddies come from active Dive Presence only. Locals and regulars come from long-term dive-site relationships and do not imply availability.";
+
+const ALL_DIVE_SITES_OPTION = {
+  value: "all",
+  label: "All dive sites",
+};
 
 const emptyPresenceDraft = (): PresenceDraft => ({
   siteSlug: "",
@@ -150,12 +161,6 @@ function BuddiesPageContent() {
     useState<PresenceDraft>(emptyPresenceDraft);
   const [affinityDraft, setAffinityDraft] =
     useState<AffinityDraft>(emptyAffinityDraft);
-
-  const sitesQuery = useQuery({
-    queryKey: queryKeys.explore.buddyPresenceSites(),
-    queryFn: () => exploreApi.listSites({ limit: 100 }),
-    staleTime: 5 * 60 * 1000,
-  });
 
   const presenceFilters = useMemo(() => {
     const range = dateRangeForFilter(dateFilter, dateFrom, dateTo);
@@ -267,7 +272,6 @@ function BuddiesPageContent() {
       ),
   });
 
-  const sites = sitesQuery.data?.items ?? [];
   const globalPresences = globalPresencesQuery.data?.items ?? [];
   const myPresences = myPresencesQuery.data?.items ?? [];
   const myAffinities = myAffinitiesQuery.data?.items ?? [];
@@ -339,7 +343,6 @@ function BuddiesPageContent() {
           >
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[560px] lg:grid-cols-4">
               <SiteSelect
-                sites={sites}
                 value={siteSlug}
                 onValueChange={setSiteSlug}
                 includeAll
@@ -446,7 +449,6 @@ function BuddiesPageContent() {
                 }
                 draft={presenceDraft}
                 setDraft={setPresenceDraft}
-                sites={sites}
                 saving={createPresence.isPending}
                 onSubmit={() => createPresence.mutate(presenceDraft)}
               />
@@ -481,7 +483,6 @@ function BuddiesPageContent() {
                 }
                 draft={affinityDraft}
                 setDraft={setAffinityDraft}
-                sites={sites}
                 saving={saveAffinity.isPending}
                 onSubmit={() => saveAffinity.mutate(affinityDraft)}
               />
@@ -511,14 +512,12 @@ function PresenceForm({
   title,
   draft,
   setDraft,
-  sites,
   saving,
   onSubmit,
 }: {
   title: string;
   draft: PresenceDraft;
   setDraft: React.Dispatch<React.SetStateAction<PresenceDraft>>;
-  sites: ExploreSiteCard[];
   saving: boolean;
   onSubmit: () => void;
 }) {
@@ -529,10 +528,16 @@ function PresenceForm({
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="Dive site">
             <SiteSelect
-              sites={sites}
               value={draft.siteSlug}
+              valueLabel={draft.siteLabel}
               onValueChange={(value) =>
                 setDraft((current) => ({ ...current, siteSlug: value }))
+              }
+              onSiteChange={(site) =>
+                setDraft((current) => ({
+                  ...current,
+                  siteLabel: site ? formatDiveSiteOptionLabel(site) : "",
+                }))
               }
             />
           </Field>
@@ -616,14 +621,12 @@ function AffinityForm({
   title,
   draft,
   setDraft,
-  sites,
   saving,
   onSubmit,
 }: {
   title: string;
   draft: AffinityDraft;
   setDraft: React.Dispatch<React.SetStateAction<AffinityDraft>>;
-  sites: ExploreSiteCard[];
   saving: boolean;
   onSubmit: () => void;
 }) {
@@ -634,10 +637,16 @@ function AffinityForm({
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="Dive site">
             <SiteSelect
-              sites={sites}
               value={draft.siteSlug}
+              valueLabel={draft.siteLabel}
               onValueChange={(value) =>
                 setDraft((current) => ({ ...current, siteSlug: value }))
+              }
+              onSiteChange={(site) =>
+                setDraft((current) => ({
+                  ...current,
+                  siteLabel: site ? formatDiveSiteOptionLabel(site) : "",
+                }))
               }
             />
           </Field>
@@ -702,39 +711,31 @@ function AffinityForm({
 }
 
 function SiteSelect({
-  sites,
   value,
+  valueLabel,
   onValueChange,
+  onSiteChange,
   includeAll = false,
 }: {
-  sites: ExploreSiteCard[];
   value: string;
+  valueLabel?: string;
   onValueChange: (value: string) => void;
+  onSiteChange?: (site: ExploreSiteCard | null) => void;
   includeAll?: boolean;
 }) {
   return (
-    <Select
-      value={includeAll ? value : value || null}
-      onValueChange={(next) => onValueChange(next ?? (includeAll ? "all" : ""))}
-      items={[
-        ...(includeAll ? [{ value: "all", label: "All dive sites" }] : []),
-        ...sites.map((site) => ({ value: site.slug, label: site.name })),
-      ]}
-    >
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select dive site" />
-      </SelectTrigger>
-      <SelectContent>
-        {includeAll ? (
-          <SelectItem value="all">All dive sites</SelectItem>
-        ) : null}
-        {sites.map((site) => (
-          <SelectItem key={site.id} value={site.slug}>
-            {site.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <DiveSiteCombobox
+      valueKey="slug"
+      value={value}
+      valueLabel={includeAll && value === "all" ? "All dive sites" : valueLabel}
+      allOption={includeAll ? ALL_DIVE_SITES_OPTION : undefined}
+      onValueChange={(nextValue, site) => {
+        onValueChange(nextValue);
+        onSiteChange?.(site);
+      }}
+      searchPlaceholder="Search dive sites"
+      limit={24}
+    />
   );
 }
 
@@ -1047,6 +1048,7 @@ function affinityPayload(draft: AffinityDraft): CreateDiveSiteAffinityRequest {
 function draftFromPresence(item: DivePresenceItem): PresenceDraft {
   return {
     siteSlug: item.diveSiteSlug ?? "",
+    siteLabel: diveSiteLabelFromParts(item.diveSiteName, item.diveSiteArea),
     presenceId: item.id,
     presenceType: item.presenceType,
     flexible: !item.startAt && !item.endAt,
@@ -1061,12 +1063,17 @@ function draftFromPresence(item: DivePresenceItem): PresenceDraft {
 function draftFromAffinity(item: DiveSiteAffinityItem): AffinityDraft {
   return {
     siteSlug: item.diveSiteSlug ?? "",
+    siteLabel: diveSiteLabelFromParts(item.diveSiteName, item.diveSiteArea),
     affinityId: item.id,
     relationship: item.relationship,
     visibility: item.visibility,
     contactEnabled: item.contactEnabled,
     note: item.note ?? "",
   };
+}
+
+function diveSiteLabelFromParts(name?: string, area?: string) {
+  return [name, area].filter(Boolean).join(" · ");
 }
 
 function dateRangeForFilter(

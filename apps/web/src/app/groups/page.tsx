@@ -1,9 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
-import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
 import {
   Check,
   Compass,
@@ -16,10 +13,12 @@ import {
   Users,
   X,
 } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import type { Group } from "@freediving.ph/types";
 
-import { useSession } from "@/features/auth/session";
 import {
   CommunityAccessNote,
   CommunityBrowseToolbar,
@@ -28,21 +27,6 @@ import {
   CommunityPageShell,
   CommunityStats,
 } from "@/components/community/community-page";
-import {
-  useAcceptGroupInvite,
-  useCreateGroup,
-  useRejectGroupInvite,
-  useJoinGroup,
-  useLeaveGroup,
-} from "@/features/groups/hooks/mutations";
-import { useGroups, useUserGroups } from "@/features/groups/hooks/queries";
-import { LocationSearch } from "@/features/locations/components";
-import {
-  buildDisplayLocation,
-  EMPTY_LOCATION_SEARCH_VALUE,
-  type LocationSearchValue,
-} from "@/features/locations/types";
-import { getApiErrorMessage } from "@/lib/http/api-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,12 +49,29 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useSession } from "@/features/auth/session";
+import {
+  useAcceptGroupInvite,
+  useCreateGroup,
+  useJoinGroup,
+  useLeaveGroup,
+  useRejectGroupInvite,
+} from "@/features/groups/hooks/mutations";
+import { useGroups, useUserGroups } from "@/features/groups/hooks/queries";
+import { LocationSearch } from "@/features/locations/components";
+import {
+  EMPTY_LOCATION_SEARCH_VALUE,
+  type LocationSearchValue,
+  buildDisplayLocation,
+} from "@/features/locations/types";
+import { getApiErrorMessage } from "@/lib/http/api-error";
 
 type VisibilityFilter = "all" | "public" | "private";
 
 export default function GroupsPage() {
   const session = useSession();
   const isSignedIn = session.status === "signed_in";
+  const viewerScope = isSignedIn ? "signed_in" : "public";
 
   const [activeTab, setActiveTab] = useState<"discover" | "mine">("discover");
   const [search, setSearch] = useState("");
@@ -98,7 +99,11 @@ export default function GroupsPage() {
     [search, visibility],
   );
 
-  const groupsQuery = useGroups(filters);
+  const groupsQuery = useGroups(
+    filters,
+    session.status !== "loading",
+    viewerScope,
+  );
   const myGroupsQuery = useUserGroups(1, 24, isSignedIn);
 
   const joinMutation = useJoinGroup();

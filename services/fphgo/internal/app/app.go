@@ -9,6 +9,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"fphgo/internal/config"
+	adminhttp "fphgo/internal/features/admin/http"
+	adminrepo "fphgo/internal/features/admin/repo"
+	adminservice "fphgo/internal/features/admin/service"
 	authhttp "fphgo/internal/features/auth/http"
 	blockshttp "fphgo/internal/features/blocks/http"
 	blocksrepo "fphgo/internal/features/blocks/repo"
@@ -76,6 +79,7 @@ type App struct {
 }
 
 type Dependencies struct {
+	AdminHandler             *adminhttp.Handlers
 	AuthHandler              *authhttp.Handlers
 	UsersHandler             *usershttp.Handlers
 	MessagingHandler         *messaginghttp.Handlers
@@ -95,6 +99,7 @@ type Dependencies struct {
 	EventsHandler            *eventshttp.Handlers
 	LocationsHandler         *locationshttp.Handlers
 	HomeHandler              *homehttp.Handlers
+	AdminRoutes              chi.Router
 	AuthRoutes               chi.Router
 	UsersRoutes              chi.Router
 	MessagingRoutes          chi.Router
@@ -275,6 +280,9 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	homeRepo := homerepo.New(pool)
 	homeService := homeservice.New(homeRepo, homeservice.WithForecastProvider(homeservice.NewOpenMeteoProvider()))
 	homeHandler := homehttp.New(homeService)
+	adminRepo := adminrepo.New(pool)
+	adminService := adminservice.New(adminRepo)
+	adminHandler := adminhttp.New(adminService)
 	var siteGeocoder *sharedmapsgeocode.Client
 	siteGeocoder, err = sharedmapsgeocode.New(cfg.GoogleMapsAPIKey)
 	if err != nil {
@@ -311,6 +319,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	wsHandler := ws.NewHandler(logger, hub, userService, cfg.CORSOrigins)
 
 	return &Dependencies{
+		AdminHandler:         adminHandler,
 		AuthHandler:          authHandler,
 		UsersHandler:         usersHandler,
 		MessagingHandler:     messagingHandler,
