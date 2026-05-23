@@ -1744,6 +1744,14 @@ export function EventCompetitionPrizesClient({
         navigation={<BackToEventButton event={event} />}
       />
 
+      {competition.coverPhotoUrl ? (
+        <img
+          src={competition.coverPhotoUrl}
+          alt={`${competition.name} cover photo`}
+          className="aspect-[16/7] w-full rounded-xl object-cover"
+        />
+      ) : null}
+
       <Tabs defaultValue="details" className="gap-5">
         <TabsList className={manageTabsListClassName}>
           <TabsTrigger value="details" className={manageTabTriggerClassName}>
