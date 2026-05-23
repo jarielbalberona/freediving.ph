@@ -1073,7 +1073,9 @@ export function EventPassVerificationClient({
   return (
     <CommunityPageShell>
       <CommunityHeader
-        title={pass.canManage && !pass.isOwner ? "Valid event pass" : "My event pass"}
+        title={
+          pass.canManage && !pass.isOwner ? "Valid event pass" : "My event pass"
+        }
         subtitle={pass.event.title}
         navigation={<BackToEventButton event={pass.event} />}
       >
@@ -3563,10 +3565,8 @@ function ParticipantsSection({
           item.role === "organizer" ? 0 : 1;
         const byRole = roleRank(left) - roleRank(right);
         if (byRole !== 0) return byRole;
-        return (
-          (left.displayName || left.username || left.userId).localeCompare(
-            right.displayName || right.username || right.userId,
-          )
+        return (left.displayName || left.username || left.userId).localeCompare(
+          right.displayName || right.username || right.userId,
         );
       }),
     [participants],
@@ -3946,34 +3946,32 @@ function EventPassDialog({
             Copy pass link
           </Button>
           {onRegeneratePass ? (
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button variant="outline" disabled={regenerating} />
-              }
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              {regenerating ? "Regenerating..." : "Regenerate QR"}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Regenerate QR?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This invalidates the current event pass link. Use it only when
-                  the old QR should stop working.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => onRegeneratePass(participant.id)}
-                >
-                  Regenerate QR
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        ) : null}
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={<Button variant="outline" disabled={regenerating} />}
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                {regenerating ? "Regenerating..." : "Regenerate QR"}
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Regenerate QR?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This invalidates the current event pass link. Use it only
+                    when the old QR should stop working.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onRegeneratePass(participant.id)}
+                  >
+                    Regenerate QR
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -5024,15 +5022,15 @@ function getViewerStateLabel(state: Event["viewerEventState"]) {
 function getPaymentStatusLabel(status: EventPaymentStatus) {
   switch (status) {
     case "not_required":
-      return "No payment required";
+      return "Not required";
     case "pending_upload":
-      return "Upload payment proof";
+      return "Pending payment";
     case "submitted":
-      return "Proof submitted";
+      return "Submitted";
     case "verified":
-      return "Payment verified";
+      return "Verified";
     case "rejected":
-      return "Payment rejected";
+      return "Rejected";
     default:
       return titleCase(status);
   }

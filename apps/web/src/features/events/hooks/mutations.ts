@@ -129,7 +129,9 @@ export const useMarkEventInterested = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.myPass(variables.eventId),
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.events.passVerifications() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.detail(event.slug),
       });
@@ -152,7 +154,9 @@ export const useMarkEventUninterested = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.myPass(variables.eventId),
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.events.passVerifications() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.detail(event.slug),
       });
@@ -180,7 +184,9 @@ export const useApproveEventParticipant = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.myPass(variables.eventId),
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.events.passVerifications() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.events.lists() });
     },
   });
@@ -205,7 +211,9 @@ export const useRejectEventParticipant = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.myPass(variables.eventId),
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.events.passVerifications() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.events.lists() });
     },
   });
@@ -227,7 +235,9 @@ export const useSubmitEventPayment = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.myPass(variables.eventId),
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.events.passVerifications() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
     },
   });
 };
@@ -255,7 +265,9 @@ export const useVerifyEventPayment = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.myPass(variables.eventId),
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.events.passVerifications() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
     },
   });
 };
@@ -283,7 +295,9 @@ export const useRejectEventPayment = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.myPass(variables.eventId),
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.events.passVerifications() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
     },
   });
 };
@@ -309,7 +323,9 @@ export const useRegenerateEventPass = () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.detail(variables.eventId),
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.events.passVerifications() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
     },
   });
 };

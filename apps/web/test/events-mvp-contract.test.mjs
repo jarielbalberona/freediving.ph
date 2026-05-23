@@ -320,6 +320,39 @@ test("events detail exposes participant role management only through organizer c
   assert.match(detailPage, /event\.viewerCanManage/);
 });
 
+test("events detail exposes event pass QR without raw QR payload data", () => {
+  const detailPage = read("src/app/events/[slug]/client-page.tsx");
+  const passPage = read("src/app/events/[slug]/pass/[token]/page.tsx");
+  const api = read("src/features/events/api/events.ts");
+  const queries = read("src/features/events/hooks/queries.ts");
+  const mutations = read("src/features/events/hooks/mutations.ts");
+  assert.match(detailPage, /EventPassDialog/);
+  assert.match(detailPage, /QRCodeSVG/);
+  assert.match(detailPage, /Scan this QR to verify this event pass/);
+  assert.match(detailPage, /Copy pass link/);
+  assert.match(detailPage, /Regenerate QR/);
+  assert.match(detailPage, /AlertDialogTitle>Regenerate QR/);
+  assert.match(detailPage, /My event pass/);
+  assert.match(detailPage, /canShowEventPass/);
+  assert.match(detailPage, /getEventPassUrl/);
+  assert.match(detailPage, /window\.location\.origin/);
+  assert.ok(!detailPage.toLowerCase().includes("json.stringify(qr"));
+  assert.match(passPage, /EventPassVerificationClient/);
+  assert.match(api, /\/pass\/\$\{encodeURIComponent\(token\)\}/);
+  assert.match(api, /regenerate-pass/);
+  assert.match(queries, /useEventPassVerification/);
+  assert.match(mutations, /passVerifications/);
+});
+
+test("events pass labels use normalized payment status copy", () => {
+  const detailPage = read("src/app/events/[slug]/client-page.tsx");
+  assert.match(detailPage, /case "verified":\s*return "Verified"/);
+  assert.match(detailPage, /case "submitted":\s*return "Submitted"/);
+  assert.match(detailPage, /case "pending_upload":\s*return "Pending payment"/);
+  assert.match(detailPage, /case "rejected":\s*return "Rejected"/);
+  assert.match(detailPage, /case "not_required":\s*return "Not required"/);
+});
+
 test("events module Select usage supplies label items for Base UI", () => {
   const createPage = read("src/app/events/create/page.tsx");
   const detailPage = read("src/app/events/[slug]/client-page.tsx");

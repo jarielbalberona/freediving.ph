@@ -573,8 +573,8 @@ func TestVerifyEventPassAllowsOwnerAndOrganizerOnly(t *testing.T) {
 
 	t.Run("owner can view own pass", func(t *testing.T) {
 		repo := &eventsRepoStub{
-			event:       eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
-			participant: participant,
+			event:        eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
+			participant:  participant,
 			canManageSet: true,
 			canManage:    false,
 		}
@@ -589,8 +589,8 @@ func TestVerifyEventPassAllowsOwnerAndOrganizerOnly(t *testing.T) {
 
 	t.Run("organizer can verify member pass", func(t *testing.T) {
 		repo := &eventsRepoStub{
-			event:       eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
-			participant: participant,
+			event:        eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
+			participant:  participant,
 			canManageSet: true,
 			canManage:    true,
 		}
@@ -605,8 +605,8 @@ func TestVerifyEventPassAllowsOwnerAndOrganizerOnly(t *testing.T) {
 
 	t.Run("unrelated user is forbidden", func(t *testing.T) {
 		repo := &eventsRepoStub{
-			event:       eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
-			participant: participant,
+			event:        eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
+			participant:  participant,
 			canManageSet: true,
 			canManage:    false,
 		}
