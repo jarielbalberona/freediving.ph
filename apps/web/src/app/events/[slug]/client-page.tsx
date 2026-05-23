@@ -133,14 +133,12 @@ import { mediaApi } from "@/features/media/api/media";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 
 type EventTab =
+  | "updates"
   | "overview"
-  | "join"
   | "participants"
   | "prizes"
   | "sponsors"
-  | "posts"
-  | "payment"
-  | "manage";
+  | "payment";
 
 const eventTabsListClassName =
   "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto rounded-none border-b border-border/70 bg-transparent px-3 sm:mx-0 sm:w-full sm:px-0";
@@ -150,7 +148,7 @@ const eventTabTriggerClassName =
 export default function EventDetailClient({ slug }: { slug: string }) {
   const session = useSession();
   const isSignedIn = session.status === "signed_in";
-  const [activeTab, setActiveTab] = useState<EventTab>("overview");
+  const [activeTab, setActiveTab] = useState<EventTab>("updates");
   const [joinNote, setJoinNote] = useState("");
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -171,9 +169,9 @@ export default function EventDetailClient({ slug }: { slug: string }) {
   const canFetchPosts =
     Boolean(eventId) &&
     Boolean(event) &&
+    Boolean(event?.postsEnabled) &&
     (event?.viewerCanManage ||
-      (event?.postsEnabled &&
-        event?.viewerParticipation?.status === "confirmed"));
+      event?.viewerParticipation?.status === "confirmed");
   const participantsQuery = useEventParticipants(
     eventId,
     Boolean(eventId) &&
@@ -252,7 +250,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
   const selectedPaymentMethod =
     paymentMethods.find((method) => method.id === selectedPaymentMethodId) ??
     paymentMethods[0];
-  const canShowJoinTab =
+  const canShowJoinPanel =
     !event.viewerCanManage &&
     (isSignedIn || event.viewerEventState !== "anonymous");
   const canShowParticipantsTab =
@@ -260,22 +258,22 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     event.viewerCanViewPrivateDetails ||
     event.viewerCanManage;
   const canShowPrizeSponsorTabs = canSeePrivateDetails || event.viewerCanManage;
-  const canShowPostsTab =
+  const canShowUpdatesTab =
     event.viewerCanManage || event.viewerParticipation?.status === "confirmed";
   const canShowPaymentTab =
-    event.isPaid && (event.viewerJoined || event.viewerCanManage);
-  const canShowManageTab = event.viewerCanManage;
+    canSeePrivateDetails &&
+    (!event.isPaid || event.viewerJoined || event.viewerCanManage);
   const visibleTabs: EventTab[] = [
+    ...(canShowUpdatesTab ? (["updates"] as const) : []),
     "overview",
-    ...(canShowJoinTab ? (["join"] as const) : []),
     ...(canShowParticipantsTab ? (["participants"] as const) : []),
     ...(canShowPrizeSponsorTabs ? (["prizes"] as const) : []),
     ...(canShowPrizeSponsorTabs ? (["sponsors"] as const) : []),
-    ...(canShowPostsTab ? (["posts"] as const) : []),
     ...(canShowPaymentTab ? (["payment"] as const) : []),
-    ...(canShowManageTab ? (["manage"] as const) : []),
   ];
-  const currentTab = visibleTabs.includes(activeTab) ? activeTab : "overview";
+  const currentTab = visibleTabs.includes(activeTab)
+    ? activeTab
+    : (visibleTabs[0] ?? "overview");
 
   const handleJoin = () => {
     joinMutation.mutate(
@@ -416,11 +414,15 @@ export default function EventDetailClient({ slug }: { slug: string }) {
       <EventHeader
         event={event}
         canSeePrivateDetails={canSeePrivateDetails}
-        canShowJoinTab={canShowJoinTab}
-        canShowManageTab={canShowManageTab}
+        canShowJoinPanel={canShowJoinPanel}
         canShowPaymentTab={canShowPaymentTab}
         isSignedIn={isSignedIn}
         onSelectTab={setActiveTab}
+        onJoinAction={() =>
+          document
+            .getElementById("event-join-actions")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
       />
 
       {!canSeePrivateDetails ? (
@@ -430,12 +432,44 @@ export default function EventDetailClient({ slug }: { slug: string }) {
         </PrivacyNotice>
       ) : null}
 
+      {canShowJoinPanel ? (
+        <div id="event-join-actions" className="scroll-mt-4">
+          <JoinTab
+            event={event}
+            isSignedIn={isSignedIn}
+            joinNote={joinNote}
+            setJoinNote={setJoinNote}
+            joinDialogOpen={joinDialogOpen}
+            setJoinDialogOpen={setJoinDialogOpen}
+            onJoin={handleJoin}
+            onLeave={handleLeave}
+            onMarkInterested={handleMarkInterested}
+            onMarkUninterested={handleMarkUninterested}
+            isJoining={joinMutation.isPending}
+            isLeaving={leaveMutation.isPending}
+            isInterestPending={
+              markInterestedMutation.isPending ||
+              markUninterestedMutation.isPending
+            }
+          />
+        </div>
+      ) : null}
+
       <Tabs
         value={currentTab}
         onValueChange={(value) => setActiveTab(value as EventTab)}
         className="gap-4"
       >
         <TabsList variant="line" className={eventTabsListClassName}>
+          {canShowUpdatesTab ? (
+            <TabsTrigger
+              value="updates"
+              className={eventTabTriggerClassName}
+              onClick={() => setActiveTab("updates")}
+            >
+              Updates
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger
             value="overview"
             className={eventTabTriggerClassName}
@@ -443,15 +477,6 @@ export default function EventDetailClient({ slug }: { slug: string }) {
           >
             Overview
           </TabsTrigger>
-          {canShowJoinTab ? (
-            <TabsTrigger
-              value="join"
-              className={eventTabTriggerClassName}
-              onClick={() => setActiveTab("join")}
-            >
-              Join
-            </TabsTrigger>
-          ) : null}
           {canShowParticipantsTab ? (
             <TabsTrigger
               value="participants"
@@ -479,15 +504,6 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               Sponsors
             </TabsTrigger>
           ) : null}
-          {canShowPostsTab ? (
-            <TabsTrigger
-              value="posts"
-              className={eventTabTriggerClassName}
-              onClick={() => setActiveTab("posts")}
-            >
-              Posts
-            </TabsTrigger>
-          ) : null}
           {canShowPaymentTab ? (
             <TabsTrigger
               value="payment"
@@ -497,16 +513,20 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               Payment
             </TabsTrigger>
           ) : null}
-          {canShowManageTab ? (
-            <TabsTrigger
-              value="manage"
-              className={eventTabTriggerClassName}
-              onClick={() => setActiveTab("manage")}
-            >
-              Manage
-            </TabsTrigger>
-          ) : null}
         </TabsList>
+
+        {canShowUpdatesTab ? (
+          <TabsContent value="updates" className="space-y-4">
+            <PostsTab
+              event={event}
+              posts={postsQuery.data ?? []}
+              isLoading={postsQuery.isLoading}
+              error={postsQuery.error}
+              viewerUserId={session.me?.userId}
+              mode="public"
+            />
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="overview" className="space-y-6">
           <OverviewTab
@@ -514,29 +534,6 @@ export default function EventDetailClient({ slug }: { slug: string }) {
             canSeePrivateDetails={canSeePrivateDetails}
           />
         </TabsContent>
-
-        {canShowJoinTab ? (
-          <TabsContent value="join" className="space-y-4">
-            <JoinTab
-              event={event}
-              isSignedIn={isSignedIn}
-              joinNote={joinNote}
-              setJoinNote={setJoinNote}
-              joinDialogOpen={joinDialogOpen}
-              setJoinDialogOpen={setJoinDialogOpen}
-              onJoin={handleJoin}
-              onLeave={handleLeave}
-              onMarkInterested={handleMarkInterested}
-              onMarkUninterested={handleMarkUninterested}
-              isJoining={joinMutation.isPending}
-              isLeaving={leaveMutation.isPending}
-              isInterestPending={
-                markInterestedMutation.isPending ||
-                markUninterestedMutation.isPending
-              }
-            />
-          </TabsContent>
-        ) : null}
 
         {canShowParticipantsTab ? (
           <TabsContent value="participants" className="space-y-4">
@@ -620,6 +617,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
                   ? proofUrlMutation.variables?.paymentId
                   : undefined
               }
+              showOrganizerActions={false}
             />
           </TabsContent>
         ) : null}
@@ -632,6 +630,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               prizes={prizesQuery.data ?? []}
               isLoading={competitionsQuery.isLoading || prizesQuery.isLoading}
               error={competitionsQuery.error || prizesQuery.error}
+              readOnly
             />
           </TabsContent>
         ) : null}
@@ -643,18 +642,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               sponsors={sponsorsQuery.data ?? []}
               isLoading={sponsorsQuery.isLoading}
               error={sponsorsQuery.error}
-            />
-          </TabsContent>
-        ) : null}
-
-        {canShowPostsTab ? (
-          <TabsContent value="posts" className="space-y-4">
-            <PostsTab
-              event={event}
-              posts={postsQuery.data ?? []}
-              isLoading={postsQuery.isLoading}
-              error={postsQuery.error}
-              viewerUserId={session.me?.userId}
+              readOnly
             />
           </TabsContent>
         ) : null}
@@ -680,22 +668,251 @@ export default function EventDetailClient({ slug }: { slug: string }) {
                   ? proofUrlMutation.variables?.paymentId
                   : undefined
               }
-              onManagePayment={() => setActiveTab("manage")}
-            />
-          </TabsContent>
-        ) : null}
-
-        {canShowManageTab ? (
-          <TabsContent value="manage" className="space-y-4">
-            <OrganizerManageTab
-              event={event}
-              onSaved={() => {
-                void eventQuery.refetch();
-              }}
+              onManagePaymentHref={`/events/${encodeURIComponent(event.slug)}/manage#setup`}
             />
           </TabsContent>
         ) : null}
       </Tabs>
+    </CommunityPageShell>
+  );
+}
+
+export function EventManageClient({ slug }: { slug: string }) {
+  const session = useSession();
+  const eventQuery = useEvent(slug);
+  const event = eventQuery.data;
+  const eventId = event?.id ?? "";
+  const canManage = Boolean(eventId) && Boolean(event?.viewerCanManage);
+  const participantsQuery = useEventParticipants(eventId, canManage);
+  const competitionsQuery = useEventCompetitions(eventId, canManage);
+  const prizesQuery = useEventPrizes(eventId, canManage);
+  const sponsorsQuery = useEventSponsors(eventId, canManage);
+  const postsQuery = useEventPosts(
+    eventId,
+    canManage && Boolean(event?.postsEnabled),
+  );
+  const approveParticipantMutation = useApproveEventParticipant();
+  const rejectParticipantMutation = useRejectEventParticipant();
+  const verifyPaymentMutation = useVerifyEventPayment();
+  const rejectPaymentMutation = useRejectEventPayment();
+  const proofUrlMutation = useEventPaymentProofUrl();
+  const updateParticipantRoleMutation = useUpdateEventParticipantRole();
+
+  const participants = useMemo(
+    () =>
+      participantsQuery.data?.participants ??
+      participantsQuery.data?.attendees ??
+      [],
+    [participantsQuery.data],
+  );
+
+  if (eventQuery.isLoading) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Opening management"
+          subtitle="Loading event operations."
+          navigation={<BackButton />}
+        />
+        <div className="space-y-3">
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-44 w-full rounded-xl" />
+        </div>
+      </CommunityPageShell>
+    );
+  }
+
+  if (eventQuery.error || !event) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Event unavailable"
+          subtitle="This event is taking longer than expected to open."
+          navigation={<BackButton />}
+        />
+        <Card className="border-destructive/30 bg-destructive/5 py-0">
+          <CardContent className="p-3 text-sm text-destructive">
+            {getApiErrorMessage(
+              eventQuery.error,
+              "This event could not be opened. Try again in a moment.",
+            )}
+          </CardContent>
+        </Card>
+      </CommunityPageShell>
+    );
+  }
+
+  if (!event.viewerCanManage) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Manage event"
+          subtitle="You do not have permission to manage this event."
+          navigation={<BackToEventButton event={event} />}
+        />
+        <StatusPanel
+          title="Organizer access required"
+          description="Only event organizers can open this workspace."
+        />
+      </CommunityPageShell>
+    );
+  }
+
+  const handleViewPaymentProof = (paymentId: string) => {
+    proofUrlMutation.mutate(
+      { eventId: event.id, paymentId },
+      {
+        onSuccess: (proof) => {
+          window.open(proof.url, "_blank", "noopener,noreferrer");
+        },
+        onError: (error) => {
+          toast.error(
+            getApiErrorMessage(error, "Payment proof could not be opened"),
+          );
+        },
+      },
+    );
+  };
+
+  return (
+    <CommunityPageShell>
+      <CommunityHeader
+        title={event.title}
+        subtitle="Manage event"
+        navigation={<BackToEventButton event={event} />}
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="outline" className="h-6 px-2 text-[11px]">
+            {event.status}
+          </Badge>
+          <Badge variant="outline" className="h-6 px-2 text-[11px]">
+            {event.visibility === "private" ? "Private" : "Public"}
+          </Badge>
+          <Badge variant="outline" className="h-6 px-2 text-[11px]">
+            {event.isPaid ? "Paid" : "Free"}
+          </Badge>
+        </div>
+      </CommunityHeader>
+
+      <div className="space-y-8">
+        <section id="setup" className="scroll-mt-4">
+          <OrganizerManageTab
+            event={event}
+            onSaved={() => {
+              void eventQuery.refetch();
+            }}
+          />
+        </section>
+
+        <section id="participants" className="scroll-mt-4">
+          <ParticipantsSection
+            event={event}
+            participants={participants}
+            isLoading={participantsQuery.isLoading}
+            error={participantsQuery.error}
+            onApprove={(participantId) =>
+              approveParticipantMutation.mutate(
+                { eventId: event.id, participantId },
+                {
+                  onSuccess: () => toast.success("Participant approved."),
+                  onError: (error) =>
+                    toast.error(
+                      getApiErrorMessage(error, "Failed to approve participant"),
+                    ),
+                },
+              )
+            }
+            onReject={(participantId) =>
+              rejectParticipantMutation.mutate(
+                { eventId: event.id, participantId },
+                {
+                  onSuccess: () => toast.success("Participant rejected."),
+                  onError: (error) =>
+                    toast.error(
+                      getApiErrorMessage(error, "Failed to reject participant"),
+                    ),
+                },
+              )
+            }
+            onUpdateRole={(participantId, role) =>
+              updateParticipantRoleMutation.mutate(
+                { eventId: event.id, participantId, data: { role } },
+                {
+                  onSuccess: () => toast.success("Participant role updated."),
+                  onError: (error) =>
+                    toast.error(
+                      getApiErrorMessage(
+                        error,
+                        "Failed to update participant role",
+                      ),
+                    ),
+                },
+              )
+            }
+            onVerifyPayment={(paymentId) =>
+              verifyPaymentMutation.mutate(
+                { eventId: event.id, paymentId },
+                {
+                  onSuccess: () => toast.success("Payment verified."),
+                  onError: (error) =>
+                    toast.error(
+                      getApiErrorMessage(error, "Failed to verify payment"),
+                    ),
+                },
+              )
+            }
+            onRejectPayment={(paymentId) =>
+              rejectPaymentMutation.mutate(
+                { eventId: event.id, paymentId },
+                {
+                  onSuccess: () => toast.success("Payment rejected."),
+                  onError: (error) =>
+                    toast.error(
+                      getApiErrorMessage(error, "Failed to reject payment"),
+                    ),
+                },
+              )
+            }
+            onViewPaymentProof={handleViewPaymentProof}
+            viewingPaymentProofId={
+              proofUrlMutation.isPending
+                ? proofUrlMutation.variables?.paymentId
+                : undefined
+            }
+            showOrganizerActions
+          />
+        </section>
+
+        <section id="updates" className="scroll-mt-4">
+          <PostsTab
+            event={event}
+            posts={postsQuery.data ?? []}
+            isLoading={postsQuery.isLoading}
+            error={postsQuery.error}
+            viewerUserId={session.me?.userId}
+            mode="manage"
+          />
+        </section>
+
+        <section id="prizes" className="scroll-mt-4">
+          <PrizesTab
+            event={event}
+            competitions={competitionsQuery.data ?? []}
+            prizes={prizesQuery.data ?? []}
+            isLoading={competitionsQuery.isLoading || prizesQuery.isLoading}
+            error={competitionsQuery.error || prizesQuery.error}
+          />
+        </section>
+
+        <section id="sponsors" className="scroll-mt-4">
+          <SponsorsTab
+            event={event}
+            sponsors={sponsorsQuery.data ?? []}
+            isLoading={sponsorsQuery.isLoading}
+            error={sponsorsQuery.error}
+          />
+        </section>
+      </div>
     </CommunityPageShell>
   );
 }
@@ -714,22 +931,36 @@ function BackButton() {
   );
 }
 
+function BackToEventButton({ event }: { event: Event }) {
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      nativeButton={false}
+      render={<Link href={`/events/${encodeURIComponent(event.slug)}`} />}
+    >
+      <ArrowLeft className="mr-1 h-4 w-4" />
+      Back to event
+    </Button>
+  );
+}
+
 function EventHeader({
   event,
   canSeePrivateDetails,
-  canShowJoinTab,
-  canShowManageTab,
+  canShowJoinPanel,
   canShowPaymentTab,
   isSignedIn,
   onSelectTab,
+  onJoinAction,
 }: {
   event: Event;
   canSeePrivateDetails: boolean;
-  canShowJoinTab: boolean;
-  canShowManageTab: boolean;
+  canShowJoinPanel: boolean;
   canShowPaymentTab: boolean;
   isSignedIn: boolean;
   onSelectTab: (tab: EventTab) => void;
+  onJoinAction: () => void;
 }) {
   const privateLocked = event.visibility === "private" && !canSeePrivateDetails;
   const subtitle =
@@ -757,11 +988,11 @@ function EventHeader({
       action={
         <HeaderAction
           event={event}
-          canShowJoinTab={canShowJoinTab}
-          canShowManageTab={canShowManageTab}
+          canShowJoinPanel={canShowJoinPanel}
           canShowPaymentTab={canShowPaymentTab}
           isSignedIn={isSignedIn}
           onSelectTab={onSelectTab}
+          onJoinAction={onJoinAction}
         />
       }
     >
@@ -816,22 +1047,26 @@ function EventHeader({
 
 function HeaderAction({
   event,
-  canShowJoinTab,
-  canShowManageTab,
+  canShowJoinPanel,
   canShowPaymentTab,
   isSignedIn,
   onSelectTab,
+  onJoinAction,
 }: {
   event: Event;
-  canShowJoinTab: boolean;
-  canShowManageTab: boolean;
+  canShowJoinPanel: boolean;
   canShowPaymentTab: boolean;
   isSignedIn: boolean;
   onSelectTab: (tab: EventTab) => void;
+  onJoinAction: () => void;
 }) {
-  if (canShowManageTab) {
+  if (event.viewerCanManage) {
     return (
-      <Button size="sm" onClick={() => onSelectTab("manage")}>
+      <Button
+        size="sm"
+        nativeButton={false}
+        render={<Link href={`/events/${encodeURIComponent(event.slug)}/manage`} />}
+      >
         <Pencil className="mr-1 h-4 w-4" />
         Manage
       </Button>
@@ -855,9 +1090,9 @@ function HeaderAction({
     );
   }
 
-  if (canShowJoinTab) {
+  if (canShowJoinPanel) {
     return (
-      <Button size="sm" onClick={() => onSelectTab("join")}>
+      <Button size="sm" onClick={onJoinAction}>
         {event.viewerJoined ? "View status" : "Join"}
       </Button>
     );
@@ -996,9 +1231,17 @@ function OverviewTab({
       ) : null}
 
       {hasMissingDetails ? (
-        <PrivacyNotice>
-          Some event details are missing. Add them from Manage.
-        </PrivacyNotice>
+        <Button
+          size="sm"
+          variant="link"
+          className="h-auto px-0"
+          nativeButton={false}
+          render={
+            <Link href={`/events/${encodeURIComponent(event.slug)}/manage`} />
+          }
+        >
+          Manage details
+        </Button>
       ) : null}
     </div>
   );
@@ -1196,12 +1439,14 @@ function PrizesTab({
   prizes,
   isLoading,
   error,
+  readOnly = false,
 }: {
   event: Event;
   competitions: EventCompetition[];
   prizes: EventPrize[];
   isLoading: boolean;
   error: unknown;
+  readOnly?: boolean;
 }) {
   const createCompetitionMutation = useCreateEventCompetition();
   const updateCompetitionMutation = useUpdateEventCompetition();
@@ -1350,7 +1595,19 @@ function PrizesTab({
   return (
     <div className="space-y-5">
       <DetailSection title="Prizes and competitions">
-        {event.viewerCanManage ? (
+        {event.viewerCanManage && readOnly ? (
+          <Button
+            size="sm"
+            variant="outline"
+            nativeButton={false}
+            render={
+              <Link href={`/events/${encodeURIComponent(event.slug)}/manage#prizes`} />
+            }
+          >
+            Manage prizes
+          </Button>
+        ) : null}
+        {event.viewerCanManage && !readOnly ? (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => openCompetitionDialog()}>
               <Plus className="mr-1 h-4 w-4" />
@@ -1390,7 +1647,7 @@ function PrizesTab({
                   <ChikaMarkdown content={competition.rulesMarkdown} />
                 </div>
               ) : null}
-              {event.viewerCanManage ? (
+              {event.viewerCanManage && !readOnly ? (
                 <Button
                   size="sm"
                   variant="outline"
@@ -1403,6 +1660,7 @@ function PrizesTab({
                 event={event}
                 prizes={prizesByCompetition.get(competition.id) ?? []}
                 onEdit={openPrizeDialog}
+                readOnly={readOnly}
               />
             </DetailSection>
           ))}
@@ -1412,6 +1670,7 @@ function PrizesTab({
                 event={event}
                 prizes={generalPrizes}
                 onEdit={openPrizeDialog}
+                readOnly={readOnly}
               />
             </DetailSection>
           ) : null}
@@ -1520,6 +1779,13 @@ function PrizesTab({
             <SetupField label="Competition">
               <Select
                 value={prizeCompetitionId}
+                items={[
+                  { value: "general", label: "General event prize" },
+                  ...competitions.map((competition) => ({
+                    value: competition.id,
+                    label: competition.name,
+                  })),
+                ]}
                 onValueChange={(value) =>
                   setPrizeCompetitionId(value ?? "general")
                 }
@@ -1540,6 +1806,7 @@ function PrizesTab({
             <SetupField label="Placement">
               <Select
                 value={prizePlacement}
+                items={prizePlacementOptions}
                 onValueChange={(value) =>
                   setPrizePlacement(value as EventPrizePlacement)
                 }
@@ -1568,6 +1835,10 @@ function PrizesTab({
             <SetupField label="Type">
               <Select
                 value={prizeType || "none"}
+                items={[
+                  { value: "none", label: "Not set" },
+                  ...prizeTypeOptions,
+                ]}
                 onValueChange={(value) =>
                   setPrizeType(
                     value === "none" ? "" : (value as EventPrizeType),
@@ -1655,10 +1926,12 @@ function PrizeList({
   event,
   prizes,
   onEdit,
+  readOnly = false,
 }: {
   event: Event;
   prizes: EventPrize[];
   onEdit: (prize: EventPrize) => void;
+  readOnly?: boolean;
 }) {
   if (prizes.length === 0) {
     return (
@@ -1692,7 +1965,7 @@ function PrizeList({
                 {prize.title}
               </h3>
             </div>
-            {event.viewerCanManage ? (
+            {event.viewerCanManage && !readOnly ? (
               <Button size="sm" variant="outline" onClick={() => onEdit(prize)}>
                 Edit prize
               </Button>
@@ -1715,11 +1988,13 @@ function SponsorsTab({
   sponsors,
   isLoading,
   error,
+  readOnly = false,
 }: {
   event: Event;
   sponsors: EventSponsor[];
   isLoading: boolean;
   error: unknown;
+  readOnly?: boolean;
 }) {
   const createSponsorMutation = useCreateEventSponsor();
   const updateSponsorMutation = useUpdateEventSponsor();
@@ -1833,7 +2108,19 @@ function SponsorsTab({
   return (
     <div className="space-y-5">
       <DetailSection title="Sponsors">
-        {event.viewerCanManage ? (
+        {event.viewerCanManage && readOnly ? (
+          <Button
+            size="sm"
+            variant="outline"
+            nativeButton={false}
+            render={
+              <Link href={`/events/${encodeURIComponent(event.slug)}/manage#sponsors`} />
+            }
+          >
+            Manage sponsors
+          </Button>
+        ) : null}
+        {event.viewerCanManage && !readOnly ? (
           <Button size="sm" onClick={() => openDialog()}>
             <Plus className="mr-1 h-4 w-4" />
             Add sponsor
@@ -1906,6 +2193,7 @@ function SponsorsTab({
                             ) : null}
                           </div>
                           {event.viewerCanManage &&
+                          !readOnly &&
                           (sponsor.contactName || sponsor.contactEmail) ? (
                             <p className="text-xs text-muted-foreground">
                               {[sponsor.contactName, sponsor.contactEmail]
@@ -1915,7 +2203,7 @@ function SponsorsTab({
                           ) : null}
                         </div>
                       </div>
-                      {event.viewerCanManage ? (
+                      {event.viewerCanManage && !readOnly ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -1954,6 +2242,7 @@ function SponsorsTab({
           <SetupField label="Tier">
             <Select
               value={tier || "none"}
+              items={[{ value: "none", label: "Not set" }, ...sponsorTierOptions]}
               onValueChange={(value) =>
                 setTier(value === "none" ? "" : (value as EventSponsorTier))
               }
@@ -2071,12 +2360,14 @@ function PostsTab({
   isLoading,
   error,
   viewerUserId,
+  mode = "manage",
 }: {
   event: Event;
   posts: EventPost[];
   isLoading: boolean;
   error: unknown;
   viewerUserId?: string;
+  mode?: "public" | "manage";
 }) {
   const createPostMutation = useCreateEventPost();
   const updatePostMutation = useUpdateEventPost();
@@ -2086,11 +2377,14 @@ function PostsTab({
   const [editingPost, setEditingPost] = useState<EventPost | null>(null);
   const [title, setTitle] = useState("");
   const [bodyMarkdown, setBodyMarkdown] = useState("");
+  const isManageMode = mode === "manage";
   const canCreatePost =
     event.postsEnabled &&
-    (event.viewerCanManage ||
-      (event.postCreatePolicy === "participants" &&
-        event.viewerParticipation?.status === "confirmed"));
+    (isManageMode
+      ? event.viewerCanManage ||
+        (event.postCreatePolicy === "participants" &&
+          event.viewerParticipation?.status === "confirmed")
+      : event.viewerCanManage);
 
   const openDialog = (post?: EventPost) => {
     setEditingPost(post ?? null);
@@ -2129,14 +2423,18 @@ function PostsTab({
   if (!event.postsEnabled) {
     return (
       <StatusPanel
-        title="Posts are not enabled for this event."
+        title={
+          isManageMode
+            ? "Posts are not enabled for this event."
+            : "Updates are not enabled for this event."
+        }
         description={
           event.viewerCanManage
             ? "Enable event posts when you are ready to publish updates or let participants discuss."
             : "Posts are not enabled for this event."
         }
       >
-        {event.viewerCanManage ? (
+        {event.viewerCanManage && isManageMode ? (
           <Button
             size="sm"
             disabled={updateSettingsMutation.isPending}
@@ -2180,15 +2478,30 @@ function PostsTab({
 
   return (
     <div className="space-y-5">
-      <DetailSection title="Posts">
+      <DetailSection title={isManageMode ? "Posts" : "Updates"}>
         <div className="flex flex-wrap items-center gap-2">
-          {canCreatePost ? (
-            <Button size="sm" onClick={() => openDialog()}>
+          {canCreatePost && isManageMode ? (
+            <Button
+              size="sm"
+              onClick={() => openDialog()}
+            >
               <MessageSquare className="mr-1 h-4 w-4" />
               New post
             </Button>
           ) : null}
-          {event.viewerCanManage ? (
+          {canCreatePost && !isManageMode ? (
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link href={`/events/${encodeURIComponent(event.slug)}/manage#updates`} />
+              }
+            >
+              <MessageSquare className="mr-1 h-4 w-4" />
+              New post
+            </Button>
+          ) : null}
+          {event.viewerCanManage && isManageMode ? (
             <Button
               size="sm"
               variant="outline"
@@ -2227,14 +2540,19 @@ function PostsTab({
       </DetailSection>
       {posts.length === 0 ? (
         <CommunityEmptyState
-          title="No posts yet"
-          description="Event updates and participant posts will appear here."
+          title={isManageMode ? "No posts yet" : "No updates yet."}
+          description={
+            event.viewerCanManage
+              ? "No updates yet. Post announcements, schedule changes, or reminders for participants."
+              : "Event updates will appear here."
+          }
         />
       ) : (
         <div className="divide-y divide-border/70 border-y border-border/70">
           {posts.map((post) => {
             const canEdit =
-              event.viewerCanManage || post.authorUserId === viewerUserId;
+              isManageMode &&
+              (event.viewerCanManage || post.authorUserId === viewerUserId);
             return (
               <article key={post.id} className="py-3">
                 <div className="flex items-start justify-between gap-3">
@@ -2391,7 +2709,7 @@ function PaymentTab({
   isSubmitting,
   onViewPaymentProof,
   viewingPaymentProofId,
-  onManagePayment,
+  onManagePaymentHref,
 }: {
   event: Event;
   paymentMethods: EventPaymentMethod[];
@@ -2407,12 +2725,16 @@ function PaymentTab({
   isSubmitting: boolean;
   onViewPaymentProof: (paymentId: string) => void;
   viewingPaymentProofId?: string;
-  onManagePayment: () => void;
+  onManagePaymentHref: string;
 }) {
   const payment = event.viewerPayment;
   const selectedMethod =
     paymentMethods.find((method) => method.id === selectedPaymentMethodId) ??
     paymentMethods[0];
+  const paymentMethodItems = paymentMethods.map((method) => ({
+    value: method.id,
+    label: getPaymentMethodLabel(method),
+  }));
 
   if (!event.isPaid) {
     return (
@@ -2429,7 +2751,11 @@ function PaymentTab({
         title="Payment setup is incomplete"
         description="Add payment methods in Manage before participants can pay."
       >
-        <Button size="sm" onClick={onManagePayment}>
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={<Link href={onManagePaymentHref} />}
+        >
           Set up payment
         </Button>
       </StatusPanel>
@@ -2473,6 +2799,7 @@ function PaymentTab({
           <div className="space-y-3">
             <Select
               value={selectedPaymentMethodId || paymentMethods[0]?.id}
+              items={paymentMethodItems}
               onValueChange={(value) => {
                 if (value) setSelectedPaymentMethodId(value);
               }}
@@ -2483,7 +2810,7 @@ function PaymentTab({
               <SelectContent>
                 {paymentMethods.map((method) => (
                   <SelectItem key={method.id} value={method.id}>
-                    {method.name}
+                    {getPaymentMethodLabel(method)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -2514,6 +2841,7 @@ function PaymentTab({
             <SetupField label="Payment method">
               <Select
                 value={selectedPaymentMethodId || paymentMethods[0]?.id}
+                items={paymentMethodItems}
                 onValueChange={(value) => {
                   if (value) setSelectedPaymentMethodId(value);
                 }}
@@ -2521,13 +2849,13 @@ function PaymentTab({
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map((method) => (
-                    <SelectItem key={method.id} value={method.id}>
-                      {method.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                  <SelectContent>
+                    {paymentMethods.map((method) => (
+                      <SelectItem key={method.id} value={method.id}>
+                        {getPaymentMethodLabel(method)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
               </Select>
             </SetupField>
             <SetupField label="Reference number">
@@ -2608,6 +2936,7 @@ function ParticipantsSection({
   onRejectPayment,
   onViewPaymentProof,
   viewingPaymentProofId,
+  showOrganizerActions = false,
 }: {
   event: Event;
   participants: EventParticipant[];
@@ -2623,6 +2952,7 @@ function ParticipantsSection({
   onRejectPayment: (paymentId: string) => void;
   onViewPaymentProof: (paymentId: string) => void;
   viewingPaymentProofId?: string;
+  showOrganizerActions?: boolean;
 }) {
   const canShowIdentities =
     event.visibility === "public" ||
@@ -2644,16 +2974,31 @@ function ParticipantsSection({
   return (
     <DetailSection
       title={
-        event.viewerCanManage ? "Participants and payments" : "Participants"
+        showOrganizerActions && event.viewerCanManage
+          ? "Participants and payments"
+          : "Participants"
       }
     >
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <Badge variant="outline" className="h-6 px-2 text-[11px]">
           {event.goingCount ?? event.currentAttendees} going
         </Badge>
         <Badge variant="outline" className="h-6 px-2 text-[11px]">
           {event.interestedCount ?? 0} interested
         </Badge>
+        {event.viewerCanManage && !showOrganizerActions ? (
+          <Button
+            size="sm"
+            variant="link"
+            className="h-6 px-1 text-xs"
+            nativeButton={false}
+            render={
+              <Link href={`/events/${encodeURIComponent(event.slug)}/manage#participants`} />
+            }
+          >
+            Manage participants
+          </Button>
+        ) : null}
       </div>
       {isLoading ? (
         <div className="space-y-2">
@@ -2699,7 +3044,7 @@ function ParticipantsSection({
                   {participant.participantNote}
                 </p>
               ) : null}
-              {event.viewerCanManage ? (
+              {event.viewerCanManage && showOrganizerActions ? (
                 <OrganizerActions
                   participant={participant}
                   onApprove={onApprove}
@@ -3318,6 +3663,10 @@ function OrganizerManageTab({
             <SetupField label="Visibility">
               <Select
                 value={visibility}
+                items={[
+                  { value: "public", label: "Public" },
+                  { value: "private", label: "Private" },
+                ]}
                 onValueChange={(value) =>
                   setVisibility(value as EventVisibility)
                 }
@@ -3372,6 +3721,7 @@ function OrganizerManageTab({
             <SetupField label="Difficulty">
               <Select
                 value={difficulty}
+                items={difficultyOptions}
                 onValueChange={(value) =>
                   setDifficulty(value as EventDifficulty)
                 }
@@ -3391,6 +3741,10 @@ function OrganizerManageTab({
             <SetupField label="Entry type">
               <Select
                 value={entryType || "none"}
+                items={[
+                  { value: "none", label: "Not set" },
+                  ...entryTypeOptions,
+                ]}
                 onValueChange={(value) =>
                   setEntryType(
                     value === "none" ? "" : (value as EventEntryType),
@@ -3536,6 +3890,10 @@ function OrganizerManageTab({
               <SetupField label="Type">
                 <Select
                   value={paymentMethodType}
+                  items={[
+                    { value: "MANUAL_QR", label: "QR payment" },
+                    { value: "MANUAL_BANK_TRANSFER", label: "Bank transfer" },
+                  ]}
                   onValueChange={(value) =>
                     setPaymentMethodType(value as EventPaymentMethodType)
                   }
@@ -3640,6 +3998,13 @@ function OrganizerManageTab({
           <SetupField label="Who can create posts">
             <Select
               value={postCreatePolicy}
+              items={[
+                { value: "organizers_only", label: "Organizers only" },
+                {
+                  value: "participants",
+                  label: "Participants and organizers",
+                },
+              ]}
               onValueChange={(value) =>
                 setPostCreatePolicy(value as EventPostCreatePolicy)
               }
@@ -3789,6 +4154,14 @@ function getPaymentStatusLabel(status: EventPaymentStatus) {
     default:
       return titleCase(status);
   }
+}
+
+function getPaymentMethodLabel(method: EventPaymentMethod) {
+  const name = method.name?.trim();
+  if (name) return name;
+  if (method.type === "MANUAL_BANK_TRANSFER") return "Bank transfer";
+  if (method.type === "MANUAL_QR") return "QR payment";
+  return "Payment method";
 }
 
 function prizePlacementLabel(prize: EventPrize) {
