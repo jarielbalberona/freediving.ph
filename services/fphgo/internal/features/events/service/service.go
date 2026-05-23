@@ -64,6 +64,27 @@ type repository interface {
 	SubmitPayment(ctx context.Context, input eventsrepo.SubmitPaymentInput) (eventsrepo.EventParticipantPayment, error)
 	ReviewPayment(ctx context.Context, eventID, paymentID, actorID, status, notes string) (eventsrepo.EventParticipantPayment, error)
 	GetPaymentProof(ctx context.Context, eventID, paymentID string) (eventsrepo.EventPaymentProof, error)
+	ListCompetitions(ctx context.Context, eventID string) ([]eventsrepo.EventCompetition, error)
+	CreateCompetition(ctx context.Context, eventID string, input eventsrepo.CreateCompetitionInput) (eventsrepo.EventCompetition, error)
+	UpdateCompetition(ctx context.Context, eventID string, input eventsrepo.UpdateCompetitionInput) (eventsrepo.EventCompetition, error)
+	DeleteCompetition(ctx context.Context, eventID, competitionID string) error
+	ListPrizes(ctx context.Context, eventID string) ([]eventsrepo.EventPrize, error)
+	CreatePrize(ctx context.Context, eventID string, input eventsrepo.CreatePrizeInput) (eventsrepo.EventPrize, error)
+	UpdatePrize(ctx context.Context, eventID string, input eventsrepo.UpdatePrizeInput) (eventsrepo.EventPrize, error)
+	DeletePrize(ctx context.Context, eventID, prizeID string) error
+	CompetitionBelongsToEvent(ctx context.Context, eventID, competitionID string) (bool, error)
+	SponsorBelongsToEvent(ctx context.Context, eventID, sponsorID string) (bool, error)
+	MediaBelongsToEvent(ctx context.Context, eventID, mediaID string) (bool, error)
+	ListSponsors(ctx context.Context, eventID string) ([]eventsrepo.EventSponsor, error)
+	CreateSponsor(ctx context.Context, eventID string, input eventsrepo.CreateSponsorInput) (eventsrepo.EventSponsor, error)
+	UpdateSponsor(ctx context.Context, eventID string, input eventsrepo.UpdateSponsorInput) (eventsrepo.EventSponsor, error)
+	DeleteSponsor(ctx context.Context, eventID, sponsorID string) error
+	ListPosts(ctx context.Context, eventID string, includeHidden bool) ([]eventsrepo.EventPost, error)
+	GetPost(ctx context.Context, eventID, postID string) (eventsrepo.EventPost, error)
+	CreatePost(ctx context.Context, eventID, authorUserID string, input eventsrepo.CreatePostInput) (eventsrepo.EventPost, error)
+	UpdatePost(ctx context.Context, eventID string, input eventsrepo.UpdatePostInput) (eventsrepo.EventPost, error)
+	DeletePost(ctx context.Context, eventID, postID string) error
+	UpdateParticipantRole(ctx context.Context, eventID, participantID, role, actorID string) (eventsrepo.EventParticipant, error)
 }
 
 type ValidationFailure struct {
@@ -875,6 +896,7 @@ func normalizeUpdateInput(input *eventsrepo.UpdateEventInput) {
 	trimStringPtr(&input.EquipmentNotes)
 	trimStringPtr(&input.SafetyNotes)
 	trimStringPtr(&input.CancellationPolicy)
+	trimStringPtr(&input.PostCreatePolicy)
 	trimStringPtr(&input.CancelReason)
 	if input.DescriptionMarkdown != nil {
 		input.Description = input.DescriptionMarkdown
@@ -907,6 +929,10 @@ func normalizeUpdateInput(input *eventsrepo.UpdateEventInput) {
 		value := normalizeEntryType(*input.EntryType)
 		input.EntryType = &value
 	}
+	if input.PostCreatePolicy != nil {
+		value := normalizePostCreatePolicy(*input.PostCreatePolicy)
+		input.PostCreatePolicy = &value
+	}
 }
 
 func validateUpdateEventInput(input *eventsrepo.UpdateEventInput, before eventsrepo.Event) error {
@@ -931,6 +957,13 @@ func validateUpdateEventInput(input *eventsrepo.UpdateEventInput, before eventsr
 		if err := validateTimezone(*input.Timezone); err != nil {
 			return err
 		}
+	}
+	if input.PostCreatePolicy != nil && *input.PostCreatePolicy == "" {
+		return ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"postCreatePolicy"},
+			Code:    "invalid",
+			Message: "Post creation policy is invalid",
+		}}}
 	}
 	startsAt := before.StartsAt
 	if input.StartsAt != nil {
@@ -1176,6 +1209,17 @@ func normalizePaymentMethod(input eventsrepo.CreatePaymentMethodInput) eventsrep
 	input.BankName = strings.TrimSpace(input.BankName)
 	input.IsActive = true
 	return input
+}
+
+func normalizePostCreatePolicy(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "participants", "participants_and_organizers":
+		return "participants"
+	case "organizers_only", "organizer_only", "organizers":
+		return "organizers_only"
+	default:
+		return ""
+	}
 }
 
 func normalizeUpdatePaymentMethod(input *eventsrepo.UpdatePaymentMethodInput) {

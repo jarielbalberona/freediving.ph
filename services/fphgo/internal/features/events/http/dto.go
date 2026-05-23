@@ -129,6 +129,8 @@ type EventResponse struct {
 	EquipmentNotes              string                           `json:"equipmentNotes,omitempty"`
 	SafetyNotes                 string                           `json:"safetyNotes,omitempty"`
 	CancellationPolicy          string                           `json:"cancellationPolicy,omitempty"`
+	PostsEnabled                bool                             `json:"postsEnabled"`
+	PostCreatePolicy            string                           `json:"postCreatePolicy"`
 	PublishedAt                 *time.Time                       `json:"publishedAt,omitempty"`
 	CancelledAt                 *time.Time                       `json:"cancelledAt,omitempty"`
 	CancelReason                string                           `json:"cancelReason,omitempty"`
@@ -236,6 +238,8 @@ type UpdateEventRequest struct {
 	EquipmentNotes      *string  `json:"equipmentNotes,omitempty" validate:"omitempty,max=4000"`
 	SafetyNotes         *string  `json:"safetyNotes,omitempty" validate:"omitempty,max=4000"`
 	CancellationPolicy  *string  `json:"cancellationPolicy,omitempty" validate:"omitempty,max=4000"`
+	PostsEnabled        *bool    `json:"postsEnabled,omitempty"`
+	PostCreatePolicy    *string  `json:"postCreatePolicy,omitempty" validate:"omitempty,oneof=organizers_only participants"`
 	CancelReason        *string  `json:"cancelReason,omitempty" validate:"omitempty,max=1000"`
 }
 

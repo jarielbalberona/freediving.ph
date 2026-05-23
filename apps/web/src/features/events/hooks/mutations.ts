@@ -2,12 +2,22 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "../api/events";
 import { queryKeys } from "@/lib/query/query-keys";
 import type {
+  CreateEventCompetitionRequest,
   CreateEventPaymentMethodRequest,
+  CreateEventPostRequest,
+  CreateEventPrizeRequest,
   CreateEventRequest,
+  CreateEventSponsorRequest,
   ReviewEventPaymentRequest,
   SubmitEventPaymentRequest,
   JoinEventRequest,
+  UpdateEventCompetitionRequest,
+  UpdateEventParticipantRoleRequest,
+  UpdateEventPostRequest,
+  UpdateEventPostSettingsRequest,
+  UpdateEventPrizeRequest,
   UpdateEventRequest,
+  UpdateEventSponsorRequest,
 } from "@freediving.ph/types";
 
 export const useCreateEvent = () => {
@@ -251,3 +261,231 @@ export const useEventPaymentProofUrl = () =>
       paymentId: string;
     }) => eventsApi.getPaymentProofUrl(eventId, paymentId),
   });
+
+const invalidateEventManagement = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  eventId: string,
+) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.events.detail(eventId) });
+  queryClient.invalidateQueries({
+    queryKey: queryKeys.events.competitions(eventId),
+  });
+  queryClient.invalidateQueries({ queryKey: queryKeys.events.prizes(eventId) });
+  queryClient.invalidateQueries({
+    queryKey: queryKeys.events.sponsors(eventId),
+  });
+  queryClient.invalidateQueries({ queryKey: queryKeys.events.posts(eventId) });
+  queryClient.invalidateQueries({
+    queryKey: queryKeys.events.participants(eventId),
+  });
+};
+
+export const useCreateEventCompetition = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: CreateEventCompetitionRequest;
+    }) => eventsApi.createCompetition(eventId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useUpdateEventCompetition = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      competitionId,
+      data,
+    }: {
+      eventId: string;
+      competitionId: string;
+      data: UpdateEventCompetitionRequest;
+    }) => eventsApi.updateCompetition(eventId, competitionId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useDeleteEventCompetition = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      competitionId,
+    }: {
+      eventId: string;
+      competitionId: string;
+    }) => eventsApi.deleteCompetition(eventId, competitionId),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useCreateEventPrize = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: CreateEventPrizeRequest;
+    }) => eventsApi.createPrize(eventId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useUpdateEventPrize = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      prizeId,
+      data,
+    }: {
+      eventId: string;
+      prizeId: string;
+      data: UpdateEventPrizeRequest;
+    }) => eventsApi.updatePrize(eventId, prizeId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useDeleteEventPrize = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ eventId, prizeId }: { eventId: string; prizeId: string }) =>
+      eventsApi.deletePrize(eventId, prizeId),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useCreateEventSponsor = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: CreateEventSponsorRequest;
+    }) => eventsApi.createSponsor(eventId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useUpdateEventSponsor = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      sponsorId,
+      data,
+    }: {
+      eventId: string;
+      sponsorId: string;
+      data: UpdateEventSponsorRequest;
+    }) => eventsApi.updateSponsor(eventId, sponsorId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useDeleteEventSponsor = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      sponsorId,
+    }: {
+      eventId: string;
+      sponsorId: string;
+    }) => eventsApi.deleteSponsor(eventId, sponsorId),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useCreateEventPost = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: CreateEventPostRequest;
+    }) => eventsApi.createPost(eventId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useUpdateEventPost = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      postId,
+      data,
+    }: {
+      eventId: string;
+      postId: string;
+      data: UpdateEventPostRequest;
+    }) => eventsApi.updatePost(eventId, postId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useDeleteEventPost = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ eventId, postId }: { eventId: string; postId: string }) =>
+      eventsApi.deletePost(eventId, postId),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useUpdateEventPostSettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: UpdateEventPostSettingsRequest;
+    }) => eventsApi.updatePostSettings(eventId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useUpdateEventParticipantRole = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      participantId,
+      data,
+    }: {
+      eventId: string;
+      participantId: string;
+      data: UpdateEventParticipantRoleRequest;
+    }) => eventsApi.updateParticipantRole(eventId, participantId, data),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};

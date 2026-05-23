@@ -333,6 +333,31 @@ export type EventPaymentStatus =
   | "submitted"
   | "verified"
   | "rejected";
+export type EventPostCreatePolicy = "organizers_only" | "participants";
+export type EventPrizePlacement =
+  | "winner"
+  | "champion"
+  | "first_place"
+  | "second_place"
+  | "third_place"
+  | "special_award"
+  | "sponsor_award"
+  | "custom";
+export type EventPrizeType =
+  | "cash"
+  | "item"
+  | "certificate"
+  | "sponsor_gift"
+  | "other";
+export type EventSponsorTier =
+  | "presenting"
+  | "major"
+  | "minor"
+  | "partner"
+  | "community"
+  | "media"
+  | "other";
+export type EventPostStatus = "published" | "hidden" | "deleted";
 export type EventViewerEventState =
   | "anonymous"
   | "none"
@@ -437,6 +462,67 @@ export interface EventParticipant {
 
 export type EventAttendee = EventParticipant;
 
+export interface EventCompetition {
+  id: string;
+  eventId: string;
+  name: string;
+  descriptionMarkdown?: string;
+  rulesMarkdown?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EventPrize {
+  id: string;
+  eventId: string;
+  competitionId?: string;
+  title: string;
+  descriptionMarkdown?: string;
+  placement: EventPrizePlacement;
+  placementLabel?: string;
+  prizeType?: EventPrizeType;
+  amount?: number;
+  currency: string;
+  sponsorId?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EventSponsor {
+  id: string;
+  eventId: string;
+  name: string;
+  tier?: EventSponsorTier;
+  description?: string;
+  logoMediaId?: string;
+  logoUrl?: string;
+  websiteUrl?: string;
+  socialUrl?: string;
+  contactName?: string;
+  contactEmail?: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EventPost {
+  id: string;
+  eventId: string;
+  authorUserId: string;
+  title?: string;
+  bodyMarkdown: string;
+  status: EventPostStatus;
+  isPinned: boolean;
+  authorDisplayName?: string;
+  authorUsername?: string;
+  authorAvatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Event {
   id: string;
   slug: string;
@@ -484,6 +570,8 @@ export interface Event {
   equipmentNotes?: string;
   safetyNotes?: string;
   cancellationPolicy?: string;
+  postsEnabled: boolean;
+  postCreatePolicy: EventPostCreatePolicy;
   publishedAt?: string;
   cancelledAt?: string;
   cancelReason?: string;
@@ -531,8 +619,82 @@ export interface CreateEventRequest {
 
 export type UpdateEventRequest = Partial<CreateEventRequest> & {
   status?: EventStatus;
+  postsEnabled?: boolean;
+  postCreatePolicy?: EventPostCreatePolicy;
   cancelReason?: string;
 };
+
+export interface CreateEventCompetitionRequest {
+  name: string;
+  descriptionMarkdown?: string;
+  rulesMarkdown?: string;
+  sortOrder?: number;
+}
+
+export type UpdateEventCompetitionRequest =
+  Partial<CreateEventCompetitionRequest>;
+
+export interface CreateEventPrizeRequest {
+  competitionId?: string;
+  title: string;
+  descriptionMarkdown?: string;
+  placement?: EventPrizePlacement;
+  placementLabel?: string;
+  prizeType?: EventPrizeType;
+  amount?: number;
+  currency?: string;
+  sponsorId?: string;
+  sortOrder?: number;
+}
+
+export interface UpdateEventPrizeRequest
+  extends Partial<
+    Omit<CreateEventPrizeRequest, "competitionId" | "prizeType" | "sponsorId">
+  > {
+  competitionId?: string;
+  prizeType?: EventPrizeType | "";
+  sponsorId?: string;
+}
+
+export interface CreateEventSponsorRequest {
+  name: string;
+  tier?: EventSponsorTier;
+  description?: string;
+  logoMediaId?: string;
+  websiteUrl?: string;
+  socialUrl?: string;
+  contactName?: string;
+  contactEmail?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateEventSponsorRequest
+  extends Partial<Omit<CreateEventSponsorRequest, "tier">> {
+  tier?: EventSponsorTier | "";
+}
+
+export interface CreateEventPostRequest {
+  title?: string;
+  bodyMarkdown: string;
+  isPinned?: boolean;
+}
+
+export interface UpdateEventPostRequest {
+  title?: string;
+  bodyMarkdown?: string;
+  status?: EventPostStatus;
+  isPinned?: boolean;
+}
+
+export interface UpdateEventPostSettingsRequest {
+  postsEnabled: boolean;
+  postCreatePolicy: EventPostCreatePolicy;
+}
+
+export interface UpdateEventParticipantRoleRequest {
+  role: Extract<EventParticipantRole, "participant" | "organizer">;
+}
 
 export interface JoinEventRequest {
   eventId: string;

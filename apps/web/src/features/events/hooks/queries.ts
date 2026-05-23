@@ -44,3 +44,39 @@ export const useEventPaymentMethods = (eventId: string, enabled = true) => {
     staleTime: 2 * 60 * 1000,
   });
 };
+
+export const useEventCompetitions = (eventId: string, enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.events.competitions(eventId),
+    queryFn: () => eventsApi.getCompetitions(eventId),
+    enabled: enabled && !!eventId,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+export const useEventPrizes = (eventId: string, enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.events.prizes(eventId),
+    queryFn: () => eventsApi.getPrizes(eventId),
+    enabled: enabled && !!eventId,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+export const useEventSponsors = (eventId: string, enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.events.sponsors(eventId),
+    queryFn: () => eventsApi.getSponsors(eventId),
+    enabled: enabled && !!eventId,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+export const useEventPosts = (eventId: string, enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.events.posts(eventId),
+    queryFn: () => eventsApi.getPosts(eventId),
+    enabled: enabled && !!eventId,
+    staleTime: 60 * 1000,
+  });
+};

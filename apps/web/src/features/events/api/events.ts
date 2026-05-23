@@ -1,18 +1,32 @@
 import { axiosInstance } from "@/lib/http/axios";
 import type {
+  CreateEventCompetitionRequest,
   CreateEventPaymentMethodRequest,
+  CreateEventPostRequest,
+  CreateEventPrizeRequest,
   CreateEventRequest,
+  CreateEventSponsorRequest,
   Event,
+  EventCompetition,
   EventFilters,
   EventParticipant,
   EventParticipantPayment,
+  EventPost,
+  EventPrize,
   EventPaymentProofUrl,
   EventPaymentMethod,
+  EventSponsor,
   JoinEventRequest,
   ReviewEventPaymentRequest,
   SubmitEventPaymentRequest,
+  UpdateEventCompetitionRequest,
   UpdateEventPaymentMethodRequest,
+  UpdateEventParticipantRoleRequest,
+  UpdateEventPostRequest,
+  UpdateEventPostSettingsRequest,
+  UpdateEventPrizeRequest,
   UpdateEventRequest,
+  UpdateEventSponsorRequest,
 } from "@freediving.ph/types";
 
 type Pagination = {
@@ -57,6 +71,38 @@ type PaymentPayload = {
 };
 
 type PaymentProofUrlPayload = EventPaymentProofUrl;
+
+type ListCompetitionsPayload = {
+  competitions: EventCompetition[];
+};
+
+type CompetitionPayload = {
+  competition: EventCompetition;
+};
+
+type ListPrizesPayload = {
+  prizes: EventPrize[];
+};
+
+type PrizePayload = {
+  prize: EventPrize;
+};
+
+type ListSponsorsPayload = {
+  sponsors: EventSponsor[];
+};
+
+type SponsorPayload = {
+  sponsor: EventSponsor;
+};
+
+type ListPostsPayload = {
+  posts: EventPost[];
+};
+
+type PostPayload = {
+  post: EventPost;
+};
 
 export const eventsApi = {
   getEvents: async (filters?: EventFilters): Promise<ListEventsPayload> => {
@@ -151,9 +197,7 @@ export const eventsApi = {
     return response.data.event;
   },
 
-  getPaymentMethods: async (
-    eventId: string,
-  ): Promise<EventPaymentMethod[]> => {
+  getPaymentMethods: async (eventId: string): Promise<EventPaymentMethod[]> => {
     const response = await axiosInstance.get<ListPaymentMethodsPayload>(
       `/v1/events/${eventId}/payment-methods`,
     );
@@ -227,6 +271,170 @@ export const eventsApi = {
   ): Promise<EventPaymentProofUrl> => {
     const response = await axiosInstance.get<PaymentProofUrlPayload>(
       `/v1/events/${eventId}/payments/${paymentId}/proof-url`,
+    );
+    return response.data;
+  },
+
+  getCompetitions: async (eventId: string): Promise<EventCompetition[]> => {
+    const response = await axiosInstance.get<ListCompetitionsPayload>(
+      `/v1/events/${eventId}/competitions`,
+    );
+    return response.data.competitions ?? [];
+  },
+
+  createCompetition: async (
+    eventId: string,
+    data: CreateEventCompetitionRequest,
+  ): Promise<EventCompetition> => {
+    const response = await axiosInstance.post<CompetitionPayload>(
+      `/v1/events/${eventId}/competitions`,
+      data,
+    );
+    return response.data.competition;
+  },
+
+  updateCompetition: async (
+    eventId: string,
+    competitionId: string,
+    data: UpdateEventCompetitionRequest,
+  ): Promise<EventCompetition> => {
+    const response = await axiosInstance.patch<CompetitionPayload>(
+      `/v1/events/${eventId}/competitions/${competitionId}`,
+      data,
+    );
+    return response.data.competition;
+  },
+
+  deleteCompetition: async (
+    eventId: string,
+    competitionId: string,
+  ): Promise<void> => {
+    await axiosInstance.delete(
+      `/v1/events/${eventId}/competitions/${competitionId}`,
+    );
+  },
+
+  getPrizes: async (eventId: string): Promise<EventPrize[]> => {
+    const response = await axiosInstance.get<ListPrizesPayload>(
+      `/v1/events/${eventId}/prizes`,
+    );
+    return response.data.prizes ?? [];
+  },
+
+  createPrize: async (
+    eventId: string,
+    data: CreateEventPrizeRequest,
+  ): Promise<EventPrize> => {
+    const response = await axiosInstance.post<PrizePayload>(
+      `/v1/events/${eventId}/prizes`,
+      data,
+    );
+    return response.data.prize;
+  },
+
+  updatePrize: async (
+    eventId: string,
+    prizeId: string,
+    data: UpdateEventPrizeRequest,
+  ): Promise<EventPrize> => {
+    const response = await axiosInstance.patch<PrizePayload>(
+      `/v1/events/${eventId}/prizes/${prizeId}`,
+      data,
+    );
+    return response.data.prize;
+  },
+
+  deletePrize: async (eventId: string, prizeId: string): Promise<void> => {
+    await axiosInstance.delete(`/v1/events/${eventId}/prizes/${prizeId}`);
+  },
+
+  getSponsors: async (eventId: string): Promise<EventSponsor[]> => {
+    const response = await axiosInstance.get<ListSponsorsPayload>(
+      `/v1/events/${eventId}/sponsors`,
+    );
+    return response.data.sponsors ?? [];
+  },
+
+  createSponsor: async (
+    eventId: string,
+    data: CreateEventSponsorRequest,
+  ): Promise<EventSponsor> => {
+    const response = await axiosInstance.post<SponsorPayload>(
+      `/v1/events/${eventId}/sponsors`,
+      data,
+    );
+    return response.data.sponsor;
+  },
+
+  updateSponsor: async (
+    eventId: string,
+    sponsorId: string,
+    data: UpdateEventSponsorRequest,
+  ): Promise<EventSponsor> => {
+    const response = await axiosInstance.patch<SponsorPayload>(
+      `/v1/events/${eventId}/sponsors/${sponsorId}`,
+      data,
+    );
+    return response.data.sponsor;
+  },
+
+  deleteSponsor: async (eventId: string, sponsorId: string): Promise<void> => {
+    await axiosInstance.delete(`/v1/events/${eventId}/sponsors/${sponsorId}`);
+  },
+
+  getPosts: async (eventId: string): Promise<EventPost[]> => {
+    const response = await axiosInstance.get<ListPostsPayload>(
+      `/v1/events/${eventId}/posts`,
+    );
+    return response.data.posts ?? [];
+  },
+
+  createPost: async (
+    eventId: string,
+    data: CreateEventPostRequest,
+  ): Promise<EventPost> => {
+    const response = await axiosInstance.post<PostPayload>(
+      `/v1/events/${eventId}/posts`,
+      data,
+    );
+    return response.data.post;
+  },
+
+  updatePost: async (
+    eventId: string,
+    postId: string,
+    data: UpdateEventPostRequest,
+  ): Promise<EventPost> => {
+    const response = await axiosInstance.patch<PostPayload>(
+      `/v1/events/${eventId}/posts/${postId}`,
+      data,
+    );
+    return response.data.post;
+  },
+
+  deletePost: async (eventId: string, postId: string): Promise<void> => {
+    await axiosInstance.delete(`/v1/events/${eventId}/posts/${postId}`);
+  },
+
+  updatePostSettings: async (
+    eventId: string,
+    data: UpdateEventPostSettingsRequest,
+  ): Promise<Event> => {
+    const response = await axiosInstance.patch<EventPayload>(
+      `/v1/events/${eventId}/post-settings`,
+      data,
+    );
+    return response.data.event;
+  },
+
+  updateParticipantRole: async (
+    eventId: string,
+    participantId: string,
+    data: UpdateEventParticipantRoleRequest,
+  ): Promise<EventParticipant> => {
+    const response = await axiosInstance.patch<EventParticipant>(
+      `/v1/events/${eventId}/participants/${participantId}/role`,
+      data,
     );
     return response.data;
   },

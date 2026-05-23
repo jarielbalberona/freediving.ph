@@ -980,6 +980,174 @@ func (q *Queries) ListMediaPostComments(ctx context.Context, arg ListMediaPostCo
 	return items, nil
 }
 
+const listProfileDiveSpotHighlightsByUsername = `-- name: ListProfileDiveSpotHighlightsByUsername :many
+WITH visible_items AS (
+  SELECT
+    mi.id,
+    mi.post_id,
+    mi.media_object_id,
+    mi.author_app_user_id,
+    mi.upload_group_id,
+    mi.dive_site_id,
+    mi.type,
+    mi.storage_key,
+    mi.mime_type,
+    mi.width,
+    mi.height,
+    mi.duration_ms,
+    mi.caption,
+    mi.sort_order,
+    mi.status,
+    mi.created_at,
+    mi.updated_at,
+    mi.deleted_at,
+    mp.post_caption,
+    ds.slug AS dive_site_slug,
+    ds.name AS dive_site_name,
+    ds.area AS dive_site_area
+  FROM media_items mi
+  JOIN media_posts mp ON mp.id = mi.post_id
+  JOIN media_objects mo ON mo.id = mi.media_object_id
+  JOIN users u ON u.id = mi.author_app_user_id
+  JOIN dive_sites ds ON ds.id = mi.dive_site_id
+  WHERE lower(u.username) = lower($2)
+    AND u.account_status = 'active'
+    AND mo.state = 'active'
+    AND mo.context_type = 'profile_feed'
+    AND mi.status = 'active'
+    AND mi.deleted_at IS NULL
+    AND mp.deleted_at IS NULL
+    AND ds.moderation_state = 'approved'
+    AND (
+      $3::uuid IS NULL
+      OR NOT EXISTS (
+        SELECT 1
+        FROM user_blocks b
+        WHERE (b.blocker_app_user_id = $3 AND b.blocked_app_user_id = mi.author_app_user_id)
+           OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = $3)
+      )
+    )
+),
+ranked_covers AS (
+  SELECT
+    visible_items.id, visible_items.post_id, visible_items.media_object_id, visible_items.author_app_user_id, visible_items.upload_group_id, visible_items.dive_site_id, visible_items.type, visible_items.storage_key, visible_items.mime_type, visible_items.width, visible_items.height, visible_items.duration_ms, visible_items.caption, visible_items.sort_order, visible_items.status, visible_items.created_at, visible_items.updated_at, visible_items.deleted_at, visible_items.post_caption, visible_items.dive_site_slug, visible_items.dive_site_name, visible_items.dive_site_area,
+    row_number() OVER (
+      PARTITION BY visible_items.dive_site_id
+      ORDER BY visible_items.created_at DESC, visible_items.id DESC
+    ) AS cover_rank,
+    count(*) OVER (PARTITION BY visible_items.dive_site_id)::bigint AS media_count,
+    max(visible_items.created_at) OVER (PARTITION BY visible_items.dive_site_id) AS latest_media_created_at
+  FROM visible_items
+)
+SELECT
+  id,
+  post_id,
+  post_caption,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  created_at,
+  updated_at,
+  deleted_at,
+  dive_site_slug,
+  dive_site_name,
+  dive_site_area,
+  media_count,
+  latest_media_created_at
+FROM ranked_covers
+WHERE cover_rank = 1
+ORDER BY latest_media_created_at DESC, dive_site_id DESC
+LIMIT $1
+`
+
+type ListProfileDiveSpotHighlightsByUsernameParams struct {
+	LimitCount   int32       `db:"limit_count" json:"limit_count"`
+	Username     string      `db:"username" json:"username"`
+	ViewerUserID pgtype.UUID `db:"viewer_user_id" json:"viewer_user_id"`
+}
+
+type ListProfileDiveSpotHighlightsByUsernameRow struct {
+	ID                   pgtype.UUID        `db:"id" json:"id"`
+	PostID               pgtype.UUID        `db:"post_id" json:"post_id"`
+	PostCaption          *string            `db:"post_caption" json:"post_caption"`
+	MediaObjectID        pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID      pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID        pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID           pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Type                 string             `db:"type" json:"type"`
+	StorageKey           string             `db:"storage_key" json:"storage_key"`
+	MimeType             string             `db:"mime_type" json:"mime_type"`
+	Width                int32              `db:"width" json:"width"`
+	Height               int32              `db:"height" json:"height"`
+	DurationMs           *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption              *string            `db:"caption" json:"caption"`
+	SortOrder            int32              `db:"sort_order" json:"sort_order"`
+	Status               string             `db:"status" json:"status"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt            pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	DiveSiteSlug         string             `db:"dive_site_slug" json:"dive_site_slug"`
+	DiveSiteName         string             `db:"dive_site_name" json:"dive_site_name"`
+	DiveSiteArea         string             `db:"dive_site_area" json:"dive_site_area"`
+	MediaCount           int64              `db:"media_count" json:"media_count"`
+	LatestMediaCreatedAt interface{}        `db:"latest_media_created_at" json:"latest_media_created_at"`
+}
+
+func (q *Queries) ListProfileDiveSpotHighlightsByUsername(ctx context.Context, arg ListProfileDiveSpotHighlightsByUsernameParams) ([]ListProfileDiveSpotHighlightsByUsernameRow, error) {
+	rows, err := q.db.Query(ctx, listProfileDiveSpotHighlightsByUsername, arg.LimitCount, arg.Username, arg.ViewerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProfileDiveSpotHighlightsByUsernameRow{}
+	for rows.Next() {
+		var i ListProfileDiveSpotHighlightsByUsernameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostID,
+			&i.PostCaption,
+			&i.MediaObjectID,
+			&i.AuthorAppUserID,
+			&i.UploadGroupID,
+			&i.DiveSiteID,
+			&i.Type,
+			&i.StorageKey,
+			&i.MimeType,
+			&i.Width,
+			&i.Height,
+			&i.DurationMs,
+			&i.Caption,
+			&i.SortOrder,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.DiveSiteSlug,
+			&i.DiveSiteName,
+			&i.DiveSiteArea,
+			&i.MediaCount,
+			&i.LatestMediaCreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProfileMediaByUsername = `-- name: ListProfileMediaByUsername :many
 SELECT
   mi.id,
@@ -1097,6 +1265,175 @@ func (q *Queries) ListProfileMediaByUsername(ctx context.Context, arg ListProfil
 	items := []ListProfileMediaByUsernameRow{}
 	for rows.Next() {
 		var i ListProfileMediaByUsernameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostID,
+			&i.PostCaption,
+			&i.MediaObjectID,
+			&i.AuthorAppUserID,
+			&i.UploadGroupID,
+			&i.DiveSiteID,
+			&i.Type,
+			&i.StorageKey,
+			&i.MimeType,
+			&i.Width,
+			&i.Height,
+			&i.DurationMs,
+			&i.Caption,
+			&i.SortOrder,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.DiveSiteSlug,
+			&i.DiveSiteName,
+			&i.DiveSiteArea,
+			&i.LikeCount,
+			&i.CommentCount,
+			&i.ViewerHasLiked,
+			&i.ViewerHasSaved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProfileMediaByUsernameAndDiveSite = `-- name: ListProfileMediaByUsernameAndDiveSite :many
+SELECT
+  mi.id,
+  mi.post_id,
+  mp.post_caption,
+  mi.media_object_id,
+  mi.author_app_user_id,
+  mi.upload_group_id,
+  mi.dive_site_id,
+  mi.type,
+  mi.storage_key,
+  mi.mime_type,
+  mi.width,
+  mi.height,
+  mi.duration_ms,
+  mi.caption,
+  mi.sort_order,
+  mi.status,
+  mi.created_at,
+  mi.updated_at,
+  mi.deleted_at,
+  COALESCE(ds.slug, '') AS dive_site_slug,
+  COALESCE(ds.name, '') AS dive_site_name,
+  COALESCE(ds.area, '') AS dive_site_area,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  COALESCE(comment_counts.comment_count, 0)::bigint AS comment_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = $1
+  ) AS viewer_has_liked,
+  EXISTS (
+    SELECT 1
+    FROM media_post_saves viewer_save
+    WHERE viewer_save.media_post_id = mp.id
+      AND viewer_save.user_id = $1
+  ) AS viewer_has_saved
+FROM media_items mi
+JOIN media_posts mp ON mp.id = mi.post_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
+JOIN users u ON u.id = mi.author_app_user_id
+JOIN dive_sites ds ON ds.id = mi.dive_site_id
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS comment_count
+  FROM media_post_comments mpc
+  WHERE mpc.media_post_id = mp.id
+    AND mpc.deleted_at IS NULL
+) comment_counts ON true
+WHERE lower(u.username) = lower($2)
+  AND mi.dive_site_id = $3
+  AND u.account_status = 'active'
+  AND mo.state = 'active'
+  AND mo.context_type = 'profile_feed'
+  AND mi.status = 'active'
+  AND mi.deleted_at IS NULL
+  AND mp.deleted_at IS NULL
+  AND ds.moderation_state = 'approved'
+  AND (mi.created_at < $4 OR (mi.created_at = $4 AND mi.id < $5))
+  AND (
+    $1::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = mi.author_app_user_id)
+         OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = $1)
+    )
+  )
+ORDER BY mi.created_at DESC, mi.id DESC
+LIMIT $6
+`
+
+type ListProfileMediaByUsernameAndDiveSiteParams struct {
+	ViewerUserID pgtype.UUID        `db:"viewer_user_id" json:"viewer_user_id"`
+	Username     string             `db:"username" json:"username"`
+	DiveSiteID   pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	LimitCount   int32              `db:"limit_count" json:"limit_count"`
+}
+
+type ListProfileMediaByUsernameAndDiveSiteRow struct {
+	ID              pgtype.UUID        `db:"id" json:"id"`
+	PostID          pgtype.UUID        `db:"post_id" json:"post_id"`
+	PostCaption     *string            `db:"post_caption" json:"post_caption"`
+	MediaObjectID   pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID   pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID      pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Type            string             `db:"type" json:"type"`
+	StorageKey      string             `db:"storage_key" json:"storage_key"`
+	MimeType        string             `db:"mime_type" json:"mime_type"`
+	Width           int32              `db:"width" json:"width"`
+	Height          int32              `db:"height" json:"height"`
+	DurationMs      *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption         *string            `db:"caption" json:"caption"`
+	SortOrder       int32              `db:"sort_order" json:"sort_order"`
+	Status          string             `db:"status" json:"status"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	DiveSiteSlug    string             `db:"dive_site_slug" json:"dive_site_slug"`
+	DiveSiteName    string             `db:"dive_site_name" json:"dive_site_name"`
+	DiveSiteArea    string             `db:"dive_site_area" json:"dive_site_area"`
+	LikeCount       int64              `db:"like_count" json:"like_count"`
+	CommentCount    int64              `db:"comment_count" json:"comment_count"`
+	ViewerHasLiked  bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
+	ViewerHasSaved  bool               `db:"viewer_has_saved" json:"viewer_has_saved"`
+}
+
+func (q *Queries) ListProfileMediaByUsernameAndDiveSite(ctx context.Context, arg ListProfileMediaByUsernameAndDiveSiteParams) ([]ListProfileMediaByUsernameAndDiveSiteRow, error) {
+	rows, err := q.db.Query(ctx, listProfileMediaByUsernameAndDiveSite,
+		arg.ViewerUserID,
+		arg.Username,
+		arg.DiveSiteID,
+		arg.CreatedAt,
+		arg.ID,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProfileMediaByUsernameAndDiveSiteRow{}
+	for rows.Next() {
+		var i ListProfileMediaByUsernameAndDiveSiteRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.PostID,

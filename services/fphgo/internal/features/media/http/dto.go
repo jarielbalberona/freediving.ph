@@ -119,6 +119,21 @@ type ProfileMediaListResponse struct {
 	NextCursor string            `json:"nextCursor,omitempty"`
 }
 
+type DiveSpotHighlightListResponse struct {
+	Items []DiveSpotHighlightDTO `json:"items"`
+}
+
+type DiveSpotHighlightDTO struct {
+	DiveSpotID           string `json:"diveSpotId"`
+	DiveSpotSlug         string `json:"diveSpotSlug,omitempty"`
+	DiveSpotName         string `json:"diveSpotName"`
+	DiveSpotArea         string `json:"diveSpotArea,omitempty"`
+	CoverMediaObjectID   string `json:"coverMediaObjectId"`
+	CoverThumbnailURL    string `json:"coverThumbnailUrl,omitempty"`
+	MediaCount           int64  `json:"mediaCount"`
+	LatestMediaCreatedAt string `json:"latestMediaCreatedAt"`
+}
+
 type ProfileMediaDTO struct {
 	ID              string              `json:"id"`
 	MediaObjectID   string              `json:"mediaObjectId"`

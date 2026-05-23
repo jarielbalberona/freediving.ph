@@ -82,6 +82,8 @@ type Event struct {
 	EquipmentNotes              string
 	SafetyNotes                 string
 	CancellationPolicy          string
+	PostsEnabled                bool
+	PostCreatePolicy            string
 	PublishedAt                 *time.Time
 	CancelledAt                 *time.Time
 	CancelReason                string
@@ -253,6 +255,8 @@ type UpdateEventInput struct {
 	EquipmentNotes      *string
 	SafetyNotes         *string
 	CancellationPolicy  *string
+	PostsEnabled        *bool
+	PostCreatePolicy    *string
 	CancelReason        *string
 }
 
@@ -694,6 +698,8 @@ func (r *Repo) UpdateEvent(ctx context.Context, input UpdateEventInput) (Event, 
 	addString("equipment_notes", input.EquipmentNotes, true)
 	addString("safety_notes", input.SafetyNotes, true)
 	addString("cancellation_policy", input.CancellationPolicy, true)
+	addBool("posts_enabled", input.PostsEnabled)
+	addString("post_create_policy", input.PostCreatePolicy, false)
 	addString("cancel_reason", input.CancelReason, true)
 
 	args = append(args, input.EventID)
@@ -732,7 +738,18 @@ func (r *Repo) CanManageEvent(ctx context.Context, eventID, userID string) (bool
 				AND ep.role IN ('organizer', 'staff')
 				AND ep.status IN ('confirmed', 'pending_approval')
 			WHERE e.id = $1::uuid
-				AND (e.organizer_user_id = $2::uuid OR ep.id IS NOT NULL)
+				AND (
+					ep.id IS NOT NULL
+					OR (
+						e.organizer_user_id = $2::uuid
+						AND NOT EXISTS (
+							SELECT 1
+							FROM event_participations owner_ep
+							WHERE owner_ep.event_id = e.id
+								AND owner_ep.user_id = $2::uuid
+						)
+					)
+				)
 		)
 	`
 	var ok bool
@@ -1335,6 +1352,8 @@ func eventSelectColumns() string {
 		coalesce(e.equipment_notes, ''),
 		coalesce(e.safety_notes, ''),
 		coalesce(e.cancellation_policy, ''),
+		e.posts_enabled,
+		coalesce(e.post_create_policy, 'organizers_only'),
 		e.published_at,
 		e.cancelled_at,
 		coalesce(e.cancel_reason, ''),
@@ -1354,12 +1373,18 @@ func eventSelectColumns() string {
 			ELSE 'none'
 		END AS viewer_event_state,
 		(
-			coalesce(e.organizer_user_id = NULLIF($1, '')::uuid, false)
+			(
+				coalesce(e.organizer_user_id = NULLIF($1, '')::uuid, false)
+				AND vp.id IS NULL
+			)
 			OR coalesce(vp.role IN ('organizer', 'staff') AND vp.status IN ('confirmed', 'pending_approval'), false)
 		) AS viewer_can_manage,
 		(
 			e.visibility = 'public'
-			OR coalesce(e.organizer_user_id = NULLIF($1, '')::uuid, false)
+			OR (
+				coalesce(e.organizer_user_id = NULLIF($1, '')::uuid, false)
+				AND vp.id IS NULL
+			)
 			OR coalesce(vp.role IN ('organizer', 'staff') AND vp.status IN ('confirmed', 'pending_approval'), false)
 			OR coalesce(vp.role = 'participant' AND vp.status = 'confirmed', false)
 		) AS viewer_can_view_private_details,
@@ -1470,6 +1495,8 @@ func scanEvent(row eventScanner, item *Event, total *int) error {
 		&item.EquipmentNotes,
 		&item.SafetyNotes,
 		&item.CancellationPolicy,
+		&item.PostsEnabled,
+		&item.PostCreatePolicy,
 		&item.PublishedAt,
 		&item.CancelledAt,
 		&item.CancelReason,

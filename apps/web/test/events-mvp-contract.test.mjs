@@ -186,17 +186,44 @@ test("events detail organizes content into visibility-aware tabs", () => {
   const detailPage = read("src/app/events/[slug]/client-page.tsx");
   assert.match(detailPage, /Tabs, TabsContent, TabsList, TabsTrigger/);
   assert.match(detailPage, /TabsList variant="line"/);
-  assert.match(detailPage, /value="updates"/);
   assert.match(detailPage, /value="overview"/);
   assert.match(detailPage, /value="join"/);
   assert.match(detailPage, /value="participants"/);
+  assert.match(detailPage, /value="prizes"/);
+  assert.match(detailPage, /value="sponsors"/);
+  assert.match(detailPage, /value="posts"/);
   assert.match(detailPage, /value="payment"/);
   assert.match(detailPage, /value="manage"/);
-  assert.match(detailPage, /No updates yet/);
-  assert.match(detailPage, /Event posts and activity changes will appear here/);
+  assert.match(detailPage, /Prizes/);
+  assert.match(detailPage, /Sponsors/);
+  assert.match(detailPage, /Posts/);
+  assert.doesNotMatch(detailPage, /value="updates"/);
+  assert.doesNotMatch(detailPage, /No updates yet/);
   assert.ok(
-    detailPage.indexOf('value="updates"') <
-      detailPage.indexOf('value="overview"'),
+    detailPage.indexOf('value="overview"') < detailPage.indexOf('value="join"'),
+  );
+  assert.ok(
+    detailPage.indexOf('value="join"') <
+      detailPage.indexOf('value="participants"'),
+  );
+  assert.ok(
+    detailPage.indexOf('value="participants"') <
+      detailPage.indexOf('value="prizes"'),
+  );
+  assert.ok(
+    detailPage.indexOf('value="prizes"') <
+      detailPage.indexOf('value="sponsors"'),
+  );
+  assert.ok(
+    detailPage.indexOf('value="sponsors"') <
+      detailPage.indexOf('value="posts"'),
+  );
+  assert.ok(
+    detailPage.indexOf('value="posts"') < detailPage.indexOf('value="payment"'),
+  );
+  assert.ok(
+    detailPage.indexOf('value="payment"') <
+      detailPage.indexOf('value="manage"'),
   );
   assert.match(detailPage, /DiveSiteCombobox/);
   assert.match(
@@ -205,10 +232,68 @@ test("events detail organizes content into visibility-aware tabs", () => {
   );
   assert.match(detailPage, /const canShowJoinTab =/);
   assert.match(detailPage, /const canShowParticipantsTab =/);
+  assert.match(detailPage, /const canShowPrizeSponsorTabs =/);
+  assert.match(detailPage, /const canShowPostsTab =/);
   assert.match(detailPage, /const canShowPaymentTab =/);
   assert.match(detailPage, /const canShowManageTab = event\.viewerCanManage/);
   assert.match(detailPage, /event\.visibility === "public" \|\|/);
   assert.match(detailPage, /event\.viewerCanViewPrivateDetails/);
+  assert.match(detailPage, /event\.viewerCanManage/);
+});
+
+test("events detail renders management extensions through tabs and dialogs", () => {
+  const detailPage = read("src/app/events/[slug]/client-page.tsx");
+  assert.match(detailPage, /useEventCompetitions/);
+  assert.match(detailPage, /useEventPrizes/);
+  assert.match(detailPage, /useEventSponsors/);
+  assert.match(detailPage, /useEventPosts/);
+  assert.match(detailPage, /function PrizesTab/);
+  assert.match(detailPage, /function SponsorsTab/);
+  assert.match(detailPage, /function PostsTab/);
+  assert.match(detailPage, /Add competition/);
+  assert.match(detailPage, /Edit competition/);
+  assert.match(detailPage, /Add prize/);
+  assert.match(detailPage, /Edit prize/);
+  assert.match(detailPage, /Add sponsor/);
+  assert.match(detailPage, /Edit sponsor/);
+  assert.match(detailPage, /Enable event posts/);
+  assert.match(detailPage, /New post/);
+  assert.match(detailPage, /Manage event posts/);
+  assert.match(detailPage, /event\?\.postsEnabled/);
+  assert.match(detailPage, /safeExternalUrl/);
+  assert.match(detailPage, /postsEnabled/);
+  assert.match(detailPage, /postCreatePolicy/);
+  assert.match(detailPage, /event\.viewerCanManage/);
+});
+
+test("events detail uses markdown editor in Manage and safe markdown rendering in Overview", () => {
+  const createPage = read("src/app/events/create/page.tsx");
+  const detailPage = read("src/app/events/[slug]/client-page.tsx");
+  const markdownRenderer = read(
+    "src/features/chika/components/ChikaMarkdown.tsx",
+  );
+  assert.doesNotMatch(createPage, /MarkdownEditor/);
+  assert.match(detailPage, /MarkdownEditor/);
+  assert.match(detailPage, /DialogTitle>Edit description<\/DialogTitle>/);
+  assert.match(detailPage, /SetupField label="Full description"/);
+  assert.match(
+    detailPage,
+    /ChikaMarkdown content=\{event\.descriptionMarkdown\}/,
+  );
+  assert.match(detailPage, /Add a full event description/);
+  assert.doesNotMatch(detailPage, /dangerouslySetInnerHTML/);
+  assert.match(markdownRenderer, /rehypeSanitize/);
+  assert.match(markdownRenderer, /skipHtml/);
+  assert.match(markdownRenderer, /safeMarkdownUrl/);
+});
+
+test("events detail exposes participant role management only through organizer controls", () => {
+  const detailPage = read("src/app/events/[slug]/client-page.tsx");
+  assert.match(detailPage, /onUpdateRole/);
+  assert.match(detailPage, /Make organizer/);
+  assert.match(detailPage, /Make participant/);
+  assert.match(detailPage, /updateParticipantRoleMutation/);
+  assert.match(detailPage, /participant\.status === "confirmed"/);
   assert.match(detailPage, /event\.viewerCanManage/);
 });
 
@@ -238,6 +323,8 @@ test("events detail keeps private identities and payment proof flows protected",
   assert.match(detailPage, /Details are shared after you join\./);
   assert.match(detailPage, /Sign in to join/);
   assert.match(detailPage, /const canShowIdentities =/);
+  assert.match(detailPage, /const canShowPrizeSponsorTabs =/);
+  assert.match(detailPage, /const canShowPostsTab =/);
   assert.match(detailPage, /Identities are hidden for\s+private events\./);
   assert.match(
     detailPage,
@@ -263,8 +350,14 @@ test("events API client targets canonical fphgo v1 event endpoints", () => {
   assert.match(api, /\/v1\/events/);
   assert.match(api, /getEventBySlug/);
   assert.match(api, /\/participants\/\$\{participantId\}\/approve/);
+  assert.match(api, /\/participants\/\$\{participantId\}\/role/);
   assert.match(api, /\/payments\/\$\{paymentId\}\/verify/);
   assert.match(api, /payment-methods/);
+  assert.match(api, /\/competitions/);
+  assert.match(api, /\/prizes/);
+  assert.match(api, /\/sponsors/);
+  assert.match(api, /\/posts/);
+  assert.match(api, /\/post-settings/);
   assert.doesNotMatch(api, /upcoming/);
   assert.doesNotMatch(api, /apps\/api/);
 });

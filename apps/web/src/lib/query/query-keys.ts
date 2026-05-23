@@ -373,6 +373,26 @@ export const queryKeys = {
     profileLists: () => [...queryKeys.media.all, "profile"] as const,
     profile: (username: string, limit = 24) =>
       [...queryKeys.media.profileLists(), username, limit] as const,
+    diveSpotHighlights: (username: string, limit = 24) =>
+      [
+        ...queryKeys.media.profileLists(),
+        username,
+        "dive-spot-highlights",
+        limit,
+      ] as const,
+    diveSpotHighlightMedia: (
+      username: string,
+      diveSpotId: string,
+      limit = 60,
+    ) =>
+      [
+        ...queryKeys.media.profileLists(),
+        username,
+        "dive-spot-highlights",
+        diveSpotId,
+        "media",
+        limit,
+      ] as const,
     posts: () => [...queryKeys.media.all, "post"] as const,
     post: (postId: string) => [...queryKeys.media.posts(), postId] as const,
     postDetail: (postId: string) =>
@@ -527,6 +547,14 @@ export const queryKeys = {
       [...queryKeys.events.detail(eventId), "participants"] as const,
     paymentMethods: (eventId: string) =>
       [...queryKeys.events.detail(eventId), "payment-methods"] as const,
+    competitions: (eventId: string) =>
+      [...queryKeys.events.detail(eventId), "competitions"] as const,
+    prizes: (eventId: string) =>
+      [...queryKeys.events.detail(eventId), "prizes"] as const,
+    sponsors: (eventId: string) =>
+      [...queryKeys.events.detail(eventId), "sponsors"] as const,
+    posts: (eventId: string) =>
+      [...queryKeys.events.detail(eventId), "posts"] as const,
   },
 
   messages: {

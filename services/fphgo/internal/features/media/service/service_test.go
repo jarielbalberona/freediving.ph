@@ -36,6 +36,10 @@ type fakeRepo struct {
 	deletedCommentID             string
 	commentLikedID               string
 	commentUnlikedID             string
+	highlights                   []mediarepo.ProfileDiveSpotHighlight
+	highlightMedia               []mediarepo.ProfileMediaItem
+	lastHighlightsInput          mediarepo.ListProfileDiveSpotHighlightsInput
+	lastHighlightMediaInput      mediarepo.ListProfileDiveSpotMediaInput
 }
 
 func (f *fakeRepo) CreateMediaObject(_ context.Context, input mediarepo.CreateMediaObjectInput) (mediarepo.MediaObject, error) {
@@ -182,6 +186,16 @@ func (f *fakeRepo) PublishMediaPost(_ context.Context, input mediarepo.PublishMe
 
 func (f *fakeRepo) ListProfileMediaByUsername(_ context.Context, _ mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error) {
 	return nil, nil
+}
+
+func (f *fakeRepo) ListProfileDiveSpotHighlightsByUsername(_ context.Context, input mediarepo.ListProfileDiveSpotHighlightsInput) ([]mediarepo.ProfileDiveSpotHighlight, error) {
+	f.lastHighlightsInput = input
+	return f.highlights, nil
+}
+
+func (f *fakeRepo) ListProfileMediaByUsernameAndDiveSite(_ context.Context, input mediarepo.ListProfileDiveSpotMediaInput) ([]mediarepo.ProfileMediaItem, error) {
+	f.lastHighlightMediaInput = input
+	return f.highlightMedia, nil
 }
 
 func (f *fakeRepo) GetVisibleMediaPostSocialState(_ context.Context, postID, _ string) (mediarepo.PostSocialState, error) {
@@ -491,6 +505,81 @@ func TestMediaSignerURLStable(t *testing.T) {
 		if !strings.Contains(signedURL, part) {
 			t.Fatalf("expected %q in signed url, got %s", part, signedURL)
 		}
+	}
+}
+
+func TestListDiveSpotHighlightsReturnsSignedCovers(t *testing.T) {
+	createdAt := time.Date(2026, time.May, 23, 10, 0, 0, 0, time.UTC)
+	repo := &fakeRepo{highlights: []mediarepo.ProfileDiveSpotHighlight{{
+		CoverMediaItem: mediarepo.ProfileMediaItem{
+			MediaItem: mediarepo.MediaItem{
+				ID:            "11111111-1111-1111-1111-111111111111",
+				MediaObjectID: "22222222-2222-2222-2222-222222222222",
+				DiveSiteID:    "33333333-3333-3333-3333-333333333333",
+				StorageKey:    "profile_feed/550e8400-e29b-41d4-a716-446655440000/cover.jpg",
+				CreatedAt:     createdAt,
+			},
+			DiveSiteSlug: "anilao",
+			DiveSiteName: "Anilao",
+			DiveSiteArea: "Batangas",
+		},
+		MediaCount:           5,
+		LatestMediaCreatedAt: createdAt,
+	}}}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret", 1)
+	svc.nowFn = func() time.Time {
+		return time.Unix(1_700_000_000, 0).UTC()
+	}
+
+	result, err := svc.ListDiveSpotHighlights(context.Background(), ListDiveSpotHighlightsInput{
+		Username:     "member",
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		Limit:        10,
+	})
+	if err != nil {
+		t.Fatalf("expected highlights success, got %v", err)
+	}
+	if repo.lastHighlightsInput.Username != "member" || repo.lastHighlightsInput.Limit != 10 {
+		t.Fatalf("unexpected repo input: %+v", repo.lastHighlightsInput)
+	}
+	if len(result.Items) != 1 {
+		t.Fatalf("expected one highlight, got %d", len(result.Items))
+	}
+	item := result.Items[0]
+	if item.DiveSpotName != "Anilao" || item.MediaCount != 5 {
+		t.Fatalf("unexpected highlight item: %+v", item)
+	}
+	if !strings.Contains(item.CoverThumbnailURL, "w=144") {
+		t.Fatalf("expected thumbnail-sized signed cover url, got %s", item.CoverThumbnailURL)
+	}
+}
+
+func TestListDiveSpotHighlightMediaFiltersByDiveSpot(t *testing.T) {
+	repo := &fakeRepo{highlightMedia: []mediarepo.ProfileMediaItem{{
+		MediaItem: mediarepo.MediaItem{
+			ID:            "11111111-1111-1111-1111-111111111111",
+			MediaObjectID: "22222222-2222-2222-2222-222222222222",
+			DiveSiteID:    "33333333-3333-3333-3333-333333333333",
+			CreatedAt:     time.Date(2026, time.May, 23, 10, 0, 0, 0, time.UTC),
+		},
+		DiveSiteName: "Anilao",
+	}}}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret", 1)
+
+	result, err := svc.ListDiveSpotHighlightMedia(context.Background(), ListDiveSpotHighlightMediaInput{
+		Username:     "member",
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		DiveSpotID:   "33333333-3333-3333-3333-333333333333",
+		Limit:        60,
+	})
+	if err != nil {
+		t.Fatalf("expected highlight media success, got %v", err)
+	}
+	if repo.lastHighlightMediaInput.DiveSiteID != "33333333-3333-3333-3333-333333333333" {
+		t.Fatalf("expected dive spot filter to reach repo, got %+v", repo.lastHighlightMediaInput)
+	}
+	if len(result.Items) != 1 || result.Items[0].DiveSiteName != "Anilao" {
+		t.Fatalf("unexpected media result: %+v", result.Items)
 	}
 }
 

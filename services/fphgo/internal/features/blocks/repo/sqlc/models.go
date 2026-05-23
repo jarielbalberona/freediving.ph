@@ -314,11 +314,34 @@ type Event struct {
 	EquipmentNotes       *string            `db:"equipment_notes" json:"equipment_notes"`
 	SafetyNotes          *string            `db:"safety_notes" json:"safety_notes"`
 	CancellationPolicy   *string            `db:"cancellation_policy" json:"cancellation_policy"`
+	PostsEnabled         bool               `db:"posts_enabled" json:"posts_enabled"`
+	PostCreatePolicy     string             `db:"post_create_policy" json:"post_create_policy"`
 	PublishedAt          pgtype.Timestamptz `db:"published_at" json:"published_at"`
 	CancelledAt          pgtype.Timestamptz `db:"cancelled_at" json:"cancelled_at"`
 	CancelReason         *string            `db:"cancel_reason" json:"cancel_reason"`
 	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type EventCompetition struct {
+	ID                  pgtype.UUID        `db:"id" json:"id"`
+	EventID             pgtype.UUID        `db:"event_id" json:"event_id"`
+	Name                string             `db:"name" json:"name"`
+	DescriptionMarkdown *string            `db:"description_markdown" json:"description_markdown"`
+	RulesMarkdown       *string            `db:"rules_markdown" json:"rules_markdown"`
+	SortOrder           int32              `db:"sort_order" json:"sort_order"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt           pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+type EventInterest struct {
+	ID        pgtype.UUID        `db:"id" json:"id"`
+	EventID   pgtype.UUID        `db:"event_id" json:"event_id"`
+	UserID    pgtype.UUID        `db:"user_id" json:"user_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
 type EventMembership struct {
@@ -385,6 +408,56 @@ type EventPaymentMethod struct {
 	IsActive      bool               `db:"is_active" json:"is_active"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type EventPost struct {
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	EventID      pgtype.UUID        `db:"event_id" json:"event_id"`
+	AuthorUserID pgtype.UUID        `db:"author_user_id" json:"author_user_id"`
+	Title        *string            `db:"title" json:"title"`
+	BodyMarkdown string             `db:"body_markdown" json:"body_markdown"`
+	Status       string             `db:"status" json:"status"`
+	IsPinned     bool               `db:"is_pinned" json:"is_pinned"`
+	ParentPostID pgtype.UUID        `db:"parent_post_id" json:"parent_post_id"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+type EventPrize struct {
+	ID                  pgtype.UUID        `db:"id" json:"id"`
+	EventID             pgtype.UUID        `db:"event_id" json:"event_id"`
+	CompetitionID       pgtype.UUID        `db:"competition_id" json:"competition_id"`
+	Title               string             `db:"title" json:"title"`
+	DescriptionMarkdown *string            `db:"description_markdown" json:"description_markdown"`
+	Placement           string             `db:"placement" json:"placement"`
+	PlacementLabel      *string            `db:"placement_label" json:"placement_label"`
+	PrizeType           *string            `db:"prize_type" json:"prize_type"`
+	Amount              pgtype.Numeric     `db:"amount" json:"amount"`
+	Currency            string             `db:"currency" json:"currency"`
+	SponsorID           pgtype.UUID        `db:"sponsor_id" json:"sponsor_id"`
+	SortOrder           int32              `db:"sort_order" json:"sort_order"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt           pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+type EventSponsor struct {
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	EventID      pgtype.UUID        `db:"event_id" json:"event_id"`
+	Name         string             `db:"name" json:"name"`
+	Tier         *string            `db:"tier" json:"tier"`
+	Description  *string            `db:"description" json:"description"`
+	LogoMediaID  pgtype.UUID        `db:"logo_media_id" json:"logo_media_id"`
+	WebsiteUrl   *string            `db:"website_url" json:"website_url"`
+	SocialUrl    *string            `db:"social_url" json:"social_url"`
+	ContactName  *string            `db:"contact_name" json:"contact_name"`
+	ContactEmail *string            `db:"contact_email" json:"contact_email"`
+	SortOrder    int32              `db:"sort_order" json:"sort_order"`
+	IsActive     bool               `db:"is_active" json:"is_active"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
 type FeedAction struct {

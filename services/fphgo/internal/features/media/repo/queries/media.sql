@@ -167,6 +167,171 @@ WHERE lower(u.username) = lower(sqlc.arg(username))
 ORDER BY mi.created_at DESC, mi.id DESC
 LIMIT sqlc.arg(limit_count);
 
+-- name: ListProfileDiveSpotHighlightsByUsername :many
+WITH visible_items AS (
+  SELECT
+    mi.id,
+    mi.post_id,
+    mi.media_object_id,
+    mi.author_app_user_id,
+    mi.upload_group_id,
+    mi.dive_site_id,
+    mi.type,
+    mi.storage_key,
+    mi.mime_type,
+    mi.width,
+    mi.height,
+    mi.duration_ms,
+    mi.caption,
+    mi.sort_order,
+    mi.status,
+    mi.created_at,
+    mi.updated_at,
+    mi.deleted_at,
+    mp.post_caption,
+    ds.slug AS dive_site_slug,
+    ds.name AS dive_site_name,
+    ds.area AS dive_site_area
+  FROM media_items mi
+  JOIN media_posts mp ON mp.id = mi.post_id
+  JOIN media_objects mo ON mo.id = mi.media_object_id
+  JOIN users u ON u.id = mi.author_app_user_id
+  JOIN dive_sites ds ON ds.id = mi.dive_site_id
+  WHERE lower(u.username) = lower(sqlc.arg(username))
+    AND u.account_status = 'active'
+    AND mo.state = 'active'
+    AND mo.context_type = 'profile_feed'
+    AND mi.status = 'active'
+    AND mi.deleted_at IS NULL
+    AND mp.deleted_at IS NULL
+    AND ds.moderation_state = 'approved'
+    AND (
+      sqlc.arg(viewer_user_id)::uuid IS NULL
+      OR NOT EXISTS (
+        SELECT 1
+        FROM user_blocks b
+        WHERE (b.blocker_app_user_id = sqlc.arg(viewer_user_id) AND b.blocked_app_user_id = mi.author_app_user_id)
+           OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = sqlc.arg(viewer_user_id))
+      )
+    )
+),
+ranked_covers AS (
+  SELECT
+    visible_items.*,
+    row_number() OVER (
+      PARTITION BY visible_items.dive_site_id
+      ORDER BY visible_items.created_at DESC, visible_items.id DESC
+    ) AS cover_rank,
+    count(*) OVER (PARTITION BY visible_items.dive_site_id)::bigint AS media_count,
+    max(visible_items.created_at) OVER (PARTITION BY visible_items.dive_site_id) AS latest_media_created_at
+  FROM visible_items
+)
+SELECT
+  id,
+  post_id,
+  post_caption,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  created_at,
+  updated_at,
+  deleted_at,
+  dive_site_slug,
+  dive_site_name,
+  dive_site_area,
+  media_count,
+  latest_media_created_at
+FROM ranked_covers
+WHERE cover_rank = 1
+ORDER BY latest_media_created_at DESC, dive_site_id DESC
+LIMIT sqlc.arg(limit_count);
+
+-- name: ListProfileMediaByUsernameAndDiveSite :many
+SELECT
+  mi.id,
+  mi.post_id,
+  mp.post_caption,
+  mi.media_object_id,
+  mi.author_app_user_id,
+  mi.upload_group_id,
+  mi.dive_site_id,
+  mi.type,
+  mi.storage_key,
+  mi.mime_type,
+  mi.width,
+  mi.height,
+  mi.duration_ms,
+  mi.caption,
+  mi.sort_order,
+  mi.status,
+  mi.created_at,
+  mi.updated_at,
+  mi.deleted_at,
+  COALESCE(ds.slug, '') AS dive_site_slug,
+  COALESCE(ds.name, '') AS dive_site_name,
+  COALESCE(ds.area, '') AS dive_site_area,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  COALESCE(comment_counts.comment_count, 0)::bigint AS comment_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_liked,
+  EXISTS (
+    SELECT 1
+    FROM media_post_saves viewer_save
+    WHERE viewer_save.media_post_id = mp.id
+      AND viewer_save.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_saved
+FROM media_items mi
+JOIN media_posts mp ON mp.id = mi.post_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
+JOIN users u ON u.id = mi.author_app_user_id
+JOIN dive_sites ds ON ds.id = mi.dive_site_id
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS comment_count
+  FROM media_post_comments mpc
+  WHERE mpc.media_post_id = mp.id
+    AND mpc.deleted_at IS NULL
+) comment_counts ON true
+WHERE lower(u.username) = lower(sqlc.arg(username))
+  AND mi.dive_site_id = sqlc.arg(dive_site_id)
+  AND u.account_status = 'active'
+  AND mo.state = 'active'
+  AND mo.context_type = 'profile_feed'
+  AND mi.status = 'active'
+  AND mi.deleted_at IS NULL
+  AND mp.deleted_at IS NULL
+  AND ds.moderation_state = 'approved'
+  AND (mi.created_at < sqlc.arg(created_at) OR (mi.created_at = sqlc.arg(created_at) AND mi.id < sqlc.arg(id)))
+  AND (
+    sqlc.arg(viewer_user_id)::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = sqlc.arg(viewer_user_id) AND b.blocked_app_user_id = mi.author_app_user_id)
+         OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = sqlc.arg(viewer_user_id))
+    )
+  )
+ORDER BY mi.created_at DESC, mi.id DESC
+LIMIT sqlc.arg(limit_count);
+
 -- name: GetVisibleMediaPostSocialState :one
 SELECT
   mp.id,

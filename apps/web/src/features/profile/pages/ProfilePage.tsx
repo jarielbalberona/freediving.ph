@@ -18,6 +18,7 @@ import {
 } from "@/features/messages/lib/perf";
 import { useProfileMediaInfiniteQuery } from "@/features/media/hooks";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
+import { DiveSpotHighlights } from "@/features/profile/components/DiveSpotHighlights";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
 import { ProfileBucketList } from "@/features/profile/components/ProfileBucketList";
 import { ProfileSkeleton } from "@/features/profile/components/ProfileSkeleton";
@@ -165,6 +166,11 @@ export default function ProfilePage({ username }: ProfilePageProps) {
             });
           }}
           isMessagePending={openThreadMutation.isPending}
+        />
+        <DiveSpotHighlights
+          username={profileQuery.data.username}
+          displayName={profileQuery.data.displayName}
+          avatarUrl={profileQuery.data.avatarUrl}
         />
         <ProfileBucketList items={bucketListQuery.data ?? []} />
         <ProfileTabs

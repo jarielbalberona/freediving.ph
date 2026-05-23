@@ -3,24 +3,42 @@
 import { SignInButton } from "@clerk/nextjs";
 import type {
   Event,
+  EventCompetition,
   EventDifficulty,
   EventEntryType,
   EventParticipant,
   EventPaymentMethod,
   EventPaymentMethodType,
   EventPaymentStatus,
+  EventPost,
+  EventPostCreatePolicy,
+  EventPrize,
+  EventPrizePlacement,
+  EventPrizeType,
+  EventSponsor,
+  EventSponsorTier,
   EventVisibility,
+  CreateEventPrizeRequest,
+  CreateEventSponsorRequest,
   UpdateEventRequest,
+  UpdateEventPrizeRequest,
+  UpdateEventSponsorRequest,
 } from "@freediving.ph/types";
 import {
   ArrowLeft,
+  Award,
   CalendarClock,
   CheckCircle2,
+  Handshake,
   Lock,
   MapPin,
+  MessageSquare,
   Pencil,
+  Pin,
+  Plus,
   ShieldCheck,
   Ticket,
+  Trash2,
   Upload,
   Users,
   XCircle,
@@ -71,6 +89,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/features/auth/session";
 import { ChikaMarkdown } from "@/features/chika/components/ChikaMarkdown";
+import { MarkdownEditor } from "@/features/chika/components/MarkdownEditor";
 import { DiveSiteCombobox } from "@/features/diveSpots/components/DiveSiteCombobox";
 import {
   difficultyOptions,
@@ -78,10 +97,22 @@ import {
   eventOptionLabel,
   titleCase,
   useApproveEventParticipant,
+  useCreateEventCompetition,
   useCreateEventPaymentMethod,
+  useCreateEventPost,
+  useCreateEventPrize,
+  useCreateEventSponsor,
+  useDeleteEventCompetition,
+  useDeleteEventPost,
+  useDeleteEventPrize,
+  useDeleteEventSponsor,
   useEvent,
+  useEventCompetitions,
   useEventParticipants,
   useEventPaymentProofUrl,
+  useEventPosts,
+  useEventPrizes,
+  useEventSponsors,
   useJoinEvent,
   useLeaveEvent,
   useMarkEventInterested,
@@ -89,17 +120,25 @@ import {
   useRejectEventParticipant,
   useRejectEventPayment,
   useSubmitEventPayment,
+  useUpdateEventCompetition,
   useUpdateEvent,
+  useUpdateEventParticipantRole,
+  useUpdateEventPost,
+  useUpdateEventPostSettings,
+  useUpdateEventPrize,
+  useUpdateEventSponsor,
   useVerifyEventPayment,
 } from "@/features/events";
 import { mediaApi } from "@/features/media/api/media";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 
 type EventTab =
-  | "updates"
   | "overview"
   | "join"
   | "participants"
+  | "prizes"
+  | "sponsors"
+  | "posts"
   | "payment"
   | "manage";
 
@@ -123,6 +162,18 @@ export default function EventDetailClient({ slug }: { slug: string }) {
   const eventQuery = useEvent(slug);
   const event = eventQuery.data;
   const eventId = event?.id ?? "";
+  const canFetchDetailExtensions =
+    Boolean(eventId) &&
+    Boolean(event) &&
+    (event?.visibility === "public" ||
+      event?.viewerCanViewPrivateDetails ||
+      event?.viewerCanManage);
+  const canFetchPosts =
+    Boolean(eventId) &&
+    Boolean(event) &&
+    (event?.viewerCanManage ||
+      (event?.postsEnabled &&
+        event?.viewerParticipation?.status === "confirmed"));
   const participantsQuery = useEventParticipants(
     eventId,
     Boolean(eventId) &&
@@ -131,6 +182,13 @@ export default function EventDetailClient({ slug }: { slug: string }) {
         event?.viewerCanViewPrivateDetails ||
         event?.viewerCanManage),
   );
+  const competitionsQuery = useEventCompetitions(
+    eventId,
+    canFetchDetailExtensions,
+  );
+  const prizesQuery = useEventPrizes(eventId, canFetchDetailExtensions);
+  const sponsorsQuery = useEventSponsors(eventId, canFetchDetailExtensions);
+  const postsQuery = useEventPosts(eventId, canFetchPosts);
   const joinMutation = useJoinEvent();
   const leaveMutation = useLeaveEvent();
   const markInterestedMutation = useMarkEventInterested();
@@ -141,6 +199,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
   const verifyPaymentMutation = useVerifyEventPayment();
   const rejectPaymentMutation = useRejectEventPayment();
   const proofUrlMutation = useEventPaymentProofUrl();
+  const updateParticipantRoleMutation = useUpdateEventParticipantRole();
 
   const participants = useMemo(
     () =>
@@ -200,14 +259,19 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     event.visibility === "public" ||
     event.viewerCanViewPrivateDetails ||
     event.viewerCanManage;
+  const canShowPrizeSponsorTabs = canSeePrivateDetails || event.viewerCanManage;
+  const canShowPostsTab =
+    event.viewerCanManage || event.viewerParticipation?.status === "confirmed";
   const canShowPaymentTab =
     event.isPaid && (event.viewerJoined || event.viewerCanManage);
   const canShowManageTab = event.viewerCanManage;
   const visibleTabs: EventTab[] = [
-    "updates",
     "overview",
     ...(canShowJoinTab ? (["join"] as const) : []),
     ...(canShowParticipantsTab ? (["participants"] as const) : []),
+    ...(canShowPrizeSponsorTabs ? (["prizes"] as const) : []),
+    ...(canShowPrizeSponsorTabs ? (["sponsors"] as const) : []),
+    ...(canShowPostsTab ? (["posts"] as const) : []),
     ...(canShowPaymentTab ? (["payment"] as const) : []),
     ...(canShowManageTab ? (["manage"] as const) : []),
   ];
@@ -373,13 +437,6 @@ export default function EventDetailClient({ slug }: { slug: string }) {
       >
         <TabsList variant="line" className={eventTabsListClassName}>
           <TabsTrigger
-            value="updates"
-            className={eventTabTriggerClassName}
-            onClick={() => setActiveTab("updates")}
-          >
-            Updates
-          </TabsTrigger>
-          <TabsTrigger
             value="overview"
             className={eventTabTriggerClassName}
             onClick={() => setActiveTab("overview")}
@@ -404,6 +461,33 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               Participants
             </TabsTrigger>
           ) : null}
+          {canShowPrizeSponsorTabs ? (
+            <TabsTrigger
+              value="prizes"
+              className={eventTabTriggerClassName}
+              onClick={() => setActiveTab("prizes")}
+            >
+              Prizes
+            </TabsTrigger>
+          ) : null}
+          {canShowPrizeSponsorTabs ? (
+            <TabsTrigger
+              value="sponsors"
+              className={eventTabTriggerClassName}
+              onClick={() => setActiveTab("sponsors")}
+            >
+              Sponsors
+            </TabsTrigger>
+          ) : null}
+          {canShowPostsTab ? (
+            <TabsTrigger
+              value="posts"
+              className={eventTabTriggerClassName}
+              onClick={() => setActiveTab("posts")}
+            >
+              Posts
+            </TabsTrigger>
+          ) : null}
           {canShowPaymentTab ? (
             <TabsTrigger
               value="payment"
@@ -423,10 +507,6 @@ export default function EventDetailClient({ slug }: { slug: string }) {
             </TabsTrigger>
           ) : null}
         </TabsList>
-
-        <TabsContent value="updates" className="space-y-4">
-          <UpdatesTab />
-        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           <OverviewTab
@@ -487,7 +567,25 @@ export default function EventDetailClient({ slug }: { slug: string }) {
                     onSuccess: () => toast.success("Participant rejected."),
                     onError: (error) =>
                       toast.error(
-                        getApiErrorMessage(error, "Failed to reject participant"),
+                        getApiErrorMessage(
+                          error,
+                          "Failed to reject participant",
+                        ),
+                      ),
+                  },
+                )
+              }
+              onUpdateRole={(participantId, role) =>
+                updateParticipantRoleMutation.mutate(
+                  { eventId: event.id, participantId, data: { role } },
+                  {
+                    onSuccess: () => toast.success("Participant role updated."),
+                    onError: (error) =>
+                      toast.error(
+                        getApiErrorMessage(
+                          error,
+                          "Failed to update participant role",
+                        ),
                       ),
                   },
                 )
@@ -522,6 +620,41 @@ export default function EventDetailClient({ slug }: { slug: string }) {
                   ? proofUrlMutation.variables?.paymentId
                   : undefined
               }
+            />
+          </TabsContent>
+        ) : null}
+
+        {canShowPrizeSponsorTabs ? (
+          <TabsContent value="prizes" className="space-y-4">
+            <PrizesTab
+              event={event}
+              competitions={competitionsQuery.data ?? []}
+              prizes={prizesQuery.data ?? []}
+              isLoading={competitionsQuery.isLoading || prizesQuery.isLoading}
+              error={competitionsQuery.error || prizesQuery.error}
+            />
+          </TabsContent>
+        ) : null}
+
+        {canShowPrizeSponsorTabs ? (
+          <TabsContent value="sponsors" className="space-y-4">
+            <SponsorsTab
+              event={event}
+              sponsors={sponsorsQuery.data ?? []}
+              isLoading={sponsorsQuery.isLoading}
+              error={sponsorsQuery.error}
+            />
+          </TabsContent>
+        ) : null}
+
+        {canShowPostsTab ? (
+          <TabsContent value="posts" className="space-y-4">
+            <PostsTab
+              event={event}
+              posts={postsQuery.data ?? []}
+              isLoading={postsQuery.isLoading}
+              error={postsQuery.error}
+              viewerUserId={session.me?.userId}
             />
           </TabsContent>
         ) : null}
@@ -757,15 +890,6 @@ function PrivacyNotice({ children }: { children: ReactNode }) {
   );
 }
 
-function UpdatesTab() {
-  return (
-    <CommunityEmptyState
-      title="No updates yet"
-      description="Event posts and activity changes will appear here."
-    />
-  );
-}
-
 function OverviewTab({
   event,
   canSeePrivateDetails,
@@ -780,7 +904,8 @@ function OverviewTab({
     Boolean(event.shortDescription?.trim());
   const freedivingDetails = getFreedivingDetails(event);
   const logisticsSections = getLogisticsSections(event, canSeePrivateDetails);
-  const hasMissingDetails = event.viewerCanManage && hasOrganizerMissingDetails(event);
+  const hasMissingDetails =
+    event.viewerCanManage && hasOrganizerMissingDetails(event);
 
   return (
     <div className="space-y-6">
@@ -795,11 +920,13 @@ function OverviewTab({
           )}
         </DetailSection>
       ) : canSeePrivateDetails ? (
-        <DetailSection title="About">
-          <p className="text-sm leading-6 text-muted-foreground">
-            The organizer has not added a full description yet.
-          </p>
-        </DetailSection>
+        event.viewerCanManage ? (
+          <DetailSection title="About">
+            <p className="text-sm leading-6 text-muted-foreground">
+              Add a full event description.
+            </p>
+          </DetailSection>
+        ) : null
       ) : null}
 
       {privateLocked ? (
@@ -930,7 +1057,8 @@ function JoinTab({
   const canJoin = !event.viewerParticipation;
   const stateLabel = getViewerStateLabel(viewerState) ?? "Not joined";
   const paymentStatus = getPaymentStatusLabel(
-    event.viewerPayment?.status ?? (event.isPaid ? "pending_upload" : "not_required"),
+    event.viewerPayment?.status ??
+      (event.isPaid ? "pending_upload" : "not_required"),
   );
 
   return (
@@ -988,7 +1116,8 @@ function JoinTab({
                   <Button
                     variant="outline"
                     disabled={
-                      isLeaving || event.viewerParticipation?.role === "organizer"
+                      isLeaving ||
+                      event.viewerParticipation?.role === "organizer"
                     }
                   />
                 }
@@ -1061,6 +1190,1192 @@ function JoinTab({
   );
 }
 
+function PrizesTab({
+  event,
+  competitions,
+  prizes,
+  isLoading,
+  error,
+}: {
+  event: Event;
+  competitions: EventCompetition[];
+  prizes: EventPrize[];
+  isLoading: boolean;
+  error: unknown;
+}) {
+  const createCompetitionMutation = useCreateEventCompetition();
+  const updateCompetitionMutation = useUpdateEventCompetition();
+  const deleteCompetitionMutation = useDeleteEventCompetition();
+  const createPrizeMutation = useCreateEventPrize();
+  const updatePrizeMutation = useUpdateEventPrize();
+  const deletePrizeMutation = useDeleteEventPrize();
+  const [competitionDialogOpen, setCompetitionDialogOpen] = useState(false);
+  const [prizeDialogOpen, setPrizeDialogOpen] = useState(false);
+  const [editingCompetition, setEditingCompetition] =
+    useState<EventCompetition | null>(null);
+  const [editingPrize, setEditingPrize] = useState<EventPrize | null>(null);
+  const [competitionName, setCompetitionName] = useState("");
+  const [competitionDescription, setCompetitionDescription] = useState("");
+  const [competitionRules, setCompetitionRules] = useState("");
+  const [prizeTitle, setPrizeTitle] = useState("");
+  const [prizeCompetitionId, setPrizeCompetitionId] = useState("general");
+  const [prizePlacement, setPrizePlacement] =
+    useState<EventPrizePlacement>("custom");
+  const [prizePlacementLabel, setPrizePlacementLabel] = useState("");
+  const [prizeType, setPrizeType] = useState<EventPrizeType | "">("");
+  const [prizeAmount, setPrizeAmount] = useState("");
+  const [prizeCurrency, setPrizeCurrency] = useState("PHP");
+  const [prizeDescription, setPrizeDescription] = useState("");
+
+  const openCompetitionDialog = (competition?: EventCompetition) => {
+    setEditingCompetition(competition ?? null);
+    setCompetitionName(competition?.name ?? "");
+    setCompetitionDescription(competition?.descriptionMarkdown ?? "");
+    setCompetitionRules(competition?.rulesMarkdown ?? "");
+    setCompetitionDialogOpen(true);
+  };
+  const openPrizeDialog = (prize?: EventPrize) => {
+    setEditingPrize(prize ?? null);
+    setPrizeTitle(prize?.title ?? "");
+    setPrizeCompetitionId(prize?.competitionId ?? "general");
+    setPrizePlacement(prize?.placement ?? "custom");
+    setPrizePlacementLabel(prize?.placementLabel ?? "");
+    setPrizeType(prize?.prizeType ?? "");
+    setPrizeAmount(prize?.amount != null ? String(prize.amount) : "");
+    setPrizeCurrency(prize?.currency || "PHP");
+    setPrizeDescription(prize?.descriptionMarkdown ?? "");
+    setPrizeDialogOpen(true);
+  };
+  const saveCompetition = () => {
+    const name = competitionName.trim();
+    if (!name) {
+      toast.error("Competition name is required.");
+      return;
+    }
+    const data = {
+      name,
+      descriptionMarkdown: competitionDescription.trim() || undefined,
+      rulesMarkdown: competitionRules.trim() || undefined,
+    };
+    const options = {
+      onSuccess: () => {
+        toast.success("Competition saved.");
+        setCompetitionDialogOpen(false);
+      },
+      onError: (item: unknown) =>
+        toast.error(getApiErrorMessage(item, "Failed to save competition")),
+    };
+    if (editingCompetition) {
+      updateCompetitionMutation.mutate(
+        { eventId: event.id, competitionId: editingCompetition.id, data },
+        options,
+      );
+      return;
+    }
+    createCompetitionMutation.mutate({ eventId: event.id, data }, options);
+  };
+  const savePrize = () => {
+    const title = prizeTitle.trim();
+    if (!title) {
+      toast.error("Prize title is required.");
+      return;
+    }
+    const amount = prizeAmount.trim()
+      ? Number.parseFloat(prizeAmount.trim())
+      : undefined;
+    if (amount !== undefined && (!Number.isFinite(amount) || amount < 0)) {
+      toast.error("Prize amount must be zero or higher.");
+      return;
+    }
+    const createData: CreateEventPrizeRequest = {
+      title,
+      competitionId:
+        prizeCompetitionId === "general" ? undefined : prizeCompetitionId,
+      placement: prizePlacement,
+      placementLabel: prizePlacementLabel.trim() || undefined,
+      prizeType: prizeType || undefined,
+      amount,
+      currency: prizeCurrency.trim().toUpperCase() || "PHP",
+      descriptionMarkdown: prizeDescription.trim() || undefined,
+    };
+    const options = {
+      onSuccess: () => {
+        toast.success("Prize saved.");
+        setPrizeDialogOpen(false);
+      },
+      onError: (item: unknown) =>
+        toast.error(getApiErrorMessage(item, "Failed to save prize")),
+    };
+    if (editingPrize) {
+      const updateData: UpdateEventPrizeRequest = {
+        ...createData,
+        competitionId:
+          prizeCompetitionId === "general" ? "" : prizeCompetitionId,
+        placementLabel: prizePlacementLabel.trim() || "",
+        prizeType: prizeType || "",
+        descriptionMarkdown: prizeDescription.trim() || "",
+      };
+      updatePrizeMutation.mutate(
+        { eventId: event.id, prizeId: editingPrize.id, data: updateData },
+        options,
+      );
+      return;
+    }
+    createPrizeMutation.mutate(
+      { eventId: event.id, data: createData },
+      options,
+    );
+  };
+
+  const generalPrizes = prizes.filter((prize) => !prize.competitionId);
+  const prizesByCompetition = new Map<string, EventPrize[]>();
+  for (const prize of prizes) {
+    if (!prize.competitionId) continue;
+    const items = prizesByCompetition.get(prize.competitionId) ?? [];
+    items.push(prize);
+    prizesByCompetition.set(prize.competitionId, items);
+  }
+
+  if (isLoading) {
+    return <Skeleton className="h-32 rounded-xl" />;
+  }
+  if (error) {
+    return (
+      <p className="text-sm text-destructive">
+        {getApiErrorMessage(error, "Prizes could not be loaded.")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <DetailSection title="Prizes and competitions">
+        {event.viewerCanManage ? (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => openCompetitionDialog()}>
+              <Plus className="mr-1 h-4 w-4" />
+              Add competition
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => openPrizeDialog()}
+            >
+              <Award className="mr-1 h-4 w-4" />
+              Add prize
+            </Button>
+          </div>
+        ) : null}
+      </DetailSection>
+
+      {competitions.length === 0 && prizes.length === 0 ? (
+        <CommunityEmptyState
+          title="No prizes have been added yet."
+          description={
+            event.viewerCanManage
+              ? "Add prizes or competition awards for this event."
+              : "No prizes have been added yet."
+          }
+        />
+      ) : (
+        <div className="space-y-6">
+          {competitions.map((competition) => (
+            <DetailSection key={competition.id} title={competition.name}>
+              {competition.descriptionMarkdown ? (
+                <ChikaMarkdown content={competition.descriptionMarkdown} />
+              ) : null}
+              {competition.rulesMarkdown ? (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-foreground">Rules</h3>
+                  <ChikaMarkdown content={competition.rulesMarkdown} />
+                </div>
+              ) : null}
+              {event.viewerCanManage ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openCompetitionDialog(competition)}
+                >
+                  Edit competition
+                </Button>
+              ) : null}
+              <PrizeList
+                event={event}
+                prizes={prizesByCompetition.get(competition.id) ?? []}
+                onEdit={openPrizeDialog}
+              />
+            </DetailSection>
+          ))}
+          {generalPrizes.length > 0 ? (
+            <DetailSection title="Event prizes">
+              <PrizeList
+                event={event}
+                prizes={generalPrizes}
+                onEdit={openPrizeDialog}
+              />
+            </DetailSection>
+          ) : null}
+        </div>
+      )}
+
+      <Dialog
+        open={competitionDialogOpen}
+        onOpenChange={setCompetitionDialogOpen}
+      >
+        <DialogContent className="max-w-2xl!">
+          <DialogHeader>
+            <DialogTitle>
+              {editingCompetition ? "Edit competition" : "Add competition"}
+            </DialogTitle>
+            <DialogDescription>
+              Add contests like photography, static, dynamic, or custom awards.
+            </DialogDescription>
+          </DialogHeader>
+          <SetupField label="Name">
+            <Input
+              value={competitionName}
+              onChange={(item) => setCompetitionName(item.target.value)}
+              placeholder="Underwater Photography"
+            />
+          </SetupField>
+          <SetupField label="Description">
+            <MarkdownEditor
+              value={competitionDescription}
+              onChange={setCompetitionDescription}
+              minRows={5}
+              maxLength={10000}
+            />
+          </SetupField>
+          <SetupField label="Rules">
+            <MarkdownEditor
+              value={competitionRules}
+              onChange={setCompetitionRules}
+              minRows={5}
+              maxLength={10000}
+            />
+          </SetupField>
+          <DialogFooter showCloseButton>
+            {editingCompetition ? (
+              <Button
+                variant="outline"
+                disabled={deleteCompetitionMutation.isPending}
+                onClick={() =>
+                  deleteCompetitionMutation.mutate(
+                    {
+                      eventId: event.id,
+                      competitionId: editingCompetition.id,
+                    },
+                    {
+                      onSuccess: () => {
+                        toast.success("Competition removed.");
+                        setCompetitionDialogOpen(false);
+                      },
+                      onError: (item) =>
+                        toast.error(
+                          getApiErrorMessage(
+                            item,
+                            "Failed to remove competition",
+                          ),
+                        ),
+                    },
+                  )
+                }
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                Delete
+              </Button>
+            ) : null}
+            <Button
+              disabled={
+                createCompetitionMutation.isPending ||
+                updateCompetitionMutation.isPending
+              }
+              onClick={saveCompetition}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={prizeDialogOpen} onOpenChange={setPrizeDialogOpen}>
+        <DialogContent className="max-w-2xl!">
+          <DialogHeader>
+            <DialogTitle>
+              {editingPrize ? "Edit prize" : "Add prize"}
+            </DialogTitle>
+            <DialogDescription>
+              Link the prize to a competition or keep it as a general event
+              award.
+            </DialogDescription>
+          </DialogHeader>
+          <SetupField label="Title">
+            <Input
+              value={prizeTitle}
+              onChange={(item) => setPrizeTitle(item.target.value)}
+              placeholder="Champion"
+            />
+          </SetupField>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SetupField label="Competition">
+              <Select
+                value={prizeCompetitionId}
+                onValueChange={(value) =>
+                  setPrizeCompetitionId(value ?? "general")
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General event prize</SelectItem>
+                  {competitions.map((competition) => (
+                    <SelectItem key={competition.id} value={competition.id}>
+                      {competition.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SetupField>
+            <SetupField label="Placement">
+              <Select
+                value={prizePlacement}
+                onValueChange={(value) =>
+                  setPrizePlacement(value as EventPrizePlacement)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {prizePlacementOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SetupField>
+          </div>
+          <SetupField label="Custom placement label">
+            <Input
+              value={prizePlacementLabel}
+              onChange={(item) => setPrizePlacementLabel(item.target.value)}
+              placeholder="People's Choice"
+            />
+          </SetupField>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SetupField label="Type">
+              <Select
+                value={prizeType || "none"}
+                onValueChange={(value) =>
+                  setPrizeType(
+                    value === "none" ? "" : (value as EventPrizeType),
+                  )
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not set</SelectItem>
+                  {prizeTypeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SetupField>
+            <SetupField label="Amount">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={prizeAmount}
+                onChange={(item) => setPrizeAmount(item.target.value)}
+              />
+            </SetupField>
+            <SetupField label="Currency">
+              <Input
+                value={prizeCurrency}
+                onChange={(item) => setPrizeCurrency(item.target.value)}
+              />
+            </SetupField>
+          </div>
+          <SetupField label="Description">
+            <MarkdownEditor
+              value={prizeDescription}
+              onChange={setPrizeDescription}
+              minRows={5}
+              maxLength={10000}
+            />
+          </SetupField>
+          <DialogFooter showCloseButton>
+            {editingPrize ? (
+              <Button
+                variant="outline"
+                disabled={deletePrizeMutation.isPending}
+                onClick={() =>
+                  deletePrizeMutation.mutate(
+                    { eventId: event.id, prizeId: editingPrize.id },
+                    {
+                      onSuccess: () => {
+                        toast.success("Prize removed.");
+                        setPrizeDialogOpen(false);
+                      },
+                      onError: (item) =>
+                        toast.error(
+                          getApiErrorMessage(item, "Failed to remove prize"),
+                        ),
+                    },
+                  )
+                }
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                Delete
+              </Button>
+            ) : null}
+            <Button
+              disabled={
+                createPrizeMutation.isPending || updatePrizeMutation.isPending
+              }
+              onClick={savePrize}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function PrizeList({
+  event,
+  prizes,
+  onEdit,
+}: {
+  event: Event;
+  prizes: EventPrize[];
+  onEdit: (prize: EventPrize) => void;
+}) {
+  if (prizes.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No prizes have been added yet.
+      </p>
+    );
+  }
+  return (
+    <div className="divide-y divide-border/70 border-y border-border/70">
+      {prizes.map((prize) => (
+        <article key={prize.id} className="py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge className="h-6 px-2 text-[11px]">
+                  {prizePlacementLabel(prize)}
+                </Badge>
+                {prize.prizeType ? (
+                  <Badge variant="outline" className="h-6 px-2 text-[11px]">
+                    {titleCase(prize.prizeType)}
+                  </Badge>
+                ) : null}
+                {prize.amount != null ? (
+                  <Badge variant="outline" className="h-6 px-2 text-[11px]">
+                    {prize.currency} {prize.amount}
+                  </Badge>
+                ) : null}
+              </div>
+              <h3 className="text-sm font-medium text-foreground">
+                {prize.title}
+              </h3>
+            </div>
+            {event.viewerCanManage ? (
+              <Button size="sm" variant="outline" onClick={() => onEdit(prize)}>
+                Edit prize
+              </Button>
+            ) : null}
+          </div>
+          {prize.descriptionMarkdown ? (
+            <ChikaMarkdown
+              content={prize.descriptionMarkdown}
+              className="mt-2"
+            />
+          ) : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function SponsorsTab({
+  event,
+  sponsors,
+  isLoading,
+  error,
+}: {
+  event: Event;
+  sponsors: EventSponsor[];
+  isLoading: boolean;
+  error: unknown;
+}) {
+  const createSponsorMutation = useCreateEventSponsor();
+  const updateSponsorMutation = useUpdateEventSponsor();
+  const deleteSponsorMutation = useDeleteEventSponsor();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingSponsor, setEditingSponsor] = useState<EventSponsor | null>(
+    null,
+  );
+  const [name, setName] = useState("");
+  const [tier, setTier] = useState<EventSponsorTier | "">("");
+  const [description, setDescription] = useState("");
+  const [logoMediaId, setLogoMediaId] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [socialUrl, setSocialUrl] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  const openDialog = (sponsor?: EventSponsor) => {
+    setEditingSponsor(sponsor ?? null);
+    setName(sponsor?.name ?? "");
+    setTier(sponsor?.tier ?? "");
+    setDescription(sponsor?.description ?? "");
+    setLogoMediaId(sponsor?.logoMediaId ?? "");
+    setLogoFile(null);
+    setWebsiteUrl(sponsor?.websiteUrl ?? "");
+    setSocialUrl(sponsor?.socialUrl ?? "");
+    setContactName(sponsor?.contactName ?? "");
+    setContactEmail(sponsor?.contactEmail ?? "");
+    setDialogOpen(true);
+  };
+  const saveSponsor = async () => {
+    const sponsorName = name.trim();
+    if (!sponsorName) {
+      toast.error("Sponsor name is required.");
+      return;
+    }
+    setIsUploadingLogo(true);
+    try {
+      let uploadedLogoMediaId = logoMediaId.trim();
+      if (logoFile) {
+        const upload = await mediaApi.upload(
+          logoFile,
+          "event_attachment",
+          event.id,
+        );
+        uploadedLogoMediaId = upload.id;
+      }
+      const createData: CreateEventSponsorRequest = {
+        name: sponsorName,
+        tier: tier || undefined,
+        description: description.trim() || undefined,
+        logoMediaId: uploadedLogoMediaId || undefined,
+        websiteUrl: websiteUrl.trim() || undefined,
+        socialUrl: socialUrl.trim() || undefined,
+        contactName: contactName.trim() || undefined,
+        contactEmail: contactEmail.trim() || undefined,
+        isActive: true,
+      };
+      const options = {
+        onSuccess: () => {
+          toast.success("Sponsor saved.");
+          setDialogOpen(false);
+        },
+        onError: (item: unknown) =>
+          toast.error(getApiErrorMessage(item, "Failed to save sponsor")),
+      };
+      if (editingSponsor) {
+        const updateData: UpdateEventSponsorRequest = {
+          ...createData,
+          tier: tier || "",
+          description: description.trim() || "",
+          logoMediaId: uploadedLogoMediaId || "",
+          websiteUrl: websiteUrl.trim() || "",
+          socialUrl: socialUrl.trim() || "",
+          contactName: contactName.trim() || "",
+          contactEmail: contactEmail.trim() || "",
+        };
+        updateSponsorMutation.mutate(
+          { eventId: event.id, sponsorId: editingSponsor.id, data: updateData },
+          options,
+        );
+        return;
+      }
+      createSponsorMutation.mutate(
+        { eventId: event.id, data: createData },
+        options,
+      );
+    } catch (item) {
+      toast.error(getApiErrorMessage(item, "Failed to upload sponsor logo"));
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  if (isLoading) {
+    return <Skeleton className="h-32 rounded-xl" />;
+  }
+  if (error) {
+    return (
+      <p className="text-sm text-destructive">
+        {getApiErrorMessage(error, "Sponsors could not be loaded.")}
+      </p>
+    );
+  }
+
+  const activeSponsors = sponsors.filter((sponsor) => sponsor.isActive);
+  const grouped = groupSponsorsByTier(activeSponsors);
+
+  return (
+    <div className="space-y-5">
+      <DetailSection title="Sponsors">
+        {event.viewerCanManage ? (
+          <Button size="sm" onClick={() => openDialog()}>
+            <Plus className="mr-1 h-4 w-4" />
+            Add sponsor
+          </Button>
+        ) : null}
+      </DetailSection>
+      {activeSponsors.length === 0 ? (
+        <CommunityEmptyState
+          title="No sponsors have been added yet."
+          description={
+            event.viewerCanManage
+              ? "Add sponsor logos, links, and private organizer contacts."
+              : "No sponsors have been added yet."
+          }
+        />
+      ) : (
+        <div className="space-y-6">
+          {grouped.map(([groupTier, items]) => (
+            <DetailSection key={groupTier} title={sponsorTierLabel(groupTier)}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {items.map((sponsor) => {
+                  const websiteUrl = safeExternalUrl(sponsor.websiteUrl);
+                  const socialUrl = safeExternalUrl(sponsor.socialUrl);
+                  return (
+                    <article
+                      key={sponsor.id}
+                      className="rounded-lg border border-border/70 p-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/70 bg-muted/40">
+                          {sponsor.logoUrl ? (
+                            <img
+                              src={sponsor.logoUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Handshake className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <h3 className="text-sm font-medium text-foreground">
+                            {sponsor.name}
+                          </h3>
+                          {sponsor.description ? (
+                            <p className="text-sm leading-6 text-muted-foreground">
+                              {sponsor.description}
+                            </p>
+                          ) : null}
+                          <div className="flex flex-wrap gap-2 text-xs">
+                            {websiteUrl ? (
+                              <a
+                                className="text-primary underline underline-offset-4"
+                                href={websiteUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                              >
+                                Website
+                              </a>
+                            ) : null}
+                            {socialUrl ? (
+                              <a
+                                className="text-primary underline underline-offset-4"
+                                href={socialUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                              >
+                                Social
+                              </a>
+                            ) : null}
+                          </div>
+                          {event.viewerCanManage &&
+                          (sponsor.contactName || sponsor.contactEmail) ? (
+                            <p className="text-xs text-muted-foreground">
+                              {[sponsor.contactName, sponsor.contactEmail]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      {event.viewerCanManage ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-3"
+                          onClick={() => openDialog(sponsor)}
+                        >
+                          Edit sponsor
+                        </Button>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            </DetailSection>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl!">
+          <DialogHeader>
+            <DialogTitle>
+              {editingSponsor ? "Edit sponsor" : "Add sponsor"}
+            </DialogTitle>
+            <DialogDescription>
+              Public fields are shown to event viewers. Contact fields stay
+              organizer-only.
+            </DialogDescription>
+          </DialogHeader>
+          <SetupField label="Name">
+            <Input
+              value={name}
+              onChange={(item) => setName(item.target.value)}
+            />
+          </SetupField>
+          <SetupField label="Tier">
+            <Select
+              value={tier || "none"}
+              onValueChange={(value) =>
+                setTier(value === "none" ? "" : (value as EventSponsorTier))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Not set</SelectItem>
+                {sponsorTierOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SetupField>
+          <SetupField label="Description">
+            <Textarea
+              className="min-h-20"
+              value={description}
+              onChange={(item) => setDescription(item.target.value)}
+            />
+          </SetupField>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SetupField label="Logo media ID">
+              <Input
+                value={logoMediaId}
+                onChange={(item) => setLogoMediaId(item.target.value)}
+              />
+            </SetupField>
+            <SetupField label="Upload logo">
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(item) => setLogoFile(item.target.files?.[0] ?? null)}
+              />
+            </SetupField>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SetupField label="Website">
+              <Input
+                value={websiteUrl}
+                onChange={(item) => setWebsiteUrl(item.target.value)}
+                placeholder="https://"
+              />
+            </SetupField>
+            <SetupField label="Social">
+              <Input
+                value={socialUrl}
+                onChange={(item) => setSocialUrl(item.target.value)}
+                placeholder="https://"
+              />
+            </SetupField>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SetupField label="Private contact name">
+              <Input
+                value={contactName}
+                onChange={(item) => setContactName(item.target.value)}
+              />
+            </SetupField>
+            <SetupField label="Private contact email">
+              <Input
+                value={contactEmail}
+                onChange={(item) => setContactEmail(item.target.value)}
+              />
+            </SetupField>
+          </div>
+          <DialogFooter showCloseButton>
+            {editingSponsor ? (
+              <Button
+                variant="outline"
+                disabled={deleteSponsorMutation.isPending}
+                onClick={() =>
+                  deleteSponsorMutation.mutate(
+                    { eventId: event.id, sponsorId: editingSponsor.id },
+                    {
+                      onSuccess: () => {
+                        toast.success("Sponsor removed.");
+                        setDialogOpen(false);
+                      },
+                      onError: (item) =>
+                        toast.error(
+                          getApiErrorMessage(item, "Failed to remove sponsor"),
+                        ),
+                    },
+                  )
+                }
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                Delete
+              </Button>
+            ) : null}
+            <Button
+              disabled={
+                isUploadingLogo ||
+                createSponsorMutation.isPending ||
+                updateSponsorMutation.isPending
+              }
+              onClick={() => void saveSponsor()}
+            >
+              {isUploadingLogo ? "Uploading..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function PostsTab({
+  event,
+  posts,
+  isLoading,
+  error,
+  viewerUserId,
+}: {
+  event: Event;
+  posts: EventPost[];
+  isLoading: boolean;
+  error: unknown;
+  viewerUserId?: string;
+}) {
+  const createPostMutation = useCreateEventPost();
+  const updatePostMutation = useUpdateEventPost();
+  const deletePostMutation = useDeleteEventPost();
+  const updateSettingsMutation = useUpdateEventPostSettings();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<EventPost | null>(null);
+  const [title, setTitle] = useState("");
+  const [bodyMarkdown, setBodyMarkdown] = useState("");
+  const canCreatePost =
+    event.postsEnabled &&
+    (event.viewerCanManage ||
+      (event.postCreatePolicy === "participants" &&
+        event.viewerParticipation?.status === "confirmed"));
+
+  const openDialog = (post?: EventPost) => {
+    setEditingPost(post ?? null);
+    setTitle(post?.title ?? "");
+    setBodyMarkdown(post?.bodyMarkdown ?? "");
+    setDialogOpen(true);
+  };
+  const savePost = () => {
+    const body = bodyMarkdown.trim();
+    if (!body) {
+      toast.error("Post body is required.");
+      return;
+    }
+    const data = {
+      title: title.trim() || undefined,
+      bodyMarkdown: body,
+    };
+    const options = {
+      onSuccess: () => {
+        toast.success("Post saved.");
+        setDialogOpen(false);
+      },
+      onError: (item: unknown) =>
+        toast.error(getApiErrorMessage(item, "Failed to save post")),
+    };
+    if (editingPost) {
+      updatePostMutation.mutate(
+        { eventId: event.id, postId: editingPost.id, data },
+        options,
+      );
+      return;
+    }
+    createPostMutation.mutate({ eventId: event.id, data }, options);
+  };
+
+  if (!event.postsEnabled) {
+    return (
+      <StatusPanel
+        title="Posts are not enabled for this event."
+        description={
+          event.viewerCanManage
+            ? "Enable event posts when you are ready to publish updates or let participants discuss."
+            : "Posts are not enabled for this event."
+        }
+      >
+        {event.viewerCanManage ? (
+          <Button
+            size="sm"
+            disabled={updateSettingsMutation.isPending}
+            onClick={() =>
+              updateSettingsMutation.mutate(
+                {
+                  eventId: event.id,
+                  data: {
+                    postsEnabled: true,
+                    postCreatePolicy:
+                      event.postCreatePolicy || "organizers_only",
+                  },
+                },
+                {
+                  onSuccess: () => toast.success("Event posts enabled."),
+                  onError: (item) =>
+                    toast.error(
+                      getApiErrorMessage(item, "Failed to enable event posts"),
+                    ),
+                },
+              )
+            }
+          >
+            Enable event posts
+          </Button>
+        ) : null}
+      </StatusPanel>
+    );
+  }
+
+  if (isLoading) {
+    return <Skeleton className="h-32 rounded-xl" />;
+  }
+  if (error) {
+    return (
+      <p className="text-sm text-destructive">
+        {getApiErrorMessage(error, "Event posts could not be loaded.")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <DetailSection title="Posts">
+        <div className="flex flex-wrap items-center gap-2">
+          {canCreatePost ? (
+            <Button size="sm" onClick={() => openDialog()}>
+              <MessageSquare className="mr-1 h-4 w-4" />
+              New post
+            </Button>
+          ) : null}
+          {event.viewerCanManage ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={updateSettingsMutation.isPending}
+              onClick={() =>
+                updateSettingsMutation.mutate(
+                  {
+                    eventId: event.id,
+                    data: {
+                      postsEnabled: event.postsEnabled,
+                      postCreatePolicy:
+                        event.postCreatePolicy === "participants"
+                          ? "organizers_only"
+                          : "participants",
+                    },
+                  },
+                  {
+                    onSuccess: () => toast.success("Post settings updated."),
+                    onError: (item) =>
+                      toast.error(
+                        getApiErrorMessage(
+                          item,
+                          "Failed to update post settings",
+                        ),
+                      ),
+                  },
+                )
+              }
+            >
+              {event.postCreatePolicy === "participants"
+                ? "Organizers only"
+                : "Allow participants"}
+            </Button>
+          ) : null}
+        </div>
+      </DetailSection>
+      {posts.length === 0 ? (
+        <CommunityEmptyState
+          title="No posts yet"
+          description="Event updates and participant posts will appear here."
+        />
+      ) : (
+        <div className="divide-y divide-border/70 border-y border-border/70">
+          {posts.map((post) => {
+            const canEdit =
+              event.viewerCanManage || post.authorUserId === viewerUserId;
+            return (
+              <article key={post.id} className="py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {post.isPinned ? (
+                        <Badge className="h-6 px-2 text-[11px]">
+                          <Pin className="mr-1 h-3 w-3" />
+                          Pinned
+                        </Badge>
+                      ) : null}
+                      {post.status !== "published" ? (
+                        <Badge
+                          variant="outline"
+                          className="h-6 px-2 text-[11px]"
+                        >
+                          {titleCase(post.status)}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    {post.title ? (
+                      <h3 className="mt-1 text-sm font-medium text-foreground">
+                        {post.title}
+                      </h3>
+                    ) : null}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {post.authorDisplayName ||
+                        post.authorUsername ||
+                        post.authorUserId}{" "}
+                      · {new Date(post.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  {canEdit ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openDialog(post)}
+                    >
+                      Edit post
+                    </Button>
+                  ) : null}
+                </div>
+                <ChikaMarkdown content={post.bodyMarkdown} className="mt-3" />
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl!">
+          <DialogHeader>
+            <DialogTitle>{editingPost ? "Edit post" : "New post"}</DialogTitle>
+            <DialogDescription>
+              Post updates, announcements, or participant discussion for this
+              event.
+            </DialogDescription>
+          </DialogHeader>
+          <SetupField label="Title">
+            <Input
+              value={title}
+              onChange={(item) => setTitle(item.target.value)}
+            />
+          </SetupField>
+          <SetupField label="Body">
+            <MarkdownEditor
+              value={bodyMarkdown}
+              onChange={setBodyMarkdown}
+              minRows={7}
+              maxLength={20000}
+            />
+          </SetupField>
+          <DialogFooter showCloseButton>
+            {editingPost ? (
+              <>
+                {event.viewerCanManage ? (
+                  <Button
+                    variant="outline"
+                    disabled={updatePostMutation.isPending}
+                    onClick={() =>
+                      updatePostMutation.mutate(
+                        {
+                          eventId: event.id,
+                          postId: editingPost.id,
+                          data: { isPinned: !editingPost.isPinned },
+                        },
+                        {
+                          onSuccess: () => {
+                            toast.success("Post updated.");
+                            setDialogOpen(false);
+                          },
+                          onError: (item) =>
+                            toast.error(
+                              getApiErrorMessage(item, "Failed to update post"),
+                            ),
+                        },
+                      )
+                    }
+                  >
+                    {editingPost.isPinned ? "Unpin" : "Pin"}
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outline"
+                  disabled={deletePostMutation.isPending}
+                  onClick={() =>
+                    deletePostMutation.mutate(
+                      { eventId: event.id, postId: editingPost.id },
+                      {
+                        onSuccess: () => {
+                          toast.success("Post deleted.");
+                          setDialogOpen(false);
+                        },
+                        onError: (item) =>
+                          toast.error(
+                            getApiErrorMessage(item, "Failed to delete post"),
+                          ),
+                      },
+                    )
+                  }
+                >
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  Delete
+                </Button>
+              </>
+            ) : null}
+            <Button
+              disabled={
+                createPostMutation.isPending || updatePostMutation.isPending
+              }
+              onClick={savePost}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function PaymentTab({
   event,
   paymentMethods,
@@ -1101,7 +2416,10 @@ function PaymentTab({
 
   if (!event.isPaid) {
     return (
-      <StatusPanel title="This event is free" description="No payment is needed." />
+      <StatusPanel
+        title="This event is free"
+        description="No payment is needed."
+      />
     );
   }
 
@@ -1253,12 +2571,16 @@ function PaymentMethodDetails({ method }: { method?: EventPaymentMethod }) {
   return (
     <div className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
       <p className="font-medium text-foreground">{method.name}</p>
-      {method.instructions ? <p className="mt-1">{method.instructions}</p> : null}
+      {method.instructions ? (
+        <p className="mt-1">{method.instructions}</p>
+      ) : null}
       {method.type === "MANUAL_BANK_TRANSFER" ? (
         <div className="mt-2 grid gap-1">
           {method.bankName ? <span>Bank: {method.bankName}</span> : null}
           {method.accountName ? <span>Name: {method.accountName}</span> : null}
-          {method.accountNumber ? <span>Account: {method.accountNumber}</span> : null}
+          {method.accountNumber ? (
+            <span>Account: {method.accountNumber}</span>
+          ) : null}
         </div>
       ) : method.qrImageUrl ? (
         <a
@@ -1281,6 +2603,7 @@ function ParticipantsSection({
   error,
   onApprove,
   onReject,
+  onUpdateRole,
   onVerifyPayment,
   onRejectPayment,
   onViewPaymentProof,
@@ -1292,6 +2615,10 @@ function ParticipantsSection({
   error: unknown;
   onApprove: (participantId: string) => void;
   onReject: (participantId: string) => void;
+  onUpdateRole: (
+    participantId: string,
+    role: "participant" | "organizer",
+  ) => void;
   onVerifyPayment: (paymentId: string) => void;
   onRejectPayment: (paymentId: string) => void;
   onViewPaymentProof: (paymentId: string) => void;
@@ -1316,7 +2643,9 @@ function ParticipantsSection({
 
   return (
     <DetailSection
-      title={event.viewerCanManage ? "Participants and payments" : "Participants"}
+      title={
+        event.viewerCanManage ? "Participants and payments" : "Participants"
+      }
     >
       <div className="mb-3 flex flex-wrap gap-1.5">
         <Badge variant="outline" className="h-6 px-2 text-[11px]">
@@ -1375,6 +2704,7 @@ function ParticipantsSection({
                   participant={participant}
                   onApprove={onApprove}
                   onReject={onReject}
+                  onUpdateRole={onUpdateRole}
                   onVerifyPayment={onVerifyPayment}
                   onRejectPayment={onRejectPayment}
                   onViewPaymentProof={onViewPaymentProof}
@@ -1393,6 +2723,7 @@ function OrganizerActions({
   participant,
   onApprove,
   onReject,
+  onUpdateRole,
   onVerifyPayment,
   onRejectPayment,
   onViewPaymentProof,
@@ -1401,6 +2732,10 @@ function OrganizerActions({
   participant: EventParticipant;
   onApprove: (participantId: string) => void;
   onReject: (participantId: string) => void;
+  onUpdateRole: (
+    participantId: string,
+    role: "participant" | "organizer",
+  ) => void;
   onVerifyPayment: (paymentId: string) => void;
   onRejectPayment: (paymentId: string) => void;
   onViewPaymentProof: (paymentId: string) => void;
@@ -1425,6 +2760,25 @@ function OrganizerActions({
           </Button>
         </>
       ) : null}
+      {participant.status === "confirmed" ? (
+        participant.role === "organizer" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onUpdateRole(participant.id, "participant")}
+          >
+            Make participant
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onUpdateRole(participant.id, "organizer")}
+          >
+            Make organizer
+          </Button>
+        )
+      ) : null}
       {payment ? (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>Payment: {titleCase(payment.status)}</span>
@@ -1435,10 +2789,14 @@ function OrganizerActions({
               disabled={viewingPaymentProofId === payment.id}
               onClick={() => onViewPaymentProof(payment.id)}
             >
-              {viewingPaymentProofId === payment.id ? "Opening..." : "View proof"}
+              {viewingPaymentProofId === payment.id
+                ? "Opening..."
+                : "View proof"}
             </Button>
           ) : null}
-          {payment.referenceNumber ? <span>Ref: {payment.referenceNumber}</span> : null}
+          {payment.referenceNumber ? (
+            <span>Ref: {payment.referenceNumber}</span>
+          ) : null}
           {payment.status === "submitted" ? (
             <>
               <Button size="sm" onClick={() => onVerifyPayment(payment.id)}>
@@ -1465,9 +2823,42 @@ type OrganizerSetupEditor =
   | "capacity"
   | "payment"
   | "fit"
-  | "logistics";
+  | "logistics"
+  | "posts";
 
 const EVENT_DETAIL_TIMEZONE = "Asia/Manila";
+
+const prizePlacementOptions: Array<{
+  value: EventPrizePlacement;
+  label: string;
+}> = [
+  { value: "winner", label: "Winner" },
+  { value: "champion", label: "Champion" },
+  { value: "first_place", label: "1st place" },
+  { value: "second_place", label: "2nd place" },
+  { value: "third_place", label: "3rd place" },
+  { value: "special_award", label: "Special award" },
+  { value: "sponsor_award", label: "Sponsor award" },
+  { value: "custom", label: "Custom" },
+];
+
+const prizeTypeOptions: Array<{ value: EventPrizeType; label: string }> = [
+  { value: "cash", label: "Cash" },
+  { value: "item", label: "Item" },
+  { value: "certificate", label: "Certificate" },
+  { value: "sponsor_gift", label: "Sponsor gift" },
+  { value: "other", label: "Other" },
+];
+
+const sponsorTierOptions: Array<{ value: EventSponsorTier; label: string }> = [
+  { value: "presenting", label: "Presenting" },
+  { value: "major", label: "Major" },
+  { value: "minor", label: "Minor" },
+  { value: "partner", label: "Partner" },
+  { value: "community", label: "Community" },
+  { value: "media", label: "Media" },
+  { value: "other", label: "Other" },
+];
 
 function OrganizerManageTab({
   event,
@@ -1530,6 +2921,11 @@ function OrganizerManageTab({
   const [paymentInstructions, setPaymentInstructions] = useState(
     event.paymentInstructions ?? "",
   );
+  const [postsEnabled, setPostsEnabled] = useState(event.postsEnabled);
+  const [postCreatePolicy, setPostCreatePolicy] =
+    useState<EventPostCreatePolicy>(
+      event.postCreatePolicy || "organizers_only",
+    );
   const [paymentMethodType, setPaymentMethodType] =
     useState<EventPaymentMethodType>("MANUAL_QR");
   const [paymentMethodName, setPaymentMethodName] = useState("");
@@ -1573,7 +2969,10 @@ function OrganizerManageTab({
   };
 
   const saveSchedule = () => {
-    const startsAtIso = toISO(startsAt, event.timezone || EVENT_DETAIL_TIMEZONE);
+    const startsAtIso = toISO(
+      startsAt,
+      event.timezone || EVENT_DETAIL_TIMEZONE,
+    );
     const endsAtIso = toISO(endsAt, event.timezone || EVENT_DETAIL_TIMEZONE);
     if (!diveSiteId) {
       toast.error("Select an approved dive site.");
@@ -1747,6 +3146,16 @@ function OrganizerManageTab({
     );
   };
 
+  const savePostSettings = () => {
+    savePatch(
+      {
+        postsEnabled,
+        postCreatePolicy,
+      },
+      "Post settings saved.",
+    );
+  };
+
   return (
     <div className="space-y-4">
       <DetailSection title="Manage event">
@@ -1793,6 +3202,18 @@ function OrganizerManageTab({
           actionLabel={event.isPaid ? "Manage" : "Set paid"}
           onAction={() => setActiveEditor("payment")}
         />
+        <ManageRow
+          title="Event posts"
+          status={
+            event.postsEnabled
+              ? event.postCreatePolicy === "participants"
+                ? "Participants can post"
+                : "Organizers only"
+              : "Disabled"
+          }
+          actionLabel="Edit"
+          onAction={() => setActiveEditor("posts")}
+        />
       </div>
 
       <Dialog
@@ -1807,11 +3228,12 @@ function OrganizerManageTab({
             </DialogDescription>
           </DialogHeader>
           <SetupField label="Full description">
-            <Textarea
-              className="min-h-40"
+            <MarkdownEditor
               value={descriptionMarkdown}
-              onChange={(item) => setDescriptionMarkdown(item.target.value)}
+              onChange={setDescriptionMarkdown}
               placeholder="Schedule, inclusions, what to bring, and organizer notes"
+              maxLength={20000}
+              minRows={8}
             />
           </SetupField>
           <DialogFooter showCloseButton>
@@ -1896,7 +3318,9 @@ function OrganizerManageTab({
             <SetupField label="Visibility">
               <Select
                 value={visibility}
-                onValueChange={(value) => setVisibility(value as EventVisibility)}
+                onValueChange={(value) =>
+                  setVisibility(value as EventVisibility)
+                }
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -1919,7 +3343,8 @@ function OrganizerManageTab({
                   Approval required
                 </span>
                 <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                  Organizer approval is needed before a participant is confirmed.
+                  Organizer approval is needed before a participant is
+                  confirmed.
                 </span>
               </span>
             </label>
@@ -1967,7 +3392,9 @@ function OrganizerManageTab({
               <Select
                 value={entryType || "none"}
                 onValueChange={(value) =>
-                  setEntryType(value === "none" ? "" : (value as EventEntryType))
+                  setEntryType(
+                    value === "none" ? "" : (value as EventEntryType),
+                  )
                 }
               >
                 <SelectTrigger className="w-full">
@@ -2182,6 +3609,59 @@ function OrganizerManageTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={activeEditor === "posts"}
+        onOpenChange={(open) => setActiveEditor(open ? "posts" : null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manage event posts</DialogTitle>
+            <DialogDescription>
+              Control whether the event has posts and who can create them.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="flex items-start gap-2 rounded-lg border border-border/70 p-3 text-sm">
+            <input
+              className="mt-1"
+              type="checkbox"
+              checked={postsEnabled}
+              onChange={(item) => setPostsEnabled(item.target.checked)}
+            />
+            <span>
+              <span className="block font-medium text-foreground">
+                Posts enabled
+              </span>
+              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                Show the Posts tab to confirmed participants and organizers.
+              </span>
+            </span>
+          </label>
+          <SetupField label="Who can create posts">
+            <Select
+              value={postCreatePolicy}
+              onValueChange={(value) =>
+                setPostCreatePolicy(value as EventPostCreatePolicy)
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="organizers_only">Organizers only</SelectItem>
+                <SelectItem value="participants">
+                  Participants and organizers
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </SetupField>
+          <DialogFooter showCloseButton>
+            <Button disabled={isSaving} onClick={savePostSettings}>
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2206,7 +3686,9 @@ function ManageRow({
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">{title}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">{status}</p>
-        {note ? <p className="mt-1 text-xs text-muted-foreground">{note}</p> : null}
+        {note ? (
+          <p className="mt-1 text-xs text-muted-foreground">{note}</p>
+        ) : null}
       </div>
       <Button
         type="button"
@@ -2306,6 +3788,49 @@ function getPaymentStatusLabel(status: EventPaymentStatus) {
       return "Payment rejected";
     default:
       return titleCase(status);
+  }
+}
+
+function prizePlacementLabel(prize: EventPrize) {
+  if (prize.placementLabel) return prize.placementLabel;
+  return (
+    prizePlacementOptions.find((option) => option.value === prize.placement)
+      ?.label ?? titleCase(prize.placement)
+  );
+}
+
+function sponsorTierLabel(tier: EventSponsorTier | "none") {
+  if (tier === "none") return "Sponsors";
+  return (
+    sponsorTierOptions.find((option) => option.value === tier)?.label ??
+    titleCase(tier)
+  );
+}
+
+function groupSponsorsByTier(sponsors: EventSponsor[]) {
+  const groups = new Map<EventSponsorTier | "none", EventSponsor[]>();
+  for (const sponsor of sponsors) {
+    const key = sponsor.tier ?? "none";
+    groups.set(key, [...(groups.get(key) ?? []), sponsor]);
+  }
+  const order = sponsorTierOptions.map((option) => option.value);
+  return Array.from(groups.entries()).sort(([a], [b]) => {
+    if (a === "none") return 1;
+    if (b === "none") return -1;
+    return order.indexOf(a) - order.indexOf(b);
+  });
+}
+
+function safeExternalUrl(value?: string) {
+  if (!value) return "";
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+    return parsed.toString();
+  } catch {
+    return "";
   }
 }
 

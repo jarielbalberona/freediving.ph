@@ -906,17 +906,486 @@ func TestLeaveEventUsesLeftLifecycle(t *testing.T) {
 	}
 }
 
+func TestCreateCompetitionRequiresOrganizer(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655444101"
+		actorID = "550e8400-e29b-41d4-a716-446655444102"
+	)
+	repo := &eventsRepoStub{canManageSet: true, canManage: false}
+	svc := New(repo)
+
+	_, err := svc.CreateCompetition(context.Background(), eventID, actorID, eventsrepo.CreateCompetitionInput{Name: "Underwater Photography"})
+	assertAppErrorStatus(t, err, http.StatusForbidden)
+	if repo.competitionInput.Name != "" {
+		t.Fatalf("non-organizer should not create competition: %#v", repo.competitionInput)
+	}
+}
+
+func TestOrganizerCanCreateCompetitionAndPrize(t *testing.T) {
+	const (
+		eventID       = "550e8400-e29b-41d4-a716-446655444111"
+		actorID       = "550e8400-e29b-41d4-a716-446655444112"
+		competitionID = "550e8400-e29b-41d4-a716-446655444113"
+	)
+	repo := &eventsRepoStub{canManageSet: true, canManage: true}
+	svc := New(repo)
+
+	if _, err := svc.CreateCompetition(context.Background(), eventID, actorID, eventsrepo.CreateCompetitionInput{Name: "Best Static"}); err != nil {
+		t.Fatalf("CreateCompetition returned error: %v", err)
+	}
+	if repo.competitionInput.Name != "Best Static" {
+		t.Fatalf("competition input not captured: %#v", repo.competitionInput)
+	}
+	if _, err := svc.CreatePrize(context.Background(), eventID, actorID, eventsrepo.CreatePrizeInput{
+		CompetitionID: competitionID,
+		Title:         "Champion",
+		Placement:     "champion",
+		PrizeType:     "certificate",
+	}); err != nil {
+		t.Fatalf("CreatePrize returned error: %v", err)
+	}
+	if repo.prizeInput.CompetitionID != competitionID || repo.prizeInput.Placement != "champion" {
+		t.Fatalf("linked prize input not preserved: %#v", repo.prizeInput)
+	}
+	if _, err := svc.CreatePrize(context.Background(), eventID, actorID, eventsrepo.CreatePrizeInput{
+		Title:          "People's Choice",
+		Placement:      "custom",
+		PlacementLabel: "People's Choice",
+	}); err != nil {
+		t.Fatalf("CreatePrize without competition returned error: %v", err)
+	}
+}
+
+func TestCreatePrizeRejectsCrossEventReferences(t *testing.T) {
+	const (
+		eventID       = "550e8400-e29b-41d4-a716-446655444114"
+		actorID       = "550e8400-e29b-41d4-a716-446655444115"
+		competitionID = "550e8400-e29b-41d4-a716-446655444116"
+		sponsorID     = "550e8400-e29b-41d4-a716-446655444117"
+	)
+
+	t.Run("competition from another event", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			canManageSet:          true,
+			canManage:             true,
+			competitionBelongsSet: true,
+			competitionBelongs:    false,
+		}
+		svc := New(repo)
+
+		_, err := svc.CreatePrize(context.Background(), eventID, actorID, eventsrepo.CreatePrizeInput{
+			CompetitionID: competitionID,
+			Title:         "Champion",
+			Placement:     "champion",
+		})
+		assertAppErrorStatus(t, err, http.StatusNotFound)
+		if repo.prizeInput.Title != "" {
+			t.Fatalf("cross-event competition should not reach repo: %#v", repo.prizeInput)
+		}
+	})
+
+	t.Run("sponsor from another event", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			canManageSet:      true,
+			canManage:         true,
+			sponsorBelongsSet: true,
+			sponsorBelongs:    false,
+		}
+		svc := New(repo)
+
+		_, err := svc.CreatePrize(context.Background(), eventID, actorID, eventsrepo.CreatePrizeInput{
+			SponsorID: sponsorID,
+			Title:     "Sponsor Award",
+			Placement: "sponsor_award",
+		})
+		assertAppErrorStatus(t, err, http.StatusNotFound)
+		if repo.prizeInput.Title != "" {
+			t.Fatalf("cross-event sponsor should not reach repo: %#v", repo.prizeInput)
+		}
+	})
+}
+
+func TestListSponsorsStripsPrivateContactsForNonOrganizer(t *testing.T) {
+	const eventID = "550e8400-e29b-41d4-a716-446655444121"
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:                          eventID,
+			Status:                      "published",
+			Visibility:                  "public",
+			ViewerCanViewPrivateDetails: true,
+			ViewerCanManage:             false,
+		},
+		sponsors: []eventsrepo.EventSponsor{{
+			ID:           "550e8400-e29b-41d4-a716-446655444122",
+			EventID:      eventID,
+			Name:         "Dive Shop",
+			ContactName:  "Private Contact",
+			ContactEmail: "private@example.com",
+			IsActive:     true,
+		}, {
+			ID:           "550e8400-e29b-41d4-a716-446655444127",
+			EventID:      eventID,
+			Name:         "Inactive Sponsor",
+			ContactName:  "Inactive Contact",
+			ContactEmail: "inactive@example.com",
+			IsActive:     false,
+		}},
+	}
+	svc := New(repo)
+
+	items, err := svc.ListSponsors(context.Background(), eventID, "550e8400-e29b-41d4-a716-446655444123")
+	if err != nil {
+		t.Fatalf("ListSponsors returned error: %v", err)
+	}
+	if len(items) != 1 || items[0].Name != "Dive Shop" {
+		t.Fatalf("inactive sponsor leaked to non-organizer: %#v", items)
+	}
+	if items[0].ContactName != "" || items[0].ContactEmail != "" {
+		t.Fatalf("private sponsor contacts leaked: %#v", items)
+	}
+}
+
+func TestSponsorInputHardening(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655444124"
+		actorID = "550e8400-e29b-41d4-a716-446655444125"
+		logoID  = "550e8400-e29b-41d4-a716-446655444126"
+	)
+
+	t.Run("rejects unsafe sponsor URL", func(t *testing.T) {
+		repo := &eventsRepoStub{canManageSet: true, canManage: true}
+		svc := New(repo)
+
+		_, err := svc.CreateSponsor(context.Background(), eventID, actorID, eventsrepo.CreateSponsorInput{
+			Name:       "Unsafe Sponsor",
+			WebsiteURL: "javascript:alert(1)",
+		})
+		assertValidationFailure(t, err)
+		if repo.sponsorInput.Name != "" {
+			t.Fatalf("unsafe sponsor URL should not reach repo: %#v", repo.sponsorInput)
+		}
+	})
+
+	t.Run("rejects cross-event sponsor logo", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			canManageSet:    true,
+			canManage:       true,
+			mediaBelongsSet: true,
+			mediaBelongs:    false,
+		}
+		svc := New(repo)
+
+		_, err := svc.CreateSponsor(context.Background(), eventID, actorID, eventsrepo.CreateSponsorInput{
+			Name:        "Dive Shop",
+			LogoMediaID: logoID,
+			WebsiteURL:  "https://example.com",
+		})
+		assertAppErrorStatus(t, err, http.StatusNotFound)
+		if repo.sponsorInput.Name != "" {
+			t.Fatalf("cross-event logo should not reach repo: %#v", repo.sponsorInput)
+		}
+	})
+}
+
+func TestEventPostPermissions(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655444131"
+		userID  = "550e8400-e29b-41d4-a716-446655444132"
+	)
+
+	t.Run("disabled blocks confirmed participant", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{
+				ID:               eventID,
+				Status:           "published",
+				Visibility:       "public",
+				PostsEnabled:     false,
+				PostCreatePolicy: "participants",
+				ViewerParticipation: &eventsrepo.EventParticipant{
+					Status: "confirmed",
+				},
+			},
+		}
+		svc := New(repo)
+
+		_, err := svc.CreatePost(context.Background(), eventID, userID, eventsrepo.CreatePostInput{BodyMarkdown: "Update"})
+		assertAppErrorStatus(t, err, http.StatusConflict)
+	})
+
+	t.Run("organizers only blocks participant", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{
+				ID:               eventID,
+				Status:           "published",
+				Visibility:       "public",
+				PostsEnabled:     true,
+				PostCreatePolicy: "organizers_only",
+				ViewerParticipation: &eventsrepo.EventParticipant{
+					Status: "confirmed",
+				},
+			},
+		}
+		svc := New(repo)
+
+		_, err := svc.CreatePost(context.Background(), eventID, userID, eventsrepo.CreatePostInput{BodyMarkdown: "Update"})
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	})
+
+	t.Run("participants policy allows confirmed participant", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{
+				ID:               eventID,
+				Status:           "published",
+				Visibility:       "public",
+				PostsEnabled:     true,
+				PostCreatePolicy: "participants",
+				ViewerParticipation: &eventsrepo.EventParticipant{
+					Status: "confirmed",
+				},
+			},
+		}
+		svc := New(repo)
+
+		if _, err := svc.CreatePost(context.Background(), eventID, userID, eventsrepo.CreatePostInput{BodyMarkdown: "Update"}); err != nil {
+			t.Fatalf("CreatePost returned error: %v", err)
+		}
+		if repo.postInput.BodyMarkdown != "Update" {
+			t.Fatalf("post body did not reach repo: %#v", repo.postInput)
+		}
+	})
+
+	for _, status := range []string{"pending_approval", "rejected", "left", "cancelled"} {
+		t.Run("participants policy blocks "+status, func(t *testing.T) {
+			repo := &eventsRepoStub{
+				event: eventsrepo.Event{
+					ID:               eventID,
+					Status:           "published",
+					Visibility:       "public",
+					PostsEnabled:     true,
+					PostCreatePolicy: "participants",
+					ViewerParticipation: &eventsrepo.EventParticipant{
+						Status: status,
+					},
+				},
+			}
+			svc := New(repo)
+
+			_, err := svc.CreatePost(context.Background(), eventID, userID, eventsrepo.CreatePostInput{BodyMarkdown: "Update"})
+			assertAppErrorStatus(t, err, http.StatusForbidden)
+		})
+	}
+}
+
+func TestListPostsRespectsDisabledStateForParticipants(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655444136"
+		userID  = "550e8400-e29b-41d4-a716-446655444137"
+	)
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:               eventID,
+			Status:           "published",
+			Visibility:       "public",
+			PostsEnabled:     false,
+			PostCreatePolicy: "participants",
+			ViewerParticipation: &eventsrepo.EventParticipant{
+				Status: "confirmed",
+			},
+		},
+		posts: []eventsrepo.EventPost{{
+			ID:           "550e8400-e29b-41d4-a716-446655444138",
+			EventID:      eventID,
+			AuthorUserID: userID,
+			BodyMarkdown: "Hidden while disabled",
+			Status:       "published",
+		}},
+	}
+	svc := New(repo)
+
+	_, err := svc.ListPosts(context.Background(), eventID, userID)
+	assertAppErrorStatus(t, err, http.StatusForbidden)
+}
+
+func TestPostAuthorMutationsRequireActivePostingAccess(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655444139"
+		userID  = "550e8400-e29b-41d4-a716-446655444140"
+		postID  = "550e8400-e29b-41d4-a716-446655444129"
+	)
+
+	t.Run("confirmed participant can edit own published post", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{
+				ID:               eventID,
+				Status:           "published",
+				Visibility:       "public",
+				PostsEnabled:     true,
+				PostCreatePolicy: "participants",
+				ViewerParticipation: &eventsrepo.EventParticipant{
+					Status: "confirmed",
+				},
+			},
+			post: eventsrepo.EventPost{
+				ID:           postID,
+				EventID:      eventID,
+				AuthorUserID: userID,
+				BodyMarkdown: "Original",
+				Status:       "published",
+			},
+		}
+		svc := New(repo)
+
+		body := "Updated"
+		if _, err := svc.UpdatePost(context.Background(), eventID, postID, userID, eventsrepo.UpdatePostInput{BodyMarkdown: &body}); err != nil {
+			t.Fatalf("UpdatePost returned error: %v", err)
+		}
+	})
+
+	for _, tc := range []struct {
+		name         string
+		status       string
+		postStatus   string
+		postsEnabled bool
+		policy       string
+	}{
+		{name: "left author", status: "left", postStatus: "published", postsEnabled: true, policy: "participants"},
+		{name: "hidden post", status: "confirmed", postStatus: "hidden", postsEnabled: true, policy: "participants"},
+		{name: "posts disabled", status: "confirmed", postStatus: "published", postsEnabled: false, policy: "participants"},
+		{name: "participants no longer allowed", status: "confirmed", postStatus: "published", postsEnabled: true, policy: "organizers_only"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &eventsRepoStub{
+				event: eventsrepo.Event{
+					ID:               eventID,
+					Status:           "published",
+					Visibility:       "public",
+					PostsEnabled:     tc.postsEnabled,
+					PostCreatePolicy: tc.policy,
+					ViewerParticipation: &eventsrepo.EventParticipant{
+						Status: tc.status,
+					},
+				},
+				post: eventsrepo.EventPost{
+					ID:           postID,
+					EventID:      eventID,
+					AuthorUserID: userID,
+					BodyMarkdown: "Original",
+					Status:       tc.postStatus,
+				},
+			}
+			svc := New(repo)
+
+			body := "Updated"
+			_, err := svc.UpdatePost(context.Background(), eventID, postID, userID, eventsrepo.UpdatePostInput{BodyMarkdown: &body})
+			assertAppErrorStatus(t, err, http.StatusForbidden)
+			err = svc.DeletePost(context.Background(), eventID, postID, userID)
+			assertAppErrorStatus(t, err, http.StatusForbidden)
+		})
+	}
+}
+
+func TestUnauthorizedPrivateViewerCannotSeePosts(t *testing.T) {
+	const eventID = "550e8400-e29b-41d4-a716-446655444141"
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:                          eventID,
+			Status:                      "published",
+			Visibility:                  "private",
+			ViewerCanViewPrivateDetails: false,
+			ViewerCanManage:             false,
+		},
+	}
+	svc := New(repo)
+
+	_, err := svc.ListPosts(context.Background(), eventID, "550e8400-e29b-41d4-a716-446655444142")
+	assertAppErrorStatus(t, err, http.StatusForbidden)
+}
+
+func TestUnauthorizedPrivateViewerCannotSeeEventExtensions(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655444143"
+		userID  = "550e8400-e29b-41d4-a716-446655444144"
+	)
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:                          eventID,
+			Status:                      "published",
+			Visibility:                  "private",
+			ViewerCanViewPrivateDetails: false,
+			ViewerCanManage:             false,
+		},
+	}
+	svc := New(repo)
+
+	if _, err := svc.ListCompetitions(context.Background(), eventID, userID); err == nil {
+		t.Fatalf("unauthorized private viewer should not list competitions")
+	} else {
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	}
+	if _, err := svc.ListPrizes(context.Background(), eventID, userID); err == nil {
+		t.Fatalf("unauthorized private viewer should not list prizes")
+	} else {
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	}
+	if _, err := svc.ListSponsors(context.Background(), eventID, userID); err == nil {
+		t.Fatalf("unauthorized private viewer should not list sponsors")
+	} else {
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	}
+}
+
+func TestParticipantRoleManagementGuards(t *testing.T) {
+	const (
+		eventID       = "550e8400-e29b-41d4-a716-446655444151"
+		participantID = "550e8400-e29b-41d4-a716-446655444152"
+		actorID       = "550e8400-e29b-41d4-a716-446655444153"
+	)
+
+	t.Run("non organizer cannot promote", func(t *testing.T) {
+		repo := &eventsRepoStub{canManageSet: true, canManage: false}
+		svc := New(repo)
+
+		_, err := svc.UpdateParticipantRole(context.Background(), eventID, participantID, actorID, "organizer")
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	})
+
+	t.Run("cannot remove last organizer", func(t *testing.T) {
+		repo := &eventsRepoStub{roleErr: eventsrepo.ErrLastOrganizer}
+		svc := New(repo)
+
+		_, err := svc.UpdateParticipantRole(context.Background(), eventID, participantID, actorID, "participant")
+		assertAppErrorStatus(t, err, http.StatusConflict)
+	})
+}
+
 type eventsRepoStub struct {
 	event                    eventsrepo.Event
 	updatedEvent             eventsrepo.Event
 	participant              eventsrepo.EventParticipant
 	proof                    eventsrepo.EventPaymentProof
 	proofErr                 error
+	competitions             []eventsrepo.EventCompetition
+	prizes                   []eventsrepo.EventPrize
+	sponsors                 []eventsrepo.EventSponsor
+	posts                    []eventsrepo.EventPost
+	post                     eventsrepo.EventPost
 	listInput                eventsrepo.ListEventsInput
 	joinInput                eventsrepo.JoinEventInput
 	createInput              eventsrepo.CreateEventInput
 	updateInput              eventsrepo.UpdateEventInput
 	updatePaymentMethodInput eventsrepo.UpdatePaymentMethodInput
+	competitionInput         eventsrepo.CreateCompetitionInput
+	prizeInput               eventsrepo.CreatePrizeInput
+	sponsorInput             eventsrepo.CreateSponsorInput
+	postInput                eventsrepo.CreatePostInput
+	roleUpdate               string
+	roleErr                  error
+	competitionBelongs       bool
+	competitionBelongsSet    bool
+	sponsorBelongs           bool
+	sponsorBelongsSet        bool
+	mediaBelongs             bool
+	mediaBelongsSet          bool
 	leftStatus               string
 	markInterestedCalled     bool
 	markUninterestedCalled   bool
@@ -1039,6 +1508,108 @@ func (r *eventsRepoStub) GetPaymentProof(context.Context, string, string) (event
 	return r.proof, nil
 }
 
+func (r *eventsRepoStub) ListCompetitions(context.Context, string) ([]eventsrepo.EventCompetition, error) {
+	return r.competitions, nil
+}
+
+func (r *eventsRepoStub) CreateCompetition(_ context.Context, eventID string, input eventsrepo.CreateCompetitionInput) (eventsrepo.EventCompetition, error) {
+	r.competitionInput = input
+	return eventsrepo.EventCompetition{ID: "550e8400-e29b-41d4-a716-446655444001", EventID: eventID, Name: input.Name}, nil
+}
+
+func (r *eventsRepoStub) UpdateCompetition(context.Context, string, eventsrepo.UpdateCompetitionInput) (eventsrepo.EventCompetition, error) {
+	return eventsrepo.EventCompetition{}, nil
+}
+
+func (r *eventsRepoStub) DeleteCompetition(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventsRepoStub) ListPrizes(context.Context, string) ([]eventsrepo.EventPrize, error) {
+	return r.prizes, nil
+}
+
+func (r *eventsRepoStub) CreatePrize(_ context.Context, eventID string, input eventsrepo.CreatePrizeInput) (eventsrepo.EventPrize, error) {
+	r.prizeInput = input
+	return eventsrepo.EventPrize{ID: "550e8400-e29b-41d4-a716-446655444002", EventID: eventID, Title: input.Title, Placement: input.Placement, Currency: input.Currency}, nil
+}
+
+func (r *eventsRepoStub) UpdatePrize(context.Context, string, eventsrepo.UpdatePrizeInput) (eventsrepo.EventPrize, error) {
+	return eventsrepo.EventPrize{}, nil
+}
+
+func (r *eventsRepoStub) DeletePrize(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventsRepoStub) CompetitionBelongsToEvent(context.Context, string, string) (bool, error) {
+	if r.competitionBelongsSet {
+		return r.competitionBelongs, nil
+	}
+	return true, nil
+}
+
+func (r *eventsRepoStub) SponsorBelongsToEvent(context.Context, string, string) (bool, error) {
+	if r.sponsorBelongsSet {
+		return r.sponsorBelongs, nil
+	}
+	return true, nil
+}
+
+func (r *eventsRepoStub) MediaBelongsToEvent(context.Context, string, string) (bool, error) {
+	if r.mediaBelongsSet {
+		return r.mediaBelongs, nil
+	}
+	return true, nil
+}
+
+func (r *eventsRepoStub) ListSponsors(context.Context, string) ([]eventsrepo.EventSponsor, error) {
+	return r.sponsors, nil
+}
+
+func (r *eventsRepoStub) CreateSponsor(_ context.Context, eventID string, input eventsrepo.CreateSponsorInput) (eventsrepo.EventSponsor, error) {
+	r.sponsorInput = input
+	return eventsrepo.EventSponsor{ID: "550e8400-e29b-41d4-a716-446655444003", EventID: eventID, Name: input.Name, IsActive: input.IsActive}, nil
+}
+
+func (r *eventsRepoStub) UpdateSponsor(context.Context, string, eventsrepo.UpdateSponsorInput) (eventsrepo.EventSponsor, error) {
+	return eventsrepo.EventSponsor{}, nil
+}
+
+func (r *eventsRepoStub) DeleteSponsor(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventsRepoStub) ListPosts(context.Context, string, bool) ([]eventsrepo.EventPost, error) {
+	return r.posts, nil
+}
+
+func (r *eventsRepoStub) GetPost(context.Context, string, string) (eventsrepo.EventPost, error) {
+	return r.post, nil
+}
+
+func (r *eventsRepoStub) CreatePost(_ context.Context, eventID, authorUserID string, input eventsrepo.CreatePostInput) (eventsrepo.EventPost, error) {
+	r.postInput = input
+	return eventsrepo.EventPost{ID: "550e8400-e29b-41d4-a716-446655444004", EventID: eventID, AuthorUserID: authorUserID, BodyMarkdown: input.BodyMarkdown, Status: "published"}, nil
+}
+
+func (r *eventsRepoStub) UpdatePost(context.Context, string, eventsrepo.UpdatePostInput) (eventsrepo.EventPost, error) {
+	return r.post, nil
+}
+
+func (r *eventsRepoStub) DeletePost(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventsRepoStub) UpdateParticipantRole(_ context.Context, _ string, _ string, role string, _ string) (eventsrepo.EventParticipant, error) {
+	if r.roleErr != nil {
+		return eventsrepo.EventParticipant{}, r.roleErr
+	}
+	r.roleUpdate = role
+	r.participant.Role = role
+	return r.participant, nil
+}
+
 func signedProofTestService(repo *eventsRepoStub) *Service {
 	fixedNow := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
 	return New(
@@ -1056,6 +1627,17 @@ func assertAppErrorStatus(t *testing.T, err error, want int) {
 	}
 	if appErr.Status != want {
 		t.Fatalf("expected status %d, got %d (%v)", want, appErr.Status, err)
+	}
+}
+
+func assertValidationFailure(t *testing.T, err error) {
+	t.Helper()
+	var validationErr ValidationFailure
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("expected validation failure, got %v", err)
+	}
+	if len(validationErr.Issues) == 0 {
+		t.Fatalf("expected validation issues, got none")
 	}
 }
 

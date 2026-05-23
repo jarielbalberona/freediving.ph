@@ -52,6 +52,8 @@ type repository interface {
 	ListMediaByContext(ctx context.Context, input mediarepo.ListMediaByContextInput) ([]mediarepo.MediaObject, error)
 	PublishMediaPost(ctx context.Context, input mediarepo.PublishMediaPostInput) (mediarepo.MediaPost, []mediarepo.MediaItem, error)
 	ListProfileMediaByUsername(ctx context.Context, input mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error)
+	ListProfileDiveSpotHighlightsByUsername(ctx context.Context, input mediarepo.ListProfileDiveSpotHighlightsInput) ([]mediarepo.ProfileDiveSpotHighlight, error)
+	ListProfileMediaByUsernameAndDiveSite(ctx context.Context, input mediarepo.ListProfileDiveSpotMediaInput) ([]mediarepo.ProfileMediaItem, error)
 	GetVisibleMediaPostSocialState(ctx context.Context, postID, viewerUserID string) (mediarepo.PostSocialState, error)
 	LikeMediaPost(ctx context.Context, postID, userID string) error
 	UnlikeMediaPost(ctx context.Context, postID, userID string) error
@@ -285,6 +287,35 @@ type ListProfileMediaResult struct {
 	NextCursor string
 }
 
+type DiveSpotHighlightResult struct {
+	DiveSpotID           string
+	DiveSpotSlug         string
+	DiveSpotName         string
+	DiveSpotArea         string
+	CoverMediaObjectID   string
+	CoverThumbnailURL    string
+	MediaCount           int64
+	LatestMediaCreatedAt time.Time
+}
+
+type ListDiveSpotHighlightsInput struct {
+	Username     string
+	ViewerUserID string
+	Limit        int32
+}
+
+type ListDiveSpotHighlightsResult struct {
+	Items []DiveSpotHighlightResult
+}
+
+type ListDiveSpotHighlightMediaInput struct {
+	Username     string
+	ViewerUserID string
+	DiveSpotID   string
+	Cursor       string
+	Limit        int32
+}
+
 type LikeStateResult struct {
 	PostID         string
 	LikeCount      int64
@@ -369,7 +400,7 @@ var contextRules = map[string]contextRule{
 		maxUploadBytes:    5 * 1024 * 1024,
 		ttl:               3 * 24 * time.Hour,
 		maxTransformWidth: 2048,
-		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
+		allowedPresets:    map[string]bool{PresetThumb: true, PresetCard: true, PresetDialog: true},
 	},
 	ContextChikaAttachment: {
 		maxUploadBytes:    10 * 1024 * 1024,
@@ -1191,6 +1222,121 @@ func (s *Service) ListProfileMedia(ctx context.Context, input ListProfileMediaIn
 	return ListProfileMediaResult{Items: items, NextCursor: nextCursor}, nil
 }
 
+func (s *Service) ListDiveSpotHighlights(ctx context.Context, input ListDiveSpotHighlightsInput) (ListDiveSpotHighlightsResult, error) {
+	username := strings.TrimSpace(input.Username)
+	if username == "" {
+		return ListDiveSpotHighlightsResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"username"},
+			Code:    "required",
+			Message: "username is required",
+		}}}
+	}
+	viewerID := strings.TrimSpace(input.ViewerUserID)
+	if viewerID != "" {
+		if _, err := uuid.Parse(viewerID); err != nil {
+			return ListDiveSpotHighlightsResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+	if input.Limit <= 0 || input.Limit > 60 {
+		input.Limit = 24
+	}
+
+	rows, err := s.repo.ListProfileDiveSpotHighlightsByUsername(ctx, mediarepo.ListProfileDiveSpotHighlightsInput{
+		Username:     username,
+		ViewerUserID: viewerID,
+		Limit:        input.Limit,
+	})
+	if err != nil {
+		return ListDiveSpotHighlightsResult{}, apperrors.New(http.StatusInternalServerError, "profile_highlights_failed", "failed to load dive spot highlights", err)
+	}
+
+	items := make([]DiveSpotHighlightResult, 0, len(rows))
+	for _, row := range rows {
+		cover := row.CoverMediaItem
+		items = append(items, DiveSpotHighlightResult{
+			DiveSpotID:           cover.DiveSiteID,
+			DiveSpotSlug:         cover.DiveSiteSlug,
+			DiveSpotName:         cover.DiveSiteName,
+			DiveSpotArea:         cover.DiveSiteArea,
+			CoverMediaObjectID:   cover.MediaObjectID,
+			CoverThumbnailURL:    s.signMediaURL(cover.StorageKey, PresetThumb),
+			MediaCount:           row.MediaCount,
+			LatestMediaCreatedAt: row.LatestMediaCreatedAt,
+		})
+	}
+
+	return ListDiveSpotHighlightsResult{Items: items}, nil
+}
+
+func (s *Service) ListDiveSpotHighlightMedia(ctx context.Context, input ListDiveSpotHighlightMediaInput) (ListProfileMediaResult, error) {
+	username := strings.TrimSpace(input.Username)
+	if username == "" {
+		return ListProfileMediaResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"username"},
+			Code:    "required",
+			Message: "username is required",
+		}}}
+	}
+	diveSpotID := strings.TrimSpace(input.DiveSpotID)
+	if _, err := uuid.Parse(diveSpotID); err != nil {
+		return ListProfileMediaResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"diveSpotId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	viewerID := strings.TrimSpace(input.ViewerUserID)
+	if viewerID != "" {
+		if _, err := uuid.Parse(viewerID); err != nil {
+			return ListProfileMediaResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+	if input.Limit <= 0 || input.Limit > 120 {
+		input.Limit = 60
+	}
+
+	cursorCreated, cursorID := pagination.DefaultUUIDCursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		decodedCreated, decodedID, err := pagination.DecodeUUID(input.Cursor)
+		if err != nil {
+			return ListProfileMediaResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"cursor"},
+				Code:    "custom",
+				Message: "invalid cursor",
+			}}}
+		}
+		cursorCreated = decodedCreated
+		cursorID = decodedID
+	}
+
+	rows, err := s.repo.ListProfileMediaByUsernameAndDiveSite(ctx, mediarepo.ListProfileDiveSpotMediaInput{
+		Username:      username,
+		ViewerUserID:  viewerID,
+		DiveSiteID:    diveSpotID,
+		CursorCreated: cursorCreated,
+		CursorID:      cursorID,
+		Limit:         input.Limit + 1,
+	})
+	if err != nil {
+		return ListProfileMediaResult{}, apperrors.New(http.StatusInternalServerError, "profile_highlight_media_failed", "failed to load dive spot highlight media", err)
+	}
+
+	nextCursor := ""
+	if int32(len(rows)) > input.Limit {
+		cutoff := int(input.Limit)
+		next := rows[cutoff-1]
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
+		rows = rows[:cutoff]
+	}
+
+	items := make([]ProfileMediaItemResult, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, profileMediaResultFromRepo(row))
+	}
+
+	return ListProfileMediaResult{Items: items, NextCursor: nextCursor}, nil
+}
+
 func (s *Service) LikeMediaPost(ctx context.Context, actorID, postID string) (LikeStateResult, error) {
 	return s.setMediaPostLike(ctx, actorID, postID, true)
 }
@@ -1889,6 +2035,20 @@ func mediaPostCommentResultFromRepo(row mediarepo.MediaPostComment) MediaPostCom
 		CreatedAt:      row.CreatedAt,
 		UpdatedAt:      row.UpdatedAt,
 	}
+}
+
+func (s *Service) signMediaURL(objectKey, preset string) string {
+	if strings.TrimSpace(s.cdnBaseURL) == "" || strings.TrimSpace(s.signingSecret) == "" {
+		return ""
+	}
+	if !isValidObjectKey(objectKey) {
+		return ""
+	}
+	rule := contextRules[ContextProfileFeed]
+	width := defaultWidthForPreset(preset)
+	quality := defaultQualityForPreset(preset)
+	signer := mediasign.New(s.cdnBaseURL, s.signingSecret, s.signingKeyVersion, mediasign.WithNow(s.nowFn))
+	return signer.URLWithTransform(objectKey, width, quality, "auto", rule.ttl)
 }
 
 func isModeratorRole(role string) bool {

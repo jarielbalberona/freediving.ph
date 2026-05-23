@@ -216,3 +216,18 @@ export interface ListProfileMediaResponse {
   items: ProfileMediaItem[];
   nextCursor?: string;
 }
+
+export interface DiveSpotHighlight {
+  diveSpotId: string;
+  diveSpotSlug?: string;
+  diveSpotName: string;
+  diveSpotArea?: string;
+  coverMediaObjectId: string;
+  coverThumbnailUrl?: string;
+  mediaCount: number;
+  latestMediaCreatedAt: string;
+}
+
+export interface ListDiveSpotHighlightsResponse {
+  items: DiveSpotHighlight[];
+}

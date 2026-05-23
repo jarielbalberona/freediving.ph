@@ -143,6 +143,12 @@ type ProfileMediaItem struct {
 	ViewerHasSaved bool
 }
 
+type ProfileDiveSpotHighlight struct {
+	CoverMediaItem       ProfileMediaItem
+	MediaCount           int64
+	LatestMediaCreatedAt time.Time
+}
+
 type MediaPostDetailItem struct {
 	ProfileMediaItem
 	AuthorUsername    string
@@ -396,9 +402,64 @@ func (r *Repo) ListProfileMediaByUsername(ctx context.Context, input ListProfile
 	return items, nil
 }
 
+func (r *Repo) ListProfileDiveSpotHighlightsByUsername(ctx context.Context, input ListProfileDiveSpotHighlightsInput) ([]ProfileDiveSpotHighlight, error) {
+	rows, err := r.queries.ListProfileDiveSpotHighlightsByUsername(ctx, mediaqlc.ListProfileDiveSpotHighlightsByUsernameParams{
+		ViewerUserID: toUUID(input.ViewerUserID),
+		Username:     input.Username,
+		LimitCount:   input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]ProfileDiveSpotHighlight, 0, len(rows))
+	for _, row := range rows {
+		cover := mapProfileDiveSpotHighlightCover(row)
+		items = append(items, ProfileDiveSpotHighlight{
+			CoverMediaItem:       cover,
+			MediaCount:           row.MediaCount,
+			LatestMediaCreatedAt: cover.CreatedAt,
+		})
+	}
+	return items, nil
+}
+
+func (r *Repo) ListProfileMediaByUsernameAndDiveSite(ctx context.Context, input ListProfileDiveSpotMediaInput) ([]ProfileMediaItem, error) {
+	rows, err := r.queries.ListProfileMediaByUsernameAndDiveSite(ctx, mediaqlc.ListProfileMediaByUsernameAndDiveSiteParams{
+		ViewerUserID: toUUID(input.ViewerUserID),
+		Username:     input.Username,
+		DiveSiteID:   toUUID(input.DiveSiteID),
+		CreatedAt:    toTimestamptz(input.CursorCreated),
+		ID:           toUUID(input.CursorID),
+		LimitCount:   input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]ProfileMediaItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapProfileDiveSpotMediaItem(row))
+	}
+	return items, nil
+}
+
 type ListProfileMediaInput struct {
 	Username      string
 	ViewerUserID  string
+	CursorCreated time.Time
+	CursorID      string
+	Limit         int32
+}
+
+type ListProfileDiveSpotHighlightsInput struct {
+	Username     string
+	ViewerUserID string
+	Limit        int32
+}
+
+type ListProfileDiveSpotMediaInput struct {
+	Username      string
+	ViewerUserID  string
+	DiveSiteID    string
 	CursorCreated time.Time
 	CursorID      string
 	Limit         int32
@@ -614,6 +675,68 @@ func mapMediaItem(row mediaqlc.MediaItem) MediaItem {
 }
 
 func mapProfileMediaItem(row mediaqlc.ListProfileMediaByUsernameRow) ProfileMediaItem {
+	return ProfileMediaItem{
+		MediaItem: MediaItem{
+			ID:              row.ID.String(),
+			PostID:          row.PostID.String(),
+			MediaObjectID:   row.MediaObjectID.String(),
+			AuthorAppUserID: row.AuthorAppUserID.String(),
+			UploadGroupID:   row.UploadGroupID.String(),
+			DiveSiteID:      row.DiveSiteID.String(),
+			Type:            row.Type,
+			StorageKey:      row.StorageKey,
+			MimeType:        row.MimeType,
+			Width:           row.Width,
+			Height:          row.Height,
+			DurationMs:      int32PtrFromPtr(row.DurationMs),
+			Caption:         stringPtr(row.Caption),
+			SortOrder:       row.SortOrder,
+			Status:          row.Status,
+			CreatedAt:       row.CreatedAt.Time.UTC(),
+			UpdatedAt:       row.UpdatedAt.Time.UTC(),
+			DeletedAt:       timestamptzPtr(row.DeletedAt),
+		},
+		PostCaption:    stringPtr(row.PostCaption),
+		DiveSiteSlug:   row.DiveSiteSlug,
+		DiveSiteName:   row.DiveSiteName,
+		DiveSiteArea:   row.DiveSiteArea,
+		LikeCount:      row.LikeCount,
+		CommentCount:   row.CommentCount,
+		ViewerHasLiked: row.ViewerHasLiked,
+		ViewerHasSaved: row.ViewerHasSaved,
+	}
+}
+
+func mapProfileDiveSpotHighlightCover(row mediaqlc.ListProfileDiveSpotHighlightsByUsernameRow) ProfileMediaItem {
+	return ProfileMediaItem{
+		MediaItem: MediaItem{
+			ID:              row.ID.String(),
+			PostID:          row.PostID.String(),
+			MediaObjectID:   row.MediaObjectID.String(),
+			AuthorAppUserID: row.AuthorAppUserID.String(),
+			UploadGroupID:   row.UploadGroupID.String(),
+			DiveSiteID:      row.DiveSiteID.String(),
+			Type:            row.Type,
+			StorageKey:      row.StorageKey,
+			MimeType:        row.MimeType,
+			Width:           row.Width,
+			Height:          row.Height,
+			DurationMs:      int32PtrFromPtr(row.DurationMs),
+			Caption:         stringPtr(row.Caption),
+			SortOrder:       row.SortOrder,
+			Status:          row.Status,
+			CreatedAt:       row.CreatedAt.Time.UTC(),
+			UpdatedAt:       row.UpdatedAt.Time.UTC(),
+			DeletedAt:       timestamptzPtr(row.DeletedAt),
+		},
+		PostCaption:  stringPtr(row.PostCaption),
+		DiveSiteSlug: row.DiveSiteSlug,
+		DiveSiteName: row.DiveSiteName,
+		DiveSiteArea: row.DiveSiteArea,
+	}
+}
+
+func mapProfileDiveSpotMediaItem(row mediaqlc.ListProfileMediaByUsernameAndDiveSiteRow) ProfileMediaItem {
 	return ProfileMediaItem{
 		MediaItem: MediaItem{
 			ID:              row.ID.String(),

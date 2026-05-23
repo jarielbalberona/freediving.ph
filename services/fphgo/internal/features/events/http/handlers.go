@@ -179,6 +179,8 @@ func (h *Handlers) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		EquipmentNotes:      req.EquipmentNotes,
 		SafetyNotes:         req.SafetyNotes,
 		CancellationPolicy:  req.CancellationPolicy,
+		PostsEnabled:        req.PostsEnabled,
+		PostCreatePolicy:    req.PostCreatePolicy,
 		CancelReason:        req.CancelReason,
 	})
 	if err != nil {
@@ -587,6 +589,8 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		BeginnerFriendly:            item.BeginnerFriendly,
 		MaxDepthM:                   item.MaxDepthM,
 		EntryType:                   item.EntryType,
+		PostsEnabled:                item.PostsEnabled,
+		PostCreatePolicy:            item.PostCreatePolicy,
 		PublishedAt:                 item.PublishedAt,
 		CancelledAt:                 item.CancelledAt,
 		CancelReason:                item.CancelReason,
@@ -611,6 +615,8 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		response.EquipmentNotes = item.EquipmentNotes
 		response.SafetyNotes = item.SafetyNotes
 		response.CancellationPolicy = item.CancellationPolicy
+		response.PostsEnabled = item.PostsEnabled
+		response.PostCreatePolicy = item.PostCreatePolicy
 	}
 	if privateUnauthorized {
 		response.Description = ""
@@ -651,6 +657,8 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		response.EquipmentNotes = ""
 		response.SafetyNotes = ""
 		response.CancellationPolicy = ""
+		response.PostsEnabled = false
+		response.PostCreatePolicy = ""
 		response.PublishedAt = nil
 		response.CancelledAt = nil
 		response.CancelReason = ""

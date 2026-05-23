@@ -382,6 +382,71 @@ func (h *Handlers) ListProfileMedia(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handlers) ListDiveSpotHighlights(w http.ResponseWriter, r *http.Request) {
+	limit := int32(24)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, parseErr := strconv.ParseInt(raw, 10, 32)
+		if parseErr != nil || parsed <= 0 {
+			httpx.WriteValidationError(w, []validatex.Issue{{Path: []any{"limit"}, Code: "custom", Message: "limit must be a positive integer"}})
+			return
+		}
+		limit = int32(parsed)
+	}
+
+	result, err := h.service.ListDiveSpotHighlights(r.Context(), mediaservice.ListDiveSpotHighlightsInput{
+		Username:     chi.URLParam(r, "username"),
+		ViewerUserID: actorIDIfPresent(r),
+		Limit:        limit,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, DiveSpotHighlightListResponse{
+		Items: mapDiveSpotHighlightDTOs(result.Items),
+	})
+}
+
+func (h *Handlers) ListDiveSpotHighlightMedia(w http.ResponseWriter, r *http.Request) {
+	limit := int32(60)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, parseErr := strconv.ParseInt(raw, 10, 32)
+		if parseErr != nil || parsed <= 0 {
+			httpx.WriteValidationError(w, []validatex.Issue{{Path: []any{"limit"}, Code: "custom", Message: "limit must be a positive integer"}})
+			return
+		}
+		limit = int32(parsed)
+	}
+
+	result, err := h.service.ListDiveSpotHighlightMedia(r.Context(), mediaservice.ListDiveSpotHighlightMediaInput{
+		Username:     chi.URLParam(r, "username"),
+		ViewerUserID: actorIDIfPresent(r),
+		DiveSpotID:   chi.URLParam(r, "diveSpotId"),
+		Cursor:       strings.TrimSpace(r.URL.Query().Get("cursor")),
+		Limit:        limit,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, ProfileMediaListResponse{
+		Items:      mapProfileMediaDTOs(result.Items),
+		NextCursor: result.NextCursor,
+	})
+}
+
 func (h *Handlers) LikePost(w http.ResponseWriter, r *http.Request) {
 	actorID, err := requireActorID(r)
 	if err != nil {
@@ -772,6 +837,23 @@ func mapProfileMediaDTOs(items []mediaservice.ProfileMediaItemResult) []ProfileM
 			ViewerHasLiked: item.ViewerHasLiked,
 			ViewerHasSaved: item.ViewerHasSaved,
 			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
+		})
+	}
+	return result
+}
+
+func mapDiveSpotHighlightDTOs(items []mediaservice.DiveSpotHighlightResult) []DiveSpotHighlightDTO {
+	result := make([]DiveSpotHighlightDTO, 0, len(items))
+	for _, item := range items {
+		result = append(result, DiveSpotHighlightDTO{
+			DiveSpotID:           item.DiveSpotID,
+			DiveSpotSlug:         item.DiveSpotSlug,
+			DiveSpotName:         item.DiveSpotName,
+			DiveSpotArea:         item.DiveSpotArea,
+			CoverMediaObjectID:   item.CoverMediaObjectID,
+			CoverThumbnailURL:    item.CoverThumbnailURL,
+			MediaCount:           item.MediaCount,
+			LatestMediaCreatedAt: item.LatestMediaCreatedAt.Format(time.RFC3339),
 		})
 	}
 	return result

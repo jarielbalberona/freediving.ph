@@ -355,6 +355,8 @@ func TestMapEventRedactsPrivateUnauthorizedDetails(t *testing.T) {
 		EquipmentNotes:      "Bring long fins",
 		SafetyNotes:         "Safety plan",
 		CancellationPolicy:  "No refund",
+		PostsEnabled:        true,
+		PostCreatePolicy:    "participants",
 		PaymentMethods: []eventsrepo.EventPaymentMethod{{
 			ID:      "550e8400-e29b-41d4-a716-446655443105",
 			EventID: "550e8400-e29b-41d4-a716-446655443101",
@@ -378,6 +380,9 @@ func TestMapEventRedactsPrivateUnauthorizedDetails(t *testing.T) {
 	}
 	if got.MeetingPoint != "" || got.MaxDepthM != nil || got.EntryType != "" || got.EquipmentNotes != "" || got.SafetyNotes != "" || got.CancellationPolicy != "" {
 		t.Fatalf("private logistics/safety details leaked: %#v", got)
+	}
+	if got.PostsEnabled || got.PostCreatePolicy != "" {
+		t.Fatalf("private post settings leaked: %#v", got)
 	}
 	if got.OrganizerUserID != "" || got.GroupID != "" {
 		t.Fatalf("private organizer metadata leaked: %#v", got)
@@ -567,6 +572,8 @@ func privateEventFixture(canViewPrivateDetails, canManage bool) eventsrepo.Event
 		EquipmentNotes:              "Bring long fins.",
 		SafetyNotes:                 "Safety plan.",
 		CancellationPolicy:          "No refund.",
+		PostsEnabled:                true,
+		PostCreatePolicy:            "participants",
 		ViewerCanManage:             canManage,
 		ViewerCanViewPrivateDetails: canViewPrivateDetails,
 		PaymentMethods: []eventsrepo.EventPaymentMethod{{
@@ -605,6 +612,9 @@ func assertRedactedPrivateEvent(t *testing.T, got EventResponse) {
 	}
 	if got.MeetingPoint != "" || got.EquipmentNotes != "" || got.SafetyNotes != "" || got.CancellationPolicy != "" || got.MaxDepthM != nil || got.EntryType != "" {
 		t.Fatalf("private logistics/safety fields leaked: %#v", got)
+	}
+	if got.PostsEnabled || got.PostCreatePolicy != "" {
+		t.Fatalf("private post settings leaked: %#v", got)
 	}
 	if got.OrganizerUserID != "" || got.GroupID != "" || got.ViewerCanManage || got.ViewerCanViewPrivateDetails {
 		t.Fatalf("private organizer/access fields leaked: %#v", got)
@@ -761,4 +771,88 @@ func (r *eventCreateRepoStub) ReviewPayment(context.Context, string, string, str
 
 func (r *eventCreateRepoStub) GetPaymentProof(context.Context, string, string) (eventsrepo.EventPaymentProof, error) {
 	return eventsrepo.EventPaymentProof{}, nil
+}
+
+func (r *eventCreateRepoStub) ListCompetitions(context.Context, string) ([]eventsrepo.EventCompetition, error) {
+	return nil, nil
+}
+
+func (r *eventCreateRepoStub) CreateCompetition(context.Context, string, eventsrepo.CreateCompetitionInput) (eventsrepo.EventCompetition, error) {
+	return eventsrepo.EventCompetition{}, nil
+}
+
+func (r *eventCreateRepoStub) UpdateCompetition(context.Context, string, eventsrepo.UpdateCompetitionInput) (eventsrepo.EventCompetition, error) {
+	return eventsrepo.EventCompetition{}, nil
+}
+
+func (r *eventCreateRepoStub) DeleteCompetition(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventCreateRepoStub) ListPrizes(context.Context, string) ([]eventsrepo.EventPrize, error) {
+	return nil, nil
+}
+
+func (r *eventCreateRepoStub) CreatePrize(context.Context, string, eventsrepo.CreatePrizeInput) (eventsrepo.EventPrize, error) {
+	return eventsrepo.EventPrize{}, nil
+}
+
+func (r *eventCreateRepoStub) UpdatePrize(context.Context, string, eventsrepo.UpdatePrizeInput) (eventsrepo.EventPrize, error) {
+	return eventsrepo.EventPrize{}, nil
+}
+
+func (r *eventCreateRepoStub) DeletePrize(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventCreateRepoStub) CompetitionBelongsToEvent(context.Context, string, string) (bool, error) {
+	return true, nil
+}
+
+func (r *eventCreateRepoStub) SponsorBelongsToEvent(context.Context, string, string) (bool, error) {
+	return true, nil
+}
+
+func (r *eventCreateRepoStub) MediaBelongsToEvent(context.Context, string, string) (bool, error) {
+	return true, nil
+}
+
+func (r *eventCreateRepoStub) ListSponsors(context.Context, string) ([]eventsrepo.EventSponsor, error) {
+	return nil, nil
+}
+
+func (r *eventCreateRepoStub) CreateSponsor(context.Context, string, eventsrepo.CreateSponsorInput) (eventsrepo.EventSponsor, error) {
+	return eventsrepo.EventSponsor{}, nil
+}
+
+func (r *eventCreateRepoStub) UpdateSponsor(context.Context, string, eventsrepo.UpdateSponsorInput) (eventsrepo.EventSponsor, error) {
+	return eventsrepo.EventSponsor{}, nil
+}
+
+func (r *eventCreateRepoStub) DeleteSponsor(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventCreateRepoStub) ListPosts(context.Context, string, bool) ([]eventsrepo.EventPost, error) {
+	return nil, nil
+}
+
+func (r *eventCreateRepoStub) GetPost(context.Context, string, string) (eventsrepo.EventPost, error) {
+	return eventsrepo.EventPost{}, nil
+}
+
+func (r *eventCreateRepoStub) CreatePost(context.Context, string, string, eventsrepo.CreatePostInput) (eventsrepo.EventPost, error) {
+	return eventsrepo.EventPost{}, nil
+}
+
+func (r *eventCreateRepoStub) UpdatePost(context.Context, string, eventsrepo.UpdatePostInput) (eventsrepo.EventPost, error) {
+	return eventsrepo.EventPost{}, nil
+}
+
+func (r *eventCreateRepoStub) DeletePost(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventCreateRepoStub) UpdateParticipantRole(context.Context, string, string, string, string) (eventsrepo.EventParticipant, error) {
+	return eventsrepo.EventParticipant{}, nil
 }

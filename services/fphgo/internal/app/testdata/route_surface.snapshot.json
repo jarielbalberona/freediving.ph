@@ -173,6 +173,22 @@
       "pattern": "/v1/events/{eventId}/attendees"
     },
     {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/competitions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/competitions"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/events/{eventId}/competitions/{competitionId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/competitions/{competitionId}"
+    },
+    {
       "method": "DELETE",
       "pattern": "/v1/events/{eventId}/interest"
     },
@@ -201,6 +217,10 @@
       "pattern": "/v1/events/{eventId}/participants/{participantId}/reject"
     },
     {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/participants/{participantId}/role"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/events/{eventId}/payment-methods"
     },
@@ -227,6 +247,58 @@
     {
       "method": "PATCH",
       "pattern": "/v1/events/{eventId}/payments/{paymentId}/verify"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/post-settings"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/posts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/posts"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/events/{eventId}/posts/{postId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/posts/{postId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/prizes"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/prizes"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/events/{eventId}/prizes/{prizeId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/prizes/{prizeId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/sponsors"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/sponsors"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/events/{eventId}/sponsors/{sponsorId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/sponsors/{sponsorId}"
     },
     {
       "method": "GET",
@@ -499,6 +571,14 @@
     {
       "method": "GET",
       "pattern": "/v1/media/by-username/{username}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/media/by-username/{username}/dive-spot-highlights"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/media/by-username/{username}/dive-spot-highlights/{diveSpotId}/media"
     },
     {
       "method": "GET",

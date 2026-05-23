@@ -217,6 +217,13 @@ export const routes = {
         `/v1/media/posts/${toPathId(postId)}/comments/${toPathId(commentId)}/likes`,
       byUsername: (username: string | number) =>
         `/v1/media/by-username/${toPathId(username)}`,
+      diveSpotHighlightsByUsername: (username: string | number) =>
+        `/v1/media/by-username/${toPathId(username)}/dive-spot-highlights`,
+      diveSpotHighlightMediaByUsername: (
+        username: string | number,
+        diveSpotId: string | number,
+      ) =>
+        `/v1/media/by-username/${toPathId(username)}/dive-spot-highlights/${toPathId(diveSpotId)}/media`,
       mine: () => "/v1/media/mine",
       urls: () => "/v1/media/urls",
     },

@@ -679,6 +679,8 @@ CREATE TABLE IF NOT EXISTS events (
   equipment_notes TEXT,
   safety_notes TEXT,
   cancellation_policy TEXT,
+  posts_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  post_create_policy TEXT NOT NULL DEFAULT 'organizers_only',
   published_at TIMESTAMPTZ,
   cancelled_at TIMESTAMPTZ,
   cancel_reason TEXT,
@@ -702,6 +704,7 @@ CREATE TABLE IF NOT EXISTS events (
   CHECK (starts_at IS NULL OR ends_at IS NULL OR starts_at <= ends_at),
   CHECK (location_source IN ('manual', 'google_places', 'psgc_mapped', 'unmapped')),
   CHECK (entry_type IS NULL OR entry_type IN ('shore', 'boat', 'pool', 'classroom_online')),
+  CHECK (post_create_policy IN ('organizers_only', 'participants')),
   CHECK (capacity IS NULL OR capacity > 0),
   CHECK (price_amount IS NULL OR price_amount >= 0),
   CHECK (max_depth_m IS NULL OR max_depth_m >= 0)
@@ -986,6 +989,100 @@ CREATE TABLE IF NOT EXISTS event_interests (
   UNIQUE (event_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS event_competitions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description_markdown TEXT,
+  rules_markdown TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  CHECK (length(trim(name)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS event_sponsors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  tier TEXT,
+  description TEXT,
+  logo_media_id UUID REFERENCES media_objects(id) ON DELETE SET NULL,
+  website_url TEXT,
+  social_url TEXT,
+  contact_name TEXT,
+  contact_email TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  CHECK (length(trim(name)) > 0),
+  CHECK (tier IS NULL OR tier IN (
+    'presenting',
+    'major',
+    'minor',
+    'partner',
+    'community',
+    'media',
+    'other'
+  ))
+);
+
+CREATE TABLE IF NOT EXISTS event_prizes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  competition_id UUID REFERENCES event_competitions(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  description_markdown TEXT,
+  placement TEXT NOT NULL DEFAULT 'custom',
+  placement_label TEXT,
+  prize_type TEXT,
+  amount NUMERIC(12,2),
+  currency TEXT NOT NULL DEFAULT 'PHP',
+  sponsor_id UUID REFERENCES event_sponsors(id) ON DELETE SET NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  CHECK (length(trim(title)) > 0),
+  CHECK (placement IN (
+    'winner',
+    'champion',
+    'first_place',
+    'second_place',
+    'third_place',
+    'special_award',
+    'sponsor_award',
+    'custom'
+  )),
+  CHECK (prize_type IS NULL OR prize_type IN (
+    'cash',
+    'item',
+    'certificate',
+    'sponsor_gift',
+    'other'
+  )),
+  CHECK (amount IS NULL OR amount >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS event_posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  author_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT,
+  body_markdown TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'published',
+  is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+  parent_post_id UUID REFERENCES event_posts(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  CHECK (length(trim(body_markdown)) > 0),
+  CHECK (status IN ('published', 'hidden', 'deleted'))
+);
+
 CREATE TABLE IF NOT EXISTS event_payment_methods (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -1176,8 +1273,15 @@ CREATE INDEX IF NOT EXISTS idx_events_event_type ON events (event_type);
 CREATE INDEX IF NOT EXISTS idx_events_visibility_status_starts_v2 ON events (visibility, status, starts_at DESC);
 CREATE INDEX IF NOT EXISTS idx_event_participations_event_status ON event_participations (event_id, status);
 CREATE INDEX IF NOT EXISTS idx_event_participations_user ON event_participations (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_event_participations_event_role_status ON event_participations (event_id, role, status);
 CREATE INDEX IF NOT EXISTS idx_event_interests_event_active ON event_interests (event_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_interests_user_active ON event_interests (user_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_competitions_event_sort ON event_competitions (event_id, sort_order) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_prizes_event_sort ON event_prizes (event_id, sort_order) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_prizes_competition ON event_prizes (competition_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_sponsors_event_sort ON event_sponsors (event_id, sort_order) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_posts_event_created ON event_posts (event_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_posts_event_pinned_created ON event_posts (event_id, is_pinned DESC, created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_payment_methods_event ON event_payment_methods (event_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_event_participant_payments_event_status ON event_participant_payments (event_id, status);
 CREATE INDEX IF NOT EXISTS idx_event_participant_payments_user ON event_participant_payments (user_id, status);
