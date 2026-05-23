@@ -164,11 +164,11 @@ type EventManageTab =
   | "sponsors";
 
 const eventTabsListClassName =
-  "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto rounded-none border-b border-border/70 bg-transparent px-3 sm:mx-0 sm:w-full sm:px-0";
+  "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto overflow-y-hidden rounded-none border-b border-border/70 bg-transparent px-3 sm:mx-0 sm:w-full sm:px-0";
 const eventTabTriggerClassName =
   "h-10 flex-none rounded-none px-3 text-sm data-active:bg-transparent data-active:shadow-none";
 const manageTabsListClassName =
-  "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto px-3 sm:mx-0 sm:w-full sm:px-1";
+  "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto overflow-y-hidden px-3 sm:mx-0 sm:w-full sm:px-1";
 const manageTabTriggerClassName = "h-8 flex-none px-3 text-sm";
 const eventPassQrLogoUrl = "https://cdn.freediving.ph/fph-logo-white.png";
 
@@ -554,7 +554,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               className={eventTabTriggerClassName}
               onClick={() => setActiveTab("prizes")}
             >
-              Competitions & Prizes
+              Competitions
             </TabsTrigger>
           ) : null}
           {canShowPrizeSponsorTabs ? (
@@ -2860,6 +2860,9 @@ function PrizesTab({
     items.push(prize);
     prizesByCompetition.set(prize.competitionId, items);
   }
+  const isEmpty = readOnly
+    ? competitions.length === 0
+    : competitions.length === 0 && prizes.length === 0;
 
   if (isLoading) {
     return <Skeleton className="h-32 rounded-xl" />;
@@ -2867,14 +2870,21 @@ function PrizesTab({
   if (error) {
     return (
       <p className="text-sm text-destructive">
-        {getApiErrorMessage(error, "Prizes could not be loaded.")}
+        {getApiErrorMessage(
+          error,
+          readOnly
+            ? "Competitions could not be loaded."
+            : "Competitions and prizes could not be loaded.",
+        )}
       </p>
     );
   }
 
   return (
     <div className="space-y-5">
-      <DetailSection title="Competitions & Prizes">
+      <DetailSection
+        title={readOnly ? "Competitions" : "Competitions & Prizes"}
+      >
         {event.viewerCanManage && readOnly ? (
           <Button
             size="sm"
@@ -2907,13 +2917,13 @@ function PrizesTab({
         ) : null}
       </DetailSection>
 
-      {competitions.length === 0 && prizes.length === 0 ? (
+      {isEmpty ? (
         <CommunityEmptyState
-          title="No competitions or prizes have been added yet."
+          title="No competitions have been added yet."
           description={
             event.viewerCanManage
-              ? "Add competitions, prizes, or event awards for this event."
-              : "No competitions or prizes have been added yet."
+              ? "Add competitions for this event."
+              : "No competitions have been added yet."
           }
         />
       ) : (
@@ -2938,7 +2948,7 @@ function PrizesTab({
               />
             </DetailSection>
           ) : null}
-          {generalPrizes.length > 0 ? (
+          {!readOnly && generalPrizes.length > 0 ? (
             <DetailSection title="Event prizes">
               <PrizeList
                 event={event}
@@ -3349,7 +3359,7 @@ function CompetitionList({
                 </Button>
               ) : null}
             </div>
-            {competitionPrizes.length > 0 ? (
+            {!readOnly && competitionPrizes.length > 0 ? (
               <div className="mt-3">
                 <PrizeList
                   event={event}
