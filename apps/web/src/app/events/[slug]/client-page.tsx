@@ -1404,46 +1404,49 @@ export function EventCheckInClient({ slug }: { slug: string }) {
             </p>
           ) : (
             <div className="mt-3 divide-y divide-border/70 border-y border-border/70">
-              {recentCheckIns.map((participant) => (
-                <div
-                  key={participant.id}
-                  className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <UserIdentityHeader
-                    displayName={
-                      participant.displayName ||
-                      participant.username ||
-                      participant.userId
-                    }
-                    username={participant.username}
-                    avatarUrl={participant.avatarUrl}
-                    usernameFallback="participant"
-                  />
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Badge
-                      variant="outline"
-                      className={getParticipantRoleBadgeClass(participant.role)}
-                    >
-                      {titleCase(participant.role)}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={getPaymentStatusBadgeClass(
-                        participant.payment?.status ??
-                          (event.isPaid ? "pending_upload" : "not_required"),
-                      )}
-                    >
-                      {getPaymentStatusLabel(
-                        participant.payment?.status ??
-                          (event.isPaid ? "pending_upload" : "not_required"),
-                      )}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDateTime(participant.checkedInAt)}
-                    </span>
+              {recentCheckIns.map((participant) => {
+                const paymentStatus =
+                  participant.payment?.status ??
+                  (event.isPaid ? "pending_upload" : "not_required");
+                return (
+                  <div
+                    key={participant.id}
+                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <UserIdentityHeader
+                      displayName={
+                        participant.displayName ||
+                        participant.username ||
+                        participant.userId
+                      }
+                      username={participant.username}
+                      avatarUrl={participant.avatarUrl}
+                      usernameFallback="participant"
+                    />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge
+                        variant="outline"
+                        className={getParticipantRoleBadgeClass(
+                          participant.role,
+                        )}
+                      >
+                        {titleCase(participant.role)}
+                      </Badge>
+                      {shouldShowPaymentStatus(paymentStatus) ? (
+                        <Badge
+                          variant="outline"
+                          className={getPaymentStatusBadgeClass(paymentStatus)}
+                        >
+                          {getPaymentStatusLabel(paymentStatus)}
+                        </Badge>
+                      ) : null}
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateTime(participant.checkedInAt)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -1499,6 +1502,9 @@ export function EventPassVerificationClient({
       </CommunityPageShell>
     );
   }
+  const paymentStatus =
+    pass.payment?.status ??
+    (pass.event.isPaid ? "pending_upload" : "not_required");
 
   return (
     <CommunityPageShell>
@@ -1528,18 +1534,14 @@ export function EventPassVerificationClient({
           >
             {titleCase(pass.status)}
           </Badge>
-          <Badge
-            variant="outline"
-            className={getPaymentStatusBadgeClass(
-              pass.payment?.status ??
-                (pass.event.isPaid ? "pending_upload" : "not_required"),
-            )}
-          >
-            {getPaymentStatusLabel(
-              pass.payment?.status ??
-                (pass.event.isPaid ? "pending_upload" : "not_required"),
-            )}
-          </Badge>
+          {shouldShowPaymentStatus(paymentStatus) ? (
+            <Badge
+              variant="outline"
+              className={getPaymentStatusBadgeClass(paymentStatus)}
+            >
+              {getPaymentStatusLabel(paymentStatus)}
+            </Badge>
+          ) : null}
           {pass.participant.checkedInAt ? (
             <Badge
               variant="outline"
@@ -1586,10 +1588,7 @@ export function EventPassVerificationClient({
             />
             <PassDetail
               label="Payment status"
-              value={getPaymentStatusLabel(
-                pass.payment?.status ??
-                  (pass.event.isPaid ? "pending_upload" : "not_required"),
-              )}
+              value={getPaymentStatusLabel(paymentStatus)}
             />
             <PassDetail
               label="Checked-in status"
@@ -2016,6 +2015,9 @@ function EventHeader({
     (canSeePrivateDetails
       ? "Details from the organizer are below."
       : "This is a private event. Details are limited until you are approved.");
+  const viewerPaymentStatus =
+    event.viewerPayment?.status ??
+    (event.isPaid ? "pending_upload" : "not_required");
   const chips: Array<{ label: string; className: string }> = privateLocked
     ? [
         {
@@ -2068,17 +2070,13 @@ function EventHeader({
               },
             ]
           : []),
-        ...(event.viewerParticipation && (event.isPaid || event.viewerPayment)
+        ...(event.viewerJoined &&
+        (event.isPaid || event.viewerPayment) &&
+        shouldShowPaymentStatus(viewerPaymentStatus)
           ? [
               {
-                label: getPaymentStatusLabel(
-                  event.viewerPayment?.status ??
-                    (event.isPaid ? "pending_upload" : "not_required"),
-                ),
-                className: getPaymentStatusBadgeClass(
-                  event.viewerPayment?.status ??
-                    (event.isPaid ? "pending_upload" : "not_required"),
-                ),
+                label: getPaymentStatusLabel(viewerPaymentStatus),
+                className: getPaymentStatusBadgeClass(viewerPaymentStatus),
               },
             ]
           : []),
@@ -2537,14 +2535,17 @@ function JoinTab({
     event.viewerPayment?.status ??
       (event.isPaid ? "pending_upload" : "not_required"),
   );
+  const showViewerPaymentStatus = event.isPaid && event.viewerJoined;
 
   return (
     <div className="space-y-4">
       <StatusPanel
         title={stateLabel}
         description={
-          event.isPaid
+          showViewerPaymentStatus
             ? `Payment: ${paymentStatus}`
+            : event.isPaid
+              ? "Request to join before submitting payment."
             : event.requiresApproval
               ? "The organizer approves requests before confirmation."
               : "Joining confirms your spot if capacity is available."
@@ -2929,31 +2930,44 @@ function PrizesTab({
       ) : (
         <div className="space-y-6">
           {competitions.length > 0 ? (
-            <DetailSection title="Competitions">
+            readOnly ? (
               <CompetitionList
                 event={event}
                 competitions={competitions}
                 prizesByCompetition={prizesByCompetition}
-                onEdit={
-                  event.viewerCanManage && !readOnly
-                    ? openCompetitionDialog
-                    : undefined
-                }
-                onEditPrize={
-                  event.viewerCanManage && !readOnly
-                    ? openPrizeDialog
-                    : undefined
-                }
                 readOnly={readOnly}
               />
-            </DetailSection>
+            ) : (
+              <DetailSection title="Competitions">
+                <CompetitionList
+                  event={event}
+                  competitions={competitions}
+                  prizesByCompetition={prizesByCompetition}
+                  onEdit={
+                    event.viewerCanManage && !readOnly
+                      ? openCompetitionDialog
+                      : undefined
+                  }
+                  onEditPrize={
+                    event.viewerCanManage && !readOnly
+                      ? openPrizeDialog
+                      : undefined
+                  }
+                  readOnly={readOnly}
+                />
+              </DetailSection>
+            )
           ) : null}
           {!readOnly && generalPrizes.length > 0 ? (
             <DetailSection title="Event prizes">
               <PrizeList
                 event={event}
                 prizes={generalPrizes}
-                onEdit={openPrizeDialog}
+                onEdit={
+                  event.viewerCanManage && !readOnly
+                    ? openPrizeDialog
+                    : undefined
+                }
                 readOnly={readOnly}
               />
             </DetailSection>
@@ -4520,81 +4534,86 @@ function ParticipantsSection({
         />
       ) : (
         <div className="divide-y divide-border/70 border-y border-border/70">
-          {sortedParticipants.map((participant) => (
-            <div key={participant.id} className="py-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <UserIdentityHeader
-                  displayName={
-                    participant.displayName ||
-                    participant.username ||
-                    participant.userId
-                  }
-                  username={participant.username}
-                  avatarUrl={participant.avatarUrl ?? undefined}
-                  usernameFallback="participant"
-                />
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Badge
-                    variant="outline"
-                    className={getParticipantStatusBadgeClass(
-                      participant.status,
-                    )}
-                  >
-                    {titleCase(participant.status)}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={getParticipantRoleBadgeClass(participant.role)}
-                  >
-                    {titleCase(participant.role)}
-                  </Badge>
-                  {showOrganizerActions ? (
-                    <>
-                      <PaymentStatusBadge
-                        payment={participant.payment}
-                        fallbackStatus={
-                          event.isPaid ? "pending_upload" : "not_required"
-                        }
-                        isOpening={
-                          Boolean(participant.payment?.id) &&
-                          viewingPaymentProofId === participant.payment?.id
-                        }
-                        onViewProof={onViewPaymentProof}
-                      />
-                      <OrganizerActions
-                        event={event}
-                        participant={participant}
-                        onApprove={onApprove}
-                        onReject={onReject}
-                        onUpdateRole={onUpdateRole}
-                        onVerifyPayment={onVerifyPayment}
-                        onRejectPayment={onRejectPayment}
-                        onViewPaymentProof={onViewPaymentProof}
-                        onRegeneratePass={onRegeneratePass}
-                        viewingPaymentProofId={viewingPaymentProofId}
-                        regeneratingPassId={regeneratingPassId}
-                      />
-                      {participant.checkedInAt ? (
-                        <Badge
-                          variant="outline"
-                          className="h-6 border-sky-500/30 bg-sky-500/10 px-2 text-[11px] text-sky-700"
-                        >
-                          Checked in
-                        </Badge>
-                      ) : null}
-                    </>
-                  ) : null}
+          {sortedParticipants.map((participant) => {
+            const identityBadges = [
+              <Badge
+                key="status"
+                variant="outline"
+                className={getParticipantStatusBadgeClass(participant.status)}
+              >
+                {titleCase(participant.status)}
+              </Badge>,
+              <Badge
+                key="role"
+                variant="outline"
+                className={getParticipantRoleBadgeClass(participant.role)}
+              >
+                {titleCase(participant.role)}
+              </Badge>,
+            ];
+            return (
+              <div key={participant.id} className="py-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <UserIdentityHeader
+                    displayName={
+                      participant.displayName ||
+                      participant.username ||
+                      participant.userId
+                    }
+                    username={participant.username}
+                    avatarUrl={participant.avatarUrl ?? undefined}
+                    usernameFallback="participant"
+                    metadata={identityBadges}
+                  />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {showOrganizerActions ? (
+                      <>
+                        <PaymentStatusBadge
+                          payment={participant.payment}
+                          fallbackStatus={
+                            event.isPaid ? "pending_upload" : "not_required"
+                          }
+                          isOpening={
+                            Boolean(participant.payment?.id) &&
+                            viewingPaymentProofId === participant.payment?.id
+                          }
+                          onViewProof={onViewPaymentProof}
+                        />
+                        <OrganizerActions
+                          event={event}
+                          participant={participant}
+                          onApprove={onApprove}
+                          onReject={onReject}
+                          onUpdateRole={onUpdateRole}
+                          onVerifyPayment={onVerifyPayment}
+                          onRejectPayment={onRejectPayment}
+                          onViewPaymentProof={onViewPaymentProof}
+                          onRegeneratePass={onRegeneratePass}
+                          viewingPaymentProofId={viewingPaymentProofId}
+                          regeneratingPassId={regeneratingPassId}
+                        />
+                        {participant.checkedInAt ? (
+                          <Badge
+                            variant="outline"
+                            className="h-6 border-sky-500/30 bg-sky-500/10 px-2 text-[11px] text-sky-700"
+                          >
+                            Checked in
+                          </Badge>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
                 </div>
+                {showOrganizerActions &&
+                participant.status === "pending_approval" &&
+                participant.participantNote ? (
+                  <p className="mt-2 rounded-lg bg-muted/40 p-2 text-sm text-muted-foreground">
+                    {participant.participantNote}
+                  </p>
+                ) : null}
               </div>
-              {showOrganizerActions &&
-              participant.status === "pending_approval" &&
-              participant.participantNote ? (
-                <p className="mt-2 rounded-lg bg-muted/40 p-2 text-sm text-muted-foreground">
-                  {participant.participantNote}
-                </p>
-              ) : null}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </DetailSection>
@@ -5072,6 +5091,9 @@ function PaymentStatusBadge({
   onViewProof: (paymentId: string) => void;
 }) {
   const status = payment?.status ?? fallbackStatus;
+  if (!shouldShowPaymentStatus(status)) {
+    return null;
+  }
   const label = getPaymentStatusLabel(status);
   const className = getPaymentStatusBadgeClass(status);
 
@@ -5093,6 +5115,10 @@ function PaymentStatusBadge({
       {label}
     </Badge>
   );
+}
+
+function shouldShowPaymentStatus(status: EventPaymentStatus) {
+  return status !== "not_required";
 }
 
 type OrganizerSetupEditor =
@@ -5206,6 +5232,7 @@ function OrganizerManageTab({
   const [cancellationPolicy, setCancellationPolicy] = useState(
     event.cancellationPolicy ?? "",
   );
+  const [paymentsEnabled, setPaymentsEnabled] = useState(event.isPaid);
   const [priceAmount, setPriceAmount] = useState(
     event.priceAmount != null ? String(event.priceAmount) : "",
   );
@@ -5332,6 +5359,30 @@ function OrganizerManageTab({
   };
 
   const savePayment = () => {
+    if (!paymentsEnabled) {
+      updateEventMutation.mutate(
+        {
+          eventId: event.id,
+          data: {
+            isPaid: false,
+            priceAmount: undefined,
+            paymentInstructions: "",
+          },
+        },
+        {
+          onSuccess: () => {
+            toast.success("Payments disabled.");
+            closeEditor();
+            onSaved();
+          },
+          onError: (error) => {
+            toast.error(getApiErrorMessage(error, "Failed to disable payments"));
+          },
+        },
+      );
+      return;
+    }
+
     const trimmedPrice = priceAmount.trim();
     const parsedPrice = trimmedPrice
       ? Number.parseFloat(trimmedPrice)
@@ -5365,7 +5416,7 @@ function OrganizerManageTab({
       {
         eventId: event.id,
         data: {
-          isPaid: true,
+          isPaid: paymentsEnabled,
           priceAmount: parsedPrice,
           currency: currency.trim().toUpperCase() || "PHP",
           paymentInstructions: paymentInstructions.trim(),
@@ -5444,6 +5495,21 @@ function OrganizerManageTab({
     );
   };
 
+  const archiveEvent = () => {
+    updateEventMutation.mutate(
+      { eventId: event.id, data: { status: "archived" } },
+      {
+        onSuccess: () => {
+          toast.success("Event archived.");
+          onSaved();
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error, "Failed to archive event"));
+        },
+      },
+    );
+  };
+
   const showSetupRows = mode === "setup";
   const showPaymentRows = mode === "payments";
 
@@ -5513,6 +5579,58 @@ function OrganizerManageTab({
           />
         ) : null}
       </div>
+
+      {showSetupRows ? (
+        <DetailSection title="Danger zone">
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  Archive event
+                </p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Hide this event from public event lists without permanently
+                  deleting its setup, participants, updates, or records.
+                </p>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={
+                        event.status === "archived" ||
+                        updateEventMutation.isPending
+                      }
+                    />
+                  }
+                >
+                  {event.status === "archived" ? "Archived" : "Archive event"}
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Archive this event?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This hides the event from public event lists. It does not
+                      hard delete the event or its records.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={archiveEvent}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Archive event
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </DetailSection>
+      ) : null}
 
       <Dialog
         open={activeEditor === "description"}
@@ -5798,124 +5916,163 @@ function OrganizerManageTab({
           <DialogHeader>
             <DialogTitle>Manage payment methods</DialogTitle>
             <DialogDescription>
-              Add payment amount, participant instructions, and one active
-              payment method.
+              Turn payments on or off for this event, then add participant
+              instructions and one active payment method when payments are on.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SetupField label="Price">
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={priceAmount}
-                onChange={(item) => setPriceAmount(item.target.value)}
-                placeholder="1500"
-              />
-            </SetupField>
-            <SetupField label="Currency">
-              <Input
-                value={currency}
-                onChange={(item) => setCurrency(item.target.value)}
-                placeholder="PHP"
-              />
-            </SetupField>
-          </div>
-          <SetupField label="Payment instructions">
-            <Textarea
-              className="min-h-20"
-              value={paymentInstructions}
-              onChange={(item) => setPaymentInstructions(item.target.value)}
-              placeholder="Tell participants when and how to pay."
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/70 p-3 text-sm">
+            <input
+              className="mt-1"
+              type="checkbox"
+              checked={paymentsEnabled}
+              onChange={(item) => setPaymentsEnabled(item.target.checked)}
             />
-          </SetupField>
-          <div className="rounded-lg border border-border/70 p-3">
-            <p className="text-sm font-medium text-foreground">
-              Add payment method
-            </p>
-            {activePaymentMethods.length > 0 ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Existing active methods:{" "}
-                {activePaymentMethods.map((method) => method.name).join(", ")}
-              </p>
-            ) : null}
-            <div className="mt-3 grid gap-3">
-              <SetupField label="Type">
-                <Select
-                  value={paymentMethodType}
-                  items={[
-                    { value: "MANUAL_QR", label: "QR payment" },
-                    { value: "MANUAL_BANK_TRANSFER", label: "Bank transfer" },
-                  ]}
-                  onValueChange={(value) =>
-                    setPaymentMethodType(value as EventPaymentMethodType)
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MANUAL_QR">QR payment</SelectItem>
-                    <SelectItem value="MANUAL_BANK_TRANSFER">
-                      Bank transfer
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </SetupField>
-              <SetupField label="Name">
-                <Input
-                  value={paymentMethodName}
-                  onChange={(item) => setPaymentMethodName(item.target.value)}
-                  placeholder={
-                    paymentMethodType === "MANUAL_QR" ? "GCash" : "BPI"
-                  }
-                />
-              </SetupField>
-              <SetupField label="Instructions">
-                <Textarea
-                  className="min-h-16"
-                  value={paymentMethodInstructions}
-                  onChange={(item) =>
-                    setPaymentMethodInstructions(item.target.value)
-                  }
-                />
-              </SetupField>
-              {paymentMethodType === "MANUAL_QR" ? (
-                <SetupField label="QR image URL">
+            <span>
+              <span className="block font-medium text-foreground">
+                Payments enabled
+              </span>
+              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                Turn this off to make the event free and hide participant
+                payment instructions.
+              </span>
+            </span>
+          </label>
+          {paymentsEnabled ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SetupField label="Price">
                   <Input
-                    value={qrImageUrl}
-                    onChange={(item) => setQrImageUrl(item.target.value)}
-                    placeholder="https://..."
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={priceAmount}
+                    onChange={(item) => setPriceAmount(item.target.value)}
+                    placeholder="1500"
                   />
                 </SetupField>
-              ) : (
-                <div className="grid gap-3">
-                  <SetupField label="Bank name">
+                <SetupField label="Currency">
+                  <Input
+                    value={currency}
+                    onChange={(item) => setCurrency(item.target.value)}
+                    placeholder="PHP"
+                  />
+                </SetupField>
+              </div>
+              <SetupField label="Payment instructions">
+                <Textarea
+                  className="min-h-20"
+                  value={paymentInstructions}
+                  onChange={(item) => setPaymentInstructions(item.target.value)}
+                  placeholder="Tell participants when and how to pay."
+                />
+              </SetupField>
+              <div className="rounded-lg border border-border/70 p-3">
+                <p className="text-sm font-medium text-foreground">
+                  Add payment method
+                </p>
+                {activePaymentMethods.length > 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Existing active methods:{" "}
+                    {activePaymentMethods
+                      .map((method) => method.name)
+                      .join(", ")}
+                  </p>
+                ) : null}
+                <div className="mt-3 grid gap-3">
+                  <SetupField label="Type">
+                    <Select
+                      value={paymentMethodType}
+                      items={[
+                        { value: "MANUAL_QR", label: "QR payment" },
+                        {
+                          value: "MANUAL_BANK_TRANSFER",
+                          label: "Bank transfer",
+                        },
+                      ]}
+                      onValueChange={(value) =>
+                        setPaymentMethodType(value as EventPaymentMethodType)
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MANUAL_QR">QR payment</SelectItem>
+                        <SelectItem value="MANUAL_BANK_TRANSFER">
+                          Bank transfer
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </SetupField>
+                  <SetupField label="Name">
                     <Input
-                      value={bankName}
-                      onChange={(item) => setBankName(item.target.value)}
-                      placeholder="BPI"
+                      value={paymentMethodName}
+                      onChange={(item) =>
+                        setPaymentMethodName(item.target.value)
+                      }
+                      placeholder={
+                        paymentMethodType === "MANUAL_QR" ? "GCash" : "BPI"
+                      }
                     />
                   </SetupField>
-                  <SetupField label="Account name">
-                    <Input
-                      value={accountName}
-                      onChange={(item) => setAccountName(item.target.value)}
+                  <SetupField label="Instructions">
+                    <Textarea
+                      className="min-h-16"
+                      value={paymentMethodInstructions}
+                      onChange={(item) =>
+                        setPaymentMethodInstructions(item.target.value)
+                      }
                     />
                   </SetupField>
-                  <SetupField label="Account number">
-                    <Input
-                      value={accountNumber}
-                      onChange={(item) => setAccountNumber(item.target.value)}
-                    />
-                  </SetupField>
+                  {paymentMethodType === "MANUAL_QR" ? (
+                    <SetupField label="QR image URL">
+                      <Input
+                        value={qrImageUrl}
+                        onChange={(item) => setQrImageUrl(item.target.value)}
+                        placeholder="https://..."
+                      />
+                    </SetupField>
+                  ) : (
+                    <div className="grid gap-3">
+                      <SetupField label="Bank name">
+                        <Input
+                          value={bankName}
+                          onChange={(item) => setBankName(item.target.value)}
+                          placeholder="BPI"
+                        />
+                      </SetupField>
+                      <SetupField label="Account name">
+                        <Input
+                          value={accountName}
+                          onChange={(item) => setAccountName(item.target.value)}
+                        />
+                      </SetupField>
+                      <SetupField label="Account number">
+                        <Input
+                          value={accountNumber}
+                          onChange={(item) =>
+                            setAccountNumber(item.target.value)
+                          }
+                        />
+                      </SetupField>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg border border-border/70 bg-muted/35 p-3 text-sm leading-6 text-muted-foreground">
+              Payments are off. The event will show as free and participants
+              will not see payment instructions.
             </div>
-          </div>
+          )}
           <DialogFooter showCloseButton>
             <Button disabled={isSaving} onClick={savePayment}>
-              {isSaving ? "Saving..." : "Save payment setup"}
+              {isSaving
+                ? "Saving..."
+                : paymentsEnabled
+                  ? "Save payment setup"
+                  : "Disable payments"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -5964,15 +6121,15 @@ function ManageRow({
   title,
   status,
   actionLabel,
+  disabled = false,
   note,
-  disabled,
   onAction,
 }: {
   title: string;
   status: string;
   actionLabel: string;
-  note?: string;
   disabled?: boolean;
+  note?: string;
   onAction?: () => void;
 }) {
   return (

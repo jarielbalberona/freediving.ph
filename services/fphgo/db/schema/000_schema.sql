@@ -686,7 +686,7 @@ CREATE TABLE IF NOT EXISTS events (
   cancel_reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (status IN ('draft', 'published', 'cancelled', 'completed')),
+  CHECK (status IN ('draft', 'published', 'cancelled', 'completed', 'archived')),
   CHECK (visibility IN ('public', 'private')),
   CHECK (event_type IN (
     'intro_session',

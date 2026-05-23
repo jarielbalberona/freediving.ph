@@ -1178,7 +1178,7 @@ func normalizeLimit(value int) int {
 
 func normalizeEventStatus(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "draft", "cancelled", "completed", "published":
+	case "draft", "cancelled", "completed", "published", "archived":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return ""

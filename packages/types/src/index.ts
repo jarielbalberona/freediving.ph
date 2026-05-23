@@ -299,7 +299,12 @@ export interface DiveSpotFilters {
 }
 
 export type EventVisibility = "public" | "private";
-export type EventStatus = "draft" | "published" | "cancelled" | "completed";
+export type EventStatus =
+  | "draft"
+  | "published"
+  | "cancelled"
+  | "completed"
+  | "archived";
 export type EventType =
   | "intro_session"
   | "pool_training"

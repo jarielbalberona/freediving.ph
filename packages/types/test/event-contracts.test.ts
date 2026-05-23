@@ -30,7 +30,12 @@ type BackendEventType =
   | "cleanup_dive"
   | "trip_retreat";
 
-type BackendEventStatus = "draft" | "published" | "cancelled" | "completed";
+type BackendEventStatus =
+  | "draft"
+  | "published"
+  | "cancelled"
+  | "completed"
+  | "archived";
 type BackendEventVisibility = "public" | "private";
 type BackendParticipantStatus =
   | "pending_approval"

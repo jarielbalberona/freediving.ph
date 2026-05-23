@@ -927,7 +927,7 @@ func TestMarkEventInterestedRejectsClosedEvents(t *testing.T) {
 		eventID = "550e8400-e29b-41d4-a716-446655443146"
 		userID  = "550e8400-e29b-41d4-a716-446655443147"
 	)
-	for _, status := range []string{"draft", "cancelled", "completed"} {
+	for _, status := range []string{"draft", "cancelled", "completed", "archived"} {
 		t.Run(status, func(t *testing.T) {
 			repo := &eventsRepoStub{
 				event: eventsrepo.Event{

@@ -200,7 +200,7 @@ type CreateEventRequest struct {
 	EndsAt              string                       `json:"endsAt" validate:"required,datetime=2006-01-02T15:04:05Z07:00"`
 	Timezone            string                       `json:"timezone,omitempty" validate:"omitempty,max=80"`
 	Capacity            *int                         `json:"capacity,omitempty" validate:"omitempty,min=1,max=100000"`
-	Status              string                       `json:"status,omitempty" validate:"omitempty,oneof=draft published cancelled completed"`
+	Status              string                       `json:"status,omitempty" validate:"omitempty,oneof=draft published cancelled completed archived"`
 	Visibility          string                       `json:"visibility" validate:"required,oneof=public private"`
 	Difficulty          string                       `json:"difficulty,omitempty" validate:"omitempty,oneof=beginner intermediate advanced expert"`
 	RequiresApproval    bool                         `json:"requiresApproval"`
@@ -229,7 +229,7 @@ type UpdateEventRequest struct {
 	EndsAt              *string  `json:"endsAt,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
 	Timezone            *string  `json:"timezone,omitempty" validate:"omitempty,max=80"`
 	Capacity            *int     `json:"capacity,omitempty" validate:"omitempty,min=1,max=100000"`
-	Status              *string  `json:"status,omitempty" validate:"omitempty,oneof=draft published cancelled completed"`
+	Status              *string  `json:"status,omitempty" validate:"omitempty,oneof=draft published cancelled completed archived"`
 	Visibility          *string  `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
 	Difficulty          *string  `json:"difficulty,omitempty" validate:"omitempty,oneof=beginner intermediate advanced expert"`
 	RequiresApproval    *bool    `json:"requiresApproval,omitempty"`
