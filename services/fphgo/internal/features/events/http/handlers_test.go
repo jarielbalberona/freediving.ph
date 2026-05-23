@@ -859,7 +859,7 @@ func (r *eventCreateRepoStub) DeleteSponsor(context.Context, string, string) err
 	return nil
 }
 
-func (r *eventCreateRepoStub) ListPosts(context.Context, string, bool) ([]eventsrepo.EventPost, error) {
+func (r *eventCreateRepoStub) ListPosts(context.Context, string, string, bool) ([]eventsrepo.EventPost, error) {
 	return nil, nil
 }
 
@@ -877,6 +877,14 @@ func (r *eventCreateRepoStub) UpdatePost(context.Context, string, eventsrepo.Upd
 
 func (r *eventCreateRepoStub) DeletePost(context.Context, string, string) error {
 	return nil
+}
+
+func (r *eventCreateRepoStub) AddPostFishReaction(context.Context, string, string, string) (eventsrepo.EventPostReactionState, error) {
+	return eventsrepo.EventPostReactionState{}, nil
+}
+
+func (r *eventCreateRepoStub) DeletePostFishReaction(context.Context, string, string, string) (eventsrepo.EventPostReactionState, error) {
+	return eventsrepo.EventPostReactionState{}, nil
 }
 
 func (r *eventCreateRepoStub) UpdateParticipantRole(context.Context, string, string, string, string) (eventsrepo.EventParticipant, error) {

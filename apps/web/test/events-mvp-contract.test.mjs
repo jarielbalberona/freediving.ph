@@ -22,6 +22,8 @@ test("events create page stays limited to first-step event fields", () => {
   assert.doesNotMatch(createPage, /Payment methods/);
   assert.doesNotMatch(createPage, /MANUAL_QR/);
   assert.doesNotMatch(createPage, /MANUAL_BANK_TRANSFER/);
+  assert.doesNotMatch(createPage, /coverPhotoUrl/);
+  assert.doesNotMatch(createPage, /Event cover photo/);
   assert.doesNotMatch(createPage, /priceAmount/);
   assert.doesNotMatch(createPage, /LocationSearch/);
 });
@@ -39,6 +41,31 @@ test("events create payload defaults Philippine time and defers advanced setup",
   assert.doesNotMatch(createPage, /capacity,/);
   assert.doesNotMatch(createPage, /difficulty,/);
   assert.doesNotMatch(createPage, /paymentMethods/);
+});
+
+test("events support optional photos outside the create flow", () => {
+  const createPage = read("src/app/events/create/page.tsx");
+  const detailPage = read("src/app/events/[slug]/client-page.tsx");
+  const types = read("../../packages/types/src/index.ts");
+  assert.match(detailPage, /function EventCoverPhoto/);
+  assert.match(
+    detailPage,
+    /beforeTitle=\{<EventCoverPhoto event=\{event\} \/>/,
+  );
+  assert.match(detailPage, /aspect-\[16\/7\]/);
+  assert.match(detailPage, /Event cover photo/);
+  assert.match(detailPage, /Add cover photo/);
+  assert.match(detailPage, /Edit cover/);
+  assert.match(detailPage, /mediaApi\.upload/);
+  assert.match(detailPage, /coverPhotoUrl/);
+  assert.match(detailPage, /Upload competition cover photo/);
+  assert.match(detailPage, /Upload prize photo/);
+  assert.match(detailPage, /competition\.coverPhotoUrl/);
+  assert.match(detailPage, /prize\.photoUrl/);
+  assert.match(types, /coverPhotoUrl\?: string/);
+  assert.match(types, /photoUrl\?: string/);
+  assert.doesNotMatch(createPage, /coverPhotoUrl/);
+  assert.doesNotMatch(createPage, /Upload photo/);
 });
 
 test("events create and management use user-facing labels", () => {
@@ -272,6 +299,8 @@ test("events detail renders management extensions through tabs and dialogs", () 
   assert.match(detailPage, /function CompetitionList/);
   assert.match(detailPage, /getCompetitionHref/);
   assert.match(detailPage, /competitions-and-prizes/);
+  assert.match(detailPage, /onEditPrize/);
+  assert.match(detailPage, /competitionPrizes/);
   assert.match(detailPage, /value="details"/);
   assert.match(detailPage, /Add competition/);
   assert.match(detailPage, /Edit competition/);
@@ -279,14 +308,36 @@ test("events detail renders management extensions through tabs and dialogs", () 
   assert.match(detailPage, /Edit prize/);
   assert.match(detailPage, /Add sponsor/);
   assert.match(detailPage, /Edit sponsor/);
-  assert.match(detailPage, /Enable event posts/);
-  assert.match(detailPage, /New post/);
-  assert.match(detailPage, /Manage event posts/);
+  assert.match(detailPage, /Enable Updates/);
+  assert.match(detailPage, /New update/);
+  assert.match(detailPage, /Manage Updates/);
   assert.match(detailPage, /event\?\.postsEnabled/);
   assert.match(detailPage, /safeExternalUrl/);
   assert.match(detailPage, /postsEnabled/);
   assert.match(detailPage, /postCreatePolicy/);
   assert.match(detailPage, /event\.viewerCanManage/);
+});
+
+test("events updates are official announcements with fish reactions", () => {
+  const detailPage = read("src/app/events/[slug]/client-page.tsx");
+  const api = read("src/features/events/api/events.ts");
+  const mutations = read("src/features/events/hooks/mutations.ts");
+  const types = read("../../packages/types/src/index.ts");
+  assert.match(detailPage, /eventUpdateTypeOptions/);
+  assert.match(detailPage, /Schedule update/);
+  assert.match(detailPage, /Payment reminder/);
+  assert.match(detailPage, /fishReactionCount/);
+  assert.match(detailPage, /viewerHasFishReacted/);
+  assert.match(detailPage, /React with fish/);
+  assert.match(detailPage, /Remove fish reaction/);
+  assert.match(detailPage, /🐟/);
+  assert.match(detailPage, /Share official event announcements/);
+  assert.doesNotMatch(detailPage, /Allow participants/);
+  assert.match(api, /\/updates\/\$\{postId\}\/reactions\/fish/);
+  assert.match(mutations, /useAddEventPostFishReaction/);
+  assert.match(mutations, /useDeleteEventPostFishReaction/);
+  assert.match(types, /export type EventPostType/);
+  assert.match(types, /EventPostReactionResponse/);
 });
 
 test("events detail uses markdown editor in Manage and safe markdown rendering in Overview", () => {

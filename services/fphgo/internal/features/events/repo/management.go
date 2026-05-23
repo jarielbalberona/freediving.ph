@@ -18,6 +18,7 @@ type EventCompetition struct {
 	Name                string
 	DescriptionMarkdown string
 	RulesMarkdown       string
+	CoverPhotoURL       string
 	SortOrder           int
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -27,6 +28,7 @@ type CreateCompetitionInput struct {
 	Name                string
 	DescriptionMarkdown string
 	RulesMarkdown       string
+	CoverPhotoURL       string
 	SortOrder           int
 }
 
@@ -35,6 +37,7 @@ type UpdateCompetitionInput struct {
 	Name                *string
 	DescriptionMarkdown *string
 	RulesMarkdown       *string
+	CoverPhotoURL       *string
 	SortOrder           *int
 }
 
@@ -44,6 +47,7 @@ type EventPrize struct {
 	CompetitionID       string
 	Title               string
 	DescriptionMarkdown string
+	PhotoURL            string
 	Placement           string
 	PlacementLabel      string
 	PrizeType           string
@@ -59,6 +63,7 @@ type CreatePrizeInput struct {
 	CompetitionID       string
 	Title               string
 	DescriptionMarkdown string
+	PhotoURL            string
 	Placement           string
 	PlacementLabel      string
 	PrizeType           string
@@ -73,6 +78,7 @@ type UpdatePrizeInput struct {
 	CompetitionID       *string
 	Title               *string
 	DescriptionMarkdown *string
+	PhotoURL            *string
 	Placement           *string
 	PlacementLabel      *string
 	PrizeType           *string
@@ -131,10 +137,13 @@ type EventPost struct {
 	ID                string
 	EventID           string
 	AuthorUserID      string
+	PostType          string
 	Title             string
 	BodyMarkdown      string
 	Status            string
 	IsPinned          bool
+	FishReactionCount int
+	ViewerFishReacted bool
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	AuthorDisplayName string
@@ -143,6 +152,7 @@ type EventPost struct {
 }
 
 type CreatePostInput struct {
+	PostType     string
 	Title        string
 	BodyMarkdown string
 	IsPinned     bool
@@ -150,10 +160,17 @@ type CreatePostInput struct {
 
 type UpdatePostInput struct {
 	PostID       string
+	PostType     *string
 	Title        *string
 	BodyMarkdown *string
 	Status       *string
 	IsPinned     *bool
+}
+
+type EventPostReactionState struct {
+	PostID            string
+	FishReactionCount int
+	ViewerFishReacted bool
 }
 
 func IsLastOrganizer(err error) bool {
@@ -163,7 +180,7 @@ func IsLastOrganizer(err error) bool {
 func (r *Repo) ListCompetitions(ctx context.Context, eventID string) ([]EventCompetition, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id::text, event_id::text, name, coalesce(description_markdown, ''),
-			coalesce(rules_markdown, ''), sort_order, created_at, updated_at
+			coalesce(rules_markdown, ''), coalesce(cover_photo_url, ''), sort_order, created_at, updated_at
 		FROM event_competitions
 		WHERE event_id = $1::uuid AND deleted_at IS NULL
 		ORDER BY sort_order ASC, created_at ASC, id ASC
@@ -187,13 +204,13 @@ func (r *Repo) CreateCompetition(ctx context.Context, eventID string, input Crea
 	var item EventCompetition
 	err := scanCompetition(r.pool.QueryRow(ctx, `
 		INSERT INTO event_competitions (
-			event_id, name, description_markdown, rules_markdown, sort_order
+			event_id, name, description_markdown, rules_markdown, cover_photo_url, sort_order
 		) VALUES (
-			$1::uuid, $2, nullif($3, ''), nullif($4, ''), $5
+			$1::uuid, $2, nullif($3, ''), nullif($4, ''), nullif($5, ''), $6
 		)
 		RETURNING id::text, event_id::text, name, coalesce(description_markdown, ''),
-			coalesce(rules_markdown, ''), sort_order, created_at, updated_at
-	`, eventID, input.Name, input.DescriptionMarkdown, input.RulesMarkdown, input.SortOrder), &item)
+			coalesce(rules_markdown, ''), coalesce(cover_photo_url, ''), sort_order, created_at, updated_at
+	`, eventID, input.Name, input.DescriptionMarkdown, input.RulesMarkdown, input.CoverPhotoURL, input.SortOrder), &item)
 	return item, err
 }
 
@@ -204,6 +221,7 @@ func (r *Repo) UpdateCompetition(ctx context.Context, eventID string, input Upda
 	addStringPatch(&set, &args, &idx, "name", input.Name, false)
 	addStringPatch(&set, &args, &idx, "description_markdown", input.DescriptionMarkdown, true)
 	addStringPatch(&set, &args, &idx, "rules_markdown", input.RulesMarkdown, true)
+	addStringPatch(&set, &args, &idx, "cover_photo_url", input.CoverPhotoURL, true)
 	addIntPatch(&set, &args, &idx, "sort_order", input.SortOrder)
 	args = append(args, eventID, input.CompetitionID)
 	q := fmt.Sprintf(`
@@ -211,7 +229,7 @@ func (r *Repo) UpdateCompetition(ctx context.Context, eventID string, input Upda
 		SET %s
 		WHERE event_id = $%d::uuid AND id = $%d::uuid AND deleted_at IS NULL
 		RETURNING id::text, event_id::text, name, coalesce(description_markdown, ''),
-			coalesce(rules_markdown, ''), sort_order, created_at, updated_at
+			coalesce(rules_markdown, ''), coalesce(cover_photo_url, ''), sort_order, created_at, updated_at
 	`, strings.Join(set, ", "), idx, idx+1)
 	var item EventCompetition
 	err := scanCompetition(r.pool.QueryRow(ctx, q, args...), &item)
@@ -249,7 +267,7 @@ func (r *Repo) DeleteCompetition(ctx context.Context, eventID, competitionID str
 func (r *Repo) ListPrizes(ctx context.Context, eventID string) ([]EventPrize, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id::text, event_id::text, coalesce(competition_id::text, ''), title,
-			coalesce(description_markdown, ''), placement, coalesce(placement_label, ''),
+			coalesce(description_markdown, ''), coalesce(photo_url, ''), placement, coalesce(placement_label, ''),
 			coalesce(prize_type, ''), amount::float8, coalesce(currency, 'PHP'),
 			coalesce(sponsor_id::text, ''), sort_order, created_at, updated_at
 		FROM event_prizes
@@ -276,17 +294,17 @@ func (r *Repo) CreatePrize(ctx context.Context, eventID string, input CreatePriz
 	err := scanPrize(r.pool.QueryRow(ctx, `
 		INSERT INTO event_prizes (
 			event_id, competition_id, title, description_markdown, placement,
-			placement_label, prize_type, amount, currency, sponsor_id, sort_order
+			placement_label, prize_type, amount, currency, sponsor_id, photo_url, sort_order
 		) VALUES (
 			$1::uuid, nullif($2, '')::uuid, $3, nullif($4, ''), $5,
-			nullif($6, ''), nullif($7, ''), $8, $9, nullif($10, '')::uuid, $11
+			nullif($6, ''), nullif($7, ''), $8, $9, nullif($10, '')::uuid, nullif($11, ''), $12
 		)
 		RETURNING id::text, event_id::text, coalesce(competition_id::text, ''), title,
-			coalesce(description_markdown, ''), placement, coalesce(placement_label, ''),
+			coalesce(description_markdown, ''), coalesce(photo_url, ''), placement, coalesce(placement_label, ''),
 			coalesce(prize_type, ''), amount::float8, coalesce(currency, 'PHP'),
 			coalesce(sponsor_id::text, ''), sort_order, created_at, updated_at
 	`, eventID, input.CompetitionID, input.Title, input.DescriptionMarkdown, input.Placement,
-		input.PlacementLabel, input.PrizeType, input.Amount, input.Currency, input.SponsorID, input.SortOrder), &item)
+		input.PlacementLabel, input.PrizeType, input.Amount, input.Currency, input.SponsorID, input.PhotoURL, input.SortOrder), &item)
 	return item, err
 }
 
@@ -297,6 +315,7 @@ func (r *Repo) UpdatePrize(ctx context.Context, eventID string, input UpdatePriz
 	addUUIDStringPatch(&set, &args, &idx, "competition_id", input.CompetitionID)
 	addStringPatch(&set, &args, &idx, "title", input.Title, false)
 	addStringPatch(&set, &args, &idx, "description_markdown", input.DescriptionMarkdown, true)
+	addStringPatch(&set, &args, &idx, "photo_url", input.PhotoURL, true)
 	addStringPatch(&set, &args, &idx, "placement", input.Placement, false)
 	addStringPatch(&set, &args, &idx, "placement_label", input.PlacementLabel, true)
 	addStringPatch(&set, &args, &idx, "prize_type", input.PrizeType, true)
@@ -310,7 +329,7 @@ func (r *Repo) UpdatePrize(ctx context.Context, eventID string, input UpdatePriz
 		SET %s
 		WHERE event_id = $%d::uuid AND id = $%d::uuid AND deleted_at IS NULL
 		RETURNING id::text, event_id::text, coalesce(competition_id::text, ''), title,
-			coalesce(description_markdown, ''), placement, coalesce(placement_label, ''),
+			coalesce(description_markdown, ''), coalesce(photo_url, ''), placement, coalesce(placement_label, ''),
 			coalesce(prize_type, ''), amount::float8, coalesce(currency, 'PHP'),
 			coalesce(sponsor_id::text, ''), sort_order, created_at, updated_at
 	`, strings.Join(set, ", "), idx, idx+1)
@@ -489,22 +508,35 @@ func (r *Repo) MediaBelongsToEvent(ctx context.Context, eventID, mediaID string)
 	return exists, err
 }
 
-func (r *Repo) ListPosts(ctx context.Context, eventID string, includeHidden bool) ([]EventPost, error) {
+func (r *Repo) ListPosts(ctx context.Context, eventID, viewerUserID string, includeHidden bool) ([]EventPost, error) {
 	where := "p.event_id = $1::uuid AND p.deleted_at IS NULL AND p.status <> 'deleted'"
 	if !includeHidden {
 		where += " AND p.status = 'published'"
 	}
 	rows, err := r.pool.Query(ctx, fmt.Sprintf(`
 		SELECT p.id::text, p.event_id::text, p.author_user_id::text,
-			coalesce(p.title, ''), p.body_markdown, p.status, p.is_pinned,
+			coalesce(p.post_type, 'general'), coalesce(p.title, ''), p.body_markdown, p.status, p.is_pinned,
+			coalesce(fr.fish_count, 0)::int,
+			($2 <> '' AND EXISTS (
+				SELECT 1 FROM event_update_reactions vr
+				WHERE vr.event_update_id = p.id
+					AND vr.user_id = nullif($2, '')::uuid
+					AND vr.reaction_type = 'fish'
+			)),
 			p.created_at, p.updated_at, coalesce(u.display_name, ''),
 			coalesce(u.username, ''), coalesce(pr.avatar_url, '')
 		FROM event_posts p
 		LEFT JOIN users u ON u.id = p.author_user_id
 		LEFT JOIN profiles pr ON pr.user_id = p.author_user_id
+		LEFT JOIN (
+			SELECT event_update_id, count(*) AS fish_count
+			FROM event_update_reactions
+			WHERE reaction_type = 'fish'
+			GROUP BY event_update_id
+		) fr ON fr.event_update_id = p.id
 		WHERE %s
 		ORDER BY p.is_pinned DESC, p.created_at DESC, p.id DESC
-	`, where), eventID)
+	`, where), eventID, viewerUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -524,12 +556,19 @@ func (r *Repo) GetPost(ctx context.Context, eventID, postID string) (EventPost, 
 	var item EventPost
 	err := scanPost(r.pool.QueryRow(ctx, `
 		SELECT p.id::text, p.event_id::text, p.author_user_id::text,
-			coalesce(p.title, ''), p.body_markdown, p.status, p.is_pinned,
+			coalesce(p.post_type, 'general'), coalesce(p.title, ''), p.body_markdown, p.status, p.is_pinned,
+			coalesce(fr.fish_count, 0)::int, false,
 			p.created_at, p.updated_at, coalesce(u.display_name, ''),
 			coalesce(u.username, ''), coalesce(pr.avatar_url, '')
 		FROM event_posts p
 		LEFT JOIN users u ON u.id = p.author_user_id
 		LEFT JOIN profiles pr ON pr.user_id = p.author_user_id
+		LEFT JOIN (
+			SELECT event_update_id, count(*) AS fish_count
+			FROM event_update_reactions
+			WHERE reaction_type = 'fish'
+			GROUP BY event_update_id
+		) fr ON fr.event_update_id = p.id
 		WHERE p.event_id = $1::uuid AND p.id = $2::uuid
 			AND p.deleted_at IS NULL AND p.status <> 'deleted'
 	`, eventID, postID), &item)
@@ -541,20 +580,21 @@ func (r *Repo) CreatePost(ctx context.Context, eventID, authorUserID string, inp
 	err := scanPost(r.pool.QueryRow(ctx, `
 		WITH inserted AS (
 			INSERT INTO event_posts (
-				event_id, author_user_id, title, body_markdown, status, is_pinned
+				event_id, author_user_id, post_type, title, body_markdown, status, is_pinned
 			) VALUES (
-				$1::uuid, $2::uuid, nullif($3, ''), $4, 'published', $5
+				$1::uuid, $2::uuid, $3, nullif($4, ''), $5, 'published', $6
 			)
 			RETURNING *
 		)
 		SELECT p.id::text, p.event_id::text, p.author_user_id::text,
-			coalesce(p.title, ''), p.body_markdown, p.status, p.is_pinned,
+			coalesce(p.post_type, 'general'), coalesce(p.title, ''), p.body_markdown, p.status, p.is_pinned,
+			0, false,
 			p.created_at, p.updated_at, coalesce(u.display_name, ''),
 			coalesce(u.username, ''), coalesce(pr.avatar_url, '')
 		FROM inserted p
 		LEFT JOIN users u ON u.id = p.author_user_id
 		LEFT JOIN profiles pr ON pr.user_id = p.author_user_id
-	`, eventID, authorUserID, input.Title, input.BodyMarkdown, input.IsPinned), &item)
+	`, eventID, authorUserID, input.PostType, input.Title, input.BodyMarkdown, input.IsPinned), &item)
 	return item, err
 }
 
@@ -562,6 +602,7 @@ func (r *Repo) UpdatePost(ctx context.Context, eventID string, input UpdatePostI
 	set := []string{"updated_at = NOW()"}
 	args := []any{}
 	idx := 1
+	addStringPatch(&set, &args, &idx, "post_type", input.PostType, false)
 	addStringPatch(&set, &args, &idx, "title", input.Title, true)
 	addStringPatch(&set, &args, &idx, "body_markdown", input.BodyMarkdown, false)
 	addStringPatch(&set, &args, &idx, "status", input.Status, false)
@@ -576,16 +617,84 @@ func (r *Repo) UpdatePost(ctx context.Context, eventID string, input UpdatePostI
 			RETURNING *
 		)
 		SELECT p.id::text, p.event_id::text, p.author_user_id::text,
-			coalesce(p.title, ''), p.body_markdown, p.status, p.is_pinned,
+			coalesce(p.post_type, 'general'), coalesce(p.title, ''), p.body_markdown, p.status, p.is_pinned,
+			coalesce(fr.fish_count, 0)::int, false,
 			p.created_at, p.updated_at, coalesce(u.display_name, ''),
 			coalesce(u.username, ''), coalesce(pr.avatar_url, '')
 		FROM updated p
 		LEFT JOIN users u ON u.id = p.author_user_id
 		LEFT JOIN profiles pr ON pr.user_id = p.author_user_id
+		LEFT JOIN (
+			SELECT event_update_id, count(*) AS fish_count
+			FROM event_update_reactions
+			WHERE reaction_type = 'fish'
+			GROUP BY event_update_id
+		) fr ON fr.event_update_id = p.id
 	`, strings.Join(set, ", "), idx, idx+1)
 	var item EventPost
 	err := scanPost(r.pool.QueryRow(ctx, q, args...), &item)
 	return item, err
+}
+
+func (r *Repo) AddPostFishReaction(ctx context.Context, eventID, postID, userID string) (EventPostReactionState, error) {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO event_update_reactions (event_update_id, user_id, reaction_type)
+		SELECT p.id, $3::uuid, 'fish'
+		FROM event_posts p
+		WHERE p.event_id = $1::uuid
+			AND p.id = $2::uuid
+			AND p.deleted_at IS NULL
+			AND p.status = 'published'
+		ON CONFLICT (event_update_id, user_id, reaction_type) DO NOTHING
+	`, eventID, postID, userID)
+	if err != nil {
+		return EventPostReactionState{}, err
+	}
+	return r.GetPostReactionState(ctx, eventID, postID, userID)
+}
+
+func (r *Repo) DeletePostFishReaction(ctx context.Context, eventID, postID, userID string) (EventPostReactionState, error) {
+	_, err := r.pool.Exec(ctx, `
+		DELETE FROM event_update_reactions r
+		USING event_posts p
+		WHERE r.event_update_id = p.id
+			AND p.event_id = $1::uuid
+			AND p.id = $2::uuid
+			AND r.user_id = $3::uuid
+			AND r.reaction_type = 'fish'
+			AND p.deleted_at IS NULL
+			AND p.status = 'published'
+	`, eventID, postID, userID)
+	if err != nil {
+		return EventPostReactionState{}, err
+	}
+	return r.GetPostReactionState(ctx, eventID, postID, userID)
+}
+
+func (r *Repo) GetPostReactionState(ctx context.Context, eventID, postID, userID string) (EventPostReactionState, error) {
+	var state EventPostReactionState
+	err := r.pool.QueryRow(ctx, `
+		SELECT p.id::text,
+			coalesce(fr.fish_count, 0)::int,
+			($3 <> '' AND EXISTS (
+				SELECT 1 FROM event_update_reactions vr
+				WHERE vr.event_update_id = p.id
+					AND vr.user_id = nullif($3, '')::uuid
+					AND vr.reaction_type = 'fish'
+			))
+		FROM event_posts p
+		LEFT JOIN (
+			SELECT event_update_id, count(*) AS fish_count
+			FROM event_update_reactions
+			WHERE reaction_type = 'fish'
+			GROUP BY event_update_id
+		) fr ON fr.event_update_id = p.id
+		WHERE p.event_id = $1::uuid
+			AND p.id = $2::uuid
+			AND p.deleted_at IS NULL
+			AND p.status = 'published'
+	`, eventID, postID, userID).Scan(&state.PostID, &state.FishReactionCount, &state.ViewerFishReacted)
+	return state, err
 }
 
 func (r *Repo) DeletePost(ctx context.Context, eventID, postID string) error {
@@ -710,6 +819,7 @@ func scanCompetition(row eventScanner, item *EventCompetition) error {
 		&item.Name,
 		&item.DescriptionMarkdown,
 		&item.RulesMarkdown,
+		&item.CoverPhotoURL,
 		&item.SortOrder,
 		&item.CreatedAt,
 		&item.UpdatedAt,
@@ -728,6 +838,7 @@ func scanPrize(row eventScanner, item *EventPrize) error {
 		&item.CompetitionID,
 		&item.Title,
 		&item.DescriptionMarkdown,
+		&item.PhotoURL,
 		&item.Placement,
 		&item.PlacementLabel,
 		&item.PrizeType,
@@ -775,10 +886,13 @@ func scanPost(row eventScanner, item *EventPost) error {
 		&item.ID,
 		&item.EventID,
 		&item.AuthorUserID,
+		&item.PostType,
 		&item.Title,
 		&item.BodyMarkdown,
 		&item.Status,
 		&item.IsPinned,
+		&item.FishReactionCount,
+		&item.ViewerFishReacted,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 		&item.AuthorDisplayName,

@@ -182,6 +182,7 @@ func (h *Handlers) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		PostsEnabled:        req.PostsEnabled,
 		PostCreatePolicy:    req.PostCreatePolicy,
 		CancelReason:        req.CancelReason,
+		CoverPhotoURL:       req.CoverPhotoURL,
 	})
 	if err != nil {
 		handleError(w, r, err)
@@ -605,6 +606,7 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		Slug:                        item.Slug,
 		Title:                       item.Title,
 		ShortDescription:            item.ShortDescription,
+		CoverPhotoURL:               mediaurl.MaterializeWithDefault(item.CoverPhotoURL),
 		Location:                    item.Location,
 		LocationName:                item.LocationName,
 		FormattedAddress:            item.FormattedAddress,
@@ -672,6 +674,7 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 	if privateUnauthorized {
 		response.Description = ""
 		response.DescriptionMarkdown = ""
+		response.CoverPhotoURL = ""
 		response.Location = ""
 		response.LocationName = ""
 		response.FormattedAddress = ""

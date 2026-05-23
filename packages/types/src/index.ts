@@ -334,6 +334,14 @@ export type EventPaymentStatus =
   | "verified"
   | "rejected";
 export type EventPostCreatePolicy = "organizers_only" | "participants";
+export type EventPostType =
+  | "announcement"
+  | "schedule"
+  | "logistics"
+  | "payment"
+  | "competition"
+  | "results"
+  | "general";
 export type EventPrizePlacement =
   | "winner"
   | "champion"
@@ -486,6 +494,7 @@ export interface EventCompetition {
   name: string;
   descriptionMarkdown?: string;
   rulesMarkdown?: string;
+  coverPhotoUrl?: string;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -497,6 +506,7 @@ export interface EventPrize {
   competitionId?: string;
   title: string;
   descriptionMarkdown?: string;
+  photoUrl?: string;
   placement: EventPrizePlacement;
   placementLabel?: string;
   prizeType?: EventPrizeType;
@@ -530,10 +540,13 @@ export interface EventPost {
   id: string;
   eventId: string;
   authorUserId: string;
+  postType: EventPostType;
   title?: string;
   bodyMarkdown: string;
   status: EventPostStatus;
   isPinned: boolean;
+  fishReactionCount: number;
+  viewerHasFishReacted: boolean;
   authorDisplayName?: string;
   authorUsername?: string;
   authorAvatarUrl?: string;
@@ -548,6 +561,7 @@ export interface Event {
   shortDescription?: string;
   description?: string;
   descriptionMarkdown?: string;
+  coverPhotoUrl?: string;
   location?: string;
   locationName?: string;
   formattedAddress?: string;
@@ -640,12 +654,14 @@ export type UpdateEventRequest = Partial<CreateEventRequest> & {
   postsEnabled?: boolean;
   postCreatePolicy?: EventPostCreatePolicy;
   cancelReason?: string;
+  coverPhotoUrl?: string;
 };
 
 export interface CreateEventCompetitionRequest {
   name: string;
   descriptionMarkdown?: string;
   rulesMarkdown?: string;
+  coverPhotoUrl?: string;
   sortOrder?: number;
 }
 
@@ -656,6 +672,7 @@ export interface CreateEventPrizeRequest {
   competitionId?: string;
   title: string;
   descriptionMarkdown?: string;
+  photoUrl?: string;
   placement?: EventPrizePlacement;
   placementLabel?: string;
   prizeType?: EventPrizeType;
@@ -693,16 +710,24 @@ export interface UpdateEventSponsorRequest
 }
 
 export interface CreateEventPostRequest {
+  postType?: EventPostType;
   title?: string;
   bodyMarkdown: string;
   isPinned?: boolean;
 }
 
 export interface UpdateEventPostRequest {
+  postType?: EventPostType;
   title?: string;
   bodyMarkdown?: string;
   status?: EventPostStatus;
   isPinned?: boolean;
+}
+
+export interface EventPostReactionResponse {
+  postId: string;
+  fishReactionCount: number;
+  viewerHasFishReacted: boolean;
 }
 
 export interface UpdateEventPostSettingsRequest {

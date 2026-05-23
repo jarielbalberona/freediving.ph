@@ -45,6 +45,26 @@ export function ChikaMarkdown({ content, className }: ChikaMarkdownProps) {
               </a>
             );
           },
+          h1: ({ children }) => (
+            <h1 className="text-xl font-semibold leading-tight text-foreground">
+              {children}
+            </h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="text-lg font-semibold leading-tight text-foreground">
+              {children}
+            </h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="text-base font-semibold leading-tight text-foreground">
+              {children}
+            </h3>
+          ),
+          h4: ({ children }) => (
+            <h4 className="text-sm font-semibold leading-tight text-foreground">
+              {children}
+            </h4>
+          ),
           blockquote: ({ children }) => (
             <blockquote className="border-l-2 border-border pl-3 text-muted-foreground">
               {children}
@@ -66,11 +86,20 @@ export function ChikaMarkdown({ content, className }: ChikaMarkdownProps) {
             );
           },
           img: () => null,
+          hr: () => <hr className="border-border" />,
+          em: ({ children }) => <em className="italic">{children}</em>,
+          strong: ({ children }) => (
+            <strong className="font-semibold text-foreground">{children}</strong>
+          ),
           ol: ({ children }) => (
             <ol className="ml-5 list-decimal space-y-1">{children}</ol>
           ),
           p: ({ children }) => <p>{children}</p>,
-          pre: ({ children }) => <pre>{children}</pre>,
+          pre: ({ children }) => (
+            <pre className="overflow-x-auto rounded-md bg-muted p-3">
+              {children}
+            </pre>
+          ),
           ul: ({ children }) => (
             <ul className="ml-5 list-disc space-y-1">{children}</ul>
           ),

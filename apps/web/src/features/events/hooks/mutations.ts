@@ -40,9 +40,12 @@ export const useUpdateEvent = () => {
       data,
     }: { eventId: string; data: UpdateEventRequest }) =>
       eventsApi.updateEvent(eventId, data),
-    onSuccess: (_response, variables) => {
+    onSuccess: (response, variables) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.detail(variables.eventId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.detail(response.slug),
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.myPass(variables.eventId),
@@ -559,6 +562,26 @@ export const useDeleteEventPost = () => {
   return useMutation({
     mutationFn: ({ eventId, postId }: { eventId: string; postId: string }) =>
       eventsApi.deletePost(eventId, postId),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useAddEventPostFishReaction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ eventId, postId }: { eventId: string; postId: string }) =>
+      eventsApi.addPostFishReaction(eventId, postId),
+    onSuccess: (_response, variables) =>
+      invalidateEventManagement(queryClient, variables.eventId),
+  });
+};
+
+export const useDeleteEventPostFishReaction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ eventId, postId }: { eventId: string; postId: string }) =>
+      eventsApi.deletePostFishReaction(eventId, postId),
     onSuccess: (_response, variables) =>
       invalidateEventManagement(queryClient, variables.eventId),
   });

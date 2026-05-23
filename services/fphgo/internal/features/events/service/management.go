@@ -277,7 +277,7 @@ func (s *Service) ListPosts(ctx context.Context, eventID, viewerUserID string) (
 	if !event.ViewerCanManage && !event.PostsEnabled {
 		return nil, apperrors.New(http.StatusForbidden, "forbidden", "event posts are not enabled", nil)
 	}
-	items, err := s.repo.ListPosts(ctx, eventID, event.ViewerCanManage)
+	items, err := s.repo.ListPosts(ctx, eventID, strings.TrimSpace(viewerUserID), event.ViewerCanManage)
 	if err != nil {
 		return nil, apperrors.New(http.StatusInternalServerError, "event_posts_list_failed", "failed to list event posts", err)
 	}
@@ -295,15 +295,15 @@ func (s *Service) CreatePost(ctx context.Context, eventID, actorID string, input
 	if !event.PostsEnabled {
 		return eventsrepo.EventPost{}, apperrors.New(http.StatusConflict, "event_posts_disabled", "posts are not enabled for this event", nil)
 	}
-	if !canCreateEventPost(event) {
-		return eventsrepo.EventPost{}, apperrors.New(http.StatusForbidden, "forbidden", "you cannot post to this event", nil)
+	if !event.ViewerCanManage {
+		return eventsrepo.EventPost{}, apperrors.New(http.StatusForbidden, "forbidden", "only organizers can create event updates", nil)
 	}
 	input = normalizePostInput(input)
+	if input.PostType == "" {
+		return eventsrepo.EventPost{}, invalidEnum("postType")
+	}
 	if input.BodyMarkdown == "" {
 		return eventsrepo.EventPost{}, required("bodyMarkdown")
-	}
-	if !event.ViewerCanManage {
-		input.IsPinned = false
 	}
 	item, err := s.repo.CreatePost(ctx, eventID, actorID, input)
 	if err != nil {
@@ -323,31 +323,26 @@ func (s *Service) UpdatePost(ctx context.Context, eventID, postID, actorID strin
 	if err != nil {
 		return eventsrepo.EventPost{}, err
 	}
-	post, err := s.repo.GetPost(ctx, eventID, postID)
+	_, err = s.repo.GetPost(ctx, eventID, postID)
 	if err != nil {
 		if eventsrepo.IsNoRows(err) {
 			return eventsrepo.EventPost{}, apperrors.New(http.StatusNotFound, "event_post_not_found", "event post not found", err)
 		}
 		return eventsrepo.EventPost{}, apperrors.New(http.StatusInternalServerError, "event_post_get_failed", "failed to fetch event post", err)
 	}
-	if !event.ViewerCanManage && post.AuthorUserID != actorID {
-		return eventsrepo.EventPost{}, apperrors.New(http.StatusForbidden, "forbidden", "you can only edit your own event posts", nil)
-	}
-	if !event.ViewerCanManage && !canMutateOwnEventPost(event, post, actorID) {
-		return eventsrepo.EventPost{}, apperrors.New(http.StatusForbidden, "forbidden", "you cannot edit this event post", nil)
+	if !event.ViewerCanManage {
+		return eventsrepo.EventPost{}, apperrors.New(http.StatusForbidden, "forbidden", "only organizers can edit event updates", nil)
 	}
 	input.PostID = postID
 	normalizeUpdatePostInput(&input)
 	if input.BodyMarkdown != nil && *input.BodyMarkdown == "" {
 		return eventsrepo.EventPost{}, required("bodyMarkdown")
 	}
-	if !event.ViewerCanManage {
-		if input.Status != nil || input.IsPinned != nil {
-			return eventsrepo.EventPost{}, apperrors.New(http.StatusForbidden, "forbidden", "only organizers can moderate event posts", nil)
-		}
-	}
 	if input.Status != nil && normalizePostStatus(*input.Status) == "" {
 		return eventsrepo.EventPost{}, invalidEnum("status")
+	}
+	if input.PostType != nil && normalizePostType(*input.PostType) == "" {
+		return eventsrepo.EventPost{}, invalidEnum("postType")
 	}
 	item, err := s.repo.UpdatePost(ctx, eventID, input)
 	if err != nil {
@@ -370,18 +365,15 @@ func (s *Service) DeletePost(ctx context.Context, eventID, postID, actorID strin
 	if err != nil {
 		return err
 	}
-	post, err := s.repo.GetPost(ctx, eventID, postID)
+	_, err = s.repo.GetPost(ctx, eventID, postID)
 	if err != nil {
 		if eventsrepo.IsNoRows(err) {
 			return apperrors.New(http.StatusNotFound, "event_post_not_found", "event post not found", err)
 		}
 		return apperrors.New(http.StatusInternalServerError, "event_post_get_failed", "failed to fetch event post", err)
 	}
-	if !event.ViewerCanManage && post.AuthorUserID != actorID {
-		return apperrors.New(http.StatusForbidden, "forbidden", "you can only delete your own event posts", nil)
-	}
-	if !event.ViewerCanManage && !canMutateOwnEventPost(event, post, actorID) {
-		return apperrors.New(http.StatusForbidden, "forbidden", "you cannot delete this event post", nil)
+	if !event.ViewerCanManage {
+		return apperrors.New(http.StatusForbidden, "forbidden", "only organizers can delete event updates", nil)
 	}
 	if err := s.repo.DeletePost(ctx, eventID, postID); err != nil {
 		if eventsrepo.IsNoRows(err) {
@@ -390,6 +382,46 @@ func (s *Service) DeletePost(ctx context.Context, eventID, postID, actorID strin
 		return apperrors.New(http.StatusInternalServerError, "event_post_delete_failed", "failed to delete event post", err)
 	}
 	return nil
+}
+
+func (s *Service) AddPostFishReaction(ctx context.Context, eventID, postID, actorID string) (eventsrepo.EventPostReactionState, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return eventsrepo.EventPostReactionState{}, err
+	}
+	if _, err := uuid.Parse(postID); err != nil {
+		return eventsrepo.EventPostReactionState{}, invalidUUID("postId")
+	}
+	if _, err := s.ensureCanViewEventPosts(ctx, eventID, actorID); err != nil {
+		return eventsrepo.EventPostReactionState{}, err
+	}
+	state, err := s.repo.AddPostFishReaction(ctx, eventID, postID, actorID)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return eventsrepo.EventPostReactionState{}, apperrors.New(http.StatusNotFound, "event_post_not_found", "event update not found", err)
+		}
+		return eventsrepo.EventPostReactionState{}, apperrors.New(http.StatusInternalServerError, "event_post_reaction_failed", "failed to react to event update", err)
+	}
+	return state, nil
+}
+
+func (s *Service) DeletePostFishReaction(ctx context.Context, eventID, postID, actorID string) (eventsrepo.EventPostReactionState, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return eventsrepo.EventPostReactionState{}, err
+	}
+	if _, err := uuid.Parse(postID); err != nil {
+		return eventsrepo.EventPostReactionState{}, invalidUUID("postId")
+	}
+	if _, err := s.ensureCanViewEventPosts(ctx, eventID, actorID); err != nil {
+		return eventsrepo.EventPostReactionState{}, err
+	}
+	state, err := s.repo.DeletePostFishReaction(ctx, eventID, postID, actorID)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return eventsrepo.EventPostReactionState{}, apperrors.New(http.StatusNotFound, "event_post_not_found", "event update not found", err)
+		}
+		return eventsrepo.EventPostReactionState{}, apperrors.New(http.StatusInternalServerError, "event_post_reaction_failed", "failed to remove event update reaction", err)
+	}
+	return state, nil
 }
 
 func (s *Service) UpdatePostSettings(ctx context.Context, eventID, actorID string, postsEnabled bool, postCreatePolicy string) (eventsrepo.Event, error) {
@@ -451,9 +483,6 @@ func (s *Service) ensureCanViewEventDetails(ctx context.Context, eventID, viewer
 }
 
 func (s *Service) ensureCanViewEventPosts(ctx context.Context, eventID, viewerUserID string) (eventsrepo.Event, error) {
-	if strings.TrimSpace(viewerUserID) == "" {
-		return eventsrepo.Event{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", nil)
-	}
 	event, err := s.GetEvent(ctx, eventID, viewerUserID)
 	if err != nil {
 		return eventsrepo.Event{}, err
@@ -461,27 +490,10 @@ func (s *Service) ensureCanViewEventPosts(ctx context.Context, eventID, viewerUs
 	if event.ViewerCanManage {
 		return event, nil
 	}
-	if event.ViewerParticipation == nil || event.ViewerParticipation.Status != "confirmed" {
-		return eventsrepo.Event{}, apperrors.New(http.StatusForbidden, "forbidden", "event posts are only visible to participants and organizers", nil)
+	if event.Visibility == "private" && !event.ViewerCanViewPrivateDetails {
+		return eventsrepo.Event{}, apperrors.New(http.StatusForbidden, "forbidden", "event updates are only visible to event members", nil)
 	}
 	return event, nil
-}
-
-func canCreateEventPost(event eventsrepo.Event) bool {
-	if event.ViewerCanManage {
-		return true
-	}
-	if !event.PostsEnabled {
-		return false
-	}
-	if event.PostCreatePolicy != "participants" {
-		return false
-	}
-	return event.ViewerParticipation != nil && event.ViewerParticipation.Status == "confirmed"
-}
-
-func canMutateOwnEventPost(event eventsrepo.Event, post eventsrepo.EventPost, actorID string) bool {
-	return post.AuthorUserID == actorID && post.Status == "published" && canCreateEventPost(event)
 }
 
 func (s *Service) ensurePrizeReferencesBelongToEvent(ctx context.Context, eventID, competitionID, sponsorID string) error {
@@ -524,6 +536,7 @@ func normalizeCompetitionInput(input eventsrepo.CreateCompetitionInput) eventsre
 	input.Name = strings.TrimSpace(input.Name)
 	input.DescriptionMarkdown = strings.TrimSpace(input.DescriptionMarkdown)
 	input.RulesMarkdown = strings.TrimSpace(input.RulesMarkdown)
+	input.CoverPhotoURL = strings.TrimSpace(input.CoverPhotoURL)
 	return input
 }
 
@@ -531,12 +544,14 @@ func normalizeUpdateCompetitionInput(input *eventsrepo.UpdateCompetitionInput) {
 	trimStringPtr(&input.Name)
 	trimStringPtr(&input.DescriptionMarkdown)
 	trimStringPtr(&input.RulesMarkdown)
+	trimStringPtr(&input.CoverPhotoURL)
 }
 
 func normalizePrizeInput(input eventsrepo.CreatePrizeInput) eventsrepo.CreatePrizeInput {
 	input.CompetitionID = strings.TrimSpace(input.CompetitionID)
 	input.Title = strings.TrimSpace(input.Title)
 	input.DescriptionMarkdown = strings.TrimSpace(input.DescriptionMarkdown)
+	input.PhotoURL = strings.TrimSpace(input.PhotoURL)
 	input.Placement = normalizePrizePlacement(input.Placement)
 	input.PlacementLabel = strings.TrimSpace(input.PlacementLabel)
 	input.PrizeType = normalizePrizeType(input.PrizeType)
@@ -549,6 +564,7 @@ func normalizeUpdatePrizeInput(input *eventsrepo.UpdatePrizeInput) {
 	trimStringPtr(&input.CompetitionID)
 	trimStringPtr(&input.Title)
 	trimStringPtr(&input.DescriptionMarkdown)
+	trimStringPtr(&input.PhotoURL)
 	if input.Placement != nil {
 		value := normalizePrizePlacement(*input.Placement)
 		input.Placement = &value
@@ -592,17 +608,43 @@ func normalizeUpdateSponsorInput(input *eventsrepo.UpdateSponsorInput) {
 }
 
 func normalizePostInput(input eventsrepo.CreatePostInput) eventsrepo.CreatePostInput {
+	input.PostType = normalizePostType(input.PostType)
 	input.Title = strings.TrimSpace(input.Title)
 	input.BodyMarkdown = strings.TrimSpace(input.BodyMarkdown)
 	return input
 }
 
 func normalizeUpdatePostInput(input *eventsrepo.UpdatePostInput) {
+	if input.PostType != nil {
+		value := normalizePostType(*input.PostType)
+		input.PostType = &value
+	}
 	trimStringPtr(&input.Title)
 	trimStringPtr(&input.BodyMarkdown)
 	if input.Status != nil {
 		value := normalizePostStatus(*input.Status)
 		input.Status = &value
+	}
+}
+
+func normalizePostType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "general":
+		return "general"
+	case "announcement":
+		return "announcement"
+	case "schedule":
+		return "schedule"
+	case "logistics":
+		return "logistics"
+	case "payment":
+		return "payment"
+	case "competition":
+		return "competition"
+	case "results":
+		return "results"
+	default:
+		return ""
 	}
 }
 

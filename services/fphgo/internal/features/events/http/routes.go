@@ -52,6 +52,8 @@ func Routes(h *Handlers) chi.Router {
 		write.Post("/{eventId}/posts", h.CreatePost)
 		write.Patch("/{eventId}/posts/{postId}", h.UpdatePost)
 		write.Delete("/{eventId}/posts/{postId}", h.DeletePost)
+		write.Post("/{eventId}/updates/{postId}/reactions/fish", h.AddPostFishReaction)
+		write.Delete("/{eventId}/updates/{postId}/reactions/fish", h.DeletePostFishReaction)
 		write.Patch("/{eventId}/post-settings", h.UpdatePostSettings)
 	})
 

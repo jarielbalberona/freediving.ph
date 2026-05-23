@@ -1077,10 +1077,13 @@ func TestOrganizerCanCreateCompetitionAndPrize(t *testing.T) {
 	repo := &eventsRepoStub{canManageSet: true, canManage: true}
 	svc := New(repo)
 
-	if _, err := svc.CreateCompetition(context.Background(), eventID, actorID, eventsrepo.CreateCompetitionInput{Name: "Best Static"}); err != nil {
+	if _, err := svc.CreateCompetition(context.Background(), eventID, actorID, eventsrepo.CreateCompetitionInput{
+		Name:          "Best Static",
+		CoverPhotoURL: "events/competition-covers/static.webp",
+	}); err != nil {
 		t.Fatalf("CreateCompetition returned error: %v", err)
 	}
-	if repo.competitionInput.Name != "Best Static" {
+	if repo.competitionInput.Name != "Best Static" || repo.competitionInput.CoverPhotoURL != "events/competition-covers/static.webp" {
 		t.Fatalf("competition input not captured: %#v", repo.competitionInput)
 	}
 	if _, err := svc.CreatePrize(context.Background(), eventID, actorID, eventsrepo.CreatePrizeInput{
@@ -1088,10 +1091,11 @@ func TestOrganizerCanCreateCompetitionAndPrize(t *testing.T) {
 		Title:         "Champion",
 		Placement:     "champion",
 		PrizeType:     "certificate",
+		PhotoURL:      "events/prizes/champion.webp",
 	}); err != nil {
 		t.Fatalf("CreatePrize returned error: %v", err)
 	}
-	if repo.prizeInput.CompetitionID != competitionID || repo.prizeInput.Placement != "champion" {
+	if repo.prizeInput.CompetitionID != competitionID || repo.prizeInput.Placement != "champion" || repo.prizeInput.PhotoURL != "events/prizes/champion.webp" {
 		t.Fatalf("linked prize input not preserved: %#v", repo.prizeInput)
 	}
 	if _, err := svc.CreatePrize(context.Background(), eventID, actorID, eventsrepo.CreatePrizeInput{
@@ -1278,7 +1282,7 @@ func TestEventPostPermissions(t *testing.T) {
 		assertAppErrorStatus(t, err, http.StatusForbidden)
 	})
 
-	t.Run("participants policy allows confirmed participant", func(t *testing.T) {
+	t.Run("participants policy still blocks confirmed participant", func(t *testing.T) {
 		repo := &eventsRepoStub{
 			event: eventsrepo.Event{
 				ID:               eventID,
@@ -1293,10 +1297,26 @@ func TestEventPostPermissions(t *testing.T) {
 		}
 		svc := New(repo)
 
-		if _, err := svc.CreatePost(context.Background(), eventID, userID, eventsrepo.CreatePostInput{BodyMarkdown: "Update"}); err != nil {
+		_, err := svc.CreatePost(context.Background(), eventID, userID, eventsrepo.CreatePostInput{BodyMarkdown: "Update"})
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	})
+
+	t.Run("organizer can create official update with type", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{
+				ID:              eventID,
+				Status:          "published",
+				Visibility:      "public",
+				PostsEnabled:    true,
+				ViewerCanManage: true,
+			},
+		}
+		svc := New(repo)
+
+		if _, err := svc.CreatePost(context.Background(), eventID, userID, eventsrepo.CreatePostInput{PostType: "schedule", BodyMarkdown: "Update"}); err != nil {
 			t.Fatalf("CreatePost returned error: %v", err)
 		}
-		if repo.postInput.BodyMarkdown != "Update" {
+		if repo.postInput.BodyMarkdown != "Update" || repo.postInput.PostType != "schedule" {
 			t.Fatalf("post body did not reach repo: %#v", repo.postInput)
 		}
 	})
@@ -1353,14 +1373,14 @@ func TestListPostsRespectsDisabledStateForParticipants(t *testing.T) {
 	assertAppErrorStatus(t, err, http.StatusForbidden)
 }
 
-func TestPostAuthorMutationsRequireActivePostingAccess(t *testing.T) {
+func TestEventUpdateMutationsRequireOrganizer(t *testing.T) {
 	const (
 		eventID = "550e8400-e29b-41d4-a716-446655444139"
 		userID  = "550e8400-e29b-41d4-a716-446655444140"
 		postID  = "550e8400-e29b-41d4-a716-446655444129"
 	)
 
-	t.Run("confirmed participant can edit own published post", func(t *testing.T) {
+	t.Run("confirmed participant cannot edit own published update", func(t *testing.T) {
 		repo := &eventsRepoStub{
 			event: eventsrepo.Event{
 				ID:               eventID,
@@ -1383,7 +1403,32 @@ func TestPostAuthorMutationsRequireActivePostingAccess(t *testing.T) {
 		svc := New(repo)
 
 		body := "Updated"
-		if _, err := svc.UpdatePost(context.Background(), eventID, postID, userID, eventsrepo.UpdatePostInput{BodyMarkdown: &body}); err != nil {
+		_, err := svc.UpdatePost(context.Background(), eventID, postID, userID, eventsrepo.UpdatePostInput{BodyMarkdown: &body})
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	})
+
+	t.Run("organizer can edit type and body", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{
+				ID:              eventID,
+				Status:          "published",
+				Visibility:      "public",
+				PostsEnabled:    true,
+				ViewerCanManage: true,
+			},
+			post: eventsrepo.EventPost{
+				ID:           postID,
+				EventID:      eventID,
+				AuthorUserID: userID,
+				BodyMarkdown: "Original",
+				Status:       "published",
+			},
+		}
+		svc := New(repo)
+
+		body := "Updated"
+		postType := "results"
+		if _, err := svc.UpdatePost(context.Background(), eventID, postID, userID, eventsrepo.UpdatePostInput{PostType: &postType, BodyMarkdown: &body}); err != nil {
 			t.Fatalf("UpdatePost returned error: %v", err)
 		}
 	})
@@ -1429,6 +1474,68 @@ func TestPostAuthorMutationsRequireActivePostingAccess(t *testing.T) {
 			assertAppErrorStatus(t, err, http.StatusForbidden)
 		})
 	}
+}
+
+func TestEventUpdateFishReactions(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655444151"
+		userID  = "550e8400-e29b-41d4-a716-446655444152"
+		postID  = "550e8400-e29b-41d4-a716-446655444153"
+	)
+
+	t.Run("authenticated allowed viewer can react and remove reaction", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{
+				ID:           eventID,
+				Status:       "published",
+				Visibility:   "public",
+				PostsEnabled: true,
+			},
+			reactionState: eventsrepo.EventPostReactionState{
+				PostID:            postID,
+				FishReactionCount: 1,
+				ViewerFishReacted: true,
+			},
+		}
+		svc := New(repo)
+
+		state, err := svc.AddPostFishReaction(context.Background(), eventID, postID, userID)
+		if err != nil {
+			t.Fatalf("AddPostFishReaction returned error: %v", err)
+		}
+		if !state.ViewerFishReacted || state.FishReactionCount != 1 {
+			t.Fatalf("unexpected reaction state: %#v", state)
+		}
+		repo.reactionState.ViewerFishReacted = false
+		repo.reactionState.FishReactionCount = 0
+		state, err = svc.DeletePostFishReaction(context.Background(), eventID, postID, userID)
+		if err != nil {
+			t.Fatalf("DeletePostFishReaction returned error: %v", err)
+		}
+		if state.ViewerFishReacted || state.FishReactionCount != 0 {
+			t.Fatalf("unexpected removed reaction state: %#v", state)
+		}
+	})
+
+	t.Run("anonymous viewer cannot react", func(t *testing.T) {
+		repo := &eventsRepoStub{event: eventsrepo.Event{ID: eventID, Status: "published", Visibility: "public", PostsEnabled: true}}
+		_, err := New(repo).AddPostFishReaction(context.Background(), eventID, postID, "")
+		assertAppErrorStatus(t, err, http.StatusUnauthorized)
+	})
+
+	t.Run("unauthorized private viewer cannot react", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{
+				ID:                          eventID,
+				Status:                      "published",
+				Visibility:                  "private",
+				PostsEnabled:                true,
+				ViewerCanViewPrivateDetails: false,
+			},
+		}
+		_, err := New(repo).AddPostFishReaction(context.Background(), eventID, postID, userID)
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	})
 }
 
 func TestUnauthorizedPrivateViewerCannotSeePosts(t *testing.T) {
@@ -1526,6 +1633,7 @@ type eventsRepoStub struct {
 	prizeInput               eventsrepo.CreatePrizeInput
 	sponsorInput             eventsrepo.CreateSponsorInput
 	postInput                eventsrepo.CreatePostInput
+	reactionState            eventsrepo.EventPostReactionState
 	roleUpdate               string
 	roleErr                  error
 	checkInCalled            bool
@@ -1729,7 +1837,7 @@ func (r *eventsRepoStub) DeleteSponsor(context.Context, string, string) error {
 	return nil
 }
 
-func (r *eventsRepoStub) ListPosts(context.Context, string, bool) ([]eventsrepo.EventPost, error) {
+func (r *eventsRepoStub) ListPosts(context.Context, string, string, bool) ([]eventsrepo.EventPost, error) {
 	return r.posts, nil
 }
 
@@ -1748,6 +1856,14 @@ func (r *eventsRepoStub) UpdatePost(context.Context, string, eventsrepo.UpdatePo
 
 func (r *eventsRepoStub) DeletePost(context.Context, string, string) error {
 	return nil
+}
+
+func (r *eventsRepoStub) AddPostFishReaction(context.Context, string, string, string) (eventsrepo.EventPostReactionState, error) {
+	return r.reactionState, nil
+}
+
+func (r *eventsRepoStub) DeletePostFishReaction(context.Context, string, string, string) (eventsrepo.EventPostReactionState, error) {
+	return r.reactionState, nil
 }
 
 func (r *eventsRepoStub) UpdateParticipantRole(_ context.Context, _ string, _ string, role string, _ string) (eventsrepo.EventParticipant, error) {

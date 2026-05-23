@@ -309,6 +309,14 @@
       "pattern": "/v1/events/{eventId}/sponsors/{sponsorId}"
     },
     {
+      "method": "DELETE",
+      "pattern": "/v1/events/{eventId}/updates/{postId}/reactions/fish"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/updates/{postId}/reactions/fish"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/events/{slug}"
     },

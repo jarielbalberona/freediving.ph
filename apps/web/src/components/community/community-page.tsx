@@ -23,12 +23,14 @@ export function CommunityHeader({
   subtitle,
   navigation,
   action,
+  beforeTitle,
   children,
 }: {
   title: string;
   subtitle: string;
   navigation?: ReactNode;
   action?: ReactNode;
+  beforeTitle?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -38,6 +40,7 @@ export function CommunityHeader({
           {navigation}
         </div>
       ) : null}
+      {beforeTitle ? <div className="min-w-0">{beforeTitle}</div> : null}
       <div className="min-w-0 space-y-1">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <h1 className="min-w-0 flex-1 text-lg font-medium tracking-tight text-foreground">

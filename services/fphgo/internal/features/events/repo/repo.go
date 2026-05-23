@@ -42,6 +42,7 @@ type Event struct {
 	Description                 string
 	ShortDescription            string
 	DescriptionMarkdown         string
+	CoverPhotoURL               string
 	Location                    string
 	LocationName                string
 	FormattedAddress            string
@@ -268,6 +269,7 @@ type UpdateEventInput struct {
 	PostsEnabled        *bool
 	PostCreatePolicy    *string
 	CancelReason        *string
+	CoverPhotoURL       *string
 }
 
 type CreatePaymentMethodInput struct {
@@ -711,6 +713,7 @@ func (r *Repo) UpdateEvent(ctx context.Context, input UpdateEventInput) (Event, 
 	addBool("posts_enabled", input.PostsEnabled)
 	addString("post_create_policy", input.PostCreatePolicy, false)
 	addString("cancel_reason", input.CancelReason, true)
+	addString("cover_photo_url", input.CoverPhotoURL, true)
 
 	args = append(args, input.EventID)
 	q := fmt.Sprintf("UPDATE events SET %s WHERE id = $%d::uuid RETURNING id::text", strings.Join(set, ", "), idx)
@@ -1372,6 +1375,7 @@ func eventSelectColumns() string {
 		coalesce(e.description, ''),
 		coalesce(e.short_description, ''),
 		coalesce(e.description_markdown, ''),
+		coalesce(e.cover_photo_url, ''),
 		coalesce(e.location, ''),
 		coalesce(e.location_name, ''),
 		coalesce(e.formatted_address, ''),
@@ -1535,6 +1539,7 @@ func scanEvent(row eventScanner, item *Event, total *int) error {
 		&item.Description,
 		&item.ShortDescription,
 		&item.DescriptionMarkdown,
+		&item.CoverPhotoURL,
 		&item.Location,
 		&item.LocationName,
 		&item.FormattedAddress,

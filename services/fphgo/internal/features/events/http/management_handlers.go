@@ -34,6 +34,7 @@ func (h *Handlers) CreateCompetition(w http.ResponseWriter, r *http.Request) {
 		Name:                req.Name,
 		DescriptionMarkdown: req.DescriptionMarkdown,
 		RulesMarkdown:       req.RulesMarkdown,
+		CoverPhotoURL:       req.CoverPhotoURL,
 		SortOrder:           req.SortOrder,
 	})
 	if err != nil {
@@ -58,6 +59,7 @@ func (h *Handlers) UpdateCompetition(w http.ResponseWriter, r *http.Request) {
 		Name:                req.Name,
 		DescriptionMarkdown: req.DescriptionMarkdown,
 		RulesMarkdown:       req.RulesMarkdown,
+		CoverPhotoURL:       req.CoverPhotoURL,
 		SortOrder:           req.SortOrder,
 	})
 	if err != nil {
@@ -104,6 +106,7 @@ func (h *Handlers) CreatePrize(w http.ResponseWriter, r *http.Request) {
 		CompetitionID:       req.CompetitionID,
 		Title:               req.Title,
 		DescriptionMarkdown: req.DescriptionMarkdown,
+		PhotoURL:            req.PhotoURL,
 		Placement:           req.Placement,
 		PlacementLabel:      req.PlacementLabel,
 		PrizeType:           req.PrizeType,
@@ -134,6 +137,7 @@ func (h *Handlers) UpdatePrize(w http.ResponseWriter, r *http.Request) {
 		CompetitionID:       req.CompetitionID,
 		Title:               req.Title,
 		DescriptionMarkdown: req.DescriptionMarkdown,
+		PhotoURL:            req.PhotoURL,
 		Placement:           req.Placement,
 		PlacementLabel:      req.PlacementLabel,
 		PrizeType:           req.PrizeType,
@@ -269,6 +273,7 @@ func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	item, err := h.service.CreatePost(r.Context(), chi.URLParam(r, "eventId"), actorID, eventsrepo.CreatePostInput{
+		PostType:     req.PostType,
 		Title:        req.Title,
 		BodyMarkdown: req.BodyMarkdown,
 		IsPinned:     req.IsPinned,
@@ -292,6 +297,7 @@ func (h *Handlers) UpdatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	item, err := h.service.UpdatePost(r.Context(), chi.URLParam(r, "eventId"), chi.URLParam(r, "postId"), actorID, eventsrepo.UpdatePostInput{
+		PostType:     req.PostType,
 		Title:        req.Title,
 		BodyMarkdown: req.BodyMarkdown,
 		Status:       req.Status,
@@ -315,6 +321,34 @@ func (h *Handlers) DeletePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) AddPostFishReaction(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	state, err := h.service.AddPostFishReaction(r.Context(), chi.URLParam(r, "eventId"), chi.URLParam(r, "postId"), actorID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapPostReactionState(state))
+}
+
+func (h *Handlers) DeletePostFishReaction(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	state, err := h.service.DeletePostFishReaction(r.Context(), chi.URLParam(r, "eventId"), chi.URLParam(r, "postId"), actorID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapPostReactionState(state))
 }
 
 func (h *Handlers) UpdatePostSettings(w http.ResponseWriter, r *http.Request) {
@@ -373,6 +407,7 @@ func mapCompetition(item eventsrepo.EventCompetition) EventCompetitionResponse {
 		Name:                item.Name,
 		DescriptionMarkdown: item.DescriptionMarkdown,
 		RulesMarkdown:       item.RulesMarkdown,
+		CoverPhotoURL:       mediaurl.MaterializeWithDefault(item.CoverPhotoURL),
 		SortOrder:           item.SortOrder,
 		CreatedAt:           item.CreatedAt,
 		UpdatedAt:           item.UpdatedAt,
@@ -397,6 +432,7 @@ func mapPrize(item eventsrepo.EventPrize) EventPrizeResponse {
 		CompetitionID:       item.CompetitionID,
 		Title:               item.Title,
 		DescriptionMarkdown: item.DescriptionMarkdown,
+		PhotoURL:            mediaurl.MaterializeWithDefault(item.PhotoURL),
 		Placement:           item.Placement,
 		PlacementLabel:      item.PlacementLabel,
 		PrizeType:           item.PrizeType,
@@ -456,14 +492,25 @@ func mapPost(item eventsrepo.EventPost) EventPostResponse {
 		ID:                item.ID,
 		EventID:           item.EventID,
 		AuthorUserID:      item.AuthorUserID,
+		PostType:          item.PostType,
 		Title:             item.Title,
 		BodyMarkdown:      item.BodyMarkdown,
 		Status:            item.Status,
 		IsPinned:          item.IsPinned,
+		FishReactionCount: item.FishReactionCount,
+		ViewerFishReacted: item.ViewerFishReacted,
 		AuthorDisplayName: item.AuthorDisplayName,
 		AuthorUsername:    item.AuthorUsername,
 		AuthorAvatarURL:   mediaurl.MaterializeWithDefault(item.AuthorAvatarURL),
 		CreatedAt:         item.CreatedAt,
 		UpdatedAt:         item.UpdatedAt,
+	}
+}
+
+func mapPostReactionState(item eventsrepo.EventPostReactionState) PostReactionResponse {
+	return PostReactionResponse{
+		PostID:            item.PostID,
+		FishReactionCount: item.FishReactionCount,
+		ViewerFishReacted: item.ViewerFishReacted,
 	}
 }

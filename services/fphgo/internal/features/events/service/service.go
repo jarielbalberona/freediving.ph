@@ -82,11 +82,13 @@ type repository interface {
 	CreateSponsor(ctx context.Context, eventID string, input eventsrepo.CreateSponsorInput) (eventsrepo.EventSponsor, error)
 	UpdateSponsor(ctx context.Context, eventID string, input eventsrepo.UpdateSponsorInput) (eventsrepo.EventSponsor, error)
 	DeleteSponsor(ctx context.Context, eventID, sponsorID string) error
-	ListPosts(ctx context.Context, eventID string, includeHidden bool) ([]eventsrepo.EventPost, error)
+	ListPosts(ctx context.Context, eventID, viewerUserID string, includeHidden bool) ([]eventsrepo.EventPost, error)
 	GetPost(ctx context.Context, eventID, postID string) (eventsrepo.EventPost, error)
 	CreatePost(ctx context.Context, eventID, authorUserID string, input eventsrepo.CreatePostInput) (eventsrepo.EventPost, error)
 	UpdatePost(ctx context.Context, eventID string, input eventsrepo.UpdatePostInput) (eventsrepo.EventPost, error)
 	DeletePost(ctx context.Context, eventID, postID string) error
+	AddPostFishReaction(ctx context.Context, eventID, postID, userID string) (eventsrepo.EventPostReactionState, error)
+	DeletePostFishReaction(ctx context.Context, eventID, postID, userID string) (eventsrepo.EventPostReactionState, error)
 	UpdateParticipantRole(ctx context.Context, eventID, participantID, role, actorID string) (eventsrepo.EventParticipant, error)
 }
 
@@ -1018,6 +1020,7 @@ func normalizeUpdateInput(input *eventsrepo.UpdateEventInput) {
 	trimStringPtr(&input.CancellationPolicy)
 	trimStringPtr(&input.PostCreatePolicy)
 	trimStringPtr(&input.CancelReason)
+	trimStringPtr(&input.CoverPhotoURL)
 	if input.DescriptionMarkdown != nil {
 		input.Description = input.DescriptionMarkdown
 	}

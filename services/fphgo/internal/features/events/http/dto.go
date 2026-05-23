@@ -94,6 +94,7 @@ type EventResponse struct {
 	ShortDescription            string                           `json:"shortDescription,omitempty"`
 	Description                 string                           `json:"description,omitempty"`
 	DescriptionMarkdown         string                           `json:"descriptionMarkdown,omitempty"`
+	CoverPhotoURL               string                           `json:"coverPhotoUrl,omitempty"`
 	Location                    string                           `json:"location,omitempty"`
 	LocationName                string                           `json:"locationName,omitempty"`
 	FormattedAddress            string                           `json:"formattedAddress,omitempty"`
@@ -246,6 +247,7 @@ type UpdateEventRequest struct {
 	PostsEnabled        *bool    `json:"postsEnabled,omitempty"`
 	PostCreatePolicy    *string  `json:"postCreatePolicy,omitempty" validate:"omitempty,oneof=organizers_only participants"`
 	CancelReason        *string  `json:"cancelReason,omitempty" validate:"omitempty,max=1000"`
+	CoverPhotoURL       *string  `json:"coverPhotoUrl,omitempty" validate:"omitempty,max=1000"`
 }
 
 type JoinEventRequest struct {

@@ -13,7 +13,7 @@ import type {
   EventPaymentMethodType,
   EventPaymentStatus,
   EventPost,
-  EventPostCreatePolicy,
+  EventPostType,
   EventPrize,
   EventPrizePlacement,
   EventPrizeType,
@@ -32,6 +32,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Copy,
+  ImageIcon,
   Handshake,
   Lock,
   MapPin,
@@ -106,6 +107,7 @@ import {
   titleCase,
   useCheckInEventPass,
   useApproveEventParticipant,
+  useAddEventPostFishReaction,
   useCreateEventCompetition,
   useCreateEventPaymentMethod,
   useCreateEventPost,
@@ -113,6 +115,7 @@ import {
   useCreateEventSponsor,
   useDeleteEventCompetition,
   useDeleteEventPost,
+  useDeleteEventPostFishReaction,
   useDeleteEventPrize,
   useDeleteEventSponsor,
   useEvent,
@@ -223,8 +226,9 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     Boolean(eventId) &&
     Boolean(event) &&
     Boolean(event?.postsEnabled) &&
-    (event?.viewerCanManage ||
-      event?.viewerParticipation?.status === "confirmed");
+    (event?.visibility === "public" ||
+      event?.viewerCanViewPrivateDetails ||
+      event?.viewerCanManage);
   const participantsQuery = useEventParticipants(
     eventId,
     Boolean(eventId) &&
@@ -313,7 +317,9 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     event.viewerCanManage;
   const canShowPrizeSponsorTabs = canSeePrivateDetails || event.viewerCanManage;
   const canShowUpdatesTab =
-    event.viewerCanManage || event.viewerParticipation?.status === "confirmed";
+    event.viewerCanManage ||
+    (event.postsEnabled &&
+      (event.visibility === "public" || event.viewerCanViewPrivateDetails));
   const canShowPaymentTab =
     canSeePrivateDetails &&
     (!event.isPaid || event.viewerJoined || event.viewerCanManage);
@@ -578,7 +584,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               posts={postsQuery.data ?? []}
               isLoading={postsQuery.isLoading}
               error={postsQuery.error}
-              viewerUserId={session.me?.userId}
+              isSignedIn={isSignedIn}
               mode="public"
             />
           </TabsContent>
@@ -1042,7 +1048,7 @@ export function EventManageClient({ slug }: { slug: string }) {
             posts={postsQuery.data ?? []}
             isLoading={postsQuery.isLoading}
             error={postsQuery.error}
-            viewerUserId={session.me?.userId}
+            isSignedIn={session.status === "signed_in"}
             mode="manage"
           />
         </TabsContent>
@@ -1824,6 +1830,162 @@ function isEventManageTab(value: string): value is EventManageTab {
   ].includes(value);
 }
 
+function EventCoverPhoto({ event }: { event: Event }) {
+  const updateEventMutation = useUpdateEvent();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const previewUrl = useMemo(
+    () => (photoFile ? URL.createObjectURL(photoFile) : ""),
+    [photoFile],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const displayUrl = removePhoto ? "" : previewUrl || event.coverPhotoUrl || "";
+
+  const saveCover = async () => {
+    setIsUploading(true);
+    try {
+      let coverPhotoUrl = removePhoto ? "" : event.coverPhotoUrl || "";
+      if (photoFile) {
+        const upload = await mediaApi.upload(
+          photoFile,
+          "event_attachment",
+          event.id,
+        );
+        coverPhotoUrl = upload.objectKey;
+      }
+      await updateEventMutation.mutateAsync({
+        eventId: event.id,
+        data: { coverPhotoUrl },
+      });
+      toast.success("Event cover photo saved.");
+      setDialogOpen(false);
+      setPhotoFile(null);
+      setRemovePhoto(false);
+    } catch (item) {
+      toast.error(getApiErrorMessage(item, "Failed to save cover photo"));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      {event.coverPhotoUrl ? (
+        <img
+          src={event.coverPhotoUrl}
+          alt={`${event.title} cover photo`}
+          className="aspect-[16/7] w-full object-cover"
+        />
+      ) : (
+        <div className="flex aspect-[16/7] w-full items-center justify-center bg-muted/45 px-4 text-center text-sm text-muted-foreground">
+          {event.viewerCanManage
+            ? "Add a cover photo for this event."
+            : "Event cover photo coming soon."}
+        </div>
+      )}
+      {event.viewerCanManage ? (
+        <div className="absolute right-2 bottom-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-8 bg-background/90 shadow-sm backdrop-blur"
+            onClick={() => setDialogOpen(true)}
+          >
+            <ImageIcon className="mr-1 h-4 w-4" />
+            {event.coverPhotoUrl ? "Edit cover" : "Add cover photo"}
+          </Button>
+        </div>
+      ) : null}
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setPhotoFile(null);
+            setRemovePhoto(false);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Event cover photo</DialogTitle>
+            <DialogDescription>
+              Upload a JPG, PNG, or WebP image for the event page cover.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-hidden rounded-2xl border border-border bg-muted/45">
+            {displayUrl ? (
+              <img
+                src={displayUrl}
+                alt={`${event.title} cover photo preview`}
+                className="aspect-[16/7] w-full object-cover"
+              />
+            ) : (
+              <div className="flex aspect-[16/7] w-full items-center justify-center text-sm text-muted-foreground">
+                No cover photo selected.
+              </div>
+            )}
+          </div>
+          <SetupField label="Upload photo">
+            <Input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(item) => {
+                const file = item.target.files?.[0] ?? null;
+                if (
+                  file &&
+                  !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+                ) {
+                  toast.error("Upload a JPG, PNG, or WebP image.");
+                  item.target.value = "";
+                  setPhotoFile(null);
+                  return;
+                }
+                setPhotoFile(file);
+                setRemovePhoto(false);
+              }}
+            />
+          </SetupField>
+          <DialogFooter showCloseButton>
+            {event.coverPhotoUrl ? (
+              <Button
+                variant="outline"
+                disabled={isUploading || updateEventMutation.isPending}
+                onClick={() => {
+                  setPhotoFile(null);
+                  setRemovePhoto(true);
+                }}
+              >
+                Remove photo
+              </Button>
+            ) : null}
+            <Button
+              disabled={
+                isUploading ||
+                updateEventMutation.isPending ||
+                (!photoFile && !removePhoto)
+              }
+              onClick={() => void saveCover()}
+            >
+              {isUploading || updateEventMutation.isPending
+                ? "Saving..."
+                : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function EventHeader({
   event,
   canSeePrivateDetails,
@@ -1939,6 +2101,7 @@ function EventHeader({
           isLeaving={isLeaving}
         />
       }
+      beforeTitle={<EventCoverPhoto event={event} />}
     >
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2239,6 +2402,85 @@ function OverviewTab({
   );
 }
 
+function PhotoUploadField({
+  label,
+  imageUrl,
+  selectedFile,
+  onFileChange,
+  onRemove,
+  alt,
+  variant = "cover",
+}: {
+  label: string;
+  imageUrl: string;
+  selectedFile: File | null;
+  onFileChange: (file: File | null) => void;
+  onRemove: () => void;
+  alt: string;
+  variant?: "cover" | "thumbnail";
+}) {
+  const previewUrl = useMemo(
+    () => (selectedFile ? URL.createObjectURL(selectedFile) : ""),
+    [selectedFile],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const displayUrl = previewUrl || imageUrl;
+  const imageClass =
+    variant === "thumbnail"
+      ? "h-24 w-24 rounded-lg object-cover"
+      : "aspect-[16/7] w-full rounded-xl object-cover";
+
+  return (
+    <div className="grid gap-2">
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      {displayUrl ? (
+        <img src={displayUrl} alt={alt} className={imageClass} />
+      ) : (
+        <div
+          className={
+            variant === "thumbnail"
+              ? "flex h-24 w-24 items-center justify-center rounded-lg border border-dashed border-border bg-muted/40 text-muted-foreground"
+              : "flex aspect-[16/7] w-full items-center justify-center rounded-xl border border-dashed border-border bg-muted/40 text-sm text-muted-foreground"
+          }
+        >
+          <ImageIcon className="h-5 w-5" />
+        </div>
+      )}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          aria-label={label}
+          onChange={(item) => {
+            const file = item.target.files?.[0] ?? null;
+            if (
+              file &&
+              !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+            ) {
+              toast.error("Upload a JPG, PNG, or WebP image.");
+              item.target.value = "";
+              onFileChange(null);
+              return;
+            }
+            onFileChange(file);
+          }}
+        />
+        {displayUrl ? (
+          <Button type="button" variant="outline" onClick={onRemove}>
+            Remove photo
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function TextBlock({ title, body }: { title: string; body: string }) {
   return (
     <div className="space-y-1">
@@ -2454,6 +2696,10 @@ function PrizesTab({
   const [competitionName, setCompetitionName] = useState("");
   const [competitionDescription, setCompetitionDescription] = useState("");
   const [competitionRules, setCompetitionRules] = useState("");
+  const [competitionCoverPhotoUrl, setCompetitionCoverPhotoUrl] = useState("");
+  const [competitionCoverFile, setCompetitionCoverFile] = useState<File | null>(
+    null,
+  );
   const [prizeTitle, setPrizeTitle] = useState("");
   const [prizeCompetitionId, setPrizeCompetitionId] = useState("general");
   const [prizePlacement, setPrizePlacement] =
@@ -2463,12 +2709,17 @@ function PrizesTab({
   const [prizeAmount, setPrizeAmount] = useState("");
   const [prizeCurrency, setPrizeCurrency] = useState("PHP");
   const [prizeDescription, setPrizeDescription] = useState("");
+  const [prizePhotoUrl, setPrizePhotoUrl] = useState("");
+  const [prizePhotoFile, setPrizePhotoFile] = useState<File | null>(null);
+  const [isUploadingPrizeMedia, setIsUploadingPrizeMedia] = useState(false);
 
   const openCompetitionDialog = (competition?: EventCompetition) => {
     setEditingCompetition(competition ?? null);
     setCompetitionName(competition?.name ?? "");
     setCompetitionDescription(competition?.descriptionMarkdown ?? "");
     setCompetitionRules(competition?.rulesMarkdown ?? "");
+    setCompetitionCoverPhotoUrl(competition?.coverPhotoUrl ?? "");
+    setCompetitionCoverFile(null);
     setCompetitionDialogOpen(true);
   };
   const openPrizeDialog = (prize?: EventPrize) => {
@@ -2481,37 +2732,60 @@ function PrizesTab({
     setPrizeAmount(prize?.amount != null ? String(prize.amount) : "");
     setPrizeCurrency(prize?.currency || "PHP");
     setPrizeDescription(prize?.descriptionMarkdown ?? "");
+    setPrizePhotoUrl(prize?.photoUrl ?? "");
+    setPrizePhotoFile(null);
     setPrizeDialogOpen(true);
   };
-  const saveCompetition = () => {
+  const saveCompetition = async () => {
     const name = competitionName.trim();
     if (!name) {
       toast.error("Competition name is required.");
       return;
     }
-    const data = {
-      name,
-      descriptionMarkdown: competitionDescription.trim() || undefined,
-      rulesMarkdown: competitionRules.trim() || undefined,
-    };
-    const options = {
-      onSuccess: () => {
-        toast.success("Competition saved.");
-        setCompetitionDialogOpen(false);
-      },
-      onError: (item: unknown) =>
-        toast.error(getApiErrorMessage(item, "Failed to save competition")),
-    };
-    if (editingCompetition) {
-      updateCompetitionMutation.mutate(
-        { eventId: event.id, competitionId: editingCompetition.id, data },
-        options,
-      );
-      return;
+    setIsUploadingPrizeMedia(true);
+    try {
+      let coverPhotoUrl = competitionCoverPhotoUrl.trim();
+      if (competitionCoverFile) {
+        const upload = await mediaApi.upload(
+          competitionCoverFile,
+          "event_attachment",
+          event.id,
+        );
+        coverPhotoUrl = upload.objectKey;
+      }
+      const data = {
+        name,
+        descriptionMarkdown: competitionDescription.trim() || undefined,
+        rulesMarkdown: competitionRules.trim() || undefined,
+        coverPhotoUrl: coverPhotoUrl || undefined,
+      };
+      if (editingCompetition) {
+        await updateCompetitionMutation.mutateAsync({
+          eventId: event.id,
+          competitionId: editingCompetition.id,
+          data: {
+            ...data,
+            descriptionMarkdown: competitionDescription.trim() || "",
+            rulesMarkdown: competitionRules.trim() || "",
+            coverPhotoUrl,
+          },
+        });
+      } else {
+        await createCompetitionMutation.mutateAsync({
+          eventId: event.id,
+          data,
+        });
+      }
+      toast.success("Competition saved.");
+      setCompetitionDialogOpen(false);
+      setCompetitionCoverFile(null);
+    } catch (item) {
+      toast.error(getApiErrorMessage(item, "Failed to save competition"));
+    } finally {
+      setIsUploadingPrizeMedia(false);
     }
-    createCompetitionMutation.mutate({ eventId: event.id, data }, options);
   };
-  const savePrize = () => {
+  const savePrize = async () => {
     const title = prizeTitle.trim();
     if (!title) {
       toast.error("Prize title is required.");
@@ -2524,44 +2798,58 @@ function PrizesTab({
       toast.error("Prize amount must be zero or higher.");
       return;
     }
-    const createData: CreateEventPrizeRequest = {
-      title,
-      competitionId:
-        prizeCompetitionId === "general" ? undefined : prizeCompetitionId,
-      placement: prizePlacement,
-      placementLabel: prizePlacementLabel.trim() || undefined,
-      prizeType: prizeType || undefined,
-      amount,
-      currency: prizeCurrency.trim().toUpperCase() || "PHP",
-      descriptionMarkdown: prizeDescription.trim() || undefined,
-    };
-    const options = {
-      onSuccess: () => {
-        toast.success("Prize saved.");
-        setPrizeDialogOpen(false);
-      },
-      onError: (item: unknown) =>
-        toast.error(getApiErrorMessage(item, "Failed to save prize")),
-    };
-    if (editingPrize) {
-      const updateData: UpdateEventPrizeRequest = {
-        ...createData,
+    setIsUploadingPrizeMedia(true);
+    try {
+      let photoUrl = prizePhotoUrl.trim();
+      if (prizePhotoFile) {
+        const upload = await mediaApi.upload(
+          prizePhotoFile,
+          "event_attachment",
+          event.id,
+        );
+        photoUrl = upload.objectKey;
+      }
+      const createData: CreateEventPrizeRequest = {
+        title,
         competitionId:
-          prizeCompetitionId === "general" ? "" : prizeCompetitionId,
-        placementLabel: prizePlacementLabel.trim() || "",
-        prizeType: prizeType || "",
-        descriptionMarkdown: prizeDescription.trim() || "",
+          prizeCompetitionId === "general" ? undefined : prizeCompetitionId,
+        placement: prizePlacement,
+        placementLabel: prizePlacementLabel.trim() || undefined,
+        prizeType: prizeType || undefined,
+        amount,
+        currency: prizeCurrency.trim().toUpperCase() || "PHP",
+        descriptionMarkdown: prizeDescription.trim() || undefined,
+        photoUrl: photoUrl || undefined,
       };
-      updatePrizeMutation.mutate(
-        { eventId: event.id, prizeId: editingPrize.id, data: updateData },
-        options,
-      );
-      return;
+      if (editingPrize) {
+        const updateData: UpdateEventPrizeRequest = {
+          ...createData,
+          competitionId:
+            prizeCompetitionId === "general" ? "" : prizeCompetitionId,
+          placementLabel: prizePlacementLabel.trim() || "",
+          prizeType: prizeType || "",
+          descriptionMarkdown: prizeDescription.trim() || "",
+          photoUrl,
+        };
+        await updatePrizeMutation.mutateAsync({
+          eventId: event.id,
+          prizeId: editingPrize.id,
+          data: updateData,
+        });
+      } else {
+        await createPrizeMutation.mutateAsync({
+          eventId: event.id,
+          data: createData,
+        });
+      }
+      toast.success("Prize saved.");
+      setPrizeDialogOpen(false);
+      setPrizePhotoFile(null);
+    } catch (item) {
+      toast.error(getApiErrorMessage(item, "Failed to save prize"));
+    } finally {
+      setIsUploadingPrizeMedia(false);
     }
-    createPrizeMutation.mutate(
-      { eventId: event.id, data: createData },
-      options,
-    );
   };
 
   const generalPrizes = prizes.filter((prize) => !prize.competitionId);
@@ -2641,6 +2929,12 @@ function PrizesTab({
                     ? openCompetitionDialog
                     : undefined
                 }
+                onEditPrize={
+                  event.viewerCanManage && !readOnly
+                    ? openPrizeDialog
+                    : undefined
+                }
+                readOnly={readOnly}
               />
             </DetailSection>
           ) : null}
@@ -2677,6 +2971,17 @@ function PrizesTab({
               placeholder="Underwater Photography"
             />
           </SetupField>
+          <PhotoUploadField
+            label="Upload competition cover photo"
+            imageUrl={competitionCoverPhotoUrl}
+            selectedFile={competitionCoverFile}
+            onFileChange={setCompetitionCoverFile}
+            onRemove={() => {
+              setCompetitionCoverPhotoUrl("");
+              setCompetitionCoverFile(null);
+            }}
+            alt={`${competitionName || "Competition"} cover photo`}
+          />
           <SetupField label="Description">
             <MarkdownEditor
               value={competitionDescription}
@@ -2697,7 +3002,9 @@ function PrizesTab({
             {editingCompetition ? (
               <Button
                 variant="outline"
-                disabled={deleteCompetitionMutation.isPending}
+                disabled={
+                  isUploadingPrizeMedia || deleteCompetitionMutation.isPending
+                }
                 onClick={() =>
                   deleteCompetitionMutation.mutate(
                     {
@@ -2726,12 +3033,13 @@ function PrizesTab({
             ) : null}
             <Button
               disabled={
+                isUploadingPrizeMedia ||
                 createCompetitionMutation.isPending ||
                 updateCompetitionMutation.isPending
               }
-              onClick={saveCompetition}
+              onClick={() => void saveCompetition()}
             >
-              Save
+              {isUploadingPrizeMedia ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2755,6 +3063,18 @@ function PrizesTab({
               placeholder="Champion"
             />
           </SetupField>
+          <PhotoUploadField
+            label="Upload prize photo"
+            imageUrl={prizePhotoUrl}
+            selectedFile={prizePhotoFile}
+            onFileChange={setPrizePhotoFile}
+            onRemove={() => {
+              setPrizePhotoUrl("");
+              setPrizePhotoFile(null);
+            }}
+            alt={`${prizeTitle || "Prize"} prize photo`}
+            variant="thumbnail"
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <SetupField label="Competition">
               <Select
@@ -2866,7 +3186,9 @@ function PrizesTab({
             {editingPrize ? (
               <Button
                 variant="outline"
-                disabled={deletePrizeMutation.isPending}
+                disabled={
+                  isUploadingPrizeMedia || deletePrizeMutation.isPending
+                }
                 onClick={() =>
                   deletePrizeMutation.mutate(
                     { eventId: event.id, prizeId: editingPrize.id },
@@ -2889,11 +3211,13 @@ function PrizesTab({
             ) : null}
             <Button
               disabled={
-                createPrizeMutation.isPending || updatePrizeMutation.isPending
+                isUploadingPrizeMedia ||
+                createPrizeMutation.isPending ||
+                updatePrizeMutation.isPending
               }
-              onClick={savePrize}
+              onClick={() => void savePrize()}
             >
-              Save
+              {isUploadingPrizeMedia ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2910,7 +3234,7 @@ function PrizeList({
 }: {
   event: Event;
   prizes: EventPrize[];
-  onEdit: (prize: EventPrize) => void;
+  onEdit?: (prize: EventPrize) => void;
   readOnly?: boolean;
 }) {
   if (prizes.length === 0) {
@@ -2925,27 +3249,36 @@ function PrizeList({
       {prizes.map((prize) => (
         <article key={prize.id} className="py-3">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge className="h-6 px-2 text-[11px]">
-                  {prizePlacementLabel(prize)}
-                </Badge>
-                {prize.prizeType ? (
-                  <Badge variant="outline" className="h-6 px-2 text-[11px]">
-                    {titleCase(prize.prizeType)}
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              {prize.photoUrl ? (
+                <img
+                  src={prize.photoUrl}
+                  alt={`${prize.title} prize photo`}
+                  className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                />
+              ) : null}
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge className="h-6 px-2 text-[11px]">
+                    {prizePlacementLabel(prize)}
                   </Badge>
-                ) : null}
-                {prize.amount != null ? (
-                  <Badge variant="outline" className="h-6 px-2 text-[11px]">
-                    {prize.currency} {prize.amount}
-                  </Badge>
-                ) : null}
+                  {prize.prizeType ? (
+                    <Badge variant="outline" className="h-6 px-2 text-[11px]">
+                      {titleCase(prize.prizeType)}
+                    </Badge>
+                  ) : null}
+                  {prize.amount != null ? (
+                    <Badge variant="outline" className="h-6 px-2 text-[11px]">
+                      {prize.currency} {prize.amount}
+                    </Badge>
+                  ) : null}
+                </div>
+                <h3 className="text-sm font-medium text-foreground">
+                  {prize.title}
+                </h3>
               </div>
-              <h3 className="text-sm font-medium text-foreground">
-                {prize.title}
-              </h3>
             </div>
-            {event.viewerCanManage && !readOnly ? (
+            {event.viewerCanManage && !readOnly && onEdit ? (
               <Button size="sm" variant="outline" onClick={() => onEdit(prize)}>
                 Edit prize
               </Button>
@@ -2968,18 +3301,30 @@ function CompetitionList({
   competitions,
   prizesByCompetition,
   onEdit,
+  onEditPrize,
+  readOnly = false,
 }: {
   event: Event;
   competitions: EventCompetition[];
   prizesByCompetition: Map<string, EventPrize[]>;
   onEdit?: (competition: EventCompetition) => void;
+  onEditPrize?: (prize: EventPrize) => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="divide-y divide-border/70 border-y border-border/70">
       {competitions.map((competition) => {
-        const prizeCount = prizesByCompetition.get(competition.id)?.length ?? 0;
+        const competitionPrizes = prizesByCompetition.get(competition.id) ?? [];
+        const prizeCount = competitionPrizes.length;
         return (
           <article key={competition.id} className="py-3">
+            {competition.coverPhotoUrl ? (
+              <img
+                src={competition.coverPhotoUrl}
+                alt={`${competition.name} cover photo`}
+                className="mb-3 aspect-[16/7] w-full rounded-xl object-cover"
+              />
+            ) : null}
             <div className="flex items-start justify-between gap-3">
               <Link
                 href={getCompetitionHref(event, competition)}
@@ -3004,6 +3349,16 @@ function CompetitionList({
                 </Button>
               ) : null}
             </div>
+            {competitionPrizes.length > 0 ? (
+              <div className="mt-3">
+                <PrizeList
+                  event={event}
+                  prizes={competitionPrizes}
+                  onEdit={onEditPrize}
+                  readOnly={readOnly}
+                />
+              </div>
+            ) : null}
           </article>
         );
       })}
@@ -3392,35 +3747,33 @@ function PostsTab({
   posts,
   isLoading,
   error,
-  viewerUserId,
+  isSignedIn,
   mode = "manage",
 }: {
   event: Event;
   posts: EventPost[];
   isLoading: boolean;
   error: unknown;
-  viewerUserId?: string;
+  isSignedIn: boolean;
   mode?: "public" | "manage";
 }) {
   const createPostMutation = useCreateEventPost();
   const updatePostMutation = useUpdateEventPost();
   const deletePostMutation = useDeleteEventPost();
+  const addFishReactionMutation = useAddEventPostFishReaction();
+  const deleteFishReactionMutation = useDeleteEventPostFishReaction();
   const updateSettingsMutation = useUpdateEventPostSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<EventPost | null>(null);
+  const [postType, setPostType] = useState<EventPostType>("general");
   const [title, setTitle] = useState("");
   const [bodyMarkdown, setBodyMarkdown] = useState("");
   const isManageMode = mode === "manage";
-  const canCreatePost =
-    event.postsEnabled &&
-    (isManageMode
-      ? event.viewerCanManage ||
-        (event.postCreatePolicy === "participants" &&
-          event.viewerParticipation?.status === "confirmed")
-      : event.viewerCanManage);
+  const canCreatePost = event.postsEnabled && event.viewerCanManage;
 
   const openDialog = (post?: EventPost) => {
     setEditingPost(post ?? null);
+    setPostType(post?.postType ?? "general");
     setTitle(post?.title ?? "");
     setBodyMarkdown(post?.bodyMarkdown ?? "");
     setDialogOpen(true);
@@ -3428,20 +3781,21 @@ function PostsTab({
   const savePost = () => {
     const body = bodyMarkdown.trim();
     if (!body) {
-      toast.error("Post body is required.");
+      toast.error("Update body is required.");
       return;
     }
     const data = {
+      postType,
       title: title.trim() || undefined,
       bodyMarkdown: body,
     };
     const options = {
       onSuccess: () => {
-        toast.success("Post saved.");
+        toast.success("Update saved.");
         setDialogOpen(false);
       },
       onError: (item: unknown) =>
-        toast.error(getApiErrorMessage(item, "Failed to save post")),
+        toast.error(getApiErrorMessage(item, "Failed to save update")),
     };
     if (editingPost) {
       updatePostMutation.mutate(
@@ -3456,15 +3810,11 @@ function PostsTab({
   if (!event.postsEnabled) {
     return (
       <StatusPanel
-        title={
-          isManageMode
-            ? "Posts are not enabled for this event."
-            : "Updates are not enabled for this event."
-        }
+        title="Updates are not enabled for this event."
         description={
           event.viewerCanManage
-            ? "Enable event posts when you are ready to publish updates or let participants discuss."
-            : "Posts are not enabled for this event."
+            ? "Enable Updates when you are ready to share official event announcements, reminders, and results."
+            : "Updates are not enabled for this event."
         }
       >
         {event.viewerCanManage && isManageMode ? (
@@ -3477,21 +3827,23 @@ function PostsTab({
                   eventId: event.id,
                   data: {
                     postsEnabled: true,
-                    postCreatePolicy:
-                      event.postCreatePolicy || "organizers_only",
+                    postCreatePolicy: "organizers_only",
                   },
                 },
                 {
-                  onSuccess: () => toast.success("Event posts enabled."),
+                  onSuccess: () => toast.success("Event updates enabled."),
                   onError: (item) =>
                     toast.error(
-                      getApiErrorMessage(item, "Failed to enable event posts"),
+                      getApiErrorMessage(
+                        item,
+                        "Failed to enable event updates",
+                      ),
                     ),
                 },
               )
             }
           >
-            Enable event posts
+            Enable Updates
           </Button>
         ) : null}
       </StatusPanel>
@@ -3504,92 +3856,66 @@ function PostsTab({
   if (error) {
     return (
       <p className="text-sm text-destructive">
-        {getApiErrorMessage(error, "Event posts could not be loaded.")}
+        {getApiErrorMessage(error, "Event updates could not be loaded.")}
       </p>
     );
   }
 
   return (
     <div className="space-y-5">
-      <DetailSection title={isManageMode ? "Posts" : "Updates"}>
-        <div className="flex flex-wrap items-center gap-2">
-          {canCreatePost && isManageMode ? (
-            <Button size="sm" onClick={() => openDialog()}>
-              <MessageSquare className="mr-1 h-4 w-4" />
-              New post
-            </Button>
+      <DetailSection title="Updates">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {isManageMode ? (
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              Share official event announcements, schedule changes, logistics,
+              payment reminders, and results.
+            </p>
           ) : null}
-          {canCreatePost && !isManageMode ? (
-            <Button
-              size="sm"
-              nativeButton={false}
-              render={
-                <Link
-                  href={`/events/${encodeURIComponent(event.slug)}/manage#updates`}
-                />
-              }
-            >
-              <MessageSquare className="mr-1 h-4 w-4" />
-              New post
-            </Button>
-          ) : null}
-          {event.viewerCanManage && isManageMode ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={updateSettingsMutation.isPending}
-              onClick={() =>
-                updateSettingsMutation.mutate(
-                  {
-                    eventId: event.id,
-                    data: {
-                      postsEnabled: event.postsEnabled,
-                      postCreatePolicy:
-                        event.postCreatePolicy === "participants"
-                          ? "organizers_only"
-                          : "participants",
-                    },
-                  },
-                  {
-                    onSuccess: () => toast.success("Post settings updated."),
-                    onError: (item) =>
-                      toast.error(
-                        getApiErrorMessage(
-                          item,
-                          "Failed to update post settings",
-                        ),
-                      ),
-                  },
-                )
-              }
-            >
-              {event.postCreatePolicy === "participants"
-                ? "Organizers only"
-                : "Allow participants"}
-            </Button>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {canCreatePost && isManageMode ? (
+              <Button size="sm" onClick={() => openDialog()}>
+                <MessageSquare className="mr-1 h-4 w-4" />
+                New update
+              </Button>
+            ) : null}
+            {canCreatePost && !isManageMode ? (
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={
+                  <Link
+                    href={`/events/${encodeURIComponent(event.slug)}/manage#updates`}
+                  />
+                }
+              >
+                <MessageSquare className="mr-1 h-4 w-4" />
+                New update
+              </Button>
+            ) : null}
+          </div>
         </div>
       </DetailSection>
       {posts.length === 0 ? (
         <CommunityEmptyState
-          title={isManageMode ? "No posts yet" : "No updates yet."}
+          title="No updates yet."
           description={
             event.viewerCanManage
-              ? "No updates yet. Post announcements, schedule changes, or reminders for participants."
-              : "Event updates will appear here."
+              ? "No updates yet. Share announcements, reminders, or schedule changes for participants."
+              : "No updates yet."
           }
         />
       ) : (
         <div className="divide-y divide-border/70 border-y border-border/70">
           {posts.map((post) => {
-            const canEdit =
-              isManageMode &&
-              (event.viewerCanManage || post.authorUserId === viewerUserId);
+            const canEdit = isManageMode && event.viewerCanManage;
             return (
               <article key={post.id} className="py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="outline" className="h-6 px-2 text-[11px]">
+                        {eventUpdateTypeLabel(post.postType)}
+                      </Badge>
                       {post.isPinned ? (
                         <Badge className="h-6 px-2 text-[11px]">
                           <Pin className="mr-1 h-3 w-3" />
@@ -3611,6 +3937,7 @@ function PostsTab({
                       </h3>
                     ) : null}
                     <p className="mt-1 text-xs text-muted-foreground">
+                      Posted by{" "}
                       {post.authorDisplayName ||
                         post.authorUsername ||
                         post.authorUserId}{" "}
@@ -3623,11 +3950,71 @@ function PostsTab({
                       variant="outline"
                       onClick={() => openDialog(post)}
                     >
-                      Edit post
+                      Edit update
                     </Button>
                   ) : null}
                 </div>
                 <ChikaMarkdown content={post.bodyMarkdown} className="mt-3" />
+                <div className="mt-3">
+                  {isSignedIn ? (
+                    <Button
+                      size="sm"
+                      variant={
+                        post.viewerHasFishReacted ? "secondary" : "outline"
+                      }
+                      className="h-8 px-2.5"
+                      aria-label={
+                        post.viewerHasFishReacted
+                          ? "Remove fish reaction"
+                          : "React with fish"
+                      }
+                      disabled={
+                        addFishReactionMutation.isPending ||
+                        deleteFishReactionMutation.isPending
+                      }
+                      onClick={() => {
+                        const variables = {
+                          eventId: event.id,
+                          postId: post.id,
+                        };
+                        if (post.viewerHasFishReacted) {
+                          deleteFishReactionMutation.mutate(variables, {
+                            onError: (item) =>
+                              toast.error(
+                                getApiErrorMessage(
+                                  item,
+                                  "Failed to remove fish reaction",
+                                ),
+                              ),
+                          });
+                        } else {
+                          addFishReactionMutation.mutate(variables, {
+                            onError: (item) =>
+                              toast.error(
+                                getApiErrorMessage(
+                                  item,
+                                  "Failed to react with fish",
+                                ),
+                              ),
+                          });
+                        }
+                      }}
+                    >
+                      🐟 {post.fishReactionCount}
+                    </Button>
+                  ) : (
+                    <SignInButton mode="modal">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2.5"
+                        aria-label="Sign in to react with fish"
+                      >
+                        🐟 {post.fishReactionCount}
+                      </Button>
+                    </SignInButton>
+                  )}
+                </div>
               </article>
             );
           })}
@@ -3637,12 +4024,32 @@ function PostsTab({
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl!">
           <DialogHeader>
-            <DialogTitle>{editingPost ? "Edit post" : "New post"}</DialogTitle>
+            <DialogTitle>
+              {editingPost ? "Edit update" : "New update"}
+            </DialogTitle>
             <DialogDescription>
-              Post updates, announcements, or participant discussion for this
-              event.
+              Share an official event announcement, reminder, schedule change,
+              or result.
             </DialogDescription>
           </DialogHeader>
+          <SetupField label="Type">
+            <Select
+              value={postType}
+              items={eventUpdateTypeOptions}
+              onValueChange={(value) => setPostType(value as EventPostType)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {eventUpdateTypeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SetupField>
           <SetupField label="Title">
             <Input
               value={title}
@@ -3673,12 +4080,15 @@ function PostsTab({
                         },
                         {
                           onSuccess: () => {
-                            toast.success("Post updated.");
+                            toast.success("Update updated.");
                             setDialogOpen(false);
                           },
                           onError: (item) =>
                             toast.error(
-                              getApiErrorMessage(item, "Failed to update post"),
+                              getApiErrorMessage(
+                                item,
+                                "Failed to update event update",
+                              ),
                             ),
                         },
                       )
@@ -3695,12 +4105,12 @@ function PostsTab({
                       { eventId: event.id, postId: editingPost.id },
                       {
                         onSuccess: () => {
-                          toast.success("Post deleted.");
+                          toast.success("Update deleted.");
                           setDialogOpen(false);
                         },
                         onError: (item) =>
                           toast.error(
-                            getApiErrorMessage(item, "Failed to delete post"),
+                            getApiErrorMessage(item, "Failed to delete update"),
                           ),
                       },
                     )
@@ -4686,6 +5096,16 @@ type OrganizerSetupEditor =
 
 const EVENT_DETAIL_TIMEZONE = "Asia/Manila";
 
+const eventUpdateTypeOptions: Array<{ value: EventPostType; label: string }> = [
+  { value: "announcement", label: "Announcement" },
+  { value: "schedule", label: "Schedule update" },
+  { value: "logistics", label: "Logistics" },
+  { value: "payment", label: "Payment reminder" },
+  { value: "competition", label: "Competition" },
+  { value: "results", label: "Results" },
+  { value: "general", label: "General" },
+];
+
 const prizePlacementOptions: Array<{
   value: EventPrizePlacement;
   label: string;
@@ -4784,10 +5204,6 @@ function OrganizerManageTab({
     event.paymentInstructions ?? "",
   );
   const [postsEnabled, setPostsEnabled] = useState(event.postsEnabled);
-  const [postCreatePolicy, setPostCreatePolicy] =
-    useState<EventPostCreatePolicy>(
-      event.postCreatePolicy || "organizers_only",
-    );
   const [paymentMethodType, setPaymentMethodType] =
     useState<EventPaymentMethodType>("MANUAL_QR");
   const [paymentMethodName, setPaymentMethodName] = useState("");
@@ -5012,9 +5428,9 @@ function OrganizerManageTab({
     savePatch(
       {
         postsEnabled,
-        postCreatePolicy,
+        postCreatePolicy: "organizers_only",
       },
-      "Post settings saved.",
+      "Update settings saved.",
     );
   };
 
@@ -5072,13 +5488,7 @@ function OrganizerManageTab({
             />
             <ManageRow
               title="Event updates"
-              status={
-                event.postsEnabled
-                  ? event.postCreatePolicy === "participants"
-                    ? "Participants can post"
-                    : "Organizers only"
-                  : "Disabled"
-              }
+              status={event.postsEnabled ? "Enabled" : "Disabled"}
               actionLabel="Open"
               onAction={() => onNavigate?.("updates")}
             />
@@ -5507,9 +5917,9 @@ function OrganizerManageTab({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Manage event posts</DialogTitle>
+            <DialogTitle>Manage Updates</DialogTitle>
             <DialogDescription>
-              Control whether the event has posts and who can create them.
+              Control whether the official event Updates feed is visible.
             </DialogDescription>
           </DialogHeader>
           <label className="flex items-start gap-2 rounded-lg border border-border/70 p-3 text-sm">
@@ -5521,38 +5931,14 @@ function OrganizerManageTab({
             />
             <span>
               <span className="block font-medium text-foreground">
-                Posts enabled
+                Updates enabled
               </span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                Show the Posts tab to confirmed participants and organizers.
+                Show official event announcements, reminders, and results to
+                event viewers.
               </span>
             </span>
           </label>
-          <SetupField label="Who can create posts">
-            <Select
-              value={postCreatePolicy}
-              items={[
-                { value: "organizers_only", label: "Organizers only" },
-                {
-                  value: "participants",
-                  label: "Participants and organizers",
-                },
-              ]}
-              onValueChange={(value) =>
-                setPostCreatePolicy(value as EventPostCreatePolicy)
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="organizers_only">Organizers only</SelectItem>
-                <SelectItem value="participants">
-                  Participants and organizers
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </SetupField>
           <DialogFooter showCloseButton>
             <Button disabled={isSaving} onClick={savePostSettings}>
               {isSaving ? "Saving..." : "Save"}
@@ -5609,10 +5995,10 @@ function SetupField({
   children: ReactNode;
 }) {
   return (
-    <label className="grid gap-2">
+    <div className="grid gap-2">
       <span className="text-sm font-medium text-foreground">{label}</span>
       {children}
-    </label>
+    </div>
   );
 }
 
@@ -5810,6 +6196,13 @@ function prizePlacementLabel(prize: EventPrize) {
   return (
     prizePlacementOptions.find((option) => option.value === prize.placement)
       ?.label ?? titleCase(prize.placement)
+  );
+}
+
+function eventUpdateTypeLabel(type?: EventPostType) {
+  return (
+    eventUpdateTypeOptions.find((option) => option.value === type)?.label ??
+    "General"
   );
 }
 

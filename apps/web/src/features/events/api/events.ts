@@ -13,6 +13,7 @@ import type {
   EventParticipant,
   EventParticipantPayment,
   EventPost,
+  EventPostReactionResponse,
   EventPrize,
   EventPaymentProofUrl,
   EventPaymentMethod,
@@ -449,6 +450,27 @@ export const eventsApi = {
 
   deletePost: async (eventId: string, postId: string): Promise<void> => {
     await axiosInstance.delete(`/v1/events/${eventId}/posts/${postId}`);
+  },
+
+  addPostFishReaction: async (
+    eventId: string,
+    postId: string,
+  ): Promise<EventPostReactionResponse> => {
+    const response = await axiosInstance.post<EventPostReactionResponse>(
+      `/v1/events/${eventId}/updates/${postId}/reactions/fish`,
+      {},
+    );
+    return response.data;
+  },
+
+  deletePostFishReaction: async (
+    eventId: string,
+    postId: string,
+  ): Promise<EventPostReactionResponse> => {
+    const response = await axiosInstance.delete<EventPostReactionResponse>(
+      `/v1/events/${eventId}/updates/${postId}/reactions/fish`,
+    );
+    return response.data;
   },
 
   updatePostSettings: async (

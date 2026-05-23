@@ -8,6 +8,7 @@ type EventCompetitionResponse struct {
 	Name                string    `json:"name"`
 	DescriptionMarkdown string    `json:"descriptionMarkdown,omitempty"`
 	RulesMarkdown       string    `json:"rulesMarkdown,omitempty"`
+	CoverPhotoURL       string    `json:"coverPhotoUrl,omitempty"`
 	SortOrder           int       `json:"sortOrder"`
 	CreatedAt           time.Time `json:"createdAt"`
 	UpdatedAt           time.Time `json:"updatedAt"`
@@ -19,6 +20,7 @@ type EventPrizeResponse struct {
 	CompetitionID       string    `json:"competitionId,omitempty"`
 	Title               string    `json:"title"`
 	DescriptionMarkdown string    `json:"descriptionMarkdown,omitempty"`
+	PhotoURL            string    `json:"photoUrl,omitempty"`
 	Placement           string    `json:"placement"`
 	PlacementLabel      string    `json:"placementLabel,omitempty"`
 	PrizeType           string    `json:"prizeType,omitempty"`
@@ -52,10 +54,13 @@ type EventPostResponse struct {
 	ID                string    `json:"id"`
 	EventID           string    `json:"eventId"`
 	AuthorUserID      string    `json:"authorUserId"`
+	PostType          string    `json:"postType"`
 	Title             string    `json:"title,omitempty"`
 	BodyMarkdown      string    `json:"bodyMarkdown"`
 	Status            string    `json:"status"`
 	IsPinned          bool      `json:"isPinned"`
+	FishReactionCount int       `json:"fishReactionCount"`
+	ViewerFishReacted bool      `json:"viewerHasFishReacted"`
 	AuthorDisplayName string    `json:"authorDisplayName,omitempty"`
 	AuthorUsername    string    `json:"authorUsername,omitempty"`
 	AuthorAvatarURL   string    `json:"authorAvatarUrl,omitempty"`
@@ -95,10 +100,17 @@ type PostResponse struct {
 	Post EventPostResponse `json:"post"`
 }
 
+type PostReactionResponse struct {
+	PostID            string `json:"postId"`
+	FishReactionCount int    `json:"fishReactionCount"`
+	ViewerFishReacted bool   `json:"viewerHasFishReacted"`
+}
+
 type CreateCompetitionRequest struct {
 	Name                string `json:"name" validate:"required,min=1,max=160"`
 	DescriptionMarkdown string `json:"descriptionMarkdown,omitempty" validate:"omitempty,max=10000"`
 	RulesMarkdown       string `json:"rulesMarkdown,omitempty" validate:"omitempty,max=10000"`
+	CoverPhotoURL       string `json:"coverPhotoUrl,omitempty" validate:"omitempty,max=1000"`
 	SortOrder           int    `json:"sortOrder,omitempty" validate:"omitempty,min=0,max=100000"`
 }
 
@@ -106,6 +118,7 @@ type UpdateCompetitionRequest struct {
 	Name                *string `json:"name,omitempty" validate:"omitempty,min=1,max=160"`
 	DescriptionMarkdown *string `json:"descriptionMarkdown,omitempty" validate:"omitempty,max=10000"`
 	RulesMarkdown       *string `json:"rulesMarkdown,omitempty" validate:"omitempty,max=10000"`
+	CoverPhotoURL       *string `json:"coverPhotoUrl,omitempty" validate:"omitempty,max=1000"`
 	SortOrder           *int    `json:"sortOrder,omitempty" validate:"omitempty,min=0,max=100000"`
 }
 
@@ -113,6 +126,7 @@ type CreatePrizeRequest struct {
 	CompetitionID       string   `json:"competitionId,omitempty" validate:"omitempty,uuid"`
 	Title               string   `json:"title" validate:"required,min=1,max=160"`
 	DescriptionMarkdown string   `json:"descriptionMarkdown,omitempty" validate:"omitempty,max=10000"`
+	PhotoURL            string   `json:"photoUrl,omitempty" validate:"omitempty,max=1000"`
 	Placement           string   `json:"placement,omitempty" validate:"omitempty,oneof=winner champion first_place second_place third_place special_award sponsor_award custom"`
 	PlacementLabel      string   `json:"placementLabel,omitempty" validate:"omitempty,max=120"`
 	PrizeType           string   `json:"prizeType,omitempty" validate:"omitempty,oneof=cash item certificate sponsor_gift other"`
@@ -126,6 +140,7 @@ type UpdatePrizeRequest struct {
 	CompetitionID       *string  `json:"competitionId,omitempty" validate:"omitempty"`
 	Title               *string  `json:"title,omitempty" validate:"omitempty,min=1,max=160"`
 	DescriptionMarkdown *string  `json:"descriptionMarkdown,omitempty" validate:"omitempty,max=10000"`
+	PhotoURL            *string  `json:"photoUrl,omitempty" validate:"omitempty,max=1000"`
 	Placement           *string  `json:"placement,omitempty" validate:"omitempty,oneof=winner champion first_place second_place third_place special_award sponsor_award custom"`
 	PlacementLabel      *string  `json:"placementLabel,omitempty" validate:"omitempty,max=120"`
 	PrizeType           *string  `json:"prizeType,omitempty" validate:"omitempty,oneof=cash item certificate sponsor_gift other"`
@@ -162,12 +177,14 @@ type UpdateSponsorRequest struct {
 }
 
 type CreatePostRequest struct {
+	PostType     string `json:"postType,omitempty" validate:"omitempty,oneof=announcement schedule logistics payment competition results general"`
 	Title        string `json:"title,omitempty" validate:"omitempty,max=160"`
 	BodyMarkdown string `json:"bodyMarkdown" validate:"required,min=1,max=20000"`
 	IsPinned     bool   `json:"isPinned"`
 }
 
 type UpdatePostRequest struct {
+	PostType     *string `json:"postType,omitempty" validate:"omitempty,oneof=announcement schedule logistics payment competition results general"`
 	Title        *string `json:"title,omitempty" validate:"omitempty,max=160"`
 	BodyMarkdown *string `json:"bodyMarkdown,omitempty" validate:"omitempty,min=1,max=20000"`
 	Status       *string `json:"status,omitempty" validate:"omitempty,oneof=published hidden deleted"`

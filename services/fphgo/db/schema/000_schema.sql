@@ -1076,6 +1076,7 @@ CREATE TABLE IF NOT EXISTS event_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   author_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_type TEXT NOT NULL DEFAULT 'general',
   title TEXT,
   body_markdown TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'published',
@@ -1085,7 +1086,18 @@ CREATE TABLE IF NOT EXISTS event_posts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ,
   CHECK (length(trim(body_markdown)) > 0),
+  CHECK (post_type IN ('announcement', 'schedule', 'logistics', 'payment', 'competition', 'results', 'general')),
   CHECK (status IN ('published', 'hidden', 'deleted'))
+);
+
+CREATE TABLE IF NOT EXISTS event_update_reactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_update_id UUID NOT NULL REFERENCES event_posts(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reaction_type TEXT NOT NULL DEFAULT 'fish',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (reaction_type = 'fish'),
+  UNIQUE (event_update_id, user_id, reaction_type)
 );
 
 CREATE TABLE IF NOT EXISTS event_payment_methods (
@@ -1289,6 +1301,9 @@ CREATE INDEX IF NOT EXISTS idx_event_prizes_competition ON event_prizes (competi
 CREATE INDEX IF NOT EXISTS idx_event_sponsors_event_sort ON event_sponsors (event_id, sort_order) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_posts_event_created ON event_posts (event_id, created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_posts_event_pinned_created ON event_posts (event_id, is_pinned DESC, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_update_reactions_update ON event_update_reactions (event_update_id);
+CREATE INDEX IF NOT EXISTS idx_event_update_reactions_user ON event_update_reactions (user_id);
+CREATE INDEX IF NOT EXISTS idx_event_update_reactions_update_type ON event_update_reactions (event_update_id, reaction_type);
 CREATE INDEX IF NOT EXISTS idx_event_payment_methods_event ON event_payment_methods (event_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_event_participant_payments_event_status ON event_participant_payments (event_id, status);
 CREATE INDEX IF NOT EXISTS idx_event_participant_payments_user ON event_participant_payments (user_id, status);
