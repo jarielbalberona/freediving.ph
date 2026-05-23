@@ -45,7 +45,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
@@ -140,10 +140,21 @@ type EventTab =
   | "sponsors"
   | "payment";
 
+type EventManageTab =
+  | "setup"
+  | "participants"
+  | "payments"
+  | "updates"
+  | "prizes"
+  | "sponsors";
+
 const eventTabsListClassName =
   "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto rounded-none border-b border-border/70 bg-transparent px-3 sm:mx-0 sm:w-full sm:px-0";
 const eventTabTriggerClassName =
   "h-10 flex-none rounded-none px-3 text-sm data-active:bg-transparent data-active:shadow-none";
+const manageTabsListClassName =
+  "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto px-3 sm:mx-0 sm:w-full sm:px-1";
+const manageTabTriggerClassName = "h-8 flex-none px-3 text-sm";
 
 export default function EventDetailClient({ slug }: { slug: string }) {
   const session = useSession();
@@ -668,7 +679,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
                   ? proofUrlMutation.variables?.paymentId
                   : undefined
               }
-              onManagePaymentHref={`/events/${encodeURIComponent(event.slug)}/manage#setup`}
+              onManagePaymentHref={`/events/${encodeURIComponent(event.slug)}/manage#payments`}
             />
           </TabsContent>
         ) : null}
@@ -679,6 +690,8 @@ export default function EventDetailClient({ slug }: { slug: string }) {
 
 export function EventManageClient({ slug }: { slug: string }) {
   const session = useSession();
+  const [activeManageTab, setActiveManageTab] =
+    useState<EventManageTab>("setup");
   const eventQuery = useEvent(slug);
   const event = eventQuery.data;
   const eventId = event?.id ?? "";
@@ -705,6 +718,19 @@ export function EventManageClient({ slug }: { slug: string }) {
       [],
     [participantsQuery.data],
   );
+
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (isEventManageTab(hash)) {
+      setActiveManageTab(hash);
+    }
+  }, []);
+
+  const setManageTab = (value: string) => {
+    if (!isEventManageTab(value)) return;
+    setActiveManageTab(value);
+    window.history.replaceState(null, "", `#${value}`);
+  };
 
   if (eventQuery.isLoading) {
     return (
@@ -781,30 +807,63 @@ export function EventManageClient({ slug }: { slug: string }) {
         subtitle="Manage event"
         navigation={<BackToEventButton event={event} />}
       >
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="outline" className="h-6 px-2 text-[11px]">
-            {event.status}
-          </Badge>
-          <Badge variant="outline" className="h-6 px-2 text-[11px]">
-            {event.visibility === "private" ? "Private" : "Public"}
-          </Badge>
-          <Badge variant="outline" className="h-6 px-2 text-[11px]">
-            {event.isPaid ? "Paid" : "Free"}
-          </Badge>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className="h-6 px-2 text-[11px]">
+              {titleCase(event.status)}
+            </Badge>
+            <Badge variant="outline" className="h-6 px-2 text-[11px]">
+              {event.visibility === "private" ? "Private" : "Public"}
+            </Badge>
+            <Badge variant="outline" className="h-6 px-2 text-[11px]">
+              {event.isPaid ? "Paid" : "Free"}
+            </Badge>
+          </div>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            Manage event setup, participants, payments, updates, prizes, and
+            sponsors.
+          </p>
         </div>
       </CommunityHeader>
 
-      <div className="space-y-8">
-        <section id="setup" className="scroll-mt-4">
+      <Tabs
+        value={activeManageTab}
+        onValueChange={setManageTab}
+        className="gap-5"
+      >
+        <TabsList className={manageTabsListClassName}>
+          <TabsTrigger value="setup" className={manageTabTriggerClassName}>
+            Setup
+          </TabsTrigger>
+          <TabsTrigger value="participants" className={manageTabTriggerClassName}>
+            Participants
+          </TabsTrigger>
+          <TabsTrigger value="payments" className={manageTabTriggerClassName}>
+            Payments
+          </TabsTrigger>
+          <TabsTrigger value="updates" className={manageTabTriggerClassName}>
+            Updates
+          </TabsTrigger>
+          <TabsTrigger value="prizes" className={manageTabTriggerClassName}>
+            Prizes
+          </TabsTrigger>
+          <TabsTrigger value="sponsors" className={manageTabTriggerClassName}>
+            Sponsors
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="setup" className="space-y-4">
           <OrganizerManageTab
             event={event}
             onSaved={() => {
               void eventQuery.refetch();
             }}
+            mode="setup"
+            onNavigate={setManageTab}
           />
-        </section>
+        </TabsContent>
 
-        <section id="participants" className="scroll-mt-4">
+        <TabsContent value="participants" className="space-y-4">
           <ParticipantsSection
             event={event}
             participants={participants}
@@ -881,9 +940,20 @@ export function EventManageClient({ slug }: { slug: string }) {
             }
             showOrganizerActions
           />
-        </section>
+        </TabsContent>
 
-        <section id="updates" className="scroll-mt-4">
+        <TabsContent value="payments" className="space-y-4">
+          <OrganizerManageTab
+            event={event}
+            onSaved={() => {
+              void eventQuery.refetch();
+            }}
+            mode="payments"
+            onNavigate={setManageTab}
+          />
+        </TabsContent>
+
+        <TabsContent value="updates" className="space-y-4">
           <PostsTab
             event={event}
             posts={postsQuery.data ?? []}
@@ -892,9 +962,9 @@ export function EventManageClient({ slug }: { slug: string }) {
             viewerUserId={session.me?.userId}
             mode="manage"
           />
-        </section>
+        </TabsContent>
 
-        <section id="prizes" className="scroll-mt-4">
+        <TabsContent value="prizes" className="space-y-4">
           <PrizesTab
             event={event}
             competitions={competitionsQuery.data ?? []}
@@ -902,17 +972,17 @@ export function EventManageClient({ slug }: { slug: string }) {
             isLoading={competitionsQuery.isLoading || prizesQuery.isLoading}
             error={competitionsQuery.error || prizesQuery.error}
           />
-        </section>
+        </TabsContent>
 
-        <section id="sponsors" className="scroll-mt-4">
+        <TabsContent value="sponsors" className="space-y-4">
           <SponsorsTab
             event={event}
             sponsors={sponsorsQuery.data ?? []}
             isLoading={sponsorsQuery.isLoading}
             error={sponsorsQuery.error}
           />
-        </section>
-      </div>
+        </TabsContent>
+      </Tabs>
     </CommunityPageShell>
   );
 }
@@ -943,6 +1013,17 @@ function BackToEventButton({ event }: { event: Event }) {
       Back to event
     </Button>
   );
+}
+
+function isEventManageTab(value: string): value is EventManageTab {
+  return [
+    "setup",
+    "participants",
+    "payments",
+    "updates",
+    "prizes",
+    "sponsors",
+  ].includes(value);
 }
 
 function EventHeader({
@@ -3208,9 +3289,13 @@ const sponsorTierOptions: Array<{ value: EventSponsorTier; label: string }> = [
 function OrganizerManageTab({
   event,
   onSaved,
+  mode = "setup",
+  onNavigate,
 }: {
   event: Event;
   onSaved: () => void;
+  mode?: "setup" | "payments";
+  onNavigate?: (tab: EventManageTab) => void;
 }) {
   const updateEventMutation = useUpdateEvent();
   const createPaymentMethodMutation = useCreateEventPaymentMethod();
@@ -3501,64 +3586,80 @@ function OrganizerManageTab({
     );
   };
 
+  const showSetupRows = mode === "setup";
+  const showPaymentRows = mode === "payments";
+
   return (
     <div className="space-y-4">
-      <DetailSection title="Manage event">
+      <DetailSection title={showPaymentRows ? "Payment setup" : "Setup"}>
         <p className="text-sm leading-6 text-muted-foreground">
-          Add more details for participants. Each setup area opens in a focused
-          dialog.
+          {showPaymentRows
+            ? "Manage participant payment instructions, amount, and manual payment methods."
+            : "Add participant-facing details. Each setup area opens in a focused dialog."}
         </p>
       </DetailSection>
 
       <div className="divide-y divide-border/70 border-y border-border/70">
-        <ManageRow
-          title="Event description"
-          status={event.descriptionMarkdown ? "Added" : "Missing"}
-          actionLabel={event.descriptionMarkdown ? "Edit" : "Add"}
-          onAction={() => setActiveEditor("description")}
-        />
-        <ManageRow
-          title="Schedule and dive site"
-          status={formatEventLocation(event)}
-          actionLabel="Edit"
-          onAction={() => setActiveEditor("schedule")}
-        />
-        <ManageRow
-          title="Capacity and access"
-          status={event.capacity ? `${event.capacity} spots` : "Not set"}
-          actionLabel={event.capacity ? "Edit" : "Set"}
-          onAction={() => setActiveEditor("capacity")}
-        />
-        <ManageRow
-          title="Freediving details"
-          status={getFitStatus(event)}
-          actionLabel="Edit"
-          onAction={() => setActiveEditor("fit")}
-        />
-        <ManageRow
-          title="Safety and logistics"
-          status={getLogisticsStatus(event)}
-          actionLabel="Edit"
-          onAction={() => setActiveEditor("logistics")}
-        />
-        <ManageRow
-          title="Payment setup"
-          status={getPaymentSetupStatus(event, activePaymentMethods.length)}
-          actionLabel={event.isPaid ? "Manage" : "Set paid"}
-          onAction={() => setActiveEditor("payment")}
-        />
-        <ManageRow
-          title="Event posts"
-          status={
-            event.postsEnabled
-              ? event.postCreatePolicy === "participants"
-                ? "Participants can post"
-                : "Organizers only"
-              : "Disabled"
-          }
-          actionLabel="Edit"
-          onAction={() => setActiveEditor("posts")}
-        />
+        {showSetupRows ? (
+          <>
+            <ManageRow
+              title="Event description"
+              status={event.descriptionMarkdown ? "Added" : "Missing"}
+              actionLabel={event.descriptionMarkdown ? "Edit" : "Add"}
+              onAction={() => setActiveEditor("description")}
+            />
+            <ManageRow
+              title="Schedule and dive site"
+              status={formatEventLocation(event)}
+              actionLabel="Edit"
+              onAction={() => setActiveEditor("schedule")}
+            />
+            <ManageRow
+              title="Capacity and access"
+              status={event.capacity ? `${event.capacity} spots` : "Not set"}
+              actionLabel={event.capacity ? "Edit" : "Set"}
+              onAction={() => setActiveEditor("capacity")}
+            />
+            <ManageRow
+              title="Freediving details"
+              status={getFitStatus(event)}
+              actionLabel="Edit"
+              onAction={() => setActiveEditor("fit")}
+            />
+            <ManageRow
+              title="Safety and logistics"
+              status={getLogisticsStatus(event)}
+              actionLabel="Edit"
+              onAction={() => setActiveEditor("logistics")}
+            />
+            <ManageRow
+              title="Payment setup"
+              status={getPaymentSetupStatus(event, activePaymentMethods.length)}
+              actionLabel="Open"
+              onAction={() => onNavigate?.("payments")}
+            />
+            <ManageRow
+              title="Event updates"
+              status={
+                event.postsEnabled
+                  ? event.postCreatePolicy === "participants"
+                    ? "Participants can post"
+                    : "Organizers only"
+                  : "Disabled"
+              }
+              actionLabel="Open"
+              onAction={() => onNavigate?.("updates")}
+            />
+          </>
+        ) : null}
+        {showPaymentRows ? (
+          <ManageRow
+            title="Payment setup"
+            status={getPaymentSetupStatus(event, activePaymentMethods.length)}
+            actionLabel={event.isPaid ? "Manage" : "Set paid"}
+            onAction={() => setActiveEditor("payment")}
+          />
+        ) : null}
       </div>
 
       <Dialog

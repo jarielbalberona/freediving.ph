@@ -52,7 +52,8 @@ test("events create and management use user-facing labels", () => {
   assert.doesNotMatch(createPage, />fun_dive</);
   assert.match(detailPage, /Manage event/);
   assert.match(managePage, /EventManageClient/);
-  assert.match(detailPage, /Add more details for participants/);
+  assert.match(detailPage, /Add participant-facing details/);
+  assert.match(detailPage, /Manage participant payment instructions/);
   assert.match(detailPage, /Payment setup is incomplete/);
   assert.match(detailPage, /Edit description/);
   assert.match(detailPage, /Edit schedule and dive site/);
@@ -254,6 +255,15 @@ test("events detail renders management extensions through tabs and dialogs", () 
   assert.match(detailPage, /readOnly/);
   assert.match(detailPage, /mode="public"/);
   assert.match(detailPage, /mode="manage"/);
+  assert.match(detailPage, /value="setup"/);
+  assert.match(detailPage, /value="participants"/);
+  assert.match(detailPage, /value="payments"/);
+  assert.match(detailPage, /value="updates"/);
+  assert.match(detailPage, /value="prizes"/);
+  assert.match(detailPage, /value="sponsors"/);
+  assert.match(detailPage, /mode="payments"/);
+  assert.match(detailPage, /manageTabsListClassName/);
+  assert.doesNotMatch(detailPage, /<div className="space-y-8">/);
   assert.match(managePage, /EventManageClient/);
   assert.match(detailPage, /Add competition/);
   assert.match(detailPage, /Edit competition/);
