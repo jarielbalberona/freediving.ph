@@ -2256,7 +2256,7 @@ export function EventCompetitionPrizesClient({
         />
       ) : null}
 
-      <Tabs defaultValue="details" className="gap-5">
+      <Tabs defaultValue="details" orientation="horizontal" className="gap-5">
         <TabsList className={manageTabsListClassName}>
           <TabsTrigger value="details" className={manageTabTriggerClassName}>
             Details
@@ -4456,7 +4456,7 @@ function ProgramManageSection({
       },
     );
   return (
-    <Tabs defaultValue="items" className="gap-4">
+    <Tabs defaultValue="items" orientation="horizontal" className="gap-4">
       <TabsList variant="line" className={manageTabsListClassName}>
         <TabsTrigger value="items" className={manageTabTriggerClassName}>
           Items
@@ -5585,7 +5585,7 @@ function ParticipantsSection({
           description="Participant records will appear here after divers join."
         />
       ) : showOrganizerActions ? (
-        <Tabs defaultValue="needs-action" className="gap-4">
+        <Tabs defaultValue="needs-action" orientation="horizontal" className="gap-4">
           <TabsList
             variant="line"
             className="no-scrollbar w-full justify-start overflow-x-auto rounded-none bg-transparent p-0"
@@ -6505,7 +6505,7 @@ function JoinFormManageSection({
     );
   };
   return (
-    <Tabs defaultValue="fields" className="gap-4">
+    <Tabs defaultValue="fields" orientation="horizontal" className="gap-4">
       <TabsList variant="line" className="rounded-none bg-transparent p-0">
         <TabsTrigger value="fields">Fields</TabsTrigger>
         <TabsTrigger value="preview">Preview</TabsTrigger>
