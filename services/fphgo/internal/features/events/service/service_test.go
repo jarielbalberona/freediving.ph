@@ -24,7 +24,7 @@ func TestJoinEventUsesApprovalStatus(t *testing.T) {
 	repo := &eventsRepoStub{
 		event: eventsrepo.Event{
 			ID:               eventID,
-			Title:            "Mabini line training",
+			Title:            "Freediving PH Annual Dive Event",
 			Status:           "published",
 			Visibility:       "public",
 			RequiresApproval: true,

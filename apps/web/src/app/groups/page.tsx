@@ -200,7 +200,6 @@ export default function GroupsPage() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Community"
         title="Groups"
         subtitle="Find clubs, training squads, and local communities planning dives near you."
         action={

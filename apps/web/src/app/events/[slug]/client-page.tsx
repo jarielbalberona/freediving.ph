@@ -115,10 +115,9 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     return (
       <CommunityPageShell>
         <CommunityHeader
-          eyebrow="Events"
           title="Opening event"
           subtitle="Loading schedule, dive site, and participation state."
-          action={<BackButton />}
+          navigation={<BackButton />}
         />
         <div className="space-y-3">
           <Skeleton className="h-24 w-full rounded-xl" />
@@ -133,10 +132,9 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     return (
       <CommunityPageShell>
         <CommunityHeader
-          eyebrow="Events"
           title="Event unavailable"
           subtitle="This event is taking longer than expected to open."
-          action={<BackButton />}
+          navigation={<BackButton />}
         />
         <Card className="border-destructive/30 bg-destructive/5 py-0">
           <CardContent className="p-3 text-sm text-destructive">
@@ -292,7 +290,6 @@ export default function EventDetailClient({ slug }: { slug: string }) {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Events"
         title={event.title}
         subtitle={
           event.shortDescription ||
@@ -300,7 +297,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
             ? "Event details are available below."
             : "This is a private event. Details are limited until you are approved.")
         }
-        action={<BackButton />}
+        navigation={<BackButton />}
       >
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge className="h-5 px-2 text-[11px]">

@@ -187,7 +187,7 @@ type CreateEventRequest struct {
 	ShortDescription    string                       `json:"shortDescription" validate:"required,min=3,max=500"`
 	DescriptionMarkdown string                       `json:"descriptionMarkdown,omitempty" validate:"omitempty,min=3,max=20000"`
 	Type                string                       `json:"type" validate:"required,oneof=intro_session pool_training line_training fun_dive depth_training certification_course workshop competition cleanup_dive trip_retreat"`
-	DiveSiteID          string                       `json:"diveSiteId" validate:"required,uuid4"`
+	DiveSiteID          string                       `json:"diveSiteId" validate:"required,uuid"`
 	StartsAt            string                       `json:"startsAt" validate:"required,datetime=2006-01-02T15:04:05Z07:00"`
 	EndsAt              string                       `json:"endsAt" validate:"required,datetime=2006-01-02T15:04:05Z07:00"`
 	Timezone            string                       `json:"timezone,omitempty" validate:"omitempty,max=80"`
@@ -208,7 +208,7 @@ type CreateEventRequest struct {
 	SafetyNotes         string                       `json:"safetyNotes,omitempty" validate:"omitempty,max=4000"`
 	CancellationPolicy  string                       `json:"cancellationPolicy,omitempty" validate:"omitempty,max=4000"`
 	PaymentMethods      []CreatePaymentMethodRequest `json:"paymentMethods,omitempty" validate:"omitempty,dive"`
-	GroupID             string                       `json:"groupId,omitempty" validate:"omitempty,uuid4"`
+	GroupID             string                       `json:"groupId,omitempty" validate:"omitempty,uuid"`
 }
 
 type UpdateEventRequest struct {
@@ -216,7 +216,7 @@ type UpdateEventRequest struct {
 	ShortDescription    *string  `json:"shortDescription,omitempty" validate:"omitempty,min=3,max=500"`
 	DescriptionMarkdown *string  `json:"descriptionMarkdown,omitempty" validate:"omitempty,min=3,max=20000"`
 	Type                *string  `json:"type,omitempty" validate:"omitempty,oneof=intro_session pool_training line_training fun_dive depth_training certification_course workshop competition cleanup_dive trip_retreat"`
-	DiveSiteID          *string  `json:"diveSiteId,omitempty" validate:"omitempty,uuid4"`
+	DiveSiteID          *string  `json:"diveSiteId,omitempty" validate:"omitempty,uuid"`
 	StartsAt            *string  `json:"startsAt,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
 	EndsAt              *string  `json:"endsAt,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
 	Timezone            *string  `json:"timezone,omitempty" validate:"omitempty,max=80"`

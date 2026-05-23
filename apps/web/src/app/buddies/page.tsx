@@ -134,7 +134,6 @@ function BuddiesFallback() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Dive Presence"
         title="Buddies"
         subtitle="Loading active availability across dive sites."
       />
@@ -285,7 +284,6 @@ function BuddiesPageContent() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Dive Presence"
         title="Buddies"
         subtitle="Find active availability, manage your own status, and keep long-term site relationships separate."
         action={

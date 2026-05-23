@@ -2,8 +2,6 @@
 
 import type { ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge";
-
 type CommunityStat = {
   label: string;
   value: string;
@@ -21,27 +19,26 @@ export function CommunityPageShell({ children }: { children: ReactNode }) {
 }
 
 export function CommunityHeader({
-  eyebrow,
   title,
   subtitle,
+  navigation,
   action,
   children,
 }: {
-  eyebrow: string;
   title: string;
   subtitle: string;
+  navigation?: ReactNode;
   action?: ReactNode;
   children?: ReactNode;
 }) {
   return (
-    <header className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+    <header className="flex min-w-0 flex-col gap-3">
+      {navigation ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {navigation}
+        </div>
+      ) : null}
       <div className="min-w-0 space-y-3">
-        <Badge
-          variant="outline"
-          className="border-border/60 bg-background text-muted-foreground"
-        >
-          {eyebrow}
-        </Badge>
         <div>
           <h1 className="max-w-2xl text-lg font-medium tracking-tight text-foreground">
             {title}
@@ -51,8 +48,12 @@ export function CommunityHeader({
           </p>
         </div>
         {children}
+        {action ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {action}
+          </div>
+        ) : null}
       </div>
-      {action ? <div className="flex sm:justify-end">{action}</div> : null}
     </header>
   );
 }

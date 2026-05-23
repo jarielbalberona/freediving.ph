@@ -155,7 +155,6 @@ export default function EventsPage() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Community"
         title="Events"
         subtitle="Find freediving sessions, trips, courses, and community events."
         action={

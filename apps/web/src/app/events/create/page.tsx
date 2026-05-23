@@ -67,17 +67,17 @@ const visibilityChoices: Array<{
   label: string;
   description: string;
 }> = [
-  {
-    value: "public",
-    label: "Public",
-    description: "Anyone can view the event.",
-  },
-  {
-    value: "private",
-    label: "Private",
-    description: "Only limited details are shown publicly.",
-  },
-];
+    {
+      value: "public",
+      label: "Public",
+      description: "Anyone can view the event.",
+    },
+    {
+      value: "private",
+      label: "Private",
+      description: "Only limited details are shown publicly.",
+    },
+  ];
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -115,10 +115,9 @@ export default function CreateEventPage() {
     return (
       <CommunityPageShell>
         <CommunityHeader
-          eyebrow="Events"
           title="Create an event"
           subtitle="Share a freediving session, trip, course, or community activity."
-          action={<BackToEventsButton />}
+          navigation={<BackToEventsButton />}
         />
         <Card className="py-0">
           <CardContent className="flex items-center justify-between gap-3 p-4">
@@ -137,10 +136,9 @@ export default function CreateEventPage() {
   return (
     <CommunityPageShell>
       <CommunityHeader
-        eyebrow="Events"
         title="Create an event"
         subtitle="Share a freediving session, trip, course, or community activity."
-        action={<BackToEventsButton />}
+        navigation={<BackToEventsButton />}
       />
 
       <CommunityAccessNote>
@@ -168,7 +166,7 @@ export default function CreateEventPage() {
               <Input
                 value={form.title}
                 onChange={(event) => updateForm("title", event.target.value)}
-                placeholder="Mabini line training"
+                placeholder="Freediving PH Annual Dive Event"
               />
             </Field>
             <Field

@@ -20,10 +20,10 @@ func TestCreateEventAcceptsSimplifiedFormPayloadHTTP(t *testing.T) {
 	repo := &eventCreateRepoStub{}
 	handler := New(eventsservice.New(repo), validatex.New())
 	body := `{
-		"title": "Mabini line training",
+		"title": "Freediving PH Annual Dive Event",
 		"shortDescription": "A relaxed line-training session for certified freedivers.",
 		"type": "fun_dive",
-		"diveSiteId": "550e8400-e29b-41d4-a716-446655443202",
+		"diveSiteId": "10000000-0000-0000-0000-000000000009",
 		"startsAt": "2026-05-23T01:00:00.000Z",
 		"endsAt": "2026-05-23T03:00:00.000Z",
 		"timezone": "Asia/Manila",
@@ -183,7 +183,7 @@ func TestMapEventIncludesInterestAndViewerState(t *testing.T) {
 	got := mapEvent(eventsrepo.Event{
 		ID:                        "550e8400-e29b-41d4-a716-446655443121",
 		Slug:                      "mabini-line-training",
-		Title:                     "Mabini line training",
+		Title:                     "Freediving PH Annual Dive Event",
 		Status:                    "published",
 		Visibility:                "public",
 		EventType:                 "line_training",
