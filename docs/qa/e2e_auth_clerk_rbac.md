@@ -2,8 +2,8 @@
 
 ## Prerequisites
 - Frontend env:
-  - `NEXT_PUBLIC_API_URL`
-  - `API_URL` (for server-side calls in Next runtime)
+  - `NEXT_PUBLIC_FPHGO_BASE_URL`
+  - `FPHGO_BASE_URL` (for server-side calls in Next runtime)
   - Clerk publishable/secret keys.
 - Go API env:
   - `CLERK_SECRET_KEY` (required unless `DEV_AUTH=true`)

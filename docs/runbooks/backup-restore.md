@@ -20,16 +20,17 @@
 ## Restore procedure
 1. Provision target restore database instance.
 2. Restore selected backup artifact to target.
-3. Run schema drift check against app migrations (`apps/api/.drizzle/migrations`).
+3. Run schema drift checks against `services/fphgo/db/schema` and `services/fphgo/db/migrations`.
 4. Run data sanity checks:
    - user row counts
    - critical moderation tables (`reports`, `audit_logs`, `blocks`) row counts
    - latest createdAt timestamps for key content tables
 5. Switch API `DATABASE_URL` to restored instance.
 6. Run smoke checks:
-   - `GET /health/ready`
+   - `GET /healthz`
+   - `GET /readyz`
    - authentication check
-   - list endpoints (`/threads`, `/events`, `/groups`)
+   - key list endpoints under `/v1`
 
 ## Post-restore validation
 1. Confirm application writes succeed.
@@ -38,4 +39,4 @@
 
 ## Rollback
 1. If restored DB is invalid, revert `DATABASE_URL` to previous instance.
-2. Re-enable traffic only after `GET /health/ready` is stable.
+2. Re-enable traffic only after `GET /readyz` is stable.

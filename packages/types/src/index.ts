@@ -563,7 +563,6 @@ export interface EventFilters {
   difficulty?: EventDifficulty;
   beginnerFriendly?: boolean;
   price?: "free" | "paid";
-  upcoming?: boolean;
 }
 
 export interface Group {

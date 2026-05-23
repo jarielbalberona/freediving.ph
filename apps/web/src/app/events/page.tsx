@@ -60,7 +60,6 @@ export default function EventsPage() {
   const [diveSiteLabel, setDiveSiteLabel] = useState("");
   const [eventType, setEventType] = useState<EventTypeFilter>("all");
   const [price, setPrice] = useState<PriceFilter>("all");
-  const [upcoming, setUpcoming] = useState(true);
 
   const filters = useMemo<EventFilters>(
     () => ({
@@ -71,9 +70,8 @@ export default function EventsPage() {
       diveSiteId: diveSiteId === "all" ? undefined : diveSiteId,
       type: eventType === "all" ? undefined : eventType,
       price: price === "all" ? undefined : price,
-      upcoming,
     }),
-    [diveSiteId, eventType, limit, price, search, upcoming],
+    [diveSiteId, eventType, limit, price, search],
   );
 
   const eventsQuery = useEvents(filters);
@@ -202,7 +200,7 @@ export default function EventsPage() {
                 searchPlaceholder="All dive sites"
               />
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Select
                 value={eventType}
                 onValueChange={(value) => {
@@ -241,18 +239,6 @@ export default function EventsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                type="button"
-                size="sm"
-                className="w-full sm:w-fit sm:justify-self-start"
-                variant={upcoming ? "default" : "outline"}
-                onClick={() => {
-                  setLimit(24);
-                  setUpcoming((value) => !value);
-                }}
-              >
-                Upcoming
-              </Button>
             </div>
           </div>
         </CommunityBrowseToolbar>
@@ -285,9 +271,7 @@ export default function EventsPage() {
               <span>
                 Showing {events.length} of {total}
               </span>
-              <Badge variant="outline">
-                {upcoming ? "Upcoming only" : "All published"}
-              </Badge>
+              <Badge variant="outline">Newest first</Badge>
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
               {events.map((event) => (

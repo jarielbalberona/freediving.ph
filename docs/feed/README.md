@@ -8,7 +8,7 @@ Ship a server-driven homepage feed that answers: "What matters in freediving aro
 - Homepage depends on `GET /v1/feed/home` as the primary data source.
 - v1 ranking is rule-based; do not jump to ML.
 - Impression and action telemetry ships with v1.
-- `apps/api` is legacy and out of scope.
+- The deprecated Node API is removed and out of scope.
 
 ## Priority Order (Implementation)
 1. **P0: Contract Lock + Source Audit**

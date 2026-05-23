@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +15,236 @@ import (
 	"fphgo/internal/shared/authz"
 	"fphgo/internal/shared/validatex"
 )
+
+func TestListEventsReturnsRedactedPrivateEventForAnonymousHTTP(t *testing.T) {
+	repo := &eventCreateRepoStub{
+		events: []eventsrepo.Event{privateEventFixture(false, false)},
+	}
+	handler := New(eventsservice.New(repo), validatex.New())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	handler.ListEvents(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload ListEventsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload.Events) != 1 {
+		t.Fatalf("expected one event, got %#v", payload.Events)
+	}
+	assertRedactedPrivateEvent(t, payload.Events[0])
+	if repo.listInput.ViewerUserID != "" {
+		t.Fatalf("anonymous list should not pass viewer id, got %q", repo.listInput.ViewerUserID)
+	}
+}
+
+func TestListEventsReturnsPublicEventForAnonymousHTTP(t *testing.T) {
+	event := privateEventFixture(true, false)
+	event.Visibility = "public"
+	event.ViewerCanViewPrivateDetails = true
+	repo := &eventCreateRepoStub{
+		events: []eventsrepo.Event{event},
+	}
+	handler := New(eventsservice.New(repo), validatex.New())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	handler.ListEvents(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload ListEventsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload.Events) != 1 {
+		t.Fatalf("expected one event, got %#v", payload.Events)
+	}
+	got := payload.Events[0]
+	if got.Visibility != "public" || got.Description == "" || got.DiveSiteID == "" || got.StartsAt == nil {
+		t.Fatalf("public event was not returned with full public fields: %#v", got)
+	}
+}
+
+func TestListEventsReturnsRedactedPrivateEventForLoggedInNonParticipantHTTP(t *testing.T) {
+	const viewerID = "550e8400-e29b-41d4-a716-446655443231"
+	repo := &eventCreateRepoStub{
+		events: []eventsrepo.Event{privateEventFixture(false, false)},
+	}
+	handler := New(eventsservice.New(repo), validatex.New())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(middleware.WithIdentity(req.Context(), authz.Identity{UserID: viewerID}))
+
+	handler.ListEvents(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload ListEventsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload.Events) != 1 {
+		t.Fatalf("expected one event, got %#v", payload.Events)
+	}
+	assertRedactedPrivateEvent(t, payload.Events[0])
+	if repo.listInput.ViewerUserID != viewerID {
+		t.Fatalf("logged-in list viewer id = %q, want %q", repo.listInput.ViewerUserID, viewerID)
+	}
+}
+
+func TestGetEventReturnsRedactedPrivateEventForAnonymousHTTP(t *testing.T) {
+	repo := &eventCreateRepoStub{event: privateEventFixture(false, false)}
+	router := Routes(New(eventsservice.New(repo), validatex.New()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/private-annual-event", nil)
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload EventDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	assertRedactedPrivateEvent(t, payload.Event)
+}
+
+func TestGetEventPreservesPendingPrivateViewerStateHTTP(t *testing.T) {
+	event := privateEventFixture(false, false)
+	event.ViewerJoined = true
+	event.ViewerParticipationStatus = "pending_approval"
+	event.ViewerEventState = "pending_approval"
+	event.ViewerParticipation = &eventsrepo.EventParticipant{
+		ID:      "550e8400-e29b-41d4-a716-446655443232",
+		EventID: event.ID,
+		UserID:  "550e8400-e29b-41d4-a716-446655443233",
+		Role:    "participant",
+		Status:  "pending_approval",
+		Payment: &eventsrepo.EventParticipantPayment{
+			ID:               "550e8400-e29b-41d4-a716-446655443234",
+			ProofMediaID:     "550e8400-e29b-41d4-a716-446655443235",
+			ProofFileName:    "proof.jpg",
+			ProofContentType: "image/jpeg",
+			Status:           "submitted",
+		},
+	}
+	repo := &eventCreateRepoStub{event: event}
+	router := Routes(New(eventsservice.New(repo), validatex.New()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/private-annual-event", nil)
+	req = req.WithContext(middleware.WithIdentity(req.Context(), authz.Identity{UserID: event.ViewerParticipation.UserID}))
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload EventDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	assertRedactedPrivateEvent(t, payload.Event)
+	if !payload.Event.ViewerJoined || payload.Event.ViewerEventState != "pending_approval" || payload.Event.ViewerParticipationStatus != "pending_approval" {
+		t.Fatalf("pending private viewer state not preserved: %#v", payload.Event)
+	}
+	if payload.Event.ViewerParticipation == nil || payload.Event.ViewerParticipation.Status != "pending_approval" {
+		t.Fatalf("pending private viewer participation not preserved: %#v", payload.Event)
+	}
+	if payload.Event.ViewerPayment != nil || payload.Event.ViewerParticipation.Payment != nil {
+		t.Fatalf("pending private payment details leaked: %#v", payload.Event)
+	}
+}
+
+func TestGetEventReturnsExpandedPrivateEventForConfirmedParticipantHTTP(t *testing.T) {
+	event := privateEventFixture(true, false)
+	event.ViewerJoined = true
+	event.ViewerParticipationStatus = "confirmed"
+	event.ViewerEventState = "going"
+	event.ViewerParticipation = &eventsrepo.EventParticipant{
+		ID:      "550e8400-e29b-41d4-a716-446655443236",
+		EventID: event.ID,
+		UserID:  "550e8400-e29b-41d4-a716-446655443237",
+		Role:    "participant",
+		Status:  "confirmed",
+	}
+	repo := &eventCreateRepoStub{event: event}
+	router := Routes(New(eventsservice.New(repo), validatex.New()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/private-annual-event", nil)
+	req = req.WithContext(middleware.WithIdentity(req.Context(), authz.Identity{UserID: event.ViewerParticipation.UserID}))
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload EventDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	assertExpandedPrivateEvent(t, payload.Event)
+	if payload.Event.ViewerEventState != "going" {
+		t.Fatalf("confirmed viewer state not preserved: %#v", payload.Event)
+	}
+}
+
+func TestGetEventReturnsExpandedPrivateEventForOrganizerHTTP(t *testing.T) {
+	event := privateEventFixture(true, true)
+	repo := &eventCreateRepoStub{event: event}
+	router := Routes(New(eventsservice.New(repo), validatex.New()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/private-annual-event", nil)
+	req = req.WithContext(middleware.WithIdentity(req.Context(), authz.Identity{UserID: event.OrganizerUserID}))
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload EventDetailResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	assertExpandedPrivateEvent(t, payload.Event)
+	if !payload.Event.ViewerCanManage {
+		t.Fatalf("organizer manage state not preserved: %#v", payload.Event)
+	}
+}
+
+func TestJoinPrivateEventFromNonParticipantHTTPRespectsApproval(t *testing.T) {
+	const actorID = "550e8400-e29b-41d4-a716-446655443238"
+	event := privateEventFixture(false, false)
+	repo := &eventCreateRepoStub{event: event}
+	router := Routes(New(eventsservice.New(repo), validatex.New()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/"+event.ID+"/join", strings.NewReader(`{"participantNote":"ready to join"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(middleware.WithIdentity(req.Context(), authz.Identity{UserID: actorID}))
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload JoinEventResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.Participant.Status != "pending_approval" || repo.joinInput.Status != "pending_approval" {
+		t.Fatalf("private approval-required join did not create pending request: payload=%#v input=%#v", payload, repo.joinInput)
+	}
+	if repo.joinInput.ParticipantNote != "ready to join" {
+		t.Fatalf("join note = %q", repo.joinInput.ParticipantNote)
+	}
+}
 
 func TestCreateEventAcceptsSimplifiedFormPayloadHTTP(t *testing.T) {
 	const actorID = "550e8400-e29b-41d4-a716-446655443201"
@@ -157,11 +388,53 @@ func TestMapEventRedactsPrivateUnauthorizedDetails(t *testing.T) {
 	if got.CurrentAttendees != 0 || got.InterestedCount != 0 || got.GoingCount != 0 || got.Capacity != nil {
 		t.Fatalf("private counts/capacity leaked: %#v", got)
 	}
-	if got.IsPaid || got.PriceAmount != nil || got.Currency != "" || got.RequiresApproval {
+	if got.IsPaid || got.PriceAmount != nil || got.Currency != "" {
 		t.Fatalf("private payment/access summary leaked: %#v", got)
+	}
+	if !got.RequiresApproval {
+		t.Fatalf("private join policy should be preserved for the join CTA: %#v", got)
 	}
 	if got.Title != "Private depth training" || got.ShortDescription != "limited public teaser" {
 		t.Fatalf("minimal public fields were not preserved: %#v", got)
+	}
+}
+
+func TestMapEventPreservesOwnPrivateParticipationState(t *testing.T) {
+	got := mapEvent(eventsrepo.Event{
+		ID:                        "550e8400-e29b-41d4-a716-446655443106",
+		Slug:                      "private-annual-event",
+		Title:                     "Private annual event",
+		ShortDescription:          "A member event",
+		Status:                    "published",
+		Visibility:                "private",
+		ViewerJoined:              true,
+		ViewerParticipationStatus: "pending_approval",
+		ViewerEventState:          "pending_approval",
+		ViewerParticipation: &eventsrepo.EventParticipant{
+			ID:      "550e8400-e29b-41d4-a716-446655443107",
+			EventID: "550e8400-e29b-41d4-a716-446655443106",
+			UserID:  "550e8400-e29b-41d4-a716-446655443108",
+			Role:    "participant",
+			Status:  "pending_approval",
+			Payment: &eventsrepo.EventParticipantPayment{
+				ID:               "550e8400-e29b-41d4-a716-446655443109",
+				ProofMediaID:     "550e8400-e29b-41d4-a716-446655443110",
+				ProofFileName:    "proof.jpg",
+				ProofContentType: "image/jpeg",
+				Status:           "submitted",
+			},
+		},
+		ViewerCanViewPrivateDetails: false,
+	})
+
+	if !got.ViewerJoined || got.ViewerEventState != "pending_approval" || got.ViewerParticipationStatus != "pending_approval" {
+		t.Fatalf("own private participation state was not preserved: %#v", got)
+	}
+	if got.ViewerParticipation == nil || got.ViewerParticipation.Status != "pending_approval" {
+		t.Fatalf("own private participation record was not preserved: %#v", got)
+	}
+	if got.ViewerPayment != nil || got.ViewerParticipation.Payment != nil {
+		t.Fatalf("private payment data leaked with viewer participation: %#v", got)
 	}
 }
 
@@ -240,20 +513,144 @@ func TestMarkEventInterestedRejectsUnauthenticatedHTTP(t *testing.T) {
 	}
 }
 
-type eventCreateRepoStub struct {
-	createInput eventsrepo.CreateEventInput
+func privateEventFixture(canViewPrivateDetails, canManage bool) eventsrepo.Event {
+	lat := 9.0714
+	lng := 123.2712
+	depth := 30
+	capacity := 12
+	price := 1500.0
+	start := time.Date(2026, 5, 23, 1, 22, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	return eventsrepo.Event{
+		ID:                  "147dc32c-3378-4c83-8b58-64f0e027a7a3",
+		Slug:                "private-annual-event",
+		Title:               "Freediving PH Annual Event",
+		Description:         "Full private event logistics.",
+		ShortDescription:    "A chill dive event.",
+		DescriptionMarkdown: "## Full private description",
+		Location:            "Apo Island, Negros Oriental",
+		LocationName:        "Apo Island",
+		FormattedAddress:    "Apo Island, Negros Oriental",
+		Latitude:            &lat,
+		Longitude:           &lng,
+		StartsAt:            &start,
+		EndsAt:              &end,
+		Timezone:            "Asia/Manila",
+		Status:              "published",
+		Visibility:          "private",
+		EventType:           "fun_dive",
+		Difficulty:          "beginner",
+		Capacity:            &capacity,
+		CurrentAttendees:    4,
+		InterestedCount:     5,
+		GoingCount:          4,
+		OrganizerUserID:     "89933f0f-7612-4181-8092-579db41ce941",
+		GroupID:             "550e8400-e29b-41d4-a716-446655443241",
+		DiveSiteID:          "10000000-0000-0000-0000-000000000009",
+		DiveSite: &eventsrepo.DiveSiteSummary{
+			ID:        "10000000-0000-0000-0000-000000000009",
+			Slug:      "apo-island",
+			Name:      "Apo Island",
+			Area:      "Negros Oriental",
+			Latitude:  &lat,
+			Longitude: &lng,
+		},
+		RequiresApproval:            true,
+		IsPaid:                      true,
+		PriceAmount:                 &price,
+		Currency:                    "PHP",
+		PaymentInstructions:         "Send proof to organizer.",
+		MeetingPoint:                "Chapel Point",
+		BeginnerFriendly:            true,
+		MaxDepthM:                   &depth,
+		EntryType:                   "boat",
+		EquipmentNotes:              "Bring long fins.",
+		SafetyNotes:                 "Safety plan.",
+		CancellationPolicy:          "No refund.",
+		ViewerCanManage:             canManage,
+		ViewerCanViewPrivateDetails: canViewPrivateDetails,
+		PaymentMethods: []eventsrepo.EventPaymentMethod{{
+			ID:      "550e8400-e29b-41d4-a716-446655443242",
+			EventID: "147dc32c-3378-4c83-8b58-64f0e027a7a3",
+			Type:    "MANUAL_QR",
+			Name:    "GCash QR",
+		}},
+		CreatedAt: time.Date(2026, 5, 23, 1, 22, 14, 0, time.UTC),
+		UpdatedAt: time.Date(2026, 5, 23, 1, 22, 14, 0, time.UTC),
+	}
 }
 
-func (r *eventCreateRepoStub) ListEvents(context.Context, eventsrepo.ListEventsInput) ([]eventsrepo.Event, int, error) {
-	return nil, 0, nil
+func assertRedactedPrivateEvent(t *testing.T, got EventResponse) {
+	t.Helper()
+	if got.ID == "" || got.Slug == "" || got.Title == "" || got.ShortDescription == "" {
+		t.Fatalf("minimal discovery fields missing: %#v", got)
+	}
+	if got.Visibility != "private" || got.Status != "published" || !got.RequiresApproval {
+		t.Fatalf("safe status/visibility/join policy fields missing: %#v", got)
+	}
+	if got.Description != "" || got.DescriptionMarkdown != "" {
+		t.Fatalf("private description leaked: %#v", got)
+	}
+	if got.Location != "" || got.LocationName != "" || got.FormattedAddress != "" || got.Latitude != nil || got.Longitude != nil {
+		t.Fatalf("private location leaked: %#v", got)
+	}
+	if got.DiveSiteID != "" || got.DiveSite != nil || got.StartsAt != nil || got.EndsAt != nil || got.Timezone != "" {
+		t.Fatalf("private dive site or schedule leaked: %#v", got)
+	}
+	if got.Type != "" || got.Difficulty != "" || got.Capacity != nil || got.CurrentAttendees != 0 || got.GoingCount != 0 || got.InterestedCount != 0 {
+		t.Fatalf("private taxonomy/capacity/count fields leaked: %#v", got)
+	}
+	if got.PaymentInstructions != "" || len(got.PaymentMethods) != 0 || got.ViewerPayment != nil || got.IsPaid || got.PriceAmount != nil || got.Currency != "" {
+		t.Fatalf("private payment fields leaked: %#v", got)
+	}
+	if got.MeetingPoint != "" || got.EquipmentNotes != "" || got.SafetyNotes != "" || got.CancellationPolicy != "" || got.MaxDepthM != nil || got.EntryType != "" {
+		t.Fatalf("private logistics/safety fields leaked: %#v", got)
+	}
+	if got.OrganizerUserID != "" || got.GroupID != "" || got.ViewerCanManage || got.ViewerCanViewPrivateDetails {
+		t.Fatalf("private organizer/access fields leaked: %#v", got)
+	}
+}
+
+func assertExpandedPrivateEvent(t *testing.T, got EventResponse) {
+	t.Helper()
+	if got.Visibility != "private" || !got.ViewerCanViewPrivateDetails {
+		t.Fatalf("expected private expanded event: %#v", got)
+	}
+	if got.Description == "" || got.DescriptionMarkdown == "" || got.DiveSiteID == "" || got.DiveSite == nil || got.StartsAt == nil || got.EndsAt == nil {
+		t.Fatalf("expanded private details missing: %#v", got)
+	}
+	if got.MeetingPoint == "" || got.EquipmentNotes == "" || got.SafetyNotes == "" || got.CancellationPolicy == "" {
+		t.Fatalf("expanded private logistics missing: %#v", got)
+	}
+	if got.PaymentInstructions == "" || len(got.PaymentMethods) == 0 {
+		t.Fatalf("expanded private payment setup missing: %#v", got)
+	}
+}
+
+type eventCreateRepoStub struct {
+	event       eventsrepo.Event
+	events      []eventsrepo.Event
+	total       int
+	listInput   eventsrepo.ListEventsInput
+	createInput eventsrepo.CreateEventInput
+	joinInput   eventsrepo.JoinEventInput
+}
+
+func (r *eventCreateRepoStub) ListEvents(_ context.Context, input eventsrepo.ListEventsInput) ([]eventsrepo.Event, int, error) {
+	r.listInput = input
+	total := r.total
+	if total == 0 {
+		total = len(r.events)
+	}
+	return r.events, total, nil
 }
 
 func (r *eventCreateRepoStub) GetEventByID(context.Context, string, string) (eventsrepo.Event, error) {
-	return eventsrepo.Event{}, nil
+	return r.event, nil
 }
 
 func (r *eventCreateRepoStub) GetEventBySlug(context.Context, string, string) (eventsrepo.Event, error) {
-	return eventsrepo.Event{}, nil
+	return r.event, nil
 }
 
 func (r *eventCreateRepoStub) CreateEvent(_ context.Context, input eventsrepo.CreateEventInput) (eventsrepo.Event, error) {
@@ -300,8 +697,18 @@ func (r *eventCreateRepoStub) MarkEventUninterested(context.Context, string, str
 	return nil
 }
 
-func (r *eventCreateRepoStub) JoinEvent(context.Context, eventsrepo.JoinEventInput) (eventsrepo.EventParticipant, error) {
-	return eventsrepo.EventParticipant{}, nil
+func (r *eventCreateRepoStub) JoinEvent(_ context.Context, input eventsrepo.JoinEventInput) (eventsrepo.EventParticipant, error) {
+	r.joinInput = input
+	return eventsrepo.EventParticipant{
+		ID:              "550e8400-e29b-41d4-a716-446655443243",
+		EventID:         input.EventID,
+		UserID:          input.UserID,
+		Role:            "participant",
+		Status:          input.Status,
+		ParticipantNote: input.ParticipantNote,
+		CreatedAt:       time.Date(2026, 5, 23, 1, 22, 14, 0, time.UTC),
+		UpdatedAt:       time.Date(2026, 5, 23, 1, 22, 14, 0, time.UTC),
+	}, nil
 }
 
 func (r *eventCreateRepoStub) LeaveEvent(context.Context, string, string) error {

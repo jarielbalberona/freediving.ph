@@ -71,11 +71,10 @@ resource "aws_ecs_task_definition" "app" {
         }
       ]
       environment = [
-        { name = "ORIGIN_URL", value = "https://app.dev.freediving.ph" },
-        { name = "API_URL", value = "https://api.dev.freediving.ph" },
         { name = "APP_URL", value = "https://app.dev.freediving.ph" },
         { name = "NEXT_PUBLIC_APP_URL", value = "https://app.dev.freediving.ph" },
-        { name = "NEXT_PUBLIC_API_URL", value = "https://api.dev.freediving.ph" },
+        { name = "NEXT_PUBLIC_FPHGO_BASE_URL", value = "https://api.dev.freediving.ph" },
+        { name = "FPHGO_BASE_URL", value = "https://api.dev.freediving.ph" },
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -139,4 +138,3 @@ resource "aws_appautoscaling_policy" "ecs_policy_app" {
     scale_out_cooldown = 60  # 1-minute cooldown before scaling up
   }
 }
-

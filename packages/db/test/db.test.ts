@@ -4,5 +4,5 @@ import test from "node:test";
 test("db package entry loads", async () => {
   const module = await import("../src/index.ts");
 
-  assert.deepEqual(Object.keys(module), []);
+  assert.equal(typeof module.appUsers, "object");
 });

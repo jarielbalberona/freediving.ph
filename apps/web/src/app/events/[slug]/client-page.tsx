@@ -580,17 +580,23 @@ function EventHeader({
   isSignedIn: boolean;
   onSelectTab: (tab: EventTab) => void;
 }) {
+  const privateLocked = event.visibility === "private" && !canSeePrivateDetails;
   const subtitle =
     event.shortDescription ||
     (canSeePrivateDetails
       ? "Details from the organizer are below."
       : "This is a private event. Details are limited until you are approved.");
-  const chips = [
-    eventOptionLabel(event.type),
-    titleCase(event.difficulty),
-    event.visibility === "private" ? "Private" : "Public",
-    formatEventPriceLabel(event),
-  ];
+  const chips = privateLocked
+    ? [
+        "Private event",
+        event.requiresApproval ? "Approval required" : "",
+      ].filter(Boolean)
+    : [
+        event.type ? eventOptionLabel(event.type) : "",
+        event.difficulty ? titleCase(event.difficulty) : "",
+        event.visibility === "private" ? "Private" : "Public",
+        formatEventPriceLabel(event),
+      ].filter(Boolean);
 
   return (
     <CommunityHeader
@@ -620,30 +626,38 @@ function EventHeader({
             </Badge>
           ))}
         </div>
-        <div className="grid gap-2 text-sm text-muted-foreground">
-          <MetaLine icon={<CalendarClock className="h-4 w-4" />}>
-            {formatEventDate(event.startsAt, event.endsAt, event.timezone)}
-          </MetaLine>
-          <MetaLine icon={<MapPin className="h-4 w-4" />}>
-            {formatEventLocation(event)}
-          </MetaLine>
-          <MetaLine icon={<Users className="h-4 w-4" />}>
-            {event.goingCount ?? event.currentAttendees} going ·{" "}
-            {event.interestedCount ?? 0} interested
-            {event.capacity ? ` · ${event.capacity} spots` : ""}
-          </MetaLine>
-          <MetaLine
-            icon={
-              event.visibility === "private" ? (
-                <Lock className="h-4 w-4" />
-              ) : (
-                <Ticket className="h-4 w-4" />
-              )
-            }
-          >
-            {event.requiresApproval ? "Approval required" : "Auto-confirm"}
-          </MetaLine>
-        </div>
+        {privateLocked ? (
+          <div className="grid gap-2 text-sm text-muted-foreground">
+            <MetaLine icon={<Lock className="h-4 w-4" />}>
+              Details are shared after you join.
+            </MetaLine>
+          </div>
+        ) : (
+          <div className="grid gap-2 text-sm text-muted-foreground">
+            <MetaLine icon={<CalendarClock className="h-4 w-4" />}>
+              {formatEventDate(event.startsAt, event.endsAt, event.timezone)}
+            </MetaLine>
+            <MetaLine icon={<MapPin className="h-4 w-4" />}>
+              {formatEventLocation(event)}
+            </MetaLine>
+            <MetaLine icon={<Users className="h-4 w-4" />}>
+              {event.goingCount ?? event.currentAttendees} going ·{" "}
+              {event.interestedCount ?? 0} interested
+              {event.capacity ? ` · ${event.capacity} spots` : ""}
+            </MetaLine>
+            <MetaLine
+              icon={
+                event.visibility === "private" ? (
+                  <Lock className="h-4 w-4" />
+                ) : (
+                  <Ticket className="h-4 w-4" />
+                )
+              }
+            >
+              {event.requiresApproval ? "Approval required" : "Auto-confirm"}
+            </MetaLine>
+          </div>
+        )}
       </div>
     </CommunityHeader>
   );
@@ -676,7 +690,7 @@ function HeaderAction({
   if (!isSignedIn) {
     return (
       <SignInButton mode="modal">
-        <Button size="sm">Sign in</Button>
+        <Button size="sm">Sign in to join</Button>
       </SignInButton>
     );
   }
@@ -732,6 +746,7 @@ function OverviewTab({
   event: Event;
   canSeePrivateDetails: boolean;
 }) {
+  const privateLocked = event.visibility === "private" && !canSeePrivateDetails;
   const hasDescription =
     Boolean(event.descriptionMarkdown?.trim()) ||
     Boolean(event.description?.trim()) ||
@@ -760,44 +775,57 @@ function OverviewTab({
         </DetailSection>
       ) : null}
 
-      <DetailSection title="Schedule and location">
-        <div className="space-y-2 text-sm leading-6 text-muted-foreground">
-          <MetaLine icon={<CalendarClock className="h-4 w-4" />}>
-            {formatEventDate(event.startsAt, event.endsAt, event.timezone)}
-          </MetaLine>
-          <MetaLine icon={<MapPin className="h-4 w-4" />}>
-            {formatEventLocation(event)}
-          </MetaLine>
-          {canSeePrivateDetails && event.meetingPoint ? (
-            <p className="pt-1 text-foreground">{event.meetingPoint}</p>
-          ) : null}
-        </div>
-      </DetailSection>
+      {privateLocked ? (
+        <PrivacyNotice>
+          Private event details, payment instructions, and attendee identities
+          are shared only after you are approved.
+        </PrivacyNotice>
+      ) : (
+        <>
+          <DetailSection title="Schedule and location">
+            <div className="space-y-2 text-sm leading-6 text-muted-foreground">
+              <MetaLine icon={<CalendarClock className="h-4 w-4" />}>
+                {formatEventDate(event.startsAt, event.endsAt, event.timezone)}
+              </MetaLine>
+              <MetaLine icon={<MapPin className="h-4 w-4" />}>
+                {formatEventLocation(event)}
+              </MetaLine>
+              {canSeePrivateDetails && event.meetingPoint ? (
+                <p className="pt-1 text-foreground">{event.meetingPoint}</p>
+              ) : null}
+            </div>
+          </DetailSection>
 
-      <DetailSection title="Event fit">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge className="h-6 px-2 text-[11px]">
-            {eventOptionLabel(event.type)}
-          </Badge>
-          <Badge variant="outline" className="h-6 px-2 text-[11px]">
-            {titleCase(event.difficulty)}
-          </Badge>
-          {event.beginnerFriendly ? (
-            <Badge variant="secondary" className="h-6 px-2 text-[11px]">
-              Beginner-friendly
-            </Badge>
-          ) : null}
-          {freedivingDetails.map((detail) => (
-            <Badge
-              key={detail}
-              variant="outline"
-              className="h-6 px-2 text-[11px]"
-            >
-              {detail}
-            </Badge>
-          ))}
-        </div>
-      </DetailSection>
+          <DetailSection title="Event fit">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {event.type ? (
+                <Badge className="h-6 px-2 text-[11px]">
+                  {eventOptionLabel(event.type)}
+                </Badge>
+              ) : null}
+              {event.difficulty ? (
+                <Badge variant="outline" className="h-6 px-2 text-[11px]">
+                  {titleCase(event.difficulty)}
+                </Badge>
+              ) : null}
+              {event.beginnerFriendly ? (
+                <Badge variant="secondary" className="h-6 px-2 text-[11px]">
+                  Beginner-friendly
+                </Badge>
+              ) : null}
+              {freedivingDetails.map((detail) => (
+                <Badge
+                  key={detail}
+                  variant="outline"
+                  className="h-6 px-2 text-[11px]"
+                >
+                  {detail}
+                </Badge>
+              ))}
+            </div>
+          </DetailSection>
+        </>
+      )}
 
       {logisticsSections.length > 0 ? (
         <DetailSection title="Logistics">
@@ -861,8 +889,13 @@ function JoinTab({
   isInterestPending: boolean;
 }) {
   const viewerState = event.viewerEventState ?? "none";
+  const canUseInterest =
+    event.visibility !== "private" ||
+    event.viewerCanViewPrivateDetails ||
+    event.viewerCanManage;
   const canToggleInterest =
     isSignedIn &&
+    canUseInterest &&
     event.status === "published" &&
     ["none", "interested", "rejected", "left", "cancelled"].includes(
       viewerState,

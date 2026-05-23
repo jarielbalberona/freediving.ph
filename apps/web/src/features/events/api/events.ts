@@ -73,9 +73,6 @@ export const eventsApi = {
       params.append("beginnerFriendly", String(filters.beginnerFriendly));
     }
     if (filters?.price) params.append("price", filters.price);
-    if (typeof filters?.upcoming === "boolean") {
-      params.append("upcoming", String(filters.upcoming));
-    }
 
     const queryString = params.toString();
     const url = `/v1/events${queryString ? `?${queryString}` : ""}`;

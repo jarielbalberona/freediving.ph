@@ -1,1 +1,0 @@
-ALTER TABLE "dive_logs" ALTER COLUMN "dive_type" SET DEFAULT 'FUN';

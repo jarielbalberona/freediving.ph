@@ -68,24 +68,13 @@ resource "aws_ecs_task_definition" "api" {
         hostPort      = 4000
       }]
       environment = [
-        { name = "DATABASE_URL", value = "postgresql://${var.module_rds_db_user}:${var.module_rds_db_password}@${var.module_rds_endpoint}/${var.module_rds_db_name}" },
+        { name = "DB_DSN", value = "postgresql://${var.module_rds_db_user}:${var.module_rds_db_password}@${var.module_rds_endpoint}/${var.module_rds_db_name}" },
         { name = "PORT", value = "4000" },
-        { name = "NODE_ENV", value = "development" },
-        { name = "SECRET", value = "secretcsrffreediving-ph" },
-        { name = "JWT_COOKIE_NAME", value = "jwtauthfreediving-ph" },
-        { name = "SESSION_COOKIE_NAME", value = "sessauthfreediving-ph" },
-        { name = "ORIGIN_URL", value = "https://app.dev.freediving.ph" },
+        { name = "APP_ENV", value = "development" },
+        { name = "CORS_ORIGINS", value = "https://app.dev.freediving.ph" },
         { name = "APP_URL", value = "https://app.dev.freediving.ph" },
         { name = "API_URL", value = "https://api.dev.freediving.ph" },
-        { name = "RESEND_EMAIL_KEY", value = "xxx" },
-        { name = "RESEND_EMAIL_FROM", value = "admin@freediving.ph" },
-        { name = "NEXT_PUBLIC_API_URL", value = "https://api.dev.freediving.ph" },
-        { name = "NEXT_PUBLIC_APP_URL", value = "https://app.dev.freediving.ph" },
-        { name = "NEXT_TELEMETRY_DISABLED", value = "1" },
-        { name = "NEXT_RUNTIME", value = "nodejs" },
-        { name = "NEXT_SHARP_PATH", value = "/tmp/node_modules/sharp" },
-        { name = "NEXT_PUBLIC_SECURITY_HEADERS", value = "true" },
-        { name = "NEXT_PUBLIC_CACHE_CONTROL", value = "public, max-age=31536000, immutable" }
+        { name = "API_BASE_URL", value = "https://api.dev.freediving.ph" }
       ]
       logConfiguration = {
         logDriver = "awslogs"

@@ -173,8 +173,8 @@ func (s *Service) GetEventBySlug(ctx context.Context, slug, viewerUserID string)
 		}
 		return eventsrepo.Event{}, apperrors.New(http.StatusInternalServerError, "event_get_failed", "failed to fetch event", err)
 	}
-	if event.Visibility == "private" && !event.ViewerCanViewPrivateDetails {
-		return eventsrepo.Event{}, apperrors.New(http.StatusForbidden, "forbidden", "event is private", nil)
+	if event.Status != "published" && !event.ViewerCanManage {
+		return eventsrepo.Event{}, apperrors.New(http.StatusNotFound, "event_not_found", "event not found", nil)
 	}
 	return event, nil
 }

@@ -27,13 +27,12 @@ Freediving Philippines is an open-source social web app for the freediving commu
 ## What this repo contains
 
 - **`apps/web`** – Next.js App Router frontend.
-- **`apps/api`** – Legacy Express + TypeScript API. Do not build new API features here; keep it only for compatibility fixes and migration support. New API work belongs in `services/fphgo`.
-- **`services/fphgo`** – Go API service and canonical backend for new product work.
+- **`services/fphgo`** – Go API service and canonical backend.
 - **`services/cdn-worker`** – CDN/media delivery worker for signed image handling.
-- **`packages/types`** – Shared DTO/envelope contracts for API and web.
+- **`packages/types`** – Shared DTO/envelope contracts for web-facing API clients.
 - **`packages/config`** – Shared runtime constants/config helpers.
 - **`packages/utils`** – Shared utility functions.
-- **`packages/db`** – Shared DB tooling surface.
+- **`packages/db`** – Shared TypeScript DB schema/helper surface.
 - **`packages/ui`** – Shared UI package shell.
 
 ## Tech stack
@@ -147,8 +146,6 @@ pnpm sqlc:go
 pnpm migrate:go   # run Go API DB migrations
 ```
 
-Legacy API maintenance commands still exist as `pnpm dev:api` and `pnpm build:api`, but `apps/api` is not the backend for new product work.
-
 ## Workspace commands
 
 ```bash
@@ -167,7 +164,7 @@ pnpm --filter @freediving.ph/types test
 ## Database
 
 - **Go API:** Migrations live in `services/fphgo/db/migrations`. Run with `pnpm migrate:go` (goose).
-- **Drizzle (packages/db):** Optional shared DB tooling; use `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:push`, `pnpm db:studio` from repo root as needed.
+- **Schema reference:** Canonical SQL lives in `services/fphgo/db/schema`.
 
 ## Docker (local)
 
@@ -229,7 +226,7 @@ Freediving Philippines is **open source** and we welcome contributions. Fork the
 - Keep shared contracts in `packages/types/src`; update API and web together when DTOs change.
 - Do not add feature-local `types.ts` in `apps/web/src/features/*`; use `@freediving.ph/types`.
 - Avoid workspace-specific env assumptions in shared packages.
-- Do not treat `apps/api` as the place for new backend work; the canonical backend is `services/fphgo`.
+- Put backend work in `services/fphgo`.
 
 ## Looking for developers
 

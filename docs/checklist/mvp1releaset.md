@@ -87,7 +87,7 @@ notes:
 - [x] Buddy Finder public preview ships in MVP v1 under `/v1/buddy-finder/preview`, and member intent routes are gated behind auth and existing buddy permissions.
 - [ ] A written list of in-scope migrated modules exists and is agreed by owners.
 - [ ] For migrated modules, `apps/web` calls only `services/fphgo`.
-- [ ] No `apps/api/*` runtime dependency exists for migrated modules.
+- [ ] No deprecated Node API runtime dependency exists for migrated modules.
 
 **Evidence:**
 
@@ -618,8 +618,6 @@ The Cloudflare Worker that validates signatures and serves resized images is not
 CI job name: "Typecheck, Lint, Test, Build"
 
 - [ ] `pnpm install --frozen-lockfile` succeeds.
-- [ ] Migration check passes: `pnpm --filter @freediving.ph/api db:check-migrations` (checks Drizzle migrations in apps/api).
-- [ ] Hot query explain passes when `CI_DATABASE_URL` secret is set: `pnpm --filter @freediving.ph/api db:explain-hot-queries -- --strict`.
 - [ ] Typecheck passes across all workspaces: `pnpm typecheck`.
 - [ ] Lint passes with zero warnings: `pnpm lint -- --max-warnings=0`.
 - [ ] Tests pass: `pnpm test`.
@@ -633,6 +631,10 @@ CI job name: "Typecheck, Lint, Test, Build"
 ### 12.2 Job: `fphgo-contract` (Go API)
 
 CI job name: "fphgo Contract and Auth Gates"
+
+- [ ] Go migrations apply with `cd services/fphgo && make migrate-up`.
+- [ ] `sqlc` generation passes with `cd services/fphgo && make sqlc`.
+- [ ] Go tests pass with `cd services/fphgo && go test ./...`.
 
 - [ ] CI starts Postgres 16 service container with `DB_DSN` and `TEST_DB_DSN` env vars.
 - [ ] Go version resolved from `services/fphgo/go.mod`.

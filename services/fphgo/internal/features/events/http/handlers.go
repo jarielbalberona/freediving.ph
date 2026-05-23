@@ -44,7 +44,6 @@ func (h *Handlers) ListEvents(w http.ResponseWriter, r *http.Request) {
 			Difficulty:       r.URL.Query().Get("difficulty"),
 			BeginnerFriendly: beginnerFriendly,
 			Price:            r.URL.Query().Get("price"),
-			Upcoming:         parseBoolQuery(r, "upcoming", false),
 			Page:             page,
 			Limit:            limit,
 		},
@@ -462,18 +461,6 @@ func parseIntQuery(r *http.Request, key string, fallback int) int {
 	return parsed
 }
 
-func parseBoolQuery(r *http.Request, key string, fallback bool) bool {
-	value := strings.TrimSpace(r.URL.Query().Get(key))
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.ParseBool(value)
-	if err != nil {
-		return fallback
-	}
-	return parsed
-}
-
 func parseOptionalBoolQuery(r *http.Request, key string) *bool {
 	value := strings.TrimSpace(r.URL.Query().Get(key))
 	if value == "" {
@@ -652,7 +639,6 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		response.AvailableSlots = nil
 		response.InterestedCount = 0
 		response.GoingCount = 0
-		response.RequiresApproval = false
 		response.IsPaid = false
 		response.PriceAmount = nil
 		response.Currency = ""
@@ -670,16 +656,9 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		response.CancelReason = ""
 		response.OrganizerUserID = ""
 		response.GroupID = ""
-		response.ViewerJoined = false
-		response.ViewerInterested = false
-		response.ViewerParticipationStatus = ""
-		response.ViewerEventState = "anonymous"
-		if item.ViewerEventState != "anonymous" {
-			response.ViewerEventState = "none"
-		}
 		response.ViewerCanManage = false
 		response.ViewerCanViewPrivateDetails = false
-		response.ViewerParticipation = nil
+		response.ViewerParticipation = mapParticipantPtr(item.ViewerParticipation, false)
 		response.ViewerPayment = nil
 		return response
 	}

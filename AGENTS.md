@@ -1,12 +1,11 @@
 # AGENTS.md
 
 ## Monorepo Map
-- `apps/api`: Legacy Express + TypeScript API server (do not modify; API work belongs in `services/fphgo`).
 - `apps/web`: Next.js App Router frontend (`src/app`) with shared UI/components, hooks, and feature modules.
 - `services/fphgo`: Go API service; canonical backend for all new API work.
 - `packages/config`: Shared runtime/config constants for workspaces.
 - `packages/db`: Shared DB package shell (currently minimal export surface) used for workspace dependency boundaries.
-- `packages/types`: Shared TypeScript DTOs/envelope types used by API and web.
+- `packages/types`: Shared TypeScript DTOs/envelope types used by web-facing API clients.
 - `packages/ui`: Shared UI package shell (currently minimal export surface).
 - `packages/utils`: Shared utility helpers.
 
@@ -25,8 +24,6 @@ Use either pattern:
 - Filter-based: `pnpm --filter <package-name> <script>`
 
 Verified examples:
-- `pnpm -C apps/api dev`
-- `pnpm --filter @freediving.ph/api test`
 - `pnpm -C apps/web build`
 - `pnpm --filter @freediving.ph/web type-check`
 - `pnpm --filter @freediving.ph/types test`
@@ -49,7 +46,7 @@ Verified examples:
 - For cross-workspace changes, run repo-level checks: `pnpm typecheck && pnpm lint && pnpm test`.
 - Keep shared contracts in `packages/types/src` backward-compatible when possible; update API and web together when DTOs change.
 - Do not create feature-local `types.ts` in `apps/web/src/features/*`; define shared contracts in `packages/types/src` and import from `@freediving.ph/types`.
-- Do not touch `apps/api`; it is legacy. All API work belongs in `services/fphgo`.
+- All API work belongs in `services/fphgo`.
 - Do not add workspace-only env assumptions into shared packages.
 
 ## ExecPlans

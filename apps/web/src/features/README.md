@@ -134,9 +134,15 @@ All features use `axiosInstance` directly from `@/lib/http/axios` instead of wra
 // lib/http/axios.ts
 import axios from 'axios';
 import { createAuthTokenInterceptor, createErrorInterceptor } from './helpers';
+import { getFphgoBaseUrlClient, getFphgoBaseUrlServer } from '@/lib/api/fphgo-base-url';
+
+const API_BASE_URL =
+  typeof window === 'undefined'
+    ? getFphgoBaseUrlServer()
+    : getFphgoBaseUrlClient();
 
 export const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: API_BASE_URL,
   withCredentials: true,
   timeout: 10000,
 });

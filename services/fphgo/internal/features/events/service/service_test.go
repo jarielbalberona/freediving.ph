@@ -44,7 +44,34 @@ func TestJoinEventUsesApprovalStatus(t *testing.T) {
 	}
 }
 
-func TestGetEventBySlugRejectsUnauthorizedPrivateViewer(t *testing.T) {
+func TestJoinPrivateEventDoesNotRequirePrivateDetailAccess(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443011"
+		userID  = "550e8400-e29b-41d4-a716-446655443012"
+	)
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:                          eventID,
+			Title:                       "Private annual event",
+			Status:                      "published",
+			Visibility:                  "private",
+			RequiresApproval:            true,
+			ViewerCanViewPrivateDetails: false,
+			ViewerCanManage:             false,
+		},
+	}
+	svc := New(repo)
+
+	participant, err := svc.JoinEvent(context.Background(), eventID, userID, "Would like to join")
+	if err != nil {
+		t.Fatalf("JoinEvent returned error: %v", err)
+	}
+	if participant.Status != "pending_approval" {
+		t.Fatalf("expected pending approval for private approval-required event, got %q", participant.Status)
+	}
+}
+
+func TestGetEventBySlugReturnsPublishedPrivateEventForUnauthorizedViewer(t *testing.T) {
 	repo := &eventsRepoStub{
 		event: eventsrepo.Event{
 			ID:                          "550e8400-e29b-41d4-a716-446655443061",
@@ -57,8 +84,30 @@ func TestGetEventBySlugRejectsUnauthorizedPrivateViewer(t *testing.T) {
 	}
 	svc := New(repo)
 
-	_, err := svc.GetEventBySlug(context.Background(), "private-depth-training", "550e8400-e29b-41d4-a716-446655443062")
-	assertAppErrorStatus(t, err, http.StatusForbidden)
+	event, err := svc.GetEventBySlug(context.Background(), "private-depth-training", "550e8400-e29b-41d4-a716-446655443062")
+	if err != nil {
+		t.Fatalf("GetEventBySlug returned error: %v", err)
+	}
+	if event.ID != repo.event.ID || event.ViewerCanViewPrivateDetails {
+		t.Fatalf("expected published private event to be returned for redaction, got %#v", event)
+	}
+}
+
+func TestGetEventBySlugHidesUnpublishedEventFromUnauthorizedViewer(t *testing.T) {
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:              "550e8400-e29b-41d4-a716-446655443063",
+			Slug:            "draft-depth-training",
+			Title:           "Draft depth training",
+			Status:          "draft",
+			Visibility:      "private",
+			ViewerCanManage: false,
+		},
+	}
+	svc := New(repo)
+
+	_, err := svc.GetEventBySlug(context.Background(), "draft-depth-training", "550e8400-e29b-41d4-a716-446655443064")
+	assertAppErrorStatus(t, err, http.StatusNotFound)
 }
 
 func TestListEventsDoesNotDefaultUnsetFilters(t *testing.T) {

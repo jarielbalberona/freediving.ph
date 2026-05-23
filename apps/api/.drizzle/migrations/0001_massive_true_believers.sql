@@ -1,1 +1,0 @@
-ALTER TABLE "dive_tour" ALTER COLUMN "available_dates" SET DEFAULT ARRAY[]::timestamp[];

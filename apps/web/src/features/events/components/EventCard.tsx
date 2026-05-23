@@ -45,7 +45,17 @@ export function EventCard({
   if (privateLocked) {
     return (
       <Card className="rounded-xl border-border/70 bg-background/80 py-0 shadow-none">
-        <CardContent className="space-y-2 p-3">
+        <CardContent className="space-y-3 p-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className="h-5 px-2 text-[11px]">
+              Private event
+            </Badge>
+            {event.requiresApproval ? (
+              <Badge variant="secondary" className="h-5 px-2 text-[11px]">
+                Approval required
+              </Badge>
+            ) : null}
+          </div>
           <Link
             href={`/events/${event.slug}`}
             className="block text-base font-semibold leading-tight text-foreground hover:underline"
@@ -55,6 +65,19 @@ export function EventCard({
           <p className="line-clamp-2 min-h-10 text-sm leading-5 text-muted-foreground">
             {event.shortDescription || "Private event details are limited."}
           </p>
+          <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Lock className="h-3.5 w-3.5" />
+              Details are shared after you join.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              render={<Link href={`/events/${event.slug}`} />}
+            >
+              View event
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );

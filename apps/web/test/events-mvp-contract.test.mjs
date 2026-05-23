@@ -59,7 +59,10 @@ test("events create and management use user-facing labels", () => {
   assert.match(detailPage, /Freediving details/);
   assert.match(detailPage, /Safety and logistics/);
   assert.doesNotMatch(detailPage, /Organizer setup/);
-  assert.doesNotMatch(detailPage, /Complete advanced details after the event exists/);
+  assert.doesNotMatch(
+    detailPage,
+    /Complete advanced details after the event exists/,
+  );
   assert.doesNotMatch(detailPage, /Payment amount pending/);
   assert.doesNotMatch(detailPage, /Join flow/);
 });
@@ -97,10 +100,7 @@ test("events discovery page keeps compact friendly filters", () => {
   assert.match(eventsPage, /items=\{EVENT_TYPE_FILTER_ITEMS\}/);
   assert.match(eventsPage, /items=\{PRICE_FILTER_ITEMS\}/);
   assert.match(eventsPage, /<div className="grid gap-3">/);
-  assert.match(
-    eventsPage,
-    /sm:grid-cols-2 md:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)_auto\]/,
-  );
+  assert.match(eventsPage, /sm:grid-cols-2/);
   assert.doesNotMatch(eventsPage, /grid grid-cols-2 gap-2/);
   assert.match(
     eventsPage,
@@ -114,6 +114,8 @@ test("events discovery page keeps compact friendly filters", () => {
   assert.doesNotMatch(eventsPage, /attendee identities/i);
   assert.doesNotMatch(eventsPage, /placeholder="Event type"/);
   assert.doesNotMatch(eventsPage, /placeholder="Price"/);
+  assert.doesNotMatch(eventsPage, /upcoming/i);
+  assert.match(eventsPage, /Newest first/);
 });
 
 test("events empty state and cards avoid raw discovery labels", () => {
@@ -137,6 +139,8 @@ test("private event cards show only title and short description when locked", ()
   assert.match(eventCard, /event\.title/);
   assert.match(eventCard, /event\.shortDescription/);
   assert.match(eventCard, /Private event details are limited/);
+  assert.match(eventCard, /Details are shared after you join\./);
+  assert.match(eventCard, /View event/);
 });
 
 test("events detail exposes join, payment proof, and organizer review controls", () => {
@@ -187,7 +191,10 @@ test("events detail organizes content into visibility-aware tabs", () => {
   assert.match(detailPage, /value="payment"/);
   assert.match(detailPage, /value="manage"/);
   assert.match(detailPage, /DiveSiteCombobox/);
-  assert.match(detailPage, /toISO\(startsAt, event\.timezone \|\| EVENT_DETAIL_TIMEZONE\)/);
+  assert.match(
+    detailPage,
+    /toISO\(\s*startsAt,\s*event\.timezone \|\| EVENT_DETAIL_TIMEZONE/,
+  );
   assert.match(detailPage, /const canShowJoinTab =/);
   assert.match(detailPage, /const canShowParticipantsTab =/);
   assert.match(detailPage, /const canShowPaymentTab =/);
@@ -200,9 +207,15 @@ test("events detail organizes content into visibility-aware tabs", () => {
 test("events detail overview avoids raw not-set label rows for viewers", () => {
   const detailPage = read("src/app/events/[slug]/client-page.tsx");
   assert.match(detailPage, /OverviewTab/);
-  assert.match(detailPage, /Some event details are missing\. Add them from Manage\./);
+  assert.match(
+    detailPage,
+    /Some event details are missing\. Add them from Manage\./,
+  );
   assert.match(detailPage, /getLogisticsSections/);
-  assert.match(detailPage, /filter\(\(section\): section is \{ title: string; body: string \}/);
+  assert.match(
+    detailPage,
+    /filter\(\(section\): section is \{ title: string; body: string \}/,
+  );
   assert.doesNotMatch(detailPage, /function DetailRow/);
   assert.doesNotMatch(detailPage, /label="Max depth"/);
   assert.doesNotMatch(detailPage, /Beginner-friendly"\s*\?\s*"Yes"\s*:\s*"No"/);
@@ -210,11 +223,22 @@ test("events detail overview avoids raw not-set label rows for viewers", () => {
 
 test("events detail keeps private identities and payment proof flows protected", () => {
   const detailPage = read("src/app/events/[slug]/client-page.tsx");
-  assert.match(detailPage, /Private event details, payment instructions, and attendee identities/);
+  assert.match(
+    detailPage,
+    /Private event details, payment instructions, and attendee identities/,
+  );
+  assert.match(detailPage, /Details are shared after you join\./);
+  assert.match(detailPage, /Sign in to join/);
   assert.match(detailPage, /const canShowIdentities =/);
   assert.match(detailPage, /Identities are hidden for\s+private events\./);
-  assert.match(detailPage, /event\.isPaid && \(event\.viewerJoined \|\| event\.viewerCanManage\)/);
-  assert.match(detailPage, /window\.open\(proof\.url, "_blank", "noopener,noreferrer"\)/);
+  assert.match(
+    detailPage,
+    /event\.isPaid && \(event\.viewerJoined \|\| event\.viewerCanManage\)/,
+  );
+  assert.match(
+    detailPage,
+    /window\.open\(proof\.url, "_blank", "noopener,noreferrer"\)/,
+  );
   assert.doesNotMatch(detailPage, /interestedUsers/);
 });
 
@@ -233,5 +257,6 @@ test("events API client targets canonical fphgo v1 event endpoints", () => {
   assert.match(api, /\/participants\/\$\{participantId\}\/approve/);
   assert.match(api, /\/payments\/\$\{paymentId\}\/verify/);
   assert.match(api, /payment-methods/);
+  assert.doesNotMatch(api, /upcoming/);
   assert.doesNotMatch(api, /apps\/api/);
 });

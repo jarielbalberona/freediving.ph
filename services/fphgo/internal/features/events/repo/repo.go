@@ -181,7 +181,6 @@ type ListEventsInput struct {
 	Difficulty       string
 	BeginnerFriendly *bool
 	Price            string
-	Upcoming         bool
 }
 
 type CreateEventInput struct {
@@ -364,10 +363,6 @@ func (r *Repo) ListEvents(ctx context.Context, input ListEventsInput) ([]Event, 
 	case "paid":
 		where = append(where, "e.is_paid = TRUE")
 	}
-	if input.Upcoming {
-		where = append(where, "(e.starts_at IS NULL OR e.starts_at >= NOW())")
-	}
-
 	args = append(args, limit, offset)
 	limitArg := idx
 	offsetArg := idx + 1
@@ -384,9 +379,9 @@ func (r *Repo) ListEvents(ctx context.Context, input ListEventsInput) ([]Event, 
 		LEFT JOIN event_participant_payments vpay
 			ON vpay.event_participation_id = vp.id
 		WHERE %s
-		ORDER BY e.starts_at ASC NULLS LAST, e.created_at DESC, e.id DESC
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, eventSelectColumns(), strings.Join(where, " AND "), limitArg, offsetArg)
+	`, eventSelectColumns(), strings.Join(where, " AND "), eventListOrderByClause(), limitArg, offsetArg)
 
 	rows, err := r.pool.Query(ctx, q, args...)
 	if err != nil {
@@ -408,6 +403,10 @@ func (r *Repo) ListEvents(ctx context.Context, input ListEventsInput) ([]Event, 
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+func eventListOrderByClause() string {
+	return "e.created_at DESC, e.id DESC"
 }
 
 func (r *Repo) GetEventByID(ctx context.Context, eventID, viewerUserID string) (Event, error) {
@@ -1341,8 +1340,8 @@ func eventSelectColumns() string {
 		coalesce(e.cancel_reason, ''),
 		e.created_at,
 		e.updated_at,
-		(vp.id IS NOT NULL AND vp.status IN ('pending_approval', 'confirmed', 'attended')) AS viewer_joined,
-		(vei.id IS NOT NULL AND (vp.id IS NULL OR vp.status NOT IN ('pending_approval', 'confirmed', 'attended'))) AS viewer_interested,
+		coalesce((vp.id IS NOT NULL AND vp.status IN ('pending_approval', 'confirmed', 'attended')), false) AS viewer_joined,
+		coalesce((vei.id IS NOT NULL AND (vp.id IS NULL OR vp.status NOT IN ('pending_approval', 'confirmed', 'attended'))), false) AS viewer_interested,
 		coalesce(vp.status, '') AS viewer_participation_status,
 		CASE
 			WHEN NULLIF($1, '') IS NULL THEN 'anonymous'
@@ -1355,14 +1354,14 @@ func eventSelectColumns() string {
 			ELSE 'none'
 		END AS viewer_event_state,
 		(
-			e.organizer_user_id = NULLIF($1, '')::uuid
-			OR (vp.role IN ('organizer', 'staff') AND vp.status IN ('confirmed', 'pending_approval'))
+			coalesce(e.organizer_user_id = NULLIF($1, '')::uuid, false)
+			OR coalesce(vp.role IN ('organizer', 'staff') AND vp.status IN ('confirmed', 'pending_approval'), false)
 		) AS viewer_can_manage,
 		(
 			e.visibility = 'public'
-			OR e.organizer_user_id = NULLIF($1, '')::uuid
-			OR (vp.role IN ('organizer', 'staff') AND vp.status IN ('confirmed', 'pending_approval'))
-			OR (vp.role = 'participant' AND vp.status = 'confirmed')
+			OR coalesce(e.organizer_user_id = NULLIF($1, '')::uuid, false)
+			OR coalesce(vp.role IN ('organizer', 'staff') AND vp.status IN ('confirmed', 'pending_approval'), false)
+			OR coalesce(vp.role = 'participant' AND vp.status = 'confirmed', false)
 		) AS viewer_can_view_private_details,
 		coalesce(vp.id::text, ''),
 		coalesce(vp.event_id::text, ''),

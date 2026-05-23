@@ -72,14 +72,15 @@ module "ecs_api" {
   task_role_policies      = var.api_task_role_policies
   execution_role_policies = var.api_execution_role_policies
   secrets = {
-    DATABASE_URL = module.secrets.db_connection_secret_arn
-    JWT_SECRET   = module.secrets.jwt_secret_arn
+    DB_DSN = module.secrets.db_connection_secret_arn
   }
   environment_variables = {
-    NODE_ENV = var.environment
-    PORT     = tostring(var.project_api_port)
+    APP_ENV      = var.environment
+    PORT         = tostring(var.project_api_port)
+    API_BASE_URL = var.project_api_url
+    CORS_ORIGINS = var.project_app_url
   }
-  health_check_path                = "/health"
+  health_check_path                = "/healthz"
   health_check_grace_period        = var.api_health_check_grace_period
   deployment_circuit_breaker       = var.api_deployment_circuit_breaker
   deployment_rollback              = var.api_deployment_rollback
@@ -114,9 +115,10 @@ module "ecs_app" {
     JWT_SECRET = module.secrets.jwt_secret_arn
   }
   environment_variables = {
-    NODE_ENV = var.environment
-    PORT     = tostring(var.project_app_port)
-    NEXT_PUBLIC_API_URL = var.project_api_url
+    NODE_ENV                   = var.environment
+    PORT                       = tostring(var.project_app_port)
+    NEXT_PUBLIC_FPHGO_BASE_URL = var.project_api_url
+    FPHGO_BASE_URL             = var.project_api_url
   }
   health_check_path                = "/api/health"
   health_check_grace_period        = var.app_health_check_grace_period
