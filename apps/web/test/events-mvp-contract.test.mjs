@@ -88,6 +88,12 @@ test("events discovery page keeps compact friendly filters", () => {
   assert.match(eventsPage, /Paid events/);
   assert.match(eventsPage, /items=\{EVENT_TYPE_FILTER_ITEMS\}/);
   assert.match(eventsPage, /items=\{PRICE_FILTER_ITEMS\}/);
+  assert.match(eventsPage, /<div className="grid gap-3">/);
+  assert.match(
+    eventsPage,
+    /sm:grid-cols-2 md:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)_auto\]/,
+  );
+  assert.doesNotMatch(eventsPage, /grid grid-cols-2 gap-2/);
   assert.match(
     eventsPage,
     /setEventType\(\(value \?\? "all"\) as EventTypeFilter\)/,

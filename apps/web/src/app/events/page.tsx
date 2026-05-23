@@ -177,82 +177,84 @@ export default function EventsPage() {
           title="Browse events"
           description="Search by event name, dive site, or place."
         >
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-10"
-                placeholder="Search events"
-                value={search}
-                onChange={(event) => {
+          <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="relative min-w-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-10"
+                  placeholder="Search events"
+                  value={search}
+                  onChange={(event) => {
+                    setLimit(24);
+                    setSearch(event.target.value);
+                  }}
+                />
+              </div>
+              <DiveSiteCombobox
+                value={diveSiteId}
+                valueLabel={diveSiteId === "all" ? undefined : diveSiteLabel}
+                onValueChange={(value, site) => {
                   setLimit(24);
-                  setSearch(event.target.value);
+                  setDiveSiteId(value);
+                  setDiveSiteLabel(site ? `${site.name} · ${site.area}` : "");
                 }}
+                allOption={{ value: "all", label: "All dive sites" }}
+                searchPlaceholder="All dive sites"
               />
             </div>
-            <DiveSiteCombobox
-              value={diveSiteId}
-              valueLabel={diveSiteId === "all" ? undefined : diveSiteLabel}
-              onValueChange={(value, site) => {
-                setLimit(24);
-                setDiveSiteId(value);
-                setDiveSiteLabel(site ? `${site.name} · ${site.area}` : "");
-              }}
-              allOption={{ value: "all", label: "All dive sites" }}
-              searchPlaceholder="All dive sites"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <Select
-              value={eventType}
-              onValueChange={(value) => {
-                setLimit(24);
-                setEventType((value ?? "all") as EventTypeFilter);
-              }}
-              items={EVENT_TYPE_FILTER_ITEMS}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {EVENT_TYPE_FILTER_ITEMS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={price}
-              onValueChange={(value) => {
-                setLimit(24);
-                setPrice((value ?? "all") as PriceFilter);
-              }}
-              items={PRICE_FILTER_ITEMS}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRICE_FILTER_ITEMS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              size="sm"
-              className="w-fit justify-self-start"
-              variant={upcoming ? "default" : "outline"}
-              onClick={() => {
-                setLimit(24);
-                setUpcoming((value) => !value);
-              }}
-            >
-              Upcoming
-            </Button>
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <Select
+                value={eventType}
+                onValueChange={(value) => {
+                  setLimit(24);
+                  setEventType((value ?? "all") as EventTypeFilter);
+                }}
+                items={EVENT_TYPE_FILTER_ITEMS}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EVENT_TYPE_FILTER_ITEMS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={price}
+                onValueChange={(value) => {
+                  setLimit(24);
+                  setPrice((value ?? "all") as PriceFilter);
+                }}
+                items={PRICE_FILTER_ITEMS}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRICE_FILTER_ITEMS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                className="w-full sm:w-fit sm:justify-self-start"
+                variant={upcoming ? "default" : "outline"}
+                onClick={() => {
+                  setLimit(24);
+                  setUpcoming((value) => !value);
+                }}
+              >
+                Upcoming
+              </Button>
+            </div>
           </div>
         </CommunityBrowseToolbar>
 
