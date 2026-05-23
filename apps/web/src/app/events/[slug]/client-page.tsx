@@ -29,6 +29,7 @@ import {
   Award,
   CalendarClock,
   CheckCircle2,
+  Copy,
   Handshake,
   Lock,
   MapPin,
@@ -36,6 +37,8 @@ import {
   Pencil,
   Pin,
   Plus,
+  QrCode,
+  RefreshCw,
   ShieldCheck,
   Ticket,
   Trash2,
@@ -44,6 +47,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { QRCodeSVG } from "qrcode.react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -75,6 +79,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -109,6 +114,7 @@ import {
   useEvent,
   useEventCompetitions,
   useEventParticipants,
+  useEventPassVerification,
   useEventPaymentProofUrl,
   useEventPosts,
   useEventPrizes,
@@ -119,6 +125,7 @@ import {
   useMarkEventUninterested,
   useRejectEventParticipant,
   useRejectEventPayment,
+  useRegenerateEventPass,
   useSubmitEventPayment,
   useUpdateEventCompetition,
   useUpdateEvent,
@@ -130,6 +137,7 @@ import {
   useVerifyEventPayment,
 } from "@/features/events";
 import { mediaApi } from "@/features/media/api/media";
+import { siteConfig } from "@/config/site";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 
 type EventTab =
@@ -263,6 +271,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     paymentMethods[0];
   const canShowJoinPanel =
     !event.viewerCanManage &&
+    !event.viewerJoined &&
     (isSignedIn || event.viewerEventState !== "anonymous");
   const canShowParticipantsTab =
     event.visibility === "public" ||
@@ -434,6 +443,8 @@ export default function EventDetailClient({ slug }: { slug: string }) {
             .getElementById("event-join-actions")
             ?.scrollIntoView({ behavior: "smooth", block: "start" })
         }
+        onLeave={handleLeave}
+        isLeaving={leaveMutation.isPending}
       />
 
       {!canSeePrivateDetails ? (
@@ -710,6 +721,7 @@ export function EventManageClient({ slug }: { slug: string }) {
   const rejectPaymentMutation = useRejectEventPayment();
   const proofUrlMutation = useEventPaymentProofUrl();
   const updateParticipantRoleMutation = useUpdateEventParticipantRole();
+  const regeneratePassMutation = useRegenerateEventPass();
 
   const participants = useMemo(
     () =>
@@ -835,7 +847,10 @@ export function EventManageClient({ slug }: { slug: string }) {
           <TabsTrigger value="setup" className={manageTabTriggerClassName}>
             Setup
           </TabsTrigger>
-          <TabsTrigger value="participants" className={manageTabTriggerClassName}>
+          <TabsTrigger
+            value="participants"
+            className={manageTabTriggerClassName}
+          >
             Participants
           </TabsTrigger>
           <TabsTrigger value="payments" className={manageTabTriggerClassName}>
@@ -876,7 +891,10 @@ export function EventManageClient({ slug }: { slug: string }) {
                   onSuccess: () => toast.success("Participant approved."),
                   onError: (error) =>
                     toast.error(
-                      getApiErrorMessage(error, "Failed to approve participant"),
+                      getApiErrorMessage(
+                        error,
+                        "Failed to approve participant",
+                      ),
                     ),
                 },
               )
@@ -933,6 +951,23 @@ export function EventManageClient({ slug }: { slug: string }) {
               )
             }
             onViewPaymentProof={handleViewPaymentProof}
+            onRegeneratePass={(participantId) =>
+              regeneratePassMutation.mutate(
+                { eventId: event.id, participantId },
+                {
+                  onSuccess: () => toast.success("Event pass regenerated."),
+                  onError: (error) =>
+                    toast.error(
+                      getApiErrorMessage(error, "Failed to regenerate QR"),
+                    ),
+                },
+              )
+            }
+            regeneratingPassId={
+              regeneratePassMutation.isPending
+                ? regeneratePassMutation.variables?.participantId
+                : undefined
+            }
             viewingPaymentProofId={
               proofUrlMutation.isPending
                 ? proofUrlMutation.variables?.paymentId
@@ -983,6 +1018,154 @@ export function EventManageClient({ slug }: { slug: string }) {
           />
         </TabsContent>
       </Tabs>
+    </CommunityPageShell>
+  );
+}
+
+export function EventPassVerificationClient({
+  slug,
+  token,
+}: {
+  slug: string;
+  token: string;
+}) {
+  const passQuery = useEventPassVerification(slug, token);
+  const pass = passQuery.data;
+
+  if (passQuery.isLoading) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Event pass"
+          subtitle="Loading verification details."
+          navigation={<BackButton />}
+        />
+        <Skeleton className="h-80 w-full rounded-xl" />
+      </CommunityPageShell>
+    );
+  }
+
+  if (passQuery.error || !pass) {
+    const status = getApiErrorStatus(passQuery.error);
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Event pass"
+          subtitle="Verification"
+          navigation={<BackButton />}
+        />
+        <StatusPanel
+          title={
+            status === 403
+              ? "Restricted event pass"
+              : "Invalid or expired event pass"
+          }
+          description={
+            status === 403
+              ? "This event pass can only be viewed by the pass owner or event organizers."
+              : "Invalid or expired event pass."
+          }
+        />
+      </CommunityPageShell>
+    );
+  }
+
+  return (
+    <CommunityPageShell>
+      <CommunityHeader
+        title={pass.canManage && !pass.isOwner ? "Valid event pass" : "My event pass"}
+        subtitle={pass.event.title}
+        navigation={<BackToEventButton event={pass.event} />}
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge
+            variant="outline"
+            className="h-5 border-emerald-500/30 bg-emerald-500/10 px-2 text-[11px] text-emerald-700"
+          >
+            {pass.valid ? "Valid event pass" : "Invalid event pass"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={getParticipantRoleBadgeClass(pass.role)}
+          >
+            {titleCase(pass.role)}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={getParticipantStatusBadgeClass(pass.status)}
+          >
+            {titleCase(pass.status)}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={getPaymentStatusBadgeClass(
+              pass.payment?.status ??
+                (pass.event.isPaid ? "pending_upload" : "not_required"),
+            )}
+          >
+            {getPaymentStatusLabel(
+              pass.payment?.status ??
+                (pass.event.isPaid ? "pending_upload" : "not_required"),
+            )}
+          </Badge>
+        </div>
+      </CommunityHeader>
+      <DetailSection title="Verification details">
+        <div className="space-y-5">
+          <UserIdentityHeader
+            displayName={
+              pass.participant.displayName ||
+              pass.participant.username ||
+              pass.participant.userId
+            }
+            username={pass.participant.username}
+            avatarUrl={pass.participant.avatarUrl}
+            usernameFallback="participant"
+          />
+          <div className="flex justify-center rounded-lg border border-border/70 bg-white p-4">
+            <QRCodeSVG
+              value={getEventPassUrl(pass.event, pass.participant)}
+              size={220}
+              level="M"
+              role="img"
+              aria-label="Event pass QR code"
+            />
+          </div>
+          <div className="grid gap-2 text-sm">
+            <PassDetail label="Event" value={pass.event.title} />
+            <PassDetail
+              label="Date"
+              value={formatEventDate(
+                pass.event.startsAt,
+                pass.event.endsAt,
+                pass.event.timezone,
+              )}
+            />
+            <PassDetail
+              label="Location"
+              value={formatEventLocation(pass.event)}
+            />
+            <PassDetail label="Role" value={titleCase(pass.participant.role)} />
+            <PassDetail
+              label="Attendance status"
+              value={titleCase(pass.participant.status)}
+            />
+            <PassDetail
+              label="Payment status"
+              value={getPaymentStatusLabel(
+                pass.payment?.status ??
+                  (pass.event.isPaid ? "pending_upload" : "not_required"),
+              )}
+            />
+            <PassDetail
+              label="Checked-in status"
+              value={
+                pass.participant.checkedInAt ? "Checked in" : "Not checked in"
+              }
+            />
+          </div>
+        </div>
+      </DetailSection>
     </CommunityPageShell>
   );
 }
@@ -1202,6 +1385,8 @@ function EventHeader({
   isSignedIn,
   onSelectTab,
   onJoinAction,
+  onLeave,
+  isLeaving,
 }: {
   event: Event;
   canSeePrivateDetails: boolean;
@@ -1210,6 +1395,8 @@ function EventHeader({
   isSignedIn: boolean;
   onSelectTab: (tab: EventTab) => void;
   onJoinAction: () => void;
+  onLeave: () => void;
+  isLeaving: boolean;
 }) {
   const privateLocked = event.visibility === "private" && !canSeePrivateDetails;
   const subtitle =
@@ -1217,17 +1404,73 @@ function EventHeader({
     (canSeePrivateDetails
       ? "Details from the organizer are below."
       : "This is a private event. Details are limited until you are approved.");
-  const chips = privateLocked
+  const chips: Array<{ label: string; className: string }> = privateLocked
     ? [
-        "Private event",
-        event.requiresApproval ? "Approval required" : "",
-      ].filter(Boolean)
+        {
+          label: "Private event",
+          className: getEventVisibilityBadgeClass(event.visibility),
+        },
+        ...(event.requiresApproval
+          ? [
+              {
+                label: "Approval required",
+                className: getEventAccessBadgeClass(true),
+              },
+            ]
+          : []),
+      ]
     : [
-        event.type ? eventOptionLabel(event.type) : "",
-        event.difficulty ? titleCase(event.difficulty) : "",
-        event.visibility === "private" ? "Private" : "Public",
-        formatEventPriceLabel(event),
-      ].filter(Boolean);
+        ...(event.type
+          ? [
+              {
+                label: eventOptionLabel(event.type),
+                className: getEventTypeBadgeClass(),
+              },
+            ]
+          : []),
+        ...(event.difficulty
+          ? [
+              {
+                label: titleCase(event.difficulty),
+                className: getEventDifficultyBadgeClass(event.difficulty),
+              },
+            ]
+          : []),
+        {
+          label: event.visibility === "private" ? "Private" : "Public",
+          className: getEventVisibilityBadgeClass(event.visibility),
+        },
+        {
+          label: formatEventPriceLabel(event),
+          className: getEventPriceBadgeClass(event),
+        },
+        ...(event.viewerParticipation
+          ? [
+              {
+                label:
+                  getViewerStateLabel(event.viewerEventState) ??
+                  titleCase(event.viewerParticipation.status),
+                className: getParticipantStatusBadgeClass(
+                  event.viewerParticipation.status,
+                ),
+              },
+            ]
+          : []),
+        ...(event.viewerParticipation && (event.isPaid || event.viewerPayment)
+          ? [
+              {
+                label: getPaymentStatusLabel(
+                  event.viewerPayment?.status ??
+                    (event.isPaid ? "pending_upload" : "not_required"),
+                ),
+                className: getPaymentStatusBadgeClass(
+                  event.viewerPayment?.status ??
+                    (event.isPaid ? "pending_upload" : "not_required"),
+                ),
+              },
+            ]
+          : []),
+      ];
 
   return (
     <CommunityHeader
@@ -1242,6 +1485,8 @@ function EventHeader({
           isSignedIn={isSignedIn}
           onSelectTab={onSelectTab}
           onJoinAction={onJoinAction}
+          onLeave={onLeave}
+          isLeaving={isLeaving}
         />
       }
     >
@@ -1249,11 +1494,11 @@ function EventHeader({
         <div className="flex flex-wrap items-center gap-1.5">
           {chips.map((chip, index) => (
             <Badge
-              key={`${chip}-${index}`}
-              variant={index === 0 ? "default" : "outline"}
-              className="h-6 px-2 text-[11px]"
+              key={`${chip.label}-${index}`}
+              variant="outline"
+              className={chip.className}
             >
-              {chip}
+              {chip.label}
             </Badge>
           ))}
         </div>
@@ -1301,6 +1546,8 @@ function HeaderAction({
   isSignedIn,
   onSelectTab,
   onJoinAction,
+  onLeave,
+  isLeaving,
 }: {
   event: Event;
   canShowJoinPanel: boolean;
@@ -1308,13 +1555,17 @@ function HeaderAction({
   isSignedIn: boolean;
   onSelectTab: (tab: EventTab) => void;
   onJoinAction: () => void;
+  onLeave: () => void;
+  isLeaving: boolean;
 }) {
   if (event.viewerCanManage) {
     return (
       <Button
         size="sm"
         nativeButton={false}
-        render={<Link href={`/events/${encodeURIComponent(event.slug)}/manage`} />}
+        render={
+          <Link href={`/events/${encodeURIComponent(event.slug)}/manage`} />
+        }
       >
         <Pencil className="mr-1 h-4 w-4" />
         Manage
@@ -1339,10 +1590,43 @@ function HeaderAction({
     );
   }
 
+  if (event.viewerJoined) {
+    return (
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button
+              size="xs"
+              variant="destructive"
+              disabled={
+                isLeaving || event.viewerParticipation?.role === "organizer"
+              }
+            />
+          }
+        >
+          Leave event
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave event?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your participation will be marked as left. You may need the
+              organizer to reactivate it if you change your mind.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={onLeave}>Leave event</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
   if (canShowJoinPanel) {
     return (
       <Button size="sm" onClick={onJoinAction}>
-        {event.viewerJoined ? "View status" : "Join"}
+        Join
       </Button>
     );
   }
@@ -1850,7 +2134,9 @@ function PrizesTab({
             variant="outline"
             nativeButton={false}
             render={
-              <Link href={`/events/${encodeURIComponent(event.slug)}/manage#prizes`} />
+              <Link
+                href={`/events/${encodeURIComponent(event.slug)}/manage#prizes`}
+              />
             }
           >
             Manage competitions & prizes
@@ -1860,7 +2146,7 @@ function PrizesTab({
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => openCompetitionDialog()}>
               <Plus className="mr-1 h-4 w-4" />
-            Add competition
+              Add competition
             </Button>
             <Button
               size="sm"
@@ -2240,19 +2526,14 @@ function CompetitionList({
                 href={getCompetitionHref(event, competition)}
                 className="min-w-0 flex-1 space-y-1"
               >
+                <h3 className="text-sm font-medium text-foreground">
+                  {competition.name}
+                </h3>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Badge variant="outline" className="h-6 px-2 text-[11px]">
                     {prizeCount} prize{prizeCount === 1 ? "" : "s"}
                   </Badge>
-                  {competition.rulesMarkdown ? (
-                    <Badge variant="outline" className="h-6 px-2 text-[11px]">
-                      Rules added
-                    </Badge>
-                  ) : null}
                 </div>
-                <h3 className="text-sm font-medium text-foreground">
-                  {competition.name}
-                </h3>
               </Link>
               {onEdit ? (
                 <Button
@@ -2402,7 +2683,9 @@ function SponsorsTab({
             variant="outline"
             nativeButton={false}
             render={
-              <Link href={`/events/${encodeURIComponent(event.slug)}/manage#sponsors`} />
+              <Link
+                href={`/events/${encodeURIComponent(event.slug)}/manage#sponsors`}
+              />
             }
           >
             Manage sponsors
@@ -2530,7 +2813,10 @@ function SponsorsTab({
           <SetupField label="Tier">
             <Select
               value={tier || "none"}
-              items={[{ value: "none", label: "Not set" }, ...sponsorTierOptions]}
+              items={[
+                { value: "none", label: "Not set" },
+                ...sponsorTierOptions,
+              ]}
               onValueChange={(value) =>
                 setTier(value === "none" ? "" : (value as EventSponsorTier))
               }
@@ -2769,10 +3055,7 @@ function PostsTab({
       <DetailSection title={isManageMode ? "Posts" : "Updates"}>
         <div className="flex flex-wrap items-center gap-2">
           {canCreatePost && isManageMode ? (
-            <Button
-              size="sm"
-              onClick={() => openDialog()}
-            >
+            <Button size="sm" onClick={() => openDialog()}>
               <MessageSquare className="mr-1 h-4 w-4" />
               New post
             </Button>
@@ -2782,7 +3065,9 @@ function PostsTab({
               size="sm"
               nativeButton={false}
               render={
-                <Link href={`/events/${encodeURIComponent(event.slug)}/manage#updates`} />
+                <Link
+                  href={`/events/${encodeURIComponent(event.slug)}/manage#updates`}
+                />
               }
             >
               <MessageSquare className="mr-1 h-4 w-4" />
@@ -3026,10 +3311,24 @@ function PaymentTab({
 
   if (!event.isPaid) {
     return (
-      <StatusPanel
-        title="This event is free"
-        description="No payment is needed."
-      />
+      <div className="space-y-4">
+        <StatusPanel
+          title="This event is free"
+          description="No payment is needed."
+        />
+        {canShowEventPass(event.viewerParticipation) ? (
+          <StatusPanel
+            title="My event pass"
+            description={getPaymentStatusLabel("not_required")}
+          >
+            <EventPassDialog
+              event={event}
+              participant={event.viewerParticipation}
+              triggerClassName="h-8"
+            />
+          </StatusPanel>
+        ) : null}
+      </div>
     );
   }
 
@@ -3060,6 +3359,13 @@ function PaymentTab({
         }
         description={getPaymentStatusLabel(payment?.status ?? "pending_upload")}
       >
+        {canShowEventPass(event.viewerParticipation) ? (
+          <EventPassDialog
+            event={event}
+            participant={event.viewerParticipation}
+            triggerClassName="h-8"
+          />
+        ) : null}
         {payment?.proofMediaId ? (
           <Button
             size="sm"
@@ -3137,13 +3443,13 @@ function PaymentTab({
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((method) => (
-                      <SelectItem key={method.id} value={method.id}>
-                        {getPaymentMethodLabel(method)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <SelectContent>
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method.id} value={method.id}>
+                      {getPaymentMethodLabel(method)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </SetupField>
             <SetupField label="Reference number">
@@ -3223,7 +3529,9 @@ function ParticipantsSection({
   onVerifyPayment,
   onRejectPayment,
   onViewPaymentProof,
+  onRegeneratePass,
   viewingPaymentProofId,
+  regeneratingPassId,
   showOrganizerActions = false,
 }: {
   event: Event;
@@ -3239,13 +3547,33 @@ function ParticipantsSection({
   onVerifyPayment: (paymentId: string) => void;
   onRejectPayment: (paymentId: string) => void;
   onViewPaymentProof: (paymentId: string) => void;
+  onRegeneratePass?: (participantId: string) => void;
   viewingPaymentProofId?: string;
+  regeneratingPassId?: string;
   showOrganizerActions?: boolean;
 }) {
   const canShowIdentities =
     event.visibility === "public" ||
     event.viewerCanViewPrivateDetails ||
     event.viewerCanManage;
+  const sortedParticipants = useMemo(
+    () =>
+      [...participants].sort((left, right) => {
+        const roleRank = (item: EventParticipant) =>
+          item.role === "organizer" ? 0 : 1;
+        const byRole = roleRank(left) - roleRank(right);
+        if (byRole !== 0) return byRole;
+        return (
+          (left.displayName || left.username || left.userId).localeCompare(
+            right.displayName || right.username || right.userId,
+          )
+        );
+      }),
+    [participants],
+  );
+  const organizerCount = participants.filter(
+    (participant) => participant.role === "organizer",
+  ).length;
 
   if (!canShowIdentities) {
     return (
@@ -3271,6 +3599,11 @@ function ParticipantsSection({
         <Badge variant="outline" className="h-6 px-2 text-[11px]">
           {event.goingCount ?? event.currentAttendees} going
         </Badge>
+        {showOrganizerActions ? (
+          <Badge variant="outline" className="h-6 px-2 text-[11px]">
+            {organizerCount} organizer{organizerCount === 1 ? "" : "s"}
+          </Badge>
+        ) : null}
         <Badge variant="outline" className="h-6 px-2 text-[11px]">
           {event.interestedCount ?? 0} interested
         </Badge>
@@ -3281,7 +3614,9 @@ function ParticipantsSection({
             className="h-6 px-1 text-xs"
             nativeButton={false}
             render={
-              <Link href={`/events/${encodeURIComponent(event.slug)}/manage#participants`} />
+              <Link
+                href={`/events/${encodeURIComponent(event.slug)}/manage#participants`}
+              />
             }
           >
             Manage participants
@@ -3305,7 +3640,7 @@ function ParticipantsSection({
         />
       ) : (
         <div className="divide-y divide-border/70 border-y border-border/70">
-          {participants.map((participant) => (
+          {sortedParticipants.map((participant) => (
             <div key={participant.id} className="py-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <UserIdentityHeader
@@ -3335,19 +3670,19 @@ function ParticipantsSection({
                   </Badge>
                   {showOrganizerActions ? (
                     <>
-                      <Badge
-                        variant="outline"
-                        className={getPaymentStatusBadgeClass(
-                          participant.payment?.status ??
-                            (event.isPaid ? "pending_upload" : "not_required"),
-                        )}
-                      >
-                        {getPaymentStatusLabel(
-                          participant.payment?.status ??
-                            (event.isPaid ? "pending_upload" : "not_required"),
-                        )}
-                      </Badge>
+                      <PaymentStatusBadge
+                        payment={participant.payment}
+                        fallbackStatus={
+                          event.isPaid ? "pending_upload" : "not_required"
+                        }
+                        isOpening={
+                          Boolean(participant.payment?.id) &&
+                          viewingPaymentProofId === participant.payment?.id
+                        }
+                        onViewProof={onViewPaymentProof}
+                      />
                       <OrganizerActions
+                        event={event}
                         participant={participant}
                         onApprove={onApprove}
                         onReject={onReject}
@@ -3355,7 +3690,9 @@ function ParticipantsSection({
                         onVerifyPayment={onVerifyPayment}
                         onRejectPayment={onRejectPayment}
                         onViewPaymentProof={onViewPaymentProof}
+                        onRegeneratePass={onRegeneratePass}
                         viewingPaymentProofId={viewingPaymentProofId}
+                        regeneratingPassId={regeneratingPassId}
                       />
                     </>
                   ) : null}
@@ -3377,6 +3714,7 @@ function ParticipantsSection({
 }
 
 function OrganizerActions({
+  event,
   participant,
   onApprove,
   onReject,
@@ -3384,8 +3722,11 @@ function OrganizerActions({
   onVerifyPayment,
   onRejectPayment,
   onViewPaymentProof,
+  onRegeneratePass,
   viewingPaymentProofId,
+  regeneratingPassId,
 }: {
+  event: Event;
   participant: EventParticipant;
   onApprove: (participantId: string) => void;
   onReject: (participantId: string) => void;
@@ -3396,12 +3737,21 @@ function OrganizerActions({
   onVerifyPayment: (paymentId: string) => void;
   onRejectPayment: (paymentId: string) => void;
   onViewPaymentProof: (paymentId: string) => void;
+  onRegeneratePass?: (participantId: string) => void;
   viewingPaymentProofId?: string;
+  regeneratingPassId?: string;
 }) {
   const payment = participant.payment;
   const compactButtonClassName = "h-6 rounded-full px-2 text-[11px]";
   return (
     <>
+      <EventPassDialog
+        event={event}
+        participant={participant}
+        triggerClassName={compactButtonClassName}
+        onRegeneratePass={onRegeneratePass}
+        regenerating={regeneratingPassId === participant.id}
+      />
       {participant.status === "pending_approval" ? (
         <>
           <Button
@@ -3446,19 +3796,6 @@ function OrganizerActions({
       ) : null}
       {payment ? (
         <>
-          {payment.proofMediaId ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className={compactButtonClassName}
-              disabled={viewingPaymentProofId === payment.id}
-              onClick={() => onViewPaymentProof(payment.id)}
-            >
-              {viewingPaymentProofId === payment.id
-                ? "Opening..."
-                : "View proof"}
-            </Button>
-          ) : null}
           {payment.referenceNumber ? (
             <span className="text-[11px] text-muted-foreground">
               Ref: {payment.referenceNumber}
@@ -3486,6 +3823,204 @@ function OrganizerActions({
         </>
       ) : null}
     </>
+  );
+}
+
+function EventPassDialog({
+  event,
+  participant,
+  triggerClassName,
+  onRegeneratePass,
+  regenerating = false,
+}: {
+  event: Event;
+  participant: EventParticipant;
+  triggerClassName?: string;
+  onRegeneratePass?: (participantId: string) => void;
+  regenerating?: boolean;
+}) {
+  const passUrl = getEventPassUrl(event, participant);
+  const paymentStatus =
+    participant.payment?.status ??
+    (event.isPaid ? "pending_upload" : "not_required");
+  const copyPassLink = async () => {
+    if (!passUrl) return;
+    await navigator.clipboard.writeText(passUrl);
+    toast.success("Event pass link copied.");
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={
+          <Button
+            size="sm"
+            variant="outline"
+            className={triggerClassName}
+            disabled={!passUrl}
+          />
+        }
+      >
+        <QrCode className="mr-1 h-3 w-3" />
+        View QR
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <DialogTitle>Event pass</DialogTitle>
+            <Badge
+              variant="outline"
+              className={getParticipantRoleBadgeClass(participant.role)}
+            >
+              {titleCase(participant.role)}
+            </Badge>
+          </div>
+          <DialogDescription>
+            {participant.displayName || participant.username || "Participant"}
+          </DialogDescription>
+        </DialogHeader>
+        {passUrl ? (
+          <div className="space-y-5">
+            <div className="flex justify-center rounded-lg border border-border/70 bg-white p-4">
+              <QRCodeSVG
+                value={passUrl}
+                size={220}
+                level="M"
+                role="img"
+                aria-label="Event pass QR code"
+              />
+            </div>
+            <p className="text-center text-xs text-muted-foreground">
+              Scan this QR to verify this event pass.
+            </p>
+            <div className="grid gap-2 text-sm">
+              <PassDetail label="Event" value={event.title} />
+              <PassDetail
+                label="Date"
+                value={formatEventDate(
+                  event.startsAt,
+                  event.endsAt,
+                  event.timezone,
+                )}
+              />
+              <PassDetail label="Location" value={formatEventLocation(event)} />
+              <PassDetail
+                label="User"
+                value={
+                  participant.displayName ||
+                  participant.username ||
+                  participant.userId
+                }
+              />
+              <PassDetail
+                label="Username"
+                value={
+                  participant.username ? `@${participant.username}` : "Not set"
+                }
+              />
+              <PassDetail label="Role" value={titleCase(participant.role)} />
+              <PassDetail
+                label="Attendance status"
+                value={titleCase(participant.status)}
+              />
+              <PassDetail
+                label="Payment status"
+                value={getPaymentStatusLabel(paymentStatus)}
+              />
+              <PassDetail
+                label="Checked-in status"
+                value={
+                  participant.checkedInAt ? "Checked in" : "Not checked in"
+                }
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            This event member does not have an active event pass yet.
+          </p>
+        )}
+        <DialogFooter showCloseButton>
+          <Button variant="outline" disabled={!passUrl} onClick={copyPassLink}>
+            <Copy className="mr-1 h-4 w-4" />
+            Copy pass link
+          </Button>
+          {onRegeneratePass ? (
+          <AlertDialog>
+            <AlertDialogTrigger
+              render={
+                <Button variant="outline" disabled={regenerating} />
+              }
+            >
+              <RefreshCw className="mr-1 h-4 w-4" />
+              {regenerating ? "Regenerating..." : "Regenerate QR"}
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Regenerate QR?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This invalidates the current event pass link. Use it only when
+                  the old QR should stop working.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => onRegeneratePass(participant.id)}
+                >
+                  Regenerate QR
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PassDetail({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-2 last:border-b-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium">{value || "Not set"}</span>
+    </div>
+  );
+}
+
+function PaymentStatusBadge({
+  payment,
+  fallbackStatus,
+  isOpening,
+  onViewProof,
+}: {
+  payment?: EventParticipant["payment"];
+  fallbackStatus: EventPaymentStatus;
+  isOpening: boolean;
+  onViewProof: (paymentId: string) => void;
+}) {
+  const status = payment?.status ?? fallbackStatus;
+  const label = getPaymentStatusLabel(status);
+  const className = getPaymentStatusBadgeClass(status);
+
+  if (payment?.proofMediaId) {
+    return (
+      <button
+        type="button"
+        className={`${className} inline-flex items-center rounded-full border font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-60`}
+        disabled={isOpening}
+        onClick={() => onViewProof(payment.id)}
+      >
+        {isOpening ? "Opening proof..." : `${label} | Proof`}
+      </button>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className={className}>
+      {label}
+    </Badge>
   );
 }
 
@@ -4503,6 +5038,49 @@ function getPaymentStatusLabel(status: EventPaymentStatus) {
   }
 }
 
+function getEventTypeBadgeClass() {
+  return "h-6 border-sky-500/30 bg-sky-500/10 px-2 text-[11px] text-sky-700";
+}
+
+function getEventDifficultyBadgeClass(difficulty: Event["difficulty"]) {
+  const base = "h-6 px-2 text-[11px]";
+  switch (difficulty) {
+    case "beginner":
+      return `${base} border-emerald-500/30 bg-emerald-500/10 text-emerald-700`;
+    case "intermediate":
+      return `${base} border-amber-500/30 bg-amber-500/10 text-amber-700`;
+    case "advanced":
+    case "expert":
+      return `${base} border-destructive/30 bg-destructive/10 text-destructive`;
+    default:
+      return `${base} border-muted-foreground/25 bg-muted text-muted-foreground`;
+  }
+}
+
+function getEventVisibilityBadgeClass(visibility: Event["visibility"]) {
+  const base = "h-6 px-2 text-[11px]";
+  if (visibility === "private") {
+    return `${base} border-violet-500/30 bg-violet-500/10 text-violet-700`;
+  }
+  return `${base} border-emerald-500/30 bg-emerald-500/10 text-emerald-700`;
+}
+
+function getEventAccessBadgeClass(requiresApproval: boolean) {
+  const base = "h-6 px-2 text-[11px]";
+  if (requiresApproval) {
+    return `${base} border-amber-500/30 bg-amber-500/10 text-amber-700`;
+  }
+  return `${base} border-emerald-500/30 bg-emerald-500/10 text-emerald-700`;
+}
+
+function getEventPriceBadgeClass(event: Event) {
+  const base = "h-6 px-2 text-[11px]";
+  if (!event.isPaid) {
+    return `${base} border-emerald-500/30 bg-emerald-500/10 text-emerald-700`;
+  }
+  return `${base} border-amber-500/30 bg-amber-500/10 text-amber-700`;
+}
+
 function getParticipantStatusBadgeClass(status: EventParticipant["status"]) {
   const base = "h-5 px-2 text-[11px]";
   switch (status) {
@@ -4683,6 +5261,27 @@ function formatEventLocation(event: Event) {
     event.formattedAddress ||
     event.location ||
     "Dive site not shown"
+  );
+}
+
+function getEventPassUrl(event: Event, participant?: EventParticipant | null) {
+  const token = participant?.qrToken?.trim();
+  if (!token) return "";
+  const origin =
+    typeof window === "undefined"
+      ? process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+        process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+        siteConfig.url
+      : window.location.origin;
+  return `${origin.replace(/\/$/, "")}/events/${encodeURIComponent(event.slug)}/pass/${encodeURIComponent(token)}`;
+}
+
+function canShowEventPass(
+  participant?: EventParticipant | null,
+): participant is EventParticipant {
+  if (!participant?.qrToken) return false;
+  return ["pending_approval", "confirmed", "attended"].includes(
+    participant.status,
   );
 }
 

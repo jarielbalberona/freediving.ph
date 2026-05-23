@@ -966,6 +966,11 @@ CREATE TABLE IF NOT EXISTS event_participations (
   rejected_by UUID REFERENCES users(id) ON DELETE SET NULL,
   cancelled_at TIMESTAMPTZ,
   left_at TIMESTAMPTZ,
+  qr_token TEXT NOT NULL DEFAULT replace(replace(rtrim(encode(gen_random_bytes(32), 'base64'), '='), '/', '_'), '+', '-'),
+  qr_issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  qr_revoked_at TIMESTAMPTZ,
+  checked_in_at TIMESTAMPTZ,
+  checked_in_by UUID REFERENCES users(id) ON DELETE SET NULL,
   UNIQUE (event_id, user_id),
   CHECK (role IN ('participant', 'staff', 'organizer')),
   CHECK (status IN (
@@ -1274,6 +1279,8 @@ CREATE INDEX IF NOT EXISTS idx_events_visibility_status_starts_v2 ON events (vis
 CREATE INDEX IF NOT EXISTS idx_event_participations_event_status ON event_participations (event_id, status);
 CREATE INDEX IF NOT EXISTS idx_event_participations_user ON event_participations (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_event_participations_event_role_status ON event_participations (event_id, role, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_event_participations_qr_token_unique ON event_participations (qr_token);
+CREATE INDEX IF NOT EXISTS idx_event_participations_event_qr_token ON event_participations (event_id, qr_token) WHERE qr_revoked_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_interests_event_active ON event_interests (event_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_interests_user_active ON event_interests (user_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_competitions_event_sort ON event_competitions (event_id, sort_order) WHERE deleted_at IS NULL;

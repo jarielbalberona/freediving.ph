@@ -328,7 +328,10 @@ test("events module Select usage supplies label items for Base UI", () => {
   assert.match(detailPage, /getPaymentMethodLabel\(method\)/);
   assert.match(detailPage, /items=\{prizePlacementOptions\}/);
   assert.match(detailPage, /items=\{difficultyOptions\}/);
-  assert.match(detailPage, /items=\{\[\{ value: "none", label: "Not set" \}/);
+  assert.match(
+    detailPage,
+    /items=\{\[\s*\{ value: "none", label: "Not set" \}/,
+  );
 });
 
 test("events detail overview avoids raw not-set label rows for viewers", () => {

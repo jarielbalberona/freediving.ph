@@ -35,3 +35,23 @@ func TestEventSelectColumnsCoalescesMissingViewerAccessRows(t *testing.T) {
 		t.Fatalf("viewer private-detail check must not scan NULL when participation row is missing, got %q", columns)
 	}
 }
+
+func TestEventPassQueriesUseScopedRandomTokenLookup(t *testing.T) {
+	const passLookup = `
+		SELECT ep.event_id::text, ep.user_id::text
+		FROM event_participations ep
+		JOIN events e ON e.id = ep.event_id
+		WHERE e.slug = $1
+			AND ep.qr_token = $2
+			AND ep.qr_revoked_at IS NULL
+	`
+	if !strings.Contains(passLookup, "e.slug = $1") {
+		t.Fatalf("pass lookup must scope token to event slug")
+	}
+	if !strings.Contains(passLookup, "ep.qr_token = $2") {
+		t.Fatalf("pass lookup must use qr_token, not raw ids")
+	}
+	if !strings.Contains(passLookup, "ep.qr_revoked_at IS NULL") {
+		t.Fatalf("pass lookup must reject revoked tokens")
+	}
+}

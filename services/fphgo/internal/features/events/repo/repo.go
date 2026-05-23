@@ -117,6 +117,11 @@ type EventParticipant struct {
 	RejectedBy            string
 	CancelledAt           *time.Time
 	LeftAt                *time.Time
+	QRToken               string
+	QRIssuedAt            *time.Time
+	QRRevokedAt           *time.Time
+	CheckedInAt           *time.Time
+	CheckedInBy           string
 	DisplayName           string
 	Username              string
 	AvatarURL             string
@@ -169,6 +174,11 @@ type EventPaymentProof struct {
 	ObjectKey    string
 	FileName     string
 	ContentType  string
+}
+
+type EventPass struct {
+	Event       Event
+	Participant EventParticipant
 }
 
 type ListEventsInput struct {
@@ -1232,6 +1242,47 @@ func (r *Repo) ReviewPayment(ctx context.Context, eventID, paymentID, actorID, s
 	return item, nil
 }
 
+func (r *Repo) GetEventPassByToken(ctx context.Context, slugValue, token string) (EventPass, error) {
+	const q = `
+		SELECT ep.event_id::text, ep.user_id::text
+		FROM event_participations ep
+		JOIN events e ON e.id = ep.event_id
+		WHERE e.slug = $1
+			AND ep.qr_token = $2
+			AND ep.qr_revoked_at IS NULL
+	`
+	var eventID string
+	var userID string
+	if err := r.pool.QueryRow(ctx, q, strings.TrimSpace(slugValue), strings.TrimSpace(token)).Scan(&eventID, &userID); err != nil {
+		return EventPass{}, err
+	}
+	event, err := r.GetEventByID(ctx, eventID, userID)
+	if err != nil {
+		return EventPass{}, err
+	}
+	participant, err := r.GetParticipant(ctx, eventID, userID)
+	if err != nil {
+		return EventPass{}, err
+	}
+	return EventPass{Event: event, Participant: participant}, nil
+}
+
+func (r *Repo) RegenerateParticipantPass(ctx context.Context, eventID, participantID string) (EventParticipant, error) {
+	var userID string
+	if err := r.pool.QueryRow(ctx, `
+		UPDATE event_participations
+		SET qr_token = replace(replace(rtrim(encode(gen_random_bytes(32), 'base64'), '='), '/', '_'), '+', '-'),
+			qr_issued_at = NOW(),
+			qr_revoked_at = NULL,
+			updated_at = NOW()
+		WHERE event_id = $1::uuid AND id = $2::uuid
+		RETURNING user_id::text
+	`, eventID, participantID).Scan(&userID); err != nil {
+		return EventParticipant{}, err
+	}
+	return r.GetParticipant(ctx, eventID, userID)
+}
+
 func (r *Repo) GetPaymentProof(ctx context.Context, eventID, paymentID string) (EventPaymentProof, error) {
 	const q = `
 		SELECT pay.id::text, pay.event_id::text, pay.user_id::text,
@@ -1400,11 +1451,16 @@ func eventSelectColumns() string {
 		vp.updated_at,
 		vp.approved_at,
 		coalesce(vp.approved_by::text, ''),
-		vp.rejected_at,
-		coalesce(vp.rejected_by::text, ''),
-		vp.cancelled_at,
-		vp.left_at,
-		coalesce(vpay.id::text, ''),
+			vp.rejected_at,
+			coalesce(vp.rejected_by::text, ''),
+			vp.cancelled_at,
+			vp.left_at,
+			coalesce(vp.qr_token, ''),
+			vp.qr_issued_at,
+			vp.qr_revoked_at,
+			vp.checked_in_at,
+			coalesce(vp.checked_in_by::text, ''),
+			coalesce(vpay.id::text, ''),
 		coalesce(vpay.event_id::text, ''),
 		coalesce(vpay.event_participation_id::text, ''),
 		coalesce(vpay.user_id::text, ''),
@@ -1524,6 +1580,11 @@ func scanEvent(row eventScanner, item *Event, total *int) error {
 		&participant.RejectedBy,
 		&participant.CancelledAt,
 		&participant.LeftAt,
+		&participant.QRToken,
+		&participant.QRIssuedAt,
+		&participant.QRRevokedAt,
+		&participant.CheckedInAt,
+		&participant.CheckedInBy,
 		&payment.ID,
 		&payment.EventID,
 		&payment.EventParticipationID,
@@ -1593,6 +1654,8 @@ func participantSelectColumns() string {
 		coalesce(ep.emergency_contact_phone, ''), ep.created_at, ep.updated_at,
 		ep.approved_at, coalesce(ep.approved_by::text, ''), ep.rejected_at,
 		coalesce(ep.rejected_by::text, ''), ep.cancelled_at, ep.left_at,
+		coalesce(ep.qr_token, ''), ep.qr_issued_at, ep.qr_revoked_at,
+		ep.checked_in_at, coalesce(ep.checked_in_by::text, ''),
 		coalesce(u.display_name, ''), coalesce(u.username, ''), coalesce(p.avatar_url, ''),
 		coalesce(pay.id::text, ''), coalesce(pay.event_id::text, ''),
 		coalesce(pay.event_participation_id::text, ''), coalesce(pay.user_id::text, ''),
@@ -1626,6 +1689,11 @@ func scanParticipant(row eventScanner, item *EventParticipant, total *int) error
 		&item.RejectedBy,
 		&item.CancelledAt,
 		&item.LeftAt,
+		&item.QRToken,
+		&item.QRIssuedAt,
+		&item.QRRevokedAt,
+		&item.CheckedInAt,
+		&item.CheckedInBy,
 		&item.DisplayName,
 		&item.Username,
 		&item.AvatarURL,
@@ -1762,7 +1830,36 @@ func addOrganizerRecords(ctx context.Context, tx pgx.Tx, eventID, userID string)
 	`, eventID, userID); err != nil {
 		return err
 	}
+	if err := ensureParticipationPaymentForUser(ctx, tx, eventID, userID); err != nil {
+		return err
+	}
 	return upsertMembership(ctx, tx, eventID, userID, "organizer", "active", "")
+}
+
+func ensureParticipationPaymentForUser(ctx context.Context, tx pgx.Tx, eventID, userID string) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO event_participant_payments (
+			event_id,
+			event_participation_id,
+			user_id,
+			status
+		)
+		SELECT
+			ep.event_id,
+			ep.id,
+			ep.user_id,
+			CASE WHEN e.is_paid THEN 'pending_upload' ELSE 'not_required' END
+		FROM event_participations ep
+		JOIN events e ON e.id = ep.event_id
+		WHERE ep.event_id = $1::uuid
+			AND ep.user_id = $2::uuid
+			AND NOT EXISTS (
+				SELECT 1
+				FROM event_participant_payments pay
+				WHERE pay.event_participation_id = ep.id
+			)
+	`, eventID, userID)
+	return err
 }
 
 func upsertMembership(ctx context.Context, tx pgx.Tx, eventID, userID, role, status, notes string) error {
@@ -1903,6 +2000,18 @@ func normalizeParticipantTimes(item *EventParticipant) {
 	if item.LeftAt != nil {
 		t := item.LeftAt.UTC()
 		item.LeftAt = &t
+	}
+	if item.QRIssuedAt != nil {
+		t := item.QRIssuedAt.UTC()
+		item.QRIssuedAt = &t
+	}
+	if item.QRRevokedAt != nil {
+		t := item.QRRevokedAt.UTC()
+		item.QRRevokedAt = &t
+	}
+	if item.CheckedInAt != nil {
+		t := item.CheckedInAt.UTC()
+		item.CheckedInAt = &t
 	}
 }
 

@@ -551,6 +551,87 @@ func TestGetPaymentProofURLRejectsMissingOrInactiveProofMedia(t *testing.T) {
 	assertAppErrorStatus(t, err, http.StatusNotFound)
 }
 
+func TestVerifyEventPassAllowsOwnerAndOrganizerOnly(t *testing.T) {
+	const (
+		eventID       = "550e8400-e29b-41d4-a716-446655443081"
+		ownerID       = "550e8400-e29b-41d4-a716-446655443082"
+		organizerID   = "550e8400-e29b-41d4-a716-446655443083"
+		unrelatedID   = "550e8400-e29b-41d4-a716-446655443084"
+		passToken     = "secure-random-token"
+		eventSlug     = "annual-line-training"
+		participantID = "550e8400-e29b-41d4-a716-446655443085"
+	)
+	participant := eventsrepo.EventParticipant{
+		ID:      participantID,
+		EventID: eventID,
+		UserID:  ownerID,
+		Role:    "participant",
+		Status:  "confirmed",
+		QRToken: passToken,
+		Payment: &eventsrepo.EventParticipantPayment{Status: "verified"},
+	}
+
+	t.Run("owner can view own pass", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event:       eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
+			participant: participant,
+			canManageSet: true,
+			canManage:    false,
+		}
+		pass, err := New(repo).VerifyEventPass(context.Background(), eventSlug, passToken, ownerID)
+		if err != nil {
+			t.Fatalf("owner should view pass: %v", err)
+		}
+		if !pass.IsOwner || pass.Participant.UserID != ownerID {
+			t.Fatalf("unexpected owner pass result: %#v", pass)
+		}
+	})
+
+	t.Run("organizer can verify member pass", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event:       eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
+			participant: participant,
+			canManageSet: true,
+			canManage:    true,
+		}
+		pass, err := New(repo).VerifyEventPass(context.Background(), eventSlug, passToken, organizerID)
+		if err != nil {
+			t.Fatalf("organizer should verify pass: %v", err)
+		}
+		if !pass.CanManage || pass.IsOwner {
+			t.Fatalf("unexpected organizer pass result: %#v", pass)
+		}
+	})
+
+	t.Run("unrelated user is forbidden", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event:       eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
+			participant: participant,
+			canManageSet: true,
+			canManage:    false,
+		}
+		_, err := New(repo).VerifyEventPass(context.Background(), eventSlug, passToken, unrelatedID)
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	})
+}
+
+func TestVerifyEventPassRejectsMismatchedOrRevokedToken(t *testing.T) {
+	repo := &eventsRepoStub{passErr: pgx.ErrNoRows}
+	_, err := New(repo).VerifyEventPass(context.Background(), "wrong-event", "revoked-or-missing-token", "550e8400-e29b-41d4-a716-446655443086")
+	assertAppErrorStatus(t, err, http.StatusNotFound)
+}
+
+func TestRegenerateParticipantPassRequiresOrganizer(t *testing.T) {
+	const (
+		eventID       = "550e8400-e29b-41d4-a716-446655443087"
+		participantID = "550e8400-e29b-41d4-a716-446655443088"
+		actorID       = "550e8400-e29b-41d4-a716-446655443089"
+	)
+	repo := &eventsRepoStub{canManageSet: true, canManage: false}
+	_, err := New(repo).RegenerateParticipantPass(context.Background(), eventID, participantID, actorID)
+	assertAppErrorStatus(t, err, http.StatusForbidden)
+}
+
 func TestUpdateEventRejectsInvalidTimeRange(t *testing.T) {
 	const (
 		eventID = "550e8400-e29b-41d4-a716-446655443051"
@@ -1364,6 +1445,7 @@ type eventsRepoStub struct {
 	participant              eventsrepo.EventParticipant
 	proof                    eventsrepo.EventPaymentProof
 	proofErr                 error
+	passErr                  error
 	competitions             []eventsrepo.EventCompetition
 	prizes                   []eventsrepo.EventPrize
 	sponsors                 []eventsrepo.EventSponsor
@@ -1607,6 +1689,17 @@ func (r *eventsRepoStub) UpdateParticipantRole(_ context.Context, _ string, _ st
 	}
 	r.roleUpdate = role
 	r.participant.Role = role
+	return r.participant, nil
+}
+
+func (r *eventsRepoStub) GetEventPassByToken(context.Context, string, string) (eventsrepo.EventPass, error) {
+	if r.passErr != nil {
+		return eventsrepo.EventPass{}, r.passErr
+	}
+	return eventsrepo.EventPass{Event: r.event, Participant: r.participant}, nil
+}
+
+func (r *eventsRepoStub) RegenerateParticipantPass(context.Context, string, string) (eventsrepo.EventParticipant, error) {
 	return r.participant, nil
 }
 

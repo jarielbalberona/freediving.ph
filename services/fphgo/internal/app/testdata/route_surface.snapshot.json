@@ -213,12 +213,20 @@
       "pattern": "/v1/events/{eventId}/participants/{participantId}/approve"
     },
     {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/participants/{participantId}/regenerate-pass"
+    },
+    {
       "method": "PATCH",
       "pattern": "/v1/events/{eventId}/participants/{participantId}/reject"
     },
     {
       "method": "PATCH",
       "pattern": "/v1/events/{eventId}/participants/{participantId}/role"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/pass"
     },
     {
       "method": "GET",
@@ -303,6 +311,10 @@
     {
       "method": "GET",
       "pattern": "/v1/events/{slug}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{slug}/pass/{token}"
     },
     {
       "method": "GET",

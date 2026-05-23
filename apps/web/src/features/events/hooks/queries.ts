@@ -36,6 +36,29 @@ export const useEventAttendees = (eventId: string, enabled = true) => {
 
 export const useEventParticipants = useEventAttendees;
 
+export const useMyEventPass = (eventId: string, enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.events.myPass(eventId),
+    queryFn: () => eventsApi.getMyEventPass(eventId),
+    enabled: enabled && !!eventId,
+    staleTime: 60 * 1000,
+  });
+};
+
+export const useEventPassVerification = (
+  slug: string,
+  token: string,
+  enabled = true,
+) => {
+  return useQuery({
+    queryKey: queryKeys.events.pass(slug, token),
+    queryFn: () => eventsApi.verifyEventPass(slug, token),
+    enabled: enabled && !!slug && !!token,
+    staleTime: 30 * 1000,
+    retry: false,
+  });
+};
+
 export const useEventPaymentMethods = (eventId: string, enabled = true) => {
   return useQuery({
     queryKey: queryKeys.events.paymentMethods(eventId),

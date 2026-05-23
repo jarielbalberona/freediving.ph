@@ -74,6 +74,11 @@ type EventParticipantResponse struct {
 	RejectedBy            string                           `json:"rejectedBy,omitempty"`
 	CancelledAt           *time.Time                       `json:"cancelledAt,omitempty"`
 	LeftAt                *time.Time                       `json:"leftAt,omitempty"`
+	QRToken               string                           `json:"qrToken,omitempty"`
+	QRIssuedAt            *time.Time                       `json:"qrIssuedAt,omitempty"`
+	QRRevokedAt           *time.Time                       `json:"qrRevokedAt,omitempty"`
+	CheckedInAt           *time.Time                       `json:"checkedInAt,omitempty"`
+	CheckedInBy           string                           `json:"checkedInBy,omitempty"`
 	DisplayName           string                           `json:"displayName,omitempty"`
 	Username              string                           `json:"username,omitempty"`
 	AvatarURL             string                           `json:"avatarUrl,omitempty"`
@@ -287,4 +292,16 @@ type PaymentProofURLResponse struct {
 	ProofMediaID     string `json:"proofMediaId"`
 	ProofFileName    string `json:"proofFileName,omitempty"`
 	ProofContentType string `json:"proofContentType,omitempty"`
+}
+
+type EventPassResponse struct {
+	Valid       bool                             `json:"valid"`
+	Revoked     bool                             `json:"revoked"`
+	Event       EventResponse                    `json:"event"`
+	Participant EventParticipantResponse         `json:"participant"`
+	Role        string                           `json:"role"`
+	Status      string                           `json:"status"`
+	Payment     *EventParticipantPaymentResponse `json:"payment,omitempty"`
+	CanManage   bool                             `json:"canManage"`
+	IsOwner     bool                             `json:"isOwner"`
 }

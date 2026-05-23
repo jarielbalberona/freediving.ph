@@ -42,6 +42,32 @@ func TestListEventsReturnsRedactedPrivateEventForAnonymousHTTP(t *testing.T) {
 	}
 }
 
+func TestParticipantMapperDoesNotLeakPassTokenWithoutManagerScope(t *testing.T) {
+	issuedAt := time.Date(2026, 5, 23, 10, 0, 0, 0, time.UTC)
+	participant := eventsrepo.EventParticipant{
+		ID:         "550e8400-e29b-41d4-a716-446655443090",
+		EventID:    "550e8400-e29b-41d4-a716-446655443091",
+		UserID:     "550e8400-e29b-41d4-a716-446655443092",
+		Role:       "participant",
+		Status:     "confirmed",
+		QRToken:    "must-not-leak",
+		QRIssuedAt: &issuedAt,
+		Payment: &eventsrepo.EventParticipantPayment{
+			Status: "verified",
+		},
+	}
+
+	publicView := mapParticipant(participant, false)
+	if publicView.QRToken != "" || publicView.QRIssuedAt != nil || publicView.Payment != nil {
+		t.Fatalf("public participant response leaked pass/payment fields: %#v", publicView)
+	}
+
+	managerView := mapParticipant(participant, true)
+	if managerView.QRToken != "must-not-leak" || managerView.Payment == nil {
+		t.Fatalf("manager participant response should include pass/payment fields: %#v", managerView)
+	}
+}
+
 func TestListEventsReturnsPublicEventForAnonymousHTTP(t *testing.T) {
 	event := privateEventFixture(true, false)
 	event.Visibility = "public"
@@ -854,5 +880,13 @@ func (r *eventCreateRepoStub) DeletePost(context.Context, string, string) error 
 }
 
 func (r *eventCreateRepoStub) UpdateParticipantRole(context.Context, string, string, string, string) (eventsrepo.EventParticipant, error) {
+	return eventsrepo.EventParticipant{}, nil
+}
+
+func (r *eventCreateRepoStub) GetEventPassByToken(context.Context, string, string) (eventsrepo.EventPass, error) {
+	return eventsrepo.EventPass{}, nil
+}
+
+func (r *eventCreateRepoStub) RegenerateParticipantPass(context.Context, string, string) (eventsrepo.EventParticipant, error) {
 	return eventsrepo.EventParticipant{}, nil
 }

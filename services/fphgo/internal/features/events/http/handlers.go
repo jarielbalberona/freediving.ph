@@ -277,6 +277,29 @@ func (h *Handlers) ListParticipants(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handlers) GetMyEventPass(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	pass, err := h.service.GetMyEventPass(r.Context(), chi.URLParam(r, "eventId"), actorID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapEventPass(pass))
+}
+
+func (h *Handlers) VerifyEventPass(w http.ResponseWriter, r *http.Request) {
+	pass, err := h.service.VerifyEventPass(r.Context(), chi.URLParam(r, "slug"), chi.URLParam(r, "token"), optionalActorID(r))
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapEventPass(pass))
+}
+
 func (h *Handlers) ApproveParticipant(w http.ResponseWriter, r *http.Request) {
 	actorID, err := requireActorID(r)
 	if err != nil {
@@ -393,6 +416,20 @@ func (h *Handlers) VerifyPayment(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) RejectPayment(w http.ResponseWriter, r *http.Request) {
 	h.reviewPayment(w, r, "rejected")
+}
+
+func (h *Handlers) RegenerateParticipantPass(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	participant, err := h.service.RegenerateParticipantPass(r.Context(), chi.URLParam(r, "eventId"), chi.URLParam(r, "participantId"), actorID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapParticipant(participant, participant.Payment != nil))
 }
 
 func (h *Handlers) GetPaymentProofURL(w http.ResponseWriter, r *http.Request) {
@@ -703,8 +740,18 @@ func mapParticipantPtr(item *eventsrepo.EventParticipant, includePayment bool) *
 
 func mapParticipant(item eventsrepo.EventParticipant, includePayment bool) EventParticipantResponse {
 	var payment *EventParticipantPaymentResponse
+	var qrToken string
+	var qrIssuedAt *time.Time
+	var qrRevokedAt *time.Time
+	var checkedInAt *time.Time
+	var checkedInBy string
 	if includePayment {
 		payment = mapPaymentPtr(item.Payment)
+		qrToken = item.QRToken
+		qrIssuedAt = item.QRIssuedAt
+		qrRevokedAt = item.QRRevokedAt
+		checkedInAt = item.CheckedInAt
+		checkedInBy = item.CheckedInBy
 	}
 	return EventParticipantResponse{
 		ID:                    item.ID,
@@ -723,10 +770,30 @@ func mapParticipant(item eventsrepo.EventParticipant, includePayment bool) Event
 		RejectedBy:            item.RejectedBy,
 		CancelledAt:           item.CancelledAt,
 		LeftAt:                item.LeftAt,
+		QRToken:               qrToken,
+		QRIssuedAt:            qrIssuedAt,
+		QRRevokedAt:           qrRevokedAt,
+		CheckedInAt:           checkedInAt,
+		CheckedInBy:           checkedInBy,
 		DisplayName:           item.DisplayName,
 		Username:              item.Username,
 		AvatarURL:             mediaurl.MaterializeWithDefault(item.AvatarURL),
 		Payment:               payment,
+	}
+}
+
+func mapEventPass(pass eventsservice.EventPassAccess) EventPassResponse {
+	participant := mapParticipant(pass.Participant, true)
+	return EventPassResponse{
+		Valid:       pass.Participant.QRToken != "" && pass.Participant.QRRevokedAt == nil,
+		Revoked:     pass.Participant.QRRevokedAt != nil,
+		Event:       mapEvent(pass.Event),
+		Participant: participant,
+		Role:        pass.Participant.Role,
+		Status:      pass.Participant.Status,
+		Payment:     participant.Payment,
+		CanManage:   pass.CanManage,
+		IsOwner:     pass.IsOwner,
 	}
 }
 

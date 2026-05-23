@@ -454,6 +454,11 @@ export interface EventParticipant {
   rejectedBy?: string;
   cancelledAt?: string;
   leftAt?: string;
+  qrToken?: string;
+  qrIssuedAt?: string;
+  qrRevokedAt?: string;
+  checkedInAt?: string;
+  checkedInBy?: string;
   displayName?: string;
   username?: string;
   avatarUrl?: string;
@@ -461,6 +466,18 @@ export interface EventParticipant {
 }
 
 export type EventAttendee = EventParticipant;
+
+export interface EventPass {
+  valid: boolean;
+  revoked: boolean;
+  event: Event;
+  participant: EventParticipant;
+  role: EventParticipantRole;
+  status: EventParticipantStatus;
+  payment?: EventParticipantPayment;
+  canManage: boolean;
+  isOwner: boolean;
+}
 
 export interface EventCompetition {
   id: string;

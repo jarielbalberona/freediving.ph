@@ -64,6 +64,8 @@ type repository interface {
 	SubmitPayment(ctx context.Context, input eventsrepo.SubmitPaymentInput) (eventsrepo.EventParticipantPayment, error)
 	ReviewPayment(ctx context.Context, eventID, paymentID, actorID, status, notes string) (eventsrepo.EventParticipantPayment, error)
 	GetPaymentProof(ctx context.Context, eventID, paymentID string) (eventsrepo.EventPaymentProof, error)
+	GetEventPassByToken(ctx context.Context, slugValue, token string) (eventsrepo.EventPass, error)
+	RegenerateParticipantPass(ctx context.Context, eventID, participantID string) (eventsrepo.EventParticipant, error)
 	ListCompetitions(ctx context.Context, eventID string) ([]eventsrepo.EventCompetition, error)
 	CreateCompetition(ctx context.Context, eventID string, input eventsrepo.CreateCompetitionInput) (eventsrepo.EventCompetition, error)
 	UpdateCompetition(ctx context.Context, eventID string, input eventsrepo.UpdateCompetitionInput) (eventsrepo.EventCompetition, error)
@@ -100,6 +102,13 @@ type PaymentProofURL struct {
 	ProofContentType string
 	URL              string
 	ExpiresAt        int64
+}
+
+type EventPassAccess struct {
+	Event       eventsrepo.Event
+	Participant eventsrepo.EventParticipant
+	CanManage   bool
+	IsOwner     bool
 }
 
 type Option func(*Service)
@@ -743,6 +752,77 @@ func (s *Service) GetPaymentProofURL(ctx context.Context, eventID, paymentID, ac
 		URL:              url,
 		ExpiresAt:        s.nowFn().Add(s.proofURLTTL).Unix(),
 	}, nil
+}
+
+func (s *Service) GetMyEventPass(ctx context.Context, eventID, actorID string) (EventPassAccess, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return EventPassAccess{}, err
+	}
+	event, err := s.repo.GetEventByID(ctx, eventID, actorID)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return EventPassAccess{}, apperrors.New(http.StatusNotFound, "event_not_found", "event not found", err)
+		}
+		return EventPassAccess{}, apperrors.New(http.StatusInternalServerError, "event_get_failed", "failed to fetch event", err)
+	}
+	participant, err := s.repo.GetParticipant(ctx, eventID, actorID)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return EventPassAccess{}, apperrors.New(http.StatusNotFound, "event_pass_not_found", "event pass not found", err)
+		}
+		return EventPassAccess{}, apperrors.New(http.StatusInternalServerError, "event_pass_get_failed", "failed to load event pass", err)
+	}
+	return EventPassAccess{Event: event, Participant: participant, CanManage: event.ViewerCanManage, IsOwner: true}, nil
+}
+
+func (s *Service) VerifyEventPass(ctx context.Context, slugValue, token, actorID string) (EventPassAccess, error) {
+	slugValue = strings.TrimSpace(slugValue)
+	token = strings.TrimSpace(token)
+	if slugValue == "" || token == "" {
+		return EventPassAccess{}, apperrors.New(http.StatusNotFound, "event_pass_not_found", "Invalid or expired event pass.", nil)
+	}
+	pass, err := s.repo.GetEventPassByToken(ctx, slugValue, token)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return EventPassAccess{}, apperrors.New(http.StatusNotFound, "event_pass_not_found", "Invalid or expired event pass.", err)
+		}
+		return EventPassAccess{}, apperrors.New(http.StatusInternalServerError, "event_pass_get_failed", "failed to load event pass", err)
+	}
+	actorID = strings.TrimSpace(actorID)
+	isOwner := actorID != "" && actorID == pass.Participant.UserID
+	canManage := false
+	if actorID != "" {
+		var err error
+		canManage, err = s.repo.CanManageEvent(ctx, pass.Event.ID, actorID)
+		if err != nil {
+			return EventPassAccess{}, apperrors.New(http.StatusInternalServerError, "event_permission_failed", "failed to validate event permissions", err)
+		}
+	}
+	if !isOwner && !canManage {
+		return EventPassAccess{}, apperrors.New(http.StatusForbidden, "forbidden", "This event pass can only be viewed by the pass owner or event organizers.", nil)
+	}
+	pass.Event.ViewerCanManage = canManage
+	return EventPassAccess{Event: pass.Event, Participant: pass.Participant, CanManage: canManage, IsOwner: isOwner}, nil
+}
+
+func (s *Service) RegenerateParticipantPass(ctx context.Context, eventID, participantID, actorID string) (eventsrepo.EventParticipant, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return eventsrepo.EventParticipant{}, err
+	}
+	if _, err := uuid.Parse(participantID); err != nil {
+		return eventsrepo.EventParticipant{}, invalidUUID("participantId")
+	}
+	if err := s.ensureCanManage(ctx, eventID, actorID); err != nil {
+		return eventsrepo.EventParticipant{}, err
+	}
+	participant, err := s.repo.RegenerateParticipantPass(ctx, eventID, participantID)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return eventsrepo.EventParticipant{}, apperrors.New(http.StatusNotFound, "participant_not_found", "event participant not found", err)
+		}
+		return eventsrepo.EventParticipant{}, apperrors.New(http.StatusInternalServerError, "event_pass_regenerate_failed", "failed to regenerate event pass", err)
+	}
+	return participant, nil
 }
 
 func (s *Service) ensureCanManage(ctx context.Context, eventID, actorID string) error {

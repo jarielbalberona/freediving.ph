@@ -545,6 +545,15 @@ export const queryKeys = {
       [...queryKeys.events.detail(eventId), "attendees"] as const,
     participants: (eventId: string) =>
       [...queryKeys.events.detail(eventId), "participants"] as const,
+    myPass: (eventId: string) =>
+      [...queryKeys.events.detail(eventId), "my-pass"] as const,
+    passVerifications: () => [...queryKeys.events.all, "pass"] as const,
+    pass: (slug: string, token: string) =>
+      [
+        ...queryKeys.events.passVerifications(),
+        cleanString(slug),
+        cleanString(token),
+      ] as const,
     paymentMethods: (eventId: string) =>
       [...queryKeys.events.detail(eventId), "payment-methods"] as const,
     competitions: (eventId: string) =>

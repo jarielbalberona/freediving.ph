@@ -9,6 +9,7 @@ import type {
   Event,
   EventCompetition,
   EventFilters,
+  EventPass,
   EventParticipant,
   EventParticipantPayment,
   EventPost,
@@ -46,6 +47,8 @@ type ListEventsPayload = {
 type EventPayload = {
   event: Event;
 };
+
+type EventPassPayload = EventPass;
 
 type ListParticipantsPayload = {
   participants?: EventParticipant[];
@@ -155,6 +158,30 @@ export const eventsApi = {
   ): Promise<ListParticipantsPayload> => {
     const response = await axiosInstance.get<ListParticipantsPayload>(
       `/v1/events/${eventId}/participants`,
+    );
+    return response.data;
+  },
+
+  getMyEventPass: async (eventId: string): Promise<EventPass> => {
+    const response = await axiosInstance.get<EventPassPayload>(
+      `/v1/events/${eventId}/pass`,
+    );
+    return response.data;
+  },
+
+  verifyEventPass: async (slug: string, token: string): Promise<EventPass> => {
+    const response = await axiosInstance.get<EventPassPayload>(
+      `/v1/events/${encodeURIComponent(slug)}/pass/${encodeURIComponent(token)}`,
+    );
+    return response.data;
+  },
+
+  regenerateParticipantPass: async (
+    eventId: string,
+    participantId: string,
+  ): Promise<EventParticipant> => {
+    const response = await axiosInstance.post<EventParticipant>(
+      `/v1/events/${eventId}/participants/${participantId}/regenerate-pass`,
     );
     return response.data;
   },
