@@ -151,7 +151,16 @@ func TestMapEventRedactsPrivateUnauthorizedDetails(t *testing.T) {
 	if got.OrganizerUserID != "" || got.GroupID != "" {
 		t.Fatalf("private organizer metadata leaked: %#v", got)
 	}
-	if got.Title != "Private depth training" || got.ShortDescription != "limited public teaser" || got.CurrentAttendees != 3 {
+	if got.StartsAt != nil || got.EndsAt != nil || got.Type != "" || got.Difficulty != "" {
+		t.Fatalf("private schedule/type leaked: %#v", got)
+	}
+	if got.CurrentAttendees != 0 || got.InterestedCount != 0 || got.GoingCount != 0 || got.Capacity != nil {
+		t.Fatalf("private counts/capacity leaked: %#v", got)
+	}
+	if got.IsPaid || got.PriceAmount != nil || got.Currency != "" || got.RequiresApproval {
+		t.Fatalf("private payment/access summary leaked: %#v", got)
+	}
+	if got.Title != "Private depth training" || got.ShortDescription != "limited public teaser" {
 		t.Fatalf("minimal public fields were not preserved: %#v", got)
 	}
 }

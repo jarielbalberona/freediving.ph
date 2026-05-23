@@ -131,6 +131,14 @@ test("events empty state and cards avoid raw discovery labels", () => {
   assert.doesNotMatch(eventCard, />certification_course</);
 });
 
+test("private event cards show only title and short description when locked", () => {
+  const eventCard = read("src/features/events/components/EventCard.tsx");
+  assert.match(eventCard, /if \(privateLocked\)/);
+  assert.match(eventCard, /event\.title/);
+  assert.match(eventCard, /event\.shortDescription/);
+  assert.match(eventCard, /Private event details are limited/);
+});
+
 test("events detail exposes join, payment proof, and organizer review controls", () => {
   const detailPage = read("src/app/events/[slug]/client-page.tsx");
   const api = read("src/features/events/api/events.ts");

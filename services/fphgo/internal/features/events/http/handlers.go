@@ -641,16 +641,45 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		response.LocationSource = ""
 		response.DiveSiteID = ""
 		response.DiveSite = nil
+		response.StartsAt = nil
+		response.EndsAt = nil
+		response.Timezone = ""
+		response.Type = ""
+		response.Difficulty = ""
+		response.MaxAttendees = nil
+		response.Capacity = nil
+		response.CurrentAttendees = 0
+		response.AvailableSlots = nil
+		response.InterestedCount = 0
+		response.GoingCount = 0
+		response.RequiresApproval = false
+		response.IsPaid = false
+		response.PriceAmount = nil
+		response.Currency = ""
 		response.PaymentInstructions = ""
 		response.PaymentMethods = nil
 		response.MeetingPoint = ""
+		response.BeginnerFriendly = false
 		response.MaxDepthM = nil
 		response.EntryType = ""
 		response.EquipmentNotes = ""
 		response.SafetyNotes = ""
 		response.CancellationPolicy = ""
+		response.PublishedAt = nil
+		response.CancelledAt = nil
+		response.CancelReason = ""
 		response.OrganizerUserID = ""
 		response.GroupID = ""
+		response.ViewerJoined = false
+		response.ViewerInterested = false
+		response.ViewerParticipationStatus = ""
+		response.ViewerEventState = "anonymous"
+		if item.ViewerEventState != "anonymous" {
+			response.ViewerEventState = "none"
+		}
+		response.ViewerCanManage = false
+		response.ViewerCanViewPrivateDetails = false
+		response.ViewerParticipation = nil
 		response.ViewerPayment = nil
 		return response
 	}

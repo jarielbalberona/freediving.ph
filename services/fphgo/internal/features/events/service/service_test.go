@@ -61,6 +61,43 @@ func TestGetEventBySlugRejectsUnauthorizedPrivateViewer(t *testing.T) {
 	assertAppErrorStatus(t, err, http.StatusForbidden)
 }
 
+func TestListEventsDoesNotDefaultUnsetFilters(t *testing.T) {
+	repo := &eventsRepoStub{}
+	svc := New(repo)
+
+	if _, _, err := svc.ListEvents(context.Background(), "", eventsrepo.ListEventsInput{
+		Status: "published",
+		Page:   1,
+		Limit:  24,
+	}); err != nil {
+		t.Fatalf("ListEvents returned error: %v", err)
+	}
+	if repo.listInput.EventType != "" {
+		t.Fatalf("unset event type should not filter list, got %q", repo.listInput.EventType)
+	}
+	if repo.listInput.Difficulty != "" {
+		t.Fatalf("unset difficulty should not filter list, got %q", repo.listInput.Difficulty)
+	}
+}
+
+func TestListEventsNormalizesExplicitFilters(t *testing.T) {
+	repo := &eventsRepoStub{}
+	svc := New(repo)
+
+	if _, _, err := svc.ListEvents(context.Background(), "", eventsrepo.ListEventsInput{
+		EventType:  "Depth Training",
+		Difficulty: "Advanced",
+	}); err != nil {
+		t.Fatalf("ListEvents returned error: %v", err)
+	}
+	if repo.listInput.EventType != "depth_training" {
+		t.Fatalf("event type filter = %q, want depth_training", repo.listInput.EventType)
+	}
+	if repo.listInput.Difficulty != "advanced" {
+		t.Fatalf("difficulty filter = %q, want advanced", repo.listInput.Difficulty)
+	}
+}
+
 func TestCreateEventNotificationIncludesSlug(t *testing.T) {
 	const (
 		actorID = "550e8400-e29b-41d4-a716-446655443101"
@@ -826,6 +863,7 @@ type eventsRepoStub struct {
 	participant              eventsrepo.EventParticipant
 	proof                    eventsrepo.EventPaymentProof
 	proofErr                 error
+	listInput                eventsrepo.ListEventsInput
 	joinInput                eventsrepo.JoinEventInput
 	createInput              eventsrepo.CreateEventInput
 	updateInput              eventsrepo.UpdateEventInput
@@ -837,7 +875,8 @@ type eventsRepoStub struct {
 	canManageSet             bool
 }
 
-func (r *eventsRepoStub) ListEvents(context.Context, eventsrepo.ListEventsInput) ([]eventsrepo.Event, int, error) {
+func (r *eventsRepoStub) ListEvents(_ context.Context, input eventsrepo.ListEventsInput) ([]eventsrepo.Event, int, error) {
+	r.listInput = input
 	return nil, 0, nil
 }
 

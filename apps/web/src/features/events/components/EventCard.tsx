@@ -42,6 +42,24 @@ export function EventCard({
     stateLabel ?? (event.requiresApproval ? "Approval required" : "Open join");
   const canJoin = !event.viewerParticipation;
 
+  if (privateLocked) {
+    return (
+      <Card className="rounded-xl border-border/70 bg-background/80 py-0 shadow-none">
+        <CardContent className="space-y-2 p-3">
+          <Link
+            href={`/events/${event.slug}`}
+            className="block text-base font-semibold leading-tight text-foreground hover:underline"
+          >
+            {event.title}
+          </Link>
+          <p className="line-clamp-2 min-h-10 text-sm leading-5 text-muted-foreground">
+            {event.shortDescription || "Private event details are limited."}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="rounded-xl border-border/70 bg-background/80 py-0 shadow-none">
       <CardContent className="space-y-3 p-3">
@@ -73,11 +91,9 @@ export function EventCard({
             {event.title}
           </Link>
           <p className="line-clamp-2 min-h-10 text-sm leading-5 text-muted-foreground">
-            {privateLocked
-              ? event.shortDescription || "Private event details are limited."
-              : event.shortDescription ||
-                event.description ||
-                "No summary has been added yet."}
+            {event.shortDescription ||
+              event.description ||
+              "No summary has been added yet."}
           </p>
         </div>
 

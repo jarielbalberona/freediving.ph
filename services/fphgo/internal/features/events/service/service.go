@@ -129,8 +129,8 @@ func (s *Service) ListEvents(ctx context.Context, viewerUserID string, input eve
 	input.Status = normalizeEventStatus(input.Status)
 	input.GroupID = strings.TrimSpace(input.GroupID)
 	input.DiveSiteID = strings.TrimSpace(input.DiveSiteID)
-	input.EventType = normalizeEventType(input.EventType)
-	input.Difficulty = normalizeDifficulty(input.Difficulty)
+	input.EventType = normalizeEventTypeFilter(input.EventType)
+	input.Difficulty = normalizeDifficultyFilter(input.Difficulty)
 	input.Price = normalizePriceFilter(input.Price)
 	input.Page = normalizePage(input.Page)
 	input.Limit = normalizeLimit(input.Limit)
@@ -1055,6 +1055,15 @@ func normalizeDifficulty(value string) string {
 	}
 }
 
+func normalizeDifficultyFilter(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "beginner", "intermediate", "advanced", "expert":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return ""
+	}
+}
+
 func normalizeEventType(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "intro_session", "intro session":
@@ -1077,6 +1086,33 @@ func normalizeEventType(value string) string {
 		return "trip_retreat"
 	default:
 		return "fun_dive"
+	}
+}
+
+func normalizeEventTypeFilter(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "intro_session", "intro session":
+		return "intro_session"
+	case "pool_training", "pool training", "training":
+		return "pool_training"
+	case "line_training", "line training":
+		return "line_training"
+	case "fun_dive", "fun dive":
+		return "fun_dive"
+	case "depth_training", "depth training":
+		return "depth_training"
+	case "certification_course", "certification course":
+		return "certification_course"
+	case "workshop":
+		return "workshop"
+	case "competition", "tournament":
+		return "competition"
+	case "cleanup_dive", "cleanup dive":
+		return "cleanup_dive"
+	case "trip_retreat", "trip/retreat", "retreat", "trip":
+		return "trip_retreat"
+	default:
+		return ""
 	}
 }
 
