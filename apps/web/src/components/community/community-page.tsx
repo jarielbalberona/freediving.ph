@@ -38,22 +38,22 @@ export function CommunityHeader({
           {navigation}
         </div>
       ) : null}
-      <div className="min-w-0 space-y-3">
-        <div>
-          <h1 className="max-w-2xl text-lg font-medium tracking-tight text-foreground">
+      <div className="min-w-0 space-y-1">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <h1 className="min-w-0 flex-1 text-lg font-medium tracking-tight text-foreground">
             {title}
           </h1>
-          <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-            {subtitle}
-          </p>
+          {action ? (
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              {action}
+            </div>
+          ) : null}
         </div>
-        {children}
-        {action ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {action}
-          </div>
-        ) : null}
+        <p className="max-w-xl text-xs leading-5 text-muted-foreground">
+          {subtitle}
+        </p>
       </div>
+      {children ? <div className="min-w-0">{children}</div> : null}
     </header>
   );
 }

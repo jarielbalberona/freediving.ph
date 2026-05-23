@@ -216,10 +216,11 @@ function ExploreMarkers({
         position: { lat: spot.lat, lng: spot.lng },
         title: spot.name,
         content,
+        gmpClickable: true,
         zIndex: isSelected ? 100 : 1,
       });
 
-      marker.addListener("click", () => onSelectSpot(spot));
+      marker.addEventListener("gmp-click", () => onSelectSpot(spot));
       markersRef.current.set(spot.id, marker);
     }
 

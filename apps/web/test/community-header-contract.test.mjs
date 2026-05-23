@@ -9,6 +9,11 @@ test("community page headers use one-column navigation and title rows", () => {
   const header = read("src/components/community/community-page.tsx");
   assert.match(header, /navigation\?: ReactNode/);
   assert.match(header, /<header className="flex min-w-0 flex-col gap-3">/);
+  assert.match(
+    header,
+    /<div className="flex min-w-0 items-start justify-between gap-3">/,
+  );
+  assert.match(header, /<p className="max-w-xl text-xs leading-5 text-muted-foreground">/);
   assert.doesNotMatch(header, /eyebrow/);
   assert.doesNotMatch(header, /sm:grid-cols-\[minmax\(0,1fr\)_auto\]/);
   assert.doesNotMatch(header, /border-border\/60 bg-background text-muted-foreground/);
