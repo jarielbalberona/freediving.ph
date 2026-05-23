@@ -1,12 +1,14 @@
 "use client";
 
 import { SignInButton } from "@clerk/nextjs";
+import type { IScannerControls } from "@zxing/browser";
 import type {
   Event,
   EventCompetition,
   EventDifficulty,
   EventEntryType,
   EventParticipant,
+  EventPass,
   EventPaymentMethod,
   EventPaymentMethodType,
   EventPaymentStatus,
@@ -47,9 +49,10 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
@@ -101,6 +104,7 @@ import {
   entryTypeOptions,
   eventOptionLabel,
   titleCase,
+  useCheckInEventPass,
   useApproveEventParticipant,
   useCreateEventCompetition,
   useCreateEventPaymentMethod,
@@ -163,6 +167,36 @@ const eventTabTriggerClassName =
 const manageTabsListClassName =
   "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto px-3 sm:mx-0 sm:w-full sm:px-1";
 const manageTabTriggerClassName = "h-8 flex-none px-3 text-sm";
+const eventPassQrLogoUrl = "https://cdn.freediving.ph/fph-logo-white.png";
+
+type EventPassScanTarget = {
+  slug: string;
+  token: string;
+  wrongEvent: boolean;
+};
+
+export function parseEventPassScanValue(
+  value: string,
+  currentSlug: string,
+): EventPassScanTarget | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const urlMatch = trimmed.match(/\/events\/([^/?#]+)\/pass\/([^/?#]+)/);
+  if (urlMatch) {
+    const scannedSlug = decodeURIComponent(urlMatch[1] ?? "");
+    const token = decodeURIComponent(urlMatch[2] ?? "");
+    if (!scannedSlug || !token) return null;
+    return {
+      slug: scannedSlug,
+      token,
+      wrongEvent: scannedSlug !== currentSlug,
+    };
+  }
+  if (/^[A-Za-z0-9_-]{12,}$/.test(trimmed)) {
+    return { slug: currentSlug, token: trimmed, wrongEvent: false };
+  }
+  return null;
+}
 
 export default function EventDetailClient({ slug }: { slug: string }) {
   const session = useSession();
@@ -818,6 +852,20 @@ export function EventManageClient({ slug }: { slug: string }) {
         title={event.title}
         subtitle="Manage event"
         navigation={<BackToEventButton event={event} />}
+        action={
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link
+                href={`/events/${encodeURIComponent(event.slug)}/manage/check-in`}
+              />
+            }
+          >
+            <QrCode className="mr-1 h-4 w-4" />
+            Check in
+          </Button>
+        }
       >
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -1022,6 +1070,382 @@ export function EventManageClient({ slug }: { slug: string }) {
   );
 }
 
+export function EventCheckInClient({ slug }: { slug: string }) {
+  const searchParams = useSearchParams();
+  const eventQuery = useEvent(slug);
+  const event = eventQuery.data;
+  const eventId = event?.id ?? "";
+  const canManage = Boolean(eventId) && Boolean(event?.viewerCanManage);
+  const participantsQuery = useEventParticipants(eventId, canManage);
+  const checkInMutation = useCheckInEventPass();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scannerControlsRef = useRef<IScannerControls | null>(null);
+  const lastScanRef = useRef("");
+  const [manualValue, setManualValue] = useState("");
+  const [scanTarget, setScanTarget] = useState<EventPassScanTarget | null>(
+    null,
+  );
+  const [scanMessage, setScanMessage] = useState("");
+  const [scannerActive, setScannerActive] = useState(false);
+  const [scannerError, setScannerError] = useState("");
+  const [result, setResult] = useState<EventPass | null>(null);
+  const [paymentOverrideArmed, setPaymentOverrideArmed] = useState(false);
+
+  const passQuery = useEventPassVerification(
+    scanTarget?.slug ?? slug,
+    scanTarget?.token ?? "",
+    Boolean(scanTarget && !scanTarget.wrongEvent),
+  );
+
+  useEffect(() => {
+    const initialValue =
+      searchParams.get("pass") ?? searchParams.get("token") ?? "";
+    if (!initialValue) return;
+    setManualValue(initialValue);
+    verifyInput(initialValue);
+  }, []);
+
+  useEffect(() => {
+    if (passQuery.data) {
+      setResult(passQuery.data);
+      setScanMessage(
+        passQuery.data.participant.checkedInAt
+          ? "This participant is already checked in."
+          : "Valid event pass.",
+      );
+      setPaymentOverrideArmed(false);
+    }
+  }, [passQuery.data]);
+
+  useEffect(() => {
+    if (passQuery.error) {
+      setResult(null);
+      setScanMessage(
+        getApiErrorStatus(passQuery.error) === 403
+          ? "You are not allowed to verify this event pass."
+          : "This event pass is invalid or expired.",
+      );
+    }
+  }, [passQuery.error]);
+
+  useEffect(() => {
+    return () => stopScanner();
+  }, []);
+
+  const verifyInput = (value: string) => {
+    const parsed = parseEventPassScanValue(value, slug);
+    setPaymentOverrideArmed(false);
+    setResult(null);
+    if (!parsed) {
+      setScanTarget(null);
+      setScanMessage("Invalid QR content.");
+      return;
+    }
+    if (parsed.wrongEvent) {
+      setScanTarget(parsed);
+      setScanMessage("This pass belongs to a different event.");
+      return;
+    }
+    setScanTarget(parsed);
+    setScanMessage("Verifying event pass...");
+  };
+
+  const startScanner = async () => {
+    if (!videoRef.current) return;
+    setScannerError("");
+    setScanMessage("");
+    try {
+      const { BrowserQRCodeReader } = await import("@zxing/browser");
+      const reader = new BrowserQRCodeReader(undefined, {
+        delayBetweenScanAttempts: 500,
+      });
+      const devices = await BrowserQRCodeReader.listVideoInputDevices();
+      const rearCamera =
+        devices.find((device) =>
+          /back|rear|environment/i.test(device.label || ""),
+        ) ?? devices[0];
+      scannerControlsRef.current = await reader.decodeFromVideoDevice(
+        rearCamera?.deviceId,
+        videoRef.current,
+        (scanResult) => {
+          const text = scanResult?.getText();
+          if (!text || text === lastScanRef.current) return;
+          lastScanRef.current = text;
+          setManualValue(text);
+          verifyInput(text);
+        },
+      );
+      setScannerActive(true);
+    } catch (error) {
+      setScannerActive(false);
+      setScannerError(
+        error instanceof Error
+          ? error.message
+          : "Camera is unavailable or permission was denied.",
+      );
+    }
+  };
+
+  const stopScanner = () => {
+    scannerControlsRef.current?.stop();
+    scannerControlsRef.current = null;
+    setScannerActive(false);
+  };
+
+  const handleCheckIn = () => {
+    if (!scanTarget || scanTarget.wrongEvent || !result) return;
+    const paymentStatus = getPassPaymentStatus(result);
+    const requiresPaymentWarning =
+      paymentStatus !== "verified" && paymentStatus !== "not_required";
+    if (requiresPaymentWarning && !paymentOverrideArmed) {
+      setPaymentOverrideArmed(true);
+      return;
+    }
+    checkInMutation.mutate(
+      { slug: scanTarget.slug, token: scanTarget.token },
+      {
+        onSuccess: (pass) => {
+          setResult(pass);
+          setScanMessage(
+            pass.alreadyCheckedIn
+              ? "This participant is already checked in."
+              : "Checked in successfully.",
+          );
+          setPaymentOverrideArmed(false);
+        },
+        onError: (error) => {
+          setScanMessage(
+            getApiErrorMessage(error, "Check-in failed. Try again."),
+          );
+        },
+      },
+    );
+  };
+
+  const participants =
+    participantsQuery.data?.participants ??
+    participantsQuery.data?.attendees ??
+    [];
+  const recentCheckIns = [...participants]
+    .filter((participant) => participant.checkedInAt)
+    .sort((left, right) =>
+      (right.checkedInAt ?? "").localeCompare(left.checkedInAt ?? ""),
+    )
+    .slice(0, 8);
+
+  if (eventQuery.isLoading) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Check-in scanner"
+          subtitle="Loading event."
+          navigation={<BackButton />}
+        />
+        <Skeleton className="h-80 w-full rounded-xl" />
+      </CommunityPageShell>
+    );
+  }
+
+  if (eventQuery.error || !event) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Check-in scanner"
+          subtitle="Event unavailable."
+          navigation={<BackButton />}
+        />
+        <StatusPanel
+          title="Event unavailable"
+          description={getApiErrorMessage(
+            eventQuery.error,
+            "This event could not be opened.",
+          )}
+        />
+      </CommunityPageShell>
+    );
+  }
+
+  if (!event.viewerCanManage) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Check-in scanner"
+          subtitle="Organizer access required."
+          navigation={<BackToEventButton event={event} />}
+        />
+        <StatusPanel
+          title="Organizer access required"
+          description="Only event organizers can check in participants."
+        />
+      </CommunityPageShell>
+    );
+  }
+
+  return (
+    <CommunityPageShell>
+      <CommunityHeader
+        title={event.title}
+        subtitle="Check in participants"
+        navigation={
+          <Button
+            size="sm"
+            variant="outline"
+            nativeButton={false}
+            render={
+              <Link
+                href={`/events/${encodeURIComponent(event.slug)}/manage#participants`}
+              />
+            }
+          >
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to manage
+          </Button>
+        }
+        action={
+          <Button
+            size="sm"
+            variant="outline"
+            nativeButton={false}
+            render={
+              <Link
+                href={`/events/${encodeURIComponent(event.slug)}/manage#participants`}
+              />
+            }
+          >
+            View participants
+          </Button>
+        }
+      />
+
+      <div className="mx-auto grid max-w-3xl gap-5">
+        <section className="rounded-xl border border-border/70 bg-background/70 p-4">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-foreground">
+              Check-in scanner
+            </h2>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Scan an Event Pass QR code to verify and check in a participant.
+            </p>
+          </div>
+          <div className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-black">
+            <video
+              ref={videoRef}
+              className="aspect-square w-full object-cover sm:aspect-video"
+              muted
+              playsInline
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {scannerActive ? (
+              <Button size="sm" variant="outline" onClick={stopScanner}>
+                Stop scanner
+              </Button>
+            ) : (
+              <Button size="sm" onClick={startScanner}>
+                <QrCode className="mr-1 h-4 w-4" />
+                Start scanner
+              </Button>
+            )}
+          </div>
+          {scannerError ? (
+            <p className="mt-2 text-sm text-destructive">{scannerError}</p>
+          ) : null}
+        </section>
+
+        <section className="rounded-xl border border-border/70 bg-background/70 p-4">
+          <h2 className="text-base font-semibold text-foreground">
+            Manual entry
+          </h2>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={manualValue}
+              onChange={(item) => setManualValue(item.target.value)}
+              placeholder="Paste Event Pass URL or token"
+            />
+            <Button
+              className="sm:w-32"
+              disabled={!manualValue.trim()}
+              onClick={() => verifyInput(manualValue)}
+            >
+              Verify
+            </Button>
+          </div>
+        </section>
+
+        <CheckInResultPanel
+          event={event}
+          result={result}
+          isVerifying={passQuery.isFetching}
+          message={scanMessage}
+          wrongEvent={Boolean(scanTarget?.wrongEvent)}
+          paymentOverrideArmed={paymentOverrideArmed}
+          isCheckingIn={checkInMutation.isPending}
+          onCheckIn={handleCheckIn}
+        />
+
+        <section className="rounded-xl border border-border/70 bg-background/70 p-4">
+          <h2 className="text-base font-semibold text-foreground">
+            Recent check-ins
+          </h2>
+          {participantsQuery.isLoading ? (
+            <div className="mt-3 space-y-2">
+              <Skeleton className="h-12 rounded-lg" />
+              <Skeleton className="h-12 rounded-lg" />
+            </div>
+          ) : recentCheckIns.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              No check-ins yet.
+            </p>
+          ) : (
+            <div className="mt-3 divide-y divide-border/70 border-y border-border/70">
+              {recentCheckIns.map((participant) => (
+                <div
+                  key={participant.id}
+                  className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <UserIdentityHeader
+                    displayName={
+                      participant.displayName ||
+                      participant.username ||
+                      participant.userId
+                    }
+                    username={participant.username}
+                    avatarUrl={participant.avatarUrl}
+                    usernameFallback="participant"
+                  />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge
+                      variant="outline"
+                      className={getParticipantRoleBadgeClass(participant.role)}
+                    >
+                      {titleCase(participant.role)}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={getPaymentStatusBadgeClass(
+                        participant.payment?.status ??
+                          (event.isPaid ? "pending_upload" : "not_required"),
+                      )}
+                    >
+                      {getPaymentStatusLabel(
+                        participant.payment?.status ??
+                          (event.isPaid ? "pending_upload" : "not_required"),
+                      )}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDateTime(participant.checkedInAt)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </CommunityPageShell>
+  );
+}
+
 export function EventPassVerificationClient({
   slug,
   token,
@@ -1110,6 +1534,14 @@ export function EventPassVerificationClient({
                 (pass.event.isPaid ? "pending_upload" : "not_required"),
             )}
           </Badge>
+          {pass.participant.checkedInAt ? (
+            <Badge
+              variant="outline"
+              className="h-5 border-sky-500/30 bg-sky-500/10 px-2 text-[11px] text-sky-700"
+            >
+              Checked in
+            </Badge>
+          ) : null}
         </div>
       </CommunityHeader>
       <DetailSection title="Verification details">
@@ -1124,15 +1556,9 @@ export function EventPassVerificationClient({
             avatarUrl={pass.participant.avatarUrl}
             usernameFallback="participant"
           />
-          <div className="flex justify-center rounded-lg border border-border/70 bg-white p-4">
-            <QRCodeSVG
-              value={getEventPassUrl(pass.event, pass.participant)}
-              size={220}
-              level="M"
-              role="img"
-              aria-label="Event pass QR code"
-            />
-          </div>
+          <EventPassQRCode
+            value={getEventPassUrl(pass.event, pass.participant)}
+          />
           <div className="grid gap-2 text-sm">
             <PassDetail label="Event" value={pass.event.title} />
             <PassDetail
@@ -1165,7 +1591,26 @@ export function EventPassVerificationClient({
                 pass.participant.checkedInAt ? "Checked in" : "Not checked in"
               }
             />
+            {pass.participant.checkedInAt ? (
+              <PassDetail
+                label="Checked-in time"
+                value={formatDateTime(pass.participant.checkedInAt)}
+              />
+            ) : null}
           </div>
+          {pass.canManage && !pass.participant.checkedInAt ? (
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link
+                  href={`/events/${encodeURIComponent(pass.event.slug)}/manage/check-in?token=${encodeURIComponent(pass.participant.qrToken ?? "")}`}
+                />
+              }
+            >
+              Check in
+            </Button>
+          ) : null}
         </div>
       </DetailSection>
     </CommunityPageShell>
@@ -1401,6 +1846,9 @@ function EventHeader({
   isLeaving: boolean;
 }) {
   const privateLocked = event.visibility === "private" && !canSeePrivateDetails;
+  const eventPassParticipant = canShowEventPass(event.viewerParticipation)
+    ? event.viewerParticipation
+    : null;
   const subtitle =
     event.shortDescription ||
     (canSeePrivateDetails
@@ -1493,16 +1941,25 @@ function EventHeader({
       }
     >
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {chips.map((chip, index) => (
-            <Badge
-              key={`${chip.label}-${index}`}
-              variant="outline"
-              className={chip.className}
-            >
-              {chip.label}
-            </Badge>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {chips.map((chip, index) => (
+              <Badge
+                key={`${chip.label}-${index}`}
+                variant="outline"
+                className={chip.className}
+              >
+                {chip.label}
+              </Badge>
+            ))}
+          </div>
+          {eventPassParticipant ? (
+            <EventPassDialog
+              event={event}
+              participant={eventPassParticipant}
+              triggerClassName="h-8"
+            />
+          ) : null}
         </div>
         {privateLocked ? (
           <div className="grid gap-2 text-sm text-muted-foreground">
@@ -3318,18 +3775,6 @@ function PaymentTab({
           title="This event is free"
           description="No payment is needed."
         />
-        {canShowEventPass(event.viewerParticipation) ? (
-          <StatusPanel
-            title="My event pass"
-            description={getPaymentStatusLabel("not_required")}
-          >
-            <EventPassDialog
-              event={event}
-              participant={event.viewerParticipation}
-              triggerClassName="h-8"
-            />
-          </StatusPanel>
-        ) : null}
       </div>
     );
   }
@@ -3353,34 +3798,33 @@ function PaymentTab({
 
   return (
     <div className="space-y-5">
-      <StatusPanel
-        title={
-          event.priceAmount == null
-            ? "Payment pending"
-            : `${event.currency} ${event.priceAmount}`
-        }
-        description={getPaymentStatusLabel(payment?.status ?? "pending_upload")}
-      >
-        {canShowEventPass(event.viewerParticipation) ? (
-          <EventPassDialog
-            event={event}
-            participant={event.viewerParticipation}
-            triggerClassName="h-8"
-          />
-        ) : null}
-        {payment?.proofMediaId ? (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={viewingPaymentProofId === payment.id}
-            onClick={() => onViewPaymentProof(payment.id)}
-          >
-            {viewingPaymentProofId === payment.id
-              ? "Opening..."
-              : "View submitted proof"}
-          </Button>
-        ) : null}
-      </StatusPanel>
+      <div className="rounded-xl border border-border/70 bg-background/70 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-foreground">
+              {event.priceAmount == null
+                ? "Payment pending"
+                : `${event.currency} ${event.priceAmount}`}
+            </h2>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {getPaymentStatusLabel(payment?.status ?? "pending_upload")}
+            </p>
+          </div>
+          {payment?.proofMediaId ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              disabled={viewingPaymentProofId === payment.id}
+              onClick={() => onViewPaymentProof(payment.id)}
+            >
+              {viewingPaymentProofId === payment.id
+                ? "Opening..."
+                : "View submitted proof"}
+            </Button>
+          ) : null}
+        </div>
+      </div>
 
       {event.paymentInstructions ? (
         <DetailSection title="Instructions">
@@ -3622,6 +4066,22 @@ function ParticipantsSection({
             Manage participants
           </Button>
         ) : null}
+        {event.viewerCanManage && showOrganizerActions ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 rounded-full px-2 text-[11px]"
+            nativeButton={false}
+            render={
+              <Link
+                href={`/events/${encodeURIComponent(event.slug)}/manage/check-in`}
+              />
+            }
+          >
+            <QrCode className="mr-1 h-3 w-3" />
+            Check in
+          </Button>
+        ) : null}
       </div>
       {isLoading ? (
         <div className="space-y-2">
@@ -3694,6 +4154,14 @@ function ParticipantsSection({
                         viewingPaymentProofId={viewingPaymentProofId}
                         regeneratingPassId={regeneratingPassId}
                       />
+                      {participant.checkedInAt ? (
+                        <Badge
+                          variant="outline"
+                          className="h-6 border-sky-500/30 bg-sky-500/10 px-2 text-[11px] text-sky-700"
+                        >
+                          Checked in
+                        </Badge>
+                      ) : null}
                     </>
                   ) : null}
                 </div>
@@ -3752,6 +4220,21 @@ function OrganizerActions({
         onRegeneratePass={onRegeneratePass}
         regenerating={regeneratingPassId === participant.id}
       />
+      {participant.qrToken ? (
+        <Button
+          size="sm"
+          variant="outline"
+          className={compactButtonClassName}
+          nativeButton={false}
+          render={
+            <Link
+              href={`/events/${encodeURIComponent(event.slug)}/manage/check-in?token=${encodeURIComponent(participant.qrToken)}`}
+            />
+          }
+        >
+          Check in
+        </Button>
+      ) : null}
       {participant.status === "pending_approval" ? (
         <>
           <Button
@@ -3826,6 +4309,36 @@ function OrganizerActions({
   );
 }
 
+function EventPassQRCode({ value }: { value: string }) {
+  return (
+    <div className="flex justify-center rounded-lg border border-border/70 bg-white p-4">
+      <div className="relative h-[220px] w-[220px]">
+        <QRCodeSVG
+          value={value}
+          size={220}
+          level="H"
+          role="img"
+          aria-label="Event pass QR code"
+          imageSettings={{
+            src: eventPassQrLogoUrl,
+            height: 52,
+            width: 52,
+            excavate: true,
+          }}
+        />
+        <span className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 flex h-12 w-12 items-center justify-center rounded-md bg-zinc-950 p-1.5 shadow-sm">
+          <img
+            src={eventPassQrLogoUrl}
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-contain"
+          />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function EventPassDialog({
   event,
   participant,
@@ -3881,15 +4394,7 @@ function EventPassDialog({
         </DialogHeader>
         {passUrl ? (
           <div className="space-y-5">
-            <div className="flex justify-center rounded-lg border border-border/70 bg-white p-4">
-              <QRCodeSVG
-                value={passUrl}
-                size={220}
-                level="M"
-                role="img"
-                aria-label="Event pass QR code"
-              />
-            </div>
+            <EventPassQRCode value={passUrl} />
             <p className="text-center text-xs text-muted-foreground">
               Scan this QR to verify this event pass.
             </p>
@@ -3984,6 +4489,154 @@ function PassDetail({ label, value }: { label: string; value?: string }) {
       <span className="text-muted-foreground">{label}</span>
       <span className="text-right font-medium">{value || "Not set"}</span>
     </div>
+  );
+}
+
+function CheckInResultPanel({
+  event,
+  result,
+  isVerifying,
+  message,
+  wrongEvent,
+  paymentOverrideArmed,
+  isCheckingIn,
+  onCheckIn,
+}: {
+  event: Event;
+  result: EventPass | null;
+  isVerifying: boolean;
+  message: string;
+  wrongEvent: boolean;
+  paymentOverrideArmed: boolean;
+  isCheckingIn: boolean;
+  onCheckIn: () => void;
+}) {
+  const paymentStatus = result ? getPassPaymentStatus(result) : undefined;
+  const paymentWarning =
+    paymentStatus &&
+    paymentStatus !== "verified" &&
+    paymentStatus !== "not_required";
+  const alreadyCheckedIn = Boolean(result?.participant.checkedInAt);
+
+  return (
+    <section className="rounded-xl border border-border/70 bg-background/70 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-foreground">
+          Latest scan result
+        </h2>
+        {isVerifying ? (
+          <Badge variant="outline" className="h-6 px-2 text-[11px]">
+            Verifying
+          </Badge>
+        ) : result ? (
+          <Badge
+            variant="outline"
+            className={
+              alreadyCheckedIn
+                ? "h-6 border-sky-500/30 bg-sky-500/10 px-2 text-[11px] text-sky-700"
+                : "h-6 border-emerald-500/30 bg-emerald-500/10 px-2 text-[11px] text-emerald-700"
+            }
+          >
+            {alreadyCheckedIn ? "Already checked in" : "Valid event pass"}
+          </Badge>
+        ) : wrongEvent ? (
+          <Badge
+            variant="outline"
+            className="h-6 border-amber-500/30 bg-amber-500/10 px-2 text-[11px] text-amber-700"
+          >
+            Wrong event
+          </Badge>
+        ) : null}
+      </div>
+      {message ? (
+        <p
+          className={`mt-2 text-sm ${
+            wrongEvent ||
+            message.includes("invalid") ||
+            message.includes("failed")
+              ? "text-destructive"
+              : "text-muted-foreground"
+          }`}
+        >
+          {message}
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">
+          Scan or paste an Event Pass to see participant details.
+        </p>
+      )}
+      {result ? (
+        <div className="mt-4 space-y-4">
+          <UserIdentityHeader
+            displayName={
+              result.participant.displayName ||
+              result.participant.username ||
+              result.participant.userId
+            }
+            username={result.participant.username}
+            avatarUrl={result.participant.avatarUrl}
+            usernameFallback="participant"
+          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge
+              variant="outline"
+              className={getParticipantRoleBadgeClass(result.role)}
+            >
+              {titleCase(result.role)}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={getParticipantStatusBadgeClass(result.status)}
+            >
+              {titleCase(result.status)}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={getPaymentStatusBadgeClass(
+                paymentStatus ?? "pending_upload",
+              )}
+            >
+              {getPaymentStatusLabel(paymentStatus ?? "pending_upload")}
+            </Badge>
+          </div>
+          <div className="grid gap-2 text-sm">
+            <PassDetail label="Event" value={event.title} />
+            <PassDetail
+              label="Checked in"
+              value={
+                result.participant.checkedInAt
+                  ? formatDateTime(result.participant.checkedInAt)
+                  : "Not checked in"
+              }
+            />
+            {result.participant.checkedInBy ? (
+              <PassDetail
+                label="Checked in by"
+                value={result.participant.checkedInBy}
+              />
+            ) : null}
+          </div>
+          {paymentWarning ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">
+              Payment is not verified. Check-in does not change payment status.
+            </div>
+          ) : null}
+          <Button
+            className="w-full sm:w-auto"
+            disabled={alreadyCheckedIn || isCheckingIn}
+            onClick={onCheckIn}
+          >
+            {alreadyCheckedIn
+              ? "Already checked in"
+              : paymentWarning && paymentOverrideArmed
+                ? "Check in anyway"
+                : isCheckingIn
+                  ? "Checking in..."
+                  : "Check in"}
+          </Button>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -5122,6 +5775,14 @@ function getPaymentStatusBadgeClass(status: EventPaymentStatus) {
   }
 }
 
+function getPassPaymentStatus(pass: EventPass): EventPaymentStatus {
+  return (
+    pass.payment?.status ??
+    pass.participant.payment?.status ??
+    (pass.event.isPaid ? "pending_upload" : "not_required")
+  );
+}
+
 function getPaymentMethodLabel(method: EventPaymentMethod) {
   const name = method.name?.trim();
   if (name) return name;
@@ -5281,6 +5942,13 @@ function canShowEventPass(
   return ["pending_approval", "confirmed", "attended"].includes(
     participant.status,
   );
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
 function formatEventDate(start?: string, end?: string, timezone?: string) {

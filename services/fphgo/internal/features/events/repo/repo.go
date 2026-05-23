@@ -1283,6 +1283,35 @@ func (r *Repo) RegenerateParticipantPass(ctx context.Context, eventID, participa
 	return r.GetParticipant(ctx, eventID, userID)
 }
 
+func (r *Repo) CheckInEventPass(ctx context.Context, slugValue, token, actorID string) (EventPass, error) {
+	const q = `
+		UPDATE event_participations ep
+		SET checked_in_at = COALESCE(ep.checked_in_at, NOW()),
+			checked_in_by = COALESCE(ep.checked_in_by, $3::uuid),
+			updated_at = NOW()
+		FROM events e
+		WHERE e.id = ep.event_id
+			AND e.slug = $1
+			AND ep.qr_token = $2
+			AND ep.qr_revoked_at IS NULL
+		RETURNING ep.event_id::text, ep.user_id::text
+	`
+	var eventID string
+	var userID string
+	if err := r.pool.QueryRow(ctx, q, strings.TrimSpace(slugValue), strings.TrimSpace(token), actorID).Scan(&eventID, &userID); err != nil {
+		return EventPass{}, err
+	}
+	event, err := r.GetEventByID(ctx, eventID, actorID)
+	if err != nil {
+		return EventPass{}, err
+	}
+	participant, err := r.GetParticipant(ctx, eventID, userID)
+	if err != nil {
+		return EventPass{}, err
+	}
+	return EventPass{Event: event, Participant: participant}, nil
+}
+
 func (r *Repo) GetPaymentProof(ctx context.Context, eventID, paymentID string) (EventPaymentProof, error) {
 	const q = `
 		SELECT pay.id::text, pay.event_id::text, pay.user_id::text,

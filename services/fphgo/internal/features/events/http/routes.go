@@ -33,6 +33,7 @@ func Routes(h *Handlers) chi.Router {
 		write.Patch("/{eventId}/participants/{participantId}/reject", h.RejectParticipant)
 		write.Patch("/{eventId}/participants/{participantId}/role", h.UpdateParticipantRole)
 		write.Post("/{eventId}/participants/{participantId}/regenerate-pass", h.RegenerateParticipantPass)
+		write.Post("/{slug}/pass/{token}/check-in", h.CheckInEventPass)
 		write.Post("/{eventId}/payment-methods", h.CreatePaymentMethod)
 		write.Patch("/{eventId}/payment-methods/{paymentMethodId}", h.UpdatePaymentMethod)
 		write.Post("/{eventId}/payments", h.SubmitPayment)

@@ -470,6 +470,7 @@ export type EventAttendee = EventParticipant;
 export interface EventPass {
   valid: boolean;
   revoked: boolean;
+  alreadyCheckedIn?: boolean;
   event: Event;
   participant: EventParticipant;
   role: EventParticipantRole;

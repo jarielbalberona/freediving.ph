@@ -300,6 +300,20 @@ func (h *Handlers) VerifyEventPass(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, mapEventPass(pass))
 }
 
+func (h *Handlers) CheckInEventPass(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	pass, err := h.service.CheckInEventPass(r.Context(), chi.URLParam(r, "slug"), chi.URLParam(r, "token"), actorID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapEventPass(pass))
+}
+
 func (h *Handlers) ApproveParticipant(w http.ResponseWriter, r *http.Request) {
 	actorID, err := requireActorID(r)
 	if err != nil {
@@ -785,15 +799,16 @@ func mapParticipant(item eventsrepo.EventParticipant, includePayment bool) Event
 func mapEventPass(pass eventsservice.EventPassAccess) EventPassResponse {
 	participant := mapParticipant(pass.Participant, true)
 	return EventPassResponse{
-		Valid:       pass.Participant.QRToken != "" && pass.Participant.QRRevokedAt == nil,
-		Revoked:     pass.Participant.QRRevokedAt != nil,
-		Event:       mapEvent(pass.Event),
-		Participant: participant,
-		Role:        pass.Participant.Role,
-		Status:      pass.Participant.Status,
-		Payment:     participant.Payment,
-		CanManage:   pass.CanManage,
-		IsOwner:     pass.IsOwner,
+		Valid:            pass.Participant.QRToken != "" && pass.Participant.QRRevokedAt == nil,
+		Revoked:          pass.Participant.QRRevokedAt != nil,
+		AlreadyCheckedIn: pass.AlreadyCheckedIn,
+		Event:            mapEvent(pass.Event),
+		Participant:      participant,
+		Role:             pass.Participant.Role,
+		Status:           pass.Participant.Status,
+		Payment:          participant.Payment,
+		CanManage:        pass.CanManage,
+		IsOwner:          pass.IsOwner,
 	}
 }
 

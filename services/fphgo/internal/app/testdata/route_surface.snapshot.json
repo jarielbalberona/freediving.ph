@@ -317,6 +317,10 @@
       "pattern": "/v1/events/{slug}/pass/{token}"
     },
     {
+      "method": "POST",
+      "pattern": "/v1/events/{slug}/pass/{token}/check-in"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/explore/me/dive-presences"
     },

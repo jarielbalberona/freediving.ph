@@ -632,6 +632,72 @@ func TestRegenerateParticipantPassRequiresOrganizer(t *testing.T) {
 	assertAppErrorStatus(t, err, http.StatusForbidden)
 }
 
+func TestCheckInEventPassRequiresOrganizerAndSetsCheckInFields(t *testing.T) {
+	const (
+		eventID   = "550e8400-e29b-41d4-a716-446655443090"
+		eventSlug = "check-in-day"
+		actorID   = "550e8400-e29b-41d4-a716-446655443091"
+		userID    = "550e8400-e29b-41d4-a716-446655443092"
+		token     = "secure-random-token"
+	)
+	repo := &eventsRepoStub{
+		event:        eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
+		participant:  eventsrepo.EventParticipant{EventID: eventID, UserID: userID, QRToken: token, Status: "confirmed", Payment: &eventsrepo.EventParticipantPayment{Status: "submitted"}},
+		canManageSet: true,
+		canManage:    true,
+	}
+	pass, err := New(repo).CheckInEventPass(context.Background(), eventSlug, token, actorID)
+	if err != nil {
+		t.Fatalf("organizer should check in pass: %v", err)
+	}
+	if !repo.checkInCalled {
+		t.Fatalf("expected repo check-in to be called")
+	}
+	if pass.Participant.CheckedInAt == nil || pass.Participant.CheckedInBy != actorID {
+		t.Fatalf("expected check-in fields to be set: %#v", pass.Participant)
+	}
+	if pass.Participant.Payment == nil || pass.Participant.Payment.Status != "submitted" {
+		t.Fatalf("check-in must not alter payment status: %#v", pass.Participant.Payment)
+	}
+
+	repo = &eventsRepoStub{
+		event:        eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
+		participant:  eventsrepo.EventParticipant{EventID: eventID, UserID: userID, QRToken: token, Status: "confirmed"},
+		canManageSet: true,
+		canManage:    false,
+	}
+	_, err = New(repo).CheckInEventPass(context.Background(), eventSlug, token, actorID)
+	assertAppErrorStatus(t, err, http.StatusForbidden)
+}
+
+func TestCheckInEventPassIsIdempotentAndRejectsInvalidToken(t *testing.T) {
+	const (
+		eventID   = "550e8400-e29b-41d4-a716-446655443093"
+		eventSlug = "already-checked-in"
+		actorID   = "550e8400-e29b-41d4-a716-446655443094"
+		userID    = "550e8400-e29b-41d4-a716-446655443095"
+		token     = "secure-random-token"
+	)
+	checkedInAt := time.Date(2026, 5, 23, 7, 30, 0, 0, time.UTC)
+	repo := &eventsRepoStub{
+		event:        eventsrepo.Event{ID: eventID, Slug: eventSlug, Status: "published"},
+		participant:  eventsrepo.EventParticipant{EventID: eventID, UserID: userID, QRToken: token, Status: "confirmed", CheckedInAt: &checkedInAt, CheckedInBy: actorID},
+		canManageSet: true,
+		canManage:    true,
+	}
+	pass, err := New(repo).CheckInEventPass(context.Background(), eventSlug, token, actorID)
+	if err != nil {
+		t.Fatalf("already checked-in pass should succeed: %v", err)
+	}
+	if !pass.AlreadyCheckedIn || repo.checkInCalled {
+		t.Fatalf("expected idempotent result without overwrite: %#v called=%v", pass, repo.checkInCalled)
+	}
+
+	repo = &eventsRepoStub{passErr: pgx.ErrNoRows}
+	_, err = New(repo).CheckInEventPass(context.Background(), eventSlug, "invalid-token", actorID)
+	assertAppErrorStatus(t, err, http.StatusNotFound)
+}
+
 func TestUpdateEventRejectsInvalidTimeRange(t *testing.T) {
 	const (
 		eventID = "550e8400-e29b-41d4-a716-446655443051"
@@ -1462,6 +1528,7 @@ type eventsRepoStub struct {
 	postInput                eventsrepo.CreatePostInput
 	roleUpdate               string
 	roleErr                  error
+	checkInCalled            bool
 	competitionBelongs       bool
 	competitionBelongsSet    bool
 	sponsorBelongs           bool
@@ -1701,6 +1768,17 @@ func (r *eventsRepoStub) GetEventPassByToken(context.Context, string, string) (e
 
 func (r *eventsRepoStub) RegenerateParticipantPass(context.Context, string, string) (eventsrepo.EventParticipant, error) {
 	return r.participant, nil
+}
+
+func (r *eventsRepoStub) CheckInEventPass(_ context.Context, _ string, _ string, actorID string) (eventsrepo.EventPass, error) {
+	r.checkInCalled = true
+	if r.passErr != nil {
+		return eventsrepo.EventPass{}, r.passErr
+	}
+	now := time.Date(2026, 5, 23, 8, 0, 0, 0, time.UTC)
+	r.participant.CheckedInAt = &now
+	r.participant.CheckedInBy = actorID
+	return eventsrepo.EventPass{Event: r.event, Participant: r.participant}, nil
 }
 
 func signedProofTestService(repo *eventsRepoStub) *Service {

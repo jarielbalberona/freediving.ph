@@ -353,6 +353,25 @@ test("events pass labels use normalized payment status copy", () => {
   assert.match(detailPage, /case "not_required":\s*return "Not required"/);
 });
 
+test("events check-in scanner is a dedicated organizer workflow", () => {
+  const detailPage = read("src/app/events/[slug]/client-page.tsx");
+  const checkInPage = read("src/app/events/[slug]/manage/check-in/page.tsx");
+  const api = read("src/features/events/api/events.ts");
+  const mutations = read("src/features/events/hooks/mutations.ts");
+  assert.match(checkInPage, /EventCheckInClient/);
+  assert.match(detailPage, /parseEventPassScanValue/);
+  assert.match(detailPage, /BrowserQRCodeReader/);
+  assert.match(detailPage, /Start scanner/);
+  assert.match(detailPage, /Manual entry/);
+  assert.match(detailPage, /This pass belongs to a different event/);
+  assert.match(detailPage, /Payment is not verified/);
+  assert.match(detailPage, /Check in anyway/);
+  assert.match(detailPage, /Already checked in/);
+  assert.match(detailPage, /manage\/check-in\?token=/);
+  assert.match(api, /\/pass\/\$\{encodeURIComponent\(token\)\}\/check-in/);
+  assert.match(mutations, /useCheckInEventPass/);
+});
+
 test("events module Select usage supplies label items for Base UI", () => {
   const createPage = read("src/app/events/create/page.tsx");
   const detailPage = read("src/app/events/[slug]/client-page.tsx");

@@ -295,13 +295,14 @@ type PaymentProofURLResponse struct {
 }
 
 type EventPassResponse struct {
-	Valid       bool                             `json:"valid"`
-	Revoked     bool                             `json:"revoked"`
-	Event       EventResponse                    `json:"event"`
-	Participant EventParticipantResponse         `json:"participant"`
-	Role        string                           `json:"role"`
-	Status      string                           `json:"status"`
-	Payment     *EventParticipantPaymentResponse `json:"payment,omitempty"`
-	CanManage   bool                             `json:"canManage"`
-	IsOwner     bool                             `json:"isOwner"`
+	Valid            bool                             `json:"valid"`
+	Revoked          bool                             `json:"revoked"`
+	AlreadyCheckedIn bool                             `json:"alreadyCheckedIn,omitempty"`
+	Event            EventResponse                    `json:"event"`
+	Participant      EventParticipantResponse         `json:"participant"`
+	Role             string                           `json:"role"`
+	Status           string                           `json:"status"`
+	Payment          *EventParticipantPaymentResponse `json:"payment,omitempty"`
+	CanManage        bool                             `json:"canManage"`
+	IsOwner          bool                             `json:"isOwner"`
 }

@@ -186,6 +186,14 @@ export const eventsApi = {
     return response.data;
   },
 
+  checkInEventPass: async (slug: string, token: string): Promise<EventPass> => {
+    const response = await axiosInstance.post<EventPassPayload>(
+      `/v1/events/${encodeURIComponent(slug)}/pass/${encodeURIComponent(token)}/check-in`,
+      {},
+    );
+    return response.data;
+  },
+
   getEventAttendees: async (
     eventId: string,
   ): Promise<ListParticipantsPayload> => {

@@ -330,6 +330,33 @@ export const useRegenerateEventPass = () => {
   });
 };
 
+export const useCheckInEventPass = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ slug, token }: { slug: string; token: string }) =>
+      eventsApi.checkInEventPass(slug, token),
+    onSuccess: (response, variables) => {
+      queryClient.setQueryData(
+        queryKeys.events.pass(variables.slug, variables.token),
+        response,
+      );
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.participants(response.event.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.myPass(response.event.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.detail(response.event.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
+    },
+  });
+};
+
 export const useEventPaymentProofUrl = () =>
   useMutation({
     mutationFn: ({

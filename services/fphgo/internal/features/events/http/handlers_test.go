@@ -890,3 +890,7 @@ func (r *eventCreateRepoStub) GetEventPassByToken(context.Context, string, strin
 func (r *eventCreateRepoStub) RegenerateParticipantPass(context.Context, string, string) (eventsrepo.EventParticipant, error) {
 	return eventsrepo.EventParticipant{}, nil
 }
+
+func (r *eventCreateRepoStub) CheckInEventPass(context.Context, string, string, string) (eventsrepo.EventPass, error) {
+	return eventsrepo.EventPass{}, nil
+}
