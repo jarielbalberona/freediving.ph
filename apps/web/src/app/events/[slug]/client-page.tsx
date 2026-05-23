@@ -95,12 +95,18 @@ import {
 import { mediaApi } from "@/features/media/api/media";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 
-type EventTab = "overview" | "join" | "participants" | "payment" | "manage";
+type EventTab =
+  | "updates"
+  | "overview"
+  | "join"
+  | "participants"
+  | "payment"
+  | "manage";
 
 const eventTabsListClassName =
-  "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto rounded-none bg-transparent px-3 pb-1 sm:mx-0 sm:w-full sm:px-0";
+  "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto rounded-none border-b border-border/70 bg-transparent px-3 sm:mx-0 sm:w-full sm:px-0";
 const eventTabTriggerClassName =
-  "h-8 flex-none rounded-full border-border/70 px-3 text-xs data-active:border-border data-active:bg-background data-active:shadow-xs";
+  "h-10 flex-none rounded-none px-3 text-sm data-active:bg-transparent data-active:shadow-none";
 
 export default function EventDetailClient({ slug }: { slug: string }) {
   const session = useSession();
@@ -198,6 +204,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     event.isPaid && (event.viewerJoined || event.viewerCanManage);
   const canShowManageTab = event.viewerCanManage;
   const visibleTabs: EventTab[] = [
+    "updates",
     "overview",
     ...(canShowJoinTab ? (["join"] as const) : []),
     ...(canShowParticipantsTab ? (["participants"] as const) : []),
@@ -364,7 +371,14 @@ export default function EventDetailClient({ slug }: { slug: string }) {
         onValueChange={(value) => setActiveTab(value as EventTab)}
         className="gap-4"
       >
-        <TabsList className={eventTabsListClassName}>
+        <TabsList variant="line" className={eventTabsListClassName}>
+          <TabsTrigger
+            value="updates"
+            className={eventTabTriggerClassName}
+            onClick={() => setActiveTab("updates")}
+          >
+            Updates
+          </TabsTrigger>
           <TabsTrigger
             value="overview"
             className={eventTabTriggerClassName}
@@ -409,6 +423,10 @@ export default function EventDetailClient({ slug }: { slug: string }) {
             </TabsTrigger>
           ) : null}
         </TabsList>
+
+        <TabsContent value="updates" className="space-y-4">
+          <UpdatesTab />
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           <OverviewTab
@@ -736,6 +754,15 @@ function PrivacyNotice({ children }: { children: ReactNode }) {
       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
       <span>{children}</span>
     </div>
+  );
+}
+
+function UpdatesTab() {
+  return (
+    <CommunityEmptyState
+      title="No updates yet"
+      description="Event posts and activity changes will appear here."
+    />
   );
 }
 

@@ -185,11 +185,19 @@ test("events expose interested and going state without interested identities", (
 test("events detail organizes content into visibility-aware tabs", () => {
   const detailPage = read("src/app/events/[slug]/client-page.tsx");
   assert.match(detailPage, /Tabs, TabsContent, TabsList, TabsTrigger/);
+  assert.match(detailPage, /TabsList variant="line"/);
+  assert.match(detailPage, /value="updates"/);
   assert.match(detailPage, /value="overview"/);
   assert.match(detailPage, /value="join"/);
   assert.match(detailPage, /value="participants"/);
   assert.match(detailPage, /value="payment"/);
   assert.match(detailPage, /value="manage"/);
+  assert.match(detailPage, /No updates yet/);
+  assert.match(detailPage, /Event posts and activity changes will appear here/);
+  assert.ok(
+    detailPage.indexOf('value="updates"') <
+      detailPage.indexOf('value="overview"'),
+  );
   assert.match(detailPage, /DiveSiteCombobox/);
   assert.match(
     detailPage,
