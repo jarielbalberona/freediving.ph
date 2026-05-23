@@ -12,7 +12,8 @@ test("events create page stays limited to first-step event fields", () => {
   assert.match(createPage, /Event details/);
   assert.match(createPage, /Schedule/);
   assert.match(createPage, /Access/);
-  assert.match(createPage, /Paid event/);
+  assert.match(createPage, /Optional features/);
+  assert.match(createPage, /Collect manual payment proofs/);
   assert.match(createPage, /pb-24/);
   assert.doesNotMatch(createPage, /MarkdownEditor/);
   assert.doesNotMatch(createPage, /Full description/);
@@ -33,7 +34,7 @@ test("events create payload defaults Philippine time and defers advanced setup",
   assert.match(createPage, /CREATE_EVENT_TIMEZONE = "Asia\/Manila"/);
   assert.match(createPage, /toISO\(form\.startsAt, CREATE_EVENT_TIMEZONE\)/);
   assert.match(createPage, /timezone: CREATE_EVENT_TIMEZONE/);
-  assert.match(createPage, /isPaid: form\.isPaid/);
+  assert.match(createPage, /isPaid: form\.paymentMode === "required"/);
   assert.match(createPage, /items=\{eventTypeOptions\}/);
   assert.match(createPage, /value \?\? "fun_dive"/);
   assert.match(createPage, /Create event/);
@@ -85,7 +86,7 @@ test("events create and management use user-facing labels", () => {
   assert.match(detailPage, /Edit description/);
   assert.match(detailPage, /Edit schedule and dive site/);
   assert.match(detailPage, /Edit capacity and access/);
-  assert.match(detailPage, /Manage payment methods/);
+  assert.match(detailPage, /Payment setup/);
   assert.match(detailPage, /Freediving details/);
   assert.match(detailPage, /Safety and logistics/);
   assert.doesNotMatch(detailPage, /Organizer setup/);
@@ -276,18 +277,24 @@ test("events detail renders management extensions through tabs and dialogs", () 
     "src/app/events/[slug]/competitions-and-prizes/[competitionSlug]/page.tsx",
   );
   assert.match(detailPage, /useEventCompetitions/);
+  assert.match(detailPage, /useEventProgramItems/);
   assert.match(detailPage, /useEventPrizes/);
   assert.match(detailPage, /useEventSponsors/);
   assert.match(detailPage, /useEventPosts/);
   assert.match(detailPage, /function PrizesTab/);
   assert.match(detailPage, /function SponsorsTab/);
   assert.match(detailPage, /function PostsTab/);
+  assert.match(detailPage, /function ProgramTab/);
+  assert.match(detailPage, /function ProgramManageSection/);
   assert.match(detailPage, /readOnly/);
   assert.match(detailPage, /mode="public"/);
   assert.match(detailPage, /mode="manage"/);
   assert.match(detailPage, /value="setup"/);
   assert.match(detailPage, /value="participants"/);
-  assert.match(detailPage, /value="payments"/);
+  assert.match(detailPage, /value="payment"/);
+  assert.match(detailPage, /value="join-form"/);
+  assert.match(detailPage, /value="program"/);
+  assert.match(detailPage, /orientation="vertical"/);
   assert.match(detailPage, /value="updates"/);
   assert.match(detailPage, /value="prizes"/);
   assert.match(detailPage, /value="sponsors"/);
@@ -311,6 +318,10 @@ test("events detail renders management extensions through tabs and dialogs", () 
   assert.match(detailPage, /Enable Updates/);
   assert.match(detailPage, /New update/);
   assert.match(detailPage, /Manage Updates/);
+  assert.match(detailPage, /Add program item/);
+  assert.match(detailPage, /Edit program item/);
+  assert.match(detailPage, /Copy program/);
+  assert.match(detailPage, /event\.programEnabled/);
   assert.match(detailPage, /event\?\.postsEnabled/);
   assert.match(detailPage, /safeExternalUrl/);
   assert.match(detailPage, /postsEnabled/);
@@ -430,6 +441,7 @@ test("events module Select usage supplies label items for Base UI", () => {
   assert.match(detailPage, /items=\{paymentMethodItems\}/);
   assert.match(detailPage, /getPaymentMethodLabel\(method\)/);
   assert.match(detailPage, /items=\{prizePlacementOptions\}/);
+  assert.match(detailPage, /items=\{competitionItems\}/);
   assert.match(detailPage, /items=\{difficultyOptions\}/);
   assert.match(
     detailPage,
@@ -469,7 +481,7 @@ test("events detail keeps private identities and payment proof flows protected",
   assert.match(detailPage, /Identities are hidden for\s+private events\./);
   assert.match(
     detailPage,
-    /!event\.isPaid \|\| event\.viewerJoined \|\| event\.viewerCanManage/,
+    /!requiresEventPayment\(event\) \|\|[\s\S]*event\.viewerJoined \|\|[\s\S]*event\.viewerCanManage/,
   );
   assert.match(
     detailPage,

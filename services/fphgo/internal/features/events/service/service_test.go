@@ -32,7 +32,7 @@ func TestJoinEventUsesApprovalStatus(t *testing.T) {
 	}
 	svc := New(repo)
 
-	participant, err := svc.JoinEvent(context.Background(), eventID, userID, "AIDA 2")
+	participant, err := svc.JoinEvent(context.Background(), eventID, userID, "AIDA 2", nil)
 	if err != nil {
 		t.Fatalf("JoinEvent returned error: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestJoinPrivateEventDoesNotRequirePrivateDetailAccess(t *testing.T) {
 	}
 	svc := New(repo)
 
-	participant, err := svc.JoinEvent(context.Background(), eventID, userID, "Would like to join")
+	participant, err := svc.JoinEvent(context.Background(), eventID, userID, "Would like to join", nil)
 	if err != nil {
 		t.Fatalf("JoinEvent returned error: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestJoinEventNotificationIncludesSlug(t *testing.T) {
 	}
 	svc := New(repo, WithNotifications(notifications))
 
-	if _, err := svc.JoinEvent(context.Background(), eventID, attendeeID, "First session"); err != nil {
+	if _, err := svc.JoinEvent(context.Background(), eventID, attendeeID, "First session", nil); err != nil {
 		t.Fatalf("JoinEvent returned error: %v", err)
 	}
 	if len(notifications.attendeeJoined) != 1 {
@@ -809,7 +809,7 @@ func TestJoinEventAutoConfirmsWhenApprovalDisabled(t *testing.T) {
 	}
 	svc := New(repo)
 
-	participant, err := svc.JoinEvent(context.Background(), eventID, userID, "")
+	participant, err := svc.JoinEvent(context.Background(), eventID, userID, "", nil)
 	if err != nil {
 		t.Fatalf("JoinEvent returned error: %v", err)
 	}
@@ -837,7 +837,7 @@ func TestJoinEventPreventsDuplicateParticipation(t *testing.T) {
 	}
 	svc := New(repo)
 
-	if _, err := svc.JoinEvent(context.Background(), eventID, userID, ""); err == nil {
+	if _, err := svc.JoinEvent(context.Background(), eventID, userID, "", nil); err == nil {
 		t.Fatalf("expected duplicate participation error")
 	}
 }
@@ -863,7 +863,7 @@ func TestJoinEventBlocksRejoinAfterTerminalParticipation(t *testing.T) {
 			}
 			svc := New(repo)
 
-			_, err := svc.JoinEvent(context.Background(), eventID, userID, "")
+			_, err := svc.JoinEvent(context.Background(), eventID, userID, "", nil)
 			assertAppErrorStatus(t, err, http.StatusConflict)
 		})
 	}
@@ -1612,6 +1612,101 @@ func TestParticipantRoleManagementGuards(t *testing.T) {
 	})
 }
 
+func TestProgramItemsRespectModuleAndPrivateAccess(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443301"
+		userID  = "550e8400-e29b-41d4-a716-446655443302"
+	)
+
+	t.Run("public enabled returns items", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{ID: eventID, Visibility: "public", ProgramEnabled: true},
+			programItems: []eventsrepo.EventProgramItem{{
+				ID:      "550e8400-e29b-41d4-a716-446655443303",
+				EventID: eventID,
+				Title:   "Safety briefing",
+			}},
+		}
+		items, err := New(repo).ListProgramItems(context.Background(), eventID, "")
+		if err != nil {
+			t.Fatalf("ListProgramItems returned error: %v", err)
+		}
+		if len(items) != 1 || items[0].Title != "Safety briefing" {
+			t.Fatalf("expected program item, got %#v", items)
+		}
+	})
+
+	t.Run("disabled hidden from normal viewers", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{ID: eventID, Visibility: "public", ProgramEnabled: false},
+		}
+		_, err := New(repo).ListProgramItems(context.Background(), eventID, userID)
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	})
+
+	t.Run("organizer can manage while disabled", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{ID: eventID, Visibility: "public", ProgramEnabled: false, ViewerCanManage: true},
+			programItems: []eventsrepo.EventProgramItem{{
+				ID:      "550e8400-e29b-41d4-a716-446655443304",
+				EventID: eventID,
+				Title:   "Registration",
+			}},
+		}
+		items, err := New(repo).ListProgramItems(context.Background(), eventID, userID)
+		if err != nil {
+			t.Fatalf("organizer ListProgramItems returned error: %v", err)
+		}
+		if len(items) != 1 {
+			t.Fatalf("expected organizer to see disabled program data, got %#v", items)
+		}
+	})
+
+	t.Run("private unauthorized cannot see items", func(t *testing.T) {
+		repo := &eventsRepoStub{
+			event: eventsrepo.Event{
+				ID:                          eventID,
+				Visibility:                  "private",
+				ProgramEnabled:              true,
+				ViewerCanViewPrivateDetails: false,
+			},
+		}
+		_, err := New(repo).ListProgramItems(context.Background(), eventID, userID)
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	})
+}
+
+func TestProgramItemValidationAndPermissions(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443311"
+		actorID = "550e8400-e29b-41d4-a716-446655443312"
+	)
+
+	t.Run("non organizer cannot create", func(t *testing.T) {
+		repo := &eventsRepoStub{canManage: false, canManageSet: true, event: eventsrepo.Event{ID: eventID, Visibility: "public"}}
+		_, err := New(repo).CreateProgramItem(context.Background(), eventID, actorID, eventsrepo.CreateProgramItemInput{Title: "Briefing"})
+		assertAppErrorStatus(t, err, http.StatusForbidden)
+	})
+
+	t.Run("start time requires date", func(t *testing.T) {
+		repo := &eventsRepoStub{canManage: true, canManageSet: true}
+		_, err := New(repo).CreateProgramItem(context.Background(), eventID, actorID, eventsrepo.CreateProgramItemInput{Title: "Briefing", StartTime: "08:00"})
+		assertValidationFailure(t, err)
+	})
+
+	t.Run("end time must be after start", func(t *testing.T) {
+		repo := &eventsRepoStub{canManage: true, canManageSet: true}
+		_, err := New(repo).CreateProgramItem(context.Background(), eventID, actorID, eventsrepo.CreateProgramItemInput{Title: "Briefing", ProgramDate: "2026-06-01", StartTime: "09:00", EndTime: "08:30"})
+		assertValidationFailure(t, err)
+	})
+
+	t.Run("invalid timezone rejected", func(t *testing.T) {
+		repo := &eventsRepoStub{canManage: true, canManageSet: true}
+		_, err := New(repo).CreateProgramItem(context.Background(), eventID, actorID, eventsrepo.CreateProgramItemInput{Title: "Briefing", Timezone: "Mars/Colony"})
+		assertValidationFailure(t, err)
+	})
+}
+
 type eventsRepoStub struct {
 	event                    eventsrepo.Event
 	updatedEvent             eventsrepo.Event
@@ -1623,6 +1718,7 @@ type eventsRepoStub struct {
 	prizes                   []eventsrepo.EventPrize
 	sponsors                 []eventsrepo.EventSponsor
 	posts                    []eventsrepo.EventPost
+	programItems             []eventsrepo.EventProgramItem
 	post                     eventsrepo.EventPost
 	listInput                eventsrepo.ListEventsInput
 	joinInput                eventsrepo.JoinEventInput
@@ -1873,6 +1969,83 @@ func (r *eventsRepoStub) UpdateParticipantRole(_ context.Context, _ string, _ st
 	r.roleUpdate = role
 	r.participant.Role = role
 	return r.participant, nil
+}
+
+func (r *eventsRepoStub) UpdateParticipantStatus(_ context.Context, _ string, _ string, _ string, status string) (eventsrepo.EventParticipant, error) {
+	r.participant.Status = status
+	return r.participant, nil
+}
+
+func (r *eventsRepoStub) UpdateEventModules(_ context.Context, _ string, modules eventsrepo.EventModules) (eventsrepo.Event, error) {
+	r.event.PaymentEnabled = modules.PaymentEnabled
+	r.event.PostsEnabled = modules.PostsEnabled
+	r.event.AwardsEnabled = modules.AwardsEnabled
+	r.event.SponsorsEnabled = modules.SponsorsEnabled
+	r.event.InterestedEnabled = modules.InterestedEnabled
+	r.event.ProgramEnabled = modules.ProgramEnabled
+	return r.event, nil
+}
+
+func (r *eventsRepoStub) ListJoinFormFields(context.Context, string, bool) ([]eventsrepo.EventJoinFormField, error) {
+	return nil, nil
+}
+
+func (r *eventsRepoStub) ReplaceJoinFormFields(_ context.Context, _ string, fields []eventsrepo.EventJoinFormFieldInput) ([]eventsrepo.EventJoinFormField, error) {
+	items := make([]eventsrepo.EventJoinFormField, 0, len(fields))
+	for _, field := range fields {
+		items = append(items, eventsrepo.EventJoinFormField{FieldKey: field.FieldKey, Label: field.Label, FieldType: field.FieldType, Required: field.Required, OptionsJSON: field.OptionsJSON, SortOrder: field.SortOrder, Enabled: field.Enabled})
+	}
+	return items, nil
+}
+
+func (r *eventsRepoStub) ListProgramItems(context.Context, string) ([]eventsrepo.EventProgramItem, error) {
+	return r.programItems, nil
+}
+
+func (r *eventsRepoStub) CreateProgramItem(_ context.Context, eventID string, input eventsrepo.CreateProgramItemInput) (eventsrepo.EventProgramItem, error) {
+	return eventsrepo.EventProgramItem{
+		ID:                  "550e8400-e29b-41d4-a716-446655440301",
+		EventID:             eventID,
+		Title:               input.Title,
+		DescriptionMarkdown: input.DescriptionMarkdown,
+		ProgramDate:         input.ProgramDate,
+		StartTime:           input.StartTime,
+		EndTime:             input.EndTime,
+		Timezone:            input.Timezone,
+		LocationLabel:       input.LocationLabel,
+		CompetitionID:       input.CompetitionID,
+		SortOrder:           input.SortOrder,
+		IsHighlighted:       input.IsHighlighted,
+	}, nil
+}
+
+func (r *eventsRepoStub) UpdateProgramItem(_ context.Context, eventID string, input eventsrepo.UpdateProgramItemInput) (eventsrepo.EventProgramItem, error) {
+	item := eventsrepo.EventProgramItem{ID: input.ProgramItemID, EventID: eventID}
+	if input.Title != nil {
+		item.Title = *input.Title
+	}
+	if input.ProgramDate != nil {
+		item.ProgramDate = *input.ProgramDate
+	}
+	if input.StartTime != nil {
+		item.StartTime = *input.StartTime
+	}
+	if input.EndTime != nil {
+		item.EndTime = *input.EndTime
+	}
+	return item, nil
+}
+
+func (r *eventsRepoStub) DeleteProgramItem(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventsRepoStub) DuplicateEvent(_ context.Context, _ string, input eventsrepo.DuplicateEventInput) (eventsrepo.Event, error) {
+	duplicated := r.event
+	duplicated.ID = "550e8400-e29b-41d4-a716-446655449999"
+	duplicated.Title = input.Title
+	duplicated.Status = "draft"
+	return duplicated, nil
 }
 
 func (r *eventsRepoStub) GetEventPassByToken(context.Context, string, string) (eventsrepo.EventPass, error) {

@@ -1,7 +1,4 @@
-import {
-  canLinkToProfileUsername,
-  getProfileRoute,
-} from "@/lib/routes";
+import { canLinkToProfileUsername, getProfileRoute } from "@/lib/routes";
 import type {
   ActivityFeedItem,
   HomeFeedItem,
@@ -142,6 +139,7 @@ const mapEvent = (item: ActivityFeedItem): HomeFeedItem =>
     detailHref: item.href,
     payload: {
       title: item.title,
+      description: item.body,
       memberCount: numberValue(item.stats, "memberCount"),
     },
   });

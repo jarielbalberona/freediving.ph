@@ -189,6 +189,10 @@
       "pattern": "/v1/events/{eventId}/competitions/{competitionId}"
     },
     {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/duplicate"
+    },
+    {
       "method": "DELETE",
       "pattern": "/v1/events/{eventId}/interest"
     },
@@ -201,8 +205,20 @@
       "pattern": "/v1/events/{eventId}/join"
     },
     {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/join-form-fields"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/v1/events/{eventId}/join-form-fields"
+    },
+    {
       "method": "POST",
       "pattern": "/v1/events/{eventId}/leave"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/modules"
     },
     {
       "method": "GET",
@@ -223,6 +239,10 @@
     {
       "method": "PATCH",
       "pattern": "/v1/events/{eventId}/participants/{participantId}/role"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/participants/{participantId}/status"
     },
     {
       "method": "GET",
@@ -291,6 +311,22 @@
     {
       "method": "PATCH",
       "pattern": "/v1/events/{eventId}/prizes/{prizeId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/events/{eventId}/program"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/events/{eventId}/program"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/events/{eventId}/program/{programItemId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/events/{eventId}/program/{programItemId}"
     },
     {
       "method": "GET",

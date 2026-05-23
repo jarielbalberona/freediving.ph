@@ -66,6 +66,7 @@ type EventParticipantResponse struct {
 	ParticipantNote       string                           `json:"participantNote,omitempty"`
 	EmergencyContactName  string                           `json:"emergencyContactName,omitempty"`
 	EmergencyContactPhone string                           `json:"emergencyContactPhone,omitempty"`
+	JoinAnswers           map[string]any                   `json:"joinAnswers,omitempty"`
 	CreatedAt             time.Time                        `json:"createdAt"`
 	UpdatedAt             time.Time                        `json:"updatedAt"`
 	ApprovedAt            *time.Time                       `json:"approvedAt,omitempty"`
@@ -125,6 +126,7 @@ type EventResponse struct {
 	GroupID                     string                           `json:"groupId,omitempty"`
 	RequiresApproval            bool                             `json:"requiresApproval"`
 	IsPaid                      bool                             `json:"isPaid"`
+	PaymentMode                 string                           `json:"paymentMode"`
 	PriceAmount                 *float64                         `json:"priceAmount,omitempty"`
 	Currency                    string                           `json:"currency"`
 	PaymentInstructions         string                           `json:"paymentInstructions,omitempty"`
@@ -135,7 +137,13 @@ type EventResponse struct {
 	EquipmentNotes              string                           `json:"equipmentNotes,omitempty"`
 	SafetyNotes                 string                           `json:"safetyNotes,omitempty"`
 	CancellationPolicy          string                           `json:"cancellationPolicy,omitempty"`
+	PaymentEnabled              bool                             `json:"paymentEnabled"`
 	PostsEnabled                bool                             `json:"postsEnabled"`
+	AwardsEnabled               bool                             `json:"awardsEnabled"`
+	SponsorsEnabled             bool                             `json:"sponsorsEnabled"`
+	InterestedEnabled           bool                             `json:"interestedEnabled"`
+	ProgramEnabled              bool                             `json:"programEnabled"`
+	Modules                     EventModulesRequest              `json:"modules"`
 	PostCreatePolicy            string                           `json:"postCreatePolicy"`
 	PublishedAt                 *time.Time                       `json:"publishedAt,omitempty"`
 	CancelledAt                 *time.Time                       `json:"cancelledAt,omitempty"`
@@ -200,11 +208,12 @@ type CreateEventRequest struct {
 	EndsAt              string                       `json:"endsAt" validate:"required,datetime=2006-01-02T15:04:05Z07:00"`
 	Timezone            string                       `json:"timezone,omitempty" validate:"omitempty,max=80"`
 	Capacity            *int                         `json:"capacity,omitempty" validate:"omitempty,min=1,max=100000"`
-	Status              string                       `json:"status,omitempty" validate:"omitempty,oneof=draft published cancelled completed archived"`
+	Status              string                       `json:"status,omitempty" validate:"omitempty,oneof=draft published full cancelled completed archived"`
 	Visibility          string                       `json:"visibility" validate:"required,oneof=public private"`
 	Difficulty          string                       `json:"difficulty,omitempty" validate:"omitempty,oneof=beginner intermediate advanced expert"`
 	RequiresApproval    bool                         `json:"requiresApproval"`
 	IsPaid              bool                         `json:"isPaid"`
+	PaymentMode         string                       `json:"paymentMode,omitempty" validate:"omitempty,oneof=free required optional"`
 	PriceAmount         *float64                     `json:"priceAmount,omitempty" validate:"omitempty,min=0"`
 	Currency            string                       `json:"currency,omitempty" validate:"omitempty,len=3"`
 	PaymentInstructions string                       `json:"paymentInstructions,omitempty" validate:"omitempty,max=4000"`
@@ -216,6 +225,7 @@ type CreateEventRequest struct {
 	SafetyNotes         string                       `json:"safetyNotes,omitempty" validate:"omitempty,max=4000"`
 	CancellationPolicy  string                       `json:"cancellationPolicy,omitempty" validate:"omitempty,max=4000"`
 	PaymentMethods      []CreatePaymentMethodRequest `json:"paymentMethods,omitempty" validate:"omitempty,dive"`
+	Modules             EventModulesRequest          `json:"modules,omitempty"`
 	GroupID             string                       `json:"groupId,omitempty" validate:"omitempty,uuid"`
 }
 
@@ -229,11 +239,12 @@ type UpdateEventRequest struct {
 	EndsAt              *string  `json:"endsAt,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
 	Timezone            *string  `json:"timezone,omitempty" validate:"omitempty,max=80"`
 	Capacity            *int     `json:"capacity,omitempty" validate:"omitempty,min=1,max=100000"`
-	Status              *string  `json:"status,omitempty" validate:"omitempty,oneof=draft published cancelled completed archived"`
+	Status              *string  `json:"status,omitempty" validate:"omitempty,oneof=draft published full cancelled completed archived"`
 	Visibility          *string  `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
 	Difficulty          *string  `json:"difficulty,omitempty" validate:"omitempty,oneof=beginner intermediate advanced expert"`
 	RequiresApproval    *bool    `json:"requiresApproval,omitempty"`
 	IsPaid              *bool    `json:"isPaid,omitempty"`
+	PaymentMode         *string  `json:"paymentMode,omitempty" validate:"omitempty,oneof=free required optional"`
 	PriceAmount         *float64 `json:"priceAmount,omitempty" validate:"omitempty,min=0"`
 	Currency            *string  `json:"currency,omitempty" validate:"omitempty,len=3"`
 	PaymentInstructions *string  `json:"paymentInstructions,omitempty" validate:"omitempty,max=4000"`
@@ -245,14 +256,29 @@ type UpdateEventRequest struct {
 	SafetyNotes         *string  `json:"safetyNotes,omitempty" validate:"omitempty,max=4000"`
 	CancellationPolicy  *string  `json:"cancellationPolicy,omitempty" validate:"omitempty,max=4000"`
 	PostsEnabled        *bool    `json:"postsEnabled,omitempty"`
+	PaymentEnabled      *bool    `json:"paymentEnabled,omitempty"`
+	AwardsEnabled       *bool    `json:"awardsEnabled,omitempty"`
+	SponsorsEnabled     *bool    `json:"sponsorsEnabled,omitempty"`
+	InterestedEnabled   *bool    `json:"interestedEnabled,omitempty"`
+	ProgramEnabled      *bool    `json:"programEnabled,omitempty"`
 	PostCreatePolicy    *string  `json:"postCreatePolicy,omitempty" validate:"omitempty,oneof=organizers_only participants"`
 	CancelReason        *string  `json:"cancelReason,omitempty" validate:"omitempty,max=1000"`
 	CoverPhotoURL       *string  `json:"coverPhotoUrl,omitempty" validate:"omitempty,max=1000"`
 }
 
 type JoinEventRequest struct {
-	ParticipantNote string `json:"participantNote,omitempty" validate:"omitempty,max=1000"`
-	Notes           string `json:"notes,omitempty" validate:"omitempty,max=1000"`
+	ParticipantNote string         `json:"participantNote,omitempty" validate:"omitempty,max=1000"`
+	Notes           string         `json:"notes,omitempty" validate:"omitempty,max=1000"`
+	JoinAnswers     map[string]any `json:"joinAnswers,omitempty"`
+}
+
+type EventModulesRequest struct {
+	Payment    bool  `json:"payment"`
+	Posts      bool  `json:"posts"`
+	Awards     bool  `json:"awards"`
+	Sponsors   bool  `json:"sponsors"`
+	Program    bool  `json:"program"`
+	Interested *bool `json:"interested,omitempty"`
 }
 
 type SubmitEventPaymentRequest struct {

@@ -210,7 +210,7 @@ func TestHomeFiltersEventStatusAndVisibility(t *testing.T) {
 	now := time.Now().UTC()
 	service := New(&feedRepoStub{
 		events: []feedrepo.EventCandidate{
-			{ID: "public", Title: "Public", Status: "published", Visibility: "public", CreatedAt: now, ViewerAuthorized: true},
+			{ID: "public", Title: "Public", ShortDescription: "Bring your buoy and line.", Status: "published", Visibility: "public", CreatedAt: now, ViewerAuthorized: true},
 			{ID: "draft", Title: "Draft", Status: "draft", Visibility: "public", CreatedAt: now.Add(-time.Minute), ViewerAuthorized: true},
 			{ID: "private", Title: "Private", Status: "published", Visibility: "private", CreatedAt: now.Add(-2 * time.Minute)},
 			{ID: "group-denied", Title: "Group denied", Status: "published", Visibility: "group_members", CreatedAt: now.Add(-3 * time.Minute), ViewerAuthorized: false},
@@ -231,6 +231,11 @@ func TestHomeFiltersEventStatusAndVisibility(t *testing.T) {
 	}
 	if !ids["public"] || !ids["group-allowed"] {
 		t.Fatalf("expected public and authorized group events, got %#v", ids)
+	}
+	for _, item := range got.Items {
+		if item.EntityID == "public" && item.Payload["description"] != "Bring your buoy and line." {
+			t.Fatalf("expected event description in feed payload, got %#v", item.Payload)
+		}
 	}
 	for _, id := range []string{"draft", "private", "group-denied"} {
 		if ids[id] {

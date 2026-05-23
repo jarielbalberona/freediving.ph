@@ -5,16 +5,22 @@ import type {
   CreateEventCompetitionRequest,
   CreateEventPaymentMethodRequest,
   CreateEventPostRequest,
+  CreateEventProgramItemRequest,
   CreateEventPrizeRequest,
   CreateEventRequest,
   CreateEventSponsorRequest,
+  DuplicateEventRequest,
   ReviewEventPaymentRequest,
   SubmitEventPaymentRequest,
   JoinEventRequest,
   UpdateEventCompetitionRequest,
+  UpdateEventJoinFormFieldsRequest,
+  UpdateEventModulesRequest,
   UpdateEventParticipantRoleRequest,
+  UpdateEventPaymentMethodRequest,
   UpdateEventPostRequest,
   UpdateEventPostSettingsRequest,
+  UpdateEventProgramItemRequest,
   UpdateEventPrizeRequest,
   UpdateEventRequest,
   UpdateEventSponsorRequest,
@@ -55,6 +61,130 @@ export const useUpdateEvent = () => {
   });
 };
 
+export const useUpdateEventModules = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: UpdateEventModulesRequest;
+    }) => eventsApi.updateEventModules(eventId, data),
+    onSuccess: (event, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.detail(variables.eventId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.detail(event.slug),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.events.lists() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.program(variables.eventId),
+      });
+    },
+  });
+};
+
+export const useUpdateEventJoinFormFields = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: UpdateEventJoinFormFieldsRequest;
+    }) => eventsApi.updateJoinFormFields(eventId, data),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.events.detail(variables.eventId), "join-form-fields"],
+      });
+    },
+  });
+};
+
+export const useDuplicateEvent = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: DuplicateEventRequest;
+    }) => eventsApi.duplicateEvent(eventId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.events.lists() });
+    },
+  });
+};
+
+export const useCreateEventProgramItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      data,
+    }: {
+      eventId: string;
+      data: CreateEventProgramItemRequest;
+    }) => eventsApi.createProgramItem(eventId, data),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.program(variables.eventId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.detail(variables.eventId),
+      });
+    },
+  });
+};
+
+export const useUpdateEventProgramItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      programItemId,
+      data,
+    }: {
+      eventId: string;
+      programItemId: string;
+      data: UpdateEventProgramItemRequest;
+    }) => eventsApi.updateProgramItem(eventId, programItemId, data),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.program(variables.eventId),
+      });
+    },
+  });
+};
+
+export const useDeleteEventProgramItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      programItemId,
+    }: {
+      eventId: string;
+      programItemId: string;
+    }) => eventsApi.deleteProgramItem(eventId, programItemId),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.program(variables.eventId),
+      });
+    },
+  });
+};
+
 export const useCreateEventPaymentMethod = () => {
   const queryClient = useQueryClient();
 
@@ -66,6 +196,30 @@ export const useCreateEventPaymentMethod = () => {
       eventId: string;
       data: CreateEventPaymentMethodRequest;
     }) => eventsApi.createPaymentMethod(eventId, data),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.detail(variables.eventId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.paymentMethods(variables.eventId),
+      });
+    },
+  });
+};
+
+export const useUpdateEventPaymentMethod = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      paymentMethodId,
+      data,
+    }: {
+      eventId: string;
+      paymentMethodId: string;
+      data: UpdateEventPaymentMethodRequest;
+    }) => eventsApi.updatePaymentMethod(eventId, paymentMethodId, data),
     onSuccess: (_response, variables) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.detail(variables.eventId),
@@ -218,6 +372,33 @@ export const useRejectEventParticipant = () => {
         queryKey: queryKeys.events.passVerifications(),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.events.lists() });
+    },
+  });
+};
+
+export const useUpdateEventParticipantStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      participantId,
+      status,
+    }: {
+      eventId: string;
+      participantId: string;
+      status: "confirmed" | "cancelled" | "attended" | "no_show";
+    }) => eventsApi.updateParticipantStatus(eventId, participantId, status),
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.participants(variables.eventId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.detail(variables.eventId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.events.passVerifications(),
+      });
     },
   });
 };

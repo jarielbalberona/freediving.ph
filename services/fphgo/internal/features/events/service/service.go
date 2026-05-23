@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -90,6 +92,15 @@ type repository interface {
 	AddPostFishReaction(ctx context.Context, eventID, postID, userID string) (eventsrepo.EventPostReactionState, error)
 	DeletePostFishReaction(ctx context.Context, eventID, postID, userID string) (eventsrepo.EventPostReactionState, error)
 	UpdateParticipantRole(ctx context.Context, eventID, participantID, role, actorID string) (eventsrepo.EventParticipant, error)
+	UpdateParticipantStatus(ctx context.Context, eventID, participantID, actorID, status string) (eventsrepo.EventParticipant, error)
+	UpdateEventModules(ctx context.Context, eventID string, modules eventsrepo.EventModules) (eventsrepo.Event, error)
+	ListJoinFormFields(ctx context.Context, eventID string, enabledOnly bool) ([]eventsrepo.EventJoinFormField, error)
+	ReplaceJoinFormFields(ctx context.Context, eventID string, fields []eventsrepo.EventJoinFormFieldInput) ([]eventsrepo.EventJoinFormField, error)
+	ListProgramItems(ctx context.Context, eventID string) ([]eventsrepo.EventProgramItem, error)
+	CreateProgramItem(ctx context.Context, eventID string, input eventsrepo.CreateProgramItemInput) (eventsrepo.EventProgramItem, error)
+	UpdateProgramItem(ctx context.Context, eventID string, input eventsrepo.UpdateProgramItemInput) (eventsrepo.EventProgramItem, error)
+	DeleteProgramItem(ctx context.Context, eventID, programItemID string) error
+	DuplicateEvent(ctx context.Context, eventID string, input eventsrepo.DuplicateEventInput) (eventsrepo.Event, error)
 }
 
 type ValidationFailure struct {
@@ -276,6 +287,11 @@ func validateCreateEventInput(input *eventsrepo.CreateEventInput) error {
 	input.EventType = normalizeEventType(input.EventType)
 	input.Difficulty = normalizeDifficulty(input.Difficulty)
 	input.Currency = normalizeCurrency(input.Currency)
+	input.PaymentMode = normalizePaymentMode(input.PaymentMode, input.IsPaid)
+	input.IsPaid = input.PaymentMode == "required"
+	if input.PaymentMode != "free" {
+		input.Modules.PaymentEnabled = true
+	}
 	input.LocationSource = normalizeLocationSource(input.LocationSource)
 	input.PaymentInstructions = strings.TrimSpace(input.PaymentInstructions)
 	input.MeetingPoint = strings.TrimSpace(input.MeetingPoint)
@@ -319,7 +335,7 @@ func validateCreateEventInput(input *eventsrepo.CreateEventInput) error {
 		}}}
 	}
 	input.MaxAttendees = input.Capacity
-	if input.IsPaid {
+	if input.PaymentMode != "free" {
 		if input.PriceAmount != nil && *input.PriceAmount < 0 {
 			return ValidationFailure{Issues: []validatex.Issue{{
 				Path:    []any{"priceAmount"},
@@ -386,6 +402,105 @@ func (s *Service) UpdateEvent(ctx context.Context, eventID, actorID string, inpu
 	return updated, nil
 }
 
+func (s *Service) UpdateEventModules(ctx context.Context, eventID, actorID string, modules eventsrepo.EventModules) (eventsrepo.Event, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return eventsrepo.Event{}, err
+	}
+	if err := s.ensureCanManage(ctx, eventID, actorID); err != nil {
+		return eventsrepo.Event{}, err
+	}
+	event, err := s.repo.UpdateEventModules(ctx, eventID, modules)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return eventsrepo.Event{}, apperrors.New(http.StatusNotFound, "event_not_found", "event not found", err)
+		}
+		return eventsrepo.Event{}, apperrors.New(http.StatusInternalServerError, "event_modules_update_failed", "failed to update event modules", err)
+	}
+	return event, nil
+}
+
+func (s *Service) ListJoinFormFields(ctx context.Context, eventID, viewerUserID string) ([]eventsrepo.EventJoinFormField, error) {
+	event, err := s.ensureCanViewEventDetails(ctx, eventID, viewerUserID)
+	if err != nil {
+		return nil, err
+	}
+	items, err := s.repo.ListJoinFormFields(ctx, eventID, !event.ViewerCanManage)
+	if err != nil {
+		return nil, apperrors.New(http.StatusInternalServerError, "join_form_fields_list_failed", "failed to list join form fields", err)
+	}
+	return items, nil
+}
+
+func (s *Service) ReplaceJoinFormFields(ctx context.Context, eventID, actorID string, fields []eventsrepo.EventJoinFormFieldInput) ([]eventsrepo.EventJoinFormField, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return nil, err
+	}
+	if err := s.ensureCanManage(ctx, eventID, actorID); err != nil {
+		return nil, err
+	}
+	for i := range fields {
+		fields[i].FieldKey = strings.TrimSpace(fields[i].FieldKey)
+		fields[i].Label = strings.TrimSpace(fields[i].Label)
+		fields[i].FieldType = strings.TrimSpace(fields[i].FieldType)
+		if fields[i].FieldKey == "" {
+			return nil, required("fields.fieldKey")
+		}
+		if fields[i].Label == "" {
+			return nil, required("fields.label")
+		}
+		switch fields[i].FieldType {
+		case "short_text", "long_text", "select", "checkbox", "phone", "email":
+		default:
+			return nil, ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"fields", i, "fieldType"}, Code: "invalid_enum", Message: "Field type is invalid",
+			}}}
+		}
+		if strings.TrimSpace(fields[i].OptionsJSON) == "" {
+			fields[i].OptionsJSON = "[]"
+		}
+		if !json.Valid([]byte(fields[i].OptionsJSON)) {
+			return nil, ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"fields", i, "options"}, Code: "invalid_json", Message: "Field options must be valid JSON",
+			}}}
+		}
+	}
+	items, err := s.repo.ReplaceJoinFormFields(ctx, eventID, fields)
+	if err != nil {
+		return nil, apperrors.New(http.StatusInternalServerError, "join_form_fields_update_failed", "failed to update join form fields", err)
+	}
+	return items, nil
+}
+
+func (s *Service) DuplicateEvent(ctx context.Context, eventID, actorID string, input eventsrepo.DuplicateEventInput) (eventsrepo.Event, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return eventsrepo.Event{}, err
+	}
+	if err := s.ensureCanManage(ctx, eventID, actorID); err != nil {
+		return eventsrepo.Event{}, err
+	}
+	input.ActorID = actorID
+	input.Title = strings.TrimSpace(input.Title)
+	if input.StartsAt == nil {
+		return eventsrepo.Event{}, required("startsAt")
+	}
+	if input.EndsAt == nil {
+		return eventsrepo.Event{}, required("endsAt")
+	}
+	if !input.EndsAt.After(*input.StartsAt) {
+		return eventsrepo.Event{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path: []any{"endsAt"}, Code: "invalid_range", Message: "end time must be after start time",
+		}}}
+	}
+	event, err := s.repo.DuplicateEvent(ctx, eventID, input)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return eventsrepo.Event{}, apperrors.New(http.StatusNotFound, "event_not_found", "event not found", err)
+		}
+		return eventsrepo.Event{}, apperrors.New(http.StatusInternalServerError, "event_duplicate_failed", "failed to duplicate event", err)
+	}
+	return event, nil
+}
+
 func (s *Service) MarkEventInterested(ctx context.Context, eventID, actorID string) (eventsrepo.Event, error) {
 	if err := validateEventAndActor(eventID, actorID); err != nil {
 		return eventsrepo.Event{}, err
@@ -434,7 +549,7 @@ func (s *Service) MarkEventUninterested(ctx context.Context, eventID, actorID st
 	return updated, nil
 }
 
-func (s *Service) JoinEvent(ctx context.Context, eventID, actorID, participantNote string) (eventsrepo.EventParticipant, error) {
+func (s *Service) JoinEvent(ctx context.Context, eventID, actorID, participantNote string, joinAnswers map[string]any) (eventsrepo.EventParticipant, error) {
 	if _, err := uuid.Parse(eventID); err != nil {
 		return eventsrepo.EventParticipant{}, invalidUUID("eventId")
 	}
@@ -451,6 +566,31 @@ func (s *Service) JoinEvent(ctx context.Context, eventID, actorID, participantNo
 	if event.Status != "published" {
 		return eventsrepo.EventParticipant{}, apperrors.New(http.StatusConflict, "event_not_joinable", "event is not joinable", nil)
 	}
+	fields, err := s.repo.ListJoinFormFields(ctx, eventID, true)
+	if err != nil {
+		return eventsrepo.EventParticipant{}, apperrors.New(http.StatusInternalServerError, "join_form_fields_list_failed", "failed to validate join form", err)
+	}
+	for _, field := range fields {
+		if !field.Required {
+			continue
+		}
+		value, ok := joinAnswers[field.FieldKey]
+		if !ok || strings.TrimSpace(fmtAny(value)) == "" {
+			return eventsrepo.EventParticipant{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"joinAnswers", field.FieldKey}, Code: "required", Message: field.Label + " is required",
+			}}}
+		}
+	}
+	answersJSON := "{}"
+	if len(joinAnswers) > 0 {
+		encoded, err := json.Marshal(joinAnswers)
+		if err != nil {
+			return eventsrepo.EventParticipant{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"joinAnswers"}, Code: "invalid_type", Message: "Join answers are invalid",
+			}}}
+		}
+		answersJSON = string(encoded)
+	}
 	if event.ViewerParticipation != nil {
 		// MVP decision: event_participations is unique per event/user, so left or
 		// rejected users cannot create a second row. Organizers can change status later.
@@ -465,6 +605,7 @@ func (s *Service) JoinEvent(ctx context.Context, eventID, actorID, participantNo
 		UserID:          actorID,
 		Status:          status,
 		ParticipantNote: strings.TrimSpace(participantNote),
+		JoinAnswersJSON: answersJSON,
 	})
 	if err != nil {
 		if eventsrepo.IsCapacityFull(err) {
@@ -593,12 +734,42 @@ func (s *Service) RejectParticipant(ctx context.Context, eventID, participantID,
 	return participant, nil
 }
 
+func (s *Service) UpdateParticipantStatus(ctx context.Context, eventID, participantID, actorID, status string) (eventsrepo.EventParticipant, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return eventsrepo.EventParticipant{}, err
+	}
+	if _, err := uuid.Parse(participantID); err != nil {
+		return eventsrepo.EventParticipant{}, invalidUUID("participantId")
+	}
+	if err := s.ensureCanManage(ctx, eventID, actorID); err != nil {
+		return eventsrepo.EventParticipant{}, err
+	}
+	switch status {
+	case "attended", "no_show", "confirmed", "cancelled":
+	default:
+		return eventsrepo.EventParticipant{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path: []any{"status"}, Code: "invalid_enum", Message: "Participant status is invalid",
+		}}}
+	}
+	participant, err := s.repo.UpdateParticipantStatus(ctx, eventID, participantID, actorID, status)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return eventsrepo.EventParticipant{}, apperrors.New(http.StatusNotFound, "participant_not_found", "event participant not found", err)
+		}
+		return eventsrepo.EventParticipant{}, apperrors.New(http.StatusInternalServerError, "participant_status_update_failed", "failed to update participant status", err)
+	}
+	return participant, nil
+}
+
 func (s *Service) ListPaymentMethods(ctx context.Context, eventID, viewerUserID string) ([]eventsrepo.EventPaymentMethod, error) {
 	event, err := s.GetEvent(ctx, eventID, viewerUserID)
 	if err != nil {
 		return nil, err
 	}
-	if !event.IsPaid {
+	if event.PaymentMode == "" {
+		event.PaymentMode = normalizePaymentMode("", event.IsPaid)
+	}
+	if event.PaymentMode == "free" {
 		return []eventsrepo.EventPaymentMethod{}, nil
 	}
 	if !event.ViewerJoined && !event.ViewerCanManage {
@@ -675,7 +846,10 @@ func (s *Service) SubmitPayment(ctx context.Context, input eventsrepo.SubmitPaym
 	if err != nil {
 		return eventsrepo.EventParticipantPayment{}, err
 	}
-	if !event.IsPaid {
+	if event.PaymentMode == "" {
+		event.PaymentMode = normalizePaymentMode("", event.IsPaid)
+	}
+	if event.PaymentMode == "free" {
 		return eventsrepo.EventParticipantPayment{}, apperrors.New(http.StatusConflict, "payment_not_required", "this event does not require payment", nil)
 	}
 	if !event.ViewerJoined {
@@ -1048,6 +1222,15 @@ func normalizeUpdateInput(input *eventsrepo.UpdateEventInput) {
 		value := normalizeCurrency(*input.Currency)
 		input.Currency = &value
 	}
+	if input.PaymentMode != nil {
+		value := normalizePaymentMode(*input.PaymentMode, input.IsPaid != nil && *input.IsPaid)
+		input.PaymentMode = &value
+		isPaid := value == "required"
+		input.IsPaid = &isPaid
+	} else if input.IsPaid != nil {
+		value := normalizePaymentMode("", *input.IsPaid)
+		input.PaymentMode = &value
+	}
 	if input.EntryType != nil {
 		value := normalizeEntryType(*input.EntryType)
 		input.EntryType = &value
@@ -1088,6 +1271,11 @@ func validateUpdateEventInput(input *eventsrepo.UpdateEventInput, before eventsr
 			Message: "Post creation policy is invalid",
 		}}}
 	}
+	if input.Status != nil {
+		if err := validateLifecycleTransition(before.Status, *input.Status); err != nil {
+			return err
+		}
+	}
 	startsAt := before.StartsAt
 	if input.StartsAt != nil {
 		startsAt = input.StartsAt
@@ -1119,15 +1307,18 @@ func validateUpdateEventInput(input *eventsrepo.UpdateEventInput, before eventsr
 			}}}
 		}
 	}
-	isPaid := before.IsPaid
-	if input.IsPaid != nil {
-		isPaid = *input.IsPaid
+	paymentMode := before.PaymentMode
+	if paymentMode == "" {
+		paymentMode = normalizePaymentMode("", before.IsPaid)
+	}
+	if input.PaymentMode != nil {
+		paymentMode = *input.PaymentMode
 	}
 	priceAmount := before.PriceAmount
 	if input.PriceAmount != nil {
 		priceAmount = input.PriceAmount
 	}
-	if isPaid {
+	if paymentMode != "free" {
 		if priceAmount != nil && *priceAmount < 0 {
 			return ValidationFailure{Issues: []validatex.Issue{{
 				Path:    []any{"priceAmount"},
@@ -1159,6 +1350,29 @@ func normalizeLocationSource(raw string) string {
 	}
 }
 
+func normalizePaymentMode(raw string, isPaid bool) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "required", "paid":
+		return "required"
+	case "optional", "donation", "donations":
+		return "optional"
+	case "free":
+		return "free"
+	default:
+		if isPaid {
+			return "required"
+		}
+		return "free"
+	}
+}
+
+func fmtAny(value any) string {
+	if value == nil {
+		return ""
+	}
+	return fmt.Sprint(value)
+}
+
 func normalizePage(value int) int {
 	if value < 1 {
 		return 1
@@ -1178,11 +1392,31 @@ func normalizeLimit(value int) int {
 
 func normalizeEventStatus(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "draft", "cancelled", "completed", "published", "archived":
+	case "draft", "published", "full", "cancelled", "completed", "archived":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return ""
 	}
+}
+
+func validateLifecycleTransition(from, to string) error {
+	if to == "" || from == to {
+		return nil
+	}
+	allowed := map[string]map[string]bool{
+		"draft":     {"published": true, "cancelled": true, "archived": true},
+		"published": {"draft": true, "full": true, "cancelled": true, "completed": true, "archived": true},
+		"full":      {"published": true, "cancelled": true, "completed": true, "archived": true},
+		"cancelled": {"draft": true, "archived": true},
+		"completed": {"archived": true},
+		"archived":  {"draft": true},
+	}
+	if allowed[from][to] {
+		return nil
+	}
+	return ValidationFailure{Issues: []validatex.Issue{{
+		Path: []any{"status"}, Code: "invalid_enum", Message: "Lifecycle transition is not allowed",
+	}}}
 }
 
 func normalizeCreateStatus(value string) string {

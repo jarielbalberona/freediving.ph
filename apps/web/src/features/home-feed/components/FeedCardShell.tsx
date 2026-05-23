@@ -5,10 +5,10 @@ import {
   CalendarRange,
   Camera,
   Compass,
+  type LucideIcon,
   MessageSquareText,
   Radio,
   Waves,
-  type LucideIcon,
 } from "lucide-react";
 
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
@@ -16,37 +16,27 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { HomeFeedItem } from "@freediving.ph/types";
 
-const typeStyles: Record<
-  HomeFeedItem["type"],
-  { badge: string; icon: string }
-> = {
+const typeStyles: Record<HomeFeedItem["type"], { badge: string }> = {
   post: {
     badge: "border-cyan-500/30 bg-cyan-500/10 text-cyan-800",
-    icon: "bg-cyan-500/10 text-cyan-800",
   },
   media_post: {
     badge: "border-sky-500/30 bg-sky-500/10 text-sky-800",
-    icon: "bg-sky-500/10 text-sky-800",
   },
   community_hot_post: {
     badge: "border-teal-500/30 bg-teal-500/10 text-teal-800",
-    icon: "bg-teal-500/10 text-teal-800",
   },
   dive_spot: {
     badge: "border-cyan-500/30 bg-cyan-500/10 text-cyan-800",
-    icon: "bg-cyan-500/10 text-cyan-800",
   },
   event: {
     badge: "border-amber-500/30 bg-amber-500/10 text-amber-800",
-    icon: "bg-amber-500/10 text-amber-800",
   },
   buddy_signal: {
     badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-800",
-    icon: "bg-emerald-500/10 text-emerald-800",
   },
   record_highlight: {
     badge: "border-violet-500/30 bg-violet-500/10 text-violet-800",
-    icon: "bg-violet-500/10 text-violet-800",
   },
 };
 
@@ -65,7 +55,10 @@ function formatElapsedTime(value: string) {
     const timestamp = parseISO(value).getTime();
     if (!Number.isFinite(timestamp)) return "";
 
-    const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+    const diffSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - timestamp) / 1000),
+    );
     if (diffSeconds < 60) return "now";
 
     const diffMinutes = Math.floor(diffSeconds / 60);
@@ -94,20 +87,15 @@ export function FeedTypeBadge({ item }: { item: HomeFeedItem }) {
   const Icon = typeIcons[item.type] ?? Compass;
 
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        className={cn(
-          "inline-flex size-7 items-center justify-center rounded-full",
-          styles.icon,
-        )}
-        aria-hidden="true"
-      >
+    <Badge
+      variant="outline"
+      className={cn("inline-flex h-6 items-center gap-1.5 px-2", styles.badge)}
+    >
+      <span className="text-current" aria-hidden="true">
         <Icon className="size-3.5" />
       </span>
-      <Badge variant="outline" className={cn("h-6 px-2", styles.badge)}>
-        {item.typeLabel}
-      </Badge>
-    </span>
+      {item.typeLabel}
+    </Badge>
   );
 }
 
@@ -169,7 +157,9 @@ export function FeedCardShell({
   className?: string;
 }) {
   return (
-    <article className={cn("relative border-b border-border/70 py-4", className)}>
+    <article
+      className={cn("relative border-b border-border/70 py-4", className)}
+    >
       <div className="space-y-3">
         <div className="space-y-3">{children}</div>
       </div>

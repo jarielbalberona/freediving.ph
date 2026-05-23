@@ -93,17 +93,9 @@ export function EventCard({
           <Badge variant="outline" className="h-5 px-2 text-[11px]">
             {event.visibility === "private" ? "Private" : "Public"}
           </Badge>
-          {event.isPaid ? (
-            <Badge variant="secondary" className="h-5 px-2 text-[11px]">
-              {event.priceAmount == null
-                ? "Paid"
-                : `${event.currency} ${event.priceAmount}`}
-            </Badge>
-          ) : (
-            <Badge variant="secondary" className="h-5 px-2 text-[11px]">
-              Free
-            </Badge>
-          )}
+          <Badge variant="secondary" className="h-5 px-2 text-[11px]">
+            {formatEventPriceLabel(event)}
+          </Badge>
         </div>
 
         <div className="space-y-1">
@@ -197,6 +189,17 @@ export function EventCard({
       </CardContent>
     </Card>
   );
+}
+
+function formatEventPriceLabel(event: Event) {
+  const mode = event.paymentMode ?? (event.isPaid ? "required" : "free");
+  if (mode === "free") return "Free";
+  if (event.priceAmount == null) {
+    return mode === "optional" ? "Donation optional" : "Fee required";
+  }
+  if (mode === "optional")
+    return `Donation ${event.currency} ${event.priceAmount}`;
+  return `${event.currency} ${event.priceAmount}`;
 }
 
 function getViewerStateLabel(state: Event["viewerEventState"]) {

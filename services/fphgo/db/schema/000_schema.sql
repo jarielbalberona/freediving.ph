@@ -669,6 +669,7 @@ CREATE TABLE IF NOT EXISTS events (
   dive_site_id UUID REFERENCES dive_sites(id) ON DELETE RESTRICT,
   requires_approval BOOLEAN NOT NULL DEFAULT FALSE,
   is_paid BOOLEAN NOT NULL DEFAULT FALSE,
+  payment_mode TEXT NOT NULL DEFAULT 'free',
   price_amount NUMERIC(12,2),
   currency TEXT NOT NULL DEFAULT 'PHP',
   payment_instructions TEXT,
@@ -679,15 +680,21 @@ CREATE TABLE IF NOT EXISTS events (
   equipment_notes TEXT,
   safety_notes TEXT,
   cancellation_policy TEXT,
+  payment_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   posts_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  awards_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  sponsors_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  interested_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  program_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   post_create_policy TEXT NOT NULL DEFAULT 'organizers_only',
   published_at TIMESTAMPTZ,
   cancelled_at TIMESTAMPTZ,
   cancel_reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (status IN ('draft', 'published', 'cancelled', 'completed', 'archived')),
+  CHECK (status IN ('draft', 'published', 'full', 'cancelled', 'completed', 'archived')),
   CHECK (visibility IN ('public', 'private')),
+  CHECK (payment_mode IN ('free', 'required', 'optional')),
   CHECK (event_type IN (
     'intro_session',
     'pool_training',
@@ -971,6 +978,7 @@ CREATE TABLE IF NOT EXISTS event_participations (
   qr_revoked_at TIMESTAMPTZ,
   checked_in_at TIMESTAMPTZ,
   checked_in_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  join_answers_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   UNIQUE (event_id, user_id),
   CHECK (role IN ('participant', 'staff', 'organizer')),
   CHECK (status IN (
@@ -982,6 +990,24 @@ CREATE TABLE IF NOT EXISTS event_participations (
     'attended',
     'no_show'
   ))
+);
+
+CREATE TABLE IF NOT EXISTS event_join_form_fields (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  field_key TEXT NOT NULL,
+  label TEXT NOT NULL,
+  field_type TEXT NOT NULL,
+  required BOOLEAN NOT NULL DEFAULT FALSE,
+  options_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (event_id, field_key),
+  CHECK (field_type IN ('short_text', 'long_text', 'select', 'checkbox', 'phone', 'email')),
+  CHECK (length(trim(field_key)) > 0),
+  CHECK (length(trim(label)) > 0)
 );
 
 CREATE TABLE IF NOT EXISTS event_interests (
@@ -1005,6 +1031,28 @@ CREATE TABLE IF NOT EXISTS event_competitions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ,
   CHECK (length(trim(name)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS event_program_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description_markdown TEXT,
+  program_date DATE,
+  start_time TIME,
+  end_time TIME,
+  timezone TEXT,
+  location_label TEXT,
+  competition_id UUID REFERENCES event_competitions(id) ON DELETE SET NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_highlighted BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  CHECK (length(trim(title)) > 0),
+  CHECK (start_time IS NULL OR program_date IS NOT NULL),
+  CHECK (end_time IS NULL OR start_time IS NOT NULL),
+  CHECK (start_time IS NULL OR end_time IS NULL OR end_time > start_time)
 );
 
 CREATE TABLE IF NOT EXISTS event_sponsors (
@@ -1293,9 +1341,13 @@ CREATE INDEX IF NOT EXISTS idx_event_participations_user ON event_participations
 CREATE INDEX IF NOT EXISTS idx_event_participations_event_role_status ON event_participations (event_id, role, status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_event_participations_qr_token_unique ON event_participations (qr_token);
 CREATE INDEX IF NOT EXISTS idx_event_participations_event_qr_token ON event_participations (event_id, qr_token) WHERE qr_revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_join_form_fields_event_sort ON event_join_form_fields (event_id, enabled, sort_order, created_at);
 CREATE INDEX IF NOT EXISTS idx_event_interests_event_active ON event_interests (event_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_interests_user_active ON event_interests (user_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_competitions_event_sort ON event_competitions (event_id, sort_order) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_program_items_event_sort ON event_program_items (event_id, sort_order) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_program_items_event_time ON event_program_items (event_id, program_date, start_time) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_program_items_competition ON event_program_items (competition_id) WHERE deleted_at IS NULL AND competition_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_event_prizes_event_sort ON event_prizes (event_id, sort_order) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_prizes_competition ON event_prizes (competition_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_sponsors_event_sort ON event_sponsors (event_id, sort_order) WHERE deleted_at IS NULL;

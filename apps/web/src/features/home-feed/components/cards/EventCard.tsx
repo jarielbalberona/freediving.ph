@@ -3,14 +3,15 @@
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
-import type { HomeFeedItem } from "@freediving.ph/types";
 import {
   FeedCardShell,
   FeedItemHeader,
 } from "@/features/home-feed/components/FeedCardShell";
+import type { HomeFeedItem } from "@freediving.ph/types";
 
 type EventPayload = {
   title?: string;
+  description?: string;
   memberCount?: number;
   viewerMember?: boolean;
 };
@@ -48,6 +49,20 @@ export function EventCard({
           {payload.title || "Untitled event"}
         </p>
       )}
+      {payload.description ? (
+        item.detailHref ? (
+          <Link
+            href={item.detailHref}
+            className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"
+          >
+            {payload.description}
+          </Link>
+        ) : (
+          <p className="line-clamp-3 text-sm leading-relaxed text-foreground">
+            {payload.description}
+          </p>
+        )
+      ) : null}
       {payload.viewerMember ? (
         <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
           <span className="relative flex h-2 w-2">

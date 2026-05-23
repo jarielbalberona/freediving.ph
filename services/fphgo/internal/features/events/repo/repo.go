@@ -73,6 +73,7 @@ type Event struct {
 	DiveSite                    *DiveSiteSummary
 	RequiresApproval            bool
 	IsPaid                      bool
+	PaymentMode                 string
 	PriceAmount                 *float64
 	Currency                    string
 	PaymentInstructions         string
@@ -83,7 +84,12 @@ type Event struct {
 	EquipmentNotes              string
 	SafetyNotes                 string
 	CancellationPolicy          string
+	PaymentEnabled              bool
 	PostsEnabled                bool
+	AwardsEnabled               bool
+	SponsorsEnabled             bool
+	InterestedEnabled           bool
+	ProgramEnabled              bool
 	PostCreatePolicy            string
 	PublishedAt                 *time.Time
 	CancelledAt                 *time.Time
@@ -110,6 +116,7 @@ type EventParticipant struct {
 	ParticipantNote       string
 	EmergencyContactName  string
 	EmergencyContactPhone string
+	JoinAnswersJSON       []byte
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 	ApprovedAt            *time.Time
@@ -226,6 +233,7 @@ type CreateEventInput struct {
 	DiveSiteID          string
 	RequiresApproval    bool
 	IsPaid              bool
+	PaymentMode         string
 	PriceAmount         *float64
 	Currency            string
 	PaymentInstructions string
@@ -237,6 +245,8 @@ type CreateEventInput struct {
 	SafetyNotes         string
 	CancellationPolicy  string
 	PaymentMethods      []CreatePaymentMethodInput
+	Modules             EventModules
+	JoinFormFields      []EventJoinFormFieldInput
 }
 
 type UpdateEventInput struct {
@@ -256,6 +266,7 @@ type UpdateEventInput struct {
 	DiveSiteID          *string
 	RequiresApproval    *bool
 	IsPaid              *bool
+	PaymentMode         *string
 	PriceAmount         *float64
 	Currency            *string
 	PaymentInstructions *string
@@ -267,6 +278,11 @@ type UpdateEventInput struct {
 	SafetyNotes         *string
 	CancellationPolicy  *string
 	PostsEnabled        *bool
+	AwardsEnabled       *bool
+	SponsorsEnabled     *bool
+	InterestedEnabled   *bool
+	PaymentEnabled      *bool
+	ProgramEnabled      *bool
 	PostCreatePolicy    *string
 	CancelReason        *string
 	CoverPhotoURL       *string
@@ -300,6 +316,85 @@ type JoinEventInput struct {
 	UserID          string
 	Status          string
 	ParticipantNote string
+	JoinAnswersJSON string
+}
+
+type EventModules struct {
+	PaymentEnabled    bool
+	PostsEnabled      bool
+	AwardsEnabled     bool
+	SponsorsEnabled   bool
+	InterestedEnabled bool
+	ProgramEnabled    bool
+}
+
+type EventJoinFormField struct {
+	ID          string
+	EventID     string
+	FieldKey    string
+	Label       string
+	FieldType   string
+	Required    bool
+	OptionsJSON string
+	SortOrder   int
+	Enabled     bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type EventJoinFormFieldInput struct {
+	FieldKey    string
+	Label       string
+	FieldType   string
+	Required    bool
+	OptionsJSON string
+	SortOrder   int
+	Enabled     bool
+}
+
+type EventProgramItem struct {
+	ID                  string
+	EventID             string
+	Title               string
+	DescriptionMarkdown string
+	ProgramDate         string
+	StartTime           string
+	EndTime             string
+	Timezone            string
+	LocationLabel       string
+	CompetitionID       string
+	CompetitionName     string
+	SortOrder           int
+	IsHighlighted       bool
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+type CreateProgramItemInput struct {
+	Title               string
+	DescriptionMarkdown string
+	ProgramDate         string
+	StartTime           string
+	EndTime             string
+	Timezone            string
+	LocationLabel       string
+	CompetitionID       string
+	SortOrder           int
+	IsHighlighted       bool
+}
+
+type UpdateProgramItemInput struct {
+	ProgramItemID       string
+	Title               *string
+	DescriptionMarkdown *string
+	ProgramDate         *string
+	StartTime           *string
+	EndTime             *string
+	Timezone            *string
+	LocationLabel       *string
+	CompetitionID       *string
+	SortOrder           *int
+	IsHighlighted       *bool
 }
 
 type SubmitPaymentInput struct {
@@ -375,9 +470,9 @@ func (r *Repo) ListEvents(ctx context.Context, input ListEventsInput) ([]Event, 
 	}
 	switch strings.TrimSpace(input.Price) {
 	case "free":
-		where = append(where, "e.is_paid = FALSE")
+		where = append(where, "coalesce(e.payment_mode, CASE WHEN e.is_paid THEN 'required' ELSE 'free' END) = 'free'")
 	case "paid":
-		where = append(where, "e.is_paid = TRUE")
+		where = append(where, "coalesce(e.payment_mode, CASE WHEN e.is_paid THEN 'required' ELSE 'free' END) IN ('required', 'optional')")
 	}
 	args = append(args, limit, offset)
 	limitArg := idx
@@ -506,18 +601,20 @@ func (r *Repo) CreateEvent(ctx context.Context, input CreateEventInput) (Event, 
 			region_code, province_code, city_municipality_code, barangay_code, location_source,
 			starts_at, ends_at, timezone, status, visibility, event_type, difficulty,
 			max_attendees, capacity, organizer_user_id, group_id, dive_site_id,
-			requires_approval, is_paid, price_amount, currency, payment_instructions,
+			requires_approval, is_paid, payment_mode, price_amount, currency, payment_instructions,
 			meeting_point, beginner_friendly, max_depth_m, entry_type, equipment_notes,
-			safety_notes, cancellation_policy, published_at
+			safety_notes, cancellation_policy, payment_enabled, posts_enabled, awards_enabled,
+			sponsors_enabled, interested_enabled, program_enabled, published_at
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7, $8, $9, $10, nullif($11, ''),
 			nullif($12, ''), nullif($13, ''), nullif($14, ''), nullif($15, ''), $16,
 			$17, $18, $19, $20, $21, $22, $23,
 			$24, $25, $26::uuid, $27::uuid, $28::uuid,
-			$29, $30, $31, $32, nullif($33, ''),
-			nullif($34, ''), $35, $36, nullif($37, ''), nullif($38, ''),
-			nullif($39, ''), nullif($40, ''), CASE WHEN $20 = 'published' THEN NOW() ELSE NULL END
+			$29, $30, $31, $32, $33, nullif($34, ''),
+			nullif($35, ''), $36, $37, nullif($38, ''), nullif($39, ''),
+			nullif($40, ''), nullif($41, ''), $42, $43, $44, $45, $46, $47,
+			CASE WHEN $20 = 'published' THEN NOW() ELSE NULL END
 		)
 		RETURNING id::text
 	`
@@ -558,6 +655,7 @@ func (r *Repo) CreateEvent(ctx context.Context, input CreateEventInput) (Event, 
 			input.DiveSiteID,
 			input.RequiresApproval,
 			input.IsPaid,
+			input.PaymentMode,
 			input.PriceAmount,
 			input.Currency,
 			input.PaymentInstructions,
@@ -568,6 +666,12 @@ func (r *Repo) CreateEvent(ctx context.Context, input CreateEventInput) (Event, 
 			input.EquipmentNotes,
 			input.SafetyNotes,
 			input.CancellationPolicy,
+			input.Modules.PaymentEnabled || input.PaymentMode != "free",
+			input.Modules.PostsEnabled,
+			input.Modules.AwardsEnabled,
+			input.Modules.SponsorsEnabled,
+			input.Modules.InterestedEnabled,
+			input.Modules.ProgramEnabled,
 		).Scan(&eventID)
 		if err == nil {
 			if _, err := tx.Exec(ctx, "RELEASE SAVEPOINT "+savepoint); err != nil {
@@ -694,7 +798,17 @@ func (r *Repo) UpdateEvent(ctx context.Context, input UpdateEventInput) (Event, 
 	}
 	addBool("requires_approval", input.RequiresApproval)
 	addBool("is_paid", input.IsPaid)
-	isSwitchingToFree := input.IsPaid != nil && !*input.IsPaid
+	if input.PaymentMode != nil {
+		mode := strings.TrimSpace(*input.PaymentMode)
+		args = append(args, mode)
+		set = append(set, fmt.Sprintf("payment_mode = $%d", idx))
+		idx++
+		args = append(args, mode == "required")
+		set = append(set, fmt.Sprintf("is_paid = $%d", idx))
+		idx++
+	}
+	isSwitchingToFree := (input.PaymentMode != nil && strings.TrimSpace(*input.PaymentMode) == "free") ||
+		(input.PaymentMode == nil && input.IsPaid != nil && !*input.IsPaid)
 	if isSwitchingToFree {
 		set = append(set, "price_amount = NULL", "payment_instructions = NULL")
 	}
@@ -710,7 +824,12 @@ func (r *Repo) UpdateEvent(ctx context.Context, input UpdateEventInput) (Event, 
 	addString("equipment_notes", input.EquipmentNotes, true)
 	addString("safety_notes", input.SafetyNotes, true)
 	addString("cancellation_policy", input.CancellationPolicy, true)
+	addBool("payment_enabled", input.PaymentEnabled)
 	addBool("posts_enabled", input.PostsEnabled)
+	addBool("awards_enabled", input.AwardsEnabled)
+	addBool("sponsors_enabled", input.SponsorsEnabled)
+	addBool("interested_enabled", input.InterestedEnabled)
+	addBool("program_enabled", input.ProgramEnabled)
 	addString("post_create_policy", input.PostCreatePolicy, false)
 	addString("cancel_reason", input.CancelReason, true)
 	addString("cover_photo_url", input.CoverPhotoURL, true)
@@ -720,6 +839,32 @@ func (r *Repo) UpdateEvent(ctx context.Context, input UpdateEventInput) (Event, 
 	var eventID string
 	if err := r.pool.QueryRow(ctx, q, args...).Scan(&eventID); err != nil {
 		return Event{}, err
+	}
+	if input.PaymentMode != nil {
+		mode := strings.TrimSpace(*input.PaymentMode)
+		switch mode {
+		case "required":
+			if _, err := r.pool.Exec(ctx, `
+				UPDATE event_participant_payments
+				SET status = 'pending_upload', updated_at = NOW()
+				WHERE event_id = $1::uuid
+					AND status = 'not_required'
+			`, eventID); err != nil {
+				return Event{}, err
+			}
+		case "free", "optional":
+			if _, err := r.pool.Exec(ctx, `
+				UPDATE event_participant_payments
+				SET status = 'not_required', updated_at = NOW()
+				WHERE event_id = $1::uuid
+					AND status = 'pending_upload'
+					AND proof_media_id IS NULL
+					AND nullif(proof_attachment_url, '') IS NULL
+					AND nullif(reference_number, '') IS NULL
+			`, eventID); err != nil {
+				return Event{}, err
+			}
+		}
 	}
 	return r.GetEventByID(ctx, eventID, "")
 }
@@ -816,13 +961,13 @@ func (r *Repo) JoinEvent(ctx context.Context, input JoinEventInput) (EventPartic
 
 	var status string
 	var capacity *int
-	var isPaid bool
+	var paymentMode string
 	if err := tx.QueryRow(ctx, `
-		SELECT status, capacity, is_paid
+		SELECT status, capacity, coalesce(payment_mode, CASE WHEN is_paid THEN 'required' ELSE 'free' END)
 		FROM events
 		WHERE id = $1::uuid
 		FOR UPDATE
-	`, input.EventID).Scan(&status, &capacity, &isPaid); err != nil {
+	`, input.EventID).Scan(&status, &capacity, &paymentMode); err != nil {
 		return EventParticipant{}, err
 	}
 	if status != "published" {
@@ -836,19 +981,24 @@ func (r *Repo) JoinEvent(ctx context.Context, input JoinEventInput) (EventPartic
 
 	const insertParticipation = `
 		INSERT INTO event_participations (
-			event_id, user_id, role, status, participant_note, approved_at, approved_by
+			event_id, user_id, role, status, participant_note, join_answers_json, approved_at, approved_by
 		) VALUES (
-			$1::uuid, $2::uuid, 'participant', $3, nullif($4, ''),
+			$1::uuid, $2::uuid, 'participant', $3, nullif($4, ''), $5::jsonb,
 			CASE WHEN $3 = 'confirmed' THEN NOW() ELSE NULL END,
 			CASE WHEN $3 = 'confirmed' THEN $2::uuid ELSE NULL END
 		)
 		RETURNING id::text, event_id::text, user_id::text, role, status, coalesce(participant_note, ''),
 			coalesce(emergency_contact_name, ''), coalesce(emergency_contact_phone, ''),
+			coalesce(join_answers_json, '{}'::jsonb),
 			created_at, updated_at, approved_at, coalesce(approved_by::text, ''),
 			rejected_at, coalesce(rejected_by::text, ''), cancelled_at, left_at
 	`
 	var participant EventParticipant
-	if err := tx.QueryRow(ctx, insertParticipation, input.EventID, input.UserID, input.Status, input.ParticipantNote).Scan(
+	answersJSON := strings.TrimSpace(input.JoinAnswersJSON)
+	if answersJSON == "" {
+		answersJSON = "{}"
+	}
+	if err := tx.QueryRow(ctx, insertParticipation, input.EventID, input.UserID, input.Status, input.ParticipantNote, answersJSON).Scan(
 		&participant.ID,
 		&participant.EventID,
 		&participant.UserID,
@@ -857,6 +1007,7 @@ func (r *Repo) JoinEvent(ctx context.Context, input JoinEventInput) (EventPartic
 		&participant.ParticipantNote,
 		&participant.EmergencyContactName,
 		&participant.EmergencyContactPhone,
+		&participant.JoinAnswersJSON,
 		&participant.CreatedAt,
 		&participant.UpdatedAt,
 		&participant.ApprovedAt,
@@ -884,7 +1035,7 @@ func (r *Repo) JoinEvent(ctx context.Context, input JoinEventInput) (EventPartic
 	}
 
 	paymentStatus := "not_required"
-	if isPaid {
+	if paymentMode == "required" {
 		paymentStatus = "pending_upload"
 	}
 	if _, err := tx.Exec(ctx, `
@@ -1097,6 +1248,496 @@ func (r *Repo) RejectParticipant(ctx context.Context, eventID, participantID, ac
 		WHERE id = $1::uuid
 	`, eventID)
 	return r.GetParticipant(ctx, eventID, userID)
+}
+
+func (r *Repo) UpdateParticipantStatus(ctx context.Context, eventID, participantID, actorID, status string) (EventParticipant, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return EventParticipant{}, err
+	}
+	defer rollbackTx(ctx, tx)
+	var userID string
+	checkedInSet := ""
+	if status == "attended" {
+		checkedInSet = ", checked_in_at = COALESCE(checked_in_at, NOW()), checked_in_by = COALESCE(checked_in_by, $3::uuid)"
+	}
+	if err := tx.QueryRow(ctx, fmt.Sprintf(`
+		UPDATE event_participations
+		SET status = $4, updated_at = NOW()%s
+		WHERE id = $1::uuid AND event_id = $2::uuid
+			AND status IN ('confirmed', 'attended', 'no_show')
+			AND role <> 'organizer'
+		RETURNING user_id::text
+	`, checkedInSet), participantID, eventID, actorID, status).Scan(&userID); err != nil {
+		return EventParticipant{}, err
+	}
+	if err := refreshCurrentAttendees(ctx, tx, eventID); err != nil {
+		return EventParticipant{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return EventParticipant{}, err
+	}
+	return r.GetParticipant(ctx, eventID, userID)
+}
+
+func (r *Repo) UpdateEventModules(ctx context.Context, eventID string, modules EventModules) (Event, error) {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE events
+		SET payment_enabled = $2,
+			posts_enabled = $3,
+			awards_enabled = $4,
+			sponsors_enabled = $5,
+			interested_enabled = $6,
+			program_enabled = $7,
+			updated_at = NOW()
+		WHERE id = $1::uuid
+	`, eventID, modules.PaymentEnabled, modules.PostsEnabled, modules.AwardsEnabled, modules.SponsorsEnabled, modules.InterestedEnabled, modules.ProgramEnabled)
+	if err != nil {
+		return Event{}, err
+	}
+	return r.GetEventByID(ctx, eventID, "")
+}
+
+func (r *Repo) ListJoinFormFields(ctx context.Context, eventID string, enabledOnly bool) ([]EventJoinFormField, error) {
+	where := "event_id = $1::uuid"
+	if enabledOnly {
+		where += " AND enabled = TRUE"
+	}
+	rows, err := r.pool.Query(ctx, fmt.Sprintf(`
+		SELECT id::text, event_id::text, field_key, label, field_type, required,
+			options_json::text, sort_order, enabled, created_at, updated_at
+		FROM event_join_form_fields
+		WHERE %s
+		ORDER BY sort_order ASC, created_at ASC, id ASC
+	`, where), eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []EventJoinFormField{}
+	for rows.Next() {
+		var item EventJoinFormField
+		if err := rows.Scan(&item.ID, &item.EventID, &item.FieldKey, &item.Label, &item.FieldType, &item.Required, &item.OptionsJSON, &item.SortOrder, &item.Enabled, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repo) ReplaceJoinFormFields(ctx context.Context, eventID string, fields []EventJoinFormFieldInput) ([]EventJoinFormField, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer rollbackTx(ctx, tx)
+	if _, err := tx.Exec(ctx, `DELETE FROM event_join_form_fields WHERE event_id = $1::uuid`, eventID); err != nil {
+		return nil, err
+	}
+	for _, field := range fields {
+		optionsJSON := strings.TrimSpace(field.OptionsJSON)
+		if optionsJSON == "" {
+			optionsJSON = "[]"
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO event_join_form_fields (
+				event_id, field_key, label, field_type, required, options_json, sort_order, enabled
+			) VALUES (
+				$1::uuid, $2, $3, $4, $5, $6::jsonb, $7, $8
+			)
+		`, eventID, field.FieldKey, field.Label, field.FieldType, field.Required, optionsJSON, field.SortOrder, field.Enabled); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return r.ListJoinFormFields(ctx, eventID, false)
+}
+
+func (r *Repo) ListProgramItems(ctx context.Context, eventID string) ([]EventProgramItem, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+			epi.id::text,
+			epi.event_id::text,
+			epi.title,
+			coalesce(epi.description_markdown, ''),
+			coalesce(epi.program_date::text, ''),
+			coalesce(to_char(epi.start_time, 'HH24:MI'), ''),
+			coalesce(to_char(epi.end_time, 'HH24:MI'), ''),
+			coalesce(epi.timezone, ''),
+			coalesce(epi.location_label, ''),
+			coalesce(epi.competition_id::text, ''),
+			coalesce(ec.name, ''),
+			epi.sort_order,
+			epi.is_highlighted,
+			epi.created_at,
+			epi.updated_at
+		FROM event_program_items epi
+		LEFT JOIN event_competitions ec
+			ON ec.id = epi.competition_id
+			AND ec.event_id = epi.event_id
+			AND ec.deleted_at IS NULL
+		WHERE epi.event_id = $1::uuid
+			AND epi.deleted_at IS NULL
+		ORDER BY epi.program_date NULLS LAST, epi.start_time NULLS LAST, epi.sort_order ASC, epi.created_at ASC, epi.id ASC
+	`, eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []EventProgramItem{}
+	for rows.Next() {
+		var item EventProgramItem
+		if err := scanProgramItem(rows, &item); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repo) CreateProgramItem(ctx context.Context, eventID string, input CreateProgramItemInput) (EventProgramItem, error) {
+	var item EventProgramItem
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO event_program_items (
+			event_id, title, description_markdown, program_date, start_time, end_time,
+			timezone, location_label, competition_id, sort_order, is_highlighted
+		) VALUES (
+			$1::uuid, $2, nullif($3, ''), nullif($4, '')::date, nullif($5, '')::time,
+			nullif($6, '')::time, nullif($7, ''), nullif($8, ''), nullif($9, '')::uuid, $10, $11
+		)
+		RETURNING id::text, event_id::text, title, coalesce(description_markdown, ''),
+			coalesce(program_date::text, ''), coalesce(to_char(start_time, 'HH24:MI'), ''),
+			coalesce(to_char(end_time, 'HH24:MI'), ''), coalesce(timezone, ''),
+			coalesce(location_label, ''), coalesce(competition_id::text, ''), '',
+			sort_order, is_highlighted, created_at, updated_at
+	`, eventID, input.Title, input.DescriptionMarkdown, input.ProgramDate, input.StartTime, input.EndTime, input.Timezone, input.LocationLabel, input.CompetitionID, input.SortOrder, input.IsHighlighted).Scan(
+		&item.ID, &item.EventID, &item.Title, &item.DescriptionMarkdown, &item.ProgramDate, &item.StartTime, &item.EndTime,
+		&item.Timezone, &item.LocationLabel, &item.CompetitionID, &item.CompetitionName, &item.SortOrder, &item.IsHighlighted, &item.CreatedAt, &item.UpdatedAt,
+	)
+	if err != nil {
+		return EventProgramItem{}, err
+	}
+	return r.GetProgramItem(ctx, eventID, item.ID)
+}
+
+func (r *Repo) UpdateProgramItem(ctx context.Context, eventID string, input UpdateProgramItemInput) (EventProgramItem, error) {
+	set := []string{"updated_at = NOW()"}
+	args := []any{}
+	idx := 1
+	addString := func(column string, value *string, cast string) {
+		if value == nil {
+			return
+		}
+		args = append(args, strings.TrimSpace(*value))
+		if cast == "" {
+			set = append(set, fmt.Sprintf("%s = nullif($%d, '')", column, idx))
+		} else {
+			set = append(set, fmt.Sprintf("%s = nullif($%d, '')::%s", column, idx, cast))
+		}
+		idx++
+	}
+	addString("title", input.Title, "")
+	addString("description_markdown", input.DescriptionMarkdown, "")
+	addString("program_date", input.ProgramDate, "date")
+	addString("start_time", input.StartTime, "time")
+	addString("end_time", input.EndTime, "time")
+	addString("timezone", input.Timezone, "")
+	addString("location_label", input.LocationLabel, "")
+	addString("competition_id", input.CompetitionID, "uuid")
+	if input.SortOrder != nil {
+		args = append(args, *input.SortOrder)
+		set = append(set, fmt.Sprintf("sort_order = $%d", idx))
+		idx++
+	}
+	if input.IsHighlighted != nil {
+		args = append(args, *input.IsHighlighted)
+		set = append(set, fmt.Sprintf("is_highlighted = $%d", idx))
+		idx++
+	}
+	args = append(args, eventID, input.ProgramItemID)
+	q := fmt.Sprintf(`
+		UPDATE event_program_items
+		SET %s
+		WHERE event_id = $%d::uuid
+			AND id = $%d::uuid
+			AND deleted_at IS NULL
+		RETURNING id::text
+	`, strings.Join(set, ", "), idx, idx+1)
+	var itemID string
+	if err := r.pool.QueryRow(ctx, q, args...).Scan(&itemID); err != nil {
+		return EventProgramItem{}, err
+	}
+	return r.GetProgramItem(ctx, eventID, itemID)
+}
+
+func (r *Repo) DeleteProgramItem(ctx context.Context, eventID, programItemID string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE event_program_items
+		SET deleted_at = NOW(), updated_at = NOW()
+		WHERE event_id = $1::uuid
+			AND id = $2::uuid
+			AND deleted_at IS NULL
+	`, eventID, programItemID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repo) GetProgramItem(ctx context.Context, eventID, programItemID string) (EventProgramItem, error) {
+	var item EventProgramItem
+	err := r.pool.QueryRow(ctx, `
+		SELECT
+			epi.id::text,
+			epi.event_id::text,
+			epi.title,
+			coalesce(epi.description_markdown, ''),
+			coalesce(epi.program_date::text, ''),
+			coalesce(to_char(epi.start_time, 'HH24:MI'), ''),
+			coalesce(to_char(epi.end_time, 'HH24:MI'), ''),
+			coalesce(epi.timezone, ''),
+			coalesce(epi.location_label, ''),
+			coalesce(epi.competition_id::text, ''),
+			coalesce(ec.name, ''),
+			epi.sort_order,
+			epi.is_highlighted,
+			epi.created_at,
+			epi.updated_at
+		FROM event_program_items epi
+		LEFT JOIN event_competitions ec
+			ON ec.id = epi.competition_id
+			AND ec.event_id = epi.event_id
+			AND ec.deleted_at IS NULL
+		WHERE epi.event_id = $1::uuid
+			AND epi.id = $2::uuid
+			AND epi.deleted_at IS NULL
+	`, eventID, programItemID).Scan(
+		&item.ID, &item.EventID, &item.Title, &item.DescriptionMarkdown, &item.ProgramDate, &item.StartTime, &item.EndTime,
+		&item.Timezone, &item.LocationLabel, &item.CompetitionID, &item.CompetitionName, &item.SortOrder, &item.IsHighlighted, &item.CreatedAt, &item.UpdatedAt,
+	)
+	if err != nil {
+		return EventProgramItem{}, err
+	}
+	return item, nil
+}
+
+type DuplicateEventInput struct {
+	Title               string
+	StartsAt            *time.Time
+	EndsAt              *time.Time
+	CopyPaymentSetup    bool
+	CopyAwards          bool
+	CopySponsors        bool
+	CopyPosts           bool
+	CopyProgram         bool
+	CopySafetyLogistics bool
+	ActorID             string
+}
+
+func (r *Repo) DuplicateEvent(ctx context.Context, eventID string, input DuplicateEventInput) (Event, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return Event{}, err
+	}
+	defer rollbackTx(ctx, tx)
+
+	var source CreateEventInput
+	var sourceTitle string
+	var groupID string
+	err = tx.QueryRow(ctx, `
+		SELECT title, short_description, description_markdown, event_type, dive_site_id::text,
+			starts_at, ends_at, timezone, visibility, difficulty, capacity, requires_approval,
+			is_paid, payment_mode, price_amount::float8, currency, payment_instructions,
+			meeting_point, beginner_friendly, max_depth_m, coalesce(entry_type, ''),
+			equipment_notes, safety_notes, cancellation_policy, coalesce(group_id::text, ''),
+			payment_enabled, posts_enabled, awards_enabled, sponsors_enabled, interested_enabled, program_enabled
+		FROM events
+		WHERE id = $1::uuid
+	`, eventID).Scan(
+		&sourceTitle, &source.ShortDescription, &source.DescriptionMarkdown, &source.EventType, &source.DiveSiteID,
+		&source.StartsAt, &source.EndsAt, &source.Timezone, &source.Visibility, &source.Difficulty, &source.Capacity, &source.RequiresApproval,
+		&source.IsPaid, &source.PaymentMode, &source.PriceAmount, &source.Currency, &source.PaymentInstructions,
+		&source.MeetingPoint, &source.BeginnerFriendly, &source.MaxDepthM, &source.EntryType,
+		&source.EquipmentNotes, &source.SafetyNotes, &source.CancellationPolicy, &groupID,
+		&source.Modules.PaymentEnabled, &source.Modules.PostsEnabled, &source.Modules.AwardsEnabled, &source.Modules.SponsorsEnabled, &source.Modules.InterestedEnabled, &source.Modules.ProgramEnabled,
+	)
+	if err != nil {
+		return Event{}, err
+	}
+	source.Title = strings.TrimSpace(input.Title)
+	if source.Title == "" {
+		source.Title = "Copy of " + sourceTitle
+	}
+	source.Description = source.DescriptionMarkdown
+	source.StartsAt = input.StartsAt
+	source.EndsAt = input.EndsAt
+	source.Status = "draft"
+	source.OrganizerUserID = input.ActorID
+	if !input.CopyPaymentSetup {
+		source.IsPaid = false
+		source.PaymentMode = "free"
+		source.PriceAmount = nil
+		source.PaymentInstructions = ""
+		source.Modules.PaymentEnabled = false
+	}
+	if !input.CopySafetyLogistics {
+		source.MeetingPoint = ""
+		source.EquipmentNotes = ""
+		source.SafetyNotes = ""
+		source.CancellationPolicy = ""
+	}
+	site, err := getDiveSiteForEvent(ctx, tx, source.DiveSiteID)
+	if err != nil {
+		return Event{}, err
+	}
+	baseSlug := sharedslug.Make(source.Title, "event")
+	slug := uniqueSlug(ctx, tx, baseSlug)
+	var newEventID string
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO events (
+			slug, title, description, short_description, description_markdown,
+			location, location_name, formatted_address, latitude, longitude, location_source,
+			starts_at, ends_at, timezone, status, visibility, event_type, difficulty,
+			max_attendees, capacity, organizer_user_id, group_id, dive_site_id,
+			requires_approval, is_paid, payment_mode, price_amount, currency, payment_instructions,
+			meeting_point, beginner_friendly, max_depth_m, entry_type, equipment_notes, safety_notes,
+			cancellation_policy, payment_enabled, posts_enabled, awards_enabled, sponsors_enabled, interested_enabled, program_enabled
+		) VALUES (
+			$1, $2, $3, $4, $5,
+			$6, $7, $8, $9, $10, 'manual',
+			$11, $12, $13, 'draft', $14, $15, $16,
+			$17, $17, $18::uuid, nullif($19, '')::uuid, $20::uuid,
+			$21, $22, $23, $24, $25, nullif($26, ''),
+			nullif($27, ''), $28, $29, nullif($30, ''), nullif($31, ''), nullif($32, ''),
+			nullif($33, ''), $34, $35, $36, $37, $38, $39
+		)
+		RETURNING id::text
+	`, slug, source.Title, source.Description, source.ShortDescription, source.DescriptionMarkdown,
+		site.Area, site.Name, site.Area, site.Latitude, site.Longitude,
+		source.StartsAt, source.EndsAt, source.Timezone, source.Visibility, source.EventType, source.Difficulty,
+		source.Capacity, input.ActorID, groupID, source.DiveSiteID,
+		source.RequiresApproval, source.IsPaid, source.PaymentMode, source.PriceAmount, source.Currency, source.PaymentInstructions,
+		source.MeetingPoint, source.BeginnerFriendly, source.MaxDepthM, source.EntryType, source.EquipmentNotes, source.SafetyNotes,
+		source.CancellationPolicy, source.Modules.PaymentEnabled, source.Modules.PostsEnabled, source.Modules.AwardsEnabled, source.Modules.SponsorsEnabled, source.Modules.InterestedEnabled, source.Modules.ProgramEnabled).Scan(&newEventID); err != nil {
+		return Event{}, err
+	}
+	if err := addOrganizerRecords(ctx, tx, newEventID, input.ActorID); err != nil {
+		return Event{}, err
+	}
+	if input.CopyPaymentSetup {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO event_payment_methods (event_id, type, name, instructions, qr_image_url, account_name, account_number, bank_name, is_active)
+			SELECT $2::uuid, type, name, instructions, qr_image_url, account_name, account_number, bank_name, is_active
+			FROM event_payment_methods
+			WHERE event_id = $1::uuid
+		`, eventID, newEventID); err != nil {
+			return Event{}, err
+		}
+	}
+	if input.CopyAwards {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO event_competitions (event_id, name, description_markdown, rules_markdown, cover_photo_url, sort_order)
+			SELECT $2::uuid, name, description_markdown, rules_markdown, cover_photo_url, sort_order
+			FROM event_competitions
+			WHERE event_id = $1::uuid AND deleted_at IS NULL
+		`, eventID, newEventID); err != nil {
+			return Event{}, err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO event_prizes (
+				event_id, competition_id, title, description_markdown, photo_url,
+				placement, placement_label, prize_type, amount, currency, sponsor_id, sort_order
+			)
+			SELECT
+				$2::uuid,
+				new_comp.id,
+				old_prize.title,
+				old_prize.description_markdown,
+				old_prize.photo_url,
+				old_prize.placement,
+				old_prize.placement_label,
+				old_prize.prize_type,
+				old_prize.amount,
+				old_prize.currency,
+				NULL,
+				old_prize.sort_order
+			FROM event_prizes old_prize
+			LEFT JOIN event_competitions old_comp
+				ON old_comp.id = old_prize.competition_id
+			LEFT JOIN event_competitions new_comp
+				ON new_comp.event_id = $2::uuid
+				AND old_comp.id IS NOT NULL
+				AND new_comp.name = old_comp.name
+				AND new_comp.sort_order = old_comp.sort_order
+				AND new_comp.deleted_at IS NULL
+			WHERE old_prize.event_id = $1::uuid
+				AND old_prize.deleted_at IS NULL
+		`, eventID, newEventID); err != nil {
+			return Event{}, err
+		}
+	}
+	if input.CopySponsors {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO event_sponsors (event_id, name, tier, description, logo_media_id, logo_url, website_url, social_url, contact_name, contact_email, sort_order, is_active)
+			SELECT $2::uuid, name, tier, description, logo_media_id, logo_url, website_url, social_url, contact_name, contact_email, sort_order, is_active
+			FROM event_sponsors
+			WHERE event_id = $1::uuid AND deleted_at IS NULL
+		`, eventID, newEventID); err != nil {
+			return Event{}, err
+		}
+	}
+	if input.CopyPosts {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO event_posts (event_id, author_user_id, post_type, title, body_markdown, status, is_pinned)
+			SELECT $2::uuid, $3::uuid, post_type, title, body_markdown, 'published', is_pinned
+			FROM event_posts
+			WHERE event_id = $1::uuid AND status = 'published' AND deleted_at IS NULL
+		`, eventID, newEventID, input.ActorID); err != nil {
+			return Event{}, err
+		}
+	}
+	if input.CopyProgram {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO event_program_items (
+				event_id, title, description_markdown, program_date, start_time, end_time,
+				timezone, location_label, competition_id, sort_order, is_highlighted
+			)
+			SELECT
+				$2::uuid,
+				old_item.title,
+				old_item.description_markdown,
+				old_item.program_date,
+				old_item.start_time,
+				old_item.end_time,
+				old_item.timezone,
+				old_item.location_label,
+				new_comp.id,
+				old_item.sort_order,
+				old_item.is_highlighted
+			FROM event_program_items old_item
+			LEFT JOIN event_competitions old_comp
+				ON old_comp.id = old_item.competition_id
+			LEFT JOIN event_competitions new_comp
+				ON new_comp.event_id = $2::uuid
+				AND old_comp.id IS NOT NULL
+				AND new_comp.name = old_comp.name
+				AND new_comp.sort_order = old_comp.sort_order
+				AND new_comp.deleted_at IS NULL
+			WHERE old_item.event_id = $1::uuid
+				AND old_item.deleted_at IS NULL
+		`, eventID, newEventID); err != nil {
+			return Event{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Event{}, err
+	}
+	return r.GetEventByID(ctx, newEventID, input.ActorID)
 }
 
 func (r *Repo) ListPaymentMethods(ctx context.Context, eventID string, activeOnly bool) ([]EventPaymentMethod, error) {
@@ -1426,6 +2067,7 @@ func eventSelectColumns() string {
 		ds.longitude,
 		e.requires_approval,
 		e.is_paid,
+		coalesce(e.payment_mode, CASE WHEN e.is_paid THEN 'required' ELSE 'free' END),
 		e.price_amount::float8,
 		coalesce(e.currency, 'PHP'),
 		coalesce(e.payment_instructions, ''),
@@ -1436,7 +2078,12 @@ func eventSelectColumns() string {
 		coalesce(e.equipment_notes, ''),
 		coalesce(e.safety_notes, ''),
 		coalesce(e.cancellation_policy, ''),
+		e.payment_enabled,
 		e.posts_enabled,
+		e.awards_enabled,
+		e.sponsors_enabled,
+		e.interested_enabled,
+		e.program_enabled,
 		coalesce(e.post_create_policy, 'organizers_only'),
 		e.published_at,
 		e.cancelled_at,
@@ -1480,6 +2127,7 @@ func eventSelectColumns() string {
 		coalesce(vp.participant_note, ''),
 		coalesce(vp.emergency_contact_name, ''),
 		coalesce(vp.emergency_contact_phone, ''),
+		coalesce(vp.join_answers_json, '{}'::jsonb),
 		vp.created_at,
 		vp.updated_at,
 		vp.approved_at,
@@ -1575,6 +2223,7 @@ func scanEvent(row eventScanner, item *Event, total *int) error {
 		&diveSiteLng,
 		&item.RequiresApproval,
 		&item.IsPaid,
+		&item.PaymentMode,
 		&item.PriceAmount,
 		&item.Currency,
 		&item.PaymentInstructions,
@@ -1585,7 +2234,12 @@ func scanEvent(row eventScanner, item *Event, total *int) error {
 		&item.EquipmentNotes,
 		&item.SafetyNotes,
 		&item.CancellationPolicy,
+		&item.PaymentEnabled,
 		&item.PostsEnabled,
+		&item.AwardsEnabled,
+		&item.SponsorsEnabled,
+		&item.InterestedEnabled,
+		&item.ProgramEnabled,
 		&item.PostCreatePolicy,
 		&item.PublishedAt,
 		&item.CancelledAt,
@@ -1606,6 +2260,7 @@ func scanEvent(row eventScanner, item *Event, total *int) error {
 		&participant.ParticipantNote,
 		&participant.EmergencyContactName,
 		&participant.EmergencyContactPhone,
+		&participant.JoinAnswersJSON,
 		&participantCreatedAt,
 		&participantUpdatedAt,
 		&participant.ApprovedAt,
@@ -1681,11 +2336,32 @@ func scanEvent(row eventScanner, item *Event, total *int) error {
 	return nil
 }
 
+func scanProgramItem(row eventScanner, item *EventProgramItem) error {
+	return row.Scan(
+		&item.ID,
+		&item.EventID,
+		&item.Title,
+		&item.DescriptionMarkdown,
+		&item.ProgramDate,
+		&item.StartTime,
+		&item.EndTime,
+		&item.Timezone,
+		&item.LocationLabel,
+		&item.CompetitionID,
+		&item.CompetitionName,
+		&item.SortOrder,
+		&item.IsHighlighted,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
+}
+
 func participantSelectColumns() string {
 	return `
 		ep.id::text, ep.event_id::text, ep.user_id::text, ep.role, ep.status,
 		coalesce(ep.participant_note, ''), coalesce(ep.emergency_contact_name, ''),
-		coalesce(ep.emergency_contact_phone, ''), ep.created_at, ep.updated_at,
+		coalesce(ep.emergency_contact_phone, ''), coalesce(ep.join_answers_json, '{}'::jsonb),
+		ep.created_at, ep.updated_at,
 		ep.approved_at, coalesce(ep.approved_by::text, ''), ep.rejected_at,
 		coalesce(ep.rejected_by::text, ''), ep.cancelled_at, ep.left_at,
 		coalesce(ep.qr_token, ''), ep.qr_issued_at, ep.qr_revoked_at,
@@ -1715,6 +2391,7 @@ func scanParticipant(row eventScanner, item *EventParticipant, total *int) error
 		&item.ParticipantNote,
 		&item.EmergencyContactName,
 		&item.EmergencyContactPhone,
+		&item.JoinAnswersJSON,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 		&item.ApprovedAt,
@@ -1882,7 +2559,7 @@ func ensureParticipationPaymentForUser(ctx context.Context, tx pgx.Tx, eventID, 
 			ep.event_id,
 			ep.id,
 			ep.user_id,
-			CASE WHEN e.is_paid THEN 'pending_upload' ELSE 'not_required' END
+			CASE WHEN coalesce(e.payment_mode, CASE WHEN e.is_paid THEN 'required' ELSE 'free' END) = 'required' THEN 'pending_upload' ELSE 'not_required' END
 		FROM event_participations ep
 		JOIN events e ON e.id = ep.event_id
 		WHERE ep.event_id = $1::uuid

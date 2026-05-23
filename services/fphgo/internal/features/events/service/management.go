@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -12,6 +13,103 @@ import (
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/validatex"
 )
+
+func (s *Service) ListProgramItems(ctx context.Context, eventID, viewerUserID string) ([]eventsrepo.EventProgramItem, error) {
+	event, err := s.ensureCanViewEventDetails(ctx, eventID, viewerUserID)
+	if err != nil {
+		return nil, err
+	}
+	if !event.ViewerCanManage && !event.ProgramEnabled {
+		return nil, apperrors.New(http.StatusForbidden, "forbidden", "event program is not enabled", nil)
+	}
+	items, err := s.repo.ListProgramItems(ctx, eventID)
+	if err != nil {
+		return nil, apperrors.New(http.StatusInternalServerError, "event_program_list_failed", "failed to list event program", err)
+	}
+	return items, nil
+}
+
+func (s *Service) CreateProgramItem(ctx context.Context, eventID, actorID string, input eventsrepo.CreateProgramItemInput) (eventsrepo.EventProgramItem, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return eventsrepo.EventProgramItem{}, err
+	}
+	if err := s.ensureCanManage(ctx, eventID, actorID); err != nil {
+		return eventsrepo.EventProgramItem{}, err
+	}
+	input = normalizeProgramInput(input)
+	if err := validateCreateProgramInput(input); err != nil {
+		return eventsrepo.EventProgramItem{}, err
+	}
+	if err := s.ensureProgramCompetitionBelongsToEvent(ctx, eventID, input.CompetitionID); err != nil {
+		return eventsrepo.EventProgramItem{}, err
+	}
+	item, err := s.repo.CreateProgramItem(ctx, eventID, input)
+	if err != nil {
+		return eventsrepo.EventProgramItem{}, apperrors.New(http.StatusInternalServerError, "event_program_create_failed", "failed to create program item", err)
+	}
+	return item, nil
+}
+
+func (s *Service) UpdateProgramItem(ctx context.Context, eventID, programItemID, actorID string, input eventsrepo.UpdateProgramItemInput) (eventsrepo.EventProgramItem, error) {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return eventsrepo.EventProgramItem{}, err
+	}
+	if _, err := uuid.Parse(programItemID); err != nil {
+		return eventsrepo.EventProgramItem{}, invalidUUID("programItemId")
+	}
+	if err := s.ensureCanManage(ctx, eventID, actorID); err != nil {
+		return eventsrepo.EventProgramItem{}, err
+	}
+	input.ProgramItemID = programItemID
+	normalizeUpdateProgramInput(&input)
+	title := ""
+	if input.Title != nil {
+		title = *input.Title
+		if title == "" {
+			return eventsrepo.EventProgramItem{}, required("title")
+		}
+	}
+	programDate := valueOrEmpty(input.ProgramDate)
+	startTime := valueOrEmpty(input.StartTime)
+	endTime := valueOrEmpty(input.EndTime)
+	timezone := valueOrEmpty(input.Timezone)
+	competitionID := valueOrEmpty(input.CompetitionID)
+	if input.Title != nil || input.ProgramDate != nil || input.StartTime != nil || input.EndTime != nil || input.Timezone != nil || input.CompetitionID != nil {
+		if err := validateProgramInput(title, programDate, startTime, endTime, timezone, competitionID); err != nil {
+			return eventsrepo.EventProgramItem{}, err
+		}
+	}
+	if err := s.ensureProgramCompetitionBelongsToEvent(ctx, eventID, competitionID); err != nil {
+		return eventsrepo.EventProgramItem{}, err
+	}
+	item, err := s.repo.UpdateProgramItem(ctx, eventID, input)
+	if err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return eventsrepo.EventProgramItem{}, apperrors.New(http.StatusNotFound, "event_program_item_not_found", "program item not found", err)
+		}
+		return eventsrepo.EventProgramItem{}, apperrors.New(http.StatusInternalServerError, "event_program_update_failed", "failed to update program item", err)
+	}
+	return item, nil
+}
+
+func (s *Service) DeleteProgramItem(ctx context.Context, eventID, programItemID, actorID string) error {
+	if err := validateEventAndActor(eventID, actorID); err != nil {
+		return err
+	}
+	if _, err := uuid.Parse(programItemID); err != nil {
+		return invalidUUID("programItemId")
+	}
+	if err := s.ensureCanManage(ctx, eventID, actorID); err != nil {
+		return err
+	}
+	if err := s.repo.DeleteProgramItem(ctx, eventID, programItemID); err != nil {
+		if eventsrepo.IsNoRows(err) {
+			return apperrors.New(http.StatusNotFound, "event_program_item_not_found", "program item not found", err)
+		}
+		return apperrors.New(http.StatusInternalServerError, "event_program_delete_failed", "failed to delete program item", err)
+	}
+	return nil
+}
 
 func (s *Service) ListCompetitions(ctx context.Context, eventID, viewerUserID string) ([]eventsrepo.EventCompetition, error) {
 	if _, err := s.ensureCanViewEventDetails(ctx, eventID, viewerUserID); err != nil {
@@ -494,6 +592,120 @@ func (s *Service) ensureCanViewEventPosts(ctx context.Context, eventID, viewerUs
 		return eventsrepo.Event{}, apperrors.New(http.StatusForbidden, "forbidden", "event updates are only visible to event members", nil)
 	}
 	return event, nil
+}
+
+func normalizeProgramInput(input eventsrepo.CreateProgramItemInput) eventsrepo.CreateProgramItemInput {
+	input.Title = strings.TrimSpace(input.Title)
+	input.DescriptionMarkdown = strings.TrimSpace(input.DescriptionMarkdown)
+	input.ProgramDate = strings.TrimSpace(input.ProgramDate)
+	input.StartTime = strings.TrimSpace(input.StartTime)
+	input.EndTime = strings.TrimSpace(input.EndTime)
+	input.Timezone = strings.TrimSpace(input.Timezone)
+	input.LocationLabel = strings.TrimSpace(input.LocationLabel)
+	input.CompetitionID = strings.TrimSpace(input.CompetitionID)
+	return input
+}
+
+func normalizeUpdateProgramInput(input *eventsrepo.UpdateProgramItemInput) {
+	trimStringPtr(&input.Title)
+	trimStringPtr(&input.DescriptionMarkdown)
+	trimStringPtr(&input.ProgramDate)
+	trimStringPtr(&input.StartTime)
+	trimStringPtr(&input.EndTime)
+	trimStringPtr(&input.Timezone)
+	trimStringPtr(&input.LocationLabel)
+	trimStringPtr(&input.CompetitionID)
+}
+
+func validateProgramInput(title, programDate, startTime, endTime, timezoneValue, competitionID string) error {
+	if strings.TrimSpace(title) == "" && title != "" {
+		return required("title")
+	}
+	if title == "" && programDate == "" && startTime == "" && endTime == "" && timezoneValue == "" && competitionID == "" {
+		return nil
+	}
+	if title != "" && strings.TrimSpace(title) == "" {
+		return required("title")
+	}
+	if programDate != "" {
+		if _, err := time.Parse("2006-01-02", programDate); err != nil {
+			return ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"programDate"}, Code: "invalid_date", Message: "Program date must be YYYY-MM-DD",
+			}}}
+		}
+	}
+	if startTime != "" {
+		if programDate == "" {
+			return ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"programDate"}, Code: "required", Message: "Program date is required when start time is set",
+			}}}
+		}
+		if _, err := time.Parse("15:04", startTime); err != nil {
+			return ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"startTime"}, Code: "invalid_time", Message: "Start time must be HH:MM",
+			}}}
+		}
+	}
+	if endTime != "" {
+		if startTime == "" {
+			return ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"startTime"}, Code: "required", Message: "Start time is required when end time is set",
+			}}}
+		}
+		start, _ := time.Parse("15:04", startTime)
+		end, err := time.Parse("15:04", endTime)
+		if err != nil {
+			return ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"endTime"}, Code: "invalid_time", Message: "End time must be HH:MM",
+			}}}
+		}
+		if !end.After(start) {
+			return ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"endTime"}, Code: "invalid_range", Message: "End time must be after start time",
+			}}}
+		}
+	}
+	if timezoneValue != "" {
+		if _, err := time.LoadLocation(timezoneValue); err != nil {
+			return ValidationFailure{Issues: []validatex.Issue{{
+				Path: []any{"timezone"}, Code: "invalid_timezone", Message: "Timezone must be a valid IANA timezone",
+			}}}
+		}
+	}
+	if strings.TrimSpace(competitionID) != "" {
+		if _, err := uuid.Parse(competitionID); err != nil {
+			return invalidUUID("competitionId")
+		}
+	}
+	return nil
+}
+
+func validateCreateProgramInput(input eventsrepo.CreateProgramItemInput) error {
+	if strings.TrimSpace(input.Title) == "" {
+		return required("title")
+	}
+	return validateProgramInput(input.Title, input.ProgramDate, input.StartTime, input.EndTime, input.Timezone, input.CompetitionID)
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func (s *Service) ensureProgramCompetitionBelongsToEvent(ctx context.Context, eventID, competitionID string) error {
+	if strings.TrimSpace(competitionID) == "" {
+		return nil
+	}
+	exists, err := s.repo.CompetitionBelongsToEvent(ctx, eventID, competitionID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "event_competition_lookup_failed", "failed to validate event competition", err)
+	}
+	if !exists {
+		return apperrors.New(http.StatusNotFound, "event_competition_not_found", "event competition not found", nil)
+	}
+	return nil
 }
 
 func (s *Service) ensurePrizeReferencesBelongToEvent(ctx context.Context, eventID, competitionID, sponsorID string) error {

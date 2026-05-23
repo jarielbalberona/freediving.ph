@@ -129,6 +129,7 @@ type EventCandidate struct {
 	ID               string
 	Slug             string
 	Title            string
+	ShortDescription string
 	Area             string
 	Status           string
 	Visibility       string
@@ -793,6 +794,7 @@ func (r *Repo) ListEventCandidates(ctx context.Context, input CandidateInput) ([
 			e.id::text,
 			e.slug,
 			e.title,
+			COALESCE(e.short_description, ''),
 			COALESCE(e.location, e.location_name, ''),
 			e.status,
 			e.visibility,
@@ -861,7 +863,7 @@ func (r *Repo) ListEventCandidates(ctx context.Context, input CandidateInput) ([
 	items := make([]EventCandidate, 0)
 	for rows.Next() {
 		var item EventCandidate
-		if scanErr := rows.Scan(&item.ID, &item.Slug, &item.Title, &item.Area, &item.Status, &item.Visibility, &item.CreatedAt, &item.MemberCount, &item.ViewerMember, &item.ViewerAuthorized); scanErr != nil {
+		if scanErr := rows.Scan(&item.ID, &item.Slug, &item.Title, &item.ShortDescription, &item.Area, &item.Status, &item.Visibility, &item.CreatedAt, &item.MemberCount, &item.ViewerMember, &item.ViewerAuthorized); scanErr != nil {
 			return nil, scanErr
 		}
 		item.CreatedAt = item.CreatedAt.UTC()

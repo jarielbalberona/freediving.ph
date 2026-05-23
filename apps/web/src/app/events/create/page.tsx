@@ -2,6 +2,7 @@
 
 import type {
   CreateEventRequest,
+  EventPaymentMode,
   EventType,
   EventVisibility,
 } from "@freediving.ph/types";
@@ -46,7 +47,15 @@ type CreateEventFormState = {
   endsAt: string;
   visibility: EventVisibility;
   requiresApproval: boolean;
-  isPaid: boolean;
+  paymentMode: EventPaymentMode;
+  modules: {
+    payment: boolean;
+    posts: boolean;
+    awards: boolean;
+    sponsors: boolean;
+    program: boolean;
+    interested: boolean;
+  };
 };
 
 const defaultForm: CreateEventFormState = {
@@ -59,7 +68,15 @@ const defaultForm: CreateEventFormState = {
   endsAt: "",
   visibility: "public",
   requiresApproval: true,
-  isPaid: false,
+  paymentMode: "free",
+  modules: {
+    payment: false,
+    posts: false,
+    awards: false,
+    sponsors: false,
+    program: false,
+    interested: true,
+  },
 };
 
 const visibilityChoices: Array<{
@@ -67,17 +84,17 @@ const visibilityChoices: Array<{
   label: string;
   description: string;
 }> = [
-    {
-      value: "public",
-      label: "Public",
-      description: "Anyone can view the event.",
-    },
-    {
-      value: "private",
-      label: "Private",
-      description: "Only limited details are shown publicly.",
-    },
-  ];
+  {
+    value: "public",
+    label: "Public",
+    description: "Anyone can view the event.",
+  },
+  {
+    value: "private",
+    label: "Private",
+    description: "Only limited details are shown publicly.",
+  },
+];
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -91,6 +108,18 @@ export default function CreateEventPage() {
     key: K,
     value: CreateEventFormState[K],
   ) => setForm((current) => ({ ...current, [key]: value }));
+  const updateModule = (
+    key: keyof CreateEventFormState["modules"],
+    checked: boolean,
+  ) =>
+    setForm((current) => ({
+      ...current,
+      modules: { ...current.modules, [key]: checked },
+      paymentMode:
+        key === "payment" && !checked && current.paymentMode !== "free"
+          ? "free"
+          : current.paymentMode,
+    }));
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -289,12 +318,79 @@ export default function CreateEventPage() {
                 updateForm("requiresApproval", checked)
               }
             />
-            <CheckboxRow
-              checked={form.isPaid}
-              label="Paid event"
-              helper="You can add payment instructions after creating the event."
-              onCheckedChange={(checked) => updateForm("isPaid", checked)}
-            />
+            <Field label="Payment mode">
+              <Select
+                value={form.paymentMode}
+                items={[
+                  { value: "free", label: "Free" },
+                  { value: "required", label: "Required fee" },
+                  { value: "optional", label: "Optional donation" },
+                ]}
+                onValueChange={(value) => {
+                  const paymentMode = value as EventPaymentMode;
+                  setForm((current) => ({
+                    ...current,
+                    paymentMode,
+                    modules: {
+                      ...current.modules,
+                      payment: paymentMode !== "free",
+                    },
+                  }));
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="required">Required fee</SelectItem>
+                  <SelectItem value="optional">Optional donation</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <div className="grid gap-2">
+              <p className="text-sm font-medium text-foreground">
+                Optional features
+              </p>
+              <CheckboxRow
+                checked={form.modules.payment}
+                label="Payment"
+                helper="Collect manual payment proofs for this event."
+                onCheckedChange={(checked) => updateModule("payment", checked)}
+              />
+              <CheckboxRow
+                checked={form.modules.posts}
+                label="Posts"
+                helper="Share updates with participants."
+                onCheckedChange={(checked) => updateModule("posts", checked)}
+              />
+              <CheckboxRow
+                checked={form.modules.awards}
+                label="Awards"
+                helper="Add competitions, winners, or prizes."
+                onCheckedChange={(checked) => updateModule("awards", checked)}
+              />
+              <CheckboxRow
+                checked={form.modules.sponsors}
+                label="Sponsors"
+                helper="Show event sponsors."
+                onCheckedChange={(checked) => updateModule("sponsors", checked)}
+              />
+              <CheckboxRow
+                checked={form.modules.program}
+                label="Program"
+                helper="Add a schedule or activity list for this event."
+                onCheckedChange={(checked) => updateModule("program", checked)}
+              />
+              <CheckboxRow
+                checked={form.modules.interested}
+                label="Interested"
+                helper="Let people mark interest before joining."
+                onCheckedChange={(checked) =>
+                  updateModule("interested", checked)
+                }
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -409,7 +505,12 @@ function buildPayload(
       timezone: CREATE_EVENT_TIMEZONE,
       visibility: form.visibility,
       requiresApproval: form.requiresApproval,
-      isPaid: form.isPaid,
+      isPaid: form.paymentMode === "required",
+      paymentMode: form.paymentMode,
+      modules: {
+        ...form.modules,
+        payment: form.modules.payment || form.paymentMode !== "free",
+      },
       status: "published",
     },
   };

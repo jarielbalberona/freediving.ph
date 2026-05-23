@@ -3,16 +3,20 @@ import type {
   CreateEventCompetitionRequest,
   CreateEventPaymentMethodRequest,
   CreateEventPostRequest,
+  CreateEventProgramItemRequest,
   CreateEventPrizeRequest,
   CreateEventRequest,
   CreateEventSponsorRequest,
+  DuplicateEventRequest,
   Event,
   EventCompetition,
   EventFilters,
+  EventJoinFormField,
   EventPass,
   EventParticipant,
   EventParticipantPayment,
   EventPost,
+  EventProgramItem,
   EventPostReactionResponse,
   EventPrize,
   EventPaymentProofUrl,
@@ -22,10 +26,13 @@ import type {
   ReviewEventPaymentRequest,
   SubmitEventPaymentRequest,
   UpdateEventCompetitionRequest,
+  UpdateEventJoinFormFieldsRequest,
+  UpdateEventModulesRequest,
   UpdateEventPaymentMethodRequest,
   UpdateEventParticipantRoleRequest,
   UpdateEventPostRequest,
   UpdateEventPostSettingsRequest,
+  UpdateEventProgramItemRequest,
   UpdateEventPrizeRequest,
   UpdateEventRequest,
   UpdateEventSponsorRequest,
@@ -47,6 +54,10 @@ type ListEventsPayload = {
 
 type EventPayload = {
   event: Event;
+};
+
+type JoinFormFieldsPayload = {
+  fields: EventJoinFormField[];
 };
 
 type EventPassPayload = EventPass;
@@ -106,6 +117,14 @@ type ListPostsPayload = {
 
 type PostPayload = {
   post: EventPost;
+};
+
+type ListProgramItemsPayload = {
+  programItems: EventProgramItem[];
+};
+
+type ProgramItemPayload = {
+  programItem: EventProgramItem;
 };
 
 export const eventsApi = {
@@ -206,6 +225,7 @@ export const eventsApi = {
       `/v1/events/${data.eventId}/join`,
       {
         participantNote: data.participantNote ?? data.notes,
+        joinAnswers: data.joinAnswers ?? {},
       },
     );
     const participant = response.data.participant ?? response.data.attendee;
@@ -217,6 +237,85 @@ export const eventsApi = {
 
   leaveEvent: async (eventId: string): Promise<void> => {
     await axiosInstance.post(`/v1/events/${eventId}/leave`);
+  },
+
+  updateEventModules: async (
+    eventId: string,
+    data: UpdateEventModulesRequest,
+  ): Promise<Event> => {
+    const response = await axiosInstance.patch<EventPayload>(
+      `/v1/events/${eventId}/modules`,
+      data,
+    );
+    return response.data.event;
+  },
+
+  getJoinFormFields: async (
+    eventId: string,
+  ): Promise<EventJoinFormField[]> => {
+    const response = await axiosInstance.get<JoinFormFieldsPayload>(
+      `/v1/events/${eventId}/join-form-fields`,
+    );
+    return response.data.fields ?? [];
+  },
+
+  updateJoinFormFields: async (
+    eventId: string,
+    data: UpdateEventJoinFormFieldsRequest,
+  ): Promise<EventJoinFormField[]> => {
+    const response = await axiosInstance.put<JoinFormFieldsPayload>(
+      `/v1/events/${eventId}/join-form-fields`,
+      data,
+    );
+    return response.data.fields ?? [];
+  },
+
+  duplicateEvent: async (
+    eventId: string,
+    data: DuplicateEventRequest,
+  ): Promise<Event> => {
+    const response = await axiosInstance.post<EventPayload>(
+      `/v1/events/${eventId}/duplicate`,
+      data,
+    );
+    return response.data.event;
+  },
+
+  getProgramItems: async (eventId: string): Promise<EventProgramItem[]> => {
+    const response = await axiosInstance.get<ListProgramItemsPayload>(
+      `/v1/events/${eventId}/program`,
+    );
+    return response.data.programItems ?? [];
+  },
+
+  createProgramItem: async (
+    eventId: string,
+    data: CreateEventProgramItemRequest,
+  ): Promise<EventProgramItem> => {
+    const response = await axiosInstance.post<ProgramItemPayload>(
+      `/v1/events/${eventId}/program`,
+      data,
+    );
+    return response.data.programItem;
+  },
+
+  updateProgramItem: async (
+    eventId: string,
+    programItemId: string,
+    data: UpdateEventProgramItemRequest,
+  ): Promise<EventProgramItem> => {
+    const response = await axiosInstance.patch<ProgramItemPayload>(
+      `/v1/events/${eventId}/program/${programItemId}`,
+      data,
+    );
+    return response.data.programItem;
+  },
+
+  deleteProgramItem: async (
+    eventId: string,
+    programItemId: string,
+  ): Promise<void> => {
+    await axiosInstance.delete(`/v1/events/${eventId}/program/${programItemId}`);
   },
 
   markEventInterested: async (eventId: string): Promise<Event> => {
@@ -492,6 +591,18 @@ export const eventsApi = {
     const response = await axiosInstance.patch<EventParticipant>(
       `/v1/events/${eventId}/participants/${participantId}/role`,
       data,
+    );
+    return response.data;
+  },
+
+  updateParticipantStatus: async (
+    eventId: string,
+    participantId: string,
+    status: EventParticipant["status"],
+  ): Promise<EventParticipant> => {
+    const response = await axiosInstance.patch<EventParticipant>(
+      `/v1/events/${eventId}/participants/${participantId}/status`,
+      { status },
     );
     return response.data;
   },

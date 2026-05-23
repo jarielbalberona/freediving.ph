@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -110,6 +111,7 @@ func (h *Handlers) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		Capacity:            req.Capacity,
 		RequiresApproval:    req.RequiresApproval,
 		IsPaid:              req.IsPaid,
+		PaymentMode:         req.PaymentMode,
 		PriceAmount:         req.PriceAmount,
 		Currency:            req.Currency,
 		PaymentInstructions: req.PaymentInstructions,
@@ -121,8 +123,16 @@ func (h *Handlers) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		SafetyNotes:         req.SafetyNotes,
 		CancellationPolicy:  req.CancellationPolicy,
 		PaymentMethods:      mapCreatePaymentMethods(req.PaymentMethods),
-		OrganizerUserID:     actorID,
-		GroupID:             groupID,
+		Modules: eventsrepo.EventModules{
+			PaymentEnabled:    req.Modules.Payment,
+			PostsEnabled:      req.Modules.Posts,
+			AwardsEnabled:     req.Modules.Awards,
+			SponsorsEnabled:   req.Modules.Sponsors,
+			InterestedEnabled: moduleInterestedEnabled(req.Modules),
+			ProgramEnabled:    req.Modules.Program,
+		},
+		OrganizerUserID: actorID,
+		GroupID:         groupID,
 	})
 	if err != nil {
 		handleError(w, r, err)
@@ -169,6 +179,7 @@ func (h *Handlers) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		Capacity:            req.Capacity,
 		RequiresApproval:    req.RequiresApproval,
 		IsPaid:              req.IsPaid,
+		PaymentMode:         req.PaymentMode,
 		PriceAmount:         req.PriceAmount,
 		Currency:            req.Currency,
 		PaymentInstructions: req.PaymentInstructions,
@@ -179,7 +190,12 @@ func (h *Handlers) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		EquipmentNotes:      req.EquipmentNotes,
 		SafetyNotes:         req.SafetyNotes,
 		CancellationPolicy:  req.CancellationPolicy,
+		PaymentEnabled:      req.PaymentEnabled,
 		PostsEnabled:        req.PostsEnabled,
+		AwardsEnabled:       req.AwardsEnabled,
+		SponsorsEnabled:     req.SponsorsEnabled,
+		InterestedEnabled:   req.InterestedEnabled,
+		ProgramEnabled:      req.ProgramEnabled,
 		PostCreatePolicy:    req.PostCreatePolicy,
 		CancelReason:        req.CancelReason,
 		CoverPhotoURL:       req.CoverPhotoURL,
@@ -207,7 +223,7 @@ func (h *Handlers) JoinEvent(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(note) == "" {
 		note = req.Notes
 	}
-	participant, err := h.service.JoinEvent(r.Context(), eventID, actorID, note)
+	participant, err := h.service.JoinEvent(r.Context(), eventID, actorID, note, req.JoinAnswers)
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -602,47 +618,61 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 	privateUnauthorized := item.Visibility == "private" && !item.ViewerCanViewPrivateDetails
 	allowPaymentDetails := item.ViewerJoined || item.ViewerCanManage
 	response := EventResponse{
-		ID:                          item.ID,
-		Slug:                        item.Slug,
-		Title:                       item.Title,
-		ShortDescription:            item.ShortDescription,
-		CoverPhotoURL:               mediaurl.MaterializeWithDefault(item.CoverPhotoURL),
-		Location:                    item.Location,
-		LocationName:                item.LocationName,
-		FormattedAddress:            item.FormattedAddress,
-		Latitude:                    item.Latitude,
-		Longitude:                   item.Longitude,
-		GooglePlaceID:               item.GooglePlaceID,
-		RegionCode:                  item.RegionCode,
-		ProvinceCode:                item.ProvinceCode,
-		CityCode:                    item.CityCode,
-		BarangayCode:                item.BarangayCode,
-		LocationSource:              item.LocationSource,
-		DiveSiteID:                  item.DiveSiteID,
-		DiveSite:                    mapDiveSite(item.DiveSite),
-		StartsAt:                    item.StartsAt,
-		EndsAt:                      item.EndsAt,
-		Timezone:                    item.Timezone,
-		Status:                      item.Status,
-		Visibility:                  item.Visibility,
-		Type:                        item.EventType,
-		Difficulty:                  item.Difficulty,
-		MaxAttendees:                item.MaxAttendees,
-		Capacity:                    item.Capacity,
-		CurrentAttendees:            item.CurrentAttendees,
-		AvailableSlots:              item.AvailableSlots,
-		InterestedCount:             item.InterestedCount,
-		GoingCount:                  item.GoingCount,
-		OrganizerUserID:             item.OrganizerUserID,
-		GroupID:                     item.GroupID,
-		RequiresApproval:            item.RequiresApproval,
-		IsPaid:                      item.IsPaid,
-		PriceAmount:                 item.PriceAmount,
-		Currency:                    item.Currency,
-		BeginnerFriendly:            item.BeginnerFriendly,
-		MaxDepthM:                   item.MaxDepthM,
-		EntryType:                   item.EntryType,
-		PostsEnabled:                item.PostsEnabled,
+		ID:                item.ID,
+		Slug:              item.Slug,
+		Title:             item.Title,
+		ShortDescription:  item.ShortDescription,
+		CoverPhotoURL:     mediaurl.MaterializeWithDefault(item.CoverPhotoURL),
+		Location:          item.Location,
+		LocationName:      item.LocationName,
+		FormattedAddress:  item.FormattedAddress,
+		Latitude:          item.Latitude,
+		Longitude:         item.Longitude,
+		GooglePlaceID:     item.GooglePlaceID,
+		RegionCode:        item.RegionCode,
+		ProvinceCode:      item.ProvinceCode,
+		CityCode:          item.CityCode,
+		BarangayCode:      item.BarangayCode,
+		LocationSource:    item.LocationSource,
+		DiveSiteID:        item.DiveSiteID,
+		DiveSite:          mapDiveSite(item.DiveSite),
+		StartsAt:          item.StartsAt,
+		EndsAt:            item.EndsAt,
+		Timezone:          item.Timezone,
+		Status:            item.Status,
+		Visibility:        item.Visibility,
+		Type:              item.EventType,
+		Difficulty:        item.Difficulty,
+		MaxAttendees:      item.MaxAttendees,
+		Capacity:          item.Capacity,
+		CurrentAttendees:  item.CurrentAttendees,
+		AvailableSlots:    item.AvailableSlots,
+		InterestedCount:   item.InterestedCount,
+		GoingCount:        item.GoingCount,
+		OrganizerUserID:   item.OrganizerUserID,
+		GroupID:           item.GroupID,
+		RequiresApproval:  item.RequiresApproval,
+		IsPaid:            item.IsPaid,
+		PaymentMode:       resolvePaymentMode(item),
+		PriceAmount:       item.PriceAmount,
+		Currency:          item.Currency,
+		BeginnerFriendly:  item.BeginnerFriendly,
+		MaxDepthM:         item.MaxDepthM,
+		EntryType:         item.EntryType,
+		PaymentEnabled:    item.PaymentEnabled,
+		PostsEnabled:      item.PostsEnabled,
+		AwardsEnabled:     item.AwardsEnabled,
+		SponsorsEnabled:   item.SponsorsEnabled,
+		InterestedEnabled: item.InterestedEnabled,
+		ProgramEnabled:    item.ProgramEnabled,
+		Modules: EventModulesRequest{
+			Payment:    item.PaymentEnabled,
+			Posts:      item.PostsEnabled,
+			Awards:     item.AwardsEnabled,
+			Sponsors:   item.SponsorsEnabled,
+			Program:    item.ProgramEnabled,
+			Interested: boolPtr(item.InterestedEnabled),
+		},
 		PostCreatePolicy:            item.PostCreatePolicy,
 		PublishedAt:                 item.PublishedAt,
 		CancelledAt:                 item.CancelledAt,
@@ -668,7 +698,20 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		response.EquipmentNotes = item.EquipmentNotes
 		response.SafetyNotes = item.SafetyNotes
 		response.CancellationPolicy = item.CancellationPolicy
+		response.PaymentEnabled = item.PaymentEnabled
 		response.PostsEnabled = item.PostsEnabled
+		response.AwardsEnabled = item.AwardsEnabled
+		response.SponsorsEnabled = item.SponsorsEnabled
+		response.InterestedEnabled = item.InterestedEnabled
+		response.ProgramEnabled = item.ProgramEnabled
+		response.Modules = EventModulesRequest{
+			Payment:    item.PaymentEnabled,
+			Posts:      item.PostsEnabled,
+			Awards:     item.AwardsEnabled,
+			Sponsors:   item.SponsorsEnabled,
+			Program:    item.ProgramEnabled,
+			Interested: boolPtr(item.InterestedEnabled),
+		}
 		response.PostCreatePolicy = item.PostCreatePolicy
 	}
 	if privateUnauthorized {
@@ -700,6 +743,7 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		response.InterestedCount = 0
 		response.GoingCount = 0
 		response.IsPaid = false
+		response.PaymentMode = "free"
 		response.PriceAmount = nil
 		response.Currency = ""
 		response.PaymentInstructions = ""
@@ -711,7 +755,13 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		response.EquipmentNotes = ""
 		response.SafetyNotes = ""
 		response.CancellationPolicy = ""
+		response.PaymentEnabled = false
 		response.PostsEnabled = false
+		response.AwardsEnabled = false
+		response.SponsorsEnabled = false
+		response.InterestedEnabled = false
+		response.ProgramEnabled = false
+		response.Modules = EventModulesRequest{}
 		response.PostCreatePolicy = ""
 		response.PublishedAt = nil
 		response.CancelledAt = nil
@@ -731,6 +781,27 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 		response.ViewerPayment = nil
 	}
 	return response
+}
+
+func resolvePaymentMode(item eventsrepo.Event) string {
+	if item.PaymentMode != "" {
+		return item.PaymentMode
+	}
+	if item.IsPaid {
+		return "required"
+	}
+	return "free"
+}
+
+func boolPtr(value bool) *bool {
+	return &value
+}
+
+func moduleInterestedEnabled(modules EventModulesRequest) bool {
+	if modules.Interested == nil {
+		return true
+	}
+	return *modules.Interested
 }
 
 func mapDiveSite(site *eventsrepo.DiveSiteSummary) *EventDiveSiteResponse {
@@ -779,6 +850,7 @@ func mapParticipant(item eventsrepo.EventParticipant, includePayment bool) Event
 		ParticipantNote:       item.ParticipantNote,
 		EmergencyContactName:  item.EmergencyContactName,
 		EmergencyContactPhone: item.EmergencyContactPhone,
+		JoinAnswers:           decodeJoinAnswers(item.JoinAnswersJSON, includePayment),
 		CreatedAt:             item.CreatedAt,
 		UpdatedAt:             item.UpdatedAt,
 		ApprovedAt:            item.ApprovedAt,
@@ -797,6 +869,17 @@ func mapParticipant(item eventsrepo.EventParticipant, includePayment bool) Event
 		AvatarURL:             mediaurl.MaterializeWithDefault(item.AvatarURL),
 		Payment:               payment,
 	}
+}
+
+func decodeJoinAnswers(raw []byte, include bool) map[string]any {
+	if !include || len(raw) == 0 {
+		return nil
+	}
+	var answers map[string]any
+	if err := json.Unmarshal(raw, &answers); err != nil || len(answers) == 0 {
+		return nil
+	}
+	return answers
 }
 
 func mapEventPass(pass eventsservice.EventPassAccess) EventPassResponse {

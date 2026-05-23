@@ -477,6 +477,7 @@ func (s *Service) Home(ctx context.Context, input HomeInput) (HomeResult, error)
 				CreatedAt:  formatRFC3339(row.CreatedAt),
 				Payload: map[string]any{
 					"title":        row.Title,
+					"description":  row.ShortDescription,
 					"slug":         row.Slug,
 					"area":         row.Area,
 					"memberCount":  row.MemberCount,

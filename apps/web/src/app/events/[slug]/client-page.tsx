@@ -11,19 +11,27 @@ import type {
   EventPass,
   EventPaymentMethod,
   EventPaymentMethodType,
+  EventPaymentMode,
   EventPaymentStatus,
   EventPost,
   EventPostType,
+  EventProgramItem,
   EventPrize,
   EventPrizePlacement,
   EventPrizeType,
   EventSponsor,
   EventSponsorTier,
   EventVisibility,
+  EventJoinFormField,
   CreateEventPrizeRequest,
+  CreateEventProgramItemRequest,
   CreateEventSponsorRequest,
+  CreateEventPaymentMethodRequest,
+  DuplicateEventRequest,
   UpdateEventRequest,
+  UpdateEventPaymentMethodRequest,
   UpdateEventPrizeRequest,
+  UpdateEventProgramItemRequest,
   UpdateEventSponsorRequest,
 } from "@freediving.ph/types";
 import {
@@ -111,19 +119,23 @@ import {
   useCreateEventCompetition,
   useCreateEventPaymentMethod,
   useCreateEventPost,
+  useCreateEventProgramItem,
   useCreateEventPrize,
   useCreateEventSponsor,
   useDeleteEventCompetition,
   useDeleteEventPost,
   useDeleteEventPostFishReaction,
+  useDeleteEventProgramItem,
   useDeleteEventPrize,
   useDeleteEventSponsor,
   useEvent,
   useEventCompetitions,
+  useEventJoinFormFields,
   useEventParticipants,
   useEventPassVerification,
   useEventPaymentProofUrl,
   useEventPosts,
+  useEventProgramItems,
   useEventPrizes,
   useEventSponsors,
   useJoinEvent,
@@ -134,11 +146,17 @@ import {
   useRejectEventPayment,
   useRegenerateEventPass,
   useSubmitEventPayment,
+  useDuplicateEvent,
   useUpdateEventCompetition,
   useUpdateEvent,
+  useUpdateEventJoinFormFields,
+  useUpdateEventModules,
+  useUpdateEventParticipantStatus,
   useUpdateEventParticipantRole,
+  useUpdateEventPaymentMethod,
   useUpdateEventPost,
   useUpdateEventPostSettings,
+  useUpdateEventProgramItem,
   useUpdateEventPrize,
   useUpdateEventSponsor,
   useVerifyEventPayment,
@@ -150,18 +168,24 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 type EventTab =
   | "updates"
   | "overview"
+  | "program"
   | "participants"
   | "prizes"
   | "sponsors"
   | "payment";
 
 type EventManageTab =
+  | "overview"
   | "setup"
+  | "lifecycle"
   | "participants"
-  | "payments"
+  | "join-form"
+  | "program"
+  | "payment"
   | "updates"
-  | "prizes"
-  | "sponsors";
+  | "awards"
+  | "sponsors"
+  | "settings";
 
 const eventTabsListClassName =
   "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto overflow-y-hidden rounded-none border-b border-border/70 bg-transparent px-3 sm:mx-0 sm:w-full sm:px-0";
@@ -170,7 +194,23 @@ const eventTabTriggerClassName =
 const manageTabsListClassName =
   "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto overflow-y-hidden px-3 sm:mx-0 sm:w-full sm:px-1";
 const manageTabTriggerClassName = "h-8 flex-none px-3 text-sm";
+const manageSideNavTriggerClassName =
+  "h-9 w-full justify-start rounded-lg px-3 text-sm";
 const eventPassQrLogoUrl = "https://cdn.freediving.ph/fph-logo-white.png";
+
+const manageNavItems: Array<{ value: EventManageTab; label: string }> = [
+  { value: "overview", label: "Overview" },
+  { value: "setup", label: "Setup" },
+  { value: "lifecycle", label: "Lifecycle" },
+  { value: "participants", label: "Participants" },
+  { value: "join-form", label: "Join Form" },
+  { value: "program", label: "Program" },
+  { value: "payment", label: "Payment" },
+  { value: "updates", label: "Posts" },
+  { value: "awards", label: "Awards" },
+  { value: "sponsors", label: "Sponsors" },
+  { value: "settings", label: "Settings" },
+];
 
 type EventPassScanTarget = {
   slug: string;
@@ -206,6 +246,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
   const isSignedIn = session.status === "signed_in";
   const [activeTab, setActiveTab] = useState<EventTab>("updates");
   const [joinNote, setJoinNote] = useState("");
+  const [joinAnswers, setJoinAnswers] = useState<Record<string, string>>({});
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -244,6 +285,12 @@ export default function EventDetailClient({ slug }: { slug: string }) {
   const prizesQuery = useEventPrizes(eventId, canFetchDetailExtensions);
   const sponsorsQuery = useEventSponsors(eventId, canFetchDetailExtensions);
   const postsQuery = useEventPosts(eventId, canFetchPosts);
+  const programQuery = useEventProgramItems(
+    eventId,
+    canFetchDetailExtensions &&
+      Boolean(event?.programEnabled || event?.viewerCanManage),
+  );
+  const joinFormFieldsQuery = useEventJoinFormFields(eventId, Boolean(eventId));
   const joinMutation = useJoinEvent();
   const leaveMutation = useLeaveEvent();
   const markInterestedMutation = useMarkEventInterested();
@@ -315,20 +362,32 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     event.visibility === "public" ||
     event.viewerCanViewPrivateDetails ||
     event.viewerCanManage;
-  const canShowPrizeSponsorTabs = canSeePrivateDetails || event.viewerCanManage;
+  const canShowPrizeSponsorTabs =
+    canSeePrivateDetails || event.viewerCanManage;
+  const canShowAwardsTab =
+    canShowPrizeSponsorTabs && (event.awardsEnabled || event.viewerCanManage);
+  const canShowSponsorsTab =
+    canShowPrizeSponsorTabs && (event.sponsorsEnabled || event.viewerCanManage);
   const canShowUpdatesTab =
     event.viewerCanManage ||
     (event.postsEnabled &&
       (event.visibility === "public" || event.viewerCanViewPrivateDetails));
   const canShowPaymentTab =
     canSeePrivateDetails &&
-    (!event.isPaid || event.viewerJoined || event.viewerCanManage);
+    ((acceptsEventPayments(event) && event.paymentEnabled) ||
+      event.viewerCanManage) &&
+    (!requiresEventPayment(event) ||
+      event.viewerJoined ||
+      event.viewerCanManage);
+  const canShowProgramTab =
+    canSeePrivateDetails && Boolean(event.programEnabled);
   const visibleTabs: EventTab[] = [
     ...(canShowUpdatesTab ? (["updates"] as const) : []),
     "overview",
+    ...(canShowProgramTab ? (["program"] as const) : []),
     ...(canShowParticipantsTab ? (["participants"] as const) : []),
-    ...(canShowPrizeSponsorTabs ? (["prizes"] as const) : []),
-    ...(canShowPrizeSponsorTabs ? (["sponsors"] as const) : []),
+    ...(canShowAwardsTab ? (["prizes"] as const) : []),
+    ...(canShowSponsorsTab ? (["sponsors"] as const) : []),
     ...(canShowPaymentTab ? (["payment"] as const) : []),
   ];
   const currentTab = visibleTabs.includes(activeTab)
@@ -336,11 +395,26 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     : (visibleTabs[0] ?? "overview");
 
   const handleJoin = () => {
+    const missingField = (joinFormFieldsQuery.data ?? []).find(
+      (field) =>
+        field.enabled &&
+        field.required &&
+        !String(joinAnswers[field.fieldKey] ?? "").trim(),
+    );
+    if (missingField) {
+      toast.error(`${missingField.label} is required.`);
+      return;
+    }
     joinMutation.mutate(
-      { eventId, participantNote: joinNote.trim() || undefined },
+      {
+        eventId,
+        participantNote: joinNote.trim() || undefined,
+        joinAnswers,
+      },
       {
         onSuccess: (participant) => {
           setJoinNote("");
+          setJoinAnswers({});
           setJoinDialogOpen(false);
           void eventQuery.refetch();
           toast.success(
@@ -501,6 +575,9 @@ export default function EventDetailClient({ slug }: { slug: string }) {
             isSignedIn={isSignedIn}
             joinNote={joinNote}
             setJoinNote={setJoinNote}
+            joinAnswers={joinAnswers}
+            setJoinAnswers={setJoinAnswers}
+            joinFormFields={joinFormFieldsQuery.data ?? []}
             joinDialogOpen={joinDialogOpen}
             setJoinDialogOpen={setJoinDialogOpen}
             onJoin={handleJoin}
@@ -539,6 +616,15 @@ export default function EventDetailClient({ slug }: { slug: string }) {
           >
             Overview
           </TabsTrigger>
+          {canShowProgramTab ? (
+            <TabsTrigger
+              value="program"
+              className={eventTabTriggerClassName}
+              onClick={() => setActiveTab("program")}
+            >
+              Program
+            </TabsTrigger>
+          ) : null}
           {canShowParticipantsTab ? (
             <TabsTrigger
               value="participants"
@@ -548,7 +634,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               Participants
             </TabsTrigger>
           ) : null}
-          {canShowPrizeSponsorTabs ? (
+          {canShowAwardsTab ? (
             <TabsTrigger
               value="prizes"
               className={eventTabTriggerClassName}
@@ -557,7 +643,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               Competitions
             </TabsTrigger>
           ) : null}
-          {canShowPrizeSponsorTabs ? (
+          {canShowSponsorsTab ? (
             <TabsTrigger
               value="sponsors"
               className={eventTabTriggerClassName}
@@ -596,6 +682,17 @@ export default function EventDetailClient({ slug }: { slug: string }) {
             canSeePrivateDetails={canSeePrivateDetails}
           />
         </TabsContent>
+
+        {canShowProgramTab ? (
+          <TabsContent value="program" className="space-y-4">
+            <ProgramTab
+              event={event}
+              items={programQuery.data ?? []}
+              isLoading={programQuery.isLoading}
+              error={programQuery.error}
+            />
+          </TabsContent>
+        ) : null}
 
         {canShowParticipantsTab ? (
           <TabsContent value="participants" className="space-y-4">
@@ -684,7 +781,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
           </TabsContent>
         ) : null}
 
-        {canShowPrizeSponsorTabs ? (
+        {canShowAwardsTab ? (
           <TabsContent value="prizes" className="space-y-4">
             <PrizesTab
               event={event}
@@ -697,7 +794,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
           </TabsContent>
         ) : null}
 
-        {canShowPrizeSponsorTabs ? (
+        {canShowSponsorsTab ? (
           <TabsContent value="sponsors" className="space-y-4">
             <SponsorsTab
               event={event}
@@ -730,7 +827,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
                   ? proofUrlMutation.variables?.paymentId
                   : undefined
               }
-              onManagePaymentHref={`/events/${encodeURIComponent(event.slug)}/manage#payments`}
+              onManagePaymentHref={`/events/${encodeURIComponent(event.slug)}/manage/payments`}
             />
           </TabsContent>
         ) : null}
@@ -742,18 +839,20 @@ export default function EventDetailClient({ slug }: { slug: string }) {
 export function EventManageClient({ slug }: { slug: string }) {
   const session = useSession();
   const [activeManageTab, setActiveManageTab] =
-    useState<EventManageTab>("setup");
+    useState<EventManageTab>("overview");
   const eventQuery = useEvent(slug);
   const event = eventQuery.data;
   const eventId = event?.id ?? "";
   const canManage = Boolean(eventId) && Boolean(event?.viewerCanManage);
   const participantsQuery = useEventParticipants(eventId, canManage);
+  const joinFormFieldsQuery = useEventJoinFormFields(eventId, canManage);
   const competitionsQuery = useEventCompetitions(eventId, canManage);
   const prizesQuery = useEventPrizes(eventId, canManage);
   const sponsorsQuery = useEventSponsors(eventId, canManage);
+  const programQuery = useEventProgramItems(eventId, canManage);
   const postsQuery = useEventPosts(
     eventId,
-    canManage && Boolean(event?.postsEnabled),
+    canManage && Boolean(event?.postsEnabled || event?.viewerCanManage),
   );
   const approveParticipantMutation = useApproveEventParticipant();
   const rejectParticipantMutation = useRejectEventParticipant();
@@ -761,7 +860,9 @@ export function EventManageClient({ slug }: { slug: string }) {
   const rejectPaymentMutation = useRejectEventPayment();
   const proofUrlMutation = useEventPaymentProofUrl();
   const updateParticipantRoleMutation = useUpdateEventParticipantRole();
+  const updateParticipantStatusMutation = useUpdateEventParticipantStatus();
   const regeneratePassMutation = useRegenerateEventPass();
+  const updateModulesMutation = useUpdateEventModules();
 
   const participants = useMemo(
     () =>
@@ -882,7 +983,7 @@ export function EventManageClient({ slug }: { slug: string }) {
               {event.visibility === "private" ? "Private" : "Public"}
             </Badge>
             <Badge variant="outline" className="h-6 px-2 text-[11px]">
-              {event.isPaid ? "Paid" : "Free"}
+              {formatEventPriceLabel(event)}
             </Badge>
           </div>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -895,31 +996,50 @@ export function EventManageClient({ slug }: { slug: string }) {
       <Tabs
         value={activeManageTab}
         onValueChange={setManageTab}
-        className="gap-5"
+        orientation="vertical"
+        className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]"
       >
-        <TabsList className={manageTabsListClassName}>
-          <TabsTrigger value="setup" className={manageTabTriggerClassName}>
-            Setup
-          </TabsTrigger>
-          <TabsTrigger
-            value="participants"
-            className={manageTabTriggerClassName}
+        <div className="lg:hidden">
+          <Select
+            value={activeManageTab}
+            items={manageNavItems}
+            onValueChange={(value) => setManageTab(value ?? "overview")}
           >
-            Participants
-          </TabsTrigger>
-          <TabsTrigger value="payments" className={manageTabTriggerClassName}>
-            Payments
-          </TabsTrigger>
-          <TabsTrigger value="updates" className={manageTabTriggerClassName}>
-            Updates
-          </TabsTrigger>
-          <TabsTrigger value="prizes" className={manageTabTriggerClassName}>
-            Competitions & Prizes
-          </TabsTrigger>
-          <TabsTrigger value="sponsors" className={manageTabTriggerClassName}>
-            Sponsors
-          </TabsTrigger>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start">
+              {manageNavItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <TabsList
+          variant="line"
+          className="hidden w-full items-stretch rounded-none border-r border-border/70 bg-transparent p-0 lg:flex"
+        >
+          {manageNavItems.map((item) => (
+            <TabsTrigger
+              key={item.value}
+              value={item.value}
+              className={manageSideNavTriggerClassName}
+            >
+              {item.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
+
+        <div className="min-w-0">
+        <TabsContent value="overview" className="space-y-4">
+          <ManageOverviewSection
+            event={event}
+            participants={participants}
+            onNavigate={setManageTab}
+          />
+        </TabsContent>
 
         <TabsContent value="setup" className="space-y-4">
           <OrganizerManageTab
@@ -929,6 +1049,15 @@ export function EventManageClient({ slug }: { slug: string }) {
             }}
             mode="setup"
             onNavigate={setManageTab}
+          />
+        </TabsContent>
+
+        <TabsContent value="lifecycle" className="space-y-4">
+          <LifecycleSection
+            event={event}
+            onSaved={() => {
+              void eventQuery.refetch();
+            }}
           />
         </TabsContent>
 
@@ -1027,11 +1156,45 @@ export function EventManageClient({ slug }: { slug: string }) {
                 ? proofUrlMutation.variables?.paymentId
                 : undefined
             }
+            onUpdateAttendance={(participantId, status) =>
+              updateParticipantStatusMutation.mutate(
+                { eventId: event.id, participantId, status },
+                {
+                  onSuccess: () => toast.success("Participant updated."),
+                  onError: (error) =>
+                    toast.error(
+                      getApiErrorMessage(
+                        error,
+                        "Failed to update participant",
+                      ),
+                    ),
+                },
+              )
+            }
             showOrganizerActions
           />
         </TabsContent>
 
-        <TabsContent value="payments" className="space-y-4">
+        <TabsContent value="join-form" className="space-y-4">
+          <JoinFormManageSection
+            event={event}
+            fields={joinFormFieldsQuery.data ?? []}
+            isLoading={joinFormFieldsQuery.isLoading}
+            error={joinFormFieldsQuery.error}
+          />
+        </TabsContent>
+
+        <TabsContent value="program" className="space-y-4">
+          <ProgramManageSection
+            event={event}
+            items={programQuery.data ?? []}
+            competitions={competitionsQuery.data ?? []}
+            isLoading={programQuery.isLoading}
+            error={programQuery.error}
+          />
+        </TabsContent>
+
+        <TabsContent value="payment" className="space-y-4">
           <OrganizerManageTab
             event={event}
             onSaved={() => {
@@ -1053,7 +1216,7 @@ export function EventManageClient({ slug }: { slug: string }) {
           />
         </TabsContent>
 
-        <TabsContent value="prizes" className="space-y-4">
+        <TabsContent value="awards" className="space-y-4">
           <PrizesTab
             event={event}
             competitions={competitionsQuery.data ?? []}
@@ -1071,7 +1234,346 @@ export function EventManageClient({ slug }: { slug: string }) {
             error={sponsorsQuery.error}
           />
         </TabsContent>
+        <TabsContent value="settings" className="space-y-4">
+          <ModuleSettingsSection
+            event={event}
+            isSaving={updateModulesMutation.isPending}
+            onSave={(modules) =>
+              updateModulesMutation.mutate(
+                { eventId: event.id, data: { modules } },
+                {
+                  onSuccess: () => {
+                    toast.success("Module settings saved.");
+                    void eventQuery.refetch();
+                  },
+                  onError: (error) =>
+                    toast.error(
+                      getApiErrorMessage(error, "Failed to update modules"),
+                    ),
+                },
+              )
+            }
+          />
+          <DuplicateEventSection event={event} />
+        </TabsContent>
+        </div>
       </Tabs>
+    </CommunityPageShell>
+  );
+}
+
+export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
+  const eventQuery = useEvent(slug);
+  const event = eventQuery.data;
+  const updateEventMutation = useUpdateEvent();
+  const createPaymentMethodMutation = useCreateEventPaymentMethod();
+  const updatePaymentMethodMutation = useUpdateEventPaymentMethod();
+  const [paymentMode, setPaymentMode] = useState<EventPaymentMode>("free");
+  const [priceAmount, setPriceAmount] = useState("");
+  const [currency, setCurrency] = useState("PHP");
+  const [paymentInstructions, setPaymentInstructions] = useState("");
+  const [newMethod, setNewMethod] = useState<PaymentMethodFormState>(
+    createEmptyPaymentMethodForm(),
+  );
+
+  useEffect(() => {
+    if (!event) return;
+    setPaymentMode(getEventPaymentMode(event));
+    setPriceAmount(event.priceAmount != null ? String(event.priceAmount) : "");
+    setCurrency(event.currency || "PHP");
+    setPaymentInstructions(event.paymentInstructions ?? "");
+  }, [event]);
+
+  if (eventQuery.isLoading) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Opening payments"
+          subtitle="Loading event payment setup."
+          navigation={<BackButton />}
+        />
+        <div className="space-y-3">
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-44 w-full rounded-xl" />
+        </div>
+      </CommunityPageShell>
+    );
+  }
+
+  if (eventQuery.error || !event) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Payments unavailable"
+          subtitle="This event payment setup could not be opened."
+          navigation={<BackButton />}
+        />
+        <Card className="border-destructive/30 bg-destructive/5 py-0">
+          <CardContent className="p-3 text-sm text-destructive">
+            {getApiErrorMessage(
+              eventQuery.error,
+              "This event payment setup could not be opened.",
+            )}
+          </CardContent>
+        </Card>
+      </CommunityPageShell>
+    );
+  }
+
+  if (!event.viewerCanManage) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Manage payments"
+          subtitle="You do not have permission to manage this event."
+          navigation={<BackToEventButton event={event} />}
+        />
+        <StatusPanel
+          title="Organizer access required"
+          description="Only event organizers can open this payment workspace."
+        />
+      </CommunityPageShell>
+    );
+  }
+
+  const paymentMethods = event.paymentMethods ?? [];
+  const activePaymentMethodCount = paymentMethods.filter(
+    (method) => method.isActive,
+  ).length;
+  const isSavingSetup = updateEventMutation.isPending;
+  const isSavingMethod =
+    createPaymentMethodMutation.isPending ||
+    updatePaymentMethodMutation.isPending;
+
+  const savePaymentSetup = () => {
+    const parsedPrice = parseOptionalPrice(priceAmount);
+    if (parsedPrice === "invalid") {
+      toast.error("Amount must be zero or higher.");
+      return;
+    }
+    updateEventMutation.mutate(
+      {
+        eventId: event.id,
+        data:
+          paymentMode === "free"
+            ? {
+                paymentMode: "free",
+                isPaid: false,
+                priceAmount: undefined,
+                paymentInstructions: "",
+              }
+            : {
+                paymentMode,
+                isPaid: paymentMode === "required",
+                priceAmount: parsedPrice,
+                currency: currency.trim().toUpperCase() || "PHP",
+                paymentInstructions: paymentInstructions.trim(),
+              },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Payment setup saved.");
+          void eventQuery.refetch();
+        },
+        onError: (error) => {
+          toast.error(
+            getApiErrorMessage(error, "Failed to update payment setup"),
+          );
+        },
+      },
+    );
+  };
+
+  const addPaymentMethod = () => {
+    const payload = buildPaymentMethodPayload(newMethod);
+    if (!payload.ok) {
+      toast.error(payload.message);
+      return;
+    }
+    createPaymentMethodMutation.mutate(
+      { eventId: event.id, data: payload.value },
+      {
+        onSuccess: () => {
+          toast.success("Payment method added.");
+          setNewMethod(createEmptyPaymentMethodForm());
+          void eventQuery.refetch();
+        },
+        onError: (error) => {
+          toast.error(
+            getApiErrorMessage(error, "Failed to add payment method"),
+          );
+        },
+      },
+    );
+  };
+
+  const updatePaymentMethod = (
+    paymentMethodId: string,
+    data: UpdateEventPaymentMethodRequest,
+    successMessage = "Payment method saved.",
+  ) => {
+    updatePaymentMethodMutation.mutate(
+      { eventId: event.id, paymentMethodId, data },
+      {
+        onSuccess: () => {
+          toast.success(successMessage);
+          void eventQuery.refetch();
+        },
+        onError: (error) => {
+          toast.error(
+            getApiErrorMessage(error, "Failed to update payment method"),
+          );
+        },
+      },
+    );
+  };
+
+  return (
+    <CommunityPageShell>
+      <CommunityHeader
+        title="Manage payments"
+        subtitle={event.title}
+        navigation={<BackToManageButton event={event} />}
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="outline" className={getEventPriceBadgeClass(event)}>
+            {formatEventPriceLabel(event)}
+          </Badge>
+          <Badge variant="outline" className="h-6 px-2 text-[11px]">
+            {activePaymentMethodCount} active method
+            {activePaymentMethodCount === 1 ? "" : "s"}
+          </Badge>
+        </div>
+      </CommunityHeader>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+        <section className="space-y-4">
+          <DetailSection title="Payment setup">
+            <div className="grid gap-4 rounded-xl border border-border/70 bg-background/70 p-4">
+              <SetupField label="Payment mode">
+                <Select
+                  value={paymentMode}
+                  items={[
+                    { value: "free", label: "Free" },
+                    { value: "required", label: "Required fee" },
+                    { value: "optional", label: "Optional donation" },
+                  ]}
+                  onValueChange={(value) =>
+                    setPaymentMode(value as EventPaymentMode)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="free">Free</SelectItem>
+                    <SelectItem value="required">Required fee</SelectItem>
+                    <SelectItem value="optional">Optional donation</SelectItem>
+                  </SelectContent>
+                </Select>
+              </SetupField>
+
+              {paymentMode !== "free" ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <SetupField
+                      label={
+                        paymentMode === "required"
+                          ? "Required fee"
+                          : "Suggested amount"
+                      }
+                    >
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={priceAmount}
+                        onChange={(item) => setPriceAmount(item.target.value)}
+                        placeholder="1500"
+                      />
+                    </SetupField>
+                    <SetupField label="Currency">
+                      <Input
+                        value={currency}
+                        onChange={(item) => setCurrency(item.target.value)}
+                        placeholder="PHP"
+                      />
+                    </SetupField>
+                  </div>
+                  <SetupField label="Payment instructions">
+                    <Textarea
+                      className="min-h-28"
+                      value={paymentInstructions}
+                      onChange={(item) =>
+                        setPaymentInstructions(item.target.value)
+                      }
+                      placeholder="Tell participants when and how to pay."
+                    />
+                  </SetupField>
+                </>
+              ) : (
+                <div className="rounded-lg border border-border/70 bg-muted/35 p-3 text-sm text-muted-foreground">
+                  Payment collection is off for this event.
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button disabled={isSavingSetup} onClick={savePaymentSetup}>
+                  {isSavingSetup ? "Saving..." : "Save setup"}
+                </Button>
+              </div>
+            </div>
+          </DetailSection>
+
+          <DetailSection title="Add method">
+            <PaymentMethodForm
+              value={newMethod}
+              onChange={setNewMethod}
+              disabled={isSavingMethod || paymentMode === "free"}
+            />
+            <div className="flex justify-end">
+              <Button
+                disabled={isSavingMethod || paymentMode === "free"}
+                onClick={addPaymentMethod}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                {createPaymentMethodMutation.isPending
+                  ? "Adding..."
+                  : "Add method"}
+              </Button>
+            </div>
+          </DetailSection>
+        </section>
+
+        <DetailSection title="Payment methods">
+          {paymentMethods.length === 0 ? (
+            <StatusPanel
+              title="No payment methods"
+              description="Add QR or bank transfer details after choosing a payment mode."
+            />
+          ) : (
+            <div className="divide-y divide-border/70 border-y border-border/70">
+              {paymentMethods.map((method) => (
+                <PaymentMethodManageRow
+                  key={method.id}
+                  method={method}
+                  disabled={isSavingMethod}
+                  onSave={(data) => updatePaymentMethod(method.id, data)}
+                  onSetActive={(isActive) =>
+                    updatePaymentMethod(
+                      method.id,
+                      { isActive },
+                      isActive
+                        ? "Payment method restored."
+                        : "Payment method removed.",
+                    )
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </DetailSection>
+      </div>
     </CommunityPageShell>
   );
 }
@@ -1407,7 +1909,9 @@ export function EventCheckInClient({ slug }: { slug: string }) {
               {recentCheckIns.map((participant) => {
                 const paymentStatus =
                   participant.payment?.status ??
-                  (event.isPaid ? "pending_upload" : "not_required");
+                  (requiresEventPayment(event)
+                    ? "pending_upload"
+                    : "not_required");
                 return (
                   <div
                     key={participant.id}
@@ -1504,7 +2008,7 @@ export function EventPassVerificationClient({
   }
   const paymentStatus =
     pass.payment?.status ??
-    (pass.event.isPaid ? "pending_upload" : "not_required");
+    (requiresEventPayment(pass.event) ? "pending_upload" : "not_required");
 
   return (
     <CommunityPageShell>
@@ -1826,15 +2330,26 @@ function BackToEventButton({ event }: { event: Event }) {
   );
 }
 
+function BackToManageButton({ event }: { event: Event }) {
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      nativeButton={false}
+      render={
+        <Link
+          href={`/events/${encodeURIComponent(event.slug)}/manage#payment`}
+        />
+      }
+    >
+      <ArrowLeft className="mr-1 h-4 w-4" />
+      Manage event
+    </Button>
+  );
+}
+
 function isEventManageTab(value: string): value is EventManageTab {
-  return [
-    "setup",
-    "participants",
-    "payments",
-    "updates",
-    "prizes",
-    "sponsors",
-  ].includes(value);
+  return manageNavItems.some((item) => item.value === value);
 }
 
 function EventCoverPhoto({ event }: { event: Event }) {
@@ -2025,7 +2540,7 @@ function EventHeader({
       : "This is a private event. Details are limited until you are approved.");
   const viewerPaymentStatus =
     event.viewerPayment?.status ??
-    (event.isPaid ? "pending_upload" : "not_required");
+    (requiresEventPayment(event) ? "pending_upload" : "not_required");
   const chips: Array<{ label: string; className: string }> = privateLocked
     ? [
         {
@@ -2079,7 +2594,7 @@ function EventHeader({
             ]
           : []),
         ...(event.viewerJoined &&
-        (event.isPaid || event.viewerPayment) &&
+        (requiresEventPayment(event) || event.viewerPayment) &&
         shouldShowPaymentStatus(viewerPaymentStatus)
           ? [
               {
@@ -2501,6 +3016,9 @@ function JoinTab({
   isSignedIn,
   joinNote,
   setJoinNote,
+  joinAnswers,
+  setJoinAnswers,
+  joinFormFields,
   joinDialogOpen,
   setJoinDialogOpen,
   onJoin,
@@ -2515,6 +3033,9 @@ function JoinTab({
   isSignedIn: boolean;
   joinNote: string;
   setJoinNote: (value: string) => void;
+  joinAnswers: Record<string, string>;
+  setJoinAnswers: (value: Record<string, string>) => void;
+  joinFormFields: EventJoinFormField[];
   joinDialogOpen: boolean;
   setJoinDialogOpen: (open: boolean) => void;
   onJoin: () => void;
@@ -2532,6 +3053,7 @@ function JoinTab({
     event.viewerCanManage;
   const canToggleInterest =
     isSignedIn &&
+    event.interestedEnabled &&
     canUseInterest &&
     event.status === "published" &&
     ["none", "interested", "rejected", "left", "cancelled"].includes(
@@ -2541,9 +3063,11 @@ function JoinTab({
   const stateLabel = getViewerStateLabel(viewerState) ?? "Not joined";
   const paymentStatus = getPaymentStatusLabel(
     event.viewerPayment?.status ??
-      (event.isPaid ? "pending_upload" : "not_required"),
+      (requiresEventPayment(event) ? "pending_upload" : "not_required"),
   );
-  const showViewerPaymentStatus = event.isPaid && event.viewerJoined;
+  const showViewerPaymentStatus =
+    event.viewerJoined &&
+    (requiresEventPayment(event) || Boolean(event.viewerPayment));
 
   return (
     <div className="space-y-4">
@@ -2552,11 +3076,11 @@ function JoinTab({
         description={
           showViewerPaymentStatus
             ? `Payment: ${paymentStatus}`
-            : event.isPaid
+            : acceptsEventPayments(event)
               ? "Request to join before submitting payment."
-            : event.requiresApproval
-              ? "The organizer approves requests before confirmation."
-              : "Joining confirms your spot if capacity is available."
+              : event.requiresApproval
+                ? "The organizer approves requests before confirmation."
+                : "Joining confirms your spot if capacity is available."
         }
       >
         <div className="flex flex-wrap gap-1.5">
@@ -2653,6 +3177,43 @@ function JoinTab({
                     placeholder="Optional note, experience level, or question"
                   />
                 </SetupField>
+                {joinFormFields
+                  .filter((field) => field.enabled)
+                  .map((field) => (
+                    <SetupField
+                      key={field.fieldKey}
+                      label={`${field.label}${field.required ? " *" : ""}`}
+                    >
+                      {field.fieldType === "long_text" ? (
+                        <Textarea
+                          value={joinAnswers[field.fieldKey] ?? ""}
+                          onChange={(item) =>
+                            setJoinAnswers({
+                              ...joinAnswers,
+                              [field.fieldKey]: item.target.value,
+                            })
+                          }
+                        />
+                      ) : (
+                        <Input
+                          type={
+                            field.fieldType === "email"
+                              ? "email"
+                              : field.fieldType === "phone"
+                                ? "tel"
+                                : "text"
+                          }
+                          value={joinAnswers[field.fieldKey] ?? ""}
+                          onChange={(item) =>
+                            setJoinAnswers({
+                              ...joinAnswers,
+                              [field.fieldKey]: item.target.value,
+                            })
+                          }
+                        />
+                      )}
+                    </SetupField>
+                  ))}
                 <DialogFooter showCloseButton>
                   <Button disabled={isJoining} onClick={onJoin}>
                     {isJoining
@@ -2901,7 +3462,7 @@ function PrizesTab({
             nativeButton={false}
             render={
               <Link
-                href={`/events/${encodeURIComponent(event.slug)}/manage#prizes`}
+                href={`/events/${encodeURIComponent(event.slug)}/manage#awards`}
               />
             }
           >
@@ -3774,6 +4335,396 @@ function SponsorsTab({
   );
 }
 
+function ProgramTab({
+  event,
+  items,
+  isLoading,
+  error,
+}: {
+  event: Event;
+  items: EventProgramItem[];
+  isLoading: boolean;
+  error: unknown;
+}) {
+  if (isLoading) {
+    return <Skeleton className="h-32 w-full rounded-xl" />;
+  }
+  if (error) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5 py-0">
+        <CardContent className="p-3 text-sm text-destructive">
+          {getApiErrorMessage(error, "Program could not be loaded.")}
+        </CardContent>
+      </Card>
+    );
+  }
+  if (items.length === 0) {
+    return (
+      <CommunityEmptyState
+        title="No program has been added yet."
+        description={
+          event.viewerCanManage
+            ? "Add the event flow, activities, or schedule from Manage."
+            : "Check back later for activities and schedule details."
+        }
+      />
+    );
+  }
+  const groups = groupProgramItems(items);
+  return (
+    <DetailSection title="Program">
+      <div className="divide-y divide-border/70 border-y border-border/70">
+        {groups.map((group) => (
+          <div key={group.label} className="grid gap-3 py-4 md:grid-cols-[160px_minmax(0,1fr)]">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {group.label}
+            </div>
+            <div className="space-y-4">
+              {group.items.map((item) => (
+                <ProgramItemRow key={item.id} item={item} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </DetailSection>
+  );
+}
+
+function ProgramItemRow({ item }: { item: EventProgramItem }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-[90px_minmax(0,1fr)]">
+      <div className="text-sm font-medium text-muted-foreground">
+        {formatProgramTime(item)}
+      </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
+          {item.isHighlighted ? (
+            <Badge variant="secondary" className="h-5 px-2 text-[11px]">
+              Highlight
+            </Badge>
+          ) : null}
+          {item.competitionName ? (
+            <Badge variant="outline" className="h-5 px-2 text-[11px]">
+              {item.competitionName}
+            </Badge>
+          ) : null}
+        </div>
+        {item.locationLabel ? (
+          <p className="mt-1 text-xs text-muted-foreground">{item.locationLabel}</p>
+        ) : null}
+        {item.descriptionMarkdown ? (
+          <div className="mt-2 text-sm leading-6 text-muted-foreground">
+            <ChikaMarkdown content={item.descriptionMarkdown} />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ProgramManageSection({
+  event,
+  items,
+  competitions,
+  isLoading,
+  error,
+}: {
+  event: Event;
+  items: EventProgramItem[];
+  competitions: EventCompetition[];
+  isLoading: boolean;
+  error: unknown;
+}) {
+  const updateModulesMutation = useUpdateEventModules();
+  const createMutation = useCreateEventProgramItem();
+  const updateMutation = useUpdateEventProgramItem();
+  const deleteMutation = useDeleteEventProgramItem();
+  const [dialogItem, setDialogItem] = useState<EventProgramItem | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const saveModuleState = (enabled: boolean) =>
+    updateModulesMutation.mutate(
+      {
+        eventId: event.id,
+        data: { modules: { ...event.modules, program: enabled } },
+      },
+      {
+        onSuccess: () => toast.success("Program settings saved."),
+        onError: (item) =>
+          toast.error(getApiErrorMessage(item, "Failed to update Program")),
+      },
+    );
+  return (
+    <Tabs defaultValue="items" className="gap-4">
+      <TabsList variant="line" className={manageTabsListClassName}>
+        <TabsTrigger value="items" className={manageTabTriggerClassName}>
+          Items
+        </TabsTrigger>
+        <TabsTrigger value="settings" className={manageTabTriggerClassName}>
+          Settings
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="items" className="space-y-4">
+        <DetailSection title="Program items">
+          <div className="mb-3 flex justify-end">
+            <Button
+              size="sm"
+              onClick={() => {
+                setDialogItem(null);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Add item
+            </Button>
+          </div>
+          {isLoading ? <Skeleton className="h-24 w-full rounded-xl" /> : null}
+          {error ? (
+            <Card className="border-destructive/30 bg-destructive/5 py-0">
+              <CardContent className="p-3 text-sm text-destructive">
+                {getApiErrorMessage(error, "Program could not be loaded.")}
+              </CardContent>
+            </Card>
+          ) : null}
+          {!isLoading && !error && items.length === 0 ? (
+            <CommunityEmptyState
+              title="No program items yet"
+              description="Add activities, itinerary entries, or highlighted moments."
+            />
+          ) : null}
+          {items.length > 0 ? (
+            <div className="divide-y divide-border/70 border-y border-border/70">
+              {items.map((item) => (
+                <div key={item.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between">
+                  <ProgramItemRow item={item} />
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setDialogItem(item);
+                        setDialogOpen(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={deleteMutation.isPending}
+                      onClick={() =>
+                        deleteMutation.mutate(
+                          { eventId: event.id, programItemId: item.id },
+                          {
+                            onSuccess: () => toast.success("Program item deleted."),
+                            onError: (error) =>
+                              toast.error(
+                                getApiErrorMessage(error, "Failed to delete item"),
+                              ),
+                          },
+                        )
+                      }
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </DetailSection>
+        <ProgramItemDialog
+          event={event}
+          item={dialogItem}
+          competitions={competitions}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          isSaving={createMutation.isPending || updateMutation.isPending}
+          onSave={(payload) => {
+            if (dialogItem) {
+              updateMutation.mutate(
+                { eventId: event.id, programItemId: dialogItem.id, data: payload },
+                {
+                  onSuccess: () => {
+                    toast.success("Program item saved.");
+                    setDialogOpen(false);
+                  },
+                  onError: (error) =>
+                    toast.error(getApiErrorMessage(error, "Failed to save item")),
+                },
+              );
+              return;
+            }
+            createMutation.mutate(
+              { eventId: event.id, data: payload as CreateEventProgramItemRequest },
+              {
+                onSuccess: () => {
+                  toast.success("Program item added.");
+                  setDialogOpen(false);
+                },
+                onError: (error) =>
+                  toast.error(getApiErrorMessage(error, "Failed to add item")),
+              },
+            );
+          }}
+        />
+      </TabsContent>
+      <TabsContent value="settings" className="space-y-4">
+        <DetailSection title="Program settings">
+          <label className="flex cursor-pointer items-start gap-3 border-y border-border/70 py-3 text-sm">
+            <input
+              className="mt-1"
+              type="checkbox"
+              checked={event.programEnabled}
+              disabled={updateModulesMutation.isPending}
+              onChange={(item) => saveModuleState(item.target.checked)}
+            />
+            <span>
+              <span className="font-medium text-foreground">Enable Program</span>
+              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                When enabled, participants can see the Program tab on the event page.
+                Disabling it hides the Program tab but keeps existing items.
+              </span>
+            </span>
+          </label>
+        </DetailSection>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function ProgramItemDialog({
+  event,
+  item,
+  competitions,
+  open,
+  onOpenChange,
+  isSaving,
+  onSave,
+}: {
+  event: Event;
+  item: EventProgramItem | null;
+  competitions: EventCompetition[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isSaving: boolean;
+  onSave: (payload: CreateEventProgramItemRequest | UpdateEventProgramItemRequest) => void;
+}) {
+  const [form, setForm] = useState<CreateEventProgramItemRequest>(() =>
+    programItemToForm(item, event),
+  );
+  useEffect(() => {
+    if (open) setForm(programItemToForm(item, event));
+  }, [event, item, open]);
+  const update = <K extends keyof CreateEventProgramItemRequest>(
+    key: K,
+    value: CreateEventProgramItemRequest[K],
+  ) => setForm((current) => ({ ...current, [key]: value }));
+  const competitionItems = [
+    { value: "none", label: "No linked competition" },
+    ...competitions.map((competition) => ({
+      value: competition.id,
+      label: competition.name,
+    })),
+  ];
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl!">
+        <DialogHeader>
+          <DialogTitle>{item ? "Edit program item" : "Add program item"}</DialogTitle>
+          <DialogDescription>
+            Use date and time for itinerary entries. Leave them blank for simple activities.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <SetupField label="Title">
+            <Input value={form.title} onChange={(next) => update("title", next.target.value)} />
+          </SetupField>
+          <SetupField label="Description">
+            <Textarea
+              value={form.descriptionMarkdown ?? ""}
+              onChange={(next) => update("descriptionMarkdown", next.target.value)}
+            />
+          </SetupField>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SetupField label="Date">
+              <Input
+                type="date"
+                value={form.programDate ?? ""}
+                onChange={(next) => update("programDate", next.target.value)}
+              />
+            </SetupField>
+            <SetupField label="Starts">
+              <Input
+                type="time"
+                value={form.startTime ?? ""}
+                onChange={(next) => update("startTime", next.target.value)}
+              />
+            </SetupField>
+            <SetupField label="Ends">
+              <Input
+                type="time"
+                value={form.endTime ?? ""}
+                onChange={(next) => update("endTime", next.target.value)}
+              />
+            </SetupField>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SetupField label="Location">
+              <Input
+                value={form.locationLabel ?? ""}
+                onChange={(next) => update("locationLabel", next.target.value)}
+              />
+            </SetupField>
+            <SetupField label="Sort order">
+              <Input
+                type="number"
+                min={0}
+                value={form.sortOrder ?? 0}
+                onChange={(next) => update("sortOrder", Number(next.target.value || 0))}
+              />
+            </SetupField>
+          </div>
+          <SetupField label="Linked competition">
+            <Select
+              value={form.competitionId || "none"}
+              items={competitionItems}
+              onValueChange={(value) =>
+                update("competitionId", value && value !== "none" ? value : "")
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {competitionItems.map((competition) => (
+                  <SelectItem key={competition.value} value={competition.value}>
+                    {competition.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SetupField>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={Boolean(form.isHighlighted)}
+              onChange={(next) => update("isHighlighted", next.target.checked)}
+            />
+            Highlight this item
+          </label>
+        </div>
+        <DialogFooter showCloseButton>
+          <Button disabled={isSaving} onClick={() => onSave({ ...form, timezone: event.timezone })}>
+            {isSaving ? "Saving..." : "Save item"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PostsTab({
   event,
   posts,
@@ -4210,12 +5161,12 @@ function PaymentTab({
     label: getPaymentMethodLabel(method),
   }));
 
-  if (!event.isPaid) {
+  if (!acceptsEventPayments(event)) {
     return (
       <div className="space-y-4">
         <StatusPanel
-          title="This event is free"
-          description="No payment is needed."
+          title="No payments configured"
+          description="This event does not collect fees or donations."
         />
       </div>
     );
@@ -4245,11 +5196,20 @@ function PaymentTab({
           <div className="space-y-1">
             <h2 className="text-base font-semibold text-foreground">
               {event.priceAmount == null
-                ? "Payment pending"
+                ? requiresEventPayment(event)
+                  ? "Payment pending"
+                  : "Optional donation"
                 : `${event.currency} ${event.priceAmount}`}
             </h2>
             <p className="text-sm leading-6 text-muted-foreground">
-              {getPaymentStatusLabel(payment?.status ?? "pending_upload")}
+              {requiresEventPayment(event) || payment
+                ? getPaymentStatusLabel(
+                    payment?.status ??
+                      (requiresEventPayment(event)
+                        ? "pending_upload"
+                        : "not_required"),
+                  )
+                : "Payment is optional for this event."}
             </p>
           </div>
           {payment?.proofMediaId ? (
@@ -4406,6 +5366,85 @@ function PaymentMethodDetails({ method }: { method?: EventPaymentMethod }) {
   );
 }
 
+type ParticipantWorkflowTab =
+  | "needs-action"
+  | "requests"
+  | "going"
+  | "payments"
+  | "roles"
+  | "attendance"
+  | "inactive";
+
+const participantWorkflowTabs: Array<{
+  value: ParticipantWorkflowTab;
+  label: string;
+  emptyTitle: string;
+}> = [
+  { value: "needs-action", label: "Needs action", emptyTitle: "No action needed" },
+  { value: "requests", label: "Requests", emptyTitle: "No pending requests" },
+  { value: "going", label: "Going", emptyTitle: "No confirmed participants" },
+  { value: "payments", label: "Payments", emptyTitle: "No payment reviews" },
+  { value: "roles", label: "Roles", emptyTitle: "No role records" },
+  { value: "attendance", label: "Attendance", emptyTitle: "No attendance records" },
+  { value: "inactive", label: "Inactive", emptyTitle: "No inactive participants" },
+];
+
+function filterParticipantsForWorkflow(
+  participants: EventParticipant[],
+  tab: ParticipantWorkflowTab,
+  event: Event,
+) {
+  switch (tab) {
+    case "needs-action":
+      return participants.filter(
+        (participant) =>
+          participant.status === "pending_approval" ||
+          participant.payment?.status === "submitted" ||
+          participant.payment?.status === "rejected" ||
+          (requiresEventPayment(event) &&
+            participant.status === "confirmed" &&
+            (participant.payment?.status ?? "pending_upload") !== "verified"),
+      );
+    case "requests":
+      return participants.filter(
+        (participant) => participant.status === "pending_approval",
+      );
+    case "going":
+      return participants.filter(
+        (participant) =>
+          participant.status === "confirmed" ||
+          participant.status === "attended",
+      );
+    case "payments":
+      return participants.filter((participant) =>
+        shouldShowPaymentStatus(
+          participant.payment?.status ??
+            (requiresEventPayment(event) ? "pending_upload" : "not_required"),
+        ),
+      );
+    case "roles":
+      return participants.filter(
+        (participant) =>
+          participant.status === "confirmed" ||
+          participant.status === "attended" ||
+          participant.role === "organizer",
+      );
+    case "attendance":
+      return participants.filter(
+        (participant) =>
+          participant.status === "confirmed" ||
+          participant.status === "attended" ||
+          participant.status === "no_show",
+      );
+    case "inactive":
+      return participants.filter((participant) =>
+        ["rejected", "left", "cancelled", "no_show"].includes(
+          participant.status,
+        ),
+      );
+  }
+}
+
 function ParticipantsSection({
   event,
   participants,
@@ -4418,6 +5457,7 @@ function ParticipantsSection({
   onRejectPayment,
   onViewPaymentProof,
   onRegeneratePass,
+  onUpdateAttendance,
   viewingPaymentProofId,
   regeneratingPassId,
   showOrganizerActions = false,
@@ -4436,6 +5476,10 @@ function ParticipantsSection({
   onRejectPayment: (paymentId: string) => void;
   onViewPaymentProof: (paymentId: string) => void;
   onRegeneratePass?: (participantId: string) => void;
+  onUpdateAttendance?: (
+    participantId: string,
+    status: "attended" | "no_show" | "confirmed" | "cancelled",
+  ) => void;
   viewingPaymentProofId?: string;
   regeneratingPassId?: string;
   showOrganizerActions?: boolean;
@@ -4540,9 +5584,112 @@ function ParticipantsSection({
           title="No participants yet"
           description="Participant records will appear here after divers join."
         />
+      ) : showOrganizerActions ? (
+        <Tabs defaultValue="needs-action" className="gap-4">
+          <TabsList
+            variant="line"
+            className="no-scrollbar w-full justify-start overflow-x-auto rounded-none bg-transparent p-0"
+          >
+            {participantWorkflowTabs.map((tab) => (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="h-9 flex-none rounded-none px-3"
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {participantWorkflowTabs.map((tab) => (
+            <TabsContent key={tab.value} value={tab.value}>
+              <ParticipantRows
+                event={event}
+                participants={filterParticipantsForWorkflow(
+                  sortedParticipants,
+                  tab.value,
+                  event,
+                )}
+                emptyTitle={tab.emptyTitle}
+                showOrganizerActions
+                onApprove={onApprove}
+                onReject={onReject}
+                onUpdateRole={onUpdateRole}
+                onVerifyPayment={onVerifyPayment}
+                onRejectPayment={onRejectPayment}
+                onViewPaymentProof={onViewPaymentProof}
+                onRegeneratePass={onRegeneratePass}
+                onUpdateAttendance={onUpdateAttendance}
+                viewingPaymentProofId={viewingPaymentProofId}
+                regeneratingPassId={regeneratingPassId}
+              />
+            </TabsContent>
+          ))}
+        </Tabs>
       ) : (
-        <div className="divide-y divide-border/70 border-y border-border/70">
-          {sortedParticipants.map((participant) => {
+        <ParticipantRows
+          event={event}
+          participants={sortedParticipants}
+          showOrganizerActions={false}
+          onApprove={onApprove}
+          onReject={onReject}
+          onUpdateRole={onUpdateRole}
+          onVerifyPayment={onVerifyPayment}
+          onRejectPayment={onRejectPayment}
+          onViewPaymentProof={onViewPaymentProof}
+        />
+      )}
+    </DetailSection>
+  );
+}
+
+function ParticipantRows({
+  event,
+  participants,
+  emptyTitle = "No participants here",
+  showOrganizerActions,
+  onApprove,
+  onReject,
+  onUpdateRole,
+  onVerifyPayment,
+  onRejectPayment,
+  onViewPaymentProof,
+  onRegeneratePass,
+  onUpdateAttendance,
+  viewingPaymentProofId,
+  regeneratingPassId,
+}: {
+  event: Event;
+  participants: EventParticipant[];
+  emptyTitle?: string;
+  showOrganizerActions: boolean;
+  onApprove: (participantId: string) => void;
+  onReject: (participantId: string) => void;
+  onUpdateRole: (
+    participantId: string,
+    role: "participant" | "organizer",
+  ) => void;
+  onVerifyPayment: (paymentId: string) => void;
+  onRejectPayment: (paymentId: string) => void;
+  onViewPaymentProof: (paymentId: string) => void;
+  onRegeneratePass?: (participantId: string) => void;
+  onUpdateAttendance?: (
+    participantId: string,
+    status: "attended" | "no_show" | "confirmed" | "cancelled",
+  ) => void;
+  viewingPaymentProofId?: string;
+  regeneratingPassId?: string;
+}) {
+  if (participants.length === 0) {
+    return (
+      <CommunityEmptyState
+        title={emptyTitle}
+        description="Participant records will appear here when they match this view."
+      />
+    );
+  }
+  return (
+    <div className="divide-y divide-border/70 border-y border-border/70">
+      {participants.map((participant) => {
             const identityBadges = [
               <Badge
                 key="status"
@@ -4579,7 +5726,9 @@ function ParticipantsSection({
                         <PaymentStatusBadge
                           payment={participant.payment}
                           fallbackStatus={
-                            event.isPaid ? "pending_upload" : "not_required"
+                            requiresEventPayment(event)
+                              ? "pending_upload"
+                              : "not_required"
                           }
                           isOpening={
                             Boolean(participant.payment?.id) &&
@@ -4597,6 +5746,7 @@ function ParticipantsSection({
                           onRejectPayment={onRejectPayment}
                           onViewPaymentProof={onViewPaymentProof}
                           onRegeneratePass={onRegeneratePass}
+                          onUpdateAttendance={onUpdateAttendance}
                           viewingPaymentProofId={viewingPaymentProofId}
                           regeneratingPassId={regeneratingPassId}
                         />
@@ -4621,10 +5771,8 @@ function ParticipantsSection({
                 ) : null}
               </div>
             );
-          })}
-        </div>
-      )}
-    </DetailSection>
+      })}
+    </div>
   );
 }
 
@@ -4638,6 +5786,7 @@ function OrganizerActions({
   onRejectPayment,
   onViewPaymentProof,
   onRegeneratePass,
+  onUpdateAttendance,
   viewingPaymentProofId,
   regeneratingPassId,
 }: {
@@ -4653,6 +5802,10 @@ function OrganizerActions({
   onRejectPayment: (paymentId: string) => void;
   onViewPaymentProof: (paymentId: string) => void;
   onRegeneratePass?: (participantId: string) => void;
+  onUpdateAttendance?: (
+    participantId: string,
+    status: "attended" | "no_show" | "confirmed" | "cancelled",
+  ) => void;
   viewingPaymentProofId?: string;
   regeneratingPassId?: string;
 }) {
@@ -4723,6 +5876,26 @@ function OrganizerActions({
             Make organizer
           </Button>
         )
+      ) : null}
+      {participant.status === "confirmed" ? (
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            className={compactButtonClassName}
+            onClick={() => onUpdateAttendance?.(participant.id, "attended")}
+          >
+            Mark attended
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className={compactButtonClassName}
+            onClick={() => onUpdateAttendance?.(participant.id, "no_show")}
+          >
+            Mark no-show
+          </Button>
+        </>
       ) : null}
       {payment ? (
         <>
@@ -4802,7 +5975,7 @@ function EventPassDialog({
   const passUrl = getEventPassUrl(event, participant);
   const paymentStatus =
     participant.payment?.status ??
-    (event.isPaid ? "pending_upload" : "not_required");
+    (requiresEventPayment(event) ? "pending_upload" : "not_required");
   const copyPassLink = async () => {
     if (!passUrl) return;
     await navigator.clipboard.writeText(passUrl);
@@ -5133,10 +6306,409 @@ type OrganizerSetupEditor =
   | "description"
   | "schedule"
   | "capacity"
-  | "payment"
   | "fit"
   | "logistics"
   | "posts";
+
+function ManageOverviewSection({
+  event,
+  participants,
+  onNavigate,
+}: {
+  event: Event;
+  participants: EventParticipant[];
+  onNavigate: (tab: EventManageTab) => void;
+}) {
+  const pendingCount = participants.filter(
+    (participant) => participant.status === "pending_approval",
+  ).length;
+  const paymentReviewCount = participants.filter(
+    (participant) => participant.payment?.status === "submitted",
+  ).length;
+  return (
+    <div className="space-y-4">
+      <DetailSection title="Organizer workspace">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Metric label="Lifecycle" value={titleCase(event.status)} />
+          <Metric label="Going" value={String(event.goingCount)} />
+          <Metric
+            label="Needs action"
+            value={String(pendingCount + paymentReviewCount)}
+          />
+        </div>
+      </DetailSection>
+      <div className="divide-y divide-border/70 border-y border-border/70">
+        <ManageRow
+          title="Setup checklist"
+          status="Review missing event details"
+          actionLabel="Open"
+          onAction={() => onNavigate("setup")}
+        />
+        <ManageRow
+          title="Lifecycle"
+          status="Publish, full, cancel, or complete"
+          actionLabel="Open"
+          onAction={() => onNavigate("lifecycle")}
+        />
+        <ManageRow
+          title="Participants"
+          status={`${pendingCount} requests, ${paymentReviewCount} payment reviews`}
+          actionLabel="Review"
+          onAction={() => onNavigate("participants")}
+        />
+        <ManageRow
+          title="Modules"
+          status="Enable or hide optional sections"
+          actionLabel="Settings"
+          onAction={() => onNavigate("settings")}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border/70 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function LifecycleSection({
+  event,
+  onSaved,
+}: {
+  event: Event;
+  onSaved: () => void;
+}) {
+  const updateEventMutation = useUpdateEvent();
+  const [cancelReason, setCancelReason] = useState(event.cancelReason ?? "");
+  const changeStatus = (status: Event["status"], reason?: string) => {
+    updateEventMutation.mutate(
+      {
+        eventId: event.id,
+        data: {
+          status,
+          ...(status === "cancelled" ? { cancelReason: reason ?? "" } : {}),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Lifecycle updated.");
+          onSaved();
+        },
+        onError: (error) =>
+          toast.error(getApiErrorMessage(error, "Failed to update lifecycle")),
+      },
+    );
+  };
+  const lifecycleActions: Array<{ label: string; status: Event["status"] }> = [
+    { label: "Publish", status: "published" },
+    { label: "Mark full", status: "full" },
+    { label: "Reopen", status: "published" },
+    { label: "Complete event", status: "completed" },
+    { label: "Return to draft", status: "draft" },
+  ];
+  const actions = lifecycleActions.filter(
+    (action) => action.status !== event.status,
+  );
+  return (
+    <DetailSection title="Lifecycle">
+      <p className="text-sm leading-6 text-muted-foreground">
+        Current state: {getLifecycleDescription(event.status)}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {actions.map((action) => (
+          <Button
+            key={`${action.label}-${action.status}`}
+            size="sm"
+            variant="outline"
+            disabled={updateEventMutation.isPending}
+            onClick={() => changeStatus(action.status)}
+          >
+            {action.label}
+          </Button>
+        ))}
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button size="sm" variant="destructive" />}>
+            Cancel event
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel this event?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Joining will be disabled. Existing participant records are kept.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <SetupField label="Cancellation reason">
+              <Textarea
+                value={cancelReason}
+                onChange={(item) => setCancelReason(item.target.value)}
+              />
+            </SetupField>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep event</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => changeStatus("cancelled", cancelReason)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Cancel event
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </DetailSection>
+  );
+}
+
+function JoinFormManageSection({
+  event,
+  fields,
+  isLoading,
+  error,
+}: {
+  event: Event;
+  fields: EventJoinFormField[];
+  isLoading: boolean;
+  error: unknown;
+}) {
+  const updateFieldsMutation = useUpdateEventJoinFormFields();
+  const configured = fields.length > 0 ? fields : defaultJoinFormFields(event.id);
+  const [draftFields, setDraftFields] = useState(configured);
+  useEffect(() => {
+    setDraftFields(configured);
+  }, [configured]);
+  const saveFields = () => {
+    updateFieldsMutation.mutate(
+      {
+        eventId: event.id,
+        data: {
+          fields: draftFields.map((field) => ({
+            fieldKey: field.fieldKey,
+            label: field.label,
+            fieldType: field.fieldType,
+            required: field.required,
+            options: field.options,
+            sortOrder: field.sortOrder,
+            enabled: field.enabled,
+          })),
+        },
+      },
+      {
+        onSuccess: () => toast.success("Join form saved."),
+        onError: (saveError) =>
+          toast.error(getApiErrorMessage(saveError, "Failed to save join form")),
+      },
+    );
+  };
+  return (
+    <Tabs defaultValue="fields" className="gap-4">
+      <TabsList variant="line" className="rounded-none bg-transparent p-0">
+        <TabsTrigger value="fields">Fields</TabsTrigger>
+        <TabsTrigger value="preview">Preview</TabsTrigger>
+        <TabsTrigger value="responses">Responses</TabsTrigger>
+      </TabsList>
+      <TabsContent value="fields" className="space-y-4">
+        {isLoading ? (
+          <Skeleton className="h-32 rounded-xl" />
+        ) : error ? (
+          <p className="text-sm text-destructive">
+            {getApiErrorMessage(error, "Join form fields could not be loaded.")}
+          </p>
+        ) : (
+          <div className="divide-y divide-border/70 border-y border-border/70">
+            {draftFields.map((field, index) => (
+              <ManageRow
+                key={field.fieldKey}
+                title={field.label}
+                status={`${field.enabled ? "Enabled" : "Disabled"} · ${
+                  field.required ? "Required" : "Optional"
+                }`}
+                actionLabel={field.enabled ? "Disable" : "Enable"}
+                onAction={() =>
+                  setDraftFields((current) =>
+                    current.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? { ...item, enabled: !item.enabled }
+                        : item,
+                    ),
+                  )
+                }
+              />
+            ))}
+          </div>
+        )}
+        <Button disabled={updateFieldsMutation.isPending} onClick={saveFields}>
+          {updateFieldsMutation.isPending ? "Saving..." : "Save join form"}
+        </Button>
+      </TabsContent>
+      <TabsContent value="preview" className="space-y-3">
+        {draftFields
+          .filter((field) => field.enabled)
+          .map((field) => (
+            <SetupField key={field.fieldKey} label={field.label}>
+              {field.fieldType === "long_text" ? (
+                <Textarea disabled placeholder={field.required ? "Required" : "Optional"} />
+              ) : (
+                <Input disabled placeholder={field.required ? "Required" : "Optional"} />
+              )}
+            </SetupField>
+          ))}
+      </TabsContent>
+      <TabsContent value="responses">
+        <p className="text-sm text-muted-foreground">
+          Responses appear inside participant detail records and are only returned
+          to organizers.
+        </p>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function ModuleSettingsSection({
+  event,
+  isSaving,
+  onSave,
+}: {
+  event: Event;
+  isSaving: boolean;
+  onSave: (modules: Event["modules"]) => void;
+}) {
+  const [modules, setModules] = useState<Event["modules"]>({
+    payment: event.paymentEnabled,
+    posts: event.postsEnabled,
+    awards: event.awardsEnabled,
+    sponsors: event.sponsorsEnabled,
+    program: event.programEnabled,
+    interested: event.interestedEnabled,
+  });
+  const toggle = (key: keyof Event["modules"], checked: boolean) =>
+    setModules((current) => ({ ...current, [key]: checked }));
+  return (
+    <DetailSection title="Modules">
+      <div className="divide-y divide-border/70 border-y border-border/70">
+        {moduleSettingsOptions.map((option) => (
+          <label
+            key={option.key}
+            className="flex cursor-pointer items-start gap-3 py-3 text-sm"
+          >
+            <input
+              className="mt-1"
+              type="checkbox"
+              checked={modules[option.key]}
+              onChange={(item) => toggle(option.key, item.target.checked)}
+            />
+            <span>
+              <span className="font-medium text-foreground">{option.label}</span>
+              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                {option.helper}
+              </span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <Button className="mt-4" disabled={isSaving} onClick={() => onSave(modules)}>
+        {isSaving ? "Saving..." : "Save modules"}
+      </Button>
+    </DetailSection>
+  );
+}
+
+function DuplicateEventSection({ event }: { event: Event }) {
+  const duplicateMutation = useDuplicateEvent();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(`Copy of ${event.title}`);
+  const [startsAt, setStartsAt] = useState(toDateTimeLocalValue(event.startsAt, event.timezone));
+  const [endsAt, setEndsAt] = useState(toDateTimeLocalValue(event.endsAt, event.timezone));
+  const [copyPaymentSetup, setCopyPaymentSetup] = useState(false);
+  const [copyAwards, setCopyAwards] = useState(false);
+  const [copySponsors, setCopySponsors] = useState(false);
+  const [copyPosts, setCopyPosts] = useState(false);
+  const [copyProgram, setCopyProgram] = useState(event.programEnabled);
+  const [copySafetyLogistics, setCopySafetyLogistics] = useState(true);
+  const submit = () => {
+    const payload: DuplicateEventRequest = {
+      title: title.trim(),
+      startsAt: toISO(startsAt, event.timezone || EVENT_DETAIL_TIMEZONE),
+      endsAt: toISO(endsAt, event.timezone || EVENT_DETAIL_TIMEZONE),
+      copyPaymentSetup,
+      copyAwards,
+      copySponsors,
+      copyPosts,
+      copyProgram,
+      copySafetyLogistics,
+    };
+    duplicateMutation.mutate(
+      { eventId: event.id, data: payload },
+      {
+        onSuccess: (created) => {
+          toast.success("Event duplicated as draft.");
+          window.location.href = `/events/${encodeURIComponent(created.slug)}/manage`;
+        },
+        onError: (error) =>
+          toast.error(getApiErrorMessage(error, "Failed to duplicate event")),
+      },
+    );
+  };
+  return (
+    <DetailSection title="Duplicate event">
+      <p className="text-sm text-muted-foreground">
+        Create a draft copy without participants, payments, interests, or attendance.
+      </p>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger render={<Button className="mt-4" variant="outline" />}>
+          Duplicate event
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl!">
+          <DialogHeader>
+            <DialogTitle>Duplicate event</DialogTitle>
+            <DialogDescription>
+              The copy starts as draft and keeps organizer-only access.
+            </DialogDescription>
+          </DialogHeader>
+          <SetupField label="New event name">
+            <Input value={title} onChange={(item) => setTitle(item.target.value)} />
+          </SetupField>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SetupField label="Starts">
+              <Input type="datetime-local" value={startsAt} onChange={(item) => setStartsAt(item.target.value)} />
+            </SetupField>
+            <SetupField label="Ends">
+              <Input type="datetime-local" value={endsAt} onChange={(item) => setEndsAt(item.target.value)} />
+            </SetupField>
+          </div>
+          {[
+            ["copyPaymentSetup", "Copy payment setup", copyPaymentSetup, setCopyPaymentSetup],
+            ["copyAwards", "Copy awards", copyAwards, setCopyAwards],
+            ["copySponsors", "Copy sponsors", copySponsors, setCopySponsors],
+            ["copyPosts", "Copy posts", copyPosts, setCopyPosts],
+            ["copyProgram", "Copy program", copyProgram, setCopyProgram],
+            ["copySafetyLogistics", "Copy safety/logistics", copySafetyLogistics, setCopySafetyLogistics],
+          ].map(([key, label, checked, setter]) => (
+            <label key={String(key)} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={Boolean(checked)}
+                onChange={(item) =>
+                  (setter as (value: boolean) => void)(item.target.checked)
+                }
+              />
+              {String(label)}
+            </label>
+          ))}
+          <DialogFooter showCloseButton>
+            <Button disabled={duplicateMutation.isPending} onClick={submit}>
+              {duplicateMutation.isPending ? "Duplicating..." : "Duplicate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </DetailSection>
+  );
+}
 
 const EVENT_DETAIL_TIMEZONE = "Asia/Manila";
 
@@ -5149,6 +6721,83 @@ const eventUpdateTypeOptions: Array<{ value: EventPostType; label: string }> = [
   { value: "results", label: "Results" },
   { value: "general", label: "General" },
 ];
+
+const moduleSettingsOptions: Array<{
+  key: keyof Event["modules"];
+  label: string;
+  helper: string;
+}> = [
+  {
+    key: "payment",
+    label: "Payment",
+    helper: "Show payment setup and participant proof workflows.",
+  },
+  {
+    key: "posts",
+    label: "Posts",
+    helper: "Show official event updates and announcements.",
+  },
+  {
+    key: "awards",
+    label: "Awards",
+    helper: "Show competitions, prizes, and results.",
+  },
+  {
+    key: "sponsors",
+    label: "Sponsors",
+    helper: "Show sponsor blocks on the event page.",
+  },
+  {
+    key: "program",
+    label: "Program",
+    helper: "Show the event flow, activities, and schedule.",
+  },
+  {
+    key: "interested",
+    label: "Interested",
+    helper: "Let people mark interest before joining.",
+  },
+];
+
+function defaultJoinFormFields(eventId: string): EventJoinFormField[] {
+  return [
+    ["emergencyContactName", "Emergency contact name", "short_text", false],
+    ["emergencyContactPhone", "Emergency contact phone", "phone", false],
+    ["certificationLevel", "Freediving certification or level", "short_text", false],
+    ["experienceNote", "Experience note", "long_text", false],
+    ["equipmentNeeded", "Equipment needed", "long_text", false],
+    ["organizerNote", "Note to organizer", "long_text", false],
+  ].map(([fieldKey, label, fieldType, required], index) => ({
+    id: `${eventId}-${fieldKey}`,
+    eventId,
+    fieldKey: String(fieldKey),
+    label: String(label),
+    fieldType: fieldType as EventJoinFormField["fieldType"],
+    required: Boolean(required),
+    options: [],
+    sortOrder: index,
+    enabled: fieldKey === "organizerNote",
+    createdAt: "",
+    updatedAt: "",
+  }));
+}
+
+function getLifecycleDescription(status: Event["status"]) {
+  switch (status) {
+    case "draft":
+      return "Draft, hidden from public discovery, and not joinable.";
+    case "published":
+      return "Published, discoverable under visibility rules, and joinable.";
+    case "full":
+      return "Full, discoverable but not joinable.";
+    case "cancelled":
+      return "Cancelled, visible only where product rules allow, and not joinable.";
+    case "completed":
+      return "Completed, archived for review and attendance records.";
+    case "archived":
+      return "Archived and hidden from normal discovery.";
+  }
+}
 
 const prizePlacementOptions: Array<{
   value: EventPrizePlacement;
@@ -5194,7 +6843,6 @@ function OrganizerManageTab({
   onNavigate?: (tab: EventManageTab) => void;
 }) {
   const updateEventMutation = useUpdateEvent();
-  const createPaymentMethodMutation = useCreateEventPaymentMethod();
   const [activeEditor, setActiveEditor] = useState<OrganizerSetupEditor | null>(
     null,
   );
@@ -5240,30 +6888,12 @@ function OrganizerManageTab({
   const [cancellationPolicy, setCancellationPolicy] = useState(
     event.cancellationPolicy ?? "",
   );
-  const [paymentsEnabled, setPaymentsEnabled] = useState(event.isPaid);
-  const [priceAmount, setPriceAmount] = useState(
-    event.priceAmount != null ? String(event.priceAmount) : "",
-  );
-  const [currency, setCurrency] = useState(event.currency || "PHP");
-  const [paymentInstructions, setPaymentInstructions] = useState(
-    event.paymentInstructions ?? "",
-  );
   const [postsEnabled, setPostsEnabled] = useState(event.postsEnabled);
-  const [paymentMethodType, setPaymentMethodType] =
-    useState<EventPaymentMethodType>("MANUAL_QR");
-  const [paymentMethodName, setPaymentMethodName] = useState("");
-  const [paymentMethodInstructions, setPaymentMethodInstructions] =
-    useState("");
-  const [qrImageUrl, setQrImageUrl] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
 
   const activePaymentMethods = (event.paymentMethods ?? []).filter(
     (method) => method.isActive,
   );
-  const isSaving =
-    updateEventMutation.isPending || createPaymentMethodMutation.isPending;
+  const isSaving = updateEventMutation.isPending;
 
   const closeEditor = () => setActiveEditor(null);
   const savePatch = (data: UpdateEventRequest, successMessage: string) => {
@@ -5366,133 +6996,6 @@ function OrganizerManageTab({
     );
   };
 
-  const savePayment = () => {
-    if (!paymentsEnabled) {
-      updateEventMutation.mutate(
-        {
-          eventId: event.id,
-          data: {
-            isPaid: false,
-            priceAmount: undefined,
-            paymentInstructions: "",
-          },
-        },
-        {
-          onSuccess: () => {
-            toast.success("Payments disabled.");
-            closeEditor();
-            onSaved();
-          },
-          onError: (error) => {
-            toast.error(getApiErrorMessage(error, "Failed to disable payments"));
-          },
-        },
-      );
-      return;
-    }
-
-    const trimmedPrice = priceAmount.trim();
-    const parsedPrice = trimmedPrice
-      ? Number.parseFloat(trimmedPrice)
-      : undefined;
-    const methodName = paymentMethodName.trim();
-    const hasMethodDraft =
-      methodName ||
-      paymentMethodInstructions.trim() ||
-      qrImageUrl.trim() ||
-      bankName.trim() ||
-      accountName.trim() ||
-      accountNumber.trim();
-
-    if (
-      parsedPrice !== undefined &&
-      (!Number.isFinite(parsedPrice) || parsedPrice < 0)
-    ) {
-      toast.error("Price must be zero or higher.");
-      return;
-    }
-    if (activePaymentMethods.length === 0 && !methodName) {
-      toast.error("Add a payment method name before saving payment setup.");
-      return;
-    }
-    if (hasMethodDraft && !methodName) {
-      toast.error("Payment method name is required.");
-      return;
-    }
-
-    updateEventMutation.mutate(
-      {
-        eventId: event.id,
-        data: {
-          isPaid: paymentsEnabled,
-          priceAmount: parsedPrice,
-          currency: currency.trim().toUpperCase() || "PHP",
-          paymentInstructions: paymentInstructions.trim(),
-        },
-      },
-      {
-        onSuccess: () => {
-          if (!methodName) {
-            toast.success("Payment setup saved.");
-            closeEditor();
-            onSaved();
-            return;
-          }
-          createPaymentMethodMutation.mutate(
-            {
-              eventId: event.id,
-              data: {
-                type: paymentMethodType,
-                name: methodName,
-                instructions: paymentMethodInstructions.trim() || undefined,
-                qrImageUrl:
-                  paymentMethodType === "MANUAL_QR"
-                    ? qrImageUrl.trim() || undefined
-                    : undefined,
-                bankName:
-                  paymentMethodType === "MANUAL_BANK_TRANSFER"
-                    ? bankName.trim() || undefined
-                    : undefined,
-                accountName:
-                  paymentMethodType === "MANUAL_BANK_TRANSFER"
-                    ? accountName.trim() || undefined
-                    : undefined,
-                accountNumber:
-                  paymentMethodType === "MANUAL_BANK_TRANSFER"
-                    ? accountNumber.trim() || undefined
-                    : undefined,
-                isActive: true,
-              },
-            },
-            {
-              onSuccess: () => {
-                toast.success("Payment setup saved.");
-                closeEditor();
-                setPaymentMethodName("");
-                setPaymentMethodInstructions("");
-                setQrImageUrl("");
-                setBankName("");
-                setAccountName("");
-                setAccountNumber("");
-                onSaved();
-              },
-              onError: (error) => {
-                toast.error(
-                  getApiErrorMessage(error, "Failed to add payment method"),
-                );
-              },
-            },
-          );
-        },
-        onError: (error) => {
-          toast.error(
-            getApiErrorMessage(error, "Failed to update payment setup"),
-          );
-        },
-      },
-    );
-  };
-
   const savePostSettings = () => {
     savePatch(
       {
@@ -5568,7 +7071,7 @@ function OrganizerManageTab({
               title="Payment setup"
               status={getPaymentSetupStatus(event, activePaymentMethods.length)}
               actionLabel="Open"
-              onAction={() => onNavigate?.("payments")}
+              onAction={() => onNavigate?.("payment")}
             />
             <ManageRow
               title="Event updates"
@@ -5582,8 +7085,8 @@ function OrganizerManageTab({
           <ManageRow
             title="Payment setup"
             status={getPaymentSetupStatus(event, activePaymentMethods.length)}
-            actionLabel={event.isPaid ? "Manage" : "Set paid"}
-            onAction={() => setActiveEditor("payment")}
+            actionLabel="Manage"
+            href={`/events/${encodeURIComponent(event.slug)}/manage/payments`}
           />
         ) : null}
       </div>
@@ -5917,176 +7420,6 @@ function OrganizerManageTab({
       </Dialog>
 
       <Dialog
-        open={activeEditor === "payment"}
-        onOpenChange={(open) => setActiveEditor(open ? "payment" : null)}
-      >
-        <DialogContent className="max-w-2xl!">
-          <DialogHeader>
-            <DialogTitle>Manage payment methods</DialogTitle>
-            <DialogDescription>
-              Turn payments on or off for this event, then add participant
-              instructions and one active payment method when payments are on.
-            </DialogDescription>
-          </DialogHeader>
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/70 p-3 text-sm">
-            <input
-              className="mt-1"
-              type="checkbox"
-              checked={paymentsEnabled}
-              onChange={(item) => setPaymentsEnabled(item.target.checked)}
-            />
-            <span>
-              <span className="block font-medium text-foreground">
-                Payments enabled
-              </span>
-              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                Turn this off to make the event free and hide participant
-                payment instructions.
-              </span>
-            </span>
-          </label>
-          {paymentsEnabled ? (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <SetupField label="Price">
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={priceAmount}
-                    onChange={(item) => setPriceAmount(item.target.value)}
-                    placeholder="1500"
-                  />
-                </SetupField>
-                <SetupField label="Currency">
-                  <Input
-                    value={currency}
-                    onChange={(item) => setCurrency(item.target.value)}
-                    placeholder="PHP"
-                  />
-                </SetupField>
-              </div>
-              <SetupField label="Payment instructions">
-                <Textarea
-                  className="min-h-20"
-                  value={paymentInstructions}
-                  onChange={(item) => setPaymentInstructions(item.target.value)}
-                  placeholder="Tell participants when and how to pay."
-                />
-              </SetupField>
-              <div className="rounded-lg border border-border/70 p-3">
-                <p className="text-sm font-medium text-foreground">
-                  Add payment method
-                </p>
-                {activePaymentMethods.length > 0 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Existing active methods:{" "}
-                    {activePaymentMethods
-                      .map((method) => method.name)
-                      .join(", ")}
-                  </p>
-                ) : null}
-                <div className="mt-3 grid gap-3">
-                  <SetupField label="Type">
-                    <Select
-                      value={paymentMethodType}
-                      items={[
-                        { value: "MANUAL_QR", label: "QR payment" },
-                        {
-                          value: "MANUAL_BANK_TRANSFER",
-                          label: "Bank transfer",
-                        },
-                      ]}
-                      onValueChange={(value) =>
-                        setPaymentMethodType(value as EventPaymentMethodType)
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="MANUAL_QR">QR payment</SelectItem>
-                        <SelectItem value="MANUAL_BANK_TRANSFER">
-                          Bank transfer
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </SetupField>
-                  <SetupField label="Name">
-                    <Input
-                      value={paymentMethodName}
-                      onChange={(item) =>
-                        setPaymentMethodName(item.target.value)
-                      }
-                      placeholder={
-                        paymentMethodType === "MANUAL_QR" ? "GCash" : "BPI"
-                      }
-                    />
-                  </SetupField>
-                  <SetupField label="Instructions">
-                    <Textarea
-                      className="min-h-16"
-                      value={paymentMethodInstructions}
-                      onChange={(item) =>
-                        setPaymentMethodInstructions(item.target.value)
-                      }
-                    />
-                  </SetupField>
-                  {paymentMethodType === "MANUAL_QR" ? (
-                    <SetupField label="QR image URL">
-                      <Input
-                        value={qrImageUrl}
-                        onChange={(item) => setQrImageUrl(item.target.value)}
-                        placeholder="https://..."
-                      />
-                    </SetupField>
-                  ) : (
-                    <div className="grid gap-3">
-                      <SetupField label="Bank name">
-                        <Input
-                          value={bankName}
-                          onChange={(item) => setBankName(item.target.value)}
-                          placeholder="BPI"
-                        />
-                      </SetupField>
-                      <SetupField label="Account name">
-                        <Input
-                          value={accountName}
-                          onChange={(item) => setAccountName(item.target.value)}
-                        />
-                      </SetupField>
-                      <SetupField label="Account number">
-                        <Input
-                          value={accountNumber}
-                          onChange={(item) =>
-                            setAccountNumber(item.target.value)
-                          }
-                        />
-                      </SetupField>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-lg border border-border/70 bg-muted/35 p-3 text-sm leading-6 text-muted-foreground">
-              Payments are off. The event will show as free and participants
-              will not see payment instructions.
-            </div>
-          )}
-          <DialogFooter showCloseButton>
-            <Button disabled={isSaving} onClick={savePayment}>
-              {isSaving
-                ? "Saving..."
-                : paymentsEnabled
-                  ? "Save payment setup"
-                  : "Disable payments"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
         open={activeEditor === "posts"}
         onOpenChange={(open) => setActiveEditor(open ? "posts" : null)}
       >
@@ -6131,6 +7464,7 @@ function ManageRow({
   actionLabel,
   disabled = false,
   note,
+  href,
   onAction,
 }: {
   title: string;
@@ -6138,6 +7472,7 @@ function ManageRow({
   actionLabel: string;
   disabled?: boolean;
   note?: string;
+  href?: string;
   onAction?: () => void;
 }) {
   return (
@@ -6155,11 +7490,266 @@ function ManageRow({
         variant="outline"
         disabled={disabled}
         onClick={onAction}
+        nativeButton={href ? false : undefined}
+        render={href ? <Link href={href} /> : undefined}
       >
         {actionLabel}
       </Button>
     </div>
   );
+}
+
+type PaymentMethodFormState = {
+  type: EventPaymentMethodType;
+  name: string;
+  instructions: string;
+  qrImageUrl: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+};
+
+function createEmptyPaymentMethodForm(): PaymentMethodFormState {
+  return {
+    type: "MANUAL_QR",
+    name: "",
+    instructions: "",
+    qrImageUrl: "",
+    bankName: "",
+    accountName: "",
+    accountNumber: "",
+  };
+}
+
+function formStateFromPaymentMethod(
+  method: EventPaymentMethod,
+): PaymentMethodFormState {
+  return {
+    type: method.type,
+    name: method.name,
+    instructions: method.instructions ?? "",
+    qrImageUrl: method.qrImageUrl ?? "",
+    bankName: method.bankName ?? "",
+    accountName: method.accountName ?? "",
+    accountNumber: method.accountNumber ?? "",
+  };
+}
+
+function PaymentMethodManageRow({
+  method,
+  disabled,
+  onSave,
+  onSetActive,
+}: {
+  method: EventPaymentMethod;
+  disabled: boolean;
+  onSave: (data: UpdateEventPaymentMethodRequest) => void;
+  onSetActive: (isActive: boolean) => void;
+}) {
+  const [form, setForm] = useState<PaymentMethodFormState>(
+    formStateFromPaymentMethod(method),
+  );
+
+  useEffect(() => {
+    setForm(formStateFromPaymentMethod(method));
+  }, [method]);
+
+  const save = () => {
+    const payload = buildPaymentMethodPayload(form);
+    if (!payload.ok) {
+      toast.error(payload.message);
+      return;
+    }
+    onSave(payload.value);
+  };
+
+  return (
+    <article className="grid gap-3 py-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-medium text-foreground">
+              {method.name}
+            </h3>
+            <Badge
+              variant="outline"
+              className={
+                method.isActive
+                  ? "h-5 border-emerald-500/30 bg-emerald-500/10 px-2 text-[11px] text-emerald-700"
+                  : "h-5 px-2 text-[11px]"
+              }
+            >
+              {method.isActive ? "Active" : "Removed"}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {method.type === "MANUAL_QR" ? "QR payment" : "Bank transfer"}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={save}
+          >
+            Save
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={() => onSetActive(!method.isActive)}
+          >
+            {method.isActive ? (
+              <>
+                <Trash2 className="mr-1 h-4 w-4" />
+                Remove
+              </>
+            ) : (
+              "Restore"
+            )}
+          </Button>
+        </div>
+      </div>
+      <PaymentMethodForm value={form} onChange={setForm} disabled={disabled} />
+    </article>
+  );
+}
+
+function PaymentMethodForm({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: PaymentMethodFormState;
+  onChange: (value: PaymentMethodFormState) => void;
+  disabled?: boolean;
+}) {
+  const update = <K extends keyof PaymentMethodFormState>(
+    key: K,
+    next: PaymentMethodFormState[K],
+  ) => onChange({ ...value, [key]: next });
+
+  return (
+    <div className="grid gap-3 rounded-xl border border-border/70 bg-background/70 p-4">
+      <SetupField label="Type">
+        <Select
+          value={value.type}
+          items={[
+            { value: "MANUAL_QR", label: "QR payment" },
+            { value: "MANUAL_BANK_TRANSFER", label: "Bank transfer" },
+          ]}
+          onValueChange={(next) =>
+            update("type", next as EventPaymentMethodType)
+          }
+        >
+          <SelectTrigger className="w-full" disabled={disabled}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="MANUAL_QR">QR payment</SelectItem>
+            <SelectItem value="MANUAL_BANK_TRANSFER">Bank transfer</SelectItem>
+          </SelectContent>
+        </Select>
+      </SetupField>
+      <SetupField label="Name">
+        <Input
+          value={value.name}
+          disabled={disabled}
+          onChange={(item) => update("name", item.target.value)}
+          placeholder={value.type === "MANUAL_QR" ? "GCash" : "BPI"}
+        />
+      </SetupField>
+      <SetupField label="Instructions">
+        <Textarea
+          className="min-h-16"
+          value={value.instructions}
+          disabled={disabled}
+          onChange={(item) => update("instructions", item.target.value)}
+        />
+      </SetupField>
+      {value.type === "MANUAL_QR" ? (
+        <SetupField label="QR image URL">
+          <Input
+            value={value.qrImageUrl}
+            disabled={disabled}
+            onChange={(item) => update("qrImageUrl", item.target.value)}
+            placeholder="https://..."
+          />
+        </SetupField>
+      ) : (
+        <div className="grid gap-3">
+          <SetupField label="Bank name">
+            <Input
+              value={value.bankName}
+              disabled={disabled}
+              onChange={(item) => update("bankName", item.target.value)}
+              placeholder="BPI"
+            />
+          </SetupField>
+          <SetupField label="Account name">
+            <Input
+              value={value.accountName}
+              disabled={disabled}
+              onChange={(item) => update("accountName", item.target.value)}
+            />
+          </SetupField>
+          <SetupField label="Account number">
+            <Input
+              value={value.accountNumber}
+              disabled={disabled}
+              onChange={(item) => update("accountNumber", item.target.value)}
+            />
+          </SetupField>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function buildPaymentMethodPayload(
+  form: PaymentMethodFormState,
+):
+  | { ok: true; value: CreateEventPaymentMethodRequest }
+  | { ok: false; message: string } {
+  const name = form.name.trim();
+  if (!name) {
+    return { ok: false, message: "Payment method name is required." };
+  }
+  return {
+    ok: true,
+    value: {
+      type: form.type,
+      name,
+      instructions: form.instructions.trim() || undefined,
+      qrImageUrl:
+        form.type === "MANUAL_QR"
+          ? form.qrImageUrl.trim() || undefined
+          : undefined,
+      bankName:
+        form.type === "MANUAL_BANK_TRANSFER"
+          ? form.bankName.trim() || undefined
+          : undefined,
+      accountName:
+        form.type === "MANUAL_BANK_TRANSFER"
+          ? form.accountName.trim() || undefined
+          : undefined,
+      accountNumber:
+        form.type === "MANUAL_BANK_TRANSFER"
+          ? form.accountNumber.trim() || undefined
+          : undefined,
+      isActive: true,
+    },
+  };
+}
+
+function parseOptionalPrice(value: string): number | undefined | "invalid" {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number.parseFloat(trimmed);
+  if (!Number.isFinite(parsed) || parsed < 0) return "invalid";
+  return parsed;
 }
 
 function SetupField({
@@ -6287,8 +7877,11 @@ function getEventAccessBadgeClass(requiresApproval: boolean) {
 
 function getEventPriceBadgeClass(event: Event) {
   const base = "h-6 px-2 text-[11px]";
-  if (!event.isPaid) {
+  if (!acceptsEventPayments(event)) {
     return `${base} border-emerald-500/30 bg-emerald-500/10 text-emerald-700`;
+  }
+  if (getEventPaymentMode(event) === "optional") {
+    return `${base} border-sky-500/30 bg-sky-500/10 text-sky-700`;
   }
   return `${base} border-amber-500/30 bg-amber-500/10 text-amber-700`;
 }
@@ -6340,7 +7933,7 @@ function getPassPaymentStatus(pass: EventPass): EventPaymentStatus {
   return (
     pass.payment?.status ??
     pass.participant.payment?.status ??
-    (pass.event.isPaid ? "pending_upload" : "not_required")
+    (requiresEventPayment(pass.event) ? "pending_upload" : "not_required")
   );
 }
 
@@ -6417,16 +8010,38 @@ function safeExternalUrl(value?: string) {
 }
 
 function formatEventPriceLabel(event: Event) {
-  if (!event.isPaid) return "Free";
-  if (event.priceAmount == null) return "Paid";
+  const mode = getEventPaymentMode(event);
+  if (mode === "free") return "Free";
+  if (event.priceAmount == null) {
+    return mode === "optional" ? "Donation optional" : "Fee required";
+  }
+  if (mode === "optional") {
+    return `Donation ${event.currency} ${event.priceAmount}`;
+  }
   return `${event.currency} ${event.priceAmount}`;
 }
 
 function getPaymentSetupStatus(event: Event, activePaymentMethodCount: number) {
-  if (!event.isPaid) return "Free event";
+  const mode = getEventPaymentMode(event);
+  if (mode === "free") return "Free event";
   if (activePaymentMethodCount === 0) return "Incomplete";
-  if (event.priceAmount == null) return "Payment pending";
+  if (mode === "optional" && event.priceAmount == null) {
+    return "Donations enabled";
+  }
+  if (event.priceAmount == null) return "Fee enabled";
   return "Ready";
+}
+
+function getEventPaymentMode(event: Event): EventPaymentMode {
+  return event.paymentMode ?? (event.isPaid ? "required" : "free");
+}
+
+function acceptsEventPayments(event: Event) {
+  return getEventPaymentMode(event) !== "free";
+}
+
+function requiresEventPayment(event: Event) {
+  return getEventPaymentMode(event) === "required";
 }
 
 function getFitStatus(event: Event) {
@@ -6517,6 +8132,85 @@ function formatDateTime(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
+}
+
+function programItemToForm(
+  item: EventProgramItem | null,
+  event: Event,
+): CreateEventProgramItemRequest {
+  return {
+    title: item?.title ?? "",
+    descriptionMarkdown: item?.descriptionMarkdown ?? "",
+    programDate: item?.programDate ?? "",
+    startTime: item?.startTime ?? "",
+    endTime: item?.endTime ?? "",
+    timezone: item?.timezone || event.timezone || EVENT_DETAIL_TIMEZONE,
+    locationLabel: item?.locationLabel ?? "",
+    competitionId: item?.competitionId ?? "",
+    sortOrder: item?.sortOrder ?? 0,
+    isHighlighted: item?.isHighlighted ?? false,
+  };
+}
+
+function groupProgramItems(items: EventProgramItem[]) {
+  const sorted = [...items].sort(compareProgramItems);
+  const groups: Array<{ label: string; items: EventProgramItem[] }> = [];
+  for (const item of sorted) {
+    const label = item.programDate
+      ? formatProgramDate(item.programDate, item.timezone)
+      : "Activities";
+    const current = groups.find((group) => group.label === label);
+    if (current) {
+      current.items.push(item);
+    } else {
+      groups.push({ label, items: [item] });
+    }
+  }
+  return groups;
+}
+
+function compareProgramItems(a: EventProgramItem, b: EventProgramItem) {
+  return (
+    compareString(a.programDate, b.programDate) ||
+    compareString(a.startTime, b.startTime) ||
+    a.sortOrder - b.sortOrder ||
+    compareString(a.createdAt, b.createdAt)
+  );
+}
+
+function compareString(a?: string, b?: string) {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b);
+}
+
+function formatProgramDate(value: string, timezone?: string) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-PH", {
+    dateStyle: "medium",
+    timeZone: timezone || EVENT_DETAIL_TIMEZONE,
+  }).format(date);
+}
+
+function formatProgramTime(item: EventProgramItem) {
+  if (!item.startTime) return "";
+  const start = formatClockTime(item.startTime);
+  if (!item.endTime) return start;
+  return `${start} - ${formatClockTime(item.endTime)}`;
+}
+
+function formatClockTime(value: string) {
+  const [hourValue, minuteValue] = value.split(":");
+  const hour = Number(hourValue);
+  const minute = Number(minuteValue);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  const date = new Date(2020, 0, 1, hour, minute);
+  return new Intl.DateTimeFormat("en-PH", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function formatEventDate(start?: string, end?: string, timezone?: string) {

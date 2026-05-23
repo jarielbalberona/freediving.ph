@@ -77,6 +77,15 @@ export const useEventCompetitions = (eventId: string, enabled = true) => {
   });
 };
 
+export const useEventProgramItems = (eventId: string, enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.events.program(eventId),
+    queryFn: () => eventsApi.getProgramItems(eventId),
+    enabled: enabled && !!eventId,
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
 export const useEventPrizes = (eventId: string, enabled = true) => {
   return useQuery({
     queryKey: queryKeys.events.prizes(eventId),
@@ -101,5 +110,14 @@ export const useEventPosts = (eventId: string, enabled = true) => {
     queryFn: () => eventsApi.getPosts(eventId),
     enabled: enabled && !!eventId,
     staleTime: 60 * 1000,
+  });
+};
+
+export const useEventJoinFormFields = (eventId: string, enabled = true) => {
+  return useQuery({
+    queryKey: [...queryKeys.events.detail(eventId), "join-form-fields"],
+    queryFn: () => eventsApi.getJoinFormFields(eventId),
+    enabled: enabled && !!eventId,
+    staleTime: 2 * 60 * 1000,
   });
 };

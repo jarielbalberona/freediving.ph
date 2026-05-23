@@ -1,14 +1,223 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
 	eventsrepo "fphgo/internal/features/events/repo"
+	eventsservice "fphgo/internal/features/events/service"
 	"fphgo/internal/shared/httpx"
 	"fphgo/internal/shared/mediaurl"
 )
+
+func (h *Handlers) UpdateEventModules(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[UpdateEventModulesRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	event, err := h.service.UpdateEventModules(r.Context(), chi.URLParam(r, "eventId"), actorID, eventsrepo.EventModules{
+		PaymentEnabled:    req.Modules.Payment,
+		PostsEnabled:      req.Modules.Posts,
+		AwardsEnabled:     req.Modules.Awards,
+		SponsorsEnabled:   req.Modules.Sponsors,
+		InterestedEnabled: moduleInterestedEnabled(req.Modules),
+		ProgramEnabled:    req.Modules.Program,
+	})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, EventDetailResponse{Event: mapEvent(event)})
+}
+
+func (h *Handlers) ListProgramItems(w http.ResponseWriter, r *http.Request) {
+	items, err := h.service.ListProgramItems(r.Context(), chi.URLParam(r, "eventId"), optionalActorID(r))
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, ListProgramItemsResponse{ProgramItems: mapProgramItems(items)})
+}
+
+func (h *Handlers) CreateProgramItem(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[CreateProgramItemRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, err := h.service.CreateProgramItem(r.Context(), chi.URLParam(r, "eventId"), actorID, eventsrepo.CreateProgramItemInput{
+		Title:               req.Title,
+		DescriptionMarkdown: req.DescriptionMarkdown,
+		ProgramDate:         req.ProgramDate,
+		StartTime:           req.StartTime,
+		EndTime:             req.EndTime,
+		Timezone:            req.Timezone,
+		LocationLabel:       req.LocationLabel,
+		CompetitionID:       req.CompetitionID,
+		SortOrder:           req.SortOrder,
+		IsHighlighted:       req.IsHighlighted,
+	})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, ProgramItemResponse{ProgramItem: mapProgramItem(item)})
+}
+
+func (h *Handlers) UpdateProgramItem(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[UpdateProgramItemRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, err := h.service.UpdateProgramItem(r.Context(), chi.URLParam(r, "eventId"), chi.URLParam(r, "programItemId"), actorID, eventsrepo.UpdateProgramItemInput{
+		Title:               req.Title,
+		DescriptionMarkdown: req.DescriptionMarkdown,
+		ProgramDate:         req.ProgramDate,
+		StartTime:           req.StartTime,
+		EndTime:             req.EndTime,
+		Timezone:            req.Timezone,
+		LocationLabel:       req.LocationLabel,
+		CompetitionID:       req.CompetitionID,
+		SortOrder:           req.SortOrder,
+		IsHighlighted:       req.IsHighlighted,
+	})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, ProgramItemResponse{ProgramItem: mapProgramItem(item)})
+}
+
+func (h *Handlers) DeleteProgramItem(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	if err := h.service.DeleteProgramItem(r.Context(), chi.URLParam(r, "eventId"), chi.URLParam(r, "programItemId"), actorID); err != nil {
+		handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) ListJoinFormFields(w http.ResponseWriter, r *http.Request) {
+	items, err := h.service.ListJoinFormFields(r.Context(), chi.URLParam(r, "eventId"), optionalActorID(r))
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, ListJoinFormFieldsResponse{Fields: mapJoinFormFields(items)})
+}
+
+func (h *Handlers) UpdateJoinFormFields(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[UpdateJoinFormFieldsRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	fields := make([]eventsrepo.EventJoinFormFieldInput, 0, len(req.Fields))
+	for _, field := range req.Fields {
+		options, _ := json.Marshal(field.Options)
+		fields = append(fields, eventsrepo.EventJoinFormFieldInput{
+			FieldKey:    field.FieldKey,
+			Label:       field.Label,
+			FieldType:   field.FieldType,
+			Required:    field.Required,
+			OptionsJSON: string(options),
+			SortOrder:   field.SortOrder,
+			Enabled:     field.Enabled,
+		})
+	}
+	items, err := h.service.ReplaceJoinFormFields(r.Context(), chi.URLParam(r, "eventId"), actorID, fields)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, ListJoinFormFieldsResponse{Fields: mapJoinFormFields(items)})
+}
+
+func (h *Handlers) DuplicateEvent(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[DuplicateEventRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	startsAt, err := parseRequiredRFC3339(req.StartsAt, "startsAt")
+	if err != nil {
+		httpx.WriteValidationError(w, err.(eventsservice.ValidationFailure).Issues)
+		return
+	}
+	endsAt, err := parseRequiredRFC3339(req.EndsAt, "endsAt")
+	if err != nil {
+		httpx.WriteValidationError(w, err.(eventsservice.ValidationFailure).Issues)
+		return
+	}
+	event, err := h.service.DuplicateEvent(r.Context(), chi.URLParam(r, "eventId"), actorID, eventsrepo.DuplicateEventInput{
+		Title:               req.Title,
+		StartsAt:            startsAt,
+		EndsAt:              endsAt,
+		CopyPaymentSetup:    req.CopyPaymentSetup,
+		CopyAwards:          req.CopyAwards,
+		CopySponsors:        req.CopySponsors,
+		CopyPosts:           req.CopyPosts,
+		CopyProgram:         req.CopyProgram,
+		CopySafetyLogistics: req.CopySafetyLogistics,
+	})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, EventDetailResponse{Event: mapEvent(event)})
+}
+
+func (h *Handlers) UpdateParticipantStatus(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[UpdateParticipantStatusRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	participant, err := h.service.UpdateParticipantStatus(r.Context(), chi.URLParam(r, "eventId"), chi.URLParam(r, "participantId"), actorID, req.Status)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapParticipant(participant, true))
+}
 
 func (h *Handlers) ListCompetitions(w http.ResponseWriter, r *http.Request) {
 	items, err := h.service.ListCompetitions(r.Context(), chi.URLParam(r, "eventId"), optionalActorID(r))
@@ -414,6 +623,37 @@ func mapCompetition(item eventsrepo.EventCompetition) EventCompetitionResponse {
 	}
 }
 
+func mapProgramItems(items []eventsrepo.EventProgramItem) []EventProgramItemResponse {
+	if len(items) == 0 {
+		return nil
+	}
+	mapped := make([]EventProgramItemResponse, 0, len(items))
+	for _, item := range items {
+		mapped = append(mapped, mapProgramItem(item))
+	}
+	return mapped
+}
+
+func mapProgramItem(item eventsrepo.EventProgramItem) EventProgramItemResponse {
+	return EventProgramItemResponse{
+		ID:                  item.ID,
+		EventID:             item.EventID,
+		Title:               item.Title,
+		DescriptionMarkdown: item.DescriptionMarkdown,
+		ProgramDate:         item.ProgramDate,
+		StartTime:           item.StartTime,
+		EndTime:             item.EndTime,
+		Timezone:            item.Timezone,
+		LocationLabel:       item.LocationLabel,
+		CompetitionID:       item.CompetitionID,
+		CompetitionName:     item.CompetitionName,
+		SortOrder:           item.SortOrder,
+		IsHighlighted:       item.IsHighlighted,
+		CreatedAt:           item.CreatedAt,
+		UpdatedAt:           item.UpdatedAt,
+	}
+}
+
 func mapPrizes(items []eventsrepo.EventPrize) []EventPrizeResponse {
 	if len(items) == 0 {
 		return nil
@@ -513,4 +753,29 @@ func mapPostReactionState(item eventsrepo.EventPostReactionState) PostReactionRe
 		FishReactionCount: item.FishReactionCount,
 		ViewerFishReacted: item.ViewerFishReacted,
 	}
+}
+
+func mapJoinFormFields(items []eventsrepo.EventJoinFormField) []JoinFormFieldResponse {
+	if len(items) == 0 {
+		return nil
+	}
+	mapped := make([]JoinFormFieldResponse, 0, len(items))
+	for _, item := range items {
+		options := []string{}
+		_ = json.Unmarshal([]byte(item.OptionsJSON), &options)
+		mapped = append(mapped, JoinFormFieldResponse{
+			ID:        item.ID,
+			EventID:   item.EventID,
+			FieldKey:  item.FieldKey,
+			Label:     item.Label,
+			FieldType: item.FieldType,
+			Required:  item.Required,
+			Options:   options,
+			SortOrder: item.SortOrder,
+			Enabled:   item.Enabled,
+			CreatedAt: item.CreatedAt,
+			UpdatedAt: item.UpdatedAt,
+		})
+	}
+	return mapped
 }

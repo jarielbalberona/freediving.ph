@@ -302,6 +302,7 @@ export type EventVisibility = "public" | "private";
 export type EventStatus =
   | "draft"
   | "published"
+  | "full"
   | "cancelled"
   | "completed"
   | "archived";
@@ -332,6 +333,7 @@ export type EventParticipantStatus =
   | "attended"
   | "no_show";
 export type EventPaymentMethodType = "MANUAL_QR" | "MANUAL_BANK_TRANSFER";
+export type EventPaymentMode = "free" | "required" | "optional";
 export type EventPaymentStatus =
   | "not_required"
   | "pending_upload"
@@ -371,6 +373,20 @@ export type EventSponsorTier =
   | "media"
   | "other";
 export type EventPostStatus = "published" | "hidden" | "deleted";
+export type EventModuleKey =
+  | "payment"
+  | "posts"
+  | "awards"
+  | "sponsors"
+  | "program"
+  | "interested";
+export type EventJoinFormFieldType =
+  | "short_text"
+  | "long_text"
+  | "select"
+  | "checkbox"
+  | "phone"
+  | "email";
 export type EventViewerEventState =
   | "anonymous"
   | "none"
@@ -459,6 +475,7 @@ export interface EventParticipant {
   participantNote?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
+  joinAnswers?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   approvedAt?: string;
@@ -559,6 +576,40 @@ export interface EventPost {
   updatedAt: string;
 }
 
+export interface EventProgramItem {
+  id: string;
+  eventId: string;
+  title: string;
+  descriptionMarkdown?: string;
+  programDate?: string;
+  startTime?: string;
+  endTime?: string;
+  timezone?: string;
+  locationLabel?: string;
+  competitionId?: string;
+  competitionName?: string;
+  sortOrder: number;
+  isHighlighted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEventProgramItemRequest {
+  title: string;
+  descriptionMarkdown?: string;
+  programDate?: string;
+  startTime?: string;
+  endTime?: string;
+  timezone?: string;
+  locationLabel?: string;
+  competitionId?: string;
+  sortOrder?: number;
+  isHighlighted?: boolean;
+}
+
+export type UpdateEventProgramItemRequest =
+  Partial<CreateEventProgramItemRequest>;
+
 export interface Event {
   id: string;
   slug: string;
@@ -597,6 +648,7 @@ export interface Event {
   groupId?: string;
   requiresApproval: boolean;
   isPaid: boolean;
+  paymentMode: EventPaymentMode;
   priceAmount?: number;
   currency: string;
   paymentInstructions?: string;
@@ -607,7 +659,13 @@ export interface Event {
   equipmentNotes?: string;
   safetyNotes?: string;
   cancellationPolicy?: string;
+  paymentEnabled: boolean;
   postsEnabled: boolean;
+  awardsEnabled: boolean;
+  sponsorsEnabled: boolean;
+  interestedEnabled: boolean;
+  programEnabled: boolean;
+  modules: Record<EventModuleKey, boolean>;
   postCreatePolicy: EventPostCreatePolicy;
   publishedAt?: string;
   cancelledAt?: string;
@@ -640,6 +698,7 @@ export interface CreateEventRequest {
   difficulty?: EventDifficulty;
   requiresApproval: boolean;
   isPaid: boolean;
+  paymentMode?: EventPaymentMode;
   priceAmount?: number;
   currency?: string;
   paymentInstructions?: string;
@@ -651,16 +710,66 @@ export interface CreateEventRequest {
   safetyNotes?: string;
   cancellationPolicy?: string;
   paymentMethods?: CreateEventPaymentMethodRequest[];
+  modules?: Partial<Record<EventModuleKey, boolean>>;
   groupId?: string;
 }
 
 export type UpdateEventRequest = Partial<CreateEventRequest> & {
   status?: EventStatus;
+  paymentEnabled?: boolean;
   postsEnabled?: boolean;
+  awardsEnabled?: boolean;
+  sponsorsEnabled?: boolean;
+  interestedEnabled?: boolean;
+  programEnabled?: boolean;
   postCreatePolicy?: EventPostCreatePolicy;
   cancelReason?: string;
   coverPhotoUrl?: string;
 };
+
+export interface UpdateEventModulesRequest {
+  modules: Record<EventModuleKey, boolean>;
+}
+
+export interface EventJoinFormField {
+  id: string;
+  eventId: string;
+  fieldKey: string;
+  label: string;
+  fieldType: EventJoinFormFieldType;
+  required: boolean;
+  options: string[];
+  sortOrder: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateEventJoinFormFieldRequest {
+  fieldKey: string;
+  label: string;
+  fieldType: EventJoinFormFieldType;
+  required: boolean;
+  options?: string[];
+  sortOrder?: number;
+  enabled: boolean;
+}
+
+export interface UpdateEventJoinFormFieldsRequest {
+  fields: UpdateEventJoinFormFieldRequest[];
+}
+
+export interface DuplicateEventRequest {
+  title?: string;
+  startsAt: string;
+  endsAt: string;
+  copyPaymentSetup: boolean;
+  copyAwards: boolean;
+  copySponsors: boolean;
+  copyPosts: boolean;
+  copyProgram: boolean;
+  copySafetyLogistics: boolean;
+}
 
 export interface CreateEventCompetitionRequest {
   name: string;
@@ -748,6 +857,7 @@ export interface JoinEventRequest {
   eventId: string;
   participantNote?: string;
   notes?: string;
+  joinAnswers?: Record<string, unknown>;
 }
 
 export interface SubmitEventPaymentRequest {

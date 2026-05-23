@@ -558,6 +558,8 @@ export const queryKeys = {
       [...queryKeys.events.detail(eventId), "payment-methods"] as const,
     competitions: (eventId: string) =>
       [...queryKeys.events.detail(eventId), "competitions"] as const,
+    program: (eventId: string) =>
+      [...queryKeys.events.detail(eventId), "program"] as const,
     prizes: (eventId: string) =>
       [...queryKeys.events.detail(eventId), "prizes"] as const,
     sponsors: (eventId: string) =>

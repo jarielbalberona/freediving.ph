@@ -891,6 +891,42 @@ func (r *eventCreateRepoStub) UpdateParticipantRole(context.Context, string, str
 	return eventsrepo.EventParticipant{}, nil
 }
 
+func (r *eventCreateRepoStub) UpdateParticipantStatus(context.Context, string, string, string, string) (eventsrepo.EventParticipant, error) {
+	return eventsrepo.EventParticipant{}, nil
+}
+
+func (r *eventCreateRepoStub) UpdateEventModules(context.Context, string, eventsrepo.EventModules) (eventsrepo.Event, error) {
+	return eventsrepo.Event{}, nil
+}
+
+func (r *eventCreateRepoStub) ListJoinFormFields(context.Context, string, bool) ([]eventsrepo.EventJoinFormField, error) {
+	return nil, nil
+}
+
+func (r *eventCreateRepoStub) ReplaceJoinFormFields(context.Context, string, []eventsrepo.EventJoinFormFieldInput) ([]eventsrepo.EventJoinFormField, error) {
+	return nil, nil
+}
+
+func (r *eventCreateRepoStub) ListProgramItems(context.Context, string) ([]eventsrepo.EventProgramItem, error) {
+	return nil, nil
+}
+
+func (r *eventCreateRepoStub) CreateProgramItem(context.Context, string, eventsrepo.CreateProgramItemInput) (eventsrepo.EventProgramItem, error) {
+	return eventsrepo.EventProgramItem{}, nil
+}
+
+func (r *eventCreateRepoStub) UpdateProgramItem(context.Context, string, eventsrepo.UpdateProgramItemInput) (eventsrepo.EventProgramItem, error) {
+	return eventsrepo.EventProgramItem{}, nil
+}
+
+func (r *eventCreateRepoStub) DeleteProgramItem(context.Context, string, string) error {
+	return nil
+}
+
+func (r *eventCreateRepoStub) DuplicateEvent(context.Context, string, eventsrepo.DuplicateEventInput) (eventsrepo.Event, error) {
+	return eventsrepo.Event{}, nil
+}
+
 func (r *eventCreateRepoStub) GetEventPassByToken(context.Context, string, string) (eventsrepo.EventPass, error) {
 	return eventsrepo.EventPass{}, nil
 }

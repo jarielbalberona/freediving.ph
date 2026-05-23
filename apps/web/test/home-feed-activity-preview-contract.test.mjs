@@ -81,7 +81,10 @@ test("activity source is default and home source is explicit fallback", async ()
   assert.doesNotMatch(appPage, /searchParams/);
   assert.match(appPage, /<HomeFeedPage \/>/);
   assert.match(homePage, /useSearchParams/);
-  assert.match(homePage, /searchParams\.get\("feedSource"\) === "home" \? "home" : "activity"/);
+  assert.match(
+    homePage,
+    /searchParams\.get\("feedSource"\) === "home" \? "home" : "activity"/,
+  );
   assert.match(homePage, /enabled: !usingActivityFeed/);
   assert.match(homePage, /enabled: usingActivityFeed/);
   assert.doesNotMatch(homePage, /Activity feed preview/);
@@ -104,22 +107,29 @@ test("activity preview adapts supported ledger types and skips unknown types saf
 });
 
 test("activity media posts preserve display URLs and avoid caption-only downgrade", async () => {
-  const [adapter, renderer, displayAdapter, component, dialog] = await Promise.all([
-    readFile(adapterPath, "utf8"),
-    readFile(rendererPath, "utf8"),
-    readFile(
-      path.join(appRoot, "src/features/media/types/post-display.ts"),
-      "utf8",
-    ),
-    readFile(
-      path.join(appRoot, "src/features/media/components/MediaPostComponent.tsx"),
-      "utf8",
-    ),
-    readFile(
-      path.join(appRoot, "src/features/media/components/MediaViewerDialog.tsx"),
-      "utf8",
-    ),
-  ]);
+  const [adapter, renderer, displayAdapter, component, dialog] =
+    await Promise.all([
+      readFile(adapterPath, "utf8"),
+      readFile(rendererPath, "utf8"),
+      readFile(
+        path.join(appRoot, "src/features/media/types/post-display.ts"),
+        "utf8",
+      ),
+      readFile(
+        path.join(
+          appRoot,
+          "src/features/media/components/MediaPostComponent.tsx",
+        ),
+        "utf8",
+      ),
+      readFile(
+        path.join(
+          appRoot,
+          "src/features/media/components/MediaViewerDialog.tsx",
+        ),
+        "utf8",
+      ),
+    ]);
 
   assert.match(adapter, /previewDisplayUrl/);
   assert.match(adapter, /displayUrl: mediaStringValue\(media, "displayUrl"\)/);
@@ -133,8 +143,14 @@ test("activity media posts preserve display URLs and avoid caption-only downgrad
   assert.match(component, /href=\{post\.href\}/);
   assert.match(component, /avatarUrl=\{post\.author\.avatarUrl\}/);
   assert.match(component, /authorAvatarUrl=\{post\.author\.avatarUrl\}/);
-  assert.match(component, /line-clamp-3 text-sm leading-relaxed text-foreground/);
-  assert.doesNotMatch(component, /className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"/);
+  assert.match(
+    component,
+    /line-clamp-3 text-sm leading-relaxed text-foreground/,
+  );
+  assert.doesNotMatch(
+    component,
+    /className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"/,
+  );
   assert.match(dialog, /filter\(\(item\) => !item\.displayUrl\)/);
   assert.match(dialog, /needsMintedUrls && dialogUrls\.isPending/);
   assert.match(dialog, /item\.displayUrl \?\?/);
@@ -166,7 +182,10 @@ test("activity default sends activity-safe telemetry and card actions", async ()
   assert.match(homePage, /source=\{feedSource\}/);
   assert.match(homePage, /telemetryEnabled/);
   assert.match(homePage, /const feedSource: FeedSource =/);
-  assert.match(homePage, /searchParams\.get\("feedSource"\) === "home" \? "home" : "activity"/);
+  assert.match(
+    homePage,
+    /searchParams\.get\("feedSource"\) === "home" \? "home" : "activity"/,
+  );
   assert.match(mixedFeed, /enabled: telemetryEnabled/);
   assert.match(mixedFeed, /source,/);
   assert.match(
@@ -187,11 +206,17 @@ test("activity default sends activity-safe telemetry and card actions", async ()
     /data-entity-type=\{item\.telemetryEntityType \?\? item\.type\}/,
   );
   assert.match(shell, /FeedTypeBadge/);
+  assert.match(shell, /<Icon className="size-3\.5" \/>/);
+  assert.doesNotMatch(
+    shell,
+    /inline-flex size-7 items-center justify-center rounded-full/,
+  );
   assert.doesNotMatch(shell, /buttonVariants/);
   assert.doesNotMatch(shell, /item\.rankHint/);
   assert.match(adapter, /feedSource: "activity"/);
   assert.match(adapter, /telemetryEntityType: "activity_item"/);
   assert.match(adapter, /telemetryEntityId: item\.id/);
+  assert.match(adapter, /description: item\.body/);
   assert.doesNotMatch(adapter, /Profile update/);
   assert.doesNotMatch(adapter, /Chika thread/);
   assert.doesNotMatch(adapter, /Ordered by recent eligible activity/);

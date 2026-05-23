@@ -196,6 +196,110 @@ type UpdatePostSettingsRequest struct {
 	PostCreatePolicy string `json:"postCreatePolicy" validate:"required,oneof=organizers_only participants"`
 }
 
+type EventProgramItemResponse struct {
+	ID                  string    `json:"id"`
+	EventID             string    `json:"eventId"`
+	Title               string    `json:"title"`
+	DescriptionMarkdown string    `json:"descriptionMarkdown,omitempty"`
+	ProgramDate         string    `json:"programDate,omitempty"`
+	StartTime           string    `json:"startTime,omitempty"`
+	EndTime             string    `json:"endTime,omitempty"`
+	Timezone            string    `json:"timezone,omitempty"`
+	LocationLabel       string    `json:"locationLabel,omitempty"`
+	CompetitionID       string    `json:"competitionId,omitempty"`
+	CompetitionName     string    `json:"competitionName,omitempty"`
+	SortOrder           int       `json:"sortOrder"`
+	IsHighlighted       bool      `json:"isHighlighted"`
+	CreatedAt           time.Time `json:"createdAt"`
+	UpdatedAt           time.Time `json:"updatedAt"`
+}
+
+type ListProgramItemsResponse struct {
+	ProgramItems []EventProgramItemResponse `json:"programItems"`
+}
+
+type ProgramItemResponse struct {
+	ProgramItem EventProgramItemResponse `json:"programItem"`
+}
+
+type CreateProgramItemRequest struct {
+	Title               string `json:"title" validate:"required,min=1,max=200"`
+	DescriptionMarkdown string `json:"descriptionMarkdown,omitempty" validate:"omitempty,max=10000"`
+	ProgramDate         string `json:"programDate,omitempty" validate:"omitempty,datetime=2006-01-02"`
+	StartTime           string `json:"startTime,omitempty" validate:"omitempty"`
+	EndTime             string `json:"endTime,omitempty" validate:"omitempty"`
+	Timezone            string `json:"timezone,omitempty" validate:"omitempty,max=80"`
+	LocationLabel       string `json:"locationLabel,omitempty" validate:"omitempty,max=200"`
+	CompetitionID       string `json:"competitionId,omitempty" validate:"omitempty,uuid"`
+	SortOrder           int    `json:"sortOrder,omitempty" validate:"omitempty,min=0,max=100000"`
+	IsHighlighted       bool   `json:"isHighlighted"`
+}
+
+type UpdateProgramItemRequest struct {
+	Title               *string `json:"title,omitempty" validate:"omitempty,min=1,max=200"`
+	DescriptionMarkdown *string `json:"descriptionMarkdown,omitempty" validate:"omitempty,max=10000"`
+	ProgramDate         *string `json:"programDate,omitempty" validate:"omitempty"`
+	StartTime           *string `json:"startTime,omitempty" validate:"omitempty"`
+	EndTime             *string `json:"endTime,omitempty" validate:"omitempty"`
+	Timezone            *string `json:"timezone,omitempty" validate:"omitempty,max=80"`
+	LocationLabel       *string `json:"locationLabel,omitempty" validate:"omitempty,max=200"`
+	CompetitionID       *string `json:"competitionId,omitempty" validate:"omitempty"`
+	SortOrder           *int    `json:"sortOrder,omitempty" validate:"omitempty,min=0,max=100000"`
+	IsHighlighted       *bool   `json:"isHighlighted,omitempty"`
+}
+
 type UpdateParticipantRoleRequest struct {
 	Role string `json:"role" validate:"required,oneof=participant organizer"`
+}
+
+type UpdateParticipantStatusRequest struct {
+	Status string `json:"status" validate:"required,oneof=attended no_show confirmed cancelled"`
+}
+
+type UpdateEventModulesRequest struct {
+	Modules EventModulesRequest `json:"modules" validate:"required"`
+}
+
+type JoinFormFieldResponse struct {
+	ID        string    `json:"id"`
+	EventID   string    `json:"eventId"`
+	FieldKey  string    `json:"fieldKey"`
+	Label     string    `json:"label"`
+	FieldType string    `json:"fieldType"`
+	Required  bool      `json:"required"`
+	Options   []string  `json:"options"`
+	SortOrder int       `json:"sortOrder"`
+	Enabled   bool      `json:"enabled"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type ListJoinFormFieldsResponse struct {
+	Fields []JoinFormFieldResponse `json:"fields"`
+}
+
+type JoinFormFieldRequest struct {
+	FieldKey  string   `json:"fieldKey" validate:"required,min=1,max=80"`
+	Label     string   `json:"label" validate:"required,min=1,max=160"`
+	FieldType string   `json:"fieldType" validate:"required,oneof=short_text long_text select checkbox phone email"`
+	Required  bool     `json:"required"`
+	Options   []string `json:"options,omitempty"`
+	SortOrder int      `json:"sortOrder,omitempty" validate:"omitempty,min=0,max=100000"`
+	Enabled   bool     `json:"enabled"`
+}
+
+type UpdateJoinFormFieldsRequest struct {
+	Fields []JoinFormFieldRequest `json:"fields" validate:"required,dive"`
+}
+
+type DuplicateEventRequest struct {
+	Title               string `json:"title,omitempty" validate:"omitempty,min=3,max=200"`
+	StartsAt            string `json:"startsAt" validate:"required,datetime=2006-01-02T15:04:05Z07:00"`
+	EndsAt              string `json:"endsAt" validate:"required,datetime=2006-01-02T15:04:05Z07:00"`
+	CopyPaymentSetup    bool   `json:"copyPaymentSetup"`
+	CopyAwards          bool   `json:"copyAwards"`
+	CopySponsors        bool   `json:"copySponsors"`
+	CopyPosts           bool   `json:"copyPosts"`
+	CopyProgram         bool   `json:"copyProgram"`
+	CopySafetyLogistics bool   `json:"copySafetyLogistics"`
 }

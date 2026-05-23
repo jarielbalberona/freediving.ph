@@ -5,10 +5,12 @@ import type {
   CreateEventRequest,
   Event,
   EventFilters,
+  EventModuleKey,
   EventParticipant,
   EventParticipantPayment,
   EventPaymentMethod,
   EventPaymentProofUrl,
+  EventProgramItem,
   EventViewerEventState,
   JoinEventRequest,
   UpdateEventPaymentMethodRequest,
@@ -46,6 +48,7 @@ type BackendParticipantStatus =
   | "attended"
   | "no_show";
 type BackendPaymentMethodType = "MANUAL_QR" | "MANUAL_BANK_TRANSFER";
+type BackendPaymentMode = "free" | "required" | "optional";
 type BackendPaymentStatus =
   | "not_required"
   | "pending_upload"
@@ -97,6 +100,9 @@ type _participantStatusMatches = Assert<
 type _paymentMethodMatches = Assert<
   IsEqual<EventPaymentMethod["type"], BackendPaymentMethodType>
 >;
+type _paymentModeMatches = Assert<
+  IsEqual<Event["paymentMode"], BackendPaymentMode>
+>;
 type _paymentStatusMatches = Assert<
   IsEqual<EventParticipantPayment["status"], BackendPaymentStatus>
 >;
@@ -122,6 +128,10 @@ type _paymentProofUrlShape = Assert<
 type _paymentMethodUpdateIsPartial = Assert<
   IsEqual<UpdateEventPaymentMethodRequest["name"], string | undefined>
 >;
+type _programModuleKeyExists = Assert<
+  IsEqual<Extract<EventModuleKey, "program">, "program">
+>;
+type _programItemShape = Assert<IsEqual<EventProgramItem["title"], string>>;
 
 test("event shared contracts compile against backend enums", () => {
   assert.equal(true, true);
