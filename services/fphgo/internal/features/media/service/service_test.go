@@ -367,7 +367,7 @@ func TestUploadRejectsOversizeByContext(t *testing.T) {
 	_, err := svc.Upload(context.Background(), UploadInput{
 		OwnerUserID: "550e8400-e29b-41d4-a716-446655440000",
 		ContextType: ContextProfileAvatar,
-		SizeBytes:   6 * 1024 * 1024,
+		SizeBytes:   11 * 1024 * 1024,
 		File:        bytes.NewReader([]byte("not-an-image")),
 	})
 	if err == nil || !strings.Contains(err.Error(), "validation failed") {

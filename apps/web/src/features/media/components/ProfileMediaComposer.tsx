@@ -63,7 +63,7 @@ type ComposerPhoto = {
 };
 
 const MAX_FILES = 10;
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -143,7 +143,7 @@ export function ProfileMediaComposer({
     const prepared: ComposerPhoto[] = [];
     for (const file of acceptedFiles) {
       if (file.size > MAX_FILE_SIZE) {
-        toast.error(`${file.name} is larger than 5 MB.`);
+        toast.error(`${file.name} is larger than 10 MB.`);
         continue;
       }
       if (!ALLOWED_MIME_TYPES.has(file.type)) {
@@ -311,7 +311,7 @@ export function ProfileMediaComposer({
                       Drag photos here or choose files
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Upload 1 to 10 photos. Each file must be 5 MB or smaller.
+                      Upload 1 to 10 photos. Each file must be 10 MB or smaller.
                     </p>
                   </div>
                   <Button type="button" variant="outline">

@@ -23,7 +23,7 @@ import {
 } from "@/lib/routes";
 
 const AVATAR_CONTEXT = "profile_avatar" as const;
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",

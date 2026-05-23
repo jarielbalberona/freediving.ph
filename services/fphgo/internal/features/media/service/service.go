@@ -42,6 +42,8 @@ const (
 	PresetCard     = "card"
 	PresetDialog   = "dialog"
 	PresetOriginal = "original"
+
+	maxUploadBytes = 10 * 1024 * 1024
 )
 
 type repository interface {
@@ -391,40 +393,40 @@ type presetRule struct {
 
 var contextRules = map[string]contextRule{
 	ContextProfileAvatar: {
-		maxUploadBytes:    5 * 1024 * 1024,
+		maxUploadBytes:    maxUploadBytes,
 		ttl:               7 * 24 * time.Hour,
 		maxTransformWidth: 1024,
 		allowedPresets:    map[string]bool{PresetThumb: true, PresetCard: true, PresetDialog: true},
 	},
 	ContextProfileFeed: {
-		maxUploadBytes:    5 * 1024 * 1024,
+		maxUploadBytes:    maxUploadBytes,
 		ttl:               3 * 24 * time.Hour,
 		maxTransformWidth: 2048,
 		allowedPresets:    map[string]bool{PresetThumb: true, PresetCard: true, PresetDialog: true},
 	},
 	ContextChikaAttachment: {
-		maxUploadBytes:    10 * 1024 * 1024,
+		maxUploadBytes:    maxUploadBytes,
 		ttl:               12 * time.Hour,
 		maxTransformWidth: 1600,
 		requiresContextID: true,
 		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
 	},
 	ContextEventAttachment: {
-		maxUploadBytes:    10 * 1024 * 1024,
+		maxUploadBytes:    maxUploadBytes,
 		ttl:               3 * 24 * time.Hour,
 		maxTransformWidth: 2048,
 		requiresContextID: true,
 		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
 	},
 	ContextDiveSpotAttachment: {
-		maxUploadBytes:    10 * 1024 * 1024,
+		maxUploadBytes:    maxUploadBytes,
 		ttl:               7 * 24 * time.Hour,
 		maxTransformWidth: 2048,
 		requiresContextID: true,
 		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
 	},
 	ContextGroupCover: {
-		maxUploadBytes:    10 * 1024 * 1024,
+		maxUploadBytes:    maxUploadBytes,
 		ttl:               7 * 24 * time.Hour,
 		maxTransformWidth: 2048,
 		requiresContextID: true,
@@ -947,11 +949,11 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 				Message: "uploaded media is not active",
 			}}}
 		}
-		if row.SizeBytes > 5*1024*1024 {
+		if row.SizeBytes > maxUploadBytes {
 			return CreateMediaPostResult{}, ValidationFailure{Issues: []validatex.Issue{{
 				Path:    []any{"items", idx, "mediaObjectId"},
 				Code:    "too_big",
-				Message: "file exceeds 5 MB limit",
+				Message: "file exceeds 10 MB limit",
 			}}}
 		}
 		if item.Type != "photo" {

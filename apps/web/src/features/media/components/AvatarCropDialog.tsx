@@ -70,7 +70,7 @@ export function AvatarCropDialog({
         <DialogHeader>
           <DialogTitle>Crop Avatar</DialogTitle>
           <DialogDescription>
-            Crop your photo and we will compress it before upload to stay under 5 MB.
+            Crop your photo and we will compress it before upload to stay under 10 MB.
           </DialogDescription>
         </DialogHeader>
 

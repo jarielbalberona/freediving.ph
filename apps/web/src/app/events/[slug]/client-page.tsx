@@ -503,7 +503,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
               className={eventTabTriggerClassName}
               onClick={() => setActiveTab("prizes")}
             >
-              Prizes
+              Competitions & Prizes
             </TabsTrigger>
           ) : null}
           {canShowPrizeSponsorTabs ? (
@@ -845,7 +845,7 @@ export function EventManageClient({ slug }: { slug: string }) {
             Updates
           </TabsTrigger>
           <TabsTrigger value="prizes" className={manageTabTriggerClassName}>
-            Prizes
+            Competitions & Prizes
           </TabsTrigger>
           <TabsTrigger value="sponsors" className={manageTabTriggerClassName}>
             Sponsors
@@ -981,6 +981,174 @@ export function EventManageClient({ slug }: { slug: string }) {
             isLoading={sponsorsQuery.isLoading}
             error={sponsorsQuery.error}
           />
+        </TabsContent>
+      </Tabs>
+    </CommunityPageShell>
+  );
+}
+
+export function EventCompetitionPrizesClient({
+  eventSlug,
+  competitionSlug,
+}: {
+  eventSlug: string;
+  competitionSlug: string;
+}) {
+  const eventQuery = useEvent(eventSlug);
+  const event = eventQuery.data;
+  const eventId = event?.id ?? "";
+  const canFetchDetailExtensions =
+    Boolean(eventId) &&
+    Boolean(event) &&
+    (event?.visibility === "public" ||
+      event?.viewerCanViewPrivateDetails ||
+      event?.viewerCanManage);
+  const competitionsQuery = useEventCompetitions(
+    eventId,
+    canFetchDetailExtensions,
+  );
+  const prizesQuery = useEventPrizes(eventId, canFetchDetailExtensions);
+  const competitions = competitionsQuery.data ?? [];
+  const competition = competitions.find(
+    (item) =>
+      getCompetitionUrlSlug(item) === competitionSlug ||
+      item.id === competitionSlug,
+  );
+  const prizes = (prizesQuery.data ?? []).filter(
+    (prize) => prize.competitionId === competition?.id,
+  );
+
+  if (eventQuery.isLoading) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Opening competition"
+          subtitle="Loading competition and prize details."
+          navigation={<BackButton />}
+        />
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+        </div>
+      </CommunityPageShell>
+    );
+  }
+
+  if (eventQuery.error || !event) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Competition unavailable"
+          subtitle="This competition could not be opened."
+          navigation={<BackButton />}
+        />
+        <p className="text-sm text-destructive">
+          {getApiErrorMessage(
+            eventQuery.error,
+            "This competition could not be opened.",
+          )}
+        </p>
+      </CommunityPageShell>
+    );
+  }
+
+  if (!canFetchDetailExtensions) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title={event.title}
+          subtitle="Competition details are private."
+          navigation={<BackToEventButton event={event} />}
+        />
+        <PrivacyNotice>
+          Competition and prize details are shared after the organizer approves
+          participation.
+        </PrivacyNotice>
+      </CommunityPageShell>
+    );
+  }
+
+  if (competitionsQuery.isLoading || prizesQuery.isLoading) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Opening competition"
+          subtitle={event.title}
+          navigation={<BackToEventButton event={event} />}
+        />
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </CommunityPageShell>
+    );
+  }
+
+  if (competitionsQuery.error || prizesQuery.error || !competition) {
+    return (
+      <CommunityPageShell>
+        <CommunityHeader
+          title="Competition unavailable"
+          subtitle={event.title}
+          navigation={<BackToEventButton event={event} />}
+        />
+        <p className="text-sm text-destructive">
+          {competition
+            ? getApiErrorMessage(
+                competitionsQuery.error || prizesQuery.error,
+                "Competition details could not be loaded.",
+              )
+            : "This competition could not be found."}
+        </p>
+      </CommunityPageShell>
+    );
+  }
+
+  return (
+    <CommunityPageShell>
+      <CommunityHeader
+        title={competition.name}
+        subtitle={event.title}
+        navigation={<BackToEventButton event={event} />}
+      />
+
+      <Tabs defaultValue="details" className="gap-5">
+        <TabsList className={manageTabsListClassName}>
+          <TabsTrigger value="details" className={manageTabTriggerClassName}>
+            Details
+          </TabsTrigger>
+          <TabsTrigger value="prizes" className={manageTabTriggerClassName}>
+            Prizes
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details" className="space-y-5">
+          <DetailSection title="Details">
+            {competition.descriptionMarkdown ? (
+              <ChikaMarkdown content={competition.descriptionMarkdown} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No competition details have been added yet.
+              </p>
+            )}
+          </DetailSection>
+          <DetailSection title="Rules">
+            {competition.rulesMarkdown ? (
+              <ChikaMarkdown content={competition.rulesMarkdown} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No rules have been added yet.
+              </p>
+            )}
+          </DetailSection>
+        </TabsContent>
+
+        <TabsContent value="prizes" className="space-y-5">
+          <DetailSection title="Prizes">
+            <PrizeList
+              event={event}
+              prizes={prizes}
+              onEdit={() => undefined}
+              readOnly
+            />
+          </DetailSection>
         </TabsContent>
       </Tabs>
     </CommunityPageShell>
@@ -1675,7 +1843,7 @@ function PrizesTab({
 
   return (
     <div className="space-y-5">
-      <DetailSection title="Prizes and competitions">
+      <DetailSection title="Competitions & Prizes">
         {event.viewerCanManage && readOnly ? (
           <Button
             size="sm"
@@ -1685,14 +1853,14 @@ function PrizesTab({
               <Link href={`/events/${encodeURIComponent(event.slug)}/manage#prizes`} />
             }
           >
-            Manage prizes
+            Manage competitions & prizes
           </Button>
         ) : null}
         {event.viewerCanManage && !readOnly ? (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => openCompetitionDialog()}>
               <Plus className="mr-1 h-4 w-4" />
-              Add competition
+            Add competition
             </Button>
             <Button
               size="sm"
@@ -1708,43 +1876,29 @@ function PrizesTab({
 
       {competitions.length === 0 && prizes.length === 0 ? (
         <CommunityEmptyState
-          title="No prizes have been added yet."
+          title="No competitions or prizes have been added yet."
           description={
             event.viewerCanManage
-              ? "Add prizes or competition awards for this event."
-              : "No prizes have been added yet."
+              ? "Add competitions, prizes, or event awards for this event."
+              : "No competitions or prizes have been added yet."
           }
         />
       ) : (
         <div className="space-y-6">
-          {competitions.map((competition) => (
-            <DetailSection key={competition.id} title={competition.name}>
-              {competition.descriptionMarkdown ? (
-                <ChikaMarkdown content={competition.descriptionMarkdown} />
-              ) : null}
-              {competition.rulesMarkdown ? (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-foreground">Rules</h3>
-                  <ChikaMarkdown content={competition.rulesMarkdown} />
-                </div>
-              ) : null}
-              {event.viewerCanManage && !readOnly ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openCompetitionDialog(competition)}
-                >
-                  Edit competition
-                </Button>
-              ) : null}
-              <PrizeList
+          {competitions.length > 0 ? (
+            <DetailSection title="Competitions">
+              <CompetitionList
                 event={event}
-                prizes={prizesByCompetition.get(competition.id) ?? []}
-                onEdit={openPrizeDialog}
-                readOnly={readOnly}
+                competitions={competitions}
+                prizesByCompetition={prizesByCompetition}
+                onEdit={
+                  event.viewerCanManage && !readOnly
+                    ? openCompetitionDialog
+                    : undefined
+                }
               />
             </DetailSection>
-          ))}
+          ) : null}
           {generalPrizes.length > 0 ? (
             <DetailSection title="Event prizes">
               <PrizeList
@@ -2060,6 +2214,59 @@ function PrizeList({
           ) : null}
         </article>
       ))}
+    </div>
+  );
+}
+
+function CompetitionList({
+  event,
+  competitions,
+  prizesByCompetition,
+  onEdit,
+}: {
+  event: Event;
+  competitions: EventCompetition[];
+  prizesByCompetition: Map<string, EventPrize[]>;
+  onEdit?: (competition: EventCompetition) => void;
+}) {
+  return (
+    <div className="divide-y divide-border/70 border-y border-border/70">
+      {competitions.map((competition) => {
+        const prizeCount = prizesByCompetition.get(competition.id)?.length ?? 0;
+        return (
+          <article key={competition.id} className="py-3">
+            <div className="flex items-start justify-between gap-3">
+              <Link
+                href={getCompetitionHref(event, competition)}
+                className="min-w-0 flex-1 space-y-1"
+              >
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant="outline" className="h-6 px-2 text-[11px]">
+                    {prizeCount} prize{prizeCount === 1 ? "" : "s"}
+                  </Badge>
+                  {competition.rulesMarkdown ? (
+                    <Badge variant="outline" className="h-6 px-2 text-[11px]">
+                      Rules added
+                    </Badge>
+                  ) : null}
+                </div>
+                <h3 className="text-sm font-medium text-foreground">
+                  {competition.name}
+                </h3>
+              </Link>
+              {onEdit ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEdit(competition)}
+                >
+                  Edit
+                </Button>
+              ) : null}
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -3099,8 +3306,8 @@ function ParticipantsSection({
       ) : (
         <div className="divide-y divide-border/70 border-y border-border/70">
           {participants.map((participant) => (
-            <div key={participant.id} className="space-y-3 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <div key={participant.id} className="py-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <UserIdentityHeader
                   displayName={
                     participant.displayName ||
@@ -3112,30 +3319,54 @@ function ParticipantsSection({
                   usernameFallback="participant"
                 />
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Badge variant="outline" className="h-5 px-2 text-[11px]">
+                  <Badge
+                    variant="outline"
+                    className={getParticipantStatusBadgeClass(
+                      participant.status,
+                    )}
+                  >
                     {titleCase(participant.status)}
                   </Badge>
-                  <Badge variant="outline" className="h-5 px-2 text-[11px]">
+                  <Badge
+                    variant="outline"
+                    className={getParticipantRoleBadgeClass(participant.role)}
+                  >
                     {titleCase(participant.role)}
                   </Badge>
+                  {showOrganizerActions ? (
+                    <>
+                      <Badge
+                        variant="outline"
+                        className={getPaymentStatusBadgeClass(
+                          participant.payment?.status ??
+                            (event.isPaid ? "pending_upload" : "not_required"),
+                        )}
+                      >
+                        {getPaymentStatusLabel(
+                          participant.payment?.status ??
+                            (event.isPaid ? "pending_upload" : "not_required"),
+                        )}
+                      </Badge>
+                      <OrganizerActions
+                        participant={participant}
+                        onApprove={onApprove}
+                        onReject={onReject}
+                        onUpdateRole={onUpdateRole}
+                        onVerifyPayment={onVerifyPayment}
+                        onRejectPayment={onRejectPayment}
+                        onViewPaymentProof={onViewPaymentProof}
+                        viewingPaymentProofId={viewingPaymentProofId}
+                      />
+                    </>
+                  ) : null}
                 </div>
               </div>
-              {participant.participantNote ? (
-                <p className="rounded-lg bg-muted/40 p-2 text-sm text-muted-foreground">
+              {showOrganizerActions &&
+              participant.status === "pending_approval" &&
+              participant.participantNote ? (
+                <p className="mt-2 rounded-lg bg-muted/40 p-2 text-sm text-muted-foreground">
                   {participant.participantNote}
                 </p>
-              ) : null}
-              {event.viewerCanManage && showOrganizerActions ? (
-                <OrganizerActions
-                  participant={participant}
-                  onApprove={onApprove}
-                  onReject={onReject}
-                  onUpdateRole={onUpdateRole}
-                  onVerifyPayment={onVerifyPayment}
-                  onRejectPayment={onRejectPayment}
-                  onViewPaymentProof={onViewPaymentProof}
-                  viewingPaymentProofId={viewingPaymentProofId}
-                />
               ) : null}
             </div>
           ))}
@@ -3168,20 +3399,26 @@ function OrganizerActions({
   viewingPaymentProofId?: string;
 }) {
   const payment = participant.payment;
+  const compactButtonClassName = "h-6 rounded-full px-2 text-[11px]";
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <>
       {participant.status === "pending_approval" ? (
         <>
-          <Button size="sm" onClick={() => onApprove(participant.id)}>
-            <CheckCircle2 className="mr-1 h-4 w-4" />
+          <Button
+            size="sm"
+            className={compactButtonClassName}
+            onClick={() => onApprove(participant.id)}
+          >
+            <CheckCircle2 className="mr-1 h-3 w-3" />
             Approve
           </Button>
           <Button
             size="sm"
             variant="outline"
+            className={compactButtonClassName}
             onClick={() => onReject(participant.id)}
           >
-            <XCircle className="mr-1 h-4 w-4" />
+            <XCircle className="mr-1 h-3 w-3" />
             Reject
           </Button>
         </>
@@ -3191,6 +3428,7 @@ function OrganizerActions({
           <Button
             size="sm"
             variant="outline"
+            className={compactButtonClassName}
             onClick={() => onUpdateRole(participant.id, "participant")}
           >
             Make participant
@@ -3199,6 +3437,7 @@ function OrganizerActions({
           <Button
             size="sm"
             variant="outline"
+            className={compactButtonClassName}
             onClick={() => onUpdateRole(participant.id, "organizer")}
           >
             Make organizer
@@ -3206,12 +3445,12 @@ function OrganizerActions({
         )
       ) : null}
       {payment ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>Payment: {titleCase(payment.status)}</span>
+        <>
           {payment.proofMediaId ? (
             <Button
               size="sm"
               variant="outline"
+              className={compactButtonClassName}
               disabled={viewingPaymentProofId === payment.id}
               onClick={() => onViewPaymentProof(payment.id)}
             >
@@ -3221,25 +3460,32 @@ function OrganizerActions({
             </Button>
           ) : null}
           {payment.referenceNumber ? (
-            <span>Ref: {payment.referenceNumber}</span>
+            <span className="text-[11px] text-muted-foreground">
+              Ref: {payment.referenceNumber}
+            </span>
           ) : null}
           {payment.status === "submitted" ? (
             <>
-              <Button size="sm" onClick={() => onVerifyPayment(payment.id)}>
+              <Button
+                size="sm"
+                className={compactButtonClassName}
+                onClick={() => onVerifyPayment(payment.id)}
+              >
                 Verify payment
               </Button>
               <Button
                 size="sm"
                 variant="outline"
+                className={compactButtonClassName}
                 onClick={() => onRejectPayment(payment.id)}
               >
                 Reject payment
               </Button>
             </>
           ) : null}
-        </div>
+        </>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -4257,12 +4503,69 @@ function getPaymentStatusLabel(status: EventPaymentStatus) {
   }
 }
 
+function getParticipantStatusBadgeClass(status: EventParticipant["status"]) {
+  const base = "h-5 px-2 text-[11px]";
+  switch (status) {
+    case "confirmed":
+      return `${base} border-emerald-500/30 bg-emerald-500/10 text-emerald-700`;
+    case "pending_approval":
+      return `${base} border-amber-500/30 bg-amber-500/10 text-amber-700`;
+    case "rejected":
+    case "cancelled":
+      return `${base} border-destructive/30 bg-destructive/10 text-destructive`;
+    case "left":
+      return `${base} border-muted-foreground/25 bg-muted text-muted-foreground`;
+    default:
+      return base;
+  }
+}
+
+function getParticipantRoleBadgeClass(role: EventParticipant["role"]) {
+  const base = "h-5 px-2 text-[11px]";
+  if (role === "organizer") {
+    return `${base} border-sky-500/30 bg-sky-500/10 text-sky-700`;
+  }
+  return `${base} border-violet-500/30 bg-violet-500/10 text-violet-700`;
+}
+
+function getPaymentStatusBadgeClass(status: EventPaymentStatus) {
+  const base = "h-5 px-2 text-[11px]";
+  switch (status) {
+    case "verified":
+      return `${base} border-emerald-500/30 bg-emerald-500/10 text-emerald-700`;
+    case "submitted":
+      return `${base} border-sky-500/30 bg-sky-500/10 text-sky-700`;
+    case "pending_upload":
+      return `${base} border-amber-500/30 bg-amber-500/10 text-amber-700`;
+    case "rejected":
+      return `${base} border-destructive/30 bg-destructive/10 text-destructive`;
+    case "not_required":
+      return `${base} border-muted-foreground/25 bg-muted text-muted-foreground`;
+    default:
+      return base;
+  }
+}
+
 function getPaymentMethodLabel(method: EventPaymentMethod) {
   const name = method.name?.trim();
   if (name) return name;
   if (method.type === "MANUAL_BANK_TRANSFER") return "Bank transfer";
   if (method.type === "MANUAL_QR") return "QR payment";
   return "Payment method";
+}
+
+function getCompetitionHref(event: Event, competition: EventCompetition) {
+  return `/events/${encodeURIComponent(event.slug)}/competitions-and-prizes/${encodeURIComponent(getCompetitionUrlSlug(competition))}`;
+}
+
+function getCompetitionUrlSlug(competition: EventCompetition) {
+  const nameSlug =
+    competition.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "competition";
+  return `${nameSlug}-${competition.id.slice(0, 8)}`;
 }
 
 function prizePlacementLabel(prize: EventPrize) {

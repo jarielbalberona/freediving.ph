@@ -198,7 +198,7 @@ test("events detail organizes content into visibility-aware tabs", () => {
   assert.match(detailPage, /value="prizes"/);
   assert.match(detailPage, /value="sponsors"/);
   assert.match(detailPage, /value="payment"/);
-  assert.match(detailPage, /Prizes/);
+  assert.match(detailPage, /Competitions & Prizes/);
   assert.match(detailPage, /Sponsors/);
   assert.match(detailPage, /Updates/);
   assert.match(detailPage, /No updates yet/);
@@ -245,6 +245,9 @@ test("events detail organizes content into visibility-aware tabs", () => {
 test("events detail renders management extensions through tabs and dialogs", () => {
   const detailPage = read("src/app/events/[slug]/client-page.tsx");
   const managePage = read("src/app/events/[slug]/manage/page.tsx");
+  const competitionPage = read(
+    "src/app/events/[slug]/competitions-and-prizes/[competitionSlug]/page.tsx",
+  );
   assert.match(detailPage, /useEventCompetitions/);
   assert.match(detailPage, /useEventPrizes/);
   assert.match(detailPage, /useEventSponsors/);
@@ -265,6 +268,11 @@ test("events detail renders management extensions through tabs and dialogs", () 
   assert.match(detailPage, /manageTabsListClassName/);
   assert.doesNotMatch(detailPage, /<div className="space-y-8">/);
   assert.match(managePage, /EventManageClient/);
+  assert.match(competitionPage, /EventCompetitionPrizesClient/);
+  assert.match(detailPage, /function CompetitionList/);
+  assert.match(detailPage, /getCompetitionHref/);
+  assert.match(detailPage, /competitions-and-prizes/);
+  assert.match(detailPage, /value="details"/);
   assert.match(detailPage, /Add competition/);
   assert.match(detailPage, /Edit competition/);
   assert.match(detailPage, /Add prize/);

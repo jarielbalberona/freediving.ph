@@ -62,7 +62,7 @@ This document defines how Freediving Philippines (FPH) stores and serves images 
 
 | Context | Object key prefix | Default TTL | Max upload | Max transform width | Allowed presets | Notes |
 | --- | --- | ---: | ---: | ---: | --- | --- |
-| `profile_avatar` | `avatars/{userId}/` | 7 days | 5 MB | 1024 | thumb, card, dialog | Identity surface. |
+| `profile_avatar` | `avatars/{userId}/` | 7 days | 10 MB | 1024 | thumb, card, dialog | Identity surface. |
 | `profile_feed` | `feed/{userId}/{yyyy}/{mm}/` | 3 days | 10 MB | 2048 | card, dialog | High volume. Batch minting required. |
 | `chika_attachment` | `chika/{threadId}/` | 12 hours | 10 MB | 1600 | card, dialog | More takedown-sensitive. |
 | `event_attachment` | `events/{eventId}/` | 3 days | 10 MB | 2048 | card, dialog | |
@@ -310,4 +310,3 @@ When debugging signature mismatches, verify:
 - Values match exactly, including casing.
 - Newlines are present exactly between METHOD, PATH, and QUERY.
 - Output encoding is base64url without padding.
-

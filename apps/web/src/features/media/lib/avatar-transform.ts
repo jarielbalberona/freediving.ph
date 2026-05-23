@@ -20,7 +20,7 @@ type BuildAvatarInput = {
   maxBytes?: number;
 };
 
-const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
+const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
 const OUTPUT_TYPES = ["image/webp", "image/jpeg"] as const;
 const QUALITY_LEVELS = [0.92, 0.85, 0.78, 0.7, 0.62, 0.55, 0.5, 0.45];
 const MAX_DIMENSION_STEPS = [1024, 896, 768, 640, 512, 384, 320, 256];
@@ -174,4 +174,3 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
-
