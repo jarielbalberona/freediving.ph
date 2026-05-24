@@ -26,6 +26,7 @@ import (
 	notificationshttp "fphgo/internal/features/notifications/http"
 	profileshttp "fphgo/internal/features/profiles/http"
 	reportshttp "fphgo/internal/features/reports/http"
+	schoolshttp "fphgo/internal/features/schools/http"
 	usershttp "fphgo/internal/features/users/http"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/authz"
@@ -149,6 +150,9 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		if locationsRouter := resolveLocationsRouter(deps); locationsRouter != nil {
 			r.Mount("/v1/locations", locationsRouter)
 		}
+		if deps.SchoolsHandler != nil {
+			r.Mount("/v1/schools", schoolshttp.PublicRoutes(deps.SchoolsHandler))
+		}
 		r.Group(func(member chi.Router) {
 			member.Use(middleware.RequireMember)
 			member.Group(func(profiles chi.Router) {
@@ -191,6 +195,14 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 					admin.Mount("/v1/admin", adminRouter)
 				}
 			})
+			member.Group(func(manage chi.Router) {
+				if schoolsRouter := resolveSchoolsRouter(deps); schoolsRouter != nil {
+					manage.Mount("/v1/manage", schoolsRouter)
+				}
+			})
+			if deps.SchoolsHandler != nil {
+				member.Mount("/v1/me/course-bookings", schoolshttp.MeRoutes(deps.SchoolsHandler))
+			}
 			if authRouter := resolveAuthRouter(deps); authRouter != nil {
 				member.Mount("/v1/auth", authRouter)
 			}
@@ -220,6 +232,16 @@ func resolveAdminRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return adminhttp.Routes(deps.AdminHandler)
+}
+
+func resolveSchoolsRouter(deps *Dependencies) chi.Router {
+	if deps.SchoolsRoutes != nil {
+		return deps.SchoolsRoutes
+	}
+	if deps.SchoolsHandler == nil {
+		return nil
+	}
+	return schoolshttp.Routes(deps.SchoolsHandler)
 }
 
 func resolveAuthRouter(deps *Dependencies) chi.Router {

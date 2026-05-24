@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
   "scripts": {
-    "dev": "pnpm -r --parallel --filter './apps/*' dev",
+    "dev": "pnpm dev:web & pnpm dev:go & wait",
+    "dev:apps": "pnpm -r --parallel --filter './apps/*' dev",
     "build": "pnpm -r --if-present --filter './packages/*' build && pnpm build:web",
     "build:all": "pnpm build",
     "typecheck": "pnpm -r --if-present type-check",

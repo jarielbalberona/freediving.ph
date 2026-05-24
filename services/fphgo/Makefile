@@ -1,12 +1,13 @@
 .PHONY: dev dev-deps test sqlc migrate-up migrate-down lint psgc-import psgc-import-2025-2q
 
 GOOSE := go run github.com/pressly/goose/v3/cmd/goose@v3.24.1
+AIR := go run github.com/air-verse/air@v1.65.3
 
 dev-deps:
-	go install github.com/air-verse/air@latest
+	go install github.com/air-verse/air@v1.65.3
 
 dev:
-	air
+	$(AIR)
 
 test:
 	go test ./...

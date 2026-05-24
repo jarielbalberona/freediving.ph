@@ -63,6 +63,9 @@ import (
 	reportshttp "fphgo/internal/features/reports/http"
 	reportsrepo "fphgo/internal/features/reports/repo"
 	reportsservice "fphgo/internal/features/reports/service"
+	schoolshttp "fphgo/internal/features/schools/http"
+	schoolsrepo "fphgo/internal/features/schools/repo"
+	schoolsservice "fphgo/internal/features/schools/service"
 	usershttp "fphgo/internal/features/users/http"
 	usersrepo "fphgo/internal/features/users/repo"
 	usersservice "fphgo/internal/features/users/service"
@@ -97,6 +100,7 @@ type Dependencies struct {
 	NotificationsService     *notificationsservice.Service
 	GroupsHandler            *groupshttp.Handlers
 	EventsHandler            *eventshttp.Handlers
+	SchoolsHandler           *schoolshttp.Handlers
 	LocationsHandler         *locationshttp.Handlers
 	HomeHandler              *homehttp.Handlers
 	AdminRoutes              chi.Router
@@ -117,6 +121,7 @@ type Dependencies struct {
 	NotificationsAdminRoutes chi.Router
 	GroupsRoutes             chi.Router
 	EventsRoutes             chi.Router
+	SchoolsRoutes            chi.Router
 	LocationsRoutes          chi.Router
 	HomeRoutes               chi.Router
 	IdentityService          *identityservice.Service
@@ -279,6 +284,9 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		),
 	)
 	eventsHandler := eventshttp.New(eventsService, v)
+	schoolsRepo := schoolsrepo.New(pool)
+	schoolsService := schoolsservice.New(schoolsRepo)
+	schoolsHandler := schoolshttp.New(schoolsService, v)
 	locationsRepo := locationsrepo.New(pool)
 	locationsService := locationsservice.New(locationsRepo)
 	locationsHandler := locationshttp.New(locationsService)
@@ -342,6 +350,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		NotificationsService: notificationsService,
 		GroupsHandler:        groupsHandler,
 		EventsHandler:        eventsHandler,
+		SchoolsHandler:       schoolsHandler,
 		LocationsHandler:     locationsHandler,
 		HomeHandler:          homeHandler,
 		IdentityService:      identityService,

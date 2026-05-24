@@ -568,6 +568,55 @@ export const queryKeys = {
       [...queryKeys.events.detail(eventId), "posts"] as const,
   },
 
+  schools: {
+    all: ["schools"] as const,
+    lists: () => [...queryKeys.schools.all, "list"] as const,
+    list: () => [...queryKeys.schools.lists()] as const,
+    publicList: (filters: Record<string, unknown> = {}) =>
+      [
+        ...queryKeys.schools.all,
+        "public-list",
+        normalizeQueryObject(filters),
+      ] as const,
+    publicDetail: (slug: string) =>
+      [...queryKeys.schools.all, "public-detail", cleanString(slug)] as const,
+    publicCourses: (slug: string, filters: Record<string, unknown> = {}) =>
+      [
+        ...queryKeys.schools.publicDetail(slug),
+        "courses",
+        normalizeQueryObject(filters),
+      ] as const,
+    publicCourse: (slug: string, courseSlug: string) =>
+      [
+        ...queryKeys.schools.publicDetail(slug),
+        "course",
+        cleanString(courseSlug),
+      ] as const,
+    myBookings: () => [...queryKeys.schools.all, "my-bookings"] as const,
+    detail: (slug: string) =>
+      [...queryKeys.schools.all, "detail", cleanString(slug)] as const,
+    courses: (slug: string) =>
+      [...queryKeys.schools.detail(slug), "courses"] as const,
+    paymentMethods: (slug: string, courseId: string) =>
+      [
+        ...queryKeys.schools.courses(slug),
+        cleanString(courseId),
+        "payment-methods",
+      ] as const,
+    sessions: (slug: string, filters: Record<string, unknown> = {}) =>
+      [
+        ...queryKeys.schools.detail(slug),
+        "sessions",
+        normalizeQueryObject(filters),
+      ] as const,
+    bookings: (slug: string, filters: Record<string, unknown> = {}) =>
+      [
+        ...queryKeys.schools.detail(slug),
+        "bookings",
+        normalizeQueryObject(filters),
+      ] as const,
+  },
+
   messages: {
     all: ["messages"] as const,
     threads: () => [...queryKeys.messages.all, "threads"] as const,

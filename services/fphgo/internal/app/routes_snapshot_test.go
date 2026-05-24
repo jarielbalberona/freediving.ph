@@ -28,6 +28,8 @@ import (
 	moderationhttp "fphgo/internal/features/moderation_actions/http"
 	profileshttp "fphgo/internal/features/profiles/http"
 	reportshttp "fphgo/internal/features/reports/http"
+	schoolshttp "fphgo/internal/features/schools/http"
+	schoolsservice "fphgo/internal/features/schools/service"
 	usershttp "fphgo/internal/features/users/http"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/validatex"
@@ -173,6 +175,7 @@ func buildFullSurfaceRouter() chi.Router {
 		BlocksHandler:     blockshttp.New(nil, nil),
 		BuddiesHandler:    buddieshttp.New(nil, nil),
 		ReportsHandler:    reportshttp.New(nil, nil),
+		SchoolsHandler:    schoolshttp.New(schoolsservice.New(nil), validatex.New()),
 		ModerationHandler: moderationhttp.New(nil, nil),
 		MediaHandler:      mediahttp.New(nil, nil),
 	}

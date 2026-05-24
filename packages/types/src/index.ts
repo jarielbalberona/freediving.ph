@@ -10,6 +10,7 @@ export * from "./api/public-profile";
 export * from "./feed";
 export * from "./media";
 export * from "./reports";
+export * from "./schools";
 
 export interface ApiEnvelope<T> {
   status: number;

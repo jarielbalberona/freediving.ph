@@ -19,6 +19,7 @@ import {
   Gavel,
   Plus,
   MoreHorizontal,
+  School,
 } from "lucide-react";
 
 export type NavGroupId =
@@ -27,6 +28,7 @@ export type NavGroupId =
   | "diving"
   | "resources"
   | "future"
+  | "manage"
   | "admin";
 
 export type NavKind = "link" | "action";
@@ -52,6 +54,7 @@ const GROUP_DISPLAY_TITLES: Record<NavGroupId, string> = {
   diving: "Diving and Progress",
   resources: "Resources",
   future: "Future",
+  manage: "Manage",
   admin: "Admin",
 };
 
@@ -124,6 +127,24 @@ export const NAV_ITEMS: NavItem[] = [
     group: "community",
   },
   {
+    id: "schools",
+    title: "Schools",
+    kind: "link",
+    href: "/schools",
+    icon: School,
+    isProtected: false,
+    group: "community",
+  },
+  {
+    id: "my-bookings",
+    title: "My Bookings",
+    kind: "link",
+    href: "/my/bookings",
+    icon: ClipboardList,
+    isProtected: true,
+    group: "diving",
+  },
+  {
     id: "chika",
     title: "Chika",
     kind: "link",
@@ -192,6 +213,15 @@ export const NAV_ITEMS: NavItem[] = [
     isProtected: false,
     group: "resources",
     comingSoon: true,
+  },
+  {
+    id: "manage-schools",
+    title: "Manage Schools",
+    kind: "link",
+    href: "/manage/schools",
+    icon: School,
+    isProtected: true,
+    group: "manage",
   },
   {
     id: "moderation",
@@ -268,6 +298,8 @@ const MOBILE_SIDEBAR_ORDER: string[] = [
   "buddies",
   "groups",
   "events",
+  "schools",
+  "manage-schools",
 ];
 
 function isVisible(item: NavItem, isSignedIn: boolean): boolean {
@@ -306,6 +338,7 @@ export function getGroupedNavItems({
     "diving",
     "resources",
     "future",
+    "manage",
     "admin",
   ];
   return order
@@ -353,7 +386,7 @@ export function getMobileSidebarNavGroups({
     byGroup.set(item.group, list);
   }
 
-  const order: NavGroupId[] = ["core", "community"];
+  const order: NavGroupId[] = ["core", "community", "manage"];
   return order
     .filter((group) => byGroup.has(group))
     .map((group) => ({
@@ -384,6 +417,7 @@ export function getMoreNavGroups({
     "diving",
     "resources",
     "future",
+    "manage",
     "admin",
   ];
   return order
