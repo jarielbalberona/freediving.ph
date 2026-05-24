@@ -51,6 +51,8 @@ test("course and session forms use progressive structured location controls", ()
 
   assert.match(page, /LocationPicker/);
   assert.match(page, /DiveSiteCombobox/);
+  assert.match(page, /formatPeso\(course\.priceAmount \?\? 0\)/);
+  assert.match(page, /DEFAULT_TIMEZONE/);
   assert.match(page, /courseLocationModeOptions/);
   assert.match(page, /sessionLocationModeOptions/);
   assert.match(page, /locationNote/);
@@ -66,4 +68,8 @@ test("course and session forms use progressive structured location controls", ()
     page,
     /label="Location"\\s+value=\\{form\\.locationLabel\\}/,
   );
+  assert.doesNotMatch(page, /label="Currency"/);
+  assert.doesNotMatch(page, /label="Timezone"/);
+  assert.doesNotMatch(page, /currency: initial/);
+  assert.doesNotMatch(page, /timezone: initial/);
 });

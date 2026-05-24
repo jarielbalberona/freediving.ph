@@ -280,13 +280,12 @@ func TestCreateEventAcceptsSimplifiedFormPayloadHTTP(t *testing.T) {
 		"title": "Freediving PH Annual Dive Event",
 		"shortDescription": "A relaxed line-training session for certified freedivers.",
 		"type": "fun_dive",
-		"diveSiteId": "10000000-0000-0000-0000-000000000009",
-		"startsAt": "2026-05-23T01:00:00.000Z",
-		"endsAt": "2026-05-23T03:00:00.000Z",
-		"timezone": "Asia/Manila",
-		"visibility": "public",
-		"requiresApproval": true,
-		"isPaid": true,
+			"diveSiteId": "10000000-0000-0000-0000-000000000009",
+			"startsAt": "2026-05-23T01:00:00.000Z",
+			"endsAt": "2026-05-23T03:00:00.000Z",
+			"visibility": "public",
+			"requiresApproval": true,
+			"isPaid": true,
 		"status": "published"
 	}`
 	rec := httptest.NewRecorder()
@@ -304,6 +303,9 @@ func TestCreateEventAcceptsSimplifiedFormPayloadHTTP(t *testing.T) {
 	}
 	if repo.createInput.Timezone != "Asia/Manila" {
 		t.Fatalf("timezone = %q, want Asia/Manila", repo.createInput.Timezone)
+	}
+	if repo.createInput.Currency != "PHP" {
+		t.Fatalf("currency = %q, want PHP", repo.createInput.Currency)
 	}
 	if repo.createInput.DescriptionMarkdown != "" {
 		t.Fatalf("description should be deferred, got %q", repo.createInput.DescriptionMarkdown)

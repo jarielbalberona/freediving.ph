@@ -43,6 +43,7 @@ import { ArrowLeft, CalendarPlus, Search, X } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
 import { useMemo, useState } from "react";
+import { formatPeso } from "@/lib/money";
 import {
   bookingStatusLabels,
   courseLevelLabels,
@@ -621,10 +622,7 @@ function CourseMeta({
   const price =
     course.priceAmount == null
       ? "Price on request"
-      : new Intl.NumberFormat("en-PH", {
-          style: "currency",
-          currency: course.currency || "PHP",
-        }).format(course.priceAmount);
+      : formatPeso(course.priceAmount);
   return (
     <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
       <span>{courseTypeLabels[course.courseType]}</span>

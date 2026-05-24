@@ -51,6 +51,7 @@ import type {
   UpdateEventProgramItemRequest,
   UpdateEventSponsorRequest,
 } from "@freediving.ph/types";
+import { DEFAULT_TIMEZONE } from "@freediving.ph/config";
 import {
   ArrowLeft,
   Award,
@@ -187,6 +188,7 @@ import {
 import { mediaApi } from "@/features/media/api/media";
 import { siteConfig } from "@/config/site";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
+import { formatPeso } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 type EventTab =
@@ -1370,7 +1372,6 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
   const updatePaymentMethodMutation = useUpdateEventPaymentMethod();
   const [paymentMode, setPaymentMode] = useState<EventPaymentMode>("free");
   const [priceAmount, setPriceAmount] = useState("");
-  const [currency, setCurrency] = useState("PHP");
   const [paymentInstructions, setPaymentInstructions] = useState("");
   const [newMethod, setNewMethod] = useState<PaymentMethodFormState>(
     createEmptyPaymentMethodForm(),
@@ -1380,7 +1381,6 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
     if (!event) return;
     setPaymentMode(getEventPaymentMode(event));
     setPriceAmount(event.priceAmount != null ? String(event.priceAmount) : "");
-    setCurrency(event.currency || "PHP");
     setPaymentInstructions(event.paymentInstructions ?? "");
   }, [event]);
 
@@ -1466,7 +1466,6 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
                 paymentMode,
                 isPaid: paymentMode === "required",
                 priceAmount: parsedPrice,
-                currency: currency.trim().toUpperCase() || "PHP",
                 paymentInstructions: paymentInstructions.trim(),
               },
       },
@@ -1575,7 +1574,7 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
 
               {paymentMode !== "free" ? (
                 <>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3">
                     <SetupField
                       label={
                         paymentMode === "required"
@@ -1590,13 +1589,6 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
                         value={priceAmount}
                         onChange={(item) => setPriceAmount(item.target.value)}
                         placeholder="1500"
-                      />
-                    </SetupField>
-                    <SetupField label="Currency">
-                      <Input
-                        value={currency}
-                        onChange={(item) => setCurrency(item.target.value)}
-                        placeholder="PHP"
                       />
                     </SetupField>
                   </div>
@@ -3383,7 +3375,6 @@ function PrizesTab({
   const [prizePlacementLabel, setPrizePlacementLabel] = useState("");
   const [prizeType, setPrizeType] = useState<EventPrizeType | "">("");
   const [prizeAmount, setPrizeAmount] = useState("");
-  const [prizeCurrency, setPrizeCurrency] = useState("PHP");
   const [prizeDescription, setPrizeDescription] = useState("");
   const [prizePhotoUrl, setPrizePhotoUrl] = useState("");
   const [prizePhotoFile, setPrizePhotoFile] = useState<File | null>(null);
@@ -3406,7 +3397,6 @@ function PrizesTab({
     setPrizePlacementLabel(prize?.placementLabel ?? "");
     setPrizeType(prize?.prizeType ?? "");
     setPrizeAmount(prize?.amount != null ? String(prize.amount) : "");
-    setPrizeCurrency(prize?.currency || "PHP");
     setPrizeDescription(prize?.descriptionMarkdown ?? "");
     setPrizePhotoUrl(prize?.photoUrl ?? "");
     setPrizePhotoFile(null);
@@ -3493,7 +3483,6 @@ function PrizesTab({
         placementLabel: prizePlacementLabel.trim() || undefined,
         prizeType: prizeType || undefined,
         amount,
-        currency: prizeCurrency.trim().toUpperCase() || "PHP",
         descriptionMarkdown: prizeDescription.trim() || undefined,
         photoUrl: photoUrl || undefined,
       };
@@ -3830,7 +3819,7 @@ function PrizesTab({
               placeholder="People's Choice"
             />
           </SetupField>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <SetupField label="Type">
               <Select
                 value={prizeType || "none"}
@@ -3864,12 +3853,6 @@ function PrizesTab({
                 step="0.01"
                 value={prizeAmount}
                 onChange={(item) => setPrizeAmount(item.target.value)}
-              />
-            </SetupField>
-            <SetupField label="Currency">
-              <Input
-                value={prizeCurrency}
-                onChange={(item) => setPrizeCurrency(item.target.value)}
               />
             </SetupField>
           </div>
@@ -3968,7 +3951,7 @@ function PrizeList({
                   ) : null}
                   {prize.amount != null ? (
                     <Badge variant="outline" className="h-6 px-2 text-[11px]">
-                      {prize.currency} {prize.amount}
+                      {formatPeso(prize.amount)}
                     </Badge>
                   ) : null}
                 </div>
@@ -4965,10 +4948,7 @@ function ProgramItemDialog({
           </label>
         </div>
         <DialogFooter showCloseButton>
-          <Button
-            disabled={isSaving}
-            onClick={() => onSave({ ...form, timezone: event.timezone })}
-          >
+          <Button disabled={isSaving} onClick={() => onSave(form)}>
             {isSaving ? "Saving..." : "Save item"}
           </Button>
         </DialogFooter>
@@ -5451,7 +5431,7 @@ function PaymentTab({
                 ? requiresEventPayment(event)
                   ? "Payment pending"
                   : "Optional donation"
-                : `${event.currency} ${event.priceAmount}`}
+                : formatPeso(event.priceAmount)}
             </h2>
             <p className="text-sm leading-6 text-muted-foreground">
               {requiresEventPayment(event) || payment
@@ -7022,7 +7002,7 @@ function DuplicateEventSection({ event }: { event: Event }) {
   );
 }
 
-const EVENT_DETAIL_TIMEZONE = "Asia/Manila";
+const EVENT_DETAIL_TIMEZONE = DEFAULT_TIMEZONE;
 
 const eventUpdateTypeOptions: Array<{ value: EventPostType; label: string }> = [
   { value: "announcement", label: "Announcement" },
@@ -7287,7 +7267,6 @@ function OrganizerManageTab({
         diveSiteId,
         startsAt: startsAtIso,
         endsAt: endsAtIso,
-        timezone: event.timezone || EVENT_DETAIL_TIMEZONE,
       },
       "Schedule and dive site saved.",
     );
@@ -8359,9 +8338,9 @@ function formatEventPriceLabel(event: Event) {
     return mode === "optional" ? "Donation optional" : "Fee required";
   }
   if (mode === "optional") {
-    return `Donation ${event.currency} ${event.priceAmount}`;
+    return `Donation ${formatPeso(event.priceAmount)}`;
   }
-  return `${event.currency} ${event.priceAmount}`;
+  return formatPeso(event.priceAmount);
 }
 
 function getPaymentSetupStatus(event: Event, activePaymentMethodCount: number) {
@@ -8487,7 +8466,6 @@ function programItemToForm(
     programDate: item?.programDate ?? "",
     startTime: item?.startTime ?? "",
     endTime: item?.endTime ?? "",
-    timezone: item?.timezone || event.timezone || EVENT_DETAIL_TIMEZONE,
     locationLabel: item?.locationLabel ?? "",
     competitionId: item?.competitionId ?? "",
     isHighlighted: item?.isHighlighted ?? false,
@@ -8573,7 +8551,7 @@ function formatEventDate(start?: string, end?: string, timezone?: string) {
   const formatter = new Intl.DateTimeFormat("en-PH", {
     dateStyle: "medium",
     timeStyle: "short",
-    timeZone: timezone || "Asia/Manila",
+    timeZone: timezone || EVENT_DETAIL_TIMEZONE,
   });
   if (!endDate || Number.isNaN(endDate.getTime())) {
     return formatter.format(startDate);

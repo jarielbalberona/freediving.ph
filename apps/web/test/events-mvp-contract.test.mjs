@@ -31,9 +31,11 @@ test("events create page stays limited to first-step event fields", () => {
 
 test("events create payload defaults Philippine time and defers advanced setup", () => {
   const createPage = read("src/app/events/create/page.tsx");
-  assert.match(createPage, /CREATE_EVENT_TIMEZONE = "Asia\/Manila"/);
+  assert.match(createPage, /CREATE_EVENT_TIMEZONE = DEFAULT_TIMEZONE/);
+  assert.match(createPage, /@freediving\.ph\/config/);
   assert.match(createPage, /toISO\(form\.startsAt, CREATE_EVENT_TIMEZONE\)/);
-  assert.match(createPage, /timezone: CREATE_EVENT_TIMEZONE/);
+  assert.doesNotMatch(createPage, /timezone: CREATE_EVENT_TIMEZONE/);
+  assert.doesNotMatch(createPage, /currency:/);
   assert.match(createPage, /isPaid: form\.paymentMode === "required"/);
   assert.match(createPage, /items=\{eventTypeOptions\}/);
   assert.match(createPage, /value \?\? "fun_dive"/);
@@ -83,6 +85,7 @@ test("events create and management use user-facing labels", () => {
   assert.match(detailPage, /Add participant-facing details/);
   assert.match(detailPage, /Manage participant payment instructions/);
   assert.match(detailPage, /Payment setup is incomplete/);
+  assert.match(detailPage, /formatPeso\(event\.priceAmount\)/);
   assert.match(detailPage, /Edit description/);
   assert.match(detailPage, /Edit schedule and dive site/);
   assert.match(detailPage, /Edit capacity and access/);
@@ -259,6 +262,11 @@ test("events detail organizes content into visibility-aware tabs", () => {
     detailPage,
     /toISO\(\s*startsAt,\s*event\.timezone \|\| EVENT_DETAIL_TIMEZONE/,
   );
+  assert.doesNotMatch(detailPage, /label="Currency"/);
+  assert.doesNotMatch(detailPage, /Currency/);
+  assert.doesNotMatch(detailPage, /currency:/);
+  assert.doesNotMatch(detailPage, /event\.currency/);
+  assert.doesNotMatch(detailPage, /prize\.currency/);
   assert.match(detailPage, /const canShowJoinPanel =/);
   assert.match(detailPage, /const canShowParticipantsTab =/);
   assert.match(detailPage, /const canShowPrizeSponsorTabs =/);

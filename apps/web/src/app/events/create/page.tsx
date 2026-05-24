@@ -6,6 +6,7 @@ import type {
   EventType,
   EventVisibility,
 } from "@freediving.ph/types";
+import { DEFAULT_TIMEZONE } from "@freediving.ph/config";
 import { SignInButton } from "@clerk/nextjs";
 import { ArrowLeft, Plus } from "lucide-react";
 import Link from "next/link";
@@ -35,7 +36,7 @@ import { DiveSiteCombobox } from "@/features/diveSpots/components/DiveSiteCombob
 import { eventTypeOptions, useCreateEvent } from "@/features/events";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 
-const CREATE_EVENT_TIMEZONE = "Asia/Manila";
+const CREATE_EVENT_TIMEZONE = DEFAULT_TIMEZONE;
 
 type CreateEventFormState = {
   title: string;
@@ -502,7 +503,6 @@ function buildPayload(
       diveSiteId: form.diveSiteId,
       startsAt,
       endsAt,
-      timezone: CREATE_EVENT_TIMEZONE,
       visibility: form.visibility,
       requiresApproval: form.requiresApproval,
       isPaid: form.paymentMode === "required",

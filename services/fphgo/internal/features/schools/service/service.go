@@ -20,6 +20,11 @@ type Service struct {
 	repo repository
 }
 
+const (
+	defaultCurrency = "PHP"
+	defaultTimezone = "Asia/Manila"
+)
+
 type repository interface {
 	ListSchools(context.Context, string) ([]schoolsrepo.School, error)
 	IsVerifiedInstructor(context.Context, string) (bool, error)
@@ -621,7 +626,7 @@ func normalizeCourse(input schoolsrepo.CreateCourseInput) schoolsrepo.CreateCour
 	input.Title = strings.TrimSpace(input.Title)
 	input.CourseType = defaultString(normalize(input.CourseType), "custom")
 	input.Level = normalize(input.Level)
-	input.Currency = defaultString(strings.ToUpper(strings.TrimSpace(input.Currency)), "PHP")
+	input.Currency = defaultString(strings.ToUpper(strings.TrimSpace(input.Currency)), defaultCurrency)
 	input.Status = defaultString(normalize(input.Status), "draft")
 	input.LocationMode = defaultString(normalize(input.LocationMode), "inherit_school")
 	input.LocationSource = defaultString(normalize(input.LocationSource), "manual")
@@ -686,7 +691,7 @@ func validateCourse(input schoolsrepo.CreateCourseInput) error {
 
 func normalizeSession(input schoolsrepo.CreateSessionInput) schoolsrepo.CreateSessionInput {
 	input.Title = strings.TrimSpace(input.Title)
-	input.Timezone = defaultString(strings.TrimSpace(input.Timezone), "Asia/Manila")
+	input.Timezone = defaultString(strings.TrimSpace(input.Timezone), defaultTimezone)
 	input.Status = defaultString(normalize(input.Status), "draft")
 	input.LocationMode = defaultString(normalize(input.LocationMode), "inherit_course")
 	input.LocationSource = defaultString(normalize(input.LocationSource), "manual")

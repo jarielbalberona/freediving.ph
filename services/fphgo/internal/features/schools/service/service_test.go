@@ -235,7 +235,6 @@ func TestCreateSessionDefaultsToCourseLocation(t *testing.T) {
 		Title:    "Session",
 		StartsAt: start,
 		EndsAt:   start.Add(time.Hour),
-		Timezone: "Asia/Manila",
 		Status:   "draft",
 	})
 	if err != nil {
@@ -243,6 +242,9 @@ func TestCreateSessionDefaultsToCourseLocation(t *testing.T) {
 	}
 	if repo.capturedSession.LocationMode != "inherit_course" {
 		t.Fatalf("expected inherit_course, got %q", repo.capturedSession.LocationMode)
+	}
+	if repo.capturedSession.Timezone != "Asia/Manila" {
+		t.Fatalf("expected Asia/Manila timezone, got %q", repo.capturedSession.Timezone)
 	}
 }
 
@@ -289,7 +291,7 @@ func TestInstructorCannotCreateCourse(t *testing.T) {
 	repo.role = "instructor"
 	svc := New(repo)
 	_, err := svc.CreateCourse(context.Background(), "school", "actor", schoolsrepo.CreateCourseInput{
-		Title: "Course", CourseType: "custom", Currency: "PHP", Status: "draft",
+		Title: "Course", CourseType: "custom", Status: "draft",
 	})
 	if err == nil {
 		t.Fatal("expected instructor create course to be forbidden")
@@ -307,6 +309,9 @@ func TestCreateCourseDefaultsToSchoolLocation(t *testing.T) {
 	}
 	if repo.capturedCourse.LocationMode != "inherit_school" {
 		t.Fatalf("expected inherit_school, got %q", repo.capturedCourse.LocationMode)
+	}
+	if repo.capturedCourse.Currency != "PHP" {
+		t.Fatalf("expected PHP currency, got %q", repo.capturedCourse.Currency)
 	}
 }
 

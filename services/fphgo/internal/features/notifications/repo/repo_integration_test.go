@@ -138,8 +138,17 @@ func TestListActiveInstructorReviewerRecipientsFiltersToSuperAdmins(t *testing.T
 	if err != nil {
 		t.Fatalf("ListActiveInstructorReviewerRecipients: %v", err)
 	}
-	if len(recipients) != 1 || recipients[0] != superAdminID {
-		t.Fatalf("expected only active opted-in super admin, got %#v", recipients)
+	recipientSet := map[string]bool{}
+	for _, recipient := range recipients {
+		recipientSet[recipient] = true
+	}
+	if !recipientSet[superAdminID] {
+		t.Fatalf("expected seeded active super admin recipient, got %#v", recipients)
+	}
+	for _, excludedID := range []string{applicantID, adminID, suspendedSuperAdminID, optedOutSuperAdminID} {
+		if recipientSet[excludedID] {
+			t.Fatalf("recipient %s should have been filtered out; got %#v", excludedID, recipients)
+		}
 	}
 }
 

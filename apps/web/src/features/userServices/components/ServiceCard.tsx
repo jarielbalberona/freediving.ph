@@ -1,10 +1,11 @@
 "use client";
 
-import { UserService } from '@freediving.ph/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { MapPin, Star, Users, Clock, DollarSign } from 'lucide-react';
+import { UserService } from "@freediving.ph/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { MapPin, Star, Users, Clock, DollarSign } from "lucide-react";
+import { formatPeso } from "@/lib/money";
 
 interface ServiceCardProps {
   service: UserService;
@@ -17,35 +18,35 @@ export function ServiceCard({
   service,
   onBook,
   onViewDetails,
-  showActions = true
+  showActions = true,
 }: ServiceCardProps) {
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'INSTRUCTION':
-        return 'default';
-      case 'EQUIPMENT':
-        return 'secondary';
-      case 'GUIDE':
-        return 'outline';
-      case 'PHOTOGRAPHY':
-        return 'destructive';
-      case 'TRANSPORT':
-        return 'default';
+      case "INSTRUCTION":
+        return "default";
+      case "EQUIPMENT":
+        return "secondary";
+      case "GUIDE":
+        return "outline";
+      case "PHOTOGRAPHY":
+        return "destructive";
+      case "TRANSPORT":
+        return "default";
       default:
-        return 'default';
+        return "default";
     }
   };
 
   const getAvailabilityColor = (availability: string) => {
     switch (availability) {
-      case 'AVAILABLE':
-        return 'bg-success/15 text-success-foreground';
-      case 'BUSY':
-        return 'bg-warning/15 text-warning-foreground';
-      case 'UNAVAILABLE':
-        return 'bg-destructive/15 text-destructive';
+      case "AVAILABLE":
+        return "bg-success/15 text-success-foreground";
+      case "BUSY":
+        return "bg-warning/15 text-warning-foreground";
+      case "UNAVAILABLE":
+        return "bg-destructive/15 text-destructive";
       default:
-        return 'bg-muted text-muted-foreground';
+        return "bg-muted text-muted-foreground";
     }
   };
 
@@ -54,7 +55,9 @@ export function ServiceCard({
       <Star
         key={i}
         className={`h-4 w-4 ${
-          i < Math.floor(rating) ? 'text-warning fill-current' : 'text-muted-foreground/40'
+          i < Math.floor(rating)
+            ? "text-warning fill-current"
+            : "text-muted-foreground/40"
         }`}
       />
     ));
@@ -70,7 +73,9 @@ export function ServiceCard({
               <Badge variant={getCategoryColor(service.category)}>
                 {service.category}
               </Badge>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAvailabilityColor(service.availability)}`}>
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium ${getAvailabilityColor(service.availability)}`}
+              >
                 {service.availability}
               </span>
             </div>
@@ -86,11 +91,8 @@ export function ServiceCard({
                   View
                 </Button>
               )}
-              {onBook && service.availability === 'AVAILABLE' && (
-                <Button
-                  size="sm"
-                  onClick={() => onBook(service.id)}
-                >
+              {onBook && service.availability === "AVAILABLE" && (
+                <Button size="sm" onClick={() => onBook(service.id)}>
                   Book
                 </Button>
               )}
@@ -113,7 +115,7 @@ export function ServiceCard({
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <DollarSign className="h-4 w-4" />
-            <span className="font-medium">{service.price} {service.currency}</span>
+            <span className="font-medium">{formatPeso(service.price)}</span>
           </div>
 
           {service.duration && (
@@ -148,16 +150,15 @@ export function ServiceCard({
               </Badge>
             ))}
             {service.tags.length > 3 && (
-              <Badge variant="outline">
-                +{service.tags.length - 3} more
-              </Badge>
+              <Badge variant="outline">+{service.tags.length - 3} more</Badge>
             )}
           </div>
         )}
 
         <div className="mt-3 pt-3 border-t border-border">
           <div className="text-sm text-muted-foreground">
-            <span className="font-medium">Provider:</span> {service.providerName}
+            <span className="font-medium">Provider:</span>{" "}
+            {service.providerName}
           </div>
         </div>
       </CardContent>

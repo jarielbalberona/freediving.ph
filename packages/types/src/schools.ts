@@ -17,18 +17,13 @@ export type CourseLevel =
   | "advanced"
   | "all_levels";
 export type CourseStatus = "draft" | "published" | "paused" | "archived";
-export type CourseLocationMode =
-  | "inherit_school"
-  | "structured"
-  | "text_only";
+export type CourseLocationMode = "inherit_school" | "structured" | "text_only";
 export type SessionLocationMode =
   | "inherit_course"
   | "inherit_school"
   | "structured"
   | "text_only";
-export type CoursePaymentMethodType =
-  | "MANUAL_QR"
-  | "MANUAL_BANK_TRANSFER";
+export type CoursePaymentMethodType = "MANUAL_QR" | "MANUAL_BANK_TRANSFER";
 export type CourseSessionStatus =
   | "draft"
   | "scheduled"
@@ -367,19 +362,19 @@ export type CreateCourseRequest = Omit<
   | "id"
   | "schoolId"
   | "slug"
+  | "currency"
   | "createdAt"
   | "updatedAt"
   | "upcomingSessionCount"
   | "pendingBookingCount"
->;
+> & { currency?: string };
 export type UpdateCourseRequest = CreateCourseRequest;
 
 export type CreateCoursePaymentMethodRequest = Omit<
   CoursePaymentMethod,
   "id" | "courseId" | "createdAt" | "updatedAt"
 >;
-export type UpdateCoursePaymentMethodRequest =
-  CreateCoursePaymentMethodRequest;
+export type UpdateCoursePaymentMethodRequest = CreateCoursePaymentMethodRequest;
 
 export type CreateCourseSessionRequest = Omit<
   CourseSession,
@@ -387,13 +382,14 @@ export type CreateCourseSessionRequest = Omit<
   | "schoolId"
   | "courseTitle"
   | "slug"
+  | "timezone"
   | "instructorDisplayName"
   | "createdAt"
   | "updatedAt"
   | "cancelledAt"
   | "completedAt"
   | "assignedBookingCount"
->;
+> & { timezone?: string };
 export type UpdateCourseSessionRequest = CreateCourseSessionRequest;
 
 export type CreateCourseBookingRequest = Omit<

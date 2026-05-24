@@ -38,6 +38,7 @@ test("customer schools UI uses friendly labels, tabs, booking prompts, and Base 
   assert.match(page, /TabsTrigger value="book"/);
   assert.match(page, /Sign in required/);
   assert.match(page, /Preferred date/);
+  assert.match(page, /formatPeso\(course\.priceAmount\)/);
   assert.match(page, /SelectTrigger/);
   assert.match(page, /SelectValue/);
   assert.match(constants, /Pool training/);
@@ -45,6 +46,8 @@ test("customer schools UI uses friendly labels, tabs, booking prompts, and Base 
   assert.match(constants, /Not required/);
   assert.doesNotMatch(page, />pending_review</);
   assert.doesNotMatch(page, />pool_training</);
+  assert.doesNotMatch(page, /course\.currency/);
+  assert.doesNotMatch(page, /currency: course\.currency/);
 });
 
 test("admin school form uses LocationPicker and optional dive site selector", () => {

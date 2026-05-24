@@ -1,6 +1,7 @@
 "use client";
 
 import type { Event } from "@freediving.ph/types";
+import { DEFAULT_TIMEZONE } from "@freediving.ph/config";
 import { CalendarClock, Lock, MapPin, Star, Ticket, Users } from "lucide-react";
 import Link from "next/link";
 
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { eventOptionLabel } from "@/features/events/constants";
+import { formatPeso } from "@/lib/money";
 
 type EventCardProps = {
   event: Event;
@@ -197,9 +199,8 @@ function formatEventPriceLabel(event: Event) {
   if (event.priceAmount == null) {
     return mode === "optional" ? "Donation optional" : "Fee required";
   }
-  if (mode === "optional")
-    return `Donation ${event.currency} ${event.priceAmount}`;
-  return `${event.currency} ${event.priceAmount}`;
+  if (mode === "optional") return `Donation ${formatPeso(event.priceAmount)}`;
+  return formatPeso(event.priceAmount);
 }
 
 function getViewerStateLabel(state: Event["viewerEventState"]) {
@@ -230,7 +231,7 @@ function formatEventDate(start?: string, end?: string, timezone?: string) {
   const formatter = new Intl.DateTimeFormat("en-PH", {
     dateStyle: "medium",
     timeStyle: "short",
-    timeZone: timezone || "Asia/Manila",
+    timeZone: timezone || DEFAULT_TIMEZONE,
   });
   if (!endDate || Number.isNaN(endDate.getTime())) {
     return formatter.format(startDate);

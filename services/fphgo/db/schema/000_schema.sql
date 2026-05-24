@@ -277,7 +277,7 @@ CREATE TABLE IF NOT EXISTS notification_settings (
   digest_frequency notification_digest_frequency NOT NULL DEFAULT 'IMMEDIATE',
   quiet_hours_start TEXT,
   quiet_hours_end TEXT,
-  timezone TEXT NOT NULL DEFAULT 'UTC',
+  timezone TEXT NOT NULL DEFAULT 'Asia/Manila',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1042,7 +1042,7 @@ CREATE TABLE IF NOT EXISTS event_program_items (
   program_date DATE,
   start_time TIME,
   end_time TIME,
-  timezone TEXT,
+  timezone TEXT DEFAULT 'Asia/Manila',
   location_label TEXT,
   competition_id UUID REFERENCES event_competitions(id) ON DELETE SET NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,

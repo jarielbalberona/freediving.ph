@@ -600,7 +600,7 @@ func normalizeProgramInput(input eventsrepo.CreateProgramItemInput) eventsrepo.C
 	input.ProgramDate = strings.TrimSpace(input.ProgramDate)
 	input.StartTime = strings.TrimSpace(input.StartTime)
 	input.EndTime = strings.TrimSpace(input.EndTime)
-	input.Timezone = strings.TrimSpace(input.Timezone)
+	input.Timezone = normalizeTimezone(input.Timezone)
 	input.LocationLabel = strings.TrimSpace(input.LocationLabel)
 	input.CompetitionID = strings.TrimSpace(input.CompetitionID)
 	return input
@@ -612,7 +612,13 @@ func normalizeUpdateProgramInput(input *eventsrepo.UpdateProgramItemInput) {
 	trimStringPtr(&input.ProgramDate)
 	trimStringPtr(&input.StartTime)
 	trimStringPtr(&input.EndTime)
-	trimStringPtr(&input.Timezone)
+	if input.Timezone != nil {
+		value := normalizeTimezone(*input.Timezone)
+		input.Timezone = &value
+	} else if input.ProgramDate != nil || input.StartTime != nil || input.EndTime != nil {
+		value := defaultTimezone
+		input.Timezone = &value
+	}
 	trimStringPtr(&input.LocationLabel)
 	trimStringPtr(&input.CompetitionID)
 }
@@ -788,6 +794,9 @@ func normalizeUpdatePrizeInput(input *eventsrepo.UpdatePrizeInput) {
 	}
 	if input.Currency != nil {
 		value := normalizeCurrency(*input.Currency)
+		input.Currency = &value
+	} else if input.Amount != nil || input.PrizeType != nil {
+		value := defaultCurrency
 		input.Currency = &value
 	}
 	trimStringPtr(&input.SponsorID)

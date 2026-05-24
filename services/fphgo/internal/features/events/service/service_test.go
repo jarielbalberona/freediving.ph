@@ -359,6 +359,9 @@ func TestCreateMinimalPaidEventAllowsDeferredPaymentSetup(t *testing.T) {
 	if repo.createInput.Timezone != "Asia/Manila" {
 		t.Fatalf("timezone default = %q, want Asia/Manila", repo.createInput.Timezone)
 	}
+	if repo.createInput.Currency != "PHP" {
+		t.Fatalf("currency default = %q, want PHP", repo.createInput.Currency)
+	}
 	if repo.createInput.Capacity != nil {
 		t.Fatalf("capacity should stay unset for minimal create, got %#v", *repo.createInput.Capacity)
 	}

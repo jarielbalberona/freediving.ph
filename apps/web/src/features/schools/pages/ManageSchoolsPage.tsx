@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@clerk/nextjs";
+import { DEFAULT_TIMEZONE } from "@freediving.ph/config";
 import type {
   Course,
   CourseBookingPaymentStatus,
@@ -76,6 +77,7 @@ import {
   type LocationSearchValue,
 } from "@/features/locations/types/location-search";
 import { applyApiErrorsToForm } from "@/lib/forms/api-errors";
+import { formatPeso } from "@/lib/money";
 import {
   bookingStatusLabels,
   courseLocationModeLabels,
@@ -344,7 +346,7 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
         {canEditSchool ? (
           <Dialog open={editing} onOpenChange={setEditing}>
             <DialogTrigger render={<Button size="sm">Edit school</Button>} />
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl!">
               <DialogHeader>
                 <DialogTitle>Edit school</DialogTitle>
               </DialogHeader>
@@ -426,7 +428,7 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
                 <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   <span>
                     {course.paymentRequired
-                      ? `${course.currency} ${course.priceAmount ?? 0}`
+                      ? formatPeso(course.priceAmount ?? 0)
                       : "No payment required"}
                   </span>
                   <span>
@@ -1344,7 +1346,6 @@ function CourseForm({
     level: initial?.level ?? "",
     durationLabel: initial?.durationLabel ?? "",
     priceAmount: initial?.priceAmount ?? null,
-    currency: initial?.currency ?? "PHP",
     paymentRequired: initial?.paymentRequired ?? false,
     approvalRequired: initial?.approvalRequired ?? true,
     locationMode: initial?.locationMode ?? "inherit_school",
@@ -1472,7 +1473,7 @@ function CourseForm({
           options={courseStatusOptions}
         />
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <TextField
           label="Duration"
           value={form.durationLabel}
@@ -1485,11 +1486,6 @@ function CourseForm({
           onChange={(value) =>
             setForm({ ...form, priceAmount: value ? Number(value) : null })
           }
-        />
-        <TextField
-          label="Currency"
-          value={form.currency}
-          onChange={(currency) => setForm({ ...form, currency })}
         />
       </div>
       <div className="grid gap-3 rounded-lg border border-border/70 p-3">
@@ -1627,7 +1623,7 @@ function SessionForm({
     courses.find((course) => course.id === firstCourse) ?? courses[0];
   const firstCourseMode =
     initialCourse?.locationMode === "structured" ||
-    initialCourse?.locationMode === "text_only"
+      initialCourse?.locationMode === "text_only"
       ? "inherit_course"
       : "inherit_school";
   const [form, setForm] = useState<CreateCourseSessionRequest>({
@@ -1635,7 +1631,6 @@ function SessionForm({
     title: initial?.title ?? "",
     startsAt: initial ? toDateTimeLocal(initial.startsAt) : "",
     endsAt: initial ? toDateTimeLocal(initial.endsAt) : "",
-    timezone: initial?.timezone ?? "Asia/Manila",
     locationMode: initial?.locationMode ?? firstCourseMode,
     locationLabel: initial?.locationLabel ?? "",
     locationNote: initial?.locationNote ?? "",
@@ -1682,7 +1677,7 @@ function SessionForm({
     const course = courses.find((item) => item.id === courseId);
     const locationMode =
       course?.locationMode === "structured" ||
-      course?.locationMode === "text_only"
+        course?.locationMode === "text_only"
         ? "inherit_course"
         : "inherit_school";
     setForm({ ...form, courseId, locationMode });
@@ -1738,12 +1733,7 @@ function SessionForm({
           options={sessionStatusOptions}
         />
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <TextField
-          label="Timezone"
-          value={form.timezone}
-          onChange={(timezone) => setForm({ ...form, timezone })}
-        />
+      <div className="grid gap-4 md:grid-cols-2">
         <TextField
           label="Capacity"
           type="number"
@@ -2310,16 +2300,99 @@ function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("en-PH", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: DEFAULT_TIMEZONE,
   }).format(new Date(value));
 }
 
 function toIso(value: string) {
-  return value ? new Date(value).toISOString() : "";
+  if (!value) return "";
+  const parsed = parseDateTimeLocal(value);
+  if (!parsed) return "";
+  try {
+    const wallClockUTC = Date.UTC(
+      parsed.year,
+      parsed.month - 1,
+      parsed.day,
+      parsed.hour,
+      parsed.minute,
+      parsed.second,
+    );
+    const firstOffset = getTimeZoneOffsetMs(
+      new Date(wallClockUTC),
+      DEFAULT_TIMEZONE,
+    );
+    const correctedUTC = wallClockUTC - firstOffset;
+    const secondOffset = getTimeZoneOffsetMs(
+      new Date(correctedUTC),
+      DEFAULT_TIMEZONE,
+    );
+    const date = new Date(wallClockUTC - secondOffset);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString();
+  } catch {
+    return "";
+  }
 }
 
 function toDateTimeLocal(value: string) {
   if (!value) return "";
   const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: DEFAULT_TIMEZONE,
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  const hour = part("hour");
+  const minute = part("minute");
+  if (!year || !month || !day || !hour || !minute) return "";
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+function parseDateTimeLocal(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(
+    value.trim(),
+  );
+  if (!match) return null;
+  return {
+    year: Number.parseInt(match[1] ?? "", 10),
+    month: Number.parseInt(match[2] ?? "", 10),
+    day: Number.parseInt(match[3] ?? "", 10),
+    hour: Number.parseInt(match[4] ?? "", 10),
+    minute: Number.parseInt(match[5] ?? "", 10),
+    second: Number.parseInt(match[6] ?? "0", 10),
+  };
+}
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number.parseInt(parts.find((item) => item.type === type)?.value ?? "0", 10);
+  const asUTC = Date.UTC(
+    part("year"),
+    part("month") - 1,
+    part("day"),
+    part("hour"),
+    part("minute"),
+    part("second"),
+  );
+  return asUTC - date.getTime();
 }

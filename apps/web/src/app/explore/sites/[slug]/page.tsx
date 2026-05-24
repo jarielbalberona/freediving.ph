@@ -14,6 +14,7 @@ import {
   TriangleAlert,
   Waves,
 } from "lucide-react";
+import { DEFAULT_TIMEZONE } from "@freediving.ph/config";
 import type { ExploreSiteDetailResponse } from "@freediving.ph/types";
 
 import { UsernameLink } from "@/components/common/UsernameLink";
@@ -70,7 +71,7 @@ const verificationLabel = (value: string) => {
 const detailDateTimeFormatter = new Intl.DateTimeFormat("en-PH", {
   dateStyle: "medium",
   timeStyle: "short",
-  timeZone: "Asia/Manila",
+  timeZone: DEFAULT_TIMEZONE,
 });
 
 const formatDateTime = (value: string) => {

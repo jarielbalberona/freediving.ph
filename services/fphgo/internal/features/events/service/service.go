@@ -19,7 +19,11 @@ import (
 	"fphgo/internal/shared/validatex"
 )
 
-const defaultPaymentProofURLTTL = 5 * time.Minute
+const (
+	defaultPaymentProofURLTTL = 5 * time.Minute
+	defaultCurrency           = "PHP"
+	defaultTimezone           = "Asia/Manila"
+)
 
 type Service struct {
 	repo          repository
@@ -1221,6 +1225,9 @@ func normalizeUpdateInput(input *eventsrepo.UpdateEventInput) {
 	if input.Currency != nil {
 		value := normalizeCurrency(*input.Currency)
 		input.Currency = &value
+	} else if input.PaymentMode != nil || input.IsPaid != nil || input.PriceAmount != nil || input.PaymentInstructions != nil {
+		value := defaultCurrency
+		input.Currency = &value
 	}
 	if input.PaymentMode != nil {
 		value := normalizePaymentMode(*input.PaymentMode, input.IsPaid != nil && *input.IsPaid)
@@ -1520,7 +1527,7 @@ func normalizeEntryType(value string) string {
 func normalizeTimezone(value string) string {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return "Asia/Manila"
+		return defaultTimezone
 	}
 	return trimmed
 }
@@ -1539,7 +1546,7 @@ func validateTimezone(value string) error {
 func normalizeCurrency(value string) string {
 	trimmed := strings.ToUpper(strings.TrimSpace(value))
 	if trimmed == "" {
-		return "PHP"
+		return defaultCurrency
 	}
 	return trimmed
 }

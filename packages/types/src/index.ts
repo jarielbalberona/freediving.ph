@@ -630,7 +630,12 @@ export interface Event {
   provinceCode?: string;
   cityCode?: string;
   barangayCode?: string;
-  locationSource?: "manual" | "psgc" | "google_places" | "psgc_mapped" | "unmapped";
+  locationSource?:
+    | "manual"
+    | "psgc"
+    | "google_places"
+    | "psgc_mapped"
+    | "unmapped";
   diveSiteId?: string;
   diveSite?: EventDiveSiteSummary;
   startsAt?: string;
@@ -909,7 +914,12 @@ export interface Group {
   provinceCode?: string;
   cityCode?: string;
   barangayCode?: string;
-  locationSource?: "manual" | "psgc" | "google_places" | "psgc_mapped" | "unmapped";
+  locationSource?:
+    | "manual"
+    | "psgc"
+    | "google_places"
+    | "psgc_mapped"
+    | "unmapped";
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -974,7 +984,12 @@ export interface CreateGroupRequest {
   provinceCode?: string;
   cityCode?: string;
   barangayCode?: string;
-  locationSource?: "manual" | "psgc" | "google_places" | "psgc_mapped" | "unmapped";
+  locationSource?:
+    | "manual"
+    | "psgc"
+    | "google_places"
+    | "psgc_mapped"
+    | "unmapped";
 }
 
 export interface UpdateGroupRequest {
@@ -994,7 +1009,12 @@ export interface UpdateGroupRequest {
   provinceCode?: string;
   cityCode?: string;
   barangayCode?: string;
-  locationSource?: "manual" | "psgc" | "google_places" | "psgc_mapped" | "unmapped";
+  locationSource?:
+    | "manual"
+    | "psgc"
+    | "google_places"
+    | "psgc_mapped"
+    | "unmapped";
 }
 
 export interface JoinGroupRequest {
@@ -1645,7 +1665,7 @@ export interface UserService {
     | "TRANSPORT"
     | "OTHER";
   price: number;
-  currency: string;
+  currency?: string;
   location: string;
   availability: "AVAILABLE" | "BUSY" | "UNAVAILABLE";
   rating: number;
@@ -1701,7 +1721,7 @@ export interface CreateServiceRequest {
     | "TRANSPORT"
     | "OTHER";
   price: number;
-  currency: string;
+  currency?: string;
   location: string;
   imageUrl?: string;
   tags?: string[];
