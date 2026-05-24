@@ -46,6 +46,50 @@ func TestRolePermissions_MemberUsesGranularWritePermissions(t *testing.T) {
 	}
 }
 
+func TestRolePermissions_NamedSpecialistRolesMatchBackendPermissions(t *testing.T) {
+	trusted := RolePermissions("trusted_member")
+	if !trusted[PermissionMessagingWrite] || !trusted[PermissionChikaWrite] {
+		t.Fatal("trusted_member should keep member write permissions")
+	}
+	assertNoGlobalOperatorPermissions(t, "trusted_member", trusted)
+
+	curator := RolePermissions("explore_curator")
+	if !curator[PermissionExploreModerate] {
+		t.Fatal("explore_curator should get explore.moderate")
+	}
+	if curator[PermissionReportsModerate] {
+		t.Fatal("explore_curator should not get reports.moderate")
+	}
+	assertNoGlobalOperatorPermissions(t, "explore_curator", curator)
+
+	support := RolePermissions("support")
+	if !support[PermissionReportsRead] || support[PermissionModerationWrite] {
+		t.Fatal("support should read reports without moderation writes")
+	}
+	assertNoGlobalOperatorPermissions(t, "support", support)
+
+	records := RolePermissions("records_verifier")
+	if !records[PermissionMessagingWrite] || records[PermissionUsersRead] {
+		t.Fatal("records_verifier should keep member writes without user access")
+	}
+	assertNoGlobalOperatorPermissions(t, "records_verifier", records)
+}
+
+func assertNoGlobalOperatorPermissions(t *testing.T, role string, perms map[Permission]bool) {
+	t.Helper()
+	for _, permission := range []Permission{
+		PermissionUsersManage,
+		PermissionGroupsManage,
+		PermissionEventsManage,
+		PermissionReportsModerate,
+		PermissionModerationWrite,
+	} {
+		if perms[permission] {
+			t.Fatalf("%s should not get %s", role, permission)
+		}
+	}
+}
+
 func TestRolePermissions_ModeratorGetsReportModerationAndBlocks(t *testing.T) {
 	perms := RolePermissions("moderator")
 

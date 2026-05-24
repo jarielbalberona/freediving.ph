@@ -35,7 +35,10 @@ const STATUS_OPTIONS: Array<{ value: "all" | ReportStatus; label: string }> = [
   { value: "rejected", label: "Rejected" },
 ];
 
-const TARGET_OPTIONS: Array<{ value: "all" | ReportTargetType; label: string }> = [
+const TARGET_OPTIONS: Array<{
+  value: "all" | ReportTargetType;
+  label: string;
+}> = [
   { value: "all", label: "All targets" },
   { value: "user", label: "User" },
   { value: "message", label: "Message" },
@@ -49,7 +52,11 @@ const toDateValue = (value: string): string => {
   return date.toISOString().slice(0, 10);
 };
 
-const inDateRange = (createdAt: string, fromDate: string, toDate: string): boolean => {
+const inDateRange = (
+  createdAt: string,
+  fromDate: string,
+  toDate: string,
+): boolean => {
   const createdTime = new Date(createdAt).getTime();
   if (Number.isNaN(createdTime)) return false;
 
@@ -67,10 +74,13 @@ const inDateRange = (createdAt: string, fromDate: string, toDate: string): boole
 };
 
 const statusBadgeVariant = (status: string) =>
-  status === "open" ? "default" as const :
-  status === "reviewing" ? "secondary" as const :
-  status === "resolved" ? "outline" as const :
-  "destructive" as const;
+  status === "open"
+    ? ("default" as const)
+    : status === "reviewing"
+      ? ("secondary" as const)
+      : status === "resolved"
+        ? ("outline" as const)
+        : ("destructive" as const);
 
 export default function ModerationReportsPage() {
   const [status, setStatus] = useState<"all" | ReportStatus>("all");
@@ -89,11 +99,15 @@ export default function ModerationReportsPage() {
   const filteredItems = useMemo(() => {
     const items = reportsQuery.data?.items ?? [];
     if (!fromDate && !toDate) return items;
-    return items.filter((item) => inDateRange(item.createdAt, fromDate, toDate));
+    return items.filter((item) =>
+      inDateRange(item.createdAt, fromDate, toDate),
+    );
   }, [reportsQuery.data?.items, fromDate, toDate]);
 
   const nextCursor = reportsQuery.data?.nextCursor;
-  const queryError = reportsQuery.error ? getApiError(reportsQuery.error) : null;
+  const queryError = reportsQuery.error
+    ? getApiError(reportsQuery.error)
+    : null;
 
   const handleClearFilters = () => {
     setStatus("all");
@@ -102,7 +116,8 @@ export default function ModerationReportsPage() {
     setToDate("");
   };
 
-  const hasActiveFilters = status !== "all" || targetType !== "all" || fromDate || toDate;
+  const hasActiveFilters =
+    status !== "all" || targetType !== "all" || fromDate || toDate;
 
   return (
     <AuthGuard
@@ -111,15 +126,17 @@ export default function ModerationReportsPage() {
       description="Only moderators can access triage reports."
     >
       <RequirePermission
-        perm="reports.review"
-        title="Missing reports.review permission"
+        perm="reports.read"
+        title="Missing reports.read permission"
         description="Your account does not have access to moderation triage."
       >
         <div className="container mx-auto p-6">
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold">Moderation Triage</h1>
-              <p className="text-muted-foreground">Review reports and move them to resolution.</p>
+              <p className="text-muted-foreground">
+                Review reports and move them to resolution.
+              </p>
             </div>
 
             {/* Filters */}
@@ -127,7 +144,11 @@ export default function ModerationReportsPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Filters</CardTitle>
                 {hasActiveFilters ? (
-                  <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearFilters}
+                  >
                     Clear filters
                   </Button>
                 ) : null}
@@ -138,7 +159,10 @@ export default function ModerationReportsPage() {
                   <Select
                     value={status}
                     onValueChange={(v) => setStatus(v as "all" | ReportStatus)}
-                    items={STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                    items={STATUS_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: o.label,
+                    }))}
                   >
                     <SelectTrigger id="report-status-filter" className="w-full">
                       <SelectValue />
@@ -158,8 +182,13 @@ export default function ModerationReportsPage() {
                   <Label htmlFor="report-target-filter">Target type</Label>
                   <Select
                     value={targetType}
-                    onValueChange={(v) => setTargetType(v as "all" | ReportTargetType)}
-                    items={TARGET_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                    onValueChange={(v) =>
+                      setTargetType(v as "all" | ReportTargetType)
+                    }
+                    items={TARGET_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: o.label,
+                    }))}
                   >
                     <SelectTrigger id="report-target-filter" className="w-full">
                       <SelectValue />
@@ -225,30 +254,54 @@ export default function ModerationReportsPage() {
                   </Alert>
                 ) : null}
 
-                {!reportsQuery.isPending && !queryError && filteredItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No reports matched the current filters.</p>
+                {!reportsQuery.isPending &&
+                !queryError &&
+                filteredItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No reports matched the current filters.
+                  </p>
                 ) : null}
 
                 {!reportsQuery.isPending && !queryError
                   ? filteredItems.map((report) => (
-                      <div key={report.id} className="rounded-md border p-4 transition-colors hover:bg-muted/50">
+                      <div
+                        key={report.id}
+                        className="rounded-md border p-4 transition-colors hover:bg-muted/50"
+                      >
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">Report #{report.id}</span>
-                              <Badge variant={statusBadgeVariant(report.status)}>{report.status}</Badge>
-                              <Badge variant="secondary">{report.targetType}</Badge>
+                              <span className="font-medium">
+                                Report #{report.id}
+                              </span>
+                              <Badge
+                                variant={statusBadgeVariant(report.status)}
+                              >
+                                {report.status}
+                              </Badge>
+                              <Badge variant="secondary">
+                                {report.targetType}
+                              </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              Target: <span className="font-mono">{report.targetId}</span>
+                              Target:{" "}
+                              <span className="font-mono">
+                                {report.targetId}
+                              </span>
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {toDateValue(report.createdAt)} · {report.reasonCode}
+                              {toDateValue(report.createdAt)} ·{" "}
+                              {report.reasonCode}
                             </p>
                           </div>
                           <Link
                             href={`/moderation/reports/${report.id}`}
-                            className={cn(buttonVariants({ variant: "default", size: "sm" }))}
+                            className={cn(
+                              buttonVariants({
+                                variant: "default",
+                                size: "sm",
+                              }),
+                            )}
                           >
                             Open report
                           </Link>
@@ -260,7 +313,8 @@ export default function ModerationReportsPage() {
                 {!reportsQuery.isPending && !queryError && nextCursor ? (
                   <div className="pt-2 text-center">
                     <p className="mb-2 text-xs text-muted-foreground">
-                      More reports available. Adjust filters or load the next page.
+                      More reports available. Adjust filters or load the next
+                      page.
                     </p>
                   </div>
                 ) : null}

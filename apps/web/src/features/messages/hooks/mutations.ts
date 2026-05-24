@@ -8,6 +8,8 @@ import type {
   MessagingThreadSummary,
 } from "@freediving.ph/types";
 
+import { trackProductEvent } from "@/lib/analytics/product-events";
+
 import { messagesApi } from "../api/messages";
 import { messageQueryKeys } from "./queries";
 
@@ -91,6 +93,7 @@ export const useSendThreadMessage = (actorId?: string) => {
     },
     onSuccess: (data: MessagingSendMessageResponse, _variables, context) => {
       if (!context) return;
+      trackProductEvent("message_sent");
       queryClient.setQueryData(
         context.key,
         (
@@ -140,7 +143,9 @@ export const useSendThreadMessage = (actorId?: string) => {
       );
 
       queryClient.invalidateQueries({ queryKey: messageQueryKeys.threads() });
-      queryClient.invalidateQueries({ queryKey: messageQueryKeys.unreadCount() });
+      queryClient.invalidateQueries({
+        queryKey: messageQueryKeys.unreadCount(),
+      });
     },
   });
 };
@@ -189,7 +194,9 @@ export const useMarkThreadRead = () => {
           };
         },
       );
-      queryClient.invalidateQueries({ queryKey: messageQueryKeys.unreadCount() });
+      queryClient.invalidateQueries({
+        queryKey: messageQueryKeys.unreadCount(),
+      });
     },
   });
 };
@@ -204,7 +211,9 @@ export const useUpdateThreadCategory = () => {
       messagesApi.updateThreadCategory(threadId, { category }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: messageQueryKeys.threads() });
-      queryClient.invalidateQueries({ queryKey: messageQueryKeys.unreadCount() });
+      queryClient.invalidateQueries({
+        queryKey: messageQueryKeys.unreadCount(),
+      });
     },
   });
 };

@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { trackProductEvent } from "@/lib/analytics/product-events";
 import {
   Select,
   SelectContent,
@@ -111,6 +112,7 @@ export default function ExploreSubmitPage() {
       return response.submission;
     },
     onSuccess: (submission) => {
+      trackProductEvent("dive_spot_submitted");
       setSubmittedId(submission.id);
       form.reset(initialValues);
     },

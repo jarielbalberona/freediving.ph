@@ -15,6 +15,8 @@ import { getApiErrorMessage } from "@/lib/http/api-error";
 import { cn } from "@/lib/utils";
 
 const ADMIN_NAV = [
+  { href: "/admin", label: "Overview" },
+  { href: "/moderation", label: "Moderation" },
   { href: "/admin/buddies", label: "Buddies" },
   { href: "/admin/dive-sites", label: "Dive Sites" },
   { href: "/admin/groups", label: "Groups" },

@@ -6,6 +6,8 @@ import type {
 } from "@freediving.ph/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { trackProductEvent } from "@/lib/analytics/product-events";
+
 import { instructorsApi } from "../api/instructors";
 import { instructorQueryKeys } from "./queries";
 
@@ -24,8 +26,10 @@ export function useSubmitInstructorProfile() {
   return useMutation({
     mutationFn: (data: InstructorSubmitPayload) =>
       instructorsApi.submitMe(data),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: instructorQueryKeys.me() }),
+    onSuccess: () => {
+      trackProductEvent("instructor_application_submitted");
+      queryClient.invalidateQueries({ queryKey: instructorQueryKeys.me() });
+    },
   });
 }
 

@@ -6,6 +6,7 @@ import {
   updateChikaThreadCommentCountDelta,
 } from "@/features/chika/lib/cache-updaters";
 import { queryKeys } from "@/lib/query/query-keys";
+import { trackProductEvent } from "@/lib/analytics/product-events";
 import { threadsApi } from "../api/threads";
 import type { CreateThreadPayload } from "../api/threads";
 import type { ThreadReactionType } from "../api/threads";
@@ -17,6 +18,7 @@ export const useCreateThread = () => {
   return useMutation({
     mutationFn: (data: CreateThreadPayload) => threadsApi.create(data),
     onSuccess: () => {
+      trackProductEvent("chika_thread_created");
       queryClient.invalidateQueries({ queryKey: queryKeys.chika.threads() });
     },
   });

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { groupsApi } from "../api/groups";
 import { queryKeys } from "@/lib/query/query-keys";
+import { trackProductEvent } from "@/lib/analytics/product-events";
 import type {
   CreateGroupRequest,
   UpdateGroupRequest,
@@ -48,6 +49,7 @@ export const useJoinGroup = () => {
   return useMutation({
     mutationFn: (data: JoinGroupRequest) => groupsApi.joinGroup(data),
     onSuccess: (_response, variables) => {
+      trackProductEvent("group_joined");
       queryClient.invalidateQueries({
         queryKey: queryKeys.groups.detail(variables.groupId),
       });

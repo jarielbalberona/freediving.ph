@@ -66,7 +66,7 @@ func RolePermissions(role string) map[Permission]bool {
 	}
 
 	switch role {
-	case "member":
+	case "member", "trusted_member":
 		permissions[PermissionMessagingWrite] = true
 		permissions[PermissionChikaWrite] = true
 		permissions[PermissionExploreSubmit] = true
@@ -76,6 +76,14 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionReportsWrite] = true
 		permissions[PermissionMediaRead] = true
 		permissions[PermissionMediaWrite] = true
+		permissions[PermissionNotificationsWrite] = true
+	case "support":
+		permissions[PermissionProfilesWrite] = true
+		permissions[PermissionReportsWrite] = true
+		permissions[PermissionUsersRead] = true
+		permissions[PermissionReportsRead] = true
+		permissions[PermissionModerationRead] = true
+		permissions[PermissionMediaRead] = true
 		permissions[PermissionNotificationsWrite] = true
 	case "moderator":
 		permissions[PermissionMessagingWrite] = true
@@ -93,6 +101,29 @@ func RolePermissions(role string) map[Permission]bool {
 		permissions[PermissionReportsModerate] = true
 		permissions[PermissionModerationRead] = true
 		permissions[PermissionModerationWrite] = true
+		permissions[PermissionMediaRead] = true
+		permissions[PermissionMediaWrite] = true
+		permissions[PermissionNotificationsWrite] = true
+	case "explore_curator":
+		permissions[PermissionMessagingWrite] = true
+		permissions[PermissionChikaWrite] = true
+		permissions[PermissionExploreSubmit] = true
+		permissions[PermissionExploreModerate] = true
+		permissions[PermissionProfilesWrite] = true
+		permissions[PermissionBlocksWrite] = true
+		permissions[PermissionBuddiesWrite] = true
+		permissions[PermissionReportsWrite] = true
+		permissions[PermissionMediaRead] = true
+		permissions[PermissionMediaWrite] = true
+		permissions[PermissionNotificationsWrite] = true
+	case "records_verifier":
+		permissions[PermissionMessagingWrite] = true
+		permissions[PermissionChikaWrite] = true
+		permissions[PermissionExploreSubmit] = true
+		permissions[PermissionProfilesWrite] = true
+		permissions[PermissionBlocksWrite] = true
+		permissions[PermissionBuddiesWrite] = true
+		permissions[PermissionReportsWrite] = true
 		permissions[PermissionMediaRead] = true
 		permissions[PermissionMediaWrite] = true
 		permissions[PermissionNotificationsWrite] = true

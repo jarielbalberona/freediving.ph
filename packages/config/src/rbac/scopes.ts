@@ -6,11 +6,14 @@ import {
   hasMinimumEventRole,
   type EventRole,
   type GlobalRole,
-  type GroupRole
+  type GroupRole,
 } from "./roles";
 
-export const canGroupManage = (globalRole: GlobalRole, groupRole?: GroupRole | null): boolean => {
-  if (hasMinimumGlobalRole(globalRole, "moderator")) {
+export const canGroupManage = (
+  globalRole: GlobalRole,
+  groupRole?: GroupRole | null,
+): boolean => {
+  if (hasMinimumGlobalRole(globalRole, "admin")) {
     return true;
   }
 
@@ -38,14 +41,17 @@ export interface ScopedPermissionContext {
 
 export const resolveScopedPermission = (
   permission: PermissionFlag,
-  context: ScopedPermissionContext
+  context: ScopedPermissionContext,
 ): boolean => {
   const fromRole = ROLE_CONFIGS[context.globalRole][permission];
   const fromOverride = context.overrides?.[permission];
-  const baseAllowed = typeof fromOverride === "boolean" ? fromOverride : fromRole;
 
-  if (!baseAllowed) {
+  if (fromOverride === false) {
     return false;
+  }
+
+  if (fromOverride === true || fromRole) {
+    return true;
   }
 
   if (permission === "groups.manage") {
@@ -53,8 +59,8 @@ export const resolveScopedPermission = (
   }
 
   if (permission === "events.manage") {
-    return canEventManage(context.eventRole) || hasMinimumGlobalRole(context.globalRole, "moderator");
+    return canEventManage(context.eventRole);
   }
 
-  return true;
+  return false;
 };

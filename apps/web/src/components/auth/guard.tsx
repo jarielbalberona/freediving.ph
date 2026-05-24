@@ -30,7 +30,14 @@ type PermissionGuardProps = GuardProps & {
 const mapGlobalRoleToAppRole = (role: GlobalRole | undefined): AppRole => {
   if (!role) return "GUEST";
   if (role === "admin" || role === "super_admin") return "ADMIN";
-  if (role === "moderator") return "MODERATOR";
+  if (
+    role === "moderator" ||
+    role === "support" ||
+    role === "explore_curator" ||
+    role === "records_verifier"
+  ) {
+    return "MODERATOR";
+  }
   return "MEMBER";
 };
 

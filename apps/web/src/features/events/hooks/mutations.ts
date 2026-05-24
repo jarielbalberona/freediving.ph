@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "../api/events";
+import { trackProductEvent } from "@/lib/analytics/product-events";
 import { queryKeys } from "@/lib/query/query-keys";
 import type {
   CreateEventCompetitionRequest,
@@ -100,7 +101,10 @@ export const useUpdateEventJoinFormFields = () => {
     }) => eventsApi.updateJoinFormFields(eventId, data),
     onSuccess: (_response, variables) => {
       queryClient.invalidateQueries({
-        queryKey: [...queryKeys.events.detail(variables.eventId), "join-form-fields"],
+        queryKey: [
+          ...queryKeys.events.detail(variables.eventId),
+          "join-form-fields",
+        ],
       });
     },
   });
@@ -237,6 +241,7 @@ export const useJoinEvent = () => {
   return useMutation({
     mutationFn: (data: JoinEventRequest) => eventsApi.joinEvent(data),
     onSuccess: (_response, variables) => {
+      trackProductEvent("event_joined");
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.participants(variables.eventId),
       });
@@ -279,6 +284,7 @@ export const useMarkEventInterested = () => {
     mutationFn: ({ eventId }: { eventId: string }) =>
       eventsApi.markEventInterested(eventId),
     onSuccess: (event, variables) => {
+      trackProductEvent("event_interested");
       queryClient.setQueryData(queryKeys.events.detail(event.slug), event);
       queryClient.invalidateQueries({
         queryKey: queryKeys.events.detail(variables.eventId),

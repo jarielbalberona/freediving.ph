@@ -25,6 +25,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
+import { trackProductEvent } from "@/lib/analytics/product-events";
 import { cn } from "@/lib/utils";
 import { queryKeys } from "@/lib/query/query-keys";
 import { MapProvider } from "@/providers/map-provider";
@@ -176,6 +177,9 @@ export function ExploreLayout() {
       return { previousExploreLists, previousExploreSites, previousHomeFeed };
     },
     onSuccess: (result) => {
+      if (result.isSaved) {
+        trackProductEvent("dive_spot_saved");
+      }
       updateDiveSiteInCaches(queryClient, result.siteId, {
         isSaved: result.isSaved,
       });

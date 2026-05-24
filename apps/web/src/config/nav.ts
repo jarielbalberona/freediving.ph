@@ -211,9 +211,8 @@ export const NAV_ITEMS: NavItem[] = [
     kind: "link",
     href: "/media",
     icon: Image,
-    isProtected: false,
-    group: "resources",
-    comingSoon: true,
+    isProtected: true,
+    group: "core",
   },
   {
     id: "manage-schools",
@@ -309,6 +308,7 @@ const MOBILE_SIDEBAR_ORDER: string[] = [
   "groups",
   "events",
   "schools",
+  "media",
   "manage-schools",
   "instructor-application",
 ];

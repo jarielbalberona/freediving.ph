@@ -7,7 +7,7 @@ import {
 } from "@/config/nav";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { useAuth } from "@clerk/nextjs";
-import { BadgeCheck, Info, Map, Shield, UsersRound } from "lucide-react";
+import { BadgeCheck, Flag, Info, Map, Shield, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -37,11 +37,18 @@ const formatBadgeCount = (count: number) =>
   count > 99 ? "99+" : String(count);
 
 const adminLinks = [
+  { href: "/admin", title: "Admin", icon: Shield },
   { href: "/admin/buddies", title: "Buddies", icon: UsersRound },
   { href: "/admin/dive-sites", title: "Dive Sites", icon: Map },
   { href: "/admin/groups", title: "Groups", icon: Shield },
   { href: "/admin/instructors", title: "Instructors", icon: BadgeCheck },
 ];
+
+const moderationLink = {
+  href: "/moderation",
+  title: "Moderation",
+  icon: Flag,
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
@@ -63,6 +70,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const profileHref = useCurrentProfileHref();
   const session = useSession();
   const canViewAdmin = session.hasRole("super_admin");
+  const canViewModeration =
+    session.hasPermission("reports.read") ||
+    session.hasPermission("explore.moderate") ||
+    session.hasPermission("moderation.write");
   const messageUnreadQuery = useMessageUnreadCount(Boolean(effectiveSignedIn));
   const messageUnreadCount = messageUnreadQuery.data?.unreadCount ?? 0;
   const founderNoteActive = isActiveRoute(pathname ?? "", "/founder-note");
@@ -156,7 +167,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           {canViewAdmin
             ? adminLinks.map((item) => {
-                const active = isActiveRoute(pathname ?? "", item.href);
+                const active =
+                  item.href === "/admin"
+                    ? pathname === "/admin"
+                    : isActiveRoute(pathname ?? "", item.href);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <Link
@@ -175,6 +189,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 );
               })
             : null}
+          {!canViewAdmin && canViewModeration ? (
+            <SidebarMenuItem>
+              <Link
+                href={moderationLink.href}
+                className="flex items-center gap-2 w-full"
+              >
+                <SidebarMenuButton
+                  className="cursor-pointer!"
+                  isActive={isActiveRoute(pathname ?? "", moderationLink.href)}
+                >
+                  <moderationLink.icon />
+                  <span className="text-sm">{moderationLink.title}</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          ) : null}
           <SidebarMenuItem>
             <Link
               href="/founder-note"

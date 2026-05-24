@@ -1,4 +1,5 @@
 import { queryKeys } from "@/lib/query/query-keys";
+import { trackProductEvent } from "@/lib/analytics/product-events";
 import type {
   CreateCourseBookingRequest,
   CreateCoursePaymentMethodRequest,
@@ -197,6 +198,7 @@ export const useCreateStudentBooking = (slug: string, courseSlug: string) => {
     mutationFn: (data: CreateStudentCourseBookingRequest) =>
       schoolsApi.createStudentBooking(slug, courseSlug, data),
     onSuccess: () => {
+      trackProductEvent("course_booked");
       queryClient.invalidateQueries({
         queryKey: queryKeys.schools.myBookings(),
       });

@@ -33,6 +33,7 @@ import {
   useUnsuspendUser,
   useUpdateReportStatus,
 } from "@/features/reports";
+import { useSession } from "@/features/auth/session";
 import { getApiError } from "@/lib/http/api-error";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +55,10 @@ interface ActionDef {
   group: "user" | "content";
 }
 
-const STATUS_OPTIONS: Array<{ value: Exclude<ReportStatus, "open">; label: string }> = [
+const STATUS_OPTIONS: Array<{
+  value: Exclude<ReportStatus, "open">;
+  label: string;
+}> = [
   { value: "reviewing", label: "Reviewing" },
   { value: "resolved", label: "Resolved" },
   { value: "rejected", label: "Rejected" },
@@ -92,6 +96,7 @@ export default function ReportDetailPage({
 }) {
   const { reportId } = use(params);
   const reportDetailQuery = useReportDetail(reportId);
+  const session = useSession();
 
   const updateStatusMutation = useUpdateReportStatus();
   const suspendUserMutation = useSuspendUser();
@@ -103,7 +108,8 @@ export default function ReportDetailPage({
   const hideCommentMutation = useHideComment();
   const unhideCommentMutation = useUnhideComment();
 
-  const [nextStatus, setNextStatus] = useState<Exclude<ReportStatus, "open">>("reviewing");
+  const [nextStatus, setNextStatus] =
+    useState<Exclude<ReportStatus, "open">>("reviewing");
   const [statusNote, setStatusNote] = useState("");
   const [confirmStatusUpdate, setConfirmStatusUpdate] = useState(false);
 
@@ -112,8 +118,12 @@ export default function ReportDetailPage({
 
   const report = reportDetailQuery.data?.report;
   const events = reportDetailQuery.data?.events ?? [];
-  const reportDetailError = reportDetailQuery.error ? getApiError(reportDetailQuery.error) : null;
-  const statusError = updateStatusMutation.error ? getApiError(updateStatusMutation.error) : null;
+  const reportDetailError = reportDetailQuery.error
+    ? getApiError(reportDetailQuery.error)
+    : null;
+  const statusError = updateStatusMutation.error
+    ? getApiError(updateStatusMutation.error)
+    : null;
 
   const allActionMutations = useMemo(
     () => ({
@@ -138,7 +148,9 @@ export default function ReportDetailPage({
     ],
   );
 
-  const currentActionMutation = selectedAction ? allActionMutations[selectedAction] : null;
+  const currentActionMutation = selectedAction
+    ? allActionMutations[selectedAction]
+    : null;
   const currentActionError = currentActionMutation?.error
     ? getApiError(currentActionMutation.error)
     : null;
@@ -152,7 +164,10 @@ export default function ReportDetailPage({
       action === "clear_read_only";
 
     if (isUserAction) {
-      return report.targetAppUserId || (report.targetType === "user" ? report.targetId : null);
+      return (
+        report.targetAppUserId ||
+        (report.targetType === "user" ? report.targetId : null)
+      );
     }
     if (action === "hide_thread" || action === "unhide_thread") {
       return report.targetType === "chika_thread" ? report.targetId : null;
@@ -207,27 +222,77 @@ export default function ReportDetailPage({
 
   const hasUserTarget =
     report?.targetType === "user" || Boolean(report?.targetAppUserId);
+  const canModerateReports = session.hasPermission("reports.moderate");
+  const canWriteModeration = session.hasPermission("moderation.write");
 
   const availableActions: ActionDef[] = [];
 
-  if (hasUserTarget) {
+  if (canWriteModeration && hasUserTarget) {
     availableActions.push(
-      { key: "suspend", label: "Suspend user", description: "Set user account to suspended.", variant: "destructive", group: "user" },
-      { key: "unsuspend", label: "Unsuspend user", description: "Restore user account from suspension.", variant: "outline", group: "user" },
-      { key: "set_read_only", label: "Set read-only", description: "Prevent user write actions.", variant: "destructive", group: "user" },
-      { key: "clear_read_only", label: "Clear read-only", description: "Restore full write access.", variant: "outline", group: "user" },
+      {
+        key: "suspend",
+        label: "Suspend user",
+        description: "Set user account to suspended.",
+        variant: "destructive",
+        group: "user",
+      },
+      {
+        key: "unsuspend",
+        label: "Unsuspend user",
+        description: "Restore user account from suspension.",
+        variant: "outline",
+        group: "user",
+      },
+      {
+        key: "set_read_only",
+        label: "Set read-only",
+        description: "Prevent user write actions.",
+        variant: "destructive",
+        group: "user",
+      },
+      {
+        key: "clear_read_only",
+        label: "Clear read-only",
+        description: "Restore full write access.",
+        variant: "outline",
+        group: "user",
+      },
     );
   }
-  if (report?.targetType === "chika_thread") {
+  if (canWriteModeration && report?.targetType === "chika_thread") {
     availableActions.push(
-      { key: "hide_thread", label: "Hide thread", description: "Hide this chika thread from public view.", variant: "destructive", group: "content" },
-      { key: "unhide_thread", label: "Unhide thread", description: "Restore this chika thread to public view.", variant: "outline", group: "content" },
+      {
+        key: "hide_thread",
+        label: "Hide thread",
+        description: "Hide this chika thread from public view.",
+        variant: "destructive",
+        group: "content",
+      },
+      {
+        key: "unhide_thread",
+        label: "Unhide thread",
+        description: "Restore this chika thread to public view.",
+        variant: "outline",
+        group: "content",
+      },
     );
   }
-  if (report?.targetType === "chika_comment") {
+  if (canWriteModeration && report?.targetType === "chika_comment") {
     availableActions.push(
-      { key: "hide_comment", label: "Hide comment", description: "Hide this chika comment from public view.", variant: "destructive", group: "content" },
-      { key: "unhide_comment", label: "Unhide comment", description: "Restore this chika comment to public view.", variant: "outline", group: "content" },
+      {
+        key: "hide_comment",
+        label: "Hide comment",
+        description: "Hide this chika comment from public view.",
+        variant: "destructive",
+        group: "content",
+      },
+      {
+        key: "unhide_comment",
+        label: "Unhide comment",
+        description: "Restore this chika comment to public view.",
+        variant: "outline",
+        group: "content",
+      },
     );
   }
 
@@ -241,13 +306,16 @@ export default function ReportDetailPage({
       description="Only moderators can access triage reports."
     >
       <RequirePermission
-        perm="reports.review"
-        title="Missing reports.review permission"
+        perm="reports.read"
+        title="Missing reports.read permission"
         description="Your account does not have access to moderation triage."
       >
         <div className="container mx-auto p-6">
           <div className="mb-4">
-            <Link href="/moderation/reports" className={cn(buttonVariants({ variant: "outline" }))}>
+            <Link
+              href="/moderation/reports"
+              className={cn(buttonVariants({ variant: "outline" }))}
+            >
               Back to reports
             </Link>
           </div>
@@ -272,7 +340,9 @@ export default function ReportDetailPage({
           {!reportDetailQuery.isPending && !reportDetailError && !report ? (
             <Alert>
               <AlertTitle>Report not found</AlertTitle>
-              <AlertDescription>No report data was returned for this id.</AlertDescription>
+              <AlertDescription>
+                No report data was returned for this id.
+              </AlertDescription>
             </Alert>
           ) : null}
 
@@ -295,7 +365,9 @@ export default function ReportDetailPage({
                   {report.targetAppUserId ? (
                     <p>
                       <span className="font-medium">Target user:</span>{" "}
-                      <span className="font-mono">{report.targetAppUserId}</span>
+                      <span className="font-mono">
+                        {report.targetAppUserId}
+                      </span>
                     </p>
                   ) : null}
                   <p>
@@ -303,11 +375,13 @@ export default function ReportDetailPage({
                     <span className="font-mono">{report.reporterUserId}</span>
                   </p>
                   <p>
-                    <span className="font-medium">Reason:</span> {report.reasonCode}
+                    <span className="font-medium">Reason:</span>{" "}
+                    {report.reasonCode}
                   </p>
                   {report.details ? (
                     <p>
-                      <span className="font-medium">Details:</span> {report.details}
+                      <span className="font-medium">Details:</span>{" "}
+                      {report.details}
                     </p>
                   ) : null}
                   {report.evidenceUrls && report.evidenceUrls.length > 0 ? (
@@ -315,108 +389,148 @@ export default function ReportDetailPage({
                       <span className="font-medium">Evidence:</span>
                       <ul className="ml-4 mt-1 list-disc text-muted-foreground">
                         {report.evidenceUrls.map((url) => (
-                          <li key={url} className="break-all">{url}</li>
+                          <li key={url} className="break-all">
+                            {url}
+                          </li>
                         ))}
                       </ul>
                     </div>
                   ) : null}
                   <p>
-                    <span className="font-medium">Created:</span> {formatDateTime(report.createdAt)}
+                    <span className="font-medium">Created:</span>{" "}
+                    {formatDateTime(report.createdAt)}
                   </p>
                   <p>
-                    <span className="font-medium">Updated:</span> {formatDateTime(report.updatedAt)}
+                    <span className="font-medium">Updated:</span>{" "}
+                    {formatDateTime(report.updatedAt)}
                   </p>
                 </CardContent>
               </Card>
 
-              {/* Status update */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Report status</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="next-status">Next status</Label>
-                    <Select
-                      value={nextStatus}
-                      onValueChange={(v) => setNextStatus(v as Exclude<ReportStatus, "open">)}
-                      items={STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                    >
-                      <SelectTrigger id="next-status" className="w-full md:w-72">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {STATUS_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
+              {canModerateReports ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Report status</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="next-status">Next status</Label>
+                      <Select
+                        value={nextStatus}
+                        onValueChange={(v) =>
+                          setNextStatus(v as Exclude<ReportStatus, "open">)
+                        }
+                        items={STATUS_OPTIONS.map((o) => ({
+                          value: o.value,
+                          label: o.label,
+                        }))}
+                      >
+                        <SelectTrigger
+                          id="next-status"
+                          className="w-full md:w-72"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {STATUS_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="status-note">Audit note (optional)</Label>
+                      <Textarea
+                        id="status-note"
+                        placeholder="Why are you changing this status?"
+                        value={statusNote}
+                        onChange={(event) => setStatusNote(event.target.value)}
+                      />
+                    </div>
+                    {statusError ? (
+                      <Alert variant="destructive">
+                        <AlertTitle>Status update failed</AlertTitle>
+                        <AlertDescription>
+                          <div>
+                            [{statusError.code}] {statusError.message}
+                          </div>
+                          {toIssueText(statusError.issues).map((issueText) => (
+                            <div key={issueText}>{issueText}</div>
                           ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status-note">Audit note (optional)</Label>
-                    <Textarea
-                      id="status-note"
-                      placeholder="Why are you changing this status?"
-                      value={statusNote}
-                      onChange={(event) => setStatusNote(event.target.value)}
-                    />
-                  </div>
-                  {statusError ? (
-                    <Alert variant="destructive">
-                      <AlertTitle>Status update failed</AlertTitle>
-                      <AlertDescription>
-                        <div>
-                          [{statusError.code}] {statusError.message}
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
+                    {confirmStatusUpdate ? (
+                      <WarningBox>
+                        Confirm updating status to{" "}
+                        <span className="font-medium">{nextStatus}</span>.
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            onClick={handleUpdateStatus}
+                            disabled={updateStatusMutation.isPending}
+                          >
+                            {updateStatusMutation.isPending
+                              ? "Updating..."
+                              : "Confirm update"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setConfirmStatusUpdate(false)}
+                            disabled={updateStatusMutation.isPending}
+                          >
+                            Cancel
+                          </Button>
                         </div>
-                        {toIssueText(statusError.issues).map((issueText) => (
-                          <div key={issueText}>{issueText}</div>
-                        ))}
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                  {confirmStatusUpdate ? (
-                    <WarningBox>
-                      Confirm updating status to <span className="font-medium">{nextStatus}</span>.
-                      <div className="mt-3 flex gap-2">
-                        <Button onClick={handleUpdateStatus} disabled={updateStatusMutation.isPending}>
-                          {updateStatusMutation.isPending ? "Updating..." : "Confirm update"}
-                        </Button>
-                        <Button variant="outline" onClick={() => setConfirmStatusUpdate(false)} disabled={updateStatusMutation.isPending}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </WarningBox>
-                  ) : (
-                    <Button onClick={() => setConfirmStatusUpdate(true)} disabled={updateStatusMutation.isPending}>
-                      Update report status
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
+                      </WarningBox>
+                    ) : (
+                      <Button
+                        onClick={() => setConfirmStatusUpdate(true)}
+                        disabled={updateStatusMutation.isPending}
+                      >
+                        Update report status
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : null}
 
-              {/* Moderation actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Moderation actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {availableActions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No moderation actions for this target type.</p>
-                  ) : null}
+              {canWriteModeration ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Moderation actions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {availableActions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No moderation actions for this target type.
+                      </p>
+                    ) : null}
 
                   {contentActions.length > 0 ? (
                     <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Content</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Content
+                      </p>
                       <div className="grid gap-2 md:grid-cols-2">
                         {contentActions.map((action) => (
                           <Button
                             key={action.key}
-                            variant={selectedAction === action.key ? "default" : action.variant}
-                            onClick={() => { setSelectedAction(action.key); setActionReason(""); }}
+                            variant={
+                              selectedAction === action.key
+                                ? "default"
+                                : action.variant
+                            }
+                            onClick={() => {
+                              setSelectedAction(action.key);
+                              setActionReason("");
+                            }}
                           >
                             {action.label}
                           </Button>
@@ -427,13 +541,22 @@ export default function ReportDetailPage({
 
                   {userActions.length > 0 ? (
                     <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">User account</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        User account
+                      </p>
                       <div className="grid gap-2 md:grid-cols-2">
                         {userActions.map((action) => (
                           <Button
                             key={action.key}
-                            variant={selectedAction === action.key ? "default" : action.variant}
-                            onClick={() => { setSelectedAction(action.key); setActionReason(""); }}
+                            variant={
+                              selectedAction === action.key
+                                ? "default"
+                                : action.variant
+                            }
+                            onClick={() => {
+                              setSelectedAction(action.key);
+                              setActionReason("");
+                            }}
                           >
                             {action.label}
                           </Button>
@@ -445,7 +568,11 @@ export default function ReportDetailPage({
                   {selectedAction ? (
                     <div className="space-y-3 rounded-md border p-3">
                       <p className="text-sm text-muted-foreground">
-                        {availableActions.find((action) => action.key === selectedAction)?.description}
+                        {
+                          availableActions.find(
+                            (action) => action.key === selectedAction,
+                          )?.description
+                        }
                       </p>
                       <div className="space-y-2">
                         <Label htmlFor="action-reason">Reason (required)</Label>
@@ -453,7 +580,9 @@ export default function ReportDetailPage({
                           id="action-reason"
                           placeholder="State the moderation reason for audit trail."
                           value={actionReason}
-                          onChange={(event) => setActionReason(event.target.value)}
+                          onChange={(event) =>
+                            setActionReason(event.target.value)
+                          }
                         />
                       </div>
 
@@ -462,25 +591,34 @@ export default function ReportDetailPage({
                           <AlertTitle>Action failed</AlertTitle>
                           <AlertDescription>
                             <div>
-                              [{currentActionError.code}] {currentActionError.message}
+                              [{currentActionError.code}]{" "}
+                              {currentActionError.message}
                             </div>
-                            {toIssueText(currentActionError.issues).map((issueText) => (
-                              <div key={issueText}>{issueText}</div>
-                            ))}
+                            {toIssueText(currentActionError.issues).map(
+                              (issueText) => (
+                                <div key={issueText}>{issueText}</div>
+                              ),
+                            )}
                           </AlertDescription>
                         </Alert>
                       ) : null}
 
                       <WarningBox>
-                        This action is destructive or access-altering. Confirm before sending.
+                        This action is destructive or access-altering. Confirm
+                        before sending.
                       </WarningBox>
 
                       <div className="flex gap-2">
                         <Button
                           onClick={handleConfirmAction}
-                          disabled={!actionReason.trim() || Boolean(currentActionMutation?.isPending)}
+                          disabled={
+                            !actionReason.trim() ||
+                            Boolean(currentActionMutation?.isPending)
+                          }
                         >
-                          {currentActionMutation?.isPending ? "Applying..." : "Confirm action"}
+                          {currentActionMutation?.isPending
+                            ? "Applying..."
+                            : "Confirm action"}
                         </Button>
                         <Button
                           variant="outline"
@@ -495,8 +633,9 @@ export default function ReportDetailPage({
                       </div>
                     </div>
                   ) : null}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ) : null}
 
               {/* Audit events */}
               <Card>
@@ -508,26 +647,35 @@ export default function ReportDetailPage({
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {events.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No events recorded yet.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No events recorded yet.
+                    </p>
                   ) : (
                     events.map((eventItem) => (
                       <div key={eventItem.id} className="rounded-md border p-3">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">{eventItem.eventType}</Badge>
-                          <span className="text-sm text-muted-foreground">{formatDateTime(eventItem.createdAt)}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {formatDateTime(eventItem.createdAt)}
+                          </span>
                         </div>
                         <p className="mt-2 text-sm">
                           <span className="font-medium">Actor:</span>{" "}
-                          <span className="font-mono">{eventItem.actorUserId}</span>
+                          <span className="font-mono">
+                            {eventItem.actorUserId}
+                          </span>
                         </p>
                         {eventItem.fromStatus || eventItem.toStatus ? (
                           <p className="text-sm">
-                            <span className="font-medium">Status:</span> {eventItem.fromStatus || "–"} → {eventItem.toStatus || "–"}
+                            <span className="font-medium">Status:</span>{" "}
+                            {eventItem.fromStatus || "–"} →{" "}
+                            {eventItem.toStatus || "–"}
                           </p>
                         ) : null}
                         {eventItem.note ? (
                           <p className="text-sm">
-                            <span className="font-medium">Note:</span> {eventItem.note}
+                            <span className="font-medium">Note:</span>{" "}
+                            {eventItem.note}
                           </p>
                         ) : null}
                       </div>
@@ -545,10 +693,13 @@ export default function ReportDetailPage({
 
 function ReportStatusBadge({ status }: { status: string }) {
   const variant =
-    status === "open" ? "default" :
-    status === "reviewing" ? "secondary" :
-    status === "resolved" ? "outline" :
-    "destructive";
+    status === "open"
+      ? "default"
+      : status === "reviewing"
+        ? "secondary"
+        : status === "resolved"
+          ? "outline"
+          : "destructive";
 
   return <Badge variant={variant}>{status}</Badge>;
 }

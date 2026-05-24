@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { trackProductEvent } from "@/lib/analytics/product-events";
 import { queryKeys } from "@/lib/query/query-keys";
 
 import { profilesApi } from "../api/profiles";
@@ -13,6 +14,12 @@ export const useUpdateMyProfile = () => {
     mutationFn: (payload: UpdateMyProfileRequest) =>
       profilesApi.updateMyProfile(payload),
     onSuccess: (response) => {
+      if (
+        response.profile.displayName?.trim() &&
+        (response.profile.bio?.trim() || response.profile.avatarUrl)
+      ) {
+        trackProductEvent("profile_completed");
+      }
       updateProfileInCaches(queryClient, response);
     },
   });

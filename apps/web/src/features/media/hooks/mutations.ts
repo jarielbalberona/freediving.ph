@@ -4,6 +4,7 @@ import type {
 } from "@freediving.ph/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { trackProductEvent } from "@/lib/analytics/product-events";
 import { queryKeys } from "@/lib/query/query-keys";
 
 import { mediaApi } from "../api/media";
@@ -48,6 +49,7 @@ export const useCreateMediaPost = () => {
     mutationFn: (payload: CreateMediaPostRequest) =>
       mediaApi.createPost(payload),
     onSuccess: () => {
+      trackProductEvent("media_posted");
       queryClient.invalidateQueries({ queryKey: queryKeys.media.mineLists() });
       queryClient.invalidateQueries({
         queryKey: queryKeys.media.profileLists(),
