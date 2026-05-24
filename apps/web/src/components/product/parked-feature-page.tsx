@@ -1,20 +1,5 @@
-import Link from "next/link";
-
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-
-type CoreLink = {
-  href: string;
-  label: string;
-};
-
-const CORE_LINKS: CoreLink[] = [
-  { href: "/explore", label: "Explore dive spots" },
-  { href: "/chika", label: "Read Chika" },
-  { href: "/events", label: "Find events" },
-  { href: "/schools", label: "Browse schools" },
-];
+import { ParkedFeatureLinks } from "./parked-feature-links";
 
 export function ParkedFeaturePage({
   title,
@@ -40,19 +25,7 @@ export function ParkedFeaturePage({
             This area is intentionally closed while Freediving Philippines
             focuses on the community features that are open and useful today.
           </p>
-          <div className="flex flex-wrap gap-2">
-            {CORE_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+          <ParkedFeatureLinks />
         </CardContent>
       </Card>
     </main>
