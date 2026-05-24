@@ -32,7 +32,7 @@ export function FeaturePageTemplate({
           title={feature.title}
           description={feature.summary}
           primary={{ href: feature.appHref, label: feature.appLabel }}
-          secondary={{ href: "/features", label: "See all ways to use FPH" }}
+          secondary={{ href: "/features", label: "See what else you can do" }}
         />
         <AdSlot className="my-2" />
         <section className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">

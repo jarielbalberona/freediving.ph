@@ -25,9 +25,9 @@ export function LocationDiveSpotSection({
               Community dive spots
             </h2>
             <p className="text-sm leading-6 text-muted-foreground">
-              These come from approved public Explore listings when available.
-              Always confirm current conditions with local guidance before
-              diving.
+              When the community has reviewed dive spots for this area, they
+              appear here. Always confirm current conditions with local guidance
+              before diving.
             </p>
             <Link
               href={exploreHref}
@@ -49,9 +49,9 @@ export function LocationDiveSpotSection({
                 No approved dive spots listed here yet
               </h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Explore nearby spots, ask local schools or groups for current
-                guidance, or help the community by contributing places you have
-                safely visited with a trained buddy.
+                Browse Explore for nearby places, ask local schools or groups
+                for current guidance, or help other freedivers by sharing a spot
+                you know well.
               </p>
               <div className="mt-4 flex flex-wrap gap-3 text-sm">
                 <Link

@@ -26,6 +26,11 @@ export type PublicLocationContent = {
   relatedFeatureSlugs: string[];
   nearbyLocationSlugs: PublicLocationSlug[];
   exploreQuery?: {
+    locationSlug: PublicLocationSlug;
+    province?: string;
+    municipality?: string;
+    region?: string;
+    aliases?: string[];
     search: string;
     label: string;
   };
@@ -87,6 +92,7 @@ export const locationPages: PublicLocationContent[] = [
       "moalboal",
     ],
     exploreQuery: {
+      locationSlug: "philippines",
       search: "Philippines",
       label: "Explore dive spots in the Philippines",
     },
@@ -134,6 +140,9 @@ export const locationPages: PublicLocationContent[] = [
     relatedFeatureSlugs: ["dive-spots", "buddy-finder", "groups", "events"],
     nearbyLocationSlugs: ["dauin", "apo-island", "panglao", "cebu"],
     exploreQuery: {
+      locationSlug: "siquijor",
+      province: "Siquijor",
+      aliases: ["Siquijor"],
       search: "Siquijor",
       label: "Explore Siquijor dive spots",
     },
@@ -186,6 +195,9 @@ export const locationPages: PublicLocationContent[] = [
     ],
     nearbyLocationSlugs: ["philippines"],
     exploreQuery: {
+      locationSlug: "batangas",
+      province: "Batangas",
+      aliases: ["Batangas", "Anilao", "Mabini"],
       search: "Batangas",
       label: "Explore Batangas dive spots",
     },
@@ -233,6 +245,9 @@ export const locationPages: PublicLocationContent[] = [
     relatedFeatureSlugs: ["dive-spots", "groups", "events", "schools-and-courses"],
     nearbyLocationSlugs: ["moalboal", "panglao", "siquijor", "apo-island"],
     exploreQuery: {
+      locationSlug: "cebu",
+      province: "Cebu",
+      aliases: ["Cebu"],
       search: "Cebu",
       label: "Explore Cebu dive spots",
     },
@@ -285,6 +300,10 @@ export const locationPages: PublicLocationContent[] = [
     ],
     nearbyLocationSlugs: ["apo-island", "siquijor", "cebu", "panglao"],
     exploreQuery: {
+      locationSlug: "dauin",
+      province: "Negros Oriental",
+      municipality: "Dauin",
+      aliases: ["Dauin"],
       search: "Dauin",
       label: "Explore Dauin dive spots",
     },
@@ -332,6 +351,9 @@ export const locationPages: PublicLocationContent[] = [
     relatedFeatureSlugs: ["dive-spots", "events", "buddy-finder", "groups"],
     nearbyLocationSlugs: ["dauin", "siquijor", "panglao", "cebu"],
     exploreQuery: {
+      locationSlug: "apo-island",
+      province: "Negros Oriental",
+      aliases: ["Apo Island", "Apo Island Marine Sanctuary"],
       search: "Apo Island",
       label: "Explore Apo Island dive spots",
     },
@@ -384,6 +406,10 @@ export const locationPages: PublicLocationContent[] = [
     ],
     nearbyLocationSlugs: ["siquijor", "cebu", "apo-island", "dauin"],
     exploreQuery: {
+      locationSlug: "panglao",
+      province: "Bohol",
+      municipality: "Panglao",
+      aliases: ["Panglao"],
       search: "Panglao",
       label: "Explore Panglao dive spots",
     },
@@ -431,6 +457,10 @@ export const locationPages: PublicLocationContent[] = [
     relatedFeatureSlugs: ["dive-spots", "groups", "events", "buddy-finder"],
     nearbyLocationSlugs: ["cebu", "panglao", "siquijor", "apo-island"],
     exploreQuery: {
+      locationSlug: "moalboal",
+      province: "Cebu",
+      municipality: "Moalboal",
+      aliases: ["Moalboal"],
       search: "Moalboal",
       label: "Explore Moalboal dive spots",
     },

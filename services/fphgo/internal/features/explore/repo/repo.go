@@ -27,6 +27,10 @@ type ListSitesInput struct {
 	VerifiedOnly    bool
 	SavedOnly       bool
 	Search          string
+	LocationTerms   []string
+	Province        string
+	Municipality    string
+	Region          string
 	Bounds          *MapBounds
 	CursorUpdatedAt time.Time
 	CursorID        string
@@ -423,20 +427,24 @@ func (r *Repo) ListSites(ctx context.Context, input ListSitesInput) ([]SiteCard,
 	}
 
 	rows, err := r.queries.ListSites(ctx, exploreqlc.ListSitesParams{
-		ViewerUserID:     toUUID(input.ViewerUserID),
-		AreaFilter:       input.Area,
-		DifficultyFilter: input.Difficulty,
-		VerifiedOnly:     input.VerifiedOnly,
-		SavedOnly:        input.SavedOnly,
-		SearchText:       input.Search,
-		HasBounds:        hasBounds,
-		North:            north,
-		South:            south,
-		East:             east,
-		West:             west,
-		CursorUpdatedAt:  timestamptz(input.CursorUpdatedAt),
-		CursorID:         toUUID(input.CursorID),
-		LimitRows:        input.Limit,
+		ViewerUserID:       toUUID(input.ViewerUserID),
+		AreaFilter:         input.Area,
+		DifficultyFilter:   input.Difficulty,
+		VerifiedOnly:       input.VerifiedOnly,
+		SavedOnly:          input.SavedOnly,
+		SearchText:         input.Search,
+		LocationTerms:      normalizedLocationTerms(input.LocationTerms),
+		ProvinceFilter:     input.Province,
+		MunicipalityFilter: input.Municipality,
+		RegionFilter:       input.Region,
+		HasBounds:          hasBounds,
+		North:              north,
+		South:              south,
+		East:               east,
+		West:               west,
+		CursorUpdatedAt:    timestamptz(input.CursorUpdatedAt),
+		CursorID:           toUUID(input.CursorID),
+		LimitRows:          input.Limit,
 	})
 	if err != nil {
 		return nil, err
@@ -477,6 +485,19 @@ func (r *Repo) ListSites(ctx context.Context, input ListSitesInput) ([]SiteCard,
 		})
 	}
 	return items, nil
+}
+
+func normalizedLocationTerms(terms []string) []string {
+	if len(terms) == 0 {
+		return []string{}
+	}
+	normalized := make([]string, 0, len(terms))
+	for _, term := range terms {
+		if term != "" {
+			normalized = append(normalized, term)
+		}
+	}
+	return normalized
 }
 
 func (r *Repo) GetSiteBySlug(ctx context.Context, slug, viewerUserID string) (SiteDetail, error) {

@@ -417,6 +417,50 @@ func TestListSitesPassesValidatedBoundsToRepo(t *testing.T) {
 	}
 }
 
+func TestListSitesPassesPublicLocationFiltersToRepo(t *testing.T) {
+	repo := &repoStub{listResult: []explorerepo.SiteCard{{
+		ID:            "550e8400-e29b-41d4-a716-446655440101",
+		LastUpdatedAt: time.Now().UTC(),
+	}}}
+	svc := New(repo)
+
+	_, err := svc.ListSites(context.Background(), ListSitesInput{
+		LocationSlug:    "apo-island",
+		Province:        " Negros   Oriental ",
+		Municipality:    "",
+		LocationAliases: []string{"Apo Island", "Apo Island"},
+		Limit:           6,
+	})
+	if err != nil {
+		t.Fatalf("list sites: %v", err)
+	}
+	if repo.listInput.Province != "Negros Oriental" {
+		t.Fatalf("expected normalized province filter, got %q", repo.listInput.Province)
+	}
+	if len(repo.listInput.LocationTerms) != 2 || repo.listInput.LocationTerms[0] != "Apo Island" || repo.listInput.LocationTerms[1] != "Apo Island Marine Sanctuary" {
+		t.Fatalf("unexpected location terms: %+v", repo.listInput.LocationTerms)
+	}
+}
+
+func TestListSitesRejectsUnknownPublicLocationSlug(t *testing.T) {
+	svc := New(&repoStub{})
+
+	_, err := svc.ListSites(context.Background(), ListSitesInput{
+		LocationSlug: "unknown-island",
+		Limit:        6,
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	failure, ok := err.(ValidationFailure)
+	if !ok {
+		t.Fatalf("expected validation failure, got %T", err)
+	}
+	if len(failure.Issues) != 1 || failure.Issues[0].Path[0] != "locationSlug" {
+		t.Fatalf("unexpected issues: %+v", failure.Issues)
+	}
+}
+
 func TestListSitesSavedOnlyRequiresViewer(t *testing.T) {
 	svc := New(&repoStub{})
 

@@ -30,18 +30,18 @@ export const featurePages: FeaturePageContent[] = [
     eyebrow: "Explore",
     href: "/features/dive-spots",
     appHref: "/explore",
-    appLabel: "Open Explore",
+    appLabel: "Explore dive spots",
     summary:
-      "Freediving Philippines helps people discover dive spots, share useful local details, and connect photos or posts back to the places where they were made.",
+      "Freediving Philippines helps people discover dive spots, share useful local details, and keep photos or posts connected to the places where they were made.",
     highlights: [
-      "Browse public dive spots by location and community activity.",
-      "Contribute missing spots for review instead of letting knowledge disappear in chat threads.",
+      "Browse dive spots by location and community activity.",
+      "Share missing spots so useful local knowledge does not disappear in chat threads.",
       "Tag dive spots in media posts so future freedivers can find context faster.",
     ],
     sections: [
       {
         title: "Find local knowledge faster",
-        body: "Dive spot knowledge in the Philippines is often scattered across group chats, captions, and word of mouth. Explore gives the community a clearer place to collect useful details while keeping review and moderation in place.",
+        body: "Dive spot knowledge in the Philippines is often scattered across group chats, captions, and word of mouth. Explore gives the community a clearer place to collect useful details before people rely on them.",
       },
       {
         title: "See what is happening around a place",
@@ -56,7 +56,7 @@ export const featurePages: FeaturePageContent[] = [
       {
         label: "Explore dive spots",
         href: "/explore",
-        description: "Browse the current public dive spot map and listings.",
+        description: "Browse the current dive spot map and listings.",
       },
       {
         label: "Read beginner guides",
@@ -98,7 +98,7 @@ export const featurePages: FeaturePageContent[] = [
     ],
     relatedLinks: [
       {
-        label: "Open Buddy Finder",
+        label: "Find buddies",
         href: "/buddies",
         description: "Look for freedivers and dive plans.",
       },
@@ -144,7 +144,7 @@ export const featurePages: FeaturePageContent[] = [
       {
         label: "Browse events",
         href: "/events",
-        description: "See public events and activities listed today.",
+        description: "See events and community activities listed today.",
       },
       {
         label: "Explore dive spots",
@@ -166,7 +166,7 @@ export const featurePages: FeaturePageContent[] = [
     summary:
       "Groups help local communities, clubs, and shared-interest circles stay discoverable without replacing how they already organize offline.",
     highlights: [
-      "Browse public freediving groups and communities.",
+      "Browse freediving groups and communities.",
       "Connect group activity with events, Chika discussions, and members.",
       "Give local communities a more durable home than one-off announcement posts.",
     ],
@@ -188,7 +188,7 @@ export const featurePages: FeaturePageContent[] = [
       {
         label: "Browse groups",
         href: "/groups",
-        description: "Find public groups and local freediving communities.",
+        description: "Find local freediving groups and communities.",
       },
       {
         label: "Read Chika",
@@ -206,11 +206,11 @@ export const featurePages: FeaturePageContent[] = [
     eyebrow: "Chika",
     href: "/features/chika",
     appHref: "/chika",
-    appLabel: "Open Chika",
+    appLabel: "Read Chika",
     summary:
       "Chika gives freedivers a place for community threads, questions, updates, suggestions, and conversations that should remain easier to find than social media comments.",
     highlights: [
-      "Read public freediving community discussions.",
+      "Read freediving community discussions.",
       "Ask questions and share context without burying it in short-lived feeds.",
       "Connect discussions back to events, groups, dive spots, and profiles.",
     ],
@@ -230,9 +230,9 @@ export const featurePages: FeaturePageContent[] = [
     ],
     relatedLinks: [
       {
-        label: "Open Chika",
+        label: "Read Chika",
         href: "/chika",
-        description: "Read current public community threads.",
+        description: "Read current community threads.",
       },
       {
         label: "Find groups",
@@ -254,7 +254,7 @@ export const featurePages: FeaturePageContent[] = [
     summary:
       "Schools and courses help new and returning freedivers find instruction, compare learning options, and choose a safer way to get started.",
     highlights: [
-      "Browse school and course listings as they become available.",
+      "Browse schools, courses, and intro sessions in one place.",
       "Find instructor profiles and clearer learning options.",
       "Connect training options with location, community, and event context.",
     ],
@@ -276,12 +276,12 @@ export const featurePages: FeaturePageContent[] = [
       {
         label: "Browse schools",
         href: "/schools",
-        description: "Find public school listings and course information.",
+        description: "Find school listings and course information.",
       },
       {
         label: "Apply as an instructor",
         href: "/instructor/apply",
-        description: "Start the instructor profile and verification flow.",
+        description: "Share your teaching profile with the community.",
       },
     ],
   },

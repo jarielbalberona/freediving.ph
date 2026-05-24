@@ -175,15 +175,20 @@ func WithMediaDisplayURLs(baseURL, signingSecret string, signingKeyVersion int) 
 }
 
 type ListSitesInput struct {
-	ViewerUserID string
-	Area         string
-	Difficulty   string
-	VerifiedOnly bool
-	SavedOnly    bool
-	Search       string
-	Bounds       *MapBounds
-	Cursor       string
-	Limit        int32
+	ViewerUserID    string
+	Area            string
+	Difficulty      string
+	VerifiedOnly    bool
+	SavedOnly       bool
+	Search          string
+	LocationSlug    string
+	Province        string
+	Municipality    string
+	Region          string
+	LocationAliases []string
+	Bounds          *MapBounds
+	Cursor          string
+	Limit           int32
 }
 
 type MapBounds struct {
@@ -436,6 +441,10 @@ func (s *Service) ListSites(ctx context.Context, input ListSitesInput) (ListSite
 	if issues := validateMapBounds(input.Bounds); len(issues) > 0 {
 		return ListSitesResult{}, ValidationFailure{Issues: issues}
 	}
+	locationTerms, locationIssues := publicLocationTerms(input)
+	if len(locationIssues) > 0 {
+		return ListSitesResult{}, ValidationFailure{Issues: locationIssues}
+	}
 
 	limit := input.Limit
 	if limit <= 0 || limit > pagination.MaxLimit {
@@ -463,6 +472,10 @@ func (s *Service) ListSites(ctx context.Context, input ListSitesInput) (ListSite
 		VerifiedOnly:    input.VerifiedOnly,
 		SavedOnly:       input.SavedOnly,
 		Search:          strings.TrimSpace(input.Search),
+		LocationTerms:   locationTerms,
+		Province:        normalizePublicLocationFilter(input.Province),
+		Municipality:    normalizePublicLocationFilter(input.Municipality),
+		Region:          normalizePublicLocationFilter(input.Region),
 		Bounds:          repoBounds(input.Bounds),
 		CursorUpdatedAt: cursorUpdated,
 		CursorID:        cursorID,
@@ -481,6 +494,62 @@ func (s *Service) ListSites(ctx context.Context, input ListSitesInput) (ListSite
 	s.hydrateSiteCardCoverMedia(items)
 
 	return ListSitesResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+var publicExploreLocationAliases = map[string][]string{
+	"philippines": {},
+	"siquijor":    {"Siquijor"},
+	"batangas":    {"Batangas", "Anilao", "Mabini"},
+	"cebu":        {"Cebu"},
+	"dauin":       {"Dauin"},
+	"apo-island":  {"Apo Island", "Apo Island Marine Sanctuary"},
+	"panglao":     {"Panglao"},
+	"moalboal":    {"Moalboal"},
+}
+
+func publicLocationTerms(input ListSitesInput) ([]string, []validatex.Issue) {
+	terms := make([]string, 0, 4+len(input.LocationAliases))
+	seen := map[string]bool{}
+	add := func(value string) {
+		term := normalizePublicLocationFilter(value)
+		if term == "" {
+			return
+		}
+		key := strings.ToLower(term)
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		terms = append(terms, term)
+	}
+
+	locationSlug := strings.ToLower(strings.TrimSpace(input.LocationSlug))
+	if locationSlug != "" {
+		aliases, ok := publicExploreLocationAliases[locationSlug]
+		if !ok {
+			return nil, []validatex.Issue{{
+				Path:    []any{"locationSlug"},
+				Code:    "invalid_enum",
+				Message: "locationSlug is not a supported public Explore location",
+			}}
+		}
+		for _, alias := range aliases {
+			add(alias)
+		}
+	}
+	for _, alias := range input.LocationAliases {
+		add(alias)
+	}
+
+	return terms, nil
+}
+
+func normalizePublicLocationFilter(value string) string {
+	value = strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+	if len(value) > 80 {
+		return value[:80]
+	}
+	return value
 }
 
 func repoBounds(bounds *MapBounds) *explorerepo.MapBounds {

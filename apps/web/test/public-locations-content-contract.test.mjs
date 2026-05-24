@@ -117,6 +117,7 @@ test("location pages link to guides, features, Explore, and nearby locations", (
       }
       assert.ok(location.relatedFeatureSlugs.includes("dive-spots"), location.slug);
       assert.ok(location.relatedFeatureSlugs.some((slug) => ["buddy-finder", "events", "groups", "schools-and-courses"].includes(slug)), location.slug);
+      assert.equal(location.exploreQuery?.locationSlug, location.slug, location.slug);
       assert.ok(location.exploreQuery?.search, location.slug);
     }
 
@@ -131,7 +132,7 @@ test("location copy avoids implementation-facing language", () => {
     import assert from "node:assert/strict";
     import { locationPages } from "./src/features/public-content/content/locations.ts";
 
-    const blocked = /public layer|location landing module|SEO route|dynamic entity section|app surface|content model|fallback renderer|API-backed section|TODO|Lorem ipsum|developer|component|template|placeholder|coming soon/i;
+    const blocked = /public layer|location landing module|SEO route|dynamic entity|dynamic section|app surface|content model|location query|query contract|location taxonomy|fallback renderer|API-backed|TODO|Lorem ipsum|developer|component|template|placeholder|coming soon/i;
 
     for (const location of locationPages) {
       const searchable = [
@@ -179,11 +180,68 @@ test("fallback dive spot section is user-facing when no dynamic spots are availa
   assert.equal(output, "ok");
 });
 
-test("dynamic dive spot fetch uses only the public Explore list endpoint without auth", async () => {
+test("approved dynamic dive spot cards render public-safe fields", () => {
+  const output = runTsxFixture(`
+    import assert from "node:assert/strict";
+    import React from "react";
+    import { renderToStaticMarkup } from "react-dom/server";
+    import { LocationDiveSpotSection } from "./src/features/public-content/components/LocationDiveSpotSection.tsx";
+    import { getLocation } from "./src/features/public-content/content/locations.ts";
+
+    const html = renderToStaticMarkup(
+      React.createElement(LocationDiveSpotSection, {
+        location: getLocation("moalboal"),
+        spots: [{
+          slug: "sardine-run",
+          name: "Sardine Run",
+          area: "Moalboal, Cebu",
+          difficulty: "moderate",
+          depthMinM: 5,
+          depthMaxM: 18,
+          hazards: ["boat traffic", "crowding"],
+          verificationStatus: "community",
+          lastConditionSummary: "Check current and boat traffic before entering.",
+        }],
+      }),
+    );
+
+    assert.match(html, /Sardine Run/);
+    assert.match(html, /Moalboal, Cebu/);
+    assert.match(html, /href="\\/explore\\/sites\\/sardine-run"/);
+    assert.match(html, /Community shared/);
+    assert.doesNotMatch(html, /moderation|pending|rejected|deleted|admin/i);
+    console.log("ok");
+  `);
+
+  assert.equal(output, "ok");
+});
+
+test("dynamic dive spot fetch uses the public Explore location contract without auth", async () => {
   const source = await readSource("features/public-content/lib/locationDiveSpots.ts");
 
   assert.match(source, /\/v1\/explore\/sites/);
-  assert.match(source, /searchParams\.set\("search"/);
+  assert.match(source, /searchParams\.set\("locationSlug"/);
+  assert.match(source, /searchParams\.set\("province"/);
+  assert.match(source, /searchParams\.set\("municipality"/);
+  assert.match(source, /searchParams\.append\("locationAlias"/);
   assert.match(source, /limit", "6"/);
   assert.doesNotMatch(source, /Authorization|Bearer|Clerk|savedOnly|moderation|pending|admin/i);
+});
+
+test("backend public Explore contract supports location filters on approved rows", async () => {
+  const [handlerSource, serviceSource, repoSource, sqlSource] = await Promise.all([
+    readFile(path.join(appRoot, "../../services/fphgo/internal/features/explore/http/handlers.go"), "utf8"),
+    readFile(path.join(appRoot, "../../services/fphgo/internal/features/explore/service/service.go"), "utf8"),
+    readFile(path.join(appRoot, "../../services/fphgo/internal/features/explore/repo/repo.go"), "utf8"),
+    readFile(path.join(appRoot, "../../services/fphgo/internal/features/explore/repo/queries/explore.sql"), "utf8"),
+  ]);
+
+  assert.match(handlerSource, /LocationSlug:\s*r\.URL\.Query\(\)\.Get\("locationSlug"\)/);
+  assert.match(handlerSource, /LocationAliases:\s*r\.URL\.Query\(\)\["locationAlias"\]/);
+  assert.match(serviceSource, /publicExploreLocationAliases/);
+  assert.match(serviceSource, /"apo-island":\s*\{"Apo Island", "Apo Island Marine Sanctuary"\}/);
+  assert.match(repoSource, /LocationTerms/);
+  assert.match(sqlSource, /WHERE s\.moderation_state = 'approved'/);
+  assert.match(sqlSource, /sqlc\.arg\(location_terms\)::text\[\]/);
+  assert.match(sqlSource, /sqlc\.arg\(province_filter\)::text/);
 });

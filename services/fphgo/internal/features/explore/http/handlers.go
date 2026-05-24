@@ -101,15 +101,20 @@ func (h *Handlers) ListSites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, svcErr := h.service.ListSites(r.Context(), exploreservice.ListSitesInput{
-		ViewerUserID: viewerID,
-		Area:         r.URL.Query().Get("area"),
-		Difficulty:   r.URL.Query().Get("difficulty"),
-		VerifiedOnly: strings.EqualFold(r.URL.Query().Get("verifiedOnly"), "true"),
-		SavedOnly:    savedOnly,
-		Search:       r.URL.Query().Get("search"),
-		Bounds:       bounds,
-		Cursor:       r.URL.Query().Get("cursor"),
-		Limit:        limit,
+		ViewerUserID:    viewerID,
+		Area:            r.URL.Query().Get("area"),
+		Difficulty:      r.URL.Query().Get("difficulty"),
+		VerifiedOnly:    strings.EqualFold(r.URL.Query().Get("verifiedOnly"), "true"),
+		SavedOnly:       savedOnly,
+		Search:          r.URL.Query().Get("search"),
+		LocationSlug:    r.URL.Query().Get("locationSlug"),
+		Province:        r.URL.Query().Get("province"),
+		Municipality:    r.URL.Query().Get("municipality"),
+		Region:          r.URL.Query().Get("region"),
+		LocationAliases: r.URL.Query()["locationAlias"],
+		Bounds:          bounds,
+		Cursor:          r.URL.Query().Get("cursor"),
+		Limit:           limit,
 	})
 	if svcErr != nil {
 		h.writeError(w, r, svcErr)

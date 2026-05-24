@@ -2939,36 +2939,68 @@ WHERE s.moderation_state = 'approved'
     OR s.area ILIKE '%' || $6 || '%'
   )
   AND (
-    NOT $7::bool
+    COALESCE(cardinality($7::text[]), 0) = 0
+    OR EXISTS (
+      SELECT 1
+      FROM unnest($7::text[]) AS location_term(term)
+      WHERE NULLIF(BTRIM(location_term.term), '') IS NOT NULL
+        AND (
+          s.name ILIKE '%' || BTRIM(location_term.term) || '%'
+          OR s.area ILIKE '%' || BTRIM(location_term.term) || '%'
+          OR REPLACE(s.slug, '-', ' ') ILIKE '%' || BTRIM(location_term.term) || '%'
+        )
+    )
+  )
+  AND (
+    $8::text = ''
+    OR s.area ILIKE '%' || $8 || '%'
+    OR s.name ILIKE '%' || $8 || '%'
+  )
+  AND (
+    $9::text = ''
+    OR s.area ILIKE '%' || $9 || '%'
+    OR s.name ILIKE '%' || $9 || '%'
+  )
+  AND (
+    $10::text = ''
+    OR s.area ILIKE '%' || $10 || '%'
+    OR s.name ILIKE '%' || $10 || '%'
+  )
+  AND (
+    NOT $11::bool
     OR (
       s.latitude IS NOT NULL
       AND s.longitude IS NOT NULL
-      AND s.latitude <= $8::double precision
-      AND s.latitude >= $9::double precision
-      AND s.longitude <= $10::double precision
-      AND s.longitude >= $11::double precision
+      AND s.latitude <= $12::double precision
+      AND s.latitude >= $13::double precision
+      AND s.longitude <= $14::double precision
+      AND s.longitude >= $15::double precision
     )
   )
-  AND (s.last_updated_at < $12 OR (s.last_updated_at = $12 AND s.id < $13))
+  AND (s.last_updated_at < $16 OR (s.last_updated_at = $16 AND s.id < $17))
 ORDER BY s.last_updated_at DESC, s.id DESC
-LIMIT $14
+LIMIT $18
 `
 
 type ListSitesParams struct {
-	ViewerUserID     pgtype.UUID        `db:"viewer_user_id" json:"viewer_user_id"`
-	AreaFilter       string             `db:"area_filter" json:"area_filter"`
-	DifficultyFilter string             `db:"difficulty_filter" json:"difficulty_filter"`
-	VerifiedOnly     bool               `db:"verified_only" json:"verified_only"`
-	SavedOnly        bool               `db:"saved_only" json:"saved_only"`
-	SearchText       string             `db:"search_text" json:"search_text"`
-	HasBounds        bool               `db:"has_bounds" json:"has_bounds"`
-	North            float64            `db:"north" json:"north"`
-	South            float64            `db:"south" json:"south"`
-	East             float64            `db:"east" json:"east"`
-	West             float64            `db:"west" json:"west"`
-	CursorUpdatedAt  pgtype.Timestamptz `db:"cursor_updated_at" json:"cursor_updated_at"`
-	CursorID         pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
-	LimitRows        int32              `db:"limit_rows" json:"limit_rows"`
+	ViewerUserID       pgtype.UUID        `db:"viewer_user_id" json:"viewer_user_id"`
+	AreaFilter         string             `db:"area_filter" json:"area_filter"`
+	DifficultyFilter   string             `db:"difficulty_filter" json:"difficulty_filter"`
+	VerifiedOnly       bool               `db:"verified_only" json:"verified_only"`
+	SavedOnly          bool               `db:"saved_only" json:"saved_only"`
+	SearchText         string             `db:"search_text" json:"search_text"`
+	LocationTerms      []string           `db:"location_terms" json:"location_terms"`
+	ProvinceFilter     string             `db:"province_filter" json:"province_filter"`
+	MunicipalityFilter string             `db:"municipality_filter" json:"municipality_filter"`
+	RegionFilter       string             `db:"region_filter" json:"region_filter"`
+	HasBounds          bool               `db:"has_bounds" json:"has_bounds"`
+	North              float64            `db:"north" json:"north"`
+	South              float64            `db:"south" json:"south"`
+	East               float64            `db:"east" json:"east"`
+	West               float64            `db:"west" json:"west"`
+	CursorUpdatedAt    pgtype.Timestamptz `db:"cursor_updated_at" json:"cursor_updated_at"`
+	CursorID           pgtype.UUID        `db:"cursor_id" json:"cursor_id"`
+	LimitRows          int32              `db:"limit_rows" json:"limit_rows"`
 }
 
 type ListSitesRow struct {
@@ -3010,6 +3042,10 @@ func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSit
 		arg.VerifiedOnly,
 		arg.SavedOnly,
 		arg.SearchText,
+		arg.LocationTerms,
+		arg.ProvinceFilter,
+		arg.MunicipalityFilter,
+		arg.RegionFilter,
 		arg.HasBounds,
 		arg.North,
 		arg.South,

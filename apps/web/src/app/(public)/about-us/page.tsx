@@ -9,7 +9,7 @@ import { buildPublicMetadata } from "@/features/public-content/seo/metadata";
 
 const title = "About Freediving Philippines";
 const description =
-  "Freediving Philippines is a community app for discovering dive spots, finding buddies, joining events, and supporting local freediving communities in the Philippines.";
+  "Freediving Philippines helps freedivers discover dive spots, find buddies, join events, and support local communities around the Philippines.";
 
 export const metadata: Metadata = buildPublicMetadata({
   title,
@@ -64,18 +64,18 @@ export default function AboutUsPage() {
         <section className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_1fr] lg:px-8">
           <div className="space-y-4">
             <h2 className="text-xl font-semibold tracking-normal text-foreground">
-              The practical goal
+              Why this exists
             </h2>
             <div className="space-y-3 text-sm leading-7 text-muted-foreground">
               <p>
-                The goal is not to replace instructors, clubs, organizers, or
-                local groups. The useful role is simpler: make the community
-                easier to find, navigate, and contribute to.
+                Freediving Philippines is not here to replace instructors,
+                clubs, organizers, or local groups. It is here to make the
+                community easier to find, join, and support.
               </p>
               <p>
-                That means public dive spot discovery, buddy finding, events,
-                groups, Chika discussions, schools, instructors, courses, and
-                media that can connect back to real places.
+                That means dive spot discovery, buddy finding, events, groups,
+                Chika discussions, schools, instructors, courses, and shared
+                stories that stay connected to real places.
               </p>
               <p>
                 Public guides should help real people take useful next steps:

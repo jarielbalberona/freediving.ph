@@ -191,6 +191,34 @@ WHERE s.moderation_state = 'approved'
     OR s.area ILIKE '%' || sqlc.arg(search_text) || '%'
   )
   AND (
+    COALESCE(cardinality(sqlc.arg(location_terms)::text[]), 0) = 0
+    OR EXISTS (
+      SELECT 1
+      FROM unnest(sqlc.arg(location_terms)::text[]) AS location_term(term)
+      WHERE NULLIF(BTRIM(location_term.term), '') IS NOT NULL
+        AND (
+          s.name ILIKE '%' || BTRIM(location_term.term) || '%'
+          OR s.area ILIKE '%' || BTRIM(location_term.term) || '%'
+          OR REPLACE(s.slug, '-', ' ') ILIKE '%' || BTRIM(location_term.term) || '%'
+        )
+    )
+  )
+  AND (
+    sqlc.arg(province_filter)::text = ''
+    OR s.area ILIKE '%' || sqlc.arg(province_filter) || '%'
+    OR s.name ILIKE '%' || sqlc.arg(province_filter) || '%'
+  )
+  AND (
+    sqlc.arg(municipality_filter)::text = ''
+    OR s.area ILIKE '%' || sqlc.arg(municipality_filter) || '%'
+    OR s.name ILIKE '%' || sqlc.arg(municipality_filter) || '%'
+  )
+  AND (
+    sqlc.arg(region_filter)::text = ''
+    OR s.area ILIKE '%' || sqlc.arg(region_filter) || '%'
+    OR s.name ILIKE '%' || sqlc.arg(region_filter) || '%'
+  )
+  AND (
     NOT sqlc.arg(has_bounds)::bool
     OR (
       s.latitude IS NOT NULL

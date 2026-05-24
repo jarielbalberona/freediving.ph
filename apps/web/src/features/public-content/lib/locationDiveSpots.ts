@@ -19,10 +19,22 @@ export type PublicLocationDiveSpot = Pick<
 export async function fetchLocationDiveSpots(
   location: PublicLocationContent,
 ): Promise<PublicLocationDiveSpot[]> {
-  if (!location.exploreQuery?.search) return [];
+  if (!location.exploreQuery?.locationSlug) return [];
 
   const url = new URL(`${getFphgoBaseUrlServer()}/v1/explore/sites`);
-  url.searchParams.set("search", location.exploreQuery.search);
+  url.searchParams.set("locationSlug", location.exploreQuery.locationSlug);
+  if (location.exploreQuery.province) {
+    url.searchParams.set("province", location.exploreQuery.province);
+  }
+  if (location.exploreQuery.municipality) {
+    url.searchParams.set("municipality", location.exploreQuery.municipality);
+  }
+  if (location.exploreQuery.region) {
+    url.searchParams.set("region", location.exploreQuery.region);
+  }
+  for (const alias of location.exploreQuery.aliases ?? []) {
+    url.searchParams.append("locationAlias", alias);
+  }
   url.searchParams.set("limit", "6");
 
   try {

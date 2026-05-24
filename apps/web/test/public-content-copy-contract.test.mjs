@@ -28,7 +28,7 @@ const runTsxFixture = (code) => {
 };
 
 const blockedVisibleCopy =
-  /public layer|content layer|app route|feature page|SEO page|metadata helper|JSON-LD helper|structured data helper|developer|component|template|TODO|Lorem ipsum|placeholder|coming soon|platform enables|allows users|users can|real app surfaces|app surfaces|event surface|Explore surface|schools layer|public content layer|app concepts|CMS exists/i;
+  /public layer|content layer|app route|feature page|SEO page|dynamic entity|dynamic section|location query|query contract|location taxonomy|API-backed|fallback renderer|entity page|metadata helper|JSON-LD helper|structured data helper|developer|component|template|TODO|Lorem ipsum|placeholder|coming soon|platform enables|allows users|users can|real app surfaces|app surfaces|event surface|Explore surface|schools layer|public content layer|app concepts|CMS exists/i;
 
 test("public feature and guide content uses user-facing copy", () => {
   const output = runTsxFixture(`

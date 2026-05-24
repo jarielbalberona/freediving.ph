@@ -75,7 +75,7 @@ export function PublicContentLayout({
             />
           </Link>
           <nav
-            aria-label="Public navigation"
+            aria-label="Main navigation"
             className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground lg:ml-auto"
           >
             {navLinks.map((link) => (

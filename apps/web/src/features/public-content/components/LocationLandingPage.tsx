@@ -133,7 +133,7 @@ export async function LocationLandingPage({
 
         <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8">
           <RelatedLinkGroup title="Helpful guides" links={relatedGuides} />
-          <RelatedLinkGroup title="Plan with FPH" links={relatedFeatures} />
+          <RelatedLinkGroup title="Plan with the community" links={relatedFeatures} />
           <RelatedLinkGroup title="Nearby location guides" links={nearbyLocations} />
         </section>
 

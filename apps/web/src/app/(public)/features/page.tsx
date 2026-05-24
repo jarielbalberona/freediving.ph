@@ -9,7 +9,7 @@ import { AdSlot } from "@/features/public-content/ads";
 import { featurePages } from "@/features/public-content/content/features";
 import { buildPublicMetadata } from "@/features/public-content/seo/metadata";
 
-const title = "Freediving Philippines Community App";
+const title = "Freediving Philippines | Dive Spots, Buddies, Events and Guides";
 const description =
   "Discover dive spots, meet freediving buddies, join events and groups, ask questions, and find schools or courses around the Philippines.";
 
@@ -65,7 +65,7 @@ export default function FeaturesPage() {
                       href={feature.href}
                       className="font-medium text-primary underline-offset-4 hover:underline"
                     >
-                      Learn more
+                      See details
                     </Link>
                     <Link
                       href={feature.appHref}

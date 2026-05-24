@@ -820,6 +820,25 @@ func TestExploreListSitesParsesBounds(t *testing.T) {
 	}
 }
 
+func TestExploreListSitesParsesPublicLocationFiltersWithoutAuth(t *testing.T) {
+	svc := &exploreServiceStub{}
+	r := buildExploreRouter(t, svc, authz.Identity{})
+
+	req := httptest.NewRequest(http.MethodGet, "/sites?locationSlug=moalboal&province=Cebu&municipality=Moalboal&locationAlias=Panagsama&limit=6", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for public location list, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if svc.listInput.LocationSlug != "moalboal" || svc.listInput.Province != "Cebu" || svc.listInput.Municipality != "Moalboal" {
+		t.Fatalf("expected location filters to be passed to service, got %+v", svc.listInput)
+	}
+	if len(svc.listInput.LocationAliases) != 1 || svc.listInput.LocationAliases[0] != "Panagsama" {
+		t.Fatalf("expected location aliases to be passed to service, got %+v", svc.listInput.LocationAliases)
+	}
+}
+
 func TestExploreListSitesSavedOnlyRequiresAuth(t *testing.T) {
 	r := buildExploreRouter(t, &exploreServiceStub{}, authz.Identity{})
 
