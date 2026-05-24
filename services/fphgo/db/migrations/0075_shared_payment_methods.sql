@@ -16,6 +16,9 @@ ALTER TABLE media_objects
     'instructor_certification_proof'
   ));
 
+ALTER TABLE event_payment_methods
+  DROP CONSTRAINT IF EXISTS event_payment_methods_type_check;
+
 UPDATE event_payment_methods
 SET type = CASE
   WHEN type = 'MANUAL_QR' THEN 'manual_qr'
@@ -24,7 +27,6 @@ SET type = CASE
 END;
 
 ALTER TABLE event_payment_methods
-  DROP CONSTRAINT IF EXISTS event_payment_methods_type_check,
   ADD CONSTRAINT event_payment_methods_type_check CHECK (type IN ('manual_qr', 'bank_transfer'));
 
 UPDATE event_payment_methods

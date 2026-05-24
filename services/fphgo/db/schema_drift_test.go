@@ -85,6 +85,15 @@ func TestSharedPaymentMethodsMigrationKeepsBookingRemapAfterFKDrop(t *testing.T)
 	if !strings.Contains(upSQL, "NOT is_active") || !strings.Contains(upSQL, "type = 'manual_qr' AND qr_media_id IS NOT NULL") {
 		t.Fatalf("payment migration must guard active school payment methods")
 	}
+	typeDropIdx := strings.Index(upSQL, "DROP CONSTRAINT IF EXISTS event_payment_methods_type_check")
+	typeUpdateIdx := strings.Index(upSQL, "UPDATE event_payment_methods")
+	typeAddIdx := strings.Index(upSQL, "ADD CONSTRAINT event_payment_methods_type_check CHECK (type IN ('manual_qr', 'bank_transfer'))")
+	if typeDropIdx == -1 || typeUpdateIdx == -1 || typeAddIdx == -1 {
+		t.Fatalf("payment migration is missing event payment type constraint drop, normalization, or add")
+	}
+	if !(typeDropIdx < typeUpdateIdx && typeUpdateIdx < typeAddIdx) {
+		t.Fatalf("payment migration must drop old event payment type check before normalizing legacy enum values")
+	}
 }
 
 func extractGooseUpSQL(migration string) string {
