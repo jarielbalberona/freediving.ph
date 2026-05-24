@@ -174,6 +174,9 @@ func (r *outboxAdminRepoStub) UpdateSettingsForUser(context.Context, string, not
 func (r *outboxAdminRepoStub) ListActiveExploreModeratorRecipients(context.Context, string) ([]string, error) {
 	return nil, nil
 }
+func (r *outboxAdminRepoStub) ListActiveInstructorReviewerRecipients(context.Context, string) ([]string, error) {
+	return nil, nil
+}
 func (r *outboxAdminRepoStub) ListActiveNewDiveSiteRecipients(context.Context, string) ([]string, error) {
 	return nil, nil
 }
@@ -184,6 +187,9 @@ func (r *outboxAdminRepoStub) EventNotificationsEnabled(context.Context, string)
 	return true, nil
 }
 func (r *outboxAdminRepoStub) GroupInviteNotificationsEnabled(context.Context, string) (bool, error) {
+	return true, nil
+}
+func (r *outboxAdminRepoStub) InstructorStatusNotificationsEnabled(context.Context, string) (bool, error) {
 	return true, nil
 }
 func (r *outboxAdminRepoStub) ListGroupPostRecipients(context.Context, string, string) ([]string, error) {

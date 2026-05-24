@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	notificationsrepo "fphgo/internal/features/notifications/repo"
 )
 
 type Repo struct {
@@ -95,6 +97,10 @@ type CertificationProof struct {
 	ContentType     string
 }
 
+type queryExecutor interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func IsNoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
 }
@@ -105,8 +111,7 @@ func (r *Repo) GetByUserID(ctx context.Context, userID string) (Profile, error) 
 }
 
 func (r *Repo) GetByID(ctx context.Context, profileID string) (Profile, error) {
-	row := r.pool.QueryRow(ctx, profileSelect()+` WHERE ip.id = $1`, profileID)
-	return scanProfile(row)
+	return getByIDWithExecutor(ctx, r.pool, profileID)
 }
 
 func (r *Repo) GetPublicByUsername(ctx context.Context, username string) (Profile, error) {
@@ -157,7 +162,13 @@ func (r *Repo) UpsertProfile(ctx context.Context, userID string, input ProfileIn
 }
 
 func (r *Repo) SubmitProfile(ctx context.Context, userID string) (Profile, error) {
-	row := r.pool.QueryRow(ctx, `
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Profile{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	row := tx.QueryRow(ctx, `
 		UPDATE instructor_profiles
 		SET verification_status='pending', rejection_reason=NULL, attestation_accepted_at=NOW(), updated_at=NOW()
 		WHERE user_id=$1 AND verification_status IN ('draft', 'rejected')
@@ -166,7 +177,28 @@ func (r *Repo) SubmitProfile(ctx context.Context, userID string) (Profile, error
 	if err := row.Scan(&id); err != nil {
 		return Profile{}, err
 	}
-	return r.GetByID(ctx, id)
+	profile, err := getByIDWithExecutor(ctx, tx, id)
+	if err != nil {
+		return Profile{}, err
+	}
+	if _, err := notificationsrepo.EnqueueOutboxWithExecutor(ctx, tx, notificationsrepo.OutboxEnqueueInput{
+		EventType:     notificationsrepo.OutboxEventInstructorApplicationSubmitted,
+		AggregateType: "instructor_application",
+		AggregateID:   profile.ID,
+		Payload: map[string]any{
+			"profileId":            profile.ID,
+			"applicantUserId":      profile.UserID,
+			"applicantDisplayName": instructorNotificationDisplayName(profile),
+			"status":               profile.VerificationStatus,
+		},
+		IdempotencyKey: "instructors:application:" + profile.ID + ":submitted",
+	}); err != nil {
+		return Profile{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Profile{}, err
+	}
+	return profile, nil
 }
 
 func (r *Repo) ListCertifications(ctx context.Context, profileID string) ([]Certification, error) {
@@ -275,7 +307,13 @@ func (r *Repo) ListProfiles(ctx context.Context, input ListInput) ([]Profile, in
 }
 
 func (r *Repo) VerifyProfile(ctx context.Context, profileID, reviewerID string) (Profile, error) {
-	_, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Profile{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	_, err = tx.Exec(ctx, `
 		UPDATE instructor_certifications
 		SET verification_status='verified', verified_at=NOW(), verified_by=$2, rejection_reason=NULL, updated_at=NOW()
 		WHERE instructor_profile_id=$1 AND verification_status = 'pending'`,
@@ -283,29 +321,95 @@ func (r *Repo) VerifyProfile(ctx context.Context, profileID, reviewerID string) 
 	if err != nil {
 		return Profile{}, err
 	}
-	row := r.pool.QueryRow(ctx, `
+	row := tx.QueryRow(ctx, `
 		UPDATE instructor_profiles
 		SET verification_status='verified', verified_at=NOW(), verified_by=$2, rejection_reason=NULL, updated_at=NOW()
-		WHERE id=$1
+		WHERE id=$1 AND verification_status <> 'verified'
 		RETURNING id`, profileID, reviewerID)
 	var id string
 	if err := row.Scan(&id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			profile, getErr := getByIDWithExecutor(ctx, tx, profileID)
+			if getErr != nil {
+				return Profile{}, getErr
+			}
+			if profile.VerificationStatus == "verified" {
+				return profile, nil
+			}
+		}
 		return Profile{}, err
 	}
-	return r.GetByID(ctx, id)
+	profile, err := getByIDWithExecutor(ctx, tx, id)
+	if err != nil {
+		return Profile{}, err
+	}
+	if _, err := notificationsrepo.EnqueueOutboxWithExecutor(ctx, tx, notificationsrepo.OutboxEnqueueInput{
+		EventType:     notificationsrepo.OutboxEventInstructorApplicationApproved,
+		AggregateType: "instructor_application",
+		AggregateID:   profile.ID,
+		Payload: map[string]any{
+			"profileId":       profile.ID,
+			"applicantUserId": profile.UserID,
+			"reviewerUserId":  reviewerID,
+			"status":          profile.VerificationStatus,
+		},
+		IdempotencyKey: "instructors:application:" + profile.ID + ":approved",
+	}); err != nil {
+		return Profile{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Profile{}, err
+	}
+	return profile, nil
 }
 
 func (r *Repo) RejectProfile(ctx context.Context, profileID, reviewerID, reason string) (Profile, error) {
-	row := r.pool.QueryRow(ctx, `
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Profile{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	row := tx.QueryRow(ctx, `
 		UPDATE instructor_profiles
 		SET verification_status='rejected', verified_at=NULL, verified_by=$2, rejection_reason=$3, updated_at=NOW()
-		WHERE id=$1
+		WHERE id=$1 AND verification_status <> 'rejected'
 		RETURNING id`, profileID, reviewerID, reason)
 	var id string
 	if err := row.Scan(&id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			profile, getErr := getByIDWithExecutor(ctx, tx, profileID)
+			if getErr != nil {
+				return Profile{}, getErr
+			}
+			if profile.VerificationStatus == "rejected" {
+				return profile, nil
+			}
+		}
 		return Profile{}, err
 	}
-	return r.GetByID(ctx, id)
+	profile, err := getByIDWithExecutor(ctx, tx, id)
+	if err != nil {
+		return Profile{}, err
+	}
+	if _, err := notificationsrepo.EnqueueOutboxWithExecutor(ctx, tx, notificationsrepo.OutboxEnqueueInput{
+		EventType:     notificationsrepo.OutboxEventInstructorApplicationRejected,
+		AggregateType: "instructor_application",
+		AggregateID:   profile.ID,
+		Payload: map[string]any{
+			"profileId":       profile.ID,
+			"applicantUserId": profile.UserID,
+			"reviewerUserId":  reviewerID,
+			"status":          profile.VerificationStatus,
+		},
+		IdempotencyKey: "instructors:application:" + profile.ID + ":rejected",
+	}); err != nil {
+		return Profile{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Profile{}, err
+	}
+	return profile, nil
 }
 
 func (r *Repo) SuspendProfile(ctx context.Context, profileID, reviewerID, reason string) (Profile, error) {
@@ -323,6 +427,21 @@ func (r *Repo) SuspendProfile(ctx context.Context, profileID, reviewerID, reason
 
 func profileSelect() string {
 	return `SELECT ip.id, ip.user_id, COALESCE(u.username,''), COALESCE(u.display_name,''), ip.display_name, ip.bio, ip.teaching_since, ip.home_location_label, ip.formatted_address, ip.region_code, ip.region_name, ip.province_code, ip.province_name, ip.city_code, ip.city_name, ip.barangay_code, ip.barangay_name, ip.location_source, ip.specialties, ip.school_affiliation, ip.website_url, ip.social_links, ip.safety_credentials, ip.verification_status, ip.verified_at, COALESCE(ip.verified_by::text,''), COALESCE(ip.rejection_reason,''), ip.attestation_accepted_at, ip.created_at, ip.updated_at FROM instructor_profiles ip JOIN users u ON u.id=ip.user_id`
+}
+
+func getByIDWithExecutor(ctx context.Context, exec queryExecutor, profileID string) (Profile, error) {
+	row := exec.QueryRow(ctx, profileSelect()+` WHERE ip.id = $1`, profileID)
+	return scanProfile(row)
+}
+
+func instructorNotificationDisplayName(profile Profile) string {
+	if profile.DisplayName != "" {
+		return profile.DisplayName
+	}
+	if profile.UserDisplayName != "" {
+		return profile.UserDisplayName
+	}
+	return profile.Username
 }
 
 func certificationSelect() string {

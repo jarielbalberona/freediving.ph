@@ -125,6 +125,11 @@ test("notification settings and schemas include scoped social notification contr
   ]);
 
   assert.match(schemas, /DIVE_SITE_SUBMITTED_FOR_REVIEW/);
+  assert.match(schemas, /INSTRUCTOR_APPLICATION_SUBMITTED/);
+  assert.match(schemas, /INSTRUCTOR_APPLICATION_APPROVED/);
+  assert.match(schemas, /INSTRUCTOR_APPLICATION_REJECTED/);
+  assert.match(schemas, /instructorApplicationNotifications/);
+  assert.match(schemas, /instructorStatusNotifications/);
   assert.match(page, /chikaReplies/);
   assert.match(page, /Chika Replies/);
   for (const type of [
@@ -152,6 +157,9 @@ test("notification card renders friendly social labels and app-relative actions"
   assert.match(source, /GROUP_POST_CREATED: "Group post"/);
   assert.match(source, /EVENT_CANCELLED: "Event cancelled"/);
   assert.match(source, /DIVE_SITE_SUBMITTED_FOR_REVIEW: "Dive site review"/);
+  assert.match(source, /INSTRUCTOR_APPLICATION_SUBMITTED: "New instructor application"/);
+  assert.match(source, /INSTRUCTOR_APPLICATION_APPROVED: "Instructor application approved"/);
+  assert.match(source, /INSTRUCTOR_APPLICATION_REJECTED: "Instructor application rejected"/);
   assert.match(source, /notification\.actionUrl\?\.startsWith\("\/"\)/);
   assert.match(source, /!notification\.actionUrl\.startsWith\("\/\/"\)/);
   assert.match(source, /href=\{actionURL\}/);

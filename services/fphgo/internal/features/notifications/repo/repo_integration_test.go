@@ -86,6 +86,63 @@ func TestOutboxEnqueueIdempotencyPreventsDuplicateRows(t *testing.T) {
 	}
 }
 
+func TestListActiveInstructorReviewerRecipientsFiltersToSuperAdmins(t *testing.T) {
+	pool := testNotificationsPool(t)
+	repo := notificationsrepo.New(pool)
+	ctx := context.Background()
+
+	applicantID := uuid.NewString()
+	superAdminID := uuid.NewString()
+	adminID := uuid.NewString()
+	suspendedSuperAdminID := uuid.NewString()
+	optedOutSuperAdminID := uuid.NewString()
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `
+			DELETE FROM notification_settings WHERE user_id::text = ANY($1);
+			DELETE FROM users WHERE id::text = ANY($1);
+		`, []string{applicantID, superAdminID, adminID, suspendedSuperAdminID, optedOutSuperAdminID})
+	})
+
+	for _, user := range []struct {
+		id     string
+		role   string
+		status string
+	}{
+		{applicantID, "member", "active"},
+		{superAdminID, "super_admin", "active"},
+		{adminID, "admin", "active"},
+		{suspendedSuperAdminID, "super_admin", "suspended"},
+		{optedOutSuperAdminID, "super_admin", "active"},
+	} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name, global_role, account_status)
+			VALUES ($1, $2, 'Reviewer Test', $3, $4)
+			ON CONFLICT (id) DO UPDATE
+			SET username = EXCLUDED.username,
+			    global_role = EXCLUDED.global_role,
+			    account_status = EXCLUDED.account_status
+		`, user.id, "notif-"+user.id[:8], user.role, user.status); err != nil {
+			t.Fatalf("seed user %s: %v", user.id, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO notification_settings (user_id, instructor_application_notifications)
+		VALUES ($1, FALSE)
+		ON CONFLICT (user_id) DO UPDATE
+		SET instructor_application_notifications = FALSE
+	`, optedOutSuperAdminID); err != nil {
+		t.Fatalf("seed opted-out settings: %v", err)
+	}
+
+	recipients, err := repo.ListActiveInstructorReviewerRecipients(ctx, applicantID)
+	if err != nil {
+		t.Fatalf("ListActiveInstructorReviewerRecipients: %v", err)
+	}
+	if len(recipients) != 1 || recipients[0] != superAdminID {
+		t.Fatalf("expected only active opted-in super admin, got %#v", recipients)
+	}
+}
+
 func TestOutboxClaimRetryStaleRecoveryAndProcessedState(t *testing.T) {
 	pool := testNotificationsPool(t)
 	repo := notificationsrepo.New(pool)

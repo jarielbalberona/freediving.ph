@@ -1242,6 +1242,9 @@ export interface Notification {
     | "SECURITY"
     | "NEW_DIVE_SITE_PUBLISHED"
     | "DIVE_SITE_SUBMITTED_FOR_REVIEW"
+    | "INSTRUCTOR_APPLICATION_SUBMITTED"
+    | "INSTRUCTOR_APPLICATION_APPROVED"
+    | "INSTRUCTOR_APPLICATION_REJECTED"
     | "CHIKA_THREAD_COMMENTED"
     | "CHIKA_COMMENT_REPLIED"
     | "GROUP_INVITE_RECEIVED"
@@ -1297,6 +1300,8 @@ export interface NotificationSettings {
   securityNotifications: boolean;
   newDiveSitePublished: boolean;
   chikaReplies: boolean;
+  instructorApplicationNotifications: boolean;
+  instructorStatusNotifications: boolean;
   digestFrequency: "IMMEDIATE" | "DAILY" | "WEEKLY" | "NEVER";
   quietHoursStart?: string;
   quietHoursEnd?: string;
@@ -1354,6 +1359,8 @@ export interface UpdateNotificationSettingsRequest {
   securityNotifications?: boolean;
   newDiveSitePublished?: boolean;
   chikaReplies?: boolean;
+  instructorApplicationNotifications?: boolean;
+  instructorStatusNotifications?: boolean;
   digestFrequency?: NotificationSettings["digestFrequency"];
   quietHoursStart?: string;
   quietHoursEnd?: string;

@@ -34,10 +34,12 @@ type repository interface {
 	CreateDefaultSettingsForUser(ctx context.Context, userID string) (notificationsrepo.NotificationSettings, error)
 	UpdateSettingsForUser(ctx context.Context, userID string, input notificationsrepo.SettingsUpdateInput) (notificationsrepo.NotificationSettings, error)
 	ListActiveExploreModeratorRecipients(ctx context.Context, excludeUserID string) ([]string, error)
+	ListActiveInstructorReviewerRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ChikaRepliesEnabled(ctx context.Context, userID string) (bool, error)
 	EventNotificationsEnabled(ctx context.Context, userID string) (bool, error)
 	GroupInviteNotificationsEnabled(ctx context.Context, userID string) (bool, error)
+	InstructorStatusNotificationsEnabled(ctx context.Context, userID string) (bool, error)
 	ListGroupPostRecipients(ctx context.Context, groupID, excludeUserID string) ([]string, error)
 	ListGroupEventRecipients(ctx context.Context, groupID, excludeUserID string) ([]string, error)
 	ListEventAttendeeRecipients(ctx context.Context, eventID, excludeUserID string) ([]string, error)
@@ -118,6 +120,8 @@ type NotificationSettings struct {
 	SecurityNotifications      bool
 	NewDiveSitePublished       bool
 	ChikaReplies               bool
+	InstructorApplication      bool
+	InstructorStatus           bool
 	DigestFrequency            string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
@@ -217,6 +221,20 @@ type DiveSiteSubmittedForReviewInput struct {
 	SubmitterUserID string
 }
 
+type InstructorApplicationSubmittedInput struct {
+	ProfileID            string
+	ApplicantUserID      string
+	ApplicantDisplayName string
+	Status               string
+}
+
+type InstructorApplicationStatusInput struct {
+	ProfileID       string
+	ApplicantUserID string
+	ReviewerUserID  string
+	Status          string
+}
+
 type ChikaThreadCommentedInput struct {
 	ThreadID         string
 	ThreadSlug       string
@@ -303,6 +321,7 @@ var (
 		"BOOKING", "REVIEW", "MENTION", "LIKE", "COMMENT",
 		"FRIEND_REQUEST", "GROUP_INVITE", "EVENT_REMINDER", "PAYMENT", "SECURITY",
 		"NEW_DIVE_SITE_PUBLISHED", "DIVE_SITE_SUBMITTED_FOR_REVIEW",
+		"INSTRUCTOR_APPLICATION_SUBMITTED", "INSTRUCTOR_APPLICATION_APPROVED", "INSTRUCTOR_APPLICATION_REJECTED",
 		"CHIKA_THREAD_COMMENTED", "CHIKA_COMMENT_REPLIED",
 		"GROUP_INVITE_RECEIVED", "GROUP_POST_CREATED",
 		"EVENT_CREATED_FOR_GROUP", "EVENT_ATTENDEE_JOINED", "EVENT_UPDATED", "EVENT_CANCELLED",
@@ -505,6 +524,85 @@ func (s *Service) NotifyDiveSiteSubmittedForReview(ctx context.Context, input Di
 			"notificationV1":  true,
 		},
 		IdempotencyKey: "explore:site:" + strings.TrimSpace(input.SiteID) + ":submitted-for-review",
+	})
+	return err
+}
+
+func (s *Service) NotifyInstructorApplicationSubmitted(ctx context.Context, input InstructorApplicationSubmittedInput) error {
+	profileID := strings.TrimSpace(input.ProfileID)
+	applicantID := strings.TrimSpace(input.ApplicantUserID)
+	recipients, err := s.repo.ListActiveInstructorReviewerRecipients(ctx, applicantID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve instructor reviewer notification recipients", err)
+	}
+	if len(recipients) == 0 {
+		slog.Default().Warn("notifications.instructor_application_submitted.no_reviewers",
+			slog.String("profile_id", profileID),
+			slog.String("applicant_user_id", applicantID),
+		)
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              "INSTRUCTOR_APPLICATION_SUBMITTED",
+		Category:          "instructor",
+		Title:             "New instructor application",
+		Message:           fallbackTitle(input.ApplicantDisplayName, "An instructor applicant") + " submitted an application for review.",
+		Priority:          "HIGH",
+		RelatedEntityType: "instructor_application",
+		RelatedEntityID:   profileID,
+		ActionURL:         "/admin/instructors?status=pending",
+		Metadata: map[string]any{
+			"profileId":            profileID,
+			"applicantUserId":      applicantID,
+			"applicantDisplayName": strings.TrimSpace(input.ApplicantDisplayName),
+			"status":               defaultString(strings.TrimSpace(input.Status), "pending"),
+			"notificationV1":       true,
+		},
+		IdempotencyKey: "instructors:application:" + profileID + ":submitted",
+	})
+	return err
+}
+
+func (s *Service) NotifyInstructorApplicationApproved(ctx context.Context, input InstructorApplicationStatusInput) error {
+	return s.notifyInstructorApplicationStatus(ctx, input, "INSTRUCTOR_APPLICATION_APPROVED", "Instructor application approved", "Your instructor application was approved.", "/instructor/profile", "approved")
+}
+
+func (s *Service) NotifyInstructorApplicationRejected(ctx context.Context, input InstructorApplicationStatusInput) error {
+	return s.notifyInstructorApplicationStatus(ctx, input, "INSTRUCTOR_APPLICATION_REJECTED", "Instructor application rejected", "Your instructor application was not approved.", "/instructor/apply", "rejected")
+}
+
+func (s *Service) notifyInstructorApplicationStatus(ctx context.Context, input InstructorApplicationStatusInput, typ, title, message, actionURL, fallbackStatus string) error {
+	applicantID := strings.TrimSpace(input.ApplicantUserID)
+	if applicantID == "" {
+		return nil
+	}
+	enabled, err := s.repo.InstructorStatusNotificationsEnabled(ctx, applicantID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_settings_failed", "failed to check instructor notification settings", err)
+	}
+	if !enabled {
+		return nil
+	}
+	profileID := strings.TrimSpace(input.ProfileID)
+	actor := trimStringPtr(input.ReviewerUserID)
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  []string{applicantID},
+		Type:              typ,
+		Category:          "instructor",
+		Title:             title,
+		Message:           message,
+		Priority:          "HIGH",
+		ActorUserID:       actor,
+		RelatedEntityType: "instructor_application",
+		RelatedEntityID:   profileID,
+		ActionURL:         actionURL,
+		Metadata: map[string]any{
+			"profileId":      profileID,
+			"status":         defaultString(strings.TrimSpace(input.Status), fallbackStatus),
+			"notificationV1": true,
+		},
+		IdempotencyKey: "instructors:application:" + profileID + ":" + fallbackStatus,
 	})
 	return err
 }
@@ -900,6 +998,39 @@ func (s *Service) RunOutboxProcessor(ctx context.Context, interval time.Duration
 
 func (s *Service) processOutboxEvent(ctx context.Context, event notificationsrepo.NotificationOutbox) error {
 	switch strings.TrimSpace(event.EventType) {
+	case notificationsrepo.OutboxEventInstructorApplicationSubmitted:
+		input := InstructorApplicationSubmittedInput{
+			ProfileID:            payloadString(event.Payload, "profileId"),
+			ApplicantUserID:      payloadString(event.Payload, "applicantUserId"),
+			ApplicantDisplayName: payloadString(event.Payload, "applicantDisplayName"),
+			Status:               payloadString(event.Payload, "status"),
+		}
+		if strings.TrimSpace(input.ProfileID) == "" || strings.TrimSpace(input.ApplicantUserID) == "" {
+			return fmt.Errorf("instructor application submitted outbox payload is missing required fields")
+		}
+		return s.NotifyInstructorApplicationSubmitted(ctx, input)
+	case notificationsrepo.OutboxEventInstructorApplicationApproved:
+		input := InstructorApplicationStatusInput{
+			ProfileID:       payloadString(event.Payload, "profileId"),
+			ApplicantUserID: payloadString(event.Payload, "applicantUserId"),
+			ReviewerUserID:  payloadString(event.Payload, "reviewerUserId"),
+			Status:          payloadString(event.Payload, "status"),
+		}
+		if strings.TrimSpace(input.ProfileID) == "" || strings.TrimSpace(input.ApplicantUserID) == "" {
+			return fmt.Errorf("instructor application approved outbox payload is missing required fields")
+		}
+		return s.NotifyInstructorApplicationApproved(ctx, input)
+	case notificationsrepo.OutboxEventInstructorApplicationRejected:
+		input := InstructorApplicationStatusInput{
+			ProfileID:       payloadString(event.Payload, "profileId"),
+			ApplicantUserID: payloadString(event.Payload, "applicantUserId"),
+			ReviewerUserID:  payloadString(event.Payload, "reviewerUserId"),
+			Status:          payloadString(event.Payload, "status"),
+		}
+		if strings.TrimSpace(input.ProfileID) == "" || strings.TrimSpace(input.ApplicantUserID) == "" {
+			return fmt.Errorf("instructor application rejected outbox payload is missing required fields")
+		}
+		return s.NotifyInstructorApplicationRejected(ctx, input)
 	case notificationsrepo.OutboxEventDiveSiteSubmittedForReview:
 		input := DiveSiteSubmittedForReviewInput{
 			SiteID:          payloadString(event.Payload, "siteId"),
@@ -1354,6 +1485,8 @@ func normalizeCategory(value string, typ string) string {
 		return "groups"
 	case "CHIKA_THREAD_COMMENTED", "CHIKA_COMMENT_REPLIED":
 		return "chika"
+	case "INSTRUCTOR_APPLICATION_SUBMITTED", "INSTRUCTOR_APPLICATION_APPROVED", "INSTRUCTOR_APPLICATION_REJECTED":
+		return "instructor"
 	case "NEW_DIVE_SITE_PUBLISHED":
 		return "explore"
 	default:
@@ -1582,6 +1715,8 @@ func mapSettings(input notificationsrepo.NotificationSettings) NotificationSetti
 		SecurityNotifications:      input.SecurityNotifications,
 		NewDiveSitePublished:       input.NewDiveSitePublished,
 		ChikaReplies:               input.ChikaReplies,
+		InstructorApplication:      input.InstructorApplication,
+		InstructorStatus:           input.InstructorStatus,
 		DigestFrequency:            input.DigestFrequency,
 		QuietHoursStart:            input.QuietHoursStart,
 		QuietHoursEnd:              input.QuietHoursEnd,
@@ -1589,6 +1724,13 @@ func mapSettings(input notificationsrepo.NotificationSettings) NotificationSetti
 		CreatedAt:                  input.CreatedAt,
 		UpdatedAt:                  input.UpdatedAt,
 	}
+}
+
+func defaultString(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
 }
 
 func toSet(values ...string) map[string]struct{} {

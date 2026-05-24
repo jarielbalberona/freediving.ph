@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	instructorsrepo "fphgo/internal/features/instructors/repo"
+	notificationsservice "fphgo/internal/features/notifications/service"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/mediasign"
 	"fphgo/internal/shared/validatex"
@@ -41,10 +43,15 @@ type repository interface {
 }
 
 type Service struct {
-	repo        repository
-	mediaSigner *mediasign.Signer
-	proofURLTTL time.Duration
-	nowFn       func() time.Time
+	repo          repository
+	notifications notificationProcessor
+	mediaSigner   *mediasign.Signer
+	proofURLTTL   time.Duration
+	nowFn         func() time.Time
+}
+
+type notificationProcessor interface {
+	ProcessDueOutbox(ctx context.Context, limit int) (notificationsservice.OutboxProcessResult, error)
 }
 
 type ProfileInput struct {
@@ -109,6 +116,12 @@ func WithNow(nowFn func() time.Time) Option {
 		if nowFn != nil {
 			s.nowFn = nowFn
 		}
+	}
+}
+
+func WithNotifications(notifications notificationProcessor) Option {
+	return func(s *Service) {
+		s.notifications = notifications
 	}
 }
 
@@ -210,6 +223,7 @@ func (s *Service) SubmitProfile(ctx context.Context, userID string, input Submit
 	if err != nil {
 		return Application{}, mapNotFound(err, "instructor_profile_not_found")
 	}
+	s.processNotificationOutbox(ctx, "submitted", profile)
 	return s.application(ctx, profile)
 }
 
@@ -313,6 +327,7 @@ func (s *Service) VerifyApplication(ctx context.Context, profileID, reviewerID s
 	if err != nil {
 		return Application{}, apperrors.New(http.StatusInternalServerError, "admin_instructor_verify_failed", "failed to verify instructor", err)
 	}
+	s.processNotificationOutbox(ctx, "approved", profile)
 	return s.application(ctx, profile)
 }
 
@@ -325,6 +340,7 @@ func (s *Service) RejectApplication(ctx context.Context, profileID, reviewerID, 
 	if err != nil {
 		return Application{}, mapNotFound(err, "instructor_profile_not_found")
 	}
+	s.processNotificationOutbox(ctx, "rejected", profile)
 	return s.application(ctx, profile)
 }
 
@@ -392,6 +408,20 @@ func (s *Service) application(ctx context.Context, profile instructorsrepo.Profi
 		return Application{}, apperrors.New(http.StatusInternalServerError, "instructor_certifications_list_failed", "failed to fetch instructor certifications", err)
 	}
 	return Application{Profile: &profile, Certifications: certs}, nil
+}
+
+func (s *Service) processNotificationOutbox(ctx context.Context, transition string, profile instructorsrepo.Profile) {
+	if s.notifications == nil {
+		return
+	}
+	if _, err := s.notifications.ProcessDueOutbox(ctx, 10); err != nil {
+		slog.Default().Warn("instructors.notification_outbox_process_failed",
+			slog.String("transition", transition),
+			slog.String("profile_id", profile.ID),
+			slog.String("applicant_user_id", profile.UserID),
+			slog.Any("error", err),
+		)
+	}
 }
 
 func normalizeProfile(input ProfileInput) ProfileInput {

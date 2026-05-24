@@ -138,6 +138,9 @@ function formatNotificationType(value: Notification["type"]) {
     EVENT_CANCELLED: "Event cancelled",
     NEW_DIVE_SITE_PUBLISHED: "Dive site",
     DIVE_SITE_SUBMITTED_FOR_REVIEW: "Dive site review",
+    INSTRUCTOR_APPLICATION_SUBMITTED: "New instructor application",
+    INSTRUCTOR_APPLICATION_APPROVED: "Instructor application approved",
+    INSTRUCTOR_APPLICATION_REJECTED: "Instructor application rejected",
   };
   if (labels[value]) {
     return labels[value];

@@ -301,6 +301,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 			cfg.MediaSigningSecretV1,
 			cfg.MediaSigningKeyVersion,
 		),
+		instructorsservice.WithNotifications(notificationsService),
 	)
 	instructorsHandler := instructorshttp.New(instructorsService, v)
 	locationsRepo := locationsrepo.New(pool)

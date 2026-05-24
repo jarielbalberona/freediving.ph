@@ -67,6 +67,8 @@ type NotificationSettings struct {
 	SecurityNotifications      bool
 	NewDiveSitePublished       bool
 	ChikaReplies               bool
+	InstructorApplication      bool
+	InstructorStatus           bool
 	DigestFrequency            string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
@@ -122,6 +124,8 @@ type SettingsUpdateInput struct {
 	SecurityNotifications      *bool
 	NewDiveSitePublished       *bool
 	ChikaReplies               *bool
+	InstructorApplication      *bool
+	InstructorStatus           *bool
 	DigestFrequency            *string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
@@ -129,8 +133,11 @@ type SettingsUpdateInput struct {
 }
 
 const (
-	OutboxEventNewDiveSitePublished       = "NEW_DIVE_SITE_PUBLISHED"
-	OutboxEventDiveSiteSubmittedForReview = "DIVE_SITE_SUBMITTED_FOR_REVIEW"
+	OutboxEventNewDiveSitePublished           = "NEW_DIVE_SITE_PUBLISHED"
+	OutboxEventDiveSiteSubmittedForReview     = "DIVE_SITE_SUBMITTED_FOR_REVIEW"
+	OutboxEventInstructorApplicationSubmitted = "INSTRUCTOR_APPLICATION_SUBMITTED"
+	OutboxEventInstructorApplicationApproved  = "INSTRUCTOR_APPLICATION_APPROVED"
+	OutboxEventInstructorApplicationRejected  = "INSTRUCTOR_APPLICATION_REJECTED"
 )
 
 type NotificationOutbox struct {
@@ -790,6 +797,25 @@ func (r *Repo) ListActiveExploreModeratorRecipients(ctx context.Context, exclude
 	return scanUserIDs(rows)
 }
 
+func (r *Repo) ListActiveInstructorReviewerRecipients(ctx context.Context, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT u.id::text
+		FROM users u
+		LEFT JOIN notification_settings ns ON ns.user_id = u.id
+		WHERE u.account_status = 'active'
+		  AND u.global_role = 'super_admin'
+		  AND (NULLIF($1, '') IS NULL OR u.id <> $1::uuid)
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.instructor_application_notifications, TRUE) = TRUE
+		ORDER BY u.created_at ASC, u.id ASC
+	`, strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanUserIDs(rows)
+}
+
 func (r *Repo) ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT u.id::text
@@ -830,6 +856,10 @@ func (r *Repo) EventNotificationsEnabled(ctx context.Context, userID string) (bo
 
 func (r *Repo) GroupInviteNotificationsEnabled(ctx context.Context, userID string) (bool, error) {
 	return r.settingEnabled(ctx, userID, "group_invite_notifications")
+}
+
+func (r *Repo) InstructorStatusNotificationsEnabled(ctx context.Context, userID string) (bool, error) {
+	return r.settingEnabled(ctx, userID, "instructor_status_notifications")
 }
 
 func (r *Repo) ListGroupPostRecipients(ctx context.Context, groupID, excludeUserID string) ([]string, error) {
@@ -897,7 +927,7 @@ func (r *Repo) ListEventAttendeeRecipients(ctx context.Context, eventID, exclude
 
 func (r *Repo) settingEnabled(ctx context.Context, userID string, column string) (bool, error) {
 	switch column {
-	case "chika_replies", "event_notifications", "group_invite_notifications":
+	case "chika_replies", "event_notifications", "group_invite_notifications", "instructor_status_notifications":
 	default:
 		return false, fmt.Errorf("unsupported notification setting column %q", column)
 	}
@@ -939,6 +969,8 @@ func (r *Repo) GetSettingsForUser(ctx context.Context, userID string) (Notificat
 				security_notifications,
 				new_dive_site_published,
 				chika_replies,
+				instructor_application_notifications,
+				instructor_status_notifications,
 				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
@@ -979,6 +1011,8 @@ func (r *Repo) CreateDefaultSettingsForUser(ctx context.Context, userID string) 
 				security_notifications,
 				new_dive_site_published,
 				chika_replies,
+				instructor_application_notifications,
+				instructor_status_notifications,
 				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
@@ -1060,6 +1094,12 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 	if input.ChikaReplies != nil {
 		addSet("chika_replies", *input.ChikaReplies)
 	}
+	if input.InstructorApplication != nil {
+		addSet("instructor_application_notifications", *input.InstructorApplication)
+	}
+	if input.InstructorStatus != nil {
+		addSet("instructor_status_notifications", *input.InstructorStatus)
+	}
 	if input.DigestFrequency != nil {
 		addSet("digest_frequency", *input.DigestFrequency)
 	}
@@ -1108,6 +1148,8 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 				security_notifications,
 				new_dive_site_published,
 				chika_replies,
+				instructor_application_notifications,
+				instructor_status_notifications,
 				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
@@ -1251,6 +1293,8 @@ func scanSettingsRow(row rowScanner) (NotificationSettings, error) {
 		&item.SecurityNotifications,
 		&item.NewDiveSitePublished,
 		&item.ChikaReplies,
+		&item.InstructorApplication,
+		&item.InstructorStatus,
 		&item.DigestFrequency,
 		&item.QuietHoursStart,
 		&item.QuietHoursEnd,

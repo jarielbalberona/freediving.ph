@@ -237,6 +237,106 @@ func TestNotifyDiveSiteSubmittedForReviewNotifiesExploreModeratorsAndExcludesSub
 	}
 }
 
+func TestNotifyInstructorApplicationSubmittedNotifiesSuperAdminReviewersOnlyAndExcludesApplicant(t *testing.T) {
+	repo := newNotificationRepoStub()
+	applicantID := "550e8400-e29b-41d4-a716-446655440001"
+	superAdminID := "550e8400-e29b-41d4-a716-446655440002"
+	repo.instructorReviewerRecipients = []string{applicantID, superAdminID}
+	broadcaster := &notificationBroadcasterStub{}
+	svc := New(repo, WithBroadcaster(broadcaster))
+
+	err := svc.NotifyInstructorApplicationSubmitted(context.Background(), InstructorApplicationSubmittedInput{
+		ProfileID:            "770e8400-e29b-41d4-a716-446655440100",
+		ApplicantUserID:      applicantID,
+		ApplicantDisplayName: "Maya Santos",
+		Status:               "pending",
+	})
+	if err != nil {
+		t.Fatalf("NotifyInstructorApplicationSubmitted returned error: %v", err)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one reviewer notification, got %d", len(repo.created))
+	}
+	created := repo.created[0]
+	if created.UserID != superAdminID || created.Type != "INSTRUCTOR_APPLICATION_SUBMITTED" {
+		t.Fatalf("unexpected reviewer notification: type=%s user=%s", created.Type, created.UserID)
+	}
+	if derefString(created.ActionURL) != "/admin/instructors?status=pending" {
+		t.Fatalf("unexpected action URL %q", derefString(created.ActionURL))
+	}
+	for _, forbidden := range []string{"proofMediaId", "signedUrl", "officialVerificationUrl", "reviewNotes", "adminNotes"} {
+		if _, ok := created.Metadata[forbidden]; ok {
+			t.Fatalf("reviewer notification metadata leaked %s", forbidden)
+		}
+	}
+	if len(broadcaster.targets) != 1 || broadcaster.targets[0][0] != superAdminID {
+		t.Fatalf("expected targeted realtime to reviewer, got %#v", broadcaster.targets)
+	}
+}
+
+func TestNotifyInstructorApplicationApprovalAndRejectionNotifyApplicantOnly(t *testing.T) {
+	repo := newNotificationRepoStub()
+	applicantID := "550e8400-e29b-41d4-a716-446655440001"
+	reviewerID := "550e8400-e29b-41d4-a716-446655440002"
+	svc := New(repo)
+
+	if err := svc.NotifyInstructorApplicationApproved(context.Background(), InstructorApplicationStatusInput{
+		ProfileID:       "770e8400-e29b-41d4-a716-446655440100",
+		ApplicantUserID: applicantID,
+		ReviewerUserID:  reviewerID,
+		Status:          "verified",
+	}); err != nil {
+		t.Fatalf("approved notification failed: %v", err)
+	}
+	if err := svc.NotifyInstructorApplicationRejected(context.Background(), InstructorApplicationStatusInput{
+		ProfileID:       "770e8400-e29b-41d4-a716-446655440100",
+		ApplicantUserID: applicantID,
+		ReviewerUserID:  reviewerID,
+		Status:          "rejected",
+	}); err != nil {
+		t.Fatalf("rejected notification failed: %v", err)
+	}
+	if len(repo.created) != 2 {
+		t.Fatalf("expected two applicant notifications, got %d", len(repo.created))
+	}
+	want := map[string]string{
+		"INSTRUCTOR_APPLICATION_APPROVED": "/instructor/profile",
+		"INSTRUCTOR_APPLICATION_REJECTED": "/instructor/apply",
+	}
+	for _, created := range repo.created {
+		if created.UserID != applicantID {
+			t.Fatalf("approval/rejection should notify applicant only, got %s", created.UserID)
+		}
+		if derefString(created.ActionURL) != want[created.Type] {
+			t.Fatalf("unexpected action URL for %s: %q", created.Type, derefString(created.ActionURL))
+		}
+		for _, forbidden := range []string{"proofMediaId", "signedUrl", "officialVerificationUrl", "reviewNotes", "adminNotes", "rejectionReason"} {
+			if _, ok := created.Metadata[forbidden]; ok {
+				t.Fatalf("%s metadata leaked %s", created.Type, forbidden)
+			}
+		}
+	}
+}
+
+func TestNotifyInstructorApplicationStatusHonorsApplicantSetting(t *testing.T) {
+	repo := newNotificationRepoStub()
+	applicantID := "550e8400-e29b-41d4-a716-446655440001"
+	repo.instructorStatusEnabled = map[string]bool{applicantID: false}
+	svc := New(repo)
+
+	err := svc.NotifyInstructorApplicationApproved(context.Background(), InstructorApplicationStatusInput{
+		ProfileID:       "770e8400-e29b-41d4-a716-446655440100",
+		ApplicantUserID: applicantID,
+		Status:          "verified",
+	})
+	if err != nil {
+		t.Fatalf("approved notification returned error: %v", err)
+	}
+	if len(repo.created) != 0 {
+		t.Fatalf("expected applicant status setting to suppress notification, got %d", len(repo.created))
+	}
+}
+
 func TestNotifyChikaThreadCommentedUsesPseudonymousSafePayload(t *testing.T) {
 	repo := newNotificationRepoStub()
 	recipientID := "550e8400-e29b-41d4-a716-446655440101"
@@ -556,6 +656,37 @@ func TestProcessDueOutboxCreatesDiveSiteReviewNotificationsAndMarksProcessed(t *
 	}
 }
 
+func TestProcessDueOutboxCreatesInstructorApplicationNotificationsAndMarksProcessed(t *testing.T) {
+	repo := newNotificationRepoStub()
+	applicantID := "550e8400-e29b-41d4-a716-446655440001"
+	superAdminID := "550e8400-e29b-41d4-a716-446655440002"
+	repo.instructorReviewerRecipients = []string{superAdminID}
+	repo.claimedOutbox = []notificationsrepo.NotificationOutbox{newInstructorApplicationSubmittedOutboxEvent(1, applicantID)}
+	broadcaster := &notificationBroadcasterStub{}
+	svc := New(repo, WithBroadcaster(broadcaster))
+
+	result, err := svc.ProcessDueOutbox(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ProcessDueOutbox returned error: %v", err)
+	}
+	if result.Claimed != 1 || result.Processed != 1 || result.Retried != 0 || result.Failed != 0 {
+		t.Fatalf("unexpected process result: %+v", result)
+	}
+	if len(repo.processedOutboxIDs) != 1 || repo.processedOutboxIDs[0] != repo.claimedOutbox[0].ID {
+		t.Fatalf("expected outbox marked processed, got %#v", repo.processedOutboxIDs)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one instructor review notification, got %d", len(repo.created))
+	}
+	created := repo.created[0]
+	if created.Type != "INSTRUCTOR_APPLICATION_SUBMITTED" || created.UserID != superAdminID {
+		t.Fatalf("unexpected instructor notification: type=%s user=%s", created.Type, created.UserID)
+	}
+	if len(broadcaster.targets) != 1 || broadcaster.targets[0][0] != superAdminID {
+		t.Fatalf("expected one targeted realtime emission after persistence, got %#v", broadcaster.targets)
+	}
+}
+
 func TestProcessDueOutboxRetriesOnFailureWithBackoff(t *testing.T) {
 	repo := newNotificationRepoStub()
 	repo.claimedOutbox = []notificationsrepo.NotificationOutbox{newDiveSiteOutboxEvent(1, "550e8400-e29b-41d4-a716-446655440001")}
@@ -728,9 +859,11 @@ type notificationRepoStub struct {
 	created                              []notificationsrepo.CreateInput
 	nextID                               int64
 	exploreModeratorRecipients           []string
+	instructorReviewerRecipients         []string
 	newDiveSiteRecipients                []string
 	excludedNewDiveSiteRecipientIDs      map[string]bool
 	chikaRepliesEnabled                  map[string]bool
+	instructorStatusEnabled              map[string]bool
 	eventNotificationsEnabled            map[string]bool
 	groupInviteNotificationsEnabled      map[string]bool
 	groupPostRecipients                  map[string][]string
@@ -881,6 +1014,10 @@ func (r *notificationRepoStub) ListActiveExploreModeratorRecipients(_ context.Co
 	return filteredRecipients(r.exploreModeratorRecipients, excludeUserID), nil
 }
 
+func (r *notificationRepoStub) ListActiveInstructorReviewerRecipients(_ context.Context, excludeUserID string) ([]string, error) {
+	return filteredRecipients(r.instructorReviewerRecipients, excludeUserID), nil
+}
+
 func (r *notificationRepoStub) ListActiveNewDiveSiteRecipients(_ context.Context, excludeUserID string) ([]string, error) {
 	recipients := make([]string, 0, len(r.newDiveSiteRecipients))
 	for _, userID := range r.newDiveSiteRecipients {
@@ -919,6 +1056,17 @@ func (r *notificationRepoStub) GroupInviteNotificationsEnabled(_ context.Context
 		return true, nil
 	}
 	enabled, ok := r.groupInviteNotificationsEnabled[userID]
+	if !ok {
+		return true, nil
+	}
+	return enabled, nil
+}
+
+func (r *notificationRepoStub) InstructorStatusNotificationsEnabled(_ context.Context, userID string) (bool, error) {
+	if r.instructorStatusEnabled == nil {
+		return true, nil
+	}
+	enabled, ok := r.instructorStatusEnabled[userID]
 	if !ok {
 		return true, nil
 	}
@@ -1037,6 +1185,20 @@ func newDiveSiteSubmissionOutboxEvent(attempts int, submitterID string) notifica
 			"name":            "Secret Reef",
 			"area":            "Batangas",
 			"submitterUserId": submitterID,
+		},
+	}
+}
+
+func newInstructorApplicationSubmittedOutboxEvent(attempts int, applicantID string) notificationsrepo.NotificationOutbox {
+	return notificationsrepo.NotificationOutbox{
+		ID:        "660e8400-e29b-41d4-a716-446655440020",
+		EventType: notificationsrepo.OutboxEventInstructorApplicationSubmitted,
+		Attempts:  attempts,
+		Payload: map[string]any{
+			"profileId":            "770e8400-e29b-41d4-a716-446655440100",
+			"applicantUserId":      applicantID,
+			"applicantDisplayName": "Maya Santos",
+			"status":               "pending",
 		},
 	}
 }

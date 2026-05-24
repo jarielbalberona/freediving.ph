@@ -123,8 +123,12 @@ function InstructorApplicationContent() {
   );
   const [certificationForm, setCertificationForm] =
     useState(emptyCertification);
+  const [applicationFormOpen, setApplicationFormOpen] = useState(false);
+  const [certificationFormOpen, setCertificationFormOpen] = useState(false);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [attestationAccepted, setAttestationAccepted] = useState(false);
+  const isUnderReview = status?.status === "pending";
+  const showApplicationForm = !isUnderReview || applicationFormOpen;
   const proofPreviewUrl = useMemo(
     () =>
       proofFile?.type.startsWith("image/")
@@ -201,6 +205,7 @@ function InstructorApplicationContent() {
       });
       setCertificationForm({ ...emptyCertification });
       setProofFile(null);
+      setCertificationFormOpen(false);
       toast.success("Certification added.");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to add certification"));
@@ -214,6 +219,7 @@ function InstructorApplicationContent() {
         return;
       }
       await submitProfile.mutateAsync({ attestationAccepted });
+      setApplicationFormOpen(false);
       toast.success("Instructor application submitted.");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to submit application"));
@@ -271,394 +277,465 @@ function InstructorApplicationContent() {
             ) : null}
           </section>
 
-          <section className="grid gap-4">
-            <h2 className="text-base font-semibold tracking-normal">
-              Instructor profile
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field
-                label="Display name"
-                value={profileForm.displayName}
-                onChange={(displayName) =>
-                  setProfileForm({ ...profileForm, displayName })
-                }
-              />
-              <Field
-                label="Teaching since"
-                type="date"
-                value={profileForm.teachingSince}
-                onChange={(teachingSince) =>
-                  setProfileForm({ ...profileForm, teachingSince })
-                }
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Base/home location *</Label>
-              <p className="text-sm text-muted-foreground">
-                Where are you mainly based for teaching or freediving?
+          {!showApplicationForm ? (
+            <section className="grid gap-3 border-b border-border/70 pb-4">
+              <h2 className="text-base font-semibold tracking-normal">
+                Your instructor application is under review.
+              </h2>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                You can update your profile or add another certification if
+                something changed while FPH reviews your credentials.
               </p>
-              <LocationPicker
-                value={profileLocation}
-                onChange={setProfileLocation}
-                disabled={saveProfile.isPending}
-                mode="administrative"
-              />
-              {!hasStructuredLocation(profileLocation) &&
-              profileForm.homeLocationLabel ? (
-                <p className="text-xs text-muted-foreground">
-                  Current saved location: {profileForm.homeLocationLabel}.
-                  Choose it above before submitting.
-                </p>
-              ) : null}
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Bio *</Label>
-              <Textarea
-                value={profileForm.bio}
-                onChange={(event) =>
-                  setProfileForm({ ...profileForm, bio: event.target.value })
-                }
-                rows={5}
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field
-                label="Specialties"
-                value={profileForm.specialties}
-                onChange={(specialties) =>
-                  setProfileForm({ ...profileForm, specialties })
-                }
-              />
-              <Field
-                label="School affiliation"
-                value={profileForm.schoolAffiliation}
-                onChange={(schoolAffiliation) =>
-                  setProfileForm({ ...profileForm, schoolAffiliation })
-                }
-              />
-              <Field
-                label="Website"
-                value={profileForm.websiteUrl}
-                onChange={(websiteUrl) =>
-                  setProfileForm({ ...profileForm, websiteUrl })
-                }
-              />
-              <Field
-                label="Social links"
-                value={profileForm.socialLinks}
-                onChange={(socialLinks) =>
-                  setProfileForm({ ...profileForm, socialLinks })
-                }
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>First aid, CPR, emergency, or safety credentials</Label>
-              <Textarea
-                value={profileForm.safetyCredentials}
-                onChange={(event) =>
-                  setProfileForm({
-                    ...profileForm,
-                    safetyCredentials: event.target.value,
-                  })
-                }
-                rows={3}
-              />
-            </div>
-            <Button
-              type="button"
-              className="justify-self-start"
-              onClick={() => void onSaveProfile()}
-              disabled={saveProfile.isPending}
-            >
-              Save profile
-            </Button>
-          </section>
-
-          <section className="grid gap-4 border-t border-border/70 pt-4">
-	            <div className="grid gap-1">
-	              <div>
-	                <h2 className="text-base font-semibold tracking-normal">
-	                  Certifications
+              <Button
+                type="button"
+                variant="outline"
+                className="justify-self-start"
+                onClick={() => setApplicationFormOpen(true)}
+              >
+                Update application
+              </Button>
+            </section>
+          ) : (
+            <>
+              <section className="grid gap-4">
+                <h2 className="text-base font-semibold tracking-normal">
+                  Instructor profile
                 </h2>
-                <p className="text-sm text-muted-foreground">
-                  Add at least one instructor-level certification with readable
-                  proof or an official verification/profile URL. You can add
-                  certifications from agencies like Molchanovs, PADI, AIDA, SSI,
-	                  RAID, Apnea Academy, or Other.
-	                </p>
-	              </div>
-	            </div>
-
-            <div className="grid gap-3 rounded-lg border border-border/70 p-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid gap-1.5">
-                  <Label>Agency</Label>
-                  <Select
-                    items={instructorAgencyLabels}
-                    value={certificationForm.agency}
-                    onValueChange={(agency) =>
-                      setCertificationForm({
-                        ...certificationForm,
-                        agency: agency as InstructorAgency,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select agency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {instructorAgencyOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {certificationForm.agency === "other" ? (
+                <div className="grid gap-3 sm:grid-cols-2">
                   <Field
-                    label="Agency name"
-                    className="sm:col-span-2"
-                    value={certificationForm.agencyOtherName}
-                    onChange={(agencyOtherName) =>
-                      setCertificationForm({
-                        ...certificationForm,
-                        agencyOtherName,
-                      })
+                    label="Display name"
+                    value={profileForm.displayName}
+                    onChange={(displayName) =>
+                      setProfileForm({ ...profileForm, displayName })
                     }
                   />
-                ) : null}
-                <Field
-                  label="Certification level"
-                  value={certificationForm.certificationLevel}
-                  onChange={(certificationLevel) =>
-                    setCertificationForm({
-                      ...certificationForm,
-                      certificationLevel,
-                    })
-                  }
-                />
-                <Field
-                  label="Official verification link"
-                  value={certificationForm.officialVerificationUrl}
-                  onChange={(officialVerificationUrl) =>
-                    setCertificationForm({
-                      ...certificationForm,
-                      officialVerificationUrl,
-                    })
-                  }
-                />
-                <Field
-                  label="Certification number"
-                  value={certificationForm.certificationNumber}
-                  onChange={(certificationNumber) =>
-                    setCertificationForm({
-                      ...certificationForm,
-                      certificationNumber,
-                    })
-                  }
-                />
-                <Field
-                  label="Issued"
-                  type="date"
-                  value={certificationForm.issuedAt}
-                  onChange={(issuedAt) =>
-                    setCertificationForm({ ...certificationForm, issuedAt })
-                  }
-                />
-                <Field
-                  label="Expires"
-                  type="date"
-                  value={certificationForm.expiresAt}
-                  onChange={(expiresAt) =>
-                    setCertificationForm({ ...certificationForm, expiresAt })
-                  }
-                />
-                <div className="grid gap-1.5 sm:col-span-2">
-                  <Label>Certification proof</Label>
+                  <Field
+                    label="Teaching since"
+                    type="date"
+                    value={profileForm.teachingSince}
+                    onChange={(teachingSince) =>
+                      setProfileForm({ ...profileForm, teachingSince })
+                    }
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Base/home location *</Label>
                   <p className="text-sm text-muted-foreground">
-                    Upload a certificate, instructor card, or screenshot of your
-                    credential.
+                    Where are you mainly based for teaching or freediving?
                   </p>
-                  <div className="flex flex-col gap-3 rounded-md border border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">
-                        {proofFile ? proofFile.name : "No proof selected"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        JPG, PNG, WebP, or GIF up to 10 MB.
-                      </p>
+                  <LocationPicker
+                    value={profileLocation}
+                    onChange={setProfileLocation}
+                    disabled={saveProfile.isPending}
+                    mode="administrative"
+                  />
+                  {!hasStructuredLocation(profileLocation) &&
+                  profileForm.homeLocationLabel ? (
+                    <p className="text-xs text-muted-foreground">
+                      Current saved location: {profileForm.homeLocationLabel}.
+                      Choose it above before submitting.
+                    </p>
+                  ) : null}
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Bio *</Label>
+                  <Textarea
+                    value={profileForm.bio}
+                    onChange={(event) =>
+                      setProfileForm({
+                        ...profileForm,
+                        bio: event.target.value,
+                      })
+                    }
+                    rows={5}
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field
+                    label="Specialties"
+                    value={profileForm.specialties}
+                    onChange={(specialties) =>
+                      setProfileForm({ ...profileForm, specialties })
+                    }
+                  />
+                  <Field
+                    label="School affiliation"
+                    value={profileForm.schoolAffiliation}
+                    onChange={(schoolAffiliation) =>
+                      setProfileForm({ ...profileForm, schoolAffiliation })
+                    }
+                  />
+                  <Field
+                    label="Website"
+                    value={profileForm.websiteUrl}
+                    onChange={(websiteUrl) =>
+                      setProfileForm({ ...profileForm, websiteUrl })
+                    }
+                  />
+                  <Field
+                    label="Social links"
+                    value={profileForm.socialLinks}
+                    onChange={(socialLinks) =>
+                      setProfileForm({ ...profileForm, socialLinks })
+                    }
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>
+                    First aid, CPR, emergency, or safety credentials
+                  </Label>
+                  <Textarea
+                    value={profileForm.safetyCredentials}
+                    onChange={(event) =>
+                      setProfileForm({
+                        ...profileForm,
+                        safetyCredentials: event.target.value,
+                      })
+                    }
+                    rows={3}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  className="justify-self-start"
+                  onClick={() => void onSaveProfile()}
+                  disabled={saveProfile.isPending}
+                >
+                  Save profile
+                </Button>
+              </section>
+
+              <section className="grid gap-4 border-t border-border/70 pt-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="grid gap-1">
+                    <h2 className="text-base font-semibold tracking-normal">
+                      Certifications
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Add at least one instructor-level certification with
+                      readable proof or an official verification/profile URL.
+                      You can add certifications from agencies like Molchanovs,
+                      PADI, AIDA, SSI, RAID, Apnea Academy, or Other.
+                    </p>
+                  </div>
+                  {!certificationFormOpen ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => setCertificationFormOpen(true)}
+                    >
+                      <Plus />
+                      Add certification
+                    </Button>
+                  ) : null}
+                </div>
+
+                {certificationFormOpen ? (
+                  <div className="grid gap-3 rounded-lg border border-border/70 p-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="grid gap-1.5">
+                        <Label>Agency</Label>
+                        <Select
+                          items={instructorAgencyLabels}
+                          value={certificationForm.agency}
+                          onValueChange={(agency) =>
+                            setCertificationForm({
+                              ...certificationForm,
+                              agency: agency as InstructorAgency,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select agency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {instructorAgencyOptions.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {certificationForm.agency === "other" ? (
+                        <Field
+                          label="Agency name"
+                          className="sm:col-span-2"
+                          value={certificationForm.agencyOtherName}
+                          onChange={(agencyOtherName) =>
+                            setCertificationForm({
+                              ...certificationForm,
+                              agencyOtherName,
+                            })
+                          }
+                        />
+                      ) : null}
+                      <Field
+                        label="Certification level"
+                        value={certificationForm.certificationLevel}
+                        onChange={(certificationLevel) =>
+                          setCertificationForm({
+                            ...certificationForm,
+                            certificationLevel,
+                          })
+                        }
+                      />
+                      <Field
+                        label="Official verification link"
+                        value={certificationForm.officialVerificationUrl}
+                        onChange={(officialVerificationUrl) =>
+                          setCertificationForm({
+                            ...certificationForm,
+                            officialVerificationUrl,
+                          })
+                        }
+                      />
+                      <Field
+                        label="Certification number"
+                        value={certificationForm.certificationNumber}
+                        onChange={(certificationNumber) =>
+                          setCertificationForm({
+                            ...certificationForm,
+                            certificationNumber,
+                          })
+                        }
+                      />
+                      <Field
+                        label="Issued"
+                        type="date"
+                        value={certificationForm.issuedAt}
+                        onChange={(issuedAt) =>
+                          setCertificationForm({
+                            ...certificationForm,
+                            issuedAt,
+                          })
+                        }
+                      />
+                      <Field
+                        label="Expires"
+                        type="date"
+                        value={certificationForm.expiresAt}
+                        onChange={(expiresAt) =>
+                          setCertificationForm({
+                            ...certificationForm,
+                            expiresAt,
+                          })
+                        }
+                      />
+                      <div className="grid gap-1.5 sm:col-span-2">
+                        <Label>Certification proof</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Upload a certificate, instructor card, or screenshot
+                          of your credential.
+                        </p>
+                        <div className="flex flex-col gap-3 rounded-md border border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">
+                              {proofFile ? proofFile.name : "No proof selected"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              JPG, PNG, WebP, or GIF up to 10 MB.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              render={
+                                <label htmlFor="certification-proof-file" />
+                              }
+                              disabled={
+                                uploadProof.isPending ||
+                                createCertification.isPending
+                              }
+                            >
+                              <FileUp />
+                              {proofFile ? "Replace proof" : "Upload proof"}
+                            </Button>
+                            {proofFile ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setProofFile(null)}
+                                disabled={
+                                  uploadProof.isPending ||
+                                  createCertification.isPending
+                                }
+                              >
+                                <X />
+                                Remove
+                              </Button>
+                            ) : null}
+                          </div>
+                          <input
+                            id="certification-proof-file"
+                            type="file"
+                            accept={acceptedProofTypes.join(",")}
+                            className="sr-only"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] ?? null;
+                              event.target.value = "";
+                              if (!file) return;
+                              if (!acceptedProofTypes.includes(file.type)) {
+                                toast.error(
+                                  "Upload an image file for certification proof.",
+                                );
+                                return;
+                              }
+                              if (file.size > maxProofSizeBytes) {
+                                toast.error(
+                                  "Certification proof must be 10 MB or smaller.",
+                                );
+                                return;
+                              }
+                              setProofFile(file);
+                            }}
+                          />
+                        </div>
+                        {proofPreviewUrl ? (
+                          <img
+                            src={proofPreviewUrl}
+                            alt="Selected certification proof preview"
+                            className="max-h-56 w-fit rounded-md border border-border/70 object-contain"
+                          />
+                        ) : null}
+                        <p className="text-sm text-muted-foreground">
+                          If your agency has a public profile or verification
+                          page, add the link here instead or include both.
+                        </p>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         type="button"
-                        variant="outline"
-                        render={<label htmlFor="certification-proof-file" />}
+                        onClick={() => void onAddCertification()}
                         disabled={
-                          uploadProof.isPending || createCertification.isPending
+                          createCertification.isPending || uploadProof.isPending
                         }
                       >
-                        <FileUp />
-                        {proofFile ? "Replace proof" : "Upload proof"}
+                        <Plus />
+                        Save certification
                       </Button>
-                      {proofFile ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => setProofFile(null)}
-                          disabled={
-                            uploadProof.isPending ||
-                            createCertification.isPending
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setCertificationForm({ ...emptyCertification });
+                          setProofFile(null);
+                          setCertificationFormOpen(false);
+                        }}
+                        disabled={
+                          createCertification.isPending || uploadProof.isPending
+                        }
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <label className="flex gap-2 rounded-md border border-border/70 p-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1 size-4 shrink-0"
+                    checked={attestationAccepted}
+                    onChange={(event) =>
+                      setAttestationAccepted(event.target.checked)
+                    }
+                  />
+                  <span className="text-muted-foreground">
+                    I attest that the submitted credentials are truthful, and I
+                    understand FPH may reject or suspend verification for false,
+                    expired, unverifiable, or misleading credentials. I also
+                    understand FPH verification is platform verification only
+                    and does not mean FPH issued, guarantees, or certifies the
+                    instructor credential.
+                  </span>
+                </label>
+
+                {certifications.length === 0 ? (
+                  <CommunityEmptyState
+                    title="No certifications yet"
+                    description="Add the agency and certification level you teach under."
+                  />
+                ) : (
+                  <div className="divide-y divide-border/70 border-y border-border/70">
+                    {certifications.map((certification) => (
+                      <div
+                        key={certification.id}
+                        className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Award className="size-4 text-muted-foreground" />
+                            <span className="font-medium">
+                              {certification.agency === "other"
+                                ? certification.agencyOtherName
+                                : instructorAgencyLabels[
+                                    certification.agency
+                                  ]}{" "}
+                              {certification.certificationLevel}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {certification.certificationNumber ||
+                              "No certification number"}
+                          </p>
+                          {certification.officialVerificationUrl ? (
+                            <p className="mt-1 truncate text-xs text-muted-foreground">
+                              {certification.officialVerificationUrl}
+                            </p>
+                          ) : null}
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {certification.proofMediaId ? (
+                              <span>Proof uploaded</span>
+                            ) : null}
+                            {certification.proofMediaId ? (
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 underline-offset-4 hover:underline"
+                                onClick={() => void openProof(certification.id)}
+                              >
+                                <ExternalLink className="size-3" />
+                                View proof
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <Badge variant="outline">
+                          {
+                            certificationStatusLabels[
+                              certification.verificationStatus
+                            ]
                           }
-                        >
-                          <X />
-                          Remove
-                        </Button>
-                      ) : null}
-                    </div>
-                    <input
-                      id="certification-proof-file"
-                      type="file"
-                      accept={acceptedProofTypes.join(",")}
-                      className="sr-only"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] ?? null;
-                        event.target.value = "";
-                        if (!file) return;
-                        if (!acceptedProofTypes.includes(file.type)) {
-                          toast.error(
-                            "Upload an image file for certification proof.",
-                          );
-                          return;
-                        }
-                        if (file.size > maxProofSizeBytes) {
-                          toast.error(
-                            "Certification proof must be 10 MB or smaller.",
-                          );
-                          return;
-                        }
-                        setProofFile(file);
-                      }}
-                    />
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
-                  {proofPreviewUrl ? (
-                    <img
-                      src={proofPreviewUrl}
-                      alt="Selected certification proof preview"
-                      className="max-h-56 w-fit rounded-md border border-border/70 object-contain"
-                    />
-                  ) : null}
-                  <p className="text-sm text-muted-foreground">
-                    If your agency has a public profile or verification page,
-                    add the link here instead or include both.
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                className="justify-self-start"
-                onClick={() => void onAddCertification()}
-                disabled={
-                  createCertification.isPending || uploadProof.isPending
-                }
-              >
-                <Plus />
-                Add certification
-              </Button>
-            </div>
-
-            <label className="flex gap-2 rounded-md border border-border/70 p-3 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1 size-4 shrink-0"
-                checked={attestationAccepted}
-                onChange={(event) =>
-                  setAttestationAccepted(event.target.checked)
-                }
-              />
-              <span className="text-muted-foreground">
-                I attest that the submitted credentials are truthful, and I
-                understand FPH may reject or suspend verification for false,
-                expired, unverifiable, or misleading credentials. I also
-                understand FPH verification is platform verification only and
-                does not mean FPH issued, guarantees, or certifies the
-                instructor credential.
-              </span>
-            </label>
-
-            {certifications.length === 0 ? (
-              <CommunityEmptyState
-                title="No certifications yet"
-                description="Add the agency and certification level you teach under."
-              />
-            ) : (
-              <div className="divide-y divide-border/70 border-y border-border/70">
-                {certifications.map((certification) => (
-                  <div
-                    key={certification.id}
-                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Award className="size-4 text-muted-foreground" />
-                        <span className="font-medium">
-                          {certification.agency === "other"
-                            ? certification.agencyOtherName
-                            : instructorAgencyLabels[certification.agency]}{" "}
-                          {certification.certificationLevel}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {certification.certificationNumber ||
-                          "No certification number"}
-                      </p>
-                      {certification.officialVerificationUrl ? (
-                        <p className="mt-1 truncate text-xs text-muted-foreground">
-                          {certification.officialVerificationUrl}
-                        </p>
-                      ) : null}
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {certification.proofMediaId ? (
-                          <span>Proof uploaded</span>
-                        ) : null}
-                        {certification.proofMediaId ? (
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1 underline-offset-4 hover:underline"
-                            onClick={() => void openProof(certification.id)}
-                          >
-                            <ExternalLink className="size-3" />
-                            View proof
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                    <Badge variant="outline">
-                      {
-                        certificationStatusLabels[
-                          certification.verificationStatus
-                        ]
+                )}
+                {!isUnderReview ? (
+                  <div className="flex justify-end border-t border-border/70 pt-4">
+                    <Button
+                      type="button"
+                      onClick={() => void onSubmit()}
+                      disabled={
+                        submitProfile.isPending ||
+                        certifications.length === 0 ||
+                        !attestationAccepted
                       }
-                    </Badge>
+                    >
+                      <Send />
+                      Submit for review
+                    </Button>
                   </div>
-                ))}
-	              </div>
-	            )}
-	            <div className="flex justify-end border-t border-border/70 pt-4">
-	              <Button
-	                type="button"
-	                onClick={() => void onSubmit()}
-	                disabled={
-	                  submitProfile.isPending ||
-	                  certifications.length === 0 ||
-	                  !attestationAccepted
-	                }
-	              >
-	                <Send />
-	                Submit for review
-	              </Button>
-	            </div>
-	          </section>
+                ) : null}
+              </section>
+            </>
+          )}
         </div>
       ) : null}
     </CommunityPageShell>

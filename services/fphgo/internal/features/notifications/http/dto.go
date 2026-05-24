@@ -80,6 +80,8 @@ type NotificationSettings struct {
 	SecurityNotifications      bool    `json:"securityNotifications"`
 	NewDiveSitePublished       bool    `json:"newDiveSitePublished"`
 	ChikaReplies               bool    `json:"chikaReplies"`
+	InstructorApplication      bool    `json:"instructorApplicationNotifications"`
+	InstructorStatus           bool    `json:"instructorStatusNotifications"`
 	DigestFrequency            string  `json:"digestFrequency"`
 	QuietHoursStart            *string `json:"quietHoursStart,omitempty"`
 	QuietHoursEnd              *string `json:"quietHoursEnd,omitempty"`
@@ -109,6 +111,8 @@ type UpdateNotificationSettingsRequest struct {
 	SecurityNotifications      *bool   `json:"securityNotifications,omitempty"`
 	NewDiveSitePublished       *bool   `json:"newDiveSitePublished,omitempty"`
 	ChikaReplies               *bool   `json:"chikaReplies,omitempty"`
+	InstructorApplication      *bool   `json:"instructorApplicationNotifications,omitempty"`
+	InstructorStatus           *bool   `json:"instructorStatusNotifications,omitempty"`
 	DigestFrequency            *string `json:"digestFrequency,omitempty" validate:"omitempty,oneof=IMMEDIATE DAILY WEEKLY NEVER"`
 	QuietHoursStart            *string `json:"quietHoursStart,omitempty" validate:"omitempty,max=5"`
 	QuietHoursEnd              *string `json:"quietHoursEnd,omitempty" validate:"omitempty,max=5"`
