@@ -18,6 +18,7 @@ type fakeRepo struct {
 
 	capturedCourse  schoolsrepo.CreateCourseInput
 	capturedSession schoolsrepo.CreateSessionInput
+	capturedSchool  schoolsrepo.UpdateSchoolInput
 
 	verifiedInstructor bool
 	instructorStatus   string
@@ -45,7 +46,8 @@ func (f *fakeRepo) GetSchoolBySlug(context.Context, string, string) (schoolsrepo
 func (f *fakeRepo) GetMemberRole(context.Context, string, string) (string, error) {
 	return f.role, nil
 }
-func (f *fakeRepo) UpdateSchool(context.Context, string, schoolsrepo.UpdateSchoolInput) (schoolsrepo.School, error) {
+func (f *fakeRepo) UpdateSchool(_ context.Context, _ string, input schoolsrepo.UpdateSchoolInput) (schoolsrepo.School, error) {
+	f.capturedSchool = input
 	return f.school, nil
 }
 func (f *fakeRepo) DeleteSchool(context.Context, string) error { return nil }
@@ -189,6 +191,21 @@ func TestPlatformAdminCanCreateSchoolWithoutInstructorProfile(t *testing.T) {
 	_, err := svc.CreateSchool(context.Background(), "actor", schoolsrepo.CreateSchoolInput{Name: "School"})
 	if err != nil {
 		t.Fatalf("expected platform admin bypass: %v", err)
+	}
+}
+
+func TestOwnerCanPublishSchool(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	repo.role = "owner"
+	svc := New(repo)
+	status := "published"
+
+	_, err := svc.UpdateSchool(context.Background(), "school", "actor", schoolsrepo.UpdateSchoolInput{Status: &status})
+	if err != nil {
+		t.Fatalf("expected owner to update school status: %v", err)
+	}
+	if repo.capturedSchool.Status == nil || *repo.capturedSchool.Status != "published" {
+		t.Fatalf("expected published status update, got %#v", repo.capturedSchool.Status)
 	}
 }
 

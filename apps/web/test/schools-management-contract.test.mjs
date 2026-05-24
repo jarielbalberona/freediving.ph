@@ -31,6 +31,10 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
   assert.match(page, /SelectField/);
   assert.match(page, /SelectTrigger/);
   assert.match(page, /SelectValue/);
+  assert.match(page, /Publish school/);
+  assert.match(page, /Move to draft/);
+  assert.match(page, /School status/);
+  assert.match(page, /Published schools can appear in the public school directory/);
   assert.match(constants, /Pending review/);
   assert.match(constants, /Pool training/);
   assert.match(constants, /Use school location/);

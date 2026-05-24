@@ -19,6 +19,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -50,6 +51,7 @@ import type {
   CreateCourseSessionRequest,
   CreateSchoolRequest,
   School,
+  SchoolStatus,
   SessionLocationMode,
 } from "@freediving.ph/types";
 import {
@@ -158,6 +160,9 @@ const bookingStatusOptions = Object.entries(bookingStatusLabels).map(
   ([value, label]) => ({ value, label }),
 );
 const paymentStatusOptions = Object.entries(paymentStatusLabels).map(
+  ([value, label]) => ({ value, label }),
+);
+const schoolStatusOptions = Object.entries(schoolStatusLabels).map(
   ([value, label]) => ({ value, label }),
 );
 
@@ -300,6 +305,7 @@ export function ManageSchoolsPage() {
 
 export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
   const schoolQuery = useManageSchool(slug);
+  const updateSchool = useUpdateSchool(slug);
   const [editing, setEditing] = useState(false);
   const school = schoolQuery.data;
   const canEditSchool = school ? canEditSchoolSettings(school) : false;
@@ -318,7 +324,37 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
           { label: "Payments", value: String(school.paymentsToReviewCount) },
         ]}
       />
+      {school.status === "draft" ? (
+        <Alert>
+          <AlertTitle>This school is not public yet.</AlertTitle>
+          <AlertDescription>
+            Publish the school when its profile is ready. Published schools can
+            appear in the public school directory.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <div className="flex flex-wrap gap-2">
+        {canEditSchool && school.status === "draft" ? (
+          <Button
+            size="sm"
+            onClick={() => updateSchool.mutate({ status: "published" })}
+            disabled={updateSchool.isPending}
+          >
+            <Check />
+            Publish school
+          </Button>
+        ) : null}
+        {canEditSchool && school.status === "published" ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => updateSchool.mutate({ status: "draft" })}
+            disabled={updateSchool.isPending}
+          >
+            <X />
+            Move to draft
+          </Button>
+        ) : null}
         <Button
           variant="outline"
           size="sm"
@@ -914,10 +950,12 @@ function SchoolForm({
   onSubmit,
   busy,
   initial,
+  showStatus = false,
 }: {
   onSubmit: (data: CreateSchoolRequest) => Promise<void>;
   busy: boolean;
   initial?: School;
+  showStatus?: boolean;
 }) {
   const form = useForm<SchoolFormValues>({
     resolver: zodResolver(schoolFormSchema),
@@ -982,6 +1020,42 @@ function SchoolForm({
             </FormItem>
           )}
         />
+        {showStatus ? (
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>School status</FormLabel>
+                <Select
+                  items={schoolStatusLabels}
+                  value={field.value ?? "draft"}
+                  onValueChange={(status) =>
+                    field.onChange((status ?? "draft") as SchoolStatus)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {schoolStatusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Published schools can appear in the public school directory.
+                  Draft schools stay private to school managers.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
         <FormField
           control={form.control}
           name="shortDescription"
@@ -1318,6 +1392,7 @@ function EditSchoolForm({
   return (
     <SchoolForm
       initial={school}
+      showStatus
       busy={updateSchool.isPending}
       onSubmit={async (data) => {
         await updateSchool.mutateAsync(data);

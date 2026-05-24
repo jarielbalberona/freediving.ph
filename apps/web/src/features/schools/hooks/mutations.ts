@@ -27,8 +27,9 @@ export const useUpdateSchool = (slug: string) => {
   return useMutation({
     mutationFn: (data: UpdateSchoolRequest) =>
       schoolsApi.updateSchool(slug, data),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.schools.all });
+    },
   });
 };
 
