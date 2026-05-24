@@ -1,9 +1,12 @@
 package http
 
 import (
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	schoolsrepo "fphgo/internal/features/schools/repo"
+	"fphgo/internal/shared/httpx"
 )
 
 func TestPublicSchoolDTOHidesManageOnlyFields(t *testing.T) {
@@ -55,3 +58,22 @@ func TestMyBookingDTOHidesAdminOnlyFields(t *testing.T) {
 		t.Fatal("student payment dto exposed reviewNotes")
 	}
 }
+
+func TestPaymentMethodRequestAcceptsLegacyQRImageURL(t *testing.T) {
+	r := httptest.NewRequest(
+		"POST",
+		"/",
+		strings.NewReader(`{"type":"manual_qr","qrMediaId":"36f12a48-ff51-4cd5-92aa-6b679181f3ec","qrImageUrl":"payment-methods/school/qr.png","isActive":true}`),
+	)
+	req, issues, ok := httpx.DecodeAndValidate[PaymentMethodRequest](r, noopValidator{})
+	if !ok {
+		t.Fatalf("expected qrImageUrl to be accepted, got issues: %+v", issues)
+	}
+	if req.QRImageURL != "payment-methods/school/qr.png" {
+		t.Fatalf("expected qrImageUrl to decode, got %q", req.QRImageURL)
+	}
+}
+
+type noopValidator struct{}
+
+func (noopValidator) Struct(any) error { return nil }

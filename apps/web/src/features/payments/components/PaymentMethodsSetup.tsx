@@ -50,7 +50,9 @@ type PaymentMethodFormState = Required<
   >
 > & { isActive: boolean };
 
-type PaymentMethodSaveValue = PaymentMethodDetails & { isActive: boolean };
+export type PaymentMethodSetupSaveValue = PaymentMethodDetails & {
+  isActive: boolean;
+};
 
 type PaymentMethodsSetupProps = {
   methods: PaymentMethodSetupValue[];
@@ -59,10 +61,10 @@ type PaymentMethodsSetupProps = {
   mediaContextId?: string;
   emptyTitle?: string;
   emptyDescription?: string;
-  onCreate: (value: PaymentMethodSaveValue) => Promise<void> | void;
+  onCreate: (value: PaymentMethodSetupSaveValue) => Promise<void> | void;
   onUpdate: (
     methodId: string,
-    value: PaymentMethodSaveValue,
+    value: PaymentMethodSetupSaveValue,
   ) => Promise<void> | void;
 };
 
@@ -233,7 +235,7 @@ function PaymentMethodEditorRow({
   disabled?: boolean;
   mediaContextType: MediaContextType;
   mediaContextId?: string;
-  onSave: (value: PaymentMethodSaveValue) => Promise<void> | void;
+  onSave: (value: PaymentMethodSetupSaveValue) => Promise<void> | void;
 }) {
   const [form, setForm] = useState(formStateFromPaymentMethod(method));
   const [error, setError] = useState("");
@@ -510,9 +512,9 @@ function formStateFromPaymentMethod(
 function buildPaymentMethodPayload(
   form: PaymentMethodFormState,
 ):
-  | { ok: true; value: PaymentMethodSaveValue }
+  | { ok: true; value: PaymentMethodSetupSaveValue }
   | { ok: false; message: string } {
-  const value: PaymentMethodSaveValue = {
+  const value: PaymentMethodSetupSaveValue = {
     type: form.type,
     name: form.name.trim() || defaultPaymentMethodName(form.type),
     instructions: form.instructions.trim() || undefined,

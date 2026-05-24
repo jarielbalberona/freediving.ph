@@ -67,6 +67,10 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
   assert.match(page, /Payment setup/);
   assert.match(page, /PaymentMethodsSetup/);
   assert.match(page, /mediaContextType="payment_method_qr"/);
+  assert.match(page, /sanitizeSchoolPaymentMethodRequest/);
+  assert.match(page, /qrImageUrl: _qrImageUrl/);
+  assert.doesNotMatch(page, /data as CreateCoursePaymentMethodRequest/);
+  assert.doesNotMatch(page, /data as UpdateCoursePaymentMethodRequest/);
   assert.doesNotMatch(overviewSection, /SchoolPaymentMethodsPanel/);
   assert.match(page, /Booking options/);
   assert.match(page, /Students can choose from available schedules/);

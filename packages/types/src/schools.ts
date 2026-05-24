@@ -1,4 +1,7 @@
-import type { PaymentMethodType } from "./payment-methods";
+import type {
+  PaymentMethodDetails,
+  PaymentMethodType,
+} from "./payment-methods";
 
 export type SchoolStatus = "draft" | "published" | "suspended";
 export type SchoolMemberRole = "owner" | "admin" | "instructor";
@@ -404,9 +407,12 @@ export type CreateCourseRequest = Omit<
 export type UpdateCourseRequest = CreateCourseRequest;
 
 export type CreateCoursePaymentMethodRequest = Omit<
-  SchoolPaymentMethod,
-  "id" | "schoolId" | "createdAt" | "updatedAt" | "qrImageUrl"
->;
+  PaymentMethodDetails,
+  "qrImageUrl"
+> & {
+  type: CoursePaymentMethodType;
+  isActive: boolean;
+};
 export type UpdateCoursePaymentMethodRequest = CreateCoursePaymentMethodRequest;
 export type CreateSchoolPaymentMethodRequest = CreateCoursePaymentMethodRequest;
 export type UpdateSchoolPaymentMethodRequest = CreateSchoolPaymentMethodRequest;

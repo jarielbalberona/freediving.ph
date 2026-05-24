@@ -72,7 +72,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { MarkdownEditor } from "@/features/chika/components/MarkdownEditor";
-import { PaymentMethodsSetup } from "@/features/payments/components/PaymentMethodsSetup";
+import {
+  PaymentMethodsSetup,
+  type PaymentMethodSetupSaveValue,
+} from "@/features/payments/components/PaymentMethodsSetup";
 import {
   DiveSiteCombobox,
   formatDiveSiteOptionLabel,
@@ -2167,18 +2170,25 @@ function SchoolPaymentMethodsPanel({
         emptyDescription="Add Manual QR or bank transfer details before paid courses ask students for proof of payment."
         onCreate={async (data) => {
           await createMethod.mutateAsync(
-            data as CreateCoursePaymentMethodRequest,
+            sanitizeSchoolPaymentMethodRequest(data),
           );
         }}
         onUpdate={async (paymentMethodId, data) => {
           await updateMethod.mutateAsync({
             paymentMethodId,
-            data: data as UpdateCoursePaymentMethodRequest,
+            data: sanitizeSchoolPaymentMethodRequest(data),
           });
         }}
       />
     </section>
   );
+}
+
+function sanitizeSchoolPaymentMethodRequest(
+  data: PaymentMethodSetupSaveValue,
+): CreateCoursePaymentMethodRequest & UpdateCoursePaymentMethodRequest {
+  const { qrImageUrl: _qrImageUrl, ...request } = data;
+  return request;
 }
 
 function BookingRow({

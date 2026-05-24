@@ -182,6 +182,7 @@ type PaymentMethodRequest struct {
 	Name          string `json:"name"`
 	Instructions  string `json:"instructions"`
 	QRMediaID     string `json:"qrMediaId"`
+	QRImageURL    string `json:"qrImageUrl"`
 	BankName      string `json:"bankName"`
 	AccountName   string `json:"accountName"`
 	AccountNumber string `json:"accountNumber"`
