@@ -209,6 +209,17 @@ type BookingPayment struct {
 	UpdatedAt       time.Time
 }
 
+type BookingPaymentProof struct {
+	PaymentID     string
+	BookingID     string
+	SchoolID      string
+	StudentUserID string
+	ProofMediaID  string
+	ObjectKey     string
+	FileName      string
+	ContentType   string
+}
+
 type SubmitBookingPaymentInput struct {
 	PaymentMethodID string
 	ProofMediaID    string
@@ -877,6 +888,37 @@ func (r *Repo) ReviewBookingPayment(ctx context.Context, schoolID, bookingID, ac
 	}
 	row := r.pool.QueryRow(ctx, `UPDATE course_booking_payments SET status=$4,reviewed_by=$3,reviewed_at=NOW(),review_notes=NULLIF($5,''),updated_at=NOW() WHERE school_id=$1 AND booking_id=$2 AND deleted_at IS NULL RETURNING id,booking_id,course_id,school_id,COALESCE(student_user_id::text,''),COALESCE(payment_method_id::text,''),amount::float8,currency,COALESCE(proof_media_id::text,''),COALESCE(reference_number,''),status,COALESCE(reviewed_by::text,''),reviewed_at,COALESCE(review_notes,''),created_at,updated_at`, schoolID, bookingID, actorID, status, notes)
 	return scanBookingPayment(row)
+}
+
+func (r *Repo) GetBookingPaymentProof(ctx context.Context, schoolID, bookingID string) (BookingPaymentProof, error) {
+	const q = `
+		SELECT pay.id::text, pay.booking_id::text, pay.school_id::text,
+			COALESCE(pay.student_user_id::text, ''), COALESCE(pay.proof_media_id::text, ''),
+			mo.object_key, regexp_replace(mo.object_key, '^.*/', ''), mo.mime_type
+		FROM course_booking_payments pay
+		JOIN media_objects mo ON mo.id = pay.proof_media_id
+		WHERE pay.school_id = $1::uuid
+			AND pay.booking_id = $2::uuid
+			AND pay.deleted_at IS NULL
+			AND mo.context_type = 'course_booking_receipt'
+			AND mo.context_id = pay.booking_id
+			AND mo.owner_app_user_id = pay.student_user_id
+			AND mo.state = 'active'
+	`
+	var item BookingPaymentProof
+	if err := r.pool.QueryRow(ctx, q, schoolID, bookingID).Scan(
+		&item.PaymentID,
+		&item.BookingID,
+		&item.SchoolID,
+		&item.StudentUserID,
+		&item.ProofMediaID,
+		&item.ObjectKey,
+		&item.FileName,
+		&item.ContentType,
+	); err != nil {
+		return BookingPaymentProof{}, err
+	}
+	return item, nil
 }
 
 func (r *Repo) SubmitMyBookingPayment(ctx context.Context, userID, bookingID string, input SubmitBookingPaymentInput) (Booking, error) {

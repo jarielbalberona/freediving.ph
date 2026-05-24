@@ -16,12 +16,16 @@ import (
 	notificationsservice "fphgo/internal/features/notifications/service"
 	schoolsrepo "fphgo/internal/features/schools/repo"
 	apperrors "fphgo/internal/shared/errors"
+	"fphgo/internal/shared/mediasign"
 	"fphgo/internal/shared/validatex"
 )
 
 type Service struct {
 	repo          repository
 	notifications notificationProcessor
+	mediaSigner   *mediasign.Signer
+	proofURLTTL   time.Duration
+	nowFn         func() time.Time
 }
 
 type notificationProcessor interface {
@@ -29,8 +33,9 @@ type notificationProcessor interface {
 }
 
 const (
-	defaultCurrency = "PHP"
-	defaultTimezone = "Asia/Manila"
+	defaultCurrency                  = "PHP"
+	defaultTimezone                  = "Asia/Manila"
+	defaultBookingPaymentProofURLTTL = 5 * time.Minute
 )
 
 type repository interface {
@@ -66,6 +71,7 @@ type repository interface {
 	AssignBookingSession(context.Context, string, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error)
 	UnassignBookingSession(context.Context, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error)
 	ReviewBookingPayment(context.Context, string, string, string, string, string) (schoolsrepo.BookingPayment, error)
+	GetBookingPaymentProof(context.Context, string, string) (schoolsrepo.BookingPaymentProof, error)
 	SubmitMyBookingPayment(context.Context, string, string, schoolsrepo.SubmitBookingPaymentInput) (schoolsrepo.Booking, error)
 	ListPublicSchools(context.Context, schoolsrepo.PublicSchoolFilters) ([]schoolsrepo.School, error)
 	GetPublicSchoolBySlug(context.Context, string) (schoolsrepo.School, error)
@@ -83,6 +89,16 @@ type ValidationFailure struct {
 
 func (e ValidationFailure) Error() string { return "validation failed" }
 
+type BookingPaymentProofURL struct {
+	PaymentID        string
+	BookingID        string
+	ProofMediaID     string
+	ProofFileName    string
+	ProofContentType string
+	URL              string
+	ExpiresAt        int64
+}
+
 type Option func(*Service)
 
 func WithNotifications(notifications notificationProcessor) Option {
@@ -91,8 +107,26 @@ func WithNotifications(notifications notificationProcessor) Option {
 	}
 }
 
+func WithPaymentProofSigning(baseURL, signingSecret string, keyVersion int) Option {
+	return func(s *Service) {
+		s.mediaSigner = mediasign.New(baseURL, signingSecret, keyVersion, mediasign.WithNow(s.nowFn))
+	}
+}
+
+func WithNow(nowFn func() time.Time) Option {
+	return func(s *Service) {
+		if nowFn != nil {
+			s.nowFn = nowFn
+		}
+	}
+}
+
 func New(repo repository, opts ...Option) *Service {
-	svc := &Service{repo: repo}
+	svc := &Service{
+		repo:        repo,
+		proofURLTTL: defaultBookingPaymentProofURLTTL,
+		nowFn:       time.Now,
+	}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(svc)
@@ -726,6 +760,39 @@ func (s *Service) ReviewBookingPayment(ctx context.Context, slug, actorID, booki
 		return schoolsrepo.BookingPayment{}, validation("status", "invalid", "Invalid payment review status")
 	}
 	return s.repo.ReviewBookingPayment(ctx, school.ID, bookingID, actorID, status, notes)
+}
+
+func (s *Service) GetBookingPaymentProofURL(ctx context.Context, slug, actorID, bookingID string) (BookingPaymentProofURL, error) {
+	if !validUUID(bookingID) {
+		return BookingPaymentProofURL{}, validation("bookingId", "invalid_uuid", "Invalid booking id")
+	}
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin")
+	if err != nil {
+		return BookingPaymentProofURL{}, err
+	}
+	proof, err := s.repo.GetBookingPaymentProof(ctx, school.ID, bookingID)
+	if err != nil {
+		if schoolsrepo.IsNoRows(err) {
+			return BookingPaymentProofURL{}, apperrors.New(http.StatusNotFound, "booking_payment_proof_not_found", "payment receipt not found", err)
+		}
+		return BookingPaymentProofURL{}, apperrors.New(http.StatusInternalServerError, "booking_payment_proof_get_failed", "failed to load payment receipt", err)
+	}
+	if s.mediaSigner == nil || !s.mediaSigner.Configured() {
+		return BookingPaymentProofURL{}, apperrors.New(http.StatusInternalServerError, "media_signing_unavailable", "media signing is not configured", nil)
+	}
+	url := s.mediaSigner.URLWithTransform(proof.ObjectKey, 0, 0, "", s.proofURLTTL)
+	if url == "" {
+		return BookingPaymentProofURL{}, apperrors.New(http.StatusInternalServerError, "media_signing_unavailable", "media signing is not configured", nil)
+	}
+	return BookingPaymentProofURL{
+		PaymentID:        proof.PaymentID,
+		BookingID:        proof.BookingID,
+		ProofMediaID:     proof.ProofMediaID,
+		ProofFileName:    proof.FileName,
+		ProofContentType: proof.ContentType,
+		URL:              url,
+		ExpiresAt:        s.nowFn().Add(s.proofURLTTL).Unix(),
+	}, nil
 }
 
 func (s *Service) requireCourseManager(ctx context.Context, slug, actorID, courseID string) (schoolsrepo.Course, error) {

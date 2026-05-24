@@ -3,6 +3,7 @@ import type {
   Course,
   CourseBookingFilters,
   CourseBookingPayment,
+  CourseBookingPaymentProofUrl,
   CourseBookingRequest,
   CoursePaymentMethod,
   CourseSession,
@@ -334,5 +335,14 @@ export const schoolsApi = {
       { reviewNotes },
     );
     return response.data.payment;
+  },
+  getBookingPaymentProofUrl: async (
+    slug: string,
+    bookingId: string,
+  ): Promise<CourseBookingPaymentProofUrl> => {
+    const response = await axiosInstance.get<CourseBookingPaymentProofUrl>(
+      `/v1/manage/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/payment/proof-url`,
+    );
+    return response.data;
   },
 };

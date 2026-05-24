@@ -65,6 +65,7 @@ import {
   ArrowLeft,
   CalendarPlus,
   Check,
+  ExternalLink,
   Pencil,
   Plus,
   Send,
@@ -91,7 +92,9 @@ import {
 } from "@/features/locations/types/location-search";
 import { dateStringToDate, dateToDateString } from "@/lib/date-picker-values";
 import { applyApiErrorsToForm } from "@/lib/forms/api-errors";
+import { getApiErrorMessage } from "@/lib/http/api-error";
 import { formatPeso } from "@/lib/money";
+import { schoolsApi } from "../api/schools";
 import {
   bookingStatusLabels,
   bookingModeLabels,
@@ -818,6 +821,7 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
         }
       />
       <CommunityStats
+        className="grid-cols-2 sm:grid-cols-5"
         items={[
           {
             label: "Pending",
@@ -851,54 +855,53 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
           },
         ]}
       />
-      <div className="rounded-lg border border-border/70 bg-background/70 p-3">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <SelectField
-            label="Booking mode"
-            value={bookingMode}
-            onChange={setBookingMode}
-            options={[
-              { value: "", label: "All booking modes" },
-              { value: "session", label: "Schedule selected" },
-              { value: "preferred_date", label: "Preferred date request" },
-            ]}
-          />
-          <SelectField
-            label="Session"
-            value={sessionId}
-            onChange={setSessionId}
-            options={[
-              { value: "", label: "All sessions" },
-              ...sessions.map((session) => ({
-                value: session.id,
-                label: session.title,
-              })),
-            ]}
-          />
-          <SelectField
-            label="Booking status"
-            value={status}
-            onChange={setStatus}
-            options={[
-              { value: "", label: "All statuses" },
-              ...bookingStatusOptions,
-            ]}
-          />
-          <SelectField
-            label="Payment status"
-            value={paymentStatus}
-            onChange={setPaymentStatus}
-            options={[
-              { value: "", label: "All payments" },
-              ...paymentStatusOptions,
-            ]}
-          />
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SelectField
+          label="Booking mode"
+          value={bookingMode}
+          onChange={setBookingMode}
+          options={[
+            { value: "", label: "All booking modes" },
+            { value: "session", label: "Schedule selected" },
+            { value: "preferred_date", label: "Preferred date request" },
+          ]}
+        />
+        <SelectField
+          label="Session"
+          value={sessionId}
+          onChange={setSessionId}
+          options={[
+            { value: "", label: "All sessions" },
+            ...sessions.map((session) => ({
+              value: session.id,
+              label: session.title,
+            })),
+          ]}
+        />
+        <SelectField
+          label="Booking status"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: "", label: "All statuses" },
+            ...bookingStatusOptions,
+          ]}
+        />
+        <SelectField
+          label="Payment status"
+          value={paymentStatus}
+          onChange={setPaymentStatus}
+          options={[
+            { value: "", label: "All payments" },
+            ...paymentStatusOptions,
+          ]}
+        />
       </div>
       <div className="divide-y divide-border/70 border-y border-border/70">
         {bookings.map((booking) => (
           <BookingRow
             key={booking.id}
+            slug={slug}
             booking={booking}
             sessions={sessions.filter((s) => s.courseId === booking.courseId)}
             onAction={(action) =>
@@ -2197,6 +2200,7 @@ function sanitizeSchoolPaymentMethodRequest(
 }
 
 function BookingRow({
+  slug,
   booking,
   sessions,
   onAction,
@@ -2204,6 +2208,7 @@ function BookingRow({
   onReviewPayment,
   canManage,
 }: {
+  slug: string;
   booking: CourseBookingRequest;
   sessions: CourseSession[];
   onAction: (
@@ -2215,9 +2220,46 @@ function BookingRow({
 }) {
   const [sessionId, setSessionId] = useState(booking.sessionId);
   const [manageOpen, setManageOpen] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState("");
+  const [receiptFileName, setReceiptFileName] = useState("");
+  const [receiptError, setReceiptError] = useState("");
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptReloadKey, setReceiptReloadKey] = useState(0);
   useEffect(() => {
     setSessionId(booking.sessionId);
   }, [booking.sessionId]);
+  const proofMediaId = booking.payment?.proofMediaId ?? "";
+  useEffect(() => {
+    if (!manageOpen || !proofMediaId) {
+      setReceiptUrl("");
+      setReceiptFileName("");
+      setReceiptError("");
+      setReceiptLoading(false);
+      return;
+    }
+    let active = true;
+    setReceiptLoading(true);
+    setReceiptError("");
+    schoolsApi
+      .getBookingPaymentProofUrl(slug, booking.id)
+      .then((proof) => {
+        if (!active) return;
+        setReceiptUrl(proof.url);
+        setReceiptFileName(proof.proofFileName || "Payment receipt");
+      })
+      .catch((error) => {
+        if (!active) return;
+        setReceiptError(
+          getApiErrorMessage(error, "Payment receipt could not be opened."),
+        );
+      })
+      .finally(() => {
+        if (active) setReceiptLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [manageOpen, proofMediaId, receiptReloadKey, slug, booking.id]);
   const canCancel = ["pending_review", "approved", "scheduled"].includes(
     booking.status,
   );
@@ -2229,16 +2271,13 @@ function BookingRow({
     action: "approve" | "reject" | "schedule" | "complete" | "cancel",
   ) => {
     onAction(action);
-    setManageOpen(false);
   };
   const assignSession = () => {
     if (!sessionId) return;
     onAssign(sessionId);
-    setManageOpen(false);
   };
   const reviewPayment = (action: "verify" | "reject") => {
     onReviewPayment(action);
-    setManageOpen(false);
   };
   return (
     <article className="py-3">
@@ -2423,6 +2462,84 @@ function BookingRow({
                     </Button>
                   </div>
                 </section>
+
+                {booking.payment ? (
+                  <section className="grid gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-medium text-muted-foreground">
+                        Payment receipt
+                      </h3>
+                      {receiptUrl ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            window.open(
+                              receiptUrl,
+                              "_blank",
+                              "noopener,noreferrer",
+                            )
+                          }
+                        >
+                          <ExternalLink className="mr-1 h-4 w-4" />
+                          Open
+                        </Button>
+                      ) : null}
+                    </div>
+                    {proofMediaId ? (
+                      <div className="overflow-hidden rounded-lg border border-border/70 bg-muted/20">
+                        {receiptLoading ? (
+                          <p className="p-3 text-xs text-muted-foreground">
+                            Loading receipt...
+                          </p>
+                        ) : receiptError ? (
+                          <div className="grid gap-2 p-3">
+                            <p className="text-xs text-destructive">
+                              {receiptError}
+                            </p>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-fit"
+                              onClick={() =>
+                                setReceiptReloadKey((value) => value + 1)
+                              }
+                            >
+                              Retry
+                            </Button>
+                          </div>
+                        ) : receiptUrl ? (
+                          <button
+                            type="button"
+                            className="block w-full bg-background text-left"
+                            onClick={() =>
+                              window.open(
+                                receiptUrl,
+                                "_blank",
+                                "noopener,noreferrer",
+                              )
+                            }
+                          >
+                            <img
+                              src={receiptUrl}
+                              alt="Payment receipt"
+                              className="max-h-80 w-full object-contain"
+                            />
+                          </button>
+                        ) : null}
+                        {receiptFileName ? (
+                          <p className="border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
+                            {receiptFileName}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="rounded-lg border border-border/70 bg-muted/20 p-3 text-xs text-muted-foreground">
+                        No payment receipt has been uploaded yet.
+                      </p>
+                    )}
+                  </section>
+                ) : null}
 
                 {booking.payment?.status === "submitted" ? (
                   <section className="grid gap-2">

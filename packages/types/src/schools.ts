@@ -237,6 +237,16 @@ export interface CourseBookingPayment {
   updatedAt: string;
 }
 
+export interface CourseBookingPaymentProofUrl {
+  url: string;
+  expiresAt: number;
+  paymentId: string;
+  bookingId: string;
+  proofMediaId: string;
+  proofFileName?: string;
+  proofContentType?: string;
+}
+
 export interface StudentCourseBookingPayment
   extends Omit<CourseBookingPayment, "reviewedBy" | "reviewNotes"> {}
 

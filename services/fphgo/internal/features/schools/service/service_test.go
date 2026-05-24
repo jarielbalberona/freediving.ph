@@ -15,6 +15,7 @@ type fakeRepo struct {
 	course         schoolsrepo.Course
 	session        schoolsrepo.Session
 	booking        schoolsrepo.Booking
+	bookingProof   schoolsrepo.BookingPaymentProof
 	paymentMethods []schoolsrepo.PaymentMethod
 
 	capturedCourse       schoolsrepo.CreateCourseInput
@@ -124,6 +125,9 @@ func (f *fakeRepo) UnassignBookingSession(context.Context, string, string, *scho
 }
 func (f *fakeRepo) ReviewBookingPayment(context.Context, string, string, string, string, string) (schoolsrepo.BookingPayment, error) {
 	return schoolsrepo.BookingPayment{}, nil
+}
+func (f *fakeRepo) GetBookingPaymentProof(context.Context, string, string) (schoolsrepo.BookingPaymentProof, error) {
+	return f.bookingProof, nil
 }
 func (f *fakeRepo) SubmitMyBookingPayment(_ context.Context, _ string, _ string, input schoolsrepo.SubmitBookingPaymentInput) (schoolsrepo.Booking, error) {
 	f.capturedPayment = input
@@ -606,6 +610,45 @@ func TestSubmitMyBookingPaymentRequiresProof(t *testing.T) {
 	_, err := svc.SubmitMyBookingPayment(context.Background(), "44444444-4444-4444-8444-444444444444", "11111111-1111-4111-8111-111111111111", schoolsrepo.SubmitBookingPaymentInput{})
 	if err == nil {
 		t.Fatal("expected missing proof media id to fail")
+	}
+}
+
+func TestGetBookingPaymentProofURLAllowsSchoolOwner(t *testing.T) {
+	now := time.Date(2026, 5, 25, 10, 0, 0, 0, time.UTC)
+	repo := &fakeRepo{
+		school: schoolsrepo.School{
+			ID:   "22222222-2222-4222-8222-222222222222",
+			Slug: "school",
+		},
+		role: "owner",
+		bookingProof: schoolsrepo.BookingPaymentProof{
+			PaymentID:     "55555555-5555-4555-8555-555555555555",
+			BookingID:     "11111111-1111-4111-8111-111111111111",
+			SchoolID:      "22222222-2222-4222-8222-222222222222",
+			StudentUserID: "44444444-4444-4444-8444-444444444444",
+			ProofMediaID:  "66666666-6666-4666-8666-666666666666",
+			ObjectKey:     "course_booking_receipt/11111111-1111-4111-8111-111111111111/receipt.jpg",
+			FileName:      "receipt.jpg",
+			ContentType:   "image/jpeg",
+		},
+	}
+	svc := New(
+		repo,
+		WithNow(func() time.Time { return now }),
+		WithPaymentProofSigning("https://cdn.example.com", "test-secret", 1),
+	)
+	result, err := svc.GetBookingPaymentProofURL(context.Background(), "school", "manager-1", "11111111-1111-4111-8111-111111111111")
+	if err != nil {
+		t.Fatalf("expected proof URL to pass: %v", err)
+	}
+	if result.ProofMediaID != repo.bookingProof.ProofMediaID || result.ProofFileName != "receipt.jpg" {
+		t.Fatalf("unexpected proof metadata: %#v", result)
+	}
+	if !strings.Contains(result.URL, "https://cdn.example.com/course_booking_receipt/11111111-1111-4111-8111-111111111111/receipt.jpg") {
+		t.Fatalf("expected signed receipt URL, got %s", result.URL)
+	}
+	if result.ExpiresAt != now.Add(5*time.Minute).Unix() {
+		t.Fatalf("unexpected expiry: %d", result.ExpiresAt)
 	}
 }
 

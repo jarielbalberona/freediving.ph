@@ -28,10 +28,15 @@ test("manage schools routes and sidebar use /manage", () => {
 
 test("schools management UI uses friendly labels and Base UI Select wrapper", () => {
   const page = read("src/features/schools/pages/ManageSchoolsPage.tsx");
+  const api = read("src/features/schools/api/schools.ts");
   const constants = read("src/features/schools/constants.ts");
   const overviewSection = page.slice(
     page.indexOf("export function ManageSchoolOverviewPage"),
     page.indexOf("export function ManageSchoolSettingsPage"),
+  );
+  const bookingsPage = page.slice(
+    page.indexOf("export function ManageBookingsPage"),
+    page.indexOf("function SchoolShell"),
   );
   const bookingRow = page.slice(
     page.indexOf("function BookingRow"),
@@ -83,18 +88,27 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
   assert.match(page, /Booking mode/);
   assert.match(constants, /Schedule selected/);
   assert.match(constants, /Preferred date request/);
-  assert.match(
-    page,
+  assert.match(bookingsPage, /className="grid-cols-2 sm:grid-cols-5"/);
+  assert.doesNotMatch(
+    bookingsPage,
     /rounded-lg border border-border\/70 bg-background\/70 p-3/,
   );
-  assert.match(page, /sm:grid-cols-2 lg:grid-cols-4/);
+  assert.match(
+    bookingsPage,
+    /<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">/,
+  );
   assert.match(bookingRow, /DialogTitle>Manage booking/);
   assert.match(bookingRow, /Review the request, assign a session/);
   assert.match(bookingRow, /Settings2/);
   assert.match(bookingRow, />\s*Manage\s*</);
   assert.match(bookingRow, /<article className="py-3">/);
+  assert.match(bookingRow, /Payment receipt/);
+  assert.match(bookingRow, /schoolsApi\s*\.\s*getBookingPaymentProofUrl/);
+  assert.match(bookingRow, /No payment receipt has been uploaded yet/);
+  assert.match(api, /payment\/proof-url/);
   assert.doesNotMatch(bookingRow, /flex max-w-sm flex-wrap gap-2/);
   assert.doesNotMatch(bookingRow, /SelectTrigger className="min-w-44"/);
+  assert.doesNotMatch(bookingRow, /setManageOpen\(false\)/);
   assert.doesNotMatch(page, /setPaymentCourse/);
   assert.doesNotMatch(
     page,

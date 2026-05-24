@@ -729,6 +729,10 @@
       "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/complete"
     },
     {
+      "method": "GET",
+      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/payment/proof-url"
+    },
+    {
       "method": "PATCH",
       "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/payment/reject"
     },

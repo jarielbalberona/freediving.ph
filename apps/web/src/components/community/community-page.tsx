@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import { cn } from "@/lib/utils";
+
 type CommunityStat = {
   label: string;
   value: string;
@@ -61,9 +63,15 @@ export function CommunityHeader({
   );
 }
 
-export function CommunityStats({ items }: { items: CommunityStat[] }) {
+export function CommunityStats({
+  items,
+  className,
+}: {
+  items: CommunityStat[];
+  className?: string;
+}) {
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={cn("grid grid-cols-3 gap-2", className)}>
       {items.map((item) => (
         <div
           key={item.label}

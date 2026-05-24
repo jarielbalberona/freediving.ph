@@ -67,6 +67,7 @@ func Routes(h *Handlers) chi.Router {
 	r.Patch("/schools/{slug}/bookings/{bookingId}/unassign-session", h.UnassignBookingSession)
 	r.Patch("/schools/{slug}/bookings/{bookingId}/payment/verify", h.VerifyBookingPayment)
 	r.Patch("/schools/{slug}/bookings/{bookingId}/payment/reject", h.RejectBookingPayment)
+	r.Get("/schools/{slug}/bookings/{bookingId}/payment/proof-url", h.GetBookingPaymentProofURL)
 	return r
 }
 
@@ -738,6 +739,23 @@ func (h *Handlers) reviewPayment(w http.ResponseWriter, r *http.Request, status 
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"payment": mapBookingPayment(item)})
+}
+
+func (h *Handlers) GetBookingPaymentProofURL(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.GetBookingPaymentProofURL(r.Context(), chi.URLParam(r, "slug"), actorID(r), chi.URLParam(r, "bookingId"))
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"url":              result.URL,
+		"expiresAt":        result.ExpiresAt,
+		"paymentId":        result.PaymentID,
+		"bookingId":        result.BookingID,
+		"proofMediaId":     result.ProofMediaID,
+		"proofFileName":    result.ProofFileName,
+		"proofContentType": result.ProofContentType,
+	})
 }
 
 func actorID(r *http.Request) string {
