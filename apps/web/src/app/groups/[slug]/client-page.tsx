@@ -110,11 +110,7 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
     "open",
   );
 
-  const groupQuery = useGroup(
-    slug,
-    viewerScope,
-    session.status !== "loading",
-  );
+  const groupQuery = useGroup(slug, viewerScope, session.status !== "loading");
   const groupId = groupQuery.data?.id ?? "";
   const canLoadGroupResources = !!groupQuery.data;
   const membersQuery = useGroupMembers(
@@ -502,7 +498,7 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
       />
 
       <Dialog open={postOpen} onOpenChange={setPostOpen}>
-        <DialogContent className="gap-4 sm:max-w-2xl">
+        <DialogContent className="gap-4 sm:max-w-2xl!">
           <DialogHeader>
             <DialogTitle>Post to the group</DialogTitle>
             <DialogDescription>
@@ -545,7 +541,7 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
       </Dialog>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="gap-4 sm:max-w-2xl">
+        <DialogContent className="gap-4 sm:max-w-2xl!">
           <DialogHeader>
             <DialogTitle>Edit group details</DialogTitle>
             <DialogDescription>
@@ -795,7 +791,7 @@ function InviteMemberDialog({
 }) {
   return (
     <Dialog open={inviteOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-4 sm:max-w-lg">
+      <DialogContent className="gap-4 sm:max-w-lg!">
         <DialogHeader>
           <DialogTitle>Invite member</DialogTitle>
           <DialogDescription>

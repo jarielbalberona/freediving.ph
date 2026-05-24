@@ -1,5 +1,22 @@
 "use client";
 
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { SignInButton } from "@clerk/nextjs";
 import type { IScannerControls } from "@zxing/browser";
 import type {
@@ -39,9 +56,13 @@ import {
   Award,
   CalendarClock,
   CheckCircle2,
+  ClipboardList,
   Copy,
+  CreditCard,
   ImageIcon,
   Handshake,
+  GripVertical,
+  LayoutDashboard,
   Lock,
   MapPin,
   MessageSquare,
@@ -50,9 +71,11 @@ import {
   Plus,
   QrCode,
   RefreshCw,
+  Settings2,
   ShieldCheck,
   Ticket,
   Trash2,
+  type LucideIcon,
   Upload,
   Users,
   XCircle,
@@ -164,6 +187,7 @@ import {
 import { mediaApi } from "@/features/media/api/media";
 import { siteConfig } from "@/config/site";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
+import { cn } from "@/lib/utils";
 
 type EventTab =
   | "updates"
@@ -177,7 +201,6 @@ type EventTab =
 type EventManageTab =
   | "overview"
   | "setup"
-  | "lifecycle"
   | "participants"
   | "join-form"
   | "program"
@@ -194,23 +217,47 @@ const eventTabTriggerClassName =
 const manageTabsListClassName =
   "no-scrollbar -mx-3 w-[calc(100%+1.5rem)] justify-start overflow-x-auto overflow-y-hidden px-3 sm:mx-0 sm:w-full sm:px-1";
 const manageTabTriggerClassName = "h-8 flex-none px-3 text-sm";
+const manageNestedTabsListClassName = manageTabsListClassName;
+const manageNestedTabTriggerClassName = manageTabTriggerClassName;
 const manageSideNavTriggerClassName =
-  "h-9 w-full justify-start rounded-lg px-3 text-sm";
+  "inline-flex h-9 w-full items-center justify-start rounded-lg px-2 text-left text-xs";
 const eventPassQrLogoUrl = "https://cdn.freediving.ph/fph-logo-white.png";
 
-const manageNavItems: Array<{ value: EventManageTab; label: string }> = [
-  { value: "overview", label: "Overview" },
-  { value: "setup", label: "Setup" },
-  { value: "lifecycle", label: "Lifecycle" },
-  { value: "participants", label: "Participants" },
-  { value: "join-form", label: "Join Form" },
-  { value: "program", label: "Program" },
-  { value: "payment", label: "Payment" },
-  { value: "updates", label: "Posts" },
-  { value: "awards", label: "Awards" },
-  { value: "sponsors", label: "Sponsors" },
-  { value: "settings", label: "Settings" },
+const manageNavItems: Array<{
+  value: EventManageTab;
+  label: string;
+  icon: LucideIcon;
+}> = [
+  { value: "overview", label: "Overview", icon: LayoutDashboard },
+  { value: "setup", label: "Setup", icon: CheckCircle2 },
+  { value: "settings", label: "Settings", icon: Settings2 },
+  { value: "participants", label: "Participants", icon: Users },
+  { value: "join-form", label: "Join Form", icon: ClipboardList },
+  { value: "program", label: "Program", icon: CalendarClock },
+  { value: "payment", label: "Payment", icon: CreditCard },
+  { value: "updates", label: "Posts", icon: MessageSquare },
+  { value: "awards", label: "Awards", icon: Award },
+  { value: "sponsors", label: "Sponsors", icon: Handshake },
 ];
+
+function getVisibleManageNavItems(event: Event) {
+  return manageNavItems.filter((item) => {
+    switch (item.value) {
+      case "payment":
+        return event.paymentEnabled;
+      case "updates":
+        return event.postsEnabled;
+      case "awards":
+        return event.awardsEnabled;
+      case "sponsors":
+        return event.sponsorsEnabled;
+      case "program":
+        return event.programEnabled;
+      default:
+        return true;
+    }
+  });
+}
 
 type EventPassScanTarget = {
   slug: string;
@@ -362,20 +409,16 @@ export default function EventDetailClient({ slug }: { slug: string }) {
     event.visibility === "public" ||
     event.viewerCanViewPrivateDetails ||
     event.viewerCanManage;
-  const canShowPrizeSponsorTabs =
-    canSeePrivateDetails || event.viewerCanManage;
-  const canShowAwardsTab =
-    canShowPrizeSponsorTabs && (event.awardsEnabled || event.viewerCanManage);
-  const canShowSponsorsTab =
-    canShowPrizeSponsorTabs && (event.sponsorsEnabled || event.viewerCanManage);
+  const canShowPrizeSponsorTabs = canSeePrivateDetails;
+  const canShowAwardsTab = canShowPrizeSponsorTabs && event.awardsEnabled;
+  const canShowSponsorsTab = canShowPrizeSponsorTabs && event.sponsorsEnabled;
   const canShowUpdatesTab =
-    event.viewerCanManage ||
-    (event.postsEnabled &&
-      (event.visibility === "public" || event.viewerCanViewPrivateDetails));
+    event.postsEnabled &&
+    (event.visibility === "public" || event.viewerCanViewPrivateDetails);
   const canShowPaymentTab =
     canSeePrivateDetails &&
-    ((acceptsEventPayments(event) && event.paymentEnabled) ||
-      event.viewerCanManage) &&
+    acceptsEventPayments(event) &&
+    event.paymentEnabled &&
     (!requiresEventPayment(event) ||
       event.viewerJoined ||
       event.viewerCanManage);
@@ -885,6 +928,20 @@ export function EventManageClient({ slug }: { slug: string }) {
     window.history.replaceState(null, "", `#${value}`);
   };
 
+  const visibleManageNavItems = useMemo(
+    () => (event ? getVisibleManageNavItems(event) : manageNavItems),
+    [event],
+  );
+
+  useEffect(() => {
+    if (!event) return;
+    if (visibleManageNavItems.some((item) => item.value === activeManageTab)) {
+      return;
+    }
+    setActiveManageTab("settings");
+    window.history.replaceState(null, "", "#settings");
+  }, [activeManageTab, event, visibleManageNavItems]);
+
   if (eventQuery.isLoading) {
     return (
       <CommunityPageShell>
@@ -993,271 +1050,314 @@ export function EventManageClient({ slug }: { slug: string }) {
         </div>
       </CommunityHeader>
 
-      <Tabs
-        value={activeManageTab}
-        onValueChange={setManageTab}
-        orientation="vertical"
-        className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]"
-      >
-        <div className="lg:hidden">
+      <div className="grid gap-4 lg:grid-cols-[132px_minmax(0,1fr)]">
+        <div className="space-y-2 lg:hidden">
           <Select
             value={activeManageTab}
-            items={manageNavItems}
+            items={visibleManageNavItems}
             onValueChange={(value) => setManageTab(value ?? "overview")}
           >
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="start">
-              {manageNavItems.map((item) => (
+              {visibleManageNavItems.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
+                  <item.icon className="h-4 w-4" />
                   {item.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full justify-start"
+            nativeButton={false}
+            render={
+              <Link
+                href={`/events/${encodeURIComponent(event.slug)}/manage/check-in`}
+              />
+            }
+          >
+            <QrCode className="mr-1 h-4 w-4" />
+            Check in
+          </Button>
         </div>
-        <TabsList
-          variant="line"
-          className="hidden w-full items-stretch rounded-none border-r border-border/70 bg-transparent p-0 lg:flex"
-        >
-          {manageNavItems.map((item) => (
-            <TabsTrigger
+        <nav className="hidden w-full flex-col items-stretch gap-1 border-r border-border/70 pr-2 lg:flex">
+          {visibleManageNavItems.map((item) => (
+            <button
               key={item.value}
-              value={item.value}
-              className={manageSideNavTriggerClassName}
+              type="button"
+              aria-current={activeManageTab === item.value ? "page" : undefined}
+              className={cn(
+                manageSideNavTriggerClassName,
+                activeManageTab === item.value
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              )}
+              onClick={() => setManageTab(item.value)}
             >
+              <item.icon className="mr-1.5 h-4 w-4 shrink-0" />
               {item.label}
-            </TabsTrigger>
+            </button>
           ))}
-        </TabsList>
+          <Link
+            href={`/events/${encodeURIComponent(event.slug)}/manage/check-in`}
+            className={cn(
+              manageSideNavTriggerClassName,
+              "inline-flex items-center text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            )}
+          >
+            <QrCode className="mr-1 h-4 w-4" />
+            Check in
+          </Link>
+        </nav>
 
         <div className="min-w-0">
-        <TabsContent value="overview" className="space-y-4">
-          <ManageOverviewSection
-            event={event}
-            participants={participants}
-            onNavigate={setManageTab}
-          />
-        </TabsContent>
+          {activeManageTab === "overview" ? (
+            <div className="space-y-4">
+              <ManageOverviewSection
+                event={event}
+                participants={participants}
+                onNavigate={setManageTab}
+                onSaved={() => {
+                  void eventQuery.refetch();
+                }}
+              />
+            </div>
+          ) : null}
 
-        <TabsContent value="setup" className="space-y-4">
-          <OrganizerManageTab
-            event={event}
-            onSaved={() => {
-              void eventQuery.refetch();
-            }}
-            mode="setup"
-            onNavigate={setManageTab}
-          />
-        </TabsContent>
+          {activeManageTab === "setup" ? (
+            <div className="space-y-4">
+              <OrganizerManageTab
+                event={event}
+                onSaved={() => {
+                  void eventQuery.refetch();
+                }}
+                mode="setup"
+                onNavigate={setManageTab}
+              />
+            </div>
+          ) : null}
 
-        <TabsContent value="lifecycle" className="space-y-4">
-          <LifecycleSection
-            event={event}
-            onSaved={() => {
-              void eventQuery.refetch();
-            }}
-          />
-        </TabsContent>
+          {activeManageTab === "participants" ? (
+            <div className="space-y-4">
+              <ParticipantsSection
+                event={event}
+                participants={participants}
+                isLoading={participantsQuery.isLoading}
+                error={participantsQuery.error}
+                onApprove={(participantId) =>
+                  approveParticipantMutation.mutate(
+                    { eventId: event.id, participantId },
+                    {
+                      onSuccess: () => toast.success("Participant approved."),
+                      onError: (error) =>
+                        toast.error(
+                          getApiErrorMessage(
+                            error,
+                            "Failed to approve participant",
+                          ),
+                        ),
+                    },
+                  )
+                }
+                onReject={(participantId) =>
+                  rejectParticipantMutation.mutate(
+                    { eventId: event.id, participantId },
+                    {
+                      onSuccess: () => toast.success("Participant rejected."),
+                      onError: (error) =>
+                        toast.error(
+                          getApiErrorMessage(
+                            error,
+                            "Failed to reject participant",
+                          ),
+                        ),
+                    },
+                  )
+                }
+                onUpdateRole={(participantId, role) =>
+                  updateParticipantRoleMutation.mutate(
+                    { eventId: event.id, participantId, data: { role } },
+                    {
+                      onSuccess: () =>
+                        toast.success("Participant role updated."),
+                      onError: (error) =>
+                        toast.error(
+                          getApiErrorMessage(
+                            error,
+                            "Failed to update participant role",
+                          ),
+                        ),
+                    },
+                  )
+                }
+                onVerifyPayment={(paymentId) =>
+                  verifyPaymentMutation.mutate(
+                    { eventId: event.id, paymentId },
+                    {
+                      onSuccess: () => toast.success("Payment verified."),
+                      onError: (error) =>
+                        toast.error(
+                          getApiErrorMessage(error, "Failed to verify payment"),
+                        ),
+                    },
+                  )
+                }
+                onRejectPayment={(paymentId) =>
+                  rejectPaymentMutation.mutate(
+                    { eventId: event.id, paymentId },
+                    {
+                      onSuccess: () => toast.success("Payment rejected."),
+                      onError: (error) =>
+                        toast.error(
+                          getApiErrorMessage(error, "Failed to reject payment"),
+                        ),
+                    },
+                  )
+                }
+                onViewPaymentProof={handleViewPaymentProof}
+                onRegeneratePass={(participantId) =>
+                  regeneratePassMutation.mutate(
+                    { eventId: event.id, participantId },
+                    {
+                      onSuccess: () => toast.success("Event pass regenerated."),
+                      onError: (error) =>
+                        toast.error(
+                          getApiErrorMessage(error, "Failed to regenerate QR"),
+                        ),
+                    },
+                  )
+                }
+                regeneratingPassId={
+                  regeneratePassMutation.isPending
+                    ? regeneratePassMutation.variables?.participantId
+                    : undefined
+                }
+                viewingPaymentProofId={
+                  proofUrlMutation.isPending
+                    ? proofUrlMutation.variables?.paymentId
+                    : undefined
+                }
+                onUpdateAttendance={(participantId, status) =>
+                  updateParticipantStatusMutation.mutate(
+                    { eventId: event.id, participantId, status },
+                    {
+                      onSuccess: () => toast.success("Participant updated."),
+                      onError: (error) =>
+                        toast.error(
+                          getApiErrorMessage(
+                            error,
+                            "Failed to update participant",
+                          ),
+                        ),
+                    },
+                  )
+                }
+                showOrganizerActions
+              />
+            </div>
+          ) : null}
 
-        <TabsContent value="participants" className="space-y-4">
-          <ParticipantsSection
-            event={event}
-            participants={participants}
-            isLoading={participantsQuery.isLoading}
-            error={participantsQuery.error}
-            onApprove={(participantId) =>
-              approveParticipantMutation.mutate(
-                { eventId: event.id, participantId },
-                {
-                  onSuccess: () => toast.success("Participant approved."),
-                  onError: (error) =>
-                    toast.error(
-                      getApiErrorMessage(
-                        error,
-                        "Failed to approve participant",
-                      ),
-                    ),
-                },
-              )
-            }
-            onReject={(participantId) =>
-              rejectParticipantMutation.mutate(
-                { eventId: event.id, participantId },
-                {
-                  onSuccess: () => toast.success("Participant rejected."),
-                  onError: (error) =>
-                    toast.error(
-                      getApiErrorMessage(error, "Failed to reject participant"),
-                    ),
-                },
-              )
-            }
-            onUpdateRole={(participantId, role) =>
-              updateParticipantRoleMutation.mutate(
-                { eventId: event.id, participantId, data: { role } },
-                {
-                  onSuccess: () => toast.success("Participant role updated."),
-                  onError: (error) =>
-                    toast.error(
-                      getApiErrorMessage(
-                        error,
-                        "Failed to update participant role",
-                      ),
-                    ),
-                },
-              )
-            }
-            onVerifyPayment={(paymentId) =>
-              verifyPaymentMutation.mutate(
-                { eventId: event.id, paymentId },
-                {
-                  onSuccess: () => toast.success("Payment verified."),
-                  onError: (error) =>
-                    toast.error(
-                      getApiErrorMessage(error, "Failed to verify payment"),
-                    ),
-                },
-              )
-            }
-            onRejectPayment={(paymentId) =>
-              rejectPaymentMutation.mutate(
-                { eventId: event.id, paymentId },
-                {
-                  onSuccess: () => toast.success("Payment rejected."),
-                  onError: (error) =>
-                    toast.error(
-                      getApiErrorMessage(error, "Failed to reject payment"),
-                    ),
-                },
-              )
-            }
-            onViewPaymentProof={handleViewPaymentProof}
-            onRegeneratePass={(participantId) =>
-              regeneratePassMutation.mutate(
-                { eventId: event.id, participantId },
-                {
-                  onSuccess: () => toast.success("Event pass regenerated."),
-                  onError: (error) =>
-                    toast.error(
-                      getApiErrorMessage(error, "Failed to regenerate QR"),
-                    ),
-                },
-              )
-            }
-            regeneratingPassId={
-              regeneratePassMutation.isPending
-                ? regeneratePassMutation.variables?.participantId
-                : undefined
-            }
-            viewingPaymentProofId={
-              proofUrlMutation.isPending
-                ? proofUrlMutation.variables?.paymentId
-                : undefined
-            }
-            onUpdateAttendance={(participantId, status) =>
-              updateParticipantStatusMutation.mutate(
-                { eventId: event.id, participantId, status },
-                {
-                  onSuccess: () => toast.success("Participant updated."),
-                  onError: (error) =>
-                    toast.error(
-                      getApiErrorMessage(
-                        error,
-                        "Failed to update participant",
-                      ),
-                    ),
-                },
-              )
-            }
-            showOrganizerActions
-          />
-        </TabsContent>
+          {activeManageTab === "join-form" ? (
+            <div className="space-y-4">
+              <JoinFormManageSection
+                event={event}
+                fields={joinFormFieldsQuery.data ?? []}
+                isLoading={joinFormFieldsQuery.isLoading}
+                error={joinFormFieldsQuery.error}
+              />
+            </div>
+          ) : null}
 
-        <TabsContent value="join-form" className="space-y-4">
-          <JoinFormManageSection
-            event={event}
-            fields={joinFormFieldsQuery.data ?? []}
-            isLoading={joinFormFieldsQuery.isLoading}
-            error={joinFormFieldsQuery.error}
-          />
-        </TabsContent>
+          {activeManageTab === "program" ? (
+            <div className="space-y-4">
+              <ProgramManageSection
+                event={event}
+                items={programQuery.data ?? []}
+                competitions={competitionsQuery.data ?? []}
+                isLoading={programQuery.isLoading}
+                error={programQuery.error}
+              />
+            </div>
+          ) : null}
 
-        <TabsContent value="program" className="space-y-4">
-          <ProgramManageSection
-            event={event}
-            items={programQuery.data ?? []}
-            competitions={competitionsQuery.data ?? []}
-            isLoading={programQuery.isLoading}
-            error={programQuery.error}
-          />
-        </TabsContent>
+          {activeManageTab === "payment" ? (
+            <div className="space-y-4">
+              <OrganizerManageTab
+                event={event}
+                onSaved={() => {
+                  void eventQuery.refetch();
+                }}
+                mode="payments"
+                onNavigate={setManageTab}
+              />
+            </div>
+          ) : null}
 
-        <TabsContent value="payment" className="space-y-4">
-          <OrganizerManageTab
-            event={event}
-            onSaved={() => {
-              void eventQuery.refetch();
-            }}
-            mode="payments"
-            onNavigate={setManageTab}
-          />
-        </TabsContent>
+          {activeManageTab === "updates" ? (
+            <div className="space-y-4">
+              <PostsTab
+                event={event}
+                posts={postsQuery.data ?? []}
+                isLoading={postsQuery.isLoading}
+                error={postsQuery.error}
+                isSignedIn={session.status === "signed_in"}
+                mode="manage"
+              />
+            </div>
+          ) : null}
 
-        <TabsContent value="updates" className="space-y-4">
-          <PostsTab
-            event={event}
-            posts={postsQuery.data ?? []}
-            isLoading={postsQuery.isLoading}
-            error={postsQuery.error}
-            isSignedIn={session.status === "signed_in"}
-            mode="manage"
-          />
-        </TabsContent>
+          {activeManageTab === "awards" ? (
+            <div className="space-y-4">
+              <PrizesTab
+                event={event}
+                competitions={competitionsQuery.data ?? []}
+                prizes={prizesQuery.data ?? []}
+                isLoading={competitionsQuery.isLoading || prizesQuery.isLoading}
+                error={competitionsQuery.error || prizesQuery.error}
+              />
+            </div>
+          ) : null}
 
-        <TabsContent value="awards" className="space-y-4">
-          <PrizesTab
-            event={event}
-            competitions={competitionsQuery.data ?? []}
-            prizes={prizesQuery.data ?? []}
-            isLoading={competitionsQuery.isLoading || prizesQuery.isLoading}
-            error={competitionsQuery.error || prizesQuery.error}
-          />
-        </TabsContent>
-
-        <TabsContent value="sponsors" className="space-y-4">
-          <SponsorsTab
-            event={event}
-            sponsors={sponsorsQuery.data ?? []}
-            isLoading={sponsorsQuery.isLoading}
-            error={sponsorsQuery.error}
-          />
-        </TabsContent>
-        <TabsContent value="settings" className="space-y-4">
-          <ModuleSettingsSection
-            event={event}
-            isSaving={updateModulesMutation.isPending}
-            onSave={(modules) =>
-              updateModulesMutation.mutate(
-                { eventId: event.id, data: { modules } },
-                {
-                  onSuccess: () => {
-                    toast.success("Module settings saved.");
-                    void eventQuery.refetch();
-                  },
-                  onError: (error) =>
-                    toast.error(
-                      getApiErrorMessage(error, "Failed to update modules"),
-                    ),
-                },
-              )
-            }
-          />
-          <DuplicateEventSection event={event} />
-        </TabsContent>
+          {activeManageTab === "sponsors" ? (
+            <div className="space-y-4">
+              <SponsorsTab
+                event={event}
+                sponsors={sponsorsQuery.data ?? []}
+                isLoading={sponsorsQuery.isLoading}
+                error={sponsorsQuery.error}
+              />
+            </div>
+          ) : null}
+          {activeManageTab === "settings" ? (
+            <div className="space-y-4">
+              <ModuleSettingsSection
+                event={event}
+                isSaving={updateModulesMutation.isPending}
+                onSave={(modules) =>
+                  updateModulesMutation.mutate(
+                    { eventId: event.id, data: { modules } },
+                    {
+                      onSuccess: () => {
+                        toast.success("Module settings saved.");
+                        void eventQuery.refetch();
+                      },
+                      onError: (error) =>
+                        toast.error(
+                          getApiErrorMessage(error, "Failed to update modules"),
+                        ),
+                    },
+                  )
+                }
+              />
+              <DuplicateEventSection event={event} />
+            </div>
+          ) : null}
         </div>
-      </Tabs>
+      </div>
     </CommunityPageShell>
   );
 }
@@ -2257,11 +2357,17 @@ export function EventCompetitionPrizesClient({
       ) : null}
 
       <Tabs defaultValue="details" orientation="horizontal" className="gap-5">
-        <TabsList className={manageTabsListClassName}>
-          <TabsTrigger value="details" className={manageTabTriggerClassName}>
+        <TabsList className={manageNestedTabsListClassName}>
+          <TabsTrigger
+            value="details"
+            className={manageNestedTabTriggerClassName}
+          >
             Details
           </TabsTrigger>
-          <TabsTrigger value="prizes" className={manageTabTriggerClassName}>
+          <TabsTrigger
+            value="prizes"
+            className={manageNestedTabTriggerClassName}
+          >
             Prizes
           </TabsTrigger>
         </TabsList>
@@ -4375,7 +4481,10 @@ function ProgramTab({
     <DetailSection title="Program">
       <div className="divide-y divide-border/70 border-y border-border/70">
         {groups.map((group) => (
-          <div key={group.label} className="grid gap-3 py-4 md:grid-cols-[160px_minmax(0,1fr)]">
+          <div
+            key={group.label}
+            className="grid gap-3 py-4 md:grid-cols-[160px_minmax(0,1fr)]"
+          >
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {group.label}
             </div>
@@ -4399,7 +4508,9 @@ function ProgramItemRow({ item }: { item: EventProgramItem }) {
       </div>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            {item.title}
+          </h3>
           {item.isHighlighted ? (
             <Badge variant="secondary" className="h-5 px-2 text-[11px]">
               Highlight
@@ -4412,7 +4523,9 @@ function ProgramItemRow({ item }: { item: EventProgramItem }) {
           ) : null}
         </div>
         {item.locationLabel ? (
-          <p className="mt-1 text-xs text-muted-foreground">{item.locationLabel}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {item.locationLabel}
+          </p>
         ) : null}
         {item.descriptionMarkdown ? (
           <div className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -4443,6 +4556,46 @@ function ProgramManageSection({
   const deleteMutation = useDeleteEventProgramItem();
   const [dialogItem, setDialogItem] = useState<EventProgramItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [orderedItems, setOrderedItems] = useState<EventProgramItem[]>([]);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+  useEffect(() => {
+    setOrderedItems([...items].sort(compareProgramManageItems));
+  }, [items]);
+  const persistOrder = (nextItems: EventProgramItem[]) => {
+    nextItems.forEach((programItem, index) => {
+      if (programItem.sortOrder === index) return;
+      updateMutation.mutate(
+        {
+          eventId: event.id,
+          programItemId: programItem.id,
+          data: { sortOrder: index },
+        },
+        {
+          onError: (error) =>
+            toast.error(getApiErrorMessage(error, "Failed to reorder Program")),
+        },
+      );
+    });
+  };
+  const handleDragEnd = (dragEvent: DragEndEvent) => {
+    const { active, over } = dragEvent;
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedItems.findIndex(
+      (programItem) => programItem.id === active.id,
+    );
+    const newIndex = orderedItems.findIndex(
+      (programItem) => programItem.id === over.id,
+    );
+    if (oldIndex < 0 || newIndex < 0) return;
+    const nextItems = arrayMove(orderedItems, oldIndex, newIndex);
+    setOrderedItems(nextItems);
+    persistOrder(nextItems);
+  };
   const saveModuleState = (enabled: boolean) =>
     updateModulesMutation.mutate(
       {
@@ -4457,11 +4610,14 @@ function ProgramManageSection({
     );
   return (
     <Tabs defaultValue="items" orientation="horizontal" className="gap-4">
-      <TabsList variant="line" className={manageTabsListClassName}>
-        <TabsTrigger value="items" className={manageTabTriggerClassName}>
+      <TabsList variant="line" className={manageNestedTabsListClassName}>
+        <TabsTrigger value="items" className={manageNestedTabTriggerClassName}>
           Items
         </TabsTrigger>
-        <TabsTrigger value="settings" className={manageTabTriggerClassName}>
+        <TabsTrigger
+          value="settings"
+          className={manageNestedTabTriggerClassName}
+        >
           Settings
         </TabsTrigger>
       </TabsList>
@@ -4493,45 +4649,48 @@ function ProgramManageSection({
               description="Add activities, itinerary entries, or highlighted moments."
             />
           ) : null}
-          {items.length > 0 ? (
-            <div className="divide-y divide-border/70 border-y border-border/70">
-              {items.map((item) => (
-                <div key={item.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between">
-                  <ProgramItemRow item={item} />
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
+          {orderedItems.length > 0 ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={orderedItems.map((programItem) => programItem.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="divide-y divide-border/70 border-y border-border/70">
+                  {orderedItems.map((item) => (
+                    <SortableProgramItemRow
+                      key={item.id}
+                      item={item}
+                      disabled={updateMutation.isPending}
+                      onEdit={() => {
                         setDialogItem(item);
                         setDialogOpen(true);
                       }}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={deleteMutation.isPending}
-                      onClick={() =>
+                      onDelete={() =>
                         deleteMutation.mutate(
                           { eventId: event.id, programItemId: item.id },
                           {
-                            onSuccess: () => toast.success("Program item deleted."),
+                            onSuccess: () =>
+                              toast.success("Program item deleted."),
                             onError: (error) =>
                               toast.error(
-                                getApiErrorMessage(error, "Failed to delete item"),
+                                getApiErrorMessage(
+                                  error,
+                                  "Failed to delete item",
+                                ),
                               ),
                           },
                         )
                       }
-                    >
-                      Delete
-                    </Button>
-                  </div>
+                      deleteDisabled={deleteMutation.isPending}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
           ) : null}
         </DetailSection>
         <ProgramItemDialog
@@ -4544,20 +4703,32 @@ function ProgramManageSection({
           onSave={(payload) => {
             if (dialogItem) {
               updateMutation.mutate(
-                { eventId: event.id, programItemId: dialogItem.id, data: payload },
+                {
+                  eventId: event.id,
+                  programItemId: dialogItem.id,
+                  data: payload,
+                },
                 {
                   onSuccess: () => {
                     toast.success("Program item saved.");
                     setDialogOpen(false);
                   },
                   onError: (error) =>
-                    toast.error(getApiErrorMessage(error, "Failed to save item")),
+                    toast.error(
+                      getApiErrorMessage(error, "Failed to save item"),
+                    ),
                 },
               );
               return;
             }
             createMutation.mutate(
-              { eventId: event.id, data: payload as CreateEventProgramItemRequest },
+              {
+                eventId: event.id,
+                data: {
+                  ...(payload as CreateEventProgramItemRequest),
+                  sortOrder: orderedItems.length,
+                },
+              },
               {
                 onSuccess: () => {
                   toast.success("Program item added.");
@@ -4581,16 +4752,86 @@ function ProgramManageSection({
               onChange={(item) => saveModuleState(item.target.checked)}
             />
             <span>
-              <span className="font-medium text-foreground">Enable Program</span>
+              <span className="font-medium text-foreground">
+                Enable Program
+              </span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                When enabled, participants can see the Program tab on the event page.
-                Disabling it hides the Program tab but keeps existing items.
+                When enabled, participants can see the Program tab on the event
+                page. Disabling it hides the Program tab but keeps existing
+                items.
               </span>
             </span>
           </label>
         </DetailSection>
       </TabsContent>
     </Tabs>
+  );
+}
+
+function SortableProgramItemRow({
+  item,
+  disabled,
+  deleteDisabled,
+  onEdit,
+  onDelete,
+}: {
+  item: EventProgramItem;
+  disabled: boolean;
+  deleteDisabled: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id, disabled });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex flex-col gap-3 bg-background py-3 sm:flex-row sm:items-start sm:justify-between",
+        isDragging && "relative z-10 shadow-sm",
+      )}
+    >
+      <div className="flex min-w-0 flex-1 gap-2">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="mt-0.5 h-8 w-8 shrink-0 cursor-grab text-muted-foreground active:cursor-grabbing"
+          aria-label={`Reorder ${item.title}`}
+          disabled={disabled}
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </Button>
+        <ProgramItemRow item={item} />
+      </div>
+      <div className="flex shrink-0 gap-2 pl-10 sm:pl-0">
+        <Button size="sm" variant="outline" onClick={onEdit}>
+          Edit
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={deleteDisabled}
+          onClick={onDelete}
+        >
+          Delete
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -4609,7 +4850,9 @@ function ProgramItemDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isSaving: boolean;
-  onSave: (payload: CreateEventProgramItemRequest | UpdateEventProgramItemRequest) => void;
+  onSave: (
+    payload: CreateEventProgramItemRequest | UpdateEventProgramItemRequest,
+  ) => void;
 }) {
   const [form, setForm] = useState<CreateEventProgramItemRequest>(() =>
     programItemToForm(item, event),
@@ -4632,19 +4875,27 @@ function ProgramItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl!">
         <DialogHeader>
-          <DialogTitle>{item ? "Edit program item" : "Add program item"}</DialogTitle>
+          <DialogTitle>
+            {item ? "Edit program item" : "Add program item"}
+          </DialogTitle>
           <DialogDescription>
-            Use date and time for itinerary entries. Leave them blank for simple activities.
+            Use date and time for itinerary entries. Leave them blank for simple
+            activities.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
           <SetupField label="Title">
-            <Input value={form.title} onChange={(next) => update("title", next.target.value)} />
+            <Input
+              value={form.title}
+              onChange={(next) => update("title", next.target.value)}
+            />
           </SetupField>
           <SetupField label="Description">
             <Textarea
               value={form.descriptionMarkdown ?? ""}
-              onChange={(next) => update("descriptionMarkdown", next.target.value)}
+              onChange={(next) =>
+                update("descriptionMarkdown", next.target.value)
+              }
             />
           </SetupField>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -4677,35 +4928,33 @@ function ProgramItemDialog({
                 onChange={(next) => update("locationLabel", next.target.value)}
               />
             </SetupField>
-            <SetupField label="Sort order">
-              <Input
-                type="number"
-                min={0}
-                value={form.sortOrder ?? 0}
-                onChange={(next) => update("sortOrder", Number(next.target.value || 0))}
-              />
+            <SetupField label="Linked competition">
+              <Select
+                value={form.competitionId || "none"}
+                items={competitionItems}
+                onValueChange={(value) =>
+                  update(
+                    "competitionId",
+                    value && value !== "none" ? value : "",
+                  )
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {competitionItems.map((competition) => (
+                    <SelectItem
+                      key={competition.value}
+                      value={competition.value}
+                    >
+                      {competition.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </SetupField>
           </div>
-          <SetupField label="Linked competition">
-            <Select
-              value={form.competitionId || "none"}
-              items={competitionItems}
-              onValueChange={(value) =>
-                update("competitionId", value && value !== "none" ? value : "")
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {competitionItems.map((competition) => (
-                  <SelectItem key={competition.value} value={competition.value}>
-                    {competition.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SetupField>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -4716,7 +4965,10 @@ function ProgramItemDialog({
           </label>
         </div>
         <DialogFooter showCloseButton>
-          <Button disabled={isSaving} onClick={() => onSave({ ...form, timezone: event.timezone })}>
+          <Button
+            disabled={isSaving}
+            onClick={() => onSave({ ...form, timezone: event.timezone })}
+          >
             {isSaving ? "Saving..." : "Save item"}
           </Button>
         </DialogFooter>
@@ -5380,13 +5632,25 @@ const participantWorkflowTabs: Array<{
   label: string;
   emptyTitle: string;
 }> = [
-  { value: "needs-action", label: "Needs action", emptyTitle: "No action needed" },
+  {
+    value: "needs-action",
+    label: "Needs action",
+    emptyTitle: "No action needed",
+  },
   { value: "requests", label: "Requests", emptyTitle: "No pending requests" },
   { value: "going", label: "Going", emptyTitle: "No confirmed participants" },
   { value: "payments", label: "Payments", emptyTitle: "No payment reviews" },
   { value: "roles", label: "Roles", emptyTitle: "No role records" },
-  { value: "attendance", label: "Attendance", emptyTitle: "No attendance records" },
-  { value: "inactive", label: "Inactive", emptyTitle: "No inactive participants" },
+  {
+    value: "attendance",
+    label: "Attendance",
+    emptyTitle: "No attendance records",
+  },
+  {
+    value: "inactive",
+    label: "Inactive",
+    emptyTitle: "No inactive participants",
+  },
 ];
 
 function filterParticipantsForWorkflow(
@@ -5501,6 +5765,8 @@ function ParticipantsSection({
       }),
     [participants],
   );
+  const [activeParticipantTab, setActiveParticipantTab] =
+    useState<ParticipantWorkflowTab>("requests");
   const organizerCount = participants.filter(
     (participant) => participant.role === "organizer",
   ).length;
@@ -5585,16 +5851,20 @@ function ParticipantsSection({
           description="Participant records will appear here after divers join."
         />
       ) : showOrganizerActions ? (
-        <Tabs defaultValue="needs-action" orientation="horizontal" className="gap-4">
-          <TabsList
-            variant="line"
-            className="no-scrollbar w-full justify-start overflow-x-auto rounded-none bg-transparent p-0"
-          >
+        <Tabs
+          value={activeParticipantTab}
+          onValueChange={(value) =>
+            setActiveParticipantTab(value as ParticipantWorkflowTab)
+          }
+          orientation="horizontal"
+          className="gap-4"
+        >
+          <TabsList variant="line" className={manageNestedTabsListClassName}>
             {participantWorkflowTabs.map((tab) => (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="h-9 flex-none rounded-none px-3"
+                className={manageNestedTabTriggerClassName}
               >
                 {tab.label}
               </TabsTrigger>
@@ -5690,87 +5960,87 @@ function ParticipantRows({
   return (
     <div className="divide-y divide-border/70 border-y border-border/70">
       {participants.map((participant) => {
-            const identityBadges = [
-              <Badge
-                key="status"
-                variant="outline"
-                className={getParticipantStatusBadgeClass(participant.status)}
-              >
-                {titleCase(participant.status)}
-              </Badge>,
-              <Badge
-                key="role"
-                variant="outline"
-                className={getParticipantRoleBadgeClass(participant.role)}
-              >
-                {titleCase(participant.role)}
-              </Badge>,
-            ];
-            return (
-              <div key={participant.id} className="py-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <UserIdentityHeader
-                    displayName={
-                      participant.displayName ||
-                      participant.username ||
-                      participant.userId
-                    }
-                    username={participant.username}
-                    avatarUrl={participant.avatarUrl ?? undefined}
-                    usernameFallback="participant"
-                    metadata={identityBadges}
-                  />
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {showOrganizerActions ? (
-                      <>
-                        <PaymentStatusBadge
-                          payment={participant.payment}
-                          fallbackStatus={
-                            requiresEventPayment(event)
-                              ? "pending_upload"
-                              : "not_required"
-                          }
-                          isOpening={
-                            Boolean(participant.payment?.id) &&
-                            viewingPaymentProofId === participant.payment?.id
-                          }
-                          onViewProof={onViewPaymentProof}
-                        />
-                        <OrganizerActions
-                          event={event}
-                          participant={participant}
-                          onApprove={onApprove}
-                          onReject={onReject}
-                          onUpdateRole={onUpdateRole}
-                          onVerifyPayment={onVerifyPayment}
-                          onRejectPayment={onRejectPayment}
-                          onViewPaymentProof={onViewPaymentProof}
-                          onRegeneratePass={onRegeneratePass}
-                          onUpdateAttendance={onUpdateAttendance}
-                          viewingPaymentProofId={viewingPaymentProofId}
-                          regeneratingPassId={regeneratingPassId}
-                        />
-                        {participant.checkedInAt ? (
-                          <Badge
-                            variant="outline"
-                            className="h-6 border-sky-500/30 bg-sky-500/10 px-2 text-[11px] text-sky-700"
-                          >
-                            Checked in
-                          </Badge>
-                        ) : null}
-                      </>
+        const identityBadges = [
+          <Badge
+            key="status"
+            variant="outline"
+            className={getParticipantStatusBadgeClass(participant.status)}
+          >
+            {titleCase(participant.status)}
+          </Badge>,
+          <Badge
+            key="role"
+            variant="outline"
+            className={getParticipantRoleBadgeClass(participant.role)}
+          >
+            {titleCase(participant.role)}
+          </Badge>,
+        ];
+        return (
+          <div key={participant.id} className="py-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <UserIdentityHeader
+                displayName={
+                  participant.displayName ||
+                  participant.username ||
+                  participant.userId
+                }
+                username={participant.username}
+                avatarUrl={participant.avatarUrl ?? undefined}
+                usernameFallback="participant"
+                metadata={identityBadges}
+              />
+              <div className="flex flex-wrap items-center gap-1.5">
+                {showOrganizerActions ? (
+                  <>
+                    <PaymentStatusBadge
+                      payment={participant.payment}
+                      fallbackStatus={
+                        requiresEventPayment(event)
+                          ? "pending_upload"
+                          : "not_required"
+                      }
+                      isOpening={
+                        Boolean(participant.payment?.id) &&
+                        viewingPaymentProofId === participant.payment?.id
+                      }
+                      onViewProof={onViewPaymentProof}
+                    />
+                    <OrganizerActions
+                      event={event}
+                      participant={participant}
+                      onApprove={onApprove}
+                      onReject={onReject}
+                      onUpdateRole={onUpdateRole}
+                      onVerifyPayment={onVerifyPayment}
+                      onRejectPayment={onRejectPayment}
+                      onViewPaymentProof={onViewPaymentProof}
+                      onRegeneratePass={onRegeneratePass}
+                      onUpdateAttendance={onUpdateAttendance}
+                      viewingPaymentProofId={viewingPaymentProofId}
+                      regeneratingPassId={regeneratingPassId}
+                    />
+                    {participant.checkedInAt ? (
+                      <Badge
+                        variant="outline"
+                        className="h-6 border-sky-500/30 bg-sky-500/10 px-2 text-[11px] text-sky-700"
+                      >
+                        Checked in
+                      </Badge>
                     ) : null}
-                  </div>
-                </div>
-                {showOrganizerActions &&
-                participant.status === "pending_approval" &&
-                participant.participantNote ? (
-                  <p className="mt-2 rounded-lg bg-muted/40 p-2 text-sm text-muted-foreground">
-                    {participant.participantNote}
-                  </p>
+                  </>
                 ) : null}
               </div>
-            );
+            </div>
+            {showOrganizerActions &&
+            participant.status === "pending_approval" &&
+            participant.participantNote ? (
+              <p className="mt-2 rounded-lg bg-muted/40 p-2 text-sm text-muted-foreground">
+                {participant.participantNote}
+              </p>
+            ) : null}
+          </div>
+        );
       })}
     </div>
   );
@@ -5997,7 +6267,7 @@ function EventPassDialog({
         <QrCode className="mr-1 h-3 w-3" />
         View QR
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg!">
         <DialogHeader>
           <div className="flex flex-wrap items-center gap-2">
             <DialogTitle>Event pass</DialogTitle>
@@ -6314,10 +6584,12 @@ function ManageOverviewSection({
   event,
   participants,
   onNavigate,
+  onSaved,
 }: {
   event: Event;
   participants: EventParticipant[];
   onNavigate: (tab: EventManageTab) => void;
+  onSaved: () => void;
 }) {
   const pendingCount = participants.filter(
     (participant) => participant.status === "pending_approval",
@@ -6344,12 +6616,7 @@ function ManageOverviewSection({
           actionLabel="Open"
           onAction={() => onNavigate("setup")}
         />
-        <ManageRow
-          title="Lifecycle"
-          status="Publish, full, cancel, or complete"
-          actionLabel="Open"
-          onAction={() => onNavigate("lifecycle")}
-        />
+        <LifecycleOverviewRow event={event} onSaved={onSaved} />
         <ManageRow
           title="Participants"
           status={`${pendingCount} requests, ${paymentReviewCount} payment reviews`}
@@ -6369,14 +6636,14 @@ function ManageOverviewSection({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border/70 p-3">
+    <div className="rounded-lg border border-border/70 px-2.5 py-2">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-foreground">{value}</p>
+      <p className="mt-0.5 text-sm font-medium text-foreground">{value}</p>
     </div>
   );
 }
 
-function LifecycleSection({
+function LifecycleOverviewRow({
   event,
   onSaved,
 }: {
@@ -6384,7 +6651,12 @@ function LifecycleSection({
   onSaved: () => void;
 }) {
   const updateEventMutation = useUpdateEvent();
-  const [cancelReason, setCancelReason] = useState(event.cancelReason ?? "");
+  const [selectedStatus, setSelectedStatus] = useState<Event["status"]>(
+    event.status,
+  );
+  useEffect(() => {
+    setSelectedStatus(event.status);
+  }, [event.status]);
   const changeStatus = (status: Event["status"], reason?: string) => {
     updateEventMutation.mutate(
       {
@@ -6404,63 +6676,47 @@ function LifecycleSection({
       },
     );
   };
-  const lifecycleActions: Array<{ label: string; status: Event["status"] }> = [
-    { label: "Publish", status: "published" },
-    { label: "Mark full", status: "full" },
-    { label: "Reopen", status: "published" },
-    { label: "Complete event", status: "completed" },
-    { label: "Return to draft", status: "draft" },
-  ];
-  const actions = lifecycleActions.filter(
-    (action) => action.status !== event.status,
-  );
+  const statusOptions = getLifecycleStatusOptions(event.status);
   return (
-    <DetailSection title="Lifecycle">
-      <p className="text-sm leading-6 text-muted-foreground">
-        Current state: {getLifecycleDescription(event.status)}
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {actions.map((action) => (
-          <Button
-            key={`${action.label}-${action.status}`}
-            size="sm"
-            variant="outline"
-            disabled={updateEventMutation.isPending}
-            onClick={() => changeStatus(action.status)}
-          >
-            {action.label}
-          </Button>
-        ))}
-        <AlertDialog>
-          <AlertDialogTrigger render={<Button size="sm" variant="destructive" />}>
-            Cancel event
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Cancel this event?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Joining will be disabled. Existing participant records are kept.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <SetupField label="Cancellation reason">
-              <Textarea
-                value={cancelReason}
-                onChange={(item) => setCancelReason(item.target.value)}
-              />
-            </SetupField>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep event</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => changeStatus("cancelled", cancelReason)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Cancel event
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+    <div className="flex flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">Lifecycle</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {getLifecycleDescription(event.status)}
+        </p>
       </div>
-    </DetailSection>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Select
+          value={selectedStatus}
+          items={statusOptions}
+          onValueChange={(value) =>
+            setSelectedStatus((value ?? event.status) as Event["status"])
+          }
+        >
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            {statusOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={
+            updateEventMutation.isPending || selectedStatus === event.status
+          }
+          onClick={() => changeStatus(selectedStatus)}
+        >
+          {updateEventMutation.isPending ? "Saving..." : "Save"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -6476,7 +6732,8 @@ function JoinFormManageSection({
   error: unknown;
 }) {
   const updateFieldsMutation = useUpdateEventJoinFormFields();
-  const configured = fields.length > 0 ? fields : defaultJoinFormFields(event.id);
+  const configured =
+    fields.length > 0 ? fields : defaultJoinFormFields(event.id);
   const [draftFields, setDraftFields] = useState(configured);
   useEffect(() => {
     setDraftFields(configured);
@@ -6500,16 +6757,30 @@ function JoinFormManageSection({
       {
         onSuccess: () => toast.success("Join form saved."),
         onError: (saveError) =>
-          toast.error(getApiErrorMessage(saveError, "Failed to save join form")),
+          toast.error(
+            getApiErrorMessage(saveError, "Failed to save join form"),
+          ),
       },
     );
   };
   return (
     <Tabs defaultValue="fields" orientation="horizontal" className="gap-4">
-      <TabsList variant="line" className="rounded-none bg-transparent p-0">
-        <TabsTrigger value="fields">Fields</TabsTrigger>
-        <TabsTrigger value="preview">Preview</TabsTrigger>
-        <TabsTrigger value="responses">Responses</TabsTrigger>
+      <TabsList variant="line" className={manageNestedTabsListClassName}>
+        <TabsTrigger value="fields" className={manageNestedTabTriggerClassName}>
+          Fields
+        </TabsTrigger>
+        <TabsTrigger
+          value="preview"
+          className={manageNestedTabTriggerClassName}
+        >
+          Preview
+        </TabsTrigger>
+        <TabsTrigger
+          value="responses"
+          className={manageNestedTabTriggerClassName}
+        >
+          Responses
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="fields" className="space-y-4">
         {isLoading ? (
@@ -6551,17 +6822,23 @@ function JoinFormManageSection({
           .map((field) => (
             <SetupField key={field.fieldKey} label={field.label}>
               {field.fieldType === "long_text" ? (
-                <Textarea disabled placeholder={field.required ? "Required" : "Optional"} />
+                <Textarea
+                  disabled
+                  placeholder={field.required ? "Required" : "Optional"}
+                />
               ) : (
-                <Input disabled placeholder={field.required ? "Required" : "Optional"} />
+                <Input
+                  disabled
+                  placeholder={field.required ? "Required" : "Optional"}
+                />
               )}
             </SetupField>
           ))}
       </TabsContent>
       <TabsContent value="responses">
         <p className="text-sm text-muted-foreground">
-          Responses appear inside participant detail records and are only returned
-          to organizers.
+          Responses appear inside participant detail records and are only
+          returned to organizers.
         </p>
       </TabsContent>
     </Tabs>
@@ -6602,7 +6879,9 @@ function ModuleSettingsSection({
               onChange={(item) => toggle(option.key, item.target.checked)}
             />
             <span>
-              <span className="font-medium text-foreground">{option.label}</span>
+              <span className="font-medium text-foreground">
+                {option.label}
+              </span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
                 {option.helper}
               </span>
@@ -6610,7 +6889,11 @@ function ModuleSettingsSection({
           </label>
         ))}
       </div>
-      <Button className="mt-4" disabled={isSaving} onClick={() => onSave(modules)}>
+      <Button
+        className="mt-4"
+        disabled={isSaving}
+        onClick={() => onSave(modules)}
+      >
         {isSaving ? "Saving..." : "Save modules"}
       </Button>
     </DetailSection>
@@ -6621,8 +6904,12 @@ function DuplicateEventSection({ event }: { event: Event }) {
   const duplicateMutation = useDuplicateEvent();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(`Copy of ${event.title}`);
-  const [startsAt, setStartsAt] = useState(toDateTimeLocalValue(event.startsAt, event.timezone));
-  const [endsAt, setEndsAt] = useState(toDateTimeLocalValue(event.endsAt, event.timezone));
+  const [startsAt, setStartsAt] = useState(
+    toDateTimeLocalValue(event.startsAt, event.timezone),
+  );
+  const [endsAt, setEndsAt] = useState(
+    toDateTimeLocalValue(event.endsAt, event.timezone),
+  );
   const [copyPaymentSetup, setCopyPaymentSetup] = useState(false);
   const [copyAwards, setCopyAwards] = useState(false);
   const [copySponsors, setCopySponsors] = useState(false);
@@ -6656,7 +6943,8 @@ function DuplicateEventSection({ event }: { event: Event }) {
   return (
     <DetailSection title="Duplicate event">
       <p className="text-sm text-muted-foreground">
-        Create a draft copy without participants, payments, interests, or attendance.
+        Create a draft copy without participants, payments, interests, or
+        attendance.
       </p>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger render={<Button className="mt-4" variant="outline" />}>
@@ -6670,25 +6958,49 @@ function DuplicateEventSection({ event }: { event: Event }) {
             </DialogDescription>
           </DialogHeader>
           <SetupField label="New event name">
-            <Input value={title} onChange={(item) => setTitle(item.target.value)} />
+            <Input
+              value={title}
+              onChange={(item) => setTitle(item.target.value)}
+            />
           </SetupField>
           <div className="grid gap-3 sm:grid-cols-2">
             <SetupField label="Starts">
-              <Input type="datetime-local" value={startsAt} onChange={(item) => setStartsAt(item.target.value)} />
+              <Input
+                type="datetime-local"
+                value={startsAt}
+                onChange={(item) => setStartsAt(item.target.value)}
+              />
             </SetupField>
             <SetupField label="Ends">
-              <Input type="datetime-local" value={endsAt} onChange={(item) => setEndsAt(item.target.value)} />
+              <Input
+                type="datetime-local"
+                value={endsAt}
+                onChange={(item) => setEndsAt(item.target.value)}
+              />
             </SetupField>
           </div>
           {[
-            ["copyPaymentSetup", "Copy payment setup", copyPaymentSetup, setCopyPaymentSetup],
+            [
+              "copyPaymentSetup",
+              "Copy payment setup",
+              copyPaymentSetup,
+              setCopyPaymentSetup,
+            ],
             ["copyAwards", "Copy awards", copyAwards, setCopyAwards],
             ["copySponsors", "Copy sponsors", copySponsors, setCopySponsors],
             ["copyPosts", "Copy posts", copyPosts, setCopyPosts],
             ["copyProgram", "Copy program", copyProgram, setCopyProgram],
-            ["copySafetyLogistics", "Copy safety/logistics", copySafetyLogistics, setCopySafetyLogistics],
+            [
+              "copySafetyLogistics",
+              "Copy safety/logistics",
+              copySafetyLogistics,
+              setCopySafetyLogistics,
+            ],
           ].map(([key, label, checked, setter]) => (
-            <label key={String(key)} className="flex items-center gap-2 text-sm">
+            <label
+              key={String(key)}
+              className="flex items-center gap-2 text-sm"
+            >
               <input
                 type="checkbox"
                 checked={Boolean(checked)}
@@ -6763,7 +7075,12 @@ function defaultJoinFormFields(eventId: string): EventJoinFormField[] {
   return [
     ["emergencyContactName", "Emergency contact name", "short_text", false],
     ["emergencyContactPhone", "Emergency contact phone", "phone", false],
-    ["certificationLevel", "Freediving certification or level", "short_text", false],
+    [
+      "certificationLevel",
+      "Freediving certification or level",
+      "short_text",
+      false,
+    ],
     ["experienceNote", "Experience note", "long_text", false],
     ["equipmentNeeded", "Equipment needed", "long_text", false],
     ["organizerNote", "Note to organizer", "long_text", false],
@@ -6797,6 +7114,32 @@ function getLifecycleDescription(status: Event["status"]) {
     case "archived":
       return "Archived and hidden from normal discovery.";
   }
+}
+
+const lifecycleStatusLabels: Record<Event["status"], string> = {
+  draft: "Draft",
+  published: "Published",
+  full: "Full",
+  cancelled: "Cancelled",
+  completed: "Completed",
+  archived: "Archived",
+};
+
+const lifecycleNextStatuses: Record<Event["status"], Event["status"][]> = {
+  draft: ["published", "cancelled", "archived"],
+  published: ["draft", "full", "cancelled", "completed", "archived"],
+  full: ["published", "cancelled", "completed", "archived"],
+  cancelled: ["draft", "archived"],
+  completed: ["archived"],
+  archived: ["draft"],
+};
+
+function getLifecycleStatusOptions(status: Event["status"]) {
+  const values = [status, ...lifecycleNextStatuses[status]];
+  return values.map((value) => ({
+    value,
+    label: lifecycleStatusLabels[value],
+  }));
 }
 
 const prizePlacementOptions: Array<{
@@ -8147,7 +8490,6 @@ function programItemToForm(
     timezone: item?.timezone || event.timezone || EVENT_DETAIL_TIMEZONE,
     locationLabel: item?.locationLabel ?? "",
     competitionId: item?.competitionId ?? "",
-    sortOrder: item?.sortOrder ?? 0,
     isHighlighted: item?.isHighlighted ?? false,
   };
 }
@@ -8174,6 +8516,15 @@ function compareProgramItems(a: EventProgramItem, b: EventProgramItem) {
     compareString(a.programDate, b.programDate) ||
     compareString(a.startTime, b.startTime) ||
     a.sortOrder - b.sortOrder ||
+    compareString(a.createdAt, b.createdAt)
+  );
+}
+
+function compareProgramManageItems(a: EventProgramItem, b: EventProgramItem) {
+  return (
+    a.sortOrder - b.sortOrder ||
+    compareString(a.programDate, b.programDate) ||
+    compareString(a.startTime, b.startTime) ||
     compareString(a.createdAt, b.createdAt)
   );
 }

@@ -289,17 +289,21 @@ test("events detail renders management extensions through tabs and dialogs", () 
   assert.match(detailPage, /readOnly/);
   assert.match(detailPage, /mode="public"/);
   assert.match(detailPage, /mode="manage"/);
-  assert.match(detailPage, /value="setup"/);
-  assert.match(detailPage, /value="participants"/);
-  assert.match(detailPage, /value="payment"/);
-  assert.match(detailPage, /value="join-form"/);
-  assert.match(detailPage, /value="program"/);
-  assert.match(detailPage, /orientation="vertical"/);
-  assert.match(detailPage, /value="updates"/);
+  assert.match(detailPage, /getVisibleManageNavItems/);
+  assert.match(detailPage, /aria-current=\{activeManageTab === item\.value/);
+  assert.match(detailPage, /setManageTab\(item\.value\)/);
+  assert.match(detailPage, /value: "join-form"/);
+  assert.match(detailPage, /value: "program"/);
+  assert.doesNotMatch(detailPage, /orientation="vertical"/);
+  assert.match(detailPage, /value: "updates"/);
   assert.match(detailPage, /value="prizes"/);
-  assert.match(detailPage, /value="sponsors"/);
+  assert.match(detailPage, /value: "sponsors"/);
   assert.match(detailPage, /mode="payments"/);
   assert.match(detailPage, /manageTabsListClassName/);
+  assert.match(
+    detailPage,
+    /manageNestedTabsListClassName = manageTabsListClassName/,
+  );
   assert.doesNotMatch(detailPage, /<div className="space-y-8">/);
   assert.match(managePage, /EventManageClient/);
   assert.match(competitionPage, /EventCompetitionPrizesClient/);
@@ -320,6 +324,9 @@ test("events detail renders management extensions through tabs and dialogs", () 
   assert.match(detailPage, /Manage Updates/);
   assert.match(detailPage, /Add program item/);
   assert.match(detailPage, /Edit program item/);
+  assert.match(detailPage, /DndContext/);
+  assert.match(detailPage, /SortableProgramItemRow/);
+  assert.doesNotMatch(detailPage, /<SetupField label="Sort order">/);
   assert.match(detailPage, /Copy program/);
   assert.match(detailPage, /event\.programEnabled/);
   assert.match(detailPage, /event\?\.postsEnabled/);
@@ -430,6 +437,8 @@ test("events check-in scanner is a dedicated organizer workflow", () => {
   assert.match(detailPage, /Check in anyway/);
   assert.match(detailPage, /Already checked in/);
   assert.match(detailPage, /manage\/check-in\?token=/);
+  assert.match(detailPage, /manage\/check-in/);
+  assert.match(detailPage, /<QrCode className="mr-1 h-4 w-4"/);
   assert.match(api, /\/pass\/\$\{encodeURIComponent\(token\)\}\/check-in/);
   assert.match(mutations, /useCheckInEventPass/);
 });

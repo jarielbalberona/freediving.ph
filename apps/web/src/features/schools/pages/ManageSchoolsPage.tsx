@@ -3,12 +3,26 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  CommunityEmptyState,
+  CommunityHeader,
+  CommunityPageShell,
+  CommunityStats,
+} from "@/components/community/community-page";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,14 +48,26 @@ import type {
   CreateSchoolRequest,
   School,
 } from "@freediving.ph/types";
-import { CalendarPlus, Check, CreditCard, Plus, Send, X } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarPlus,
+  Check,
+  CreditCard,
+  Plus,
+  Send,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { MarkdownEditor } from "@/features/chika/components/MarkdownEditor";
-import { DiveSiteCombobox } from "@/features/diveSpots/components/DiveSiteCombobox";
+import {
+  DiveSiteCombobox,
+  formatDiveSiteOptionLabel,
+} from "@/features/diveSpots/components/DiveSiteCombobox";
 import { LocationSearch } from "@/features/locations/components";
 import type { LocationSearchValue } from "@/features/locations/types/location-search";
+import { applyApiErrorsToForm } from "@/lib/forms/api-errors";
 import {
   bookingStatusLabels,
   courseLevelLabels,
@@ -72,9 +98,25 @@ import {
   useManageSchools,
   useManageSessions,
 } from "../hooks/queries";
+import {
+  schoolFormSchema,
+  type SchoolFormValues,
+} from "../schemas/school-form.schema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 
 type Option = { value: string; label: string };
 type SchoolLocationSource = NonNullable<LocationSearchValue["locationSource"]>;
+
+function canManageSchoolOperations(school: School) {
+  return (
+    school.currentUserRole === "owner" || school.currentUserRole === "admin"
+  );
+}
+
+function canEditSchoolSettings(school: School) {
+  return school.currentUserRole === "owner";
+}
 
 const courseTypeOptions = Object.entries(courseTypeLabels).map(
   ([value, label]) => ({ value, label }),
@@ -119,75 +161,74 @@ export function ManageSchoolsPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:px-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-normal">
-            Manage schools
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Create and manage freediving schools, courses, bookings, and
-            sessions.
-          </p>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger
-            render={
-              <Button>
-              <Plus />
-              Add school
-              </Button>
-            }
-          />
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Add school</DialogTitle>
-            </DialogHeader>
-            <SchoolForm onSubmit={onCreate} busy={createSchool.isPending} />
-          </DialogContent>
-        </Dialog>
-      </div>
+    <CommunityPageShell>
+      <CommunityHeader
+        title="Manage schools"
+        subtitle="Create and manage freediving schools, courses, bookings, and sessions."
+        action={
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger
+              render={
+                <Button size="sm">
+                  <Plus />
+                  Add school
+                </Button>
+              }
+            />
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Add school</DialogTitle>
+              </DialogHeader>
+              <SchoolForm onSubmit={onCreate} busy={createSchool.isPending} />
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       {schoolsQuery.isLoading ? <StateText text="Loading schools..." /> : null}
       {schoolsQuery.isError ? (
         <StateText text="Could not load schools. Check your account access." />
       ) : null}
       {!schoolsQuery.isLoading && schools.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8">
-          <h2 className="text-lg font-medium">No schools yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Register your school to start adding courses and managing bookings.
-          </p>
-          <Button className="mt-4" onClick={() => setOpen(true)}>
-            <Plus />
-            Add school
-          </Button>
-        </div>
+        <CommunityEmptyState
+          title="No schools yet"
+          description="Register your school to start adding courses and managing bookings."
+          action={
+            <Button size="sm" onClick={() => setOpen(true)}>
+              <Plus />
+              Add school
+            </Button>
+          }
+        />
       ) : null}
-      <div className="grid gap-3">
+      <div className="divide-y divide-border/70 border-y border-border/70">
         {schools.map((school) => (
           <div
             key={school.id}
-            className="grid gap-4 rounded-lg border p-4 md:grid-cols-[1fr_auto]"
+            className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between"
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-lg font-medium">{school.name}</h2>
-                <Badge variant="secondary">
+                <h2 className="truncate text-sm font-semibold">
+                  {school.name}
+                </h2>
+                <Badge variant="secondary" className="h-5 px-2 text-[11px]">
                   {schoolStatusLabels[school.status]}
                 </Badge>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {school.baseLocation || "No base location yet"}
               </p>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
                 <span>{school.courseCount} courses</span>
                 <span>{school.upcomingSessionCount} upcoming sessions</span>
                 <span>{school.pendingBookingCount} pending bookings</span>
               </div>
             </div>
             <Button
+              className="self-start"
               variant="outline"
+              size="sm"
               render={<Link href={`/manage/schools/${school.slug}`} />}
             >
               Open
@@ -195,7 +236,7 @@ export function ManageSchoolsPage() {
           </div>
         ))}
       </div>
-    </main>
+    </CommunityPageShell>
   );
 }
 
@@ -203,47 +244,58 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
   const schoolQuery = useManageSchool(slug);
   const [editing, setEditing] = useState(false);
   const school = schoolQuery.data;
+  const canEditSchool = school ? canEditSchoolSettings(school) : false;
 
   if (schoolQuery.isError) return <UnauthorizedState />;
-  if (!school) return <StateText text="Loading school..." />;
+  if (!school) return <PageState text="Loading school..." />;
 
   return (
     <SchoolShell school={school}>
-      <div className="grid gap-4 md:grid-cols-5">
-        <Stat label="Total courses" value={school.courseCount} />
-        <Stat label="Published" value={school.publishedCourseCount} />
-        <Stat label="Pending bookings" value={school.pendingBookingCount} />
-        <Stat label="Upcoming sessions" value={school.upcomingSessionCount} />
-        <Stat label="Payments to review" value={school.paymentsToReviewCount} />
-      </div>
+      <CommunityStats
+        items={[
+          { label: "Courses", value: String(school.courseCount) },
+          { label: "Published", value: String(school.publishedCourseCount) },
+          { label: "Pending", value: String(school.pendingBookingCount) },
+          { label: "Upcoming", value: String(school.upcomingSessionCount) },
+          { label: "Payments", value: String(school.paymentsToReviewCount) },
+        ]}
+      />
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
+          size="sm"
           render={<Link href={`/manage/schools/${slug}/courses`} />}
         >
           Manage courses
         </Button>
         <Button
           variant="outline"
+          size="sm"
           render={<Link href={`/manage/schools/${slug}/bookings`} />}
         >
           Booking requests
         </Button>
         <Button
           variant="outline"
+          size="sm"
           render={<Link href={`/manage/schools/${slug}/sessions`} />}
         >
           Sessions
         </Button>
-        <Dialog open={editing} onOpenChange={setEditing}>
-          <DialogTrigger render={<Button>Edit school</Button>} />
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Edit school</DialogTitle>
-            </DialogHeader>
-            <EditSchoolForm school={school} onDone={() => setEditing(false)} />
-          </DialogContent>
-        </Dialog>
+        {canEditSchool ? (
+          <Dialog open={editing} onOpenChange={setEditing}>
+            <DialogTrigger render={<Button size="sm">Edit school</Button>} />
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Edit school</DialogTitle>
+              </DialogHeader>
+              <EditSchoolForm
+                school={school}
+                onDone={() => setEditing(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </div>
     </SchoolShell>
   );
@@ -257,57 +309,60 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
   const [paymentCourse, setPaymentCourse] = useState<Course | null>(null);
   const school = schoolQuery.data;
   const courses = coursesQuery.data ?? [];
+  const canManage = school ? canManageSchoolOperations(school) : false;
 
   if (schoolQuery.isError) return <UnauthorizedState />;
-  if (!school) return <StateText text="Loading school..." />;
+  if (!school) return <PageState text="Loading school..." />;
 
   return (
     <SchoolShell school={school} active="courses">
       <Toolbar
         title="Courses"
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger
-              render={
-                <Button>
-                <Plus />
-                Add course
-                </Button>
-              }
-            />
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Add course</DialogTitle>
-              </DialogHeader>
-              <CourseForm
-                onSubmit={async (data) => {
-                  await createCourse.mutateAsync(data);
-                  setOpen(false);
-                }}
-                busy={createCourse.isPending}
+          canManage ? (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger
+                render={
+                  <Button size="sm">
+                    <Plus />
+                    Add course
+                  </Button>
+                }
               />
-            </DialogContent>
-          </Dialog>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Add course</DialogTitle>
+                </DialogHeader>
+                <CourseForm
+                  onSubmit={async (data) => {
+                    await createCourse.mutateAsync(data);
+                    setOpen(false);
+                  }}
+                  busy={createCourse.isPending}
+                />
+              </DialogContent>
+            </Dialog>
+          ) : null
         }
       />
-      <div className="grid gap-3">
+      <div className="divide-y divide-border/70 border-y border-border/70">
         {courses.map((course) => (
-          <div key={course.id} className="rounded-lg border p-4">
+          <div key={course.id} className="py-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
+              <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-medium">{course.title}</h2>
-                  <Badge variant="secondary">
+                  <h2 className="text-sm font-semibold">{course.title}</h2>
+                  <Badge variant="secondary" className="h-5 px-2 text-[11px]">
                     {courseStatusLabels[course.status]}
                   </Badge>
-                  <Badge variant="outline">
+                  <Badge variant="outline" className="h-5 px-2 text-[11px]">
                     {courseTypeLabels[course.courseType]}
                   </Badge>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
                   {course.shortDescription || "No short description yet"}
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   <span>
                     {course.paymentRequired
                       ? `${course.currency} ${course.priceAmount ?? 0}`
@@ -323,29 +378,36 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
                   <span>{course.pendingBookingCount} pending bookings</span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPaymentCourse(course)}
-                >
-                  <CreditCard />
-                  Payment methods
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  render={<Link href={`/manage/schools/${slug}/sessions`} />}
-                >
-                  <CalendarPlus />
-                  Create session
-                </Button>
-              </div>
+              {canManage ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setPaymentCourse(course)}
+                  >
+                    <CreditCard />
+                    Payment methods
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    render={<Link href={`/manage/schools/${slug}/sessions`} />}
+                  >
+                    <CalendarPlus />
+                    Create session
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         ))}
       </div>
-      {courses.length === 0 ? <StateText text="No courses yet." /> : null}
+      {courses.length === 0 ? (
+        <CommunityEmptyState
+          title="No courses yet"
+          description="Add a course before publishing schedules or accepting bookings."
+        />
+      ) : null}
       <Dialog
         open={paymentCourse != null}
         onOpenChange={(next) => !next && setPaymentCourse(null)}
@@ -378,9 +440,10 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
   const school = schoolQuery.data;
   const courses = coursesQuery.data ?? [];
   const sessions = sessionsQuery.data ?? [];
+  const canManage = school ? canManageSchoolOperations(school) : false;
 
   if (schoolQuery.isError) return <UnauthorizedState />;
-  if (!school) return <StateText text="Loading school..." />;
+  if (!school) return <PageState text="Loading school..." />;
 
   return (
     <SchoolShell school={school} active="sessions">
@@ -388,54 +451,59 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
         title="Sessions"
         subtitle="Schedule class dates, assign bookings, and track attendance."
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger
-              render={
-                <Button>
-                <Plus />
-                Add session
-                </Button>
-              }
-            />
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Add session</DialogTitle>
-              </DialogHeader>
-              <SessionForm
-                courses={courses}
-                onSubmit={async (data) => {
-                  await createSession.mutateAsync(data);
-                  setOpen(false);
-                }}
-                busy={createSession.isPending}
+          canManage ? (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger
+                render={
+                  <Button size="sm">
+                    <Plus />
+                    Add session
+                  </Button>
+                }
               />
-            </DialogContent>
-          </Dialog>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Add session</DialogTitle>
+                </DialogHeader>
+                <SessionForm
+                  courses={courses}
+                  onSubmit={async (data) => {
+                    await createSession.mutateAsync(data);
+                    setOpen(false);
+                  }}
+                  busy={createSession.isPending}
+                />
+              </DialogContent>
+            </Dialog>
+          ) : null
         }
       />
-      <div className="grid gap-3 rounded-lg border p-3 md:grid-cols-4">
+      <div className="grid gap-2 rounded-xl border border-border/70 bg-background/60 p-2.5 sm:grid-cols-2">
         <SelectField
           label="Status"
           value={status}
           onChange={setStatus}
-          options={[{ value: "", label: "All statuses" }, ...sessionStatusOptions]}
+          options={[
+            { value: "", label: "All statuses" },
+            ...sessionStatusOptions,
+          ]}
         />
       </div>
-      <div className="grid gap-3">
+      <div className="divide-y divide-border/70 border-y border-border/70">
         {sessions.map((session) => (
-          <div key={session.id} className="rounded-lg border p-4">
+          <div key={session.id} className="py-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
+              <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-medium">{session.title}</h2>
-                  <Badge variant="secondary">
+                  <h2 className="text-sm font-semibold">{session.title}</h2>
+                  <Badge variant="secondary" className="h-5 px-2 text-[11px]">
                     {sessionStatusLabels[session.status]}
                   </Badge>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {session.courseTitle} • {formatDateTime(session.startsAt)}
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   <span>{session.locationLabel || "No location"}</span>
                   <span>
                     {session.assignedBookingCount}
@@ -446,44 +514,51 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
                   </span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={session.status !== "scheduled"}
-                  onClick={() =>
-                    setSessionStatus.mutate({
-                      sessionId: session.id,
-                      action: "complete",
-                    })
-                  }
-                >
-                  <Check />
-                  Complete
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    session.status === "cancelled" ||
-                    session.status === "completed"
-                  }
-                  onClick={() =>
-                    setSessionStatus.mutate({
-                      sessionId: session.id,
-                      action: "cancel",
-                    })
-                  }
-                >
-                  <X />
-                  Cancel
-                </Button>
-              </div>
+              {canManage ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    disabled={session.status !== "scheduled"}
+                    onClick={() =>
+                      setSessionStatus.mutate({
+                        sessionId: session.id,
+                        action: "complete",
+                      })
+                    }
+                  >
+                    <Check />
+                    Complete
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    disabled={
+                      session.status === "cancelled" ||
+                      session.status === "completed"
+                    }
+                    onClick={() =>
+                      setSessionStatus.mutate({
+                        sessionId: session.id,
+                        action: "cancel",
+                      })
+                    }
+                  >
+                    <X />
+                    Cancel
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         ))}
       </div>
-      {sessions.length === 0 ? <StateText text="No sessions match." /> : null}
+      {sessions.length === 0 ? (
+        <CommunityEmptyState
+          title="No sessions match"
+          description="Scheduled course sessions will appear here."
+        />
+      ) : null}
     </SchoolShell>
   );
 }
@@ -511,9 +586,10 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
   const courses = coursesQuery.data ?? [];
   const sessions = sessionsQuery.data ?? [];
   const bookings = bookingsQuery.data ?? [];
+  const canManage = school ? canManageSchoolOperations(school) : false;
 
   if (schoolQuery.isError) return <UnauthorizedState />;
-  if (!school) return <StateText text="Loading school..." />;
+  if (!school) return <PageState text="Loading school..." />;
 
   return (
     <SchoolShell school={school} active="bookings">
@@ -521,68 +597,88 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
         title="Booking requests"
         subtitle="Review requests, assign sessions, and keep payment review separate from booking status."
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger
-              render={
-                <Button>
-                <Plus />
-                Add booking
-                </Button>
-              }
-            />
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add booking</DialogTitle>
-              </DialogHeader>
-              <BookingForm
-                courses={courses}
-                onSubmit={async (data) => {
-                  await createBooking.mutateAsync(data);
-                  setOpen(false);
-                }}
-                busy={createBooking.isPending}
+          canManage ? (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger
+                render={
+                  <Button size="sm">
+                    <Plus />
+                    Add booking
+                  </Button>
+                }
               />
-            </DialogContent>
-          </Dialog>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add booking</DialogTitle>
+                </DialogHeader>
+                <BookingForm
+                  courses={courses}
+                  onSubmit={async (data) => {
+                    await createBooking.mutateAsync(data);
+                    setOpen(false);
+                  }}
+                  busy={createBooking.isPending}
+                />
+              </DialogContent>
+            </Dialog>
+          ) : null
         }
       />
-      <div className="grid gap-3 md:grid-cols-5">
-        <Stat
-          label="Pending review"
-          value={bookings.filter((b) => b.status === "pending_review").length}
-        />
-        <Stat
-          label="Approved"
-          value={bookings.filter((b) => b.status === "approved").length}
-        />
-        <Stat
-          label="Scheduled"
-          value={bookings.filter((b) => b.status === "scheduled").length}
-        />
-        <Stat
-          label="Payment submitted"
-          value={bookings.filter((b) => b.payment?.status === "submitted").length}
-        />
-        <Stat
-          label="Completed"
-          value={bookings.filter((b) => b.status === "completed").length}
-        />
-      </div>
-      <div className="grid gap-3 rounded-lg border p-3 md:grid-cols-4">
+      <CommunityStats
+        items={[
+          {
+            label: "Pending",
+            value: String(
+              bookings.filter((b) => b.status === "pending_review").length,
+            ),
+          },
+          {
+            label: "Approved",
+            value: String(
+              bookings.filter((b) => b.status === "approved").length,
+            ),
+          },
+          {
+            label: "Scheduled",
+            value: String(
+              bookings.filter((b) => b.status === "scheduled").length,
+            ),
+          },
+          {
+            label: "Payments",
+            value: String(
+              bookings.filter((b) => b.payment?.status === "submitted").length,
+            ),
+          },
+          {
+            label: "Completed",
+            value: String(
+              bookings.filter((b) => b.status === "completed").length,
+            ),
+          },
+        ]}
+      />
+      <div className="grid gap-2 rounded-xl border border-border/70 bg-background/60 p-2.5 sm:grid-cols-2">
         <SelectField
           label="Booking status"
           value={status}
           onChange={setStatus}
-          options={[{ value: "", label: "All statuses" }, ...bookingStatusOptions]}
+          options={[
+            { value: "", label: "All statuses" },
+            ...bookingStatusOptions,
+          ]}
         />
         <SelectField
           label="Payment status"
           value={paymentStatus}
           onChange={setPaymentStatus}
-          options={[{ value: "", label: "All payments" }, ...paymentStatusOptions]}
+          options={[
+            { value: "", label: "All payments" },
+            ...paymentStatusOptions,
+          ]}
         />
       </div>
-      <div className="grid gap-3">
+      <div className="divide-y divide-border/70 border-y border-border/70">
         {bookings.map((booking) => (
           <BookingRow
             key={booking.id}
@@ -597,10 +693,16 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
             onReviewPayment={(action) =>
               reviewPayment.mutate({ bookingId: booking.id, action })
             }
+            canManage={canManage}
           />
         ))}
       </div>
-      {bookings.length === 0 ? <StateText text="No bookings match." /> : null}
+      {bookings.length === 0 ? (
+        <CommunityEmptyState
+          title="No bookings match"
+          description="Booking requests will appear here once students start submitting."
+        />
+      ) : null}
     </SchoolShell>
   );
 }
@@ -615,22 +717,31 @@ function SchoolShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:px-6">
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-3xl font-semibold tracking-normal">
-            {school.name}
-          </h1>
-          <Badge variant="secondary">{schoolStatusLabels[school.status]}</Badge>
-        </div>
-        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          {school.shortDescription || "No school description yet."}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <CommunityPageShell>
+      <CommunityHeader
+        title={school.name}
+        subtitle={school.shortDescription || "No school description yet."}
+        navigation={
+          <Button
+            size="sm"
+            variant="outline"
+            render={<Link href="/manage/schools" />}
+          >
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Manage schools
+          </Button>
+        }
+        action={
+          <Badge variant="secondary" className="h-5 px-2 text-[11px]">
+            {schoolStatusLabels[school.status]}
+          </Badge>
+        }
+      >
+        <p className="text-xs text-muted-foreground">
           {school.baseLocation || "No base location set"}
         </p>
-      </div>
-      <div className="flex flex-wrap gap-2">
+      </CommunityHeader>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Button
           variant={!active ? "default" : "outline"}
           size="sm"
@@ -661,7 +772,7 @@ function SchoolShell({
         </Button>
       </div>
       {children}
-    </main>
+    </CommunityPageShell>
   );
 }
 
@@ -674,12 +785,253 @@ function SchoolForm({
   busy: boolean;
   initial?: School;
 }) {
-  const [form, setForm] = useState<CreateSchoolRequest>({
+  const form = useForm<SchoolFormValues>({
+    resolver: zodResolver(schoolFormSchema),
+    defaultValues: getSchoolFormDefaultValues(initial),
+  });
+  const [formError, setFormError] = useState("");
+  const [diveSiteLabel, setDiveSiteLabel] = useState(
+    initial?.diveSiteName ?? "",
+  );
+  const formValues = form.watch();
+  const locationValue: LocationSearchValue = {
+    locationName: formValues.baseLocationLabel ?? formValues.baseLocation ?? "",
+    formattedAddress: formValues.formattedAddress ?? "",
+    regionCode: formValues.regionCode ?? "",
+    regionName: formValues.regionName ?? "",
+    provinceCode: formValues.provinceCode ?? "",
+    provinceName: formValues.provinceName ?? "",
+    cityCode: formValues.cityCode ?? "",
+    cityName: formValues.cityName ?? "",
+    barangayCode: formValues.barangayCode ?? "",
+    barangayName: formValues.barangayName ?? "",
+    locationSource: normalizeLocationSource(formValues.locationSource),
+  };
+
+  async function handleSubmit(values: SchoolFormValues) {
+    setFormError("");
+    try {
+      await onSubmit(values);
+    } catch (error) {
+      const result = applyApiErrorsToForm(form, error, {
+        fieldMap: schoolApiFieldMap,
+        fallbackMessage: "Could not save school",
+      });
+      if (result.globalMessages.length > 0) {
+        setFormError(result.globalMessages.join("\n"));
+      }
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form
+        className="grid gap-4"
+        noValidate
+        onSubmit={form.handleSubmit(handleSubmit)}
+      >
+        {formError ? (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {formError}
+          </p>
+        ) : null}
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input {...field} autoComplete="organization" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="shortDescription"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Short description</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="baseLocation"
+          render={() => (
+            <FormItem>
+              <FormLabel>Base location</FormLabel>
+              <LocationSearch
+                value={locationValue}
+                onChange={(location) => {
+                  form.setValue("baseLocation", location.locationName ?? "", {
+                    shouldDirty: true,
+                  });
+                  form.setValue(
+                    "baseLocationLabel",
+                    location.locationName ?? "",
+                    { shouldDirty: true },
+                  );
+                  form.setValue(
+                    "formattedAddress",
+                    location.formattedAddress ?? "",
+                    { shouldDirty: true },
+                  );
+                  form.setValue("regionCode", location.regionCode ?? "", {
+                    shouldDirty: true,
+                  });
+                  form.setValue("regionName", location.regionName ?? "", {
+                    shouldDirty: true,
+                  });
+                  form.setValue("provinceCode", location.provinceCode ?? "", {
+                    shouldDirty: true,
+                  });
+                  form.setValue("provinceName", location.provinceName ?? "", {
+                    shouldDirty: true,
+                  });
+                  form.setValue("cityCode", location.cityCode ?? "", {
+                    shouldDirty: true,
+                  });
+                  form.setValue("cityName", location.cityName ?? "", {
+                    shouldDirty: true,
+                  });
+                  form.setValue("barangayCode", location.barangayCode ?? "", {
+                    shouldDirty: true,
+                  });
+                  form.setValue("barangayName", location.barangayName ?? "", {
+                    shouldDirty: true,
+                  });
+                  form.setValue(
+                    "locationSource",
+                    location.locationSource ?? "manual",
+                    { shouldDirty: true },
+                  );
+                }}
+                disabled={busy}
+              />
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="diveSiteId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Optional dive site</FormLabel>
+              <DiveSiteCombobox
+                value={field.value ?? ""}
+                valueLabel={diveSiteLabel}
+                onValueChange={(diveSiteId, site) => {
+                  field.onChange(diveSiteId);
+                  setDiveSiteLabel(site ? formatDiveSiteOptionLabel(site) : "");
+                }}
+                searchPlaceholder="Link a dive site"
+                allOption={{ value: "", label: "No dive site" }}
+              />
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="contactEmail"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Contact email</FormLabel>
+                <FormControl>
+                  <Input {...field} autoComplete="email" type="email" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="contactPhone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone</FormLabel>
+                <FormControl>
+                  <Input {...field} autoComplete="tel" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormField
+            control={form.control}
+            name="websiteUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Website</FormLabel>
+                <FormControl>
+                  <Input {...field} type="url" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="facebookUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Facebook</FormLabel>
+                <FormControl>
+                  <Input {...field} type="url" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="instagramUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Instagram</FormLabel>
+                <FormControl>
+                  <Input {...field} type="url" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <Button type="submit" disabled={busy || form.formState.isSubmitting}>
+          <Send />
+          Save school
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
+const schoolApiFieldMap = {
+  contact_email: "contactEmail",
+  website_url: "websiteUrl",
+  facebook_url: "facebookUrl",
+  instagram_url: "instagramUrl",
+} satisfies Record<string, keyof SchoolFormValues>;
+
+function getSchoolFormDefaultValues(initial?: School): SchoolFormValues {
+  return {
     name: initial?.name ?? "",
     shortDescription: initial?.shortDescription ?? "",
     descriptionMarkdown: initial?.descriptionMarkdown ?? "",
     baseLocation: initial?.baseLocation ?? "",
-    baseLocationLabel: initial?.baseLocationLabel ?? initial?.baseLocation ?? "",
+    baseLocationLabel:
+      initial?.baseLocationLabel ?? initial?.baseLocation ?? "",
     formattedAddress: initial?.formattedAddress ?? "",
     regionCode: initial?.regionCode ?? "",
     regionName: initial?.regionName ?? "",
@@ -697,79 +1049,7 @@ function SchoolForm({
     facebookUrl: initial?.facebookUrl ?? "",
     instagramUrl: initial?.instagramUrl ?? "",
     status: initial?.status ?? "draft",
-  });
-  const locationValue: LocationSearchValue = {
-    locationName: form.baseLocationLabel ?? form.baseLocation ?? "",
-    formattedAddress: form.formattedAddress ?? "",
-    regionCode: form.regionCode ?? "",
-    regionName: form.regionName ?? "",
-    provinceCode: form.provinceCode ?? "",
-    provinceName: form.provinceName ?? "",
-    cityCode: form.cityCode ?? "",
-    cityName: form.cityName ?? "",
-    barangayCode: form.barangayCode ?? "",
-    barangayName: form.barangayName ?? "",
-    locationSource: normalizeLocationSource(form.locationSource),
   };
-  return (
-    <form
-      className="grid gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void onSubmit(form);
-      }}
-    >
-      <TextField label="Name" value={form.name} onChange={(name) => setForm({ ...form, name })} required />
-      <TextField label="Short description" value={form.shortDescription} onChange={(shortDescription) => setForm({ ...form, shortDescription })} />
-      <div className="grid gap-2">
-        <Label>Base location</Label>
-        <LocationSearch
-          value={locationValue}
-          onChange={(location) =>
-            setForm({
-              ...form,
-              baseLocation: location.locationName ?? "",
-              baseLocationLabel: location.locationName ?? "",
-              formattedAddress: location.formattedAddress ?? "",
-              regionCode: location.regionCode ?? "",
-              regionName: location.regionName ?? "",
-              provinceCode: location.provinceCode ?? "",
-              provinceName: location.provinceName ?? "",
-              cityCode: location.cityCode ?? "",
-              cityName: location.cityName ?? "",
-              barangayCode: location.barangayCode ?? "",
-              barangayName: location.barangayName ?? "",
-              locationSource: location.locationSource ?? "manual",
-            })
-          }
-          disabled={busy}
-        />
-      </div>
-      <div className="grid gap-2">
-        <Label>Optional dive site</Label>
-        <DiveSiteCombobox
-          value={form.diveSiteId ?? ""}
-          valueLabel={initial?.diveSiteName}
-          onValueChange={(diveSiteId) => setForm({ ...form, diveSiteId })}
-          searchPlaceholder="Link a dive site"
-          allOption={{ value: "", label: "No dive site" }}
-        />
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <TextField label="Contact email" value={form.contactEmail} onChange={(contactEmail) => setForm({ ...form, contactEmail })} />
-        <TextField label="Phone" value={form.contactPhone} onChange={(contactPhone) => setForm({ ...form, contactPhone })} />
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <TextField label="Website" value={form.websiteUrl} onChange={(websiteUrl) => setForm({ ...form, websiteUrl })} />
-        <TextField label="Facebook" value={form.facebookUrl} onChange={(facebookUrl) => setForm({ ...form, facebookUrl })} />
-        <TextField label="Instagram" value={form.instagramUrl} onChange={(instagramUrl) => setForm({ ...form, instagramUrl })} />
-      </div>
-      <Button type="submit" disabled={busy}>
-        <Send />
-        Save school
-      </Button>
-    </form>
-  );
 }
 
 function normalizeLocationSource(value?: string): SchoolLocationSource {
@@ -831,25 +1111,109 @@ function CourseForm({
     status: "draft",
   });
   return (
-    <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); void onSubmit(form); }}>
-      <TextField label="Title" value={form.title} onChange={(title) => setForm({ ...form, title })} required />
-      <TextField label="Short description" value={form.shortDescription} onChange={(shortDescription) => setForm({ ...form, shortDescription })} />
-      <MarkdownEditor value={form.descriptionMarkdown} onChange={(descriptionMarkdown) => setForm({ ...form, descriptionMarkdown })} placeholder="Course description" />
+    <form
+      className="grid gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void onSubmit(form);
+      }}
+    >
+      <TextField
+        label="Title"
+        value={form.title}
+        onChange={(title) => setForm({ ...form, title })}
+        required
+      />
+      <TextField
+        label="Short description"
+        value={form.shortDescription}
+        onChange={(shortDescription) => setForm({ ...form, shortDescription })}
+      />
+      <MarkdownEditor
+        value={form.descriptionMarkdown}
+        onChange={(descriptionMarkdown) =>
+          setForm({ ...form, descriptionMarkdown })
+        }
+        placeholder="Course description"
+      />
       <div className="grid gap-4 md:grid-cols-3">
-        <SelectField label="Course type" value={form.courseType} onChange={(courseType) => setForm({ ...form, courseType: courseType as CreateCourseRequest["courseType"] })} options={courseTypeOptions} />
-        <SelectField label="Level" value={form.level} onChange={(level) => setForm({ ...form, level: level as CreateCourseRequest["level"] })} options={courseLevelOptions} />
-        <SelectField label="Status" value={form.status} onChange={(status) => setForm({ ...form, status: status as CreateCourseRequest["status"] })} options={courseStatusOptions} />
+        <SelectField
+          label="Course type"
+          value={form.courseType}
+          onChange={(courseType) =>
+            setForm({
+              ...form,
+              courseType: courseType as CreateCourseRequest["courseType"],
+            })
+          }
+          options={courseTypeOptions}
+        />
+        <SelectField
+          label="Level"
+          value={form.level}
+          onChange={(level) =>
+            setForm({ ...form, level: level as CreateCourseRequest["level"] })
+          }
+          options={courseLevelOptions}
+        />
+        <SelectField
+          label="Status"
+          value={form.status}
+          onChange={(status) =>
+            setForm({
+              ...form,
+              status: status as CreateCourseRequest["status"],
+            })
+          }
+          options={courseStatusOptions}
+        />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
-        <TextField label="Duration" value={form.durationLabel} onChange={(durationLabel) => setForm({ ...form, durationLabel })} />
-        <TextField label="Price" type="number" value={form.priceAmount?.toString() ?? ""} onChange={(value) => setForm({ ...form, priceAmount: value ? Number(value) : null })} />
-        <TextField label="Location" value={form.locationLabel} onChange={(locationLabel) => setForm({ ...form, locationLabel })} />
+        <TextField
+          label="Duration"
+          value={form.durationLabel}
+          onChange={(durationLabel) => setForm({ ...form, durationLabel })}
+        />
+        <TextField
+          label="Price"
+          type="number"
+          value={form.priceAmount?.toString() ?? ""}
+          onChange={(value) =>
+            setForm({ ...form, priceAmount: value ? Number(value) : null })
+          }
+        />
+        <TextField
+          label="Location"
+          value={form.locationLabel}
+          onChange={(locationLabel) => setForm({ ...form, locationLabel })}
+        />
       </div>
       <div className="flex flex-wrap gap-4 text-sm">
-        <label className="flex items-center gap-2"><input type="checkbox" checked={form.paymentRequired} onChange={(e) => setForm({ ...form, paymentRequired: e.target.checked })} /> Payment required</label>
-        <label className="flex items-center gap-2"><input type="checkbox" checked={form.approvalRequired} onChange={(e) => setForm({ ...form, approvalRequired: e.target.checked })} /> Approval required</label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={form.paymentRequired}
+            onChange={(e) =>
+              setForm({ ...form, paymentRequired: e.target.checked })
+            }
+          />{" "}
+          Payment required
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={form.approvalRequired}
+            onChange={(e) =>
+              setForm({ ...form, approvalRequired: e.target.checked })
+            }
+          />{" "}
+          Approval required
+        </label>
       </div>
-      <Button type="submit" disabled={busy}><Send />Save course</Button>
+      <Button type="submit" disabled={busy}>
+        <Send />
+        Save course
+      </Button>
     </form>
   );
 }
@@ -878,21 +1242,86 @@ function SessionForm({
     notesMarkdown: "",
   });
   return (
-    <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); void onSubmit({ ...form, startsAt: toIso(form.startsAt), endsAt: toIso(form.endsAt) }); }}>
-      <SelectField label="Course" value={form.courseId} onChange={(courseId) => setForm({ ...form, courseId })} options={courses.map((c) => ({ value: c.id, label: c.title }))} />
-      <TextField label="Title" value={form.title} onChange={(title) => setForm({ ...form, title })} required />
+    <form
+      className="grid gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void onSubmit({
+          ...form,
+          startsAt: toIso(form.startsAt),
+          endsAt: toIso(form.endsAt),
+        });
+      }}
+    >
+      <SelectField
+        label="Course"
+        value={form.courseId}
+        onChange={(courseId) => setForm({ ...form, courseId })}
+        options={courses.map((c) => ({ value: c.id, label: c.title }))}
+      />
+      <TextField
+        label="Title"
+        value={form.title}
+        onChange={(title) => setForm({ ...form, title })}
+        required
+      />
       <div className="grid gap-4 md:grid-cols-3">
-        <TextField label="Starts" type="datetime-local" value={form.startsAt} onChange={(startsAt) => setForm({ ...form, startsAt })} required />
-        <TextField label="Ends" type="datetime-local" value={form.endsAt} onChange={(endsAt) => setForm({ ...form, endsAt })} required />
-        <SelectField label="Status" value={form.status} onChange={(status) => setForm({ ...form, status: status as CreateCourseSessionRequest["status"] })} options={sessionStatusOptions} />
+        <TextField
+          label="Starts"
+          type="datetime-local"
+          value={form.startsAt}
+          onChange={(startsAt) => setForm({ ...form, startsAt })}
+          required
+        />
+        <TextField
+          label="Ends"
+          type="datetime-local"
+          value={form.endsAt}
+          onChange={(endsAt) => setForm({ ...form, endsAt })}
+          required
+        />
+        <SelectField
+          label="Status"
+          value={form.status}
+          onChange={(status) =>
+            setForm({
+              ...form,
+              status: status as CreateCourseSessionRequest["status"],
+            })
+          }
+          options={sessionStatusOptions}
+        />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
-        <TextField label="Timezone" value={form.timezone} onChange={(timezone) => setForm({ ...form, timezone })} />
-        <TextField label="Location" value={form.locationLabel} onChange={(locationLabel) => setForm({ ...form, locationLabel })} />
-        <TextField label="Capacity" type="number" value={form.capacity?.toString() ?? ""} onChange={(value) => setForm({ ...form, capacity: value ? Number(value) : null })} />
+        <TextField
+          label="Timezone"
+          value={form.timezone}
+          onChange={(timezone) => setForm({ ...form, timezone })}
+        />
+        <TextField
+          label="Location"
+          value={form.locationLabel}
+          onChange={(locationLabel) => setForm({ ...form, locationLabel })}
+        />
+        <TextField
+          label="Capacity"
+          type="number"
+          value={form.capacity?.toString() ?? ""}
+          onChange={(value) =>
+            setForm({ ...form, capacity: value ? Number(value) : null })
+          }
+        />
       </div>
-      <MarkdownEditor value={form.notesMarkdown} onChange={(notesMarkdown) => setForm({ ...form, notesMarkdown })} placeholder="Session notes" minRows={5} />
-      <Button type="submit" disabled={busy || !form.courseId}><Send />Save session</Button>
+      <MarkdownEditor
+        value={form.notesMarkdown}
+        onChange={(notesMarkdown) => setForm({ ...form, notesMarkdown })}
+        placeholder="Session notes"
+        minRows={5}
+      />
+      <Button type="submit" disabled={busy || !form.courseId}>
+        <Send />
+        Save session
+      </Button>
     </form>
   );
 }
@@ -923,28 +1352,85 @@ function BookingForm({
     adminNotes: "",
   });
   return (
-    <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); void onSubmit(form); }}>
-      <SelectField label="Course" value={form.courseId} onChange={(courseId) => setForm({ ...form, courseId })} options={courses.map((c) => ({ value: c.id, label: c.title }))} />
+    <form
+      className="grid gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void onSubmit(form);
+      }}
+    >
+      <SelectField
+        label="Course"
+        value={form.courseId}
+        onChange={(courseId) => setForm({ ...form, courseId })}
+        options={courses.map((c) => ({ value: c.id, label: c.title }))}
+      />
       <div className="grid gap-4 md:grid-cols-3">
-        <TextField label="Student name" value={form.studentName} onChange={(studentName) => setForm({ ...form, studentName })} required />
-        <TextField label="Email" value={form.studentEmail} onChange={(studentEmail) => setForm({ ...form, studentEmail })} />
-        <TextField label="Phone" value={form.studentPhone} onChange={(studentPhone) => setForm({ ...form, studentPhone })} />
+        <TextField
+          label="Student name"
+          value={form.studentName}
+          onChange={(studentName) => setForm({ ...form, studentName })}
+          required
+        />
+        <TextField
+          label="Email"
+          value={form.studentEmail}
+          onChange={(studentEmail) => setForm({ ...form, studentEmail })}
+        />
+        <TextField
+          label="Phone"
+          value={form.studentPhone}
+          onChange={(studentPhone) => setForm({ ...form, studentPhone })}
+        />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
-        <TextField label="Preferred date" type="date" value={form.preferredDate} onChange={(preferredDate) => setForm({ ...form, preferredDate })} required />
-        <TextField label="Alternate date" type="date" value={form.alternateDate} onChange={(alternateDate) => setForm({ ...form, alternateDate })} />
-        <SelectField label="Status" value={form.status} onChange={(status) => setForm({ ...form, status: status as CreateCourseBookingRequest["status"] })} options={bookingStatusOptions} />
+        <TextField
+          label="Preferred date"
+          type="date"
+          value={form.preferredDate}
+          onChange={(preferredDate) => setForm({ ...form, preferredDate })}
+          required
+        />
+        <TextField
+          label="Alternate date"
+          type="date"
+          value={form.alternateDate}
+          onChange={(alternateDate) => setForm({ ...form, alternateDate })}
+        />
+        <SelectField
+          label="Status"
+          value={form.status}
+          onChange={(status) =>
+            setForm({
+              ...form,
+              status: status as CreateCourseBookingRequest["status"],
+            })
+          }
+          options={bookingStatusOptions}
+        />
       </div>
-      <Textarea placeholder="Student note" value={form.studentNote} onChange={(e) => setForm({ ...form, studentNote: e.target.value })} />
-      <Button type="submit" disabled={busy || !form.courseId}><Send />Save booking</Button>
+      <Textarea
+        placeholder="Student note"
+        value={form.studentNote}
+        onChange={(e) => setForm({ ...form, studentNote: e.target.value })}
+      />
+      <Button type="submit" disabled={busy || !form.courseId}>
+        <Send />
+        Save booking
+      </Button>
     </form>
   );
 }
 
-function PaymentMethodsPanel({ slug, course }: { slug: string; course: Course }) {
+function PaymentMethodsPanel({
+  slug,
+  course,
+}: { slug: string; course: Course }) {
   const methodsQuery = useManagePaymentMethods(slug, course.id);
   const createMethod = useCreatePaymentMethod(slug, course.id);
-  const [type, setType] = useState<"MANUAL_QR" | "MANUAL_BANK_TRANSFER">("MANUAL_QR");
+  const [type, setType] = useState<"MANUAL_QR" | "MANUAL_BANK_TRANSFER">(
+    "MANUAL_QR",
+  );
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
   return (
@@ -1004,84 +1490,132 @@ function BookingRow({
   onAction,
   onAssign,
   onReviewPayment,
+  canManage,
 }: {
   booking: CourseBookingRequest;
   sessions: CourseSession[];
-  onAction: (action: "approve" | "reject" | "schedule" | "complete" | "cancel") => void;
+  onAction: (
+    action: "approve" | "reject" | "schedule" | "complete" | "cancel",
+  ) => void;
   onAssign: (sessionId: string) => void;
   onReviewPayment: (action: "verify" | "reject") => void;
+  canManage: boolean;
 }) {
   const [sessionId, setSessionId] = useState(booking.sessionId);
   return (
-    <div className="rounded-lg border p-4">
+    <div className="py-3">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-medium">
+            <h2 className="text-sm font-semibold">
               {booking.studentName || booking.studentEmail || "Unnamed student"}
             </h2>
-            <Badge variant="secondary">
+            <Badge variant="secondary" className="h-5 px-2 text-[11px]">
               {bookingStatusLabels[booking.status]}
             </Badge>
             {booking.payment ? (
-              <Badge variant="outline">
+              <Badge variant="outline" className="h-5 px-2 text-[11px]">
                 {paymentStatusLabels[booking.payment.status]}
               </Badge>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             {booking.courseTitle} • preferred {booking.preferredDate}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             {booking.sessionTitle || "No session assigned"}
           </p>
         </div>
-        <div className="flex max-w-sm flex-wrap gap-2">
-          {booking.status === "pending_review" ? (
-            <>
-              <Button size="sm" variant="outline" onClick={() => onAction("approve")}>Approve</Button>
-              <Button size="sm" variant="outline" onClick={() => onAction("reject")}>Reject</Button>
-            </>
-          ) : null}
-          {booking.status === "scheduled" ? (
-            <Button size="sm" variant="outline" onClick={() => onAction("complete")}>Complete</Button>
-          ) : null}
-          {["pending_review", "approved", "scheduled"].includes(booking.status) ? (
-            <Button size="sm" variant="outline" onClick={() => onAction("cancel")}>Cancel</Button>
-          ) : null}
-          <div className="flex w-full gap-2">
-            <Select
-              value={sessionId}
-              onValueChange={(value) => setSessionId(value ?? "")}
-              items={sessions.map((session) => ({
-                value: session.id,
-                label: session.title,
-              }))}
-            >
-              <SelectTrigger className="min-w-44">
-                <SelectValue placeholder="Assign session" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {sessions.map((session) => (
-                    <SelectItem key={session.id} value={session.id}>
-                      {session.title}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Button size="sm" disabled={!sessionId} onClick={() => onAssign(sessionId)}>
-              Assign
-            </Button>
+        {canManage ? (
+          <div className="flex max-w-sm flex-wrap gap-2">
+            {booking.status === "pending_review" ? (
+              <>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => onAction("approve")}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => onAction("reject")}
+                >
+                  Reject
+                </Button>
+              </>
+            ) : null}
+            {booking.status === "scheduled" ? (
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => onAction("complete")}
+              >
+                Complete
+              </Button>
+            ) : null}
+            {["pending_review", "approved", "scheduled"].includes(
+              booking.status,
+            ) ? (
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => onAction("cancel")}
+              >
+                Cancel
+              </Button>
+            ) : null}
+            <div className="flex w-full gap-2">
+              <Select
+                value={sessionId}
+                onValueChange={(value) => setSessionId(value ?? "")}
+                items={sessions.map((session) => ({
+                  value: session.id,
+                  label: session.title,
+                }))}
+              >
+                <SelectTrigger className="min-w-44">
+                  <SelectValue placeholder="Assign session" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {sessions.map((session) => (
+                      <SelectItem key={session.id} value={session.id}>
+                        {session.title}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Button
+                size="xs"
+                disabled={!sessionId}
+                onClick={() => onAssign(sessionId)}
+              >
+                Assign
+              </Button>
+            </div>
+            {booking.payment?.status === "submitted" ? (
+              <>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => onReviewPayment("verify")}
+                >
+                  Verify payment
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => onReviewPayment("reject")}
+                >
+                  Reject payment
+                </Button>
+              </>
+            ) : null}
           </div>
-          {booking.payment?.status === "submitted" ? (
-            <>
-              <Button size="sm" variant="outline" onClick={() => onReviewPayment("verify")}>Verify payment</Button>
-              <Button size="sm" variant="outline" onClick={() => onReviewPayment("reject")}>Reject payment</Button>
-            </>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </div>
   );
@@ -1160,10 +1694,12 @@ function Toolbar({
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-normal">{title}</h2>
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold tracking-tight">{title}</h2>
         {subtitle ? (
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+          <p className="max-w-xl text-xs leading-5 text-muted-foreground">
+            {subtitle}
+          </p>
         ) : null}
       </div>
       {action}
@@ -1171,30 +1707,26 @@ function Toolbar({
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border p-4">
-      <div className="text-2xl font-semibold">{value}</div>
-      <div className="text-sm text-muted-foreground">{label}</div>
-    </div>
-  );
+function StateText({ text }: { text: string }) {
+  return <p className="text-xs leading-5 text-muted-foreground">{text}</p>;
 }
 
-function StateText({ text }: { text: string }) {
-  return <div className="rounded-lg border p-6 text-sm text-muted-foreground">{text}</div>;
+function PageState({ text }: { text: string }) {
+  return (
+    <CommunityPageShell>
+      <StateText text={text} />
+    </CommunityPageShell>
+  );
 }
 
 function UnauthorizedState() {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <div className="rounded-lg border p-6">
-        <h1 className="text-xl font-semibold">School management unavailable</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Sign in with a school owner, admin, or instructor account to manage
-          schools.
-        </p>
-      </div>
-    </main>
+    <CommunityPageShell>
+      <CommunityEmptyState
+        title="School management unavailable"
+        description="Sign in with a school owner, admin, or instructor account to manage schools."
+      />
+    </CommunityPageShell>
   );
 }
 

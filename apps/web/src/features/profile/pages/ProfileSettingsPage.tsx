@@ -1,6 +1,8 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Sparkles } from "lucide-react";
@@ -9,13 +11,26 @@ import { AuthGuard } from "@/components/auth/guard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AvatarCropDialog, useUploadMedia } from "@/features/media";
 import type { AvatarTransformResult } from "@/features/media/lib/avatar-transform";
+import {
+  profileSettingsSchema,
+  type ProfileSettingsValues,
+} from "@/features/profile/schemas/profile-settings.schema";
 import { useUpdateMyProfile } from "@/features/profiles/hooks/mutations";
 import { useMyProfile } from "@/features/profiles/hooks/queries";
+import { applyApiErrorsToForm } from "@/lib/forms/api-errors";
 import {
   getProfileRoute,
   getProfileSettingsRoute,
@@ -43,8 +58,15 @@ export default function ProfileSettingsPage({
   const uploadMediaMutation = useUploadMedia();
   const updateProfileMutation = useUpdateMyProfile();
 
-  const [displayName, setDisplayName] = useState("");
-  const [bio, setBio] = useState("");
+  const form = useForm<ProfileSettingsValues>({
+    resolver: zodResolver(profileSettingsSchema),
+    defaultValues: {
+      displayName: "",
+      bio: "",
+    },
+  });
+  const displayName = form.watch("displayName");
+  const [formError, setFormError] = useState("");
   const [avatarPreviewURL, setAvatarPreviewURL] = useState<string>("");
   const [localAvatarPreviewURL, setLocalAvatarPreviewURL] = useState<
     string | null
@@ -58,8 +80,20 @@ export default function ProfileSettingsPage({
   useEffect(() => {
     const profile = myProfileQuery.data?.profile;
     if (!profile) return;
-    setDisplayName(profile.displayName ?? "");
-    setBio(profile.bio ?? "");
+    form.reset({
+      displayName: profile.displayName ?? "",
+      bio: profile.bio ?? "",
+    });
+  }, [
+    form,
+    myProfileQuery.data?.profile?.userId,
+    myProfileQuery.data?.profile?.displayName,
+    myProfileQuery.data?.profile?.bio,
+  ]);
+
+  useEffect(() => {
+    const profile = myProfileQuery.data?.profile;
+    if (!profile) return;
     if (
       !localAvatarPreviewURL &&
       !preparedAvatar &&
@@ -157,17 +191,22 @@ export default function ProfileSettingsPage({
     }
   };
 
-  const onSaveProfile = async () => {
+  const onSaveProfile = async (values: ProfileSettingsValues) => {
+    setFormError("");
     try {
       await updateProfileMutation.mutateAsync({
-        displayName: displayName.trim() || undefined,
-        bio: bio.trim() || undefined,
+        displayName: values.displayName.trim() || undefined,
+        bio: values.bio.trim() || undefined,
       });
       toast.success("Profile saved");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to save profile";
-      toast.error(message);
+      const result = applyApiErrorsToForm(form, error, {
+        fieldMap: profileSettingsApiFieldMap,
+        fallbackMessage: "Failed to save profile",
+      });
+      if (result.globalMessages.length > 0) {
+        setFormError(result.globalMessages.join("\n"));
+      }
     }
   };
 
@@ -266,47 +305,79 @@ export default function ProfileSettingsPage({
                 </div>
               </div>
 
-              <div className="grid gap-6">
-                <div className="grid gap-2">
-                  <Label htmlFor="display-name">Display Name</Label>
-                  <Input
-                    id="display-name"
-                    value={displayName}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                    placeholder="Your full name"
-                    autoComplete="off"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea
-                    id="bio"
-                    value={bio}
-                    onChange={(event) => setBio(event.target.value)}
-                    placeholder="Tell us about yourself"
-                    className="resize-none"
-                    rows={4}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push(closeHref)}
+              <Form {...form}>
+                <form
+                  className="grid gap-6"
+                  noValidate
+                  onSubmit={form.handleSubmit(onSaveProfile)}
                 >
-                  Close
-                </Button>
-                <Button
-                  onClick={onSaveProfile}
-                  disabled={updateProfileMutation.isPending}
-                >
-                  {updateProfileMutation.isPending
-                    ? "Saving..."
-                    : "Save Changes"}
-                </Button>
-              </div>
+                  {formError ? (
+                    <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {formError}
+                    </p>
+                  ) : null}
+                  <FormField
+                    control={form.control}
+                    name="displayName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Display Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Your full name"
+                            autoComplete="off"
+                            maxLength={80}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="bio"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bio</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            placeholder="Tell us about yourself"
+                            className="resize-none"
+                            rows={4}
+                            maxLength={500}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push(closeHref)}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={
+                        updateProfileMutation.isPending ||
+                        form.formState.isSubmitting
+                      }
+                    >
+                      {updateProfileMutation.isPending ||
+                      form.formState.isSubmitting
+                        ? "Saving..."
+                        : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
 
               {myProfileQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">
@@ -336,6 +407,10 @@ export default function ProfileSettingsPage({
     </AuthGuard>
   );
 }
+
+const profileSettingsApiFieldMap = {
+  display_name: "displayName",
+} satisfies Record<string, keyof ProfileSettingsValues>;
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

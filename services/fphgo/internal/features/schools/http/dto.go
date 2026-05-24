@@ -23,7 +23,7 @@ func mapSchool(item schoolsrepo.School) map[string]any {
 		"cityCode": item.CityCode, "cityName": item.CityName, "barangayCode": item.BarangayCode, "barangayName": item.BarangayName,
 		"locationSource": item.LocationSource, "diveSiteId": item.DiveSiteID, "diveSiteName": item.DiveSiteName, "diveSiteSlug": item.DiveSiteSlug, "diveSiteArea": item.DiveSiteArea,
 		"contactPhone": item.ContactPhone, "websiteUrl": item.WebsiteURL, "facebookUrl": item.FacebookURL, "instagramUrl": item.InstagramURL,
-		"status": item.Status, "ownerUserId": item.OwnerUserID, "createdAt": item.CreatedAt, "updatedAt": item.UpdatedAt,
+		"status": item.Status, "ownerUserId": item.OwnerUserID, "currentUserRole": item.CurrentUserRole, "createdAt": item.CreatedAt, "updatedAt": item.UpdatedAt,
 		"courseCount": item.CourseCount, "publishedCourseCount": item.PublishedCourseCount, "pendingBookingCount": item.PendingBookingCount,
 		"upcomingSessionCount": item.UpcomingSessionCount, "paymentsToReviewCount": item.PaymentsToReviewCount,
 	}

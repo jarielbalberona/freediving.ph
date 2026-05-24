@@ -191,7 +191,7 @@ function AdminGroupsContent() {
           if (!open) setEditingGroup(null);
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg!">
           <DialogHeader>
             <DialogTitle>Edit group</DialogTitle>
           </DialogHeader>

@@ -74,6 +74,7 @@ export interface School {
   instagramUrl: string;
   status: SchoolStatus;
   ownerUserId: string;
+  currentUserRole: SchoolMemberRole | "";
   createdAt: string;
   updatedAt: string;
   courseCount: number;

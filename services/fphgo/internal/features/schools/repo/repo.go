@@ -54,6 +54,7 @@ type School struct {
 	InstagramURL          string
 	Status                string
 	OwnerUserID           string
+	CurrentUserRole       string
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 	CourseCount           int

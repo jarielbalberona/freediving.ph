@@ -71,7 +71,17 @@ func New(repo repository) *Service {
 }
 
 func (s *Service) ListSchools(ctx context.Context, actorID string) ([]schoolsrepo.School, error) {
-	return s.repo.ListSchools(ctx, actorID)
+	items, err := s.repo.ListSchools(ctx, actorID)
+	if err != nil {
+		return nil, err
+	}
+	for idx := range items {
+		role, err := s.repo.GetMemberRole(ctx, items[idx].ID, actorID)
+		if err == nil {
+			items[idx].CurrentUserRole = role
+		}
+	}
+	return items, nil
 }
 
 func (s *Service) CreateSchool(ctx context.Context, actorID string, input schoolsrepo.CreateSchoolInput) (schoolsrepo.School, error) {
@@ -97,12 +107,12 @@ func (s *Service) CreateSchool(ctx context.Context, actorID string, input school
 		return schoolsrepo.School{}, err
 	}
 	item, err := s.repo.CreateSchool(ctx, input)
+	item.CurrentUserRole = "owner"
 	return item, mapRepoErr(err, "school_create_failed")
 }
 
 func (s *Service) GetSchool(ctx context.Context, slug, actorID string) (schoolsrepo.School, error) {
-	item, err := s.repo.GetSchoolBySlug(ctx, strings.TrimSpace(slug), actorID)
-	return item, mapNotFound(err, "school_not_found")
+	return s.requireRole(ctx, slug, actorID, "owner", "admin", "instructor")
 }
 
 func (s *Service) UpdateSchool(ctx context.Context, slug, actorID string, input schoolsrepo.UpdateSchoolInput) (schoolsrepo.School, error) {
@@ -505,6 +515,7 @@ func (s *Service) requireRole(ctx context.Context, slug, actorID string, allowed
 	}
 	for _, item := range allowed {
 		if role == item {
+			school.CurrentUserRole = role
 			return school, nil
 		}
 	}
