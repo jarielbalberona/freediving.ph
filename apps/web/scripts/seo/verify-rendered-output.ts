@@ -19,6 +19,12 @@ export type RenderedRouteCheck = {
 
 const publicSeoRoutes = loadTargets().map((target) => target.path);
 const systemRoutes = ["/sitemap.xml", "/robots.txt"] as const;
+const aiReadableRoutes = [
+  "/llms.txt",
+  ...publicSeoRoutes
+    .map(markdownRouteForPublicPath)
+    .filter((path): path is string => Boolean(path)),
+];
 
 const blockedVisibleCopy = [
   "public layer",
@@ -62,7 +68,9 @@ export async function runRenderedOutputVerification(
   const config = loadSeoConfig(args);
   const pathFilter = stringArg(args.path);
   const writeReport = booleanArg(args.report) || !pathFilter;
-  const routes = pathFilter ? [pathFilter] : [...publicSeoRoutes, ...systemRoutes];
+  const routes = pathFilter
+    ? [pathFilter]
+    : [...publicSeoRoutes, ...systemRoutes, ...aiReadableRoutes];
   const checks: RenderedRouteCheck[] = [];
 
   for (const routePath of routes) {
@@ -72,6 +80,16 @@ export async function runRenderedOutputVerification(
     }
     if (routePath === "/robots.txt") {
       checks.push(await checkRobots(config.targetBaseUrl));
+      continue;
+    }
+    if (routePath === "/llms.txt") {
+      checks.push(await checkTextRoute(routePath, config.targetBaseUrl, "text/plain"));
+      continue;
+    }
+    if (routePath.endsWith(".md")) {
+      checks.push(
+        await checkTextRoute(routePath, config.targetBaseUrl, "text/markdown"),
+      );
       continue;
     }
     checks.push(await checkHtmlRoute(routePath, config.targetBaseUrl));
@@ -115,6 +133,41 @@ export async function runRenderedOutputVerification(
   }
 
   return failing.length > 0 ? 1 : 0;
+}
+
+async function checkTextRoute(
+  routePath: string,
+  baseUrl: string,
+  expectedContentType: "text/plain" | "text/markdown",
+): Promise<RenderedRouteCheck> {
+  const url = new URL(routePath, normalizeBaseUrl(baseUrl));
+  const response = await fetch(url);
+  const body = await response.text();
+  const contentType = response.headers.get("content-type") ?? "";
+  const issues: string[] = [];
+
+  if (response.status !== 200) issues.push(`Expected 200, got ${response.status}`);
+  if (!contentType.toLowerCase().includes(expectedContentType)) {
+    issues.push(`Expected ${expectedContentType}, got ${contentType || "missing"}`);
+  }
+  if (!body.includes("https://freediving.ph")) {
+    issues.push("Missing production canonical or public URL reference");
+  }
+  if (body.includes("localhost") || body.includes("127.0.0.1")) {
+    issues.push("Text route includes local URL");
+  }
+  for (const privatePath of privatePathFragments) {
+    if (body.includes(`https://freediving.ph${privatePath}`) || body.includes(privatePath)) {
+      issues.push(`Private route appears in text output: ${privatePath}`);
+    }
+  }
+  for (const term of blockedVisibleCopy) {
+    if (new RegExp(escapeRegExp(term), "i").test(body)) {
+      issues.push(`Developer-facing copy detected: ${term}`);
+    }
+  }
+
+  return verdict(routePath, response.status, issues);
 }
 
 export async function checkHtmlRoute(
@@ -235,6 +288,21 @@ function verdict(
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+}
+
+function markdownRouteForPublicPath(routePath: string): string | null {
+  if (
+    routePath === "/features" ||
+    routePath === "/guides" ||
+    routePath === "/freediving" ||
+    routePath === "/about-us" ||
+    routePath.startsWith("/features/") ||
+    routePath.startsWith("/guides/") ||
+    routePath.startsWith("/freediving/")
+  ) {
+    return `${routePath}.md`;
+  }
+  return null;
 }
 
 function firstMatch(html: string, pattern: RegExp): string {

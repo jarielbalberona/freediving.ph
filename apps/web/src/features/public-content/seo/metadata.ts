@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { siteConfig } from "@/config/site";
+import { getMarkdownAlternatePath } from "@/features/public-content/ai-readable/registry";
 
 export const seoConfig = {
   siteName: siteConfig.name,
@@ -18,6 +19,7 @@ export type PublicSeoInput = {
   image?: string;
   type?: "website" | "article";
   noindex?: boolean;
+  markdownPath?: `/${string}.md`;
 };
 
 export const absoluteUrl = (path: `/${string}`): string =>
@@ -62,6 +64,7 @@ export function buildPublicMetadata({
   image = seoConfig.defaultImage,
   type = "website",
   noindex = false,
+  markdownPath = getMarkdownAlternatePath(path),
 }: PublicSeoInput): Metadata {
   const canonical = absoluteUrl(path);
   const cleanTitle = cleanSeoText(title, seoConfig.siteName);
@@ -72,6 +75,13 @@ export function buildPublicMetadata({
     description: cleanDescription,
     alternates: {
       canonical,
+      ...(markdownPath
+        ? {
+            types: {
+              "text/markdown": absoluteUrl(markdownPath),
+            },
+          }
+        : {}),
     },
     openGraph: {
       type,

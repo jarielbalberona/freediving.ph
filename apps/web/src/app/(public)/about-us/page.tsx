@@ -5,49 +5,23 @@ import { PublicBreadcrumbs } from "@/features/public-content/components/PublicBr
 import { PublicContentLayout } from "@/features/public-content/components/PublicContentLayout";
 import { PublicCTA } from "@/features/public-content/components/PublicCTA";
 import { PublicHero } from "@/features/public-content/components/PublicHero";
+import { aboutContent } from "@/features/public-content/content/about";
 import { buildPublicMetadata } from "@/features/public-content/seo/metadata";
 
-const title = "About Freediving Philippines";
-const description =
-  "Freediving Philippines helps freedivers discover dive spots, find buddies, join events, and support local communities around the Philippines.";
-
 export const metadata: Metadata = buildPublicMetadata({
-  title,
-  description,
-  path: "/about-us",
+  title: aboutContent.title,
+  description: aboutContent.description,
+  path: aboutContent.href,
 });
 
 const breadcrumbs = [{ name: "About us", path: "/about-us" as const }];
 
-const appLinks = [
-  {
-    href: "/features/dive-spots",
-    label: "Dive spots",
-    body: "Discover community-shared places to freedive and contribute useful local details.",
-  },
-  {
-    href: "/features/buddy-finder",
-    label: "Buddy Finder",
-    body: "A safer way to connect with other freedivers intentionally.",
-  },
-  {
-    href: "/features/events",
-    label: "Events",
-    body: "Find competitions, cleanups, meetups, school activities, and community dives.",
-  },
-  {
-    href: "/features/groups",
-    label: "Groups",
-    body: "Discover local communities, clubs, and shared-interest groups.",
-  },
-];
-
 export default function AboutUsPage() {
   return (
     <PublicContentLayout
-      title={title}
-      description={description}
-      path="/about-us"
+      title={aboutContent.title}
+      description={aboutContent.description}
+      path={aboutContent.href}
       breadcrumbs={breadcrumbs}
     >
       <main>
@@ -56,8 +30,8 @@ export default function AboutUsPage() {
         </div>
         <PublicHero
           eyebrow="About us"
-          title="Built for the Philippine freediving community"
-          description="Freediving Philippines exists because local freediving knowledge is often scattered across posts, chat threads, and private conversations. We help people find places, buddies, events, groups, schools, and stories from the community."
+          title={aboutContent.heroTitle}
+          description={aboutContent.heroDescription}
           primary={{ href: "/features", label: "See what you can do" }}
           secondary={{ href: "/founder-note", label: "Read founder note" }}
         />
@@ -67,25 +41,13 @@ export default function AboutUsPage() {
               Why this exists
             </h2>
             <div className="space-y-3 text-sm leading-7 text-muted-foreground">
-              <p>
-                Freediving Philippines is not here to replace instructors,
-                clubs, organizers, or local groups. It is here to make the
-                community easier to find, join, and support.
-              </p>
-              <p>
-                That means dive spot discovery, buddy finding, events, groups,
-                Chika discussions, schools, instructors, courses, and shared
-                stories that stay connected to real places.
-              </p>
-              <p>
-                Public guides should help real people take useful next steps:
-                learn the basics, find safer buddies, choose instruction, and
-                discover places with better local context.
-              </p>
+              {aboutContent.sections[0]?.body.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
             </div>
           </div>
           <div className="grid gap-3">
-            {appLinks.map((link) => (
+            {aboutContent.links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
