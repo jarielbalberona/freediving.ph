@@ -7,6 +7,7 @@ import {
   useMapsLibrary,
   type MapMouseEvent,
 } from "@vis.gl/react-google-maps";
+import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { MapProvider } from "@/providers/map-provider";
 
 import {
@@ -114,9 +116,17 @@ type PickerMapProps = {
 function PickerMap({ value, onChange }: PickerMapProps) {
   const geocodingLib = useMapsLibrary("geocoding");
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
   const [displayArea, setDisplayArea] = useState<string | undefined>(
     value?.area,
   );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    google.maps.GeocoderResult[]
+  >([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchReady = Boolean(geocodingLib);
 
   useEffect(() => {
     if (!geocodingLib) return;
@@ -176,6 +186,57 @@ function PickerMap({ value, onChange }: PickerMapProps) {
     [value],
   );
 
+  const searchForLocation = async () => {
+    const query = searchQuery.trim();
+    if (!query || !geocodingLib) return;
+    if (!geocoderRef.current) {
+      geocoderRef.current = new geocodingLib.Geocoder();
+    }
+
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchResults([]);
+
+    try {
+      const response = await geocoderRef.current.geocode({
+        address: query,
+        componentRestrictions: { country: "PH" },
+      });
+      const results = response.results.filter((result) =>
+        Boolean(result.geometry?.location),
+      );
+      setSearchResults(results.slice(0, 5));
+      if (results.length === 0) {
+        setSearchError("No matching places found in the Philippines.");
+      }
+    } catch {
+      setSearchError("Could not search the map right now.");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const selectSearchResult = (result: google.maps.GeocoderResult) => {
+    const latLng = result.geometry?.location?.toJSON();
+    if (!latLng) return;
+
+    const area = deriveCoarseAreaFromAddressComponents(
+      result.address_components,
+    );
+    onChange({
+      lat: latLng.lat,
+      lng: latLng.lng,
+      area,
+    });
+    setDisplayArea(area);
+    setSearchQuery(result.formatted_address);
+    setSearchResults([]);
+    setSearchError(null);
+
+    mapRef.current?.panTo(latLng);
+    mapRef.current?.setZoom(13);
+  };
+
   return (
     <div className="relative h-full min-h-0">
       <Map
@@ -187,6 +248,9 @@ function PickerMap({ value, onChange }: PickerMapProps) {
         fullscreenControl={false}
         streetViewControl={false}
         className="h-full w-full"
+        onIdle={(event) => {
+          if (event.map) mapRef.current = event.map;
+        }}
         onClick={(event) => {
           if (!event.detail.latLng) return;
           onChange({
@@ -213,6 +277,50 @@ function PickerMap({ value, onChange }: PickerMapProps) {
           />
         ) : null}
       </Map>
+
+      <div className="pointer-events-auto absolute inset-x-4 top-4 z-10 max-w-xl rounded-3xl bg-card/95 p-3 shadow-lg backdrop-blur sm:left-5 sm:right-auto sm:w-[min(520px,calc(100vw-3rem))]">
+        <form
+          className="flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void searchForLocation();
+          }}
+        >
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search for a place or area"
+            disabled={!searchReady || searchLoading}
+          />
+          <Button
+            type="submit"
+            disabled={!searchQuery.trim() || !searchReady || searchLoading}
+          >
+            <Search className="size-4" />
+            Search
+          </Button>
+        </form>
+        <p className="mt-2 text-xs text-zinc-600">
+          Choose a result to move the pin. You can still drag the pin after.
+        </p>
+        {searchError ? (
+          <p className="mt-2 text-sm text-destructive">{searchError}</p>
+        ) : null}
+        {searchResults.length > 0 ? (
+          <div className="mt-3 max-h-56 overflow-y-auto rounded-2xl border border-border/70 bg-background p-1">
+            {searchResults.map((result) => (
+              <button
+                key={result.place_id || result.formatted_address}
+                type="button"
+                className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none"
+                onClick={() => selectSearchResult(result)}
+              >
+                <span className="line-clamp-2">{result.formatted_address}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-3xl bg-card/92 p-4 shadow-lg backdrop-blur">
         <p className="text-sm font-medium text-sky-950">

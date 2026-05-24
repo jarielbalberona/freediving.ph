@@ -74,6 +74,15 @@ test("explore submit flow stores map-picked location and does not expose manual 
   assert.doesNotMatch(pageSource, /name="contactInfo"/);
 
   assert.match(dialogSource, /Pin the dive site/);
+  assert.match(dialogSource, /Search for a place or area/);
+  assert.match(dialogSource, /geocode\(\{\s*address:\s*query/);
+  assert.match(
+    dialogSource,
+    /componentRestrictions:\s*\{\s*country:\s*"PH"\s*\}/,
+  );
+  assert.match(dialogSource, /selectSearchResult/);
+  assert.match(dialogSource, /mapRef\.current\?\.panTo\(latLng\)/);
+  assert.match(dialogSource, /mapRef\.current\?\.setZoom\(13\)/);
   assert.match(dialogSource, /Confirm pin/);
   assert.match(dialogSource, /AdvancedMarker/);
   assert.match(dialogSource, /mapId=\{SUBMIT_GOOGLE_MAP_ID\}/);

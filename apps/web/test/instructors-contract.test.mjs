@@ -26,7 +26,7 @@ test("instructor application routes and labels are discoverable", () => {
   assert.match(page, /Certification proof/);
   assert.match(page, /instructor_certification_proof/);
   assert.match(page, /Official verification link/);
-  assert.match(page, /items=\{instructorAgencyOptions\}/);
+  assert.match(page, /items=\{instructorAgencyLabels\}/);
   assert.match(page, /Molchanovs/);
   assert.match(page, /PADI/);
   assert.match(page, /AIDA/);

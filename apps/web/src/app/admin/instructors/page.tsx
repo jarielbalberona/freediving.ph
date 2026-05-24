@@ -61,6 +61,9 @@ const statusOptions: Array<{
   { value: "rejected", label: "Needs changes" },
   { value: "suspended", label: "Suspended" },
 ];
+const statusSelectItems = Object.fromEntries(
+  statusOptions.map((option) => [option.value, option.label]),
+);
 
 export default function AdminInstructorsPage() {
   return (
@@ -148,16 +151,14 @@ function AdminInstructorsContent() {
       <div className="mb-4 max-w-xs">
         <Label>Status</Label>
         <Select
-          items={statusOptions}
+          items={statusSelectItems}
           value={statusFilter}
           onValueChange={(value) =>
             setStatusFilter(value as InstructorVerificationStatus | "all")
           }
         >
           <SelectTrigger className="mt-1 w-full">
-            <SelectValue>
-              {(selected) => selected?.label ?? "Choose status"}
-            </SelectValue>
+            <SelectValue placeholder="Choose status" />
           </SelectTrigger>
           <SelectContent>
             {statusOptions.map((option) => (

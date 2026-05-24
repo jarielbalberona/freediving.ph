@@ -375,39 +375,26 @@ function InstructorApplicationContent() {
           </section>
 
           <section className="grid gap-4 border-t border-border/70 pt-4">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-base font-semibold tracking-normal">
-                  Certifications
+	            <div className="grid gap-1">
+	              <div>
+	                <h2 className="text-base font-semibold tracking-normal">
+	                  Certifications
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   Add at least one instructor-level certification with readable
                   proof or an official verification/profile URL. You can add
                   certifications from agencies like Molchanovs, PADI, AIDA, SSI,
-                  RAID, Apnea Academy, or Other.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void onSubmit()}
-                disabled={
-                  submitProfile.isPending ||
-                  certifications.length === 0 ||
-                  !attestationAccepted
-                }
-              >
-                <Send />
-                Submit for review
-              </Button>
-            </div>
+	                  RAID, Apnea Academy, or Other.
+	                </p>
+	              </div>
+	            </div>
 
             <div className="grid gap-3 rounded-lg border border-border/70 p-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="grid gap-1.5">
                   <Label>Agency</Label>
                   <Select
-                    items={instructorAgencyOptions}
+                    items={instructorAgencyLabels}
                     value={certificationForm.agency}
                     onValueChange={(agency) =>
                       setCertificationForm({
@@ -417,9 +404,7 @@ function InstructorApplicationContent() {
                     }
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue>
-                        {(selected) => selected?.label ?? "Select agency"}
-                      </SelectValue>
+                      <SelectValue placeholder="Select agency" />
                     </SelectTrigger>
                     <SelectContent>
                       {instructorAgencyOptions.map((option) => (
@@ -657,9 +642,23 @@ function InstructorApplicationContent() {
                     </Badge>
                   </div>
                 ))}
-              </div>
-            )}
-          </section>
+	              </div>
+	            )}
+	            <div className="flex justify-end border-t border-border/70 pt-4">
+	              <Button
+	                type="button"
+	                onClick={() => void onSubmit()}
+	                disabled={
+	                  submitProfile.isPending ||
+	                  certifications.length === 0 ||
+	                  !attestationAccepted
+	                }
+	              >
+	                <Send />
+	                Submit for review
+	              </Button>
+	            </div>
+	          </section>
         </div>
       ) : null}
     </CommunityPageShell>
