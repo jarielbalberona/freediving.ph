@@ -128,6 +128,19 @@ test("notification settings and schemas include scoped social notification contr
   assert.match(schemas, /INSTRUCTOR_APPLICATION_SUBMITTED/);
   assert.match(schemas, /INSTRUCTOR_APPLICATION_APPROVED/);
   assert.match(schemas, /INSTRUCTOR_APPLICATION_REJECTED/);
+  for (const type of [
+    "BOOKING_CREATED",
+    "BOOKING_APPROVED",
+    "BOOKING_REJECTED",
+    "BOOKING_CANCELLED_BY_STUDENT",
+    "BOOKING_CANCELLED_BY_SCHOOL",
+    "BOOKING_RESCHEDULED",
+    "SESSION_UPDATED",
+    "SESSION_CANCELLED",
+  ]) {
+    assert.match(schemas, new RegExp(type));
+  }
+  assert.match(schemas, /sessionNotifications/);
   assert.match(schemas, /instructorApplicationNotifications/);
   assert.match(schemas, /instructorStatusNotifications/);
   assert.match(page, /chikaReplies/);
@@ -160,6 +173,10 @@ test("notification card renders friendly social labels and app-relative actions"
   assert.match(source, /INSTRUCTOR_APPLICATION_SUBMITTED: "New instructor application"/);
   assert.match(source, /INSTRUCTOR_APPLICATION_APPROVED: "Instructor application approved"/);
   assert.match(source, /INSTRUCTOR_APPLICATION_REJECTED: "Instructor application rejected"/);
+  assert.match(source, /BOOKING_CREATED: "New booking request"/);
+  assert.match(source, /BOOKING_APPROVED: "Booking approved"/);
+  assert.match(source, /BOOKING_RESCHEDULED: "Booking rescheduled"/);
+  assert.match(source, /SESSION_CANCELLED: "Session cancelled"/);
   assert.match(source, /notification\.actionUrl\?\.startsWith\("\/"\)/);
   assert.match(source, /!notification\.actionUrl\.startsWith\("\/\/"\)/);
   assert.match(source, /href=\{actionURL\}/);

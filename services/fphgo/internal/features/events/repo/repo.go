@@ -144,6 +144,7 @@ type EventPaymentMethod struct {
 	Type          string
 	Name          string
 	Instructions  string
+	QRMediaID     string
 	QRImageURL    string
 	AccountName   string
 	AccountNumber string
@@ -292,6 +293,7 @@ type CreatePaymentMethodInput struct {
 	Type          string
 	Name          string
 	Instructions  string
+	QRMediaID     string
 	QRImageURL    string
 	AccountName   string
 	AccountNumber string
@@ -304,6 +306,7 @@ type UpdatePaymentMethodInput struct {
 	Type            *string
 	Name            *string
 	Instructions    *string
+	QRMediaID       *string
 	QRImageURL      *string
 	AccountName     *string
 	AccountNumber   *string
@@ -1631,8 +1634,8 @@ func (r *Repo) DuplicateEvent(ctx context.Context, eventID string, input Duplica
 	}
 	if input.CopyPaymentSetup {
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO event_payment_methods (event_id, type, name, instructions, qr_image_url, account_name, account_number, bank_name, is_active)
-			SELECT $2::uuid, type, name, instructions, qr_image_url, account_name, account_number, bank_name, is_active
+			INSERT INTO event_payment_methods (event_id, type, name, instructions, qr_media_id, qr_image_url, account_name, account_number, bank_name, is_active)
+			SELECT $2::uuid, type, name, instructions, qr_media_id, qr_image_url, account_name, account_number, bank_name, is_active
 			FROM event_payment_methods
 			WHERE event_id = $1::uuid
 		`, eventID, newEventID); err != nil {
@@ -1747,7 +1750,7 @@ func (r *Repo) ListPaymentMethods(ctx context.Context, eventID string, activeOnl
 	}
 	q := fmt.Sprintf(`
 		SELECT id::text, event_id::text, type, name, coalesce(instructions, ''),
-			coalesce(qr_image_url, ''), coalesce(account_name, ''), coalesce(account_number, ''),
+			coalesce(qr_media_id::text, ''), coalesce(qr_image_url, ''), coalesce(account_name, ''), coalesce(account_number, ''),
 			coalesce(bank_name, ''), is_active, created_at, updated_at
 		FROM event_payment_methods
 		WHERE %s
@@ -1788,6 +1791,11 @@ func (r *Repo) UpdatePaymentMethod(ctx context.Context, eventID string, input Up
 	addString("type", input.Type)
 	addString("name", input.Name)
 	addString("instructions", input.Instructions)
+	if input.QRMediaID != nil {
+		args = append(args, strings.TrimSpace(*input.QRMediaID))
+		set = append(set, fmt.Sprintf("qr_media_id = nullif($%d, '')::uuid", idx))
+		idx++
+	}
 	addString("qr_image_url", input.QRImageURL)
 	addString("account_name", input.AccountName)
 	addString("account_number", input.AccountNumber)
@@ -1803,7 +1811,7 @@ func (r *Repo) UpdatePaymentMethod(ctx context.Context, eventID string, input Up
 		SET %s
 		WHERE id = $%d::uuid AND event_id = $%d::uuid
 		RETURNING id::text, event_id::text, type, name, coalesce(instructions, ''),
-			coalesce(qr_image_url, ''), coalesce(account_name, ''), coalesce(account_number, ''),
+			coalesce(qr_media_id::text, ''), coalesce(qr_image_url, ''), coalesce(account_name, ''), coalesce(account_number, ''),
 			coalesce(bank_name, ''), is_active, created_at, updated_at
 	`, strings.Join(set, ", "), idx, idx+1)
 	var item EventPaymentMethod
@@ -2454,6 +2462,7 @@ func scanPaymentMethod(row eventScanner, item *EventPaymentMethod) error {
 		&item.Type,
 		&item.Name,
 		&item.Instructions,
+		&item.QRMediaID,
 		&item.QRImageURL,
 		&item.AccountName,
 		&item.AccountNumber,
@@ -2503,14 +2512,14 @@ type sqlRunner interface {
 func insertPaymentMethod(ctx context.Context, runner sqlRunner, eventID string, input CreatePaymentMethodInput) (EventPaymentMethod, error) {
 	const q = `
 		INSERT INTO event_payment_methods (
-			event_id, type, name, instructions, qr_image_url, account_name,
+			event_id, type, name, instructions, qr_media_id, qr_image_url, account_name,
 			account_number, bank_name, is_active
 		) VALUES (
-			$1::uuid, $2, $3, nullif($4, ''), nullif($5, ''), nullif($6, ''),
-			nullif($7, ''), nullif($8, ''), $9
+			$1::uuid, $2, $3, nullif($4, ''), nullif($5, '')::uuid, nullif($6, ''), nullif($7, ''),
+			nullif($8, ''), nullif($9, ''), $10
 		)
 		RETURNING id::text, event_id::text, type, name, coalesce(instructions, ''),
-			coalesce(qr_image_url, ''), coalesce(account_name, ''), coalesce(account_number, ''),
+			coalesce(qr_media_id::text, ''), coalesce(qr_image_url, ''), coalesce(account_name, ''), coalesce(account_number, ''),
 			coalesce(bank_name, ''), is_active, created_at, updated_at
 	`
 	isActive := input.IsActive
@@ -2520,6 +2529,7 @@ func insertPaymentMethod(ctx context.Context, runner sqlRunner, eventID string, 
 		input.Type,
 		input.Name,
 		input.Instructions,
+		input.QRMediaID,
 		input.QRImageURL,
 		input.AccountName,
 		input.AccountNumber,

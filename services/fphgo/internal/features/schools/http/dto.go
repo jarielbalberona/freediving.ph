@@ -4,6 +4,7 @@ import (
 	"time"
 
 	schoolsrepo "fphgo/internal/features/schools/repo"
+	"fphgo/internal/shared/mediaurl"
 )
 
 func mapSchools(items []schoolsrepo.School) []map[string]any {
@@ -47,7 +48,7 @@ func mapPublicSchool(item schoolsrepo.School) map[string]any {
 		"locationSource": item.LocationSource, "diveSiteId": item.DiveSiteID, "diveSiteName": item.DiveSiteName,
 		"diveSiteSlug": item.DiveSiteSlug, "diveSiteArea": item.DiveSiteArea,
 		"websiteUrl": item.WebsiteURL, "facebookUrl": item.FacebookURL, "instagramUrl": item.InstagramURL,
-		"publishedCourseCount": item.PublishedCourseCount,
+		"publishedCourseCount": item.PublishedCourseCount, "paymentMethods": mapPaymentMethods(item.PaymentMethods),
 	}
 }
 
@@ -110,8 +111,8 @@ func mapPaymentMethods(items []schoolsrepo.PaymentMethod) []map[string]any {
 
 func mapPaymentMethod(item schoolsrepo.PaymentMethod) map[string]any {
 	return map[string]any{
-		"id": item.ID, "courseId": item.CourseID, "type": item.Type, "name": item.Name, "instructions": item.Instructions,
-		"qrMediaId": item.QRMediaID, "bankName": item.BankName, "accountName": item.AccountName, "accountNumber": item.AccountNumber,
+		"id": item.ID, "schoolId": item.SchoolID, "type": item.Type, "name": item.Name, "instructions": item.Instructions,
+		"qrMediaId": item.QRMediaID, "qrImageUrl": mediaurl.MaterializeWithDefault(item.QRImageURL), "bankName": item.BankName, "accountName": item.AccountName, "accountNumber": item.AccountNumber,
 		"isActive": item.IsActive, "createdAt": item.CreatedAt, "updatedAt": item.UpdatedAt,
 	}
 }

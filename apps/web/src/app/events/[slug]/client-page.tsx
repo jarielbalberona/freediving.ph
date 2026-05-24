@@ -27,7 +27,6 @@ import type {
   EventParticipant,
   EventPass,
   EventPaymentMethod,
-  EventPaymentMethodType,
   EventPaymentMode,
   EventPaymentStatus,
   EventPost,
@@ -187,6 +186,10 @@ import {
   useVerifyEventPayment,
 } from "@/features/events";
 import { mediaApi } from "@/features/media/api/media";
+import {
+  PaymentMethodCustomerDisplay,
+  PaymentMethodsSetup,
+} from "@/features/payments/components/PaymentMethodsSetup";
 import { siteConfig } from "@/config/site";
 import {
   dateStringToDate,
@@ -1378,9 +1381,6 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
   const [paymentMode, setPaymentMode] = useState<EventPaymentMode>("free");
   const [priceAmount, setPriceAmount] = useState("");
   const [paymentInstructions, setPaymentInstructions] = useState("");
-  const [newMethod, setNewMethod] = useState<PaymentMethodFormState>(
-    createEmptyPaymentMethodForm(),
-  );
 
   useEffect(() => {
     if (!event) return;
@@ -1482,29 +1482,6 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
         onError: (error) => {
           toast.error(
             getApiErrorMessage(error, "Failed to update payment setup"),
-          );
-        },
-      },
-    );
-  };
-
-  const addPaymentMethod = () => {
-    const payload = buildPaymentMethodPayload(newMethod);
-    if (!payload.ok) {
-      toast.error(payload.message);
-      return;
-    }
-    createPaymentMethodMutation.mutate(
-      { eventId: event.id, data: payload.value },
-      {
-        onSuccess: () => {
-          toast.success("Payment method added.");
-          setNewMethod(createEmptyPaymentMethodForm());
-          void eventQuery.refetch();
-        },
-        onError: (error) => {
-          toast.error(
-            getApiErrorMessage(error, "Failed to add payment method"),
           );
         },
       },
@@ -1622,53 +1599,30 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
             </div>
           </DetailSection>
 
-          <DetailSection title="Add method">
-            <PaymentMethodForm
-              value={newMethod}
-              onChange={setNewMethod}
-              disabled={isSavingMethod || paymentMode === "free"}
-            />
-            <div className="flex justify-end">
-              <Button
-                disabled={isSavingMethod || paymentMode === "free"}
-                onClick={addPaymentMethod}
-              >
-                <Plus className="mr-1 h-4 w-4" />
-                {createPaymentMethodMutation.isPending
-                  ? "Adding..."
-                  : "Add method"}
-              </Button>
-            </div>
-          </DetailSection>
         </section>
 
         <DetailSection title="Payment methods">
-          {paymentMethods.length === 0 ? (
-            <StatusPanel
-              title="No payment methods"
-              description="Add QR or bank transfer details after choosing a payment mode."
-            />
-          ) : (
-            <div className="divide-y divide-border/70 border-y border-border/70">
-              {paymentMethods.map((method) => (
-                <PaymentMethodManageRow
-                  key={method.id}
-                  method={method}
-                  disabled={isSavingMethod}
-                  onSave={(data) => updatePaymentMethod(method.id, data)}
-                  onSetActive={(isActive) =>
-                    updatePaymentMethod(
-                      method.id,
-                      { isActive },
-                      isActive
-                        ? "Payment method restored."
-                        : "Payment method removed.",
-                    )
-                  }
-                />
-              ))}
-            </div>
-          )}
+          <PaymentMethodsSetup
+            methods={paymentMethods}
+            disabled={isSavingMethod || paymentMode === "free"}
+            mediaContextType="payment_method_qr"
+            mediaContextId={event.id}
+            emptyDescription="Add Manual QR or bank transfer details after choosing a payment mode."
+            onCreate={async (data) => {
+              await createPaymentMethodMutation.mutateAsync({
+                eventId: event.id,
+                data: data as CreateEventPaymentMethodRequest,
+              });
+              toast.success("Payment method added.");
+              void eventQuery.refetch();
+            }}
+            onUpdate={async (paymentMethodId, data) => {
+              updatePaymentMethod(
+                paymentMethodId,
+                data as UpdateEventPaymentMethodRequest,
+              );
+            }}
+          />
         </DetailSection>
       </div>
     </CommunityPageShell>
@@ -5495,7 +5449,7 @@ function PaymentTab({
                 ))}
               </SelectContent>
             </Select>
-            <PaymentMethodDetails method={selectedMethod} />
+            <PaymentMethodCustomerDisplay method={selectedMethod} />
           </div>
         </DetailSection>
       ) : (
@@ -5569,36 +5523,6 @@ function PaymentTab({
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      ) : null}
-    </div>
-  );
-}
-
-function PaymentMethodDetails({ method }: { method?: EventPaymentMethod }) {
-  if (!method) return null;
-  return (
-    <div className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
-      <p className="font-medium text-foreground">{method.name}</p>
-      {method.instructions ? (
-        <p className="mt-1">{method.instructions}</p>
-      ) : null}
-      {method.type === "MANUAL_BANK_TRANSFER" ? (
-        <div className="mt-2 grid gap-1">
-          {method.bankName ? <span>Bank: {method.bankName}</span> : null}
-          {method.accountName ? <span>Name: {method.accountName}</span> : null}
-          {method.accountNumber ? (
-            <span>Account: {method.accountNumber}</span>
-          ) : null}
-        </div>
-      ) : method.qrImageUrl ? (
-        <a
-          className="mt-2 inline-block text-primary underline underline-offset-4"
-          href={method.qrImageUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open QR
-        </a>
       ) : null}
     </div>
   );
@@ -7827,251 +7751,6 @@ function ManageRow({
   );
 }
 
-type PaymentMethodFormState = {
-  type: EventPaymentMethodType;
-  name: string;
-  instructions: string;
-  qrImageUrl: string;
-  bankName: string;
-  accountName: string;
-  accountNumber: string;
-};
-
-function createEmptyPaymentMethodForm(): PaymentMethodFormState {
-  return {
-    type: "MANUAL_QR",
-    name: "",
-    instructions: "",
-    qrImageUrl: "",
-    bankName: "",
-    accountName: "",
-    accountNumber: "",
-  };
-}
-
-function formStateFromPaymentMethod(
-  method: EventPaymentMethod,
-): PaymentMethodFormState {
-  return {
-    type: method.type,
-    name: method.name,
-    instructions: method.instructions ?? "",
-    qrImageUrl: method.qrImageUrl ?? "",
-    bankName: method.bankName ?? "",
-    accountName: method.accountName ?? "",
-    accountNumber: method.accountNumber ?? "",
-  };
-}
-
-function PaymentMethodManageRow({
-  method,
-  disabled,
-  onSave,
-  onSetActive,
-}: {
-  method: EventPaymentMethod;
-  disabled: boolean;
-  onSave: (data: UpdateEventPaymentMethodRequest) => void;
-  onSetActive: (isActive: boolean) => void;
-}) {
-  const [form, setForm] = useState<PaymentMethodFormState>(
-    formStateFromPaymentMethod(method),
-  );
-
-  useEffect(() => {
-    setForm(formStateFromPaymentMethod(method));
-  }, [method]);
-
-  const save = () => {
-    const payload = buildPaymentMethodPayload(form);
-    if (!payload.ok) {
-      toast.error(payload.message);
-      return;
-    }
-    onSave(payload.value);
-  };
-
-  return (
-    <article className="grid gap-3 py-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-medium text-foreground">
-              {method.name}
-            </h3>
-            <Badge
-              variant="outline"
-              className={
-                method.isActive
-                  ? "h-5 border-emerald-500/30 bg-emerald-500/10 px-2 text-[11px] text-emerald-700"
-                  : "h-5 px-2 text-[11px]"
-              }
-            >
-              {method.isActive ? "Active" : "Removed"}
-            </Badge>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {method.type === "MANUAL_QR" ? "QR payment" : "Bank transfer"}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={disabled}
-            onClick={save}
-          >
-            Save
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={disabled}
-            onClick={() => onSetActive(!method.isActive)}
-          >
-            {method.isActive ? (
-              <>
-                <Trash2 className="mr-1 h-4 w-4" />
-                Remove
-              </>
-            ) : (
-              "Restore"
-            )}
-          </Button>
-        </div>
-      </div>
-      <PaymentMethodForm value={form} onChange={setForm} disabled={disabled} />
-    </article>
-  );
-}
-
-function PaymentMethodForm({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: PaymentMethodFormState;
-  onChange: (value: PaymentMethodFormState) => void;
-  disabled?: boolean;
-}) {
-  const update = <K extends keyof PaymentMethodFormState>(
-    key: K,
-    next: PaymentMethodFormState[K],
-  ) => onChange({ ...value, [key]: next });
-
-  return (
-    <div className="grid gap-3 rounded-xl border border-border/70 bg-background/70 p-4">
-      <SetupField label="Type">
-        <Select
-          value={value.type}
-          items={[
-            { value: "MANUAL_QR", label: "QR payment" },
-            { value: "MANUAL_BANK_TRANSFER", label: "Bank transfer" },
-          ]}
-          onValueChange={(next) =>
-            update("type", next as EventPaymentMethodType)
-          }
-        >
-          <SelectTrigger className="w-full" disabled={disabled}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="MANUAL_QR">QR payment</SelectItem>
-            <SelectItem value="MANUAL_BANK_TRANSFER">Bank transfer</SelectItem>
-          </SelectContent>
-        </Select>
-      </SetupField>
-      <SetupField label="Name">
-        <Input
-          value={value.name}
-          disabled={disabled}
-          onChange={(item) => update("name", item.target.value)}
-          placeholder={value.type === "MANUAL_QR" ? "GCash" : "BPI"}
-        />
-      </SetupField>
-      <SetupField label="Instructions">
-        <Textarea
-          className="min-h-16"
-          value={value.instructions}
-          disabled={disabled}
-          onChange={(item) => update("instructions", item.target.value)}
-        />
-      </SetupField>
-      {value.type === "MANUAL_QR" ? (
-        <SetupField label="QR image URL">
-          <Input
-            value={value.qrImageUrl}
-            disabled={disabled}
-            onChange={(item) => update("qrImageUrl", item.target.value)}
-            placeholder="https://..."
-          />
-        </SetupField>
-      ) : (
-        <div className="grid gap-3">
-          <SetupField label="Bank name">
-            <Input
-              value={value.bankName}
-              disabled={disabled}
-              onChange={(item) => update("bankName", item.target.value)}
-              placeholder="BPI"
-            />
-          </SetupField>
-          <SetupField label="Account name">
-            <Input
-              value={value.accountName}
-              disabled={disabled}
-              onChange={(item) => update("accountName", item.target.value)}
-            />
-          </SetupField>
-          <SetupField label="Account number">
-            <Input
-              value={value.accountNumber}
-              disabled={disabled}
-              onChange={(item) => update("accountNumber", item.target.value)}
-            />
-          </SetupField>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function buildPaymentMethodPayload(
-  form: PaymentMethodFormState,
-):
-  | { ok: true; value: CreateEventPaymentMethodRequest }
-  | { ok: false; message: string } {
-  const name = form.name.trim();
-  if (!name) {
-    return { ok: false, message: "Payment method name is required." };
-  }
-  return {
-    ok: true,
-    value: {
-      type: form.type,
-      name,
-      instructions: form.instructions.trim() || undefined,
-      qrImageUrl:
-        form.type === "MANUAL_QR"
-          ? form.qrImageUrl.trim() || undefined
-          : undefined,
-      bankName:
-        form.type === "MANUAL_BANK_TRANSFER"
-          ? form.bankName.trim() || undefined
-          : undefined,
-      accountName:
-        form.type === "MANUAL_BANK_TRANSFER"
-          ? form.accountName.trim() || undefined
-          : undefined,
-      accountNumber:
-        form.type === "MANUAL_BANK_TRANSFER"
-          ? form.accountNumber.trim() || undefined
-          : undefined,
-      isActive: true,
-    },
-  };
-}
-
 function parseOptionalPrice(value: string): number | undefined | "invalid" {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
@@ -8268,8 +7947,8 @@ function getPassPaymentStatus(pass: EventPass): EventPaymentStatus {
 function getPaymentMethodLabel(method: EventPaymentMethod) {
   const name = method.name?.trim();
   if (name) return name;
-  if (method.type === "MANUAL_BANK_TRANSFER") return "Bank transfer";
-  if (method.type === "MANUAL_QR") return "QR payment";
+  if (method.type === "bank_transfer") return "Bank transfer";
+  if (method.type === "manual_qr") return "Manual QR";
   return "Payment method";
 }
 

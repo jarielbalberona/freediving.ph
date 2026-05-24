@@ -69,6 +69,7 @@ type NotificationSettings struct {
 	GroupNotifications         bool    `json:"groupNotifications"`
 	ServiceNotifications       bool    `json:"serviceNotifications"`
 	BookingNotifications       bool    `json:"bookingNotifications"`
+	SessionNotifications       bool    `json:"sessionNotifications"`
 	ReviewNotifications        bool    `json:"reviewNotifications"`
 	MentionNotifications       bool    `json:"mentionNotifications"`
 	LikeNotifications          bool    `json:"likeNotifications"`
@@ -100,6 +101,7 @@ type UpdateNotificationSettingsRequest struct {
 	GroupNotifications         *bool   `json:"groupNotifications,omitempty"`
 	ServiceNotifications       *bool   `json:"serviceNotifications,omitempty"`
 	BookingNotifications       *bool   `json:"bookingNotifications,omitempty"`
+	SessionNotifications       *bool   `json:"sessionNotifications,omitempty"`
 	ReviewNotifications        *bool   `json:"reviewNotifications,omitempty"`
 	MentionNotifications       *bool   `json:"mentionNotifications,omitempty"`
 	LikeNotifications          *bool   `json:"likeNotifications,omitempty"`

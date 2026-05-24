@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -11,13 +12,20 @@ import (
 
 	"github.com/google/uuid"
 
+	notificationsrepo "fphgo/internal/features/notifications/repo"
+	notificationsservice "fphgo/internal/features/notifications/service"
 	schoolsrepo "fphgo/internal/features/schools/repo"
 	apperrors "fphgo/internal/shared/errors"
 	"fphgo/internal/shared/validatex"
 )
 
 type Service struct {
-	repo repository
+	repo          repository
+	notifications notificationProcessor
+}
+
+type notificationProcessor interface {
+	ProcessDueOutbox(ctx context.Context, limit int) (notificationsservice.OutboxProcessResult, error)
 }
 
 const (
@@ -46,17 +54,17 @@ type repository interface {
 	ListSessions(context.Context, string, schoolsrepo.ListSessionsInput) ([]schoolsrepo.Session, error)
 	CreateSession(context.Context, string, schoolsrepo.CreateSessionInput) (schoolsrepo.Session, error)
 	GetSession(context.Context, string, string) (schoolsrepo.Session, error)
-	UpdateSession(context.Context, string, string, schoolsrepo.UpdateSessionInput) (schoolsrepo.Session, error)
-	SetSessionStatus(context.Context, string, string, string) (schoolsrepo.Session, error)
+	UpdateSession(context.Context, string, string, schoolsrepo.UpdateSessionInput, *schoolsrepo.SessionNotificationEvent) (schoolsrepo.Session, error)
+	SetSessionStatus(context.Context, string, string, string, *schoolsrepo.SessionNotificationEvent) (schoolsrepo.Session, error)
 	DeleteSession(context.Context, string, string) error
 	ListSessionBookings(context.Context, string, string) ([]schoolsrepo.Booking, error)
 	ListBookings(context.Context, string, schoolsrepo.ListBookingsInput) ([]schoolsrepo.Booking, error)
-	CreateBooking(context.Context, string, schoolsrepo.CreateBookingInput) (schoolsrepo.Booking, error)
+	CreateBooking(context.Context, string, schoolsrepo.CreateBookingInput, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error)
 	GetBooking(context.Context, string, string) (schoolsrepo.Booking, error)
-	UpdateBooking(context.Context, string, string, schoolsrepo.UpdateBookingInput) (schoolsrepo.Booking, error)
-	SetBookingStatus(context.Context, string, string, string, string) (schoolsrepo.Booking, error)
-	AssignBookingSession(context.Context, string, string, string) (schoolsrepo.Booking, error)
-	UnassignBookingSession(context.Context, string, string) (schoolsrepo.Booking, error)
+	UpdateBooking(context.Context, string, string, schoolsrepo.UpdateBookingInput, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error)
+	SetBookingStatus(context.Context, string, string, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error)
+	AssignBookingSession(context.Context, string, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error)
+	UnassignBookingSession(context.Context, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error)
 	ReviewBookingPayment(context.Context, string, string, string, string, string) (schoolsrepo.BookingPayment, error)
 	ListPublicSchools(context.Context, schoolsrepo.PublicSchoolFilters) ([]schoolsrepo.School, error)
 	GetPublicSchoolBySlug(context.Context, string) (schoolsrepo.School, error)
@@ -73,8 +81,22 @@ type ValidationFailure struct {
 
 func (e ValidationFailure) Error() string { return "validation failed" }
 
-func New(repo repository) *Service {
-	return &Service{repo: repo}
+type Option func(*Service)
+
+func WithNotifications(notifications notificationProcessor) Option {
+	return func(s *Service) {
+		s.notifications = notifications
+	}
+}
+
+func New(repo repository, opts ...Option) *Service {
+	svc := &Service{repo: repo}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func (s *Service) ListSchools(ctx context.Context, actorID string) ([]schoolsrepo.School, error) {
@@ -176,7 +198,11 @@ func (s *Service) ListPublicSchools(ctx context.Context, input schoolsrepo.Publi
 
 func (s *Service) GetPublicSchool(ctx context.Context, slug string) (schoolsrepo.School, error) {
 	item, err := s.repo.GetPublicSchoolBySlug(ctx, strings.TrimSpace(slug))
-	return item, mapNotFound(err, "school_not_found")
+	if err != nil {
+		return item, mapNotFound(err, "school_not_found")
+	}
+	item.PaymentMethods, err = s.repo.ListPaymentMethods(ctx, item.ID)
+	return item, err
 }
 
 func (s *Service) ListPublicCourses(ctx context.Context, slug string, input schoolsrepo.PublicCourseFilters) (schoolsrepo.School, []schoolsrepo.Course, error) {
@@ -198,7 +224,11 @@ func (s *Service) GetPublicCourse(ctx context.Context, slug, courseSlug string) 
 		return schoolsrepo.School{}, schoolsrepo.Course{}, err
 	}
 	course, err := s.repo.GetPublicCourse(ctx, school.ID, strings.TrimSpace(courseSlug))
-	return school, course, mapNotFound(err, "course_not_found")
+	if err != nil {
+		return school, course, mapNotFound(err, "course_not_found")
+	}
+	school.PaymentMethods, err = s.repo.ListPaymentMethods(ctx, school.ID)
+	return school, course, err
 }
 
 func (s *Service) CreateStudentBooking(ctx context.Context, slug, courseSlug, actorID string, input schoolsrepo.CreateBookingInput) (schoolsrepo.Booking, error) {
@@ -222,7 +252,30 @@ func (s *Service) CreateStudentBooking(ctx context.Context, slug, courseSlug, ac
 	if input.PreferredDate.Before(today) {
 		return schoolsrepo.Booking{}, validation("preferredDate", "past", "Preferred date cannot be in the past")
 	}
-	return s.repo.CreateBooking(ctx, school.ID, input)
+	if course.PaymentRequired {
+		methods, err := s.repo.ListPaymentMethods(ctx, school.ID)
+		if err != nil {
+			return schoolsrepo.Booking{}, err
+		}
+		hasActiveMethod := false
+		for _, method := range methods {
+			if method.IsActive {
+				hasActiveMethod = true
+				break
+			}
+		}
+		if !hasActiveMethod {
+			return schoolsrepo.Booking{}, validation("paymentMethods", "missing", "School payment methods are not configured")
+		}
+	}
+	item, err := s.repo.CreateBooking(ctx, school.ID, input, &schoolsrepo.BookingNotificationEvent{
+		EventType:   notificationsrepo.OutboxEventBookingCreated,
+		ActorUserID: actorID,
+	})
+	if err == nil {
+		s.processNotificationOutbox(ctx, "booking_created", item.ID)
+	}
+	return item, err
 }
 
 func (s *Service) ListMyBookings(ctx context.Context, actorID string) ([]schoolsrepo.Booking, error) {
@@ -243,6 +296,9 @@ func (s *Service) CancelMyBooking(ctx context.Context, actorID, bookingID string
 		return schoolsrepo.Booking{}, validation("status", "invalid_transition", "Booking cannot be cancelled by student")
 	}
 	item, err := s.repo.CancelMyBooking(ctx, actorID, bookingID)
+	if err == nil {
+		s.processNotificationOutbox(ctx, "booking_cancelled_by_student", item.ID)
+	}
 	return item, mapNotFound(err, "booking_not_found")
 }
 
@@ -304,44 +360,64 @@ func (s *Service) DeleteCourse(ctx context.Context, slug, actorID, courseID stri
 }
 
 func (s *Service) ListPaymentMethods(ctx context.Context, slug, actorID, courseID string) ([]schoolsrepo.PaymentMethod, error) {
-	course, err := s.requireCourseManager(ctx, slug, actorID, courseID)
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin", "instructor")
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.ListPaymentMethods(ctx, course.ID)
+	if strings.TrimSpace(courseID) != "" {
+		if _, err := s.repo.GetCourse(ctx, school.ID, courseID); err != nil {
+			return nil, mapNotFound(err, "course_not_found")
+		}
+	}
+	return s.repo.ListPaymentMethods(ctx, school.ID)
 }
 
 func (s *Service) CreatePaymentMethod(ctx context.Context, slug, actorID, courseID string, input schoolsrepo.CreatePaymentMethodInput) (schoolsrepo.PaymentMethod, error) {
-	course, err := s.requireCourseManager(ctx, slug, actorID, courseID)
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin")
 	if err != nil {
 		return schoolsrepo.PaymentMethod{}, err
+	}
+	if strings.TrimSpace(courseID) != "" {
+		if _, err := s.repo.GetCourse(ctx, school.ID, courseID); err != nil {
+			return schoolsrepo.PaymentMethod{}, mapNotFound(err, "course_not_found")
+		}
 	}
 	input = normalizePaymentMethod(input)
 	if err := validatePaymentMethod(input); err != nil {
 		return schoolsrepo.PaymentMethod{}, err
 	}
-	return s.repo.CreatePaymentMethod(ctx, course.ID, input)
+	return s.repo.CreatePaymentMethod(ctx, school.ID, input)
 }
 
 func (s *Service) UpdatePaymentMethod(ctx context.Context, slug, actorID, courseID, methodID string, input schoolsrepo.CreatePaymentMethodInput) (schoolsrepo.PaymentMethod, error) {
-	course, err := s.requireCourseManager(ctx, slug, actorID, courseID)
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin")
 	if err != nil {
 		return schoolsrepo.PaymentMethod{}, err
+	}
+	if strings.TrimSpace(courseID) != "" {
+		if _, err := s.repo.GetCourse(ctx, school.ID, courseID); err != nil {
+			return schoolsrepo.PaymentMethod{}, mapNotFound(err, "course_not_found")
+		}
 	}
 	input = normalizePaymentMethod(input)
 	if err := validatePaymentMethod(input); err != nil {
 		return schoolsrepo.PaymentMethod{}, err
 	}
-	item, err := s.repo.UpdatePaymentMethod(ctx, course.ID, methodID, input)
+	item, err := s.repo.UpdatePaymentMethod(ctx, school.ID, methodID, input)
 	return item, mapNotFound(err, "payment_method_not_found")
 }
 
 func (s *Service) DeletePaymentMethod(ctx context.Context, slug, actorID, courseID, methodID string) error {
-	course, err := s.requireCourseManager(ctx, slug, actorID, courseID)
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin")
 	if err != nil {
 		return err
 	}
-	return s.repo.DeletePaymentMethod(ctx, course.ID, methodID)
+	if strings.TrimSpace(courseID) != "" {
+		if _, err := s.repo.GetCourse(ctx, school.ID, courseID); err != nil {
+			return mapNotFound(err, "course_not_found")
+		}
+	}
+	return s.repo.DeletePaymentMethod(ctx, school.ID, methodID)
 }
 
 func (s *Service) ListSessions(ctx context.Context, slug, actorID string, input schoolsrepo.ListSessionsInput) ([]schoolsrepo.Session, error) {
@@ -383,7 +459,23 @@ func (s *Service) UpdateSession(ctx context.Context, slug, actorID, sessionID st
 	if err := s.validateSession(ctx, school.ID, input); err != nil {
 		return schoolsrepo.Session{}, err
 	}
-	return s.repo.UpdateSession(ctx, school.ID, sessionID, input)
+	changes := meaningfulSessionChanges(current, input)
+	var event *schoolsrepo.SessionNotificationEvent
+	if len(changes) > 0 {
+		event = &schoolsrepo.SessionNotificationEvent{
+			EventType:        notificationsrepo.OutboxEventSessionUpdated,
+			ActorUserID:      actorID,
+			ChangeTypes:      changes,
+			PreviousStatus:   current.Status,
+			PreviousStartsAt: current.StartsAt,
+			PreviousEndsAt:   current.EndsAt,
+		}
+	}
+	item, err := s.repo.UpdateSession(ctx, school.ID, sessionID, input, event)
+	if err == nil && event != nil {
+		s.processNotificationOutbox(ctx, "session_updated", item.ID)
+	}
+	return item, err
 }
 
 func (s *Service) SetSessionStatus(ctx context.Context, slug, actorID, sessionID, status string) (schoolsrepo.Session, error) {
@@ -398,7 +490,23 @@ func (s *Service) SetSessionStatus(ctx context.Context, slug, actorID, sessionID
 	if !validSessionTransition(current.Status, status) {
 		return schoolsrepo.Session{}, validation("status", "invalid_transition", "Invalid session status transition")
 	}
-	return s.repo.SetSessionStatus(ctx, school.ID, sessionID, status)
+	var event *schoolsrepo.SessionNotificationEvent
+	if status == "cancelled" && current.Status != "cancelled" {
+		event = &schoolsrepo.SessionNotificationEvent{
+			EventType:         notificationsrepo.OutboxEventSessionCancelled,
+			ActorUserID:       actorID,
+			ChangeTypes:       []string{"status"},
+			PreviousStatus:    current.Status,
+			PreviousStartsAt:  current.StartsAt,
+			PreviousEndsAt:    current.EndsAt,
+			IdempotencySuffix: "cancelled",
+		}
+	}
+	item, err := s.repo.SetSessionStatus(ctx, school.ID, sessionID, status, event)
+	if err == nil && event != nil {
+		s.processNotificationOutbox(ctx, "session_cancelled", item.ID)
+	}
+	return item, err
 }
 
 func (s *Service) DeleteSession(ctx context.Context, slug, actorID, sessionID string) error {
@@ -438,7 +546,8 @@ func (s *Service) CreateBooking(ctx context.Context, slug, actorID string, input
 	if err := s.validateBooking(ctx, school.ID, input); err != nil {
 		return schoolsrepo.Booking{}, err
 	}
-	return s.repo.CreateBooking(ctx, school.ID, input)
+	item, err := s.repo.CreateBooking(ctx, school.ID, input, nil)
+	return item, err
 }
 
 func (s *Service) UpdateBooking(ctx context.Context, slug, actorID, bookingID string, input schoolsrepo.UpdateBookingInput) (schoolsrepo.Booking, error) {
@@ -460,7 +569,20 @@ func (s *Service) UpdateBooking(ctx context.Context, slug, actorID, bookingID st
 	if err := s.validateBooking(ctx, school.ID, input); err != nil {
 		return schoolsrepo.Booking{}, err
 	}
-	return s.repo.UpdateBooking(ctx, school.ID, bookingID, input)
+	var event *schoolsrepo.BookingNotificationEvent
+	if current.SessionID != input.SessionID || !sameDate(current.PreferredDate, input.PreferredDate) {
+		event = &schoolsrepo.BookingNotificationEvent{
+			EventType:         notificationsrepo.OutboxEventBookingRescheduled,
+			ActorUserID:       actorID,
+			PreviousSessionID: current.SessionID,
+			IdempotencySuffix: "rescheduled:" + defaultString(input.SessionID, "unassigned") + ":" + input.PreferredDate.Format("20060102"),
+		}
+	}
+	item, err := s.repo.UpdateBooking(ctx, school.ID, bookingID, input, event)
+	if err == nil {
+		s.processNotificationOutbox(ctx, "booking_rescheduled", item.ID)
+	}
+	return item, err
 }
 
 func (s *Service) SetBookingStatus(ctx context.Context, slug, actorID, bookingID, status string) (schoolsrepo.Booking, error) {
@@ -478,7 +600,22 @@ func (s *Service) SetBookingStatus(ctx context.Context, slug, actorID, bookingID
 	if !validBookingTransition(current.Status, status) {
 		return schoolsrepo.Booking{}, validation("status", "invalid_transition", "Invalid booking status transition")
 	}
-	return s.repo.SetBookingStatus(ctx, school.ID, bookingID, actorID, status)
+	var event *schoolsrepo.BookingNotificationEvent
+	if current.Status != status {
+		switch status {
+		case "approved":
+			event = &schoolsrepo.BookingNotificationEvent{EventType: notificationsrepo.OutboxEventBookingApproved, ActorUserID: actorID, IdempotencySuffix: "approved"}
+		case "rejected":
+			event = &schoolsrepo.BookingNotificationEvent{EventType: notificationsrepo.OutboxEventBookingRejected, ActorUserID: actorID, IdempotencySuffix: "rejected"}
+		case "cancelled":
+			event = &schoolsrepo.BookingNotificationEvent{EventType: notificationsrepo.OutboxEventBookingCancelledBySchool, ActorUserID: actorID, IdempotencySuffix: "cancelled-by-school"}
+		}
+	}
+	item, err := s.repo.SetBookingStatus(ctx, school.ID, bookingID, actorID, status, event)
+	if err == nil && event != nil {
+		s.processNotificationOutbox(ctx, "booking_status_"+status, item.ID)
+	}
+	return item, err
 }
 
 func (s *Service) AssignBookingSession(ctx context.Context, slug, actorID, bookingID, sessionID string) (schoolsrepo.Booking, error) {
@@ -503,7 +640,20 @@ func (s *Service) AssignBookingSession(ctx context.Context, slug, actorID, booki
 	if session.Status == "completed" || session.Status == "cancelled" {
 		return schoolsrepo.Booking{}, validation("sessionId", "closed", "Cannot assign bookings to completed or cancelled sessions")
 	}
-	return s.repo.AssignBookingSession(ctx, school.ID, bookingID, session.ID)
+	var event *schoolsrepo.BookingNotificationEvent
+	if booking.SessionID != session.ID {
+		event = &schoolsrepo.BookingNotificationEvent{
+			EventType:         notificationsrepo.OutboxEventBookingRescheduled,
+			ActorUserID:       actorID,
+			PreviousSessionID: booking.SessionID,
+			IdempotencySuffix: "rescheduled:" + session.ID,
+		}
+	}
+	item, err := s.repo.AssignBookingSession(ctx, school.ID, bookingID, session.ID, event)
+	if err == nil && event != nil {
+		s.processNotificationOutbox(ctx, "booking_rescheduled", item.ID)
+	}
+	return item, err
 }
 
 func (s *Service) UnassignBookingSession(ctx context.Context, slug, actorID, bookingID string) (schoolsrepo.Booking, error) {
@@ -511,7 +661,24 @@ func (s *Service) UnassignBookingSession(ctx context.Context, slug, actorID, boo
 	if err != nil {
 		return schoolsrepo.Booking{}, err
 	}
-	return s.repo.UnassignBookingSession(ctx, school.ID, bookingID)
+	booking, err := s.repo.GetBooking(ctx, school.ID, bookingID)
+	if err != nil {
+		return schoolsrepo.Booking{}, mapNotFound(err, "booking_not_found")
+	}
+	var event *schoolsrepo.BookingNotificationEvent
+	if booking.SessionID != "" {
+		event = &schoolsrepo.BookingNotificationEvent{
+			EventType:         notificationsrepo.OutboxEventBookingRescheduled,
+			ActorUserID:       actorID,
+			PreviousSessionID: booking.SessionID,
+			IdempotencySuffix: "rescheduled:unassigned",
+		}
+	}
+	item, err := s.repo.UnassignBookingSession(ctx, school.ID, bookingID, event)
+	if err == nil && event != nil {
+		s.processNotificationOutbox(ctx, "booking_rescheduled", item.ID)
+	}
+	return item, err
 }
 
 func (s *Service) ReviewBookingPayment(ctx context.Context, slug, actorID, bookingID, status, notes string) (schoolsrepo.BookingPayment, error) {
@@ -726,31 +893,114 @@ func normalizeSession(input schoolsrepo.CreateSessionInput) schoolsrepo.CreateSe
 	return input
 }
 
+func meaningfulSessionChanges(current schoolsrepo.Session, input schoolsrepo.UpdateSessionInput) []string {
+	changes := []string{}
+	if !current.StartsAt.Equal(input.StartsAt) {
+		changes = append(changes, "starts_at")
+	}
+	if !current.EndsAt.Equal(input.EndsAt) {
+		changes = append(changes, "ends_at")
+	}
+	if current.LocationMode != input.LocationMode ||
+		current.LocationLabel != input.LocationLabel ||
+		current.FormattedAddress != input.FormattedAddress ||
+		current.RegionCode != input.RegionCode ||
+		current.ProvinceCode != input.ProvinceCode ||
+		current.CityCode != input.CityCode ||
+		current.BarangayCode != input.BarangayCode ||
+		current.DiveSiteID != input.DiveSiteID {
+		changes = append(changes, "location")
+	}
+	if current.InstructorUserID != input.InstructorUserID {
+		changes = append(changes, "instructor")
+	}
+	if current.Status != input.Status {
+		changes = append(changes, "status")
+	}
+	if !sameIntPtr(current.Capacity, input.Capacity) && current.AssignedBookingCount > 0 {
+		changes = append(changes, "capacity")
+	}
+	return changes
+}
+
+func sameIntPtr(left, right *int) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func sameDate(left, right time.Time) bool {
+	return left.Format("2006-01-02") == right.Format("2006-01-02")
+}
+
+func (s *Service) processNotificationOutbox(ctx context.Context, transition, id string) {
+	if s.notifications == nil {
+		return
+	}
+	if _, err := s.notifications.ProcessDueOutbox(ctx, 10); err != nil {
+		slog.Default().Warn("schools.notification_outbox_process_failed",
+			slog.String("transition", transition),
+			slog.String("id", id),
+			slog.Any("error", err),
+		)
+	}
+}
+
 func normalizeBooking(input schoolsrepo.CreateBookingInput) schoolsrepo.CreateBookingInput {
 	input.Status = defaultString(normalize(input.Status), "pending_review")
 	return input
 }
 
 func normalizePaymentMethod(input schoolsrepo.CreatePaymentMethodInput) schoolsrepo.CreatePaymentMethodInput {
-	input.Type = strings.ToUpper(strings.TrimSpace(input.Type))
+	input.Type = normalizePaymentMethodType(input.Type)
 	input.Name = strings.TrimSpace(input.Name)
+	input.Instructions = strings.TrimSpace(input.Instructions)
+	input.QRMediaID = strings.TrimSpace(input.QRMediaID)
+	input.BankName = strings.TrimSpace(input.BankName)
+	input.AccountName = strings.TrimSpace(input.AccountName)
+	input.AccountNumber = strings.TrimSpace(input.AccountNumber)
+	if input.Name == "" && input.Type != "" {
+		input.Name = defaultPaymentMethodName(input.Type)
+	}
 	return input
 }
 
 func validatePaymentMethod(input schoolsrepo.CreatePaymentMethodInput) error {
-	if !oneOf(input.Type, "MANUAL_QR", "MANUAL_BANK_TRANSFER") {
+	if !oneOf(input.Type, "manual_qr", "bank_transfer") {
 		return validation("type", "invalid", "Invalid payment method type")
 	}
-	if input.Name == "" {
-		return validation("name", "required", "Name is required")
+	if !input.IsActive {
+		return nil
 	}
-	if input.Type == "MANUAL_QR" && input.QRMediaID == "" && strings.TrimSpace(input.Instructions) == "" {
-		return validation("instructions", "required", "Manual QR needs instructions or a QR media id")
+	if input.Type == "manual_qr" && input.QRMediaID == "" {
+		return validation("qrMediaId", "required", "Upload a QR image before activating this payment method")
 	}
-	if input.Type == "MANUAL_BANK_TRANSFER" && (input.BankName == "" || input.AccountName == "" || input.AccountNumber == "") {
+	if input.Type == "bank_transfer" && (input.BankName == "" || input.AccountName == "" || input.AccountNumber == "") {
 		return validation("bankName", "required", "Bank transfer requires bank name, account name, and account number")
 	}
 	return nil
+}
+
+func normalizePaymentMethodType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "manual_qr", "manual qr":
+		return "manual_qr"
+	case "bank_transfer", "bank transfer", "manual_bank_transfer":
+		return "bank_transfer"
+	default:
+		return ""
+	}
+}
+
+func defaultPaymentMethodName(value string) string {
+	if value == "manual_qr" {
+		return "Manual QR"
+	}
+	if value == "bank_transfer" {
+		return "Bank transfer"
+	}
+	return ""
 }
 
 func validCourseTransition(from, to string) bool {

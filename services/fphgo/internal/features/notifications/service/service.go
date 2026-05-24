@@ -36,6 +36,10 @@ type repository interface {
 	ListActiveExploreModeratorRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ListActiveInstructorReviewerRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error)
+	ListActiveSchoolBookingManagerRecipients(ctx context.Context, schoolID, sessionID, excludeUserID string) ([]string, error)
+	ListActiveBookingStudentRecipients(ctx context.Context, bookingID, excludeUserID string) ([]string, error)
+	ListActiveSessionStudentRecipients(ctx context.Context, sessionID, excludeUserID string) ([]string, error)
+	ListActiveSessionManagerRecipients(ctx context.Context, schoolID, sessionID, excludeUserID string) ([]string, error)
 	ChikaRepliesEnabled(ctx context.Context, userID string) (bool, error)
 	EventNotificationsEnabled(ctx context.Context, userID string) (bool, error)
 	GroupInviteNotificationsEnabled(ctx context.Context, userID string) (bool, error)
@@ -109,6 +113,7 @@ type NotificationSettings struct {
 	GroupNotifications         bool
 	ServiceNotifications       bool
 	BookingNotifications       bool
+	SessionNotifications       bool
 	ReviewNotifications        bool
 	MentionNotifications       bool
 	LikeNotifications          bool
@@ -235,6 +240,36 @@ type InstructorApplicationStatusInput struct {
 	Status          string
 }
 
+type BookingNotificationInput struct {
+	BookingID       string
+	SchoolID        string
+	SchoolSlug      string
+	CourseID        string
+	CourseTitle     string
+	SessionID       string
+	SessionTitle    string
+	StudentUserID   string
+	StudentName     string
+	ActorUserID     string
+	Status          string
+	PreviousSession string
+}
+
+type SessionNotificationInput struct {
+	SessionID        string
+	SchoolID         string
+	SchoolSlug       string
+	CourseID         string
+	CourseTitle      string
+	Title            string
+	ActorUserID      string
+	Status           string
+	ChangeTypes      []string
+	PreviousStatus   string
+	PreviousStartsAt string
+	PreviousEndsAt   string
+}
+
 type ChikaThreadCommentedInput struct {
 	ThreadID         string
 	ThreadSlug       string
@@ -322,6 +357,8 @@ var (
 		"FRIEND_REQUEST", "GROUP_INVITE", "EVENT_REMINDER", "PAYMENT", "SECURITY",
 		"NEW_DIVE_SITE_PUBLISHED", "DIVE_SITE_SUBMITTED_FOR_REVIEW",
 		"INSTRUCTOR_APPLICATION_SUBMITTED", "INSTRUCTOR_APPLICATION_APPROVED", "INSTRUCTOR_APPLICATION_REJECTED",
+		"BOOKING_CREATED", "BOOKING_APPROVED", "BOOKING_REJECTED", "BOOKING_CANCELLED_BY_STUDENT",
+		"BOOKING_CANCELLED_BY_SCHOOL", "BOOKING_RESCHEDULED", "SESSION_UPDATED", "SESSION_CANCELLED",
 		"CHIKA_THREAD_COMMENTED", "CHIKA_COMMENT_REPLIED",
 		"GROUP_INVITE_RECEIVED", "GROUP_POST_CREATED",
 		"EVENT_CREATED_FOR_GROUP", "EVENT_ATTENDEE_JOINED", "EVENT_UPDATED", "EVENT_CANCELLED",
@@ -603,6 +640,177 @@ func (s *Service) notifyInstructorApplicationStatus(ctx context.Context, input I
 			"notificationV1": true,
 		},
 		IdempotencyKey: "instructors:application:" + profileID + ":" + fallbackStatus,
+	})
+	return err
+}
+
+func (s *Service) NotifyBookingCreated(ctx context.Context, input BookingNotificationInput) error {
+	recipients, err := s.repo.ListActiveSchoolBookingManagerRecipients(ctx, input.SchoolID, input.SessionID, input.ActorUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve booking manager notification recipients", err)
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              "BOOKING_CREATED",
+		Category:          "booking",
+		Title:             "New booking request",
+		Message:           fallbackTitle(input.StudentName, "A student") + " requested " + fallbackTitle(input.CourseTitle, "a course") + ".",
+		Priority:          "HIGH",
+		ActorUserID:       trimStringPtr(input.ActorUserID),
+		RelatedEntityType: "course_booking",
+		RelatedEntityID:   input.BookingID,
+		ActionURL:         manageBookingsURL(input.SchoolSlug),
+		Metadata:          bookingMetadata(input),
+		IdempotencyKey:    "bookings:" + strings.TrimSpace(input.BookingID) + ":created:managers",
+	})
+	return err
+}
+
+func (s *Service) NotifyBookingApproved(ctx context.Context, input BookingNotificationInput) error {
+	return s.notifyBookingStudent(ctx, input, "BOOKING_APPROVED", "Booking approved", "Your booking was approved.", "/my/bookings", "approved")
+}
+
+func (s *Service) NotifyBookingRejected(ctx context.Context, input BookingNotificationInput) error {
+	return s.notifyBookingStudent(ctx, input, "BOOKING_REJECTED", "Booking rejected", "Your booking was not approved.", "/my/bookings", "rejected")
+}
+
+func (s *Service) NotifyBookingCancelledByStudent(ctx context.Context, input BookingNotificationInput) error {
+	recipients, err := s.repo.ListActiveSchoolBookingManagerRecipients(ctx, input.SchoolID, input.SessionID, input.ActorUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve booking manager notification recipients", err)
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              "BOOKING_CANCELLED_BY_STUDENT",
+		Category:          "booking",
+		Title:             "Booking cancelled",
+		Message:           fallbackTitle(input.StudentName, "A student") + " cancelled a booking.",
+		Priority:          "HIGH",
+		ActorUserID:       trimStringPtr(input.ActorUserID),
+		RelatedEntityType: "course_booking",
+		RelatedEntityID:   input.BookingID,
+		ActionURL:         manageBookingsURL(input.SchoolSlug),
+		Metadata:          bookingMetadata(input),
+		IdempotencyKey:    "bookings:" + strings.TrimSpace(input.BookingID) + ":cancelled-by-student:managers",
+	})
+	return err
+}
+
+func (s *Service) NotifyBookingCancelledBySchool(ctx context.Context, input BookingNotificationInput) error {
+	return s.notifyBookingStudent(ctx, input, "BOOKING_CANCELLED_BY_SCHOOL", "Booking cancelled", "Your booking was cancelled.", "/my/bookings", "cancelled-by-school")
+}
+
+func (s *Service) NotifyBookingRescheduled(ctx context.Context, input BookingNotificationInput) error {
+	if err := s.notifyBookingStudent(ctx, input, "BOOKING_RESCHEDULED", "Booking rescheduled", "Your booking schedule changed.", "/my/bookings", "rescheduled:student"); err != nil {
+		return err
+	}
+	recipients, err := s.repo.ListActiveSchoolBookingManagerRecipients(ctx, input.SchoolID, input.SessionID, input.ActorUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve booking manager notification recipients", err)
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              "BOOKING_RESCHEDULED",
+		Category:          "booking",
+		Title:             "Booking rescheduled",
+		Message:           "A booking schedule changed.",
+		Priority:          "HIGH",
+		ActorUserID:       trimStringPtr(input.ActorUserID),
+		RelatedEntityType: "course_booking",
+		RelatedEntityID:   input.BookingID,
+		ActionURL:         manageBookingsURL(input.SchoolSlug),
+		Metadata:          bookingMetadata(input),
+		IdempotencyKey:    "bookings:" + strings.TrimSpace(input.BookingID) + ":rescheduled:managers:" + bookingSessionKey(input),
+	})
+	return err
+}
+
+func (s *Service) notifyBookingStudent(ctx context.Context, input BookingNotificationInput, typ, title, message, actionURL, keySuffix string) error {
+	recipients, err := s.repo.ListActiveBookingStudentRecipients(ctx, input.BookingID, input.ActorUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve booking student notification recipient", err)
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  recipients,
+		Type:              typ,
+		Category:          "booking",
+		Title:             title,
+		Message:           message,
+		Priority:          "HIGH",
+		ActorUserID:       trimStringPtr(input.ActorUserID),
+		RelatedEntityType: "course_booking",
+		RelatedEntityID:   input.BookingID,
+		ActionURL:         actionURL,
+		Metadata:          bookingMetadata(input),
+		IdempotencyKey:    "bookings:" + strings.TrimSpace(input.BookingID) + ":" + keySuffix,
+	})
+	return err
+}
+
+func (s *Service) NotifySessionUpdated(ctx context.Context, input SessionNotificationInput) error {
+	return s.notifySessionOperational(ctx, input, "SESSION_UPDATED", "Session updated", "A booked session was updated.", "updated:"+sessionChangeKey(input))
+}
+
+func (s *Service) NotifySessionCancelled(ctx context.Context, input SessionNotificationInput) error {
+	return s.notifySessionOperational(ctx, input, "SESSION_CANCELLED", "Session cancelled", "A booked session was cancelled.", "cancelled")
+}
+
+func (s *Service) notifySessionOperational(ctx context.Context, input SessionNotificationInput, typ, title, message, keySuffix string) error {
+	sessionID := strings.TrimSpace(input.SessionID)
+	students, err := s.repo.ListActiveSessionStudentRecipients(ctx, sessionID, input.ActorUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve session student notification recipients", err)
+	}
+	if len(students) > 0 {
+		if _, err := s.CreateInternal(ctx, InternalCreateInput{
+			RecipientUserIDs:  students,
+			Type:              typ,
+			Category:          "session",
+			Title:             title,
+			Message:           message,
+			Priority:          "HIGH",
+			ActorUserID:       trimStringPtr(input.ActorUserID),
+			RelatedEntityType: "course_session",
+			RelatedEntityID:   sessionID,
+			ActionURL:         "/my/bookings",
+			Metadata:          sessionMetadata(input),
+			IdempotencyKey:    "sessions:" + sessionID + ":" + keySuffix + ":students",
+		}); err != nil {
+			return err
+		}
+	}
+	managers, err := s.repo.ListActiveSessionManagerRecipients(ctx, input.SchoolID, sessionID, input.ActorUserID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_recipients_failed", "failed to resolve session manager notification recipients", err)
+	}
+	if len(managers) == 0 {
+		return nil
+	}
+	_, err = s.CreateInternal(ctx, InternalCreateInput{
+		RecipientUserIDs:  managers,
+		Type:              typ,
+		Category:          "session",
+		Title:             title,
+		Message:           message,
+		Priority:          "HIGH",
+		ActorUserID:       trimStringPtr(input.ActorUserID),
+		RelatedEntityType: "course_session",
+		RelatedEntityID:   sessionID,
+		ActionURL:         manageSessionsURL(input.SchoolSlug),
+		Metadata:          sessionMetadata(input),
+		IdempotencyKey:    "sessions:" + sessionID + ":" + keySuffix + ":managers",
 	})
 	return err
 }
@@ -998,6 +1206,54 @@ func (s *Service) RunOutboxProcessor(ctx context.Context, interval time.Duration
 
 func (s *Service) processOutboxEvent(ctx context.Context, event notificationsrepo.NotificationOutbox) error {
 	switch strings.TrimSpace(event.EventType) {
+	case notificationsrepo.OutboxEventBookingCreated:
+		input := bookingNotificationInputFromPayload(event.Payload)
+		if err := validateBookingOutboxInput(input); err != nil {
+			return err
+		}
+		return s.NotifyBookingCreated(ctx, input)
+	case notificationsrepo.OutboxEventBookingApproved:
+		input := bookingNotificationInputFromPayload(event.Payload)
+		if err := validateBookingOutboxInput(input); err != nil {
+			return err
+		}
+		return s.NotifyBookingApproved(ctx, input)
+	case notificationsrepo.OutboxEventBookingRejected:
+		input := bookingNotificationInputFromPayload(event.Payload)
+		if err := validateBookingOutboxInput(input); err != nil {
+			return err
+		}
+		return s.NotifyBookingRejected(ctx, input)
+	case notificationsrepo.OutboxEventBookingCancelledByStudent:
+		input := bookingNotificationInputFromPayload(event.Payload)
+		if err := validateBookingOutboxInput(input); err != nil {
+			return err
+		}
+		return s.NotifyBookingCancelledByStudent(ctx, input)
+	case notificationsrepo.OutboxEventBookingCancelledBySchool:
+		input := bookingNotificationInputFromPayload(event.Payload)
+		if err := validateBookingOutboxInput(input); err != nil {
+			return err
+		}
+		return s.NotifyBookingCancelledBySchool(ctx, input)
+	case notificationsrepo.OutboxEventBookingRescheduled:
+		input := bookingNotificationInputFromPayload(event.Payload)
+		if err := validateBookingOutboxInput(input); err != nil {
+			return err
+		}
+		return s.NotifyBookingRescheduled(ctx, input)
+	case notificationsrepo.OutboxEventSessionUpdated:
+		input := sessionNotificationInputFromPayload(event.Payload)
+		if strings.TrimSpace(input.SessionID) == "" || strings.TrimSpace(input.SchoolID) == "" {
+			return fmt.Errorf("session updated outbox payload is missing required fields")
+		}
+		return s.NotifySessionUpdated(ctx, input)
+	case notificationsrepo.OutboxEventSessionCancelled:
+		input := sessionNotificationInputFromPayload(event.Payload)
+		if strings.TrimSpace(input.SessionID) == "" || strings.TrimSpace(input.SchoolID) == "" {
+			return fmt.Errorf("session cancelled outbox payload is missing required fields")
+		}
+		return s.NotifySessionCancelled(ctx, input)
 	case notificationsrepo.OutboxEventInstructorApplicationSubmitted:
 		input := InstructorApplicationSubmittedInput{
 			ProfileID:            payloadString(event.Payload, "profileId"),
@@ -1085,6 +1341,32 @@ func payloadString(payload map[string]any, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(str)
+}
+
+func payloadStringSlice(payload map[string]any, key string) []string {
+	if payload == nil {
+		return nil
+	}
+	value, ok := payload[key]
+	if !ok {
+		return nil
+	}
+	if typed, ok := value.([]string); ok {
+		return typed
+	}
+	values, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	items := make([]string, 0, len(values))
+	for _, item := range values {
+		if text, ok := item.(string); ok {
+			if trimmed := strings.TrimSpace(text); trimmed != "" {
+				items = append(items, trimmed)
+			}
+		}
+	}
+	return items
 }
 
 func (s *Service) ListMyNotifications(ctx context.Context, actorUserID string, input ListInput) ([]Notification, error) {
@@ -1487,6 +1769,10 @@ func normalizeCategory(value string, typ string) string {
 		return "chika"
 	case "INSTRUCTOR_APPLICATION_SUBMITTED", "INSTRUCTOR_APPLICATION_APPROVED", "INSTRUCTOR_APPLICATION_REJECTED":
 		return "instructor"
+	case "BOOKING", "BOOKING_CREATED", "BOOKING_APPROVED", "BOOKING_REJECTED", "BOOKING_CANCELLED_BY_STUDENT", "BOOKING_CANCELLED_BY_SCHOOL", "BOOKING_RESCHEDULED":
+		return "booking"
+	case "SESSION_UPDATED", "SESSION_CANCELLED":
+		return "session"
 	case "NEW_DIVE_SITE_PUBLISHED":
 		return "explore"
 	default:
@@ -1704,6 +1990,7 @@ func mapSettings(input notificationsrepo.NotificationSettings) NotificationSetti
 		GroupNotifications:         input.GroupNotifications,
 		ServiceNotifications:       input.ServiceNotifications,
 		BookingNotifications:       input.BookingNotifications,
+		SessionNotifications:       input.SessionNotifications,
 		ReviewNotifications:        input.ReviewNotifications,
 		MentionNotifications:       input.MentionNotifications,
 		LikeNotifications:          input.LikeNotifications,
@@ -1731,6 +2018,113 @@ func defaultString(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func manageBookingsURL(schoolSlug string) string {
+	slug := strings.TrimSpace(schoolSlug)
+	if slug == "" {
+		return "/manage/schools"
+	}
+	return "/manage/schools/" + slug + "/bookings"
+}
+
+func manageSessionsURL(schoolSlug string) string {
+	slug := strings.TrimSpace(schoolSlug)
+	if slug == "" {
+		return "/manage/schools"
+	}
+	return "/manage/schools/" + slug + "/sessions"
+}
+
+func bookingMetadata(input BookingNotificationInput) map[string]any {
+	return map[string]any{
+		"bookingId":         strings.TrimSpace(input.BookingID),
+		"schoolId":          strings.TrimSpace(input.SchoolID),
+		"schoolSlug":        strings.TrimSpace(input.SchoolSlug),
+		"courseId":          strings.TrimSpace(input.CourseID),
+		"courseTitle":       strings.TrimSpace(input.CourseTitle),
+		"sessionId":         strings.TrimSpace(input.SessionID),
+		"sessionTitle":      strings.TrimSpace(input.SessionTitle),
+		"studentUserId":     strings.TrimSpace(input.StudentUserID),
+		"studentName":       strings.TrimSpace(input.StudentName),
+		"status":            strings.TrimSpace(input.Status),
+		"previousSessionId": strings.TrimSpace(input.PreviousSession),
+		"notificationV1":    true,
+	}
+}
+
+func sessionMetadata(input SessionNotificationInput) map[string]any {
+	return map[string]any{
+		"sessionId":        strings.TrimSpace(input.SessionID),
+		"schoolId":         strings.TrimSpace(input.SchoolID),
+		"schoolSlug":       strings.TrimSpace(input.SchoolSlug),
+		"courseId":         strings.TrimSpace(input.CourseID),
+		"courseTitle":      strings.TrimSpace(input.CourseTitle),
+		"title":            strings.TrimSpace(input.Title),
+		"status":           strings.TrimSpace(input.Status),
+		"changeTypes":      input.ChangeTypes,
+		"previousStatus":   strings.TrimSpace(input.PreviousStatus),
+		"previousStartsAt": strings.TrimSpace(input.PreviousStartsAt),
+		"previousEndsAt":   strings.TrimSpace(input.PreviousEndsAt),
+		"notificationV1":   true,
+	}
+}
+
+func bookingSessionKey(input BookingNotificationInput) string {
+	key := strings.TrimSpace(input.SessionID)
+	if key == "" {
+		key = "unassigned"
+	}
+	return key
+}
+
+func sessionChangeKey(input SessionNotificationInput) string {
+	items := input.ChangeTypes
+	if len(items) == 0 {
+		items = []string{"changed"}
+	}
+	return strings.Join(items, "-") + ":" + defaultString(strings.TrimSpace(input.Status), "status")
+}
+
+func bookingNotificationInputFromPayload(payload map[string]any) BookingNotificationInput {
+	return BookingNotificationInput{
+		BookingID:       payloadString(payload, "bookingId"),
+		SchoolID:        payloadString(payload, "schoolId"),
+		SchoolSlug:      payloadString(payload, "schoolSlug"),
+		CourseID:        payloadString(payload, "courseId"),
+		CourseTitle:     payloadString(payload, "courseTitle"),
+		SessionID:       payloadString(payload, "sessionId"),
+		SessionTitle:    payloadString(payload, "sessionTitle"),
+		StudentUserID:   payloadString(payload, "studentUserId"),
+		StudentName:     payloadString(payload, "studentName"),
+		ActorUserID:     payloadString(payload, "actorUserId"),
+		Status:          payloadString(payload, "status"),
+		PreviousSession: payloadString(payload, "previousSessionId"),
+	}
+}
+
+func validateBookingOutboxInput(input BookingNotificationInput) error {
+	if strings.TrimSpace(input.BookingID) == "" || strings.TrimSpace(input.SchoolID) == "" {
+		return fmt.Errorf("booking outbox payload is missing required fields")
+	}
+	return nil
+}
+
+func sessionNotificationInputFromPayload(payload map[string]any) SessionNotificationInput {
+	return SessionNotificationInput{
+		SessionID:        payloadString(payload, "sessionId"),
+		SchoolID:         payloadString(payload, "schoolId"),
+		SchoolSlug:       payloadString(payload, "schoolSlug"),
+		CourseID:         payloadString(payload, "courseId"),
+		CourseTitle:      payloadString(payload, "courseTitle"),
+		Title:            payloadString(payload, "title"),
+		ActorUserID:      payloadString(payload, "actorUserId"),
+		Status:           payloadString(payload, "status"),
+		ChangeTypes:      payloadStringSlice(payload, "changeTypes"),
+		PreviousStatus:   payloadString(payload, "previousStatus"),
+		PreviousStartsAt: payloadString(payload, "previousStartsAt"),
+		PreviousEndsAt:   payloadString(payload, "previousEndsAt"),
+	}
 }
 
 func toSet(values ...string) map[string]struct{} {

@@ -85,10 +85,10 @@ func (f *fakeRepo) CreateSession(_ context.Context, _ string, input schoolsrepo.
 func (f *fakeRepo) GetSession(context.Context, string, string) (schoolsrepo.Session, error) {
 	return f.session, nil
 }
-func (f *fakeRepo) UpdateSession(context.Context, string, string, schoolsrepo.UpdateSessionInput) (schoolsrepo.Session, error) {
+func (f *fakeRepo) UpdateSession(context.Context, string, string, schoolsrepo.UpdateSessionInput, *schoolsrepo.SessionNotificationEvent) (schoolsrepo.Session, error) {
 	return f.session, nil
 }
-func (f *fakeRepo) SetSessionStatus(context.Context, string, string, string) (schoolsrepo.Session, error) {
+func (f *fakeRepo) SetSessionStatus(context.Context, string, string, string, *schoolsrepo.SessionNotificationEvent) (schoolsrepo.Session, error) {
 	return f.session, nil
 }
 func (f *fakeRepo) DeleteSession(context.Context, string, string) error { return nil }
@@ -98,22 +98,22 @@ func (f *fakeRepo) ListSessionBookings(context.Context, string, string) ([]schoo
 func (f *fakeRepo) ListBookings(context.Context, string, schoolsrepo.ListBookingsInput) ([]schoolsrepo.Booking, error) {
 	return []schoolsrepo.Booking{f.booking}, nil
 }
-func (f *fakeRepo) CreateBooking(context.Context, string, schoolsrepo.CreateBookingInput) (schoolsrepo.Booking, error) {
+func (f *fakeRepo) CreateBooking(context.Context, string, schoolsrepo.CreateBookingInput, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error) {
 	return f.booking, nil
 }
 func (f *fakeRepo) GetBooking(context.Context, string, string) (schoolsrepo.Booking, error) {
 	return f.booking, nil
 }
-func (f *fakeRepo) UpdateBooking(context.Context, string, string, schoolsrepo.UpdateBookingInput) (schoolsrepo.Booking, error) {
+func (f *fakeRepo) UpdateBooking(context.Context, string, string, schoolsrepo.UpdateBookingInput, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error) {
 	return f.booking, nil
 }
-func (f *fakeRepo) SetBookingStatus(context.Context, string, string, string, string) (schoolsrepo.Booking, error) {
+func (f *fakeRepo) SetBookingStatus(context.Context, string, string, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error) {
 	return f.booking, nil
 }
-func (f *fakeRepo) AssignBookingSession(context.Context, string, string, string) (schoolsrepo.Booking, error) {
+func (f *fakeRepo) AssignBookingSession(context.Context, string, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error) {
 	return f.booking, nil
 }
-func (f *fakeRepo) UnassignBookingSession(context.Context, string, string) (schoolsrepo.Booking, error) {
+func (f *fakeRepo) UnassignBookingSession(context.Context, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error) {
 	return f.booking, nil
 }
 func (f *fakeRepo) ReviewBookingPayment(context.Context, string, string, string, string, string) (schoolsrepo.BookingPayment, error) {
@@ -399,4 +399,65 @@ func TestCancelMyBookingRejectsCompletedBooking(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected completed booking cancellation to fail")
 	}
+}
+
+func TestMeaningfulSessionChangesIgnoresNotesOnlyEdit(t *testing.T) {
+	start := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	current := schoolsrepo.Session{
+		StartsAt:         start,
+		EndsAt:           start.Add(time.Hour),
+		LocationMode:     "inherit_course",
+		Status:           "scheduled",
+		InstructorUserID: "instructor-1",
+	}
+	input := schoolsrepo.UpdateSessionInput{
+		StartsAt:         current.StartsAt,
+		EndsAt:           current.EndsAt,
+		LocationMode:     current.LocationMode,
+		Status:           current.Status,
+		InstructorUserID: current.InstructorUserID,
+		NotesMarkdown:    "Typo fix",
+	}
+	if changes := meaningfulSessionChanges(current, input); len(changes) != 0 {
+		t.Fatalf("expected notes-only edit to be non-meaningful, got %#v", changes)
+	}
+}
+
+func TestMeaningfulSessionChangesIncludesOperationalFields(t *testing.T) {
+	start := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	currentCapacity := 4
+	newCapacity := 3
+	current := schoolsrepo.Session{
+		StartsAt:             start,
+		EndsAt:               start.Add(time.Hour),
+		LocationMode:         "inherit_course",
+		Status:               "scheduled",
+		InstructorUserID:     "instructor-1",
+		Capacity:             &currentCapacity,
+		AssignedBookingCount: 1,
+	}
+	input := schoolsrepo.UpdateSessionInput{
+		StartsAt:         current.StartsAt.Add(time.Hour),
+		EndsAt:           current.EndsAt.Add(time.Hour),
+		LocationMode:     "text_only",
+		LocationLabel:    "Pool B",
+		Status:           "cancelled",
+		InstructorUserID: "instructor-2",
+		Capacity:         &newCapacity,
+	}
+	changes := meaningfulSessionChanges(current, input)
+	for _, want := range []string{"starts_at", "ends_at", "location", "instructor", "status", "capacity"} {
+		if !containsString(changes, want) {
+			t.Fatalf("expected changes %#v to include %s", changes, want)
+		}
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }

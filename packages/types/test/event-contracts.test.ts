@@ -47,7 +47,7 @@ type BackendParticipantStatus =
   | "left"
   | "attended"
   | "no_show";
-type BackendPaymentMethodType = "MANUAL_QR" | "MANUAL_BANK_TRANSFER";
+type BackendPaymentMethodType = "manual_qr" | "bank_transfer";
 type BackendPaymentMode = "free" | "required" | "optional";
 type BackendPaymentStatus =
   | "not_required"

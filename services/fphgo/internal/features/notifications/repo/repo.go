@@ -56,6 +56,7 @@ type NotificationSettings struct {
 	GroupNotifications         bool
 	ServiceNotifications       bool
 	BookingNotifications       bool
+	SessionNotifications       bool
 	ReviewNotifications        bool
 	MentionNotifications       bool
 	LikeNotifications          bool
@@ -113,6 +114,7 @@ type SettingsUpdateInput struct {
 	GroupNotifications         *bool
 	ServiceNotifications       *bool
 	BookingNotifications       *bool
+	SessionNotifications       *bool
 	ReviewNotifications        *bool
 	MentionNotifications       *bool
 	LikeNotifications          *bool
@@ -138,6 +140,14 @@ const (
 	OutboxEventInstructorApplicationSubmitted = "INSTRUCTOR_APPLICATION_SUBMITTED"
 	OutboxEventInstructorApplicationApproved  = "INSTRUCTOR_APPLICATION_APPROVED"
 	OutboxEventInstructorApplicationRejected  = "INSTRUCTOR_APPLICATION_REJECTED"
+	OutboxEventBookingCreated                 = "BOOKING_CREATED"
+	OutboxEventBookingApproved                = "BOOKING_APPROVED"
+	OutboxEventBookingRejected                = "BOOKING_REJECTED"
+	OutboxEventBookingCancelledByStudent      = "BOOKING_CANCELLED_BY_STUDENT"
+	OutboxEventBookingCancelledBySchool       = "BOOKING_CANCELLED_BY_SCHOOL"
+	OutboxEventBookingRescheduled             = "BOOKING_RESCHEDULED"
+	OutboxEventSessionUpdated                 = "SESSION_UPDATED"
+	OutboxEventSessionCancelled               = "SESSION_CANCELLED"
 )
 
 type NotificationOutbox struct {
@@ -925,6 +935,128 @@ func (r *Repo) ListEventAttendeeRecipients(ctx context.Context, eventID, exclude
 	return scanUserIDs(rows)
 }
 
+func (r *Repo) ListActiveSchoolBookingManagerRecipients(ctx context.Context, schoolID, sessionID, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		WITH recipients AS (
+			SELECT sm.user_id
+			FROM school_members sm
+			WHERE sm.school_id = $1::uuid
+			  AND sm.status = 'active'
+			  AND sm.deleted_at IS NULL
+			  AND sm.role IN ('owner', 'admin')
+			UNION
+			SELECT cs.instructor_user_id
+			FROM course_sessions cs
+			JOIN school_members sm ON sm.school_id = cs.school_id
+				AND sm.user_id = cs.instructor_user_id
+				AND sm.status = 'active'
+				AND sm.deleted_at IS NULL
+			WHERE cs.school_id = $1::uuid
+			  AND cs.deleted_at IS NULL
+			  AND NULLIF($2, '') IS NOT NULL
+			  AND cs.id = $2::uuid
+			  AND cs.instructor_user_id IS NOT NULL
+		)
+		SELECT r.user_id::text
+		FROM recipients r
+		JOIN users u ON u.id = r.user_id
+		LEFT JOIN notification_settings ns ON ns.user_id = r.user_id
+		WHERE u.account_status = 'active'
+		  AND (NULLIF($3, '') IS NULL OR r.user_id <> $3::uuid)
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.booking_notifications, TRUE) = TRUE
+		ORDER BY r.user_id ASC
+	`, strings.TrimSpace(schoolID), strings.TrimSpace(sessionID), strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanUserIDs(rows)
+}
+
+func (r *Repo) ListActiveBookingStudentRecipients(ctx context.Context, bookingID, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT b.student_user_id::text
+		FROM course_booking_requests b
+		JOIN users u ON u.id = b.student_user_id
+		LEFT JOIN notification_settings ns ON ns.user_id = b.student_user_id
+		WHERE b.id = $1::uuid
+		  AND b.deleted_at IS NULL
+		  AND b.student_user_id IS NOT NULL
+		  AND u.account_status = 'active'
+		  AND (NULLIF($2, '') IS NULL OR b.student_user_id <> $2::uuid)
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.booking_notifications, TRUE) = TRUE
+		ORDER BY b.student_user_id ASC
+	`, strings.TrimSpace(bookingID), strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanUserIDs(rows)
+}
+
+func (r *Repo) ListActiveSessionStudentRecipients(ctx context.Context, sessionID, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT b.student_user_id::text AS user_id
+		FROM course_booking_requests b
+		JOIN users u ON u.id = b.student_user_id
+		LEFT JOIN notification_settings ns ON ns.user_id = b.student_user_id
+		WHERE b.session_id = $1::uuid
+		  AND b.deleted_at IS NULL
+		  AND b.student_user_id IS NOT NULL
+		  AND b.status NOT IN ('cancelled', 'rejected', 'completed')
+		  AND u.account_status = 'active'
+		  AND (NULLIF($2, '') IS NULL OR b.student_user_id <> $2::uuid)
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.session_notifications, TRUE) = TRUE
+		ORDER BY user_id ASC
+	`, strings.TrimSpace(sessionID), strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanUserIDs(rows)
+}
+
+func (r *Repo) ListActiveSessionManagerRecipients(ctx context.Context, schoolID, sessionID, excludeUserID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		WITH recipients AS (
+			SELECT sm.user_id
+			FROM school_members sm
+			WHERE sm.school_id = $1::uuid
+			  AND sm.status = 'active'
+			  AND sm.deleted_at IS NULL
+			  AND sm.role IN ('owner', 'admin')
+			UNION
+			SELECT cs.instructor_user_id
+			FROM course_sessions cs
+			JOIN school_members sm ON sm.school_id = cs.school_id
+				AND sm.user_id = cs.instructor_user_id
+				AND sm.status = 'active'
+				AND sm.deleted_at IS NULL
+			WHERE cs.school_id = $1::uuid
+			  AND cs.id = $2::uuid
+			  AND cs.deleted_at IS NULL
+			  AND cs.instructor_user_id IS NOT NULL
+		)
+		SELECT r.user_id::text
+		FROM recipients r
+		JOIN users u ON u.id = r.user_id
+		LEFT JOIN notification_settings ns ON ns.user_id = r.user_id
+		WHERE u.account_status = 'active'
+		  AND (NULLIF($3, '') IS NULL OR r.user_id <> $3::uuid)
+		  AND COALESCE(ns.in_app_enabled, TRUE) = TRUE
+		  AND COALESCE(ns.session_notifications, TRUE) = TRUE
+		ORDER BY r.user_id ASC
+	`, strings.TrimSpace(schoolID), strings.TrimSpace(sessionID), strings.TrimSpace(excludeUserID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanUserIDs(rows)
+}
+
 func (r *Repo) settingEnabled(ctx context.Context, userID string, column string) (bool, error) {
 	switch column {
 	case "chika_replies", "event_notifications", "group_invite_notifications", "instructor_status_notifications":
@@ -958,6 +1090,7 @@ func (r *Repo) GetSettingsForUser(ctx context.Context, userID string) (Notificat
 			group_notifications,
 			service_notifications,
 			booking_notifications,
+			session_notifications,
 			review_notifications,
 			mention_notifications,
 			like_notifications,
@@ -1000,6 +1133,7 @@ func (r *Repo) CreateDefaultSettingsForUser(ctx context.Context, userID string) 
 			group_notifications,
 			service_notifications,
 			booking_notifications,
+			session_notifications,
 			review_notifications,
 			mention_notifications,
 			like_notifications,
@@ -1060,6 +1194,9 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 	}
 	if input.BookingNotifications != nil {
 		addSet("booking_notifications", *input.BookingNotifications)
+	}
+	if input.SessionNotifications != nil {
+		addSet("session_notifications", *input.SessionNotifications)
 	}
 	if input.ReviewNotifications != nil {
 		addSet("review_notifications", *input.ReviewNotifications)
@@ -1137,6 +1274,7 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 			group_notifications,
 			service_notifications,
 			booking_notifications,
+			session_notifications,
 			review_notifications,
 			mention_notifications,
 			like_notifications,
@@ -1282,6 +1420,7 @@ func scanSettingsRow(row rowScanner) (NotificationSettings, error) {
 		&item.GroupNotifications,
 		&item.ServiceNotifications,
 		&item.BookingNotifications,
+		&item.SessionNotifications,
 		&item.ReviewNotifications,
 		&item.MentionNotifications,
 		&item.LikeNotifications,

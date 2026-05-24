@@ -291,7 +291,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	)
 	eventsHandler := eventshttp.New(eventsService, v)
 	schoolsRepo := schoolsrepo.New(pool)
-	schoolsService := schoolsservice.New(schoolsRepo)
+	schoolsService := schoolsservice.New(schoolsRepo, schoolsservice.WithNotifications(notificationsService))
 	schoolsHandler := schoolshttp.New(schoolsService, v)
 	instructorsRepo := instructorsrepo.New(pool)
 	instructorsService := instructorsservice.New(

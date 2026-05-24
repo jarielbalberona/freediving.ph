@@ -6,6 +6,7 @@ import type {
   CreateCourseSessionRequest,
   CreateSchoolRequest,
   CreateStudentCourseBookingRequest,
+  UpdateCoursePaymentMethodRequest,
   UpdateCourseRequest,
   UpdateCourseSessionRequest,
   UpdateSchoolRequest,
@@ -53,14 +54,31 @@ export const useUpdateCourse = (slug: string, courseId: string) => {
   });
 };
 
-export const useCreatePaymentMethod = (slug: string, courseId: string) => {
+export const useCreatePaymentMethod = (slug: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateCoursePaymentMethodRequest) =>
-      schoolsApi.createPaymentMethod(slug, courseId, data),
+      schoolsApi.createPaymentMethod(slug, data),
     onSuccess: () =>
       queryClient.invalidateQueries({
-        queryKey: queryKeys.schools.paymentMethods(slug, courseId),
+        queryKey: queryKeys.schools.paymentMethods(slug),
+      }),
+  });
+};
+
+export const useUpdatePaymentMethod = (slug: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      paymentMethodId,
+      data,
+    }: {
+      paymentMethodId: string;
+      data: UpdateCoursePaymentMethodRequest;
+    }) => schoolsApi.updatePaymentMethod(slug, paymentMethodId, data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.paymentMethods(slug),
       }),
   });
 };

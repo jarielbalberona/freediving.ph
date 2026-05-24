@@ -180,6 +180,18 @@ func (r *outboxAdminRepoStub) ListActiveInstructorReviewerRecipients(context.Con
 func (r *outboxAdminRepoStub) ListActiveNewDiveSiteRecipients(context.Context, string) ([]string, error) {
 	return nil, nil
 }
+func (r *outboxAdminRepoStub) ListActiveSchoolBookingManagerRecipients(context.Context, string, string, string) ([]string, error) {
+	return nil, nil
+}
+func (r *outboxAdminRepoStub) ListActiveBookingStudentRecipients(context.Context, string, string) ([]string, error) {
+	return nil, nil
+}
+func (r *outboxAdminRepoStub) ListActiveSessionStudentRecipients(context.Context, string, string) ([]string, error) {
+	return nil, nil
+}
+func (r *outboxAdminRepoStub) ListActiveSessionManagerRecipients(context.Context, string, string, string) ([]string, error) {
+	return nil, nil
+}
 func (r *outboxAdminRepoStub) ChikaRepliesEnabled(context.Context, string) (bool, error) {
 	return true, nil
 }

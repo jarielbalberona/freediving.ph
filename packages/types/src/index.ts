@@ -10,6 +10,7 @@ export * from "./api/public-profile";
 export * from "./feed";
 export * from "./instructors";
 export * from "./media";
+export * from "./payment-methods";
 export * from "./reports";
 export * from "./schools";
 
@@ -334,7 +335,7 @@ export type EventParticipantStatus =
   | "left"
   | "attended"
   | "no_show";
-export type EventPaymentMethodType = "MANUAL_QR" | "MANUAL_BANK_TRANSFER";
+export type EventPaymentMethodType = import("./payment-methods").PaymentMethodType;
 export type EventPaymentMode = "free" | "required" | "optional";
 export type EventPaymentStatus =
   | "not_required"
@@ -414,6 +415,7 @@ export interface EventPaymentMethod {
   type: EventPaymentMethodType;
   name: string;
   instructions?: string;
+  qrMediaId?: string;
   qrImageUrl?: string;
   accountName?: string;
   accountNumber?: string;
@@ -425,8 +427,9 @@ export interface EventPaymentMethod {
 
 export interface CreateEventPaymentMethodRequest {
   type: EventPaymentMethodType;
-  name: string;
+  name?: string;
   instructions?: string;
+  qrMediaId?: string;
   qrImageUrl?: string;
   accountName?: string;
   accountNumber?: string;
@@ -1265,6 +1268,14 @@ export interface Notification {
     | "INSTRUCTOR_APPLICATION_SUBMITTED"
     | "INSTRUCTOR_APPLICATION_APPROVED"
     | "INSTRUCTOR_APPLICATION_REJECTED"
+    | "BOOKING_CREATED"
+    | "BOOKING_APPROVED"
+    | "BOOKING_REJECTED"
+    | "BOOKING_CANCELLED_BY_STUDENT"
+    | "BOOKING_CANCELLED_BY_SCHOOL"
+    | "BOOKING_RESCHEDULED"
+    | "SESSION_UPDATED"
+    | "SESSION_CANCELLED"
     | "CHIKA_THREAD_COMMENTED"
     | "CHIKA_COMMENT_REPLIED"
     | "GROUP_INVITE_RECEIVED"
@@ -1309,6 +1320,7 @@ export interface NotificationSettings {
   groupNotifications: boolean;
   serviceNotifications: boolean;
   bookingNotifications: boolean;
+  sessionNotifications: boolean;
   reviewNotifications: boolean;
   mentionNotifications: boolean;
   likeNotifications: boolean;
@@ -1368,6 +1380,7 @@ export interface UpdateNotificationSettingsRequest {
   groupNotifications?: boolean;
   serviceNotifications?: boolean;
   bookingNotifications?: boolean;
+  sessionNotifications?: boolean;
   reviewNotifications?: boolean;
   mentionNotifications?: boolean;
   likeNotifications?: boolean;

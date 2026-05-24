@@ -23,7 +23,9 @@ export type SessionLocationMode =
   | "inherit_school"
   | "structured"
   | "text_only";
-export type CoursePaymentMethodType = "MANUAL_QR" | "MANUAL_BANK_TRANSFER";
+export type SchoolPaymentMethodType =
+  import("./payment-methods").PaymentMethodType;
+export type CoursePaymentMethodType = SchoolPaymentMethodType;
 export type CourseSessionStatus =
   | "draft"
   | "scheduled"
@@ -153,13 +155,14 @@ export interface Course {
   pendingBookingCount: number;
 }
 
-export interface CoursePaymentMethod {
+export interface SchoolPaymentMethod {
   id: string;
-  courseId: string;
+  schoolId: string;
   type: CoursePaymentMethodType;
   name: string;
   instructions: string;
   qrMediaId: string;
+  qrImageUrl: string;
   bankName: string;
   accountName: string;
   accountNumber: string;
@@ -167,6 +170,10 @@ export interface CoursePaymentMethod {
   createdAt: string;
   updatedAt: string;
 }
+
+export type CoursePaymentMethod = SchoolPaymentMethod & {
+  courseId?: string;
+};
 
 export interface CourseSession {
   id: string;
@@ -281,6 +288,7 @@ export interface PublicSchool {
   facebookUrl: string;
   instagramUrl: string;
   publishedCourseCount: number;
+  paymentMethods?: SchoolPaymentMethod[];
 }
 
 export interface PublicCourse {
@@ -371,10 +379,12 @@ export type CreateCourseRequest = Omit<
 export type UpdateCourseRequest = CreateCourseRequest;
 
 export type CreateCoursePaymentMethodRequest = Omit<
-  CoursePaymentMethod,
-  "id" | "courseId" | "createdAt" | "updatedAt"
+  SchoolPaymentMethod,
+  "id" | "schoolId" | "createdAt" | "updatedAt" | "qrImageUrl"
 >;
 export type UpdateCoursePaymentMethodRequest = CreateCoursePaymentMethodRequest;
+export type CreateSchoolPaymentMethodRequest = CreateCoursePaymentMethodRequest;
+export type UpdateSchoolPaymentMethodRequest = CreateSchoolPaymentMethodRequest;
 
 export type CreateCourseSessionRequest = Omit<
   CourseSession,

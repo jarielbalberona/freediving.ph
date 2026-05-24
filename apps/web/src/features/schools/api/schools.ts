@@ -154,40 +154,30 @@ export const schoolsApi = {
     );
     return response.data.course;
   },
-  listPaymentMethods: async (
-    slug: string,
-    courseId: string,
-  ): Promise<CoursePaymentMethod[]> => {
+  listPaymentMethods: async (slug: string): Promise<CoursePaymentMethod[]> => {
     const response = await axiosInstance.get<{
       paymentMethods: CoursePaymentMethod[];
-    }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/courses/${encodeURIComponent(courseId)}/payment-methods`,
-    );
+    }>(`/v1/manage/schools/${encodeURIComponent(slug)}/payment-methods`);
     return response.data.paymentMethods;
   },
   createPaymentMethod: async (
     slug: string,
-    courseId: string,
     data: CreateCoursePaymentMethodRequest,
   ): Promise<CoursePaymentMethod> => {
     const response = await axiosInstance.post<{
       paymentMethod: CoursePaymentMethod;
-    }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/courses/${encodeURIComponent(courseId)}/payment-methods`,
-      data,
-    );
+    }>(`/v1/manage/schools/${encodeURIComponent(slug)}/payment-methods`, data);
     return response.data.paymentMethod;
   },
   updatePaymentMethod: async (
     slug: string,
-    courseId: string,
     paymentMethodId: string,
     data: UpdateCoursePaymentMethodRequest,
   ): Promise<CoursePaymentMethod> => {
     const response = await axiosInstance.patch<{
       paymentMethod: CoursePaymentMethod;
     }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/courses/${encodeURIComponent(courseId)}/payment-methods/${encodeURIComponent(paymentMethodId)}`,
+      `/v1/manage/schools/${encodeURIComponent(slug)}/payment-methods/${encodeURIComponent(paymentMethodId)}`,
       data,
     );
     return response.data.paymentMethod;

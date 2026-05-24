@@ -26,6 +26,7 @@ type EventPaymentMethodResponse struct {
 	Type          string    `json:"type"`
 	Name          string    `json:"name"`
 	Instructions  string    `json:"instructions,omitempty"`
+	QRMediaID     string    `json:"qrMediaId,omitempty"`
 	QRImageURL    string    `json:"qrImageUrl,omitempty"`
 	AccountName   string    `json:"accountName,omitempty"`
 	AccountNumber string    `json:"accountNumber,omitempty"`
@@ -177,9 +178,10 @@ type ListEventParticipantsResponse struct {
 }
 
 type CreatePaymentMethodRequest struct {
-	Type          string `json:"type" validate:"required,oneof=MANUAL_QR MANUAL_BANK_TRANSFER"`
-	Name          string `json:"name" validate:"required,min=1,max=120"`
+	Type          string `json:"type" validate:"required,oneof=manual_qr bank_transfer MANUAL_QR MANUAL_BANK_TRANSFER"`
+	Name          string `json:"name" validate:"omitempty,min=1,max=120"`
 	Instructions  string `json:"instructions,omitempty" validate:"omitempty,max=2000"`
+	QRMediaID     string `json:"qrMediaId,omitempty" validate:"omitempty,uuid"`
 	QRImageURL    string `json:"qrImageUrl,omitempty" validate:"omitempty,max=1000"`
 	AccountName   string `json:"accountName,omitempty" validate:"omitempty,max=160"`
 	AccountNumber string `json:"accountNumber,omitempty" validate:"omitempty,max=160"`
@@ -188,9 +190,10 @@ type CreatePaymentMethodRequest struct {
 }
 
 type UpdatePaymentMethodRequest struct {
-	Type          *string `json:"type,omitempty" validate:"omitempty,oneof=MANUAL_QR MANUAL_BANK_TRANSFER"`
+	Type          *string `json:"type,omitempty" validate:"omitempty,oneof=manual_qr bank_transfer MANUAL_QR MANUAL_BANK_TRANSFER"`
 	Name          *string `json:"name,omitempty" validate:"omitempty,min=1,max=120"`
 	Instructions  *string `json:"instructions,omitempty" validate:"omitempty,max=2000"`
+	QRMediaID     *string `json:"qrMediaId,omitempty" validate:"omitempty,uuid"`
 	QRImageURL    *string `json:"qrImageUrl,omitempty" validate:"omitempty,max=1000"`
 	AccountName   *string `json:"accountName,omitempty" validate:"omitempty,max=160"`
 	AccountNumber *string `json:"accountNumber,omitempty" validate:"omitempty,max=160"`

@@ -13,10 +13,14 @@ test("instructor application routes and labels are discoverable", () => {
     "src/features/instructors/pages/InstructorApplicationPage.tsx",
   );
   const constants = read("src/features/instructors/constants.ts");
+  const nav = read("src/config/nav.ts");
 
   assert.match(applyPage, /InstructorApplicationPage/);
   assert.match(profilePage, /InstructorApplicationPage/);
   assert.match(certificationsPage, /InstructorApplicationPage/);
+  assert.match(nav, /id: "instructor-application"/);
+  assert.match(nav, /href: "\/instructor\/apply"/);
+  assert.match(nav, /MOBILE_SIDEBAR_ORDER[\s\S]*"instructor-application"/);
   assert.match(page, /Submit for review/);
   assert.match(page, /FPH reviews existing instructor certifications/);
   assert.match(page, /does not mean FPH issued, guarantees, or certifies/);
@@ -55,9 +59,11 @@ test("school create UI is gated by verified instructor status", () => {
 test("admin instructors review page supports verify and reject actions", () => {
   const adminPage = read("src/app/admin/instructors/page.tsx");
   const adminNav = read("src/app/admin/_components/admin-page.tsx");
+  const appSidebar = read("src/components/ui/app-sidebar.tsx");
   const routes = read("src/lib/api/fphgo-routes.ts");
 
   assert.match(adminNav, /\/admin\/instructors/);
+  assert.match(appSidebar, /\/admin\/instructors/);
   assert.match(adminPage, /useVerifyInstructor/);
   assert.match(adminPage, /useRejectInstructor/);
   assert.match(adminPage, /statusOptions/);

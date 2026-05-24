@@ -804,6 +804,7 @@ CREATE TABLE IF NOT EXISTS media_objects (
     'profile_feed',
     'chika_attachment',
     'event_attachment',
+    'payment_method_qr',
     'dive_spot_attachment',
     'group_cover',
     'instructor_certification_proof'
@@ -1155,6 +1156,7 @@ CREATE TABLE IF NOT EXISTS event_payment_methods (
   type TEXT NOT NULL,
   name TEXT NOT NULL,
   instructions TEXT,
+  qr_media_id UUID REFERENCES media_objects(id) ON DELETE SET NULL,
   qr_image_url TEXT,
   account_name TEXT,
   account_number TEXT,
@@ -1162,7 +1164,7 @@ CREATE TABLE IF NOT EXISTS event_payment_methods (
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (type IN ('MANUAL_QR', 'MANUAL_BANK_TRANSFER')),
+  CHECK (type IN ('manual_qr', 'bank_transfer')),
   CHECK (length(trim(name)) > 0)
 );
 
@@ -1359,6 +1361,24 @@ CREATE TABLE IF NOT EXISTS course_payment_methods (
   CHECK (length(trim(name)) > 0)
 );
 
+CREATE TABLE IF NOT EXISTS school_payment_methods (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  instructions TEXT,
+  qr_media_id UUID REFERENCES media_objects(id) ON DELETE SET NULL,
+  bank_name TEXT,
+  account_name TEXT,
+  account_number TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
+  CHECK (type IN ('manual_qr', 'bank_transfer')),
+  CHECK (length(trim(name)) > 0)
+);
+
 CREATE TABLE IF NOT EXISTS course_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
@@ -1434,7 +1454,7 @@ CREATE TABLE IF NOT EXISTS course_booking_payments (
   course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
   school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   student_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  payment_method_id UUID REFERENCES course_payment_methods(id) ON DELETE SET NULL,
+  payment_method_id UUID REFERENCES school_payment_methods(id) ON DELETE SET NULL,
   amount NUMERIC(12,2),
   currency TEXT NOT NULL DEFAULT 'PHP',
   proof_media_id UUID REFERENCES media_objects(id) ON DELETE SET NULL,
@@ -1638,6 +1658,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_courses_school_slug_active ON courses (sch
 CREATE INDEX IF NOT EXISTS idx_courses_school_status ON courses (school_id, status);
 CREATE INDEX IF NOT EXISTS idx_courses_location_mode ON courses (school_id, location_mode) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_payment_methods_course_active ON course_payment_methods (course_id, is_active) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_school_payment_methods_school_active ON school_payment_methods (school_id, is_active) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_school_status ON course_sessions (school_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_location_mode ON course_sessions (school_id, location_mode) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_course_starts ON course_sessions (course_id, starts_at) WHERE deleted_at IS NULL;

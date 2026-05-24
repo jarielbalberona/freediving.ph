@@ -337,6 +337,132 @@ func TestNotifyInstructorApplicationStatusHonorsApplicantSetting(t *testing.T) {
 	}
 }
 
+func TestNotifyBookingCreatedNotifiesManagersAndExcludesStudentActor(t *testing.T) {
+	repo := newNotificationRepoStub()
+	studentID := "550e8400-e29b-41d4-a716-446655440001"
+	managerID := "550e8400-e29b-41d4-a716-446655440002"
+	instructorID := "550e8400-e29b-41d4-a716-446655440003"
+	repo.bookingManagerRecipients = []string{studentID, managerID, instructorID}
+	svc := New(repo)
+
+	err := svc.NotifyBookingCreated(context.Background(), BookingNotificationInput{
+		BookingID:     "770e8400-e29b-41d4-a716-446655440200",
+		SchoolID:      "770e8400-e29b-41d4-a716-446655440201",
+		SchoolSlug:    "reef-school",
+		CourseID:      "770e8400-e29b-41d4-a716-446655440202",
+		CourseTitle:   "Intro Freediving",
+		StudentUserID: studentID,
+		StudentName:   "Maya",
+		ActorUserID:   studentID,
+		Status:        "pending_review",
+	})
+	if err != nil {
+		t.Fatalf("NotifyBookingCreated returned error: %v", err)
+	}
+	if len(repo.created) != 2 {
+		t.Fatalf("expected manager and instructor notifications, got %d", len(repo.created))
+	}
+	for _, created := range repo.created {
+		if created.UserID == studentID {
+			t.Fatal("student actor should not receive manager booking-created notification")
+		}
+		if created.Type != "BOOKING_CREATED" || derefString(created.ActionURL) != "/manage/schools/reef-school/bookings" {
+			t.Fatalf("unexpected booking-created notification: type=%s action=%s", created.Type, derefString(created.ActionURL))
+		}
+		for _, forbidden := range []string{"studentEmail", "studentPhone", "adminNotes", "proofMediaId", "referenceNumber"} {
+			if _, ok := created.Metadata[forbidden]; ok {
+				t.Fatalf("booking-created metadata leaked %s", forbidden)
+			}
+		}
+	}
+}
+
+func TestNotifyBookingStatusNotifiesStudentOnly(t *testing.T) {
+	repo := newNotificationRepoStub()
+	studentID := "550e8400-e29b-41d4-a716-446655440001"
+	managerID := "550e8400-e29b-41d4-a716-446655440002"
+	repo.bookingStudentRecipients = []string{studentID}
+	repo.bookingManagerRecipients = []string{managerID}
+	svc := New(repo)
+
+	if err := svc.NotifyBookingApproved(context.Background(), BookingNotificationInput{
+		BookingID:   "770e8400-e29b-41d4-a716-446655440200",
+		SchoolID:    "770e8400-e29b-41d4-a716-446655440201",
+		ActorUserID: managerID,
+		Status:      "approved",
+	}); err != nil {
+		t.Fatalf("NotifyBookingApproved returned error: %v", err)
+	}
+	if err := svc.NotifyBookingRejected(context.Background(), BookingNotificationInput{
+		BookingID:   "770e8400-e29b-41d4-a716-446655440201",
+		SchoolID:    "770e8400-e29b-41d4-a716-446655440201",
+		ActorUserID: managerID,
+		Status:      "rejected",
+	}); err != nil {
+		t.Fatalf("NotifyBookingRejected returned error: %v", err)
+	}
+	if err := svc.NotifyBookingCancelledBySchool(context.Background(), BookingNotificationInput{
+		BookingID:   "770e8400-e29b-41d4-a716-446655440202",
+		SchoolID:    "770e8400-e29b-41d4-a716-446655440201",
+		ActorUserID: managerID,
+		Status:      "cancelled",
+	}); err != nil {
+		t.Fatalf("NotifyBookingCancelledBySchool returned error: %v", err)
+	}
+	if len(repo.created) != 3 {
+		t.Fatalf("expected three student notifications, got %d", len(repo.created))
+	}
+	for _, created := range repo.created {
+		if created.UserID != studentID {
+			t.Fatalf("expected student-only recipient, got %s", created.UserID)
+		}
+		if derefString(created.ActionURL) != "/my/bookings" {
+			t.Fatalf("expected /my/bookings action, got %s", derefString(created.ActionURL))
+		}
+		if _, ok := created.Metadata["adminNotes"]; ok {
+			t.Fatal("booking status metadata leaked admin notes")
+		}
+	}
+}
+
+func TestNotifySessionCancelledTargetsAffectedStudentsAndManagers(t *testing.T) {
+	repo := newNotificationRepoStub()
+	actorID := "550e8400-e29b-41d4-a716-446655440001"
+	studentID := "550e8400-e29b-41d4-a716-446655440002"
+	managerID := "550e8400-e29b-41d4-a716-446655440003"
+	repo.sessionStudentRecipients = []string{studentID}
+	repo.sessionManagerRecipients = []string{actorID, managerID}
+	svc := New(repo)
+
+	err := svc.NotifySessionCancelled(context.Background(), SessionNotificationInput{
+		SessionID:   "770e8400-e29b-41d4-a716-446655440300",
+		SchoolID:    "770e8400-e29b-41d4-a716-446655440301",
+		SchoolSlug:  "reef-school",
+		CourseID:    "770e8400-e29b-41d4-a716-446655440302",
+		Title:       "Depth Session",
+		ActorUserID: actorID,
+		Status:      "cancelled",
+		ChangeTypes: []string{"status"},
+	})
+	if err != nil {
+		t.Fatalf("NotifySessionCancelled returned error: %v", err)
+	}
+	if len(repo.created) != 2 {
+		t.Fatalf("expected student and non-actor manager notifications, got %d", len(repo.created))
+	}
+	for _, created := range repo.created {
+		if created.UserID == actorID {
+			t.Fatal("actor should be excluded from session manager notification")
+		}
+		if created.UserID == studentID && derefString(created.ActionURL) != "/my/bookings" {
+			t.Fatalf("student action url = %s", derefString(created.ActionURL))
+		}
+		if created.UserID == managerID && derefString(created.ActionURL) != "/manage/schools/reef-school/sessions" {
+			t.Fatalf("manager action url = %s", derefString(created.ActionURL))
+		}
+	}
+}
+
 func TestNotifyChikaThreadCommentedUsesPseudonymousSafePayload(t *testing.T) {
 	repo := newNotificationRepoStub()
 	recipientID := "550e8400-e29b-41d4-a716-446655440101"
@@ -860,6 +986,10 @@ type notificationRepoStub struct {
 	nextID                               int64
 	exploreModeratorRecipients           []string
 	instructorReviewerRecipients         []string
+	bookingManagerRecipients             []string
+	bookingStudentRecipients             []string
+	sessionStudentRecipients             []string
+	sessionManagerRecipients             []string
 	newDiveSiteRecipients                []string
 	excludedNewDiveSiteRecipientIDs      map[string]bool
 	chikaRepliesEnabled                  map[string]bool
@@ -1027,6 +1157,22 @@ func (r *notificationRepoStub) ListActiveNewDiveSiteRecipients(_ context.Context
 		recipients = append(recipients, userID)
 	}
 	return recipients, nil
+}
+
+func (r *notificationRepoStub) ListActiveSchoolBookingManagerRecipients(_ context.Context, _, _, excludeUserID string) ([]string, error) {
+	return filteredRecipients(r.bookingManagerRecipients, excludeUserID), nil
+}
+
+func (r *notificationRepoStub) ListActiveBookingStudentRecipients(_ context.Context, _, excludeUserID string) ([]string, error) {
+	return filteredRecipients(r.bookingStudentRecipients, excludeUserID), nil
+}
+
+func (r *notificationRepoStub) ListActiveSessionStudentRecipients(_ context.Context, _, excludeUserID string) ([]string, error) {
+	return filteredRecipients(r.sessionStudentRecipients, excludeUserID), nil
+}
+
+func (r *notificationRepoStub) ListActiveSessionManagerRecipients(_ context.Context, _, _, excludeUserID string) ([]string, error) {
+	return filteredRecipients(r.sessionManagerRecipients, excludeUserID), nil
 }
 
 func (r *notificationRepoStub) ChikaRepliesEnabled(_ context.Context, userID string) (bool, error) {

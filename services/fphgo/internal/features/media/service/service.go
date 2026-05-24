@@ -35,6 +35,7 @@ const (
 	ContextProfileFeed        = "profile_feed"
 	ContextChikaAttachment    = "chika_attachment"
 	ContextEventAttachment    = "event_attachment"
+	ContextPaymentMethodQR    = "payment_method_qr"
 	ContextDiveSpotAttachment = "dive_spot_attachment"
 	ContextGroupCover         = "group_cover"
 	ContextInstructorProof    = "instructor_certification_proof"
@@ -416,6 +417,13 @@ var contextRules = map[string]contextRule{
 		maxUploadBytes:    maxUploadBytes,
 		ttl:               3 * 24 * time.Hour,
 		maxTransformWidth: 2048,
+		requiresContextID: true,
+		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
+	},
+	ContextPaymentMethodQR: {
+		maxUploadBytes:    maxUploadBytes,
+		ttl:               3 * 24 * time.Hour,
+		maxTransformWidth: 1600,
 		requiresContextID: true,
 		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
 	},
@@ -1880,6 +1888,8 @@ func buildObjectKey(contextType, ownerUserID string, contextID *string, filename
 		return path.Join("chika", valueOrEmpty(contextID), filename)
 	case ContextEventAttachment:
 		return path.Join("events", valueOrEmpty(contextID), filename)
+	case ContextPaymentMethodQR:
+		return path.Join("payment-methods", valueOrEmpty(contextID), filename)
 	case ContextDiveSpotAttachment:
 		return path.Join("dive-spots", valueOrEmpty(contextID), filename)
 	case ContextGroupCover:

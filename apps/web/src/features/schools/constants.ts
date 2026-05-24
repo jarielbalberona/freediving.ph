@@ -81,6 +81,6 @@ export const paymentStatusLabels: Record<CourseBookingPaymentStatus, string> = {
 };
 
 export const paymentMethodTypeLabels = {
-  MANUAL_QR: "Manual QR",
-  MANUAL_BANK_TRANSFER: "Bank transfer",
+  manual_qr: "Manual QR",
+  bank_transfer: "Bank transfer",
 } as const;

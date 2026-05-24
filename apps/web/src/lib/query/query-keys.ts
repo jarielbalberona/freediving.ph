@@ -597,12 +597,8 @@ export const queryKeys = {
       [...queryKeys.schools.all, "detail", cleanString(slug)] as const,
     courses: (slug: string) =>
       [...queryKeys.schools.detail(slug), "courses"] as const,
-    paymentMethods: (slug: string, courseId: string) =>
-      [
-        ...queryKeys.schools.courses(slug),
-        cleanString(courseId),
-        "payment-methods",
-      ] as const,
+    paymentMethods: (slug: string) =>
+      [...queryKeys.schools.detail(slug), "payment-methods"] as const,
     sessions: (slug: string, filters: Record<string, unknown> = {}) =>
       [
         ...queryKeys.schools.detail(slug),

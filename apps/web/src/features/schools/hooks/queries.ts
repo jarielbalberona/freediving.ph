@@ -67,11 +67,11 @@ export const useManageCourses = (slug: string) =>
     enabled: Boolean(slug),
   });
 
-export const useManagePaymentMethods = (slug: string, courseId: string) =>
+export const useManagePaymentMethods = (slug: string) =>
   useQuery({
-    queryKey: queryKeys.schools.paymentMethods(slug, courseId),
-    queryFn: () => schoolsApi.listPaymentMethods(slug, courseId),
-    enabled: Boolean(slug && courseId),
+    queryKey: queryKeys.schools.paymentMethods(slug),
+    queryFn: () => schoolsApi.listPaymentMethods(slug),
+    enabled: Boolean(slug),
   });
 
 export const useManageSessions = (

@@ -141,6 +141,14 @@ function formatNotificationType(value: Notification["type"]) {
     INSTRUCTOR_APPLICATION_SUBMITTED: "New instructor application",
     INSTRUCTOR_APPLICATION_APPROVED: "Instructor application approved",
     INSTRUCTOR_APPLICATION_REJECTED: "Instructor application rejected",
+    BOOKING_CREATED: "New booking request",
+    BOOKING_APPROVED: "Booking approved",
+    BOOKING_REJECTED: "Booking rejected",
+    BOOKING_CANCELLED_BY_STUDENT: "Booking cancelled",
+    BOOKING_CANCELLED_BY_SCHOOL: "Booking cancelled",
+    BOOKING_RESCHEDULED: "Booking rescheduled",
+    SESSION_UPDATED: "Session updated",
+    SESSION_CANCELLED: "Session cancelled",
   };
   if (labels[value]) {
     return labels[value];

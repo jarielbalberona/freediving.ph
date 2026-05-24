@@ -9,10 +9,12 @@ import type {
   CreateCourseRequest,
   CreateCourseSessionRequest,
   CreateStudentCourseBookingRequest,
+  defaultPaymentInstructions,
   PublicCourse,
   PublicSchool,
   StudentCourseBookingPayment,
   SchoolStatus,
+  validatePaymentMethodDetails,
 } from "../src/index";
 
 test("schools module shared contracts expose backend enum values", () => {
@@ -21,14 +23,42 @@ test("schools module shared contracts expose backend enum values", () => {
   const courseLocationMode: CourseLocationMode = "inherit_school";
   const sessionStatus: CourseSessionStatus = "scheduled";
   const bookingStatus: CourseBookingStatus = "pending_review";
-  const paymentMethodType: CoursePaymentMethodType = "MANUAL_QR";
+  const paymentMethodType: CoursePaymentMethodType = "manual_qr";
 
   assert.equal(schoolStatus, "published");
   assert.equal(courseType, "pool_training");
   assert.equal(courseLocationMode, "inherit_school");
   assert.equal(sessionStatus, "scheduled");
   assert.equal(bookingStatus, "pending_review");
-  assert.equal(paymentMethodType, "MANUAL_QR");
+  assert.equal(paymentMethodType, "manual_qr");
+});
+
+test("shared payment method validation enforces active method requirements", () => {
+  assert.equal(defaultPaymentInstructions.includes("receipt"), true);
+  assert.deepEqual(
+    validatePaymentMethodDetails({
+      type: "manual_qr",
+      isActive: true,
+    }).map((issue) => issue.path),
+    ["qrMediaId"],
+  );
+  assert.deepEqual(
+    validatePaymentMethodDetails({
+      type: "bank_transfer",
+      bankName: "BPI",
+      accountName: "Freediving School",
+      accountNumber: "0000",
+      isActive: true,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validatePaymentMethodDetails({
+      type: "bank_transfer",
+      isActive: true,
+    }).map((issue) => issue.path),
+    ["bankName", "accountName", "accountNumber"],
+  );
 });
 
 test("school management create contracts do not require currency or timezone", () => {

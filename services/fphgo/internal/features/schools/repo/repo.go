@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	notificationsrepo "fphgo/internal/features/notifications/repo"
 	platformdb "fphgo/internal/platform/db"
 	sharedslug "fphgo/internal/shared/slug"
 )
@@ -62,6 +63,7 @@ type School struct {
 	PendingBookingCount   int
 	UpcomingSessionCount  int
 	PaymentsToReviewCount int
+	PaymentMethods        []PaymentMethod
 }
 
 type Course struct {
@@ -106,11 +108,12 @@ type Course struct {
 
 type PaymentMethod struct {
 	ID            string
-	CourseID      string
+	SchoolID      string
 	Type          string
 	Name          string
 	Instructions  string
 	QRMediaID     string
+	QRImageURL    string
 	BankName      string
 	AccountName   string
 	AccountNumber string
@@ -250,6 +253,28 @@ type ListSessionsInput struct {
 type ListBookingsInput struct {
 	CourseID, SessionID, Status, PaymentStatus, Search string
 	PreferredDateFrom, PreferredDateTo                 *time.Time
+}
+
+type BookingNotificationEvent struct {
+	EventType         string
+	ActorUserID       string
+	PreviousSessionID string
+	IdempotencySuffix string
+}
+
+type SessionNotificationEvent struct {
+	EventType         string
+	ActorUserID       string
+	ChangeTypes       []string
+	PreviousStatus    string
+	PreviousStartsAt  time.Time
+	PreviousEndsAt    time.Time
+	IdempotencySuffix string
+}
+
+type queryExecutor interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
 type PublicSchoolFilters struct {
@@ -485,8 +510,8 @@ func (r *Repo) DeleteCourse(ctx context.Context, schoolID, idOrSlug string) erro
 	return err
 }
 
-func (r *Repo) ListPaymentMethods(ctx context.Context, courseID string) ([]PaymentMethod, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,course_id,type,name,COALESCE(instructions,''),COALESCE(qr_media_id::text,''),COALESCE(bank_name,''),COALESCE(account_name,''),COALESCE(account_number,''),is_active,created_at,updated_at FROM course_payment_methods WHERE course_id=$1 AND deleted_at IS NULL ORDER BY created_at DESC`, courseID)
+func (r *Repo) ListPaymentMethods(ctx context.Context, schoolID string) ([]PaymentMethod, error) {
+	rows, err := r.pool.Query(ctx, `SELECT spm.id,spm.school_id,spm.type,spm.name,COALESCE(spm.instructions,''),COALESCE(spm.qr_media_id::text,''),COALESCE(mo.object_key,''),COALESCE(spm.bank_name,''),COALESCE(spm.account_name,''),COALESCE(spm.account_number,''),spm.is_active,spm.created_at,spm.updated_at FROM school_payment_methods spm LEFT JOIN media_objects mo ON mo.id=spm.qr_media_id WHERE spm.school_id=$1 AND spm.deleted_at IS NULL ORDER BY spm.created_at DESC`, schoolID)
 	if err != nil {
 		return nil, err
 	}
@@ -502,18 +527,18 @@ func (r *Repo) ListPaymentMethods(ctx context.Context, courseID string) ([]Payme
 	return items, rows.Err()
 }
 
-func (r *Repo) CreatePaymentMethod(ctx context.Context, courseID string, input CreatePaymentMethodInput) (PaymentMethod, error) {
-	row := r.pool.QueryRow(ctx, `INSERT INTO course_payment_methods (course_id,type,name,instructions,qr_media_id,bank_name,account_name,account_number,is_active) VALUES ($1,$2,$3,NULLIF($4,''),NULLIF($5,'')::uuid,NULLIF($6,''),NULLIF($7,''),NULLIF($8,''),$9) RETURNING id,course_id,type,name,COALESCE(instructions,''),COALESCE(qr_media_id::text,''),COALESCE(bank_name,''),COALESCE(account_name,''),COALESCE(account_number,''),is_active,created_at,updated_at`, courseID, input.Type, input.Name, input.Instructions, input.QRMediaID, input.BankName, input.AccountName, input.AccountNumber, input.IsActive)
+func (r *Repo) CreatePaymentMethod(ctx context.Context, schoolID string, input CreatePaymentMethodInput) (PaymentMethod, error) {
+	row := r.pool.QueryRow(ctx, `INSERT INTO school_payment_methods (school_id,type,name,instructions,qr_media_id,bank_name,account_name,account_number,is_active) VALUES ($1,$2,$3,NULLIF($4,''),NULLIF($5,'')::uuid,NULLIF($6,''),NULLIF($7,''),NULLIF($8,''),$9) RETURNING id,school_id,type,name,COALESCE(instructions,''),COALESCE(qr_media_id::text,''),'',COALESCE(bank_name,''),COALESCE(account_name,''),COALESCE(account_number,''),is_active,created_at,updated_at`, schoolID, input.Type, input.Name, input.Instructions, input.QRMediaID, input.BankName, input.AccountName, input.AccountNumber, input.IsActive)
 	return scanPaymentMethod(row)
 }
 
-func (r *Repo) UpdatePaymentMethod(ctx context.Context, courseID, methodID string, input CreatePaymentMethodInput) (PaymentMethod, error) {
-	row := r.pool.QueryRow(ctx, `UPDATE course_payment_methods SET type=$3,name=$4,instructions=NULLIF($5,''),qr_media_id=NULLIF($6,'')::uuid,bank_name=NULLIF($7,''),account_name=NULLIF($8,''),account_number=NULLIF($9,''),is_active=$10,updated_at=NOW() WHERE course_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id,course_id,type,name,COALESCE(instructions,''),COALESCE(qr_media_id::text,''),COALESCE(bank_name,''),COALESCE(account_name,''),COALESCE(account_number,''),is_active,created_at,updated_at`, courseID, methodID, input.Type, input.Name, input.Instructions, input.QRMediaID, input.BankName, input.AccountName, input.AccountNumber, input.IsActive)
+func (r *Repo) UpdatePaymentMethod(ctx context.Context, schoolID, methodID string, input CreatePaymentMethodInput) (PaymentMethod, error) {
+	row := r.pool.QueryRow(ctx, `UPDATE school_payment_methods SET type=$3,name=$4,instructions=NULLIF($5,''),qr_media_id=NULLIF($6,'')::uuid,bank_name=NULLIF($7,''),account_name=NULLIF($8,''),account_number=NULLIF($9,''),is_active=$10,updated_at=NOW() WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id,school_id,type,name,COALESCE(instructions,''),COALESCE(qr_media_id::text,''),'',COALESCE(bank_name,''),COALESCE(account_name,''),COALESCE(account_number,''),is_active,created_at,updated_at`, schoolID, methodID, input.Type, input.Name, input.Instructions, input.QRMediaID, input.BankName, input.AccountName, input.AccountNumber, input.IsActive)
 	return scanPaymentMethod(row)
 }
 
-func (r *Repo) DeletePaymentMethod(ctx context.Context, courseID, methodID string) error {
-	_, err := r.pool.Exec(ctx, `UPDATE course_payment_methods SET deleted_at=NOW(), updated_at=NOW() WHERE course_id=$1 AND id=$2 AND deleted_at IS NULL`, courseID, methodID)
+func (r *Repo) DeletePaymentMethod(ctx context.Context, schoolID, methodID string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE school_payment_methods SET deleted_at=NOW(), updated_at=NOW() WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, methodID)
 	return err
 }
 
@@ -585,32 +610,65 @@ func (r *Repo) CreateSession(ctx context.Context, schoolID string, input CreateS
 }
 
 func (r *Repo) GetSession(ctx context.Context, schoolID, idOrSlug string) (Session, error) {
-	row := r.pool.QueryRow(ctx, sessionSelect()+" WHERE s.school_id=$1 AND s.deleted_at IS NULL AND (s.id::text=$2 OR s.slug=$2) GROUP BY s.id,c.title,u.display_name", schoolID, idOrSlug)
-	return scanSession(row)
+	return getSessionWithExecutor(ctx, r.pool, schoolID, idOrSlug)
 }
 
-func (r *Repo) UpdateSession(ctx context.Context, schoolID, idOrSlug string, input UpdateSessionInput) (Session, error) {
-	s, err := r.GetSession(ctx, schoolID, idOrSlug)
+func (r *Repo) UpdateSession(ctx context.Context, schoolID, idOrSlug string, input UpdateSessionInput, event *SessionNotificationEvent) (Session, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Session{}, err
 	}
-	_, err = r.pool.Exec(ctx, `UPDATE course_sessions SET course_id=$3,title=$4,starts_at=$5,ends_at=$6,timezone=$7,location_mode=$8,location_label=NULLIF($9,''),location_note=NULLIF($10,''),formatted_address=NULLIF($11,''),region_code=NULLIF($12,''),region_name=NULLIF($13,''),province_code=NULLIF($14,''),province_name=NULLIF($15,''),city_code=NULLIF($16,''),city_name=NULLIF($17,''),barangay_code=NULLIF($18,''),barangay_name=NULLIF($19,''),location_source=$20,dive_site_id=NULLIF($21,'')::uuid,instructor_user_id=NULLIF($22,'')::uuid,capacity=$23,status=$24,notes_markdown=NULLIF($25,''),updated_at=NOW() WHERE id=$1 AND school_id=$2 AND deleted_at IS NULL`, s.ID, schoolID, input.CourseID, input.Title, input.StartsAt, input.EndsAt, input.Timezone, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.InstructorUserID, input.Capacity, input.Status, input.NotesMarkdown)
+	defer func() { _ = tx.Rollback(ctx) }()
+	s, err := getSessionWithExecutor(ctx, tx, schoolID, idOrSlug)
 	if err != nil {
 		return Session{}, err
 	}
-	return r.GetSession(ctx, schoolID, s.ID)
+	_, err = tx.Exec(ctx, `UPDATE course_sessions SET course_id=$3,title=$4,starts_at=$5,ends_at=$6,timezone=$7,location_mode=$8,location_label=NULLIF($9,''),location_note=NULLIF($10,''),formatted_address=NULLIF($11,''),region_code=NULLIF($12,''),region_name=NULLIF($13,''),province_code=NULLIF($14,''),province_name=NULLIF($15,''),city_code=NULLIF($16,''),city_name=NULLIF($17,''),barangay_code=NULLIF($18,''),barangay_name=NULLIF($19,''),location_source=$20,dive_site_id=NULLIF($21,'')::uuid,instructor_user_id=NULLIF($22,'')::uuid,capacity=$23,status=$24,notes_markdown=NULLIF($25,''),updated_at=NOW() WHERE id=$1 AND school_id=$2 AND deleted_at IS NULL`, s.ID, schoolID, input.CourseID, input.Title, input.StartsAt, input.EndsAt, input.Timezone, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.InstructorUserID, input.Capacity, input.Status, input.NotesMarkdown)
+	if err != nil {
+		return Session{}, err
+	}
+	item, err := getSessionWithExecutor(ctx, tx, schoolID, s.ID)
+	if err != nil {
+		return Session{}, err
+	}
+	if event != nil {
+		if err := enqueueSessionOutbox(ctx, tx, item, *event); err != nil {
+			return Session{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Session{}, err
+	}
+	return item, nil
 }
 
-func (r *Repo) SetSessionStatus(ctx context.Context, schoolID, idOrSlug, status string) (Session, error) {
-	s, err := r.GetSession(ctx, schoolID, idOrSlug)
+func (r *Repo) SetSessionStatus(ctx context.Context, schoolID, idOrSlug, status string, event *SessionNotificationEvent) (Session, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Session{}, err
 	}
-	_, err = r.pool.Exec(ctx, `UPDATE course_sessions SET status=$3, updated_at=NOW(), cancelled_at=CASE WHEN $3='cancelled' THEN NOW() ELSE cancelled_at END, completed_at=CASE WHEN $3='completed' THEN NOW() ELSE completed_at END WHERE id=$1 AND school_id=$2`, s.ID, schoolID, status)
+	defer func() { _ = tx.Rollback(ctx) }()
+	s, err := getSessionWithExecutor(ctx, tx, schoolID, idOrSlug)
 	if err != nil {
 		return Session{}, err
 	}
-	return r.GetSession(ctx, schoolID, s.ID)
+	_, err = tx.Exec(ctx, `UPDATE course_sessions SET status=$3, updated_at=NOW(), cancelled_at=CASE WHEN $3='cancelled' THEN NOW() ELSE cancelled_at END, completed_at=CASE WHEN $3='completed' THEN NOW() ELSE completed_at END WHERE id=$1 AND school_id=$2`, s.ID, schoolID, status)
+	if err != nil {
+		return Session{}, err
+	}
+	item, err := getSessionWithExecutor(ctx, tx, schoolID, s.ID)
+	if err != nil {
+		return Session{}, err
+	}
+	if event != nil {
+		if err := enqueueSessionOutbox(ctx, tx, item, *event); err != nil {
+			return Session{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Session{}, err
+	}
+	return item, nil
 }
 
 func (r *Repo) DeleteSession(ctx context.Context, schoolID, idOrSlug string) error {
@@ -665,53 +723,137 @@ func (r *Repo) ListBookings(ctx context.Context, schoolID string, input ListBook
 	return items, rows.Err()
 }
 
-func (r *Repo) CreateBooking(ctx context.Context, schoolID string, input CreateBookingInput) (Booking, error) {
-	row := r.pool.QueryRow(ctx, `INSERT INTO course_booking_requests (school_id,course_id,session_id,student_user_id,student_name,student_email,student_phone,preferred_date,alternate_date,status,student_note,experience_level,certification_level,equipment_needs,admin_notes,scheduled_at) VALUES ($1,$2,NULLIF($3,'')::uuid,NULLIF($4,'')::uuid,NULLIF($5,''),NULLIF($6,''),NULLIF($7,''),$8,$9,$10,NULLIF($11,''),NULLIF($12,''),NULLIF($13,''),NULLIF($14,''),NULLIF($15,''),CASE WHEN $10='scheduled' THEN NOW() ELSE NULL END) RETURNING id`, schoolID, input.CourseID, input.SessionID, input.StudentUserID, input.StudentName, input.StudentEmail, input.StudentPhone, input.PreferredDate, input.AlternateDate, input.Status, input.StudentNote, input.ExperienceLevel, input.CertificationLevel, input.EquipmentNeeds, input.AdminNotes)
+func (r *Repo) CreateBooking(ctx context.Context, schoolID string, input CreateBookingInput, event *BookingNotificationEvent) (Booking, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Booking{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	row := tx.QueryRow(ctx, `INSERT INTO course_booking_requests (school_id,course_id,session_id,student_user_id,student_name,student_email,student_phone,preferred_date,alternate_date,status,student_note,experience_level,certification_level,equipment_needs,admin_notes,scheduled_at) VALUES ($1,$2,NULLIF($3,'')::uuid,NULLIF($4,'')::uuid,NULLIF($5,''),NULLIF($6,''),NULLIF($7,''),$8,$9,$10,NULLIF($11,''),NULLIF($12,''),NULLIF($13,''),NULLIF($14,''),NULLIF($15,''),CASE WHEN $10='scheduled' THEN NOW() ELSE NULL END) RETURNING id`, schoolID, input.CourseID, input.SessionID, input.StudentUserID, input.StudentName, input.StudentEmail, input.StudentPhone, input.PreferredDate, input.AlternateDate, input.Status, input.StudentNote, input.ExperienceLevel, input.CertificationLevel, input.EquipmentNeeds, input.AdminNotes)
 	var id string
 	if err := row.Scan(&id); err != nil {
 		return Booking{}, err
 	}
-	if err := r.ensureBookingPayment(ctx, id); err != nil {
+	if err := ensureBookingPaymentWithExecutor(ctx, tx, id); err != nil {
 		return Booking{}, err
 	}
-	return r.GetBooking(ctx, schoolID, id)
+	item, err := getBookingWithExecutor(ctx, tx, schoolID, id)
+	if err != nil {
+		return Booking{}, err
+	}
+	if event != nil {
+		if err := enqueueBookingOutbox(ctx, tx, item, *event); err != nil {
+			return Booking{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Booking{}, err
+	}
+	return item, nil
 }
 
 func (r *Repo) GetBooking(ctx context.Context, schoolID, bookingID string) (Booking, error) {
-	row := r.pool.QueryRow(ctx, bookingSelect()+" WHERE b.school_id=$1 AND b.deleted_at IS NULL AND b.id::text=$2", schoolID, bookingID)
-	return scanBooking(row)
+	return getBookingWithExecutor(ctx, r.pool, schoolID, bookingID)
 }
 
-func (r *Repo) UpdateBooking(ctx context.Context, schoolID, bookingID string, input UpdateBookingInput) (Booking, error) {
-	_, err := r.pool.Exec(ctx, `UPDATE course_booking_requests SET course_id=$3,session_id=NULLIF($4,'')::uuid,student_user_id=NULLIF($5,'')::uuid,student_name=NULLIF($6,''),student_email=NULLIF($7,''),student_phone=NULLIF($8,''),preferred_date=$9,alternate_date=$10,status=$11,student_note=NULLIF($12,''),experience_level=NULLIF($13,''),certification_level=NULLIF($14,''),equipment_needs=NULLIF($15,''),admin_notes=NULLIF($16,''),updated_at=NOW(),scheduled_at=CASE WHEN $11='scheduled' AND scheduled_at IS NULL THEN NOW() ELSE scheduled_at END WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, bookingID, input.CourseID, input.SessionID, input.StudentUserID, input.StudentName, input.StudentEmail, input.StudentPhone, input.PreferredDate, input.AlternateDate, input.Status, input.StudentNote, input.ExperienceLevel, input.CertificationLevel, input.EquipmentNeeds, input.AdminNotes)
+func (r *Repo) UpdateBooking(ctx context.Context, schoolID, bookingID string, input UpdateBookingInput, event *BookingNotificationEvent) (Booking, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Booking{}, err
 	}
-	return r.GetBooking(ctx, schoolID, bookingID)
-}
-
-func (r *Repo) SetBookingStatus(ctx context.Context, schoolID, bookingID, actorID, status string) (Booking, error) {
-	_, err := r.pool.Exec(ctx, `UPDATE course_booking_requests SET status=$4, updated_at=NOW(), reviewed_by=CASE WHEN $4 IN ('approved','rejected') THEN $3 ELSE reviewed_by END, reviewed_at=CASE WHEN $4 IN ('approved','rejected') THEN NOW() ELSE reviewed_at END, scheduled_at=CASE WHEN $4='scheduled' THEN NOW() ELSE scheduled_at END, completed_at=CASE WHEN $4='completed' THEN NOW() ELSE completed_at END, cancelled_at=CASE WHEN $4='cancelled' THEN NOW() ELSE cancelled_at END WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, bookingID, actorID, status)
+	defer func() { _ = tx.Rollback(ctx) }()
+	_, err = tx.Exec(ctx, `UPDATE course_booking_requests SET course_id=$3,session_id=NULLIF($4,'')::uuid,student_user_id=NULLIF($5,'')::uuid,student_name=NULLIF($6,''),student_email=NULLIF($7,''),student_phone=NULLIF($8,''),preferred_date=$9,alternate_date=$10,status=$11,student_note=NULLIF($12,''),experience_level=NULLIF($13,''),certification_level=NULLIF($14,''),equipment_needs=NULLIF($15,''),admin_notes=NULLIF($16,''),updated_at=NOW(),scheduled_at=CASE WHEN $11='scheduled' AND scheduled_at IS NULL THEN NOW() ELSE scheduled_at END WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, bookingID, input.CourseID, input.SessionID, input.StudentUserID, input.StudentName, input.StudentEmail, input.StudentPhone, input.PreferredDate, input.AlternateDate, input.Status, input.StudentNote, input.ExperienceLevel, input.CertificationLevel, input.EquipmentNeeds, input.AdminNotes)
 	if err != nil {
 		return Booking{}, err
 	}
-	return r.GetBooking(ctx, schoolID, bookingID)
-}
-
-func (r *Repo) AssignBookingSession(ctx context.Context, schoolID, bookingID, sessionID string) (Booking, error) {
-	_, err := r.pool.Exec(ctx, `UPDATE course_booking_requests b SET session_id=s.id,status='scheduled',scheduled_at=NOW(),updated_at=NOW() FROM course_sessions s WHERE b.school_id=$1 AND b.id=$2 AND s.id=$3 AND s.school_id=b.school_id AND s.course_id=b.course_id AND b.deleted_at IS NULL AND s.deleted_at IS NULL`, schoolID, bookingID, sessionID)
+	item, err := getBookingWithExecutor(ctx, tx, schoolID, bookingID)
 	if err != nil {
 		return Booking{}, err
 	}
-	return r.GetBooking(ctx, schoolID, bookingID)
+	if event != nil {
+		if err := enqueueBookingOutbox(ctx, tx, item, *event); err != nil {
+			return Booking{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Booking{}, err
+	}
+	return item, nil
 }
 
-func (r *Repo) UnassignBookingSession(ctx context.Context, schoolID, bookingID string) (Booking, error) {
-	_, err := r.pool.Exec(ctx, `UPDATE course_booking_requests SET session_id=NULL,status=CASE WHEN status='scheduled' THEN 'approved' ELSE status END,scheduled_at=NULL,updated_at=NOW() WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, bookingID)
+func (r *Repo) SetBookingStatus(ctx context.Context, schoolID, bookingID, actorID, status string, event *BookingNotificationEvent) (Booking, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Booking{}, err
 	}
-	return r.GetBooking(ctx, schoolID, bookingID)
+	defer func() { _ = tx.Rollback(ctx) }()
+	_, err = tx.Exec(ctx, `UPDATE course_booking_requests SET status=$4, updated_at=NOW(), reviewed_by=CASE WHEN $4 IN ('approved','rejected') THEN $3 ELSE reviewed_by END, reviewed_at=CASE WHEN $4 IN ('approved','rejected') THEN NOW() ELSE reviewed_at END, scheduled_at=CASE WHEN $4='scheduled' THEN NOW() ELSE scheduled_at END, completed_at=CASE WHEN $4='completed' THEN NOW() ELSE completed_at END, cancelled_at=CASE WHEN $4='cancelled' THEN NOW() ELSE cancelled_at END WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, bookingID, actorID, status)
+	if err != nil {
+		return Booking{}, err
+	}
+	item, err := getBookingWithExecutor(ctx, tx, schoolID, bookingID)
+	if err != nil {
+		return Booking{}, err
+	}
+	if event != nil {
+		if err := enqueueBookingOutbox(ctx, tx, item, *event); err != nil {
+			return Booking{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Booking{}, err
+	}
+	return item, nil
+}
+
+func (r *Repo) AssignBookingSession(ctx context.Context, schoolID, bookingID, sessionID string, event *BookingNotificationEvent) (Booking, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Booking{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	_, err = tx.Exec(ctx, `UPDATE course_booking_requests b SET session_id=s.id,status='scheduled',scheduled_at=NOW(),updated_at=NOW() FROM course_sessions s WHERE b.school_id=$1 AND b.id=$2 AND s.id=$3 AND s.school_id=b.school_id AND s.course_id=b.course_id AND b.deleted_at IS NULL AND s.deleted_at IS NULL`, schoolID, bookingID, sessionID)
+	if err != nil {
+		return Booking{}, err
+	}
+	item, err := getBookingWithExecutor(ctx, tx, schoolID, bookingID)
+	if err != nil {
+		return Booking{}, err
+	}
+	if event != nil {
+		if err := enqueueBookingOutbox(ctx, tx, item, *event); err != nil {
+			return Booking{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Booking{}, err
+	}
+	return item, nil
+}
+
+func (r *Repo) UnassignBookingSession(ctx context.Context, schoolID, bookingID string, event *BookingNotificationEvent) (Booking, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Booking{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	_, err = tx.Exec(ctx, `UPDATE course_booking_requests SET session_id=NULL,status=CASE WHEN status='scheduled' THEN 'approved' ELSE status END,scheduled_at=NULL,updated_at=NOW() WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, bookingID)
+	if err != nil {
+		return Booking{}, err
+	}
+	item, err := getBookingWithExecutor(ctx, tx, schoolID, bookingID)
+	if err != nil {
+		return Booking{}, err
+	}
+	if event != nil {
+		if err := enqueueBookingOutbox(ctx, tx, item, *event); err != nil {
+			return Booking{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Booking{}, err
+	}
+	return item, nil
 }
 
 func (r *Repo) ReviewBookingPayment(ctx context.Context, schoolID, bookingID, actorID, status, notes string) (BookingPayment, error) {
@@ -855,11 +997,30 @@ func (r *Repo) GetMyBooking(ctx context.Context, userID, bookingID string) (Book
 }
 
 func (r *Repo) CancelMyBooking(ctx context.Context, userID, bookingID string) (Booking, error) {
-	_, err := r.pool.Exec(ctx, `UPDATE course_booking_requests SET status='cancelled',cancelled_at=NOW(),updated_at=NOW() WHERE student_user_id=$1 AND id::text=$2 AND deleted_at IS NULL AND status IN ('pending_review','approved','scheduled')`, userID, bookingID)
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Booking{}, err
 	}
-	return r.GetMyBooking(ctx, userID, bookingID)
+	defer func() { _ = tx.Rollback(ctx) }()
+	_, err = tx.Exec(ctx, `UPDATE course_booking_requests SET status='cancelled',cancelled_at=NOW(),updated_at=NOW() WHERE student_user_id=$1 AND id::text=$2 AND deleted_at IS NULL AND status IN ('pending_review','approved','scheduled')`, userID, bookingID)
+	if err != nil {
+		return Booking{}, err
+	}
+	row := tx.QueryRow(ctx, bookingSelect()+" WHERE b.student_user_id=$1 AND b.id::text=$2 AND b.deleted_at IS NULL", userID, bookingID)
+	item, err := scanBooking(row)
+	if err != nil {
+		return Booking{}, err
+	}
+	if err := enqueueBookingOutbox(ctx, tx, item, BookingNotificationEvent{
+		EventType:   notificationsrepo.OutboxEventBookingCancelledByStudent,
+		ActorUserID: userID,
+	}); err != nil {
+		return Booking{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Booking{}, err
+	}
+	return item, nil
 }
 
 func courseSelect() string {
@@ -872,6 +1033,106 @@ func sessionSelect() string {
 
 func bookingSelect() string {
 	return `SELECT b.id,b.course_id,c.title,b.school_id,COALESCE(b.session_id::text,''),COALESCE(s.title,''),COALESCE(b.student_user_id::text,''),COALESCE(b.student_name,''),COALESCE(b.student_email,''),COALESCE(b.student_phone,''),b.preferred_date,b.alternate_date,b.status,COALESCE(b.student_note,''),COALESCE(b.experience_level,''),COALESCE(b.certification_level,''),COALESCE(b.equipment_needs,''),COALESCE(b.admin_notes,''),b.created_at,b.updated_at,b.reviewed_at,COALESCE(b.reviewed_by::text,''),b.scheduled_at,b.cancelled_at,b.completed_at,bp.id,bp.booking_id,bp.course_id,bp.school_id,COALESCE(bp.student_user_id::text,''),COALESCE(bp.payment_method_id::text,''),bp.amount::float8,bp.currency,COALESCE(bp.proof_media_id::text,''),COALESCE(bp.reference_number,''),bp.status,COALESCE(bp.reviewed_by::text,''),bp.reviewed_at,COALESCE(bp.review_notes,''),bp.created_at,bp.updated_at FROM course_booking_requests b JOIN courses c ON c.id=b.course_id LEFT JOIN course_sessions s ON s.id=b.session_id LEFT JOIN course_booking_payments bp ON bp.booking_id=b.id AND bp.deleted_at IS NULL`
+}
+
+func getSessionWithExecutor(ctx context.Context, exec queryExecutor, schoolID, idOrSlug string) (Session, error) {
+	row := exec.QueryRow(ctx, sessionSelect()+" WHERE s.school_id=$1 AND s.deleted_at IS NULL AND (s.id::text=$2 OR s.slug=$2) GROUP BY s.id,c.title,u.display_name", schoolID, idOrSlug)
+	return scanSession(row)
+}
+
+func getBookingWithExecutor(ctx context.Context, exec queryExecutor, schoolID, bookingID string) (Booking, error) {
+	row := exec.QueryRow(ctx, bookingSelect()+" WHERE b.school_id=$1 AND b.deleted_at IS NULL AND b.id::text=$2", schoolID, bookingID)
+	return scanBooking(row)
+}
+
+func ensureBookingPaymentWithExecutor(ctx context.Context, exec queryExecutor, bookingID string) error {
+	_, err := exec.Exec(ctx, `INSERT INTO course_booking_payments (booking_id,course_id,school_id,student_user_id,amount,currency,status) SELECT b.id,b.course_id,b.school_id,b.student_user_id,c.price_amount,c.currency,CASE WHEN c.payment_required THEN 'pending_upload' ELSE 'not_required' END FROM course_booking_requests b JOIN courses c ON c.id=b.course_id WHERE b.id=$1 ON CONFLICT (booking_id) DO NOTHING`, bookingID)
+	return err
+}
+
+func schoolSlugWithExecutor(ctx context.Context, exec queryExecutor, schoolID string) (string, error) {
+	var slug string
+	err := exec.QueryRow(ctx, `SELECT slug FROM schools WHERE id=$1 AND deleted_at IS NULL`, schoolID).Scan(&slug)
+	return slug, err
+}
+
+func enqueueBookingOutbox(ctx context.Context, exec queryExecutor, item Booking, event BookingNotificationEvent) error {
+	if event.EventType == "" {
+		return nil
+	}
+	slug, err := schoolSlugWithExecutor(ctx, exec, item.SchoolID)
+	if err != nil {
+		return err
+	}
+	payload := map[string]any{
+		"bookingId":         item.ID,
+		"schoolId":          item.SchoolID,
+		"schoolSlug":        slug,
+		"courseId":          item.CourseID,
+		"courseTitle":       item.CourseTitle,
+		"sessionId":         item.SessionID,
+		"sessionTitle":      item.SessionTitle,
+		"studentUserId":     item.StudentUserID,
+		"studentName":       item.StudentName,
+		"actorUserId":       event.ActorUserID,
+		"status":            item.Status,
+		"previousSessionId": event.PreviousSessionID,
+	}
+	keySuffix := event.IdempotencySuffix
+	if keySuffix == "" {
+		keySuffix = strings.ToLower(strings.ReplaceAll(event.EventType, "_", "-"))
+	}
+	_, err = notificationsrepo.EnqueueOutboxWithExecutor(ctx, exec, notificationsrepo.OutboxEnqueueInput{
+		EventType:      event.EventType,
+		AggregateType:  "course_booking",
+		AggregateID:    item.ID,
+		Payload:        payload,
+		IdempotencyKey: "bookings:" + item.ID + ":" + keySuffix,
+	})
+	return err
+}
+
+func enqueueSessionOutbox(ctx context.Context, exec queryExecutor, item Session, event SessionNotificationEvent) error {
+	if event.EventType == "" {
+		return nil
+	}
+	slug, err := schoolSlugWithExecutor(ctx, exec, item.SchoolID)
+	if err != nil {
+		return err
+	}
+	payload := map[string]any{
+		"sessionId":        item.ID,
+		"schoolId":         item.SchoolID,
+		"schoolSlug":       slug,
+		"courseId":         item.CourseID,
+		"courseTitle":      item.CourseTitle,
+		"title":            item.Title,
+		"actorUserId":      event.ActorUserID,
+		"status":           item.Status,
+		"changeTypes":      event.ChangeTypes,
+		"previousStatus":   event.PreviousStatus,
+		"previousStartsAt": timeString(event.PreviousStartsAt),
+		"previousEndsAt":   timeString(event.PreviousEndsAt),
+	}
+	keySuffix := event.IdempotencySuffix
+	if keySuffix == "" {
+		keySuffix = strings.ToLower(strings.ReplaceAll(event.EventType, "_", "-")) + ":" + item.UpdatedAt.UTC().Format("20060102150405.000000000")
+	}
+	_, err = notificationsrepo.EnqueueOutboxWithExecutor(ctx, exec, notificationsrepo.OutboxEnqueueInput{
+		EventType:      event.EventType,
+		AggregateType:  "course_session",
+		AggregateID:    item.ID,
+		Payload:        payload,
+		IdempotencyKey: "sessions:" + item.ID + ":" + keySuffix,
+	})
+	return err
+}
+
+func timeString(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
 }
 
 type scanner interface{ Scan(dest ...any) error }
@@ -905,7 +1166,7 @@ func scanCourse(s scanner) (Course, error) {
 }
 func scanPaymentMethod(s scanner) (PaymentMethod, error) {
 	var item PaymentMethod
-	err := s.Scan(&item.ID, &item.CourseID, &item.Type, &item.Name, &item.Instructions, &item.QRMediaID, &item.BankName, &item.AccountName, &item.AccountNumber, &item.IsActive, &item.CreatedAt, &item.UpdatedAt)
+	err := s.Scan(&item.ID, &item.SchoolID, &item.Type, &item.Name, &item.Instructions, &item.QRMediaID, &item.QRImageURL, &item.BankName, &item.AccountName, &item.AccountNumber, &item.IsActive, &item.CreatedAt, &item.UpdatedAt)
 	return item, err
 }
 func scanSession(s scanner) (Session, error) {

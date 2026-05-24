@@ -7,7 +7,7 @@ import {
 } from "@/config/nav";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { useAuth } from "@clerk/nextjs";
-import { Info, Map, Shield, UsersRound } from "lucide-react";
+import { BadgeCheck, Info, Map, Shield, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -40,6 +40,7 @@ const adminLinks = [
   { href: "/admin/buddies", title: "Buddies", icon: UsersRound },
   { href: "/admin/dive-sites", title: "Dive Sites", icon: Map },
   { href: "/admin/groups", title: "Groups", icon: Shield },
+  { href: "/admin/instructors", title: "Instructors", icon: BadgeCheck },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {

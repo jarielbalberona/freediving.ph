@@ -310,6 +310,7 @@ const MOBILE_SIDEBAR_ORDER: string[] = [
   "events",
   "schools",
   "manage-schools",
+  "instructor-application",
 ];
 
 function isVisible(item: NavItem, isSignedIn: boolean): boolean {

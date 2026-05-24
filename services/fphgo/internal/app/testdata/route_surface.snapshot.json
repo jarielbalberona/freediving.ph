@@ -785,6 +785,22 @@
       "pattern": "/v1/manage/schools/{slug}/courses/{courseIdOrSlug}/payment-methods/{paymentMethodId}"
     },
     {
+      "method": "DELETE",
+      "pattern": "/v1/manage/schools/{slug}/payment-methods/{paymentMethodId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/manage/schools/{slug}/payment-methods"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/manage/schools/{slug}/payment-methods/{paymentMethodId}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/manage/schools/{slug}/payment-methods"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/manage/schools/{slug}/sessions"
     },

@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@clerk/nextjs";
 import { DEFAULT_TIMEZONE } from "@freediving.ph/config";
@@ -48,18 +49,19 @@ import type {
   CourseSession,
   CourseSessionStatus,
   CreateCourseBookingRequest,
+  CreateCoursePaymentMethodRequest,
   CreateCourseRequest,
   CreateCourseSessionRequest,
   CreateSchoolRequest,
   School,
   SchoolStatus,
   SessionLocationMode,
+  UpdateCoursePaymentMethodRequest,
 } from "@freediving.ph/types";
 import {
   ArrowLeft,
   CalendarPlus,
   Check,
-  CreditCard,
   Pencil,
   Plus,
   Send,
@@ -69,6 +71,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { MarkdownEditor } from "@/features/chika/components/MarkdownEditor";
+import { PaymentMethodsSetup } from "@/features/payments/components/PaymentMethodsSetup";
 import {
   DiveSiteCombobox,
   formatDiveSiteOptionLabel,
@@ -91,7 +94,6 @@ import {
   courseLevelLabels,
   courseStatusLabels,
   courseTypeLabels,
-  paymentMethodTypeLabels,
   paymentStatusLabels,
   schoolStatusLabels,
   sessionLocationModeLabels,
@@ -108,6 +110,7 @@ import {
   useSetBookingStatus,
   useSetSessionStatus,
   useUpdateCourse,
+  useUpdatePaymentMethod,
   useUpdateSchool,
   useUpdateSession,
 } from "../hooks/mutations";
@@ -319,7 +322,57 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
   if (!school) return <PageState text="Loading school..." />;
 
   return (
-    <SchoolShell school={school}>
+    <SchoolShell
+      school={school}
+      action={
+        <>
+          {canEditSchool && school.status === "draft" ? (
+            <Button
+              size="sm"
+              onClick={() => updateSchool.mutate({ status: "published" })}
+              disabled={updateSchool.isPending}
+            >
+              <Check />
+              Publish school
+            </Button>
+          ) : null}
+          {canEditSchool && school.status === "published" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateSchool.mutate({ status: "draft" })}
+              disabled={updateSchool.isPending}
+            >
+              <X />
+              Move to draft
+            </Button>
+          ) : null}
+          {canEditSchool ? (
+            <Dialog open={editing} onOpenChange={setEditing}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                tooltip="Edit school"
+                aria-label="Edit school"
+                onClick={() => setEditing(true)}
+              >
+                <Pencil />
+              </Button>
+              <DialogContent className="max-w-2xl!">
+                <DialogHeader>
+                  <DialogTitle>Edit school</DialogTitle>
+                </DialogHeader>
+                <EditSchoolForm
+                  school={school}
+                  onDone={() => setEditing(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          ) : null}
+        </>
+      }
+    >
       <CommunityStats
         items={[
           { label: "Courses", value: String(school.courseCount) },
@@ -338,67 +391,9 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
           </AlertDescription>
         </Alert>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        {canEditSchool && school.status === "draft" ? (
-          <Button
-            size="sm"
-            onClick={() => updateSchool.mutate({ status: "published" })}
-            disabled={updateSchool.isPending}
-          >
-            <Check />
-            Publish school
-          </Button>
-        ) : null}
-        {canEditSchool && school.status === "published" ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => updateSchool.mutate({ status: "draft" })}
-            disabled={updateSchool.isPending}
-          >
-            <X />
-            Move to draft
-          </Button>
-        ) : null}
-        <Button
-          variant="outline"
-          size="sm"
-          nativeButton={false}
-          render={<Link href={`/manage/schools/${slug}/courses`} />}
-        >
-          Manage courses
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          nativeButton={false}
-          render={<Link href={`/manage/schools/${slug}/bookings`} />}
-        >
-          Booking requests
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          nativeButton={false}
-          render={<Link href={`/manage/schools/${slug}/sessions`} />}
-        >
-          Sessions
-        </Button>
-        {canEditSchool ? (
-          <Dialog open={editing} onOpenChange={setEditing}>
-            <DialogTrigger render={<Button size="sm">Edit school</Button>} />
-            <DialogContent className="max-w-2xl!">
-              <DialogHeader>
-                <DialogTitle>Edit school</DialogTitle>
-              </DialogHeader>
-              <EditSchoolForm
-                school={school}
-                onDone={() => setEditing(false)}
-              />
-            </DialogContent>
-          </Dialog>
-        ) : null}
-      </div>
+      {canEditSchool ? (
+        <SchoolPaymentMethodsPanel slug={slug} schoolId={school.id} />
+      ) : null}
     </SchoolShell>
   );
 }
@@ -408,7 +403,6 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
   const coursesQuery = useManageCourses(slug);
   const createCourse = useCreateCourse(slug);
   const [open, setOpen] = useState(false);
-  const [paymentCourse, setPaymentCourse] = useState<Course | null>(null);
   const [editCourse, setEditCourse] = useState<Course | null>(null);
   const school = schoolQuery.data;
   const courses = coursesQuery.data ?? [];
@@ -501,14 +495,6 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
                   <Button
                     variant="outline"
                     size="xs"
-                    onClick={() => setPaymentCourse(course)}
-                  >
-                    <CreditCard />
-                    Payment methods
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="xs"
                     nativeButton={false}
                     render={<Link href={`/manage/schools/${slug}/sessions`} />}
                   >
@@ -527,19 +513,6 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
           description="Add a course before publishing schedules or accepting bookings."
         />
       ) : null}
-      <Dialog
-        open={paymentCourse != null}
-        onOpenChange={(next) => !next && setPaymentCourse(null)}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Payment methods</DialogTitle>
-          </DialogHeader>
-          {paymentCourse ? (
-            <PaymentMethodsPanel slug={slug} course={paymentCourse} />
-          ) : null}
-        </DialogContent>
-      </Dialog>
       <Dialog
         open={editCourse != null}
         onOpenChange={(next) => !next && setEditCourse(null)}
@@ -616,7 +589,7 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
           ) : null
         }
       />
-      <div className="grid gap-2 rounded-xl border border-border/70 bg-background/60 p-2.5 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <SelectField
           label="Status"
           value={status}
@@ -828,7 +801,7 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
           },
         ]}
       />
-      <div className="grid gap-2 rounded-xl border border-border/70 bg-background/60 p-2.5 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <SelectField
           label="Booking status"
           value={status}
@@ -880,12 +853,26 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
 function SchoolShell({
   school,
   active,
+  action,
   children,
 }: {
   school: School;
   active?: "courses" | "bookings" | "sessions";
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const activeTab = active ?? "overview";
+
+  const onTabChange = (value: string) => {
+    const baseHref = `/manage/schools/${school.slug}`;
+    if (value === "overview") {
+      router.push(baseHref);
+      return;
+    }
+    router.push(`${baseHref}/${value}`);
+  };
+
   return (
     <CommunityPageShell>
       <CommunityHeader
@@ -903,49 +890,26 @@ function SchoolShell({
           </Button>
         }
         action={
-          <Badge variant="secondary" className="h-5 px-2 text-[11px]">
-            {schoolStatusLabels[school.status]}
-          </Badge>
+          <>
+            <Badge variant="secondary" className="h-5 px-2 text-[11px]">
+              {schoolStatusLabels[school.status]}
+            </Badge>
+            {action}
+          </>
         }
       >
         <p className="text-xs text-muted-foreground">
           {school.baseLocation || "No base location set"}
         </p>
       </CommunityHeader>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Button
-          variant={!active ? "default" : "outline"}
-          size="sm"
-          nativeButton={false}
-          render={<Link href={`/manage/schools/${school.slug}`} />}
-        >
-          Overview
-        </Button>
-        <Button
-          variant={active === "courses" ? "default" : "outline"}
-          size="sm"
-          nativeButton={false}
-          render={<Link href={`/manage/schools/${school.slug}/courses`} />}
-        >
-          Courses
-        </Button>
-        <Button
-          variant={active === "bookings" ? "default" : "outline"}
-          size="sm"
-          nativeButton={false}
-          render={<Link href={`/manage/schools/${school.slug}/bookings`} />}
-        >
-          Bookings
-        </Button>
-        <Button
-          variant={active === "sessions" ? "default" : "outline"}
-          size="sm"
-          nativeButton={false}
-          render={<Link href={`/manage/schools/${school.slug}/sessions`} />}
-        >
-          Sessions
-        </Button>
-      </div>
+      <Tabs value={activeTab} onValueChange={onTabChange} className="gap-0">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="courses">Courses</TabsTrigger>
+          <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="sessions">Sessions</TabsTrigger>
+        </TabsList>
+      </Tabs>
       {children}
     </CommunityPageShell>
   );
@@ -2025,65 +1989,44 @@ function BookingForm({
   );
 }
 
-function PaymentMethodsPanel({
+function SchoolPaymentMethodsPanel({
   slug,
-  course,
-}: { slug: string; course: Course }) {
-  const methodsQuery = useManagePaymentMethods(slug, course.id);
-  const createMethod = useCreatePaymentMethod(slug, course.id);
-  const [type, setType] = useState<"MANUAL_QR" | "MANUAL_BANK_TRANSFER">(
-    "MANUAL_QR",
-  );
-  const [name, setName] = useState("");
-  const [instructions, setInstructions] = useState("");
+  schoolId,
+}: {
+  slug: string;
+  schoolId: string;
+}) {
+  const methodsQuery = useManagePaymentMethods(slug);
+  const createMethod = useCreatePaymentMethod(slug);
+  const updateMethod = useUpdatePaymentMethod(slug);
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-2">
-        {(methodsQuery.data ?? []).map((method) => (
-          <div key={method.id} className="rounded-md border p-3 text-sm">
-            <div className="font-medium">{method.name}</div>
-            <div className="text-muted-foreground">
-              {paymentMethodTypeLabels[method.type]} •{" "}
-              {method.isActive ? "Active" : "Inactive"}
-            </div>
-          </div>
-        ))}
+    <section className="grid gap-3">
+      <div>
+        <h2 className="text-sm font-semibold text-foreground">
+          School payment methods
+        </h2>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Courses use these school-level payment details. Do not collect payment
+          setup per course.
+        </p>
       </div>
-      <div className="grid gap-3 rounded-md border p-3">
-        <SelectField
-          label="Type"
-          value={type}
-          onChange={(value) => setType(value as typeof type)}
-          options={Object.entries(paymentMethodTypeLabels).map(
-            ([value, label]) => ({ value, label }),
-          )}
-        />
-        <TextField label="Name" value={name} onChange={setName} />
-        <Textarea
-          placeholder="Instructions"
-          value={instructions}
-          onChange={(event) => setInstructions(event.target.value)}
-        />
-        <Button
-          disabled={!name || createMethod.isPending}
-          onClick={() =>
-            createMethod.mutate({
-              type,
-              name,
-              instructions,
-              qrMediaId: "",
-              bankName: type === "MANUAL_BANK_TRANSFER" ? "Bank" : "",
-              accountName: type === "MANUAL_BANK_TRANSFER" ? "Account" : "",
-              accountNumber: type === "MANUAL_BANK_TRANSFER" ? "0000" : "",
-              isActive: true,
-            })
-          }
-        >
-          <Plus />
-          Add method
-        </Button>
-      </div>
-    </div>
+      <PaymentMethodsSetup
+        methods={methodsQuery.data ?? []}
+        disabled={createMethod.isPending || updateMethod.isPending}
+        mediaContextType="payment_method_qr"
+        mediaContextId={schoolId}
+        emptyDescription="Add Manual QR or bank transfer details before paid courses ask students for proof of payment."
+        onCreate={(data) =>
+          createMethod.mutateAsync(data as CreateCoursePaymentMethodRequest)
+        }
+        onUpdate={(paymentMethodId, data) =>
+          updateMethod.mutateAsync({
+            paymentMethodId,
+            data: data as UpdateCoursePaymentMethodRequest,
+          })
+        }
+      />
+    </section>
   );
 }
 

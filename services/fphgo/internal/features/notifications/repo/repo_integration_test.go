@@ -152,6 +152,236 @@ func TestListActiveInstructorReviewerRecipientsFiltersToSuperAdmins(t *testing.T
 	}
 }
 
+func TestListActiveSchoolBookingManagerRecipientsFiltersMembersSettingsAndActor(t *testing.T) {
+	pool := testNotificationsPool(t)
+	repo := notificationsrepo.New(pool)
+	ctx := context.Background()
+
+	suffix := uuid.NewString()
+	schoolID := uuid.NewString()
+	courseID := uuid.NewString()
+	sessionID := uuid.NewString()
+	ownerID := uuid.NewString()
+	adminActorID := uuid.NewString()
+	assignedInstructorID := uuid.NewString()
+	unassignedInstructorID := uuid.NewString()
+	suspendedAdminID := uuid.NewString()
+	optedOutAdminID := uuid.NewString()
+
+	userIDs := []string{ownerID, adminActorID, assignedInstructorID, unassignedInstructorID, suspendedAdminID, optedOutAdminID}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `
+			DELETE FROM notification_settings WHERE user_id::text = ANY($1);
+			DELETE FROM course_booking_payments WHERE school_id = $2;
+			DELETE FROM course_booking_requests WHERE school_id = $2;
+			DELETE FROM course_sessions WHERE school_id = $2;
+			DELETE FROM courses WHERE school_id = $2;
+			DELETE FROM school_members WHERE school_id = $2;
+			DELETE FROM schools WHERE id = $2;
+			DELETE FROM users WHERE id::text = ANY($1);
+		`, userIDs, schoolID)
+	})
+
+	for _, user := range []struct {
+		id     string
+		status string
+	}{
+		{ownerID, "active"},
+		{adminActorID, "active"},
+		{assignedInstructorID, "active"},
+		{unassignedInstructorID, "active"},
+		{suspendedAdminID, "suspended"},
+		{optedOutAdminID, "active"},
+	} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name, global_role, account_status)
+			VALUES ($1, $2, 'Booking Manager Test', 'member', $3)
+		`, user.id, "booking-manager-"+user.id[:8], user.status); err != nil {
+			t.Fatalf("seed user %s: %v", user.id, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO schools (id, slug, name, owner_user_id, status)
+		VALUES ($1, $2, 'Booking Manager Test School', $3, 'published')
+	`, schoolID, "booking-manager-test-"+suffix[:8], ownerID); err != nil {
+		t.Fatalf("seed school: %v", err)
+	}
+	for _, member := range []struct {
+		userID string
+		role   string
+		status string
+	}{
+		{ownerID, "owner", "active"},
+		{adminActorID, "admin", "active"},
+		{assignedInstructorID, "instructor", "active"},
+		{unassignedInstructorID, "instructor", "active"},
+		{suspendedAdminID, "admin", "active"},
+		{optedOutAdminID, "admin", "active"},
+	} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO school_members (school_id, user_id, role, status)
+			VALUES ($1, $2, $3, $4)
+		`, schoolID, member.userID, member.role, member.status); err != nil {
+			t.Fatalf("seed school member %s: %v", member.userID, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO notification_settings (user_id, booking_notifications)
+		VALUES ($1, FALSE)
+	`, optedOutAdminID); err != nil {
+		t.Fatalf("seed opted-out settings: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO courses (id, school_id, slug, title, status)
+		VALUES ($1, $2, $3, 'Booking Manager Test Course', 'published')
+	`, courseID, schoolID, "booking-manager-course-"+suffix[:8]); err != nil {
+		t.Fatalf("seed course: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO course_sessions (id, school_id, course_id, slug, title, starts_at, ends_at, status, instructor_user_id)
+		VALUES ($1, $2, $3, $4, 'Booking Manager Test Session', NOW() + INTERVAL '1 day', NOW() + INTERVAL '2 days', 'scheduled', $5)
+	`, sessionID, schoolID, courseID, "booking-manager-session-"+suffix[:8], assignedInstructorID); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+
+	recipients, err := repo.ListActiveSchoolBookingManagerRecipients(ctx, schoolID, sessionID, adminActorID)
+	if err != nil {
+		t.Fatalf("ListActiveSchoolBookingManagerRecipients: %v", err)
+	}
+	recipientSet := map[string]bool{}
+	for _, recipient := range recipients {
+		recipientSet[recipient] = true
+	}
+	for _, expectedID := range []string{ownerID, assignedInstructorID} {
+		if !recipientSet[expectedID] {
+			t.Fatalf("expected recipient %s, got %#v", expectedID, recipients)
+		}
+	}
+	for _, excludedID := range []string{adminActorID, unassignedInstructorID, suspendedAdminID, optedOutAdminID} {
+		if recipientSet[excludedID] {
+			t.Fatalf("recipient %s should have been filtered out; got %#v", excludedID, recipients)
+		}
+	}
+}
+
+func TestListActiveSessionStudentRecipientsFiltersInactiveBookingsAndSettings(t *testing.T) {
+	pool := testNotificationsPool(t)
+	repo := notificationsrepo.New(pool)
+	ctx := context.Background()
+
+	suffix := uuid.NewString()
+	schoolID := uuid.NewString()
+	courseID := uuid.NewString()
+	sessionID := uuid.NewString()
+	ownerID := uuid.NewString()
+	activeStudentID := uuid.NewString()
+	cancelledStudentID := uuid.NewString()
+	rejectedStudentID := uuid.NewString()
+	optedOutStudentID := uuid.NewString()
+	suspendedStudentID := uuid.NewString()
+	actorID := uuid.NewString()
+
+	userIDs := []string{ownerID, activeStudentID, cancelledStudentID, rejectedStudentID, optedOutStudentID, suspendedStudentID, actorID}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `
+			DELETE FROM notification_settings WHERE user_id::text = ANY($1);
+			DELETE FROM course_booking_payments WHERE school_id = $2;
+			DELETE FROM course_booking_requests WHERE school_id = $2;
+			DELETE FROM course_sessions WHERE school_id = $2;
+			DELETE FROM courses WHERE school_id = $2;
+			DELETE FROM school_members WHERE school_id = $2;
+			DELETE FROM schools WHERE id = $2;
+			DELETE FROM users WHERE id::text = ANY($1);
+		`, userIDs, schoolID)
+	})
+
+	for _, user := range []struct {
+		id     string
+		status string
+	}{
+		{ownerID, "active"},
+		{activeStudentID, "active"},
+		{cancelledStudentID, "active"},
+		{rejectedStudentID, "active"},
+		{optedOutStudentID, "active"},
+		{suspendedStudentID, "suspended"},
+		{actorID, "active"},
+	} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name, global_role, account_status)
+			VALUES ($1, $2, 'Session Student Test', 'member', $3)
+		`, user.id, "session-student-"+user.id[:8], user.status); err != nil {
+			t.Fatalf("seed user %s: %v", user.id, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO schools (id, slug, name, owner_user_id, status)
+		VALUES ($1, $2, 'Session Student Test School', $3, 'published')
+	`, schoolID, "session-student-test-"+suffix[:8], ownerID); err != nil {
+		t.Fatalf("seed school: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO school_members (school_id, user_id, role, status)
+		VALUES ($1, $2, 'owner', 'active')
+	`, schoolID, ownerID); err != nil {
+		t.Fatalf("seed owner member: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO notification_settings (user_id, session_notifications)
+		VALUES ($1, FALSE)
+	`, optedOutStudentID); err != nil {
+		t.Fatalf("seed opted-out settings: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO courses (id, school_id, slug, title, status)
+		VALUES ($1, $2, $3, 'Session Student Test Course', 'published')
+	`, courseID, schoolID, "session-student-course-"+suffix[:8]); err != nil {
+		t.Fatalf("seed course: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO course_sessions (id, school_id, course_id, slug, title, starts_at, ends_at, status)
+		VALUES ($1, $2, $3, $4, 'Session Student Test Session', NOW() + INTERVAL '1 day', NOW() + INTERVAL '2 days', 'scheduled')
+	`, sessionID, schoolID, courseID, "session-student-session-"+suffix[:8]); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+	for _, booking := range []struct {
+		studentID string
+		status    string
+	}{
+		{activeStudentID, "approved"},
+		{activeStudentID, "scheduled"},
+		{cancelledStudentID, "cancelled"},
+		{rejectedStudentID, "rejected"},
+		{optedOutStudentID, "approved"},
+		{suspendedStudentID, "approved"},
+		{actorID, "approved"},
+	} {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO course_booking_requests (course_id, school_id, session_id, student_user_id, preferred_date, status)
+			VALUES ($1, $2, $3, $4, CURRENT_DATE + INTERVAL '1 day', $5)
+		`, courseID, schoolID, sessionID, booking.studentID, booking.status); err != nil {
+			t.Fatalf("seed booking %s/%s: %v", booking.studentID, booking.status, err)
+		}
+	}
+
+	recipients, err := repo.ListActiveSessionStudentRecipients(ctx, sessionID, actorID)
+	if err != nil {
+		t.Fatalf("ListActiveSessionStudentRecipients: %v", err)
+	}
+	recipientSet := map[string]bool{}
+	for _, recipient := range recipients {
+		recipientSet[recipient] = true
+	}
+	if !recipientSet[activeStudentID] || len(recipientSet) != 1 {
+		t.Fatalf("expected only active opted-in non-actor student, got %#v", recipients)
+	}
+	for _, excludedID := range []string{cancelledStudentID, rejectedStudentID, optedOutStudentID, suspendedStudentID, actorID} {
+		if recipientSet[excludedID] {
+			t.Fatalf("recipient %s should have been filtered out; got %#v", excludedID, recipients)
+		}
+	}
+}
+
 func TestOutboxClaimRetryStaleRecoveryAndProcessedState(t *testing.T) {
 	pool := testNotificationsPool(t)
 	repo := notificationsrepo.New(pool)

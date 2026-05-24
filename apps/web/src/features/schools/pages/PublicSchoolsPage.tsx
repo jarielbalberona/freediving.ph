@@ -29,6 +29,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ChikaMarkdown } from "@/features/chika/components/ChikaMarkdown";
+import { PaymentMethodCustomerDisplay } from "@/features/payments/components/PaymentMethodsSetup";
 import { useAuth, SignInButton } from "@clerk/nextjs";
 import type {
   CourseLevel,
@@ -698,6 +699,11 @@ function BookingForm({
 }) {
   const { isLoaded, isSignedIn } = useAuth();
   const mutation = useCreateStudentBooking(school.slug, course.slug);
+  const activePaymentMethods = (school.paymentMethods ?? []).filter(
+    (method) => method.isActive,
+  );
+  const paidCourseUnavailable =
+    course.paymentRequired && activePaymentMethods.length === 0;
   const [done, setDone] = useState(false);
   const [form, setForm] = useState<CreateStudentCourseBookingRequest>({
     preferredDate: "",
@@ -840,10 +846,23 @@ function BookingForm({
           }
         />
       </Field>
-      {course.paymentRequired ? (
+      {course.paymentRequired && activePaymentMethods.length > 0 ? (
+        <div className="grid gap-3">
+          <p className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
+            Payment is required for this course. Use one of the school payment
+            methods below and attach your receipt when the school asks for proof.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2">
+            {activePaymentMethods.map((method) => (
+              <PaymentMethodCustomerDisplay key={method.id} method={method} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {paidCourseUnavailable ? (
         <p className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
-          Payment is required for this course. Submit the request now; payment
-          proof review is handled by the school after request intake.
+          This paid course is not ready for online booking because the school
+          has not configured payment instructions yet.
         </p>
       ) : null}
       {mutation.isError ? (
@@ -851,7 +870,11 @@ function BookingForm({
           Could not submit booking. Check the date and try again.
         </p>
       ) : null}
-      <Button type="submit" size="sm" disabled={mutation.isPending}>
+      <Button
+        type="submit"
+        size="sm"
+        disabled={mutation.isPending || paidCourseUnavailable}
+      >
         Submit request
       </Button>
     </form>

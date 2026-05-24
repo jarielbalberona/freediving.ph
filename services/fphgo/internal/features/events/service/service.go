@@ -354,18 +354,18 @@ func validateCreateEventInput(input *eventsrepo.CreateEventInput) error {
 	}
 	for i := range input.PaymentMethods {
 		input.PaymentMethods[i] = normalizePaymentMethod(input.PaymentMethods[i])
+		if err := validatePaymentMethod(input.PaymentMethods[i]); err != nil {
+			if validationErr, ok := err.(ValidationFailure); ok && len(validationErr.Issues) > 0 {
+				validationErr.Issues[0].Path = append([]any{"paymentMethods", i}, validationErr.Issues[0].Path...)
+				return validationErr
+			}
+			return err
+		}
 		if input.PaymentMethods[i].Type == "" {
 			return ValidationFailure{Issues: []validatex.Issue{{
 				Path:    []any{"paymentMethods", i, "type"},
 				Code:    "required",
 				Message: "Payment method type is required",
-			}}}
-		}
-		if strings.TrimSpace(input.PaymentMethods[i].Name) == "" {
-			return ValidationFailure{Issues: []validatex.Issue{{
-				Path:    []any{"paymentMethods", i, "name"},
-				Code:    "required",
-				Message: "Payment method name is required",
 			}}}
 		}
 	}
@@ -794,6 +794,9 @@ func (s *Service) CreatePaymentMethod(ctx context.Context, eventID, actorID stri
 		return eventsrepo.EventPaymentMethod{}, err
 	}
 	input = normalizePaymentMethod(input)
+	if err := validatePaymentMethod(input); err != nil {
+		return eventsrepo.EventPaymentMethod{}, err
+	}
 	method, err := s.repo.CreatePaymentMethod(ctx, eventID, input)
 	if err != nil {
 		return eventsrepo.EventPaymentMethod{}, apperrors.New(http.StatusInternalServerError, "payment_method_create_failed", "failed to create payment method", err)
@@ -1561,18 +1564,43 @@ func normalizePriceFilter(value string) string {
 }
 
 func normalizePaymentMethod(input eventsrepo.CreatePaymentMethodInput) eventsrepo.CreatePaymentMethodInput {
-	input.Type = strings.ToUpper(strings.TrimSpace(input.Type))
-	if input.Type != "MANUAL_QR" && input.Type != "MANUAL_BANK_TRANSFER" {
+	input.Type = normalizePaymentMethodType(input.Type)
+	if input.Type == "" {
 		input.Type = ""
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	input.Instructions = strings.TrimSpace(input.Instructions)
+	input.QRMediaID = strings.TrimSpace(input.QRMediaID)
 	input.QRImageURL = strings.TrimSpace(input.QRImageURL)
 	input.AccountName = strings.TrimSpace(input.AccountName)
 	input.AccountNumber = strings.TrimSpace(input.AccountNumber)
 	input.BankName = strings.TrimSpace(input.BankName)
 	input.IsActive = true
+	if input.Name == "" && input.Type != "" {
+		input.Name = defaultPaymentMethodName(input.Type)
+	}
 	return input
+}
+
+func normalizePaymentMethodType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "manual_qr", "manual qr":
+		return "manual_qr"
+	case "bank_transfer", "bank transfer", "manual_bank_transfer":
+		return "bank_transfer"
+	default:
+		return ""
+	}
+}
+
+func defaultPaymentMethodName(value string) string {
+	if value == "manual_qr" {
+		return "Manual QR"
+	}
+	if value == "bank_transfer" {
+		return "Bank transfer"
+	}
+	return ""
 }
 
 func normalizePostCreatePolicy(value string) string {
@@ -1595,11 +1623,12 @@ func normalizeUpdatePaymentMethod(input *eventsrepo.UpdatePaymentMethodInput) {
 		*value = &trimmed
 	}
 	if input.Type != nil {
-		value := strings.ToUpper(strings.TrimSpace(*input.Type))
+		value := normalizePaymentMethodType(*input.Type)
 		input.Type = &value
 	}
 	trimStringPtr(&input.Name)
 	trimStringPtr(&input.Instructions)
+	trimStringPtr(&input.QRMediaID)
 	trimStringPtr(&input.QRImageURL)
 	trimStringPtr(&input.AccountName)
 	trimStringPtr(&input.AccountNumber)
@@ -1607,7 +1636,7 @@ func normalizeUpdatePaymentMethod(input *eventsrepo.UpdatePaymentMethodInput) {
 }
 
 func validateUpdatePaymentMethod(input eventsrepo.UpdatePaymentMethodInput) error {
-	if input.Type != nil && *input.Type != "MANUAL_QR" && *input.Type != "MANUAL_BANK_TRANSFER" {
+	if input.Type != nil && *input.Type == "" {
 		return ValidationFailure{Issues: []validatex.Issue{{
 			Path:    []any{"type"},
 			Code:    "invalid",
@@ -1615,9 +1644,54 @@ func validateUpdatePaymentMethod(input eventsrepo.UpdatePaymentMethodInput) erro
 		}}}
 	}
 	if input.Name != nil && *input.Name == "" {
-		return required("name")
+		input.Name = nil
+	}
+	if input.IsActive != nil && *input.IsActive && input.Type != nil {
+		createInput := eventsrepo.CreatePaymentMethodInput{Type: *input.Type, IsActive: true}
+		if input.Name != nil {
+			createInput.Name = *input.Name
+		}
+		if input.Instructions != nil {
+			createInput.Instructions = *input.Instructions
+		}
+		if input.QRMediaID != nil {
+			createInput.QRMediaID = *input.QRMediaID
+		}
+		if input.QRImageURL != nil {
+			createInput.QRImageURL = *input.QRImageURL
+		}
+		if input.BankName != nil {
+			createInput.BankName = *input.BankName
+		}
+		if input.AccountName != nil {
+			createInput.AccountName = *input.AccountName
+		}
+		if input.AccountNumber != nil {
+			createInput.AccountNumber = *input.AccountNumber
+		}
+		return validatePaymentMethod(createInput)
 	}
 	return nil
+}
+
+func validatePaymentMethod(input eventsrepo.CreatePaymentMethodInput) error {
+	if input.Type == "" {
+		return validationIssue("type", "invalid", "Payment method type is invalid")
+	}
+	if !input.IsActive {
+		return nil
+	}
+	if input.Type == "manual_qr" && input.QRMediaID == "" && input.QRImageURL == "" {
+		return validationIssue("qrMediaId", "required", "Upload a QR image before activating this payment method")
+	}
+	if input.Type == "bank_transfer" && (input.BankName == "" || input.AccountName == "" || input.AccountNumber == "") {
+		return validationIssue("bankName", "required", "Bank transfer requires bank name, account name, and account number")
+	}
+	return nil
+}
+
+func validationIssue(path, code, message string) ValidationFailure {
+	return ValidationFailure{Issues: []validatex.Issue{{Path: []any{path}, Code: code, Message: message}}}
 }
 
 func validateEventAndActor(eventID, actorID string) error {
