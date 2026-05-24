@@ -216,7 +216,7 @@ function GuideArticle({
           title="Find your next step in the community"
           body="Use Explore, Buddy Finder, Schools, Events, Groups, and Chika to connect this guide with real places and people."
           primaryHref="/features"
-          primaryLabel="View features"
+          primaryLabel="See what you can do"
           secondaryHref="/sign-up"
           secondaryLabel="Join"
         />

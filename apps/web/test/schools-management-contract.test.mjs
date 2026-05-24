@@ -12,6 +12,7 @@ test("manage schools routes and sidebar use /manage", () => {
   const coursesPage = read("src/app/manage/schools/[slug]/courses/page.tsx");
   const bookingsPage = read("src/app/manage/schools/[slug]/bookings/page.tsx");
   const sessionsPage = read("src/app/manage/schools/[slug]/sessions/page.tsx");
+  const settingsPage = read("src/app/manage/schools/[slug]/settings/page.tsx");
 
   assert.match(nav, /manage-schools/);
   assert.match(nav, /Manage Schools/);
@@ -21,18 +22,24 @@ test("manage schools routes and sidebar use /manage", () => {
   assert.match(coursesPage, /ManageCoursesPage/);
   assert.match(bookingsPage, /ManageBookingsPage/);
   assert.match(sessionsPage, /ManageSessionsPage/);
+  assert.match(settingsPage, /ManageSchoolSettingsPage/);
   assert.doesNotMatch(nav + listPage + overviewPage, /manange/);
 });
 
 test("schools management UI uses friendly labels and Base UI Select wrapper", () => {
   const page = read("src/features/schools/pages/ManageSchoolsPage.tsx");
   const constants = read("src/features/schools/constants.ts");
+  const overviewSection = page.slice(
+    page.indexOf("export function ManageSchoolOverviewPage"),
+    page.indexOf("export function ManageSchoolSettingsPage"),
+  );
 
   assert.match(page, /SelectField/);
   assert.match(page, /SelectTrigger/);
   assert.match(page, /SelectValue/);
   assert.match(page, /TabsList/);
   assert.match(page, /TabsTrigger value="overview"/);
+  assert.match(page, /TabsTrigger value="settings"/);
   assert.match(page, /router\.push\(`\$\{baseHref\}\/\$\{value\}`\)/);
   assert.match(page, /<SchoolShell[\s\S]*action=\{/);
   assert.match(page, /Publish school/);
@@ -56,9 +63,11 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
   assert.match(constants, /Use text-only location/);
   assert.match(constants, /Manual QR/);
   assert.match(constants, /Bank transfer/);
-  assert.match(page, /School payment methods/);
+  assert.match(page, /active="settings"/);
+  assert.match(page, /Payment setup/);
   assert.match(page, /PaymentMethodsSetup/);
   assert.match(page, /mediaContextType="payment_method_qr"/);
+  assert.doesNotMatch(overviewSection, /SchoolPaymentMethodsPanel/);
   assert.match(page, /Booking options/);
   assert.match(page, /Students can choose from available schedules/);
   assert.match(page, /Students can request a preferred date/);

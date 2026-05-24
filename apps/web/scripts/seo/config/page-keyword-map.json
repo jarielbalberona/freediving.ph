@@ -1,0 +1,108 @@
+{
+  "/features": {
+    "primary": "freediving philippines app",
+    "secondary": [
+      "freediving philippines",
+      "freediving community philippines"
+    ]
+  },
+  "/features/dive-spots": {
+    "primary": "freediving spots philippines",
+    "secondary": [
+      "philippines freediving locations",
+      "where to freedive philippines"
+    ]
+  },
+  "/features/buddy-finder": {
+    "primary": "freediving buddy philippines",
+    "secondary": [
+      "find freediving buddy philippines",
+      "freediving community philippines"
+    ]
+  },
+  "/features/events": {
+    "primary": "freediving events philippines",
+    "secondary": [
+      "freediving meetups philippines",
+      "freediving community events"
+    ]
+  },
+  "/features/groups": {
+    "primary": "freediving groups philippines",
+    "secondary": [
+      "freediving clubs philippines",
+      "freediving community philippines"
+    ]
+  },
+  "/features/chika": {
+    "primary": "freediving community philippines",
+    "secondary": [
+      "freediving discussions philippines",
+      "freediving forum philippines"
+    ]
+  },
+  "/features/schools-and-courses": {
+    "primary": "freediving schools philippines",
+    "secondary": [
+      "freediving instructors philippines",
+      "freediving courses philippines"
+    ]
+  },
+  "/guides": {
+    "primary": "freediving guides philippines",
+    "secondary": [
+      "beginner freediving philippines",
+      "learn freediving philippines"
+    ]
+  },
+  "/guides/how-to-start-freediving-in-the-philippines": {
+    "primary": "how to start freediving in the philippines",
+    "secondary": [
+      "beginner freediving philippines",
+      "learn freediving philippines",
+      "freediving guide philippines"
+    ]
+  },
+  "/guides/freediving-safety-basics": {
+    "primary": "freediving safety basics",
+    "secondary": [
+      "freediving safety philippines",
+      "freediving buddy safety"
+    ]
+  },
+  "/guides/what-to-bring-to-a-freediving-session": {
+    "primary": "what to bring to freediving",
+    "secondary": [
+      "freediving gear checklist",
+      "first freediving session"
+    ]
+  },
+  "/guides/how-to-find-a-freediving-buddy": {
+    "primary": "find freediving buddy philippines",
+    "secondary": [
+      "freediving buddy philippines",
+      "freediving community philippines"
+    ]
+  },
+  "/guides/freediving-certifications-philippines": {
+    "primary": "freediving certification philippines",
+    "secondary": [
+      "freediving course philippines",
+      "freediving instructor philippines"
+    ]
+  },
+  "/guides/best-time-to-freedive-in-the-philippines": {
+    "primary": "best time to freedive philippines",
+    "secondary": [
+      "freediving season philippines",
+      "philippines freediving conditions"
+    ]
+  },
+  "/about-us": {
+    "primary": "freediving philippines community",
+    "secondary": [
+      "freediving philippines",
+      "philippines freediving app"
+    ]
+  }
+}

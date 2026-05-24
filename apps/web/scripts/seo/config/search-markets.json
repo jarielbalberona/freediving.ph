@@ -1,0 +1,16 @@
+{
+  "ph": {
+    "label": "Philippines",
+    "location_code": 2608,
+    "language_code": "en",
+    "country_iso_code": "PH",
+    "device": "desktop"
+  },
+  "ph_mobile": {
+    "label": "Philippines Mobile",
+    "location_code": 2608,
+    "language_code": "en",
+    "country_iso_code": "PH",
+    "device": "mobile"
+  }
+}

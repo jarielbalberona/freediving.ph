@@ -312,6 +312,37 @@ export function ManageSchoolsPage() {
 
 export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
   const schoolQuery = useManageSchool(slug);
+  const school = schoolQuery.data;
+
+  if (schoolQuery.isError) return <UnauthorizedState />;
+  if (!school) return <PageState text="Loading school..." />;
+
+  return (
+    <SchoolShell school={school}>
+      <CommunityStats
+        items={[
+          { label: "Courses", value: String(school.courseCount) },
+          { label: "Published", value: String(school.publishedCourseCount) },
+          { label: "Pending", value: String(school.pendingBookingCount) },
+          { label: "Upcoming", value: String(school.upcomingSessionCount) },
+          { label: "Payments", value: String(school.paymentsToReviewCount) },
+        ]}
+      />
+      {school.status === "draft" ? (
+        <Alert>
+          <AlertTitle>This school is not public yet.</AlertTitle>
+          <AlertDescription>
+            Publish the school when its profile is ready. Published schools can
+            appear in the public school directory.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </SchoolShell>
+  );
+}
+
+export function ManageSchoolSettingsPage({ slug }: { slug: string }) {
+  const schoolQuery = useManageSchool(slug);
   const updateSchool = useUpdateSchool(slug);
   const [editing, setEditing] = useState(false);
   const school = schoolQuery.data;
@@ -323,30 +354,31 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
   return (
     <SchoolShell
       school={school}
+      active="settings"
       action={
-        <>
-          {canEditSchool && school.status === "draft" ? (
-            <Button
-              size="sm"
-              onClick={() => updateSchool.mutate({ status: "published" })}
-              disabled={updateSchool.isPending}
-            >
-              <Check />
-              Publish school
-            </Button>
-          ) : null}
-          {canEditSchool && school.status === "published" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => updateSchool.mutate({ status: "draft" })}
-              disabled={updateSchool.isPending}
-            >
-              <X />
-              Move to draft
-            </Button>
-          ) : null}
-          {canEditSchool ? (
+        canEditSchool ? (
+          <>
+            {school.status === "draft" ? (
+              <Button
+                size="sm"
+                onClick={() => updateSchool.mutate({ status: "published" })}
+                disabled={updateSchool.isPending}
+              >
+                <Check />
+                Publish school
+              </Button>
+            ) : null}
+            {school.status === "published" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateSchool.mutate({ status: "draft" })}
+                disabled={updateSchool.isPending}
+              >
+                <X />
+                Move to draft
+              </Button>
+            ) : null}
             <Dialog open={editing} onOpenChange={setEditing}>
               <Button
                 type="button"
@@ -368,31 +400,34 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
                 />
               </DialogContent>
             </Dialog>
-          ) : null}
-        </>
+          </>
+        ) : null
       }
     >
-      <CommunityStats
-        items={[
-          { label: "Courses", value: String(school.courseCount) },
-          { label: "Published", value: String(school.publishedCourseCount) },
-          { label: "Pending", value: String(school.pendingBookingCount) },
-          { label: "Upcoming", value: String(school.upcomingSessionCount) },
-          { label: "Payments", value: String(school.paymentsToReviewCount) },
-        ]}
+      <Toolbar
+        title="Settings"
+        subtitle="Manage the school profile, publication state, and payment setup."
+        action={null}
       />
-      {school.status === "draft" ? (
-        <Alert>
-          <AlertTitle>This school is not public yet.</AlertTitle>
-          <AlertDescription>
-            Publish the school when its profile is ready. Published schools can
-            appear in the public school directory.
-          </AlertDescription>
-        </Alert>
-      ) : null}
       {canEditSchool ? (
-        <SchoolPaymentMethodsPanel slug={slug} schoolId={school.id} />
-      ) : null}
+        <>
+          {school.status === "draft" ? (
+            <Alert>
+              <AlertTitle>This school is not public yet.</AlertTitle>
+              <AlertDescription>
+                Publish the school when its profile is ready. Published schools
+                can appear in the public school directory.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          <SchoolPaymentMethodsPanel slug={slug} schoolId={school.id} />
+        </>
+      ) : (
+        <CommunityEmptyState
+          title="Owner settings only"
+          description="Only the school owner can update school settings and payment setup."
+        />
+      )}
     </SchoolShell>
   );
 }
@@ -888,7 +923,7 @@ function SchoolShell({
   children,
 }: {
   school: School;
-  active?: "courses" | "bookings" | "sessions";
+  active?: "courses" | "bookings" | "sessions" | "settings";
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -934,11 +969,12 @@ function SchoolShell({
         </p>
       </CommunityHeader>
       <Tabs value={activeTab} onValueChange={onTabChange} className="gap-0">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="courses">Courses</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
       </Tabs>
       {children}
@@ -2117,9 +2153,7 @@ function SchoolPaymentMethodsPanel({
   return (
     <section className="grid gap-3">
       <div>
-        <h2 className="text-sm font-semibold text-foreground">
-          School payment methods
-        </h2>
+        <h2 className="text-sm font-semibold text-foreground">Payment setup</h2>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Courses use these school-level payment details. Do not collect payment
           setup per course.

@@ -10,7 +10,12 @@
     "format": "biome format --write .",
     "type-check": "tsc --noEmit",
     "test": "node --test test/**/*.test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "seo:audit": "../../node_modules/.bin/tsx scripts/seo/audit.ts",
+    "seo:audit:mock": "../../node_modules/.bin/tsx scripts/seo/audit.ts --provider mock",
+    "seo:serp:rank": "../../node_modules/.bin/tsx scripts/seo/serp-rank.ts",
+    "seo:keywords:plan": "../../node_modules/.bin/tsx scripts/seo/keyword-plan.ts",
+    "seo:test": "node --import tsx --test scripts/seo/tests/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

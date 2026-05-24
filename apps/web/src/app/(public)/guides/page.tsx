@@ -41,7 +41,7 @@ export default function GuidesPage() {
             href: "/guides/how-to-start-freediving-in-the-philippines",
             label: "Start here",
           }}
-          secondary={{ href: "/features", label: "View features" }}
+          secondary={{ href: "/features", label: "See what you can do" }}
         />
         <AdSlot className="my-2" />
         <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
@@ -79,7 +79,7 @@ export default function GuidesPage() {
           title="Turn reading into a safer next step"
           body="Use Explore, Buddy Finder, Events, Groups, Chika, and Schools to connect these guides with real places and people."
           primaryHref="/features"
-          primaryLabel="View platform features"
+          primaryLabel="See what you can do"
           secondaryHref="/explore"
           secondaryLabel="Explore dive spots"
         />

@@ -68,7 +68,7 @@ export function PublicContentLayout({
               width={156}
               height={36}
               priority
-              className="h-auto w-[156px]"
+              className="h-auto w-[48px]"
             />
           </Link>
           <nav
@@ -104,8 +104,8 @@ export function PublicContentLayout({
               Freediving Philippines
             </p>
             <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-              A community app for discovering dive spots, meeting buddies,
-              joining events, and keeping Philippine freediving easier to find.
+              Discover dive spots, meet buddies, join events, and stay closer
+              to the Philippine freediving community.
             </p>
           </div>
           <nav

@@ -57,7 +57,7 @@ export function PublicHero({
           ) : null}
         </div>
         <div className="grid gap-3 rounded-lg border border-border bg-muted/35 p-4 text-sm leading-6 text-muted-foreground">
-          <p className="font-medium text-foreground">Connected app areas</p>
+          <p className="font-medium text-foreground">Popular places to start</p>
           <div className="grid gap-2">
             <Link href="/explore" className="hover:text-foreground">
               Explore dive spots

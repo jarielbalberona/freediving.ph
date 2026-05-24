@@ -16,7 +16,7 @@ export function PublicCTA({
   primaryHref = "/sign-up",
   primaryLabel = "Join Freediving Philippines",
   secondaryHref = "/features",
-  secondaryLabel = "View features",
+  secondaryLabel = "See what you can do",
 }: PublicCTAProps) {
   return (
     <section className="border-t border-border bg-primary/5">

@@ -67,5 +67,10 @@ crash.*.log
 *.backup
 terraform.tfstate.d/
 
+# Local SEO workbench artifacts
+apps/web/scripts/seo/cache/*.json
+apps/web/scripts/seo/reports/*.md
+apps/web/scripts/seo/reports/*.json
+
 .tool-versions
 er.email your-email-on-github@example.com

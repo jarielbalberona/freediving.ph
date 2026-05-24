@@ -1,0 +1,77 @@
+[
+  {
+    "path": "/features",
+    "type": "feature_index",
+    "primaryKeyword": "freediving philippines app"
+  },
+  {
+    "path": "/features/dive-spots",
+    "type": "feature",
+    "primaryKeyword": "freediving spots philippines"
+  },
+  {
+    "path": "/features/buddy-finder",
+    "type": "feature",
+    "primaryKeyword": "freediving buddy philippines"
+  },
+  {
+    "path": "/features/events",
+    "type": "feature",
+    "primaryKeyword": "freediving events philippines"
+  },
+  {
+    "path": "/features/groups",
+    "type": "feature",
+    "primaryKeyword": "freediving groups philippines"
+  },
+  {
+    "path": "/features/chika",
+    "type": "feature",
+    "primaryKeyword": "freediving community philippines"
+  },
+  {
+    "path": "/features/schools-and-courses",
+    "type": "feature",
+    "primaryKeyword": "freediving schools philippines"
+  },
+  {
+    "path": "/guides",
+    "type": "guide_index",
+    "primaryKeyword": "freediving guides philippines"
+  },
+  {
+    "path": "/guides/how-to-start-freediving-in-the-philippines",
+    "type": "guide",
+    "primaryKeyword": "how to start freediving in the philippines"
+  },
+  {
+    "path": "/guides/freediving-safety-basics",
+    "type": "guide",
+    "primaryKeyword": "freediving safety basics"
+  },
+  {
+    "path": "/guides/what-to-bring-to-a-freediving-session",
+    "type": "guide",
+    "primaryKeyword": "what to bring to freediving"
+  },
+  {
+    "path": "/guides/how-to-find-a-freediving-buddy",
+    "type": "guide",
+    "primaryKeyword": "find freediving buddy philippines"
+  },
+  {
+    "path": "/guides/freediving-certifications-philippines",
+    "type": "guide",
+    "primaryKeyword": "freediving certification philippines"
+  },
+  {
+    "path": "/guides/best-time-to-freedive-in-the-philippines",
+    "type": "guide",
+    "primaryKeyword": "best time to freedive philippines"
+  },
+  {
+    "path": "/about-us",
+    "type": "trust",
+    "primaryKeyword": "freediving philippines community"
+  }
+]

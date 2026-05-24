@@ -1,0 +1,18 @@
+{
+  "requiredContextTerms": [
+    "freediving",
+    "philippines"
+  ],
+  "leakageTerms": [
+    "Ordr.Now",
+    "Dumadine",
+    "restaurant POS",
+    "BIR",
+    "Germany",
+    "US market",
+    "coffee shop POS",
+    "payment terminal",
+    "Maya checkout",
+    "Stripe billing"
+  ]
+}

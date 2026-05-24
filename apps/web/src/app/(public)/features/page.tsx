@@ -11,7 +11,7 @@ import { buildPublicMetadata } from "@/features/public-content/seo/metadata";
 
 const title = "Freediving Philippines Features";
 const description =
-  "Explore the public Freediving Philippines platform features for dive spots, buddies, events, groups, Chika, schools, instructors, and courses.";
+  "See how Freediving Philippines helps you find dive spots, meet buddies, join events and groups, ask questions, and discover schools or courses.";
 
 export const metadata: Metadata = buildPublicMetadata({
   title,
@@ -34,9 +34,9 @@ export default function FeaturesPage() {
           <PublicBreadcrumbs items={breadcrumbs} />
         </div>
         <PublicHero
-          eyebrow="Platform features"
-          title="A public layer for the Philippine freediving community"
-          description="Freediving Philippines connects public discovery pages to real app surfaces: dive spots, buddies, events, groups, Chika, schools, instructors, and courses."
+          eyebrow="What you can do"
+          title="Find your next dive, buddy, event, group, or course"
+          description="Freediving Philippines brings together the practical things freedivers need around the country: places to explore, people to meet, activities to join, questions to ask, and schools to learn from."
           primary={{ href: "/sign-up", label: "Join the community" }}
           secondary={{ href: "/guides", label: "Read guides" }}
         />
@@ -83,12 +83,12 @@ export default function FeaturesPage() {
           <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8">
             <div className="space-y-2">
               <h2 className="text-xl font-semibold tracking-normal text-foreground">
-                Built from the app, not detached marketing
+                Start with real community activity
               </h2>
               <p className="text-sm leading-6 text-muted-foreground">
-                These pages point to the real surfaces users can open today and
-                leave room for guides and location pages without pretending a
-                CMS exists.
+                Browse what is already useful today: dive spots, community
+                discussions, events, groups, buddies, and schools around the
+                Philippines.
               </p>
             </div>
             <Link
@@ -110,7 +110,8 @@ export default function FeaturesPage() {
                 Read Chika
               </span>
               <span className="mt-1 block text-sm leading-6 text-muted-foreground">
-                Follow community threads, questions, and product feedback.
+                Follow community questions, stories, recommendations, and
+                local updates.
               </span>
             </Link>
           </div>

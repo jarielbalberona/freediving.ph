@@ -32,7 +32,7 @@ export const featurePages: FeaturePageContent[] = [
     appHref: "/explore",
     appLabel: "Open Explore",
     summary:
-      "Freediving Philippines gives the community a shared place to map dive spots, improve spot details, and connect photos and posts back to real places.",
+      "Freediving Philippines helps people discover dive spots, share useful local details, and connect photos or posts back to the places where they were made.",
     highlights: [
       "Browse public dive spots by location and community activity.",
       "Contribute missing spots for review instead of letting knowledge disappear in chat threads.",
@@ -40,12 +40,12 @@ export const featurePages: FeaturePageContent[] = [
     ],
     sections: [
       {
-        title: "Built for community discovery",
-        body: "Dive spot knowledge in the Philippines is often scattered across group chats, captions, and word of mouth. The Explore surface turns that knowledge into a searchable public layer while keeping moderation in place.",
+        title: "Find local knowledge faster",
+        body: "Dive spot knowledge in the Philippines is often scattered across group chats, captions, and word of mouth. Explore gives the community a clearer place to collect useful details while keeping review and moderation in place.",
       },
       {
-        title: "Connected to real activity",
-        body: "Dive spots are not isolated directory entries. They can connect to posts, buddy plans, events, and future location guides so the page stays useful after the first visit.",
+        title: "See what is happening around a place",
+        body: "A dive spot is more useful when it connects to photos, buddy plans, events, and future location guides. That context helps new visitors understand more than just a pin on a map.",
       },
     ],
     relatedLinks: [
@@ -55,9 +55,9 @@ export const featurePages: FeaturePageContent[] = [
         description: "Browse the current public dive spot map and listings.",
       },
       {
-        label: "Read upcoming guides",
+        label: "Read beginner guides",
         href: "/guides",
-        description: "See the guide topics planned for new freedivers.",
+        description: "Read beginner guides before planning your next session.",
       },
     ],
   },
@@ -72,7 +72,7 @@ export const featurePages: FeaturePageContent[] = [
     appHref: "/buddies",
     appLabel: "Find buddies",
     summary:
-      "Buddy Finder helps freedivers signal availability, interests, and preferred dive spots without forcing every plan into noisy social feeds.",
+      "Buddy Finder helps freedivers share where they want to dive, what kind of session they are planning, and who might be a good match.",
     highlights: [
       "Find people planning dives, training, or fun dives.",
       "Use profiles and dive spot context before reaching out.",
@@ -81,7 +81,7 @@ export const featurePages: FeaturePageContent[] = [
     sections: [
       {
         title: "Intent matters",
-        body: "A useful buddy finder is not just a list of usernames. It should help people understand who is available, where they want to dive, and whether the plan makes sense.",
+        body: "A useful buddy match is more than a name. Before you plan a session, it helps to know where someone wants to dive, what they are comfortable with, and whether your goals fit.",
       },
       {
         title: "Profiles add context",
@@ -112,20 +112,20 @@ export const featurePages: FeaturePageContent[] = [
     appHref: "/events",
     appLabel: "Browse events",
     summary:
-      "Events give organizers and freedivers a public place to share what is happening, who it is for, and how the community can join.",
+      "Events help freedivers find community dives, competitions, cleanups, meetups, school activities, and other ways to get involved.",
     highlights: [
       "Browse public freediving events and community activities.",
       "Follow event details without losing updates in social timelines.",
-      "Support future organizer tools for payments, check-ins, updates, and event passes.",
+      "Keep track of organizer updates, event details, and what participants need to know.",
     ],
     sections: [
       {
-        title: "A clearer public event surface",
-        body: "Freediving activities need more than a poster screenshot. Event pages can carry dates, locations, organizer context, updates, and links back to the community.",
+        title: "More than a poster screenshot",
+        body: "Freediving activities are easier to join when the date, location, organizer, requirements, and updates are easy to find in one place.",
       },
       {
         title: "Useful before and after the event",
-        body: "The event layer is designed to connect with groups, dive spots, official updates, and posts so events can remain useful beyond the announcement.",
+        body: "Events can connect with groups, dive spots, organizer updates, and posts so people can prepare before they go and catch up afterward.",
       },
     ],
     relatedLinks: [
@@ -161,11 +161,11 @@ export const featurePages: FeaturePageContent[] = [
     sections: [
       {
         title: "Local communities stay visible",
-        body: "A group page should make it easier to find the right people while still respecting private or invite-only communities where needed.",
+        body: "Local groups should be easier to find while still respecting private or invite-only communities where needed.",
       },
       {
         title: "Not a replacement for real community",
-        body: "Freediving Philippines is a discovery and coordination layer. The goal is to support clubs and local groups, not absorb them.",
+        body: "Freediving Philippines is here to help people find and coordinate with clubs and local groups, not replace the relationships they already have in the water.",
       },
     ],
     relatedLinks: [
@@ -201,11 +201,11 @@ export const featurePages: FeaturePageContent[] = [
     sections: [
       {
         title: "Public threads with community context",
-        body: "Good community discussion needs durable links, readable threads, and a structure that can connect to the rest of the app.",
+        body: "Good community discussion is easier when questions, answers, and recommendations can be found again later instead of disappearing in fast-moving comment sections.",
       },
       {
-        title: "Useful for feedback too",
-        body: "Chika is also where the community can suggest improvements and help shape which product gaps matter most.",
+        title: "Useful for recommendations too",
+        body: "Chika is also a place to ask for school recommendations, trip tips, gear advice, event questions, and local context from other freedivers.",
       },
     ],
     relatedLinks: [
@@ -232,10 +232,10 @@ export const featurePages: FeaturePageContent[] = [
     appHref: "/schools",
     appLabel: "Browse schools",
     summary:
-      "The schools layer helps new and returning freedivers find instructors, courses, sessions, and booking paths with clearer public information.",
+      "Schools and courses help new and returning freedivers find instruction, compare learning options, and choose a safer way to get started.",
     highlights: [
-      "Browse public school and course listings as they become available.",
-      "Support instructor profiles and verification workflows.",
+      "Browse school and course listings as they become available.",
+      "Find instructor profiles and clearer learning options.",
       "Connect training options with location, community, and event context.",
     ],
     sections: [
@@ -244,8 +244,8 @@ export const featurePages: FeaturePageContent[] = [
         body: "People starting freediving need credible paths to instruction, not scattered screenshots and outdated posts.",
       },
       {
-        title: "A foundation for bookings",
-        body: "Schools, instructors, courses, and sessions are already app concepts. The public content layer should point users toward those real surfaces instead of pretending to be a separate directory.",
+        title: "Clearer paths to lessons",
+        body: "Course pages, instructor profiles, and session details should help people understand what is offered, where it happens, what is included, and how to ask the right questions before booking.",
       },
     ],
     relatedLinks: [

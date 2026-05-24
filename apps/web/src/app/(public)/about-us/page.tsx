@@ -23,7 +23,7 @@ const appLinks = [
   {
     href: "/features/dive-spots",
     label: "Dive spots",
-    body: "A shared public layer for discovering and contributing freediving spots.",
+    body: "Discover community-shared places to freedive and contribute useful local details.",
   },
   {
     href: "/features/buddy-finder",
@@ -33,7 +33,7 @@ const appLinks = [
   {
     href: "/features/events",
     label: "Events",
-    body: "Public pages for competitions, cleanups, meetups, and activities.",
+    body: "Find competitions, cleanups, meetups, school activities, and community dives.",
   },
   {
     href: "/features/groups",
@@ -57,8 +57,8 @@ export default function AboutUsPage() {
         <PublicHero
           eyebrow="About us"
           title="Built for the Philippine freediving community"
-          description="Freediving Philippines exists because local freediving knowledge is too often scattered across posts, chat threads, and private conversations. The app gives that knowledge a more durable public home while connecting people back to real communities."
-          primary={{ href: "/features", label: "View features" }}
+          description="Freediving Philippines exists because local freediving knowledge is often scattered across posts, chat threads, and private conversations. We help people find places, buddies, events, groups, schools, and stories from the community."
+          primary={{ href: "/features", label: "See what you can do" }}
           secondary={{ href: "/founder-note", label: "Read founder note" }}
         />
         <section className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_1fr] lg:px-8">
@@ -78,9 +78,9 @@ export default function AboutUsPage() {
                 media that can connect back to real places.
               </p>
               <p>
-                The SEO/content foundation follows the same rule. Public pages
-                should point to real app surfaces and useful next steps, not
-                thin articles manufactured to chase search traffic.
+                Public guides should help real people take useful next steps:
+                learn the basics, find safer buddies, choose instruction, and
+                discover places with better local context.
               </p>
             </div>
           </div>
@@ -103,7 +103,7 @@ export default function AboutUsPage() {
         </section>
         <PublicCTA
           title="Help make freediving easier to discover"
-          body="Join, contribute public context, and use the app surfaces that already exist instead of waiting for a perfect directory."
+          body="Join the community, share useful local context, and help other freedivers find places, people, and learning opportunities around the Philippines."
           primaryHref="/sign-up"
           primaryLabel="Join Freediving Philippines"
           secondaryHref="/explore"
