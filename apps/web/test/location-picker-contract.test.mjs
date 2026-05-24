@@ -80,6 +80,15 @@ test("structured comboboxes display selected labels after search prefill", () =>
   assert.match(locationCombobox, /inputValue=\{visibleInputValue\}/);
 });
 
+test("location picker and PSGC comboboxes are mobile overflow safe", () => {
+  assert.match(picker, /w-full min-w-0 max-w-full overflow-x-hidden/);
+  assert.match(picker, /flex min-w-0 flex-col/);
+  assert.match(picker, /break-words text-sm sm:truncate/);
+  assert.match(picker, /group min-w-0 max-w-full overflow-hidden/);
+  assert.match(locationCombobox, /className="min-w-0 max-w-full"/);
+  assert.match(locationCombobox, /max-w-\[calc\(100vw-1rem\)\]/);
+});
+
 test("current consumers use the canonical picker and keep expected payload fields", () => {
   for (const source of [groupsPage, schoolsPage, instructorsPage]) {
     assert.match(source, /LocationPicker/);

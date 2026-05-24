@@ -73,17 +73,20 @@ export function LocationCombobox({
     >
       <ComboboxInput
         id={id}
+        className="min-w-0 max-w-full"
         placeholder={searchPlaceholder}
         showClear={showClear ?? !!value}
         disabled={disabled}
         autoComplete="off"
       />
-      <ComboboxContent>
+      <ComboboxContent className="max-w-[calc(100vw-1rem)]">
         <ComboboxEmpty className="py-2">{emptyMessage}</ComboboxEmpty>
         <ComboboxList>
           {(item: ComboboxOption) => (
-            <ComboboxItem value={item} key={item.value}>
-              {item.label}
+            <ComboboxItem value={item} key={item.value} className="min-w-0">
+              <span className="min-w-0 break-words sm:truncate">
+                {item.label}
+              </span>
             </ComboboxItem>
           )}
         </ComboboxList>

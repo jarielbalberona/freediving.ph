@@ -57,6 +57,7 @@ import {
 } from "@/features/locations";
 import { useUploadMedia } from "@/features/media";
 import { getApiErrorMessage } from "@/lib/http/api-error";
+import { cn } from "@/lib/utils";
 
 const emptyProfile: InstructorApplicationPayload = {
   displayName: "",
@@ -301,7 +302,7 @@ function InstructorApplicationContent() {
                 <h2 className="text-base font-semibold tracking-normal">
                   Instructor profile
                 </h2>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                   <Field
                     label="Display name"
                     value={profileForm.displayName}
@@ -318,7 +319,7 @@ function InstructorApplicationContent() {
                     }
                   />
                 </div>
-                <div className="grid gap-1.5">
+                <div className="grid min-w-0 gap-1.5">
                   <Label>Base/home location *</Label>
                   <p className="text-sm text-muted-foreground">
                     Where are you mainly based for teaching or freediving?
@@ -350,7 +351,7 @@ function InstructorApplicationContent() {
                     rows={5}
                   />
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                   <Field
                     label="Specialties"
                     value={profileForm.specialties}
@@ -758,9 +759,10 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={`grid gap-1.5 ${className ?? ""}`}>
+    <div className={cn("grid min-w-0 gap-1.5", className)}>
       <Label>{required ? `${label} *` : label}</Label>
       <Input
+        className="min-w-0"
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}

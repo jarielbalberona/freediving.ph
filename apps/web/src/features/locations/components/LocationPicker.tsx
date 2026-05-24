@@ -97,8 +97,8 @@ export function LocationPicker({
   });
   const isDisabled = disabled || loading;
   const fieldGridClassName = compact
-    ? "grid gap-3"
-    : "grid gap-3 md:grid-cols-2";
+    ? "grid min-w-0 gap-3"
+    : "grid min-w-0 gap-3 md:grid-cols-2";
   const showNameFields = mode !== "administrative";
 
   const selectedLocation = useMemo(
@@ -112,8 +112,13 @@ export function LocationPicker({
     ) : null;
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <div className="space-y-1.5">
+    <div
+      className={cn(
+        "w-full min-w-0 max-w-full overflow-x-hidden space-y-3",
+        className,
+      )}
+    >
+      <div className="min-w-0 space-y-1.5">
         <LocationResultCombobox
           results={searchResults}
           value={selectedResult}
@@ -131,7 +136,9 @@ export function LocationPicker({
           disabled={isDisabled}
           loading={searchQuery.isLoading}
         />
-        <p className="text-xs leading-5 text-muted-foreground">{helperText}</p>
+        <p className="break-words text-xs leading-5 text-muted-foreground">
+          {helperText}
+        </p>
         {seedIsEmpty ? (
           <p className="text-xs leading-5 text-destructive">
             Location data is not loaded yet. You can still type address details
@@ -141,17 +148,20 @@ export function LocationPicker({
         ) : null}
       </div>
 
-      <div className="flex items-start justify-between gap-3 rounded-md border border-border/70 bg-muted/30 px-3 py-2">
-        <div className="min-w-0">
+      <div className="flex min-w-0 flex-col gap-2 rounded-md border border-border/70 bg-muted/30 px-3 py-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0 max-w-full">
           <p className="text-xs font-medium text-muted-foreground">
             Selected location
           </p>
-          <p className="truncate text-sm">{selectedLocation}</p>
+          <p className="break-words text-sm sm:truncate">
+            {selectedLocation}
+          </p>
         </div>
         <Button
           type="button"
           size="sm"
           variant="ghost"
+          className="shrink-0 self-start whitespace-nowrap"
           onClick={actions.clearAll}
           disabled={isDisabled}
         >
@@ -161,12 +171,12 @@ export function LocationPicker({
 
       <Form {...form}>
         <details
-          className="group rounded-md border border-border/70"
+          className="group min-w-0 max-w-full overflow-hidden rounded-md border border-border/70"
           open={detailsOpen}
           onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
         >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium marker:hidden">
-            <span>Adjust location details</span>
+          <summary className="flex min-w-0 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium marker:hidden">
+            <span className="min-w-0 truncate">Adjust location details</span>
             <span className="text-xs text-muted-foreground group-open:hidden">
               Open
             </span>
@@ -174,14 +184,14 @@ export function LocationPicker({
               Close
             </span>
           </summary>
-          <div className="space-y-3 border-t border-border/70 p-3">
+          <div className="min-w-0 space-y-3 border-t border-border/70 p-3">
             {showNameFields ? (
               <div className={fieldGridClassName}>
                 <FormField
                   control={form.control}
                   name="locationName"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0">
                       <FormLabel>Place or area name</FormLabel>
                       <FormControl>
                         <Input
@@ -205,7 +215,7 @@ export function LocationPicker({
                   control={form.control}
                   name="formattedAddress"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0">
                       <FormLabel>Address details</FormLabel>
                       <FormControl>
                         <Input
@@ -232,7 +242,7 @@ export function LocationPicker({
                 control={form.control}
                 name="regionCode"
                 render={() => (
-                  <FormItem>
+                  <FormItem className="min-w-0">
                     <FormLabel>Region</FormLabel>
                     <FormControl>
                       <LocationCombobox
@@ -265,7 +275,7 @@ export function LocationPicker({
                 control={form.control}
                 name="provinceCode"
                 render={() => (
-                  <FormItem>
+                  <FormItem className="min-w-0">
                     <FormLabel>Province</FormLabel>
                     <FormControl>
                       <LocationCombobox
@@ -298,7 +308,7 @@ export function LocationPicker({
                 control={form.control}
                 name="cityCode"
                 render={() => (
-                  <FormItem>
+                  <FormItem className="min-w-0">
                     <FormLabel>City or municipality</FormLabel>
                     <FormControl>
                       <LocationCombobox
@@ -331,7 +341,7 @@ export function LocationPicker({
                 control={form.control}
                 name="barangayCode"
                 render={() => (
-                  <FormItem>
+                  <FormItem className="min-w-0">
                     <FormLabel>Barangay</FormLabel>
                     <FormControl>
                       <LocationCombobox
@@ -431,12 +441,13 @@ function LocationResultCombobox({
       disabled={disabled}
     >
       <ComboboxInput
+        className="min-w-0 max-w-full"
         placeholder={loading ? "Searching..." : placeholder}
         showClear={inputValue.length > 0}
         disabled={disabled}
         autoComplete="off"
       />
-      <ComboboxContent>
+      <ComboboxContent className="max-w-[calc(100vw-1rem)]">
         <ComboboxEmpty className="px-3 py-3 text-left">
           {emptyMessage}
         </ComboboxEmpty>
@@ -449,8 +460,10 @@ function LocationResultCombobox({
             >
               <MapPin className="mt-0.5 size-4 text-muted-foreground" />
               <span className="min-w-0">
-                <span className="block truncate">{item.label}</span>
-                <span className="block truncate text-xs text-muted-foreground">
+                <span className="block break-words sm:truncate">
+                  {item.label}
+                </span>
+                <span className="block break-words text-xs text-muted-foreground sm:truncate">
                   {item.hierarchyLabel || resultTypeLabels[item.type]}
                 </span>
               </span>

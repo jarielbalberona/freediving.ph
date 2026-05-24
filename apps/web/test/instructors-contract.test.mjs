@@ -22,6 +22,8 @@ test("instructor application routes and labels are discoverable", () => {
   assert.match(page, /does not mean FPH issued, guarantees, or certifies/);
   assert.match(page, /attestationAccepted/);
   assert.match(page, /LocationPicker/);
+  assert.match(page, /grid min-w-0 gap-3 sm:grid-cols-2/);
+  assert.match(page, /cn\("grid min-w-0 gap-1\.5", className\)/);
   assert.match(page, /Where are you mainly based for teaching or freediving/);
   assert.match(page, /Certification proof/);
   assert.match(page, /instructor_certification_proof/);
