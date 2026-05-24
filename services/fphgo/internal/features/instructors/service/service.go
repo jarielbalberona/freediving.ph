@@ -437,10 +437,7 @@ func normalizeProfile(input ProfileInput) ProfileInput {
 	input.CityName = strings.TrimSpace(input.CityName)
 	input.BarangayCode = strings.TrimSpace(input.BarangayCode)
 	input.BarangayName = strings.TrimSpace(input.BarangayName)
-	input.LocationSource = strings.TrimSpace(input.LocationSource)
-	if input.LocationSource == "" {
-		input.LocationSource = "manual"
-	}
+	input.LocationSource = normalizeLocationSource(input.LocationSource)
 	input.Specialties = strings.TrimSpace(input.Specialties)
 	input.SchoolAffiliation = strings.TrimSpace(input.SchoolAffiliation)
 	input.WebsiteURL = strings.TrimSpace(input.WebsiteURL)
@@ -499,6 +496,16 @@ func hasStructuredLocation(profile instructorsrepo.Profile) bool {
 		strings.TrimSpace(profile.ProvinceCode) != "" ||
 		strings.TrimSpace(profile.CityCode) != "" ||
 		strings.TrimSpace(profile.BarangayCode) != ""
+}
+
+func normalizeLocationSource(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	switch normalized {
+	case "google_places", "psgc", "psgc_mapped", "unmapped":
+		return normalized
+	default:
+		return "manual"
+	}
 }
 
 func validHTTPURL(value string) bool {

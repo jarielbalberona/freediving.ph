@@ -149,6 +149,20 @@ func TestInstructorCanCreateAndSubmitOwnProfile(t *testing.T) {
 	}
 }
 
+func TestSaveProfileAcceptsPsgcLocationSource(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := New(repo)
+	input := structuredProfileInput()
+	input.LocationSource = " PSGC "
+	_, err := svc.SaveProfile(context.Background(), "user-1", input)
+	if err != nil {
+		t.Fatalf("save profile failed: %v", err)
+	}
+	if repo.profile.LocationSource != "psgc" {
+		t.Fatalf("expected psgc location source, got %q", repo.profile.LocationSource)
+	}
+}
+
 func TestSubmitRequiresCertification(t *testing.T) {
 	repo := &fakeRepo{}
 	svc := New(repo)

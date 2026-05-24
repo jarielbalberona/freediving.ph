@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -43,6 +44,10 @@ import { ArrowLeft, CalendarPlus, Search, X } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
 import { useMemo, useState } from "react";
+import {
+  dateStringToDate,
+  dateToDateString,
+} from "@/lib/date-picker-values";
 import { formatPeso } from "@/lib/money";
 import {
   bookingStatusLabels,
@@ -729,26 +734,24 @@ function BookingForm({
     <form className="grid gap-3" onSubmit={submit}>
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Preferred date">
-          <Input
+          <DatePicker
             required
-            type="date"
-            value={form.preferredDate}
-            onChange={(event) =>
+            value={dateStringToDate(form.preferredDate)}
+            onSelect={(date) =>
               setForm((current) => ({
                 ...current,
-                preferredDate: event.target.value,
+                preferredDate: dateToDateString(date),
               }))
             }
           />
         </Field>
         <Field label="Alternate date">
-          <Input
-            type="date"
-            value={form.alternateDate ?? ""}
-            onChange={(event) =>
+          <DatePicker
+            value={dateStringToDate(form.alternateDate)}
+            onSelect={(date) =>
               setForm((current) => ({
                 ...current,
-                alternateDate: event.target.value,
+                alternateDate: dateToDateString(date),
               }))
             }
           />

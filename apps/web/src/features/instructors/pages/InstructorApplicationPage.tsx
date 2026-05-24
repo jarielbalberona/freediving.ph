@@ -28,6 +28,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -56,6 +57,10 @@ import {
   type LocationSearchValue,
 } from "@/features/locations";
 import { useUploadMedia } from "@/features/media";
+import {
+  dateStringToDate,
+  dateToDateString,
+} from "@/lib/date-picker-values";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 import { cn } from "@/lib/utils";
 
@@ -310,9 +315,8 @@ function InstructorApplicationContent() {
                       setProfileForm({ ...profileForm, displayName })
                     }
                   />
-                  <Field
+                  <DateField
                     label="Teaching since"
-                    type="date"
                     value={profileForm.teachingSince}
                     onChange={(teachingSince) =>
                       setProfileForm({ ...profileForm, teachingSince })
@@ -505,9 +509,8 @@ function InstructorApplicationContent() {
                           })
                         }
                       />
-                      <Field
+                      <DateField
                         label="Issued"
-                        type="date"
                         value={certificationForm.issuedAt}
                         onChange={(issuedAt) =>
                           setCertificationForm({
@@ -516,9 +519,8 @@ function InstructorApplicationContent() {
                           })
                         }
                       />
-                      <Field
+                      <DateField
                         label="Expires"
-                        type="date"
                         value={certificationForm.expiresAt}
                         onChange={(expiresAt) =>
                           setCertificationForm({
@@ -746,14 +748,12 @@ function InstructorApplicationContent() {
 function Field({
   label,
   value,
-  type = "text",
   onChange,
   required = false,
   className,
 }: {
   label: string;
   value: string;
-  type?: string;
   onChange: (value: string) => void;
   required?: boolean;
   className?: string;
@@ -763,9 +763,34 @@ function Field({
       <Label>{required ? `${label} *` : label}</Label>
       <Input
         className="min-w-0"
-        type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  onChange,
+  required = false,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={cn("grid min-w-0 gap-1.5", className)}>
+      <Label>{required ? `${label} *` : label}</Label>
+      <DatePicker
+        className="min-w-0"
+        required={required}
+        value={dateStringToDate(value)}
+        onSelect={(date) => onChange(dateToDateString(date))}
       />
     </div>
   );

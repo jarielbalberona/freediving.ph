@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Form,
   FormControl,
@@ -78,6 +79,10 @@ import {
   buildDisplayLocation,
   type LocationSearchValue,
 } from "@/features/locations/types/location-search";
+import {
+  dateStringToDate,
+  dateToDateString,
+} from "@/lib/date-picker-values";
 import { applyApiErrorsToForm } from "@/lib/forms/api-errors";
 import { formatPeso } from "@/lib/money";
 import {
@@ -1984,16 +1989,14 @@ function BookingForm({
         />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
-        <TextField
+        <DateField
           label="Preferred date"
-          type="date"
           value={form.preferredDate}
           onChange={(preferredDate) => setForm({ ...form, preferredDate })}
           required
         />
-        <TextField
+        <DateField
           label="Alternate date"
-          type="date"
           value={form.alternateDate}
           onChange={(alternateDate) => setForm({ ...form, alternateDate })}
         />
@@ -2278,6 +2281,29 @@ function TextField({
         value={value}
         required={required}
         onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  onChange,
+  required,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <div className="grid gap-2">
+      <Label>{label}</Label>
+      <DatePicker
+        required={required}
+        value={dateStringToDate(value)}
+        onSelect={(date) => onChange(dateToDateString(date))}
       />
     </div>
   );

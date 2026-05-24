@@ -117,6 +117,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -187,6 +188,10 @@ import {
 } from "@/features/events";
 import { mediaApi } from "@/features/media/api/media";
 import { siteConfig } from "@/config/site";
+import {
+  dateStringToDate,
+  dateToDateString,
+} from "@/lib/date-picker-values";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 import { formatPeso } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -4883,10 +4888,11 @@ function ProgramItemDialog({
           </SetupField>
           <div className="grid gap-3 sm:grid-cols-3">
             <SetupField label="Date">
-              <Input
-                type="date"
-                value={form.programDate ?? ""}
-                onChange={(next) => update("programDate", next.target.value)}
+              <DatePicker
+                value={dateStringToDate(form.programDate)}
+                onSelect={(date) =>
+                  update("programDate", dateToDateString(date))
+                }
               />
             </SetupField>
             <SetupField label="Starts">

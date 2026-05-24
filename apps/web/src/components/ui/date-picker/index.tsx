@@ -16,6 +16,7 @@ function DatePicker({
   defaultMonth,
   size,
   className,
+  required,
 }: {
   placeholder?: string;
   value?: Date;
@@ -27,6 +28,7 @@ function DatePicker({
   onSelect: (date?: Date) => void;
   size?: 'xs' | 'sm' | 'default' | 'md' | 'lg';
   className?: string;
+  required?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<string>(value ? formatDate(value) : '');
@@ -150,6 +152,7 @@ function DatePicker({
         </PopoverTrigger>
         <Input
           disabled={disabled}
+          required={required}
           value={draft}
           placeholder={placeholder ?? 'Choose a date'}
           onChange={(e) => setDraft(e.target.value)}
