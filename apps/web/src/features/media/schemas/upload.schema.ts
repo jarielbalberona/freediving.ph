@@ -8,6 +8,7 @@ export const mediaUploadSchema = z.object({
     "event_attachment",
     "dive_spot_attachment",
     "group_cover",
+    "instructor_certification_proof",
   ]),
   contextId: z.string().optional(),
 });

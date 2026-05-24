@@ -78,7 +78,19 @@ type Course struct {
 	Currency                   string
 	PaymentRequired            bool
 	ApprovalRequired           bool
+	LocationMode               string
 	LocationLabel              string
+	LocationNote               string
+	FormattedAddress           string
+	RegionCode                 string
+	RegionName                 string
+	ProvinceCode               string
+	ProvinceName               string
+	CityCode                   string
+	CityName                   string
+	BarangayCode               string
+	BarangayName               string
+	LocationSource             string
 	DiveSiteID                 string
 	IncludedMarkdown           string
 	PrerequisitesMarkdown      string
@@ -117,7 +129,19 @@ type Session struct {
 	StartsAt              time.Time
 	EndsAt                time.Time
 	Timezone              string
+	LocationMode          string
 	LocationLabel         string
+	LocationNote          string
+	FormattedAddress      string
+	RegionCode            string
+	RegionName            string
+	ProvinceCode          string
+	ProvinceName          string
+	CityCode              string
+	CityName              string
+	BarangayCode          string
+	BarangayName          string
+	LocationSource        string
 	DiveSiteID            string
 	InstructorUserID      string
 	InstructorDisplayName string
@@ -189,10 +213,10 @@ type UpdateSchoolInput struct {
 }
 
 type CreateCourseInput struct {
-	Title, ShortDescription, DescriptionMarkdown, CourseType, Level, DurationLabel, Currency, LocationLabel, DiveSiteID, IncludedMarkdown, PrerequisitesMarkdown, EquipmentMarkdown, CancellationPolicyMarkdown, AvailabilityNote, Status string
-	PriceAmount                                                                                                                                                                                                                           *float64
-	PaymentRequired                                                                                                                                                                                                                       bool
-	ApprovalRequired                                                                                                                                                                                                                      bool
+	Title, ShortDescription, DescriptionMarkdown, CourseType, Level, DurationLabel, Currency, LocationMode, LocationLabel, LocationNote, FormattedAddress, RegionCode, RegionName, ProvinceCode, ProvinceName, CityCode, CityName, BarangayCode, BarangayName, LocationSource, DiveSiteID, IncludedMarkdown, PrerequisitesMarkdown, EquipmentMarkdown, CancellationPolicyMarkdown, AvailabilityNote, Status string
+	PriceAmount                                                                                                                                                                                                                                                                                                                                                                                             *float64
+	PaymentRequired                                                                                                                                                                                                                                                                                                                                                                                         bool
+	ApprovalRequired                                                                                                                                                                                                                                                                                                                                                                                        bool
 }
 
 type UpdateCourseInput = CreateCourseInput
@@ -203,9 +227,9 @@ type CreatePaymentMethodInput struct {
 }
 
 type CreateSessionInput struct {
-	CourseID, Title, Timezone, LocationLabel, DiveSiteID, InstructorUserID, NotesMarkdown, Status string
-	StartsAt, EndsAt                                                                              time.Time
-	Capacity                                                                                      *int
+	CourseID, Title, Timezone, LocationMode, LocationLabel, LocationNote, FormattedAddress, RegionCode, RegionName, ProvinceCode, ProvinceName, CityCode, CityName, BarangayCode, BarangayName, LocationSource, DiveSiteID, InstructorUserID, NotesMarkdown, Status string
+	StartsAt, EndsAt                                                                                                                                                                                                                                                time.Time
+	Capacity                                                                                                                                                                                                                                                        *int
 }
 
 type UpdateSessionInput = CreateSessionInput
@@ -276,6 +300,18 @@ func (r *Repo) ListSchools(ctx context.Context, actorID string) ([]School, error
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func (r *Repo) IsVerifiedInstructor(ctx context.Context, userID string) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM instructor_profiles WHERE user_id=$1 AND verification_status='verified')`, userID).Scan(&ok)
+	return ok, err
+}
+
+func (r *Repo) IsPlatformAdmin(ctx context.Context, userID string) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE id=$1 AND global_role IN ('admin', 'super_admin') AND account_status='active')`, userID).Scan(&ok)
+	return ok, err
 }
 
 func (r *Repo) CreateSchool(ctx context.Context, input CreateSchoolInput) (School, error) {
@@ -380,13 +416,7 @@ func (r *Repo) DeleteSchool(ctx context.Context, schoolID string) error {
 }
 
 func (r *Repo) ListCourses(ctx context.Context, schoolID string) ([]Course, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT c.id,c.school_id,c.slug,c.title,c.short_description,c.description_markdown,c.course_type,COALESCE(c.level,''),COALESCE(c.duration_label,''),c.price_amount::float8,c.currency,c.payment_required,c.approval_required,COALESCE(c.location_label,''),COALESCE(c.dive_site_id::text,''),COALESCE(c.included_markdown,''),COALESCE(c.prerequisites_markdown,''),COALESCE(c.equipment_markdown,''),COALESCE(c.cancellation_policy_markdown,''),COALESCE(c.availability_note,''),c.status,c.created_at,c.updated_at,
-		       COUNT(DISTINCT s.id) FILTER (WHERE s.deleted_at IS NULL AND s.starts_at >= NOW() AND s.status IN ('draft','scheduled'))::int,
-		       COUNT(DISTINCT b.id) FILTER (WHERE b.deleted_at IS NULL AND b.status = 'pending_review')::int
-		FROM courses c
-		LEFT JOIN course_sessions s ON s.course_id = c.id
-		LEFT JOIN course_booking_requests b ON b.course_id = c.id
+	rows, err := r.pool.Query(ctx, courseSelect()+`
 		WHERE c.school_id=$1 AND c.deleted_at IS NULL
 		GROUP BY c.id
 		ORDER BY c.updated_at DESC`, schoolID)
@@ -416,10 +446,10 @@ func (r *Repo) CreateCourse(ctx context.Context, schoolID string, input CreateCo
 			slug = fmt.Sprintf("%s-%d", base, attempt+1)
 		}
 		row := r.pool.QueryRow(ctx, `
-			INSERT INTO courses (school_id,slug,title,short_description,description_markdown,course_type,level,duration_label,price_amount,currency,payment_required,approval_required,location_label,dive_site_id,included_markdown,prerequisites_markdown,equipment_markdown,cancellation_policy_markdown,availability_note,status)
-			VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),NULLIF($8,''),$9,$10,$11,$12,NULLIF($13,''),NULLIF($14,'')::uuid,NULLIF($15,''),NULLIF($16,''),NULLIF($17,''),NULLIF($18,''),NULLIF($19,''),$20)
-			RETURNING id,school_id,slug,title,short_description,description_markdown,course_type,COALESCE(level,''),COALESCE(duration_label,''),price_amount::float8,currency,payment_required,approval_required,COALESCE(location_label,''),COALESCE(dive_site_id::text,''),COALESCE(included_markdown,''),COALESCE(prerequisites_markdown,''),COALESCE(equipment_markdown,''),COALESCE(cancellation_policy_markdown,''),COALESCE(availability_note,''),status,created_at,updated_at,0,0`,
-			schoolID, slug, input.Title, input.ShortDescription, input.DescriptionMarkdown, input.CourseType, input.Level, input.DurationLabel, input.PriceAmount, input.Currency, input.PaymentRequired, input.ApprovalRequired, input.LocationLabel, input.DiveSiteID, input.IncludedMarkdown, input.PrerequisitesMarkdown, input.EquipmentMarkdown, input.CancellationPolicyMarkdown, input.AvailabilityNote, input.Status)
+			INSERT INTO courses (school_id,slug,title,short_description,description_markdown,course_type,level,duration_label,price_amount,currency,payment_required,approval_required,location_mode,location_label,location_note,formatted_address,region_code,region_name,province_code,province_name,city_code,city_name,barangay_code,barangay_name,location_source,dive_site_id,included_markdown,prerequisites_markdown,equipment_markdown,cancellation_policy_markdown,availability_note,status)
+			VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),NULLIF($8,''),$9,$10,$11,$12,$13,NULLIF($14,''),NULLIF($15,''),NULLIF($16,''),NULLIF($17,''),NULLIF($18,''),NULLIF($19,''),NULLIF($20,''),NULLIF($21,''),NULLIF($22,''),NULLIF($23,''),NULLIF($24,''),$25,NULLIF($26,'')::uuid,NULLIF($27,''),NULLIF($28,''),NULLIF($29,''),NULLIF($30,''),NULLIF($31,''),$32)
+			RETURNING id,school_id,slug,title,short_description,description_markdown,course_type,COALESCE(level,''),COALESCE(duration_label,''),price_amount::float8,currency,payment_required,approval_required,location_mode,COALESCE(location_label,''),COALESCE(location_note,''),COALESCE(formatted_address,''),COALESCE(region_code,''),COALESCE(region_name,''),COALESCE(province_code,''),COALESCE(province_name,''),COALESCE(city_code,''),COALESCE(city_name,''),COALESCE(barangay_code,''),COALESCE(barangay_name,''),COALESCE(location_source,'manual'),COALESCE(dive_site_id::text,''),COALESCE(included_markdown,''),COALESCE(prerequisites_markdown,''),COALESCE(equipment_markdown,''),COALESCE(cancellation_policy_markdown,''),COALESCE(availability_note,''),status,created_at,updated_at,0,0`,
+			schoolID, slug, input.Title, input.ShortDescription, input.DescriptionMarkdown, input.CourseType, input.Level, input.DurationLabel, input.PriceAmount, input.Currency, input.PaymentRequired, input.ApprovalRequired, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.IncludedMarkdown, input.PrerequisitesMarkdown, input.EquipmentMarkdown, input.CancellationPolicyMarkdown, input.AvailabilityNote, input.Status)
 		item, err := scanCourse(row)
 		if err == nil {
 			return item, nil
@@ -443,10 +473,10 @@ func (r *Repo) UpdateCourse(ctx context.Context, schoolID, idOrSlug string, inpu
 		return Course{}, err
 	}
 	row := r.pool.QueryRow(ctx, `
-		UPDATE courses SET title=$3, short_description=$4, description_markdown=$5, course_type=$6, level=NULLIF($7,''), duration_label=NULLIF($8,''), price_amount=$9, currency=$10, payment_required=$11, approval_required=$12, location_label=NULLIF($13,''), dive_site_id=NULLIF($14,'')::uuid, included_markdown=NULLIF($15,''), prerequisites_markdown=NULLIF($16,''), equipment_markdown=NULLIF($17,''), cancellation_policy_markdown=NULLIF($18,''), availability_note=NULLIF($19,''), status=$20, updated_at=NOW()
+		UPDATE courses SET title=$3, short_description=$4, description_markdown=$5, course_type=$6, level=NULLIF($7,''), duration_label=NULLIF($8,''), price_amount=$9, currency=$10, payment_required=$11, approval_required=$12, location_mode=$13, location_label=NULLIF($14,''), location_note=NULLIF($15,''), formatted_address=NULLIF($16,''), region_code=NULLIF($17,''), region_name=NULLIF($18,''), province_code=NULLIF($19,''), province_name=NULLIF($20,''), city_code=NULLIF($21,''), city_name=NULLIF($22,''), barangay_code=NULLIF($23,''), barangay_name=NULLIF($24,''), location_source=$25, dive_site_id=NULLIF($26,'')::uuid, included_markdown=NULLIF($27,''), prerequisites_markdown=NULLIF($28,''), equipment_markdown=NULLIF($29,''), cancellation_policy_markdown=NULLIF($30,''), availability_note=NULLIF($31,''), status=$32, updated_at=NOW()
 		WHERE id=$1 AND school_id=$2 AND deleted_at IS NULL
-		RETURNING id,school_id,slug,title,short_description,description_markdown,course_type,COALESCE(level,''),COALESCE(duration_label,''),price_amount::float8,currency,payment_required,approval_required,COALESCE(location_label,''),COALESCE(dive_site_id::text,''),COALESCE(included_markdown,''),COALESCE(prerequisites_markdown,''),COALESCE(equipment_markdown,''),COALESCE(cancellation_policy_markdown,''),COALESCE(availability_note,''),status,created_at,updated_at,0,0`,
-		course.ID, schoolID, input.Title, input.ShortDescription, input.DescriptionMarkdown, input.CourseType, input.Level, input.DurationLabel, input.PriceAmount, input.Currency, input.PaymentRequired, input.ApprovalRequired, input.LocationLabel, input.DiveSiteID, input.IncludedMarkdown, input.PrerequisitesMarkdown, input.EquipmentMarkdown, input.CancellationPolicyMarkdown, input.AvailabilityNote, input.Status)
+		RETURNING id,school_id,slug,title,short_description,description_markdown,course_type,COALESCE(level,''),COALESCE(duration_label,''),price_amount::float8,currency,payment_required,approval_required,location_mode,COALESCE(location_label,''),COALESCE(location_note,''),COALESCE(formatted_address,''),COALESCE(region_code,''),COALESCE(region_name,''),COALESCE(province_code,''),COALESCE(province_name,''),COALESCE(city_code,''),COALESCE(city_name,''),COALESCE(barangay_code,''),COALESCE(barangay_name,''),COALESCE(location_source,'manual'),COALESCE(dive_site_id::text,''),COALESCE(included_markdown,''),COALESCE(prerequisites_markdown,''),COALESCE(equipment_markdown,''),COALESCE(cancellation_policy_markdown,''),COALESCE(availability_note,''),status,created_at,updated_at,0,0`,
+		course.ID, schoolID, input.Title, input.ShortDescription, input.DescriptionMarkdown, input.CourseType, input.Level, input.DurationLabel, input.PriceAmount, input.Currency, input.PaymentRequired, input.ApprovalRequired, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.IncludedMarkdown, input.PrerequisitesMarkdown, input.EquipmentMarkdown, input.CancellationPolicyMarkdown, input.AvailabilityNote, input.Status)
 	return scanCourse(row)
 }
 
@@ -540,7 +570,7 @@ func (r *Repo) CreateSession(ctx context.Context, schoolID string, input CreateS
 		if attempt > 0 {
 			slug = fmt.Sprintf("%s-%d", base, attempt+1)
 		}
-		row := r.pool.QueryRow(ctx, `INSERT INTO course_sessions (school_id,course_id,slug,title,starts_at,ends_at,timezone,location_label,dive_site_id,instructor_user_id,capacity,status,notes_markdown) VALUES ($1,$2,$3,$4,$5,$6,$7,NULLIF($8,''),NULLIF($9,'')::uuid,NULLIF($10,'')::uuid,$11,$12,NULLIF($13,'')) RETURNING id`, schoolID, input.CourseID, slug, input.Title, input.StartsAt, input.EndsAt, input.Timezone, input.LocationLabel, input.DiveSiteID, input.InstructorUserID, input.Capacity, input.Status, input.NotesMarkdown)
+		row := r.pool.QueryRow(ctx, `INSERT INTO course_sessions (school_id,course_id,slug,title,starts_at,ends_at,timezone,location_mode,location_label,location_note,formatted_address,region_code,region_name,province_code,province_name,city_code,city_name,barangay_code,barangay_name,location_source,dive_site_id,instructor_user_id,capacity,status,notes_markdown) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NULLIF($9,''),NULLIF($10,''),NULLIF($11,''),NULLIF($12,''),NULLIF($13,''),NULLIF($14,''),NULLIF($15,''),NULLIF($16,''),NULLIF($17,''),NULLIF($18,''),NULLIF($19,''),$20,NULLIF($21,'')::uuid,NULLIF($22,'')::uuid,$23,$24,NULLIF($25,'')) RETURNING id`, schoolID, input.CourseID, slug, input.Title, input.StartsAt, input.EndsAt, input.Timezone, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.InstructorUserID, input.Capacity, input.Status, input.NotesMarkdown)
 		var id string
 		err := row.Scan(&id)
 		if err == nil {
@@ -564,7 +594,7 @@ func (r *Repo) UpdateSession(ctx context.Context, schoolID, idOrSlug string, inp
 	if err != nil {
 		return Session{}, err
 	}
-	_, err = r.pool.Exec(ctx, `UPDATE course_sessions SET course_id=$3,title=$4,starts_at=$5,ends_at=$6,timezone=$7,location_label=NULLIF($8,''),dive_site_id=NULLIF($9,'')::uuid,instructor_user_id=NULLIF($10,'')::uuid,capacity=$11,status=$12,notes_markdown=NULLIF($13,''),updated_at=NOW() WHERE id=$1 AND school_id=$2 AND deleted_at IS NULL`, s.ID, schoolID, input.CourseID, input.Title, input.StartsAt, input.EndsAt, input.Timezone, input.LocationLabel, input.DiveSiteID, input.InstructorUserID, input.Capacity, input.Status, input.NotesMarkdown)
+	_, err = r.pool.Exec(ctx, `UPDATE course_sessions SET course_id=$3,title=$4,starts_at=$5,ends_at=$6,timezone=$7,location_mode=$8,location_label=NULLIF($9,''),location_note=NULLIF($10,''),formatted_address=NULLIF($11,''),region_code=NULLIF($12,''),region_name=NULLIF($13,''),province_code=NULLIF($14,''),province_name=NULLIF($15,''),city_code=NULLIF($16,''),city_name=NULLIF($17,''),barangay_code=NULLIF($18,''),barangay_name=NULLIF($19,''),location_source=$20,dive_site_id=NULLIF($21,'')::uuid,instructor_user_id=NULLIF($22,'')::uuid,capacity=$23,status=$24,notes_markdown=NULLIF($25,''),updated_at=NOW() WHERE id=$1 AND school_id=$2 AND deleted_at IS NULL`, s.ID, schoolID, input.CourseID, input.Title, input.StartsAt, input.EndsAt, input.Timezone, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.InstructorUserID, input.Capacity, input.Status, input.NotesMarkdown)
 	if err != nil {
 		return Session{}, err
 	}
@@ -833,11 +863,11 @@ func (r *Repo) CancelMyBooking(ctx context.Context, userID, bookingID string) (B
 }
 
 func courseSelect() string {
-	return `SELECT c.id,c.school_id,c.slug,c.title,c.short_description,c.description_markdown,c.course_type,COALESCE(c.level,''),COALESCE(c.duration_label,''),c.price_amount::float8,c.currency,c.payment_required,c.approval_required,COALESCE(c.location_label,''),COALESCE(c.dive_site_id::text,''),COALESCE(c.included_markdown,''),COALESCE(c.prerequisites_markdown,''),COALESCE(c.equipment_markdown,''),COALESCE(c.cancellation_policy_markdown,''),COALESCE(c.availability_note,''),c.status,c.created_at,c.updated_at,COUNT(DISTINCT s.id) FILTER (WHERE s.deleted_at IS NULL AND s.starts_at >= NOW() AND s.status IN ('draft','scheduled'))::int,COUNT(DISTINCT b.id) FILTER (WHERE b.deleted_at IS NULL AND b.status = 'pending_review')::int FROM courses c LEFT JOIN course_sessions s ON s.course_id=c.id LEFT JOIN course_booking_requests b ON b.course_id=c.id`
+	return `SELECT c.id,c.school_id,c.slug,c.title,c.short_description,c.description_markdown,c.course_type,COALESCE(c.level,''),COALESCE(c.duration_label,''),c.price_amount::float8,c.currency,c.payment_required,c.approval_required,c.location_mode,COALESCE(c.location_label,''),COALESCE(c.location_note,''),COALESCE(c.formatted_address,''),COALESCE(c.region_code,''),COALESCE(c.region_name,''),COALESCE(c.province_code,''),COALESCE(c.province_name,''),COALESCE(c.city_code,''),COALESCE(c.city_name,''),COALESCE(c.barangay_code,''),COALESCE(c.barangay_name,''),COALESCE(c.location_source,'manual'),COALESCE(c.dive_site_id::text,''),COALESCE(c.included_markdown,''),COALESCE(c.prerequisites_markdown,''),COALESCE(c.equipment_markdown,''),COALESCE(c.cancellation_policy_markdown,''),COALESCE(c.availability_note,''),c.status,c.created_at,c.updated_at,COUNT(DISTINCT s.id) FILTER (WHERE s.deleted_at IS NULL AND s.starts_at >= NOW() AND s.status IN ('draft','scheduled'))::int,COUNT(DISTINCT b.id) FILTER (WHERE b.deleted_at IS NULL AND b.status = 'pending_review')::int FROM courses c LEFT JOIN course_sessions s ON s.course_id=c.id LEFT JOIN course_booking_requests b ON b.course_id=c.id`
 }
 
 func sessionSelect() string {
-	return `SELECT s.id,s.school_id,s.course_id,c.title,s.slug,s.title,s.starts_at,s.ends_at,s.timezone,COALESCE(s.location_label,''),COALESCE(s.dive_site_id::text,''),COALESCE(s.instructor_user_id::text,''),COALESCE(u.display_name,''),s.capacity,s.status,COALESCE(s.notes_markdown,''),s.created_at,s.updated_at,s.cancelled_at,s.completed_at,COUNT(b.id) FILTER (WHERE b.deleted_at IS NULL)::int FROM course_sessions s JOIN courses c ON c.id=s.course_id LEFT JOIN users u ON u.id=s.instructor_user_id LEFT JOIN course_booking_requests b ON b.session_id=s.id`
+	return `SELECT s.id,s.school_id,s.course_id,c.title,s.slug,s.title,s.starts_at,s.ends_at,s.timezone,s.location_mode,COALESCE(s.location_label,''),COALESCE(s.location_note,''),COALESCE(s.formatted_address,''),COALESCE(s.region_code,''),COALESCE(s.region_name,''),COALESCE(s.province_code,''),COALESCE(s.province_name,''),COALESCE(s.city_code,''),COALESCE(s.city_name,''),COALESCE(s.barangay_code,''),COALESCE(s.barangay_name,''),COALESCE(s.location_source,'manual'),COALESCE(s.dive_site_id::text,''),COALESCE(s.instructor_user_id::text,''),COALESCE(u.display_name,''),s.capacity,s.status,COALESCE(s.notes_markdown,''),s.created_at,s.updated_at,s.cancelled_at,s.completed_at,COUNT(b.id) FILTER (WHERE b.deleted_at IS NULL)::int FROM course_sessions s JOIN courses c ON c.id=s.course_id LEFT JOIN users u ON u.id=s.instructor_user_id LEFT JOIN course_booking_requests b ON b.session_id=s.id`
 }
 
 func bookingSelect() string {
@@ -870,7 +900,7 @@ func scanSchoolInto(s scanner, item *School) error {
 }
 func scanCourse(s scanner) (Course, error) {
 	var item Course
-	err := s.Scan(&item.ID, &item.SchoolID, &item.Slug, &item.Title, &item.ShortDescription, &item.DescriptionMarkdown, &item.CourseType, &item.Level, &item.DurationLabel, &item.PriceAmount, &item.Currency, &item.PaymentRequired, &item.ApprovalRequired, &item.LocationLabel, &item.DiveSiteID, &item.IncludedMarkdown, &item.PrerequisitesMarkdown, &item.EquipmentMarkdown, &item.CancellationPolicyMarkdown, &item.AvailabilityNote, &item.Status, &item.CreatedAt, &item.UpdatedAt, &item.UpcomingSessionCount, &item.PendingBookingCount)
+	err := s.Scan(&item.ID, &item.SchoolID, &item.Slug, &item.Title, &item.ShortDescription, &item.DescriptionMarkdown, &item.CourseType, &item.Level, &item.DurationLabel, &item.PriceAmount, &item.Currency, &item.PaymentRequired, &item.ApprovalRequired, &item.LocationMode, &item.LocationLabel, &item.LocationNote, &item.FormattedAddress, &item.RegionCode, &item.RegionName, &item.ProvinceCode, &item.ProvinceName, &item.CityCode, &item.CityName, &item.BarangayCode, &item.BarangayName, &item.LocationSource, &item.DiveSiteID, &item.IncludedMarkdown, &item.PrerequisitesMarkdown, &item.EquipmentMarkdown, &item.CancellationPolicyMarkdown, &item.AvailabilityNote, &item.Status, &item.CreatedAt, &item.UpdatedAt, &item.UpcomingSessionCount, &item.PendingBookingCount)
 	return item, err
 }
 func scanPaymentMethod(s scanner) (PaymentMethod, error) {
@@ -880,7 +910,7 @@ func scanPaymentMethod(s scanner) (PaymentMethod, error) {
 }
 func scanSession(s scanner) (Session, error) {
 	var item Session
-	err := s.Scan(&item.ID, &item.SchoolID, &item.CourseID, &item.CourseTitle, &item.Slug, &item.Title, &item.StartsAt, &item.EndsAt, &item.Timezone, &item.LocationLabel, &item.DiveSiteID, &item.InstructorUserID, &item.InstructorDisplayName, &item.Capacity, &item.Status, &item.NotesMarkdown, &item.CreatedAt, &item.UpdatedAt, &item.CancelledAt, &item.CompletedAt, &item.AssignedBookingCount)
+	err := s.Scan(&item.ID, &item.SchoolID, &item.CourseID, &item.CourseTitle, &item.Slug, &item.Title, &item.StartsAt, &item.EndsAt, &item.Timezone, &item.LocationMode, &item.LocationLabel, &item.LocationNote, &item.FormattedAddress, &item.RegionCode, &item.RegionName, &item.ProvinceCode, &item.ProvinceName, &item.CityCode, &item.CityName, &item.BarangayCode, &item.BarangayName, &item.LocationSource, &item.DiveSiteID, &item.InstructorUserID, &item.InstructorDisplayName, &item.Capacity, &item.Status, &item.NotesMarkdown, &item.CreatedAt, &item.UpdatedAt, &item.CancelledAt, &item.CompletedAt, &item.AssignedBookingCount)
 	return item, err
 }
 func scanBooking(s scanner) (Booking, error) {

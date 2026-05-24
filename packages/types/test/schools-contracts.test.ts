@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type {
   CourseBookingStatus,
+  CourseLocationMode,
   CoursePaymentMethodType,
   CourseSessionStatus,
   CourseType,
@@ -15,12 +16,14 @@ import type {
 test("schools module shared contracts expose backend enum values", () => {
   const schoolStatus: SchoolStatus = "published";
   const courseType: CourseType = "pool_training";
+  const courseLocationMode: CourseLocationMode = "inherit_school";
   const sessionStatus: CourseSessionStatus = "scheduled";
   const bookingStatus: CourseBookingStatus = "pending_review";
   const paymentMethodType: CoursePaymentMethodType = "MANUAL_QR";
 
   assert.equal(schoolStatus, "published");
   assert.equal(courseType, "pool_training");
+  assert.equal(courseLocationMode, "inherit_school");
   assert.equal(sessionStatus, "scheduled");
   assert.equal(bookingStatus, "pending_review");
   assert.equal(paymentMethodType, "MANUAL_QR");
@@ -68,7 +71,19 @@ test("schools public and student contracts expose customer-safe shapes", () => {
     currency: "PHP",
     paymentRequired: false,
     approvalRequired: true,
+    locationMode: "text_only",
     locationLabel: "Pool",
+    locationNote: "Meet at reception",
+    formattedAddress: "",
+    regionCode: "",
+    regionName: "",
+    provinceCode: "",
+    provinceName: "",
+    cityCode: "",
+    cityName: "",
+    barangayCode: "",
+    barangayName: "",
+    locationSource: "manual",
     diveSiteId: "",
     includedMarkdown: "",
     prerequisitesMarkdown: "",

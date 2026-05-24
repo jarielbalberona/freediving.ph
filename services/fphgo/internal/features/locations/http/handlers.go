@@ -20,6 +20,22 @@ func New(service *locationsservice.Service) *Handlers {
 	return &Handlers{service: service}
 }
 
+func (h *Handlers) SearchLocations(w http.ResponseWriter, r *http.Request) {
+	items, diagnostics, err := h.service.SearchLocations(r.Context(), r.URL.Query().Get("q"), parseLimit(r))
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	mapped := make([]SearchLocationResultResponse, 0, len(items))
+	for _, item := range items {
+		mapped = append(mapped, mapSearchResult(item))
+	}
+	httpx.JSON(w, http.StatusOK, SearchLocationsResponse{
+		Results:     mapped,
+		Diagnostics: mapDiagnostics(diagnostics),
+	})
+}
+
 func (h *Handlers) ListRegions(w http.ResponseWriter, r *http.Request) {
 	items, err := h.service.ListRegions(r.Context(), r.URL.Query().Get("search"), parseLimit(r))
 	if err != nil {
@@ -131,5 +147,31 @@ func mapBarangay(item locationsrepo.Barangay) BarangayResponse {
 		CityMunicipalityCode: item.CityMunicipalityCode,
 		Name:                 item.Name,
 		OldName:              item.OldName,
+	}
+}
+
+func mapSearchResult(item locationsrepo.SearchResult) SearchLocationResultResponse {
+	return SearchLocationResultResponse{
+		Type:           item.Type,
+		Label:          item.Label,
+		HierarchyLabel: item.HierarchyLabel,
+		RegionCode:     item.RegionCode,
+		RegionName:     item.RegionName,
+		ProvinceCode:   item.ProvinceCode,
+		ProvinceName:   item.ProvinceName,
+		CityCode:       item.CityCode,
+		CityName:       item.CityName,
+		BarangayCode:   item.BarangayCode,
+		BarangayName:   item.BarangayName,
+	}
+}
+
+func mapDiagnostics(item locationsrepo.Diagnostics) LocationDiagnosticsResponse {
+	return LocationDiagnosticsResponse{
+		Seeded:                     item.ActiveRegions > 0 && item.ActiveProvinces > 0 && item.ActiveCitiesMunicipalities > 0 && item.ActiveBarangays > 0,
+		ActiveRegions:              item.ActiveRegions,
+		ActiveProvinces:            item.ActiveProvinces,
+		ActiveCitiesMunicipalities: item.ActiveCitiesMunicipalities,
+		ActiveBarangays:            item.ActiveBarangays,
 	}
 }

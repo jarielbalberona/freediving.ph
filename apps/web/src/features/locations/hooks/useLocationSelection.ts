@@ -16,9 +16,11 @@ import {
   areLocationSearchValuesEqual,
   buildDisplayLocation,
   locationSearchSchema,
+  locationValueFromSearchResult,
   toFormDefaultValues,
   toLocationSearchValue,
   type LocationSearchFormValues,
+  type LocationSearchResult,
   type LocationSearchValue,
   type PsgcItem,
 } from "../types";
@@ -67,17 +69,30 @@ export function useLocationSelection({
   const debouncedCitySearch = useDebouncedValue(search.city, 250);
   const debouncedBarangaySearch = useDebouncedValue(search.barangay, 250);
 
-  const locationName = useWatch({ control: form.control, name: "locationName" }) ?? "";
+  const locationName =
+    useWatch({ control: form.control, name: "locationName" }) ?? "";
   const formattedAddress =
     useWatch({ control: form.control, name: "formattedAddress" }) ?? "";
-  const regionCode = useWatch({ control: form.control, name: "regionCode" }) ?? "";
-  const regionName = useWatch({ control: form.control, name: "regionName" }) ?? "";
-  const provinceCode = useWatch({ control: form.control, name: "provinceCode" }) ?? "";
-  const provinceName = useWatch({ control: form.control, name: "provinceName" }) ?? "";
+  const googlePlaceId =
+    useWatch({ control: form.control, name: "googlePlaceId" }) ?? "";
+  const latitude =
+    useWatch({ control: form.control, name: "latitude" }) ?? null;
+  const longitude =
+    useWatch({ control: form.control, name: "longitude" }) ?? null;
+  const regionCode =
+    useWatch({ control: form.control, name: "regionCode" }) ?? "";
+  const regionName =
+    useWatch({ control: form.control, name: "regionName" }) ?? "";
+  const provinceCode =
+    useWatch({ control: form.control, name: "provinceCode" }) ?? "";
+  const provinceName =
+    useWatch({ control: form.control, name: "provinceName" }) ?? "";
   const cityCode = useWatch({ control: form.control, name: "cityCode" }) ?? "";
   const cityName = useWatch({ control: form.control, name: "cityName" }) ?? "";
-  const barangayCode = useWatch({ control: form.control, name: "barangayCode" }) ?? "";
-  const barangayName = useWatch({ control: form.control, name: "barangayName" }) ?? "";
+  const barangayCode =
+    useWatch({ control: form.control, name: "barangayCode" }) ?? "";
+  const barangayName =
+    useWatch({ control: form.control, name: "barangayName" }) ?? "";
   const locationSource =
     useWatch({ control: form.control, name: "locationSource" }) ?? "manual";
 
@@ -85,6 +100,9 @@ export function useLocationSelection({
     () => ({
       locationName,
       formattedAddress,
+      googlePlaceId,
+      latitude,
+      longitude,
       regionCode,
       regionName,
       provinceCode,
@@ -98,6 +116,9 @@ export function useLocationSelection({
     [
       locationName,
       formattedAddress,
+      googlePlaceId,
+      latitude,
+      longitude,
       regionCode,
       regionName,
       provinceCode,
@@ -258,11 +279,22 @@ export function useLocationSelection({
   const markManualEntry = useCallback(() => {
     if (form.getValues("locationSource") === "manual") return;
 
-    form.setValue("locationSource", "manual", {
-      shouldDirty: true,
-      shouldTouch: true,
+    commitPatch({
+      locationSource: "manual",
+      googlePlaceId: "",
+      latitude: null,
+      longitude: null,
     });
-  }, [form]);
+  }, [commitPatch, form]);
+
+  const selectSearchResult = useCallback(
+    (result: LocationSearchResult) => {
+      commitPatch(locationValueFromSearchResult(result, form.getValues()), {
+        clearSearchScope: "all",
+      });
+    },
+    [commitPatch, form],
+  );
 
   const selectRegion = useCallback(
     (code: string | null) => {
@@ -298,7 +330,10 @@ export function useLocationSelection({
           cityName: "",
           barangayCode: "",
           barangayName: "",
-          locationSource: "psgc_mapped",
+          googlePlaceId: "",
+          latitude: null,
+          longitude: null,
+          locationSource: "psgc",
         },
         { clearSearchScope: "province-down" },
       );
@@ -338,7 +373,10 @@ export function useLocationSelection({
           cityName: "",
           barangayCode: "",
           barangayName: "",
-          locationSource: "psgc_mapped",
+          googlePlaceId: "",
+          latitude: null,
+          longitude: null,
+          locationSource: "psgc",
         },
         { clearSearchScope: "city-down" },
       );
@@ -374,7 +412,10 @@ export function useLocationSelection({
           cityName: selected?.name ?? "",
           barangayCode: "",
           barangayName: "",
-          locationSource: "psgc_mapped",
+          googlePlaceId: "",
+          latitude: null,
+          longitude: null,
+          locationSource: "psgc",
         },
         { clearSearchScope: "barangay-only" },
       );
@@ -406,7 +447,10 @@ export function useLocationSelection({
         {
           barangayCode: code,
           barangayName: selected?.name ?? "",
-          locationSource: "psgc_mapped",
+          googlePlaceId: "",
+          latitude: null,
+          longitude: null,
+          locationSource: "psgc",
         },
         { clearSearchScope: "barangay-only" },
       );
@@ -426,6 +470,9 @@ export function useLocationSelection({
     values: {
       locationName,
       formattedAddress,
+      googlePlaceId,
+      latitude,
+      longitude,
       regionCode,
       regionName,
       provinceCode,
@@ -477,6 +524,7 @@ export function useLocationSelection({
 
     actions: {
       markManualEntry,
+      selectSearchResult,
       selectRegion,
       selectProvince,
       selectCity,

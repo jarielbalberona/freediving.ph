@@ -1,8 +1,15 @@
 import { z } from "zod";
 
+export const locationSourceSchema = z
+  .enum(["manual", "psgc", "google_places", "psgc_mapped", "unmapped"])
+  .optional();
+
 export const locationSearchSchema = z.object({
   locationName: z.string().optional(),
   formattedAddress: z.string().optional(),
+  googlePlaceId: z.string().optional(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
   regionCode: z.string().optional(),
   regionName: z.string().optional(),
   provinceCode: z.string().optional(),
@@ -11,11 +18,40 @@ export const locationSearchSchema = z.object({
   cityName: z.string().optional(),
   barangayCode: z.string().optional(),
   barangayName: z.string().optional(),
-  locationSource: z.enum(["manual", "google_places", "psgc_mapped", "unmapped"]).optional(),
+  locationSource: locationSourceSchema,
 });
 
 export type LocationSearchFormValues = z.infer<typeof locationSearchSchema>;
 export type LocationSearchValue = LocationSearchFormValues;
+export type LocationSource = NonNullable<LocationSearchValue["locationSource"]>;
+
+export type LocationSearchResultType =
+  | "region"
+  | "province"
+  | "city"
+  | "barangay";
+
+export type LocationSearchResult = {
+  type: LocationSearchResultType;
+  label: string;
+  hierarchyLabel?: string;
+  regionCode?: string;
+  regionName?: string;
+  provinceCode?: string;
+  provinceName?: string;
+  cityCode?: string;
+  cityName?: string;
+  barangayCode?: string;
+  barangayName?: string;
+};
+
+export type LocationSeedDiagnostics = {
+  seeded: boolean;
+  activeRegions: number;
+  activeProvinces: number;
+  activeCitiesMunicipalities: number;
+  activeBarangays: number;
+};
 
 export type PsgcItem = {
   code: string;
@@ -27,6 +63,9 @@ export type PsgcItem = {
 export const EMPTY_LOCATION_SEARCH_VALUE: LocationSearchFormValues = {
   locationName: "",
   formattedAddress: "",
+  googlePlaceId: "",
+  latitude: null,
+  longitude: null,
   regionCode: "",
   regionName: "",
   provinceCode: "",
@@ -38,12 +77,29 @@ export const EMPTY_LOCATION_SEARCH_VALUE: LocationSearchFormValues = {
   locationSource: "manual",
 };
 
+export function normalizeLocationSource(value?: string | null): LocationSource {
+  switch ((value ?? "").trim()) {
+    case "psgc":
+    case "psgc_mapped":
+      return "psgc";
+    case "google_places":
+      return "google_places";
+    case "unmapped":
+      return "unmapped";
+    default:
+      return "manual";
+  }
+}
+
 export function toFormDefaultValues(
   value?: Partial<LocationSearchValue> | null,
 ): LocationSearchFormValues {
   return {
     locationName: value?.locationName ?? "",
     formattedAddress: value?.formattedAddress ?? "",
+    googlePlaceId: value?.googlePlaceId ?? "",
+    latitude: value?.latitude ?? null,
+    longitude: value?.longitude ?? null,
     regionCode: value?.regionCode ?? "",
     regionName: value?.regionName ?? "",
     provinceCode: value?.provinceCode ?? "",
@@ -52,7 +108,7 @@ export function toFormDefaultValues(
     cityName: value?.cityName ?? "",
     barangayCode: value?.barangayCode ?? "",
     barangayName: value?.barangayName ?? "",
-    locationSource: value?.locationSource ?? "manual",
+    locationSource: normalizeLocationSource(value?.locationSource),
   };
 }
 
@@ -62,6 +118,9 @@ export function toLocationSearchValue(
   return {
     locationName: value.locationName || "",
     formattedAddress: value.formattedAddress || "",
+    googlePlaceId: value.googlePlaceId || "",
+    latitude: value.latitude ?? null,
+    longitude: value.longitude ?? null,
     regionCode: value.regionCode || "",
     regionName: value.regionName || "",
     provinceCode: value.provinceCode || "",
@@ -70,7 +129,7 @@ export function toLocationSearchValue(
     cityName: value.cityName || "",
     barangayCode: value.barangayCode || "",
     barangayName: value.barangayName || "",
-    locationSource: value.locationSource ?? "manual",
+    locationSource: normalizeLocationSource(value.locationSource),
   };
 }
 
@@ -84,6 +143,9 @@ export function areLocationSearchValuesEqual(
   return (
     left.locationName === right.locationName &&
     left.formattedAddress === right.formattedAddress &&
+    left.googlePlaceId === right.googlePlaceId &&
+    left.latitude === right.latitude &&
+    left.longitude === right.longitude &&
     left.regionCode === right.regionCode &&
     left.regionName === right.regionName &&
     left.provinceCode === right.provinceCode &&
@@ -96,7 +158,31 @@ export function areLocationSearchValuesEqual(
   );
 }
 
-export function buildDisplayLocation(value?: Partial<LocationSearchValue> | null) {
+export function locationValueFromSearchResult(
+  result: LocationSearchResult,
+  current?: Partial<LocationSearchValue> | null,
+): LocationSearchValue {
+  const base = toFormDefaultValues(current);
+  return toLocationSearchValue({
+    ...base,
+    googlePlaceId: "",
+    latitude: null,
+    longitude: null,
+    regionCode: result.regionCode ?? "",
+    regionName: result.regionName ?? "",
+    provinceCode: result.provinceCode ?? "",
+    provinceName: result.provinceName ?? "",
+    cityCode: result.cityCode ?? "",
+    cityName: result.cityName ?? "",
+    barangayCode: result.barangayCode ?? "",
+    barangayName: result.barangayName ?? "",
+    locationSource: "psgc",
+  });
+}
+
+export function buildDisplayLocation(
+  value?: Partial<LocationSearchValue> | null,
+) {
   const v = toFormDefaultValues(value);
 
   const parts = [

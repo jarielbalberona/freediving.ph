@@ -82,6 +82,7 @@ export function SchoolsBrowsePage() {
           <Button
             size="sm"
             variant="outline"
+            nativeButton={false}
             render={<Link href="/my/bookings" />}
           >
             My bookings
@@ -178,6 +179,7 @@ export function SchoolProfilePage({ slug }: { slug: string }) {
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
+              nativeButton={false}
               render={<Link href={`/schools/${school.slug}/courses`} />}
             >
               View courses
@@ -292,7 +294,7 @@ export function CourseDetailPage({
           <h1 className="text-lg font-semibold tracking-tight">
             {course.title}
           </h1>
-          <CourseMeta course={course} />
+          <CourseMeta course={course} school={school} />
         </div>
         <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
           <DialogTrigger
@@ -424,7 +426,12 @@ export function MyBookingsPage() {
         title="My bookings"
         subtitle="Track course requests, scheduled sessions, and payment review status."
         navigation={
-          <Button size="sm" variant="outline" render={<Link href="/schools" />}>
+          <Button
+            size="sm"
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/schools" />}
+          >
             <ArrowLeft className="mr-1 h-4 w-4" />
             Schools
           </Button>
@@ -481,6 +488,7 @@ function SchoolCard({ school }: { school: PublicSchool }) {
         className="self-start"
         size="sm"
         variant="outline"
+        nativeButton={false}
         render={<Link href={`/schools/${school.slug}`} />}
       >
         View school
@@ -520,7 +528,12 @@ function SchoolPublicHeader({
         school.diveSiteName ? ` • ${school.diveSiteName}` : ""
       }`}
       navigation={
-        <Button size="sm" variant="outline" render={<Link href="/schools" />}>
+        <Button
+          size="sm"
+          variant="outline"
+          nativeButton={false}
+          render={<Link href="/schools" />}
+        >
           <ArrowLeft className="mr-1 h-4 w-4" />
           Schools
         </Button>
@@ -530,6 +543,7 @@ function SchoolPublicHeader({
           <Button
             size="sm"
             variant="outline"
+            nativeButton={false}
             render={<Link href={`/schools/${school.slug}/courses`} />}
           >
             View courses
@@ -579,7 +593,7 @@ function CourseGrid({
             <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
               {course.shortDescription}
             </p>
-            <CourseMeta course={course} />
+            <CourseMeta course={course} school={school} />
           </div>
           <Button
             className="self-start"
@@ -597,7 +611,13 @@ function CourseGrid({
   );
 }
 
-function CourseMeta({ course }: { course: PublicCourse }) {
+function CourseMeta({
+  course,
+  school,
+}: {
+  course: PublicCourse;
+  school: PublicSchool;
+}) {
   const price =
     course.priceAmount == null
       ? "Price on request"
@@ -611,9 +631,38 @@ function CourseMeta({ course }: { course: PublicCourse }) {
       {course.level ? <span>{courseLevelLabels[course.level]}</span> : null}
       {course.durationLabel ? <span>{course.durationLabel}</span> : null}
       <span>{course.paymentRequired ? price : "No payment required"}</span>
-      {course.locationLabel ? <span>{course.locationLabel}</span> : null}
+      <span>
+        {publicCourseLocationLabel(course, school)} ·{" "}
+        {publicCourseLocationHelper(course)}
+      </span>
+      {course.locationNote ? <span>{course.locationNote}</span> : null}
     </div>
   );
+}
+
+function publicCourseLocationLabel(course: PublicCourse, school: PublicSchool) {
+  if (course.locationMode === "structured") {
+    return course.locationLabel || course.formattedAddress || "Course location";
+  }
+  if (course.locationMode === "text_only") {
+    return course.locationLabel || "Text-only location";
+  }
+  return (
+    school.baseLocationLabel ||
+    school.formattedAddress ||
+    school.baseLocation ||
+    "School location"
+  );
+}
+
+function publicCourseLocationHelper(course: PublicCourse) {
+  if (course.locationMode === "structured") {
+    return "Course location";
+  }
+  if (course.locationMode === "text_only") {
+    return "Text-only location";
+  }
+  return "Uses school location";
 }
 
 function BookingDialog({
@@ -659,7 +708,11 @@ function BookingForm({
           The school will review your preferred date and follow up.
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" render={<Link href="/my/bookings" />}>
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<Link href="/my/bookings" />}
+          >
             View my bookings
           </Button>
           <Button size="sm" variant="outline" onClick={onSuccess}>

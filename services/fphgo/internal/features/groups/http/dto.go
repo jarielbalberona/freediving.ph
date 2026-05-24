@@ -112,7 +112,7 @@ type CreateGroupRequest struct {
 	ProvinceCode     string   `json:"provinceCode,omitempty" validate:"omitempty,max=32"`
 	CityCode         string   `json:"cityCode,omitempty" validate:"omitempty,max=32"`
 	BarangayCode     string   `json:"barangayCode,omitempty" validate:"omitempty,max=32"`
-	LocationSource   string   `json:"locationSource,omitempty" validate:"omitempty,oneof=manual google_places psgc_mapped unmapped"`
+	LocationSource   string   `json:"locationSource,omitempty" validate:"omitempty,oneof=manual google_places psgc psgc_mapped unmapped"`
 }
 
 type UpdateGroupRequest struct {
@@ -132,7 +132,7 @@ type UpdateGroupRequest struct {
 	ProvinceCode     *string  `json:"provinceCode,omitempty" validate:"omitempty,max=32"`
 	CityCode         *string  `json:"cityCode,omitempty" validate:"omitempty,max=32"`
 	BarangayCode     *string  `json:"barangayCode,omitempty" validate:"omitempty,max=32"`
-	LocationSource   *string  `json:"locationSource,omitempty" validate:"omitempty,oneof=manual google_places psgc_mapped unmapped"`
+	LocationSource   *string  `json:"locationSource,omitempty" validate:"omitempty,oneof=manual google_places psgc psgc_mapped unmapped"`
 }
 
 type InviteGroupMemberRequest struct {

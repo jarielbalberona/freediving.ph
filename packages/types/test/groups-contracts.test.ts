@@ -49,7 +49,7 @@ test("groups contracts include real invite and viewer membership states", () => 
   assert.match(source, /viewerInviteCreatedAt\?:\s*string/);
 });
 
-test("groups contracts include structured location fields used by LocationSearch", () => {
+test("groups contracts include structured location fields used by LocationPicker", () => {
   for (const field of [
     "locationName",
     "formattedAddress",

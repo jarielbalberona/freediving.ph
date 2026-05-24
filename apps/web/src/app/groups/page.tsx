@@ -58,7 +58,7 @@ import {
   useRejectGroupInvite,
 } from "@/features/groups/hooks/mutations";
 import { useGroups, useUserGroups } from "@/features/groups/hooks/queries";
-import { LocationSearch } from "@/features/locations/components";
+import { LocationPicker } from "@/features/locations/components";
 import {
   EMPTY_LOCATION_SEARCH_VALUE,
   type LocationSearchValue,
@@ -418,10 +418,12 @@ export default function GroupsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="create-group-location">Location</Label>
-              <LocationSearch
+              <LocationPicker
                 value={createLocation}
                 onChange={setCreateLocation}
                 disabled={createMutation.isPending}
+                mode="administrative"
+                compact
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">

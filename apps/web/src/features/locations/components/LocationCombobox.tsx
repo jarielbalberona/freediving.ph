@@ -45,6 +45,7 @@ export function LocationCombobox({
           keywords: [],
         })
       : null;
+  const visibleInputValue = inputValue || selectedOption?.label || "";
 
   return (
     <Combobox
@@ -57,7 +58,7 @@ export function LocationCombobox({
 
         onValueChange((nextValue as ComboboxOption).value);
       }}
-      inputValue={inputValue}
+      inputValue={visibleInputValue}
       onInputValueChange={(nextInputValue) =>
         onInputValueChange(nextInputValue ?? "")
       }

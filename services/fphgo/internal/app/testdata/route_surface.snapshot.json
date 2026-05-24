@@ -30,6 +30,30 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/admin/instructors/"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/admin/instructors/{instructorId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/admin/instructors/{instructorId}/certifications/{certificationId}/proof-url"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/admin/instructors/{instructorId}/reject"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/admin/instructors/{instructorId}/suspend"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/admin/instructors/{instructorId}/verify"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/admin/profiles"
     },
     {
@@ -598,6 +622,42 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/instructors/me"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/instructors/me"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/instructors/me"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/instructors/me/certifications"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/instructors/me/certifications/{certificationId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/instructors/me/certifications/{certificationId}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/instructors/me/certifications/{certificationId}/proof-url"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/instructors/me/submit"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/instructors/{username}"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/locations/barangays"
     },
     {
@@ -611,6 +671,10 @@
     {
       "method": "GET",
       "pattern": "/v1/locations/regions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/locations/search"
     },
     {
       "method": "GET",

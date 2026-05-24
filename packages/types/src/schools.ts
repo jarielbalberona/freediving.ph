@@ -17,6 +17,15 @@ export type CourseLevel =
   | "advanced"
   | "all_levels";
 export type CourseStatus = "draft" | "published" | "paused" | "archived";
+export type CourseLocationMode =
+  | "inherit_school"
+  | "structured"
+  | "text_only";
+export type SessionLocationMode =
+  | "inherit_course"
+  | "inherit_school"
+  | "structured"
+  | "text_only";
 export type CoursePaymentMethodType =
   | "MANUAL_QR"
   | "MANUAL_BANK_TRANSFER";
@@ -44,6 +53,21 @@ export type CourseSessionAttendanceStatus =
   | "attended"
   | "no_show"
   | "cancelled";
+
+export interface StructuredLocationFields {
+  locationLabel: string;
+  locationNote: string;
+  formattedAddress: string;
+  regionCode: string;
+  regionName: string;
+  provinceCode: string;
+  provinceName: string;
+  cityCode: string;
+  cityName: string;
+  barangayCode: string;
+  barangayName: string;
+  locationSource: string;
+}
 
 export interface School {
   id: string;
@@ -108,7 +132,19 @@ export interface Course {
   currency: string;
   paymentRequired: boolean;
   approvalRequired: boolean;
+  locationMode: CourseLocationMode;
   locationLabel: string;
+  locationNote: string;
+  formattedAddress: string;
+  regionCode: string;
+  regionName: string;
+  provinceCode: string;
+  provinceName: string;
+  cityCode: string;
+  cityName: string;
+  barangayCode: string;
+  barangayName: string;
+  locationSource: string;
   diveSiteId: string;
   includedMarkdown: string;
   prerequisitesMarkdown: string;
@@ -147,7 +183,19 @@ export interface CourseSession {
   startsAt: string;
   endsAt: string;
   timezone: string;
+  locationMode: SessionLocationMode;
   locationLabel: string;
+  locationNote: string;
+  formattedAddress: string;
+  regionCode: string;
+  regionName: string;
+  provinceCode: string;
+  provinceName: string;
+  cityCode: string;
+  cityName: string;
+  barangayCode: string;
+  barangayName: string;
+  locationSource: string;
   diveSiteId: string;
   instructorUserId: string;
   instructorDisplayName: string;
@@ -254,7 +302,19 @@ export interface PublicCourse {
   currency: string;
   paymentRequired: boolean;
   approvalRequired: boolean;
+  locationMode: CourseLocationMode;
   locationLabel: string;
+  locationNote: string;
+  formattedAddress: string;
+  regionCode: string;
+  regionName: string;
+  provinceCode: string;
+  provinceName: string;
+  cityCode: string;
+  cityName: string;
+  barangayCode: string;
+  barangayName: string;
+  locationSource: string;
   diveSiteId: string;
   includedMarkdown: string;
   prerequisitesMarkdown: string;

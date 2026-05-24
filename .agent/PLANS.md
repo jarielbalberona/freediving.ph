@@ -219,6 +219,122 @@ Replace manual area and coordinate entry with a map-pin flow in `apps/web`, and 
 
 ## 11. Outcomes And Follow-Ups
 
+---
+
+# ExecPlan: Instructors V1 And School Creation Gate
+
+## 1. Title
+
+Instructors V1 and verified-instructor school creation gate
+
+## 2. Objective
+
+Introduce instructor profiles and certifications as an elevated identity attached to an existing Buddy/user, then enforce that only verified instructors can create schools.
+
+## 3. Scope
+
+- `services/fphgo` instructor schema, repository, service, HTTP routes, and school create authorization.
+- `packages/types` instructor contracts and the school create forbidden error code.
+- `apps/web` instructor application/profile flow, admin review flow, and manage-school blocked state.
+- Targeted backend and frontend contract tests.
+
+## 4. Constraints And Non-Goals
+
+- Do not touch legacy `apps/api`.
+- Do not convert Buddies into coaches or instructors.
+- Do not build full school verification.
+- Do not build a separate Coaches module.
+- FPH verifies external instructor-level credentials only; it does not issue, certify, guarantee, or replace those credentials.
+- Proof upload UI is optional in this pass, but an application must include either `proof_media_id` or an official verification/profile URL.
+
+## 5. Acceptance Criteria
+
+- Users remain Buddies by default.
+- Instructor profile is independent of schools and attached one-to-one to a user.
+- Instructor certifications support Molchanovs, PADI, AIDA, SSI, RAID, Apnea Academy, and Other.
+- Submission requires bio, base/home location, at least one instructor-level certification, proof by upload media or official URL, and attestation.
+- Admin can verify, reject, and suspend instructor profiles.
+- Backend rejects school creation unless the user is a verified instructor or super admin.
+- Frontend blocks the normal school creation flow for non-verified users and links to instructor application.
+- Existing dirty school course/session location work remains intact.
+
+## 6. Repo Evidence
+
+- Canonical backend router and dependency wiring: `services/fphgo/internal/app/routes.go`, `services/fphgo/internal/app/app.go`
+- Current school creation is in `services/fphgo/internal/features/schools/service/service.go`
+- Current school membership owner creation is in `services/fphgo/internal/features/schools/repo/repo.go`
+- Existing admin route gate is super-admin only in `services/fphgo/internal/features/admin/http/routes.go`
+- Current school management UI is `apps/web/src/features/schools/pages/ManageSchoolsPage.tsx`
+- Shared school contracts live in `packages/types/src/schools.ts`
+
+## 7. Risks And Rollback
+
+- Risk: route snapshot drift if new routes are not intentionally updated.
+- Risk: school creation tests must distinguish ordinary member, verified instructor, and super admin bypass.
+- Risk: existing dirty school location edits must not be overwritten.
+- Rollback Notes:
+  - Revert the new migration/schema and instructors feature files first.
+  - Revert the school-service gate if instructor rollout must be delayed.
+  - Leave unrelated dirty school location files untouched unless a conflict is caused by this plan.
+
+## 8. Milestones
+
+### Milestone 1: Backend schema and instructor APIs
+- Goal: add instructor tables, V1 APIs, admin review, public-safe read.
+- Inputs/Dependencies: schema, app wiring, admin super-admin gate.
+- Changes: migration/schema, `internal/features/instructors`, route snapshot.
+- Validation Commands: `go test ./internal/features/instructors/... ./internal/app`
+- Expected Evidence: routes registered and service tests pass.
+- Rollback Notes: remove instructors feature wiring and migration/schema additions.
+- Status: `done`
+
+### Milestone 2: School creation gate
+- Goal: enforce verified instructor requirement in backend school creation.
+- Inputs/Dependencies: instructor repo/service checker.
+- Changes: school service repository interface, repo query, tests.
+- Validation Commands: `go test ./internal/features/schools/...`
+- Expected Evidence: non-verified statuses receive `instructor_verification_required`; verified instructor creates school.
+- Rollback Notes: remove `CanCreateSchool` requirement and repository method.
+- Status: `done`
+
+### Milestone 3: Shared contracts and frontend UX
+- Goal: expose typed instructor APIs and block school creation UI.
+- Inputs/Dependencies: backend DTO shape and existing admin/school UI patterns.
+- Changes: `packages/types`, web feature files, `/instructor/*`, `/admin/instructors`, manage-school gate.
+- Validation Commands: `pnpm -C packages/types test`, `pnpm -C apps/web test`, `pnpm -C apps/web type-check`
+- Expected Evidence: contract tests prove labels, routes, and blocked state.
+- Rollback Notes: remove route pages and restore ManageSchoolsPage action to the prior dialog.
+- Status: `done`
+
+### Milestone 4: Final verification
+- Goal: run requested targeted checks where feasible and document blockers.
+- Inputs/Dependencies: completed implementation.
+- Changes: fixes only.
+- Validation Commands: requested command list plus `git diff --check`.
+- Expected Evidence: pass/fail output with exact blockers.
+- Rollback Notes: revert only failing milestone changes.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `pnpm -C apps/web type-check`
+- `pnpm -C apps/web lint`
+- `pnpm -C apps/web test`
+- `pnpm -C packages/types test`
+- `cd services/fphgo && go test ./db ./internal/app ./internal/features/schools/... ./internal/features/instructors/...`
+- `git diff --check`
+
+## 10. Progress Log
+
+- 2026-05-24: Confirmed existing dirty school files are course/session location work and should be preserved.
+- 2026-05-24: Added instructor schema, canonical `services/fphgo` instructor APIs, admin review routes, school create backend gate, shared contracts, instructor application UI, admin review UI, public instructor profile, and school create blocked state.
+- 2026-05-24: Tightened application requirements after product clarification: FPH-only platform verification copy, required bio/home location, required proof URL/media, optional profile fields, attestation storage, and admin review checklist.
+- 2026-05-24: Verified targeted Go, web, shared-type, lint, and diff checks listed in the verification plan.
+
+## 11. Outcomes And Follow-Ups
+
+- V1 is implemented. Proof upload UI remains a follow-up because this pass accepts `proof_media_id` but does not expand media workflows; official verification/profile URL is the V1 proof path in the application form.
+
 # ExecPlan: Events MVP
 
 ## 1. Title

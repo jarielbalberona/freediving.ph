@@ -6,6 +6,8 @@ import type {
   CreateCourseSessionRequest,
   CreateSchoolRequest,
   CreateStudentCourseBookingRequest,
+  UpdateCourseRequest,
+  UpdateCourseSessionRequest,
   UpdateSchoolRequest,
 } from "@freediving.ph/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -40,6 +42,16 @@ export const useCreateCourse = (slug: string) => {
   });
 };
 
+export const useUpdateCourse = (slug: string, courseId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: UpdateCourseRequest) =>
+      schoolsApi.updateCourse(slug, courseId, data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+  });
+};
+
 export const useCreatePaymentMethod = (slug: string, courseId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -57,6 +69,16 @@ export const useCreateSession = (slug: string) => {
   return useMutation({
     mutationFn: (data: CreateCourseSessionRequest) =>
       schoolsApi.createSession(slug, data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+  });
+};
+
+export const useUpdateSession = (slug: string, sessionId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: UpdateCourseSessionRequest) =>
+      schoolsApi.updateSession(slug, sessionId, data),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
   });

@@ -24,7 +24,21 @@ export const locationQueryKeys = {
       },
     ] as const,
 
-  provinces: (params?: { regionCode?: string; search?: string; limit?: number }) =>
+  search: (params?: { search?: string; limit?: number }) =>
+    [
+      ...locationQueryKeys.all,
+      "search",
+      {
+        search: normalizeSearch(params?.search),
+        limit: normalizeLimit(params?.limit, 20),
+      },
+    ] as const,
+
+  provinces: (params?: {
+    regionCode?: string;
+    search?: string;
+    limit?: number;
+  }) =>
     [
       ...locationQueryKeys.all,
       "provinces",

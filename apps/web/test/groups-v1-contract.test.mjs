@@ -37,7 +37,7 @@ test("groups list/create UI uses V1 visibility, join policy, and structured loca
     pageSource,
     /type VisibilityFilter = "all" \| "public" \| "private"/,
   );
-  assert.match(pageSource, /LocationSearch/);
+  assert.match(pageSource, /LocationPicker/);
   assert.match(pageSource, /EMPTY_LOCATION_SEARCH_VALUE/);
   assert.match(pageSource, /viewerScope/);
   assert.doesNotMatch(pageSource, /session\.hasRole\("super_admin"\)/);
@@ -116,10 +116,7 @@ test("super admin group management is isolated to admin pages", async () => {
   assert.match(adminApiSource, /routes\.v1\.admin\.group\(groupId\)/);
   assert.match(adminApiSource, /routes\.v1\.admin\.archiveGroup\(groupId\)/);
   assert.match(routesSource, /\/v1\/admin\/groups\/\$\{toPathId\(groupId\)\}/);
-  assert.doesNotMatch(
-    adminPageSource,
-    /href=\{`\/groups\/\$\{group\.id\}`\}/,
-  );
+  assert.doesNotMatch(adminPageSource, /href=\{`\/groups\/\$\{group\.id\}`\}/);
   assert.doesNotMatch(adminPageSource, /href=\{`\/groups\/\$\{groupId\}`\}/);
   assert.doesNotMatch(adminPageSource, /\/v1\/groups\/\$\{groupId\}\/archive/);
 });

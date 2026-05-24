@@ -8,6 +8,20 @@ export const routes = {
       profiles: () => "/v1/admin/profiles",
       diveSites: () => "/v1/admin/dive-sites",
       groups: () => "/v1/admin/groups",
+      instructors: () => "/v1/admin/instructors",
+      instructor: (instructorId: string | number) =>
+        `/v1/admin/instructors/${toPathId(instructorId)}`,
+      instructorCertificationProof: (
+        instructorId: string | number,
+        certificationId: string | number,
+      ) =>
+        `/v1/admin/instructors/${toPathId(instructorId)}/certifications/${toPathId(certificationId)}/proof-url`,
+      verifyInstructor: (instructorId: string | number) =>
+        `/v1/admin/instructors/${toPathId(instructorId)}/verify`,
+      rejectInstructor: (instructorId: string | number) =>
+        `/v1/admin/instructors/${toPathId(instructorId)}/reject`,
+      suspendInstructor: (instructorId: string | number) =>
+        `/v1/admin/instructors/${toPathId(instructorId)}/suspend`,
       group: (groupId: string | number) =>
         `/v1/admin/groups/${toPathId(groupId)}`,
       archiveGroup: (groupId: string | number) =>
@@ -140,7 +154,19 @@ export const routes = {
     home: {
       nearbyConditions: () => "/v1/home/nearby-conditions",
     },
+    instructors: {
+      me: () => "/v1/instructors/me",
+      submitMe: () => "/v1/instructors/me/submit",
+      certifications: () => "/v1/instructors/me/certifications",
+      certification: (certificationId: string | number) =>
+        `/v1/instructors/me/certifications/${toPathId(certificationId)}`,
+      certificationProof: (certificationId: string | number) =>
+        `/v1/instructors/me/certifications/${toPathId(certificationId)}/proof-url`,
+      byUsername: (username: string | number) =>
+        `/v1/instructors/${toPathId(username)}`,
+    },
     locations: {
+      search: () => "/v1/locations/search",
       regions: () => "/v1/locations/regions",
       provinces: () => "/v1/locations/provinces",
       citiesMunicipalities: () => "/v1/locations/cities-municipalities",

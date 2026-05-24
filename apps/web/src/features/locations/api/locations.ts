@@ -1,6 +1,10 @@
 import { axiosInstance } from "@/lib/http/axios";
 import { routes } from "@/lib/api/fphgo-routes";
-import type { PsgcItem } from "../types";
+import type {
+  LocationSearchResult,
+  LocationSeedDiagnostics,
+  PsgcItem,
+} from "../types";
 
 type LocationListParams = {
   search?: string;
@@ -25,6 +29,10 @@ type ListRegionsResponse = { regions?: PsgcItem[] };
 type ListProvincesResponse = { provinces?: PsgcItem[] };
 type ListCitiesMunicipalitiesResponse = { citiesMunicipalities?: PsgcItem[] };
 type ListBarangaysResponse = { barangays?: PsgcItem[] };
+type SearchLocationsResponse = {
+  results?: LocationSearchResult[];
+  diagnostics?: LocationSeedDiagnostics;
+};
 
 function normalizeSearch(search?: string) {
   return search?.trim() ?? "";
@@ -113,5 +121,19 @@ export const locationsApi = {
     );
 
     return response.data.barangays ?? [];
+  },
+
+  async searchLocations(params: LocationListParams = {}) {
+    const q = normalizeSearch(params.search);
+    const limit = normalizeLimit(params.limit, 20);
+
+    const response = await axiosInstance.get<SearchLocationsResponse>(
+      `${routes.v1.locations.search()}${buildQueryString({ q, limit })}`,
+    );
+
+    return {
+      results: response.data.results ?? [],
+      diagnostics: response.data.diagnostics,
+    };
   },
 };

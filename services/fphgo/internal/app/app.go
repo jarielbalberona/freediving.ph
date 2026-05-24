@@ -42,6 +42,9 @@ import (
 	homeservice "fphgo/internal/features/home/service"
 	identityrepo "fphgo/internal/features/identity/repo"
 	identityservice "fphgo/internal/features/identity/service"
+	instructorshttp "fphgo/internal/features/instructors/http"
+	instructorsrepo "fphgo/internal/features/instructors/repo"
+	instructorsservice "fphgo/internal/features/instructors/service"
 	locationshttp "fphgo/internal/features/locations/http"
 	locationsrepo "fphgo/internal/features/locations/repo"
 	locationsservice "fphgo/internal/features/locations/service"
@@ -101,6 +104,7 @@ type Dependencies struct {
 	GroupsHandler            *groupshttp.Handlers
 	EventsHandler            *eventshttp.Handlers
 	SchoolsHandler           *schoolshttp.Handlers
+	InstructorsHandler       *instructorshttp.Handlers
 	LocationsHandler         *locationshttp.Handlers
 	HomeHandler              *homehttp.Handlers
 	AdminRoutes              chi.Router
@@ -122,6 +126,8 @@ type Dependencies struct {
 	GroupsRoutes             chi.Router
 	EventsRoutes             chi.Router
 	SchoolsRoutes            chi.Router
+	InstructorsRoutes        chi.Router
+	InstructorsAdminRoutes   chi.Router
 	LocationsRoutes          chi.Router
 	HomeRoutes               chi.Router
 	IdentityService          *identityservice.Service
@@ -287,6 +293,16 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	schoolsRepo := schoolsrepo.New(pool)
 	schoolsService := schoolsservice.New(schoolsRepo)
 	schoolsHandler := schoolshttp.New(schoolsService, v)
+	instructorsRepo := instructorsrepo.New(pool)
+	instructorsService := instructorsservice.New(
+		instructorsRepo,
+		instructorsservice.WithProofSigning(
+			cfg.MediaCDNBaseURL,
+			cfg.MediaSigningSecretV1,
+			cfg.MediaSigningKeyVersion,
+		),
+	)
+	instructorsHandler := instructorshttp.New(instructorsService, v)
 	locationsRepo := locationsrepo.New(pool)
 	locationsService := locationsservice.New(locationsRepo)
 	locationsHandler := locationshttp.New(locationsService)
@@ -351,6 +367,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		GroupsHandler:        groupsHandler,
 		EventsHandler:        eventsHandler,
 		SchoolsHandler:       schoolsHandler,
+		InstructorsHandler:   instructorsHandler,
 		LocationsHandler:     locationsHandler,
 		HomeHandler:          homeHandler,
 		IdentityService:      identityService,

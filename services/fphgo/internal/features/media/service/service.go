@@ -37,6 +37,7 @@ const (
 	ContextEventAttachment    = "event_attachment"
 	ContextDiveSpotAttachment = "dive_spot_attachment"
 	ContextGroupCover         = "group_cover"
+	ContextInstructorProof    = "instructor_certification_proof"
 
 	PresetThumb    = "thumb"
 	PresetCard     = "card"
@@ -430,6 +431,12 @@ var contextRules = map[string]contextRule{
 		ttl:               7 * 24 * time.Hour,
 		maxTransformWidth: 2048,
 		requiresContextID: true,
+		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
+	},
+	ContextInstructorProof: {
+		maxUploadBytes:    maxUploadBytes,
+		ttl:               3 * 24 * time.Hour,
+		maxTransformWidth: 2048,
 		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
 	},
 }
@@ -1877,6 +1884,8 @@ func buildObjectKey(contextType, ownerUserID string, contextID *string, filename
 		return path.Join("dive-spots", valueOrEmpty(contextID), filename)
 	case ContextGroupCover:
 		return path.Join("groups", valueOrEmpty(contextID), "cover", filename)
+	case ContextInstructorProof:
+		return path.Join("instructors", ownerUserID, "certification-proof", filename)
 	default:
 		return path.Join("unknown", ownerUserID, filename)
 	}

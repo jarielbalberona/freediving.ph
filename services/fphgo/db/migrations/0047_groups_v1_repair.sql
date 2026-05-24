@@ -37,7 +37,7 @@ BEGIN
   ) THEN
     ALTER TABLE groups
       ADD CONSTRAINT groups_location_source_check
-      CHECK (location_source IN ('manual', 'google_places', 'psgc_mapped', 'unmapped'));
+      CHECK (location_source IN ('manual', 'google_places', 'psgc', 'psgc_mapped', 'unmapped'));
   END IF;
 END$$;
 

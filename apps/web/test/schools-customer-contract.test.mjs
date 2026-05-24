@@ -10,7 +10,9 @@ test("customer schools routes and sidebar are wired separately from manage route
   const schoolsPage = read("src/app/schools/page.tsx");
   const schoolPage = read("src/app/schools/[slug]/page.tsx");
   const coursesPage = read("src/app/schools/[slug]/courses/page.tsx");
-  const coursePage = read("src/app/schools/[slug]/courses/[courseSlug]/page.tsx");
+  const coursePage = read(
+    "src/app/schools/[slug]/courses/[courseSlug]/page.tsx",
+  );
   const bookPage = read(
     "src/app/schools/[slug]/courses/[courseSlug]/book/page.tsx",
   );
@@ -45,10 +47,10 @@ test("customer schools UI uses friendly labels, tabs, booking prompts, and Base 
   assert.doesNotMatch(page, />pool_training</);
 });
 
-test("admin school form uses LocationSearch and optional dive site selector", () => {
+test("admin school form uses LocationPicker and optional dive site selector", () => {
   const page = read("src/features/schools/pages/ManageSchoolsPage.tsx");
 
-  assert.match(page, /LocationSearch/);
+  assert.match(page, /LocationPicker/);
   assert.match(page, /DiveSiteCombobox/);
   assert.match(page, /baseLocationLabel/);
   assert.match(page, /diveSiteId/);

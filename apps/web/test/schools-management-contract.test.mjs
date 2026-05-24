@@ -33,6 +33,10 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
   assert.match(page, /SelectValue/);
   assert.match(constants, /Pending review/);
   assert.match(constants, /Pool training/);
+  assert.match(constants, /Use school location/);
+  assert.match(constants, /Use course location/);
+  assert.match(constants, /Use a different location/);
+  assert.match(constants, /Use text-only location/);
   assert.match(constants, /Manual QR/);
   assert.match(constants, /Bank transfer/);
   assert.match(constants, /Scheduled/);
@@ -40,4 +44,26 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
   assert.doesNotMatch(page, />pending_review</);
   assert.doesNotMatch(page, />pool_training</);
   assert.doesNotMatch(page, />MANUAL_QR</);
+});
+
+test("course and session forms use progressive structured location controls", () => {
+  const page = read("src/features/schools/pages/ManageSchoolsPage.tsx");
+
+  assert.match(page, /LocationPicker/);
+  assert.match(page, /DiveSiteCombobox/);
+  assert.match(page, /courseLocationModeOptions/);
+  assert.match(page, /sessionLocationModeOptions/);
+  assert.match(page, /locationNote/);
+  assert.match(
+    page,
+    /locationMode: initial\?\.locationMode \?\? "inherit_school"/,
+  );
+  assert.match(
+    page,
+    /locationMode: initial\?\.locationMode \?\? firstCourseMode/,
+  );
+  assert.doesNotMatch(
+    page,
+    /label="Location"\\s+value=\\{form\\.locationLabel\\}/,
+  );
 });

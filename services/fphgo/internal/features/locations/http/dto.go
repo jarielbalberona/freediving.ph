@@ -34,6 +34,28 @@ type BarangayResponse struct {
 	OldName              string `json:"oldName,omitempty"`
 }
 
+type SearchLocationResultResponse struct {
+	Type           string `json:"type"`
+	Label          string `json:"label"`
+	HierarchyLabel string `json:"hierarchyLabel,omitempty"`
+	RegionCode     string `json:"regionCode,omitempty"`
+	RegionName     string `json:"regionName,omitempty"`
+	ProvinceCode   string `json:"provinceCode,omitempty"`
+	ProvinceName   string `json:"provinceName,omitempty"`
+	CityCode       string `json:"cityCode,omitempty"`
+	CityName       string `json:"cityName,omitempty"`
+	BarangayCode   string `json:"barangayCode,omitempty"`
+	BarangayName   string `json:"barangayName,omitempty"`
+}
+
+type LocationDiagnosticsResponse struct {
+	Seeded                     bool `json:"seeded"`
+	ActiveRegions              int  `json:"activeRegions"`
+	ActiveProvinces            int  `json:"activeProvinces"`
+	ActiveCitiesMunicipalities int  `json:"activeCitiesMunicipalities"`
+	ActiveBarangays            int  `json:"activeBarangays"`
+}
+
 type ListRegionsResponse struct {
 	Regions []RegionResponse `json:"regions"`
 }
@@ -48,4 +70,9 @@ type ListCitiesMunicipalitiesResponse struct {
 
 type ListBarangaysResponse struct {
 	Barangays []BarangayResponse `json:"barangays"`
+}
+
+type SearchLocationsResponse struct {
+	Results     []SearchLocationResultResponse `json:"results"`
+	Diagnostics LocationDiagnosticsResponse    `json:"diagnostics"`
 }

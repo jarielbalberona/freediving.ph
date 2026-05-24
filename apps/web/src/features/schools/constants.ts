@@ -2,10 +2,12 @@ import type {
   CourseBookingPaymentStatus,
   CourseBookingStatus,
   CourseLevel,
+  CourseLocationMode,
   CourseSessionStatus,
   CourseStatus,
   CourseType,
   SchoolStatus,
+  SessionLocationMode,
 } from "@freediving.ph/types";
 
 export const schoolStatusLabels: Record<SchoolStatus, string> = {
@@ -38,6 +40,19 @@ export const courseStatusLabels: Record<CourseStatus, string> = {
   published: "Published",
   paused: "Paused",
   archived: "Archived",
+};
+
+export const courseLocationModeLabels: Record<CourseLocationMode, string> = {
+  inherit_school: "Use school location",
+  structured: "Use a different location",
+  text_only: "Use text-only location",
+};
+
+export const sessionLocationModeLabels: Record<SessionLocationMode, string> = {
+  inherit_course: "Use course location",
+  inherit_school: "Use school location",
+  structured: "Use a different location",
+  text_only: "Use text-only location",
 };
 
 export const sessionStatusLabels: Record<CourseSessionStatus, string> = {

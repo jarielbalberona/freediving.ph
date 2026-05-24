@@ -148,7 +148,19 @@ type CourseRequest struct {
 	Currency                   string   `json:"currency"`
 	PaymentRequired            bool     `json:"paymentRequired"`
 	ApprovalRequired           bool     `json:"approvalRequired"`
+	LocationMode               string   `json:"locationMode"`
 	LocationLabel              string   `json:"locationLabel"`
+	LocationNote               string   `json:"locationNote"`
+	FormattedAddress           string   `json:"formattedAddress"`
+	RegionCode                 string   `json:"regionCode"`
+	RegionName                 string   `json:"regionName"`
+	ProvinceCode               string   `json:"provinceCode"`
+	ProvinceName               string   `json:"provinceName"`
+	CityCode                   string   `json:"cityCode"`
+	CityName                   string   `json:"cityName"`
+	BarangayCode               string   `json:"barangayCode"`
+	BarangayName               string   `json:"barangayName"`
+	LocationSource             string   `json:"locationSource"`
 	DiveSiteID                 string   `json:"diveSiteId"`
 	IncludedMarkdown           string   `json:"includedMarkdown"`
 	PrerequisitesMarkdown      string   `json:"prerequisitesMarkdown"`
@@ -175,7 +187,19 @@ type SessionRequest struct {
 	StartsAt         string `json:"startsAt"`
 	EndsAt           string `json:"endsAt"`
 	Timezone         string `json:"timezone"`
+	LocationMode     string `json:"locationMode"`
 	LocationLabel    string `json:"locationLabel"`
+	LocationNote     string `json:"locationNote"`
+	FormattedAddress string `json:"formattedAddress"`
+	RegionCode       string `json:"regionCode"`
+	RegionName       string `json:"regionName"`
+	ProvinceCode     string `json:"provinceCode"`
+	ProvinceName     string `json:"provinceName"`
+	CityCode         string `json:"cityCode"`
+	CityName         string `json:"cityName"`
+	BarangayCode     string `json:"barangayCode"`
+	BarangayName     string `json:"barangayName"`
+	LocationSource   string `json:"locationSource"`
 	DiveSiteID       string `json:"diveSiteId"`
 	InstructorUserID string `json:"instructorUserId"`
 	Capacity         *int   `json:"capacity"`
@@ -378,7 +402,7 @@ func (h *Handlers) writeCourse(w http.ResponseWriter, r *http.Request, create bo
 		httpx.WriteValidationError(w, issues)
 		return
 	}
-	input := schoolsrepo.CreateCourseInput{Title: req.Title, ShortDescription: req.ShortDescription, DescriptionMarkdown: req.DescriptionMarkdown, CourseType: req.CourseType, Level: req.Level, DurationLabel: req.DurationLabel, PriceAmount: req.PriceAmount, Currency: req.Currency, PaymentRequired: req.PaymentRequired, ApprovalRequired: req.ApprovalRequired, LocationLabel: req.LocationLabel, DiveSiteID: req.DiveSiteID, IncludedMarkdown: req.IncludedMarkdown, PrerequisitesMarkdown: req.PrerequisitesMarkdown, EquipmentMarkdown: req.EquipmentMarkdown, CancellationPolicyMarkdown: req.CancellationPolicyMarkdown, AvailabilityNote: req.AvailabilityNote, Status: req.Status}
+	input := schoolsrepo.CreateCourseInput{Title: req.Title, ShortDescription: req.ShortDescription, DescriptionMarkdown: req.DescriptionMarkdown, CourseType: req.CourseType, Level: req.Level, DurationLabel: req.DurationLabel, PriceAmount: req.PriceAmount, Currency: req.Currency, PaymentRequired: req.PaymentRequired, ApprovalRequired: req.ApprovalRequired, LocationMode: req.LocationMode, LocationLabel: req.LocationLabel, LocationNote: req.LocationNote, FormattedAddress: req.FormattedAddress, RegionCode: req.RegionCode, RegionName: req.RegionName, ProvinceCode: req.ProvinceCode, ProvinceName: req.ProvinceName, CityCode: req.CityCode, CityName: req.CityName, BarangayCode: req.BarangayCode, BarangayName: req.BarangayName, LocationSource: req.LocationSource, DiveSiteID: req.DiveSiteID, IncludedMarkdown: req.IncludedMarkdown, PrerequisitesMarkdown: req.PrerequisitesMarkdown, EquipmentMarkdown: req.EquipmentMarkdown, CancellationPolicyMarkdown: req.CancellationPolicyMarkdown, AvailabilityNote: req.AvailabilityNote, Status: req.Status}
 	var item schoolsrepo.Course
 	var err error
 	if create {
@@ -489,7 +513,7 @@ func (h *Handlers) writeSession(w http.ResponseWriter, r *http.Request, create b
 		handleError(w, r, err)
 		return
 	}
-	input := schoolsrepo.CreateSessionInput{CourseID: req.CourseID, Title: req.Title, StartsAt: startsAt, EndsAt: endsAt, Timezone: req.Timezone, LocationLabel: req.LocationLabel, DiveSiteID: req.DiveSiteID, InstructorUserID: req.InstructorUserID, Capacity: req.Capacity, Status: req.Status, NotesMarkdown: req.NotesMarkdown}
+	input := schoolsrepo.CreateSessionInput{CourseID: req.CourseID, Title: req.Title, StartsAt: startsAt, EndsAt: endsAt, Timezone: req.Timezone, LocationMode: req.LocationMode, LocationLabel: req.LocationLabel, LocationNote: req.LocationNote, FormattedAddress: req.FormattedAddress, RegionCode: req.RegionCode, RegionName: req.RegionName, ProvinceCode: req.ProvinceCode, ProvinceName: req.ProvinceName, CityCode: req.CityCode, CityName: req.CityName, BarangayCode: req.BarangayCode, BarangayName: req.BarangayName, LocationSource: req.LocationSource, DiveSiteID: req.DiveSiteID, InstructorUserID: req.InstructorUserID, Capacity: req.Capacity, Status: req.Status, NotesMarkdown: req.NotesMarkdown}
 	var item schoolsrepo.Session
 	if create {
 		item, err = h.service.CreateSession(r.Context(), chi.URLParam(r, "slug"), actorID(r), input)

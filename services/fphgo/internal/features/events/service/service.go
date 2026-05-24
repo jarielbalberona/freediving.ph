@@ -1343,7 +1343,7 @@ func normalizeLocationSource(raw string) string {
 	switch value {
 	case "", "manual":
 		return "manual"
-	case "google_places", "psgc_mapped", "unmapped":
+	case "google_places", "psgc", "psgc_mapped", "unmapped":
 		return value
 	default:
 		return "manual"

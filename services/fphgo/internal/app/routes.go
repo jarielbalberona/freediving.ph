@@ -19,6 +19,7 @@ import (
 	feedhttp "fphgo/internal/features/feed/http"
 	groupshttp "fphgo/internal/features/groups/http"
 	homehttp "fphgo/internal/features/home/http"
+	instructorshttp "fphgo/internal/features/instructors/http"
 	locationshttp "fphgo/internal/features/locations/http"
 	mediahttp "fphgo/internal/features/media/http"
 	messaginghttp "fphgo/internal/features/messaging/http"
@@ -153,6 +154,9 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		if deps.SchoolsHandler != nil {
 			r.Mount("/v1/schools", schoolshttp.PublicRoutes(deps.SchoolsHandler))
 		}
+		if instructorsRouter := resolveInstructorsRouter(deps); instructorsRouter != nil {
+			r.Mount("/v1/instructors", instructorsRouter)
+		}
 		r.Group(func(member chi.Router) {
 			member.Use(middleware.RequireMember)
 			member.Group(func(profiles chi.Router) {
@@ -193,6 +197,11 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 			member.Group(func(admin chi.Router) {
 				if adminRouter := resolveAdminRouter(deps); adminRouter != nil {
 					admin.Mount("/v1/admin", adminRouter)
+				}
+			})
+			member.Group(func(instructorsAdmin chi.Router) {
+				if instructorsAdminRouter := resolveInstructorsAdminRouter(deps); instructorsAdminRouter != nil {
+					instructorsAdmin.Mount("/v1/admin/instructors", instructorsAdminRouter)
 				}
 			})
 			member.Group(func(manage chi.Router) {
@@ -242,6 +251,26 @@ func resolveSchoolsRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return schoolshttp.Routes(deps.SchoolsHandler)
+}
+
+func resolveInstructorsRouter(deps *Dependencies) chi.Router {
+	if deps.InstructorsRoutes != nil {
+		return deps.InstructorsRoutes
+	}
+	if deps.InstructorsHandler == nil {
+		return nil
+	}
+	return instructorshttp.Routes(deps.InstructorsHandler)
+}
+
+func resolveInstructorsAdminRouter(deps *Dependencies) chi.Router {
+	if deps.InstructorsAdminRoutes != nil {
+		return deps.InstructorsAdminRoutes
+	}
+	if deps.InstructorsHandler == nil {
+		return nil
+	}
+	return instructorshttp.AdminRoutes(deps.InstructorsHandler)
 }
 
 func resolveAuthRouter(deps *Dependencies) chi.Router {

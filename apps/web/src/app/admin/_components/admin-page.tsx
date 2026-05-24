@@ -18,6 +18,7 @@ const ADMIN_NAV = [
   { href: "/admin/buddies", label: "Buddies" },
   { href: "/admin/dive-sites", label: "Dive Sites" },
   { href: "/admin/groups", label: "Groups" },
+  { href: "/admin/instructors", label: "Instructors" },
 ];
 
 export function AdminAccess({ children }: { children: ReactNode }) {

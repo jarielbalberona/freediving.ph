@@ -72,9 +72,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <Image
           src="/images/fph-logo-white.png"
           alt="Freediving Philippines"
-          className="object-cover rounded-md"
+          className="h-[60px] w-[60px] rounded-md object-cover"
           width={60}
           height={60}
+          loading="eager"
         />
       </SidebarHeader>
       <SidebarContent>

@@ -22,6 +22,8 @@ type Service struct {
 
 type repository interface {
 	ListSchools(context.Context, string) ([]schoolsrepo.School, error)
+	IsVerifiedInstructor(context.Context, string) (bool, error)
+	IsPlatformAdmin(context.Context, string) (bool, error)
 	CreateSchool(context.Context, schoolsrepo.CreateSchoolInput) (schoolsrepo.School, error)
 	GetSchoolBySlug(context.Context, string, string) (schoolsrepo.School, error)
 	GetMemberRole(context.Context, string, string) (string, error)
@@ -85,6 +87,11 @@ func (s *Service) ListSchools(ctx context.Context, actorID string) ([]schoolsrep
 }
 
 func (s *Service) CreateSchool(ctx context.Context, actorID string, input schoolsrepo.CreateSchoolInput) (schoolsrepo.School, error) {
+	if ok, err := s.CanCreateSchool(ctx, actorID); err != nil {
+		return schoolsrepo.School{}, err
+	} else if !ok {
+		return schoolsrepo.School{}, apperrors.New(http.StatusForbidden, "instructor_verification_required", "You need to be a verified instructor before creating a school.", nil)
+	}
 	input.OwnerUserID = actorID
 	input.Name = strings.TrimSpace(input.Name)
 	input.Status = defaultString(normalize(input.Status), "draft")
@@ -109,6 +116,24 @@ func (s *Service) CreateSchool(ctx context.Context, actorID string, input school
 	item, err := s.repo.CreateSchool(ctx, input)
 	item.CurrentUserRole = "owner"
 	return item, mapRepoErr(err, "school_create_failed")
+}
+
+func (s *Service) CanCreateSchool(ctx context.Context, userID string) (bool, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return false, apperrors.New(http.StatusUnauthorized, "auth_required", "sign in required", nil)
+	}
+	if ok, err := s.repo.IsVerifiedInstructor(ctx, userID); err != nil {
+		return false, apperrors.New(http.StatusInternalServerError, "instructor_status_check_failed", "failed to check instructor verification", err)
+	} else if ok {
+		return true, nil
+	}
+	if ok, err := s.repo.IsPlatformAdmin(ctx, userID); err != nil {
+		return false, apperrors.New(http.StatusInternalServerError, "admin_status_check_failed", "failed to check platform admin access", err)
+	} else if ok {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (s *Service) GetSchool(ctx context.Context, slug, actorID string) (schoolsrepo.School, error) {
@@ -551,6 +576,15 @@ func (s *Service) validateSession(ctx context.Context, schoolID string, input sc
 			return validation("instructorUserId", "invalid", "Instructor must be an active school member")
 		}
 	}
+	if !oneOf(input.LocationMode, "inherit_course", "inherit_school", "structured", "text_only") {
+		return validation("locationMode", "invalid", "Invalid session location mode")
+	}
+	if input.LocationMode == "structured" && firstNonEmpty(input.LocationLabel, input.FormattedAddress) == "" {
+		return validation("locationLabel", "required", "A structured location is required")
+	}
+	if input.LocationMode == "text_only" && input.LocationLabel == "" {
+		return validation("locationLabel", "required", "Location label is required for text-only locations")
+	}
 	return nil
 }
 
@@ -589,6 +623,36 @@ func normalizeCourse(input schoolsrepo.CreateCourseInput) schoolsrepo.CreateCour
 	input.Level = normalize(input.Level)
 	input.Currency = defaultString(strings.ToUpper(strings.TrimSpace(input.Currency)), "PHP")
 	input.Status = defaultString(normalize(input.Status), "draft")
+	input.LocationMode = defaultString(normalize(input.LocationMode), "inherit_school")
+	input.LocationSource = defaultString(normalize(input.LocationSource), "manual")
+	input.LocationLabel = strings.TrimSpace(input.LocationLabel)
+	input.LocationNote = strings.TrimSpace(input.LocationNote)
+	input.FormattedAddress = strings.TrimSpace(input.FormattedAddress)
+	if input.LocationMode == "inherit_school" {
+		input.LocationLabel = ""
+		input.FormattedAddress = ""
+		input.RegionCode = ""
+		input.RegionName = ""
+		input.ProvinceCode = ""
+		input.ProvinceName = ""
+		input.CityCode = ""
+		input.CityName = ""
+		input.BarangayCode = ""
+		input.BarangayName = ""
+		input.LocationSource = "manual"
+	}
+	if input.LocationMode == "text_only" {
+		input.FormattedAddress = ""
+		input.RegionCode = ""
+		input.RegionName = ""
+		input.ProvinceCode = ""
+		input.ProvinceName = ""
+		input.CityCode = ""
+		input.CityName = ""
+		input.BarangayCode = ""
+		input.BarangayName = ""
+		input.LocationSource = "manual"
+	}
 	return input
 }
 
@@ -608,6 +672,15 @@ func validateCourse(input schoolsrepo.CreateCourseInput) error {
 	if input.PaymentRequired && input.PriceAmount == nil {
 		return validation("priceAmount", "required", "Price is required when payment is required")
 	}
+	if !oneOf(input.LocationMode, "inherit_school", "structured", "text_only") {
+		return validation("locationMode", "invalid", "Invalid course location mode")
+	}
+	if input.LocationMode == "structured" && firstNonEmpty(input.LocationLabel, input.FormattedAddress) == "" {
+		return validation("locationLabel", "required", "A structured location is required")
+	}
+	if input.LocationMode == "text_only" && input.LocationLabel == "" {
+		return validation("locationLabel", "required", "Location label is required for text-only locations")
+	}
 	return nil
 }
 
@@ -615,6 +688,36 @@ func normalizeSession(input schoolsrepo.CreateSessionInput) schoolsrepo.CreateSe
 	input.Title = strings.TrimSpace(input.Title)
 	input.Timezone = defaultString(strings.TrimSpace(input.Timezone), "Asia/Manila")
 	input.Status = defaultString(normalize(input.Status), "draft")
+	input.LocationMode = defaultString(normalize(input.LocationMode), "inherit_course")
+	input.LocationSource = defaultString(normalize(input.LocationSource), "manual")
+	input.LocationLabel = strings.TrimSpace(input.LocationLabel)
+	input.LocationNote = strings.TrimSpace(input.LocationNote)
+	input.FormattedAddress = strings.TrimSpace(input.FormattedAddress)
+	if input.LocationMode == "inherit_course" || input.LocationMode == "inherit_school" {
+		input.LocationLabel = ""
+		input.FormattedAddress = ""
+		input.RegionCode = ""
+		input.RegionName = ""
+		input.ProvinceCode = ""
+		input.ProvinceName = ""
+		input.CityCode = ""
+		input.CityName = ""
+		input.BarangayCode = ""
+		input.BarangayName = ""
+		input.LocationSource = "manual"
+	}
+	if input.LocationMode == "text_only" {
+		input.FormattedAddress = ""
+		input.RegionCode = ""
+		input.RegionName = ""
+		input.ProvinceCode = ""
+		input.ProvinceName = ""
+		input.CityCode = ""
+		input.CityName = ""
+		input.BarangayCode = ""
+		input.BarangayName = ""
+		input.LocationSource = "manual"
+	}
 	return input
 }
 
@@ -731,6 +834,16 @@ func defaultString(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func oneOf(value string, allowed ...string) bool {

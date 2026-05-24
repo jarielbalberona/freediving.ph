@@ -565,7 +565,7 @@ CREATE TABLE IF NOT EXISTS groups (
   CHECK (status IN ('active', 'archived', 'deleted')),
   CHECK (join_policy IN ('open', 'invite_only')),
   CONSTRAINT groups_private_invite_only_check CHECK (visibility <> 'private' OR join_policy = 'invite_only'),
-  CHECK (location_source IN ('manual', 'google_places', 'psgc_mapped', 'unmapped'))
+  CHECK (location_source IN ('manual', 'google_places', 'psgc', 'psgc_mapped', 'unmapped'))
 );
 
 CREATE TABLE IF NOT EXISTS psgc_regions (
@@ -709,7 +709,7 @@ CREATE TABLE IF NOT EXISTS events (
   )),
   CHECK (difficulty IN ('beginner', 'intermediate', 'advanced', 'expert')),
   CHECK (starts_at IS NULL OR ends_at IS NULL OR starts_at <= ends_at),
-  CHECK (location_source IN ('manual', 'google_places', 'psgc_mapped', 'unmapped')),
+  CHECK (location_source IN ('manual', 'google_places', 'psgc', 'psgc_mapped', 'unmapped')),
   CHECK (entry_type IS NULL OR entry_type IN ('shore', 'boat', 'pool', 'classroom_online')),
   CHECK (post_create_policy IN ('organizers_only', 'participants')),
   CHECK (capacity IS NULL OR capacity > 0),
@@ -805,7 +805,8 @@ CREATE TABLE IF NOT EXISTS media_objects (
     'chika_attachment',
     'event_attachment',
     'dive_spot_attachment',
-    'group_cover'
+    'group_cover',
+    'instructor_certification_proof'
   )),
   CHECK (state IN ('active', 'hidden', 'deleted'))
 );
@@ -1232,8 +1233,66 @@ CREATE TABLE IF NOT EXISTS school_members (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ,
-  CHECK (role IN ('owner', 'admin', 'instructor')),
+  CHECK (role IN ('owner', 'admin', 'instructor', 'coach', 'staff')),
   CHECK (status IN ('active', 'invited', 'removed'))
+);
+
+CREATE TABLE IF NOT EXISTS instructor_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  display_name TEXT NOT NULL DEFAULT '',
+  bio TEXT NOT NULL DEFAULT '',
+  teaching_since DATE,
+  home_location_label TEXT NOT NULL DEFAULT '',
+  formatted_address TEXT NOT NULL DEFAULT '',
+  region_code TEXT NOT NULL DEFAULT '',
+  region_name TEXT NOT NULL DEFAULT '',
+  province_code TEXT NOT NULL DEFAULT '',
+  province_name TEXT NOT NULL DEFAULT '',
+  city_code TEXT NOT NULL DEFAULT '',
+  city_name TEXT NOT NULL DEFAULT '',
+  barangay_code TEXT NOT NULL DEFAULT '',
+  barangay_name TEXT NOT NULL DEFAULT '',
+  location_source TEXT NOT NULL DEFAULT 'manual',
+  specialties TEXT NOT NULL DEFAULT '',
+  school_affiliation TEXT NOT NULL DEFAULT '',
+  website_url TEXT NOT NULL DEFAULT '',
+  social_links TEXT NOT NULL DEFAULT '',
+  safety_credentials TEXT NOT NULL DEFAULT '',
+  verification_status TEXT NOT NULL DEFAULT 'draft',
+  verified_at TIMESTAMPTZ,
+  verified_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  rejection_reason TEXT,
+  attestation_accepted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (verification_status IN ('draft', 'pending', 'verified', 'rejected', 'suspended')),
+  CHECK (location_source IN ('manual', 'google_places', 'psgc', 'psgc_mapped', 'unmapped'))
+);
+
+CREATE TABLE IF NOT EXISTS instructor_certifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  instructor_profile_id UUID NOT NULL REFERENCES instructor_profiles(id) ON DELETE CASCADE,
+  agency TEXT NOT NULL,
+  agency_other_name TEXT,
+  certification_level TEXT NOT NULL,
+  certification_number TEXT,
+  issued_at DATE,
+  expires_at DATE,
+  proof_media_id UUID REFERENCES media_objects(id) ON DELETE SET NULL,
+  official_verification_url TEXT,
+  verification_status TEXT NOT NULL DEFAULT 'pending',
+  verified_at TIMESTAMPTZ,
+  verified_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  rejection_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (agency IN ('molchanovs', 'padi', 'aida', 'ssi', 'raid', 'apnea_academy', 'other')),
+  CHECK (length(trim(certification_level)) > 0),
+  CHECK (verification_status IN ('pending', 'verified', 'rejected')),
+  CHECK (expires_at IS NULL OR issued_at IS NULL OR expires_at >= issued_at),
+  CONSTRAINT instructor_certifications_proof_required_check
+    CHECK (proof_media_id IS NOT NULL OR length(trim(COALESCE(official_verification_url, ''))) > 0)
 );
 
 CREATE TABLE IF NOT EXISTS courses (
@@ -1250,7 +1309,19 @@ CREATE TABLE IF NOT EXISTS courses (
   currency TEXT NOT NULL DEFAULT 'PHP',
   payment_required BOOLEAN NOT NULL DEFAULT FALSE,
   approval_required BOOLEAN NOT NULL DEFAULT TRUE,
+  location_mode TEXT NOT NULL DEFAULT 'inherit_school',
   location_label TEXT,
+  location_note TEXT,
+  formatted_address TEXT,
+  region_code TEXT,
+  region_name TEXT,
+  province_code TEXT,
+  province_name TEXT,
+  city_code TEXT,
+  city_name TEXT,
+  barangay_code TEXT,
+  barangay_name TEXT,
+  location_source TEXT NOT NULL DEFAULT 'manual',
   dive_site_id UUID REFERENCES dive_sites(id) ON DELETE SET NULL,
   included_markdown TEXT,
   prerequisites_markdown TEXT,
@@ -1265,6 +1336,7 @@ CREATE TABLE IF NOT EXISTS courses (
   CHECK (length(trim(title)) > 0),
   CHECK (course_type IN ('intro', 'pool_training', 'line_training', 'depth_training', 'certification', 'coaching', 'workshop', 'trip_course', 'custom')),
   CHECK (level IS NULL OR level IN ('beginner', 'intermediate', 'advanced', 'all_levels')),
+  CHECK (location_mode IN ('inherit_school', 'structured', 'text_only')),
   CHECK (status IN ('draft', 'published', 'paused', 'archived')),
   CHECK (price_amount IS NULL OR price_amount >= 0)
 );
@@ -1296,7 +1368,19 @@ CREATE TABLE IF NOT EXISTS course_sessions (
   starts_at TIMESTAMPTZ NOT NULL,
   ends_at TIMESTAMPTZ NOT NULL,
   timezone TEXT NOT NULL DEFAULT 'Asia/Manila',
+  location_mode TEXT NOT NULL DEFAULT 'inherit_course',
   location_label TEXT,
+  location_note TEXT,
+  formatted_address TEXT,
+  region_code TEXT,
+  region_name TEXT,
+  province_code TEXT,
+  province_name TEXT,
+  city_code TEXT,
+  city_name TEXT,
+  barangay_code TEXT,
+  barangay_name TEXT,
+  location_source TEXT NOT NULL DEFAULT 'manual',
   dive_site_id UUID REFERENCES dive_sites(id) ON DELETE SET NULL,
   instructor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   capacity INTEGER,
@@ -1311,6 +1395,7 @@ CREATE TABLE IF NOT EXISTS course_sessions (
   CHECK (length(trim(title)) > 0),
   CHECK (ends_at > starts_at),
   CHECK (capacity IS NULL OR capacity > 0),
+  CHECK (location_mode IN ('inherit_course', 'inherit_school', 'structured', 'text_only')),
   CHECK (status IN ('draft', 'scheduled', 'completed', 'cancelled'))
 );
 
@@ -1545,10 +1630,16 @@ CREATE INDEX IF NOT EXISTS idx_schools_location_search ON schools (location_sour
 CREATE INDEX IF NOT EXISTS idx_schools_dive_site_id ON schools (dive_site_id) WHERE dive_site_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_school_members_school_user_active ON school_members (school_id, user_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_school_members_school_user ON school_members (school_id, user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_instructor_profiles_user_id ON instructor_profiles (user_id);
+CREATE INDEX IF NOT EXISTS idx_instructor_profiles_status ON instructor_profiles (verification_status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_instructor_certifications_profile ON instructor_certifications (instructor_profile_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_instructor_certifications_agency ON instructor_certifications (agency);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_courses_school_slug_active ON courses (school_id, slug) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_courses_school_status ON courses (school_id, status);
+CREATE INDEX IF NOT EXISTS idx_courses_location_mode ON courses (school_id, location_mode) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_payment_methods_course_active ON course_payment_methods (course_id, is_active) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_school_status ON course_sessions (school_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_course_sessions_location_mode ON course_sessions (school_id, location_mode) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_course_starts ON course_sessions (course_id, starts_at) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_school_starts ON course_sessions (school_id, starts_at) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_slug ON course_sessions (slug) WHERE deleted_at IS NULL;

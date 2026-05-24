@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   CommunityEmptyState,
   CommunityHeader,
@@ -40,6 +41,7 @@ import type {
   CourseBookingPaymentStatus,
   CourseBookingRequest,
   CourseBookingStatus,
+  CourseLocationMode,
   CourseSession,
   CourseSessionStatus,
   CreateCourseBookingRequest,
@@ -47,12 +49,14 @@ import type {
   CreateCourseSessionRequest,
   CreateSchoolRequest,
   School,
+  SessionLocationMode,
 } from "@freediving.ph/types";
 import {
   ArrowLeft,
   CalendarPlus,
   Check,
   CreditCard,
+  Pencil,
   Plus,
   Send,
   X,
@@ -65,17 +69,23 @@ import {
   DiveSiteCombobox,
   formatDiveSiteOptionLabel,
 } from "@/features/diveSpots/components/DiveSiteCombobox";
-import { LocationSearch } from "@/features/locations/components";
-import type { LocationSearchValue } from "@/features/locations/types/location-search";
+import { LocationPicker } from "@/features/locations/components";
+import { useMyInstructorApplication } from "@/features/instructors";
+import {
+  buildDisplayLocation,
+  type LocationSearchValue,
+} from "@/features/locations/types/location-search";
 import { applyApiErrorsToForm } from "@/lib/forms/api-errors";
 import {
   bookingStatusLabels,
+  courseLocationModeLabels,
   courseLevelLabels,
   courseStatusLabels,
   courseTypeLabels,
   paymentMethodTypeLabels,
   paymentStatusLabels,
   schoolStatusLabels,
+  sessionLocationModeLabels,
   sessionStatusLabels,
 } from "../constants";
 import {
@@ -88,7 +98,9 @@ import {
   useReviewBookingPayment,
   useSetBookingStatus,
   useSetSessionStatus,
+  useUpdateCourse,
   useUpdateSchool,
+  useUpdateSession,
 } from "../hooks/mutations";
 import {
   useManageBookings,
@@ -131,9 +143,15 @@ const courseLevelOptions = [
 const courseStatusOptions = Object.entries(courseStatusLabels).map(
   ([value, label]) => ({ value, label }),
 );
+const courseLocationModeOptions = Object.entries(courseLocationModeLabels).map(
+  ([value, label]) => ({ value, label }),
+);
 const sessionStatusOptions = Object.entries(sessionStatusLabels).map(
   ([value, label]) => ({ value, label }),
 );
+const sessionLocationModeOptions = Object.entries(
+  sessionLocationModeLabels,
+).map(([value, label]) => ({ value, label }));
 const bookingStatusOptions = Object.entries(bookingStatusLabels).map(
   ([value, label]) => ({ value, label }),
 );
@@ -145,6 +163,7 @@ export function ManageSchoolsPage() {
   const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const schoolsQuery = useManageSchools();
+  const instructorQuery = useMyInstructorApplication();
   const createSchool = useCreateSchool();
   const [open, setOpen] = useState(false);
 
@@ -153,8 +172,12 @@ export function ManageSchoolsPage() {
   }
 
   const schools = schoolsQuery.data ?? [];
+  const instructorStatus =
+    instructorQuery.data?.application.viewerInstructorStatus;
+  const canCreateSchool = instructorStatus?.canCreateSchool === true;
 
   async function onCreate(data: CreateSchoolRequest) {
+    if (!canCreateSchool) return;
     const school = await createSchool.mutateAsync(data);
     setOpen(false);
     router.push(`/manage/schools/${school.slug}`);
@@ -166,22 +189,33 @@ export function ManageSchoolsPage() {
         title="Manage schools"
         subtitle="Create and manage freediving schools, courses, bookings, and sessions."
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger
-              render={
-                <Button size="sm">
-                  <Plus />
-                  Add school
-                </Button>
-              }
-            />
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add school</DialogTitle>
-              </DialogHeader>
-              <SchoolForm onSubmit={onCreate} busy={createSchool.isPending} />
-            </DialogContent>
-          </Dialog>
+          canCreateSchool ? (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger
+                render={
+                  <Button size="sm">
+                    <Plus />
+                    Add school
+                  </Button>
+                }
+              />
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add school</DialogTitle>
+                </DialogHeader>
+                <SchoolForm onSubmit={onCreate} busy={createSchool.isPending} />
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              nativeButton={false}
+              render={<Link href="/instructor/apply" />}
+            >
+              Apply as instructor
+            </Button>
+          )
         }
       />
 
@@ -189,15 +223,36 @@ export function ManageSchoolsPage() {
       {schoolsQuery.isError ? (
         <StateText text="Could not load schools. Check your account access." />
       ) : null}
+      {!instructorQuery.isLoading && !canCreateSchool ? (
+        <SchoolCreateBlockedState
+          status={instructorStatus?.status ?? "none"}
+          message={instructorStatus?.message}
+          rejectionReason={instructorStatus?.rejectionReason}
+        />
+      ) : null}
       {!schoolsQuery.isLoading && schools.length === 0 ? (
         <CommunityEmptyState
           title="No schools yet"
-          description="Register your school to start adding courses and managing bookings."
+          description={
+            canCreateSchool
+              ? "Register your school to start adding courses and managing bookings."
+              : "School creation is available for verified instructors."
+          }
           action={
-            <Button size="sm" onClick={() => setOpen(true)}>
-              <Plus />
-              Add school
-            </Button>
+            canCreateSchool ? (
+              <Button size="sm" onClick={() => setOpen(true)}>
+                <Plus />
+                Add school
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link href="/instructor/apply" />}
+              >
+                Apply as instructor
+              </Button>
+            )
           }
         />
       ) : null}
@@ -229,6 +284,7 @@ export function ManageSchoolsPage() {
               className="self-start"
               variant="outline"
               size="sm"
+              nativeButton={false}
               render={<Link href={`/manage/schools/${school.slug}`} />}
             >
               Open
@@ -264,6 +320,7 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
         <Button
           variant="outline"
           size="sm"
+          nativeButton={false}
           render={<Link href={`/manage/schools/${slug}/courses`} />}
         >
           Manage courses
@@ -271,6 +328,7 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
         <Button
           variant="outline"
           size="sm"
+          nativeButton={false}
           render={<Link href={`/manage/schools/${slug}/bookings`} />}
         >
           Booking requests
@@ -278,6 +336,7 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
         <Button
           variant="outline"
           size="sm"
+          nativeButton={false}
           render={<Link href={`/manage/schools/${slug}/sessions`} />}
         >
           Sessions
@@ -307,6 +366,7 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
   const createCourse = useCreateCourse(slug);
   const [open, setOpen] = useState(false);
   const [paymentCourse, setPaymentCourse] = useState<Course | null>(null);
+  const [editCourse, setEditCourse] = useState<Course | null>(null);
   const school = schoolQuery.data;
   const courses = coursesQuery.data ?? [];
   const canManage = school ? canManageSchoolOperations(school) : false;
@@ -329,11 +389,12 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
                   </Button>
                 }
               />
-              <DialogContent className="max-w-3xl">
+              <DialogContent className="max-w-3xl!">
                 <DialogHeader>
                   <DialogTitle>Add course</DialogTitle>
                 </DialogHeader>
                 <CourseForm
+                  school={school}
                   onSubmit={async (data) => {
                     await createCourse.mutateAsync(data);
                     setOpen(false);
@@ -373,13 +434,27 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
                       ? "Approval required"
                       : "Auto-approval allowed"}
                   </span>
-                  <span>{course.locationLabel || "No location set"}</span>
+                  <span>
+                    {courseLocationLabel(course, school)} ·{" "}
+                    {courseLocationHelper(course)}
+                  </span>
+                  {course.locationNote ? (
+                    <span>{course.locationNote}</span>
+                  ) : null}
                   <span>{course.upcomingSessionCount} upcoming sessions</span>
                   <span>{course.pendingBookingCount} pending bookings</span>
                 </div>
               </div>
               {canManage ? (
                 <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setEditCourse(course)}
+                  >
+                    <Pencil />
+                    Edit
+                  </Button>
                   <Button
                     variant="outline"
                     size="xs"
@@ -391,6 +466,7 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
                   <Button
                     variant="outline"
                     size="xs"
+                    nativeButton={false}
                     render={<Link href={`/manage/schools/${slug}/sessions`} />}
                   >
                     <CalendarPlus />
@@ -421,6 +497,23 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
           ) : null}
         </DialogContent>
       </Dialog>
+      <Dialog
+        open={editCourse != null}
+        onOpenChange={(next) => !next && setEditCourse(null)}
+      >
+        <DialogContent className="max-w-3xl!">
+          <DialogHeader>
+            <DialogTitle>Edit course</DialogTitle>
+          </DialogHeader>
+          {editCourse ? (
+            <EditCourseForm
+              school={school}
+              course={editCourse}
+              onDone={() => setEditCourse(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </SchoolShell>
   );
 }
@@ -437,6 +530,7 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
   const createSession = useCreateSession(slug);
   const setSessionStatus = useSetSessionStatus(slug);
   const [open, setOpen] = useState(false);
+  const [editSession, setEditSession] = useState<CourseSession | null>(null);
   const school = schoolQuery.data;
   const courses = coursesQuery.data ?? [];
   const sessions = sessionsQuery.data ?? [];
@@ -461,11 +555,12 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
                   </Button>
                 }
               />
-              <DialogContent className="max-w-3xl">
+              <DialogContent className="max-w-3xl!">
                 <DialogHeader>
                   <DialogTitle>Add session</DialogTitle>
                 </DialogHeader>
                 <SessionForm
+                  school={school}
                   courses={courses}
                   onSubmit={async (data) => {
                     await createSession.mutateAsync(data);
@@ -504,7 +599,13 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
                   {session.courseTitle} • {formatDateTime(session.startsAt)}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                  <span>{session.locationLabel || "No location"}</span>
+                  <span>
+                    {sessionLocationLabel(session, courses, school)} ·{" "}
+                    {sessionLocationHelper(session)}
+                  </span>
+                  {session.locationNote ? (
+                    <span>{session.locationNote}</span>
+                  ) : null}
                   <span>
                     {session.assignedBookingCount}
                     {session.capacity ? `/${session.capacity}` : ""} assigned
@@ -516,6 +617,14 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
               </div>
               {canManage ? (
                 <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setEditSession(session)}
+                  >
+                    <Pencil />
+                    Edit
+                  </Button>
                   <Button
                     variant="outline"
                     size="xs"
@@ -559,6 +668,24 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
           description="Scheduled course sessions will appear here."
         />
       ) : null}
+      <Dialog
+        open={editSession != null}
+        onOpenChange={(next) => !next && setEditSession(null)}
+      >
+        <DialogContent className="max-w-3xl!">
+          <DialogHeader>
+            <DialogTitle>Edit session</DialogTitle>
+          </DialogHeader>
+          {editSession ? (
+            <EditSessionForm
+              school={school}
+              courses={courses}
+              session={editSession}
+              onDone={() => setEditSession(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </SchoolShell>
   );
 }
@@ -607,7 +734,7 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
                   </Button>
                 }
               />
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl!">
                 <DialogHeader>
                   <DialogTitle>Add booking</DialogTitle>
                 </DialogHeader>
@@ -725,6 +852,7 @@ function SchoolShell({
           <Button
             size="sm"
             variant="outline"
+            nativeButton={false}
             render={<Link href="/manage/schools" />}
           >
             <ArrowLeft className="mr-1 h-4 w-4" />
@@ -745,6 +873,7 @@ function SchoolShell({
         <Button
           variant={!active ? "default" : "outline"}
           size="sm"
+          nativeButton={false}
           render={<Link href={`/manage/schools/${school.slug}`} />}
         >
           Overview
@@ -752,6 +881,7 @@ function SchoolShell({
         <Button
           variant={active === "courses" ? "default" : "outline"}
           size="sm"
+          nativeButton={false}
           render={<Link href={`/manage/schools/${school.slug}/courses`} />}
         >
           Courses
@@ -759,6 +889,7 @@ function SchoolShell({
         <Button
           variant={active === "bookings" ? "default" : "outline"}
           size="sm"
+          nativeButton={false}
           render={<Link href={`/manage/schools/${school.slug}/bookings`} />}
         >
           Bookings
@@ -766,6 +897,7 @@ function SchoolShell({
         <Button
           variant={active === "sessions" ? "default" : "outline"}
           size="sm"
+          nativeButton={false}
           render={<Link href={`/manage/schools/${school.slug}/sessions`} />}
         >
           Sessions
@@ -867,17 +999,16 @@ function SchoolForm({
           render={() => (
             <FormItem>
               <FormLabel>Base location</FormLabel>
-              <LocationSearch
+              <LocationPicker
                 value={locationValue}
                 onChange={(location) => {
-                  form.setValue("baseLocation", location.locationName ?? "", {
+                  const locationLabel = buildDisplayLocation(location);
+                  form.setValue("baseLocation", locationLabel, {
                     shouldDirty: true,
                   });
-                  form.setValue(
-                    "baseLocationLabel",
-                    location.locationName ?? "",
-                    { shouldDirty: true },
-                  );
+                  form.setValue("baseLocationLabel", locationLabel, {
+                    shouldDirty: true,
+                  });
                   form.setValue(
                     "formattedAddress",
                     location.formattedAddress ?? "",
@@ -914,6 +1045,8 @@ function SchoolForm({
                   );
                 }}
                 disabled={busy}
+                mode="place"
+                compact
               />
               <FormMessage />
             </FormItem>
@@ -1054,6 +1187,7 @@ function getSchoolFormDefaultValues(initial?: School): SchoolFormValues {
 
 function normalizeLocationSource(value?: string): SchoolLocationSource {
   if (
+    value === "psgc" ||
     value === "google_places" ||
     value === "psgc_mapped" ||
     value === "unmapped"
@@ -1061,6 +1195,114 @@ function normalizeLocationSource(value?: string): SchoolLocationSource {
     return value;
   }
   return "manual";
+}
+
+function getLocationSearchValue(item: {
+  locationLabel?: string;
+  formattedAddress?: string;
+  regionCode?: string;
+  regionName?: string;
+  provinceCode?: string;
+  provinceName?: string;
+  cityCode?: string;
+  cityName?: string;
+  barangayCode?: string;
+  barangayName?: string;
+  locationSource?: string;
+}): LocationSearchValue {
+  return {
+    locationName: item.locationLabel ?? "",
+    formattedAddress: item.formattedAddress ?? "",
+    regionCode: item.regionCode ?? "",
+    regionName: item.regionName ?? "",
+    provinceCode: item.provinceCode ?? "",
+    provinceName: item.provinceName ?? "",
+    cityCode: item.cityCode ?? "",
+    cityName: item.cityName ?? "",
+    barangayCode: item.barangayCode ?? "",
+    barangayName: item.barangayName ?? "",
+    locationSource: normalizeLocationSource(item.locationSource),
+  };
+}
+
+function locationFieldsFromSearch(value: LocationSearchValue) {
+  return {
+    locationLabel: buildDisplayLocation(value),
+    formattedAddress: value.formattedAddress ?? "",
+    regionCode: value.regionCode ?? "",
+    regionName: value.regionName ?? "",
+    provinceCode: value.provinceCode ?? "",
+    provinceName: value.provinceName ?? "",
+    cityCode: value.cityCode ?? "",
+    cityName: value.cityName ?? "",
+    barangayCode: value.barangayCode ?? "",
+    barangayName: value.barangayName ?? "",
+    locationSource: value.locationSource ?? "manual",
+  };
+}
+
+function schoolLocationLabel(school: School) {
+  return (
+    school.baseLocationLabel ||
+    school.formattedAddress ||
+    school.baseLocation ||
+    "No school location set"
+  );
+}
+
+function courseLocationLabel(course: Course, school: School) {
+  if (course.locationMode === "structured") {
+    return course.locationLabel || course.formattedAddress || "Course location";
+  }
+  if (course.locationMode === "text_only") {
+    return course.locationLabel || "Text-only location";
+  }
+  return schoolLocationLabel(school);
+}
+
+function courseLocationHelper(course: Course) {
+  if (course.locationMode === "structured") {
+    return "Uses a course location";
+  }
+  if (course.locationMode === "text_only") {
+    return "Text-only location";
+  }
+  return "Uses school location";
+}
+
+function sessionLocationLabel(
+  session: CourseSession,
+  courses: Course[],
+  school: School,
+) {
+  if (session.locationMode === "structured") {
+    return (
+      session.locationLabel || session.formattedAddress || "Session location"
+    );
+  }
+  if (session.locationMode === "text_only") {
+    return session.locationLabel || "Text-only location";
+  }
+  if (session.locationMode === "inherit_school") {
+    return schoolLocationLabel(school);
+  }
+  const course = courses.find((item) => item.id === session.courseId);
+  return course
+    ? courseLocationLabel(course, school)
+    : schoolLocationLabel(school);
+}
+
+function sessionLocationHelper(session: CourseSession) {
+  if (session.locationMode === "structured") {
+    return "Uses a session location";
+  }
+  if (session.locationMode === "text_only") {
+    return "Text-only location";
+  }
+  if (session.locationMode === "inherit_school") {
+    return "Uses school location";
+  }
+  return "Uses course location";
 }
 
 function EditSchoolForm({
@@ -1084,32 +1326,94 @@ function EditSchoolForm({
 }
 
 function CourseForm({
+  school,
   onSubmit,
   busy,
+  initial,
 }: {
+  school: School;
   onSubmit: (data: CreateCourseRequest) => Promise<void>;
   busy: boolean;
+  initial?: Course;
 }) {
   const [form, setForm] = useState<CreateCourseRequest>({
-    title: "",
-    shortDescription: "",
-    descriptionMarkdown: "",
-    courseType: "custom",
-    level: "",
-    durationLabel: "",
-    priceAmount: null,
-    currency: "PHP",
-    paymentRequired: false,
-    approvalRequired: true,
-    locationLabel: "",
-    diveSiteId: "",
-    includedMarkdown: "",
-    prerequisitesMarkdown: "",
-    equipmentMarkdown: "",
-    cancellationPolicyMarkdown: "",
-    availabilityNote: "",
-    status: "draft",
+    title: initial?.title ?? "",
+    shortDescription: initial?.shortDescription ?? "",
+    descriptionMarkdown: initial?.descriptionMarkdown ?? "",
+    courseType: initial?.courseType ?? "custom",
+    level: initial?.level ?? "",
+    durationLabel: initial?.durationLabel ?? "",
+    priceAmount: initial?.priceAmount ?? null,
+    currency: initial?.currency ?? "PHP",
+    paymentRequired: initial?.paymentRequired ?? false,
+    approvalRequired: initial?.approvalRequired ?? true,
+    locationMode: initial?.locationMode ?? "inherit_school",
+    locationLabel: initial?.locationLabel ?? "",
+    locationNote: initial?.locationNote ?? "",
+    formattedAddress: initial?.formattedAddress ?? "",
+    regionCode: initial?.regionCode ?? "",
+    regionName: initial?.regionName ?? "",
+    provinceCode: initial?.provinceCode ?? "",
+    provinceName: initial?.provinceName ?? "",
+    cityCode: initial?.cityCode ?? "",
+    cityName: initial?.cityName ?? "",
+    barangayCode: initial?.barangayCode ?? "",
+    barangayName: initial?.barangayName ?? "",
+    locationSource: initial?.locationSource ?? "manual",
+    diveSiteId: initial?.diveSiteId ?? "",
+    includedMarkdown: initial?.includedMarkdown ?? "",
+    prerequisitesMarkdown: initial?.prerequisitesMarkdown ?? "",
+    equipmentMarkdown: initial?.equipmentMarkdown ?? "",
+    cancellationPolicyMarkdown: initial?.cancellationPolicyMarkdown ?? "",
+    availabilityNote: initial?.availabilityNote ?? "",
+    status: initial?.status ?? "draft",
   });
+  const [diveSiteLabel, setDiveSiteLabel] = useState("");
+  function setLocationMode(locationMode: CourseLocationMode) {
+    setForm({
+      ...form,
+      locationMode,
+      locationLabel:
+        locationMode === "inherit_school" ? "" : form.locationLabel,
+      formattedAddress:
+        locationMode === "inherit_school" || locationMode === "text_only"
+          ? ""
+          : form.formattedAddress,
+      regionCode:
+        locationMode === "inherit_school" || locationMode === "text_only"
+          ? ""
+          : form.regionCode,
+      regionName:
+        locationMode === "inherit_school" || locationMode === "text_only"
+          ? ""
+          : form.regionName,
+      provinceCode:
+        locationMode === "inherit_school" || locationMode === "text_only"
+          ? ""
+          : form.provinceCode,
+      provinceName:
+        locationMode === "inherit_school" || locationMode === "text_only"
+          ? ""
+          : form.provinceName,
+      cityCode:
+        locationMode === "inherit_school" || locationMode === "text_only"
+          ? ""
+          : form.cityCode,
+      cityName:
+        locationMode === "inherit_school" || locationMode === "text_only"
+          ? ""
+          : form.cityName,
+      barangayCode:
+        locationMode === "inherit_school" || locationMode === "text_only"
+          ? ""
+          : form.barangayCode,
+      barangayName:
+        locationMode === "inherit_school" || locationMode === "text_only"
+          ? ""
+          : form.barangayName,
+      locationSource: "manual",
+    });
+  }
   return (
     <form
       className="grid gap-4"
@@ -1183,10 +1487,74 @@ function CourseForm({
           }
         />
         <TextField
-          label="Location"
-          value={form.locationLabel}
-          onChange={(locationLabel) => setForm({ ...form, locationLabel })}
+          label="Currency"
+          value={form.currency}
+          onChange={(currency) => setForm({ ...form, currency })}
         />
+      </div>
+      <div className="grid gap-3 rounded-lg border border-border/70 p-3">
+        <div className="grid gap-1">
+          <Label>Location</Label>
+          <p className="text-xs text-muted-foreground">
+            Most courses use the school location. Change this only if this
+            course happens somewhere else.
+          </p>
+        </div>
+        <SelectField
+          label="Location setup"
+          value={form.locationMode}
+          onChange={(locationMode) =>
+            setLocationMode(locationMode as CourseLocationMode)
+          }
+          options={courseLocationModeOptions}
+        />
+        {form.locationMode === "inherit_school" ? (
+          <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            {schoolLocationLabel(school)} · Uses school location
+          </p>
+        ) : null}
+        {form.locationMode === "structured" ? (
+          <div className="grid gap-3">
+            <LocationPicker
+              value={getLocationSearchValue(form)}
+              onChange={(value) =>
+                setForm({ ...form, ...locationFieldsFromSearch(value) })
+              }
+              mode="hybrid"
+            />
+            <div className="grid gap-2">
+              <Label>Optional dive site</Label>
+              <DiveSiteCombobox
+                value={form.diveSiteId}
+                valueLabel={diveSiteLabel}
+                onValueChange={(diveSiteId, option) => {
+                  setForm({ ...form, diveSiteId });
+                  setDiveSiteLabel(
+                    option ? formatDiveSiteOptionLabel(option) : "",
+                  );
+                }}
+                allOption={{ value: "", label: "No dive site" }}
+              />
+            </div>
+          </div>
+        ) : null}
+        {form.locationMode === "text_only" ? (
+          <TextField
+            label="Location label"
+            value={form.locationLabel}
+            onChange={(locationLabel) => setForm({ ...form, locationLabel })}
+            required
+          />
+        ) : null}
+        <TextField
+          label="Location note"
+          value={form.locationNote}
+          onChange={(locationNote) => setForm({ ...form, locationNote })}
+        />
+        <p className="text-xs text-muted-foreground">
+          Use a note for meeting instructions, room names, pool lanes, or pickup
+          details.
+        </p>
       </div>
       <div className="flex flex-wrap gap-4 text-sm">
         <label className="flex items-center gap-2">
@@ -1218,29 +1586,107 @@ function CourseForm({
   );
 }
 
+function EditCourseForm({
+  school,
+  course,
+  onDone,
+}: {
+  school: School;
+  course: Course;
+  onDone: () => void;
+}) {
+  const updateCourse = useUpdateCourse(school.slug, course.id);
+  return (
+    <CourseForm
+      school={school}
+      initial={course}
+      busy={updateCourse.isPending}
+      onSubmit={async (data) => {
+        await updateCourse.mutateAsync(data);
+        onDone();
+      }}
+    />
+  );
+}
+
 function SessionForm({
+  school,
   courses,
   onSubmit,
   busy,
+  initial,
 }: {
+  school: School;
   courses: Course[];
   onSubmit: (data: CreateCourseSessionRequest) => Promise<void>;
   busy: boolean;
+  initial?: CourseSession;
 }) {
-  const firstCourse = courses[0]?.id ?? "";
+  const firstCourse = initial?.courseId ?? courses[0]?.id ?? "";
+  const initialCourse =
+    courses.find((course) => course.id === firstCourse) ?? courses[0];
+  const firstCourseMode =
+    initialCourse?.locationMode === "structured" ||
+    initialCourse?.locationMode === "text_only"
+      ? "inherit_course"
+      : "inherit_school";
   const [form, setForm] = useState<CreateCourseSessionRequest>({
     courseId: firstCourse,
-    title: "",
-    startsAt: "",
-    endsAt: "",
-    timezone: "Asia/Manila",
-    locationLabel: "",
-    diveSiteId: "",
-    instructorUserId: "",
-    capacity: null,
-    status: "draft",
-    notesMarkdown: "",
+    title: initial?.title ?? "",
+    startsAt: initial ? toDateTimeLocal(initial.startsAt) : "",
+    endsAt: initial ? toDateTimeLocal(initial.endsAt) : "",
+    timezone: initial?.timezone ?? "Asia/Manila",
+    locationMode: initial?.locationMode ?? firstCourseMode,
+    locationLabel: initial?.locationLabel ?? "",
+    locationNote: initial?.locationNote ?? "",
+    formattedAddress: initial?.formattedAddress ?? "",
+    regionCode: initial?.regionCode ?? "",
+    regionName: initial?.regionName ?? "",
+    provinceCode: initial?.provinceCode ?? "",
+    provinceName: initial?.provinceName ?? "",
+    cityCode: initial?.cityCode ?? "",
+    cityName: initial?.cityName ?? "",
+    barangayCode: initial?.barangayCode ?? "",
+    barangayName: initial?.barangayName ?? "",
+    locationSource: initial?.locationSource ?? "manual",
+    diveSiteId: initial?.diveSiteId ?? "",
+    instructorUserId: initial?.instructorUserId ?? "",
+    capacity: initial?.capacity ?? null,
+    status: initial?.status ?? "draft",
+    notesMarkdown: initial?.notesMarkdown ?? "",
   });
+  const selectedCourse = courses.find((course) => course.id === form.courseId);
+  const [diveSiteLabel, setDiveSiteLabel] = useState("");
+  function setLocationMode(locationMode: SessionLocationMode) {
+    setForm({
+      ...form,
+      locationMode,
+      locationLabel:
+        locationMode === "inherit_course" || locationMode === "inherit_school"
+          ? ""
+          : form.locationLabel,
+      formattedAddress:
+        locationMode === "structured" ? form.formattedAddress : "",
+      regionCode: locationMode === "structured" ? form.regionCode : "",
+      regionName: locationMode === "structured" ? form.regionName : "",
+      provinceCode: locationMode === "structured" ? form.provinceCode : "",
+      provinceName: locationMode === "structured" ? form.provinceName : "",
+      cityCode: locationMode === "structured" ? form.cityCode : "",
+      cityName: locationMode === "structured" ? form.cityName : "",
+      barangayCode: locationMode === "structured" ? form.barangayCode : "",
+      barangayName: locationMode === "structured" ? form.barangayName : "",
+      locationSource: "manual",
+    });
+  }
+  function setCourse(courseId: string) {
+    const course = courses.find((item) => item.id === courseId);
+    const locationMode =
+      course?.locationMode === "structured" ||
+      course?.locationMode === "text_only"
+        ? "inherit_course"
+        : "inherit_school";
+    setForm({ ...form, courseId, locationMode });
+  }
   return (
     <form
       className="grid gap-4"
@@ -1256,7 +1702,7 @@ function SessionForm({
       <SelectField
         label="Course"
         value={form.courseId}
-        onChange={(courseId) => setForm({ ...form, courseId })}
+        onChange={setCourse}
         options={courses.map((c) => ({ value: c.id, label: c.title }))}
       />
       <TextField
@@ -1299,17 +1745,80 @@ function SessionForm({
           onChange={(timezone) => setForm({ ...form, timezone })}
         />
         <TextField
-          label="Location"
-          value={form.locationLabel}
-          onChange={(locationLabel) => setForm({ ...form, locationLabel })}
-        />
-        <TextField
           label="Capacity"
           type="number"
           value={form.capacity?.toString() ?? ""}
           onChange={(value) =>
             setForm({ ...form, capacity: value ? Number(value) : null })
           }
+        />
+      </div>
+      <div className="grid gap-3 rounded-lg border border-border/70 p-3">
+        <div className="grid gap-1">
+          <Label>Location</Label>
+          <p className="text-xs text-muted-foreground">
+            Sessions normally use the course location, then fall back to the
+            school location.
+          </p>
+        </div>
+        <SelectField
+          label="Location setup"
+          value={form.locationMode}
+          onChange={(locationMode) =>
+            setLocationMode(locationMode as SessionLocationMode)
+          }
+          options={sessionLocationModeOptions}
+        />
+        {form.locationMode === "inherit_course" ? (
+          <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            {selectedCourse
+              ? courseLocationLabel(selectedCourse, school)
+              : schoolLocationLabel(school)}{" "}
+            · Uses course location
+          </p>
+        ) : null}
+        {form.locationMode === "inherit_school" ? (
+          <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            {schoolLocationLabel(school)} · Uses school location
+          </p>
+        ) : null}
+        {form.locationMode === "structured" ? (
+          <div className="grid gap-3">
+            <LocationPicker
+              value={getLocationSearchValue(form)}
+              onChange={(value) =>
+                setForm({ ...form, ...locationFieldsFromSearch(value) })
+              }
+              mode="hybrid"
+            />
+            <div className="grid gap-2">
+              <Label>Optional dive site</Label>
+              <DiveSiteCombobox
+                value={form.diveSiteId}
+                valueLabel={diveSiteLabel}
+                onValueChange={(diveSiteId, option) => {
+                  setForm({ ...form, diveSiteId });
+                  setDiveSiteLabel(
+                    option ? formatDiveSiteOptionLabel(option) : "",
+                  );
+                }}
+                allOption={{ value: "", label: "No dive site" }}
+              />
+            </div>
+          </div>
+        ) : null}
+        {form.locationMode === "text_only" ? (
+          <TextField
+            label="Location label"
+            value={form.locationLabel}
+            onChange={(locationLabel) => setForm({ ...form, locationLabel })}
+            required
+          />
+        ) : null}
+        <TextField
+          label="Location note"
+          value={form.locationNote}
+          onChange={(locationNote) => setForm({ ...form, locationNote })}
         />
       </div>
       <MarkdownEditor
@@ -1323,6 +1832,32 @@ function SessionForm({
         Save session
       </Button>
     </form>
+  );
+}
+
+function EditSessionForm({
+  school,
+  courses,
+  session,
+  onDone,
+}: {
+  school: School;
+  courses: Course[];
+  session: CourseSession;
+  onDone: () => void;
+}) {
+  const updateSession = useUpdateSession(school.slug, session.id);
+  return (
+    <SessionForm
+      school={school}
+      courses={courses}
+      initial={session}
+      busy={updateSession.isPending}
+      onSubmit={async (data) => {
+        await updateSession.mutateAsync(data);
+        onDone();
+      }}
+    />
   );
 }
 
@@ -1711,6 +2246,47 @@ function StateText({ text }: { text: string }) {
   return <p className="text-xs leading-5 text-muted-foreground">{text}</p>;
 }
 
+function SchoolCreateBlockedState({
+  status,
+  message,
+  rejectionReason,
+}: {
+  status: string;
+  message?: string;
+  rejectionReason?: string;
+}) {
+  const isPending = status === "pending";
+  const isRejected = status === "rejected";
+  return (
+    <Alert>
+      <AlertTitle>
+        {isPending
+          ? "Your instructor application is under review."
+          : isRejected
+            ? "Your instructor application needs changes."
+            : "School creation is available for verified instructors."}
+      </AlertTitle>
+      <AlertDescription className="grid gap-3">
+        <span>
+          {message ||
+            "Schools represent real teaching operations in the community. Apply as an instructor first so we can verify your credentials."}
+        </span>
+        {isRejected && rejectionReason ? <span>{rejectionReason}</span> : null}
+        {!isPending ? (
+          <Button
+            size="sm"
+            className="justify-self-start"
+            nativeButton={false}
+            render={<Link href="/instructor/apply" />}
+          >
+            Apply as instructor
+          </Button>
+        ) : null}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 function PageState({ text }: { text: string }) {
   return (
     <CommunityPageShell>
@@ -1739,4 +2315,11 @@ function formatDateTime(value: string) {
 
 function toIso(value: string) {
   return value ? new Date(value).toISOString() : "";
+}
+
+function toDateTimeLocal(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }

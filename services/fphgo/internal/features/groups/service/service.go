@@ -716,7 +716,7 @@ func normalizeJoinPolicy(value string) string {
 
 func normalizeLocationSource(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "google_places", "psgc_mapped", "unmapped":
+	case "google_places", "psgc", "psgc_mapped", "unmapped":
 		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "manual"

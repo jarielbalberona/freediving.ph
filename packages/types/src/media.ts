@@ -5,6 +5,7 @@ export const mediaContextTypes = [
   "event_attachment",
   "dive_spot_attachment",
   "group_cover",
+  "instructor_certification_proof",
 ] as const;
 
 export type MediaContextType = (typeof mediaContextTypes)[number];

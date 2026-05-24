@@ -211,6 +211,17 @@ export const schoolsApi = {
     );
     return response.data.session;
   },
+  updateSession: async (
+    slug: string,
+    sessionId: string,
+    data: UpdateCourseSessionRequest,
+  ): Promise<CourseSession> => {
+    const response = await axiosInstance.patch<{ session: CourseSession }>(
+      `/v1/manage/schools/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(sessionId)}`,
+      data,
+    );
+    return response.data.session;
+  },
   setSessionStatus: async (
     slug: string,
     sessionId: string,

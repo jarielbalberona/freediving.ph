@@ -8,6 +8,7 @@ export * from "./api/me";
 export * from "./api/profile";
 export * from "./api/public-profile";
 export * from "./feed";
+export * from "./instructors";
 export * from "./media";
 export * from "./reports";
 export * from "./schools";
@@ -629,7 +630,7 @@ export interface Event {
   provinceCode?: string;
   cityCode?: string;
   barangayCode?: string;
-  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
+  locationSource?: "manual" | "psgc" | "google_places" | "psgc_mapped" | "unmapped";
   diveSiteId?: string;
   diveSite?: EventDiveSiteSummary;
   startsAt?: string;
@@ -908,7 +909,7 @@ export interface Group {
   provinceCode?: string;
   cityCode?: string;
   barangayCode?: string;
-  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
+  locationSource?: "manual" | "psgc" | "google_places" | "psgc_mapped" | "unmapped";
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -973,7 +974,7 @@ export interface CreateGroupRequest {
   provinceCode?: string;
   cityCode?: string;
   barangayCode?: string;
-  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
+  locationSource?: "manual" | "psgc" | "google_places" | "psgc_mapped" | "unmapped";
 }
 
 export interface UpdateGroupRequest {
@@ -993,7 +994,7 @@ export interface UpdateGroupRequest {
   provinceCode?: string;
   cityCode?: string;
   barangayCode?: string;
-  locationSource?: "manual" | "google_places" | "psgc_mapped" | "unmapped";
+  locationSource?: "manual" | "psgc" | "google_places" | "psgc_mapped" | "unmapped";
 }
 
 export interface JoinGroupRequest {

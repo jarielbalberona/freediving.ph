@@ -1,8 +1,13 @@
 import Link from "next/link";
-import { Settings2 } from "lucide-react";
+import { BadgeCheck, Settings2 } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import {
+  instructorAgencyLabels,
+  usePublicInstructor,
+} from "@/features/instructors";
 import type { PublicProfile } from "@/features/profile/types";
 import { getProfileSettingsRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -89,6 +94,13 @@ export function ProfileHeader({
 }: ProfileHeaderProps) {
   const resolvedSettingsHref =
     settingsHref ?? getProfileSettingsRoute(profile.username);
+  const instructorQuery = usePublicInstructor(profile.username);
+  const instructorApplication = instructorQuery.data?.application;
+  const verifiedInstructorProfile = instructorApplication?.profile;
+  const firstCertification = instructorApplication?.certifications[0];
+  const instructorSummary = firstCertification
+    ? `${firstCertification.agency === "other" ? firstCertification.agencyOtherName : instructorAgencyLabels[firstCertification.agency]} ${firstCertification.certificationLevel}`.trim()
+    : "Verified Instructor";
 
   return (
     <section className="space-y-6 px-4">
@@ -129,6 +141,14 @@ export function ProfileHeader({
             <p className="text-base font-medium text-foreground">
               {profile.displayName}
             </p>
+            {verifiedInstructorProfile ? (
+              <Link href={`/instructors/${profile.username}`}>
+                <Badge variant="secondary">
+                  <BadgeCheck />
+                  {instructorSummary}
+                </Badge>
+              </Link>
+            ) : null}
             {profile.bio ? (
               <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground">
                 {profile.bio}
@@ -196,6 +216,14 @@ export function ProfileHeader({
             <p className="text-base font-semibold text-foreground">
               {profile.displayName}
             </p>
+            {verifiedInstructorProfile ? (
+              <Link href={`/instructors/${profile.username}`}>
+                <Badge variant="secondary">
+                  <BadgeCheck />
+                  {instructorSummary}
+                </Badge>
+              </Link>
+            ) : null}
             {profile.bio ? (
               <p
                 className={cn(

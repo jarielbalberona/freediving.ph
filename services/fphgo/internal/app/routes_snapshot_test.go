@@ -22,6 +22,8 @@ import (
 	feedhttp "fphgo/internal/features/feed/http"
 	groupshttp "fphgo/internal/features/groups/http"
 	homehttp "fphgo/internal/features/home/http"
+	instructorshttp "fphgo/internal/features/instructors/http"
+	instructorsservice "fphgo/internal/features/instructors/service"
 	locationshttp "fphgo/internal/features/locations/http"
 	mediahttp "fphgo/internal/features/media/http"
 	messaginghttp "fphgo/internal/features/messaging/http"
@@ -160,24 +162,25 @@ func collectRoutes(t *testing.T, router chi.Router) []routeSnapshotEntry {
 // patterns without invoking handlers, so nil services are safe here.
 func buildFullSurfaceRouter() chi.Router {
 	deps := &Dependencies{
-		AdminHandler:      adminhttp.New(nil, validatex.New()),
-		AuthHandler:       authhttp.New(),
-		UsersHandler:      usershttp.New(nil, nil),
-		MessagingHandler:  messaginghttp.New(nil, nil, nil),
-		ChikaHandler:      chikahttp.New(nil, nil),
-		EventsHandler:     eventshttp.New(nil, validatex.New()),
-		ExploreHandler:    explorehttp.New(nil, validatex.New()),
-		FeedHandler:       feedhttp.New(nil, nil),
-		GroupsHandler:     groupshttp.New(nil, validatex.New()),
-		HomeHandler:       homehttp.New(nil),
-		LocationsHandler:  locationshttp.New(nil),
-		ProfilesHandler:   profileshttp.New(nil, nil),
-		BlocksHandler:     blockshttp.New(nil, nil),
-		BuddiesHandler:    buddieshttp.New(nil, nil),
-		ReportsHandler:    reportshttp.New(nil, nil),
-		SchoolsHandler:    schoolshttp.New(schoolsservice.New(nil), validatex.New()),
-		ModerationHandler: moderationhttp.New(nil, nil),
-		MediaHandler:      mediahttp.New(nil, nil),
+		AdminHandler:       adminhttp.New(nil, validatex.New()),
+		AuthHandler:        authhttp.New(),
+		UsersHandler:       usershttp.New(nil, nil),
+		MessagingHandler:   messaginghttp.New(nil, nil, nil),
+		ChikaHandler:       chikahttp.New(nil, nil),
+		EventsHandler:      eventshttp.New(nil, validatex.New()),
+		ExploreHandler:     explorehttp.New(nil, validatex.New()),
+		FeedHandler:        feedhttp.New(nil, nil),
+		GroupsHandler:      groupshttp.New(nil, validatex.New()),
+		HomeHandler:        homehttp.New(nil),
+		InstructorsHandler: instructorshttp.New(instructorsservice.New(nil), validatex.New()),
+		LocationsHandler:   locationshttp.New(nil),
+		ProfilesHandler:    profileshttp.New(nil, nil),
+		BlocksHandler:      blockshttp.New(nil, nil),
+		BuddiesHandler:     buddieshttp.New(nil, nil),
+		ReportsHandler:     reportshttp.New(nil, nil),
+		SchoolsHandler:     schoolshttp.New(schoolsservice.New(nil), validatex.New()),
+		ModerationHandler:  moderationhttp.New(nil, nil),
+		MediaHandler:       mediahttp.New(nil, nil),
 	}
 
 	cfg := config.Config{CORSOrigins: []string{"*"}}
