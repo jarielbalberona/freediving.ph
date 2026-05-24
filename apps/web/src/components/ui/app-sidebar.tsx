@@ -7,7 +7,15 @@ import {
 } from "@/config/nav";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { useAuth } from "@clerk/nextjs";
-import { BadgeCheck, Flag, Info, Map, Shield, UsersRound } from "lucide-react";
+import {
+  BadgeCheck,
+  BookOpen,
+  Flag,
+  Info,
+  Map,
+  Shield,
+  UsersRound,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -76,6 +84,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     session.hasPermission("moderation.write");
   const messageUnreadQuery = useMessageUnreadCount(Boolean(effectiveSignedIn));
   const messageUnreadCount = messageUnreadQuery.data?.unreadCount ?? 0;
+  const learnActive = isActiveRoute(pathname ?? "", "/guides");
   const founderNoteActive = isActiveRoute(pathname ?? "", "/founder-note");
 
   return (
@@ -205,6 +214,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </Link>
             </SidebarMenuItem>
           ) : null}
+          <SidebarMenuItem>
+            <Link href="/guides" className="flex items-center gap-2 w-full">
+              <SidebarMenuButton
+                className="cursor-pointer!"
+                isActive={learnActive}
+              >
+                <BookOpen />
+                <span className="text-sm">Learn</span>
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <Link
               href="/founder-note"

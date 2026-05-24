@@ -9,6 +9,7 @@
 - Run `pnpm -C apps/web seo:audit:mock`.
 - Run `pnpm -C apps/web seo:verify-rendered`.
 - Check `/sitemap.xml` and `/robots.txt` locally.
+- Check `/ads.txt` locally and confirm it returns the one real AdSense publisher line as plain text.
 - Confirm no generated SEO reports, cache files, or GSC CSV exports are staged.
 - Confirm private routes are not in the sitemap.
 - Confirm schema is truthful: no fake ratings, reviews, awards, counts, or safety claims.
@@ -19,6 +20,7 @@ Manually verify:
 
 - `https://freediving.ph/sitemap.xml`
 - `https://freediving.ph/robots.txt`
+- `https://freediving.ph/ads.txt`
 - Selected feature, guide, location, and about pages.
 - Selected public dynamic entity pages, such as approved dive spots, public events, public groups, schools, and verified instructors.
 
@@ -33,6 +35,7 @@ Check:
 - Mobile layout.
 - No auth wall for intended public pages.
 - No private, member-only, pending, rejected, deleted, or unapproved content.
+- `/ads.txt` returns `google.com, pub-1422121189880046, DIRECT, f08c47fec0942fa0` as plain text.
 
 ## Search Console
 
@@ -53,6 +56,7 @@ Check:
 ## AdSense
 
 - Keep AdSense scoped to public SEO/content pages only.
+- Check AdSense `ads.txt` status after deploy.
 - Verify app, community, auth, admin, booking, and messaging pages do not load ads.
 - Keep Auto ads disabled or tightly excluded in the dashboard.
 - Never ask users to click ads.
