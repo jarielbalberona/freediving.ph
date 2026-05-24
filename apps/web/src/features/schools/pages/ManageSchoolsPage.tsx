@@ -12,6 +12,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -66,11 +68,12 @@ import {
   Pencil,
   Plus,
   Send,
+  Settings2,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MarkdownEditor } from "@/features/chika/components/MarkdownEditor";
 import {
   PaymentMethodsSetup,
@@ -848,47 +851,49 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
           },
         ]}
       />
-      <div className="grid gap-3 md:grid-cols-4">
-        <SelectField
-          label="Booking mode"
-          value={bookingMode}
-          onChange={setBookingMode}
-          options={[
-            { value: "", label: "All booking modes" },
-            { value: "session", label: "Schedule selected" },
-            { value: "preferred_date", label: "Preferred date request" },
-          ]}
-        />
-        <SelectField
-          label="Session"
-          value={sessionId}
-          onChange={setSessionId}
-          options={[
-            { value: "", label: "All sessions" },
-            ...sessions.map((session) => ({
-              value: session.id,
-              label: session.title,
-            })),
-          ]}
-        />
-        <SelectField
-          label="Booking status"
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: "", label: "All statuses" },
-            ...bookingStatusOptions,
-          ]}
-        />
-        <SelectField
-          label="Payment status"
-          value={paymentStatus}
-          onChange={setPaymentStatus}
-          options={[
-            { value: "", label: "All payments" },
-            ...paymentStatusOptions,
-          ]}
-        />
+      <div className="rounded-lg border border-border/70 bg-background/70 p-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <SelectField
+            label="Booking mode"
+            value={bookingMode}
+            onChange={setBookingMode}
+            options={[
+              { value: "", label: "All booking modes" },
+              { value: "session", label: "Schedule selected" },
+              { value: "preferred_date", label: "Preferred date request" },
+            ]}
+          />
+          <SelectField
+            label="Session"
+            value={sessionId}
+            onChange={setSessionId}
+            options={[
+              { value: "", label: "All sessions" },
+              ...sessions.map((session) => ({
+                value: session.id,
+                label: session.title,
+              })),
+            ]}
+          />
+          <SelectField
+            label="Booking status"
+            value={status}
+            onChange={setStatus}
+            options={[
+              { value: "", label: "All statuses" },
+              ...bookingStatusOptions,
+            ]}
+          />
+          <SelectField
+            label="Payment status"
+            value={paymentStatus}
+            onChange={setPaymentStatus}
+            options={[
+              { value: "", label: "All payments" },
+              ...paymentStatusOptions,
+            ]}
+          />
+        </div>
       </div>
       <div className="divide-y divide-border/70 border-y border-border/70">
         {bookings.map((booking) => (
@@ -2209,12 +2214,38 @@ function BookingRow({
   canManage: boolean;
 }) {
   const [sessionId, setSessionId] = useState(booking.sessionId);
+  const [manageOpen, setManageOpen] = useState(false);
+  useEffect(() => {
+    setSessionId(booking.sessionId);
+  }, [booking.sessionId]);
+  const canCancel = ["pending_review", "approved", "scheduled"].includes(
+    booking.status,
+  );
+  const sessionOptions = sessions.map((session) => ({
+    value: session.id,
+    label: session.title,
+  }));
+  const runAction = (
+    action: "approve" | "reject" | "schedule" | "complete" | "cancel",
+  ) => {
+    onAction(action);
+    setManageOpen(false);
+  };
+  const assignSession = () => {
+    if (!sessionId) return;
+    onAssign(sessionId);
+    setManageOpen(false);
+  };
+  const reviewPayment = (action: "verify" | "reject") => {
+    onReviewPayment(action);
+    setManageOpen(false);
+  };
   return (
-    <div className="py-3">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold">
+    <article className="py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="truncate text-sm font-semibold text-foreground">
               {booking.studentName || booking.studentEmail || "Unnamed student"}
             </h2>
             <Badge variant="secondary" className="h-5 px-2 text-[11px]">
@@ -2229,111 +2260,200 @@ function BookingRow({
               {bookingModeLabels[booking.bookingMode]}
             </Badge>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {booking.courseTitle}
-            {booking.bookingMode === "preferred_date" && booking.preferredDate
-              ? ` • preferred ${booking.preferredDate}`
-              : ""}
-            {booking.alternateDate
-              ? ` • alternate ${booking.alternateDate}`
-              : ""}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {booking.sessionTitle || "No session assigned"}
-          </p>
-        </div>
-        {canManage ? (
-          <div className="flex max-w-sm flex-wrap gap-2">
-            {booking.status === "pending_review" ? (
-              <>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => onAction("approve")}
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => onAction("reject")}
-                >
-                  Reject
-                </Button>
-              </>
+          <div className="grid gap-1 text-xs leading-5 text-muted-foreground sm:grid-cols-2">
+            <p>
+              <span className="text-foreground">Course:</span>{" "}
+              {booking.courseTitle}
+            </p>
+            <p>
+              <span className="text-foreground">Session:</span>{" "}
+              {booking.sessionTitle || "Not assigned"}
+            </p>
+            {booking.bookingMode === "preferred_date" &&
+            booking.preferredDate ? (
+              <p>
+                <span className="text-foreground">Preferred:</span>{" "}
+                {booking.preferredDate}
+              </p>
             ) : null}
-            {booking.status === "scheduled" ? (
-              <Button
-                size="xs"
-                variant="outline"
-                onClick={() => onAction("complete")}
-              >
-                Complete
-              </Button>
+            {booking.alternateDate ? (
+              <p>
+                <span className="text-foreground">Alternate:</span>{" "}
+                {booking.alternateDate}
+              </p>
             ) : null}
-            {["pending_review", "approved", "scheduled"].includes(
-              booking.status,
-            ) ? (
-              <Button
-                size="xs"
-                variant="outline"
-                onClick={() => onAction("cancel")}
-              >
-                Cancel
-              </Button>
+            {booking.studentEmail ? (
+              <p>
+                <span className="text-foreground">Email:</span>{" "}
+                {booking.studentEmail}
+              </p>
             ) : null}
-            <div className="flex w-full gap-2">
-              <Select
-                value={sessionId}
-                onValueChange={(value) => setSessionId(value ?? "")}
-                items={sessions.map((session) => ({
-                  value: session.id,
-                  label: session.title,
-                }))}
-              >
-                <SelectTrigger className="min-w-44">
-                  <SelectValue placeholder="Assign session" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {sessions.map((session) => (
-                      <SelectItem key={session.id} value={session.id}>
-                        {session.title}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Button
-                size="xs"
-                disabled={!sessionId}
-                onClick={() => onAssign(sessionId)}
-              >
-                Assign
-              </Button>
-            </div>
-            {booking.payment?.status === "submitted" ? (
-              <>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => onReviewPayment("verify")}
-                >
-                  Verify payment
-                </Button>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => onReviewPayment("reject")}
-                >
-                  Reject payment
-                </Button>
-              </>
+            {booking.studentPhone ? (
+              <p>
+                <span className="text-foreground">Phone:</span>{" "}
+                {booking.studentPhone}
+              </p>
             ) : null}
           </div>
+        </div>
+        {canManage ? (
+          <Dialog open={manageOpen} onOpenChange={setManageOpen}>
+            <DialogTrigger
+              render={
+                <Button size="sm" variant="outline" className="self-start">
+                  <Settings2 className="mr-1 h-4 w-4" />
+                  Manage
+                </Button>
+              }
+            />
+            <DialogContent className="max-w-xl!">
+              <DialogHeader>
+                <DialogTitle>Manage booking</DialogTitle>
+                <DialogDescription>
+                  Review the request, assign a session, or update payment
+                  review.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4">
+                <div className="rounded-lg border border-border/70 bg-muted/25 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-foreground">
+                      {booking.studentName ||
+                        booking.studentEmail ||
+                        "Unnamed student"}
+                    </p>
+                    <Badge variant="secondary" className="h-5 px-2 text-[11px]">
+                      {bookingStatusLabels[booking.status]}
+                    </Badge>
+                    {booking.payment ? (
+                      <Badge variant="outline" className="h-5 px-2 text-[11px]">
+                        {paymentStatusLabels[booking.payment.status]}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {booking.courseTitle}
+                    {booking.sessionTitle ? ` - ${booking.sessionTitle}` : ""}
+                  </p>
+                </div>
+
+                <section className="grid gap-2">
+                  <h3 className="text-xs font-medium text-muted-foreground">
+                    Booking status
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {booking.status === "pending_review" ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => runAction("approve")}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => runAction("reject")}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    ) : null}
+                    {booking.status === "scheduled" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => runAction("complete")}
+                      >
+                        Complete
+                      </Button>
+                    ) : null}
+                    {canCancel ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => runAction("cancel")}
+                      >
+                        Cancel
+                      </Button>
+                    ) : null}
+                    {!canCancel &&
+                    booking.status !== "pending_review" &&
+                    booking.status !== "scheduled" ? (
+                      <p className="text-xs text-muted-foreground">
+                        No status actions are available for this booking.
+                      </p>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section className="grid gap-2">
+                  <h3 className="text-xs font-medium text-muted-foreground">
+                    Assign session
+                  </h3>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Select
+                      value={sessionId}
+                      onValueChange={(value) => setSessionId(value ?? "")}
+                      items={sessionOptions}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Assign session" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {sessionOptions.map((session) => (
+                            <SelectItem
+                              key={session.value}
+                              value={session.value}
+                            >
+                              {session.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      disabled={!sessionId}
+                      onClick={assignSession}
+                    >
+                      Assign
+                    </Button>
+                  </div>
+                </section>
+
+                {booking.payment?.status === "submitted" ? (
+                  <section className="grid gap-2">
+                    <h3 className="text-xs font-medium text-muted-foreground">
+                      Payment review
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => reviewPayment("verify")}
+                      >
+                        Verify payment
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => reviewPayment("reject")}
+                      >
+                        Reject payment
+                      </Button>
+                    </div>
+                  </section>
+                ) : null}
+              </div>
+              <DialogFooter showCloseButton />
+            </DialogContent>
+          </Dialog>
         ) : null}
       </div>
-    </div>
+    </article>
   );
 }
 

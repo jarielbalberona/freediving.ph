@@ -33,6 +33,10 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
     page.indexOf("export function ManageSchoolOverviewPage"),
     page.indexOf("export function ManageSchoolSettingsPage"),
   );
+  const bookingRow = page.slice(
+    page.indexOf("function BookingRow"),
+    page.indexOf("function SelectField"),
+  );
 
   assert.match(page, /SelectField/);
   assert.match(page, /SelectTrigger/);
@@ -79,6 +83,18 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
   assert.match(page, /Booking mode/);
   assert.match(constants, /Schedule selected/);
   assert.match(constants, /Preferred date request/);
+  assert.match(
+    page,
+    /rounded-lg border border-border\/70 bg-background\/70 p-3/,
+  );
+  assert.match(page, /sm:grid-cols-2 lg:grid-cols-4/);
+  assert.match(bookingRow, /DialogTitle>Manage booking/);
+  assert.match(bookingRow, /Review the request, assign a session/);
+  assert.match(bookingRow, /Settings2/);
+  assert.match(bookingRow, />\s*Manage\s*</);
+  assert.match(bookingRow, /<article className="py-3">/);
+  assert.doesNotMatch(bookingRow, /flex max-w-sm flex-wrap gap-2/);
+  assert.doesNotMatch(bookingRow, /SelectTrigger className="min-w-44"/);
   assert.doesNotMatch(page, /setPaymentCourse/);
   assert.doesNotMatch(
     page,

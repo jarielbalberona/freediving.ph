@@ -31,14 +31,15 @@ import (
 )
 
 const (
-	ContextProfileAvatar      = "profile_avatar"
-	ContextProfileFeed        = "profile_feed"
-	ContextChikaAttachment    = "chika_attachment"
-	ContextEventAttachment    = "event_attachment"
-	ContextPaymentMethodQR    = "payment_method_qr"
-	ContextDiveSpotAttachment = "dive_spot_attachment"
-	ContextGroupCover         = "group_cover"
-	ContextInstructorProof    = "instructor_certification_proof"
+	ContextProfileAvatar        = "profile_avatar"
+	ContextProfileFeed          = "profile_feed"
+	ContextChikaAttachment      = "chika_attachment"
+	ContextEventAttachment      = "event_attachment"
+	ContextPaymentMethodQR      = "payment_method_qr"
+	ContextCourseBookingReceipt = "course_booking_receipt"
+	ContextDiveSpotAttachment   = "dive_spot_attachment"
+	ContextGroupCover           = "group_cover"
+	ContextInstructorProof      = "instructor_certification_proof"
 
 	PresetThumb    = "thumb"
 	PresetCard     = "card"
@@ -424,6 +425,13 @@ var contextRules = map[string]contextRule{
 		maxUploadBytes:    maxUploadBytes,
 		ttl:               3 * 24 * time.Hour,
 		maxTransformWidth: 1600,
+		requiresContextID: true,
+		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
+	},
+	ContextCourseBookingReceipt: {
+		maxUploadBytes:    maxUploadBytes,
+		ttl:               3 * 24 * time.Hour,
+		maxTransformWidth: 2048,
 		requiresContextID: true,
 		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
 	},
@@ -1890,6 +1898,8 @@ func buildObjectKey(contextType, ownerUserID string, contextID *string, filename
 		return path.Join("events", valueOrEmpty(contextID), filename)
 	case ContextPaymentMethodQR:
 		return path.Join("payment-methods", valueOrEmpty(contextID), filename)
+	case ContextCourseBookingReceipt:
+		return path.Join("course-bookings", valueOrEmpty(contextID), "receipts", filename)
 	case ContextDiveSpotAttachment:
 		return path.Join("dive-spots", valueOrEmpty(contextID), filename)
 	case ContextGroupCover:

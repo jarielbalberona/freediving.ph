@@ -20,6 +20,7 @@ type fakeRepo struct {
 	capturedCourse       schoolsrepo.CreateCourseInput
 	capturedSession      schoolsrepo.CreateSessionInput
 	capturedBooking      schoolsrepo.CreateBookingInput
+	capturedPayment      schoolsrepo.SubmitBookingPaymentInput
 	capturedSchool       schoolsrepo.UpdateSchoolInput
 	listPaymentsSchoolID string
 
@@ -123,6 +124,20 @@ func (f *fakeRepo) UnassignBookingSession(context.Context, string, string, *scho
 }
 func (f *fakeRepo) ReviewBookingPayment(context.Context, string, string, string, string, string) (schoolsrepo.BookingPayment, error) {
 	return schoolsrepo.BookingPayment{}, nil
+}
+func (f *fakeRepo) SubmitMyBookingPayment(_ context.Context, _ string, _ string, input schoolsrepo.SubmitBookingPaymentInput) (schoolsrepo.Booking, error) {
+	f.capturedPayment = input
+	f.booking.Payment = &schoolsrepo.BookingPayment{
+		ID:              "payment-1",
+		BookingID:       f.booking.ID,
+		CourseID:        f.booking.CourseID,
+		SchoolID:        f.booking.SchoolID,
+		PaymentMethodID: input.PaymentMethodID,
+		ProofMediaID:    input.ProofMediaID,
+		ReferenceNumber: input.ReferenceNumber,
+		Status:          "submitted",
+	}
+	return f.booking, nil
 }
 func (f *fakeRepo) ListPublicSchools(context.Context, schoolsrepo.PublicSchoolFilters) ([]schoolsrepo.School, error) {
 	return []schoolsrepo.School{f.school}, nil
@@ -557,6 +572,40 @@ func TestCancelMyBookingRejectsCompletedBooking(t *testing.T) {
 	_, err := svc.CancelMyBooking(context.Background(), "student-1", "booking-1")
 	if err == nil {
 		t.Fatal("expected completed booking cancellation to fail")
+	}
+}
+
+func TestSubmitMyBookingPaymentStoresReceiptPayload(t *testing.T) {
+	repo := &fakeRepo{
+		booking: schoolsrepo.Booking{
+			ID:       "11111111-1111-4111-8111-111111111111",
+			SchoolID: "22222222-2222-4222-8222-222222222222",
+			CourseID: "33333333-3333-4333-8333-333333333333",
+			Status:   "approved",
+		},
+	}
+	svc := New(repo)
+	item, err := svc.SubmitMyBookingPayment(context.Background(), "44444444-4444-4444-8444-444444444444", repo.booking.ID, schoolsrepo.SubmitBookingPaymentInput{
+		PaymentMethodID: "55555555-5555-4555-8555-555555555555",
+		ProofMediaID:    "66666666-6666-4666-8666-666666666666",
+		ReferenceNumber: " ref-123 ",
+	})
+	if err != nil {
+		t.Fatalf("expected receipt upload to pass: %v", err)
+	}
+	if item.Payment == nil || item.Payment.Status != "submitted" {
+		t.Fatalf("expected submitted payment, got %#v", item.Payment)
+	}
+	if repo.capturedPayment.ReferenceNumber != "ref-123" {
+		t.Fatalf("expected trimmed reference number, got %#v", repo.capturedPayment)
+	}
+}
+
+func TestSubmitMyBookingPaymentRequiresProof(t *testing.T) {
+	svc := New(&fakeRepo{})
+	_, err := svc.SubmitMyBookingPayment(context.Background(), "44444444-4444-4444-8444-444444444444", "11111111-1111-4111-8111-111111111111", schoolsrepo.SubmitBookingPaymentInput{})
+	if err == nil {
+		t.Fatal("expected missing proof media id to fail")
 	}
 }
 

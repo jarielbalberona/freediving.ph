@@ -209,6 +209,12 @@ type BookingPayment struct {
 	UpdatedAt       time.Time
 }
 
+type SubmitBookingPaymentInput struct {
+	PaymentMethodID string
+	ProofMediaID    string
+	ReferenceNumber string
+}
+
 type CreateSchoolInput struct {
 	Name, ShortDescription, DescriptionMarkdown, BaseLocation, BaseLocationLabel, FormattedAddress, RegionCode, RegionName, ProvinceCode, ProvinceName, CityCode, CityName, BarangayCode, BarangayName, LocationSource, DiveSiteID, ContactEmail, ContactPhone, WebsiteURL, FacebookURL, InstagramURL, OwnerUserID string
 	Status                                                                                                                                                                                                                                                                                                         string
@@ -871,6 +877,73 @@ func (r *Repo) ReviewBookingPayment(ctx context.Context, schoolID, bookingID, ac
 	}
 	row := r.pool.QueryRow(ctx, `UPDATE course_booking_payments SET status=$4,reviewed_by=$3,reviewed_at=NOW(),review_notes=NULLIF($5,''),updated_at=NOW() WHERE school_id=$1 AND booking_id=$2 AND deleted_at IS NULL RETURNING id,booking_id,course_id,school_id,COALESCE(student_user_id::text,''),COALESCE(payment_method_id::text,''),amount::float8,currency,COALESCE(proof_media_id::text,''),COALESCE(reference_number,''),status,COALESCE(reviewed_by::text,''),reviewed_at,COALESCE(review_notes,''),created_at,updated_at`, schoolID, bookingID, actorID, status, notes)
 	return scanBookingPayment(row)
+}
+
+func (r *Repo) SubmitMyBookingPayment(ctx context.Context, userID, bookingID string, input SubmitBookingPaymentInput) (Booking, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Booking{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := ensureBookingPaymentWithExecutor(ctx, tx, bookingID); err != nil {
+		return Booking{}, err
+	}
+	var updatedBookingID string
+	err = tx.QueryRow(ctx, `
+		WITH proof AS (
+			SELECT id
+			FROM media_objects
+			WHERE id = $3::uuid
+				AND owner_app_user_id = $1::uuid
+				AND context_type = 'course_booking_receipt'
+				AND context_id = $2::uuid
+				AND state = 'active'
+		)
+		UPDATE course_booking_payments pay
+		SET payment_method_id = CASE
+				WHEN NULLIF($4, '') IS NULL THEN pay.payment_method_id
+				ELSE $4::uuid
+			END,
+			proof_media_id = $3::uuid,
+			reference_number = NULLIF($5, ''),
+			status = 'submitted',
+			reviewed_by = NULL,
+			reviewed_at = NULL,
+			review_notes = NULL,
+			updated_at = NOW()
+		FROM course_booking_requests b
+		WHERE pay.booking_id = b.id
+			AND b.student_user_id = $1::uuid
+			AND b.id = $2::uuid
+			AND b.deleted_at IS NULL
+			AND pay.deleted_at IS NULL
+			AND pay.status IN ('pending_upload', 'submitted', 'rejected')
+			AND EXISTS (SELECT 1 FROM proof)
+			AND (
+				NULLIF($4, '') IS NULL
+				OR EXISTS (
+					SELECT 1
+					FROM school_payment_methods spm
+					WHERE spm.id = $4::uuid
+						AND spm.school_id = b.school_id
+						AND spm.is_active = TRUE
+						AND spm.deleted_at IS NULL
+				)
+			)
+		RETURNING b.id::text
+	`, userID, bookingID, input.ProofMediaID, input.PaymentMethodID, input.ReferenceNumber).Scan(&updatedBookingID)
+	if err != nil {
+		return Booking{}, err
+	}
+	row := tx.QueryRow(ctx, bookingSelect()+" WHERE b.student_user_id=$1 AND b.id::text=$2 AND b.deleted_at IS NULL", userID, updatedBookingID)
+	item, err := scanBooking(row)
+	if err != nil {
+		return Booking{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Booking{}, err
+	}
+	return item, nil
 }
 
 func (r *Repo) ListSessionBookings(ctx context.Context, schoolID, sessionID string) ([]Booking, error) {

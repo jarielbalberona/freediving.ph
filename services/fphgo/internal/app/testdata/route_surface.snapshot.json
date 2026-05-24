@@ -849,6 +849,10 @@
       "pattern": "/v1/me/course-bookings/{bookingId}/cancel"
     },
     {
+      "method": "PATCH",
+      "pattern": "/v1/me/course-bookings/{bookingId}/payment"
+    },
+    {
       "method": "GET",
       "pattern": "/v1/me/profile"
     },

@@ -66,6 +66,7 @@ type repository interface {
 	AssignBookingSession(context.Context, string, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error)
 	UnassignBookingSession(context.Context, string, string, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error)
 	ReviewBookingPayment(context.Context, string, string, string, string, string) (schoolsrepo.BookingPayment, error)
+	SubmitMyBookingPayment(context.Context, string, string, schoolsrepo.SubmitBookingPaymentInput) (schoolsrepo.Booking, error)
 	ListPublicSchools(context.Context, schoolsrepo.PublicSchoolFilters) ([]schoolsrepo.School, error)
 	GetPublicSchoolBySlug(context.Context, string) (schoolsrepo.School, error)
 	ListPublicCourses(context.Context, string, schoolsrepo.PublicCourseFilters) ([]schoolsrepo.Course, error)
@@ -309,6 +310,29 @@ func (s *Service) CancelMyBooking(ctx context.Context, actorID, bookingID string
 		s.processNotificationOutbox(ctx, "booking_cancelled_by_student", item.ID)
 	}
 	return item, mapNotFound(err, "booking_not_found")
+}
+
+func (s *Service) SubmitMyBookingPayment(ctx context.Context, actorID, bookingID string, input schoolsrepo.SubmitBookingPaymentInput) (schoolsrepo.Booking, error) {
+	if strings.TrimSpace(actorID) == "" {
+		return schoolsrepo.Booking{}, apperrors.New(http.StatusUnauthorized, "auth_required", "sign in required", nil)
+	}
+	if !validUUID(bookingID) {
+		return schoolsrepo.Booking{}, validation("bookingId", "invalid_uuid", "Invalid booking id")
+	}
+	input.PaymentMethodID = strings.TrimSpace(input.PaymentMethodID)
+	input.ProofMediaID = strings.TrimSpace(input.ProofMediaID)
+	input.ReferenceNumber = strings.TrimSpace(input.ReferenceNumber)
+	if input.ProofMediaID == "" {
+		return schoolsrepo.Booking{}, validation("proofMediaId", "required", "Payment receipt is required")
+	}
+	if !validUUID(input.ProofMediaID) {
+		return schoolsrepo.Booking{}, validation("proofMediaId", "invalid_uuid", "Invalid receipt media id")
+	}
+	if input.PaymentMethodID != "" && !validUUID(input.PaymentMethodID) {
+		return schoolsrepo.Booking{}, validation("paymentMethodId", "invalid_uuid", "Invalid payment method id")
+	}
+	item, err := s.repo.SubmitMyBookingPayment(ctx, actorID, bookingID, input)
+	return item, mapNotFound(err, "booking_payment_not_found")
 }
 
 func (s *Service) ListCourses(ctx context.Context, slug, actorID string) ([]schoolsrepo.Course, error) {

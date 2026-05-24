@@ -20,6 +20,7 @@ import type {
   PublicSchool,
   PublicSchoolFilters,
   School,
+  SubmitCourseBookingPaymentRequest,
   UpdateCourseBookingRequest,
   UpdateCoursePaymentMethodRequest,
   UpdateCourseRequest,
@@ -111,6 +112,16 @@ export const schoolsApi = {
     const response = await axiosInstance.patch<{ booking: MyCourseBooking }>(
       `/v1/me/course-bookings/${encodeURIComponent(bookingId)}/cancel`,
       {},
+    );
+    return response.data.booking;
+  },
+  submitMyBookingPayment: async (
+    bookingId: string,
+    data: SubmitCourseBookingPaymentRequest,
+  ): Promise<MyCourseBooking> => {
+    const response = await axiosInstance.patch<{ booking: MyCourseBooking }>(
+      `/v1/me/course-bookings/${encodeURIComponent(bookingId)}/payment`,
+      data,
     );
     return response.data.booking;
   },

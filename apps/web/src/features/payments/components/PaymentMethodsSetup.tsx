@@ -2,6 +2,15 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -23,7 +32,7 @@ import {
   validatePaymentMethodDetails,
   type PaymentMethodType,
 } from "@freediving.ph/types";
-import { ImageIcon, Plus, Save, Trash2, Upload } from "lucide-react";
+import { ImageIcon, Plus, Save, Settings2, Trash2, Upload } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -86,6 +95,7 @@ export function PaymentMethodsSetup({
   const [newMethod, setNewMethod] = useState<PaymentMethodFormState>(
     emptyPaymentMethodForm(),
   );
+  const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -100,41 +110,34 @@ export function PaymentMethodsSetup({
     try {
       await onCreate(payload.value);
       setNewMethod(emptyPaymentMethodForm());
+      setCreateOpen(false);
     } finally {
       setBusyId(null);
     }
   };
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-3">
       <section className="grid gap-3">
-        <h2 className="text-sm font-semibold text-foreground">Add method</h2>
-        <PaymentMethodFields
-          value={newMethod}
-          onChange={setNewMethod}
-          disabled={disabled || busyId === "new"}
-          mediaContextType={mediaContextType}
-          mediaContextId={mediaContextId}
-        />
-        {createError ? (
-          <p className="text-xs text-destructive">{createError}</p>
-        ) : null}
-        <div className="flex justify-end">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">
+              Payment methods
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Add Manual QR or bank transfer details for payment proof.
+            </p>
+          </div>
           <Button
             type="button"
+            size="sm"
             disabled={disabled || busyId === "new"}
-            onClick={saveNew}
+            onClick={() => setCreateOpen(true)}
           >
             <Plus className="mr-1 h-4 w-4" />
-            {busyId === "new" ? "Adding..." : "Add method"}
+            Add method
           </Button>
         </div>
-      </section>
-
-      <section className="grid gap-3">
-        <h2 className="text-sm font-semibold text-foreground">
-          Payment methods
-        </h2>
         {methods.length === 0 ? (
           <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
             <p className="text-sm font-medium text-foreground">{emptyTitle}</p>
@@ -165,6 +168,49 @@ export function PaymentMethodsSetup({
           </div>
         )}
       </section>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) {
+            setCreateError("");
+            setNewMethod(emptyPaymentMethodForm());
+          }
+        }}
+      >
+        <DialogContent className="gap-4 sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add payment method</DialogTitle>
+            <DialogDescription>
+              Add a payment method for paid bookings or registrations.
+            </DialogDescription>
+          </DialogHeader>
+          <PaymentMethodFields
+            value={newMethod}
+            onChange={setNewMethod}
+            disabled={disabled || busyId === "new"}
+            mediaContextType={mediaContextType}
+            mediaContextId={mediaContextId}
+          />
+          {createError ? (
+            <p className="text-xs text-destructive">{createError}</p>
+          ) : null}
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" size="sm" />}>
+              Cancel
+            </DialogClose>
+            <Button
+              type="button"
+              size="sm"
+              disabled={disabled || busyId === "new"}
+              onClick={saveNew}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              {busyId === "new" ? "Adding..." : "Add method"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -238,6 +284,7 @@ function PaymentMethodEditorRow({
   onSave: (value: PaymentMethodSetupSaveValue) => Promise<void> | void;
 }) {
   const [form, setForm] = useState(formStateFromPaymentMethod(method));
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -248,63 +295,103 @@ function PaymentMethodEditorRow({
     const payload = buildPaymentMethodPayload(next);
     if (!payload.ok) {
       setError(payload.message);
-      return;
+      return false;
     }
     setError("");
     await onSave(payload.value);
+    setOpen(false);
+    return true;
   };
 
   return (
-    <article className="grid gap-3 py-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-medium text-foreground">
-              {form.name || defaultPaymentMethodName(form.type)}
-            </h3>
-            <Badge variant={form.isActive ? "secondary" : "outline"}>
-              {form.isActive ? "Active" : "Inactive"}
-            </Badge>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {paymentMethodTypeLabel(form.type)}
-          </p>
+    <article className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-medium text-foreground">
+            {form.name || defaultPaymentMethodName(form.type)}
+          </h3>
+          <Badge variant={form.isActive ? "secondary" : "outline"}>
+            {form.isActive ? "Active" : "Inactive"}
+          </Badge>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={disabled}
-            onClick={() => save()}
-          >
-            <Save className="mr-1 h-4 w-4" />
-            Save
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={disabled}
-            onClick={() => {
-              const next = { ...form, isActive: !form.isActive };
-              setForm(next);
-              void save(next);
-            }}
-          >
-            <Trash2 className="mr-1 h-4 w-4" />
-            {form.isActive ? "Deactivate" : "Activate"}
-          </Button>
-        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {paymentMethodTypeLabel(form.type)}
+        </p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          {paymentMethodSummary(form)}
+        </p>
       </div>
-      <PaymentMethodFields
-        value={form}
-        onChange={setForm}
-        disabled={disabled}
-        mediaContextType={mediaContextType}
-        mediaContextId={mediaContextId}
-      />
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="w-fit"
+        onClick={() => setOpen(true)}
+      >
+        <Settings2 className="mr-1 h-4 w-4" />
+        Details
+      </Button>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) {
+            setError("");
+            setForm(formStateFromPaymentMethod(method));
+          }
+        }}
+      >
+        <DialogContent className="gap-4 sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {form.name || defaultPaymentMethodName(form.type)}
+            </DialogTitle>
+            <DialogDescription>
+              Review and update this payment method.
+            </DialogDescription>
+          </DialogHeader>
+          <PaymentMethodFields
+            value={form}
+            onChange={setForm}
+            disabled={disabled}
+            mediaContextType={mediaContextType}
+            mediaContextId={mediaContextId}
+          />
+          {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={disabled}
+              onClick={() => {
+                const next = { ...form, isActive: !form.isActive };
+                setForm(next);
+                void save(next);
+              }}
+            >
+              <Trash2 className="mr-1 h-4 w-4" />
+              {form.isActive ? "Deactivate" : "Activate"}
+            </Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <DialogClose render={<Button variant="outline" size="sm" />}>
+                Cancel
+              </DialogClose>
+              <Button
+                type="button"
+                size="sm"
+                disabled={disabled}
+                onClick={() => {
+                  void save();
+                }}
+              >
+                <Save className="mr-1 h-4 w-4" />
+                Save
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 }
@@ -507,6 +594,23 @@ function formStateFromPaymentMethod(
     accountNumber: method.accountNumber ?? "",
     isActive: method.isActive ?? true,
   };
+}
+
+function paymentMethodSummary(method: PaymentMethodFormState) {
+  if (method.type === "bank_transfer") {
+    return (
+      [method.bankName, method.accountName, method.accountNumber]
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .join(" - ") || "Bank transfer details"
+    );
+  }
+
+  const details = [
+    method.qrMediaId.trim() || method.qrImageUrl.trim() ? "QR image added" : "",
+    method.accountNumber.trim() ? `Account ${method.accountNumber.trim()}` : "",
+  ].filter(Boolean);
+  return details.join(" - ") || "Manual QR details";
 }
 
 function buildPaymentMethodPayload(

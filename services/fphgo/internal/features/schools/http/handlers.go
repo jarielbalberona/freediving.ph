@@ -89,6 +89,7 @@ func MeRoutes(h *Handlers) chi.Router {
 	r.Get("/", h.ListMyBookings)
 	r.Get("/{bookingId}", h.GetMyBooking)
 	r.Patch("/{bookingId}/cancel", h.CancelMyBooking)
+	r.Patch("/{bookingId}/payment", h.SubmitMyBookingPayment)
 	return r
 }
 
@@ -255,6 +256,12 @@ type ReviewPaymentRequest struct {
 	ReviewNotes string `json:"reviewNotes"`
 }
 
+type SubmitBookingPaymentRequest struct {
+	PaymentMethodID string `json:"paymentMethodId" validate:"omitempty,uuid4"`
+	ProofMediaID    string `json:"proofMediaId" validate:"required,uuid4"`
+	ReferenceNumber string `json:"referenceNumber" validate:"omitempty,max=160"`
+}
+
 func (h *Handlers) ListSchools(w http.ResponseWriter, r *http.Request) {
 	items, err := h.service.ListSchools(r.Context(), actorID(r))
 	if err != nil {
@@ -401,6 +408,24 @@ func (h *Handlers) GetMyBooking(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) CancelMyBooking(w http.ResponseWriter, r *http.Request) {
 	item, err := h.service.CancelMyBooking(r.Context(), actorID(r), chi.URLParam(r, "bookingId"))
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"booking": mapMyBooking(item)})
+}
+
+func (h *Handlers) SubmitMyBookingPayment(w http.ResponseWriter, r *http.Request) {
+	req, issues, ok := httpx.DecodeAndValidate[SubmitBookingPaymentRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, err := h.service.SubmitMyBookingPayment(r.Context(), actorID(r), chi.URLParam(r, "bookingId"), schoolsrepo.SubmitBookingPaymentInput{
+		PaymentMethodID: req.PaymentMethodID,
+		ProofMediaID:    req.ProofMediaID,
+		ReferenceNumber: req.ReferenceNumber,
+	})
 	if err != nil {
 		handleError(w, r, err)
 		return

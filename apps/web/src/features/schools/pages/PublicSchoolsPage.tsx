@@ -11,6 +11,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -29,7 +31,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ChikaMarkdown } from "@/features/chika/components/ChikaMarkdown";
+import { mediaApi } from "@/features/media/api/media";
 import { PaymentMethodCustomerDisplay } from "@/features/payments/components/PaymentMethodsSetup";
+import { getApiErrorMessage } from "@/lib/http/api-error";
 import { useAuth, SignInButton } from "@clerk/nextjs";
 import type {
   CourseLevel,
@@ -41,8 +45,9 @@ import type {
   PublicCourseSession,
   PublicSchool,
   PublicSchoolFilters,
+  SchoolPaymentMethod,
 } from "@freediving.ph/types";
-import { ArrowLeft, CalendarPlus, Search, X } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Search, Upload, X } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -53,11 +58,13 @@ import {
   bookingModeLabels,
   courseLevelLabels,
   courseTypeLabels,
+  paymentMethodTypeLabels,
   paymentStatusLabels,
 } from "../constants";
 import {
   useCancelMyBooking,
   useCreateStudentBooking,
+  useSubmitMyBookingPayment,
 } from "../hooks/mutations";
 import {
   useMyCourseBookings,
@@ -684,6 +691,12 @@ function sessionSelectLabel(session: PublicCourseSession) {
   return `${formatSessionWindow(session)} · ${slots}`;
 }
 
+function paymentMethodSelectLabel(method: SchoolPaymentMethod) {
+  const name = method.name.trim();
+  const typeLabel = paymentMethodTypeLabels[method.type];
+  return name && name !== typeLabel ? `${name} - ${typeLabel}` : typeLabel;
+}
+
 function formatSessionWindow(
   session: Pick<PublicCourseSession, "startsAt" | "endsAt">,
 ) {
@@ -762,14 +775,32 @@ function BookingForm({
 }) {
   const { isLoaded, isSignedIn } = useAuth();
   const mutation = useCreateStudentBooking(school.slug, course.slug);
+  const submitPayment = useSubmitMyBookingPayment();
   const sessionsQuery = usePublicCourseSessions(school.slug, course.slug);
   const sessions = sessionsQuery.data ?? [];
-  const activePaymentMethods = (school.paymentMethods ?? []).filter(
-    (method) => method.isActive,
+  const activePaymentMethods = useMemo(
+    () => (school.paymentMethods ?? []).filter((method) => method.isActive),
+    [school.paymentMethods],
+  );
+  const paymentMethodItems = useMemo(
+    () =>
+      activePaymentMethods.map((method) => ({
+        value: method.id,
+        label: paymentMethodSelectLabel(method),
+      })),
+    [activePaymentMethods],
   );
   const paidCourseUnavailable =
     course.paymentRequired && activePaymentMethods.length === 0;
   const [done, setDone] = useState(false);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [receiptError, setReceiptError] = useState("");
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const selectedPaymentMethod = activePaymentMethods.find(
+    (method) => method.id === selectedPaymentMethodId,
+  );
   const initialMode =
     course.allowSessionBooking && initialSessionId
       ? "session"
@@ -789,6 +820,16 @@ function BookingForm({
       sessionId: initialSessionId,
     }));
   }, [initialSessionId]);
+  useEffect(() => {
+    if (
+      selectedPaymentMethodId &&
+      !activePaymentMethods.some(
+        (method) => method.id === selectedPaymentMethodId,
+      )
+    ) {
+      setSelectedPaymentMethodId("");
+    }
+  }, [activePaymentMethods, selectedPaymentMethodId]);
   if (isLoaded && !isSignedIn) return <SignInPrompt />;
   if (!course.allowSessionBooking && !course.allowPreferredDateRequest) {
     return (
@@ -802,6 +843,11 @@ function BookingForm({
         <p className="text-xs leading-5 text-muted-foreground">
           The school will review your booking and follow up.
         </p>
+        {receiptError ? (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs leading-5 text-destructive">
+            {receiptError}
+          </p>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
@@ -819,7 +865,37 @@ function BookingForm({
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await mutation.mutateAsync(form);
+    setReceiptError("");
+    const booking = await mutation.mutateAsync(form);
+    if (receiptFile) {
+      setIsUploadingReceipt(true);
+      try {
+        const upload = await mediaApi.upload(
+          receiptFile,
+          "course_booking_receipt",
+          booking.id,
+        );
+        await submitPayment.mutateAsync({
+          bookingId: booking.id,
+          data: {
+            paymentMethodId: selectedPaymentMethodId || undefined,
+            proofMediaId: upload.id,
+            referenceNumber: referenceNumber.trim() || undefined,
+          },
+        });
+        setReceiptFile(null);
+        setReferenceNumber("");
+      } catch (error) {
+        setReceiptError(
+          getApiErrorMessage(
+            error,
+            "Booking submitted, but the receipt upload failed. Upload it from My bookings.",
+          ),
+        );
+      } finally {
+        setIsUploadingReceipt(false);
+      }
+    }
     setDone(true);
   }
   return (
@@ -940,15 +1016,55 @@ function BookingForm({
       {course.paymentRequired && activePaymentMethods.length > 0 ? (
         <div className="grid gap-3">
           <p className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
-            Payment is required for this course. Use one of the school payment
-            methods below and attach your receipt when the school asks for
-            proof.
+            Payment is required for this course. Choose a school payment method
+            to view payment details, then attach your receipt when the school
+            asks for proof.
           </p>
-          <div className="grid gap-3 md:grid-cols-2">
-            {activePaymentMethods.map((method) => (
-              <PaymentMethodCustomerDisplay key={method.id} method={method} />
-            ))}
-          </div>
+          <Field label="Payment method">
+            <Select
+              value={selectedPaymentMethodId}
+              onValueChange={(value) => setSelectedPaymentMethodId(value ?? "")}
+              items={paymentMethodItems}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose a payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {paymentMethodItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+          {selectedPaymentMethod ? (
+            <PaymentMethodCustomerDisplay method={selectedPaymentMethod} />
+          ) : null}
+          <Field label="Receipt upload">
+            <Input
+              type="file"
+              accept="image/*"
+              disabled={!selectedPaymentMethod}
+              onChange={(event) =>
+                setReceiptFile(event.target.files?.[0] ?? null)
+              }
+            />
+          </Field>
+          <Field label="Reference number">
+            <Input
+              value={referenceNumber}
+              disabled={!selectedPaymentMethod}
+              placeholder="Optional transaction reference"
+              onChange={(event) => setReferenceNumber(event.target.value)}
+            />
+          </Field>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Receipt upload is optional. Select a payment method to attach it
+            now, or book first and upload it from My bookings later.
+          </p>
         </div>
       ) : null}
       {paidCourseUnavailable ? (
@@ -962,18 +1078,25 @@ function BookingForm({
           Could not submit booking. Check the date and try again.
         </p>
       ) : null}
+      {receiptError ? (
+        <p className="text-xs text-destructive">{receiptError}</p>
+      ) : null}
       <Button
         type="submit"
         size="sm"
         disabled={
           mutation.isPending ||
+          submitPayment.isPending ||
+          isUploadingReceipt ||
           paidCourseUnavailable ||
           (form.bookingMode === "session" && !form.sessionId)
         }
       >
-        {form.bookingMode === "session"
-          ? "Book selected schedule"
-          : "Submit request"}
+        {mutation.isPending || submitPayment.isPending || isUploadingReceipt
+          ? "Submitting..."
+          : form.bookingMode === "session"
+            ? "Book selected schedule"
+            : "Submit request"}
       </Button>
     </form>
   );
@@ -1159,18 +1282,142 @@ function BookingRow({
             : ""}
         </p>
       </div>
-      {["pending_review", "approved", "scheduled"].includes(booking.status) ? (
-        <Button
-          className="self-start"
-          size="sm"
-          variant="outline"
-          onClick={onCancel}
-        >
-          <X />
-          Cancel
-        </Button>
-      ) : null}
+      <div className="flex flex-wrap gap-2 sm:justify-end">
+        <BookingReceiptUploadAction booking={booking} />
+        {["pending_review", "approved", "scheduled"].includes(
+          booking.status,
+        ) ? (
+          <Button
+            className="self-start"
+            size="sm"
+            variant="outline"
+            onClick={onCancel}
+          >
+            <X />
+            Cancel
+          </Button>
+        ) : null}
+      </div>
     </article>
+  );
+}
+
+function BookingReceiptUploadAction({
+  booking,
+}: {
+  booking: MyCourseBooking;
+}) {
+  const submitPayment = useSubmitMyBookingPayment();
+  const [open, setOpen] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [referenceNumber, setReferenceNumber] = useState(
+    booking.payment?.referenceNumber ?? "",
+  );
+  const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const canUpload =
+    booking.payment &&
+    ["pending_upload", "submitted", "rejected"].includes(
+      booking.payment.status,
+    );
+  if (!canUpload) return null;
+
+  const submitReceipt = async () => {
+    if (!receiptFile) {
+      setError("Choose a receipt image first.");
+      return;
+    }
+    setError("");
+    setUploading(true);
+    try {
+      const upload = await mediaApi.upload(
+        receiptFile,
+        "course_booking_receipt",
+        booking.id,
+      );
+      await submitPayment.mutateAsync({
+        bookingId: booking.id,
+        data: {
+          paymentMethodId: booking.payment?.paymentMethodId || undefined,
+          proofMediaId: upload.id,
+          referenceNumber: referenceNumber.trim() || undefined,
+        },
+      });
+      setReceiptFile(null);
+      setReferenceNumber("");
+      setOpen(false);
+    } catch (uploadError) {
+      setError(
+        getApiErrorMessage(uploadError, "Failed to upload payment receipt."),
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) {
+          setError("");
+          setReceiptFile(null);
+          setReferenceNumber(booking.payment?.referenceNumber ?? "");
+        }
+      }}
+    >
+      <Button
+        className="self-start"
+        size="sm"
+        variant={booking.payment?.proofMediaId ? "outline" : "default"}
+        onClick={() => setOpen(true)}
+      >
+        <Upload className="mr-1 h-4 w-4" />
+        {booking.payment?.proofMediaId ? "Replace receipt" : "Upload receipt"}
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Upload receipt</DialogTitle>
+          <DialogDescription>
+            Attach a transfer screenshot or receipt for school review.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <Field label="Receipt image">
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(event) =>
+                setReceiptFile(event.target.files?.[0] ?? null)
+              }
+            />
+          </Field>
+          <Field label="Reference number">
+            <Input
+              value={referenceNumber}
+              placeholder="Optional transaction reference"
+              onChange={(event) => setReferenceNumber(event.target.value)}
+            />
+          </Field>
+          {receiptFile ? (
+            <p className="text-xs text-muted-foreground">{receiptFile.name}</p>
+          ) : null}
+          {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        </div>
+        <DialogFooter showCloseButton>
+          <Button
+            size="sm"
+            disabled={uploading || submitPayment.isPending || !receiptFile}
+            onClick={submitReceipt}
+          >
+            {uploading || submitPayment.isPending
+              ? "Uploading..."
+              : "Submit receipt"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

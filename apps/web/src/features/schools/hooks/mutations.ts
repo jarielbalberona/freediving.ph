@@ -7,6 +7,7 @@ import type {
   CreateCourseSessionRequest,
   CreateSchoolRequest,
   CreateStudentCourseBookingRequest,
+  SubmitCourseBookingPaymentRequest,
   UpdateCoursePaymentMethodRequest,
   UpdateCourseRequest,
   UpdateCourseSessionRequest,
@@ -213,6 +214,23 @@ export const useCancelMyBooking = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (bookingId: string) => schoolsApi.cancelMyBooking(bookingId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.myBookings(),
+      }),
+  });
+};
+
+export const useSubmitMyBookingPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      bookingId,
+      data,
+    }: {
+      bookingId: string;
+      data: SubmitCourseBookingPaymentRequest;
+    }) => schoolsApi.submitMyBookingPayment(bookingId, data),
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: queryKeys.schools.myBookings(),

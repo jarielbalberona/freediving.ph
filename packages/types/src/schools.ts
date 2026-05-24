@@ -464,6 +464,12 @@ export interface CreateStudentCourseBookingRequest {
   equipmentNeeds?: string;
 }
 
+export interface SubmitCourseBookingPaymentRequest {
+  paymentMethodId?: string;
+  proofMediaId: string;
+  referenceNumber?: string;
+}
+
 export interface PublicSchoolFilters {
   search?: string;
   location?: string;

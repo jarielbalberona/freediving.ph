@@ -805,6 +805,7 @@ CREATE TABLE IF NOT EXISTS media_objects (
     'chika_attachment',
     'event_attachment',
     'payment_method_qr',
+    'course_booking_receipt',
     'dive_spot_attachment',
     'group_cover',
     'instructor_certification_proof'
