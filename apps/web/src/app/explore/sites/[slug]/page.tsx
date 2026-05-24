@@ -21,6 +21,7 @@ import { UsernameLink } from "@/components/common/UsernameLink";
 import { TrustCard } from "@/components/trust-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StructuredData } from "@/features/public-content/components/StructuredData";
 import {
   getExploreSiteBySlugServer,
   getExploreSiteAffinitiesServer,
@@ -30,6 +31,16 @@ import {
   getExploreSiteReviewsServer,
 } from "@/features/diveSpots/api/explore-v1.server";
 import { DiveSiteLikeButton } from "@/features/explore/components/DiveSiteLikeButton";
+import {
+  breadcrumbJsonLd,
+  placeJsonLd,
+  webPageJsonLd,
+} from "@/features/public-content/seo/jsonLd";
+import {
+  buildNoindexMetadata,
+  buildPublicMetadata,
+  truncateSeoDescription,
+} from "@/features/public-content/seo/metadata";
 import { FphgoFetchError } from "@/lib/api/fphgo-fetch-client";
 import BackToExploreButton from "./back-to-explore-button";
 import { DeleteSiteButton } from "./delete-site-button";
@@ -105,29 +116,46 @@ const reportCountLabel = (count: number) =>
 const isSiteNotFoundError = (error: unknown) =>
   error instanceof FphgoFetchError && error.status === 404;
 
+const sitePath = (slug: string) =>
+  `/explore/sites/${encodeURIComponent(slug)}` as const;
+
+const siteDescription = (site: ExploreSiteDetailResponse["site"]) =>
+  truncateSeoDescription(
+    [
+      site.area,
+      site.description ||
+        site.lastConditionSummary ||
+        site.typicalConditions ||
+        "Explore this community-reviewed freediving spot with local context and safety reminders.",
+    ]
+      .filter(Boolean)
+      .join(". "),
+  );
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  const path = sitePath(slug);
   try {
     const data = await getCachedExploreSiteBySlug(slug);
-    return {
-      title: `${data.site.name} | Explore Dive Sites`,
-      description: `${data.site.area}. ${data.site.lastConditionSummary || data.site.typicalConditions || "Real site conditions and trust signals."}`,
-      openGraph: {
-        title: data.site.name,
-        description: `${data.site.area}. ${data.site.lastConditionSummary || data.site.typicalConditions || "Real site conditions and trust signals."}`,
-      },
-    };
+    return buildPublicMetadata({
+      title: `${data.site.name} | Freediving Spot`,
+      description: siteDescription(data.site),
+      path,
+      image: data.site.coverMedia?.displayUrl,
+    });
   } catch (error) {
     if (!isSiteNotFoundError(error)) {
-      return {
-        title: "Explore Dive Site",
-      };
+      return buildNoindexMetadata({
+        title: "Dive spot unavailable | Freediving Philippines",
+        path,
+      });
     }
-    return {
-      title: "Dive site not found",
-    };
+    return buildNoindexMetadata({
+      title: "Dive spot not found | Freediving Philippines",
+      path,
+    });
   }
 }
 
@@ -159,12 +187,36 @@ export default async function ExploreSharePage({ params }: PageProps) {
   ]);
 
   const site = data.site;
+  const path = sitePath(site.slug);
+  const description = siteDescription(site);
   const depthRange = formatDepthRange(site);
   const coordinates = formatCoordinates(site);
   const conditionSummary = site.lastConditionSummary || site.typicalConditions;
 
   return (
     <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
+      <StructuredData
+        data={[
+          webPageJsonLd({
+            title: `${site.name} | Freediving Spot`,
+            description,
+            path,
+          }),
+          breadcrumbJsonLd([
+            { name: "Explore", path: "/explore" },
+            { name: site.name, path },
+          ]),
+          placeJsonLd({
+            name: site.name,
+            description,
+            path,
+            address: site.area,
+            latitude: site.latitude,
+            longitude: site.longitude,
+            image: site.coverMedia?.displayUrl,
+          }),
+        ]}
+      />
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="space-y-3">
           <BackToExploreButton />

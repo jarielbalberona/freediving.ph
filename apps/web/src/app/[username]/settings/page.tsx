@@ -24,6 +24,7 @@ export async function generateMetadata({
   return {
     title: `Profile settings · @${normalizedUsername}`,
     description: `Edit profile settings for @${normalizedUsername}.`,
+    robots: { index: false, follow: false },
   };
 }
 

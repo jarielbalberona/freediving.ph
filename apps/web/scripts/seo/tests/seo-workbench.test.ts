@@ -17,8 +17,10 @@ import {
 import { analyzeLocalPage } from "../lib/analyzeLocalPage";
 import { writeReports } from "../lib/generateReport";
 import { scoreSeoPage } from "../lib/scoreSeoPage";
+import { parseCsv, summarizeCoverage } from "../gsc-coverage";
 import { assertKeywordPlanSafety } from "../keyword-plan";
 import { assertSerpLiveSafety } from "../serp-rank";
+import { checkHtmlRoute } from "../verify-rendered-output";
 
 test("config defaults to mock and reads SEO_TARGET_BASE_URL", () => {
   const config = loadSeoConfig(
@@ -296,6 +298,57 @@ test("report generation redacts credentials", () => {
   assert.doesNotMatch(markdown, /secret-login|secret-password|Basic abc123/);
   assert.doesNotMatch(json, /secret-login|secret-password|Basic abc123/);
   assert.equal(redactSecrets("secret-login secret-password"), "[redacted] [redacted]");
+});
+
+test("rendered output checker catches missing canonical and noindex", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      `<!doctype html>
+      <html>
+        <head>
+          <title>Rendered test</title>
+          <meta name="description" content="A rendered test description for Freediving Philippines.">
+          <meta name="robots" content="noindex,nofollow">
+          <meta property="og:title" content="Rendered test">
+          <meta property="og:description" content="A rendered test description for Freediving Philippines.">
+          <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage"}</script>
+        </head>
+        <body>
+          <h1>Rendered test</h1>
+          <a href="/features">Features</a>
+        </body>
+      </html>`,
+      { status: 200, headers: { "content-type": "text/html" } },
+    );
+  try {
+    const result = await checkHtmlRoute("/features", "http://localhost:3000");
+    assert.equal(result.verdict, "FAIL");
+    assert.match(result.issues.join("\n"), /canonical/i);
+    assert.match(result.issues.join("\n"), /noindex/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("GSC coverage parser flags public issues and private route appearances", () => {
+  const rows = parseCsv(`URL,Status
+https://freediving.ph/features,Indexed
+https://freediving.ph/guides/freediving-safety-basics,Crawled - currently not indexed
+https://freediving.ph/messages,Indexed
+`);
+  const summary = summarizeCoverage(rows);
+  assert.equal(summary.totalRows, 3);
+  assert.ok(
+    summary.publicSeoProblems.some((item) =>
+      item.url.includes("/guides/freediving-safety-basics"),
+    ),
+  );
+  assert.ok(
+    summary.privateRouteAppearances.some((item) =>
+      item.url.includes("/messages"),
+    ),
+  );
 });
 
 test("report generation uses unique report paths for rapid consecutive calls", () => {

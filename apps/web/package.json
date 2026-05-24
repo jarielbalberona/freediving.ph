@@ -15,6 +15,8 @@
     "seo:audit:mock": "../../node_modules/.bin/tsx scripts/seo/audit.ts --provider mock",
     "seo:serp:rank": "../../node_modules/.bin/tsx scripts/seo/serp-rank.ts",
     "seo:keywords:plan": "../../node_modules/.bin/tsx scripts/seo/keyword-plan.ts",
+    "seo:verify-rendered": "../../node_modules/.bin/tsx scripts/seo/verify-rendered-output.ts",
+    "seo:gsc:coverage": "../../node_modules/.bin/tsx scripts/seo/gsc-coverage.ts",
     "seo:test": "node --import tsx --test scripts/seo/tests/*.test.ts"
   },
   "dependencies": {

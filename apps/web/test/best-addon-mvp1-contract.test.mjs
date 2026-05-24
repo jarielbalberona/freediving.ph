@@ -60,7 +60,7 @@ test("best add-on pages and message plan card hooks are wired", async () => {
   assert.match(buddySharePage, /Safe preview only/);
   assert.match(buddySharePage, /generateMetadata/);
   assert.match(siteSharePage, /generateMetadata/);
-  assert.match(siteSharePage, /openGraph/);
+  assert.match(siteSharePage, /buildPublicMetadata/);
 
   assert.match(explorePage, /ExploreLayout/);
   assert.match(exploreLayout, /Save site|Save/);

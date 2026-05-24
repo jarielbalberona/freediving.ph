@@ -93,7 +93,7 @@ test("location route metadata, static params, and not-found contracts are wired"
   assert.match(locationSource, /description:\s*location\.metaDescription/);
   assert.match(locationSource, /path:\s*location\.href/);
 
-  assert.match(sitemapSource, /locationRoutes/);
+  assert.match(sitemapSource, /stablePublicRoutes/);
   assert.match(reservedSource, /"freediving"/);
   assert.match(chromeSource, /"\/freediving"/);
 });

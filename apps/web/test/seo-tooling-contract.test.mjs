@@ -82,13 +82,74 @@ test("group, event, and chika SEO URLs use slug detail paths", async () => {
       source,
       new RegExp(`/${path}/\\$\\{encodeURIComponent\\(slug\\)\\}`),
     );
-    assert.match(source, /alternates:\s*\{\s*canonical\s*\}/);
-    assert.match(source, /url:\s*canonical/);
+    assert.match(source, /buildPublicMetadata/);
+    assert.match(source, /buildNoindexMetadata/);
+    assert.match(source, /StructuredData/);
     assert.doesNotMatch(
       source,
       new RegExp(`/${path}/\\$\\{encodeURIComponent\\(id\\)\\}`),
     );
   }
+});
+
+test("dynamic entity SEO stays conservative about visibility and schema", async () => {
+  const [
+    sitemapSource,
+    diveSpotPage,
+    eventPage,
+    groupPage,
+    chikaPage,
+    schoolPage,
+    coursePage,
+    instructorPage,
+    profilePage,
+  ] = await Promise.all([
+    readSource("src/app/sitemap.ts"),
+    readSource("src/app/explore/sites/[slug]/page.tsx"),
+    readSource("src/app/events/[slug]/page.tsx"),
+    readSource("src/app/groups/[slug]/page.tsx"),
+    readSource("src/app/chika/[slug]/page.tsx"),
+    readSource("src/app/schools/[slug]/page.tsx"),
+    readSource("src/app/schools/[slug]/courses/[courseSlug]/page.tsx"),
+    readSource("src/app/instructors/[username]/page.tsx"),
+    readSource("src/app/[username]/page.tsx"),
+  ]);
+
+  assert.match(sitemapSource, /thread\.categoryPseudonymous/);
+  assert.match(sitemapSource, /fetchPublicSchoolEntries/);
+  assert.doesNotMatch(sitemapSource, /\/instructors\/\$\{/);
+
+  assert.match(diveSpotPage, /placeJsonLd/);
+  assert.match(eventPage, /event\?\.status === "published"/);
+  assert.match(eventPage, /event\.visibility === "public"/);
+  assert.match(eventPage, /eventJsonLd/);
+  assert.match(groupPage, /group\?\.status === "active"/);
+  assert.match(groupPage, /group\.visibility === "public"/);
+  assert.match(chikaPage, /!thread\.categoryPseudonymous/);
+  assert.match(chikaPage, /discussionForumPostingJsonLd/);
+  assert.match(schoolPage, /localBusinessJsonLd/);
+  assert.match(coursePage, /buildPublicMetadata/);
+  assert.match(instructorPage, /profile\.verificationStatus !== "verified"/);
+  assert.match(instructorPage, /personJsonLd/);
+  assert.match(profilePage, /robots:\s*\{\s*index:\s*false/);
+});
+
+test("local SEO verification and Search Console tooling are wired", async () => {
+  const [packageSource, verifySource, gscSource, gitignoreSource] =
+    await Promise.all([
+      readSource("package.json"),
+      readSource("scripts/seo/verify-rendered-output.ts"),
+      readSource("scripts/seo/gsc-coverage.ts"),
+      readSource("../../.gitignore"),
+    ]);
+
+  assert.match(packageSource, /seo:verify-rendered/);
+  assert.match(packageSource, /seo:gsc:coverage/);
+  assert.match(verifySource, /checkSitemap/);
+  assert.match(verifySource, /checkRobots/);
+  assert.match(gscSource, /parseCsv/);
+  assert.match(gscSource, /No Search Console API calls are made/);
+  assert.match(gitignoreSource, /apps\/web\/scripts\/seo\/gsc\/\*\.csv/);
 });
 
 test("Google tag and Sentry tooling are wired and Vercel Analytics is removed", async () => {

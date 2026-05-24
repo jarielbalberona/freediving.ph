@@ -71,6 +71,7 @@ terraform.tfstate.d/
 apps/web/scripts/seo/cache/*.json
 apps/web/scripts/seo/reports/*.md
 apps/web/scripts/seo/reports/*.json
+apps/web/scripts/seo/gsc/*.csv
 
 .tool-versions
 er.email your-email-on-github@example.com

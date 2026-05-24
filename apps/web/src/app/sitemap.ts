@@ -5,28 +5,11 @@ import type {
   Event,
   ExploreListResponse,
   Group,
+  PublicSchool,
 } from "@freediving.ph/types";
 import { siteConfig } from "@/config/site";
-import { featurePages } from "@/features/public-content/content/features";
-import { publishedGuides } from "@/features/public-content/content/guides";
-import { locationRoutes } from "@/features/public-content/content/locations";
+import { stablePublicRoutes } from "@/features/public-content/seo/routes";
 import { getFphgoBaseUrlServer } from "@/lib/api/fphgo-base-url";
-
-const stablePublicRoutes = [
-  "/",
-  "/founder-note",
-  "/about-us",
-  "/features",
-  ...featurePages.map((feature) => feature.href),
-  "/guides",
-  ...publishedGuides.map((guide) => guide.href),
-  ...locationRoutes,
-  "/explore",
-  "/buddies",
-  "/chika",
-  "/events",
-  "/groups",
-];
 
 const toAbsoluteUrl = (path: string): string => `${siteConfig.url}${path}`;
 
@@ -129,10 +112,40 @@ const fetchPublicChikaEntries = async (): Promise<MetadataRoute.Sitemap> => {
     if (!response.ok) return [];
     const payload = (await response.json()) as ChikaThreadListResponse;
     return (payload.items ?? [])
-      .filter((thread) => thread.slug.trim().length > 0 && !thread.isHidden)
+      .filter(
+        (thread) =>
+          thread.slug.trim().length > 0 &&
+          !thread.isHidden &&
+          !thread.categoryPseudonymous,
+      )
       .map((thread) => ({
         url: toAbsoluteUrl(`/chika/${encodeURIComponent(thread.slug)}`),
         lastModified: thread.updatedAt ? new Date(thread.updatedAt) : undefined,
+        changeFrequency: "weekly" as const,
+        priority: 0.6,
+      }));
+  } catch {
+    return [];
+  }
+};
+
+type SchoolListPayload = {
+  schools: PublicSchool[];
+};
+
+const fetchPublicSchoolEntries = async (): Promise<MetadataRoute.Sitemap> => {
+  try {
+    const response = await fetch(`${getFphgoBaseUrlServer()}/v1/schools?limit=100`, {
+      cache: "no-store",
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) return [];
+    const payload = (await response.json()) as SchoolListPayload;
+    return payload.schools
+      .filter((school) => school.slug.trim().length > 0)
+      .map((school) => ({
+        url: toAbsoluteUrl(`/schools/${encodeURIComponent(school.slug)}`),
+        lastModified: undefined,
         changeFrequency: "weekly" as const,
         priority: 0.6,
       }));
@@ -150,12 +163,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: path === "/" ? 1 : 0.8,
   }));
 
-  const [diveSites, groups, events, chika] = await Promise.all([
+  const [diveSites, groups, events, chika, schools] = await Promise.all([
     fetchPublicDiveSiteEntries(),
     fetchPublicGroupEntries(),
     fetchPublicEventEntries(),
     fetchPublicChikaEntries(),
+    fetchPublicSchoolEntries(),
   ]);
 
-  return [...stableEntries, ...diveSites, ...groups, ...events, ...chika];
+  return [
+    ...stableEntries,
+    ...diveSites,
+    ...groups,
+    ...events,
+    ...chika,
+    ...schools,
+  ];
 }

@@ -145,7 +145,7 @@ test("guide pages keep metadata, sitemap, and not-found contracts wired", async 
   assert.match(guidesIndexSource, /publishedGuides\.map/);
   assert.doesNotMatch(guidesIndexSource, /Coming soon|Planned topic|Phase 1/);
 
-  assert.match(sitemapSource, /publishedGuides\.map\(\(guide\) => guide\.href\)/);
+  assert.match(sitemapSource, /stablePublicRoutes/);
 });
 
 test("published guides link to useful internal next steps", () => {

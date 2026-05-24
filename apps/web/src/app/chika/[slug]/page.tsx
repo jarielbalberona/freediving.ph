@@ -2,7 +2,17 @@ import type { Metadata } from "next";
 
 import type { ChikaThreadResponse } from "@freediving.ph/types";
 
-import { siteConfig } from "@/config/site";
+import { StructuredData } from "@/features/public-content/components/StructuredData";
+import {
+  breadcrumbJsonLd,
+  discussionForumPostingJsonLd,
+  webPageJsonLd,
+} from "@/features/public-content/seo/jsonLd";
+import {
+  buildNoindexMetadata,
+  buildPublicMetadata,
+  truncateSeoDescription,
+} from "@/features/public-content/seo/metadata";
 import { getFphgoBaseUrlServer } from "@/lib/api/fphgo-base-url";
 
 import ChikaDetailClient from "./client-page";
@@ -11,7 +21,18 @@ type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
-const chikaUrl = (slug: string) => `${siteConfig.url}/chika/${encodeURIComponent(slug)}`;
+const chikaPath = (slug: string) => `/chika/${encodeURIComponent(slug)}` as const;
+
+const isIndexableThread = (
+  thread: ChikaThreadResponse | null,
+): thread is ChikaThreadResponse =>
+  !!thread && !thread.isHidden && !thread.categoryPseudonymous;
+
+const threadDescription = (thread: ChikaThreadResponse) =>
+  truncateSeoDescription(
+    thread.content ||
+      `Read this Chika discussion from the Freediving Philippines community.`,
+  );
 
 async function getPublicThreadMetadata(
   slug: string,
@@ -32,25 +53,56 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const canonical = chikaUrl(slug);
+  const path = chikaPath(slug);
   const thread = await getPublicThreadMetadata(slug);
-  const title = thread ? `${thread.title} | Chika` : "Chika | Freediving Philippines";
-  const description =
-    thread?.content || "Freediving Philippines community discussion.";
+  if (!isIndexableThread(thread)) {
+    return buildNoindexMetadata({
+      title: "Chika | Freediving Philippines",
+      description: "This discussion is not currently available for public search.",
+      path,
+    });
+  }
 
-  return {
-    title,
-    description,
-    alternates: { canonical },
-    openGraph: {
-      title,
-      description,
-      url: canonical,
-    },
-  };
+  return buildPublicMetadata({
+    title: `${thread.title} | Chika`,
+    description: threadDescription(thread),
+    path,
+  });
 }
 
 export default async function ChikaDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  return <ChikaDetailClient slug={slug} />;
+  const thread = await getPublicThreadMetadata(slug);
+  const path = chikaPath(slug);
+
+  return (
+    <>
+      {isIndexableThread(thread) ? (
+        <StructuredData
+          data={[
+            webPageJsonLd({
+              title: `${thread.title} | Chika`,
+              description: threadDescription(thread),
+              path,
+            }),
+            breadcrumbJsonLd([
+              { name: "Chika", path: "/chika" },
+              { name: thread.title, path },
+            ]),
+            discussionForumPostingJsonLd({
+              headline: thread.title,
+              text: threadDescription(thread),
+              path,
+              datePublished: thread.createdAt,
+              dateModified: thread.updatedAt,
+              authorName: thread.categoryPseudonymous
+                ? undefined
+                : thread.authorDisplayName,
+            }),
+          ]}
+        />
+      ) : null}
+      <ChikaDetailClient slug={slug} />
+    </>
+  );
 }

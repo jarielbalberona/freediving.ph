@@ -24,6 +24,7 @@ export async function generateMetadata({
   return {
     title: `Create photo post · @${normalizedUsername}`,
     description: `Create a grouped photo post for @${normalizedUsername}.`,
+    robots: { index: false, follow: false },
   };
 }
 

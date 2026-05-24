@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { siteConfig } from "@/config/site";
+import { privateRoutePrefixes } from "@/features/public-content/seo/routes";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -10,6 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         "/",
         "/about-us",
         "/features",
+        "/freediving",
         "/guides",
         "/explore",
         "/buddies",
@@ -20,17 +22,9 @@ export default function robots(): MetadataRoute.Robots {
       ],
       disallow: [
         "/api/",
-        "/admin",
-        "/auth",
-        "/manage",
-        "/messages",
-        "/moderation",
-        "/notifications",
-        "/onboarding",
-        "/profile",
-        "/saved",
-        "/settings",
-        "/explore/submissions",
+        ...privateRoutePrefixes,
+        "/sign-in",
+        "/sign-up",
       ],
     },
     sitemap: `${siteConfig.url}/sitemap.xml`,

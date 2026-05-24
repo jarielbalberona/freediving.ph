@@ -26,6 +26,7 @@ export async function generateMetadata({
   return {
     title: `Media post · @${normalizedUsername}`,
     description: `View @${normalizedUsername}'s media post on Freediving Philippines.`,
+    robots: { index: false, follow: true },
   };
 }
 

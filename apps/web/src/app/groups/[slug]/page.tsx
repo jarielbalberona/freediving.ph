@@ -2,7 +2,16 @@ import type { Metadata } from "next";
 
 import type { Group } from "@freediving.ph/types";
 
-import { siteConfig } from "@/config/site";
+import { StructuredData } from "@/features/public-content/components/StructuredData";
+import {
+  breadcrumbJsonLd,
+  webPageJsonLd,
+} from "@/features/public-content/seo/jsonLd";
+import {
+  buildNoindexMetadata,
+  buildPublicMetadata,
+  truncateSeoDescription,
+} from "@/features/public-content/seo/metadata";
 import { getFphgoBaseUrlServer } from "@/lib/api/fphgo-base-url";
 
 import GroupDetailClient from "./client-page";
@@ -15,7 +24,22 @@ type GroupPayload = {
   group: Group;
 };
 
-const groupUrl = (slug: string) => `${siteConfig.url}/groups/${encodeURIComponent(slug)}`;
+const groupPath = (slug: string) => `/groups/${encodeURIComponent(slug)}` as const;
+
+const isIndexableGroup = (group: Group | null): group is Group =>
+  group?.status === "active" && group.visibility === "public";
+
+const groupDescription = (group: Group) =>
+  truncateSeoDescription(
+    group.bio ||
+      group.description ||
+      [
+        group.locationName || group.formattedAddress || group.location,
+        "Join this freediving group and connect with the community.",
+      ]
+        .filter(Boolean)
+        .join(". "),
+  );
 
 async function getPublicGroupMetadata(slug: string): Promise<Group | null> {
   try {
@@ -35,25 +59,46 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const canonical = groupUrl(slug);
+  const path = groupPath(slug);
   const group = await getPublicGroupMetadata(slug);
-  const title = group ? `${group.name} | Groups` : "Group | Freediving Philippines";
-  const description =
-    group?.bio || group?.description || "Freediving Philippines group.";
+  if (!isIndexableGroup(group)) {
+    return buildNoindexMetadata({
+      title: "Group | Freediving Philippines",
+      description: "This group is not currently available for public search.",
+      path,
+    });
+  }
 
-  return {
-    title,
-    description,
-    alternates: { canonical },
-    openGraph: {
-      title,
-      description,
-      url: canonical,
-    },
-  };
+  return buildPublicMetadata({
+    title: `${group.name} | Freediving Group`,
+    description: groupDescription(group),
+    path,
+  });
 }
 
 export default async function GroupDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  return <GroupDetailClient slug={slug} />;
+  const group = await getPublicGroupMetadata(slug);
+  const path = groupPath(slug);
+
+  return (
+    <>
+      {isIndexableGroup(group) ? (
+        <StructuredData
+          data={[
+            webPageJsonLd({
+              title: `${group.name} | Freediving Group`,
+              description: groupDescription(group),
+              path,
+            }),
+            breadcrumbJsonLd([
+              { name: "Groups", path: "/groups" },
+              { name: group.name, path },
+            ]),
+          ]}
+        />
+      ) : null}
+      <GroupDetailClient slug={slug} />
+    </>
+  );
 }

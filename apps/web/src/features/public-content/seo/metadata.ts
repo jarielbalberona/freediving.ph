@@ -23,6 +23,38 @@ export type PublicSeoInput = {
 export const absoluteUrl = (path: `/${string}`): string =>
   `${seoConfig.origin}${path}`;
 
+export const cleanSeoText = (value: string, fallback = ""): string =>
+  value.replace(/\s+/g, " ").trim() || fallback;
+
+export const truncateSeoDescription = (
+  value: string,
+  fallback = seoConfig.defaultDescription,
+  maxLength = 160,
+): string => {
+  const cleaned = cleanSeoText(value, fallback);
+  if (cleaned.length <= maxLength) return cleaned;
+  const trimmed = cleaned.slice(0, maxLength - 1).trimEnd();
+  const lastSpace = trimmed.lastIndexOf(" ");
+  return `${trimmed.slice(0, lastSpace > 80 ? lastSpace : trimmed.length)}...`;
+};
+
+export function buildNoindexMetadata({
+  title,
+  description = seoConfig.defaultDescription,
+  path,
+}: {
+  title: string;
+  description?: string;
+  path: `/${string}`;
+}): Metadata {
+  return buildPublicMetadata({
+    title,
+    description,
+    path,
+    noindex: true,
+  });
+}
+
 export function buildPublicMetadata({
   title,
   description,
@@ -32,10 +64,12 @@ export function buildPublicMetadata({
   noindex = false,
 }: PublicSeoInput): Metadata {
   const canonical = absoluteUrl(path);
+  const cleanTitle = cleanSeoText(title, seoConfig.siteName);
+  const cleanDescription = truncateSeoDescription(description);
 
   return {
-    title,
-    description,
+    title: cleanTitle,
+    description: cleanDescription,
     alternates: {
       canonical,
     },
@@ -44,21 +78,21 @@ export function buildPublicMetadata({
       locale: seoConfig.locale,
       url: canonical,
       siteName: seoConfig.siteName,
-      title,
-      description,
+      title: cleanTitle,
+      description: cleanDescription,
       images: [
         {
           url: image,
           width: 5000,
           height: 2625,
-          alt: title,
+          alt: cleanTitle,
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title,
-      description,
+      title: cleanTitle,
+      description: cleanDescription,
       images: [image],
     },
     robots: {

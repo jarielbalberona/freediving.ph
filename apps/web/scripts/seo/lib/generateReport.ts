@@ -5,7 +5,7 @@ import path from "node:path";
 import { redactSecrets, reportsDir } from "../config";
 
 export type ReportInput = {
-  kind: "audit" | "serp-rank" | "keyword-plan";
+  kind: "audit" | "serp-rank" | "keyword-plan" | "rendered-output" | "gsc-coverage";
   command: string;
   provider: string;
   searchMarket?: string;

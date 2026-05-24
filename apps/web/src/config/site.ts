@@ -3,10 +3,12 @@ export const siteConfig = {
   url: "https://freediving.ph",
   ogImage: "https://freediving.ph/og-image.png",
   description:
-    "Revolutionizing the World of Freediving in the Philippines",
+    "Discover dive spots, find buddies, join events, and connect with the freediving community in the Philippines.",
   links: {
     twitter: "https://twitter.com/freediving.ph",
     github: "https://github.com/jarielbalberona/freediving.ph",
+    facebook: "https://www.facebook.com/freediving.ph",
+    instagram: "https://www.instagram.com/freediving.ph"
   },
 }
 
