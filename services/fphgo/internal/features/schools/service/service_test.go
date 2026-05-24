@@ -10,15 +10,18 @@ import (
 )
 
 type fakeRepo struct {
-	school  schoolsrepo.School
-	role    string
-	course  schoolsrepo.Course
-	session schoolsrepo.Session
-	booking schoolsrepo.Booking
+	school         schoolsrepo.School
+	role           string
+	course         schoolsrepo.Course
+	session        schoolsrepo.Session
+	booking        schoolsrepo.Booking
+	paymentMethods []schoolsrepo.PaymentMethod
 
-	capturedCourse  schoolsrepo.CreateCourseInput
-	capturedSession schoolsrepo.CreateSessionInput
-	capturedSchool  schoolsrepo.UpdateSchoolInput
+	capturedCourse       schoolsrepo.CreateCourseInput
+	capturedSession      schoolsrepo.CreateSessionInput
+	capturedBooking      schoolsrepo.CreateBookingInput
+	capturedSchool       schoolsrepo.UpdateSchoolInput
+	listPaymentsSchoolID string
 
 	verifiedInstructor bool
 	instructorStatus   string
@@ -65,8 +68,9 @@ func (f *fakeRepo) UpdateCourse(context.Context, string, string, schoolsrepo.Upd
 	return f.course, nil
 }
 func (f *fakeRepo) DeleteCourse(context.Context, string, string) error { return nil }
-func (f *fakeRepo) ListPaymentMethods(context.Context, string) ([]schoolsrepo.PaymentMethod, error) {
-	return nil, nil
+func (f *fakeRepo) ListPaymentMethods(_ context.Context, schoolID string) ([]schoolsrepo.PaymentMethod, error) {
+	f.listPaymentsSchoolID = schoolID
+	return f.paymentMethods, nil
 }
 func (f *fakeRepo) CreatePaymentMethod(context.Context, string, schoolsrepo.CreatePaymentMethodInput) (schoolsrepo.PaymentMethod, error) {
 	return schoolsrepo.PaymentMethod{}, nil
@@ -98,7 +102,8 @@ func (f *fakeRepo) ListSessionBookings(context.Context, string, string) ([]schoo
 func (f *fakeRepo) ListBookings(context.Context, string, schoolsrepo.ListBookingsInput) ([]schoolsrepo.Booking, error) {
 	return []schoolsrepo.Booking{f.booking}, nil
 }
-func (f *fakeRepo) CreateBooking(context.Context, string, schoolsrepo.CreateBookingInput, *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error) {
+func (f *fakeRepo) CreateBooking(_ context.Context, _ string, input schoolsrepo.CreateBookingInput, _ *schoolsrepo.BookingNotificationEvent) (schoolsrepo.Booking, error) {
+	f.capturedBooking = input
 	return f.booking, nil
 }
 func (f *fakeRepo) GetBooking(context.Context, string, string) (schoolsrepo.Booking, error) {
@@ -131,6 +136,9 @@ func (f *fakeRepo) ListPublicCourses(context.Context, string, schoolsrepo.Public
 func (f *fakeRepo) GetPublicCourse(context.Context, string, string) (schoolsrepo.Course, error) {
 	return f.course, nil
 }
+func (f *fakeRepo) ListPublicCourseSessions(context.Context, string, string) ([]schoolsrepo.Session, error) {
+	return []schoolsrepo.Session{f.session}, nil
+}
 func (f *fakeRepo) ListMyBookings(context.Context, string) ([]schoolsrepo.Booking, error) {
 	return []schoolsrepo.Booking{f.booking}, nil
 }
@@ -146,12 +154,13 @@ func seededService() *Service {
 	return New(&fakeRepo{
 		school: schoolsrepo.School{ID: "school-1", Slug: "school"},
 		role:   "owner",
-		course: schoolsrepo.Course{ID: "course-1", SchoolID: "school-1", Status: "published", CourseType: "custom", Title: "Course", Currency: "PHP", LocationMode: "inherit_school"},
+		course: schoolsrepo.Course{ID: "course-1", SchoolID: "school-1", Status: "published", CourseType: "custom", Title: "Course", Currency: "PHP", LocationMode: "inherit_school", AllowPreferredDateRequest: true},
 		session: schoolsrepo.Session{
 			ID:       "session-1",
 			SchoolID: "school-1",
 			CourseID: "course-1",
 			Status:   "scheduled",
+			StartsAt: time.Now().AddDate(0, 0, 7),
 		},
 		booking: schoolsrepo.Booking{ID: "booking-1", SchoolID: "school-1", CourseID: "course-1", Status: "approved"},
 	})
@@ -332,6 +341,35 @@ func TestCreateCourseDefaultsToSchoolLocation(t *testing.T) {
 	}
 }
 
+func TestCreateCourseSavesBookingOptions(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	svc := New(repo)
+	_, err := svc.CreateCourse(context.Background(), "school", "actor", schoolsrepo.CreateCourseInput{
+		Title:                     "Weekend batch",
+		CourseType:                "custom",
+		Currency:                  "PHP",
+		Status:                    "published",
+		AllowSessionBooking:       true,
+		AllowPreferredDateRequest: false,
+	})
+	if err != nil {
+		t.Fatalf("expected course create to pass: %v", err)
+	}
+	if !repo.capturedCourse.AllowSessionBooking || repo.capturedCourse.AllowPreferredDateRequest {
+		t.Fatalf("expected session-only booking options, got %#v", repo.capturedCourse)
+	}
+}
+
+func TestPublishedCourseRequiresBookingOption(t *testing.T) {
+	svc := seededService()
+	_, err := svc.CreateCourse(context.Background(), "school", "actor", schoolsrepo.CreateCourseInput{
+		Title: "Closed course", CourseType: "custom", Currency: "PHP", Status: "published",
+	})
+	if err == nil {
+		t.Fatal("expected published course without booking options to fail")
+	}
+}
+
 func TestCreateCourseTextOnlyRequiresLocationLabel(t *testing.T) {
 	svc := seededService()
 	_, err := svc.CreateCourse(context.Background(), "school", "actor", schoolsrepo.CreateCourseInput{
@@ -361,9 +399,58 @@ func TestInstructorCannotListPaymentMethods(t *testing.T) {
 	repo := seededService().repo.(*fakeRepo)
 	repo.role = "instructor"
 	svc := New(repo)
-	_, err := svc.ListPaymentMethods(context.Background(), "school", "actor", "course-1")
+	_, err := svc.ListPaymentMethods(context.Background(), "school", "actor", "")
 	if err == nil {
 		t.Fatal("expected instructor list payment methods to be forbidden")
+	}
+}
+
+func TestCreatePaymentMethodValidatesActiveManualQR(t *testing.T) {
+	svc := seededService()
+	_, err := svc.CreatePaymentMethod(context.Background(), "school", "actor", "", schoolsrepo.CreatePaymentMethodInput{
+		Type:     "manual_qr",
+		IsActive: true,
+	})
+	if err == nil {
+		t.Fatal("expected manual QR without media to fail")
+	}
+}
+
+func TestCreatePaymentMethodValidatesActiveBankTransfer(t *testing.T) {
+	svc := seededService()
+	_, err := svc.CreatePaymentMethod(context.Background(), "school", "actor", "", schoolsrepo.CreatePaymentMethodInput{
+		Type:     "bank_transfer",
+		BankName: "BPI",
+		IsActive: true,
+	})
+	if err == nil {
+		t.Fatal("expected incomplete bank transfer to fail")
+	}
+}
+
+func TestCreatePaymentMethodRejectsWhitespaceBankTransfer(t *testing.T) {
+	svc := seededService()
+	_, err := svc.CreatePaymentMethod(context.Background(), "school", "actor", "", schoolsrepo.CreatePaymentMethodInput{
+		Type:          "bank_transfer",
+		BankName:      " ",
+		AccountName:   "\t",
+		AccountNumber: " ",
+		IsActive:      true,
+	})
+	if err == nil {
+		t.Fatal("expected whitespace-only bank transfer to fail")
+	}
+}
+
+func TestLegacyCoursePaymentMethodRouteReadsSchoolMethods(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	svc := New(repo)
+	_, err := svc.ListPaymentMethods(context.Background(), "school", "actor", repo.course.ID)
+	if err != nil {
+		t.Fatalf("expected legacy course payment route shim to pass: %v", err)
+	}
+	if repo.listPaymentsSchoolID != repo.school.ID {
+		t.Fatalf("expected payment methods to resolve by school id, got %q", repo.listPaymentsSchoolID)
 	}
 }
 
@@ -388,6 +475,78 @@ func TestCreateStudentBookingCreatesPendingReviewForActor(t *testing.T) {
 	}
 	if booking.ID == "" {
 		t.Fatal("expected booking")
+	}
+}
+
+func TestCreateStudentPaidBookingRejectsIncompleteActiveSchoolMethod(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	repo.course.PaymentRequired = true
+	repo.paymentMethods = []schoolsrepo.PaymentMethod{{
+		ID:       "method-1",
+		SchoolID: repo.school.ID,
+		Type:     "manual_qr",
+		Name:     "Manual QR",
+		IsActive: true,
+	}}
+	svc := New(repo)
+	_, err := svc.CreateStudentBooking(context.Background(), "school", "course", "student-1", schoolsrepo.CreateBookingInput{
+		PreferredDate: time.Now().AddDate(0, 0, 7),
+	})
+	if err == nil {
+		t.Fatal("expected paid booking with incomplete active school method to fail")
+	}
+}
+
+func TestPublicSchoolOnlyReturnsUsablePaymentMethods(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	repo.paymentMethods = []schoolsrepo.PaymentMethod{
+		{ID: "inactive", SchoolID: repo.school.ID, Type: "bank_transfer", Name: "Inactive", IsActive: false},
+		{ID: "broken", SchoolID: repo.school.ID, Type: "manual_qr", Name: "Broken QR", IsActive: true},
+		{ID: "ready", SchoolID: repo.school.ID, Type: "manual_qr", Name: "Manual QR", QRMediaID: "media-1", IsActive: true},
+	}
+	svc := New(repo)
+	school, err := svc.GetPublicSchool(context.Background(), "school")
+	if err != nil {
+		t.Fatalf("expected public school to load: %v", err)
+	}
+	if len(school.PaymentMethods) != 1 || school.PaymentMethods[0].ID != "ready" {
+		t.Fatalf("expected only usable payment methods, got %#v", school.PaymentMethods)
+	}
+}
+
+func TestCreateStudentSessionBookingStoresSessionMode(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	repo.course.AllowSessionBooking = true
+	repo.course.AllowPreferredDateRequest = false
+	svc := New(repo)
+	_, err := svc.CreateStudentBooking(context.Background(), "school", "course", "student-1", schoolsrepo.CreateBookingInput{
+		BookingMode: "session",
+		SessionID:   "session-1",
+	})
+	if err != nil {
+		t.Fatalf("expected session booking to pass: %v", err)
+	}
+	if repo.capturedBooking.BookingMode != "session" || repo.capturedBooking.SessionID != "session-1" {
+		t.Fatalf("expected captured session booking, got %#v", repo.capturedBooking)
+	}
+	if !repo.capturedBooking.PreferredDate.IsZero() {
+		t.Fatalf("expected session booking to clear preferred date, got %v", repo.capturedBooking.PreferredDate)
+	}
+}
+
+func TestCreateStudentSessionBookingRejectsFullSession(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	capacity := 1
+	repo.course.AllowSessionBooking = true
+	repo.session.Capacity = &capacity
+	repo.session.AssignedBookingCount = 1
+	svc := New(repo)
+	_, err := svc.CreateStudentBooking(context.Background(), "school", "course", "student-1", schoolsrepo.CreateBookingInput{
+		BookingMode: "session",
+		SessionID:   "session-1",
+	})
+	if err == nil {
+		t.Fatal("expected full session booking to fail")
 	}
 }
 

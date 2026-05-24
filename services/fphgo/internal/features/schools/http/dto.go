@@ -41,7 +41,7 @@ func mapPublicSchools(items []schoolsrepo.School) []map[string]any {
 func mapPublicSchool(item schoolsrepo.School) map[string]any {
 	return map[string]any{
 		"id": item.ID, "slug": item.Slug, "name": item.Name, "shortDescription": item.ShortDescription,
-		"descriptionMarkdown": item.DescriptionMarkdown, "baseLocation": firstNonEmpty(item.BaseLocationLabel, item.BaseLocation),
+		"descriptionMarkdown": item.DescriptionMarkdown, "baseLocation": publicFirstNonEmpty(item.BaseLocationLabel, item.BaseLocation),
 		"baseLocationLabel": item.BaseLocationLabel, "formattedAddress": item.FormattedAddress,
 		"regionCode": item.RegionCode, "regionName": item.RegionName, "provinceCode": item.ProvinceCode, "provinceName": item.ProvinceName,
 		"cityCode": item.CityCode, "cityName": item.CityName, "barangayCode": item.BarangayCode, "barangayName": item.BarangayName,
@@ -65,6 +65,7 @@ func mapCourse(item schoolsrepo.Course) map[string]any {
 		"id": item.ID, "schoolId": item.SchoolID, "slug": item.Slug, "title": item.Title, "shortDescription": item.ShortDescription,
 		"descriptionMarkdown": item.DescriptionMarkdown, "courseType": item.CourseType, "level": item.Level, "durationLabel": item.DurationLabel,
 		"priceAmount": item.PriceAmount, "currency": item.Currency, "paymentRequired": item.PaymentRequired, "approvalRequired": item.ApprovalRequired,
+		"allowSessionBooking": item.AllowSessionBooking, "allowPreferredDateRequest": item.AllowPreferredDateRequest,
 		"locationMode": item.LocationMode, "locationLabel": item.LocationLabel, "locationNote": item.LocationNote,
 		"formattedAddress": item.FormattedAddress, "regionCode": item.RegionCode, "regionName": item.RegionName,
 		"provinceCode": item.ProvinceCode, "provinceName": item.ProvinceName, "cityCode": item.CityCode, "cityName": item.CityName,
@@ -90,7 +91,8 @@ func mapPublicCourse(item schoolsrepo.Course) map[string]any {
 		"id": item.ID, "schoolId": item.SchoolID, "slug": item.Slug, "title": item.Title, "shortDescription": item.ShortDescription,
 		"descriptionMarkdown": item.DescriptionMarkdown, "courseType": item.CourseType, "level": item.Level, "durationLabel": item.DurationLabel,
 		"priceAmount": item.PriceAmount, "currency": item.Currency, "paymentRequired": item.PaymentRequired,
-		"approvalRequired": item.ApprovalRequired, "locationMode": item.LocationMode, "locationLabel": item.LocationLabel,
+		"approvalRequired": item.ApprovalRequired, "allowSessionBooking": item.AllowSessionBooking,
+		"allowPreferredDateRequest": item.AllowPreferredDateRequest, "locationMode": item.LocationMode, "locationLabel": item.LocationLabel,
 		"locationNote": item.LocationNote, "formattedAddress": item.FormattedAddress, "regionCode": item.RegionCode,
 		"regionName": item.RegionName, "provinceCode": item.ProvinceCode, "provinceName": item.ProvinceName,
 		"cityCode": item.CityCode, "cityName": item.CityName, "barangayCode": item.BarangayCode,
@@ -140,6 +142,35 @@ func mapSession(item schoolsrepo.Session) map[string]any {
 	}
 }
 
+func mapPublicSessions(items []schoolsrepo.Session) []map[string]any {
+	out := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		out = append(out, mapPublicSession(item))
+	}
+	return out
+}
+
+func mapPublicSession(item schoolsrepo.Session) map[string]any {
+	var slotsLeft *int
+	isFull := false
+	if item.Capacity != nil {
+		left := *item.Capacity - item.AssignedBookingCount
+		if left < 0 {
+			left = 0
+		}
+		slotsLeft = &left
+		isFull = left == 0
+	}
+	return map[string]any{
+		"id": item.ID, "slug": item.Slug, "courseId": item.CourseID, "title": item.Title,
+		"startsAt": item.StartsAt, "endsAt": item.EndsAt, "timezone": item.Timezone,
+		"locationLabel": item.LocationLabel, "formattedAddress": item.FormattedAddress,
+		"diveSiteId": item.DiveSiteID, "instructorDisplayName": item.InstructorDisplayName,
+		"capacity": item.Capacity, "bookedCount": item.AssignedBookingCount,
+		"slotsLeft": slotsLeft, "isFull": isFull,
+	}
+}
+
 func mapBookings(items []schoolsrepo.Booking) []map[string]any {
 	out := make([]map[string]any, 0, len(items))
 	for _, item := range items {
@@ -153,7 +184,7 @@ func mapBooking(item schoolsrepo.Booking) map[string]any {
 		"id": item.ID, "courseId": item.CourseID, "courseTitle": item.CourseTitle, "schoolId": item.SchoolID,
 		"sessionId": item.SessionID, "sessionTitle": item.SessionTitle, "studentUserId": item.StudentUserID,
 		"studentName": item.StudentName, "studentEmail": item.StudentEmail, "studentPhone": item.StudentPhone,
-		"preferredDate": item.PreferredDate.Format("2006-01-02"), "alternateDate": datePtr(item.AlternateDate),
+		"bookingMode": item.BookingMode, "preferredDate": dateString(item.PreferredDate), "alternateDate": datePtr(item.AlternateDate),
 		"status": item.Status, "studentNote": item.StudentNote, "experienceLevel": item.ExperienceLevel,
 		"certificationLevel": item.CertificationLevel, "equipmentNeeds": item.EquipmentNeeds, "adminNotes": item.AdminNotes,
 		"createdAt": item.CreatedAt, "updatedAt": item.UpdatedAt, "reviewedAt": item.ReviewedAt, "reviewedBy": item.ReviewedBy,
@@ -173,7 +204,7 @@ func mapMyBooking(item schoolsrepo.Booking) map[string]any {
 	return map[string]any{
 		"id": item.ID, "courseId": item.CourseID, "courseTitle": item.CourseTitle, "schoolId": item.SchoolID,
 		"sessionId": item.SessionID, "sessionTitle": item.SessionTitle, "studentName": item.StudentName,
-		"studentEmail": item.StudentEmail, "studentPhone": item.StudentPhone, "preferredDate": item.PreferredDate.Format("2006-01-02"),
+		"studentEmail": item.StudentEmail, "studentPhone": item.StudentPhone, "bookingMode": item.BookingMode, "preferredDate": dateString(item.PreferredDate),
 		"alternateDate": datePtr(item.AlternateDate), "status": item.Status, "studentNote": item.StudentNote,
 		"experienceLevel": item.ExperienceLevel, "certificationLevel": item.CertificationLevel, "equipmentNeeds": item.EquipmentNeeds,
 		"createdAt": item.CreatedAt, "updatedAt": item.UpdatedAt, "scheduledAt": item.ScheduledAt,
@@ -217,7 +248,14 @@ func datePtr(value *time.Time) string {
 	return value.Format("2006-01-02")
 }
 
-func firstNonEmpty(values ...string) string {
+func dateString(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.Format("2006-01-02")
+}
+
+func publicFirstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if value != "" {
 			return value

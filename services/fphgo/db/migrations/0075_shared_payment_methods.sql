@@ -27,6 +27,35 @@ ALTER TABLE event_payment_methods
   DROP CONSTRAINT IF EXISTS event_payment_methods_type_check,
   ADD CONSTRAINT event_payment_methods_type_check CHECK (type IN ('manual_qr', 'bank_transfer'));
 
+UPDATE event_payment_methods
+SET is_active = FALSE
+WHERE is_active = TRUE
+  AND (
+    (type = 'manual_qr' AND qr_media_id IS NULL AND NULLIF(trim(COALESCE(qr_image_url, '')), '') IS NULL)
+    OR
+    (type = 'bank_transfer' AND (
+      NULLIF(trim(COALESCE(bank_name, '')), '') IS NULL
+      OR NULLIF(trim(COALESCE(account_name, '')), '') IS NULL
+      OR NULLIF(trim(COALESCE(account_number, '')), '') IS NULL
+    ))
+  );
+
+ALTER TABLE event_payment_methods
+  DROP CONSTRAINT IF EXISTS event_payment_methods_active_details_check,
+  ADD CONSTRAINT event_payment_methods_active_details_check CHECK (
+    NOT is_active
+    OR (
+      type = 'manual_qr'
+      AND (qr_media_id IS NOT NULL OR NULLIF(trim(COALESCE(qr_image_url, '')), '') IS NOT NULL)
+    )
+    OR (
+      type = 'bank_transfer'
+      AND NULLIF(trim(COALESCE(bank_name, '')), '') IS NOT NULL
+      AND NULLIF(trim(COALESCE(account_name, '')), '') IS NOT NULL
+      AND NULLIF(trim(COALESCE(account_number, '')), '') IS NOT NULL
+    )
+  );
+
 CREATE TABLE IF NOT EXISTS school_payment_methods (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
@@ -42,7 +71,17 @@ CREATE TABLE IF NOT EXISTS school_payment_methods (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ,
   CHECK (type IN ('manual_qr', 'bank_transfer')),
-  CHECK (length(trim(name)) > 0)
+  CHECK (length(trim(name)) > 0),
+  CHECK (
+    NOT is_active
+    OR (type = 'manual_qr' AND qr_media_id IS NOT NULL)
+    OR (
+      type = 'bank_transfer'
+      AND NULLIF(trim(COALESCE(bank_name, '')), '') IS NOT NULL
+      AND NULLIF(trim(COALESCE(account_name, '')), '') IS NOT NULL
+      AND NULLIF(trim(COALESCE(account_number, '')), '') IS NOT NULL
+    )
+  )
 );
 
 CREATE INDEX IF NOT EXISTS idx_school_payment_methods_school_active
@@ -76,7 +115,27 @@ WITH normalized_course_methods AS (
     cpm.bank_name,
     cpm.account_name,
     cpm.account_number,
-    cpm.is_active,
+    cpm.is_active
+      AND (
+        (
+          CASE
+            WHEN cpm.type = 'MANUAL_QR' THEN 'manual_qr'
+            WHEN cpm.type = 'MANUAL_BANK_TRANSFER' THEN 'bank_transfer'
+            ELSE cpm.type
+          END = 'manual_qr'
+          AND cpm.qr_media_id IS NOT NULL
+        )
+        OR (
+          CASE
+            WHEN cpm.type = 'MANUAL_QR' THEN 'manual_qr'
+            WHEN cpm.type = 'MANUAL_BANK_TRANSFER' THEN 'bank_transfer'
+            ELSE cpm.type
+          END = 'bank_transfer'
+          AND NULLIF(trim(COALESCE(cpm.bank_name, '')), '') IS NOT NULL
+          AND NULLIF(trim(COALESCE(cpm.account_name, '')), '') IS NOT NULL
+          AND NULLIF(trim(COALESCE(cpm.account_number, '')), '') IS NOT NULL
+        )
+      ) AS is_active,
     cpm.created_at,
     cpm.updated_at
   FROM course_payment_methods cpm
@@ -106,6 +165,9 @@ SELECT
   account_name, account_number, is_active, created_at, updated_at
 FROM normalized_course_methods;
 
+ALTER TABLE course_booking_payments
+  DROP CONSTRAINT IF EXISTS course_booking_payments_payment_method_id_fkey;
+
 WITH method_mapping AS (
   SELECT DISTINCT ON (cpm.id)
     cpm.id AS old_method_id,
@@ -133,8 +195,14 @@ SET payment_method_id = method_mapping.new_method_id
 FROM method_mapping
 WHERE bp.payment_method_id = method_mapping.old_method_id;
 
+UPDATE course_booking_payments bp
+SET payment_method_id = NULL
+WHERE bp.payment_method_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM school_payment_methods spm WHERE spm.id = bp.payment_method_id
+  );
+
 ALTER TABLE course_booking_payments
-  DROP CONSTRAINT IF EXISTS course_booking_payments_payment_method_id_fkey,
   ADD CONSTRAINT course_booking_payments_payment_method_id_fkey
     FOREIGN KEY (payment_method_id) REFERENCES school_payment_methods(id) ON DELETE SET NULL;
 -- +goose StatementEnd
@@ -143,6 +211,16 @@ ALTER TABLE course_booking_payments
 -- +goose StatementBegin
 ALTER TABLE course_booking_payments
   DROP CONSTRAINT IF EXISTS course_booking_payments_payment_method_id_fkey,
+  ALTER COLUMN payment_method_id DROP NOT NULL;
+
+UPDATE course_booking_payments bp
+SET payment_method_id = NULL
+WHERE payment_method_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM course_payment_methods cpm WHERE cpm.id = bp.payment_method_id
+  );
+
+ALTER TABLE course_booking_payments
   ADD CONSTRAINT course_booking_payments_payment_method_id_fkey
     FOREIGN KEY (payment_method_id) REFERENCES course_payment_methods(id) ON DELETE SET NULL;
 
@@ -150,6 +228,7 @@ DROP INDEX IF EXISTS idx_school_payment_methods_school_active;
 DROP TABLE IF EXISTS school_payment_methods;
 
 ALTER TABLE event_payment_methods
+  DROP CONSTRAINT IF EXISTS event_payment_methods_active_details_check,
   DROP CONSTRAINT IF EXISTS event_payment_methods_type_check,
   ADD CONSTRAINT event_payment_methods_type_check CHECK (type IN ('MANUAL_QR', 'MANUAL_BANK_TRANSFER'));
 

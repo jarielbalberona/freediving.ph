@@ -12,7 +12,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { mediaApi } from "@/features/media/api/media";
-import type { MediaContextType, PaymentMethodDetails } from "@freediving.ph/types";
+import type {
+  MediaContextType,
+  PaymentMethodDetails,
+} from "@freediving.ph/types";
 import {
   defaultPaymentInstructions,
   defaultPaymentMethodName,
@@ -184,6 +187,17 @@ export function PaymentMethodCustomerDisplay({
           alt="Payment QR"
           className="mt-3 h-44 w-44 rounded-md border border-border object-contain"
         />
+      ) : method.type === "manual_qr" ? (
+        <p className="mt-3 rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
+          Payment QR image is not available yet. Ask the organizer for updated
+          payment instructions.
+        </p>
+      ) : null}
+      {method.type === "manual_qr" && method.accountNumber ? (
+        <div className="mt-2">
+          <p className="text-xs text-muted-foreground">Account number</p>
+          <p className="text-foreground">{method.accountNumber}</p>
+        </div>
       ) : null}
       {method.type === "bank_transfer" ? (
         <dl className="mt-2 grid gap-1">
@@ -330,7 +344,11 @@ function PaymentMethodFields({
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
     try {
-      const uploaded = await mediaApi.upload(file, mediaContextType, mediaContextId);
+      const uploaded = await mediaApi.upload(
+        file,
+        mediaContextType,
+        mediaContextId,
+      );
       onChange({
         ...value,
         qrMediaId: uploaded.id,
@@ -379,30 +397,46 @@ function PaymentMethodFields({
       </Field>
 
       {value.type === "manual_qr" ? (
-        <Field label="QR media upload">
-          <div className="grid gap-2">
-            {displayUrl ? (
-              <img
-                src={displayUrl}
-                alt="Payment QR"
-                className="h-40 w-40 rounded-md border border-border object-contain"
-              />
-            ) : (
-              <div className="flex h-40 w-40 items-center justify-center rounded-md border border-dashed border-border bg-muted/30 text-muted-foreground">
-                <ImageIcon className="h-5 w-5" />
+        <div className="grid gap-3 md:grid-cols-[auto_minmax(0,1fr)]">
+          <Field label="QR media upload">
+            <div className="grid gap-2">
+              {displayUrl ? (
+                <img
+                  src={displayUrl}
+                  alt="Payment QR"
+                  className="h-40 w-40 rounded-md border border-border object-contain"
+                />
+              ) : (
+                <div className="flex h-40 w-40 items-center justify-center rounded-md border border-dashed border-border bg-muted/30 text-muted-foreground">
+                  <ImageIcon className="h-5 w-5" />
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={disabled || uploading}
+                  onChange={(event) =>
+                    void uploadQr(event.target.files?.[0] ?? null)
+                  }
+                />
+                <Upload className="h-4 w-4 text-muted-foreground" />
               </div>
-            )}
-            <div className="flex items-center gap-2">
-              <Input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                disabled={disabled || uploading}
-                onChange={(event) => void uploadQr(event.target.files?.[0] ?? null)}
-              />
-              <Upload className="h-4 w-4 text-muted-foreground" />
             </div>
-          </div>
-        </Field>
+          </Field>
+          <Field label="Account number">
+            <div className="grid content-start gap-2">
+              <Input
+                value={value.accountNumber}
+                disabled={disabled}
+                placeholder="Optional"
+                onChange={(event) =>
+                  update("accountNumber", event.target.value)
+                }
+              />
+            </div>
+          </Field>
+        </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="Bank name">
@@ -481,13 +515,24 @@ function buildPaymentMethodPayload(
     type: form.type,
     name: form.name.trim() || defaultPaymentMethodName(form.type),
     instructions: form.instructions.trim() || undefined,
-    qrMediaId: form.type === "manual_qr" ? form.qrMediaId.trim() || undefined : undefined,
-    qrImageUrl: form.type === "manual_qr" ? form.qrImageUrl.trim() || undefined : undefined,
-    bankName: form.type === "bank_transfer" ? form.bankName.trim() || undefined : undefined,
-    accountName:
-      form.type === "bank_transfer" ? form.accountName.trim() || undefined : undefined,
-    accountNumber:
+    qrMediaId:
+      form.type === "manual_qr"
+        ? form.qrMediaId.trim() || undefined
+        : undefined,
+    qrImageUrl:
+      form.type === "manual_qr"
+        ? form.qrImageUrl.trim() || undefined
+        : undefined,
+    bankName:
       form.type === "bank_transfer"
+        ? form.bankName.trim() || undefined
+        : undefined,
+    accountName:
+      form.type === "bank_transfer"
+        ? form.accountName.trim() || undefined
+        : undefined,
+    accountNumber:
+      form.type === "bank_transfer" || form.type === "manual_qr"
         ? form.accountNumber.trim() || undefined
         : undefined,
     isActive: form.isActive,

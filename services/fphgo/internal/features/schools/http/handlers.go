@@ -76,6 +76,7 @@ func PublicRoutes(h *Handlers) chi.Router {
 	r.Get("/{slug}", h.GetPublicSchool)
 	r.Get("/{slug}/courses", h.ListPublicCourses)
 	r.Get("/{slug}/courses/{courseSlug}", h.GetPublicCourse)
+	r.Get("/{slug}/courses/{courseSlug}/sessions", h.ListPublicCourseSessions)
 	r.Group(func(protected chi.Router) {
 		protected.Use(middleware.RequireMember)
 		protected.Post("/{slug}/courses/{courseSlug}/bookings", h.CreatePublicBooking)
@@ -152,6 +153,8 @@ type CourseRequest struct {
 	Currency                   string   `json:"currency"`
 	PaymentRequired            bool     `json:"paymentRequired"`
 	ApprovalRequired           bool     `json:"approvalRequired"`
+	AllowSessionBooking        *bool    `json:"allowSessionBooking"`
+	AllowPreferredDateRequest  *bool    `json:"allowPreferredDateRequest"`
 	LocationMode               string   `json:"locationMode"`
 	LocationLabel              string   `json:"locationLabel"`
 	LocationNote               string   `json:"locationNote"`
@@ -218,6 +221,7 @@ type BookingRequest struct {
 	StudentName        string `json:"studentName"`
 	StudentEmail       string `json:"studentEmail"`
 	StudentPhone       string `json:"studentPhone"`
+	BookingMode        string `json:"bookingMode"`
 	PreferredDate      string `json:"preferredDate"`
 	AlternateDate      string `json:"alternateDate"`
 	Status             string `json:"status"`
@@ -229,6 +233,8 @@ type BookingRequest struct {
 }
 
 type PublicBookingRequest struct {
+	BookingMode        string `json:"bookingMode"`
+	SessionID          string `json:"sessionId"`
 	StudentName        string `json:"studentName"`
 	StudentEmail       string `json:"studentEmail"`
 	StudentPhone       string `json:"studentPhone"`
@@ -338,6 +344,15 @@ func (h *Handlers) GetPublicCourse(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"school": mapPublicSchool(school), "course": mapPublicCourse(item)})
 }
 
+func (h *Handlers) ListPublicCourseSessions(w http.ResponseWriter, r *http.Request) {
+	school, course, items, err := h.service.ListPublicCourseSessions(r.Context(), chi.URLParam(r, "slug"), chi.URLParam(r, "courseSlug"))
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"school": mapPublicSchool(school), "course": mapPublicCourse(course), "sessions": mapPublicSessions(items)})
+}
+
 func (h *Handlers) CreatePublicBooking(w http.ResponseWriter, r *http.Request) {
 	req, issues, ok := httpx.DecodeAndValidate[PublicBookingRequest](r, h.validator)
 	if !ok {
@@ -345,6 +360,8 @@ func (h *Handlers) CreatePublicBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input := schoolsrepo.CreateBookingInput{
+		BookingMode:        req.BookingMode,
+		SessionID:          req.SessionID,
 		StudentName:        req.StudentName,
 		StudentEmail:       req.StudentEmail,
 		StudentPhone:       req.StudentPhone,
@@ -406,7 +423,15 @@ func (h *Handlers) writeCourse(w http.ResponseWriter, r *http.Request, create bo
 		httpx.WriteValidationError(w, issues)
 		return
 	}
-	input := schoolsrepo.CreateCourseInput{Title: req.Title, ShortDescription: req.ShortDescription, DescriptionMarkdown: req.DescriptionMarkdown, CourseType: req.CourseType, Level: req.Level, DurationLabel: req.DurationLabel, PriceAmount: req.PriceAmount, Currency: req.Currency, PaymentRequired: req.PaymentRequired, ApprovalRequired: req.ApprovalRequired, LocationMode: req.LocationMode, LocationLabel: req.LocationLabel, LocationNote: req.LocationNote, FormattedAddress: req.FormattedAddress, RegionCode: req.RegionCode, RegionName: req.RegionName, ProvinceCode: req.ProvinceCode, ProvinceName: req.ProvinceName, CityCode: req.CityCode, CityName: req.CityName, BarangayCode: req.BarangayCode, BarangayName: req.BarangayName, LocationSource: req.LocationSource, DiveSiteID: req.DiveSiteID, IncludedMarkdown: req.IncludedMarkdown, PrerequisitesMarkdown: req.PrerequisitesMarkdown, EquipmentMarkdown: req.EquipmentMarkdown, CancellationPolicyMarkdown: req.CancellationPolicyMarkdown, AvailabilityNote: req.AvailabilityNote, Status: req.Status}
+	allowSession := false
+	if req.AllowSessionBooking != nil {
+		allowSession = *req.AllowSessionBooking
+	}
+	allowPreferred := true
+	if req.AllowPreferredDateRequest != nil {
+		allowPreferred = *req.AllowPreferredDateRequest
+	}
+	input := schoolsrepo.CreateCourseInput{Title: req.Title, ShortDescription: req.ShortDescription, DescriptionMarkdown: req.DescriptionMarkdown, CourseType: req.CourseType, Level: req.Level, DurationLabel: req.DurationLabel, PriceAmount: req.PriceAmount, Currency: req.Currency, PaymentRequired: req.PaymentRequired, ApprovalRequired: req.ApprovalRequired, AllowSessionBooking: allowSession, AllowPreferredDateRequest: allowPreferred, LocationMode: req.LocationMode, LocationLabel: req.LocationLabel, LocationNote: req.LocationNote, FormattedAddress: req.FormattedAddress, RegionCode: req.RegionCode, RegionName: req.RegionName, ProvinceCode: req.ProvinceCode, ProvinceName: req.ProvinceName, CityCode: req.CityCode, CityName: req.CityName, BarangayCode: req.BarangayCode, BarangayName: req.BarangayName, LocationSource: req.LocationSource, DiveSiteID: req.DiveSiteID, IncludedMarkdown: req.IncludedMarkdown, PrerequisitesMarkdown: req.PrerequisitesMarkdown, EquipmentMarkdown: req.EquipmentMarkdown, CancellationPolicyMarkdown: req.CancellationPolicyMarkdown, AvailabilityNote: req.AvailabilityNote, Status: req.Status}
 	var item schoolsrepo.Course
 	var err error
 	if create {
@@ -571,7 +596,7 @@ func (h *Handlers) setSessionStatus(w http.ResponseWriter, r *http.Request, stat
 }
 
 func (h *Handlers) ListBookings(w http.ResponseWriter, r *http.Request) {
-	input := schoolsrepo.ListBookingsInput{CourseID: q(r, "course"), SessionID: q(r, "session"), Status: q(r, "status"), PaymentStatus: q(r, "paymentStatus"), Search: q(r, "search"), PreferredDateFrom: parseDatePtr(q(r, "preferredDateFrom")), PreferredDateTo: parseDatePtr(q(r, "preferredDateTo"))}
+	input := schoolsrepo.ListBookingsInput{CourseID: q(r, "course"), SessionID: firstNonEmpty(q(r, "session"), q(r, "sessionId")), BookingMode: q(r, "bookingMode"), Status: q(r, "status"), PaymentStatus: q(r, "paymentStatus"), Search: q(r, "search"), PreferredDateFrom: parseDatePtr(q(r, "preferredDateFrom")), PreferredDateTo: parseDatePtr(q(r, "preferredDateTo"))}
 	items, err := h.service.ListBookings(r.Context(), chi.URLParam(r, "slug"), actorID(r), input)
 	if err != nil {
 		handleError(w, r, err)
@@ -597,7 +622,7 @@ func (h *Handlers) writeBooking(w http.ResponseWriter, r *http.Request, create b
 	}
 	preferred := parseDate(req.PreferredDate)
 	alternate := parseDatePtr(req.AlternateDate)
-	input := schoolsrepo.CreateBookingInput{CourseID: req.CourseID, SessionID: req.SessionID, StudentUserID: req.StudentUserID, StudentName: req.StudentName, StudentEmail: req.StudentEmail, StudentPhone: req.StudentPhone, PreferredDate: preferred, AlternateDate: alternate, Status: req.Status, StudentNote: req.StudentNote, ExperienceLevel: req.ExperienceLevel, CertificationLevel: req.CertificationLevel, EquipmentNeeds: req.EquipmentNeeds, AdminNotes: req.AdminNotes}
+	input := schoolsrepo.CreateBookingInput{CourseID: req.CourseID, SessionID: req.SessionID, StudentUserID: req.StudentUserID, StudentName: req.StudentName, StudentEmail: req.StudentEmail, StudentPhone: req.StudentPhone, BookingMode: req.BookingMode, PreferredDate: preferred, AlternateDate: alternate, Status: req.Status, StudentNote: req.StudentNote, ExperienceLevel: req.ExperienceLevel, CertificationLevel: req.CertificationLevel, EquipmentNeeds: req.EquipmentNeeds, AdminNotes: req.AdminNotes}
 	var item schoolsrepo.Booking
 	var err error
 	if create {
@@ -697,6 +722,14 @@ func actorID(r *http.Request) string {
 	return identity.UserID
 }
 func q(r *http.Request, key string) string { return strings.TrimSpace(r.URL.Query().Get(key)) }
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
 func parseTime(value, field string) (time.Time, error) {
 	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
 	if err != nil {

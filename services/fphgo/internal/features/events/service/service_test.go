@@ -781,9 +781,18 @@ func TestUpdatePaymentMethodKeepsPatchFieldsPartial(t *testing.T) {
 		paymentMethodID = "550e8400-e29b-41d4-a716-446655443088"
 		actorID         = "550e8400-e29b-41d4-a716-446655443089"
 	)
-	repo := &eventsRepoStub{}
+	repo := &eventsRepoStub{
+		paymentMethods: []eventsrepo.EventPaymentMethod{{
+			ID:        paymentMethodID,
+			EventID:   eventID,
+			Type:      "manual_qr",
+			Name:      "Manual QR",
+			QRMediaID: "550e8400-e29b-41d4-a716-446655443090",
+			IsActive:  true,
+		}},
+	}
 	svc := New(repo)
-	name := "Updated GCash QR"
+	name := "Updated Manual QR"
 
 	if _, err := svc.UpdatePaymentMethod(context.Background(), eventID, paymentMethodID, actorID, eventsrepo.UpdatePaymentMethodInput{Name: &name}); err != nil {
 		t.Fatalf("UpdatePaymentMethod returned error: %v", err)
@@ -793,6 +802,94 @@ func TestUpdatePaymentMethodKeepsPatchFieldsPartial(t *testing.T) {
 	}
 	if repo.updatePaymentMethodInput.Type != nil || repo.updatePaymentMethodInput.QRImageURL != nil || repo.updatePaymentMethodInput.BankName != nil {
 		t.Fatalf("partial update should not synthesize absent fields: %#v", repo.updatePaymentMethodInput)
+	}
+}
+
+func TestCreatePaymentMethodValidatesActiveManualQR(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443087"
+		actorID = "550e8400-e29b-41d4-a716-446655443089"
+	)
+	svc := New(&eventsRepoStub{})
+	_, err := svc.CreatePaymentMethod(context.Background(), eventID, actorID, eventsrepo.CreatePaymentMethodInput{
+		Type: "manual_qr",
+	})
+	if err == nil {
+		t.Fatal("expected manual QR without media to fail")
+	}
+}
+
+func TestCreatePaymentMethodRejectsLegacyQRURLWithoutMediaID(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443087"
+		actorID = "550e8400-e29b-41d4-a716-446655443089"
+	)
+	svc := New(&eventsRepoStub{})
+	_, err := svc.CreatePaymentMethod(context.Background(), eventID, actorID, eventsrepo.CreatePaymentMethodInput{
+		Type:       "manual_qr",
+		QRImageURL: "https://example.test/legacy-qr.png",
+	})
+	if err == nil {
+		t.Fatal("expected manual QR with only legacy URL to fail")
+	}
+}
+
+func TestCreatePaymentMethodNormalizesLegacyEnum(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443087"
+		actorID = "550e8400-e29b-41d4-a716-446655443089"
+	)
+	repo := &eventsRepoStub{}
+	svc := New(repo)
+	_, err := svc.CreatePaymentMethod(context.Background(), eventID, actorID, eventsrepo.CreatePaymentMethodInput{
+		Type:          "MANUAL_BANK_TRANSFER",
+		BankName:      "BPI",
+		AccountName:   "Freediving School",
+		AccountNumber: "0000",
+	})
+	if err != nil {
+		t.Fatalf("expected legacy enum to normalize: %v", err)
+	}
+	if repo.createPaymentMethodInput.Type != "bank_transfer" {
+		t.Fatalf("expected canonical bank_transfer, got %#v", repo.createPaymentMethodInput)
+	}
+}
+
+func TestUpdatePaymentMethodCannotActivateIncompleteCurrentMethod(t *testing.T) {
+	const (
+		eventID         = "550e8400-e29b-41d4-a716-446655443087"
+		paymentMethodID = "550e8400-e29b-41d4-a716-446655443088"
+		actorID         = "550e8400-e29b-41d4-a716-446655443089"
+	)
+	repo := &eventsRepoStub{
+		paymentMethods: []eventsrepo.EventPaymentMethod{{
+			ID:       paymentMethodID,
+			EventID:  eventID,
+			Type:     "manual_qr",
+			Name:     "Manual QR",
+			IsActive: false,
+		}},
+	}
+	svc := New(repo)
+	active := true
+	_, err := svc.UpdatePaymentMethod(context.Background(), eventID, paymentMethodID, actorID, eventsrepo.UpdatePaymentMethodInput{IsActive: &active})
+	if err == nil {
+		t.Fatal("expected incomplete current method activation to fail")
+	}
+}
+
+func TestCreatePaymentMethodValidatesActiveBankTransfer(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443087"
+		actorID = "550e8400-e29b-41d4-a716-446655443089"
+	)
+	svc := New(&eventsRepoStub{})
+	_, err := svc.CreatePaymentMethod(context.Background(), eventID, actorID, eventsrepo.CreatePaymentMethodInput{
+		Type:     "bank_transfer",
+		BankName: "BPI",
+	})
+	if err == nil {
+		t.Fatal("expected incomplete bank transfer to fail")
 	}
 }
 
@@ -1720,12 +1817,14 @@ type eventsRepoStub struct {
 	competitions             []eventsrepo.EventCompetition
 	prizes                   []eventsrepo.EventPrize
 	sponsors                 []eventsrepo.EventSponsor
+	paymentMethods           []eventsrepo.EventPaymentMethod
 	posts                    []eventsrepo.EventPost
 	programItems             []eventsrepo.EventProgramItem
 	post                     eventsrepo.EventPost
 	listInput                eventsrepo.ListEventsInput
 	joinInput                eventsrepo.JoinEventInput
 	createInput              eventsrepo.CreateEventInput
+	createPaymentMethodInput eventsrepo.CreatePaymentMethodInput
 	updateInput              eventsrepo.UpdateEventInput
 	updatePaymentMethodInput eventsrepo.UpdatePaymentMethodInput
 	competitionInput         eventsrepo.CreateCompetitionInput
@@ -1837,10 +1936,11 @@ func (r *eventsRepoStub) RejectParticipant(context.Context, string, string, stri
 }
 
 func (r *eventsRepoStub) ListPaymentMethods(context.Context, string, bool) ([]eventsrepo.EventPaymentMethod, error) {
-	return nil, nil
+	return r.paymentMethods, nil
 }
 
-func (r *eventsRepoStub) CreatePaymentMethod(context.Context, string, eventsrepo.CreatePaymentMethodInput) (eventsrepo.EventPaymentMethod, error) {
+func (r *eventsRepoStub) CreatePaymentMethod(_ context.Context, _ string, input eventsrepo.CreatePaymentMethodInput) (eventsrepo.EventPaymentMethod, error) {
+	r.createPaymentMethodInput = input
 	return eventsrepo.EventPaymentMethod{}, nil
 }
 

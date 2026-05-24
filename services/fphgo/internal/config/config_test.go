@@ -62,6 +62,34 @@ func TestLoadReadsTuningEnv(t *testing.T) {
 	}
 }
 
+func TestLoadExpandsDevelopmentLoopbackCORSOrigins(t *testing.T) {
+	t.Setenv("DB_DSN", "postgres://example")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("DEV_AUTH", "true")
+	t.Setenv("CORS_ORIGINS", "http://localhost:3002")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("expected config to load, got %v", err)
+	}
+
+	expected := map[string]bool{
+		"http://localhost:3002": false,
+		"http://127.0.0.1:3002": false,
+		"http://[::1]:3002":     false,
+	}
+	for _, origin := range cfg.CORSOrigins {
+		if _, ok := expected[origin]; ok {
+			expected[origin] = true
+		}
+	}
+	for origin, found := range expected {
+		if !found {
+			t.Fatalf("expected expanded CORS origin %s in %#v", origin, cfg.CORSOrigins)
+		}
+	}
+}
+
 func TestLoadReadsRenderCompatEnv(t *testing.T) {
 	t.Setenv("DB_DSN", "postgres://example")
 	t.Setenv("NODE_ENV", "production")

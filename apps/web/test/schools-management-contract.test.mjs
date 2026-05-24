@@ -39,9 +39,15 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
   assert.match(page, /Move to draft/);
   assert.match(page, /tooltip="Edit school"/);
   assert.doesNotMatch(page, /Manage courses/);
-  assert.doesNotMatch(page, /rounded-xl border border-border\/70 bg-background\/60 p-2\.5/);
+  assert.doesNotMatch(
+    page,
+    /rounded-xl border border-border\/70 bg-background\/60 p-2\.5/,
+  );
   assert.match(page, /School status/);
-  assert.match(page, /Published schools can appear in the public school directory/);
+  assert.match(
+    page,
+    /Published schools can appear in the public school directory/,
+  );
   assert.match(constants, /Pending review/);
   assert.match(constants, /Pool training/);
   assert.match(constants, /Use school location/);
@@ -50,6 +56,21 @@ test("schools management UI uses friendly labels and Base UI Select wrapper", ()
   assert.match(constants, /Use text-only location/);
   assert.match(constants, /Manual QR/);
   assert.match(constants, /Bank transfer/);
+  assert.match(page, /School payment methods/);
+  assert.match(page, /PaymentMethodsSetup/);
+  assert.match(page, /mediaContextType="payment_method_qr"/);
+  assert.match(page, /Booking options/);
+  assert.match(page, /Students can choose from available schedules/);
+  assert.match(page, /Students can request a preferred date/);
+  assert.match(page, /Schedules \+ preferred date/);
+  assert.match(page, /Booking mode/);
+  assert.match(constants, /Schedule selected/);
+  assert.match(constants, /Preferred date request/);
+  assert.doesNotMatch(page, /setPaymentCourse/);
+  assert.doesNotMatch(
+    page,
+    /courses\/\\$\\{encodeURIComponent\\(courseId\\)\\}\/payment-methods/,
+  );
   assert.match(constants, /Scheduled/);
   assert.match(constants, /Completed/);
   assert.doesNotMatch(page, />pending_review</);

@@ -40,7 +40,9 @@ export const useCreateCourse = (slug: string) => {
     mutationFn: (data: CreateCourseRequest) =>
       schoolsApi.createCourse(slug, data),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
   });
 };
 
@@ -50,7 +52,9 @@ export const useUpdateCourse = (slug: string, courseId: string) => {
     mutationFn: (data: UpdateCourseRequest) =>
       schoolsApi.updateCourse(slug, courseId, data),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
   });
 };
 
@@ -89,7 +93,9 @@ export const useCreateSession = (slug: string) => {
     mutationFn: (data: CreateCourseSessionRequest) =>
       schoolsApi.createSession(slug, data),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
   });
 };
 
@@ -99,7 +105,9 @@ export const useUpdateSession = (slug: string, sessionId: string) => {
     mutationFn: (data: UpdateCourseSessionRequest) =>
       schoolsApi.updateSession(slug, sessionId, data),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
   });
 };
 
@@ -114,7 +122,9 @@ export const useSetSessionStatus = (slug: string) => {
       action: "complete" | "cancel";
     }) => schoolsApi.setSessionStatus(slug, sessionId, action),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
   });
 };
 
@@ -124,7 +134,9 @@ export const useCreateBooking = (slug: string) => {
     mutationFn: (data: CreateCourseBookingRequest) =>
       schoolsApi.createBooking(slug, data),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
   });
 };
 
@@ -139,7 +151,9 @@ export const useSetBookingStatus = (slug: string) => {
       action: "approve" | "reject" | "schedule" | "complete" | "cancel";
     }) => schoolsApi.setBookingStatus(slug, bookingId, action),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
   });
 };
 
@@ -154,7 +168,9 @@ export const useAssignBookingSession = (slug: string) => {
       sessionId: string;
     }) => schoolsApi.assignBookingSession(slug, bookingId, sessionId),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
   });
 };
 
@@ -169,7 +185,9 @@ export const useReviewBookingPayment = (slug: string) => {
       action: "verify" | "reject";
     }) => schoolsApi.reviewPayment(slug, bookingId, action),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.detail(slug) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
   });
 };
 
@@ -179,7 +197,9 @@ export const useCreateStudentBooking = (slug: string, courseSlug: string) => {
     mutationFn: (data: CreateStudentCourseBookingRequest) =>
       schoolsApi.createStudentBooking(slug, courseSlug, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.schools.myBookings() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.myBookings(),
+      });
       queryClient.invalidateQueries({
         queryKey: queryKeys.schools.publicCourse(slug, courseSlug),
       });

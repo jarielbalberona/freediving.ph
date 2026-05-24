@@ -1165,7 +1165,20 @@ CREATE TABLE IF NOT EXISTS event_payment_methods (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (type IN ('manual_qr', 'bank_transfer')),
-  CHECK (length(trim(name)) > 0)
+  CHECK (length(trim(name)) > 0),
+  CHECK (
+    NOT is_active
+    OR (
+      type = 'manual_qr'
+      AND (qr_media_id IS NOT NULL OR NULLIF(trim(COALESCE(qr_image_url, '')), '') IS NOT NULL)
+    )
+    OR (
+      type = 'bank_transfer'
+      AND NULLIF(trim(COALESCE(bank_name, '')), '') IS NOT NULL
+      AND NULLIF(trim(COALESCE(account_name, '')), '') IS NOT NULL
+      AND NULLIF(trim(COALESCE(account_number, '')), '') IS NOT NULL
+    )
+  )
 );
 
 CREATE TABLE IF NOT EXISTS event_participant_payments (
@@ -1311,6 +1324,8 @@ CREATE TABLE IF NOT EXISTS courses (
   currency TEXT NOT NULL DEFAULT 'PHP',
   payment_required BOOLEAN NOT NULL DEFAULT FALSE,
   approval_required BOOLEAN NOT NULL DEFAULT TRUE,
+  allow_session_booking BOOLEAN NOT NULL DEFAULT FALSE,
+  allow_preferred_date_request BOOLEAN NOT NULL DEFAULT TRUE,
   location_mode TEXT NOT NULL DEFAULT 'inherit_school',
   location_label TEXT,
   location_note TEXT,
@@ -1376,7 +1391,17 @@ CREATE TABLE IF NOT EXISTS school_payment_methods (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ,
   CHECK (type IN ('manual_qr', 'bank_transfer')),
-  CHECK (length(trim(name)) > 0)
+  CHECK (length(trim(name)) > 0),
+  CHECK (
+    NOT is_active
+    OR (type = 'manual_qr' AND qr_media_id IS NOT NULL)
+    OR (
+      type = 'bank_transfer'
+      AND NULLIF(trim(COALESCE(bank_name, '')), '') IS NOT NULL
+      AND NULLIF(trim(COALESCE(account_name, '')), '') IS NOT NULL
+      AND NULLIF(trim(COALESCE(account_number, '')), '') IS NOT NULL
+    )
+  )
 );
 
 CREATE TABLE IF NOT EXISTS course_sessions (
@@ -1428,7 +1453,8 @@ CREATE TABLE IF NOT EXISTS course_booking_requests (
   student_name TEXT,
   student_email TEXT,
   student_phone TEXT,
-  preferred_date DATE NOT NULL,
+  booking_mode TEXT NOT NULL DEFAULT 'preferred_date',
+  preferred_date DATE,
   alternate_date DATE,
   status TEXT NOT NULL DEFAULT 'pending_review',
   student_note TEXT,
@@ -1445,6 +1471,7 @@ CREATE TABLE IF NOT EXISTS course_booking_requests (
   cancelled_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
   deleted_at TIMESTAMPTZ,
+  CHECK (booking_mode IN ('session', 'preferred_date')),
   CHECK (status IN ('pending_review', 'approved', 'rejected', 'scheduled', 'completed', 'cancelled', 'reschedule_requested'))
 );
 
@@ -1662,12 +1689,14 @@ CREATE INDEX IF NOT EXISTS idx_school_payment_methods_school_active ON school_pa
 CREATE INDEX IF NOT EXISTS idx_course_sessions_school_status ON course_sessions (school_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_location_mode ON course_sessions (school_id, location_mode) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_course_starts ON course_sessions (course_id, starts_at) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_course_sessions_course_status_starts ON course_sessions (course_id, status, starts_at) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_school_starts ON course_sessions (school_id, starts_at) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_sessions_slug ON course_sessions (slug) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_course_sessions_school_slug_active ON course_sessions (school_id, slug) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_booking_requests_school_status ON course_booking_requests (school_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_booking_requests_course_status ON course_booking_requests (course_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_booking_requests_session_status ON course_booking_requests (session_id, status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_course_booking_requests_booking_mode ON course_booking_requests (school_id, booking_mode) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_booking_requests_preferred_date ON course_booking_requests (preferred_date) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_booking_payments_booking ON course_booking_payments (booking_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_course_booking_payments_school_status ON course_booking_payments (school_id, status) WHERE deleted_at IS NULL;

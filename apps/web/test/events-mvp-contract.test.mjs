@@ -456,6 +456,10 @@ test("events module Select usage supplies label items for Base UI", () => {
   const detailPage = read("src/app/events/[slug]/client-page.tsx");
   assert.match(createPage, /items=\{eventTypeOptions\}/);
   assert.match(detailPage, /items=\{paymentMethodItems\}/);
+  assert.match(detailPage, /activePaymentMethods/);
+  assert.match(detailPage, /paymentMethods=\{activePaymentMethods\}/);
+  assert.match(detailPage, /PaymentMethodsSetup/);
+  assert.match(detailPage, /PaymentMethodCustomerDisplay/);
   assert.match(detailPage, /getPaymentMethodLabel\(method\)/);
   assert.match(detailPage, /items=\{prizePlacementOptions\}/);
   assert.match(detailPage, /items=\{competitionItems\}/);

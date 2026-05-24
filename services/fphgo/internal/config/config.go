@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -67,6 +68,9 @@ func Load() (Config, error) {
 	env := firstNonEmptyEnv("APP_ENV", "NODE_ENV")
 	if env == "" {
 		env = "development"
+	}
+	if !strings.EqualFold(env, "production") {
+		origins = expandDevelopmentLoopbackOrigins(origins)
 	}
 	logLevel := strings.TrimSpace(strings.ToLower(os.Getenv("LOG_LEVEL")))
 
@@ -220,6 +224,45 @@ func containsWildcardOrigin(origins []string) bool {
 		}
 	}
 	return false
+}
+
+func expandDevelopmentLoopbackOrigins(origins []string) []string {
+	seen := make(map[string]struct{}, len(origins))
+	expanded := make([]string, 0, len(origins)+4)
+	add := func(origin string) {
+		if _, ok := seen[origin]; ok {
+			return
+		}
+		seen[origin] = struct{}{}
+		expanded = append(expanded, origin)
+	}
+
+	for _, origin := range origins {
+		add(origin)
+		if strings.TrimSpace(origin) == "*" {
+			continue
+		}
+
+		parsed, err := url.Parse(origin)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			continue
+		}
+		host := parsed.Hostname()
+		if host != "localhost" && host != "127.0.0.1" && host != "::1" {
+			continue
+		}
+
+		for _, loopbackHost := range []string{"localhost", "127.0.0.1", "[::1]"} {
+			next := *parsed
+			next.Host = loopbackHost
+			if port := parsed.Port(); port != "" {
+				next.Host += ":" + port
+			}
+			add(next.String())
+		}
+	}
+
+	return expanded
 }
 
 func parsePositiveIntEnv(key string, fallback int) (int, error) {

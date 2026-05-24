@@ -38,20 +38,19 @@ import type {
   MyCourseBooking,
   PublicCourse,
   PublicCourseFilters,
+  PublicCourseSession,
   PublicSchool,
   PublicSchoolFilters,
 } from "@freediving.ph/types";
 import { ArrowLeft, CalendarPlus, Search, X } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
-import { useMemo, useState } from "react";
-import {
-  dateStringToDate,
-  dateToDateString,
-} from "@/lib/date-picker-values";
+import { useEffect, useMemo, useState } from "react";
+import { dateStringToDate, dateToDateString } from "@/lib/date-picker-values";
 import { formatPeso } from "@/lib/money";
 import {
   bookingStatusLabels,
+  bookingModeLabels,
   courseLevelLabels,
   courseTypeLabels,
   paymentStatusLabels,
@@ -63,6 +62,7 @@ import {
 import {
   useMyCourseBookings,
   usePublicCourse,
+  usePublicCourseSessions,
   usePublicCourses,
   usePublicSchool,
   usePublicSchools,
@@ -289,11 +289,16 @@ export function CourseDetailPage({
   courseSlug: string;
 }) {
   const query = usePublicCourse(slug, courseSlug);
+  const sessionsQuery = usePublicCourseSessions(slug, courseSlug);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState("");
   const data = query.data;
   if (query.isError) return <PageState text="Course not found." />;
   if (!data) return <PageState text="Loading course..." />;
   const { school, course } = data;
+  const sessions = sessionsQuery.data ?? [];
+  const bookingsEnabled =
+    course.allowSessionBooking || course.allowPreferredDateRequest;
   return (
     <SchoolPublicShell school={school} compact>
       <div className="flex flex-col gap-3 border-y border-border/70 py-3 sm:flex-row sm:items-start sm:justify-between">
@@ -303,26 +308,31 @@ export function CourseDetailPage({
           </h1>
           <CourseMeta course={course} school={school} />
         </div>
-        <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
-          <DialogTrigger
-            render={
-              <Button size="sm">
-                <CalendarPlus />
-                Book this course
-              </Button>
-            }
-          />
-          <BookingDialog
-            school={school}
-            course={course}
-            onSuccess={() => setBookingOpen(false)}
-          />
-        </Dialog>
+        {bookingsEnabled ? (
+          <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
+            <DialogTrigger
+              render={
+                <Button size="sm">
+                  <CalendarPlus />
+                  Book this course
+                </Button>
+              }
+            />
+            <BookingDialog
+              school={school}
+              course={course}
+              initialSessionId={selectedSessionId}
+              onSuccess={() => setBookingOpen(false)}
+            />
+          </Dialog>
+        ) : null}
       </div>
       <Tabs defaultValue="overview" className="gap-3">
         <TabsList className="w-full flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
+          {course.allowSessionBooking ? (
+            <TabsTrigger value="schedule">Schedules</TabsTrigger>
+          ) : null}
           <TabsTrigger value="included">What&apos;s included</TabsTrigger>
           <TabsTrigger value="requirements">Requirements</TabsTrigger>
           <TabsTrigger value="book">Book</TabsTrigger>
@@ -336,10 +346,14 @@ export function CourseDetailPage({
           ) : null}
         </TabsContent>
         <TabsContent value="schedule">
-          <p className="text-sm text-muted-foreground">
-            {course.availabilityNote ||
-              "Choose your preferred date when booking."}
-          </p>
+          <AvailableSchedulesList
+            sessions={sessions}
+            onBook={(sessionId) => {
+              setSelectedSessionId(sessionId);
+              setBookingOpen(true);
+            }}
+            preferredDateEnabled={course.allowPreferredDateRequest}
+          />
         </TabsContent>
         <TabsContent value="included">
           {course.includedMarkdown ? (
@@ -362,12 +376,17 @@ export function CourseDetailPage({
         <TabsContent value="book">
           <div className="flex flex-col items-start gap-3">
             <p className="text-xs leading-5 text-muted-foreground">
-              Send a request with your preferred date. The school will review it
-              and assign an actual session later.
+              {bookingSummary(course)}
             </p>
-            <Button size="sm" onClick={() => setBookingOpen(true)}>
-              Request a date
-            </Button>
+            {bookingsEnabled ? (
+              <Button size="sm" onClick={() => setBookingOpen(true)}>
+                {course.allowSessionBooking && !course.allowPreferredDateRequest
+                  ? "Choose from available schedules"
+                  : "Request another date"}
+              </Button>
+            ) : (
+              <StateText text="Bookings are currently unavailable for this course." />
+            )}
           </div>
         </TabsContent>
       </Tabs>
@@ -644,6 +663,41 @@ function CourseMeta({
   );
 }
 
+function bookingSummary(course: PublicCourse) {
+  if (course.allowSessionBooking && course.allowPreferredDateRequest) {
+    return "Choose from available schedules or request another date.";
+  }
+  if (course.allowSessionBooking) {
+    return "Choose from available schedules.";
+  }
+  if (course.allowPreferredDateRequest) {
+    return "Send a preferred date request. The school will review it and assign a session later.";
+  }
+  return "Bookings are currently unavailable for this course.";
+}
+
+function sessionSelectLabel(session: PublicCourseSession) {
+  const slots =
+    session.slotsLeft === null
+      ? "open capacity"
+      : `${session.slotsLeft} slots left`;
+  return `${formatSessionWindow(session)} · ${slots}`;
+}
+
+function formatSessionWindow(
+  session: Pick<PublicCourseSession, "startsAt" | "endsAt">,
+) {
+  const start = new Date(session.startsAt);
+  const end = new Date(session.endsAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return "Schedule time pending";
+  }
+  return `${start.toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })} - ${end.toLocaleTimeString([], { timeStyle: "short" })}`;
+}
+
 function publicCourseLocationLabel(course: PublicCourse, school: PublicSchool) {
   if (course.locationMode === "structured") {
     return course.locationLabel || course.formattedAddress || "Course location";
@@ -672,10 +726,12 @@ function publicCourseLocationHelper(course: PublicCourse) {
 function BookingDialog({
   school,
   course,
+  initialSessionId = "",
   onSuccess,
 }: {
   school: PublicSchool;
   course: PublicCourse;
+  initialSessionId?: string;
   onSuccess: () => void;
 }) {
   return (
@@ -683,7 +739,12 @@ function BookingDialog({
       <DialogHeader>
         <DialogTitle>Book {course.title}</DialogTitle>
       </DialogHeader>
-      <BookingForm school={school} course={course} onSuccess={onSuccess} />
+      <BookingForm
+        school={school}
+        course={course}
+        initialSessionId={initialSessionId}
+        onSuccess={onSuccess}
+      />
     </DialogContent>
   );
 }
@@ -691,30 +752,55 @@ function BookingDialog({
 function BookingForm({
   school,
   course,
+  initialSessionId = "",
   onSuccess,
 }: {
   school: PublicSchool;
   course: PublicCourse;
+  initialSessionId?: string;
   onSuccess: () => void;
 }) {
   const { isLoaded, isSignedIn } = useAuth();
   const mutation = useCreateStudentBooking(school.slug, course.slug);
+  const sessionsQuery = usePublicCourseSessions(school.slug, course.slug);
+  const sessions = sessionsQuery.data ?? [];
   const activePaymentMethods = (school.paymentMethods ?? []).filter(
     (method) => method.isActive,
   );
   const paidCourseUnavailable =
     course.paymentRequired && activePaymentMethods.length === 0;
   const [done, setDone] = useState(false);
+  const initialMode =
+    course.allowSessionBooking && initialSessionId
+      ? "session"
+      : course.allowSessionBooking && !course.allowPreferredDateRequest
+        ? "session"
+        : "preferred_date";
   const [form, setForm] = useState<CreateStudentCourseBookingRequest>({
+    bookingMode: initialMode,
+    sessionId: initialSessionId,
     preferredDate: "",
   });
+  useEffect(() => {
+    if (!initialSessionId) return;
+    setForm((current) => ({
+      ...current,
+      bookingMode: "session",
+      sessionId: initialSessionId,
+    }));
+  }, [initialSessionId]);
   if (isLoaded && !isSignedIn) return <SignInPrompt />;
+  if (!course.allowSessionBooking && !course.allowPreferredDateRequest) {
+    return (
+      <StateText text="Bookings are currently unavailable for this course." />
+    );
+  }
   if (done) {
     return (
       <div className="space-y-3">
         <h2 className="text-base font-semibold">Request submitted</h2>
         <p className="text-xs leading-5 text-muted-foreground">
-          The school will review your preferred date and follow up.
+          The school will review your booking and follow up.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -738,31 +824,36 @@ function BookingForm({
   }
   return (
     <form className="grid gap-3" onSubmit={submit}>
-      <div className="grid gap-3 md:grid-cols-2">
-        <Field label="Preferred date">
-          <DatePicker
-            required
-            value={dateStringToDate(form.preferredDate)}
-            onSelect={(date) =>
-              setForm((current) => ({
-                ...current,
-                preferredDate: dateToDateString(date),
-              }))
-            }
-          />
-        </Field>
-        <Field label="Alternate date">
-          <DatePicker
-            value={dateStringToDate(form.alternateDate)}
-            onSelect={(date) =>
-              setForm((current) => ({
-                ...current,
-                alternateDate: dateToDateString(date),
-              }))
-            }
-          />
-        </Field>
-      </div>
+      {course.allowSessionBooking && course.allowPreferredDateRequest ? (
+        <Tabs
+          value={form.bookingMode}
+          onValueChange={(value) =>
+            setForm((current) => ({
+              ...current,
+              bookingMode:
+                value as CreateStudentCourseBookingRequest["bookingMode"],
+            }))
+          }
+        >
+          <TabsList className="w-full">
+            <TabsTrigger value="session">Choose a schedule</TabsTrigger>
+            <TabsTrigger value="preferred_date">
+              Request another date
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      ) : null}
+      {form.bookingMode === "session" ? (
+        <SessionBookingFields
+          sessions={sessions}
+          sessionId={form.sessionId ?? ""}
+          onChange={(sessionId) =>
+            setForm((current) => ({ ...current, sessionId }))
+          }
+        />
+      ) : (
+        <PreferredDateFields form={form} setForm={setForm} />
+      )}
       <div className="grid gap-3 md:grid-cols-3">
         <Field label="Name">
           <Input
@@ -850,7 +941,8 @@ function BookingForm({
         <div className="grid gap-3">
           <p className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
             Payment is required for this course. Use one of the school payment
-            methods below and attach your receipt when the school asks for proof.
+            methods below and attach your receipt when the school asks for
+            proof.
           </p>
           <div className="grid gap-3 md:grid-cols-2">
             {activePaymentMethods.map((method) => (
@@ -873,11 +965,159 @@ function BookingForm({
       <Button
         type="submit"
         size="sm"
-        disabled={mutation.isPending || paidCourseUnavailable}
+        disabled={
+          mutation.isPending ||
+          paidCourseUnavailable ||
+          (form.bookingMode === "session" && !form.sessionId)
+        }
       >
-        Submit request
+        {form.bookingMode === "session"
+          ? "Book selected schedule"
+          : "Submit request"}
       </Button>
     </form>
+  );
+}
+
+function PreferredDateFields({
+  form,
+  setForm,
+}: {
+  form: CreateStudentCourseBookingRequest;
+  setForm: React.Dispatch<
+    React.SetStateAction<CreateStudentCourseBookingRequest>
+  >;
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      <Field label="Preferred date">
+        <DatePicker
+          required
+          value={dateStringToDate(form.preferredDate)}
+          onSelect={(date) =>
+            setForm((current) => ({
+              ...current,
+              preferredDate: dateToDateString(date),
+            }))
+          }
+        />
+      </Field>
+      <Field label="Alternate date">
+        <DatePicker
+          value={dateStringToDate(form.alternateDate)}
+          onSelect={(date) =>
+            setForm((current) => ({
+              ...current,
+              alternateDate: dateToDateString(date),
+            }))
+          }
+        />
+      </Field>
+    </div>
+  );
+}
+
+function SessionBookingFields({
+  sessions,
+  sessionId,
+  onChange,
+}: {
+  sessions: PublicCourseSession[];
+  sessionId: string;
+  onChange: (sessionId: string) => void;
+}) {
+  const sessionItems = sessions
+    .filter((session) => !session.isFull)
+    .map((session) => ({
+      value: session.id,
+      label: sessionSelectLabel(session),
+    }));
+  return (
+    <div className="grid gap-3">
+      <Field label="Available schedules">
+        <Select
+          value={sessionId}
+          onValueChange={(value) => onChange(value ?? "")}
+          items={sessionItems}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Choose from available schedules" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {sessionItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </Field>
+      {sessions.length === 0 ? (
+        <StateText text="No available schedules yet." />
+      ) : null}
+    </div>
+  );
+}
+
+function AvailableSchedulesList({
+  sessions,
+  preferredDateEnabled,
+  onBook,
+}: {
+  sessions: PublicCourseSession[];
+  preferredDateEnabled: boolean;
+  onBook: (sessionId: string) => void;
+}) {
+  if (sessions.length === 0) {
+    return (
+      <div className="space-y-2">
+        <StateText text="No available schedules yet." />
+        {preferredDateEnabled ? (
+          <p className="text-xs text-muted-foreground">
+            You can still request another date.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-2">
+      {sessions.map((session) => (
+        <article
+          key={session.id}
+          className="flex flex-col gap-2 border-b border-border/70 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium">{session.title}</h3>
+            <p className="text-xs text-muted-foreground">
+              {formatSessionWindow(session)}
+              {session.locationLabel ? ` • ${session.locationLabel}` : ""}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {session.slotsLeft === null
+                ? "Open capacity"
+                : `${session.slotsLeft} slots left`}
+            </p>
+          </div>
+          {session.isFull ? (
+            <Badge variant="secondary" className="self-start">
+              Full
+            </Badge>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-start"
+              onClick={() => onBook(session.id)}
+            >
+              Book this schedule
+            </Button>
+          )}
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -903,10 +1143,20 @@ function BookingRow({
               {paymentStatusLabels[booking.payment.status]}
             </Badge>
           ) : null}
+          <Badge variant="outline" className="h-5 px-2 text-[11px]">
+            {bookingModeLabels[booking.bookingMode]}
+          </Badge>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Preferred {booking.preferredDate}
-          {booking.sessionTitle ? ` • ${booking.sessionTitle}` : ""}
+          {booking.bookingMode === "session"
+            ? booking.sessionTitle || "Schedule selected"
+            : `Preferred ${booking.preferredDate}`}
+          {booking.bookingMode === "preferred_date" && booking.alternateDate
+            ? ` • Alternate ${booking.alternateDate}`
+            : ""}
+          {booking.bookingMode === "preferred_date" && booking.sessionTitle
+            ? ` • Assigned ${booking.sessionTitle}`
+            : ""}
         </p>
       </div>
       {["pending_review", "approved", "scheduled"].includes(booking.status) ? (

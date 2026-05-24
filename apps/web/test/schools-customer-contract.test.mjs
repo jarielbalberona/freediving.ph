@@ -31,18 +31,36 @@ test("customer schools routes and sidebar are wired separately from manage route
 
 test("customer schools UI uses friendly labels, tabs, booking prompts, and Base UI Select wrapper", () => {
   const page = read("src/features/schools/pages/PublicSchoolsPage.tsx");
+  const paymentSetup = read(
+    "src/features/payments/components/PaymentMethodsSetup.tsx",
+  );
   const constants = read("src/features/schools/constants.ts");
 
   assert.match(page, /TabsTrigger value="overview"/);
   assert.match(page, /TabsTrigger value="courses"/);
   assert.match(page, /TabsTrigger value="book"/);
+  assert.match(page, /Choose from available schedules/);
+  assert.match(page, /Request another date/);
+  assert.match(page, /Available schedules/);
+  assert.match(page, /Book this schedule/);
+  assert.match(page, /usePublicCourseSessions/);
+  assert.match(page, /bookingMode: "session"/);
   assert.match(page, /Sign in required/);
   assert.match(page, /Preferred date/);
+  assert.match(page, /PaymentMethodCustomerDisplay/);
+  assert.match(page, /school\.paymentMethods/);
+  assert.match(page, /activePaymentMethods/);
+  assert.match(paymentSetup, /Account number/);
+  assert.match(paymentSetup, /Payment QR image is not available yet/);
+  assert.doesNotMatch(paymentSetup, />manual_qr</);
+  assert.doesNotMatch(paymentSetup, />bank_transfer</);
+  assert.match(page, /not ready for online booking/);
   assert.match(page, /formatPeso\(course\.priceAmount\)/);
   assert.match(page, /SelectTrigger/);
   assert.match(page, /SelectValue/);
   assert.match(constants, /Pool training/);
   assert.match(constants, /Pending review/);
+  assert.match(constants, /Preferred date request/);
   assert.match(constants, /Not required/);
   assert.doesNotMatch(page, />pending_review</);
   assert.doesNotMatch(page, />pool_training</);

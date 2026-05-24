@@ -592,6 +592,11 @@ export const queryKeys = {
         "course",
         cleanString(courseSlug),
       ] as const,
+    publicCourseSessions: (slug: string, courseSlug: string) =>
+      [
+        ...queryKeys.schools.publicCourse(slug, courseSlug),
+        "sessions",
+      ] as const,
     myBookings: () => [...queryKeys.schools.all, "my-bookings"] as const,
     detail: (slug: string) =>
       [...queryKeys.schools.all, "detail", cleanString(slug)] as const,

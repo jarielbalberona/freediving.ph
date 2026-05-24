@@ -191,10 +191,7 @@ import {
   PaymentMethodsSetup,
 } from "@/features/payments/components/PaymentMethodsSetup";
 import { siteConfig } from "@/config/site";
-import {
-  dateStringToDate,
-  dateToDateString,
-} from "@/lib/date-picker-values";
+import { dateStringToDate, dateToDateString } from "@/lib/date-picker-values";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 import { formatPeso } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -408,9 +405,13 @@ export default function EventDetailClient({ slug }: { slug: string }) {
   const canSeePrivateDetails =
     event.visibility === "public" || event.viewerCanViewPrivateDetails;
   const paymentMethods = event.paymentMethods ?? [];
+  const activePaymentMethods = paymentMethods.filter(
+    (method) => method.isActive,
+  );
   const selectedPaymentMethod =
-    paymentMethods.find((method) => method.id === selectedPaymentMethodId) ??
-    paymentMethods[0];
+    activePaymentMethods.find(
+      (method) => method.id === selectedPaymentMethodId,
+    ) ?? activePaymentMethods[0];
   const canShowJoinPanel =
     !event.viewerCanManage &&
     !event.viewerJoined &&
@@ -863,7 +864,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
           <TabsContent value="payment" className="space-y-4">
             <PaymentTab
               event={event}
-              paymentMethods={paymentMethods}
+              paymentMethods={activePaymentMethods}
               selectedPaymentMethodId={selectedPaymentMethod?.id ?? ""}
               setSelectedPaymentMethodId={setSelectedPaymentMethodId}
               referenceNumber={referenceNumber}
@@ -1488,27 +1489,6 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
     );
   };
 
-  const updatePaymentMethod = (
-    paymentMethodId: string,
-    data: UpdateEventPaymentMethodRequest,
-    successMessage = "Payment method saved.",
-  ) => {
-    updatePaymentMethodMutation.mutate(
-      { eventId: event.id, paymentMethodId, data },
-      {
-        onSuccess: () => {
-          toast.success(successMessage);
-          void eventQuery.refetch();
-        },
-        onError: (error) => {
-          toast.error(
-            getApiErrorMessage(error, "Failed to update payment method"),
-          );
-        },
-      },
-    );
-  };
-
   return (
     <CommunityPageShell>
       <CommunityHeader
@@ -1598,7 +1578,6 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
               </div>
             </div>
           </DetailSection>
-
         </section>
 
         <DetailSection title="Payment methods">
@@ -1609,18 +1588,35 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
             mediaContextId={event.id}
             emptyDescription="Add Manual QR or bank transfer details after choosing a payment mode."
             onCreate={async (data) => {
-              await createPaymentMethodMutation.mutateAsync({
-                eventId: event.id,
-                data: data as CreateEventPaymentMethodRequest,
-              });
-              toast.success("Payment method added.");
-              void eventQuery.refetch();
+              try {
+                await createPaymentMethodMutation.mutateAsync({
+                  eventId: event.id,
+                  data: data as CreateEventPaymentMethodRequest,
+                });
+                toast.success("Payment method added.");
+                void eventQuery.refetch();
+              } catch (error) {
+                toast.error(
+                  getApiErrorMessage(error, "Failed to add payment method"),
+                );
+                throw error;
+              }
             }}
             onUpdate={async (paymentMethodId, data) => {
-              updatePaymentMethod(
-                paymentMethodId,
-                data as UpdateEventPaymentMethodRequest,
-              );
+              try {
+                await updatePaymentMethodMutation.mutateAsync({
+                  eventId: event.id,
+                  paymentMethodId,
+                  data: data as UpdateEventPaymentMethodRequest,
+                });
+                toast.success("Payment method saved.");
+                void eventQuery.refetch();
+              } catch (error) {
+                toast.error(
+                  getApiErrorMessage(error, "Failed to update payment method"),
+                );
+                throw error;
+              }
             }}
           />
         </DetailSection>

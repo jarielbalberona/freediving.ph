@@ -24,7 +24,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useUploadMultipleMedia } from "../hooks";
-import { mediaUploadSchema, type MediaUploadValues } from "../schemas/upload.schema";
+import {
+  mediaUploadSchema,
+  type MediaUploadValues,
+} from "../schemas/upload.schema";
 
 interface MediaUploadPanelProps {
   defaultContextType?: MediaContextType;
@@ -36,8 +39,13 @@ const CONTEXT_OPTIONS: { value: MediaContextType; label: string }[] = [
   { value: "profile_feed", label: "profile_feed" },
   { value: "chika_attachment", label: "chika_attachment" },
   { value: "event_attachment", label: "event_attachment" },
+  { value: "payment_method_qr", label: "payment_method_qr" },
   { value: "dive_spot_attachment", label: "dive_spot_attachment" },
   { value: "group_cover", label: "group_cover" },
+  {
+    value: "instructor_certification_proof",
+    label: "instructor_certification_proof",
+  },
 ];
 
 export function MediaUploadPanel({
@@ -77,7 +85,10 @@ export function MediaUploadPanel({
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
-                    items={CONTEXT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                    items={CONTEXT_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: o.label,
+                    }))}
                   >
                     <FormControl>
                       <SelectTrigger className="h-10 w-full">
@@ -123,7 +134,9 @@ export function MediaUploadPanel({
               type="file"
               multiple
               accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+              onChange={(event) =>
+                setFiles(Array.from(event.target.files ?? []))
+              }
             />
           </div>
 
@@ -131,7 +144,9 @@ export function MediaUploadPanel({
             type="submit"
             disabled={files.length === 0 || mutation.isPending}
           >
-            {mutation.isPending ? "Uploading..." : `Upload ${files.length || ""} file(s)`}
+            {mutation.isPending
+              ? "Uploading..."
+              : `Upload ${files.length || ""} file(s)`}
           </Button>
         </form>
       </Form>

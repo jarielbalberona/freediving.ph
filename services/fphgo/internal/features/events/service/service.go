@@ -816,7 +816,15 @@ func (s *Service) UpdatePaymentMethod(ctx context.Context, eventID, paymentMetho
 	}
 	input.PaymentMethodID = paymentMethodID
 	normalizeUpdatePaymentMethod(&input)
-	if err := validateUpdatePaymentMethod(input); err != nil {
+	currentMethods, err := s.repo.ListPaymentMethods(ctx, eventID, false)
+	if err != nil {
+		return eventsrepo.EventPaymentMethod{}, apperrors.New(http.StatusInternalServerError, "payment_methods_list_failed", "failed to list payment methods", err)
+	}
+	currentMethod, ok := findEventPaymentMethod(currentMethods, paymentMethodID)
+	if !ok {
+		return eventsrepo.EventPaymentMethod{}, apperrors.New(http.StatusNotFound, "payment_method_not_found", "payment method not found", nil)
+	}
+	if err := validateUpdatePaymentMethod(input, currentMethod); err != nil {
 		return eventsrepo.EventPaymentMethod{}, err
 	}
 	method, err := s.repo.UpdatePaymentMethod(ctx, eventID, input)
@@ -1635,7 +1643,7 @@ func normalizeUpdatePaymentMethod(input *eventsrepo.UpdatePaymentMethodInput) {
 	trimStringPtr(&input.BankName)
 }
 
-func validateUpdatePaymentMethod(input eventsrepo.UpdatePaymentMethodInput) error {
+func validateUpdatePaymentMethod(input eventsrepo.UpdatePaymentMethodInput, current eventsrepo.EventPaymentMethod) error {
 	if input.Type != nil && *input.Type == "" {
 		return ValidationFailure{Issues: []validatex.Issue{{
 			Path:    []any{"type"},
@@ -1646,32 +1654,45 @@ func validateUpdatePaymentMethod(input eventsrepo.UpdatePaymentMethodInput) erro
 	if input.Name != nil && *input.Name == "" {
 		input.Name = nil
 	}
-	if input.IsActive != nil && *input.IsActive && input.Type != nil {
-		createInput := eventsrepo.CreatePaymentMethodInput{Type: *input.Type, IsActive: true}
-		if input.Name != nil {
-			createInput.Name = *input.Name
-		}
-		if input.Instructions != nil {
-			createInput.Instructions = *input.Instructions
-		}
-		if input.QRMediaID != nil {
-			createInput.QRMediaID = *input.QRMediaID
-		}
-		if input.QRImageURL != nil {
-			createInput.QRImageURL = *input.QRImageURL
-		}
-		if input.BankName != nil {
-			createInput.BankName = *input.BankName
-		}
-		if input.AccountName != nil {
-			createInput.AccountName = *input.AccountName
-		}
-		if input.AccountNumber != nil {
-			createInput.AccountNumber = *input.AccountNumber
-		}
-		return validatePaymentMethod(createInput)
+	merged := eventsrepo.CreatePaymentMethodInput{
+		Type:          current.Type,
+		Name:          current.Name,
+		Instructions:  current.Instructions,
+		QRMediaID:     current.QRMediaID,
+		QRImageURL:    current.QRImageURL,
+		AccountName:   current.AccountName,
+		AccountNumber: current.AccountNumber,
+		BankName:      current.BankName,
+		IsActive:      current.IsActive,
 	}
-	return nil
+	if input.Type != nil {
+		merged.Type = *input.Type
+	}
+	if input.Name != nil {
+		merged.Name = *input.Name
+	}
+	if input.Instructions != nil {
+		merged.Instructions = *input.Instructions
+	}
+	if input.QRMediaID != nil {
+		merged.QRMediaID = *input.QRMediaID
+	}
+	if input.QRImageURL != nil {
+		merged.QRImageURL = *input.QRImageURL
+	}
+	if input.BankName != nil {
+		merged.BankName = *input.BankName
+	}
+	if input.AccountName != nil {
+		merged.AccountName = *input.AccountName
+	}
+	if input.AccountNumber != nil {
+		merged.AccountNumber = *input.AccountNumber
+	}
+	if input.IsActive != nil {
+		merged.IsActive = *input.IsActive
+	}
+	return validatePaymentMethod(merged)
 }
 
 func validatePaymentMethod(input eventsrepo.CreatePaymentMethodInput) error {
@@ -1681,13 +1702,22 @@ func validatePaymentMethod(input eventsrepo.CreatePaymentMethodInput) error {
 	if !input.IsActive {
 		return nil
 	}
-	if input.Type == "manual_qr" && input.QRMediaID == "" && input.QRImageURL == "" {
+	if input.Type == "manual_qr" && input.QRMediaID == "" {
 		return validationIssue("qrMediaId", "required", "Upload a QR image before activating this payment method")
 	}
 	if input.Type == "bank_transfer" && (input.BankName == "" || input.AccountName == "" || input.AccountNumber == "") {
 		return validationIssue("bankName", "required", "Bank transfer requires bank name, account name, and account number")
 	}
 	return nil
+}
+
+func findEventPaymentMethod(items []eventsrepo.EventPaymentMethod, paymentMethodID string) (eventsrepo.EventPaymentMethod, bool) {
+	for _, item := range items {
+		if item.ID == paymentMethodID {
+			return item, true
+		}
+	}
+	return eventsrepo.EventPaymentMethod{}, false
 }
 
 func validationIssue(path, code, message string) ValidationFailure {

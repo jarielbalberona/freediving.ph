@@ -16,6 +16,7 @@ import type {
   MyCourseBooking,
   PublicCourse,
   PublicCourseFilters,
+  PublicCourseSession,
   PublicSchool,
   PublicSchoolFilters,
   School,
@@ -28,7 +29,9 @@ import type {
 
 const paramsFrom = (filters: object = {}) => {
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(
+    filters as Record<string, unknown>,
+  )) {
     if (value !== undefined && value !== null && `${value}`.trim() !== "") {
       params.set(key, `${value}`);
     }
@@ -59,7 +62,9 @@ export const schoolsApi = {
     const response = await axiosInstance.get<{
       school: PublicSchool;
       courses: PublicCourse[];
-    }>(`/v1/schools/${encodeURIComponent(slug)}/courses${paramsFrom(filters ?? {})}`);
+    }>(
+      `/v1/schools/${encodeURIComponent(slug)}/courses${paramsFrom(filters ?? {})}`,
+    );
     return response.data;
   },
   getPublicCourse: async (
@@ -73,6 +78,17 @@ export const schoolsApi = {
       `/v1/schools/${encodeURIComponent(slug)}/courses/${encodeURIComponent(courseSlug)}`,
     );
     return response.data;
+  },
+  listPublicCourseSessions: async (
+    slug: string,
+    courseSlug: string,
+  ): Promise<PublicCourseSession[]> => {
+    const response = await axiosInstance.get<{
+      sessions: PublicCourseSession[];
+    }>(
+      `/v1/schools/${encodeURIComponent(slug)}/courses/${encodeURIComponent(courseSlug)}/sessions`,
+    );
+    return response.data.sessions;
   },
   createStudentBooking: async (
     slug: string,

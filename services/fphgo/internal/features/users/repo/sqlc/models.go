@@ -564,6 +564,7 @@ type EventPaymentMethod struct {
 	Type          string             `db:"type" json:"type"`
 	Name          string             `db:"name" json:"name"`
 	Instructions  *string            `db:"instructions" json:"instructions"`
+	QrMediaID     pgtype.UUID        `db:"qr_media_id" json:"qr_media_id"`
 	QrImageUrl    *string            `db:"qr_image_url" json:"qr_image_url"`
 	AccountName   *string            `db:"account_name" json:"account_name"`
 	AccountNumber *string            `db:"account_number" json:"account_number"`
@@ -1160,6 +1161,22 @@ type SchoolMember struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+type SchoolPaymentMethod struct {
+	ID            pgtype.UUID        `db:"id" json:"id"`
+	SchoolID      pgtype.UUID        `db:"school_id" json:"school_id"`
+	Type          string             `db:"type" json:"type"`
+	Name          string             `db:"name" json:"name"`
+	Instructions  *string            `db:"instructions" json:"instructions"`
+	QrMediaID     pgtype.UUID        `db:"qr_media_id" json:"qr_media_id"`
+	BankName      *string            `db:"bank_name" json:"bank_name"`
+	AccountName   *string            `db:"account_name" json:"account_name"`
+	AccountNumber *string            `db:"account_number" json:"account_number"`
+	IsActive      bool               `db:"is_active" json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt     pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
 type ThreadMessage struct {

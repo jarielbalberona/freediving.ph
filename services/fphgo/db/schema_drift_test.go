@@ -64,6 +64,29 @@ func TestSchemaMatchesMigrations(t *testing.T) {
 	}
 }
 
+func TestSharedPaymentMethodsMigrationKeepsBookingRemapAfterFKDrop(t *testing.T) {
+	raw, err := os.ReadFile("migrations/0075_shared_payment_methods.sql")
+	if err != nil {
+		t.Fatalf("read payment migration: %v", err)
+	}
+	upSQL := extractGooseUpSQL(string(raw))
+	dropIdx := strings.Index(upSQL, "DROP CONSTRAINT IF EXISTS course_booking_payments_payment_method_id_fkey")
+	updateIdx := strings.Index(upSQL, "UPDATE course_booking_payments bp")
+	addIdx := strings.Index(upSQL, "REFERENCES school_payment_methods(id)")
+	if dropIdx == -1 || updateIdx == -1 || addIdx == -1 {
+		t.Fatalf("payment migration is missing FK drop, booking remap, or school FK add")
+	}
+	if !(dropIdx < updateIdx && updateIdx < addIdx) {
+		t.Fatalf("payment migration must drop old FK before remapping booking payments and add school FK after remap")
+	}
+	if !strings.Contains(upSQL, "event_payment_methods_active_details_check") {
+		t.Fatalf("payment migration must guard active event payment methods")
+	}
+	if !strings.Contains(upSQL, "NOT is_active") || !strings.Contains(upSQL, "type = 'manual_qr' AND qr_media_id IS NOT NULL") {
+		t.Fatalf("payment migration must guard active school payment methods")
+	}
+}
+
 func extractGooseUpSQL(migration string) string {
 	upIdx := strings.Index(migration, "-- +goose Up")
 	if upIdx == -1 {

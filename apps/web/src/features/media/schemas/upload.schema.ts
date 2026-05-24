@@ -6,6 +6,7 @@ export const mediaUploadSchema = z.object({
     "profile_feed",
     "chika_attachment",
     "event_attachment",
+    "payment_method_qr",
     "dive_spot_attachment",
     "group_cover",
     "instructor_certification_proof",

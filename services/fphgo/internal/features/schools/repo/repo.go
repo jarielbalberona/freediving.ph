@@ -80,6 +80,8 @@ type Course struct {
 	Currency                   string
 	PaymentRequired            bool
 	ApprovalRequired           bool
+	AllowSessionBooking        bool
+	AllowPreferredDateRequest  bool
 	LocationMode               string
 	LocationLabel              string
 	LocationNote               string
@@ -169,6 +171,7 @@ type Booking struct {
 	StudentName        string
 	StudentEmail       string
 	StudentPhone       string
+	BookingMode        string
 	PreferredDate      time.Time
 	AlternateDate      *time.Time
 	Status             string
@@ -220,6 +223,8 @@ type CreateCourseInput struct {
 	PriceAmount                                                                                                                                                                                                                                                                                                                                                                                             *float64
 	PaymentRequired                                                                                                                                                                                                                                                                                                                                                                                         bool
 	ApprovalRequired                                                                                                                                                                                                                                                                                                                                                                                        bool
+	AllowSessionBooking                                                                                                                                                                                                                                                                                                                                                                                     bool
+	AllowPreferredDateRequest                                                                                                                                                                                                                                                                                                                                                                               bool
 }
 
 type UpdateCourseInput = CreateCourseInput
@@ -238,9 +243,9 @@ type CreateSessionInput struct {
 type UpdateSessionInput = CreateSessionInput
 
 type CreateBookingInput struct {
-	CourseID, SessionID, StudentUserID, StudentName, StudentEmail, StudentPhone, Status, StudentNote, ExperienceLevel, CertificationLevel, EquipmentNeeds, AdminNotes string
-	PreferredDate                                                                                                                                                     time.Time
-	AlternateDate                                                                                                                                                     *time.Time
+	CourseID, SessionID, StudentUserID, StudentName, StudentEmail, StudentPhone, BookingMode, Status, StudentNote, ExperienceLevel, CertificationLevel, EquipmentNeeds, AdminNotes string
+	PreferredDate                                                                                                                                                                  time.Time
+	AlternateDate                                                                                                                                                                  *time.Time
 }
 
 type UpdateBookingInput = CreateBookingInput
@@ -251,8 +256,8 @@ type ListSessionsInput struct {
 }
 
 type ListBookingsInput struct {
-	CourseID, SessionID, Status, PaymentStatus, Search string
-	PreferredDateFrom, PreferredDateTo                 *time.Time
+	CourseID, SessionID, BookingMode, Status, PaymentStatus, Search string
+	PreferredDateFrom, PreferredDateTo                              *time.Time
 }
 
 type BookingNotificationEvent struct {
@@ -471,10 +476,10 @@ func (r *Repo) CreateCourse(ctx context.Context, schoolID string, input CreateCo
 			slug = fmt.Sprintf("%s-%d", base, attempt+1)
 		}
 		row := r.pool.QueryRow(ctx, `
-			INSERT INTO courses (school_id,slug,title,short_description,description_markdown,course_type,level,duration_label,price_amount,currency,payment_required,approval_required,location_mode,location_label,location_note,formatted_address,region_code,region_name,province_code,province_name,city_code,city_name,barangay_code,barangay_name,location_source,dive_site_id,included_markdown,prerequisites_markdown,equipment_markdown,cancellation_policy_markdown,availability_note,status)
-			VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),NULLIF($8,''),$9,$10,$11,$12,$13,NULLIF($14,''),NULLIF($15,''),NULLIF($16,''),NULLIF($17,''),NULLIF($18,''),NULLIF($19,''),NULLIF($20,''),NULLIF($21,''),NULLIF($22,''),NULLIF($23,''),NULLIF($24,''),$25,NULLIF($26,'')::uuid,NULLIF($27,''),NULLIF($28,''),NULLIF($29,''),NULLIF($30,''),NULLIF($31,''),$32)
-			RETURNING id,school_id,slug,title,short_description,description_markdown,course_type,COALESCE(level,''),COALESCE(duration_label,''),price_amount::float8,currency,payment_required,approval_required,location_mode,COALESCE(location_label,''),COALESCE(location_note,''),COALESCE(formatted_address,''),COALESCE(region_code,''),COALESCE(region_name,''),COALESCE(province_code,''),COALESCE(province_name,''),COALESCE(city_code,''),COALESCE(city_name,''),COALESCE(barangay_code,''),COALESCE(barangay_name,''),COALESCE(location_source,'manual'),COALESCE(dive_site_id::text,''),COALESCE(included_markdown,''),COALESCE(prerequisites_markdown,''),COALESCE(equipment_markdown,''),COALESCE(cancellation_policy_markdown,''),COALESCE(availability_note,''),status,created_at,updated_at,0,0`,
-			schoolID, slug, input.Title, input.ShortDescription, input.DescriptionMarkdown, input.CourseType, input.Level, input.DurationLabel, input.PriceAmount, input.Currency, input.PaymentRequired, input.ApprovalRequired, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.IncludedMarkdown, input.PrerequisitesMarkdown, input.EquipmentMarkdown, input.CancellationPolicyMarkdown, input.AvailabilityNote, input.Status)
+			INSERT INTO courses (school_id,slug,title,short_description,description_markdown,course_type,level,duration_label,price_amount,currency,payment_required,approval_required,allow_session_booking,allow_preferred_date_request,location_mode,location_label,location_note,formatted_address,region_code,region_name,province_code,province_name,city_code,city_name,barangay_code,barangay_name,location_source,dive_site_id,included_markdown,prerequisites_markdown,equipment_markdown,cancellation_policy_markdown,availability_note,status)
+			VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),NULLIF($8,''),$9,$10,$11,$12,$13,$14,$15,NULLIF($16,''),NULLIF($17,''),NULLIF($18,''),NULLIF($19,''),NULLIF($20,''),NULLIF($21,''),NULLIF($22,''),NULLIF($23,''),NULLIF($24,''),NULLIF($25,''),NULLIF($26,''),$27,NULLIF($28,'')::uuid,NULLIF($29,''),NULLIF($30,''),NULLIF($31,''),NULLIF($32,''),NULLIF($33,''),$34)
+			RETURNING id,school_id,slug,title,short_description,description_markdown,course_type,COALESCE(level,''),COALESCE(duration_label,''),price_amount::float8,currency,payment_required,approval_required,allow_session_booking,allow_preferred_date_request,location_mode,COALESCE(location_label,''),COALESCE(location_note,''),COALESCE(formatted_address,''),COALESCE(region_code,''),COALESCE(region_name,''),COALESCE(province_code,''),COALESCE(province_name,''),COALESCE(city_code,''),COALESCE(city_name,''),COALESCE(barangay_code,''),COALESCE(barangay_name,''),COALESCE(location_source,'manual'),COALESCE(dive_site_id::text,''),COALESCE(included_markdown,''),COALESCE(prerequisites_markdown,''),COALESCE(equipment_markdown,''),COALESCE(cancellation_policy_markdown,''),COALESCE(availability_note,''),status,created_at,updated_at,0,0`,
+			schoolID, slug, input.Title, input.ShortDescription, input.DescriptionMarkdown, input.CourseType, input.Level, input.DurationLabel, input.PriceAmount, input.Currency, input.PaymentRequired, input.ApprovalRequired, input.AllowSessionBooking, input.AllowPreferredDateRequest, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.IncludedMarkdown, input.PrerequisitesMarkdown, input.EquipmentMarkdown, input.CancellationPolicyMarkdown, input.AvailabilityNote, input.Status)
 		item, err := scanCourse(row)
 		if err == nil {
 			return item, nil
@@ -498,10 +503,10 @@ func (r *Repo) UpdateCourse(ctx context.Context, schoolID, idOrSlug string, inpu
 		return Course{}, err
 	}
 	row := r.pool.QueryRow(ctx, `
-		UPDATE courses SET title=$3, short_description=$4, description_markdown=$5, course_type=$6, level=NULLIF($7,''), duration_label=NULLIF($8,''), price_amount=$9, currency=$10, payment_required=$11, approval_required=$12, location_mode=$13, location_label=NULLIF($14,''), location_note=NULLIF($15,''), formatted_address=NULLIF($16,''), region_code=NULLIF($17,''), region_name=NULLIF($18,''), province_code=NULLIF($19,''), province_name=NULLIF($20,''), city_code=NULLIF($21,''), city_name=NULLIF($22,''), barangay_code=NULLIF($23,''), barangay_name=NULLIF($24,''), location_source=$25, dive_site_id=NULLIF($26,'')::uuid, included_markdown=NULLIF($27,''), prerequisites_markdown=NULLIF($28,''), equipment_markdown=NULLIF($29,''), cancellation_policy_markdown=NULLIF($30,''), availability_note=NULLIF($31,''), status=$32, updated_at=NOW()
+		UPDATE courses SET title=$3, short_description=$4, description_markdown=$5, course_type=$6, level=NULLIF($7,''), duration_label=NULLIF($8,''), price_amount=$9, currency=$10, payment_required=$11, approval_required=$12, allow_session_booking=$13, allow_preferred_date_request=$14, location_mode=$15, location_label=NULLIF($16,''), location_note=NULLIF($17,''), formatted_address=NULLIF($18,''), region_code=NULLIF($19,''), region_name=NULLIF($20,''), province_code=NULLIF($21,''), province_name=NULLIF($22,''), city_code=NULLIF($23,''), city_name=NULLIF($24,''), barangay_code=NULLIF($25,''), barangay_name=NULLIF($26,''), location_source=$27, dive_site_id=NULLIF($28,'')::uuid, included_markdown=NULLIF($29,''), prerequisites_markdown=NULLIF($30,''), equipment_markdown=NULLIF($31,''), cancellation_policy_markdown=NULLIF($32,''), availability_note=NULLIF($33,''), status=$34, updated_at=NOW()
 		WHERE id=$1 AND school_id=$2 AND deleted_at IS NULL
-		RETURNING id,school_id,slug,title,short_description,description_markdown,course_type,COALESCE(level,''),COALESCE(duration_label,''),price_amount::float8,currency,payment_required,approval_required,location_mode,COALESCE(location_label,''),COALESCE(location_note,''),COALESCE(formatted_address,''),COALESCE(region_code,''),COALESCE(region_name,''),COALESCE(province_code,''),COALESCE(province_name,''),COALESCE(city_code,''),COALESCE(city_name,''),COALESCE(barangay_code,''),COALESCE(barangay_name,''),COALESCE(location_source,'manual'),COALESCE(dive_site_id::text,''),COALESCE(included_markdown,''),COALESCE(prerequisites_markdown,''),COALESCE(equipment_markdown,''),COALESCE(cancellation_policy_markdown,''),COALESCE(availability_note,''),status,created_at,updated_at,0,0`,
-		course.ID, schoolID, input.Title, input.ShortDescription, input.DescriptionMarkdown, input.CourseType, input.Level, input.DurationLabel, input.PriceAmount, input.Currency, input.PaymentRequired, input.ApprovalRequired, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.IncludedMarkdown, input.PrerequisitesMarkdown, input.EquipmentMarkdown, input.CancellationPolicyMarkdown, input.AvailabilityNote, input.Status)
+		RETURNING id,school_id,slug,title,short_description,description_markdown,course_type,COALESCE(level,''),COALESCE(duration_label,''),price_amount::float8,currency,payment_required,approval_required,allow_session_booking,allow_preferred_date_request,location_mode,COALESCE(location_label,''),COALESCE(location_note,''),COALESCE(formatted_address,''),COALESCE(region_code,''),COALESCE(region_name,''),COALESCE(province_code,''),COALESCE(province_name,''),COALESCE(city_code,''),COALESCE(city_name,''),COALESCE(barangay_code,''),COALESCE(barangay_name,''),COALESCE(location_source,'manual'),COALESCE(dive_site_id::text,''),COALESCE(included_markdown,''),COALESCE(prerequisites_markdown,''),COALESCE(equipment_markdown,''),COALESCE(cancellation_policy_markdown,''),COALESCE(availability_note,''),status,created_at,updated_at,0,0`,
+		course.ID, schoolID, input.Title, input.ShortDescription, input.DescriptionMarkdown, input.CourseType, input.Level, input.DurationLabel, input.PriceAmount, input.Currency, input.PaymentRequired, input.ApprovalRequired, input.AllowSessionBooking, input.AllowPreferredDateRequest, input.LocationMode, input.LocationLabel, input.LocationNote, input.FormattedAddress, input.RegionCode, input.RegionName, input.ProvinceCode, input.ProvinceName, input.CityCode, input.CityName, input.BarangayCode, input.BarangayName, input.LocationSource, input.DiveSiteID, input.IncludedMarkdown, input.PrerequisitesMarkdown, input.EquipmentMarkdown, input.CancellationPolicyMarkdown, input.AvailabilityNote, input.Status)
 	return scanCourse(row)
 }
 
@@ -687,6 +692,10 @@ func (r *Repo) ListBookings(ctx context.Context, schoolID string, input ListBook
 		args = append(args, input.SessionID)
 		where = append(where, fmt.Sprintf("b.session_id::text=$%d", len(args)))
 	}
+	if input.BookingMode != "" {
+		args = append(args, input.BookingMode)
+		where = append(where, fmt.Sprintf("b.booking_mode=$%d", len(args)))
+	}
 	if input.Status != "" {
 		args = append(args, input.Status)
 		where = append(where, fmt.Sprintf("b.status=$%d", len(args)))
@@ -729,7 +738,7 @@ func (r *Repo) CreateBooking(ctx context.Context, schoolID string, input CreateB
 		return Booking{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	row := tx.QueryRow(ctx, `INSERT INTO course_booking_requests (school_id,course_id,session_id,student_user_id,student_name,student_email,student_phone,preferred_date,alternate_date,status,student_note,experience_level,certification_level,equipment_needs,admin_notes,scheduled_at) VALUES ($1,$2,NULLIF($3,'')::uuid,NULLIF($4,'')::uuid,NULLIF($5,''),NULLIF($6,''),NULLIF($7,''),$8,$9,$10,NULLIF($11,''),NULLIF($12,''),NULLIF($13,''),NULLIF($14,''),NULLIF($15,''),CASE WHEN $10='scheduled' THEN NOW() ELSE NULL END) RETURNING id`, schoolID, input.CourseID, input.SessionID, input.StudentUserID, input.StudentName, input.StudentEmail, input.StudentPhone, input.PreferredDate, input.AlternateDate, input.Status, input.StudentNote, input.ExperienceLevel, input.CertificationLevel, input.EquipmentNeeds, input.AdminNotes)
+	row := tx.QueryRow(ctx, `INSERT INTO course_booking_requests (school_id,course_id,session_id,student_user_id,student_name,student_email,student_phone,booking_mode,preferred_date,alternate_date,status,student_note,experience_level,certification_level,equipment_needs,admin_notes,scheduled_at) VALUES ($1,$2,NULLIF($3,'')::uuid,NULLIF($4,'')::uuid,NULLIF($5,''),NULLIF($6,''),NULLIF($7,''),$8,NULLIF($9::date, DATE '0001-01-01'),$10,$11,NULLIF($12,''),NULLIF($13,''),NULLIF($14,''),NULLIF($15,''),NULLIF($16,''),CASE WHEN $11='scheduled' THEN NOW() ELSE NULL END) RETURNING id`, schoolID, input.CourseID, input.SessionID, input.StudentUserID, input.StudentName, input.StudentEmail, input.StudentPhone, input.BookingMode, input.PreferredDate, input.AlternateDate, input.Status, input.StudentNote, input.ExperienceLevel, input.CertificationLevel, input.EquipmentNeeds, input.AdminNotes)
 	var id string
 	if err := row.Scan(&id); err != nil {
 		return Booking{}, err
@@ -762,7 +771,7 @@ func (r *Repo) UpdateBooking(ctx context.Context, schoolID, bookingID string, in
 		return Booking{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	_, err = tx.Exec(ctx, `UPDATE course_booking_requests SET course_id=$3,session_id=NULLIF($4,'')::uuid,student_user_id=NULLIF($5,'')::uuid,student_name=NULLIF($6,''),student_email=NULLIF($7,''),student_phone=NULLIF($8,''),preferred_date=$9,alternate_date=$10,status=$11,student_note=NULLIF($12,''),experience_level=NULLIF($13,''),certification_level=NULLIF($14,''),equipment_needs=NULLIF($15,''),admin_notes=NULLIF($16,''),updated_at=NOW(),scheduled_at=CASE WHEN $11='scheduled' AND scheduled_at IS NULL THEN NOW() ELSE scheduled_at END WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, bookingID, input.CourseID, input.SessionID, input.StudentUserID, input.StudentName, input.StudentEmail, input.StudentPhone, input.PreferredDate, input.AlternateDate, input.Status, input.StudentNote, input.ExperienceLevel, input.CertificationLevel, input.EquipmentNeeds, input.AdminNotes)
+	_, err = tx.Exec(ctx, `UPDATE course_booking_requests SET course_id=$3,session_id=NULLIF($4,'')::uuid,student_user_id=NULLIF($5,'')::uuid,student_name=NULLIF($6,''),student_email=NULLIF($7,''),student_phone=NULLIF($8,''),booking_mode=$9,preferred_date=NULLIF($10::date, DATE '0001-01-01'),alternate_date=$11,status=$12,student_note=NULLIF($13,''),experience_level=NULLIF($14,''),certification_level=NULLIF($15,''),equipment_needs=NULLIF($16,''),admin_notes=NULLIF($17,''),updated_at=NOW(),scheduled_at=CASE WHEN $12='scheduled' AND scheduled_at IS NULL THEN NOW() ELSE scheduled_at END WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, bookingID, input.CourseID, input.SessionID, input.StudentUserID, input.StudentName, input.StudentEmail, input.StudentPhone, input.BookingMode, input.PreferredDate, input.AlternateDate, input.Status, input.StudentNote, input.ExperienceLevel, input.CertificationLevel, input.EquipmentNeeds, input.AdminNotes)
 	if err != nil {
 		return Booking{}, err
 	}
@@ -974,6 +983,30 @@ func (r *Repo) GetPublicCourse(ctx context.Context, schoolID, slug string) (Cour
 	return scanCourse(row)
 }
 
+func (r *Repo) ListPublicCourseSessions(ctx context.Context, schoolID, courseID string) ([]Session, error) {
+	rows, err := r.pool.Query(ctx, sessionSelect()+`
+		WHERE s.school_id=$1
+		  AND s.course_id=$2
+		  AND s.deleted_at IS NULL
+		  AND s.status='scheduled'
+		  AND s.starts_at >= NOW()
+		GROUP BY s.id,c.title,u.display_name
+		ORDER BY s.starts_at ASC`, schoolID, courseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Session
+	for rows.Next() {
+		item, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 func (r *Repo) ListMyBookings(ctx context.Context, userID string) ([]Booking, error) {
 	rows, err := r.pool.Query(ctx, bookingSelect()+" WHERE b.student_user_id=$1 AND b.deleted_at IS NULL ORDER BY b.created_at DESC", userID)
 	if err != nil {
@@ -1024,15 +1057,15 @@ func (r *Repo) CancelMyBooking(ctx context.Context, userID, bookingID string) (B
 }
 
 func courseSelect() string {
-	return `SELECT c.id,c.school_id,c.slug,c.title,c.short_description,c.description_markdown,c.course_type,COALESCE(c.level,''),COALESCE(c.duration_label,''),c.price_amount::float8,c.currency,c.payment_required,c.approval_required,c.location_mode,COALESCE(c.location_label,''),COALESCE(c.location_note,''),COALESCE(c.formatted_address,''),COALESCE(c.region_code,''),COALESCE(c.region_name,''),COALESCE(c.province_code,''),COALESCE(c.province_name,''),COALESCE(c.city_code,''),COALESCE(c.city_name,''),COALESCE(c.barangay_code,''),COALESCE(c.barangay_name,''),COALESCE(c.location_source,'manual'),COALESCE(c.dive_site_id::text,''),COALESCE(c.included_markdown,''),COALESCE(c.prerequisites_markdown,''),COALESCE(c.equipment_markdown,''),COALESCE(c.cancellation_policy_markdown,''),COALESCE(c.availability_note,''),c.status,c.created_at,c.updated_at,COUNT(DISTINCT s.id) FILTER (WHERE s.deleted_at IS NULL AND s.starts_at >= NOW() AND s.status IN ('draft','scheduled'))::int,COUNT(DISTINCT b.id) FILTER (WHERE b.deleted_at IS NULL AND b.status = 'pending_review')::int FROM courses c LEFT JOIN course_sessions s ON s.course_id=c.id LEFT JOIN course_booking_requests b ON b.course_id=c.id`
+	return `SELECT c.id,c.school_id,c.slug,c.title,c.short_description,c.description_markdown,c.course_type,COALESCE(c.level,''),COALESCE(c.duration_label,''),c.price_amount::float8,c.currency,c.payment_required,c.approval_required,c.allow_session_booking,c.allow_preferred_date_request,c.location_mode,COALESCE(c.location_label,''),COALESCE(c.location_note,''),COALESCE(c.formatted_address,''),COALESCE(c.region_code,''),COALESCE(c.region_name,''),COALESCE(c.province_code,''),COALESCE(c.province_name,''),COALESCE(c.city_code,''),COALESCE(c.city_name,''),COALESCE(c.barangay_code,''),COALESCE(c.barangay_name,''),COALESCE(c.location_source,'manual'),COALESCE(c.dive_site_id::text,''),COALESCE(c.included_markdown,''),COALESCE(c.prerequisites_markdown,''),COALESCE(c.equipment_markdown,''),COALESCE(c.cancellation_policy_markdown,''),COALESCE(c.availability_note,''),c.status,c.created_at,c.updated_at,COUNT(DISTINCT s.id) FILTER (WHERE s.deleted_at IS NULL AND s.starts_at >= NOW() AND s.status IN ('draft','scheduled'))::int,COUNT(DISTINCT b.id) FILTER (WHERE b.deleted_at IS NULL AND b.status = 'pending_review')::int FROM courses c LEFT JOIN course_sessions s ON s.course_id=c.id LEFT JOIN course_booking_requests b ON b.course_id=c.id`
 }
 
 func sessionSelect() string {
-	return `SELECT s.id,s.school_id,s.course_id,c.title,s.slug,s.title,s.starts_at,s.ends_at,s.timezone,s.location_mode,COALESCE(s.location_label,''),COALESCE(s.location_note,''),COALESCE(s.formatted_address,''),COALESCE(s.region_code,''),COALESCE(s.region_name,''),COALESCE(s.province_code,''),COALESCE(s.province_name,''),COALESCE(s.city_code,''),COALESCE(s.city_name,''),COALESCE(s.barangay_code,''),COALESCE(s.barangay_name,''),COALESCE(s.location_source,'manual'),COALESCE(s.dive_site_id::text,''),COALESCE(s.instructor_user_id::text,''),COALESCE(u.display_name,''),s.capacity,s.status,COALESCE(s.notes_markdown,''),s.created_at,s.updated_at,s.cancelled_at,s.completed_at,COUNT(b.id) FILTER (WHERE b.deleted_at IS NULL)::int FROM course_sessions s JOIN courses c ON c.id=s.course_id LEFT JOIN users u ON u.id=s.instructor_user_id LEFT JOIN course_booking_requests b ON b.session_id=s.id`
+	return `SELECT s.id,s.school_id,s.course_id,c.title,s.slug,s.title,s.starts_at,s.ends_at,s.timezone,s.location_mode,COALESCE(s.location_label,''),COALESCE(s.location_note,''),COALESCE(s.formatted_address,''),COALESCE(s.region_code,''),COALESCE(s.region_name,''),COALESCE(s.province_code,''),COALESCE(s.province_name,''),COALESCE(s.city_code,''),COALESCE(s.city_name,''),COALESCE(s.barangay_code,''),COALESCE(s.barangay_name,''),COALESCE(s.location_source,'manual'),COALESCE(s.dive_site_id::text,''),COALESCE(s.instructor_user_id::text,''),COALESCE(u.display_name,''),s.capacity,s.status,COALESCE(s.notes_markdown,''),s.created_at,s.updated_at,s.cancelled_at,s.completed_at,COUNT(b.id) FILTER (WHERE b.deleted_at IS NULL AND b.status IN ('pending_review','approved','scheduled'))::int FROM course_sessions s JOIN courses c ON c.id=s.course_id LEFT JOIN users u ON u.id=s.instructor_user_id LEFT JOIN course_booking_requests b ON b.session_id=s.id`
 }
 
 func bookingSelect() string {
-	return `SELECT b.id,b.course_id,c.title,b.school_id,COALESCE(b.session_id::text,''),COALESCE(s.title,''),COALESCE(b.student_user_id::text,''),COALESCE(b.student_name,''),COALESCE(b.student_email,''),COALESCE(b.student_phone,''),b.preferred_date,b.alternate_date,b.status,COALESCE(b.student_note,''),COALESCE(b.experience_level,''),COALESCE(b.certification_level,''),COALESCE(b.equipment_needs,''),COALESCE(b.admin_notes,''),b.created_at,b.updated_at,b.reviewed_at,COALESCE(b.reviewed_by::text,''),b.scheduled_at,b.cancelled_at,b.completed_at,bp.id,bp.booking_id,bp.course_id,bp.school_id,COALESCE(bp.student_user_id::text,''),COALESCE(bp.payment_method_id::text,''),bp.amount::float8,bp.currency,COALESCE(bp.proof_media_id::text,''),COALESCE(bp.reference_number,''),bp.status,COALESCE(bp.reviewed_by::text,''),bp.reviewed_at,COALESCE(bp.review_notes,''),bp.created_at,bp.updated_at FROM course_booking_requests b JOIN courses c ON c.id=b.course_id LEFT JOIN course_sessions s ON s.id=b.session_id LEFT JOIN course_booking_payments bp ON bp.booking_id=b.id AND bp.deleted_at IS NULL`
+	return `SELECT b.id,b.course_id,c.title,b.school_id,COALESCE(b.session_id::text,''),COALESCE(s.title,''),COALESCE(b.student_user_id::text,''),COALESCE(b.student_name,''),COALESCE(b.student_email,''),COALESCE(b.student_phone,''),b.booking_mode,COALESCE(b.preferred_date, DATE '0001-01-01'),b.alternate_date,b.status,COALESCE(b.student_note,''),COALESCE(b.experience_level,''),COALESCE(b.certification_level,''),COALESCE(b.equipment_needs,''),COALESCE(b.admin_notes,''),b.created_at,b.updated_at,b.reviewed_at,COALESCE(b.reviewed_by::text,''),b.scheduled_at,b.cancelled_at,b.completed_at,bp.id,COALESCE(bp.booking_id::text,''),COALESCE(bp.course_id::text,''),COALESCE(bp.school_id::text,''),COALESCE(bp.student_user_id::text,''),COALESCE(bp.payment_method_id::text,''),bp.amount::float8,COALESCE(bp.currency,''),COALESCE(bp.proof_media_id::text,''),COALESCE(bp.reference_number,''),COALESCE(bp.status,''),COALESCE(bp.reviewed_by::text,''),bp.reviewed_at,COALESCE(bp.review_notes,''),COALESCE(bp.created_at, TIMESTAMPTZ '0001-01-01 00:00:00+00'),COALESCE(bp.updated_at, TIMESTAMPTZ '0001-01-01 00:00:00+00') FROM course_booking_requests b JOIN courses c ON c.id=b.course_id LEFT JOIN course_sessions s ON s.id=b.session_id LEFT JOIN course_booking_payments bp ON bp.booking_id=b.id AND bp.deleted_at IS NULL`
 }
 
 func getSessionWithExecutor(ctx context.Context, exec queryExecutor, schoolID, idOrSlug string) (Session, error) {
@@ -1161,7 +1194,7 @@ func scanSchoolInto(s scanner, item *School) error {
 }
 func scanCourse(s scanner) (Course, error) {
 	var item Course
-	err := s.Scan(&item.ID, &item.SchoolID, &item.Slug, &item.Title, &item.ShortDescription, &item.DescriptionMarkdown, &item.CourseType, &item.Level, &item.DurationLabel, &item.PriceAmount, &item.Currency, &item.PaymentRequired, &item.ApprovalRequired, &item.LocationMode, &item.LocationLabel, &item.LocationNote, &item.FormattedAddress, &item.RegionCode, &item.RegionName, &item.ProvinceCode, &item.ProvinceName, &item.CityCode, &item.CityName, &item.BarangayCode, &item.BarangayName, &item.LocationSource, &item.DiveSiteID, &item.IncludedMarkdown, &item.PrerequisitesMarkdown, &item.EquipmentMarkdown, &item.CancellationPolicyMarkdown, &item.AvailabilityNote, &item.Status, &item.CreatedAt, &item.UpdatedAt, &item.UpcomingSessionCount, &item.PendingBookingCount)
+	err := s.Scan(&item.ID, &item.SchoolID, &item.Slug, &item.Title, &item.ShortDescription, &item.DescriptionMarkdown, &item.CourseType, &item.Level, &item.DurationLabel, &item.PriceAmount, &item.Currency, &item.PaymentRequired, &item.ApprovalRequired, &item.AllowSessionBooking, &item.AllowPreferredDateRequest, &item.LocationMode, &item.LocationLabel, &item.LocationNote, &item.FormattedAddress, &item.RegionCode, &item.RegionName, &item.ProvinceCode, &item.ProvinceName, &item.CityCode, &item.CityName, &item.BarangayCode, &item.BarangayName, &item.LocationSource, &item.DiveSiteID, &item.IncludedMarkdown, &item.PrerequisitesMarkdown, &item.EquipmentMarkdown, &item.CancellationPolicyMarkdown, &item.AvailabilityNote, &item.Status, &item.CreatedAt, &item.UpdatedAt, &item.UpcomingSessionCount, &item.PendingBookingCount)
 	return item, err
 }
 func scanPaymentMethod(s scanner) (PaymentMethod, error) {
@@ -1178,7 +1211,7 @@ func scanBooking(s scanner) (Booking, error) {
 	var item Booking
 	var payment BookingPayment
 	var paymentID *string
-	err := s.Scan(&item.ID, &item.CourseID, &item.CourseTitle, &item.SchoolID, &item.SessionID, &item.SessionTitle, &item.StudentUserID, &item.StudentName, &item.StudentEmail, &item.StudentPhone, &item.PreferredDate, &item.AlternateDate, &item.Status, &item.StudentNote, &item.ExperienceLevel, &item.CertificationLevel, &item.EquipmentNeeds, &item.AdminNotes, &item.CreatedAt, &item.UpdatedAt, &item.ReviewedAt, &item.ReviewedBy, &item.ScheduledAt, &item.CancelledAt, &item.CompletedAt, &paymentID, &payment.BookingID, &payment.CourseID, &payment.SchoolID, &payment.StudentUserID, &payment.PaymentMethodID, &payment.Amount, &payment.Currency, &payment.ProofMediaID, &payment.ReferenceNumber, &payment.Status, &payment.ReviewedBy, &payment.ReviewedAt, &payment.ReviewNotes, &payment.CreatedAt, &payment.UpdatedAt)
+	err := s.Scan(&item.ID, &item.CourseID, &item.CourseTitle, &item.SchoolID, &item.SessionID, &item.SessionTitle, &item.StudentUserID, &item.StudentName, &item.StudentEmail, &item.StudentPhone, &item.BookingMode, &item.PreferredDate, &item.AlternateDate, &item.Status, &item.StudentNote, &item.ExperienceLevel, &item.CertificationLevel, &item.EquipmentNeeds, &item.AdminNotes, &item.CreatedAt, &item.UpdatedAt, &item.ReviewedAt, &item.ReviewedBy, &item.ScheduledAt, &item.CancelledAt, &item.CompletedAt, &paymentID, &payment.BookingID, &payment.CourseID, &payment.SchoolID, &payment.StudentUserID, &payment.PaymentMethodID, &payment.Amount, &payment.Currency, &payment.ProofMediaID, &payment.ReferenceNumber, &payment.Status, &payment.ReviewedBy, &payment.ReviewedAt, &payment.ReviewNotes, &payment.CreatedAt, &payment.UpdatedAt)
 	if err != nil {
 		return item, err
 	}

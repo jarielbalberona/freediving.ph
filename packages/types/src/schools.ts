@@ -1,3 +1,5 @@
+import type { PaymentMethodType } from "./payment-methods";
+
 export type SchoolStatus = "draft" | "published" | "suspended";
 export type SchoolMemberRole = "owner" | "admin" | "instructor";
 export type SchoolMemberStatus = "active" | "invited" | "removed";
@@ -23,8 +25,7 @@ export type SessionLocationMode =
   | "inherit_school"
   | "structured"
   | "text_only";
-export type SchoolPaymentMethodType =
-  import("./payment-methods").PaymentMethodType;
+export type SchoolPaymentMethodType = PaymentMethodType;
 export type CoursePaymentMethodType = SchoolPaymentMethodType;
 export type CourseSessionStatus =
   | "draft"
@@ -50,6 +51,7 @@ export type CourseSessionAttendanceStatus =
   | "attended"
   | "no_show"
   | "cancelled";
+export type CourseBookingMode = "session" | "preferred_date";
 
 export interface StructuredLocationFields {
   locationLabel: string;
@@ -129,6 +131,8 @@ export interface Course {
   currency: string;
   paymentRequired: boolean;
   approvalRequired: boolean;
+  allowSessionBooking: boolean;
+  allowPreferredDateRequest: boolean;
   locationMode: CourseLocationMode;
   locationLabel: string;
   locationNote: string;
@@ -244,6 +248,7 @@ export interface CourseBookingRequest {
   studentName: string;
   studentEmail: string;
   studentPhone: string;
+  bookingMode: CourseBookingMode;
   preferredDate: string;
   alternateDate: string;
   status: CourseBookingStatus;
@@ -305,6 +310,8 @@ export interface PublicCourse {
   currency: string;
   paymentRequired: boolean;
   approvalRequired: boolean;
+  allowSessionBooking: boolean;
+  allowPreferredDateRequest: boolean;
   locationMode: CourseLocationMode;
   locationLabel: string;
   locationNote: string;
@@ -325,6 +332,24 @@ export interface PublicCourse {
   cancellationPolicyMarkdown: string;
   availabilityNote: string;
   upcomingSessionCount: number;
+}
+
+export interface PublicCourseSession {
+  id: string;
+  slug: string;
+  courseId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  timezone: string;
+  locationLabel: string;
+  formattedAddress: string;
+  diveSiteId: string;
+  instructorDisplayName: string;
+  capacity: number | null;
+  bookedCount: number;
+  slotsLeft: number | null;
+  isFull: boolean;
 }
 
 export interface MyCourseBooking
@@ -420,10 +445,12 @@ export type CreateCourseBookingRequest = Omit<
 export type UpdateCourseBookingRequest = CreateCourseBookingRequest;
 
 export interface CreateStudentCourseBookingRequest {
+  bookingMode: CourseBookingMode;
+  sessionId?: string;
   studentName?: string;
   studentEmail?: string;
   studentPhone?: string;
-  preferredDate: string;
+  preferredDate?: string;
   alternateDate?: string;
   studentNote?: string;
   experienceLevel?: string;
@@ -456,6 +483,8 @@ export interface CourseSessionFilters {
 export interface CourseBookingFilters {
   course?: string;
   session?: string;
+  sessionId?: string;
+  bookingMode?: CourseBookingMode | "";
   status?: CourseBookingStatus;
   paymentStatus?: CourseBookingPaymentStatus;
   preferredDateFrom?: string;

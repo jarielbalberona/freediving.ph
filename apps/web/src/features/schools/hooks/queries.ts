@@ -47,6 +47,13 @@ export const usePublicCourse = (slug: string, courseSlug: string) =>
     enabled: Boolean(slug && courseSlug),
   });
 
+export const usePublicCourseSessions = (slug: string, courseSlug: string) =>
+  useQuery({
+    queryKey: queryKeys.schools.publicCourseSessions(slug, courseSlug),
+    queryFn: () => schoolsApi.listPublicCourseSessions(slug, courseSlug),
+    enabled: Boolean(slug && courseSlug),
+  });
+
 export const useMyCourseBookings = () =>
   useQuery({
     queryKey: queryKeys.schools.myBookings(),

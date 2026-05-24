@@ -1,5 +1,6 @@
 import type {
   CourseBookingPaymentStatus,
+  CourseBookingMode,
   CourseBookingStatus,
   CourseLevel,
   CourseLocationMode,
@@ -70,6 +71,11 @@ export const bookingStatusLabels: Record<CourseBookingStatus, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
   reschedule_requested: "Reschedule requested",
+};
+
+export const bookingModeLabels: Record<CourseBookingMode, string> = {
+  session: "Schedule selected",
+  preferred_date: "Preferred date request",
 };
 
 export const paymentStatusLabels: Record<CourseBookingPaymentStatus, string> = {

@@ -42,6 +42,7 @@ import { useAuth } from "@clerk/nextjs";
 import { DEFAULT_TIMEZONE } from "@freediving.ph/config";
 import type {
   Course,
+  CourseBookingMode,
   CourseBookingPaymentStatus,
   CourseBookingRequest,
   CourseBookingStatus,
@@ -82,14 +83,12 @@ import {
   buildDisplayLocation,
   type LocationSearchValue,
 } from "@/features/locations/types/location-search";
-import {
-  dateStringToDate,
-  dateToDateString,
-} from "@/lib/date-picker-values";
+import { dateStringToDate, dateToDateString } from "@/lib/date-picker-values";
 import { applyApiErrorsToForm } from "@/lib/forms/api-errors";
 import { formatPeso } from "@/lib/money";
 import {
   bookingStatusLabels,
+  bookingModeLabels,
   courseLocationModeLabels,
   courseLevelLabels,
   courseStatusLabels,
@@ -471,6 +470,7 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
                       ? "Approval required"
                       : "Auto-approval allowed"}
                   </span>
+                  <span>{courseBookingOptionsLabel(course)}</span>
                   <span>
                     {courseLocationLabel(course, school)} ·{" "}
                     {courseLocationHelper(course)}
@@ -559,7 +559,7 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
     <SchoolShell school={school} active="sessions">
       <Toolbar
         title="Sessions"
-        subtitle="Schedule class dates, assign bookings, and track attendance."
+        subtitle="Create sessions so students can book available course dates."
         action={
           canManage ? (
             <Dialog open={open} onOpenChange={setOpen}>
@@ -623,9 +623,14 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
                     <span>{session.locationNote}</span>
                   ) : null}
                   <span>
-                    {session.assignedBookingCount}
-                    {session.capacity ? `/${session.capacity}` : ""} assigned
+                    {session.capacity
+                      ? `${Math.max(session.capacity - session.assignedBookingCount, 0)} slots left`
+                      : "Open capacity"}
                   </span>
+                  {session.capacity &&
+                  session.assignedBookingCount >= session.capacity ? (
+                    <span>Full</span>
+                  ) : null}
                   <span>
                     {session.instructorDisplayName || "No instructor assigned"}
                   </span>
@@ -712,12 +717,16 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
   const sessionsQuery = useManageSessions(slug);
   const [status, setStatus] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
+  const [bookingMode, setBookingMode] = useState("");
+  const [sessionId, setSessionId] = useState("");
   const filters = useMemo(
     () => ({
       status: status as CourseBookingStatus | undefined,
       paymentStatus: paymentStatus as CourseBookingPaymentStatus | undefined,
+      bookingMode: bookingMode as CourseBookingMode | undefined,
+      sessionId,
     }),
-    [status, paymentStatus],
+    [status, paymentStatus, bookingMode, sessionId],
   );
   const bookingsQuery = useManageBookings(slug, filters);
   const createBooking = useCreateBooking(slug);
@@ -801,7 +810,29 @@ export function ManageBookingsPage({ slug }: { slug: string }) {
           },
         ]}
       />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-4">
+        <SelectField
+          label="Booking mode"
+          value={bookingMode}
+          onChange={setBookingMode}
+          options={[
+            { value: "", label: "All booking modes" },
+            { value: "session", label: "Schedule selected" },
+            { value: "preferred_date", label: "Preferred date request" },
+          ]}
+        />
+        <SelectField
+          label="Session"
+          value={sessionId}
+          onChange={setSessionId}
+          options={[
+            { value: "", label: "All sessions" },
+            ...sessions.map((session) => ({
+              value: session.id,
+              label: session.title,
+            })),
+          ]}
+        />
         <SelectField
           label="Booking status"
           value={status}
@@ -1315,6 +1346,15 @@ function courseLocationHelper(course: Course) {
   return "Uses school location";
 }
 
+function courseBookingOptionsLabel(course: Course) {
+  if (course.allowSessionBooking && course.allowPreferredDateRequest) {
+    return "Schedules + preferred date";
+  }
+  if (course.allowSessionBooking) return "Available schedules";
+  if (course.allowPreferredDateRequest) return "Preferred date";
+  return "Bookings off";
+}
+
 function sessionLocationLabel(
   session: CourseSession,
   courses: Course[],
@@ -1392,6 +1432,8 @@ function CourseForm({
     priceAmount: initial?.priceAmount ?? null,
     paymentRequired: initial?.paymentRequired ?? false,
     approvalRequired: initial?.approvalRequired ?? true,
+    allowSessionBooking: initial?.allowSessionBooking ?? false,
+    allowPreferredDateRequest: initial?.allowPreferredDateRequest ?? true,
     locationMode: initial?.locationMode ?? "inherit_school",
     locationLabel: initial?.locationLabel ?? "",
     locationNote: initial?.locationNote ?? "",
@@ -1618,6 +1660,54 @@ function CourseForm({
           Approval required
         </label>
       </div>
+      <div className="grid gap-3 rounded-lg border border-border/70 p-3">
+        <div className="grid gap-1">
+          <Label>Booking options</Label>
+          <p className="text-xs text-muted-foreground">
+            Published courses need at least one way for students to book.
+          </p>
+        </div>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            className="mt-1"
+            type="checkbox"
+            checked={form.allowSessionBooking}
+            onChange={(e) =>
+              setForm({ ...form, allowSessionBooking: e.target.checked })
+            }
+          />
+          <span>
+            Students can choose from available schedules
+            <span className="block text-xs text-muted-foreground">
+              Students book one of the sessions you create.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            className="mt-1"
+            type="checkbox"
+            checked={form.allowPreferredDateRequest}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                allowPreferredDateRequest: e.target.checked,
+              })
+            }
+          />
+          <span>
+            Students can request a preferred date
+            <span className="block text-xs text-muted-foreground">
+              Students suggest a date and you assign a session later.
+            </span>
+          </span>
+        </label>
+        {form.allowSessionBooking ? (
+          <p className="text-xs text-muted-foreground">
+            Create sessions so students have schedules to choose from.
+          </p>
+        ) : null}
+      </div>
       <Button type="submit" disabled={busy}>
         <Send />
         Save course
@@ -1667,7 +1757,7 @@ function SessionForm({
     courses.find((course) => course.id === firstCourse) ?? courses[0];
   const firstCourseMode =
     initialCourse?.locationMode === "structured" ||
-      initialCourse?.locationMode === "text_only"
+    initialCourse?.locationMode === "text_only"
       ? "inherit_course"
       : "inherit_school";
   const [form, setForm] = useState<CreateCourseSessionRequest>({
@@ -1721,7 +1811,7 @@ function SessionForm({
     const course = courses.find((item) => item.id === courseId);
     const locationMode =
       course?.locationMode === "structured" ||
-        course?.locationMode === "text_only"
+      course?.locationMode === "text_only"
         ? "inherit_course"
         : "inherit_school";
     setForm({ ...form, courseId, locationMode });
@@ -1911,6 +2001,7 @@ function BookingForm({
     studentName: "",
     studentEmail: "",
     studentPhone: "",
+    bookingMode: "preferred_date",
     preferredDate: "",
     alternateDate: "",
     status: "pending_review",
@@ -1933,6 +2024,22 @@ function BookingForm({
         value={form.courseId}
         onChange={(courseId) => setForm({ ...form, courseId })}
         options={courses.map((c) => ({ value: c.id, label: c.title }))}
+      />
+      <SelectField
+        label="Booking mode"
+        value={form.bookingMode}
+        onChange={(bookingMode) =>
+          setForm({
+            ...form,
+            bookingMode:
+              bookingMode as CreateCourseBookingRequest["bookingMode"],
+            sessionId: bookingMode === "preferred_date" ? "" : form.sessionId,
+          })
+        }
+        options={[
+          { value: "preferred_date", label: "Preferred date request" },
+          { value: "session", label: "Schedule selected" },
+        ]}
       />
       <div className="grid gap-4 md:grid-cols-3">
         <TextField
@@ -1957,7 +2064,7 @@ function BookingForm({
           label="Preferred date"
           value={form.preferredDate}
           onChange={(preferredDate) => setForm({ ...form, preferredDate })}
-          required
+          required={form.bookingMode === "preferred_date"}
         />
         <DateField
           label="Alternate date"
@@ -1976,6 +2083,14 @@ function BookingForm({
           options={bookingStatusOptions}
         />
       </div>
+      {form.bookingMode === "session" ? (
+        <TextField
+          label="Session ID"
+          value={form.sessionId}
+          onChange={(sessionId) => setForm({ ...form, sessionId })}
+          required
+        />
+      ) : null}
       <Textarea
         placeholder="Student note"
         value={form.studentNote}
@@ -2016,15 +2131,17 @@ function SchoolPaymentMethodsPanel({
         mediaContextType="payment_method_qr"
         mediaContextId={schoolId}
         emptyDescription="Add Manual QR or bank transfer details before paid courses ask students for proof of payment."
-        onCreate={(data) =>
-          createMethod.mutateAsync(data as CreateCoursePaymentMethodRequest)
-        }
-        onUpdate={(paymentMethodId, data) =>
-          updateMethod.mutateAsync({
+        onCreate={async (data) => {
+          await createMethod.mutateAsync(
+            data as CreateCoursePaymentMethodRequest,
+          );
+        }}
+        onUpdate={async (paymentMethodId, data) => {
+          await updateMethod.mutateAsync({
             paymentMethodId,
             data: data as UpdateCoursePaymentMethodRequest,
-          })
-        }
+          });
+        }}
       />
     </section>
   );
@@ -2064,9 +2181,18 @@ function BookingRow({
                 {paymentStatusLabels[booking.payment.status]}
               </Badge>
             ) : null}
+            <Badge variant="outline" className="h-5 px-2 text-[11px]">
+              {bookingModeLabels[booking.bookingMode]}
+            </Badge>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {booking.courseTitle} • preferred {booking.preferredDate}
+            {booking.courseTitle}
+            {booking.bookingMode === "preferred_date" && booking.preferredDate
+              ? ` • preferred ${booking.preferredDate}`
+              : ""}
+            {booking.alternateDate
+              ? ` • alternate ${booking.alternateDate}`
+              : ""}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {booking.sessionTitle || "No session assigned"}

@@ -64,7 +64,7 @@ export function validatePaymentMethodDetails(
   }
 
   if (type === "manual_qr") {
-    if (!method.qrMediaId?.trim() && !method.qrImageUrl?.trim()) {
+    if (!method.qrMediaId?.trim()) {
       issues.push({
         path: "qrMediaId",
         message: "Upload a QR image before activating this payment method.",

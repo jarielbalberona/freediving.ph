@@ -1,4 +1,5 @@
 import type { ActivityFeedItem } from "./feed";
+import type { PaymentMethodType } from "./payment-methods";
 import type { ReportReasonCode } from "./reports";
 
 export * from "./api/authz";
@@ -335,7 +336,7 @@ export type EventParticipantStatus =
   | "left"
   | "attended"
   | "no_show";
-export type EventPaymentMethodType = import("./payment-methods").PaymentMethodType;
+export type EventPaymentMethodType = PaymentMethodType;
 export type EventPaymentMode = "free" | "required" | "optional";
 export type EventPaymentStatus =
   | "not_required"

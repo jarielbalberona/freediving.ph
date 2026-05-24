@@ -388,8 +388,8 @@ func TestMapEventRedactsPrivateUnauthorizedDetails(t *testing.T) {
 		PaymentMethods: []eventsrepo.EventPaymentMethod{{
 			ID:      "550e8400-e29b-41d4-a716-446655443105",
 			EventID: "550e8400-e29b-41d4-a716-446655443101",
-			Type:    "MANUAL_QR",
-			Name:    "GCash QR",
+			Type:    "manual_qr",
+			Name:    "Manual QR",
 		}},
 		ViewerCanViewPrivateDetails: false,
 	})
@@ -607,8 +607,8 @@ func privateEventFixture(canViewPrivateDetails, canManage bool) eventsrepo.Event
 		PaymentMethods: []eventsrepo.EventPaymentMethod{{
 			ID:      "550e8400-e29b-41d4-a716-446655443242",
 			EventID: "147dc32c-3378-4c83-8b58-64f0e027a7a3",
-			Type:    "MANUAL_QR",
-			Name:    "GCash QR",
+			Type:    "manual_qr",
+			Name:    "Manual QR",
 		}},
 		CreatedAt: time.Date(2026, 5, 23, 1, 22, 14, 0, time.UTC),
 		UpdatedAt: time.Date(2026, 5, 23, 1, 22, 14, 0, time.UTC),
