@@ -9,6 +9,7 @@ import type {
 import { siteConfig } from "@/config/site";
 import { featurePages } from "@/features/public-content/content/features";
 import { publishedGuides } from "@/features/public-content/content/guides";
+import { locationRoutes } from "@/features/public-content/content/locations";
 import { getFphgoBaseUrlServer } from "@/lib/api/fphgo-base-url";
 
 const stablePublicRoutes = [
@@ -19,6 +20,7 @@ const stablePublicRoutes = [
   ...featurePages.map((feature) => feature.href),
   "/guides",
   ...publishedGuides.map((guide) => guide.href),
+  ...locationRoutes,
   "/explore",
   "/buddies",
   "/chika",

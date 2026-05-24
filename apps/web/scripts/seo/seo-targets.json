@@ -70,6 +70,51 @@
     "primaryKeyword": "best time to freedive philippines"
   },
   {
+    "path": "/freediving",
+    "type": "location_index",
+    "primaryKeyword": "freediving locations philippines"
+  },
+  {
+    "path": "/freediving/philippines",
+    "type": "location",
+    "primaryKeyword": "freediving philippines"
+  },
+  {
+    "path": "/freediving/siquijor",
+    "type": "location",
+    "primaryKeyword": "freediving siquijor"
+  },
+  {
+    "path": "/freediving/batangas",
+    "type": "location",
+    "primaryKeyword": "freediving batangas"
+  },
+  {
+    "path": "/freediving/cebu",
+    "type": "location",
+    "primaryKeyword": "freediving cebu"
+  },
+  {
+    "path": "/freediving/dauin",
+    "type": "location",
+    "primaryKeyword": "freediving dauin"
+  },
+  {
+    "path": "/freediving/apo-island",
+    "type": "location",
+    "primaryKeyword": "freediving apo island"
+  },
+  {
+    "path": "/freediving/panglao",
+    "type": "location",
+    "primaryKeyword": "freediving panglao"
+  },
+  {
+    "path": "/freediving/moalboal",
+    "type": "location",
+    "primaryKeyword": "freediving moalboal"
+  },
+  {
     "path": "/about-us",
     "type": "trust",
     "primaryKeyword": "freediving philippines community"

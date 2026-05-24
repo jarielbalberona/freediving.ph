@@ -14,6 +14,7 @@ export const reservedSlugs = [
   "events",
   "explore",
   "features",
+  "freediving",
   "favicon.ico",
   "groups",
   "guides",

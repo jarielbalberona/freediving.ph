@@ -80,6 +80,9 @@ test("route target loading includes current public guide pages", () => {
   const targets = loadTargets();
   const paths = new Set(targets.map((target) => target.path));
   assert.ok(paths.has("/features"));
+  assert.ok(paths.has("/freediving"));
+  assert.ok(paths.has("/freediving/siquijor"));
+  assert.ok(paths.has("/freediving/moalboal"));
   assert.ok(paths.has("/guides/freediving-safety-basics"));
   assert.ok(paths.has("/guides/best-time-to-freedive-in-the-philippines"));
   assert.ok(paths.has("/about-us"));

@@ -51,6 +51,8 @@ test("customer schools UI uses friendly labels, tabs, booking prompts, and Base 
   assert.match(page, /school\.paymentMethods/);
   assert.match(page, /activePaymentMethods/);
   assert.match(paymentSetup, /Account number/);
+  assert.match(paymentSetup, /sm:grid-cols-\[11rem_minmax\(0,1fr\)\]/);
+  assert.doesNotMatch(paymentSetup, /md:grid-cols-\[auto_minmax\(0,1fr\)\]/);
   assert.match(paymentSetup, /Payment QR image is not available yet/);
   assert.doesNotMatch(paymentSetup, />manual_qr</);
   assert.doesNotMatch(paymentSetup, />bank_transfer</);

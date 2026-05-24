@@ -13,6 +13,7 @@ import {
 } from "@/features/public-content/seo/jsonLd";
 
 const navLinks = [
+  { href: "/freediving", label: "Locations" },
   { href: "/features", label: "Features" },
   { href: "/explore", label: "Explore" },
   { href: "/events", label: "Events" },
@@ -22,6 +23,8 @@ const navLinks = [
 ];
 
 const footerLinks = [
+  { href: "/freediving", label: "Locations" },
+  { href: "/freediving/philippines", label: "Freediving Philippines" },
   { href: "/features", label: "Features" },
   { href: "/features/dive-spots", label: "Dive spots" },
   { href: "/features/buddy-finder", label: "Buddy finder" },

@@ -397,9 +397,9 @@ function PaymentMethodFields({
       </Field>
 
       {value.type === "manual_qr" ? (
-        <div className="grid gap-3 md:grid-cols-[auto_minmax(0,1fr)]">
+        <div className="grid gap-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-start">
           <Field label="QR media upload">
-            <div className="grid gap-2">
+            <div className="grid max-w-44 gap-2">
               {displayUrl ? (
                 <img
                   src={displayUrl}
@@ -413,6 +413,7 @@ function PaymentMethodFields({
               )}
               <div className="flex items-center gap-2">
                 <Input
+                  className="w-40 max-w-full text-xs"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   disabled={disabled || uploading}
@@ -425,7 +426,7 @@ function PaymentMethodFields({
             </div>
           </Field>
           <Field label="Account number">
-            <div className="grid content-start gap-2">
+            <div className="grid max-w-sm gap-2">
               <Input
                 value={value.accountNumber}
                 disabled={disabled}
@@ -556,7 +557,7 @@ function Field({
     [label],
   );
   return (
-    <label className="grid gap-1.5" htmlFor={id}>
+    <label className="grid content-start gap-1.5" htmlFor={id}>
       <span className="text-xs font-medium text-foreground">{label}</span>
       {children}
     </label>

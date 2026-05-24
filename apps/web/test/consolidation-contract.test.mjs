@@ -87,14 +87,15 @@ test("frontend permission gates use backend permission names", async () => {
   assert.match(backendAuthz, /case "explore_curator":/);
 });
 
-test("media is exposed consistently only to signed-in users", async () => {
+test("standalone media page stays protected but hidden from launch navigation", async () => {
   const [nav, guard] = await Promise.all([
     readApp("src/config/nav.ts"),
     readApp("src/components/auth/guard.tsx"),
   ]);
 
   assert.match(nav, /id: "media"[\s\S]*?isProtected: true/);
-  assert.match(nav, /MOBILE_SIDEBAR_ORDER[\s\S]*?"media"/);
+  assert.match(nav, /id: "media"[\s\S]*?comingSoon: true/);
+  assert.doesNotMatch(nav, /MOBILE_SIDEBAR_ORDER[\s\S]*?"media"/);
   assert.match(guard, /role === "support"/);
 });
 

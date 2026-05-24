@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { NotificationRealtimeProvider } from "@/features/notifications/components/NotificationRealtimeProvider";
 
-const publicContentPrefixes = ["/features", "/guides"];
+const publicContentPrefixes = ["/features", "/guides", "/freediving"];
 const publicContentPaths = new Set(["/about-us"]);
 
 const isPublicContentPath = (pathname: string | null): boolean => {

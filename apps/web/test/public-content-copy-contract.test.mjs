@@ -35,6 +35,7 @@ test("public feature and guide content uses user-facing copy", () => {
     import assert from "node:assert/strict";
     import { featurePages } from "./src/features/public-content/content/features.ts";
     import { publishedGuides } from "./src/features/public-content/content/guides.ts";
+    import { locationPages } from "./src/features/public-content/content/locations.ts";
 
     const blocked = ${blockedVisibleCopy};
 
@@ -69,6 +70,23 @@ test("public feature and guide content uses user-facing copy", () => {
       assert.doesNotMatch(searchable, blocked, guide.slug);
     }
 
+    for (const location of locationPages) {
+      const searchable = [
+        location.name,
+        location.regionLabel ?? "",
+        location.title,
+        location.description,
+        location.metaTitle,
+        location.metaDescription,
+        location.intro,
+        ...location.highlights,
+        ...location.bestFor,
+        ...location.safetyNotes,
+        ...location.gettingStartedTips,
+      ].join("\\n");
+      assert.doesNotMatch(searchable, blocked, location.slug);
+    }
+
     console.log("ok");
   `);
 
@@ -80,11 +98,16 @@ test("public page source strings avoid implementation-facing copy", async () => 
     "app/(public)/features/page.tsx",
     "app/(public)/guides/page.tsx",
     "app/(public)/guides/[slug]/page.tsx",
+    "app/(public)/freediving/page.tsx",
+    "app/(public)/freediving/[location]/page.tsx",
     "app/(public)/about-us/page.tsx",
     "features/public-content/components/PublicCTA.tsx",
     "features/public-content/components/PublicHero.tsx",
     "features/public-content/components/PublicContentLayout.tsx",
     "features/public-content/components/FeaturePageTemplate.tsx",
+    "features/public-content/components/LocationIndexPage.tsx",
+    "features/public-content/components/LocationLandingPage.tsx",
+    "features/public-content/components/LocationDiveSpotSection.tsx",
   ];
 
   for (const file of files) {

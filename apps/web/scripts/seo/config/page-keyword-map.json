@@ -98,6 +98,69 @@
       "philippines freediving conditions"
     ]
   },
+  "/freediving": {
+    "primary": "freediving locations philippines",
+    "secondary": [
+      "where to freedive philippines",
+      "freediving spots philippines"
+    ]
+  },
+  "/freediving/philippines": {
+    "primary": "freediving philippines",
+    "secondary": [
+      "freediving spots philippines",
+      "philippines freediving locations"
+    ]
+  },
+  "/freediving/siquijor": {
+    "primary": "freediving siquijor",
+    "secondary": [
+      "siquijor freediving",
+      "freediving spots siquijor"
+    ]
+  },
+  "/freediving/batangas": {
+    "primary": "freediving batangas",
+    "secondary": [
+      "batangas freediving",
+      "freediving near manila"
+    ]
+  },
+  "/freediving/cebu": {
+    "primary": "freediving cebu",
+    "secondary": [
+      "cebu freediving",
+      "freediving spots cebu"
+    ]
+  },
+  "/freediving/dauin": {
+    "primary": "freediving dauin",
+    "secondary": [
+      "dauin freediving",
+      "freediving negros oriental"
+    ]
+  },
+  "/freediving/apo-island": {
+    "primary": "freediving apo island",
+    "secondary": [
+      "apo island freediving",
+      "freediving negros oriental"
+    ]
+  },
+  "/freediving/panglao": {
+    "primary": "freediving panglao",
+    "secondary": [
+      "panglao freediving",
+      "freediving bohol"
+    ]
+  },
+  "/freediving/moalboal": {
+    "primary": "freediving moalboal",
+    "secondary": [
+      "moalboal freediving",
+      "freediving cebu"
+    ]
+  },
   "/about-us": {
     "primary": "freediving philippines community",
     "secondary": [
