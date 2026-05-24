@@ -1,29 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
 
 import ReactQueryProvider from "@/providers/react-query";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { siteConfig, META_THEME_COLORS } from "@/config/site";
-import { AppSidebar } from "@/components/ui/app-sidebar";
-import { MobileNavWithDrawers } from "@/components/nav/mobile-nav-with-drawers";
-import { DesktopCreateFab } from "@/components/nav/desktop-create-fab";
-import { AuthGate } from "@/features/auth/auth-gate";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { ModeSwitcher } from "@/components/ui/mode-switcher";
-import { NotificationCenter } from "@/components/nav/notification-center";
-import { NavUser } from "@/components/ui/nav-user";
-import { NotificationRealtimeProvider } from "@/features/notifications/components/NotificationRealtimeProvider";
-import { ProductAnalyticsProvider } from "@/components/analytics/product-analytics-provider";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AppLogo } from "@/components/ui/app-logo";
+import { AppChrome } from "@/components/layout/app-chrome";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -83,81 +68,54 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        <head>
-          <script
-            async
-            src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
-          />
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          async
+          src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
                 gtag('config', '${googleAnalyticsId}');
               `,
-            }}
-          />
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
                 try {
                   if (localStorage.theme === 'dark' || ((!('theme' in localStorage) || localStorage.theme === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                     document.querySelector('meta[name="theme-color"]').setAttribute('content', '${META_THEME_COLORS.dark}')
                   }
                 } catch (_) {}
               `,
-            }}
-          />
-        </head>
-        <body
-          className={cn(
-            "bg-background overscroll-none font-sans antialiased",
-            inter.variable,
-          )}
+          }}
+        />
+      </head>
+      <body
+        className={cn(
+          "bg-background overscroll-none font-sans antialiased",
+          inter.variable,
+        )}
+      >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
         >
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <ReactQueryProvider>
-              <TooltipProvider>
-                <ProductAnalyticsProvider />
-                <NotificationRealtimeProvider />
-                <SidebarProvider>
-                  <AppSidebar />
-                  <SidebarInset>
-                    <AuthGate />
-                    <header className="sticky inset-x-0 top-0 z-10 flex items-center gap-2 bg-background isolate shrink-0">
-                      <div className="flex items-center w-full gap-2 px-4 h-14">
-                        <div className="flex items-center gap-2">
-                          <SidebarTrigger className="-ml-1.5" />
-                          <AppLogo />
-                        </div>
-                        <div className="flex items-center gap-2 ml-auto">
-                          <ModeSwitcher />
-                          <NotificationCenter />
-                          <NavUser />
-                        </div>
-                      </div>
-                    </header>
-                    <div className="pb-17 md:pb-0 min-h-[calc(100vh-3.5rem)]">
-                      {children}
-                    </div>
-                  </SidebarInset>
-                  <MobileNavWithDrawers />
-                  <DesktopCreateFab />
-                </SidebarProvider>
-              </TooltipProvider>
-              <Toaster />
-            </ReactQueryProvider>
-          </ThemeProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+          <ReactQueryProvider>
+            <TooltipProvider>
+              <AppChrome>{children}</AppChrome>
+            </TooltipProvider>
+            <Toaster />
+          </ReactQueryProvider>
+        </ThemeProvider>
+      </body>
+    </html>
   );
 }

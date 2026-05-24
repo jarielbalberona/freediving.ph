@@ -13,7 +13,7 @@ const providerPath = path.join(
   srcRoot,
   "features/notifications/components/NotificationRealtimeProvider.tsx",
 );
-const layoutPath = path.join(srcRoot, "app/layout.tsx");
+const appChromePath = path.join(srcRoot, "components/layout/app-chrome.tsx");
 const notificationCenterPath = path.join(
   srcRoot,
   "components/nav/notification-center.tsx",
@@ -49,12 +49,12 @@ const notificationSchemasPath = path.join(
 );
 
 test("notification realtime provider is mounted globally and uses persisted queries as source of truth", async () => {
-  const [provider, layout] = await Promise.all([
+  const [provider, appChrome] = await Promise.all([
     readFile(providerPath, "utf8"),
-    readFile(layoutPath, "utf8"),
+    readFile(appChromePath, "utf8"),
   ]);
 
-  assert.match(layout, /<NotificationRealtimeProvider \/>/);
+  assert.match(appChrome, /<NotificationRealtimeProvider \/>/);
   assert.match(provider, /parsed\.type === "notification\.created"/);
   assert.match(provider, /queryKeys\.notifications\.stats\(\)/);
   assert.match(provider, /queryKeys\.notifications\.list\(\)/);
@@ -170,9 +170,18 @@ test("notification card renders friendly social labels and app-relative actions"
   assert.match(source, /GROUP_POST_CREATED: "Group post"/);
   assert.match(source, /EVENT_CANCELLED: "Event cancelled"/);
   assert.match(source, /DIVE_SITE_SUBMITTED_FOR_REVIEW: "Dive site review"/);
-  assert.match(source, /INSTRUCTOR_APPLICATION_SUBMITTED: "New instructor application"/);
-  assert.match(source, /INSTRUCTOR_APPLICATION_APPROVED: "Instructor application approved"/);
-  assert.match(source, /INSTRUCTOR_APPLICATION_REJECTED: "Instructor application rejected"/);
+  assert.match(
+    source,
+    /INSTRUCTOR_APPLICATION_SUBMITTED: "New instructor application"/,
+  );
+  assert.match(
+    source,
+    /INSTRUCTOR_APPLICATION_APPROVED: "Instructor application approved"/,
+  );
+  assert.match(
+    source,
+    /INSTRUCTOR_APPLICATION_REJECTED: "Instructor application rejected"/,
+  );
   assert.match(source, /BOOKING_CREATED: "New booking request"/);
   assert.match(source, /BOOKING_APPROVED: "Booking approved"/);
   assert.match(source, /BOOKING_RESCHEDULED: "Booking rescheduled"/);

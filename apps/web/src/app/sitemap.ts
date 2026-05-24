@@ -7,11 +7,18 @@ import type {
   Group,
 } from "@freediving.ph/types";
 import { siteConfig } from "@/config/site";
+import { featurePages } from "@/features/public-content/content/features";
+import { publishedGuides } from "@/features/public-content/content/guides";
 import { getFphgoBaseUrlServer } from "@/lib/api/fphgo-base-url";
 
 const stablePublicRoutes = [
   "/",
   "/founder-note",
+  "/about-us",
+  "/features",
+  ...featurePages.map((feature) => feature.href),
+  "/guides",
+  ...publishedGuides.map((guide) => guide.href),
   "/explore",
   "/buddies",
   "/chika",
@@ -63,10 +70,13 @@ type EventListPayload = {
 
 const fetchPublicGroupEntries = async (): Promise<MetadataRoute.Sitemap> => {
   try {
-    const response = await fetch(`${getFphgoBaseUrlServer()}/v1/groups?limit=100`, {
-      cache: "no-store",
-      headers: { accept: "application/json" },
-    });
+    const response = await fetch(
+      `${getFphgoBaseUrlServer()}/v1/groups?limit=100`,
+      {
+        cache: "no-store",
+        headers: { accept: "application/json" },
+      },
+    );
     if (!response.ok) return [];
     const payload = (await response.json()) as GroupListPayload;
     return payload.groups

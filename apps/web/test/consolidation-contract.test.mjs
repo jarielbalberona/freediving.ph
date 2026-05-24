@@ -127,7 +127,7 @@ test("product analytics tracks only activation events through gtag", async () =>
 
   assert.match(analytics, /PRODUCT_EVENT_NAMES/);
   assert.match(analytics, /SENSITIVE_PARAM_PATTERN/);
-  assert.match(analytics, /window\.gtag\?\("event", eventName/);
+  assert.match(analytics, /window\.gtag\?\.\("event", eventName/);
   assert.match(events, /trackProductEvent\("event_joined"\)/);
   assert.match(events, /trackProductEvent\("event_interested"\)/);
   assert.match(groups, /useJoinGroup[\s\S]*trackProductEvent\("group_joined"\)/);
