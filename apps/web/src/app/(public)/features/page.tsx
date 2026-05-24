@@ -9,9 +9,9 @@ import { AdSlot } from "@/features/public-content/ads";
 import { featurePages } from "@/features/public-content/content/features";
 import { buildPublicMetadata } from "@/features/public-content/seo/metadata";
 
-const title = "Freediving Philippines Features";
+const title = "Freediving Philippines Community App";
 const description =
-  "See how Freediving Philippines helps you find dive spots, meet buddies, join events and groups, ask questions, and discover schools or courses.";
+  "Discover dive spots, meet freediving buddies, join events and groups, ask questions, and find schools or courses around the Philippines.";
 
 export const metadata: Metadata = buildPublicMetadata({
   title,
@@ -99,7 +99,7 @@ export default function FeaturesPage() {
                 Explore dive spots
               </span>
               <span className="mt-1 block text-sm leading-6 text-muted-foreground">
-                Browse public dive spots and community context.
+                Browse dive spots, local notes, and community context.
               </span>
             </Link>
             <Link

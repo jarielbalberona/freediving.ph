@@ -23,10 +23,10 @@ export type FeaturePageContent = {
 export const featurePages: FeaturePageContent[] = [
   {
     slug: "dive-spots",
-    title: "Discover Freediving Spots in the Philippines",
+    title: "Freediving Spots in the Philippines",
     shortTitle: "Explore dive spots",
     description:
-      "Find, browse, contribute, and tag freediving spots across the Philippines with community context.",
+      "Discover freediving spots shared by the community, explore local dive areas, and find context before planning your next session.",
     eyebrow: "Explore",
     href: "/features/dive-spots",
     appHref: "/explore",
@@ -47,6 +47,10 @@ export const featurePages: FeaturePageContent[] = [
         title: "See what is happening around a place",
         body: "A dive spot is more useful when it connects to photos, buddy plans, events, and future location guides. That context helps new visitors understand more than just a pin on a map.",
       },
+      {
+        title: "Plan with more than search results",
+        body: "Before you travel or meet a buddy, it helps to see recent community activity, nearby groups, and practical notes about access, conditions, and local expectations. The goal is better planning, not pretending every spot is suitable every day.",
+      },
     ],
     relatedLinks: [
       {
@@ -63,10 +67,10 @@ export const featurePages: FeaturePageContent[] = [
   },
   {
     slug: "buddy-finder",
-    title: "Find Freediving Buddies Safely",
+    title: "Freediving Buddy Finder Philippines",
     shortTitle: "Find dive buddies",
     description:
-      "Connect with other freedivers intentionally before training, fun dives, and local trips.",
+      "Find freediving buddies in the Philippines, compare plans and comfort levels, and connect with people who match your pace.",
     eyebrow: "Buddy Finder",
     href: "/features/buddy-finder",
     appHref: "/buddies",
@@ -87,6 +91,10 @@ export const featurePages: FeaturePageContent[] = [
         title: "Profiles add context",
         body: "Public profiles give freedivers a place to show experience, activity, and community signals before someone starts a conversation.",
       },
+      {
+        title: "Useful for beginners and travelers",
+        body: "If you are new to a place, a buddy match should start with basic questions: where to meet, what conditions to expect, how shallow to stay, and whether a school, group, or organized event is the better first step.",
+      },
     ],
     relatedLinks: [
       {
@@ -103,10 +111,10 @@ export const featurePages: FeaturePageContent[] = [
   },
   {
     slug: "events",
-    title: "Discover Freediving Events",
+    title: "Freediving Events in the Philippines",
     shortTitle: "Join freediving events",
     description:
-      "Find freediving competitions, cleanups, meetups, training days, and community activities in the Philippines.",
+      "Find freediving events in the Philippines, from community dives and cleanups to competitions, meetups, school days, and local activities.",
     eyebrow: "Events",
     href: "/features/events",
     appHref: "/events",
@@ -127,6 +135,10 @@ export const featurePages: FeaturePageContent[] = [
         title: "Useful before and after the event",
         body: "Events can connect with groups, dive spots, organizer updates, and posts so people can prepare before they go and catch up afterward.",
       },
+      {
+        title: "Good for visitors and local communities",
+        body: "Events give travelers a reason to plan around active communities and give local organizers a clearer place to share details beyond a poster. People should be able to understand who is hosting, what to bring, and how to join responsibly.",
+      },
     ],
     relatedLinks: [
       {
@@ -143,10 +155,10 @@ export const featurePages: FeaturePageContent[] = [
   },
   {
     slug: "groups",
-    title: "Join Freediving Groups and Local Communities",
+    title: "Freediving Groups in the Philippines",
     shortTitle: "Join groups",
     description:
-      "Find freediving clubs, local communities, and interest groups across the Philippines.",
+      "Find freediving groups, clubs, school communities, and local circles across the Philippines.",
     eyebrow: "Groups",
     href: "/features/groups",
     appHref: "/groups",
@@ -167,6 +179,10 @@ export const featurePages: FeaturePageContent[] = [
         title: "Not a replacement for real community",
         body: "Freediving Philippines is here to help people find and coordinate with clubs and local groups, not replace the relationships they already have in the water.",
       },
+      {
+        title: "Find the right kind of group",
+        body: "Some groups focus on a location, some on a school, some on practice days, cleanups, competitions, or beginner support. Clear group pages help people understand the fit before asking to join.",
+      },
     ],
     relatedLinks: [
       {
@@ -183,10 +199,10 @@ export const featurePages: FeaturePageContent[] = [
   },
   {
     slug: "chika",
-    title: "Chika for the Philippine Freediving Community",
+    title: "Chika for Freedivers in the Philippines",
     shortTitle: "Chika discussions",
     description:
-      "A community discussion space for freedivers in the Philippines to ask, share, and coordinate.",
+      "Ask questions, share stories, get recommendations, and follow freediving conversations from the Philippine community.",
     eyebrow: "Chika",
     href: "/features/chika",
     appHref: "/chika",
@@ -207,6 +223,10 @@ export const featurePages: FeaturePageContent[] = [
         title: "Useful for recommendations too",
         body: "Chika is also a place to ask for school recommendations, trip tips, gear advice, event questions, and local context from other freedivers.",
       },
+      {
+        title: "Questions should stay findable",
+        body: "Beginner questions, local tips, and safety reminders are more useful when the next person can find them too. Chika gives the community a place for conversations that should not disappear after one busy day online.",
+      },
     ],
     relatedLinks: [
       {
@@ -223,10 +243,10 @@ export const featurePages: FeaturePageContent[] = [
   },
   {
     slug: "schools-and-courses",
-    title: "Find Freediving Schools, Instructors, and Courses",
+    title: "Freediving Schools and Courses",
     shortTitle: "Schools and courses",
     description:
-      "Browse freediving schools, verified instructors, courses, and sessions in the Philippines.",
+      "Find freediving schools, instructors, courses, intro sessions, and safer learning paths in the Philippines.",
     eyebrow: "Schools",
     href: "/features/schools-and-courses",
     appHref: "/schools",
@@ -246,6 +266,10 @@ export const featurePages: FeaturePageContent[] = [
       {
         title: "Clearer paths to lessons",
         body: "Course pages, instructor profiles, and session details should help people understand what is offered, where it happens, what is included, and how to ask the right questions before booking.",
+      },
+      {
+        title: "Helpful for schools and students",
+        body: "Schools need a credible way to explain courses, locations, inclusions, instructor background, and schedules. Students need enough detail to choose instruction that fits their level instead of guessing from old posts.",
       },
     ],
     relatedLinks: [

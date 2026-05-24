@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync, rmSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
 
 import { cacheFirst, cachePath, createCacheKey } from "../cache";
@@ -8,6 +9,7 @@ import {
   loadSeoConfig,
   loadTargets,
   redactSecrets,
+  reportsDir,
   requireDataForSeoCredentials,
   validateSearchMarket,
   type SeoTarget,
@@ -291,6 +293,40 @@ test("report generation redacts credentials", () => {
   assert.doesNotMatch(markdown, /secret-login|secret-password|Basic abc123/);
   assert.doesNotMatch(json, /secret-login|secret-password|Basic abc123/);
   assert.equal(redactSecrets("secret-login secret-password"), "[redacted] [redacted]");
+});
+
+test("report generation uses unique report paths for rapid consecutive calls", () => {
+  const first = writeReports({
+    kind: "audit",
+    command: "seo:audit --provider mock --all",
+    provider: "mock",
+    targetBaseUrl: "http://localhost:3000",
+    cacheBehavior: "cache-first",
+    summary: "first report",
+    sections: [],
+    json: { report: "first" },
+  });
+  const second = writeReports({
+    kind: "audit",
+    command: "seo:audit --provider mock --all",
+    provider: "mock",
+    targetBaseUrl: "http://localhost:3000",
+    cacheBehavior: "cache-first",
+    summary: "second report",
+    sections: [],
+    json: { report: "second" },
+  });
+
+  assert.notEqual(first.markdownPath, second.markdownPath);
+  assert.notEqual(first.jsonPath, second.jsonPath);
+  assert.notEqual(first.markdownPath, first.jsonPath);
+  assert.notEqual(second.markdownPath, second.jsonPath);
+  assert.equal(path.dirname(first.markdownPath), reportsDir);
+  assert.equal(path.dirname(first.jsonPath), reportsDir);
+  assert.equal(path.dirname(second.markdownPath), reportsDir);
+  assert.equal(path.dirname(second.jsonPath), reportsDir);
+  assert.match(path.basename(first.markdownPath), /^audit-\d{8}-\d{6}-\d{3}-[a-f0-9]{6}\.md$/);
+  assert.match(path.basename(first.jsonPath), /^audit-\d{8}-\d{6}-\d{3}-[a-f0-9]{6}\.json$/);
 });
 
 test("DataForSEO tooling is not imported by app runtime files", () => {

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -71,8 +72,10 @@ function titleCase(value: string): string {
 
 function timestamp(): string {
   const date = new Date();
-  const pad = (value: number) => String(value).padStart(2, "0");
+  const pad = (value: number, length = 2) => String(value).padStart(length, "0");
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(
     date.getDate(),
-  )}-${pad(date.getHours())}${pad(date.getMinutes())}`;
+  )}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(
+    date.getSeconds(),
+  )}-${pad(date.getMilliseconds(), 3)}-${randomBytes(3).toString("hex")}`;
 }

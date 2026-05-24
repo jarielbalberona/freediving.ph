@@ -383,9 +383,9 @@ export const guides: GuideContent[] = [
   },
   {
     slug: "freediving-certifications-philippines",
-    title: "Freediving Certifications in the Philippines",
+    title: "Freediving Certification in the Philippines",
     description:
-      "A beginner-friendly guide to freediving courses, intro sessions, certifications, and choosing instructors in the Philippines.",
+      "A beginner-friendly guide to freediving certification, intro sessions, courses, and choosing instructors in the Philippines.",
     href: "/guides/freediving-certifications-philippines",
     status: "published",
     publishedAt: "2026-05-24",
