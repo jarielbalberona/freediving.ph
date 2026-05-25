@@ -483,54 +483,56 @@ export function ProfileMediaComposer({
                 </button>
               ) : (
                 <div className="space-y-3 p-3">
-                  <div className="relative overflow-hidden rounded-xl border bg-background">
-                    <div className="relative aspect-[4/5] w-full bg-muted/30">
-                      <img
-                        src={activePhoto?.previewUrl}
-                        alt={activePhoto?.file.name ?? "Selected upload"}
-                        className="h-full w-full object-contain"
-                      />
-                    </div>
-                    <div className="pointer-events-none absolute left-3 top-3 flex gap-2">
-                      <Badge variant="secondary">
-                        {activeIndex + 1} / {photos.length}
-                      </Badge>
+                  <div className="-mx-3 flex justify-center sm:mx-0">
+                    <div className="relative w-full sm:max-w-sm">
                       {activePhoto ? (
+                        <img
+                          src={activePhoto.previewUrl}
+                          alt={activePhoto.file.name}
+                          className="max-h-[85dvh] w-full bg-black object-cover"
+                        />
+                      ) : null}
+                      <div className="pointer-events-none absolute left-3 top-3 flex gap-2">
                         <Badge variant="secondary">
-                          {activePhoto.width} x {activePhoto.height}
+                          {activeIndex + 1} / {photos.length}
                         </Badge>
+                        {activePhoto ? (
+                          <Badge variant="secondary">
+                            {activePhoto.width} x {activePhoto.height}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {photos.length > 1 ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full"
+                            onClick={() =>
+                              setActiveIndex((current) =>
+                                current === 0 ? photos.length - 1 : current - 1,
+                              )
+                            }
+                          >
+                            <ArrowLeft className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full"
+                            onClick={() =>
+                              setActiveIndex((current) =>
+                                current === photos.length - 1 ? 0 : current + 1,
+                              )
+                            }
+                          >
+                            <ArrowRight className="size-4" />
+                          </Button>
+                        </>
                       ) : null}
                     </div>
-                    {photos.length > 1 ? (
-                      <>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="icon"
-                          className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full"
-                          onClick={() =>
-                            setActiveIndex((current) =>
-                              current === 0 ? photos.length - 1 : current - 1,
-                            )
-                          }
-                        >
-                          <ArrowLeft className="size-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="icon"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full"
-                          onClick={() =>
-                            setActiveIndex((current) =>
-                              current === photos.length - 1 ? 0 : current + 1,
-                            )
-                          }
-                        >
-                          <ArrowRight className="size-4" />
-                        </Button>
-                      </>
-                    ) : null}
                   </div>
 
                   <ScrollArea className="w-full whitespace-nowrap">

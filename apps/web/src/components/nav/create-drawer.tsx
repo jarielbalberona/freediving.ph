@@ -29,7 +29,7 @@ const CREATE_OPTIONS = [
   },
   {
     id: "profile-post",
-    label: "Share photos",
+    label: "Share photos or moments",
     description: "Add dive photos to your profile.",
     icon: ImagePlus,
   },

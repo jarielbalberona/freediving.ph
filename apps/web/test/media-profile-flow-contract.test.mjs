@@ -227,7 +227,9 @@ test("Moment upload panel previews and validates selected local videos", async (
   );
   assert.match(preview, /style=\{aspectRatio \? \{ aspectRatio \} : undefined\}/);
   assert.match(preview, /object-cover/);
+  assert.match(preview, /max-h-\[85dvh\]/);
   assert.doesNotMatch(preview, /aspect-\[9\/16\]/);
+  assert.doesNotMatch(preview, /max-h-\[70vh\]/);
   assert.doesNotMatch(preview, /object-contain/);
   assert.match(preview, /sm:max-w-sm/);
   assert.match(preview, /onLoadedMetadata=\{handleLoadedMetadata\}/);
@@ -246,6 +248,10 @@ test("Moment upload panel previews and validates selected local videos", async (
   assert.match(composer, /className="-mx-3 sm:mx-0"/);
   assert.match(composer, /className="flex min-h-80 w-full flex-col items-center justify-center gap-3 px-4 text-center"/);
   assert.match(composer, /<Film className="size-5" \/>/);
+  assert.match(composer, /className="-mx-3 flex justify-center sm:mx-0"/);
+  assert.match(composer, /className="max-h-\[85dvh\] w-full bg-black object-cover"/);
+  assert.doesNotMatch(composer, /relative aspect-\[4\/5\] w-full bg-muted\/30/);
+  assert.doesNotMatch(composer, /relative overflow-hidden rounded-xl border bg-background/);
   assert.doesNotMatch(composer, /videoFile \? videoFile\.name/);
   assert.match(composer, /Moments can be up to 30 seconds\./);
   assert.match(composer, /Choose an MP4 or MOV video\./);

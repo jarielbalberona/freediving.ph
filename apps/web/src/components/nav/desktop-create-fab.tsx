@@ -60,7 +60,7 @@ export function DesktopCreateFab() {
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push(profileCreateHref)}>
             <UserRoundPen className="size-4" aria-hidden />
-            Share photos
+            Share photos or moments
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

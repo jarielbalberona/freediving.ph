@@ -61,7 +61,7 @@ export function SelectedVideoPreview({
           preload="metadata"
           style={aspectRatio ? { aspectRatio } : undefined}
           className={cn(
-            "h-auto max-h-[70vh] w-full bg-black object-cover sm:max-w-sm",
+            "h-auto max-h-[85dvh] w-full bg-black object-cover sm:max-w-sm",
             videoClassName,
           )}
           onLoadedMetadata={handleLoadedMetadata}
