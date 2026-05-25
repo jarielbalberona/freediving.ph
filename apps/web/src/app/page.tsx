@@ -17,11 +17,17 @@ function HomeFallback() {
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
         <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1 space-y-3">
-              <Skeleton className="h-5 w-32 rounded-full" />
-              <Skeleton className="h-9 w-4/5 max-w-lg rounded-full" />
-              <Skeleton className="h-4 w-full max-w-md rounded-full" />
-              <Skeleton className="h-4 w-2/3 max-w-xs rounded-full" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Latest activity
+              </p>
+              <h1 className="mt-3 text-lg font-medium tracking-tight">
+                Freediving Philippines
+              </h1>
+              <p className="mt-1 max-w-xl text-xs text-muted-foreground">
+                Discover dive spots, find buddies, join events, and connect
+                with the freediving community in the Philippines.
+              </p>
             </div>
             <Skeleton className="size-12 shrink-0 rounded-full" />
           </div>

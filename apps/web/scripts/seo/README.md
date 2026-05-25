@@ -49,6 +49,7 @@ pnpm seo:keywords:plan -- --group freediving_guides_ph
 pnpm seo:keywords:plan -- --group freediving_locations_ph --provider mock
 pnpm seo:serp:rank -- --provider mock --search-market ph
 pnpm seo:serp:rank -- --provider dataforseo --search-market ph --cache-only --limit 5
+pnpm seo:indexnow -- --url /guides/freediving-safety-basics --dry-run
 ```
 
 Only for intentional paid calls:
@@ -109,3 +110,25 @@ Each market has a DataForSEO location code, language, country, and device.
 10. Commit real content improvements, not generated reports.
 
 Do not auto-rewrite content from reports. Do not generate pages from keyword data. Do not treat the score as a ranking score.
+
+## IndexNow
+
+The Bing/IndexNow ownership key is published from:
+
+```txt
+public/d56781b724a84cc8b1835fe68bf9ddb8.txt
+```
+
+After the site is deployed and the changed URL is live, submit only the URLs that were added, updated, or deleted:
+
+```bash
+pnpm seo:indexnow -- --url /guides/freediving-safety-basics
+```
+
+For a deployment where many public URLs changed, use the sitemap mode deliberately:
+
+```bash
+pnpm seo:indexnow -- --from-sitemap
+```
+
+Do not run IndexNow automatically on every build. It is a post-deploy operator action.

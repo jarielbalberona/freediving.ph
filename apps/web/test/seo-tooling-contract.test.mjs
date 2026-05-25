@@ -152,6 +152,26 @@ test("local SEO verification and Search Console tooling are wired", async () => 
   assert.match(gitignoreSource, /apps\/web\/scripts\/seo\/gsc\/\*\.csv/);
 });
 
+test("IndexNow ownership key and explicit Bing submission tooling are wired", async () => {
+  const [packageSource, keyFileSource, submitSource, readmeSource] =
+    await Promise.all([
+      readSource("package.json"),
+      readSource("public/d56781b724a84cc8b1835fe68bf9ddb8.txt"),
+      readSource("scripts/seo/submit-indexnow.mjs"),
+      readSource("scripts/seo/README.md"),
+    ]);
+
+  assert.equal(
+    keyFileSource.trim(),
+    "d56781b724a84cc8b1835fe68bf9ddb8",
+  );
+  assert.match(packageSource, /seo:indexnow/);
+  assert.match(submitSource, /api\.indexnow\.org\/indexnow/);
+  assert.match(submitSource, /keyLocation/);
+  assert.match(submitSource, /fromSitemap/);
+  assert.match(readmeSource, /Do not run IndexNow automatically on every build/);
+});
+
 test("Google tag and Sentry tooling are wired and Vercel Analytics is removed", async () => {
   const [layoutSource, packageJsonSource, sentryClientSource] =
     await Promise.all([
