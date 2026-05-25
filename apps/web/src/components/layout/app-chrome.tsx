@@ -59,7 +59,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
               </div>
             </div>
           </header>
-          <div className="min-h-[calc(100vh-3.5rem)] pb-17 md:pb-0">
+          <div className="min-h-[calc(100vh-3.5rem)] pb-[var(--app-bottom-nav-height)] md:pb-0">
             {children}
           </div>
         </SidebarInset>

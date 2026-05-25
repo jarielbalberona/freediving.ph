@@ -23,7 +23,37 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const [mounted, setMounted] = React.useState(false);
+  const [viewportAnchorStyle, setViewportAnchorStyle] =
+    React.useState<React.CSSProperties>({});
   React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    let frame = 0;
+    const update = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        setViewportAnchorStyle({
+          top: `${Math.round(viewport.offsetTop + viewport.height)}px`,
+          bottom: "auto",
+          transform: "translateY(-100%)",
+        });
+      });
+    };
+
+    update();
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
   const effectiveSignedIn = mounted && isLoaded && isSignedIn;
   const profileHref = useCurrentProfileHref();
   const messageUnreadQuery = useMessageUnreadCount(Boolean(effectiveSignedIn));
@@ -46,8 +76,8 @@ export function BottomNav({ onOpenCreate }: BottomNavProps) {
 
   return (
     <nav
-      className="bg-background border-sidebar-border fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t md:hidden"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="bg-background border-sidebar-border fixed inset-x-0 bottom-0 z-40 flex h-[var(--app-bottom-nav-height)] items-start justify-around border-t pb-[env(safe-area-inset-bottom)] md:hidden"
+      style={viewportAnchorStyle}
       aria-label="Main navigation"
     >
       {mainItems.map((item) => {

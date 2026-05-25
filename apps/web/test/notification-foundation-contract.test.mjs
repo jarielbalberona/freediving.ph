@@ -20,6 +20,12 @@ const notificationCenterPath = path.join(
 );
 const sidebarPath = path.join(srcRoot, "components/ui/app-sidebar.tsx");
 const bottomNavPath = path.join(srcRoot, "components/nav/bottom-nav.tsx");
+const mobileNavPath = path.join(
+  srcRoot,
+  "components/nav/mobile-nav-with-drawers.tsx",
+);
+const layoutPath = path.join(srcRoot, "app/layout.tsx");
+const globalsPath = path.join(srcRoot, "app/globals.css");
 const messageQueriesPath = path.join(
   srcRoot,
   "features/messages/hooks/queries.ts",
@@ -96,6 +102,31 @@ test("message nav badges use message unread count, not generic notification coun
   assert.match(api, /MessagingUnreadCountResponse/);
   assert.match(routes, /unreadCount/);
   assert.match(routes, /\/v1\/messages\/unread-count/);
+});
+
+test("mobile bottom nav is portaled and anchored to the viewport bottom", async () => {
+  const [bottomNav, mobileNav, appChrome, layout, globals] = await Promise.all([
+    readFile(bottomNavPath, "utf8"),
+    readFile(mobileNavPath, "utf8"),
+    readFile(appChromePath, "utf8"),
+    readFile(layoutPath, "utf8"),
+    readFile(globalsPath, "utf8"),
+  ]);
+
+  assert.match(mobileNav, /createPortal/);
+  assert.match(mobileNav, /document\.body/);
+  assert.match(bottomNav, /fixed inset-x-0 bottom-0/);
+  assert.match(bottomNav, /h-\[var\(--app-bottom-nav-height\)\]/);
+  assert.match(bottomNav, /pb-\[env\(safe-area-inset-bottom\)\]/);
+  assert.match(bottomNav, /window\.visualViewport/);
+  assert.match(bottomNav, /viewport\.offsetTop \+ viewport\.height/);
+  assert.match(bottomNav, /translateY\(-100%\)/);
+  assert.match(bottomNav, /viewport\.addEventListener\("scroll", update\)/);
+  assert.match(bottomNav, /style=\{viewportAnchorStyle\}/);
+  assert.match(appChrome, /pb-\[var\(--app-bottom-nav-height\)\]/);
+  assert.match(globals, /--app-bottom-nav-height:/);
+  assert.match(layout, /viewportFit: "cover"/);
+  assert.doesNotMatch(bottomNav, /style=\{\{ paddingBottom:/);
 });
 
 test("frontend no longer exposes generic client notification creation", async () => {

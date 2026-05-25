@@ -583,35 +583,37 @@ export function ProfileMediaComposer({
 
           <TabsContent value="moments" className="space-y-3">
             {!videoFile ? (
-              <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
-                      <Film className="size-5" />
+              <div className="overflow-hidden rounded-xl border border-dashed border-border/70 bg-muted/20">
+                <button
+                  type="button"
+                  className="flex min-h-80 w-full flex-col items-center justify-center gap-3 px-4 text-center"
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={momentBusy}
+                >
+                  <span className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                    <Film className="size-5" />
+                  </span>
+                  <span className="space-y-1">
+                    <span className="block text-sm font-semibold text-foreground">
+                      Choose a Moment video
                     </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground">
-                        Choose a Moment video
-                      </p>
-                      <p className="text-xs leading-5 text-muted-foreground">
-                        Moments can be up to 30 seconds.
-                      </p>
-                      <p className="text-xs leading-5 text-muted-foreground">
-                        Choose an MP4 or MOV video.
-                      </p>
-                    </div>
-                  </div>
+                    <span className="block text-xs text-muted-foreground">
+                      Moments can be up to 30 seconds.
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Choose an MP4 or MOV video.
+                    </span>
+                  </span>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => videoInputRef.current?.click()}
                     disabled={momentBusy}
                   >
                     <UploadCloud className="size-4" />
                     Choose video
                   </Button>
-                </div>
+                </button>
               </div>
             ) : null}
 
