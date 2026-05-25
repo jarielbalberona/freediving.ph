@@ -11,6 +11,7 @@ export * from "./api/public-profile";
 export * from "./feed";
 export * from "./instructors";
 export * from "./media";
+export * from "./navigation";
 export * from "./payment-methods";
 export * from "./reports";
 export * from "./schools";

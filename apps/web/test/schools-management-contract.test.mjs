@@ -15,7 +15,7 @@ test("manage schools routes and sidebar use /manage", () => {
   const settingsPage = read("src/app/manage/schools/[slug]/settings/page.tsx");
 
   assert.match(nav, /manage-schools/);
-  assert.match(nav, /Manage Schools/);
+  assert.match(nav, /sharedNav\("manage-schools"\)\.label/);
   assert.match(nav, /href: "\/manage\/schools"/);
   assert.match(listPage, /ManageSchoolsPage/);
   assert.match(overviewPage, /ManageSchoolOverviewPage/);

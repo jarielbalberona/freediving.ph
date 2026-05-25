@@ -1,9 +1,9 @@
-import { Link } from "expo-router";
+import { useAuth } from "@clerk/expo";
+import { DrawerActions } from "@react-navigation/native";
+import { Link, useNavigation } from "expo-router";
 import { Bell, Menu, UserRound } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-import { useMobileShellStore } from "@/stores/mobile-shell-store";
 
 type MobileTopHeaderProps = {
   subtitle?: string;
@@ -12,7 +12,8 @@ type MobileTopHeaderProps = {
 
 export function MobileTopHeader({ subtitle, title }: MobileTopHeaderProps) {
   const insets = useSafeAreaInsets();
-  const toggleMenu = useMobileShellStore((state) => state.toggleMenu);
+  const navigation = useNavigation();
+  const { isSignedIn } = useAuth();
 
   return (
     <View
@@ -23,7 +24,7 @@ export function MobileTopHeader({ subtitle, title }: MobileTopHeaderProps) {
         <Pressable
           accessibilityLabel="Open menu"
           className="h-10 w-10 items-center justify-center rounded-full bg-secondary"
-          onPress={toggleMenu}
+          onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
         >
           <Menu color="#0A1F2E" size={20} />
         </Pressable>
@@ -31,7 +32,10 @@ export function MobileTopHeader({ subtitle, title }: MobileTopHeaderProps) {
           <Text className="text-xs font-semibold uppercase tracking-wide text-primary">
             Freediving Philippines
           </Text>
-          <Text className="text-lg font-semibold text-foreground" numberOfLines={1}>
+          <Text
+            className="text-lg font-semibold text-foreground"
+            numberOfLines={1}
+          >
             {title ?? "Mobile"}
           </Text>
           {subtitle ? (
@@ -40,7 +44,7 @@ export function MobileTopHeader({ subtitle, title }: MobileTopHeaderProps) {
             </Text>
           ) : null}
         </View>
-        <Link href="/(app)/notifications" asChild>
+        <Link href={isSignedIn ? "/(app)/notifications" : "/sign-in"} asChild>
           <Pressable
             accessibilityLabel="Open notifications"
             className="h-10 w-10 items-center justify-center rounded-full bg-secondary"
@@ -48,7 +52,7 @@ export function MobileTopHeader({ subtitle, title }: MobileTopHeaderProps) {
             <Bell color="#0A1F2E" size={19} />
           </Pressable>
         </Link>
-        <Link href="/(app)/(tabs)/profile" asChild>
+        <Link href={isSignedIn ? "/(app)/(tabs)/profile" : "/sign-in"} asChild>
           <Pressable
             accessibilityLabel="Open profile"
             className="h-10 w-10 items-center justify-center rounded-full bg-primary"

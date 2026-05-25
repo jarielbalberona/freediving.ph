@@ -20,7 +20,11 @@ test("instructor application routes and labels are discoverable", () => {
   assert.match(certificationsPage, /InstructorApplicationPage/);
   assert.match(nav, /id: "instructor-application"/);
   assert.match(nav, /href: "\/instructor\/apply"/);
-  assert.match(nav, /MOBILE_SIDEBAR_ORDER[\s\S]*"instructor-application"/);
+  assert.match(nav, /sharedNav\("instructor-application"\)\.label/);
+  assert.match(
+    nav,
+    /MOBILE_SIDEBAR_ORDER: string\[\] = \[\.\.\.APP_DRAWER_NAV_IDS\]/,
+  );
   assert.match(page, /Submit for review/);
   assert.match(page, /FPH reviews existing instructor certifications/);
   assert.match(page, /does not mean FPH issued, guarantees, or certifies/);

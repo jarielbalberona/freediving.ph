@@ -10,18 +10,35 @@ const srcRoot = path.join(appRoot, "src");
 const readSource = (relativePath) =>
   readFile(path.join(srcRoot, relativePath), "utf8");
 
-test("app sidebar includes a lightweight Learn link above Founder note", async () => {
-  const sidebar = await readSource("components/ui/app-sidebar.tsx");
+test("app sidebar derives Learn and Founder note footer links from nav config", async () => {
+  const [sidebar, nav, sharedNav] = await Promise.all([
+    readSource("components/ui/app-sidebar.tsx"),
+    readSource("config/nav.ts"),
+    readFile(
+      path.join(appRoot, "../../packages/types/src/navigation.ts"),
+      "utf8",
+    ),
+  ]);
 
-  assert.match(sidebar, /BookOpen/);
-  assert.match(sidebar, /href="\/guides"/);
-  assert.match(sidebar, />Learn</);
+  assert.match(sidebar, /getSidebarFooterNavItems/);
+  assert.match(sidebar, /sidebarFooterItems\.map/);
+  assert.doesNotMatch(sidebar, /href="\/guides"/);
+  assert.doesNotMatch(sidebar, />Learn</);
 
-  const learnIndex = sidebar.indexOf(">Learn<");
-  const founderIndex = sidebar.indexOf(">Founder's Note<");
-  assert.ok(learnIndex > -1, "Learn label is missing");
-  assert.ok(founderIndex > -1, "Founder's Note label is missing");
-  assert.ok(learnIndex < founderIndex, "Learn should appear above Founder's Note");
+  assert.match(nav, /id: "learn"[\s\S]*?href: "\/guides"/);
+  assert.match(nav, /id: "learn"[\s\S]*?icon: BookOpen/);
+  assert.match(nav, /id: "founders-note"[\s\S]*?href: "\/founder-note"/);
+  assert.match(nav, /id: "founders-note"[\s\S]*?icon: Info/);
+  assert.match(nav, /getSidebarFooterNavItems/);
+
+  const learnIndex = sharedNav.indexOf('id: "learn"');
+  const founderIndex = sharedNav.indexOf('id: "founders-note"');
+  assert.ok(learnIndex > -1, "Learn contract is missing");
+  assert.ok(founderIndex > -1, "Founder’s Note contract is missing");
+  assert.ok(
+    learnIndex < founderIndex,
+    "Learn should come before Founder’s Note",
+  );
 
   assert.doesNotMatch(sidebar, /href="\/features"/);
   assert.doesNotMatch(sidebar, /href="\/about-us"/);
@@ -34,12 +51,16 @@ test("Learn active matching covers guides without matching features", () => {
       "--eval",
       `
         import assert from "node:assert/strict";
-        import { isActiveRoute } from "./src/config/nav.ts";
+        import { getSidebarFooterNavItems, isActiveRoute } from "./src/config/nav.ts";
 
         assert.equal(isActiveRoute("/guides", "/guides"), true);
         assert.equal(isActiveRoute("/guides/freediving-safety-basics", "/guides"), true);
         assert.equal(isActiveRoute("/features/dive-spots", "/guides"), false);
         assert.equal(isActiveRoute("/about-us", "/guides"), false);
+        assert.deepEqual(
+          getSidebarFooterNavItems({ isSignedIn: true }).map((item) => item.id),
+          ["learn", "founders-note"],
+        );
 
         console.log("ok");
       `,

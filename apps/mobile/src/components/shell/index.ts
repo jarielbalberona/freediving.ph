@@ -1,11 +1,9 @@
 export { MobileActionSheet } from "./mobile-action-sheet";
 export { MobileAppShell } from "./mobile-app-shell";
-export { MobileBottomTabIcon } from "./mobile-bottom-tabs";
 export { MobileCard } from "./mobile-card";
 export { MobileEmptyState } from "./mobile-empty-state";
 export { MobileErrorState } from "./mobile-error-state";
 export { MobileLoadingState } from "./mobile-loading-state";
-export { MobileMenuSheet } from "./mobile-menu-sheet";
 export { MobileScreen } from "./mobile-screen";
 export { MobileScrollScreen } from "./mobile-scroll-screen";
 export { MobileSection } from "./mobile-section";

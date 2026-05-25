@@ -1,88 +1,25 @@
-import { Tabs } from "expo-router";
 import {
-  CalendarDays,
-  Compass,
-  Home,
-  MessageCircle,
-  UserRound,
-  UsersRound,
-} from "lucide-react-native";
+  NativeTabs,
+  type NativeTabsTriggerIconProps,
+} from "expo-router/unstable-native-tabs";
 
-import { MobileBottomTabIcon } from "@/components/shell/mobile-bottom-tabs";
+import { MOBILE_BOTTOM_NAV_ITEMS } from "@/config/navigation";
 
 export default function AppTabsLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: "#0677A8",
-        tabBarInactiveTintColor: "#78909C",
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-        },
-        tabBarStyle: {
-          borderTopColor: "#D8E7EE",
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 6,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, focused }) => (
-            <MobileBottomTabIcon color={String(color)} focused={focused} icon={Home} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: "Explore",
-          tabBarIcon: ({ color, focused }) => (
-            <MobileBottomTabIcon color={String(color)} focused={focused} icon={Compass} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="chika"
-        options={{
-          title: "Chika",
-          tabBarIcon: ({ color, focused }) => (
-            <MobileBottomTabIcon color={String(color)} focused={focused} icon={MessageCircle} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="events"
-        options={{
-          title: "Events",
-          tabBarIcon: ({ color, focused }) => (
-            <MobileBottomTabIcon color={String(color)} focused={focused} icon={CalendarDays} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="buddies"
-        options={{
-          title: "Buddies",
-          tabBarIcon: ({ color, focused }) => (
-            <MobileBottomTabIcon color={String(color)} focused={focused} icon={UsersRound} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, focused }) => (
-            <MobileBottomTabIcon color={String(color)} focused={focused} icon={UserRound} />
-          ),
-        }}
-      />
-    </Tabs>
+    <NativeTabs tintColor="#0677A8">
+      {MOBILE_BOTTOM_NAV_ITEMS.map((item) => {
+        const iconProps = {
+          md: item.md,
+          sf: item.sf,
+        } as NativeTabsTriggerIconProps;
+        return (
+          <NativeTabs.Trigger key={item.id} name={item.routeName}>
+            <NativeTabs.Trigger.Icon {...iconProps} />
+            <NativeTabs.Trigger.Label>{item.label}</NativeTabs.Trigger.Label>
+          </NativeTabs.Trigger>
+        );
+      })}
+    </NativeTabs>
   );
 }

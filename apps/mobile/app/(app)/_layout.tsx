@@ -1,28 +1,56 @@
-import { useAuth } from "@clerk/expo";
-import { Redirect, Stack } from "expo-router";
+import { Drawer } from "expo-router/drawer";
 
-import { MobileLoadingState } from "@/components/shell/mobile-loading-state";
+import { MOBILE_DRAWER_NAV_ITEMS } from "@/config/navigation";
 
-export default function ProtectedLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
-
-  if (!isLoaded) {
-    return <MobileLoadingState message="Checking your session." />;
-  }
-
-  if (!isSignedIn) {
-    return <Redirect href="/sign-in" />;
-  }
-
+export default function AppLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="notifications" />
-      <Stack.Screen name="settings" />
-      <Stack.Screen name="explore/[slug]" />
-      <Stack.Screen name="chika/[slug]" />
-      <Stack.Screen name="events/[slug]" />
-      <Stack.Screen name="profile/[username]" />
-    </Stack>
+    <Drawer
+      screenOptions={{
+        drawerActiveTintColor: "#0677A8",
+        drawerInactiveTintColor: "#0A1F2E",
+        drawerLabelStyle: {
+          fontSize: 14,
+          fontWeight: "600",
+        },
+        headerShown: false,
+      }}
+    >
+      <Drawer.Screen
+        name="(tabs)"
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      {MOBILE_DRAWER_NAV_ITEMS.map((item) => {
+        const Icon = item.icon;
+        return (
+          <Drawer.Screen
+            key={item.id}
+            name={item.routeName}
+            options={{
+              drawerIcon: ({ color, size }) => (
+                <Icon color={color} size={size} strokeWidth={2.1} />
+              ),
+              drawerLabel: item.label,
+              title: item.label,
+            }}
+          />
+        );
+      })}
+      {[
+        "notifications",
+        "settings",
+        "explore/[slug]",
+        "chika/[slug]",
+        "events/[slug]",
+        "profile/[username]",
+      ].map((name) => (
+        <Drawer.Screen
+          key={name}
+          name={name}
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+      ))}
+    </Drawer>
   );
 }

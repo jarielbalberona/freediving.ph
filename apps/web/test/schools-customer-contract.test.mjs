@@ -19,7 +19,7 @@ test("customer schools routes and sidebar are wired separately from manage route
   const myBookingsPage = read("src/app/my/bookings/page.tsx");
 
   assert.match(nav, /id: "schools"/);
-  assert.match(nav, /title: "Schools"/);
+  assert.match(nav, /sharedNav\("schools"\)\.label/);
   assert.match(nav, /href: "\/schools"/);
   assert.match(schoolsPage, /SchoolsBrowsePage/);
   assert.match(schoolPage, /SchoolProfilePage/);
