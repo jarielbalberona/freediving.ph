@@ -189,7 +189,7 @@ test("notifications use shared contracts, auth gating, and read-only routes", ()
   assert.doesNotMatch(screen, /markAsRead|markAllAsRead|pushToken|websocket|realtime/i);
 });
 
-test("buddies use shared contracts, auth gating, and read-only routes", () => {
+test("buddies use shared public preview contracts and read-only routes", () => {
   const api = read("src/features/buddies/api/buddies-api.ts");
   const hook = read("src/features/buddies/hooks/use-buddy-finder-query.ts");
   const card = read("src/features/buddies/components/buddy-intent-card.tsx");
@@ -197,17 +197,20 @@ test("buddies use shared contracts, auth gating, and read-only routes", () => {
   const format = read("src/features/buddies/lib/buddy-format.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
+  assert.match(api, /BuddyFinderPreviewResponse/);
   assert.match(api, /BuddyFinderListResponse/);
   assert.match(api, /fphgoFetch/);
+  assert.match(api, /\/v1\/buddy-finder\/preview/);
   assert.match(api, /\/v1\/buddy-finder\/intents/);
+  assert.match(api, /auth:\s*"none"/);
   assert.match(api, /auth:\s*"required"/);
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/buddies\/types|features\/buddy-finder\/types/);
   assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
-  assert.match(hook, /useAuthenticatedFphgoQuery/);
-  assert.match(hook, /mobileQueryKeys\.buddies\.intents/);
-  assert.match(card, /buddyProfileHref/);
-  assert.match(format, /\/\(app\)\/profile\/\[username\]/);
+  assert.doesNotMatch(hook, /useAuthenticatedFphgoQuery/);
+  assert.match(hook, /mobileQueryKeys\.buddies\.preview/);
+  assert.match(card, /BuddyFinderPreviewIntent/);
+  assert.doesNotMatch(card, /Link|Pressable|buddyProfileHref/);
   assert.ok(format.includes('includes("/")'));
   assert.match(screen, /MobileLoadingState/);
   assert.match(screen, /MobileEmptyState/);

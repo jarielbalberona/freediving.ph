@@ -1,11 +1,9 @@
-import { Link } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
-import type { BuddyFinderIntent } from "@freediving.ph/types";
+import type { BuddyFinderPreviewIntent } from "@freediving.ph/types";
 
 import { MobileCard } from "@/components/shell";
 import {
-  buddyProfileHref,
   buddyStatsLabel,
   certLevelLabel,
   formatRecency,
@@ -14,10 +12,10 @@ import {
 } from "@/features/buddies/lib/buddy-format";
 
 type BuddyIntentCardProps = {
-  intent: BuddyFinderIntent;
+  intent: BuddyFinderPreviewIntent;
 };
 
-function BuddyIntentCardContent({ intent }: BuddyIntentCardProps) {
+export function BuddyIntentCard({ intent }: BuddyIntentCardProps) {
   const certLevel = certLevelLabel(intent.certLevel);
   const createdAt = formatRecency(intent.createdAt);
 
@@ -40,14 +38,14 @@ function BuddyIntentCardContent({ intent }: BuddyIntentCardProps) {
 
         <View className="gap-2">
           <Text className="text-base font-semibold leading-6 text-foreground">
-            {intent.displayName}
+            Freediving buddy
           </Text>
           <Text className="text-sm text-muted-foreground">
-            {intent.area || intent.homeArea || "Area to be shared"}
+            {intent.area || "Area to be shared"}
           </Text>
-          {intent.note ? (
+          {intent.notePreview ? (
             <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={4}>
-              {intent.note}
+              {intent.notePreview}
             </Text>
           ) : null}
         </View>
@@ -72,21 +70,5 @@ function BuddyIntentCardContent({ intent }: BuddyIntentCardProps) {
         </View>
       </View>
     </MobileCard>
-  );
-}
-
-export function BuddyIntentCard({ intent }: BuddyIntentCardProps) {
-  const href = buddyProfileHref(intent);
-
-  if (!href) {
-    return <BuddyIntentCardContent intent={intent} />;
-  }
-
-  return (
-    <Link href={href} asChild>
-      <Pressable accessibilityRole="link">
-        <BuddyIntentCardContent intent={intent} />
-      </Pressable>
-    </Link>
   );
 }

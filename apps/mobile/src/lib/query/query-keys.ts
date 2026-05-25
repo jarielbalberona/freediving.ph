@@ -41,6 +41,8 @@ export const mobileQueryKeys = {
   },
   buddies: {
     all: ["buddies"] as const,
+    preview: (params?: { limit?: number }) =>
+      [...mobileQueryKeys.buddies.all, "preview", params ?? {}] as const,
     intents: (params?: { limit?: number }) =>
       [...mobileQueryKeys.buddies.all, "intents", params ?? {}] as const,
   },

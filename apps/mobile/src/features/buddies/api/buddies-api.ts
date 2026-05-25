@@ -1,4 +1,7 @@
-import type { BuddyFinderListResponse } from "@freediving.ph/types";
+import type {
+  BuddyFinderListResponse,
+  BuddyFinderPreviewResponse,
+} from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
 
@@ -27,4 +30,12 @@ export const getBuddyFinderIntents = (
       auth: "required",
       authToken,
     },
+  );
+
+export const getBuddyFinderPreview = (filters: { limit?: number }) =>
+  fphgoFetch<BuddyFinderPreviewResponse>(
+    withQuery("/v1/buddy-finder/preview", {
+      limit: filters.limit,
+    }),
+    { auth: "none" },
   );

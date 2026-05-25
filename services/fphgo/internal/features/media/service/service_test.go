@@ -1474,6 +1474,36 @@ func TestCompleteMomentUploadMarksReadyWhenStreamIsReady(t *testing.T) {
 	}
 }
 
+func TestSyncMomentStreamStatusMarksFailedWhenStreamErrors(t *testing.T) {
+	stream := &fakeStreamClient{video: StreamVideo{
+		UID:             "stream123",
+		ReadyToStream:   false,
+		StatusState:     "error",
+		ErrorReasonText: "encoding failed",
+	}}
+	svc := New(
+		&fakeRepo{},
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret-v1",
+		1,
+		WithStreamClient(stream, false),
+	)
+
+	result, err := svc.SyncMomentStreamStatus(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"22222222-2222-4222-8222-222222222222",
+	)
+	if err != nil {
+		t.Fatalf("sync moment status: %v", err)
+	}
+	if result.Status != "failed" || result.FailedReason == nil || *result.FailedReason != "encoding failed" {
+		t.Fatalf("expected failed status from stream error, got %+v", result)
+	}
+}
+
 func TestCompleteMomentUploadIsIdempotentWhenAlreadyReady(t *testing.T) {
 	streamUID := "stream123"
 	playbackURL := "https://iframe.videodelivery.net/stream123"

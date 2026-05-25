@@ -1,6 +1,9 @@
-import type { Href } from "expo-router";
+import type {
+  BuddyFinderIntent,
+  BuddyFinderPreviewIntent,
+} from "@freediving.ph/types";
 
-import type { BuddyFinderIntent } from "@freediving.ph/types";
+type BuddyFinderCardIntent = BuddyFinderIntent | BuddyFinderPreviewIntent;
 
 export const safeBuddyUsername = (username: string | undefined) => {
   const trimmed = username?.trim().replace(/^@/, "");
@@ -28,8 +31,8 @@ export const safeDiveSiteSlug = (slug: string | undefined) => {
   return trimmed;
 };
 
-export const intentTypeLabel = (type: BuddyFinderIntent["intentType"]) => {
-  const labels: Record<BuddyFinderIntent["intentType"], string> = {
+export const intentTypeLabel = (type: BuddyFinderCardIntent["intentType"]) => {
+  const labels: Record<BuddyFinderCardIntent["intentType"], string> = {
     depth: "Depth",
     fun_dive: "Fun dive",
     line_training: "Line training",
@@ -39,7 +42,7 @@ export const intentTypeLabel = (type: BuddyFinderIntent["intentType"]) => {
   return labels[type] ?? type;
 };
 
-export const timeWindowLabel = (intent: BuddyFinderIntent) => {
+export const timeWindowLabel = (intent: BuddyFinderCardIntent) => {
   if (intent.timeWindow === "today") return "Today";
   if (intent.timeWindow === "weekend") return "This weekend";
   if (intent.dateStart && intent.dateEnd) {
@@ -71,7 +74,7 @@ export const formatRecency = (value: string | undefined) => {
 export const certLevelLabel = (value: string | undefined) =>
   value?.trim().replace(/[_-]/g, " ") || "";
 
-export const buddyStatsLabel = (intent: BuddyFinderIntent) => {
+export const buddyStatsLabel = (intent: BuddyFinderCardIntent) => {
   const parts = [
     `${intent.buddyCount} buddies`,
     `${intent.reportCount} reports`,
@@ -80,11 +83,4 @@ export const buddyStatsLabel = (intent: BuddyFinderIntent) => {
     parts.push(`${intent.mutualBuddiesCount} mutual`);
   }
   return parts.join(" · ");
-};
-
-export const buddyProfileHref = (intent: BuddyFinderIntent): Href | undefined => {
-  const username = safeBuddyUsername(intent.username);
-  return username
-    ? { pathname: "/(app)/profile/[username]", params: { username } }
-    : undefined;
 };

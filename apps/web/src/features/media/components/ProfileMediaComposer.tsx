@@ -584,6 +584,15 @@ export function ProfileMediaComposer({
           </TabsContent>
 
           <TabsContent value="moments" className="space-y-3">
+            <Alert>
+              <AlertCircle className="size-4" />
+              <AlertTitle>Moments are still in progress</AlertTitle>
+              <AlertDescription>
+                You can test choosing and previewing a video, but uploading may
+                not work yet.
+              </AlertDescription>
+            </Alert>
+
             {!videoFile ? (
               <div className="overflow-hidden rounded-xl border border-dashed border-border/70 bg-muted/20">
                 <button
