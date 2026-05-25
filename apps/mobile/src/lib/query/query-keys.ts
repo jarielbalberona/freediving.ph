@@ -10,6 +10,8 @@ export const mobileQueryKeys = {
   feed: {
     all: ["feed"] as const,
     home: () => [...mobileQueryKeys.feed.all, "home"] as const,
+    activity: (params: { filter?: string; limit?: number }) =>
+      [...mobileQueryKeys.feed.all, "activity", params] as const,
   },
   explore: {
     all: ["explore"] as const,

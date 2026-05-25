@@ -48,3 +48,19 @@ test("protected fphgo query helper gates on Clerk readiness", () => {
   assert.match(helper, /enabled/);
   assert.match(helper, /getToken/);
 });
+
+test("home feed uses shared activity contracts and fetch client", () => {
+  const api = read("src/features/home-feed/api/get-home-activity-feed.ts");
+  const hook = read("src/features/home-feed/hooks/use-home-activity-feed-query.ts");
+  const mapper = read("src/features/home-feed/lib/activity-card-model.ts");
+
+  assert.match(api, /@freediving\.ph\/types/);
+  assert.match(api, /ActivityFeedResponse/);
+  assert.match(api, /fphgoFetch/);
+  assert.match(api, /\/v1\/feed\/activity/);
+  assert.doesNotMatch(api, /axios/i);
+  assert.match(hook, /mobileQueryKeys\.feed\.activity/);
+  assert.match(mapper, /\/\(app\)\/chika\/\[slug\]/);
+  assert.match(mapper, /\/\(app\)\/events\/\[slug\]/);
+  assert.match(mapper, /\/\(app\)\/explore\/\[slug\]/);
+});
