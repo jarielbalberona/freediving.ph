@@ -26,6 +26,17 @@ type GroupPayload = {
 
 const groupPath = (slug: string) => `/groups/${encodeURIComponent(slug)}` as const;
 
+const headingFromSlug = (slug: string, fallback: string) => {
+  const decoded = decodeURIComponent(slug)
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const heading = decoded
+    ? decoded.replace(/\b\w/g, (letter) => letter.toUpperCase())
+    : fallback;
+  return heading.length > 150 ? `${heading.slice(0, 147).trimEnd()}...` : heading;
+};
+
 const isIndexableGroup = (group: Group | null): group is Group =>
   group?.status === "active" && group.visibility === "public";
 
@@ -80,23 +91,29 @@ export default async function GroupDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const group = await getPublicGroupMetadata(slug);
   const path = groupPath(slug);
+  const h1 = isIndexableGroup(group)
+    ? group.name
+    : headingFromSlug(slug, "Freediving group");
 
   return (
     <>
+      <h1 className="sr-only">{h1}</h1>
       {isIndexableGroup(group) ? (
-        <StructuredData
-          data={[
-            webPageJsonLd({
-              title: `${group.name} | Freediving Group`,
-              description: groupDescription(group),
-              path,
-            }),
-            breadcrumbJsonLd([
-              { name: "Groups", path: "/groups" },
-              { name: group.name, path },
-            ]),
-          ]}
-        />
+        <>
+          <StructuredData
+            data={[
+              webPageJsonLd({
+                title: `${group.name} | Freediving Group`,
+                description: groupDescription(group),
+                path,
+              }),
+              breadcrumbJsonLd([
+                { name: "Groups", path: "/groups" },
+                { name: group.name, path },
+              ]),
+            ]}
+          />
+        </>
       ) : null}
       <GroupDetailClient slug={slug} />
     </>

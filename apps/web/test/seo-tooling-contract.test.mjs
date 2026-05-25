@@ -134,6 +134,25 @@ test("dynamic entity SEO stays conservative about visibility and schema", async 
   assert.match(profilePage, /robots:\s*\{\s*index:\s*false/);
 });
 
+test("indexable client-heavy public pages render a crawler-visible H1", async () => {
+  const [homePage, explorePage, groupPage, chikaPage] = await Promise.all([
+    readSource("src/app/page.tsx"),
+    readSource("src/app/explore/page.tsx"),
+    readSource("src/app/groups/[slug]/page.tsx"),
+    readSource("src/app/chika/[slug]/page.tsx"),
+  ]);
+
+  assert.match(homePage, /<h1[^>]*>[\s\S]*Freediving Philippines/);
+  assert.match(
+    explorePage,
+    /<h1 className="sr-only">Explore freediving dive spots in the Philippines<\/h1>/,
+  );
+  assert.match(groupPage, /headingFromSlug\(slug, "Freediving group"\)/);
+  assert.match(chikaPage, /headingFromSlug\(slug, "Chika discussion"\)/);
+  assert.match(groupPage, /<h1 className="sr-only">\{h1\}<\/h1>/);
+  assert.match(chikaPage, /<h1 className="sr-only">\{h1\}<\/h1>/);
+});
+
 test("local SEO verification and Search Console tooling are wired", async () => {
   const [packageSource, verifySource, gscSource, gitignoreSource] =
     await Promise.all([

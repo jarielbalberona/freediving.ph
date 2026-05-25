@@ -23,6 +23,17 @@ type PageProps = {
 
 const chikaPath = (slug: string) => `/chika/${encodeURIComponent(slug)}` as const;
 
+const headingFromSlug = (slug: string, fallback: string) => {
+  const decoded = decodeURIComponent(slug)
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const heading = decoded
+    ? decoded.replace(/\b\w/g, (letter) => letter.toUpperCase())
+    : fallback;
+  return heading.length > 150 ? `${heading.slice(0, 147).trimEnd()}...` : heading;
+};
+
 const isIndexableThread = (
   thread: ChikaThreadResponse | null,
 ): thread is ChikaThreadResponse =>
@@ -74,33 +85,39 @@ export default async function ChikaDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const thread = await getPublicThreadMetadata(slug);
   const path = chikaPath(slug);
+  const h1 = isIndexableThread(thread)
+    ? thread.title
+    : headingFromSlug(slug, "Chika discussion");
 
   return (
     <>
+      <h1 className="sr-only">{h1}</h1>
       {isIndexableThread(thread) ? (
-        <StructuredData
-          data={[
-            webPageJsonLd({
-              title: `${thread.title} | Chika`,
-              description: threadDescription(thread),
-              path,
-            }),
-            breadcrumbJsonLd([
-              { name: "Chika", path: "/chika" },
-              { name: thread.title, path },
-            ]),
-            discussionForumPostingJsonLd({
-              headline: thread.title,
-              text: threadDescription(thread),
-              path,
-              datePublished: thread.createdAt,
-              dateModified: thread.updatedAt,
-              authorName: thread.categoryPseudonymous
-                ? undefined
-                : thread.authorDisplayName,
-            }),
-          ]}
-        />
+        <>
+          <StructuredData
+            data={[
+              webPageJsonLd({
+                title: `${thread.title} | Chika`,
+                description: threadDescription(thread),
+                path,
+              }),
+              breadcrumbJsonLd([
+                { name: "Chika", path: "/chika" },
+                { name: thread.title, path },
+              ]),
+              discussionForumPostingJsonLd({
+                headline: thread.title,
+                text: threadDescription(thread),
+                path,
+                datePublished: thread.createdAt,
+                dateModified: thread.updatedAt,
+                authorName: thread.categoryPseudonymous
+                  ? undefined
+                  : thread.authorDisplayName,
+              }),
+            ]}
+          />
+        </>
       ) : null}
       <ChikaDetailClient slug={slug} />
     </>

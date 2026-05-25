@@ -4,9 +4,12 @@ import { ExploreLayout } from "@/features/explore/components/ExploreLayout";
 
 export default function ExplorePage() {
   return (
-    <Suspense fallback={<ExploreFallback />}>
-      <ExploreLayout />
-    </Suspense>
+    <>
+      <h1 className="sr-only">Explore freediving dive spots in the Philippines</h1>
+      <Suspense fallback={<ExploreFallback />}>
+        <ExploreLayout />
+      </Suspense>
+    </>
   );
 }
 
