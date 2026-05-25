@@ -56,7 +56,7 @@ type MediaPost struct {
 	ID              string
 	AuthorAppUserID string
 	UploadGroupID   string
-	DiveSiteID      string
+	DiveSiteID      *string
 	PostCaption     *string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
@@ -88,24 +88,36 @@ type CommentLikeState struct {
 }
 
 type MediaItem struct {
-	ID              string
-	PostID          string
-	MediaObjectID   string
-	AuthorAppUserID string
-	UploadGroupID   string
-	DiveSiteID      string
-	Type            string
-	StorageKey      string
-	MimeType        string
-	Width           int32
-	Height          int32
-	DurationMs      *int32
-	Caption         *string
-	SortOrder       int32
-	Status          string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	DeletedAt       *time.Time
+	ID               string
+	PostID           string
+	MediaObjectID    string
+	AuthorAppUserID  string
+	UploadGroupID    string
+	DiveSiteID       string
+	Type             string
+	StorageKey       string
+	MimeType         string
+	Width            int32
+	Height           int32
+	DurationMs       *int32
+	Caption          *string
+	SortOrder        int32
+	Status           string
+	Provider         string
+	StreamUID        *string
+	PlaybackUID      *string
+	PlaybackURL      *string
+	ThumbnailURL     *string
+	PreviewURL       *string
+	HasAudio         *bool
+	ProcessingStatus string
+	ModerationStatus string
+	UploadExpiresAt  *time.Time
+	ReadyAt          *time.Time
+	FailedReason     *string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	DeletedAt        *time.Time
 }
 
 type PublishMediaPostInput struct {
@@ -129,6 +141,29 @@ type CreateMediaItemInput struct {
 	Caption         *string
 	SortOrder       int32
 	Status          string
+}
+
+type CreateMomentInput struct {
+	AuthorAppUserID  string
+	DiveSiteID       *string
+	PostCaption      *string
+	StreamUID        string
+	UploadURL        string
+	UploadExpiresAt  time.Time
+	RequireSignedURL bool
+}
+
+type MomentStatusUpdate struct {
+	StreamUID    string
+	Width        int32
+	Height       int32
+	DurationMs   *int32
+	PlaybackUID  string
+	PlaybackURL  string
+	ThumbnailURL string
+	PreviewURL   string
+	HasAudio     *bool
+	FailedReason string
 }
 
 type ProfileMediaItem struct {
@@ -384,6 +419,151 @@ func (r *Repo) PublishMediaPost(ctx context.Context, input PublishMediaPostInput
 	return mapMediaPost(post), items, nil
 }
 
+func (r *Repo) CreateMoment(ctx context.Context, input CreateMomentInput) (MediaPost, MediaItem, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return MediaPost{}, MediaItem{}, err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	q := mediaqlc.New(tx)
+	group, err := q.CreateMediaUploadGroup(ctx, mediaqlc.CreateMediaUploadGroupParams{
+		AuthorAppUserID: toUUID(input.AuthorAppUserID),
+		Source:          "moment_upload",
+		ItemCount:       1,
+	})
+	if err != nil {
+		return MediaPost{}, MediaItem{}, err
+	}
+
+	objectKey := "cloudflare-stream/" + strings.TrimSpace(input.StreamUID)
+	mediaObject, err := q.CreateMediaObject(ctx, mediaqlc.CreateMediaObjectParams{
+		OwnerAppUserID: toUUID(input.AuthorAppUserID),
+		ContextType:    "profile_feed",
+		ContextID:      toUUIDPtr(nil),
+		ObjectKey:      objectKey,
+		MimeType:       "video/mp4",
+		SizeBytes:      0,
+		Width:          1,
+		Height:         1,
+		State:          "hidden",
+	})
+	if err != nil {
+		return MediaPost{}, MediaItem{}, err
+	}
+
+	post, err := q.CreateMomentMediaPost(ctx, mediaqlc.CreateMomentMediaPostParams{
+		AuthorAppUserID: toUUID(input.AuthorAppUserID),
+		UploadGroupID:   group.ID,
+		DiveSiteID:      toUUIDPtr(input.DiveSiteID),
+		PostCaption:     stringPtr(input.PostCaption),
+	})
+	if err != nil {
+		return MediaPost{}, MediaItem{}, err
+	}
+
+	playbackURL := defaultStreamEmbedURL(input.StreamUID)
+	thumbnailURL := defaultStreamThumbnailURL(input.StreamUID)
+	item, err := q.CreateMomentMediaItem(ctx, mediaqlc.CreateMomentMediaItemParams{
+		PostID:           post.ID,
+		MediaObjectID:    mediaObject.ID,
+		AuthorAppUserID:  toUUID(input.AuthorAppUserID),
+		UploadGroupID:    group.ID,
+		DiveSiteID:       toUUIDPtr(input.DiveSiteID),
+		StorageKey:       objectKey,
+		MimeType:         "video/mp4",
+		Width:            1,
+		Height:           1,
+		DurationMs:       nil,
+		Caption:          stringPtr(input.PostCaption),
+		Status:           "hidden",
+		StreamUid:        stringPtr(&input.StreamUID),
+		PlaybackUid:      stringPtr(&input.StreamUID),
+		PlaybackUrl:      stringPtr(&playbackURL),
+		ThumbnailUrl:     stringPtr(&thumbnailURL),
+		PreviewUrl:       nil,
+		ProcessingStatus: "upload_requested",
+		ModerationStatus: "approved",
+		UploadExpiresAt:  toTimestamptz(input.UploadExpiresAt),
+	})
+	if err != nil {
+		return MediaPost{}, MediaItem{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return MediaPost{}, MediaItem{}, err
+	}
+	return mapMediaPost(post), mapMediaItem(item), nil
+}
+
+func (r *Repo) GetMomentMediaItemByPostForOwner(ctx context.Context, postID, ownerID string) (MediaItem, error) {
+	row, err := r.queries.GetMomentMediaItemByPostForOwner(ctx, mediaqlc.GetMomentMediaItemByPostForOwnerParams{
+		PostID:          toUUID(postID),
+		AuthorAppUserID: toUUID(ownerID),
+	})
+	if err != nil {
+		return MediaItem{}, err
+	}
+	return mapMediaItem(row), nil
+}
+
+func (r *Repo) GetMomentMediaItemByStreamUID(ctx context.Context, streamUID string) (MediaItem, error) {
+	row, err := r.queries.GetMomentMediaItemByStreamUID(ctx, stringPtr(&streamUID))
+	if err != nil {
+		return MediaItem{}, err
+	}
+	return mapMediaItem(row), nil
+}
+
+func (r *Repo) MarkMomentUploaded(ctx context.Context, postID, ownerID string) (MediaItem, error) {
+	row, err := r.queries.MarkMomentUploaded(ctx, mediaqlc.MarkMomentUploadedParams{
+		PostID:          toUUID(postID),
+		AuthorAppUserID: toUUID(ownerID),
+	})
+	if err != nil {
+		return MediaItem{}, err
+	}
+	return mapMediaItem(row), nil
+}
+
+func (r *Repo) MarkMomentReady(ctx context.Context, input MomentStatusUpdate) (MediaItem, error) {
+	row, err := r.queries.MarkMomentReady(ctx, mediaqlc.MarkMomentReadyParams{
+		StreamUid:  stringPtr(&input.StreamUID),
+		Width:      input.Width,
+		Height:     input.Height,
+		DurationMs: input.DurationMs,
+		Column5:    input.PlaybackUID,
+		Column6:    input.PlaybackURL,
+		Column7:    input.ThumbnailURL,
+		Column8:    input.PreviewURL,
+		HasAudio:   input.HasAudio,
+	})
+	if err != nil {
+		return MediaItem{}, err
+	}
+	return mapMediaItem(row), nil
+}
+
+func (r *Repo) MarkMomentFailed(ctx context.Context, input MomentStatusUpdate) (MediaItem, error) {
+	row, err := r.queries.MarkMomentFailed(ctx, mediaqlc.MarkMomentFailedParams{
+		StreamUid:    stringPtr(&input.StreamUID),
+		FailedReason: stringPtr(&input.FailedReason),
+	})
+	if err != nil {
+		return MediaItem{}, err
+	}
+	return mapMediaItem(row), nil
+}
+
+func (r *Repo) MarkExpiredMomentUploadsFailed(ctx context.Context, now time.Time, failedReason string) (int64, error) {
+	return r.queries.MarkExpiredMomentUploadsFailed(ctx, mediaqlc.MarkExpiredMomentUploadsFailedParams{
+		UploadExpiresAt: toTimestamptz(now),
+		FailedReason:    stringPtr(&failedReason),
+	})
+}
+
 func (r *Repo) ListProfileMediaByUsername(ctx context.Context, input ListProfileMediaInput) ([]ProfileMediaItem, error) {
 	rows, err := r.queries.ListProfileMediaByUsername(ctx, mediaqlc.ListProfileMediaByUsernameParams{
 		ViewerUserID: toUUID(input.ViewerUserID),
@@ -398,6 +578,42 @@ func (r *Repo) ListProfileMediaByUsername(ctx context.Context, input ListProfile
 	items := make([]ProfileMediaItem, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, mapProfileMediaItem(row))
+	}
+	return items, nil
+}
+
+func (r *Repo) ListProfileMomentsByUsername(ctx context.Context, input ListProfileMediaInput) ([]ProfileMediaItem, error) {
+	rows, err := r.queries.ListProfileMomentsByUsername(ctx, mediaqlc.ListProfileMomentsByUsernameParams{
+		ViewerUserID: toUUID(input.ViewerUserID),
+		Username:     input.Username,
+		CreatedAt:    toTimestamptz(input.CursorCreated),
+		ID:           toUUID(input.CursorID),
+		LimitCount:   input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]ProfileMediaItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapProfileMomentItem(row))
+	}
+	return items, nil
+}
+
+func (r *Repo) ListDiveSiteMoments(ctx context.Context, input ListDiveSiteMomentsInput) ([]ProfileMediaItem, error) {
+	rows, err := r.queries.ListDiveSiteMoments(ctx, mediaqlc.ListDiveSiteMomentsParams{
+		ViewerUserID: toUUID(input.ViewerUserID),
+		DiveSiteID:   toUUID(input.DiveSiteID),
+		CreatedAt:    toTimestamptz(input.CursorCreated),
+		ID:           toUUID(input.CursorID),
+		LimitCount:   input.Limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]ProfileMediaItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapDiveSiteMomentItem(row))
 	}
 	return items, nil
 }
@@ -458,6 +674,14 @@ type ListProfileDiveSpotHighlightsInput struct {
 
 type ListProfileDiveSpotMediaInput struct {
 	Username      string
+	ViewerUserID  string
+	DiveSiteID    string
+	CursorCreated time.Time
+	CursorID      string
+	Limit         int32
+}
+
+type ListDiveSiteMomentsInput struct {
 	ViewerUserID  string
 	DiveSiteID    string
 	CursorCreated time.Time
@@ -643,7 +867,7 @@ func mapMediaPost(row mediaqlc.MediaPost) MediaPost {
 		ID:              row.ID.String(),
 		AuthorAppUserID: row.AuthorAppUserID.String(),
 		UploadGroupID:   row.UploadGroupID.String(),
-		DiveSiteID:      row.DiveSiteID.String(),
+		DiveSiteID:      uuidPtr(row.DiveSiteID),
 		PostCaption:     stringPtr(row.PostCaption),
 		CreatedAt:       row.CreatedAt.Time.UTC(),
 		UpdatedAt:       row.UpdatedAt.Time.UTC(),
@@ -653,48 +877,162 @@ func mapMediaPost(row mediaqlc.MediaPost) MediaPost {
 
 func mapMediaItem(row mediaqlc.MediaItem) MediaItem {
 	return MediaItem{
-		ID:              row.ID.String(),
-		PostID:          row.PostID.String(),
-		MediaObjectID:   row.MediaObjectID.String(),
-		AuthorAppUserID: row.AuthorAppUserID.String(),
-		UploadGroupID:   row.UploadGroupID.String(),
-		DiveSiteID:      row.DiveSiteID.String(),
-		Type:            row.Type,
-		StorageKey:      row.StorageKey,
-		MimeType:        row.MimeType,
-		Width:           row.Width,
-		Height:          row.Height,
-		DurationMs:      int32PtrFromPtr(row.DurationMs),
-		Caption:         stringPtr(row.Caption),
-		SortOrder:       row.SortOrder,
-		Status:          row.Status,
-		CreatedAt:       row.CreatedAt.Time.UTC(),
-		UpdatedAt:       row.UpdatedAt.Time.UTC(),
-		DeletedAt:       timestamptzPtr(row.DeletedAt),
+		ID:               row.ID.String(),
+		PostID:           row.PostID.String(),
+		MediaObjectID:    row.MediaObjectID.String(),
+		AuthorAppUserID:  row.AuthorAppUserID.String(),
+		UploadGroupID:    row.UploadGroupID.String(),
+		DiveSiteID:       uuidString(row.DiveSiteID),
+		Type:             row.Type,
+		StorageKey:       row.StorageKey,
+		MimeType:         row.MimeType,
+		Width:            row.Width,
+		Height:           row.Height,
+		DurationMs:       int32PtrFromPtr(row.DurationMs),
+		Caption:          stringPtr(row.Caption),
+		SortOrder:        row.SortOrder,
+		Status:           row.Status,
+		Provider:         row.Provider,
+		StreamUID:        stringPtr(row.StreamUid),
+		PlaybackUID:      stringPtr(row.PlaybackUid),
+		PlaybackURL:      stringPtr(row.PlaybackUrl),
+		ThumbnailURL:     stringPtr(row.ThumbnailUrl),
+		PreviewURL:       stringPtr(row.PreviewUrl),
+		HasAudio:         boolPtr(row.HasAudio),
+		ProcessingStatus: row.ProcessingStatus,
+		ModerationStatus: row.ModerationStatus,
+		UploadExpiresAt:  timestamptzPtr(row.UploadExpiresAt),
+		ReadyAt:          timestamptzPtr(row.ReadyAt),
+		FailedReason:     stringPtr(row.FailedReason),
+		CreatedAt:        row.CreatedAt.Time.UTC(),
+		UpdatedAt:        row.UpdatedAt.Time.UTC(),
+		DeletedAt:        timestamptzPtr(row.DeletedAt),
 	}
 }
 
 func mapProfileMediaItem(row mediaqlc.ListProfileMediaByUsernameRow) ProfileMediaItem {
 	return ProfileMediaItem{
 		MediaItem: MediaItem{
-			ID:              row.ID.String(),
-			PostID:          row.PostID.String(),
-			MediaObjectID:   row.MediaObjectID.String(),
-			AuthorAppUserID: row.AuthorAppUserID.String(),
-			UploadGroupID:   row.UploadGroupID.String(),
-			DiveSiteID:      row.DiveSiteID.String(),
-			Type:            row.Type,
-			StorageKey:      row.StorageKey,
-			MimeType:        row.MimeType,
-			Width:           row.Width,
-			Height:          row.Height,
-			DurationMs:      int32PtrFromPtr(row.DurationMs),
-			Caption:         stringPtr(row.Caption),
-			SortOrder:       row.SortOrder,
-			Status:          row.Status,
-			CreatedAt:       row.CreatedAt.Time.UTC(),
-			UpdatedAt:       row.UpdatedAt.Time.UTC(),
-			DeletedAt:       timestamptzPtr(row.DeletedAt),
+			ID:               row.ID.String(),
+			PostID:           row.PostID.String(),
+			MediaObjectID:    row.MediaObjectID.String(),
+			AuthorAppUserID:  row.AuthorAppUserID.String(),
+			UploadGroupID:    row.UploadGroupID.String(),
+			DiveSiteID:       uuidString(row.DiveSiteID),
+			Type:             row.Type,
+			StorageKey:       row.StorageKey,
+			MimeType:         row.MimeType,
+			Width:            row.Width,
+			Height:           row.Height,
+			DurationMs:       int32PtrFromPtr(row.DurationMs),
+			Caption:          stringPtr(row.Caption),
+			SortOrder:        row.SortOrder,
+			Status:           row.Status,
+			Provider:         row.Provider,
+			StreamUID:        stringPtr(row.StreamUid),
+			PlaybackUID:      stringPtr(row.PlaybackUid),
+			PlaybackURL:      stringPtr(row.PlaybackUrl),
+			ThumbnailURL:     stringPtr(row.ThumbnailUrl),
+			PreviewURL:       stringPtr(row.PreviewUrl),
+			HasAudio:         boolPtr(row.HasAudio),
+			ProcessingStatus: row.ProcessingStatus,
+			ModerationStatus: row.ModerationStatus,
+			UploadExpiresAt:  timestamptzPtr(row.UploadExpiresAt),
+			ReadyAt:          timestamptzPtr(row.ReadyAt),
+			FailedReason:     stringPtr(row.FailedReason),
+			CreatedAt:        row.CreatedAt.Time.UTC(),
+			UpdatedAt:        row.UpdatedAt.Time.UTC(),
+			DeletedAt:        timestamptzPtr(row.DeletedAt),
+		},
+		PostCaption:    stringPtr(row.PostCaption),
+		DiveSiteSlug:   row.DiveSiteSlug,
+		DiveSiteName:   row.DiveSiteName,
+		DiveSiteArea:   row.DiveSiteArea,
+		LikeCount:      row.LikeCount,
+		CommentCount:   row.CommentCount,
+		ViewerHasLiked: row.ViewerHasLiked,
+		ViewerHasSaved: row.ViewerHasSaved,
+	}
+}
+
+func mapProfileMomentItem(row mediaqlc.ListProfileMomentsByUsernameRow) ProfileMediaItem {
+	return ProfileMediaItem{
+		MediaItem: MediaItem{
+			ID:               row.ID.String(),
+			PostID:           row.PostID.String(),
+			MediaObjectID:    row.MediaObjectID.String(),
+			AuthorAppUserID:  row.AuthorAppUserID.String(),
+			UploadGroupID:    row.UploadGroupID.String(),
+			DiveSiteID:       uuidString(row.DiveSiteID),
+			Type:             row.Type,
+			StorageKey:       row.StorageKey,
+			MimeType:         row.MimeType,
+			Width:            row.Width,
+			Height:           row.Height,
+			DurationMs:       int32PtrFromPtr(row.DurationMs),
+			Caption:          stringPtr(row.Caption),
+			SortOrder:        row.SortOrder,
+			Status:           row.Status,
+			Provider:         row.Provider,
+			StreamUID:        stringPtr(row.StreamUid),
+			PlaybackUID:      stringPtr(row.PlaybackUid),
+			PlaybackURL:      stringPtr(row.PlaybackUrl),
+			ThumbnailURL:     stringPtr(row.ThumbnailUrl),
+			PreviewURL:       stringPtr(row.PreviewUrl),
+			HasAudio:         boolPtr(row.HasAudio),
+			ProcessingStatus: row.ProcessingStatus,
+			ModerationStatus: row.ModerationStatus,
+			UploadExpiresAt:  timestamptzPtr(row.UploadExpiresAt),
+			ReadyAt:          timestamptzPtr(row.ReadyAt),
+			FailedReason:     stringPtr(row.FailedReason),
+			CreatedAt:        row.CreatedAt.Time.UTC(),
+			UpdatedAt:        row.UpdatedAt.Time.UTC(),
+			DeletedAt:        timestamptzPtr(row.DeletedAt),
+		},
+		PostCaption:    stringPtr(row.PostCaption),
+		DiveSiteSlug:   row.DiveSiteSlug,
+		DiveSiteName:   row.DiveSiteName,
+		DiveSiteArea:   row.DiveSiteArea,
+		LikeCount:      row.LikeCount,
+		CommentCount:   row.CommentCount,
+		ViewerHasLiked: row.ViewerHasLiked,
+		ViewerHasSaved: row.ViewerHasSaved,
+	}
+}
+
+func mapDiveSiteMomentItem(row mediaqlc.ListDiveSiteMomentsRow) ProfileMediaItem {
+	return ProfileMediaItem{
+		MediaItem: MediaItem{
+			ID:               row.ID.String(),
+			PostID:           row.PostID.String(),
+			MediaObjectID:    row.MediaObjectID.String(),
+			AuthorAppUserID:  row.AuthorAppUserID.String(),
+			UploadGroupID:    row.UploadGroupID.String(),
+			DiveSiteID:       uuidString(row.DiveSiteID),
+			Type:             row.Type,
+			StorageKey:       row.StorageKey,
+			MimeType:         row.MimeType,
+			Width:            row.Width,
+			Height:           row.Height,
+			DurationMs:       int32PtrFromPtr(row.DurationMs),
+			Caption:          stringPtr(row.Caption),
+			SortOrder:        row.SortOrder,
+			Status:           row.Status,
+			Provider:         row.Provider,
+			StreamUID:        stringPtr(row.StreamUid),
+			PlaybackUID:      stringPtr(row.PlaybackUid),
+			PlaybackURL:      stringPtr(row.PlaybackUrl),
+			ThumbnailURL:     stringPtr(row.ThumbnailUrl),
+			PreviewURL:       stringPtr(row.PreviewUrl),
+			HasAudio:         boolPtr(row.HasAudio),
+			ProcessingStatus: row.ProcessingStatus,
+			ModerationStatus: row.ModerationStatus,
+			UploadExpiresAt:  timestamptzPtr(row.UploadExpiresAt),
+			ReadyAt:          timestamptzPtr(row.ReadyAt),
+			FailedReason:     stringPtr(row.FailedReason),
+			CreatedAt:        row.CreatedAt.Time.UTC(),
+			UpdatedAt:        row.UpdatedAt.Time.UTC(),
+			DeletedAt:        timestamptzPtr(row.DeletedAt),
 		},
 		PostCaption:    stringPtr(row.PostCaption),
 		DiveSiteSlug:   row.DiveSiteSlug,
@@ -710,24 +1048,36 @@ func mapProfileMediaItem(row mediaqlc.ListProfileMediaByUsernameRow) ProfileMedi
 func mapProfileDiveSpotHighlightCover(row mediaqlc.ListProfileDiveSpotHighlightsByUsernameRow) ProfileMediaItem {
 	return ProfileMediaItem{
 		MediaItem: MediaItem{
-			ID:              row.ID.String(),
-			PostID:          row.PostID.String(),
-			MediaObjectID:   row.MediaObjectID.String(),
-			AuthorAppUserID: row.AuthorAppUserID.String(),
-			UploadGroupID:   row.UploadGroupID.String(),
-			DiveSiteID:      row.DiveSiteID.String(),
-			Type:            row.Type,
-			StorageKey:      row.StorageKey,
-			MimeType:        row.MimeType,
-			Width:           row.Width,
-			Height:          row.Height,
-			DurationMs:      int32PtrFromPtr(row.DurationMs),
-			Caption:         stringPtr(row.Caption),
-			SortOrder:       row.SortOrder,
-			Status:          row.Status,
-			CreatedAt:       row.CreatedAt.Time.UTC(),
-			UpdatedAt:       row.UpdatedAt.Time.UTC(),
-			DeletedAt:       timestamptzPtr(row.DeletedAt),
+			ID:               row.ID.String(),
+			PostID:           row.PostID.String(),
+			MediaObjectID:    row.MediaObjectID.String(),
+			AuthorAppUserID:  row.AuthorAppUserID.String(),
+			UploadGroupID:    row.UploadGroupID.String(),
+			DiveSiteID:       uuidString(row.DiveSiteID),
+			Type:             row.Type,
+			StorageKey:       row.StorageKey,
+			MimeType:         row.MimeType,
+			Width:            row.Width,
+			Height:           row.Height,
+			DurationMs:       int32PtrFromPtr(row.DurationMs),
+			Caption:          stringPtr(row.Caption),
+			SortOrder:        row.SortOrder,
+			Status:           row.Status,
+			Provider:         row.Provider,
+			StreamUID:        stringPtr(row.StreamUid),
+			PlaybackUID:      stringPtr(row.PlaybackUid),
+			PlaybackURL:      stringPtr(row.PlaybackUrl),
+			ThumbnailURL:     stringPtr(row.ThumbnailUrl),
+			PreviewURL:       stringPtr(row.PreviewUrl),
+			HasAudio:         boolPtr(row.HasAudio),
+			ProcessingStatus: row.ProcessingStatus,
+			ModerationStatus: row.ModerationStatus,
+			UploadExpiresAt:  timestamptzPtr(row.UploadExpiresAt),
+			ReadyAt:          timestamptzPtr(row.ReadyAt),
+			FailedReason:     stringPtr(row.FailedReason),
+			CreatedAt:        row.CreatedAt.Time.UTC(),
+			UpdatedAt:        row.UpdatedAt.Time.UTC(),
+			DeletedAt:        timestamptzPtr(row.DeletedAt),
 		},
 		PostCaption:  stringPtr(row.PostCaption),
 		DiveSiteSlug: row.DiveSiteSlug,
@@ -739,24 +1089,36 @@ func mapProfileDiveSpotHighlightCover(row mediaqlc.ListProfileDiveSpotHighlights
 func mapProfileDiveSpotMediaItem(row mediaqlc.ListProfileMediaByUsernameAndDiveSiteRow) ProfileMediaItem {
 	return ProfileMediaItem{
 		MediaItem: MediaItem{
-			ID:              row.ID.String(),
-			PostID:          row.PostID.String(),
-			MediaObjectID:   row.MediaObjectID.String(),
-			AuthorAppUserID: row.AuthorAppUserID.String(),
-			UploadGroupID:   row.UploadGroupID.String(),
-			DiveSiteID:      row.DiveSiteID.String(),
-			Type:            row.Type,
-			StorageKey:      row.StorageKey,
-			MimeType:        row.MimeType,
-			Width:           row.Width,
-			Height:          row.Height,
-			DurationMs:      int32PtrFromPtr(row.DurationMs),
-			Caption:         stringPtr(row.Caption),
-			SortOrder:       row.SortOrder,
-			Status:          row.Status,
-			CreatedAt:       row.CreatedAt.Time.UTC(),
-			UpdatedAt:       row.UpdatedAt.Time.UTC(),
-			DeletedAt:       timestamptzPtr(row.DeletedAt),
+			ID:               row.ID.String(),
+			PostID:           row.PostID.String(),
+			MediaObjectID:    row.MediaObjectID.String(),
+			AuthorAppUserID:  row.AuthorAppUserID.String(),
+			UploadGroupID:    row.UploadGroupID.String(),
+			DiveSiteID:       uuidString(row.DiveSiteID),
+			Type:             row.Type,
+			StorageKey:       row.StorageKey,
+			MimeType:         row.MimeType,
+			Width:            row.Width,
+			Height:           row.Height,
+			DurationMs:       int32PtrFromPtr(row.DurationMs),
+			Caption:          stringPtr(row.Caption),
+			SortOrder:        row.SortOrder,
+			Status:           row.Status,
+			Provider:         row.Provider,
+			StreamUID:        stringPtr(row.StreamUid),
+			PlaybackUID:      stringPtr(row.PlaybackUid),
+			PlaybackURL:      stringPtr(row.PlaybackUrl),
+			ThumbnailURL:     stringPtr(row.ThumbnailUrl),
+			PreviewURL:       stringPtr(row.PreviewUrl),
+			HasAudio:         boolPtr(row.HasAudio),
+			ProcessingStatus: row.ProcessingStatus,
+			ModerationStatus: row.ModerationStatus,
+			UploadExpiresAt:  timestamptzPtr(row.UploadExpiresAt),
+			ReadyAt:          timestamptzPtr(row.ReadyAt),
+			FailedReason:     stringPtr(row.FailedReason),
+			CreatedAt:        row.CreatedAt.Time.UTC(),
+			UpdatedAt:        row.UpdatedAt.Time.UTC(),
+			DeletedAt:        timestamptzPtr(row.DeletedAt),
 		},
 		PostCaption:    stringPtr(row.PostCaption),
 		DiveSiteSlug:   row.DiveSiteSlug,
@@ -773,24 +1135,36 @@ func mapMediaPostDetailItem(row mediaqlc.GetMediaPostDetailRow) MediaPostDetailI
 	return MediaPostDetailItem{
 		ProfileMediaItem: ProfileMediaItem{
 			MediaItem: MediaItem{
-				ID:              row.ID.String(),
-				PostID:          row.PostID.String(),
-				MediaObjectID:   row.MediaObjectID.String(),
-				AuthorAppUserID: row.AuthorAppUserID.String(),
-				UploadGroupID:   row.UploadGroupID.String(),
-				DiveSiteID:      row.DiveSiteID.String(),
-				Type:            row.Type,
-				StorageKey:      row.StorageKey,
-				MimeType:        row.MimeType,
-				Width:           row.Width,
-				Height:          row.Height,
-				DurationMs:      int32PtrFromPtr(row.DurationMs),
-				Caption:         stringPtr(row.Caption),
-				SortOrder:       row.SortOrder,
-				Status:          row.Status,
-				CreatedAt:       row.CreatedAt.Time.UTC(),
-				UpdatedAt:       row.UpdatedAt.Time.UTC(),
-				DeletedAt:       timestamptzPtr(row.DeletedAt),
+				ID:               row.ID.String(),
+				PostID:           row.PostID.String(),
+				MediaObjectID:    row.MediaObjectID.String(),
+				AuthorAppUserID:  row.AuthorAppUserID.String(),
+				UploadGroupID:    row.UploadGroupID.String(),
+				DiveSiteID:       uuidString(row.DiveSiteID),
+				Type:             row.Type,
+				StorageKey:       row.StorageKey,
+				MimeType:         row.MimeType,
+				Width:            row.Width,
+				Height:           row.Height,
+				DurationMs:       int32PtrFromPtr(row.DurationMs),
+				Caption:          stringPtr(row.Caption),
+				SortOrder:        row.SortOrder,
+				Status:           row.Status,
+				Provider:         row.Provider,
+				StreamUID:        stringPtr(row.StreamUid),
+				PlaybackUID:      stringPtr(row.PlaybackUid),
+				PlaybackURL:      stringPtr(row.PlaybackUrl),
+				ThumbnailURL:     stringPtr(row.ThumbnailUrl),
+				PreviewURL:       stringPtr(row.PreviewUrl),
+				HasAudio:         boolPtr(row.HasAudio),
+				ProcessingStatus: row.ProcessingStatus,
+				ModerationStatus: row.ModerationStatus,
+				UploadExpiresAt:  timestamptzPtr(row.UploadExpiresAt),
+				ReadyAt:          timestamptzPtr(row.ReadyAt),
+				FailedReason:     stringPtr(row.FailedReason),
+				CreatedAt:        row.CreatedAt.Time.UTC(),
+				UpdatedAt:        row.UpdatedAt.Time.UTC(),
+				DeletedAt:        timestamptzPtr(row.DeletedAt),
 			},
 			PostCaption:    stringPtr(row.PostCaption),
 			DiveSiteSlug:   row.DiveSiteSlug,
@@ -866,6 +1240,13 @@ func uuidPtr(value pgtype.UUID) *string {
 	return &parsed
 }
 
+func uuidString(value pgtype.UUID) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.String()
+}
+
 func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
 	if !value.Valid {
 		return nil
@@ -888,4 +1269,28 @@ func int32PtrFromPtr(value *int32) *int32 {
 	}
 	result := *value
 	return &result
+}
+
+func boolPtr(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	result := *value
+	return &result
+}
+
+func defaultStreamEmbedURL(uid string) string {
+	trimmed := strings.TrimSpace(uid)
+	if trimmed == "" {
+		return ""
+	}
+	return "https://iframe.videodelivery.net/" + trimmed
+}
+
+func defaultStreamThumbnailURL(uid string) string {
+	trimmed := strings.TrimSpace(uid)
+	if trimmed == "" {
+		return ""
+	}
+	return "https://videodelivery.net/" + trimmed + "/thumbnails/thumbnail.jpg"
 }

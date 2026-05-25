@@ -1,5 +1,6 @@
 import type {
   CreateMediaPostRequest,
+  CreateMomentUploadIntentRequest,
   MediaContextType,
 } from "@freediving.ph/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -55,6 +56,40 @@ export const useCreateMediaPost = () => {
         queryKey: queryKeys.media.profileLists(),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.profile.all });
+    },
+  });
+};
+
+export const useCreateMomentUploadIntent = () => {
+  return useMutation({
+    mutationFn: (payload: CreateMomentUploadIntentRequest) =>
+      mediaApi.createMomentUploadIntent(payload),
+  });
+};
+
+export const useCompleteMomentUpload = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (postId: string) => mediaApi.completeMomentUpload(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.profileLists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.feed.activityAll });
+    },
+  });
+};
+
+export const useSyncMomentStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (postId: string) => mediaApi.syncMomentStatus(postId),
+    onSuccess: (result) => {
+      if (result.status === "ready") {
+        trackProductEvent("media_posted");
+        queryClient.invalidateQueries({ queryKey: queryKeys.media.profileLists() });
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed.activityAll });
+      }
     },
   });
 };

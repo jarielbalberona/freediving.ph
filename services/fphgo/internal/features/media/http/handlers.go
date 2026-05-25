@@ -349,6 +349,96 @@ func (h *Handlers) CreatePost(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handlers) CreateMomentUploadIntent(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[CreateMomentUploadIntentRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.CreateMomentUploadIntent(r.Context(), mediaservice.CreateMomentUploadIntentInput{
+		ActorID:     actorID,
+		Caption:     req.Caption,
+		DiveSiteID:  req.DiveSiteID,
+		Filename:    req.Filename,
+		ContentType: req.ContentType,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, MomentUploadIntentResponse{
+		PostID:             result.PostID,
+		MediaItemID:        result.MediaItemID,
+		MediaObjectID:      result.MediaObjectID,
+		StreamUID:          result.StreamUID,
+		UploadURL:          result.UploadURL,
+		Status:             result.Status,
+		UploadExpiresAt:    result.UploadExpiresAt.Format(time.RFC3339),
+		MaxDurationSeconds: result.MaxDurationSeconds,
+	})
+}
+
+func (h *Handlers) CompleteMomentUpload(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.CompleteMomentUpload(r.Context(), mediaservice.CompleteMomentUploadInput{
+		ActorID: actorID,
+		PostID:  postID,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapMomentStatusResponse(result))
+}
+
+func (h *Handlers) SyncMomentStatus(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	postID, issues, ok := httpx.ParseUUIDParam(chi.URLParam(r, "postId"), "postId")
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	result, err := h.service.SyncMomentStreamStatus(r.Context(), actorID, postID)
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, mapMomentStatusResponse(result))
+}
+
 func (h *Handlers) ListProfileMedia(w http.ResponseWriter, r *http.Request) {
 	limit := int32(24)
 	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
@@ -360,7 +450,7 @@ func (h *Handlers) ListProfileMedia(w http.ResponseWriter, r *http.Request) {
 		limit = int32(parsed)
 	}
 
-	result, err := h.service.ListProfileMedia(r.Context(), mediaservice.ListProfileMediaInput{
+	result, err := h.service.ListProfileMoments(r.Context(), mediaservice.ListProfileMediaInput{
 		Username:     chi.URLParam(r, "username"),
 		ViewerUserID: actorIDIfPresent(r),
 		Cursor:       strings.TrimSpace(r.URL.Query().Get("cursor")),
@@ -376,6 +466,68 @@ func (h *Handlers) ListProfileMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	httpx.JSON(w, http.StatusOK, ProfileMediaListResponse{
+		Items:      mapProfileMediaDTOs(result.Items),
+		NextCursor: result.NextCursor,
+	})
+}
+
+func (h *Handlers) ListProfileMoments(w http.ResponseWriter, r *http.Request) {
+	limit := int32(24)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, parseErr := strconv.ParseInt(raw, 10, 32)
+		if parseErr != nil || parsed <= 0 {
+			httpx.WriteValidationError(w, []validatex.Issue{{Path: []any{"limit"}, Code: "custom", Message: "limit must be a positive integer"}})
+			return
+		}
+		limit = int32(parsed)
+	}
+	result, err := h.service.ListProfileMedia(r.Context(), mediaservice.ListProfileMediaInput{
+		Username:     chi.URLParam(r, "username"),
+		ViewerUserID: actorIDIfPresent(r),
+		Cursor:       strings.TrimSpace(r.URL.Query().Get("cursor")),
+		Limit:        limit,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, ProfileMediaListResponse{
+		Items:      mapProfileMediaDTOs(result.Items),
+		NextCursor: result.NextCursor,
+	})
+}
+
+func (h *Handlers) ListDiveSiteMoments(w http.ResponseWriter, r *http.Request) {
+	limit := int32(24)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, parseErr := strconv.ParseInt(raw, 10, 32)
+		if parseErr != nil || parsed <= 0 {
+			httpx.WriteValidationError(w, []validatex.Issue{{Path: []any{"limit"}, Code: "custom", Message: "limit must be a positive integer"}})
+			return
+		}
+		limit = int32(parsed)
+	}
+	result, err := h.service.ListDiveSiteMoments(r.Context(), mediaservice.ListDiveSiteMomentsInput{
+		DiveSiteID:   chi.URLParam(r, "siteId"),
+		ViewerUserID: actorIDIfPresent(r),
+		Cursor:       strings.TrimSpace(r.URL.Query().Get("cursor")),
+		Limit:        limit,
+	})
+	if err != nil {
+		var validationErr mediaservice.ValidationFailure
+		if errors.As(err, &validationErr) {
+			httpx.WriteValidationError(w, validationErr.Issues)
+			return
+		}
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
 	httpx.JSON(w, http.StatusOK, ProfileMediaListResponse{
 		Items:      mapProfileMediaDTOs(result.Items),
 		NextCursor: result.NextCursor,
@@ -830,16 +982,47 @@ func mapProfileMediaDTOs(items []mediaservice.ProfileMediaItemResult) []ProfileM
 				Name: item.DiveSiteName,
 				Area: item.DiveSiteArea,
 			},
-			SortOrder:      item.SortOrder,
-			Status:         item.Status,
-			LikeCount:      item.LikeCount,
-			CommentCount:   item.CommentCount,
-			ViewerHasLiked: item.ViewerHasLiked,
-			ViewerHasSaved: item.ViewerHasSaved,
-			CreatedAt:      item.CreatedAt.Format(time.RFC3339),
+			SortOrder:        item.SortOrder,
+			Status:           item.Status,
+			ProcessingStatus: item.ProcessingStatus,
+			PlaybackURL:      item.PlaybackURL,
+			ThumbnailURL:     item.ThumbnailURL,
+			PreviewURL:       item.PreviewURL,
+			LikeCount:        item.LikeCount,
+			CommentCount:     item.CommentCount,
+			ViewerHasLiked:   item.ViewerHasLiked,
+			ViewerHasSaved:   item.ViewerHasSaved,
+			CreatedAt:        item.CreatedAt.Format(time.RFC3339),
 		})
 	}
 	return result
+}
+
+func mapMomentStatusResponse(result mediaservice.MomentStatusResult) MomentStatusResponse {
+	var uploadExpiresAt *string
+	if result.UploadExpiresAt != nil {
+		formatted := result.UploadExpiresAt.Format(time.RFC3339)
+		uploadExpiresAt = &formatted
+	}
+	var readyAt *string
+	if result.ReadyAt != nil {
+		formatted := result.ReadyAt.Format(time.RFC3339)
+		readyAt = &formatted
+	}
+	return MomentStatusResponse{
+		PostID:          result.PostID,
+		MediaItemID:     result.MediaItemID,
+		Status:          result.Status,
+		PlaybackURL:     result.PlaybackURL,
+		ThumbnailURL:    result.ThumbnailURL,
+		PreviewURL:      result.PreviewURL,
+		DurationMs:      result.DurationMs,
+		Width:           result.Width,
+		Height:          result.Height,
+		FailedReason:    result.FailedReason,
+		UploadExpiresAt: uploadExpiresAt,
+		ReadyAt:         readyAt,
+	}
 }
 
 func mapDiveSpotHighlightDTOs(items []mediaservice.DiveSpotHighlightResult) []DiveSpotHighlightDTO {

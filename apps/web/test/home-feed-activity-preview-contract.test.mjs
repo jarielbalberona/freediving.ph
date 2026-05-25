@@ -151,7 +151,7 @@ test("activity media posts preserve display URLs and avoid caption-only downgrad
     component,
     /className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"/,
   );
-  assert.match(dialog, /filter\(\(item\) => !item\.displayUrl\)/);
+  assert.match(dialog, /filter\(\(item\) => item\.type !== "video" && !item\.displayUrl\)/);
   assert.match(dialog, /needsMintedUrls && dialogUrls\.isPending/);
   assert.match(dialog, /item\.displayUrl \?\?/);
 });

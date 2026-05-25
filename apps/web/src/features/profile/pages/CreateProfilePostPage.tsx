@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useSession } from "@/features/auth/session";
+import { MomentUploadPanel } from "@/features/media/components/MomentUploadPanel";
 import { ProfileMediaComposer } from "@/features/media/components/ProfileMediaComposer";
 import { getProfileRoute, normalizeUsername } from "@/lib/routes";
 
@@ -37,8 +38,8 @@ export default function CreateProfilePostPage({
 
   return (
     <AuthGuard
-      title="Sign in to publish photos"
-      description="Only signed-in members can post photos on their own profile."
+      title="Sign in to publish media"
+      description="Only signed-in members can post media on their own profile."
     >
       <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {!isOwner ? (
@@ -46,7 +47,7 @@ export default function CreateProfilePostPage({
             <CardHeader>
               <CardTitle>Profile mismatch</CardTitle>
               <CardDescription>
-                You can only create photo posts on your own profile.
+                You can only create posts on your own profile.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
@@ -75,13 +76,14 @@ export default function CreateProfilePostPage({
           <div className="space-y-4">
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                Create a photo post
+                Create a post
               </h1>
               <p className="text-sm text-muted-foreground sm:text-base">
-                Upload up to 10 photos, choose an FPH dive site, write a
-                caption, then publish them as one grouped post.
+                Share dive photos or a short Moment from your profile.
               </p>
             </div>
+
+            <MomentUploadPanel />
 
             <ProfileMediaComposer
               username={normalizedTargetUsername}

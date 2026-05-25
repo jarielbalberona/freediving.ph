@@ -53,6 +53,9 @@ func main() {
 	if deps.NotificationsService != nil {
 		go deps.NotificationsService.RunOutboxProcessor(hubCtx, 30*time.Second, 25)
 	}
+	if deps.MediaService != nil {
+		go deps.MediaService.RunExpiredMomentCleanupProcessor(hubCtx, 10*time.Minute)
+	}
 
 	router := app.NewRouterWithBuildInfo(cfg, deps, logger, mid.Recover(logger), app.BuildInfo{
 		Version:   Version,

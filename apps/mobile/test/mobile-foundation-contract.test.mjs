@@ -64,3 +64,47 @@ test("home feed uses shared activity contracts and fetch client", () => {
   assert.match(mapper, /\/\(app\)\/events\/\[slug\]/);
   assert.match(mapper, /\/\(app\)\/explore\/\[slug\]/);
 });
+
+test("explore uses shared contracts and safe mobile routes", () => {
+  const api = read("src/features/explore/api/explore-api.ts");
+  const card = read("src/features/explore/components/explore-site-card.tsx");
+  const detail = read("src/features/explore/screens/explore-site-detail-screen.tsx");
+  const format = read("src/features/explore/lib/explore-format.ts");
+
+  assert.match(api, /@freediving\.ph\/types/);
+  assert.match(api, /ExploreListResponse/);
+  assert.match(api, /ExploreSiteDetailResponse/);
+  assert.match(api, /fphgoFetch/);
+  assert.match(api, /\/v1\/explore\/sites/);
+  assert.doesNotMatch(api, /axios/i);
+  assert.doesNotMatch(api, /features\/explore\/types/);
+  assert.match(card, /safeSiteSlug/);
+  assert.match(card, /\/\(app\)\/explore\/\[slug\]/);
+  assert.match(detail, /useLocalSearchParams/);
+  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
+  assert.doesNotMatch(detail, /bookmark|gps/i);
+  assert.ok(format.includes('includes("/")'));
+});
+
+test("chika uses shared contracts and read-only mobile routes", () => {
+  const api = read("src/features/chika/api/chika-api.ts");
+  const card = read("src/features/chika/components/chika-thread-card.tsx");
+  const detail = read("src/features/chika/screens/chika-thread-detail-screen.tsx");
+  const format = read("src/features/chika/lib/chika-format.ts");
+
+  assert.match(api, /@freediving\.ph\/types/);
+  assert.match(api, /ChikaThreadListResponse/);
+  assert.match(api, /ChikaThreadResponse/);
+  assert.match(api, /ChikaCommentListResponse/);
+  assert.match(api, /fphgoFetch/);
+  assert.match(api, /\/v1\/chika\/threads/);
+  assert.doesNotMatch(api, /axios/i);
+  assert.doesNotMatch(api, /features\/chika\/types/);
+  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
+  assert.match(card, /safeChikaSlug/);
+  assert.match(format, /authorDisplayName/);
+  assert.match(card, /\/\(app\)\/chika\/\[slug\]/);
+  assert.match(detail, /useLocalSearchParams/);
+  assert.doesNotMatch(detail, /createComment|setReaction|websocket|realtime/i);
+  assert.ok(format.includes('includes("/")'));
+});

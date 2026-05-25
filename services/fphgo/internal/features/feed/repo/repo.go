@@ -41,37 +41,44 @@ type PostCandidate struct {
 }
 
 type MediaPostCandidate struct {
-	ID              string
-	AuthorUserID    string
-	AuthorName      string
-	AuthorUsername  string
-	DiveSiteID      string
-	DiveSiteSlug    string
-	DiveSiteName    string
-	Area            string
-	PostCaption     string
-	PreviewCaption  string
-	PreviewMediaID  string
-	PreviewMimeType string
-	PreviewWidth    int32
-	PreviewHeight   int32
-	ItemCount       int32
-	Items           []MediaPostCandidateItem
-	CreatedAt       time.Time
-	SavedByViewer   bool
-	LikeCount       int64
-	CommentCount    int64
-	ViewerHasLiked  bool
-	ViewerHasSaved  bool
+	ID                  string
+	AuthorUserID        string
+	AuthorName          string
+	AuthorUsername      string
+	DiveSiteID          string
+	DiveSiteSlug        string
+	DiveSiteName        string
+	Area                string
+	PostCaption         string
+	PreviewCaption      string
+	PreviewMediaID      string
+	PreviewMimeType     string
+	PreviewType         string
+	PreviewPlaybackURL  string
+	PreviewThumbnailURL string
+	PreviewWidth        int32
+	PreviewHeight       int32
+	ItemCount           int32
+	Items               []MediaPostCandidateItem
+	CreatedAt           time.Time
+	SavedByViewer       bool
+	LikeCount           int64
+	CommentCount        int64
+	ViewerHasLiked      bool
+	ViewerHasSaved      bool
 }
 
 type MediaPostCandidateItem struct {
 	ID            string `json:"id"`
 	MediaObjectID string `json:"mediaObjectId"`
+	Type          string `json:"type"`
 	Width         int32  `json:"width"`
 	Height        int32  `json:"height"`
 	Caption       string `json:"caption"`
 	SortOrder     int32  `json:"sortOrder"`
+	PlaybackURL   string `json:"playbackUrl,omitempty"`
+	ThumbnailURL  string `json:"thumbnailUrl,omitempty"`
+	PreviewURL    string `json:"previewUrl,omitempty"`
 }
 
 type CommunityCandidate struct {
@@ -330,10 +337,10 @@ func (r *Repo) ListPostCandidates(ctx context.Context, input CandidateInput) ([]
 			dsu.author_app_user_id::text,
 			COALESCE(NULLIF(u.display_name, ''), u.username),
 			u.username,
-			ds.id::text,
-			COALESCE(ds.slug, ''),
-			ds.name,
-			ds.area,
+				ds.id::text,
+				COALESCE(ds.slug, ''),
+				ds.name,
+				ds.area,
 			dsu.note,
 			dsu.condition_visibility_m,
 			COALESCE(dsu.condition_current, ''),
@@ -424,14 +431,17 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 			mp.author_app_user_id::text,
 			COALESCE(NULLIF(u.display_name, ''), u.username),
 			u.username,
-			ds.id::text,
-			COALESCE(ds.slug, ''),
-			ds.name,
-			ds.area,
+				COALESCE(ds.id::text, ''),
+				COALESCE(ds.slug, ''),
+				COALESCE(ds.name, ''),
+				COALESCE(ds.area, ''),
 			COALESCE(mp.post_caption, ''),
 			COALESCE(preview.caption, ''),
 			preview.media_object_id::text,
 			preview.mime_type,
+			preview.type,
+			COALESCE(preview.playback_url, ''),
+			COALESCE(preview.thumbnail_url, ''),
 			preview.width,
 			preview.height,
 			item_counts.item_count,
@@ -454,13 +464,16 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 				WHERE viewer_save.user_id = $1::uuid
 				  AND viewer_save.media_post_id = mp.id
 			)
-		FROM media_posts mp
-		JOIN users u ON u.id = mp.author_app_user_id
-		JOIN dive_sites ds ON ds.id = mp.dive_site_id
+			FROM media_posts mp
+			JOIN users u ON u.id = mp.author_app_user_id
+			LEFT JOIN dive_sites ds ON ds.id = mp.dive_site_id
 		JOIN LATERAL (
 			SELECT
 				mi.media_object_id,
 				mi.mime_type,
+				mi.type,
+				mi.playback_url,
+				mi.thumbnail_url,
 				mi.width,
 				mi.height,
 				COALESCE(mi.caption, '') AS caption
@@ -468,7 +481,15 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 			WHERE mi.post_id = mp.id
 			  AND mi.status = 'active'
 			  AND mi.deleted_at IS NULL
-			  AND mi.type = 'photo'
+			  AND mi.moderation_status = 'approved'
+			  AND (
+				mi.type = 'photo'
+				OR (
+				  mi.type = 'video'
+				  AND mi.provider = 'cloudflare_stream'
+				  AND mi.processing_status = 'ready'
+				)
+			  )
 			ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
 			LIMIT 1
 		) preview ON true
@@ -480,10 +501,14 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 						json_build_object(
 							'id', mi.id::text,
 							'mediaObjectId', mi.media_object_id::text,
+							'type', mi.type,
 							'width', mi.width,
 							'height', mi.height,
 							'caption', COALESCE(mi.caption, ''),
-							'sortOrder', mi.sort_order
+							'sortOrder', mi.sort_order,
+							'playbackUrl', COALESCE(mi.playback_url, ''),
+							'thumbnailUrl', COALESCE(mi.thumbnail_url, ''),
+							'previewUrl', COALESCE(mi.preview_url, '')
 						)
 						ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
 					),
@@ -493,10 +518,18 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 			WHERE mi.post_id = mp.id
 			  AND mi.status = 'active'
 			  AND mi.deleted_at IS NULL
-			  AND mi.type = 'photo'
+			  AND mi.moderation_status = 'approved'
+			  AND (
+				mi.type = 'photo'
+				OR (
+				  mi.type = 'video'
+				  AND mi.provider = 'cloudflare_stream'
+				  AND mi.processing_status = 'ready'
+				)
+			  )
 		) item_counts ON true
-		WHERE mp.deleted_at IS NULL
-		  AND ds.moderation_state = 'approved'
+			WHERE mp.deleted_at IS NULL
+			  AND (mp.dive_site_id IS NULL OR ds.moderation_state = 'approved')
 		  AND u.account_status = 'active'
 		  AND NOT EXISTS (
 			SELECT 1 FROM user_blocks b
@@ -535,6 +568,9 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 			&item.PreviewCaption,
 			&item.PreviewMediaID,
 			&item.PreviewMimeType,
+			&item.PreviewType,
+			&item.PreviewPlaybackURL,
+			&item.PreviewThumbnailURL,
 			&item.PreviewWidth,
 			&item.PreviewHeight,
 			&item.ItemCount,
@@ -1174,7 +1210,10 @@ func (r *Repo) RepairMediaPostActivityMedia(ctx context.Context) error {
 						'width', mi.width,
 						'height', mi.height,
 						'caption', COALESCE(mi.caption, ''),
-						'sortOrder', mi.sort_order
+						'sortOrder', mi.sort_order,
+						'playbackUrl', COALESCE(mi.playback_url, ''),
+						'thumbnailUrl', COALESCE(mi.thumbnail_url, ''),
+						'previewUrl', COALESCE(mi.preview_url, '')
 					)
 					ORDER BY mi.sort_order ASC, mi.created_at ASC, mi.id ASC
 				) AS media
@@ -1184,7 +1223,15 @@ func (r *Repo) RepairMediaPostActivityMedia(ctx context.Context) error {
 			WHERE mp.deleted_at IS NULL
 			  AND mi.status = 'active'
 			  AND mi.deleted_at IS NULL
-			  AND mi.type = 'photo'
+			  AND mi.moderation_status = 'approved'
+			  AND (
+				mi.type = 'photo'
+				OR (
+				  mi.type = 'video'
+				  AND mi.provider = 'cloudflare_stream'
+				  AND mi.processing_status = 'ready'
+				)
+			  )
 			  AND mo.state = 'active'
 			GROUP BY mp.id
 		)
@@ -1302,6 +1349,9 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 						'height', mi.height,
 						'caption', COALESCE(mi.caption, ''),
 						'sortOrder', mi.sort_order,
+						'playbackUrl', COALESCE(mi.playback_url, ''),
+						'thumbnailUrl', COALESCE(mi.thumbnail_url, ''),
+						'previewUrl', COALESCE(mi.preview_url, ''),
 						'objectKey', mo.object_key,
 						'contextType', mo.context_type
 					)
@@ -1312,7 +1362,15 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 			WHERE mi.post_id = ai.source_id
 			  AND mi.status = 'active'
 			  AND mi.deleted_at IS NULL
-			  AND mi.type = 'photo'
+			  AND mi.moderation_status = 'approved'
+			  AND (
+				mi.type = 'photo'
+				OR (
+				  mi.type = 'video'
+				  AND mi.provider = 'cloudflare_stream'
+				  AND mi.processing_status = 'ready'
+				)
+			  )
 			  AND mo.state = 'active'
 		) live_media ON ai.type = 'media_post_created'
 		LEFT JOIN LATERAL (
@@ -1421,19 +1479,28 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 		        AND bi.expires_at > NOW()
 		        AND (bi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
 		    ))
-		    OR (ai.type = 'media_post_created' AND EXISTS (
-		      SELECT 1
-		      FROM media_posts mp
-		      JOIN dive_sites ds ON ds.id = mp.dive_site_id
-		      WHERE mp.id = ai.source_id
-		        AND mp.deleted_at IS NULL
-		        AND ds.moderation_state = 'approved'
-		        AND EXISTS (
+			    OR (ai.type = 'media_post_created' AND EXISTS (
+			      SELECT 1
+			      FROM media_posts mp
+			      LEFT JOIN dive_sites ds ON ds.id = mp.dive_site_id
+			      WHERE mp.id = ai.source_id
+			        AND mp.deleted_at IS NULL
+			        AND (mp.dive_site_id IS NULL OR ds.moderation_state = 'approved')
+			        AND EXISTS (
 		          SELECT 1
 		          FROM media_items mi
 		          JOIN media_objects mo ON mo.id = mi.media_object_id
 		          WHERE mi.post_id = mp.id
 		            AND mi.status = 'active'
+		            AND mi.moderation_status = 'approved'
+		            AND (
+		              mi.type = 'photo'
+		              OR (
+		                mi.type = 'video'
+		                AND mi.provider = 'cloudflare_stream'
+		                AND mi.processing_status = 'ready'
+		              )
+		            )
 		            AND mi.deleted_at IS NULL
 		            AND mo.state = 'active'
 		        )
@@ -1596,23 +1663,32 @@ func (r *Repo) CountActivityItems(ctx context.Context, input ActivityListInput) 
 		        AND bi.expires_at > NOW()
 		        AND (bi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
 		    ))
-		    OR (ai.type = 'media_post_created' AND EXISTS (
-		      SELECT 1
-		      FROM media_posts mp
-		      JOIN dive_sites ds ON ds.id = mp.dive_site_id
-		      WHERE mp.id = ai.source_id
-		        AND mp.deleted_at IS NULL
-		        AND ds.moderation_state = 'approved'
-		        AND EXISTS (
-		          SELECT 1
-		          FROM media_items mi
-		          JOIN media_objects mo ON mo.id = mi.media_object_id
-		          WHERE mi.post_id = mp.id
-		            AND mi.status = 'active'
-		            AND mi.deleted_at IS NULL
-		            AND mo.state = 'active'
-		        )
-		    ))
+			    OR (ai.type = 'media_post_created' AND EXISTS (
+			      SELECT 1
+			      FROM media_posts mp
+			      LEFT JOIN dive_sites ds ON ds.id = mp.dive_site_id
+			      WHERE mp.id = ai.source_id
+			        AND mp.deleted_at IS NULL
+			        AND (mp.dive_site_id IS NULL OR ds.moderation_state = 'approved')
+			        AND EXISTS (
+			          SELECT 1
+			          FROM media_items mi
+			          JOIN media_objects mo ON mo.id = mi.media_object_id
+			          WHERE mi.post_id = mp.id
+			            AND mi.status = 'active'
+			            AND mi.moderation_status = 'approved'
+			            AND (
+			              mi.type = 'photo'
+			              OR (
+			                mi.type = 'video'
+			                AND mi.provider = 'cloudflare_stream'
+			                AND mi.processing_status = 'ready'
+			              )
+			            )
+			            AND mi.deleted_at IS NULL
+			            AND mo.state = 'active'
+			        )
+			    ))
 		  )
 	`
 	var count int64

@@ -16,10 +16,20 @@ export const mobileQueryKeys = {
   explore: {
     all: ["explore"] as const,
     sites: () => [...mobileQueryKeys.explore.all, "sites"] as const,
+    siteList: (params: { limit?: number }) =>
+      [...mobileQueryKeys.explore.all, "sites", params] as const,
+    siteDetail: (slug: string) =>
+      [...mobileQueryKeys.explore.all, "sites", "detail", slug] as const,
   },
   chika: {
     all: ["chika"] as const,
     threads: () => [...mobileQueryKeys.chika.all, "threads"] as const,
+    threadList: (params: { limit?: number }) =>
+      [...mobileQueryKeys.chika.all, "threads", params] as const,
+    threadDetail: (slug: string) =>
+      [...mobileQueryKeys.chika.all, "threads", "detail", slug] as const,
+    threadComments: (threadId: string, params: { limit?: number }) =>
+      [...mobileQueryKeys.chika.all, "threads", threadId, "comments", params] as const,
   },
   events: {
     all: ["events"] as const,

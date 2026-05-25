@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	feedservice "fphgo/internal/features/feed/service"
 	mediarepo "fphgo/internal/features/media/repo"
@@ -38,8 +41,21 @@ type fakeRepo struct {
 	commentUnlikedID             string
 	highlights                   []mediarepo.ProfileDiveSpotHighlight
 	highlightMedia               []mediarepo.ProfileMediaItem
+	profileMedia                 []mediarepo.ProfileMediaItem
+	profileMoments               []mediarepo.ProfileMediaItem
+	diveSiteMoments              []mediarepo.ProfileMediaItem
 	lastHighlightsInput          mediarepo.ListProfileDiveSpotHighlightsInput
 	lastHighlightMediaInput      mediarepo.ListProfileDiveSpotMediaInput
+	lastProfileMediaInput        mediarepo.ListProfileMediaInput
+	lastProfileMomentsInput      mediarepo.ListProfileMediaInput
+	lastDiveSiteMomentsInput     mediarepo.ListDiveSiteMomentsInput
+	momentItem                   *mediarepo.MediaItem
+	momentLookupErr              error
+	markMomentUploadedCalls      int
+	expiredMomentRows            []int64
+	expiredMomentCalls           int
+	expiredMomentNow             time.Time
+	expiredMomentFailedReason    string
 }
 
 func (f *fakeRepo) CreateMediaObject(_ context.Context, input mediarepo.CreateMediaObjectInput) (mediarepo.MediaObject, error) {
@@ -154,7 +170,7 @@ func (f *fakeRepo) PublishMediaPost(_ context.Context, input mediarepo.PublishMe
 		ID:              "22222222-2222-2222-2222-222222222222",
 		AuthorAppUserID: input.AuthorAppUserID,
 		UploadGroupID:   "33333333-3333-3333-3333-333333333333",
-		DiveSiteID:      input.DiveSiteID,
+		DiveSiteID:      &input.DiveSiteID,
 		PostCaption:     input.PostCaption,
 		CreatedAt:       time.Now().UTC(),
 		UpdatedAt:       time.Now().UTC(),
@@ -184,8 +200,159 @@ func (f *fakeRepo) PublishMediaPost(_ context.Context, input mediarepo.PublishMe
 	return post, items, nil
 }
 
-func (f *fakeRepo) ListProfileMediaByUsername(_ context.Context, _ mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error) {
-	return nil, nil
+func (f *fakeRepo) CreateMoment(_ context.Context, input mediarepo.CreateMomentInput) (mediarepo.MediaPost, mediarepo.MediaItem, error) {
+	post := mediarepo.MediaPost{
+		ID:              "22222222-2222-2222-2222-222222222222",
+		AuthorAppUserID: input.AuthorAppUserID,
+		UploadGroupID:   "33333333-3333-3333-3333-333333333333",
+		DiveSiteID:      input.DiveSiteID,
+		PostCaption:     input.PostCaption,
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
+	}
+	item := mediarepo.MediaItem{
+		ID:               "44444444-4444-4444-4444-444444444444",
+		PostID:           post.ID,
+		MediaObjectID:    "11111111-1111-1111-1111-111111111111",
+		AuthorAppUserID:  input.AuthorAppUserID,
+		UploadGroupID:    post.UploadGroupID,
+		Type:             "video",
+		StorageKey:       "cloudflare-stream/" + input.StreamUID,
+		MimeType:         "video/mp4",
+		Width:            1,
+		Height:           1,
+		Status:           "hidden",
+		Provider:         "cloudflare_stream",
+		StreamUID:        &input.StreamUID,
+		PlaybackUID:      &input.StreamUID,
+		ProcessingStatus: "upload_requested",
+		ModerationStatus: "approved",
+		UploadExpiresAt:  &input.UploadExpiresAt,
+		CreatedAt:        time.Now().UTC(),
+		UpdatedAt:        time.Now().UTC(),
+	}
+	if input.DiveSiteID != nil {
+		item.DiveSiteID = *input.DiveSiteID
+	}
+	return post, item, nil
+}
+
+func (f *fakeRepo) GetMomentMediaItemByPostForOwner(_ context.Context, postID, ownerID string) (mediarepo.MediaItem, error) {
+	if f.momentLookupErr != nil {
+		return mediarepo.MediaItem{}, f.momentLookupErr
+	}
+	if f.momentItem != nil {
+		return *f.momentItem, nil
+	}
+	streamUID := "stream123"
+	return mediarepo.MediaItem{
+		ID:               "44444444-4444-4444-4444-444444444444",
+		PostID:           postID,
+		AuthorAppUserID:  ownerID,
+		Type:             "video",
+		Status:           "hidden",
+		Provider:         "cloudflare_stream",
+		StreamUID:        &streamUID,
+		ProcessingStatus: "processing",
+		ModerationStatus: "approved",
+		CreatedAt:        time.Now().UTC(),
+		UpdatedAt:        time.Now().UTC(),
+	}, nil
+}
+
+func (f *fakeRepo) GetMomentMediaItemByStreamUID(_ context.Context, streamUID string) (mediarepo.MediaItem, error) {
+	return mediarepo.MediaItem{
+		ID:               "44444444-4444-4444-4444-444444444444",
+		PostID:           "22222222-2222-2222-2222-222222222222",
+		Type:             "video",
+		Status:           "hidden",
+		Provider:         "cloudflare_stream",
+		StreamUID:        &streamUID,
+		ProcessingStatus: "processing",
+		ModerationStatus: "approved",
+		CreatedAt:        time.Now().UTC(),
+		UpdatedAt:        time.Now().UTC(),
+	}, nil
+}
+
+func (f *fakeRepo) MarkMomentUploaded(_ context.Context, postID, ownerID string) (mediarepo.MediaItem, error) {
+	f.markMomentUploadedCalls++
+	streamUID := "stream123"
+	return mediarepo.MediaItem{
+		ID:               "44444444-4444-4444-4444-444444444444",
+		PostID:           postID,
+		AuthorAppUserID:  ownerID,
+		Type:             "video",
+		Status:           "hidden",
+		Provider:         "cloudflare_stream",
+		StreamUID:        &streamUID,
+		ProcessingStatus: "processing",
+		ModerationStatus: "approved",
+		CreatedAt:        time.Now().UTC(),
+		UpdatedAt:        time.Now().UTC(),
+	}, nil
+}
+
+func (f *fakeRepo) MarkMomentReady(_ context.Context, input mediarepo.MomentStatusUpdate) (mediarepo.MediaItem, error) {
+	return mediarepo.MediaItem{
+		ID:               "44444444-4444-4444-4444-444444444444",
+		PostID:           "22222222-2222-2222-2222-222222222222",
+		Type:             "video",
+		Status:           "active",
+		Provider:         "cloudflare_stream",
+		StreamUID:        &input.StreamUID,
+		ProcessingStatus: "ready",
+		ModerationStatus: "approved",
+		Width:            input.Width,
+		Height:           input.Height,
+		DurationMs:       input.DurationMs,
+		PlaybackURL:      &input.PlaybackURL,
+		ThumbnailURL:     &input.ThumbnailURL,
+		CreatedAt:        time.Now().UTC(),
+		UpdatedAt:        time.Now().UTC(),
+	}, nil
+}
+
+func (f *fakeRepo) MarkMomentFailed(_ context.Context, input mediarepo.MomentStatusUpdate) (mediarepo.MediaItem, error) {
+	return mediarepo.MediaItem{
+		ID:               "44444444-4444-4444-4444-444444444444",
+		PostID:           "22222222-2222-2222-2222-222222222222",
+		Type:             "video",
+		Status:           "hidden",
+		Provider:         "cloudflare_stream",
+		StreamUID:        &input.StreamUID,
+		ProcessingStatus: "failed",
+		FailedReason:     &input.FailedReason,
+		CreatedAt:        time.Now().UTC(),
+		UpdatedAt:        time.Now().UTC(),
+	}, nil
+}
+
+func (f *fakeRepo) MarkExpiredMomentUploadsFailed(_ context.Context, now time.Time, failedReason string) (int64, error) {
+	f.expiredMomentCalls++
+	f.expiredMomentNow = now
+	f.expiredMomentFailedReason = failedReason
+	if len(f.expiredMomentRows) == 0 {
+		return 0, nil
+	}
+	count := f.expiredMomentRows[0]
+	f.expiredMomentRows = f.expiredMomentRows[1:]
+	return count, nil
+}
+
+func (f *fakeRepo) ListProfileMediaByUsername(_ context.Context, input mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error) {
+	f.lastProfileMediaInput = input
+	return f.profileMedia, nil
+}
+
+func (f *fakeRepo) ListProfileMomentsByUsername(_ context.Context, input mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error) {
+	f.lastProfileMomentsInput = input
+	return f.profileMoments, nil
+}
+
+func (f *fakeRepo) ListDiveSiteMoments(_ context.Context, input mediarepo.ListDiveSiteMomentsInput) ([]mediarepo.ProfileMediaItem, error) {
+	f.lastDiveSiteMomentsInput = input
+	return f.diveSiteMoments, nil
 }
 
 func (f *fakeRepo) ListProfileDiveSpotHighlightsByUsername(_ context.Context, input mediarepo.ListProfileDiveSpotHighlightsInput) ([]mediarepo.ProfileDiveSpotHighlight, error) {
@@ -342,6 +509,29 @@ type fakeUploader struct {
 	lastMime    string
 	lastSize    int64
 	lastBody    []byte
+}
+
+type fakeStreamClient struct {
+	createInput  StreamDirectUploadInput
+	createResult StreamDirectUploadResult
+	video        StreamVideo
+	getCalls     int
+}
+
+func (f *fakeStreamClient) CreateDirectUpload(_ context.Context, input StreamDirectUploadInput) (StreamDirectUploadResult, error) {
+	f.createInput = input
+	if f.createResult.UID == "" {
+		f.createResult = StreamDirectUploadResult{UID: "stream123", UploadURL: "https://upload.videodelivery.net/direct"}
+	}
+	return f.createResult, nil
+}
+
+func (f *fakeStreamClient) GetVideo(_ context.Context, uid string) (StreamVideo, error) {
+	f.getCalls++
+	if f.video.UID == "" {
+		f.video.UID = uid
+	}
+	return f.video, nil
 }
 
 func (f *fakeUploader) PutObject(_ context.Context, _ string, objectKey, contentType string, body io.Reader, sizeBytes int64) error {
@@ -1034,6 +1224,279 @@ func TestLikeMediaPostCommentUpdatesState(t *testing.T) {
 	}
 }
 
+func TestCreateMomentUploadIntentCreatesPendingStreamMoment(t *testing.T) {
+	stream := &fakeStreamClient{}
+	svc := New(
+		&fakeRepo{},
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret-v1",
+		1,
+		WithStreamClient(stream, false),
+		WithSiteLookup(fakeSiteLookup{site: SiteRecord{
+			ID:              "55555555-5555-4555-8555-555555555555",
+			Name:            "Anilao",
+			ModerationState: "approved",
+		}}),
+	)
+
+	result, err := svc.CreateMomentUploadIntent(context.Background(), CreateMomentUploadIntentInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Caption:     ptrString("duck dive"),
+		DiveSiteID:  ptrString("55555555-5555-4555-8555-555555555555"),
+		Filename:    ptrString("moment.mp4"),
+		ContentType: ptrString("video/mp4"),
+	})
+	if err != nil {
+		t.Fatalf("create moment intent: %v", err)
+	}
+	if result.PostID == "" || result.UploadURL == "" || result.Status != "upload_requested" {
+		t.Fatalf("unexpected moment intent result: %+v", result)
+	}
+	if stream.createInput.MaxDurationSeconds != 30 || stream.createInput.RequireSignedURLs {
+		t.Fatalf("unexpected stream create input: %+v", stream.createInput)
+	}
+}
+
+func TestCreateMomentUploadIntentRejectsUnsafeSignedPlayback(t *testing.T) {
+	svc := New(
+		&fakeRepo{},
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret-v1",
+		1,
+		WithStreamClient(&fakeStreamClient{}, true),
+	)
+
+	_, err := svc.CreateMomentUploadIntent(context.Background(), CreateMomentUploadIntentInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Filename:    ptrString("moment.mp4"),
+		ContentType: ptrString("video/mp4"),
+	})
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %T %v", err, err)
+	}
+	if appErr.Status != http.StatusServiceUnavailable || appErr.Code != "moments_unavailable" {
+		t.Fatalf("expected unavailable guard, got status=%d code=%s", appErr.Status, appErr.Code)
+	}
+	if strings.Contains(strings.ToLower(appErr.Message), "cloudflare") || strings.Contains(strings.ToLower(appErr.Message), "stream") {
+		t.Fatalf("user-facing error should not mention provider internals: %q", appErr.Message)
+	}
+}
+
+func TestExpireStaleMomentUploadsMarksRowsFailedIdempotently(t *testing.T) {
+	fixedNow := time.Date(2026, 5, 25, 10, 0, 0, 0, time.UTC)
+	repo := &fakeRepo{expiredMomentRows: []int64{3, 0}}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+	svc.nowFn = func() time.Time { return fixedNow }
+
+	first, err := svc.ExpireStaleMomentUploads(context.Background())
+	if err != nil {
+		t.Fatalf("expire stale moments: %v", err)
+	}
+	second, err := svc.ExpireStaleMomentUploads(context.Background())
+	if err != nil {
+		t.Fatalf("expire stale moments second run: %v", err)
+	}
+
+	if first.FailedCount != 3 || second.FailedCount != 0 {
+		t.Fatalf("expected idempotent cleanup counts 3 then 0, got %d then %d", first.FailedCount, second.FailedCount)
+	}
+	if repo.expiredMomentCalls != 2 || !repo.expiredMomentNow.Equal(fixedNow) {
+		t.Fatalf("unexpected cleanup call state: calls=%d now=%s", repo.expiredMomentCalls, repo.expiredMomentNow)
+	}
+	if repo.expiredMomentFailedReason == "" {
+		t.Fatal("expected failed reason to be persisted")
+	}
+}
+
+func TestListProfileMomentsUsesDedicatedMomentPagination(t *testing.T) {
+	created := time.Date(2026, 5, 25, 9, 0, 0, 0, time.UTC)
+	repo := &fakeRepo{
+		profileMedia: []mediarepo.ProfileMediaItem{
+			testProfileMediaItem("11111111-1111-4111-8111-111111111111", "photo", created),
+		},
+		profileMoments: []mediarepo.ProfileMediaItem{
+			testProfileMediaItem("22222222-2222-4222-8222-222222222222", "video", created),
+			testProfileMediaItem("33333333-3333-4333-8333-333333333333", "video", created.Add(-time.Minute)),
+		},
+	}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	result, err := svc.ListProfileMoments(context.Background(), ListProfileMediaInput{
+		Username:     "maria",
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		Limit:        1,
+	})
+	if err != nil {
+		t.Fatalf("list profile moments: %v", err)
+	}
+	if len(result.Items) != 1 || result.Items[0].Type != "video" || result.NextCursor == "" {
+		t.Fatalf("expected first dedicated video page with next cursor, got %+v", result)
+	}
+	if repo.lastProfileMediaInput.Username != "" {
+		t.Fatalf("mixed profile media query should not be used, got %+v", repo.lastProfileMediaInput)
+	}
+	if repo.lastProfileMomentsInput.Username != "maria" || repo.lastProfileMomentsInput.Limit != 2 {
+		t.Fatalf("unexpected dedicated moments query input: %+v", repo.lastProfileMomentsInput)
+	}
+}
+
+func TestListDiveSiteMomentsReturnsReadyVisibleVideos(t *testing.T) {
+	siteID := "55555555-5555-4555-8555-555555555555"
+	repo := &fakeRepo{
+		diveSiteMoments: []mediarepo.ProfileMediaItem{
+			testProfileMediaItem("22222222-2222-4222-8222-222222222222", "video", time.Now().UTC()),
+		},
+	}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	result, err := svc.ListDiveSiteMoments(context.Background(), ListDiveSiteMomentsInput{
+		DiveSiteID:   siteID,
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		Limit:        24,
+	})
+	if err != nil {
+		t.Fatalf("list dive site moments: %v", err)
+	}
+	if len(result.Items) != 1 || result.Items[0].Type != "video" || result.Items[0].ProcessingStatus != "ready" {
+		t.Fatalf("expected ready video moment, got %+v", result.Items)
+	}
+	if repo.lastDiveSiteMomentsInput.DiveSiteID != siteID || repo.lastDiveSiteMomentsInput.Limit != 25 {
+		t.Fatalf("unexpected dive site moments query input: %+v", repo.lastDiveSiteMomentsInput)
+	}
+}
+
+func TestMomentCompleteAndSyncRejectOtherUsersMoment(t *testing.T) {
+	repo := &fakeRepo{momentLookupErr: pgx.ErrNoRows}
+	stream := &fakeStreamClient{}
+	svc := New(
+		repo,
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret-v1",
+		1,
+		WithStreamClient(stream, false),
+	)
+
+	_, completeErr := svc.CompleteMomentUpload(context.Background(), CompleteMomentUploadInput{
+		ActorID: "550e8400-e29b-41d4-a716-446655440000",
+		PostID:  "22222222-2222-4222-8222-222222222222",
+	})
+	_, syncErr := svc.SyncMomentStreamStatus(
+		context.Background(),
+		"550e8400-e29b-41d4-a716-446655440000",
+		"22222222-2222-4222-8222-222222222222",
+	)
+
+	for _, err := range []error{completeErr, syncErr} {
+		var appErr *apperrors.AppError
+		if !errors.As(err, &appErr) || appErr.Status != http.StatusNotFound {
+			t.Fatalf("expected not found app error, got %T %v", err, err)
+		}
+	}
+	if repo.markMomentUploadedCalls != 0 || stream.getCalls != 0 {
+		t.Fatalf("unauthorized moment should not be mutated or synced, uploadCalls=%d getCalls=%d", repo.markMomentUploadedCalls, stream.getCalls)
+	}
+}
+
+func TestCompleteMomentUploadMarksReadyWhenStreamIsReady(t *testing.T) {
+	stream := &fakeStreamClient{video: StreamVideo{
+		UID:             "stream123",
+		ReadyToStream:   true,
+		StatusState:     "ready",
+		DurationSeconds: 12.5,
+		Width:           1080,
+		Height:          1920,
+		PlaybackHLS:     "https://videodelivery.net/stream123/manifest/video.m3u8",
+		ThumbnailURL:    "https://videodelivery.net/stream123/thumbnails/thumbnail.jpg",
+	}}
+	activity := &fakeActivityPublisher{}
+	svc := New(
+		&fakeRepo{},
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret-v1",
+		1,
+		WithStreamClient(stream, false),
+		WithActivityPublisher(activity),
+	)
+
+	result, err := svc.CompleteMomentUpload(context.Background(), CompleteMomentUploadInput{
+		ActorID: "550e8400-e29b-41d4-a716-446655440000",
+		PostID:  "22222222-2222-4222-8222-222222222222",
+	})
+	if err != nil {
+		t.Fatalf("complete moment upload: %v", err)
+	}
+	if result.Status != "ready" || result.DurationMs == nil || *result.DurationMs != 12500 {
+		t.Fatalf("expected ready moment status, got %+v", result)
+	}
+	if len(activity.items) != 1 || activity.items[0].Type != feedservice.ActivityMediaPostCreated {
+		t.Fatalf("expected media activity publish, got %+v", activity.items)
+	}
+}
+
+func TestCompleteMomentUploadIsIdempotentWhenAlreadyReady(t *testing.T) {
+	streamUID := "stream123"
+	playbackURL := "https://iframe.videodelivery.net/stream123"
+	thumbnailURL := "https://videodelivery.net/stream123/thumbnails/thumbnail.jpg"
+	durationMs := int32(12500)
+	readyAt := time.Now().UTC()
+	repo := &fakeRepo{momentItem: &mediarepo.MediaItem{
+		ID:               "44444444-4444-4444-4444-444444444444",
+		PostID:           "22222222-2222-4222-8222-222222222222",
+		MediaObjectID:    "11111111-1111-1111-1111-111111111111",
+		AuthorAppUserID:  "550e8400-e29b-41d4-a716-446655440000",
+		Type:             "video",
+		Status:           "active",
+		Provider:         "cloudflare_stream",
+		StreamUID:        &streamUID,
+		ProcessingStatus: "ready",
+		ModerationStatus: "approved",
+		Width:            1080,
+		Height:           1920,
+		DurationMs:       &durationMs,
+		PlaybackURL:      &playbackURL,
+		ThumbnailURL:     &thumbnailURL,
+		ReadyAt:          &readyAt,
+		CreatedAt:        readyAt,
+		UpdatedAt:        readyAt,
+	}}
+	stream := &fakeStreamClient{}
+	svc := New(
+		repo,
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret-v1",
+		1,
+		WithStreamClient(stream, false),
+	)
+
+	result, err := svc.CompleteMomentUpload(context.Background(), CompleteMomentUploadInput{
+		ActorID: "550e8400-e29b-41d4-a716-446655440000",
+		PostID:  "22222222-2222-4222-8222-222222222222",
+	})
+	if err != nil {
+		t.Fatalf("complete moment upload: %v", err)
+	}
+	if result.Status != "ready" || result.PlaybackURL != playbackURL {
+		t.Fatalf("expected existing ready status, got %+v", result)
+	}
+	if repo.markMomentUploadedCalls != 0 {
+		t.Fatalf("expected no upload state rewrite, got %d calls", repo.markMomentUploadedCalls)
+	}
+	if stream.getCalls != 0 {
+		t.Fatalf("expected no stream sync for already ready moment, got %d calls", stream.getCalls)
+	}
+}
+
 func testPNG(t *testing.T, width, height int) []byte {
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
@@ -1069,6 +1532,44 @@ func appendFakeExif(jpegBytes []byte) []byte {
 	out = append(out, exif...)
 	out = append(out, jpegBytes[2:]...)
 	return out
+}
+
+func testProfileMediaItem(id, itemType string, createdAt time.Time) mediarepo.ProfileMediaItem {
+	streamUID := "stream123"
+	playbackURL := "https://iframe.videodelivery.net/stream123"
+	thumbnailURL := "https://videodelivery.net/stream123/thumbnails/thumbnail.jpg"
+	status := "ready"
+	if itemType == "photo" {
+		streamUID = ""
+		playbackURL = ""
+		thumbnailURL = ""
+		status = ""
+	}
+	return mediarepo.ProfileMediaItem{
+		MediaItem: mediarepo.MediaItem{
+			ID:               id,
+			PostID:           "99999999-9999-4999-8999-999999999999",
+			MediaObjectID:    "11111111-1111-4111-8111-111111111111",
+			AuthorAppUserID:  "550e8400-e29b-41d4-a716-446655440000",
+			UploadGroupID:    "33333333-3333-4333-8333-333333333333",
+			Type:             itemType,
+			StorageKey:       "media/profile/test.jpg",
+			MimeType:         "image/jpeg",
+			Width:            1080,
+			Height:           1920,
+			Status:           "active",
+			Provider:         "cloudflare_stream",
+			StreamUID:        &streamUID,
+			PlaybackURL:      &playbackURL,
+			ThumbnailURL:     &thumbnailURL,
+			ProcessingStatus: status,
+			ModerationStatus: "approved",
+			CreatedAt:        createdAt,
+			UpdatedAt:        createdAt,
+		},
+		LikeCount:    1,
+		CommentCount: 0,
+	}
 }
 
 func ptrString(value string) *string {

@@ -36,6 +36,7 @@ export function MediaPostComponent({
   );
   const previewUrl =
     preview?.displayUrl ??
+    preview?.thumbnailUrl ??
     (preview ? minted.urlMap.get(preview.mediaObjectId) : undefined);
   const diveSiteHref = post.diveSite?.slug
     ? `/explore/sites/${post.diveSite.slug}`
@@ -95,18 +96,33 @@ export function MediaPostComponent({
           </header>
 
           {preview ? (
-            <button
-              type="button"
+            <div
               className="relative block aspect-[4/5] w-full overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-left"
-              onClick={() => {
-                if (previewUrl) setViewerOpen(true);
-              }}
-              disabled={!previewUrl}
             >
               {!imageLoaded ? (
                 <div className="absolute inset-0 animate-pulse bg-muted" />
               ) : null}
-              {previewUrl ? (
+              {preview.type === "video" && preview.playbackUrl?.includes("iframe.videodelivery.net") ? (
+                <iframe
+                  src={`${preview.playbackUrl}?muted=true&preload=true`}
+                  title={preview.alt}
+                  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  tabIndex={-1}
+                  className="absolute inset-0 h-full w-full"
+                  onLoad={() => setImageLoaded(true)}
+                />
+              ) : preview.type === "video" && preview.playbackUrl ? (
+                <video
+                  src={preview.playbackUrl}
+                  poster={preview.thumbnailUrl || previewUrl}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onLoadedData={() => setImageLoaded(true)}
+                />
+              ) : previewUrl ? (
                 <Image
                   src={previewUrl}
                   alt={preview.alt}
@@ -120,7 +136,15 @@ export function MediaPostComponent({
                   onLoad={() => setImageLoaded(true)}
                 />
               ) : null}
-            </button>
+              {previewUrl ? (
+                <button
+                  type="button"
+                  className="absolute inset-0 z-10 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label={`Open ${preview.alt}`}
+                  onClick={() => setViewerOpen(true)}
+                />
+              ) : null}
+            </div>
           ) : null}
 
           <p className="line-clamp-3 text-sm leading-relaxed text-foreground">
@@ -149,7 +173,10 @@ export function MediaPostComponent({
         items={post.media.map((item) => ({
           id: item.id,
           mediaObjectId: item.mediaObjectId,
+          type: item.type,
           displayUrl: item.dialogUrl || item.displayUrl,
+          playbackUrl: item.playbackUrl,
+          thumbnailUrl: item.thumbnailUrl,
           width: item.width,
           height: item.height,
           caption: item.caption,

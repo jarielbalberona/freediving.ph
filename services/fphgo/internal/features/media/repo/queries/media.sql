@@ -99,9 +99,257 @@ RETURNING
   caption,
   sort_order,
   status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
   created_at,
   updated_at,
   deleted_at;
+
+-- name: CreateMomentMediaPost :one
+INSERT INTO media_posts (
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  post_caption
+)
+VALUES ($1, $2, $3, $4)
+RETURNING id, author_app_user_id, upload_group_id, dive_site_id, post_caption, created_at, updated_at, deleted_at;
+
+-- name: CreateMomentMediaItem :one
+INSERT INTO media_items (
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason
+)
+VALUES (
+  $1, $2, $3, $4, $5,
+  'video', $6, $7, $8, $9, $10, $11, 0,
+  $12, 'cloudflare_stream', $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
+)
+RETURNING
+  id,
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
+  created_at,
+  updated_at,
+  deleted_at;
+
+-- name: GetMomentMediaItemByPostForOwner :one
+SELECT
+  id,
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
+  created_at,
+  updated_at,
+  deleted_at
+FROM media_items
+WHERE post_id = $1
+  AND author_app_user_id = $2
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND deleted_at IS NULL
+LIMIT 1;
+
+-- name: GetMomentMediaItemByStreamUID :one
+SELECT
+  id,
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
+  created_at,
+  updated_at,
+  deleted_at
+FROM media_items
+WHERE stream_uid = $1
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND deleted_at IS NULL
+LIMIT 1;
+
+-- name: MarkMomentUploaded :one
+UPDATE media_items
+SET processing_status = 'processing',
+    status = 'hidden',
+    updated_at = NOW()
+WHERE post_id = $1
+  AND author_app_user_id = $2
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND deleted_at IS NULL
+RETURNING
+  id, post_id, media_object_id, author_app_user_id, upload_group_id, dive_site_id,
+  type, storage_key, mime_type, width, height, duration_ms, caption, sort_order,
+  status, provider, stream_uid, playback_uid, playback_url, thumbnail_url,
+  preview_url, aspect_ratio, has_audio, processing_status, moderation_status,
+  upload_expires_at, ready_at, failed_reason, created_at, updated_at, deleted_at;
+
+-- name: MarkMomentReady :one
+UPDATE media_items
+SET processing_status = 'ready',
+    status = 'active',
+    width = GREATEST($2, 1),
+    height = GREATEST($3, 1),
+    duration_ms = $4,
+    playback_uid = COALESCE(NULLIF($5, ''), playback_uid),
+    playback_url = COALESCE(NULLIF($6, ''), playback_url),
+    thumbnail_url = COALESCE(NULLIF($7, ''), thumbnail_url),
+    preview_url = COALESCE(NULLIF($8, ''), preview_url),
+    aspect_ratio = CASE WHEN GREATEST($3, 1) > 0 THEN GREATEST($2, 1)::numeric / GREATEST($3, 1)::numeric ELSE aspect_ratio END,
+    has_audio = $9,
+    ready_at = COALESCE(ready_at, NOW()),
+    failed_reason = NULL,
+    updated_at = NOW()
+WHERE stream_uid = $1
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND processing_status <> 'rejected'
+  AND deleted_at IS NULL
+RETURNING
+  id, post_id, media_object_id, author_app_user_id, upload_group_id, dive_site_id,
+  type, storage_key, mime_type, width, height, duration_ms, caption, sort_order,
+  status, provider, stream_uid, playback_uid, playback_url, thumbnail_url,
+  preview_url, aspect_ratio, has_audio, processing_status, moderation_status,
+  upload_expires_at, ready_at, failed_reason, created_at, updated_at, deleted_at;
+
+-- name: MarkMomentFailed :one
+UPDATE media_items
+SET processing_status = 'failed',
+    status = 'hidden',
+    failed_reason = $2,
+    updated_at = NOW()
+WHERE stream_uid = $1
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND processing_status <> 'ready'
+  AND deleted_at IS NULL
+RETURNING
+  id, post_id, media_object_id, author_app_user_id, upload_group_id, dive_site_id,
+  type, storage_key, mime_type, width, height, duration_ms, caption, sort_order,
+  status, provider, stream_uid, playback_uid, playback_url, thumbnail_url,
+  preview_url, aspect_ratio, has_audio, processing_status, moderation_status,
+  upload_expires_at, ready_at, failed_reason, created_at, updated_at, deleted_at;
+
+-- name: MarkExpiredMomentUploadsFailed :execrows
+UPDATE media_items
+SET processing_status = 'failed',
+    status = 'hidden',
+    failed_reason = $2,
+    updated_at = NOW()
+WHERE type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND processing_status IN ('upload_requested', 'uploading', 'uploaded', 'processing')
+  AND upload_expires_at IS NOT NULL
+  AND upload_expires_at < $1
+  AND deleted_at IS NULL;
 
 -- name: ListProfileMediaByUsername :many
 SELECT
@@ -121,6 +369,19 @@ SELECT
   mi.caption,
   mi.sort_order,
   mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
   mi.created_at,
   mi.updated_at,
   mi.deleted_at,
@@ -143,10 +404,10 @@ SELECT
   ) AS viewer_has_saved
 FROM media_items mi
 JOIN media_posts mp ON mp.id = mi.post_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
 JOIN users u ON u.id = mi.author_app_user_id
 LEFT JOIN dive_sites ds
   ON ds.id = mi.dive_site_id
- AND ds.moderation_state = 'approved'
 LEFT JOIN LATERAL (
   SELECT COUNT(*)::bigint AS like_count
   FROM media_post_likes mpl
@@ -160,9 +421,215 @@ LEFT JOIN LATERAL (
 ) comment_counts ON true
 WHERE lower(u.username) = lower(sqlc.arg(username))
   AND u.account_status = 'active'
+  AND mo.state = 'active'
+  AND mo.context_type = 'profile_feed'
   AND mi.status = 'active'
+  AND mi.moderation_status = 'approved'
+  AND (
+    mi.type = 'photo'
+    OR (
+      mi.type = 'video'
+      AND mi.provider = 'cloudflare_stream'
+      AND mi.processing_status = 'ready'
+    )
+  )
   AND mi.deleted_at IS NULL
   AND mp.deleted_at IS NULL
+  AND (mi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
+  AND (
+    sqlc.arg(viewer_user_id)::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = sqlc.arg(viewer_user_id) AND b.blocked_app_user_id = mi.author_app_user_id)
+         OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = sqlc.arg(viewer_user_id))
+    )
+  )
+  AND (mi.created_at < sqlc.arg(created_at) OR (mi.created_at = sqlc.arg(created_at) AND mi.id < sqlc.arg(id)))
+	ORDER BY mi.created_at DESC, mi.id DESC
+	LIMIT sqlc.arg(limit_count);
+
+-- name: ListProfileMomentsByUsername :many
+SELECT
+  mi.id,
+  mi.post_id,
+  mp.post_caption,
+  mi.media_object_id,
+  mi.author_app_user_id,
+  mi.upload_group_id,
+  mi.dive_site_id,
+  mi.type,
+  mi.storage_key,
+  mi.mime_type,
+  mi.width,
+  mi.height,
+  mi.duration_ms,
+  mi.caption,
+  mi.sort_order,
+  mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
+  mi.created_at,
+  mi.updated_at,
+  mi.deleted_at,
+  COALESCE(ds.slug, '') AS dive_site_slug,
+  COALESCE(ds.name, '') AS dive_site_name,
+  COALESCE(ds.area, '') AS dive_site_area,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  COALESCE(comment_counts.comment_count, 0)::bigint AS comment_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_liked,
+  EXISTS (
+    SELECT 1
+    FROM media_post_saves viewer_save
+    WHERE viewer_save.media_post_id = mp.id
+      AND viewer_save.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_saved
+FROM media_items mi
+JOIN media_posts mp ON mp.id = mi.post_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
+JOIN users u ON u.id = mi.author_app_user_id
+LEFT JOIN dive_sites ds
+  ON ds.id = mi.dive_site_id
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS comment_count
+  FROM media_post_comments mpc
+  WHERE mpc.media_post_id = mp.id
+    AND mpc.deleted_at IS NULL
+) comment_counts ON true
+WHERE lower(u.username) = lower(sqlc.arg(username))
+  AND u.account_status = 'active'
+  AND mo.state = 'active'
+  AND mo.context_type = 'profile_feed'
+  AND mi.status = 'active'
+  AND mi.type = 'video'
+  AND mi.provider = 'cloudflare_stream'
+  AND mi.processing_status = 'ready'
+  AND mi.moderation_status = 'approved'
+  AND mi.deleted_at IS NULL
+  AND mp.deleted_at IS NULL
+  AND (mi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
+  AND (
+    sqlc.arg(viewer_user_id)::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = sqlc.arg(viewer_user_id) AND b.blocked_app_user_id = mi.author_app_user_id)
+         OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = sqlc.arg(viewer_user_id))
+    )
+  )
+  AND (mi.created_at < sqlc.arg(created_at) OR (mi.created_at = sqlc.arg(created_at) AND mi.id < sqlc.arg(id)))
+ORDER BY mi.created_at DESC, mi.id DESC
+LIMIT sqlc.arg(limit_count);
+
+-- name: ListDiveSiteMoments :many
+SELECT
+  mi.id,
+  mi.post_id,
+  mp.post_caption,
+  mi.media_object_id,
+  mi.author_app_user_id,
+  mi.upload_group_id,
+  mi.dive_site_id,
+  mi.type,
+  mi.storage_key,
+  mi.mime_type,
+  mi.width,
+  mi.height,
+  mi.duration_ms,
+  mi.caption,
+  mi.sort_order,
+  mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
+  mi.created_at,
+  mi.updated_at,
+  mi.deleted_at,
+  COALESCE(ds.slug, '') AS dive_site_slug,
+  COALESCE(ds.name, '') AS dive_site_name,
+  COALESCE(ds.area, '') AS dive_site_area,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  COALESCE(comment_counts.comment_count, 0)::bigint AS comment_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_liked,
+  EXISTS (
+    SELECT 1
+    FROM media_post_saves viewer_save
+    WHERE viewer_save.media_post_id = mp.id
+      AND viewer_save.user_id = sqlc.arg(viewer_user_id)
+  ) AS viewer_has_saved
+FROM media_items mi
+JOIN media_posts mp ON mp.id = mi.post_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
+JOIN users u ON u.id = mi.author_app_user_id
+JOIN dive_sites ds ON ds.id = mi.dive_site_id
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS comment_count
+  FROM media_post_comments mpc
+  WHERE mpc.media_post_id = mp.id
+    AND mpc.deleted_at IS NULL
+) comment_counts ON true
+WHERE mi.dive_site_id = sqlc.arg(dive_site_id)
+  AND u.account_status = 'active'
+  AND ds.moderation_state = 'approved'
+  AND mo.state = 'active'
+  AND mo.context_type = 'profile_feed'
+  AND mi.status = 'active'
+  AND mi.type = 'video'
+  AND mi.provider = 'cloudflare_stream'
+  AND mi.processing_status = 'ready'
+  AND mi.moderation_status = 'approved'
+  AND mi.deleted_at IS NULL
+  AND mp.deleted_at IS NULL
+  AND (
+    sqlc.arg(viewer_user_id)::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = sqlc.arg(viewer_user_id) AND b.blocked_app_user_id = mi.author_app_user_id)
+         OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = sqlc.arg(viewer_user_id))
+    )
+  )
   AND (mi.created_at < sqlc.arg(created_at) OR (mi.created_at = sqlc.arg(created_at) AND mi.id < sqlc.arg(id)))
 ORDER BY mi.created_at DESC, mi.id DESC
 LIMIT sqlc.arg(limit_count);
@@ -185,6 +652,19 @@ WITH visible_items AS (
     mi.caption,
     mi.sort_order,
     mi.status,
+    mi.provider,
+    mi.stream_uid,
+    mi.playback_uid,
+    mi.playback_url,
+    mi.thumbnail_url,
+    mi.preview_url,
+    mi.aspect_ratio,
+    mi.has_audio,
+    mi.processing_status,
+    mi.moderation_status,
+    mi.upload_expires_at,
+    mi.ready_at,
+    mi.failed_reason,
     mi.created_at,
     mi.updated_at,
     mi.deleted_at,
@@ -202,6 +682,15 @@ WITH visible_items AS (
     AND mo.state = 'active'
     AND mo.context_type = 'profile_feed'
     AND mi.status = 'active'
+    AND mi.moderation_status = 'approved'
+    AND (
+      mi.type = 'photo'
+      OR (
+        mi.type = 'video'
+        AND mi.provider = 'cloudflare_stream'
+        AND mi.processing_status = 'ready'
+      )
+    )
     AND mi.deleted_at IS NULL
     AND mp.deleted_at IS NULL
     AND ds.moderation_state = 'approved'
@@ -243,6 +732,19 @@ SELECT
   caption,
   sort_order,
   status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
   created_at,
   updated_at,
   deleted_at,
@@ -274,6 +776,19 @@ SELECT
   mi.caption,
   mi.sort_order,
   mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
   mi.created_at,
   mi.updated_at,
   mi.deleted_at,
@@ -316,6 +831,15 @@ WHERE lower(u.username) = lower(sqlc.arg(username))
   AND mo.state = 'active'
   AND mo.context_type = 'profile_feed'
   AND mi.status = 'active'
+  AND mi.moderation_status = 'approved'
+  AND (
+    mi.type = 'photo'
+    OR (
+      mi.type = 'video'
+      AND mi.provider = 'cloudflare_stream'
+      AND mi.processing_status = 'ready'
+    )
+  )
   AND mi.deleted_at IS NULL
   AND mp.deleted_at IS NULL
   AND ds.moderation_state = 'approved'
@@ -356,7 +880,7 @@ SELECT
 FROM media_posts mp
 JOIN users u ON u.id = mp.author_app_user_id
 LEFT JOIN profiles p ON p.user_id = mp.author_app_user_id
-JOIN dive_sites ds ON ds.id = mp.dive_site_id
+LEFT JOIN dive_sites ds ON ds.id = mp.dive_site_id
 LEFT JOIN LATERAL (
   SELECT COUNT(*)::bigint AS like_count
   FROM media_post_likes mpl
@@ -371,13 +895,22 @@ LEFT JOIN LATERAL (
 WHERE mp.id = sqlc.arg(media_post_id)
   AND mp.deleted_at IS NULL
   AND u.account_status = 'active'
-  AND ds.moderation_state = 'approved'
+  AND (mp.dive_site_id IS NULL OR ds.moderation_state = 'approved')
   AND EXISTS (
     SELECT 1
     FROM media_items mi
     JOIN media_objects mo ON mo.id = mi.media_object_id
     WHERE mi.post_id = mp.id
       AND mi.status = 'active'
+      AND mi.moderation_status = 'approved'
+      AND (
+        mi.type = 'photo'
+        OR (
+          mi.type = 'video'
+          AND mi.provider = 'cloudflare_stream'
+          AND mi.processing_status = 'ready'
+        )
+      )
       AND mi.deleted_at IS NULL
       AND mo.state = 'active'
   )
@@ -429,6 +962,19 @@ SELECT
   mi.caption,
   mi.sort_order,
   mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
   mi.created_at,
   mi.updated_at,
   mi.deleted_at,
@@ -458,7 +1004,8 @@ FROM media_items mi
 JOIN media_posts mp ON mp.id = mi.post_id
 JOIN users u ON u.id = mp.author_app_user_id
 LEFT JOIN profiles p ON p.user_id = mp.author_app_user_id
-JOIN dive_sites ds ON ds.id = mi.dive_site_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
+LEFT JOIN dive_sites ds ON ds.id = mi.dive_site_id
 LEFT JOIN LATERAL (
   SELECT COUNT(*)::bigint AS like_count
   FROM media_post_likes mpl
@@ -473,15 +1020,19 @@ LEFT JOIN LATERAL (
 WHERE mp.id = sqlc.arg(media_post_id)
   AND mp.deleted_at IS NULL
   AND u.account_status = 'active'
-  AND ds.moderation_state = 'approved'
+  AND mo.state = 'active'
+  AND (mi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
   AND mi.status = 'active'
-  AND mi.deleted_at IS NULL
-  AND EXISTS (
-    SELECT 1
-    FROM media_objects mo
-    WHERE mo.id = mi.media_object_id
-      AND mo.state = 'active'
+  AND mi.moderation_status = 'approved'
+  AND (
+    mi.type = 'photo'
+    OR (
+      mi.type = 'video'
+      AND mi.provider = 'cloudflare_stream'
+      AND mi.processing_status = 'ready'
+    )
   )
+  AND mi.deleted_at IS NULL
   AND (
     sqlc.arg(viewer_user_id)::uuid IS NULL
     OR NOT EXISTS (

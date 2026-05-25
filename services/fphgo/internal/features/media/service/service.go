@@ -46,7 +46,9 @@ const (
 	PresetDialog   = "dialog"
 	PresetOriginal = "original"
 
-	maxUploadBytes = 10 * 1024 * 1024
+	maxUploadBytes           = 10 * 1024 * 1024
+	momentMaxDurationSeconds = 30
+	momentUploadExpiry       = 2 * time.Hour
 )
 
 type repository interface {
@@ -57,6 +59,8 @@ type repository interface {
 	ListMediaByContext(ctx context.Context, input mediarepo.ListMediaByContextInput) ([]mediarepo.MediaObject, error)
 	PublishMediaPost(ctx context.Context, input mediarepo.PublishMediaPostInput) (mediarepo.MediaPost, []mediarepo.MediaItem, error)
 	ListProfileMediaByUsername(ctx context.Context, input mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error)
+	ListProfileMomentsByUsername(ctx context.Context, input mediarepo.ListProfileMediaInput) ([]mediarepo.ProfileMediaItem, error)
+	ListDiveSiteMoments(ctx context.Context, input mediarepo.ListDiveSiteMomentsInput) ([]mediarepo.ProfileMediaItem, error)
 	ListProfileDiveSpotHighlightsByUsername(ctx context.Context, input mediarepo.ListProfileDiveSpotHighlightsInput) ([]mediarepo.ProfileDiveSpotHighlight, error)
 	ListProfileMediaByUsernameAndDiveSite(ctx context.Context, input mediarepo.ListProfileDiveSpotMediaInput) ([]mediarepo.ProfileMediaItem, error)
 	GetVisibleMediaPostSocialState(ctx context.Context, postID, viewerUserID string) (mediarepo.PostSocialState, error)
@@ -65,6 +69,13 @@ type repository interface {
 	SaveMediaPost(ctx context.Context, postID, userID string) error
 	UnsaveMediaPost(ctx context.Context, postID, userID string) error
 	GetMediaPostDetail(ctx context.Context, postID, viewerUserID string) ([]mediarepo.MediaPostDetailItem, error)
+	CreateMoment(ctx context.Context, input mediarepo.CreateMomentInput) (mediarepo.MediaPost, mediarepo.MediaItem, error)
+	GetMomentMediaItemByPostForOwner(ctx context.Context, postID, ownerID string) (mediarepo.MediaItem, error)
+	GetMomentMediaItemByStreamUID(ctx context.Context, streamUID string) (mediarepo.MediaItem, error)
+	MarkMomentUploaded(ctx context.Context, postID, ownerID string) (mediarepo.MediaItem, error)
+	MarkMomentReady(ctx context.Context, input mediarepo.MomentStatusUpdate) (mediarepo.MediaItem, error)
+	MarkMomentFailed(ctx context.Context, input mediarepo.MomentStatusUpdate) (mediarepo.MediaItem, error)
+	MarkExpiredMomentUploadsFailed(ctx context.Context, now time.Time, failedReason string) (int64, error)
 	CreateMediaPostComment(ctx context.Context, postID, authorUserID, body string) (mediarepo.MediaPostComment, error)
 	GetMediaPostComment(ctx context.Context, postID, commentID, viewerUserID string) (mediarepo.MediaPostComment, error)
 	ListMediaPostComments(ctx context.Context, input mediarepo.ListMediaPostCommentsInput) ([]mediarepo.MediaPostComment, error)
@@ -80,15 +91,19 @@ type uploader interface {
 }
 
 type Service struct {
-	repo              repository
-	uploader          uploader
-	siteLookup        siteLookup
-	bucketName        string
-	cdnBaseURL        string
-	signingSecret     string
-	signingKeyVersion int
-	nowFn             func() time.Time
-	activity          activityPublisher
+	repo                     repository
+	uploader                 uploader
+	siteLookup               siteLookup
+	bucketName               string
+	cdnBaseURL               string
+	signingSecret            string
+	signingKeyVersion        int
+	nowFn                    func() time.Time
+	activity                 activityPublisher
+	stream                   streamClient
+	streamRequireSignedURLs  bool
+	streamMaxDurationSeconds int
+	streamUploadExpiry       time.Duration
 }
 
 type siteLookup interface {
@@ -120,6 +135,13 @@ func WithSiteLookup(lookup siteLookup) Option {
 func WithActivityPublisher(publisher activityPublisher) Option {
 	return func(s *Service) {
 		s.activity = publisher
+	}
+}
+
+func WithStreamClient(client streamClient, requireSignedURLs bool) Option {
+	return func(s *Service) {
+		s.stream = client
+		s.streamRequireSignedURLs = requireSignedURLs
 	}
 }
 
@@ -236,30 +258,35 @@ type MediaPostResult struct {
 }
 
 type ProfileMediaItemResult struct {
-	ID              string
-	MediaObjectID   string
-	PostID          string
-	PostCaption     *string
-	UploadGroupID   string
-	AuthorAppUserID string
-	Type            string
-	StorageKey      string
-	MimeType        string
-	Width           int
-	Height          int
-	DurationMs      *int
-	Caption         *string
-	DiveSiteID      string
-	DiveSiteSlug    string
-	DiveSiteName    string
-	DiveSiteArea    string
-	SortOrder       int
-	Status          string
-	LikeCount       int64
-	CommentCount    int64
-	ViewerHasLiked  bool
-	ViewerHasSaved  bool
-	CreatedAt       time.Time
+	ID               string
+	MediaObjectID    string
+	PostID           string
+	PostCaption      *string
+	UploadGroupID    string
+	AuthorAppUserID  string
+	Type             string
+	StorageKey       string
+	MimeType         string
+	Width            int
+	Height           int
+	DurationMs       *int
+	Caption          *string
+	DiveSiteID       string
+	DiveSiteSlug     string
+	DiveSiteName     string
+	DiveSiteArea     string
+	SortOrder        int
+	Status           string
+	ProcessingStatus string
+	PlaybackURL      *string
+	ThumbnailURL     *string
+	PreviewURL       *string
+	StreamUID        *string
+	LikeCount        int64
+	CommentCount     int64
+	ViewerHasLiked   bool
+	ViewerHasSaved   bool
+	CreatedAt        time.Time
 }
 
 type MediaPostAuthorResult struct {
@@ -280,6 +307,45 @@ type CreateMediaPostResult struct {
 	Items []ProfileMediaItemResult
 }
 
+type CreateMomentUploadIntentInput struct {
+	ActorID     string
+	Caption     *string
+	DiveSiteID  *string
+	Filename    *string
+	ContentType *string
+}
+
+type MomentUploadIntentResult struct {
+	PostID             string
+	MediaItemID        string
+	MediaObjectID      string
+	StreamUID          string
+	UploadURL          string
+	Status             string
+	UploadExpiresAt    time.Time
+	MaxDurationSeconds int
+}
+
+type CompleteMomentUploadInput struct {
+	ActorID string
+	PostID  string
+}
+
+type MomentStatusResult struct {
+	PostID          string
+	MediaItemID     string
+	Status          string
+	PlaybackURL     string
+	ThumbnailURL    string
+	PreviewURL      string
+	DurationMs      *int
+	Width           int
+	Height          int
+	FailedReason    *string
+	UploadExpiresAt *time.Time
+	ReadyAt         *time.Time
+}
+
 type ListProfileMediaInput struct {
 	Username     string
 	ViewerUserID string
@@ -287,9 +353,20 @@ type ListProfileMediaInput struct {
 	Limit        int32
 }
 
+type ListDiveSiteMomentsInput struct {
+	ViewerUserID string
+	DiveSiteID   string
+	Cursor       string
+	Limit        int32
+}
+
 type ListProfileMediaResult struct {
 	Items      []ProfileMediaItemResult
 	NextCursor string
+}
+
+type ExpiredMomentCleanupResult struct {
+	FailedCount int64
 }
 
 type DiveSpotHighlightResult struct {
@@ -492,6 +569,8 @@ func New(repo repository, uploader uploader, bucketName, cdnBaseURL, signingSecr
 		nowFn: func() time.Time {
 			return time.Now().UTC()
 		},
+		streamMaxDurationSeconds: momentMaxDurationSeconds,
+		streamUploadExpiry:       momentUploadExpiry,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -886,6 +965,269 @@ func (s *Service) MintURLs(ctx context.Context, input MintURLsInput) (MintURLsRe
 	return result, nil
 }
 
+func (s *Service) CreateMomentUploadIntent(ctx context.Context, input CreateMomentUploadIntentInput) (MomentUploadIntentResult, error) {
+	actorID := strings.TrimSpace(input.ActorID)
+	if _, err := uuid.Parse(actorID); err != nil {
+		return MomentUploadIntentResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if s.stream == nil {
+		return MomentUploadIntentResult{}, apperrors.New(http.StatusInternalServerError, "moments_stream_unavailable", "Moments video upload is not configured", nil)
+	}
+	if s.streamRequireSignedURLs {
+		return MomentUploadIntentResult{}, apperrors.New(http.StatusServiceUnavailable, "moments_unavailable", "Moments uploads are temporarily unavailable", nil)
+	}
+	caption := normalizeOptionalString(input.Caption)
+	if caption != nil && len([]rune(*caption)) > 1000 {
+		return MomentUploadIntentResult{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"caption"}, Code: "too_big", Message: "Caption must be 1000 characters or fewer"}}}
+	}
+	var diveSiteID *string
+	if input.DiveSiteID != nil && strings.TrimSpace(*input.DiveSiteID) != "" {
+		trimmed := strings.TrimSpace(*input.DiveSiteID)
+		if _, err := uuid.Parse(trimmed); err != nil {
+			return MomentUploadIntentResult{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"diveSiteId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"}}}
+		}
+		if s.siteLookup == nil {
+			return MomentUploadIntentResult{}, apperrors.New(http.StatusInternalServerError, "site_lookup_unavailable", "dive site lookup is not configured", nil)
+		}
+		site, err := s.siteLookup.GetSiteForWrite(ctx, trimmed)
+		if err != nil {
+			return MomentUploadIntentResult{}, mapSiteLookupError(err)
+		}
+		if site.ModerationState != "approved" {
+			return MomentUploadIntentResult{}, apperrors.New(http.StatusForbidden, "forbidden", "linked dive site is not available", nil)
+		}
+		diveSiteID = &trimmed
+	}
+	if input.ContentType != nil {
+		contentType := strings.ToLower(strings.TrimSpace(*input.ContentType))
+		if contentType != "" && contentType != "video/mp4" && contentType != "video/quicktime" {
+			return MomentUploadIntentResult{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"contentType"}, Code: "invalid_enum", Message: "Use an MP4 or MOV video for Moments"}}}
+		}
+	}
+
+	expiresAt := s.nowFn().Add(s.streamUploadExpiry)
+	intent, err := s.stream.CreateDirectUpload(ctx, StreamDirectUploadInput{
+		CreatorID:          actorID,
+		MaxDurationSeconds: s.streamMaxDurationSeconds,
+		Expiry:             expiresAt,
+		RequireSignedURLs:  s.streamRequireSignedURLs,
+		Meta: map[string]string{
+			"feature":  "moments",
+			"filename": valueOrEmptyString(input.Filename),
+		},
+	})
+	if err != nil {
+		return MomentUploadIntentResult{}, apperrors.New(http.StatusBadGateway, "moment_upload_intent_failed", "Failed to start Moment upload", err)
+	}
+	post, item, err := s.repo.CreateMoment(ctx, mediarepo.CreateMomentInput{
+		AuthorAppUserID:  actorID,
+		DiveSiteID:       diveSiteID,
+		PostCaption:      caption,
+		StreamUID:        intent.UID,
+		UploadURL:        intent.UploadURL,
+		UploadExpiresAt:  expiresAt,
+		RequireSignedURL: s.streamRequireSignedURLs,
+	})
+	if err != nil {
+		return MomentUploadIntentResult{}, apperrors.New(http.StatusInternalServerError, "moment_create_failed", "Failed to create Moment", err)
+	}
+	return MomentUploadIntentResult{
+		PostID:             post.ID,
+		MediaItemID:        item.ID,
+		MediaObjectID:      item.MediaObjectID,
+		StreamUID:          intent.UID,
+		UploadURL:          intent.UploadURL,
+		Status:             item.ProcessingStatus,
+		UploadExpiresAt:    expiresAt,
+		MaxDurationSeconds: s.streamMaxDurationSeconds,
+	}, nil
+}
+
+func (s *Service) CompleteMomentUpload(ctx context.Context, input CompleteMomentUploadInput) (MomentStatusResult, error) {
+	actorID := strings.TrimSpace(input.ActorID)
+	if _, err := uuid.Parse(actorID); err != nil {
+		return MomentStatusResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	postID := strings.TrimSpace(input.PostID)
+	if _, err := uuid.Parse(postID); err != nil {
+		return MomentStatusResult{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"postId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"}}}
+	}
+	existing, err := s.repo.GetMomentMediaItemByPostForOwner(ctx, postID, actorID)
+	if err != nil {
+		if mediarepo.IsNoRows(err) {
+			return MomentStatusResult{}, apperrors.New(http.StatusNotFound, "not_found", "Moment not found", err)
+		}
+		return MomentStatusResult{}, apperrors.New(http.StatusInternalServerError, "moment_lookup_failed", "Failed to load Moment", err)
+	}
+	switch existing.ProcessingStatus {
+	case "ready", "failed", "rejected":
+		return momentStatusFromItem(existing), nil
+	}
+	item, err := s.repo.MarkMomentUploaded(ctx, postID, actorID)
+	if err != nil {
+		if mediarepo.IsNoRows(err) {
+			return MomentStatusResult{}, apperrors.New(http.StatusNotFound, "not_found", "Moment not found", err)
+		}
+		return MomentStatusResult{}, apperrors.New(http.StatusInternalServerError, "moment_complete_failed", "Failed to update Moment upload", err)
+	}
+	if item.StreamUID != nil && s.stream != nil {
+		if synced, syncErr := s.syncMomentStreamStatus(ctx, *item.StreamUID); syncErr == nil {
+			item = synced
+		}
+	}
+	return momentStatusFromItem(item), nil
+}
+
+func (s *Service) SyncMomentStreamStatus(ctx context.Context, actorID, postID string) (MomentStatusResult, error) {
+	actorID = strings.TrimSpace(actorID)
+	if _, err := uuid.Parse(actorID); err != nil {
+		return MomentStatusResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(postID)); err != nil {
+		return MomentStatusResult{}, ValidationFailure{Issues: []validatex.Issue{{Path: []any{"postId"}, Code: "invalid_uuid", Message: "Must be a valid UUID"}}}
+	}
+	item, err := s.repo.GetMomentMediaItemByPostForOwner(ctx, postID, actorID)
+	if err != nil {
+		if mediarepo.IsNoRows(err) {
+			return MomentStatusResult{}, apperrors.New(http.StatusNotFound, "not_found", "Moment not found", err)
+		}
+		return MomentStatusResult{}, apperrors.New(http.StatusInternalServerError, "moment_lookup_failed", "Failed to load Moment", err)
+	}
+	if item.StreamUID == nil || strings.TrimSpace(*item.StreamUID) == "" {
+		return momentStatusFromItem(item), nil
+	}
+	synced, err := s.syncMomentStreamStatus(ctx, *item.StreamUID)
+	if err != nil {
+		return MomentStatusResult{}, err
+	}
+	return momentStatusFromItem(synced), nil
+}
+
+func (s *Service) ExpireStaleMomentUploads(ctx context.Context) (ExpiredMomentCleanupResult, error) {
+	count, err := s.repo.MarkExpiredMomentUploadsFailed(ctx, s.nowFn(), "Moment upload expired before processing completed")
+	if err != nil {
+		return ExpiredMomentCleanupResult{}, apperrors.New(http.StatusInternalServerError, "moment_cleanup_failed", "Failed to clean up expired Moments", err)
+	}
+	return ExpiredMomentCleanupResult{FailedCount: count}, nil
+}
+
+func (s *Service) RunExpiredMomentCleanupProcessor(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = 10 * time.Minute
+	}
+	_, _ = s.ExpireStaleMomentUploads(ctx)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_, _ = s.ExpireStaleMomentUploads(ctx)
+		}
+	}
+}
+
+func (s *Service) syncMomentStreamStatus(ctx context.Context, streamUID string) (mediarepo.MediaItem, error) {
+	if s.stream == nil {
+		return mediarepo.MediaItem{}, apperrors.New(http.StatusInternalServerError, "moments_stream_unavailable", "Moments video upload is not configured", nil)
+	}
+	video, err := s.stream.GetVideo(ctx, streamUID)
+	if err != nil {
+		return mediarepo.MediaItem{}, apperrors.New(http.StatusBadGateway, "moment_status_sync_failed", "Failed to check Moment processing", err)
+	}
+	if strings.EqualFold(video.StatusState, "error") {
+		return s.repo.MarkMomentFailed(ctx, mediarepo.MomentStatusUpdate{
+			StreamUID:    streamUID,
+			FailedReason: firstNonEmpty(video.ErrorReasonText, "Cloudflare Stream could not process this video"),
+		})
+	}
+	if !video.ReadyToStream && !strings.EqualFold(video.StatusState, "ready") {
+		item, err := s.repo.GetMomentMediaItemByStreamUID(ctx, streamUID)
+		if err != nil {
+			return mediarepo.MediaItem{}, apperrors.New(http.StatusInternalServerError, "moment_lookup_failed", "Failed to load Moment", err)
+		}
+		return item, nil
+	}
+	durationMs := int32(video.DurationSeconds * 1000)
+	if durationMs < 0 {
+		durationMs = 0
+	}
+	width := int32(video.Width)
+	height := int32(video.Height)
+	if width <= 0 {
+		width = 1
+	}
+	if height <= 0 {
+		height = 1
+	}
+	playbackURL := "https://iframe.videodelivery.net/" + streamUID
+	item, err := s.repo.MarkMomentReady(ctx, mediarepo.MomentStatusUpdate{
+		StreamUID:    streamUID,
+		Width:        width,
+		Height:       height,
+		DurationMs:   &durationMs,
+		PlaybackUID:  streamUID,
+		PlaybackURL:  playbackURL,
+		ThumbnailURL: firstNonEmpty(video.ThumbnailURL, "https://videodelivery.net/"+streamUID+"/thumbnails/thumbnail.jpg"),
+		PreviewURL:   video.PreviewURL,
+	})
+	if err != nil {
+		return mediarepo.MediaItem{}, err
+	}
+	s.publishMomentActivity(ctx, item)
+	return item, nil
+}
+
+func (s *Service) publishMomentActivity(ctx context.Context, item mediarepo.MediaItem) {
+	if s.activity == nil || item.ProcessingStatus != "ready" || item.Status != "active" {
+		return
+	}
+	site := SiteRecord{}
+	if strings.TrimSpace(item.DiveSiteID) != "" && s.siteLookup != nil {
+		if found, err := s.siteLookup.GetSiteForWrite(ctx, item.DiveSiteID); err == nil && found.ModerationState == "approved" {
+			site = found
+		}
+	}
+	media := []map[string]any{{
+		"id":            item.ID,
+		"mediaObjectId": item.MediaObjectID,
+		"type":          item.Type,
+		"width":         int(item.Width),
+		"height":        int(item.Height),
+		"caption":       valueOrEmptyString(item.Caption),
+		"sortOrder":     int(item.SortOrder),
+		"playbackUrl":   valueOrEmptyString(item.PlaybackURL),
+		"thumbnailUrl":  valueOrEmptyString(item.ThumbnailURL),
+		"previewUrl":    valueOrEmptyString(item.PreviewURL),
+		"durationMs":    intValueFromInt32(item.DurationMs),
+	}}
+	_ = s.activity.PublishActivity(ctx, feedservice.ActivityPublishInput{
+		Type:            feedservice.ActivityMediaPostCreated,
+		SourceModule:    feedservice.ActivitySourceMedia,
+		SourceType:      "media_post",
+		SourceID:        item.PostID,
+		ActorUserID:     item.AuthorAppUserID,
+		TargetType:      "media_post",
+		TargetID:        item.PostID,
+		Visibility:      feedservice.ActivityVisibilityPublic,
+		State:           feedservice.ActivityStateActive,
+		Area:            site.Area,
+		DiveSiteID:      site.ID,
+		OccurredAt:      item.CreatedAt,
+		SourceCreatedAt: item.CreatedAt,
+		Title:           firstNonEmpty(site.Name, "Moment"),
+		Body:            valueOrEmptyString(item.Caption),
+		Media:           media,
+		Metadata: map[string]any{
+			"diveSiteName": site.Name,
+			"diveSiteSlug": site.Slug,
+			"source":       "moment_upload",
+			"mediaType":    "video",
+		},
+	})
+}
+
 func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInput) (CreateMediaPostResult, error) {
 	if _, err := uuid.Parse(strings.TrimSpace(input.ActorID)); err != nil {
 		return CreateMediaPostResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
@@ -1088,29 +1430,34 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 	resultItems := make([]ProfileMediaItemResult, 0, len(createdItems))
 	for _, item := range createdItems {
 		resultItems = append(resultItems, ProfileMediaItemResult{
-			ID:              item.ID,
-			MediaObjectID:   item.MediaObjectID,
-			PostID:          item.PostID,
-			UploadGroupID:   item.UploadGroupID,
-			AuthorAppUserID: item.AuthorAppUserID,
-			Type:            item.Type,
-			StorageKey:      item.StorageKey,
-			MimeType:        item.MimeType,
-			Width:           int(item.Width),
-			Height:          int(item.Height),
-			DurationMs:      intPtrFromInt32(item.DurationMs),
-			Caption:         item.Caption,
-			DiveSiteID:      item.DiveSiteID,
-			DiveSiteSlug:    site.Slug,
-			DiveSiteName:    site.Name,
-			DiveSiteArea:    site.Area,
-			SortOrder:       int(item.SortOrder),
-			Status:          item.Status,
-			LikeCount:       0,
-			CommentCount:    0,
-			ViewerHasLiked:  false,
-			ViewerHasSaved:  false,
-			CreatedAt:       item.CreatedAt,
+			ID:               item.ID,
+			MediaObjectID:    item.MediaObjectID,
+			PostID:           item.PostID,
+			UploadGroupID:    item.UploadGroupID,
+			AuthorAppUserID:  item.AuthorAppUserID,
+			Type:             item.Type,
+			StorageKey:       item.StorageKey,
+			MimeType:         item.MimeType,
+			Width:            int(item.Width),
+			Height:           int(item.Height),
+			DurationMs:       intPtrFromInt32(item.DurationMs),
+			Caption:          item.Caption,
+			DiveSiteID:       item.DiveSiteID,
+			DiveSiteSlug:     site.Slug,
+			DiveSiteName:     site.Name,
+			DiveSiteArea:     site.Area,
+			SortOrder:        int(item.SortOrder),
+			Status:           item.Status,
+			ProcessingStatus: item.ProcessingStatus,
+			PlaybackURL:      item.PlaybackURL,
+			ThumbnailURL:     item.ThumbnailURL,
+			PreviewURL:       item.PreviewURL,
+			StreamUID:        item.StreamUID,
+			LikeCount:        0,
+			CommentCount:     0,
+			ViewerHasLiked:   false,
+			ViewerHasSaved:   false,
+			CreatedAt:        item.CreatedAt,
 		})
 	}
 
@@ -1155,7 +1502,7 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 			ID:              createdPost.ID,
 			AuthorAppUserID: createdPost.AuthorAppUserID,
 			UploadGroupID:   createdPost.UploadGroupID,
-			DiveSiteID:      createdPost.DiveSiteID,
+			DiveSiteID:      valueOrEmptyString(createdPost.DiveSiteID),
 			PostCaption:     createdPost.PostCaption,
 			LikeCount:       0,
 			CommentCount:    0,
@@ -1217,31 +1564,150 @@ func (s *Service) ListProfileMedia(ctx context.Context, input ListProfileMediaIn
 	items := make([]ProfileMediaItemResult, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, ProfileMediaItemResult{
-			ID:              row.ID,
-			MediaObjectID:   row.MediaObjectID,
-			PostID:          row.PostID,
-			PostCaption:     row.PostCaption,
-			UploadGroupID:   row.UploadGroupID,
-			AuthorAppUserID: row.AuthorAppUserID,
-			Type:            row.Type,
-			StorageKey:      row.StorageKey,
-			MimeType:        row.MimeType,
-			Width:           int(row.Width),
-			Height:          int(row.Height),
-			DurationMs:      intPtrFromInt32(row.DurationMs),
-			Caption:         row.Caption,
-			DiveSiteID:      row.DiveSiteID,
-			DiveSiteSlug:    row.DiveSiteSlug,
-			DiveSiteName:    row.DiveSiteName,
-			DiveSiteArea:    row.DiveSiteArea,
-			SortOrder:       int(row.SortOrder),
-			Status:          row.Status,
-			LikeCount:       row.LikeCount,
-			CommentCount:    row.CommentCount,
-			ViewerHasLiked:  row.ViewerHasLiked,
-			ViewerHasSaved:  row.ViewerHasSaved,
-			CreatedAt:       row.CreatedAt,
+			ID:               row.ID,
+			MediaObjectID:    row.MediaObjectID,
+			PostID:           row.PostID,
+			PostCaption:      row.PostCaption,
+			UploadGroupID:    row.UploadGroupID,
+			AuthorAppUserID:  row.AuthorAppUserID,
+			Type:             row.Type,
+			StorageKey:       row.StorageKey,
+			MimeType:         row.MimeType,
+			Width:            int(row.Width),
+			Height:           int(row.Height),
+			DurationMs:       intPtrFromInt32(row.DurationMs),
+			Caption:          row.Caption,
+			DiveSiteID:       row.DiveSiteID,
+			DiveSiteSlug:     row.DiveSiteSlug,
+			DiveSiteName:     row.DiveSiteName,
+			DiveSiteArea:     row.DiveSiteArea,
+			SortOrder:        int(row.SortOrder),
+			Status:           row.Status,
+			ProcessingStatus: row.ProcessingStatus,
+			PlaybackURL:      row.PlaybackURL,
+			ThumbnailURL:     row.ThumbnailURL,
+			PreviewURL:       row.PreviewURL,
+			StreamUID:        row.StreamUID,
+			LikeCount:        row.LikeCount,
+			CommentCount:     row.CommentCount,
+			ViewerHasLiked:   row.ViewerHasLiked,
+			ViewerHasSaved:   row.ViewerHasSaved,
+			CreatedAt:        row.CreatedAt,
 		})
+	}
+
+	return ListProfileMediaResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) ListProfileMoments(ctx context.Context, input ListProfileMediaInput) (ListProfileMediaResult, error) {
+	username := strings.TrimSpace(input.Username)
+	if username == "" {
+		return ListProfileMediaResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"username"},
+			Code:    "required",
+			Message: "username is required",
+		}}}
+	}
+	if input.Limit <= 0 || input.Limit > 60 {
+		input.Limit = 24
+	}
+
+	cursorCreated, cursorID := pagination.DefaultUUIDCursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		decodedCreated, decodedID, err := pagination.DecodeUUID(input.Cursor)
+		if err != nil {
+			return ListProfileMediaResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"cursor"},
+				Code:    "custom",
+				Message: "invalid cursor",
+			}}}
+		}
+		cursorCreated = decodedCreated
+		cursorID = decodedID
+	}
+
+	rows, err := s.repo.ListProfileMomentsByUsername(ctx, mediarepo.ListProfileMediaInput{
+		Username:      username,
+		ViewerUserID:  strings.TrimSpace(input.ViewerUserID),
+		CursorCreated: cursorCreated,
+		CursorID:      cursorID,
+		Limit:         input.Limit + 1,
+	})
+	if err != nil {
+		return ListProfileMediaResult{}, apperrors.New(http.StatusInternalServerError, "profile_moments_failed", "failed to load Moments", err)
+	}
+
+	nextCursor := ""
+	if int32(len(rows)) > input.Limit {
+		cutoff := int(input.Limit)
+		next := rows[cutoff-1]
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
+		rows = rows[:cutoff]
+	}
+
+	items := make([]ProfileMediaItemResult, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, profileMediaResultFromRepo(row))
+	}
+
+	return ListProfileMediaResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *Service) ListDiveSiteMoments(ctx context.Context, input ListDiveSiteMomentsInput) (ListProfileMediaResult, error) {
+	diveSiteID := strings.TrimSpace(input.DiveSiteID)
+	if _, err := uuid.Parse(diveSiteID); err != nil {
+		return ListProfileMediaResult{}, ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"siteId"},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	viewerID := strings.TrimSpace(input.ViewerUserID)
+	if viewerID != "" {
+		if _, err := uuid.Parse(viewerID); err != nil {
+			return ListProfileMediaResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+	if input.Limit <= 0 || input.Limit > 60 {
+		input.Limit = 24
+	}
+
+	cursorCreated, cursorID := pagination.DefaultUUIDCursor()
+	if strings.TrimSpace(input.Cursor) != "" {
+		decodedCreated, decodedID, err := pagination.DecodeUUID(input.Cursor)
+		if err != nil {
+			return ListProfileMediaResult{}, ValidationFailure{Issues: []validatex.Issue{{
+				Path:    []any{"cursor"},
+				Code:    "custom",
+				Message: "invalid cursor",
+			}}}
+		}
+		cursorCreated = decodedCreated
+		cursorID = decodedID
+	}
+
+	rows, err := s.repo.ListDiveSiteMoments(ctx, mediarepo.ListDiveSiteMomentsInput{
+		ViewerUserID:  viewerID,
+		DiveSiteID:    diveSiteID,
+		CursorCreated: cursorCreated,
+		CursorID:      cursorID,
+		Limit:         input.Limit + 1,
+	})
+	if err != nil {
+		return ListProfileMediaResult{}, apperrors.New(http.StatusInternalServerError, "dive_site_moments_failed", "failed to load Moments", err)
+	}
+
+	nextCursor := ""
+	if int32(len(rows)) > input.Limit {
+		cutoff := int(input.Limit)
+		next := rows[cutoff-1]
+		nextCursor = pagination.Encode(next.CreatedAt, next.ID)
+		rows = rows[:cutoff]
+	}
+
+	items := make([]ProfileMediaItemResult, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, profileMediaResultFromRepo(row))
 	}
 
 	return ListProfileMediaResult{Items: items, NextCursor: nextCursor}, nil
@@ -1855,11 +2321,44 @@ func intPtrFromInt32(value *int32) *int {
 	return &result
 }
 
+func intValueFromInt32(value *int32) int {
+	if value == nil {
+		return 0
+	}
+	return int(*value)
+}
+
 func valueOrEmptyString(value *string) string {
 	if value == nil {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func momentStatusFromItem(item mediarepo.MediaItem) MomentStatusResult {
+	return MomentStatusResult{
+		PostID:          item.PostID,
+		MediaItemID:     item.ID,
+		Status:          item.ProcessingStatus,
+		PlaybackURL:     valueOrEmptyString(item.PlaybackURL),
+		ThumbnailURL:    valueOrEmptyString(item.ThumbnailURL),
+		PreviewURL:      valueOrEmptyString(item.PreviewURL),
+		DurationMs:      intPtrFromInt32(item.DurationMs),
+		Width:           int(item.Width),
+		Height:          int(item.Height),
+		FailedReason:    item.FailedReason,
+		UploadExpiresAt: item.UploadExpiresAt,
+		ReadyAt:         item.ReadyAt,
+	}
 }
 
 func validateContext(contextType string, contextID *string) (contextRule, []validatex.Issue) {
@@ -2023,30 +2522,35 @@ func extForMime(mimeType string) string {
 
 func profileMediaResultFromRepo(row mediarepo.ProfileMediaItem) ProfileMediaItemResult {
 	return ProfileMediaItemResult{
-		ID:              row.ID,
-		MediaObjectID:   row.MediaObjectID,
-		PostID:          row.PostID,
-		PostCaption:     row.PostCaption,
-		UploadGroupID:   row.UploadGroupID,
-		AuthorAppUserID: row.AuthorAppUserID,
-		Type:            row.Type,
-		StorageKey:      row.StorageKey,
-		MimeType:        row.MimeType,
-		Width:           int(row.Width),
-		Height:          int(row.Height),
-		DurationMs:      intPtrFromInt32(row.DurationMs),
-		Caption:         row.Caption,
-		DiveSiteID:      row.DiveSiteID,
-		DiveSiteSlug:    row.DiveSiteSlug,
-		DiveSiteName:    row.DiveSiteName,
-		DiveSiteArea:    row.DiveSiteArea,
-		SortOrder:       int(row.SortOrder),
-		Status:          row.Status,
-		LikeCount:       row.LikeCount,
-		CommentCount:    row.CommentCount,
-		ViewerHasLiked:  row.ViewerHasLiked,
-		ViewerHasSaved:  row.ViewerHasSaved,
-		CreatedAt:       row.CreatedAt,
+		ID:               row.ID,
+		MediaObjectID:    row.MediaObjectID,
+		PostID:           row.PostID,
+		PostCaption:      row.PostCaption,
+		UploadGroupID:    row.UploadGroupID,
+		AuthorAppUserID:  row.AuthorAppUserID,
+		Type:             row.Type,
+		StorageKey:       row.StorageKey,
+		MimeType:         row.MimeType,
+		Width:            int(row.Width),
+		Height:           int(row.Height),
+		DurationMs:       intPtrFromInt32(row.DurationMs),
+		Caption:          row.Caption,
+		DiveSiteID:       row.DiveSiteID,
+		DiveSiteSlug:     row.DiveSiteSlug,
+		DiveSiteName:     row.DiveSiteName,
+		DiveSiteArea:     row.DiveSiteArea,
+		SortOrder:        int(row.SortOrder),
+		Status:           row.Status,
+		ProcessingStatus: row.ProcessingStatus,
+		PlaybackURL:      row.PlaybackURL,
+		ThumbnailURL:     row.ThumbnailURL,
+		PreviewURL:       row.PreviewURL,
+		StreamUID:        row.StreamUID,
+		LikeCount:        row.LikeCount,
+		CommentCount:     row.CommentCount,
+		ViewerHasLiked:   row.ViewerHasLiked,
+		ViewerHasSaved:   row.ViewerHasSaved,
+		CreatedAt:        row.CreatedAt,
 	}
 }
 

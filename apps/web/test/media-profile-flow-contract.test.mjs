@@ -5,6 +5,13 @@ import test from "node:test";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
+function assertNoVideoOrIframeInsideButton(source, label) {
+  const buttonBlocks = source.match(/<button\b[\s\S]*?<\/button>/g) ?? [];
+  for (const block of buttonBlocks) {
+    assert.doesNotMatch(block, /<(video|iframe)\b/, `${label} nests video or iframe inside button`);
+  }
+}
+
 test("profile create flow and masonry gallery are wired to the media posting stack", async () => {
   const createPage = await fs.readFile(
     path.join(repoRoot, "src/features/profile/pages/CreateProfilePostPage.tsx"),
@@ -108,6 +115,8 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(feedRenderer, /MediaPostComponent/);
   assert.match(feedRenderer, /mediaPostFromHomeFeedItem/);
   assert.match(mediaPostComponent, /setViewerOpen\(true\)/);
+  assertNoVideoOrIframeInsideButton(mediaPostComponent, "MediaPostComponent");
+  assertNoVideoOrIframeInsideButton(profileGrid, "ProfileGrid");
   assert.match(mediaPostComponent, /setCommentFocusSignal/);
   assert.match(mediaPostComponent, /<MediaPostSocialPanel/);
   assert.match(mediaPostComponent, /commentsScrollMode="desktop"/);
@@ -118,6 +127,8 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.doesNotMatch(mediaViewerDialog, /h-\[42dvh\]/);
   assert.match(carousel, /className="h-full w-full overflow-hidden"/);
   assert.match(profileGrid, /<MediaPostSocialPanel/);
+  assert.match(profileGrid, /MasonryPhotoAlbum/);
+  assert.match(profileGrid, /<Image/);
   assert.match(profileGrid, /commentsScrollMode="desktop"/);
   assert.match(detailPage, /<MediaPostSocialPanel/);
   assert.match(socialPanel, /<UserIdentityHeader/);

@@ -51,10 +51,12 @@ export function ProfileGrid({
 }: ProfileGridProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const validItems = items.filter((item) => item.width > 0 && item.height > 0);
+  const photoItems = validItems.filter((item) => item.type !== "video");
+  const videoItems = validItems.filter((item) => item.type === "video");
   const galleryUrls = useMintedMediaMap(
-    validItems.map((item) => item.mediaObjectId),
+    photoItems.map((item) => item.mediaObjectId),
     "card",
-    validItems.length > 0,
+    photoItems.length > 0,
   );
 
   if (isLoading) {
@@ -103,7 +105,7 @@ export function ProfileGrid({
     );
   }
 
-  const photos: AlbumPhoto[] = validItems
+  const photos: AlbumPhoto[] = photoItems
     .map((item) => {
       const src = galleryUrls.urlMap.get(item.mediaObjectId);
       if (!src) return null;
@@ -121,6 +123,9 @@ export function ProfileGrid({
   const viewerItems: MediaViewerDialogItem[] = validItems.map((item) => ({
     id: item.id,
     mediaObjectId: item.mediaObjectId,
+    type: item.type === "video" ? "video" : "photo",
+    playbackUrl: item.playbackUrl ?? undefined,
+    thumbnailUrl: item.thumbnailUrl ?? undefined,
     width: item.width,
     height: item.height,
     caption: getDisplayCaption(item),
@@ -129,7 +134,60 @@ export function ProfileGrid({
 
   return (
     <div className="space-y-4">
-      {galleryUrls.isPending && photos.length === 0 ? (
+      {videoItems.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+          {videoItems.map((item) => {
+            const caption = getDisplayCaption(item);
+            return (
+              <div
+                key={item.id}
+                className="relative aspect-[9/16] overflow-hidden rounded-[0.5rem] bg-muted/30"
+              >
+                {item.playbackUrl?.includes("iframe.videodelivery.net") ? (
+                  <iframe
+                    src={`${item.playbackUrl}?muted=true&preload=true`}
+                    title={caption || `${username} Moment`}
+                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                    tabIndex={-1}
+                    className="h-full w-full"
+                  />
+                ) : item.playbackUrl ? (
+                  <video
+                    src={item.playbackUrl}
+                    poster={item.thumbnailUrl ?? undefined}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-cover"
+                  />
+                ) : item.thumbnailUrl ? (
+                  <Image
+                    src={item.thumbnailUrl}
+                    alt={caption || `${username} Moment`}
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  className="absolute inset-0 z-10 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label={`Open ${caption || `${username} Moment`}`}
+                  onClick={() =>
+                    setSelectedIndex(validItems.findIndex((candidate) => candidate.id === item.id))
+                  }
+                />
+                <span className="pointer-events-none absolute left-2 top-2 z-20 rounded-full bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground">
+                  Moment
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {galleryUrls.isPending && photos.length === 0 && photoItems.length > 0 ? (
         <div className="columns-2 gap-3 md:columns-3 xl:columns-4">
           {Array.from({ length: 8 }, (_, index) => (
             <Skeleton

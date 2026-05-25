@@ -83,6 +83,39 @@ type CreateMediaPostResponse struct {
 	Items []ProfileMediaDTO `json:"items"`
 }
 
+type CreateMomentUploadIntentRequest struct {
+	Caption     *string `json:"caption,omitempty" validate:"omitempty,max=1000"`
+	DiveSiteID  *string `json:"diveSiteId,omitempty" validate:"omitempty,uuid"`
+	Filename    *string `json:"filename,omitempty" validate:"omitempty,max=255"`
+	ContentType *string `json:"contentType,omitempty" validate:"omitempty,max=120"`
+}
+
+type MomentUploadIntentResponse struct {
+	PostID             string `json:"postId"`
+	MediaItemID        string `json:"mediaItemId"`
+	MediaObjectID      string `json:"mediaObjectId"`
+	StreamUID          string `json:"streamUid"`
+	UploadURL          string `json:"uploadUrl"`
+	Status             string `json:"status"`
+	UploadExpiresAt    string `json:"uploadExpiresAt"`
+	MaxDurationSeconds int    `json:"maxDurationSeconds"`
+}
+
+type MomentStatusResponse struct {
+	PostID          string  `json:"postId"`
+	MediaItemID     string  `json:"mediaItemId"`
+	Status          string  `json:"status"`
+	PlaybackURL     string  `json:"playbackUrl,omitempty"`
+	ThumbnailURL    string  `json:"thumbnailUrl,omitempty"`
+	PreviewURL      string  `json:"previewUrl,omitempty"`
+	DurationMs      *int    `json:"durationMs,omitempty"`
+	Width           int     `json:"width"`
+	Height          int     `json:"height"`
+	FailedReason    *string `json:"failedReason,omitempty"`
+	UploadExpiresAt *string `json:"uploadExpiresAt,omitempty"`
+	ReadyAt         *string `json:"readyAt,omitempty"`
+}
+
 type MediaPostDTO struct {
 	ID              string  `json:"id"`
 	AuthorAppUserID string  `json:"authorAppUserId"`
@@ -135,27 +168,31 @@ type DiveSpotHighlightDTO struct {
 }
 
 type ProfileMediaDTO struct {
-	ID              string              `json:"id"`
-	MediaObjectID   string              `json:"mediaObjectId"`
-	PostID          string              `json:"postId"`
-	PostCaption     *string             `json:"postCaption,omitempty"`
-	UploadGroupID   string              `json:"uploadGroupId"`
-	AuthorAppUserID string              `json:"authorAppUserId"`
-	Type            string              `json:"type"`
-	StorageKey      string              `json:"storageKey"`
-	MimeType        string              `json:"mimeType"`
-	Width           int                 `json:"width"`
-	Height          int                 `json:"height"`
-	DurationMs      *int                `json:"durationMs,omitempty"`
-	Caption         *string             `json:"caption,omitempty"`
-	DiveSite        ProfileMediaSiteDTO `json:"diveSite"`
-	SortOrder       int                 `json:"sortOrder"`
-	Status          string              `json:"status"`
-	LikeCount       int64               `json:"likeCount"`
-	CommentCount    int64               `json:"commentCount"`
-	ViewerHasLiked  bool                `json:"viewerHasLiked"`
-	ViewerHasSaved  bool                `json:"viewerHasSaved"`
-	CreatedAt       string              `json:"createdAt"`
+	ID               string              `json:"id"`
+	MediaObjectID    string              `json:"mediaObjectId"`
+	PostID           string              `json:"postId"`
+	PostCaption      *string             `json:"postCaption,omitempty"`
+	UploadGroupID    string              `json:"uploadGroupId"`
+	AuthorAppUserID  string              `json:"authorAppUserId"`
+	Type             string              `json:"type"`
+	StorageKey       string              `json:"storageKey"`
+	MimeType         string              `json:"mimeType"`
+	Width            int                 `json:"width"`
+	Height           int                 `json:"height"`
+	DurationMs       *int                `json:"durationMs,omitempty"`
+	Caption          *string             `json:"caption,omitempty"`
+	DiveSite         ProfileMediaSiteDTO `json:"diveSite"`
+	SortOrder        int                 `json:"sortOrder"`
+	Status           string              `json:"status"`
+	ProcessingStatus string              `json:"processingStatus,omitempty"`
+	PlaybackURL      *string             `json:"playbackUrl,omitempty"`
+	ThumbnailURL     *string             `json:"thumbnailUrl,omitempty"`
+	PreviewURL       *string             `json:"previewUrl,omitempty"`
+	LikeCount        int64               `json:"likeCount"`
+	CommentCount     int64               `json:"commentCount"`
+	ViewerHasLiked   bool                `json:"viewerHasLiked"`
+	ViewerHasSaved   bool                `json:"viewerHasSaved"`
+	CreatedAt        string              `json:"createdAt"`
 }
 
 type ProfileMediaSiteDTO struct {

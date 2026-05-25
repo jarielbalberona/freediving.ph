@@ -882,7 +882,27 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/media/by-username/{username}/moments"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/media/dive-sites/{siteId}/moments"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/media/mine"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/moments/upload-intents"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/moments/{postId}/complete"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/media/moments/{postId}/sync"
     },
     {
       "method": "POST",

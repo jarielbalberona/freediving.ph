@@ -62,6 +62,18 @@ func TestLoadReadsTuningEnv(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsUnsafeSignedStreamPlayback(t *testing.T) {
+	t.Setenv("DB_DSN", "postgres://example")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("DEV_AUTH", "true")
+	t.Setenv("CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS", "true")
+
+	_, err := Load()
+	if err == nil || err.Error() != "CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS cannot be enabled until signed Moment playback is implemented" {
+		t.Fatalf("expected signed Stream playback guard error, got %v", err)
+	}
+}
+
 func TestLoadExpandsDevelopmentLoopbackCORSOrigins(t *testing.T) {
 	t.Setenv("DB_DSN", "postgres://example")
 	t.Setenv("APP_ENV", "development")
@@ -103,6 +115,8 @@ func TestLoadReadsRenderCompatEnv(t *testing.T) {
 	t.Setenv("R2_BUCKET_NAME", "bucket")
 	t.Setenv("CDN_BASE_URL", "https://cdn.example.com")
 	t.Setenv("MEDIA_SIGNING_SECRET_V1", "signing-secret")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "cf-account")
+	t.Setenv("CLOUDFLARE_STREAM_API_TOKEN", "stream-token")
 
 	cfg, err := Load()
 	if err != nil {
@@ -157,6 +171,8 @@ func TestLoadAcceptsProductionMediaConfig(t *testing.T) {
 	t.Setenv("R2_BUCKET_NAME", "bucket")
 	t.Setenv("CDN_BASE_URL", "https://cdn.example.com")
 	t.Setenv("MEDIA_SIGNING_SECRET_V1", "signing-secret")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "cf-account")
+	t.Setenv("CLOUDFLARE_STREAM_API_TOKEN", "stream-token")
 
 	cfg, err := Load()
 	if err != nil {

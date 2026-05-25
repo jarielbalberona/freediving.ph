@@ -45,6 +45,19 @@ RETURNING
   caption,
   sort_order,
   status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
   created_at,
   updated_at,
   deleted_at
@@ -101,6 +114,19 @@ func (q *Queries) CreateMediaItem(ctx context.Context, arg CreateMediaItemParams
 		&i.Caption,
 		&i.SortOrder,
 		&i.Status,
+		&i.Provider,
+		&i.StreamUid,
+		&i.PlaybackUid,
+		&i.PlaybackUrl,
+		&i.ThumbnailUrl,
+		&i.PreviewUrl,
+		&i.AspectRatio,
+		&i.HasAudio,
+		&i.ProcessingStatus,
+		&i.ModerationStatus,
+		&i.UploadExpiresAt,
+		&i.ReadyAt,
+		&i.FailedReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -261,6 +287,205 @@ func (q *Queries) CreateMediaUploadGroup(ctx context.Context, arg CreateMediaUpl
 	return i, err
 }
 
+const createMomentMediaItem = `-- name: CreateMomentMediaItem :one
+INSERT INTO media_items (
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason
+)
+VALUES (
+  $1, $2, $3, $4, $5,
+  'video', $6, $7, $8, $9, $10, $11, 0,
+  $12, 'cloudflare_stream', $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
+)
+RETURNING
+  id,
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
+  created_at,
+  updated_at,
+  deleted_at
+`
+
+type CreateMomentMediaItemParams struct {
+	PostID           pgtype.UUID        `db:"post_id" json:"post_id"`
+	MediaObjectID    pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID  pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID    pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID       pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	StorageKey       string             `db:"storage_key" json:"storage_key"`
+	MimeType         string             `db:"mime_type" json:"mime_type"`
+	Width            int32              `db:"width" json:"width"`
+	Height           int32              `db:"height" json:"height"`
+	DurationMs       *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption          *string            `db:"caption" json:"caption"`
+	Status           string             `db:"status" json:"status"`
+	StreamUid        *string            `db:"stream_uid" json:"stream_uid"`
+	PlaybackUid      *string            `db:"playback_uid" json:"playback_uid"`
+	PlaybackUrl      *string            `db:"playback_url" json:"playback_url"`
+	ThumbnailUrl     *string            `db:"thumbnail_url" json:"thumbnail_url"`
+	PreviewUrl       *string            `db:"preview_url" json:"preview_url"`
+	AspectRatio      pgtype.Numeric     `db:"aspect_ratio" json:"aspect_ratio"`
+	HasAudio         *bool              `db:"has_audio" json:"has_audio"`
+	ProcessingStatus string             `db:"processing_status" json:"processing_status"`
+	ModerationStatus string             `db:"moderation_status" json:"moderation_status"`
+	UploadExpiresAt  pgtype.Timestamptz `db:"upload_expires_at" json:"upload_expires_at"`
+	ReadyAt          pgtype.Timestamptz `db:"ready_at" json:"ready_at"`
+	FailedReason     *string            `db:"failed_reason" json:"failed_reason"`
+}
+
+func (q *Queries) CreateMomentMediaItem(ctx context.Context, arg CreateMomentMediaItemParams) (MediaItem, error) {
+	row := q.db.QueryRow(ctx, createMomentMediaItem,
+		arg.PostID,
+		arg.MediaObjectID,
+		arg.AuthorAppUserID,
+		arg.UploadGroupID,
+		arg.DiveSiteID,
+		arg.StorageKey,
+		arg.MimeType,
+		arg.Width,
+		arg.Height,
+		arg.DurationMs,
+		arg.Caption,
+		arg.Status,
+		arg.StreamUid,
+		arg.PlaybackUid,
+		arg.PlaybackUrl,
+		arg.ThumbnailUrl,
+		arg.PreviewUrl,
+		arg.AspectRatio,
+		arg.HasAudio,
+		arg.ProcessingStatus,
+		arg.ModerationStatus,
+		arg.UploadExpiresAt,
+		arg.ReadyAt,
+		arg.FailedReason,
+	)
+	var i MediaItem
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.MediaObjectID,
+		&i.AuthorAppUserID,
+		&i.UploadGroupID,
+		&i.DiveSiteID,
+		&i.Type,
+		&i.StorageKey,
+		&i.MimeType,
+		&i.Width,
+		&i.Height,
+		&i.DurationMs,
+		&i.Caption,
+		&i.SortOrder,
+		&i.Status,
+		&i.Provider,
+		&i.StreamUid,
+		&i.PlaybackUid,
+		&i.PlaybackUrl,
+		&i.ThumbnailUrl,
+		&i.PreviewUrl,
+		&i.AspectRatio,
+		&i.HasAudio,
+		&i.ProcessingStatus,
+		&i.ModerationStatus,
+		&i.UploadExpiresAt,
+		&i.ReadyAt,
+		&i.FailedReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const createMomentMediaPost = `-- name: CreateMomentMediaPost :one
+INSERT INTO media_posts (
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  post_caption
+)
+VALUES ($1, $2, $3, $4)
+RETURNING id, author_app_user_id, upload_group_id, dive_site_id, post_caption, created_at, updated_at, deleted_at
+`
+
+type CreateMomentMediaPostParams struct {
+	AuthorAppUserID pgtype.UUID `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID   pgtype.UUID `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID      pgtype.UUID `db:"dive_site_id" json:"dive_site_id"`
+	PostCaption     *string     `db:"post_caption" json:"post_caption"`
+}
+
+func (q *Queries) CreateMomentMediaPost(ctx context.Context, arg CreateMomentMediaPostParams) (MediaPost, error) {
+	row := q.db.QueryRow(ctx, createMomentMediaPost,
+		arg.AuthorAppUserID,
+		arg.UploadGroupID,
+		arg.DiveSiteID,
+		arg.PostCaption,
+	)
+	var i MediaPost
+	err := row.Scan(
+		&i.ID,
+		&i.AuthorAppUserID,
+		&i.UploadGroupID,
+		&i.DiveSiteID,
+		&i.PostCaption,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getMediaObjectByID = `-- name: GetMediaObjectByID :one
 SELECT id, owner_app_user_id, context_type, context_id, object_key, mime_type, size_bytes, width, height, state, created_at
 FROM media_objects
@@ -413,6 +638,19 @@ SELECT
   mi.caption,
   mi.sort_order,
   mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
   mi.created_at,
   mi.updated_at,
   mi.deleted_at,
@@ -442,7 +680,8 @@ FROM media_items mi
 JOIN media_posts mp ON mp.id = mi.post_id
 JOIN users u ON u.id = mp.author_app_user_id
 LEFT JOIN profiles p ON p.user_id = mp.author_app_user_id
-JOIN dive_sites ds ON ds.id = mi.dive_site_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
+LEFT JOIN dive_sites ds ON ds.id = mi.dive_site_id
 LEFT JOIN LATERAL (
   SELECT COUNT(*)::bigint AS like_count
   FROM media_post_likes mpl
@@ -457,15 +696,19 @@ LEFT JOIN LATERAL (
 WHERE mp.id = $2
   AND mp.deleted_at IS NULL
   AND u.account_status = 'active'
-  AND ds.moderation_state = 'approved'
+  AND mo.state = 'active'
+  AND (mi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
   AND mi.status = 'active'
-  AND mi.deleted_at IS NULL
-  AND EXISTS (
-    SELECT 1
-    FROM media_objects mo
-    WHERE mo.id = mi.media_object_id
-      AND mo.state = 'active'
+  AND mi.moderation_status = 'approved'
+  AND (
+    mi.type = 'photo'
+    OR (
+      mi.type = 'video'
+      AND mi.provider = 'cloudflare_stream'
+      AND mi.processing_status = 'ready'
+    )
   )
+  AND mi.deleted_at IS NULL
   AND (
     $1::uuid IS NULL
     OR NOT EXISTS (
@@ -500,6 +743,19 @@ type GetMediaPostDetailRow struct {
 	Caption           *string            `db:"caption" json:"caption"`
 	SortOrder         int32              `db:"sort_order" json:"sort_order"`
 	Status            string             `db:"status" json:"status"`
+	Provider          string             `db:"provider" json:"provider"`
+	StreamUid         *string            `db:"stream_uid" json:"stream_uid"`
+	PlaybackUid       *string            `db:"playback_uid" json:"playback_uid"`
+	PlaybackUrl       *string            `db:"playback_url" json:"playback_url"`
+	ThumbnailUrl      *string            `db:"thumbnail_url" json:"thumbnail_url"`
+	PreviewUrl        *string            `db:"preview_url" json:"preview_url"`
+	AspectRatio       pgtype.Numeric     `db:"aspect_ratio" json:"aspect_ratio"`
+	HasAudio          *bool              `db:"has_audio" json:"has_audio"`
+	ProcessingStatus  string             `db:"processing_status" json:"processing_status"`
+	ModerationStatus  string             `db:"moderation_status" json:"moderation_status"`
+	UploadExpiresAt   pgtype.Timestamptz `db:"upload_expires_at" json:"upload_expires_at"`
+	ReadyAt           pgtype.Timestamptz `db:"ready_at" json:"ready_at"`
+	FailedReason      *string            `db:"failed_reason" json:"failed_reason"`
 	CreatedAt         pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	DeletedAt         pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
@@ -543,6 +799,19 @@ func (q *Queries) GetMediaPostDetail(ctx context.Context, arg GetMediaPostDetail
 			&i.Caption,
 			&i.SortOrder,
 			&i.Status,
+			&i.Provider,
+			&i.StreamUid,
+			&i.PlaybackUid,
+			&i.PlaybackUrl,
+			&i.ThumbnailUrl,
+			&i.PreviewUrl,
+			&i.AspectRatio,
+			&i.HasAudio,
+			&i.ProcessingStatus,
+			&i.ModerationStatus,
+			&i.UploadExpiresAt,
+			&i.ReadyAt,
+			&i.FailedReason,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -567,6 +836,172 @@ func (q *Queries) GetMediaPostDetail(ctx context.Context, arg GetMediaPostDetail
 		return nil, err
 	}
 	return items, nil
+}
+
+const getMomentMediaItemByPostForOwner = `-- name: GetMomentMediaItemByPostForOwner :one
+SELECT
+  id,
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
+  created_at,
+  updated_at,
+  deleted_at
+FROM media_items
+WHERE post_id = $1
+  AND author_app_user_id = $2
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+type GetMomentMediaItemByPostForOwnerParams struct {
+	PostID          pgtype.UUID `db:"post_id" json:"post_id"`
+	AuthorAppUserID pgtype.UUID `db:"author_app_user_id" json:"author_app_user_id"`
+}
+
+func (q *Queries) GetMomentMediaItemByPostForOwner(ctx context.Context, arg GetMomentMediaItemByPostForOwnerParams) (MediaItem, error) {
+	row := q.db.QueryRow(ctx, getMomentMediaItemByPostForOwner, arg.PostID, arg.AuthorAppUserID)
+	var i MediaItem
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.MediaObjectID,
+		&i.AuthorAppUserID,
+		&i.UploadGroupID,
+		&i.DiveSiteID,
+		&i.Type,
+		&i.StorageKey,
+		&i.MimeType,
+		&i.Width,
+		&i.Height,
+		&i.DurationMs,
+		&i.Caption,
+		&i.SortOrder,
+		&i.Status,
+		&i.Provider,
+		&i.StreamUid,
+		&i.PlaybackUid,
+		&i.PlaybackUrl,
+		&i.ThumbnailUrl,
+		&i.PreviewUrl,
+		&i.AspectRatio,
+		&i.HasAudio,
+		&i.ProcessingStatus,
+		&i.ModerationStatus,
+		&i.UploadExpiresAt,
+		&i.ReadyAt,
+		&i.FailedReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getMomentMediaItemByStreamUID = `-- name: GetMomentMediaItemByStreamUID :one
+SELECT
+  id,
+  post_id,
+  media_object_id,
+  author_app_user_id,
+  upload_group_id,
+  dive_site_id,
+  type,
+  storage_key,
+  mime_type,
+  width,
+  height,
+  duration_ms,
+  caption,
+  sort_order,
+  status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
+  created_at,
+  updated_at,
+  deleted_at
+FROM media_items
+WHERE stream_uid = $1
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND deleted_at IS NULL
+LIMIT 1
+`
+
+func (q *Queries) GetMomentMediaItemByStreamUID(ctx context.Context, streamUid *string) (MediaItem, error) {
+	row := q.db.QueryRow(ctx, getMomentMediaItemByStreamUID, streamUid)
+	var i MediaItem
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.MediaObjectID,
+		&i.AuthorAppUserID,
+		&i.UploadGroupID,
+		&i.DiveSiteID,
+		&i.Type,
+		&i.StorageKey,
+		&i.MimeType,
+		&i.Width,
+		&i.Height,
+		&i.DurationMs,
+		&i.Caption,
+		&i.SortOrder,
+		&i.Status,
+		&i.Provider,
+		&i.StreamUid,
+		&i.PlaybackUid,
+		&i.PlaybackUrl,
+		&i.ThumbnailUrl,
+		&i.PreviewUrl,
+		&i.AspectRatio,
+		&i.HasAudio,
+		&i.ProcessingStatus,
+		&i.ModerationStatus,
+		&i.UploadExpiresAt,
+		&i.ReadyAt,
+		&i.FailedReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
 }
 
 const getVisibleMediaPostCommentLikeState = `-- name: GetVisibleMediaPostCommentLikeState :one
@@ -666,7 +1101,7 @@ SELECT
 FROM media_posts mp
 JOIN users u ON u.id = mp.author_app_user_id
 LEFT JOIN profiles p ON p.user_id = mp.author_app_user_id
-JOIN dive_sites ds ON ds.id = mp.dive_site_id
+LEFT JOIN dive_sites ds ON ds.id = mp.dive_site_id
 LEFT JOIN LATERAL (
   SELECT COUNT(*)::bigint AS like_count
   FROM media_post_likes mpl
@@ -681,13 +1116,22 @@ LEFT JOIN LATERAL (
 WHERE mp.id = $2
   AND mp.deleted_at IS NULL
   AND u.account_status = 'active'
-  AND ds.moderation_state = 'approved'
+  AND (mp.dive_site_id IS NULL OR ds.moderation_state = 'approved')
   AND EXISTS (
     SELECT 1
     FROM media_items mi
     JOIN media_objects mo ON mo.id = mi.media_object_id
     WHERE mi.post_id = mp.id
       AND mi.status = 'active'
+      AND mi.moderation_status = 'approved'
+      AND (
+        mi.type = 'photo'
+        OR (
+          mi.type = 'video'
+          AND mi.provider = 'cloudflare_stream'
+          AND mi.processing_status = 'ready'
+        )
+      )
       AND mi.deleted_at IS NULL
       AND mo.state = 'active'
   )
@@ -766,6 +1210,215 @@ type LikeMediaPostCommentParams struct {
 func (q *Queries) LikeMediaPostComment(ctx context.Context, arg LikeMediaPostCommentParams) error {
 	_, err := q.db.Exec(ctx, likeMediaPostComment, arg.CommentID, arg.UserID)
 	return err
+}
+
+const listDiveSiteMoments = `-- name: ListDiveSiteMoments :many
+SELECT
+  mi.id,
+  mi.post_id,
+  mp.post_caption,
+  mi.media_object_id,
+  mi.author_app_user_id,
+  mi.upload_group_id,
+  mi.dive_site_id,
+  mi.type,
+  mi.storage_key,
+  mi.mime_type,
+  mi.width,
+  mi.height,
+  mi.duration_ms,
+  mi.caption,
+  mi.sort_order,
+  mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
+  mi.created_at,
+  mi.updated_at,
+  mi.deleted_at,
+  COALESCE(ds.slug, '') AS dive_site_slug,
+  COALESCE(ds.name, '') AS dive_site_name,
+  COALESCE(ds.area, '') AS dive_site_area,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  COALESCE(comment_counts.comment_count, 0)::bigint AS comment_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = $1
+  ) AS viewer_has_liked,
+  EXISTS (
+    SELECT 1
+    FROM media_post_saves viewer_save
+    WHERE viewer_save.media_post_id = mp.id
+      AND viewer_save.user_id = $1
+  ) AS viewer_has_saved
+FROM media_items mi
+JOIN media_posts mp ON mp.id = mi.post_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
+JOIN users u ON u.id = mi.author_app_user_id
+JOIN dive_sites ds ON ds.id = mi.dive_site_id
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS comment_count
+  FROM media_post_comments mpc
+  WHERE mpc.media_post_id = mp.id
+    AND mpc.deleted_at IS NULL
+) comment_counts ON true
+WHERE mi.dive_site_id = $2
+  AND u.account_status = 'active'
+  AND ds.moderation_state = 'approved'
+  AND mo.state = 'active'
+  AND mo.context_type = 'profile_feed'
+  AND mi.status = 'active'
+  AND mi.type = 'video'
+  AND mi.provider = 'cloudflare_stream'
+  AND mi.processing_status = 'ready'
+  AND mi.moderation_status = 'approved'
+  AND mi.deleted_at IS NULL
+  AND mp.deleted_at IS NULL
+  AND (
+    $1::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = mi.author_app_user_id)
+         OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = $1)
+    )
+  )
+  AND (mi.created_at < $3 OR (mi.created_at = $3 AND mi.id < $4))
+ORDER BY mi.created_at DESC, mi.id DESC
+LIMIT $5
+`
+
+type ListDiveSiteMomentsParams struct {
+	ViewerUserID pgtype.UUID        `db:"viewer_user_id" json:"viewer_user_id"`
+	DiveSiteID   pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	LimitCount   int32              `db:"limit_count" json:"limit_count"`
+}
+
+type ListDiveSiteMomentsRow struct {
+	ID               pgtype.UUID        `db:"id" json:"id"`
+	PostID           pgtype.UUID        `db:"post_id" json:"post_id"`
+	PostCaption      *string            `db:"post_caption" json:"post_caption"`
+	MediaObjectID    pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID  pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID    pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID       pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Type             string             `db:"type" json:"type"`
+	StorageKey       string             `db:"storage_key" json:"storage_key"`
+	MimeType         string             `db:"mime_type" json:"mime_type"`
+	Width            int32              `db:"width" json:"width"`
+	Height           int32              `db:"height" json:"height"`
+	DurationMs       *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption          *string            `db:"caption" json:"caption"`
+	SortOrder        int32              `db:"sort_order" json:"sort_order"`
+	Status           string             `db:"status" json:"status"`
+	Provider         string             `db:"provider" json:"provider"`
+	StreamUid        *string            `db:"stream_uid" json:"stream_uid"`
+	PlaybackUid      *string            `db:"playback_uid" json:"playback_uid"`
+	PlaybackUrl      *string            `db:"playback_url" json:"playback_url"`
+	ThumbnailUrl     *string            `db:"thumbnail_url" json:"thumbnail_url"`
+	PreviewUrl       *string            `db:"preview_url" json:"preview_url"`
+	AspectRatio      pgtype.Numeric     `db:"aspect_ratio" json:"aspect_ratio"`
+	HasAudio         *bool              `db:"has_audio" json:"has_audio"`
+	ProcessingStatus string             `db:"processing_status" json:"processing_status"`
+	ModerationStatus string             `db:"moderation_status" json:"moderation_status"`
+	UploadExpiresAt  pgtype.Timestamptz `db:"upload_expires_at" json:"upload_expires_at"`
+	ReadyAt          pgtype.Timestamptz `db:"ready_at" json:"ready_at"`
+	FailedReason     *string            `db:"failed_reason" json:"failed_reason"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	DiveSiteSlug     string             `db:"dive_site_slug" json:"dive_site_slug"`
+	DiveSiteName     string             `db:"dive_site_name" json:"dive_site_name"`
+	DiveSiteArea     string             `db:"dive_site_area" json:"dive_site_area"`
+	LikeCount        int64              `db:"like_count" json:"like_count"`
+	CommentCount     int64              `db:"comment_count" json:"comment_count"`
+	ViewerHasLiked   bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
+	ViewerHasSaved   bool               `db:"viewer_has_saved" json:"viewer_has_saved"`
+}
+
+func (q *Queries) ListDiveSiteMoments(ctx context.Context, arg ListDiveSiteMomentsParams) ([]ListDiveSiteMomentsRow, error) {
+	rows, err := q.db.Query(ctx, listDiveSiteMoments,
+		arg.ViewerUserID,
+		arg.DiveSiteID,
+		arg.CreatedAt,
+		arg.ID,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDiveSiteMomentsRow{}
+	for rows.Next() {
+		var i ListDiveSiteMomentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostID,
+			&i.PostCaption,
+			&i.MediaObjectID,
+			&i.AuthorAppUserID,
+			&i.UploadGroupID,
+			&i.DiveSiteID,
+			&i.Type,
+			&i.StorageKey,
+			&i.MimeType,
+			&i.Width,
+			&i.Height,
+			&i.DurationMs,
+			&i.Caption,
+			&i.SortOrder,
+			&i.Status,
+			&i.Provider,
+			&i.StreamUid,
+			&i.PlaybackUid,
+			&i.PlaybackUrl,
+			&i.ThumbnailUrl,
+			&i.PreviewUrl,
+			&i.AspectRatio,
+			&i.HasAudio,
+			&i.ProcessingStatus,
+			&i.ModerationStatus,
+			&i.UploadExpiresAt,
+			&i.ReadyAt,
+			&i.FailedReason,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.DiveSiteSlug,
+			&i.DiveSiteName,
+			&i.DiveSiteArea,
+			&i.LikeCount,
+			&i.CommentCount,
+			&i.ViewerHasLiked,
+			&i.ViewerHasSaved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listMediaByContext = `-- name: ListMediaByContext :many
@@ -998,6 +1651,19 @@ WITH visible_items AS (
     mi.caption,
     mi.sort_order,
     mi.status,
+    mi.provider,
+    mi.stream_uid,
+    mi.playback_uid,
+    mi.playback_url,
+    mi.thumbnail_url,
+    mi.preview_url,
+    mi.aspect_ratio,
+    mi.has_audio,
+    mi.processing_status,
+    mi.moderation_status,
+    mi.upload_expires_at,
+    mi.ready_at,
+    mi.failed_reason,
     mi.created_at,
     mi.updated_at,
     mi.deleted_at,
@@ -1015,6 +1681,15 @@ WITH visible_items AS (
     AND mo.state = 'active'
     AND mo.context_type = 'profile_feed'
     AND mi.status = 'active'
+    AND mi.moderation_status = 'approved'
+    AND (
+      mi.type = 'photo'
+      OR (
+        mi.type = 'video'
+        AND mi.provider = 'cloudflare_stream'
+        AND mi.processing_status = 'ready'
+      )
+    )
     AND mi.deleted_at IS NULL
     AND mp.deleted_at IS NULL
     AND ds.moderation_state = 'approved'
@@ -1030,7 +1705,7 @@ WITH visible_items AS (
 ),
 ranked_covers AS (
   SELECT
-    visible_items.id, visible_items.post_id, visible_items.media_object_id, visible_items.author_app_user_id, visible_items.upload_group_id, visible_items.dive_site_id, visible_items.type, visible_items.storage_key, visible_items.mime_type, visible_items.width, visible_items.height, visible_items.duration_ms, visible_items.caption, visible_items.sort_order, visible_items.status, visible_items.created_at, visible_items.updated_at, visible_items.deleted_at, visible_items.post_caption, visible_items.dive_site_slug, visible_items.dive_site_name, visible_items.dive_site_area,
+    visible_items.id, visible_items.post_id, visible_items.media_object_id, visible_items.author_app_user_id, visible_items.upload_group_id, visible_items.dive_site_id, visible_items.type, visible_items.storage_key, visible_items.mime_type, visible_items.width, visible_items.height, visible_items.duration_ms, visible_items.caption, visible_items.sort_order, visible_items.status, visible_items.provider, visible_items.stream_uid, visible_items.playback_uid, visible_items.playback_url, visible_items.thumbnail_url, visible_items.preview_url, visible_items.aspect_ratio, visible_items.has_audio, visible_items.processing_status, visible_items.moderation_status, visible_items.upload_expires_at, visible_items.ready_at, visible_items.failed_reason, visible_items.created_at, visible_items.updated_at, visible_items.deleted_at, visible_items.post_caption, visible_items.dive_site_slug, visible_items.dive_site_name, visible_items.dive_site_area,
     row_number() OVER (
       PARTITION BY visible_items.dive_site_id
       ORDER BY visible_items.created_at DESC, visible_items.id DESC
@@ -1056,6 +1731,19 @@ SELECT
   caption,
   sort_order,
   status,
+  provider,
+  stream_uid,
+  playback_uid,
+  playback_url,
+  thumbnail_url,
+  preview_url,
+  aspect_ratio,
+  has_audio,
+  processing_status,
+  moderation_status,
+  upload_expires_at,
+  ready_at,
+  failed_reason,
   created_at,
   updated_at,
   deleted_at,
@@ -1093,6 +1781,19 @@ type ListProfileDiveSpotHighlightsByUsernameRow struct {
 	Caption              *string            `db:"caption" json:"caption"`
 	SortOrder            int32              `db:"sort_order" json:"sort_order"`
 	Status               string             `db:"status" json:"status"`
+	Provider             string             `db:"provider" json:"provider"`
+	StreamUid            *string            `db:"stream_uid" json:"stream_uid"`
+	PlaybackUid          *string            `db:"playback_uid" json:"playback_uid"`
+	PlaybackUrl          *string            `db:"playback_url" json:"playback_url"`
+	ThumbnailUrl         *string            `db:"thumbnail_url" json:"thumbnail_url"`
+	PreviewUrl           *string            `db:"preview_url" json:"preview_url"`
+	AspectRatio          pgtype.Numeric     `db:"aspect_ratio" json:"aspect_ratio"`
+	HasAudio             *bool              `db:"has_audio" json:"has_audio"`
+	ProcessingStatus     string             `db:"processing_status" json:"processing_status"`
+	ModerationStatus     string             `db:"moderation_status" json:"moderation_status"`
+	UploadExpiresAt      pgtype.Timestamptz `db:"upload_expires_at" json:"upload_expires_at"`
+	ReadyAt              pgtype.Timestamptz `db:"ready_at" json:"ready_at"`
+	FailedReason         *string            `db:"failed_reason" json:"failed_reason"`
 	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	DeletedAt            pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
@@ -1129,6 +1830,19 @@ func (q *Queries) ListProfileDiveSpotHighlightsByUsername(ctx context.Context, a
 			&i.Caption,
 			&i.SortOrder,
 			&i.Status,
+			&i.Provider,
+			&i.StreamUid,
+			&i.PlaybackUid,
+			&i.PlaybackUrl,
+			&i.ThumbnailUrl,
+			&i.PreviewUrl,
+			&i.AspectRatio,
+			&i.HasAudio,
+			&i.ProcessingStatus,
+			&i.ModerationStatus,
+			&i.UploadExpiresAt,
+			&i.ReadyAt,
+			&i.FailedReason,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -1166,6 +1880,19 @@ SELECT
   mi.caption,
   mi.sort_order,
   mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
   mi.created_at,
   mi.updated_at,
   mi.deleted_at,
@@ -1188,10 +1915,10 @@ SELECT
   ) AS viewer_has_saved
 FROM media_items mi
 JOIN media_posts mp ON mp.id = mi.post_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
 JOIN users u ON u.id = mi.author_app_user_id
 LEFT JOIN dive_sites ds
   ON ds.id = mi.dive_site_id
- AND ds.moderation_state = 'approved'
 LEFT JOIN LATERAL (
   SELECT COUNT(*)::bigint AS like_count
   FROM media_post_likes mpl
@@ -1205,12 +1932,33 @@ LEFT JOIN LATERAL (
 ) comment_counts ON true
 WHERE lower(u.username) = lower($2)
   AND u.account_status = 'active'
+  AND mo.state = 'active'
+  AND mo.context_type = 'profile_feed'
   AND mi.status = 'active'
+  AND mi.moderation_status = 'approved'
+  AND (
+    mi.type = 'photo'
+    OR (
+      mi.type = 'video'
+      AND mi.provider = 'cloudflare_stream'
+      AND mi.processing_status = 'ready'
+    )
+  )
   AND mi.deleted_at IS NULL
   AND mp.deleted_at IS NULL
+  AND (mi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
+  AND (
+    $1::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = mi.author_app_user_id)
+         OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = $1)
+    )
+  )
   AND (mi.created_at < $3 OR (mi.created_at = $3 AND mi.id < $4))
-ORDER BY mi.created_at DESC, mi.id DESC
-LIMIT $5
+	ORDER BY mi.created_at DESC, mi.id DESC
+	LIMIT $5
 `
 
 type ListProfileMediaByUsernameParams struct {
@@ -1222,32 +1970,45 @@ type ListProfileMediaByUsernameParams struct {
 }
 
 type ListProfileMediaByUsernameRow struct {
-	ID              pgtype.UUID        `db:"id" json:"id"`
-	PostID          pgtype.UUID        `db:"post_id" json:"post_id"`
-	PostCaption     *string            `db:"post_caption" json:"post_caption"`
-	MediaObjectID   pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
-	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
-	UploadGroupID   pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
-	DiveSiteID      pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
-	Type            string             `db:"type" json:"type"`
-	StorageKey      string             `db:"storage_key" json:"storage_key"`
-	MimeType        string             `db:"mime_type" json:"mime_type"`
-	Width           int32              `db:"width" json:"width"`
-	Height          int32              `db:"height" json:"height"`
-	DurationMs      *int32             `db:"duration_ms" json:"duration_ms"`
-	Caption         *string            `db:"caption" json:"caption"`
-	SortOrder       int32              `db:"sort_order" json:"sort_order"`
-	Status          string             `db:"status" json:"status"`
-	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	DiveSiteSlug    string             `db:"dive_site_slug" json:"dive_site_slug"`
-	DiveSiteName    string             `db:"dive_site_name" json:"dive_site_name"`
-	DiveSiteArea    string             `db:"dive_site_area" json:"dive_site_area"`
-	LikeCount       int64              `db:"like_count" json:"like_count"`
-	CommentCount    int64              `db:"comment_count" json:"comment_count"`
-	ViewerHasLiked  bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
-	ViewerHasSaved  bool               `db:"viewer_has_saved" json:"viewer_has_saved"`
+	ID               pgtype.UUID        `db:"id" json:"id"`
+	PostID           pgtype.UUID        `db:"post_id" json:"post_id"`
+	PostCaption      *string            `db:"post_caption" json:"post_caption"`
+	MediaObjectID    pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID  pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID    pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID       pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Type             string             `db:"type" json:"type"`
+	StorageKey       string             `db:"storage_key" json:"storage_key"`
+	MimeType         string             `db:"mime_type" json:"mime_type"`
+	Width            int32              `db:"width" json:"width"`
+	Height           int32              `db:"height" json:"height"`
+	DurationMs       *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption          *string            `db:"caption" json:"caption"`
+	SortOrder        int32              `db:"sort_order" json:"sort_order"`
+	Status           string             `db:"status" json:"status"`
+	Provider         string             `db:"provider" json:"provider"`
+	StreamUid        *string            `db:"stream_uid" json:"stream_uid"`
+	PlaybackUid      *string            `db:"playback_uid" json:"playback_uid"`
+	PlaybackUrl      *string            `db:"playback_url" json:"playback_url"`
+	ThumbnailUrl     *string            `db:"thumbnail_url" json:"thumbnail_url"`
+	PreviewUrl       *string            `db:"preview_url" json:"preview_url"`
+	AspectRatio      pgtype.Numeric     `db:"aspect_ratio" json:"aspect_ratio"`
+	HasAudio         *bool              `db:"has_audio" json:"has_audio"`
+	ProcessingStatus string             `db:"processing_status" json:"processing_status"`
+	ModerationStatus string             `db:"moderation_status" json:"moderation_status"`
+	UploadExpiresAt  pgtype.Timestamptz `db:"upload_expires_at" json:"upload_expires_at"`
+	ReadyAt          pgtype.Timestamptz `db:"ready_at" json:"ready_at"`
+	FailedReason     *string            `db:"failed_reason" json:"failed_reason"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	DiveSiteSlug     string             `db:"dive_site_slug" json:"dive_site_slug"`
+	DiveSiteName     string             `db:"dive_site_name" json:"dive_site_name"`
+	DiveSiteArea     string             `db:"dive_site_area" json:"dive_site_area"`
+	LikeCount        int64              `db:"like_count" json:"like_count"`
+	CommentCount     int64              `db:"comment_count" json:"comment_count"`
+	ViewerHasLiked   bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
+	ViewerHasSaved   bool               `db:"viewer_has_saved" json:"viewer_has_saved"`
 }
 
 func (q *Queries) ListProfileMediaByUsername(ctx context.Context, arg ListProfileMediaByUsernameParams) ([]ListProfileMediaByUsernameRow, error) {
@@ -1282,6 +2043,19 @@ func (q *Queries) ListProfileMediaByUsername(ctx context.Context, arg ListProfil
 			&i.Caption,
 			&i.SortOrder,
 			&i.Status,
+			&i.Provider,
+			&i.StreamUid,
+			&i.PlaybackUid,
+			&i.PlaybackUrl,
+			&i.ThumbnailUrl,
+			&i.PreviewUrl,
+			&i.AspectRatio,
+			&i.HasAudio,
+			&i.ProcessingStatus,
+			&i.ModerationStatus,
+			&i.UploadExpiresAt,
+			&i.ReadyAt,
+			&i.FailedReason,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -1321,6 +2095,19 @@ SELECT
   mi.caption,
   mi.sort_order,
   mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
   mi.created_at,
   mi.updated_at,
   mi.deleted_at,
@@ -1363,6 +2150,15 @@ WHERE lower(u.username) = lower($2)
   AND mo.state = 'active'
   AND mo.context_type = 'profile_feed'
   AND mi.status = 'active'
+  AND mi.moderation_status = 'approved'
+  AND (
+    mi.type = 'photo'
+    OR (
+      mi.type = 'video'
+      AND mi.provider = 'cloudflare_stream'
+      AND mi.processing_status = 'ready'
+    )
+  )
   AND mi.deleted_at IS NULL
   AND mp.deleted_at IS NULL
   AND ds.moderation_state = 'approved'
@@ -1390,32 +2186,45 @@ type ListProfileMediaByUsernameAndDiveSiteParams struct {
 }
 
 type ListProfileMediaByUsernameAndDiveSiteRow struct {
-	ID              pgtype.UUID        `db:"id" json:"id"`
-	PostID          pgtype.UUID        `db:"post_id" json:"post_id"`
-	PostCaption     *string            `db:"post_caption" json:"post_caption"`
-	MediaObjectID   pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
-	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
-	UploadGroupID   pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
-	DiveSiteID      pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
-	Type            string             `db:"type" json:"type"`
-	StorageKey      string             `db:"storage_key" json:"storage_key"`
-	MimeType        string             `db:"mime_type" json:"mime_type"`
-	Width           int32              `db:"width" json:"width"`
-	Height          int32              `db:"height" json:"height"`
-	DurationMs      *int32             `db:"duration_ms" json:"duration_ms"`
-	Caption         *string            `db:"caption" json:"caption"`
-	SortOrder       int32              `db:"sort_order" json:"sort_order"`
-	Status          string             `db:"status" json:"status"`
-	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	DiveSiteSlug    string             `db:"dive_site_slug" json:"dive_site_slug"`
-	DiveSiteName    string             `db:"dive_site_name" json:"dive_site_name"`
-	DiveSiteArea    string             `db:"dive_site_area" json:"dive_site_area"`
-	LikeCount       int64              `db:"like_count" json:"like_count"`
-	CommentCount    int64              `db:"comment_count" json:"comment_count"`
-	ViewerHasLiked  bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
-	ViewerHasSaved  bool               `db:"viewer_has_saved" json:"viewer_has_saved"`
+	ID               pgtype.UUID        `db:"id" json:"id"`
+	PostID           pgtype.UUID        `db:"post_id" json:"post_id"`
+	PostCaption      *string            `db:"post_caption" json:"post_caption"`
+	MediaObjectID    pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID  pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID    pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID       pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Type             string             `db:"type" json:"type"`
+	StorageKey       string             `db:"storage_key" json:"storage_key"`
+	MimeType         string             `db:"mime_type" json:"mime_type"`
+	Width            int32              `db:"width" json:"width"`
+	Height           int32              `db:"height" json:"height"`
+	DurationMs       *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption          *string            `db:"caption" json:"caption"`
+	SortOrder        int32              `db:"sort_order" json:"sort_order"`
+	Status           string             `db:"status" json:"status"`
+	Provider         string             `db:"provider" json:"provider"`
+	StreamUid        *string            `db:"stream_uid" json:"stream_uid"`
+	PlaybackUid      *string            `db:"playback_uid" json:"playback_uid"`
+	PlaybackUrl      *string            `db:"playback_url" json:"playback_url"`
+	ThumbnailUrl     *string            `db:"thumbnail_url" json:"thumbnail_url"`
+	PreviewUrl       *string            `db:"preview_url" json:"preview_url"`
+	AspectRatio      pgtype.Numeric     `db:"aspect_ratio" json:"aspect_ratio"`
+	HasAudio         *bool              `db:"has_audio" json:"has_audio"`
+	ProcessingStatus string             `db:"processing_status" json:"processing_status"`
+	ModerationStatus string             `db:"moderation_status" json:"moderation_status"`
+	UploadExpiresAt  pgtype.Timestamptz `db:"upload_expires_at" json:"upload_expires_at"`
+	ReadyAt          pgtype.Timestamptz `db:"ready_at" json:"ready_at"`
+	FailedReason     *string            `db:"failed_reason" json:"failed_reason"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	DiveSiteSlug     string             `db:"dive_site_slug" json:"dive_site_slug"`
+	DiveSiteName     string             `db:"dive_site_name" json:"dive_site_name"`
+	DiveSiteArea     string             `db:"dive_site_area" json:"dive_site_area"`
+	LikeCount        int64              `db:"like_count" json:"like_count"`
+	CommentCount     int64              `db:"comment_count" json:"comment_count"`
+	ViewerHasLiked   bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
+	ViewerHasSaved   bool               `db:"viewer_has_saved" json:"viewer_has_saved"`
 }
 
 func (q *Queries) ListProfileMediaByUsernameAndDiveSite(ctx context.Context, arg ListProfileMediaByUsernameAndDiveSiteParams) ([]ListProfileMediaByUsernameAndDiveSiteRow, error) {
@@ -1451,6 +2260,19 @@ func (q *Queries) ListProfileMediaByUsernameAndDiveSite(ctx context.Context, arg
 			&i.Caption,
 			&i.SortOrder,
 			&i.Status,
+			&i.Provider,
+			&i.StreamUid,
+			&i.PlaybackUid,
+			&i.PlaybackUrl,
+			&i.ThumbnailUrl,
+			&i.PreviewUrl,
+			&i.AspectRatio,
+			&i.HasAudio,
+			&i.ProcessingStatus,
+			&i.ModerationStatus,
+			&i.UploadExpiresAt,
+			&i.ReadyAt,
+			&i.FailedReason,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -1470,6 +2292,458 @@ func (q *Queries) ListProfileMediaByUsernameAndDiveSite(ctx context.Context, arg
 		return nil, err
 	}
 	return items, nil
+}
+
+const listProfileMomentsByUsername = `-- name: ListProfileMomentsByUsername :many
+SELECT
+  mi.id,
+  mi.post_id,
+  mp.post_caption,
+  mi.media_object_id,
+  mi.author_app_user_id,
+  mi.upload_group_id,
+  mi.dive_site_id,
+  mi.type,
+  mi.storage_key,
+  mi.mime_type,
+  mi.width,
+  mi.height,
+  mi.duration_ms,
+  mi.caption,
+  mi.sort_order,
+  mi.status,
+  mi.provider,
+  mi.stream_uid,
+  mi.playback_uid,
+  mi.playback_url,
+  mi.thumbnail_url,
+  mi.preview_url,
+  mi.aspect_ratio,
+  mi.has_audio,
+  mi.processing_status,
+  mi.moderation_status,
+  mi.upload_expires_at,
+  mi.ready_at,
+  mi.failed_reason,
+  mi.created_at,
+  mi.updated_at,
+  mi.deleted_at,
+  COALESCE(ds.slug, '') AS dive_site_slug,
+  COALESCE(ds.name, '') AS dive_site_name,
+  COALESCE(ds.area, '') AS dive_site_area,
+  COALESCE(like_counts.like_count, 0)::bigint AS like_count,
+  COALESCE(comment_counts.comment_count, 0)::bigint AS comment_count,
+  EXISTS (
+    SELECT 1
+    FROM media_post_likes viewer_like
+    WHERE viewer_like.media_post_id = mp.id
+      AND viewer_like.user_id = $1
+  ) AS viewer_has_liked,
+  EXISTS (
+    SELECT 1
+    FROM media_post_saves viewer_save
+    WHERE viewer_save.media_post_id = mp.id
+      AND viewer_save.user_id = $1
+  ) AS viewer_has_saved
+FROM media_items mi
+JOIN media_posts mp ON mp.id = mi.post_id
+JOIN media_objects mo ON mo.id = mi.media_object_id
+JOIN users u ON u.id = mi.author_app_user_id
+LEFT JOIN dive_sites ds
+  ON ds.id = mi.dive_site_id
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS like_count
+  FROM media_post_likes mpl
+  WHERE mpl.media_post_id = mp.id
+) like_counts ON true
+LEFT JOIN LATERAL (
+  SELECT COUNT(*)::bigint AS comment_count
+  FROM media_post_comments mpc
+  WHERE mpc.media_post_id = mp.id
+    AND mpc.deleted_at IS NULL
+) comment_counts ON true
+WHERE lower(u.username) = lower($2)
+  AND u.account_status = 'active'
+  AND mo.state = 'active'
+  AND mo.context_type = 'profile_feed'
+  AND mi.status = 'active'
+  AND mi.type = 'video'
+  AND mi.provider = 'cloudflare_stream'
+  AND mi.processing_status = 'ready'
+  AND mi.moderation_status = 'approved'
+  AND mi.deleted_at IS NULL
+  AND mp.deleted_at IS NULL
+  AND (mi.dive_site_id IS NULL OR ds.moderation_state = 'approved')
+  AND (
+    $1::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM user_blocks b
+      WHERE (b.blocker_app_user_id = $1 AND b.blocked_app_user_id = mi.author_app_user_id)
+         OR (b.blocker_app_user_id = mi.author_app_user_id AND b.blocked_app_user_id = $1)
+    )
+  )
+  AND (mi.created_at < $3 OR (mi.created_at = $3 AND mi.id < $4))
+ORDER BY mi.created_at DESC, mi.id DESC
+LIMIT $5
+`
+
+type ListProfileMomentsByUsernameParams struct {
+	ViewerUserID pgtype.UUID        `db:"viewer_user_id" json:"viewer_user_id"`
+	Username     string             `db:"username" json:"username"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	LimitCount   int32              `db:"limit_count" json:"limit_count"`
+}
+
+type ListProfileMomentsByUsernameRow struct {
+	ID               pgtype.UUID        `db:"id" json:"id"`
+	PostID           pgtype.UUID        `db:"post_id" json:"post_id"`
+	PostCaption      *string            `db:"post_caption" json:"post_caption"`
+	MediaObjectID    pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID  pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID    pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID       pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Type             string             `db:"type" json:"type"`
+	StorageKey       string             `db:"storage_key" json:"storage_key"`
+	MimeType         string             `db:"mime_type" json:"mime_type"`
+	Width            int32              `db:"width" json:"width"`
+	Height           int32              `db:"height" json:"height"`
+	DurationMs       *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption          *string            `db:"caption" json:"caption"`
+	SortOrder        int32              `db:"sort_order" json:"sort_order"`
+	Status           string             `db:"status" json:"status"`
+	Provider         string             `db:"provider" json:"provider"`
+	StreamUid        *string            `db:"stream_uid" json:"stream_uid"`
+	PlaybackUid      *string            `db:"playback_uid" json:"playback_uid"`
+	PlaybackUrl      *string            `db:"playback_url" json:"playback_url"`
+	ThumbnailUrl     *string            `db:"thumbnail_url" json:"thumbnail_url"`
+	PreviewUrl       *string            `db:"preview_url" json:"preview_url"`
+	AspectRatio      pgtype.Numeric     `db:"aspect_ratio" json:"aspect_ratio"`
+	HasAudio         *bool              `db:"has_audio" json:"has_audio"`
+	ProcessingStatus string             `db:"processing_status" json:"processing_status"`
+	ModerationStatus string             `db:"moderation_status" json:"moderation_status"`
+	UploadExpiresAt  pgtype.Timestamptz `db:"upload_expires_at" json:"upload_expires_at"`
+	ReadyAt          pgtype.Timestamptz `db:"ready_at" json:"ready_at"`
+	FailedReason     *string            `db:"failed_reason" json:"failed_reason"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	DiveSiteSlug     string             `db:"dive_site_slug" json:"dive_site_slug"`
+	DiveSiteName     string             `db:"dive_site_name" json:"dive_site_name"`
+	DiveSiteArea     string             `db:"dive_site_area" json:"dive_site_area"`
+	LikeCount        int64              `db:"like_count" json:"like_count"`
+	CommentCount     int64              `db:"comment_count" json:"comment_count"`
+	ViewerHasLiked   bool               `db:"viewer_has_liked" json:"viewer_has_liked"`
+	ViewerHasSaved   bool               `db:"viewer_has_saved" json:"viewer_has_saved"`
+}
+
+func (q *Queries) ListProfileMomentsByUsername(ctx context.Context, arg ListProfileMomentsByUsernameParams) ([]ListProfileMomentsByUsernameRow, error) {
+	rows, err := q.db.Query(ctx, listProfileMomentsByUsername,
+		arg.ViewerUserID,
+		arg.Username,
+		arg.CreatedAt,
+		arg.ID,
+		arg.LimitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProfileMomentsByUsernameRow{}
+	for rows.Next() {
+		var i ListProfileMomentsByUsernameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostID,
+			&i.PostCaption,
+			&i.MediaObjectID,
+			&i.AuthorAppUserID,
+			&i.UploadGroupID,
+			&i.DiveSiteID,
+			&i.Type,
+			&i.StorageKey,
+			&i.MimeType,
+			&i.Width,
+			&i.Height,
+			&i.DurationMs,
+			&i.Caption,
+			&i.SortOrder,
+			&i.Status,
+			&i.Provider,
+			&i.StreamUid,
+			&i.PlaybackUid,
+			&i.PlaybackUrl,
+			&i.ThumbnailUrl,
+			&i.PreviewUrl,
+			&i.AspectRatio,
+			&i.HasAudio,
+			&i.ProcessingStatus,
+			&i.ModerationStatus,
+			&i.UploadExpiresAt,
+			&i.ReadyAt,
+			&i.FailedReason,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.DiveSiteSlug,
+			&i.DiveSiteName,
+			&i.DiveSiteArea,
+			&i.LikeCount,
+			&i.CommentCount,
+			&i.ViewerHasLiked,
+			&i.ViewerHasSaved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markExpiredMomentUploadsFailed = `-- name: MarkExpiredMomentUploadsFailed :execrows
+UPDATE media_items
+SET processing_status = 'failed',
+    status = 'hidden',
+    failed_reason = $2,
+    updated_at = NOW()
+WHERE type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND processing_status IN ('upload_requested', 'uploading', 'uploaded', 'processing')
+  AND upload_expires_at IS NOT NULL
+  AND upload_expires_at < $1
+  AND deleted_at IS NULL
+`
+
+type MarkExpiredMomentUploadsFailedParams struct {
+	UploadExpiresAt pgtype.Timestamptz `db:"upload_expires_at" json:"upload_expires_at"`
+	FailedReason    *string            `db:"failed_reason" json:"failed_reason"`
+}
+
+func (q *Queries) MarkExpiredMomentUploadsFailed(ctx context.Context, arg MarkExpiredMomentUploadsFailedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markExpiredMomentUploadsFailed, arg.UploadExpiresAt, arg.FailedReason)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markMomentFailed = `-- name: MarkMomentFailed :one
+UPDATE media_items
+SET processing_status = 'failed',
+    status = 'hidden',
+    failed_reason = $2,
+    updated_at = NOW()
+WHERE stream_uid = $1
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND processing_status <> 'ready'
+  AND deleted_at IS NULL
+RETURNING
+  id, post_id, media_object_id, author_app_user_id, upload_group_id, dive_site_id,
+  type, storage_key, mime_type, width, height, duration_ms, caption, sort_order,
+  status, provider, stream_uid, playback_uid, playback_url, thumbnail_url,
+  preview_url, aspect_ratio, has_audio, processing_status, moderation_status,
+  upload_expires_at, ready_at, failed_reason, created_at, updated_at, deleted_at
+`
+
+type MarkMomentFailedParams struct {
+	StreamUid    *string `db:"stream_uid" json:"stream_uid"`
+	FailedReason *string `db:"failed_reason" json:"failed_reason"`
+}
+
+func (q *Queries) MarkMomentFailed(ctx context.Context, arg MarkMomentFailedParams) (MediaItem, error) {
+	row := q.db.QueryRow(ctx, markMomentFailed, arg.StreamUid, arg.FailedReason)
+	var i MediaItem
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.MediaObjectID,
+		&i.AuthorAppUserID,
+		&i.UploadGroupID,
+		&i.DiveSiteID,
+		&i.Type,
+		&i.StorageKey,
+		&i.MimeType,
+		&i.Width,
+		&i.Height,
+		&i.DurationMs,
+		&i.Caption,
+		&i.SortOrder,
+		&i.Status,
+		&i.Provider,
+		&i.StreamUid,
+		&i.PlaybackUid,
+		&i.PlaybackUrl,
+		&i.ThumbnailUrl,
+		&i.PreviewUrl,
+		&i.AspectRatio,
+		&i.HasAudio,
+		&i.ProcessingStatus,
+		&i.ModerationStatus,
+		&i.UploadExpiresAt,
+		&i.ReadyAt,
+		&i.FailedReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const markMomentReady = `-- name: MarkMomentReady :one
+UPDATE media_items
+SET processing_status = 'ready',
+    status = 'active',
+    width = GREATEST($2, 1),
+    height = GREATEST($3, 1),
+    duration_ms = $4,
+    playback_uid = COALESCE(NULLIF($5, ''), playback_uid),
+    playback_url = COALESCE(NULLIF($6, ''), playback_url),
+    thumbnail_url = COALESCE(NULLIF($7, ''), thumbnail_url),
+    preview_url = COALESCE(NULLIF($8, ''), preview_url),
+    aspect_ratio = CASE WHEN GREATEST($3, 1) > 0 THEN GREATEST($2, 1)::numeric / GREATEST($3, 1)::numeric ELSE aspect_ratio END,
+    has_audio = $9,
+    ready_at = COALESCE(ready_at, NOW()),
+    failed_reason = NULL,
+    updated_at = NOW()
+WHERE stream_uid = $1
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND processing_status <> 'rejected'
+  AND deleted_at IS NULL
+RETURNING
+  id, post_id, media_object_id, author_app_user_id, upload_group_id, dive_site_id,
+  type, storage_key, mime_type, width, height, duration_ms, caption, sort_order,
+  status, provider, stream_uid, playback_uid, playback_url, thumbnail_url,
+  preview_url, aspect_ratio, has_audio, processing_status, moderation_status,
+  upload_expires_at, ready_at, failed_reason, created_at, updated_at, deleted_at
+`
+
+type MarkMomentReadyParams struct {
+	StreamUid  *string     `db:"stream_uid" json:"stream_uid"`
+	Width      int32       `db:"width" json:"width"`
+	Height     int32       `db:"height" json:"height"`
+	DurationMs *int32      `db:"duration_ms" json:"duration_ms"`
+	Column5    interface{} `db:"column_5" json:"column_5"`
+	Column6    interface{} `db:"column_6" json:"column_6"`
+	Column7    interface{} `db:"column_7" json:"column_7"`
+	Column8    interface{} `db:"column_8" json:"column_8"`
+	HasAudio   *bool       `db:"has_audio" json:"has_audio"`
+}
+
+func (q *Queries) MarkMomentReady(ctx context.Context, arg MarkMomentReadyParams) (MediaItem, error) {
+	row := q.db.QueryRow(ctx, markMomentReady,
+		arg.StreamUid,
+		arg.Width,
+		arg.Height,
+		arg.DurationMs,
+		arg.Column5,
+		arg.Column6,
+		arg.Column7,
+		arg.Column8,
+		arg.HasAudio,
+	)
+	var i MediaItem
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.MediaObjectID,
+		&i.AuthorAppUserID,
+		&i.UploadGroupID,
+		&i.DiveSiteID,
+		&i.Type,
+		&i.StorageKey,
+		&i.MimeType,
+		&i.Width,
+		&i.Height,
+		&i.DurationMs,
+		&i.Caption,
+		&i.SortOrder,
+		&i.Status,
+		&i.Provider,
+		&i.StreamUid,
+		&i.PlaybackUid,
+		&i.PlaybackUrl,
+		&i.ThumbnailUrl,
+		&i.PreviewUrl,
+		&i.AspectRatio,
+		&i.HasAudio,
+		&i.ProcessingStatus,
+		&i.ModerationStatus,
+		&i.UploadExpiresAt,
+		&i.ReadyAt,
+		&i.FailedReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const markMomentUploaded = `-- name: MarkMomentUploaded :one
+UPDATE media_items
+SET processing_status = 'processing',
+    status = 'hidden',
+    updated_at = NOW()
+WHERE post_id = $1
+  AND author_app_user_id = $2
+  AND type = 'video'
+  AND provider = 'cloudflare_stream'
+  AND deleted_at IS NULL
+RETURNING
+  id, post_id, media_object_id, author_app_user_id, upload_group_id, dive_site_id,
+  type, storage_key, mime_type, width, height, duration_ms, caption, sort_order,
+  status, provider, stream_uid, playback_uid, playback_url, thumbnail_url,
+  preview_url, aspect_ratio, has_audio, processing_status, moderation_status,
+  upload_expires_at, ready_at, failed_reason, created_at, updated_at, deleted_at
+`
+
+type MarkMomentUploadedParams struct {
+	PostID          pgtype.UUID `db:"post_id" json:"post_id"`
+	AuthorAppUserID pgtype.UUID `db:"author_app_user_id" json:"author_app_user_id"`
+}
+
+func (q *Queries) MarkMomentUploaded(ctx context.Context, arg MarkMomentUploadedParams) (MediaItem, error) {
+	row := q.db.QueryRow(ctx, markMomentUploaded, arg.PostID, arg.AuthorAppUserID)
+	var i MediaItem
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.MediaObjectID,
+		&i.AuthorAppUserID,
+		&i.UploadGroupID,
+		&i.DiveSiteID,
+		&i.Type,
+		&i.StorageKey,
+		&i.MimeType,
+		&i.Width,
+		&i.Height,
+		&i.DurationMs,
+		&i.Caption,
+		&i.SortOrder,
+		&i.Status,
+		&i.Provider,
+		&i.StreamUid,
+		&i.PlaybackUid,
+		&i.PlaybackUrl,
+		&i.ThumbnailUrl,
+		&i.PreviewUrl,
+		&i.AspectRatio,
+		&i.HasAudio,
+		&i.ProcessingStatus,
+		&i.ModerationStatus,
+		&i.UploadExpiresAt,
+		&i.ReadyAt,
+		&i.FailedReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
 }
 
 const saveMediaPost = `-- name: SaveMediaPost :exec

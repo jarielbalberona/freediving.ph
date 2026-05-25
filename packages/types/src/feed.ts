@@ -147,6 +147,10 @@ export interface ActivityFeedMediaItem {
   sortOrder?: number;
   displayUrl?: string;
   dialogUrl?: string;
+  playbackUrl?: string;
+  thumbnailUrl?: string;
+  previewUrl?: string;
+  durationMs?: number;
 }
 
 export interface ActivityFeedItem {

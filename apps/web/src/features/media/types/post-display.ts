@@ -4,8 +4,12 @@ import { canLinkToProfileUsername, getProfileRoute } from "@/lib/routes";
 export type MediaPostDisplayItem = {
   id: string;
   mediaObjectId: string;
+  type: "photo" | "video";
   displayUrl?: string;
   dialogUrl?: string;
+  playbackUrl?: string;
+  thumbnailUrl?: string;
+  previewUrl?: string;
   width: number;
   height: number;
   caption?: string | null;
@@ -71,15 +75,22 @@ export function mediaPostFromHomeFeedItem(item: HomeFeedItem): MediaPostDisplay 
       const displayItem: MediaPostDisplayItem = {
         id: stringValue(photo, "id") || `${item.id}-${index + 1}`,
         mediaObjectId,
+        type: stringValue(photo, "type") === "video" ? "video" : "photo",
         width,
         height,
         alt: stringValue(photo, "caption") || caption,
       };
       const displayUrl = stringValue(photo, "displayUrl");
       const dialogUrl = stringValue(photo, "dialogUrl");
+      const playbackUrl = stringValue(photo, "playbackUrl");
+      const thumbnailUrl = stringValue(photo, "thumbnailUrl");
+      const previewUrl = stringValue(photo, "previewUrl");
       const photoCaption = stringValue(photo, "caption");
       if (displayUrl) displayItem.displayUrl = displayUrl;
       if (dialogUrl) displayItem.dialogUrl = dialogUrl;
+      if (playbackUrl) displayItem.playbackUrl = playbackUrl;
+      if (thumbnailUrl) displayItem.thumbnailUrl = thumbnailUrl;
+      if (previewUrl) displayItem.previewUrl = previewUrl;
       if (photoCaption) displayItem.caption = photoCaption;
       return displayItem;
     })
@@ -87,12 +98,16 @@ export function mediaPostFromHomeFeedItem(item: HomeFeedItem): MediaPostDisplay 
   const previewMediaId = stringValue(payload, "previewMediaId");
   const previewWidth = numberValue(payload, "previewWidth");
   const previewHeight = numberValue(payload, "previewHeight");
-  const fallbackMedia =
+  const fallbackMedia: MediaPostDisplayItem[] =
     media.length === 0 && previewMediaId && previewWidth && previewHeight
       ? [
           {
             id: `${item.id}-preview`,
             mediaObjectId: previewMediaId,
+            type:
+              stringValue(payload, "previewType") === "video"
+                ? "video"
+                : "photo",
             width: previewWidth,
             height: previewHeight,
             alt: caption,
@@ -103,8 +118,12 @@ export function mediaPostFromHomeFeedItem(item: HomeFeedItem): MediaPostDisplay 
   if (fallbackItem && media.length === 0) {
     const previewDisplayUrl = stringValue(payload, "previewDisplayUrl");
     const previewDialogUrl = stringValue(payload, "previewDialogUrl");
+    const previewPlaybackUrl = stringValue(payload, "previewPlaybackUrl");
+    const previewThumbnailUrl = stringValue(payload, "previewThumbnailUrl");
     if (previewDisplayUrl) fallbackItem.displayUrl = previewDisplayUrl;
     if (previewDialogUrl) fallbackItem.dialogUrl = previewDialogUrl;
+    if (previewPlaybackUrl) fallbackItem.playbackUrl = previewPlaybackUrl;
+    if (previewThumbnailUrl) fallbackItem.thumbnailUrl = previewThumbnailUrl;
   }
   const authorUsername = stringValue(payload, "authorUsername");
   const href =
@@ -159,9 +178,13 @@ export function mediaPostFromDetail(
     media: detail.items.map((item) => ({
       id: item.id,
       mediaObjectId: item.mediaObjectId,
+      type: item.type === "video" ? "video" : "photo",
       width: item.width,
       height: item.height,
       caption: item.caption,
+      playbackUrl: item.playbackUrl ?? undefined,
+      thumbnailUrl: item.thumbnailUrl ?? undefined,
+      previewUrl: item.previewUrl ?? undefined,
       alt: item.caption?.trim() || caption,
     })),
     likeCount: detail.post.likeCount,

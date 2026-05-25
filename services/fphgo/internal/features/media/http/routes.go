@@ -18,6 +18,9 @@ func Routes(h *Handlers) chi.Router {
 		write.Use(middleware.RequirePermission(authz.PermissionMediaWrite))
 		write.Post("/upload", h.Upload)
 		write.Post("/upload-multiple", h.UploadMultiple)
+		write.Post("/moments/upload-intents", h.CreateMomentUploadIntent)
+		write.Post("/moments/{postId}/complete", h.CompleteMomentUpload)
+		write.Post("/moments/{postId}/sync", h.SyncMomentStatus)
 		write.Post("/posts", h.CreatePost)
 		write.Post("/posts/{postId}/likes", h.LikePost)
 		write.Delete("/posts/{postId}/likes", h.UnlikePost)
@@ -36,8 +39,10 @@ func Routes(h *Handlers) chi.Router {
 		read.Post("/urls", h.MintURLs)
 	})
 	r.Get("/by-username/{username}", h.ListProfileMedia)
+	r.Get("/by-username/{username}/moments", h.ListProfileMoments)
 	r.Get("/by-username/{username}/dive-spot-highlights", h.ListDiveSpotHighlights)
 	r.Get("/by-username/{username}/dive-spot-highlights/{diveSpotId}/media", h.ListDiveSpotHighlightMedia)
+	r.Get("/dive-sites/{siteId}/moments", h.ListDiveSiteMoments)
 
 	return r
 }

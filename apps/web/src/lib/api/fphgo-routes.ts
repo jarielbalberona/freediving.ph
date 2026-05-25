@@ -230,6 +230,11 @@ export const routes = {
     media: {
       upload: () => "/v1/media/upload",
       uploadMultiple: () => "/v1/media/upload-multiple",
+      momentUploadIntents: () => "/v1/media/moments/upload-intents",
+      momentComplete: (postId: string | number) =>
+        `/v1/media/moments/${toPathId(postId)}/complete`,
+      momentSync: (postId: string | number) =>
+        `/v1/media/moments/${toPathId(postId)}/sync`,
       posts: () => "/v1/media/posts",
       postById: (postId: string | number) =>
         `/v1/media/posts/${toPathId(postId)}`,
@@ -243,6 +248,10 @@ export const routes = {
         `/v1/media/posts/${toPathId(postId)}/comments/${toPathId(commentId)}/likes`,
       byUsername: (username: string | number) =>
         `/v1/media/by-username/${toPathId(username)}`,
+      momentsByUsername: (username: string | number) =>
+        `/v1/media/by-username/${toPathId(username)}/moments`,
+      momentsByDiveSite: (siteId: string | number) =>
+        `/v1/media/dive-sites/${toPathId(siteId)}/moments`,
       diveSpotHighlightsByUsername: (username: string | number) =>
         `/v1/media/by-username/${toPathId(username)}/dive-spot-highlights`,
       diveSpotHighlightMediaByUsername: (

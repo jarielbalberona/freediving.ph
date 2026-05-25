@@ -177,6 +177,8 @@ type Course struct {
 	Currency                   string             `db:"currency" json:"currency"`
 	PaymentRequired            bool               `db:"payment_required" json:"payment_required"`
 	ApprovalRequired           bool               `db:"approval_required" json:"approval_required"`
+	AllowSessionBooking        bool               `db:"allow_session_booking" json:"allow_session_booking"`
+	AllowPreferredDateRequest  bool               `db:"allow_preferred_date_request" json:"allow_preferred_date_request"`
 	LocationMode               string             `db:"location_mode" json:"location_mode"`
 	LocationLabel              *string            `db:"location_label" json:"location_label"`
 	LocationNote               *string            `db:"location_note" json:"location_note"`
@@ -231,6 +233,7 @@ type CourseBookingRequest struct {
 	StudentName        *string            `db:"student_name" json:"student_name"`
 	StudentEmail       *string            `db:"student_email" json:"student_email"`
 	StudentPhone       *string            `db:"student_phone" json:"student_phone"`
+	BookingMode        string             `db:"booking_mode" json:"booking_mode"`
 	PreferredDate      pgtype.Date        `db:"preferred_date" json:"preferred_date"`
 	AlternateDate      pgtype.Date        `db:"alternate_date" json:"alternate_date"`
 	Status             string             `db:"status" json:"status"`
@@ -801,24 +804,37 @@ type MediaAsset struct {
 }
 
 type MediaItem struct {
-	ID              pgtype.UUID        `db:"id" json:"id"`
-	PostID          pgtype.UUID        `db:"post_id" json:"post_id"`
-	MediaObjectID   pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
-	AuthorAppUserID pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
-	UploadGroupID   pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
-	DiveSiteID      pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
-	Type            string             `db:"type" json:"type"`
-	StorageKey      string             `db:"storage_key" json:"storage_key"`
-	MimeType        string             `db:"mime_type" json:"mime_type"`
-	Width           int32              `db:"width" json:"width"`
-	Height          int32              `db:"height" json:"height"`
-	DurationMs      *int32             `db:"duration_ms" json:"duration_ms"`
-	Caption         *string            `db:"caption" json:"caption"`
-	SortOrder       int32              `db:"sort_order" json:"sort_order"`
-	Status          string             `db:"status" json:"status"`
-	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	ID               pgtype.UUID        `db:"id" json:"id"`
+	PostID           pgtype.UUID        `db:"post_id" json:"post_id"`
+	MediaObjectID    pgtype.UUID        `db:"media_object_id" json:"media_object_id"`
+	AuthorAppUserID  pgtype.UUID        `db:"author_app_user_id" json:"author_app_user_id"`
+	UploadGroupID    pgtype.UUID        `db:"upload_group_id" json:"upload_group_id"`
+	DiveSiteID       pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Type             string             `db:"type" json:"type"`
+	StorageKey       string             `db:"storage_key" json:"storage_key"`
+	MimeType         string             `db:"mime_type" json:"mime_type"`
+	Width            int32              `db:"width" json:"width"`
+	Height           int32              `db:"height" json:"height"`
+	DurationMs       *int32             `db:"duration_ms" json:"duration_ms"`
+	Caption          *string            `db:"caption" json:"caption"`
+	SortOrder        int32              `db:"sort_order" json:"sort_order"`
+	Status           string             `db:"status" json:"status"`
+	Provider         string             `db:"provider" json:"provider"`
+	StreamUid        *string            `db:"stream_uid" json:"stream_uid"`
+	PlaybackUid      *string            `db:"playback_uid" json:"playback_uid"`
+	PlaybackUrl      *string            `db:"playback_url" json:"playback_url"`
+	ThumbnailUrl     *string            `db:"thumbnail_url" json:"thumbnail_url"`
+	PreviewUrl       *string            `db:"preview_url" json:"preview_url"`
+	AspectRatio      pgtype.Numeric     `db:"aspect_ratio" json:"aspect_ratio"`
+	HasAudio         *bool              `db:"has_audio" json:"has_audio"`
+	ProcessingStatus string             `db:"processing_status" json:"processing_status"`
+	ModerationStatus string             `db:"moderation_status" json:"moderation_status"`
+	UploadExpiresAt  pgtype.Timestamptz `db:"upload_expires_at" json:"upload_expires_at"`
+	ReadyAt          pgtype.Timestamptz `db:"ready_at" json:"ready_at"`
+	FailedReason     *string            `db:"failed_reason" json:"failed_reason"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt        pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
 type MediaObject struct {

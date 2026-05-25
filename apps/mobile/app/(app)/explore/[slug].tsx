@@ -1,11 +1,5 @@
-import { DetailReadinessScreen } from "@/features/readiness/detail-readiness-screen";
+import { ExploreSiteDetailScreen } from "@/features/explore/screens/explore-site-detail-screen";
 
 export default function ExploreDetailRoute() {
-  return (
-    <DetailReadinessScreen
-      eyebrow="Explore"
-      title="Dive spot detail"
-      description="This route is ready for the shared explore site contract."
-    />
-  );
+  return <ExploreSiteDetailScreen />;
 }

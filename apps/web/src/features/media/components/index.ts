@@ -6,4 +6,5 @@ export * from "./MediaPostComponent";
 export * from "./AvatarCropDialog";
 export * from "./DiveSitePicker";
 export * from "./ProfileMediaComposer";
+export * from "./MomentUploadPanel";
 export * from "./MediaViewerDialog";

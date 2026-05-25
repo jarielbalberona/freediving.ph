@@ -819,7 +819,7 @@ CREATE TABLE IF NOT EXISTS media_upload_groups (
   source TEXT NOT NULL,
   item_count INTEGER NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (source IN ('create_post', 'profile_upload')),
+  CHECK (source IN ('create_post', 'profile_upload', 'moment_upload')),
   CHECK (item_count > 0)
 );
 
@@ -827,7 +827,7 @@ CREATE TABLE IF NOT EXISTS media_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   author_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   upload_group_id UUID NOT NULL UNIQUE REFERENCES media_upload_groups(id) ON DELETE CASCADE,
-  dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE RESTRICT,
+  dive_site_id UUID REFERENCES dive_sites(id) ON DELETE RESTRICT,
   post_caption TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -840,7 +840,7 @@ CREATE TABLE IF NOT EXISTS media_items (
   media_object_id UUID NOT NULL UNIQUE REFERENCES media_objects(id) ON DELETE RESTRICT,
   author_app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   upload_group_id UUID NOT NULL REFERENCES media_upload_groups(id) ON DELETE CASCADE,
-  dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE RESTRICT,
+  dive_site_id UUID REFERENCES dive_sites(id) ON DELETE RESTRICT,
   type TEXT NOT NULL,
   storage_key TEXT NOT NULL,
   mime_type TEXT NOT NULL,
@@ -850,6 +850,19 @@ CREATE TABLE IF NOT EXISTS media_items (
   caption TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active',
+  provider TEXT NOT NULL DEFAULT 'r2',
+  stream_uid TEXT,
+  playback_uid TEXT,
+  playback_url TEXT,
+  thumbnail_url TEXT,
+  preview_url TEXT,
+  aspect_ratio NUMERIC(10, 6),
+  has_audio BOOLEAN,
+  processing_status TEXT NOT NULL DEFAULT 'ready',
+  moderation_status TEXT NOT NULL DEFAULT 'approved',
+  upload_expires_at TIMESTAMPTZ,
+  ready_at TIMESTAMPTZ,
+  failed_reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ,
@@ -858,7 +871,10 @@ CREATE TABLE IF NOT EXISTS media_items (
   CHECK (height > 0),
   CHECK (duration_ms IS NULL OR duration_ms >= 0),
   CHECK (sort_order >= 0),
-  CHECK (status IN ('active', 'hidden', 'deleted'))
+  CHECK (status IN ('active', 'hidden', 'deleted')),
+  CHECK (provider IN ('r2', 'cloudflare_stream')),
+  CHECK (processing_status IN ('draft', 'upload_requested', 'uploading', 'uploaded', 'processing', 'ready', 'failed', 'rejected')),
+  CHECK (moderation_status IN ('pending', 'approved', 'rejected'))
 );
 
 CREATE TABLE IF NOT EXISTS media_post_likes (
@@ -1764,6 +1780,9 @@ CREATE INDEX IF NOT EXISTS idx_media_items_post_sort ON media_items (post_id, so
 CREATE INDEX IF NOT EXISTS idx_media_items_group_sort ON media_items (upload_group_id, sort_order ASC, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_media_items_status_created_at ON media_items (status, created_at DESC, id DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_items_site_cover_candidates ON media_items (dive_site_id, post_id, sort_order ASC, created_at ASC, id ASC) WHERE type = 'photo' AND status = 'active' AND deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_items_stream_uid ON media_items (stream_uid) WHERE stream_uid IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_media_items_moments_ready ON media_items (created_at DESC, id DESC) WHERE type = 'video' AND provider = 'cloudflare_stream' AND status = 'active' AND processing_status = 'ready' AND deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_media_items_moments_processing ON media_items (processing_status, upload_expires_at, created_at DESC) WHERE type = 'video' AND provider = 'cloudflare_stream' AND deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_post_likes_post ON media_post_likes (media_post_id);
 CREATE INDEX IF NOT EXISTS idx_media_post_likes_user ON media_post_likes (user_id);
 CREATE INDEX IF NOT EXISTS idx_media_post_saves_post ON media_post_saves (media_post_id);

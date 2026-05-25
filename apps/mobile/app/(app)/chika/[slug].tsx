@@ -1,11 +1,5 @@
-import { DetailReadinessScreen } from "@/features/readiness/detail-readiness-screen";
+import { ChikaThreadDetailScreen } from "@/features/chika/screens/chika-thread-detail-screen";
 
 export default function ChikaDetailRoute() {
-  return (
-    <DetailReadinessScreen
-      eyebrow="Chika"
-      title="Thread detail"
-      description="This route is ready for shared Chika thread and comment contracts."
-    />
-  );
+  return <ChikaThreadDetailScreen />;
 }

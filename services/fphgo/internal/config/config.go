@@ -10,32 +10,35 @@ import (
 )
 
 type Config struct {
-	Env                    string
-	LogLevel               string
-	DBDSN                  string
-	DBMaxConns             int32
-	DBMinConns             int32
-	DBConnMaxLife          time.Duration
-	Port                   string
-	APIBaseURL             string
-	CORSOrigins            []string
-	RateLimitPerMin        int
-	DevAuth                bool
-	ClerkSecretKey         string
-	ClerkJWTKey            string
-	ClerkJWTIssuer         string
-	ClerkJWTAudience       []string
-	GoogleMapsAPIKey       string
-	R2AccountID            string
-	R2AccessKeyID          string
-	R2SecretAccessKey      string
-	R2BucketName           string
-	R2Region               string
-	MediaCDNBaseURL        string
-	MediaSigningSecretV1   string
-	MediaSigningKeyVersion int
-	ChikaPseudonymSecret   string
-	WSFanoutChannel        string
+	Env                               string
+	LogLevel                          string
+	DBDSN                             string
+	DBMaxConns                        int32
+	DBMinConns                        int32
+	DBConnMaxLife                     time.Duration
+	Port                              string
+	APIBaseURL                        string
+	CORSOrigins                       []string
+	RateLimitPerMin                   int
+	DevAuth                           bool
+	ClerkSecretKey                    string
+	ClerkJWTKey                       string
+	ClerkJWTIssuer                    string
+	ClerkJWTAudience                  []string
+	GoogleMapsAPIKey                  string
+	R2AccountID                       string
+	R2AccessKeyID                     string
+	R2SecretAccessKey                 string
+	R2BucketName                      string
+	R2Region                          string
+	MediaCDNBaseURL                   string
+	MediaSigningSecretV1              string
+	MediaSigningKeyVersion            int
+	CloudflareAccountID               string
+	CloudflareStreamAPIToken          string
+	CloudflareStreamRequireSignedURLs bool
+	ChikaPseudonymSecret              string
+	WSFanoutChannel                   string
 }
 
 func Load() (Config, error) {
@@ -114,6 +117,14 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	cloudflareAccountID := strings.TrimSpace(os.Getenv("CLOUDFLARE_ACCOUNT_ID"))
+	cloudflareStreamAPIToken := strings.TrimSpace(os.Getenv("CLOUDFLARE_STREAM_API_TOKEN"))
+	cloudflareStreamRequireSignedURLs := parseBoolEnv(os.Getenv("CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS"))
+	if cloudflareStreamRequireSignedURLs {
+		// Moments currently persist public Stream iframe URLs. Do not enable signed
+		// Stream playback until the media service mints per-viewer playback tokens.
+		return Config{}, fmt.Errorf("CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS cannot be enabled until signed Moment playback is implemented")
+	}
 	chikaPseudonymSecret := strings.TrimSpace(os.Getenv("CHIKA_PSEUDONYM_SECRET"))
 	wsFanoutChannel := strings.TrimSpace(os.Getenv("WS_FANOUT_CHANNEL"))
 
@@ -148,6 +159,12 @@ func Load() (Config, error) {
 		if mediaSigningSecretV1 == "" {
 			return Config{}, fmt.Errorf("MEDIA_SIGNING_SECRET_V1 is required in production")
 		}
+		if cloudflareAccountID == "" {
+			return Config{}, fmt.Errorf("CLOUDFLARE_ACCOUNT_ID is required in production")
+		}
+		if cloudflareStreamAPIToken == "" {
+			return Config{}, fmt.Errorf("CLOUDFLARE_STREAM_API_TOKEN is required in production")
+		}
 	}
 	if clerkSecretKey == "" && !devAuth {
 		return Config{}, fmt.Errorf("CLERK_SECRET_KEY is required unless DEV_AUTH=true")
@@ -157,32 +174,35 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		Env:                    env,
-		LogLevel:               logLevel,
-		DBDSN:                  dsn,
-		DBMaxConns:             int32(dbMaxConns),
-		DBMinConns:             int32(dbMinConns),
-		DBConnMaxLife:          dbConnMaxLife,
-		Port:                   port,
-		APIBaseURL:             apiBaseURL,
-		CORSOrigins:            origins,
-		RateLimitPerMin:        rateLimitPerMin,
-		DevAuth:                devAuth,
-		ClerkSecretKey:         clerkSecretKey,
-		ClerkJWTKey:            clerkJWTKey,
-		ClerkJWTIssuer:         clerkJWTIssuer,
-		ClerkJWTAudience:       clerkJWTAudience,
-		GoogleMapsAPIKey:       googleMapsAPIKey,
-		R2AccountID:            r2AccountID,
-		R2AccessKeyID:          r2AccessKeyID,
-		R2SecretAccessKey:      r2SecretAccessKey,
-		R2BucketName:           r2BucketName,
-		R2Region:               r2Region,
-		MediaCDNBaseURL:        mediaCDNBaseURL,
-		MediaSigningSecretV1:   mediaSigningSecretV1,
-		MediaSigningKeyVersion: mediaSigningKeyVersion,
-		ChikaPseudonymSecret:   chikaPseudonymSecret,
-		WSFanoutChannel:        wsFanoutChannel,
+		Env:                               env,
+		LogLevel:                          logLevel,
+		DBDSN:                             dsn,
+		DBMaxConns:                        int32(dbMaxConns),
+		DBMinConns:                        int32(dbMinConns),
+		DBConnMaxLife:                     dbConnMaxLife,
+		Port:                              port,
+		APIBaseURL:                        apiBaseURL,
+		CORSOrigins:                       origins,
+		RateLimitPerMin:                   rateLimitPerMin,
+		DevAuth:                           devAuth,
+		ClerkSecretKey:                    clerkSecretKey,
+		ClerkJWTKey:                       clerkJWTKey,
+		ClerkJWTIssuer:                    clerkJWTIssuer,
+		ClerkJWTAudience:                  clerkJWTAudience,
+		GoogleMapsAPIKey:                  googleMapsAPIKey,
+		R2AccountID:                       r2AccountID,
+		R2AccessKeyID:                     r2AccessKeyID,
+		R2SecretAccessKey:                 r2SecretAccessKey,
+		R2BucketName:                      r2BucketName,
+		R2Region:                          r2Region,
+		MediaCDNBaseURL:                   mediaCDNBaseURL,
+		MediaSigningSecretV1:              mediaSigningSecretV1,
+		MediaSigningKeyVersion:            mediaSigningKeyVersion,
+		CloudflareAccountID:               cloudflareAccountID,
+		CloudflareStreamAPIToken:          cloudflareStreamAPIToken,
+		CloudflareStreamRequireSignedURLs: cloudflareStreamRequireSignedURLs,
+		ChikaPseudonymSecret:              chikaPseudonymSecret,
+		WSFanoutChannel:                   wsFanoutChannel,
 	}, nil
 }
 

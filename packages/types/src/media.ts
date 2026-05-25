@@ -17,9 +17,18 @@ export const mediaPresets = ["thumb", "card", "dialog", "original"] as const;
 export type MediaPreset = (typeof mediaPresets)[number];
 
 export type MediaObjectState = "active" | "hidden" | "deleted";
-export type MediaPostSource = "create_post" | "profile_upload";
+export type MediaPostSource = "create_post" | "profile_upload" | "moment_upload";
 export type MediaItemType = "photo" | "video";
 export type MediaItemStatus = "active" | "hidden" | "deleted";
+export type MomentProcessingStatus =
+  | "draft"
+  | "upload_requested"
+  | "uploading"
+  | "uploaded"
+  | "processing"
+  | "ready"
+  | "failed"
+  | "rejected";
 
 export interface MediaObject {
   id: string;
@@ -113,7 +122,7 @@ export interface MediaPostSummary {
   id: string;
   authorAppUserId: string;
   uploadGroupId: string;
-  diveSiteId: string;
+  diveSiteId?: string | null;
   postCaption?: string | null;
   likeCount: number;
   commentCount: number;
@@ -140,6 +149,10 @@ export interface ProfileMediaItem {
   diveSite: MediaDiveSiteSummary;
   sortOrder: number;
   status: MediaItemStatus;
+  processingStatus?: MomentProcessingStatus;
+  playbackUrl?: string | null;
+  thumbnailUrl?: string | null;
+  previewUrl?: string | null;
   likeCount: number;
   commentCount: number;
   viewerHasLiked: boolean;
@@ -150,6 +163,39 @@ export interface ProfileMediaItem {
 export interface CreateMediaPostResponse {
   post: MediaPostSummary;
   items: ProfileMediaItem[];
+}
+
+export interface CreateMomentUploadIntentRequest {
+  caption?: string | null;
+  diveSiteId?: string | null;
+  filename?: string | null;
+  contentType?: string | null;
+}
+
+export interface MomentUploadIntentResponse {
+  postId: string;
+  mediaItemId: string;
+  mediaObjectId: string;
+  streamUid: string;
+  uploadUrl: string;
+  status: MomentProcessingStatus;
+  uploadExpiresAt: string;
+  maxDurationSeconds: number;
+}
+
+export interface MomentStatusResponse {
+  postId: string;
+  mediaItemId: string;
+  status: MomentProcessingStatus;
+  playbackUrl?: string;
+  thumbnailUrl?: string;
+  previewUrl?: string;
+  durationMs?: number | null;
+  width: number;
+  height: number;
+  failedReason?: string | null;
+  uploadExpiresAt?: string | null;
+  readyAt?: string | null;
 }
 
 export interface MediaPostAuthor {

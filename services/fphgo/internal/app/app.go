@@ -99,6 +99,7 @@ type Dependencies struct {
 	ReportsHandler           *reportshttp.Handlers
 	ModerationHandler        *moderationhttp.Handlers
 	MediaHandler             *mediahttp.Handlers
+	MediaService             *mediaservice.Service
 	NotificationsHandler     *notificationshttp.Handlers
 	NotificationsService     *notificationsservice.Service
 	GroupsHandler            *groupshttp.Handlers
@@ -273,6 +274,10 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		cfg.MediaSigningKeyVersion,
 		mediaservice.WithSiteLookup(mediaSiteLookup{explore: exploreRepo}),
 		mediaservice.WithActivityPublisher(feedService),
+		mediaservice.WithStreamClient(
+			mediaservice.NewCloudflareStreamClient(cfg.CloudflareAccountID, cfg.CloudflareStreamAPIToken),
+			cfg.CloudflareStreamRequireSignedURLs,
+		),
 	)
 	mediaHandler := mediahttp.New(mediaService, v)
 	groupsRepo := groupsrepo.New(pool)
@@ -371,6 +376,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		ReportsHandler:       reportsHandler,
 		ModerationHandler:    moderationHandler,
 		MediaHandler:         mediaHandler,
+		MediaService:         mediaService,
 		NotificationsHandler: notificationsHandler,
 		NotificationsService: notificationsService,
 		GroupsHandler:        groupsHandler,

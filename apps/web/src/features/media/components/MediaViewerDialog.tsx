@@ -19,7 +19,10 @@ import { useMintedMediaMap } from "@/features/media/hooks";
 export type MediaViewerDialogItem = {
   id: string;
   mediaObjectId: string;
+  type?: "photo" | "video";
   displayUrl?: string;
+  playbackUrl?: string;
+  thumbnailUrl?: string;
   width: number;
   height: number;
   caption?: string | null;
@@ -46,10 +49,10 @@ export function MediaViewerDialog({
     () => items.filter((item) => item.width > 0 && item.height > 0),
     [items],
   );
-  const needsMintedUrls = normalizedItems.some((item) => !item.displayUrl);
+  const needsMintedUrls = normalizedItems.some((item) => item.type !== "video" && !item.displayUrl);
   const dialogUrls = useMintedMediaMap(
     normalizedItems
-      .filter((item) => !item.displayUrl)
+      .filter((item) => item.type !== "video" && !item.displayUrl)
       .map((item) => item.mediaObjectId),
     "dialog",
     open && needsMintedUrls,
@@ -135,6 +138,7 @@ export function MediaViewerDialog({
                     {normalizedItems.map((item) => {
                       const src =
                         item.displayUrl ??
+                        item.thumbnailUrl ??
                         dialogUrls.urlMap.get(item.mediaObjectId) ??
                         "";
                       return (
@@ -143,7 +147,25 @@ export function MediaViewerDialog({
                           className="flex h-full min-w-0 items-center overflow-hidden pl-0"
                         >
                           <div className="flex h-full w-full items-center justify-center overflow-hidden">
-                            {src ? (
+                            {item.type === "video" && item.playbackUrl?.includes("iframe.videodelivery.net") ? (
+                              <iframe
+                                src={`${item.playbackUrl}?muted=true&preload=true`}
+                                title={item.alt}
+                                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                                allowFullScreen
+                                className="h-full w-full"
+                              />
+                            ) : item.type === "video" && item.playbackUrl ? (
+                              <video
+                                src={item.playbackUrl}
+                                poster={item.thumbnailUrl || src}
+                                controls
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="h-full w-full object-contain"
+                              />
+                            ) : src ? (
                               <Image
                                 src={src}
                                 alt={item.alt}

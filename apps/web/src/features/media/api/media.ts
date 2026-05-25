@@ -1,6 +1,7 @@
 import type {
   CreateMediaPostRequest,
   CreateMediaPostResponse,
+  CreateMomentUploadIntentRequest,
   ListMyMediaResponse,
   ListDiveSpotHighlightsResponse,
   ListProfileMediaResponse,
@@ -14,6 +15,8 @@ import type {
   MediaUploadResponse,
   MintMediaUrlItemRequest,
   MintMediaUrlsResponse,
+  MomentStatusResponse,
+  MomentUploadIntentResponse,
 } from "@freediving.ph/types";
 
 import { fphgoFetchClient } from "@/lib/api/fphgo-fetch-client";
@@ -102,6 +105,34 @@ export const mediaApi = {
       method: "POST",
       body: payload as unknown as Record<string, unknown>,
     });
+  },
+
+  createMomentUploadIntent: async (
+    payload: CreateMomentUploadIntentRequest,
+  ): Promise<MomentUploadIntentResponse> => {
+    return fphgoFetchClient<MomentUploadIntentResponse>(
+      routes.v1.media.momentUploadIntents(),
+      {
+        method: "POST",
+        body: payload as unknown as Record<string, unknown>,
+      },
+    );
+  },
+
+  completeMomentUpload: async (
+    postId: string,
+  ): Promise<MomentStatusResponse> => {
+    return fphgoFetchClient<MomentStatusResponse>(
+      routes.v1.media.momentComplete(postId),
+      { method: "POST" },
+    );
+  },
+
+  syncMomentStatus: async (postId: string): Promise<MomentStatusResponse> => {
+    return fphgoFetchClient<MomentStatusResponse>(
+      routes.v1.media.momentSync(postId),
+      { method: "POST" },
+    );
   },
 
   getPost: async (postId: string): Promise<MediaPostDetailResponse> => {
@@ -200,6 +231,32 @@ export const mediaApi = {
     const suffix = query.toString() ? `?${query.toString()}` : "";
     return fphgoFetchClient<ListProfileMediaResponse>(
       `${routes.v1.media.byUsername(username)}${suffix}`,
+    );
+  },
+
+  listProfileMoments: async (
+    username: string,
+    params: { limit?: number; cursor?: string } = {},
+  ): Promise<ListProfileMediaResponse> => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set("limit", String(params.limit));
+    if (params.cursor) query.set("cursor", params.cursor);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return fphgoFetchClient<ListProfileMediaResponse>(
+      `${routes.v1.media.momentsByUsername(username)}${suffix}`,
+    );
+  },
+
+  listDiveSiteMoments: async (
+    siteId: string,
+    params: { limit?: number; cursor?: string } = {},
+  ): Promise<ListProfileMediaResponse> => {
+    const query = new URLSearchParams();
+    if (params.limit) query.set("limit", String(params.limit));
+    if (params.cursor) query.set("cursor", params.cursor);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return fphgoFetchClient<ListProfileMediaResponse>(
+      `${routes.v1.media.momentsByDiveSite(siteId)}${suffix}`,
     );
   },
 
