@@ -8,7 +8,11 @@ const repoRoot = path.resolve(import.meta.dirname, "..");
 function assertNoVideoOrIframeInsideButton(source, label) {
   const buttonBlocks = source.match(/<button\b[\s\S]*?<\/button>/g) ?? [];
   for (const block of buttonBlocks) {
-    assert.doesNotMatch(block, /<(video|iframe)\b/, `${label} nests video or iframe inside button`);
+    assert.doesNotMatch(
+      block,
+      /<(video|iframe)\b/,
+      `${label} nests video or iframe inside button`,
+    );
   }
 }
 
@@ -34,8 +38,15 @@ test("profile create flow and masonry gallery are wired to the media posting sta
   );
 
   assert.match(createPage, /ProfileMediaComposer/);
+  assert.doesNotMatch(createPage, /MomentUploadPanel/);
+  assert.match(createPage, /max-w-2xl/);
   assert.match(composer, /approved FPH dive-site directory/);
-  assert.match(composer, /Caption applies to the whole post/);
+  assert.match(composer, /TabsTrigger value="photos"/);
+  assert.match(composer, /TabsTrigger value="moments"/);
+  assert.match(composer, /Caption applies to Photos and Moments/);
+  assert.match(composer, /useCreateMomentUploadIntent/);
+  assert.match(composer, /useCompleteMomentUpload/);
+  assert.match(composer, /form\.getValues\(\)/);
   assert.match(composer, /applyCaptionToAll: false/);
   assert.match(composer, /contextType: "profile_feed"/);
   assert.match(gallery, /MasonryPhotoAlbum/);
@@ -56,61 +67,60 @@ test("media dialog is wired as an in-place social post view", async () => {
     comments,
     detailPage,
     identityHeader,
-  ] =
-    await Promise.all([
-      fs.readFile(
-        path.join(
-          repoRoot,
-          "src/features/home-feed/components/FeedItemRenderer.tsx",
-        ),
-        "utf8",
+  ] = await Promise.all([
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/home-feed/components/FeedItemRenderer.tsx",
       ),
-      fs.readFile(
-        path.join(
-          repoRoot,
-          "src/features/media/components/MediaPostComponent.tsx",
-        ),
-        "utf8",
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/media/components/MediaPostComponent.tsx",
       ),
-      fs.readFile(
-        path.join(
-          repoRoot,
-          "src/features/media/components/MediaViewerDialog.tsx",
-        ),
-        "utf8",
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/media/components/MediaViewerDialog.tsx",
       ),
-      fs.readFile(
-        path.join(repoRoot, "src/components/ui/carousel.tsx"),
-        "utf8",
+      "utf8",
+    ),
+    fs.readFile(path.join(repoRoot, "src/components/ui/carousel.tsx"), "utf8"),
+    fs.readFile(
+      path.join(repoRoot, "src/features/profile/components/ProfileGrid.tsx"),
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/media/components/MediaPostSocialPanel.tsx",
       ),
-      fs.readFile(
-        path.join(repoRoot, "src/features/profile/components/ProfileGrid.tsx"),
-        "utf8",
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(repoRoot, "src/features/media/components/MediaPostActions.tsx"),
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/media/components/MediaPostComments.tsx",
       ),
-      fs.readFile(
-        path.join(
-          repoRoot,
-          "src/features/media/components/MediaPostSocialPanel.tsx",
-        ),
-        "utf8",
-      ),
-      fs.readFile(
-        path.join(repoRoot, "src/features/media/components/MediaPostActions.tsx"),
-        "utf8",
-      ),
-      fs.readFile(
-        path.join(repoRoot, "src/features/media/components/MediaPostComments.tsx"),
-        "utf8",
-      ),
-      fs.readFile(
-        path.join(repoRoot, "src/features/media/pages/MediaPostDetailPage.tsx"),
-        "utf8",
-      ),
-      fs.readFile(
-        path.join(repoRoot, "src/components/common/UserIdentityHeader.tsx"),
-        "utf8",
-      ),
-    ]);
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(repoRoot, "src/features/media/pages/MediaPostDetailPage.tsx"),
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(repoRoot, "src/components/common/UserIdentityHeader.tsx"),
+      "utf8",
+    ),
+  ]);
 
   assert.match(feedRenderer, /MediaPostComponent/);
   assert.match(feedRenderer, /mediaPostFromHomeFeedItem/);
@@ -137,7 +147,10 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(socialPanel, /showProfileImage=\{showAuthorProfileImage\}/);
   assert.match(socialPanel, /location=\{/);
   assert.match(identityHeader, /showProfileImage = true/);
-  assert.match(identityHeader, /src=\{showProfileImage \? avatarUrl : undefined\}/);
+  assert.match(
+    identityHeader,
+    /src=\{showProfileImage \? avatarUrl : undefined\}/,
+  );
   assert.match(socialPanel, /<MediaPostActions/);
   assert.match(socialPanel, /onCommentClick=\{focusComments\}/);
   assert.match(socialPanel, /<MediaPostComments postId=\{postId\}/);

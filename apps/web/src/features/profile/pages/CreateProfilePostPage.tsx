@@ -5,15 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { AuthGuard } from "@/components/auth/guard";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useSession } from "@/features/auth/session";
-import { MomentUploadPanel } from "@/features/media/components/MomentUploadPanel";
 import { ProfileMediaComposer } from "@/features/media/components/ProfileMediaComposer";
 import { getProfileRoute, normalizeUsername } from "@/lib/routes";
 
@@ -41,58 +33,60 @@ export default function CreateProfilePostPage({
       title="Sign in to publish media"
       description="Only signed-in members can post media on their own profile."
     >
-      <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {!isOwner ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile mismatch</CardTitle>
-              <CardDescription>
-                You can only create posts on your own profile.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              {normalizedViewerUsername ? (
+      <div className="min-h-full bg-gradient-to-b from-background to-muted/20 px-3 py-3 text-foreground sm:px-4 sm:py-4">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+          {!isOwner ? (
+            <section className="space-y-4 rounded-xl border border-border/70 bg-background/70 p-4">
+              <div className="space-y-1">
+                <h1 className="text-lg font-medium tracking-tight text-foreground">
+                  Profile mismatch
+                </h1>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  You can only create posts on your own profile.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {normalizedViewerUsername ? (
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      router.replace(`/${normalizedViewerUsername}/create`)
+                    }
+                  >
+                    Go to my create page
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
+                  variant="outline"
                   onClick={() =>
-                    router.replace(`/${normalizedViewerUsername}/create`)
+                    router.push(getProfileRoute(normalizedTargetUsername))
                   }
                 >
-                  Go to my create page
+                  Back to profile
                 </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  router.push(getProfileRoute(normalizedTargetUsername))
-                }
-              >
-                Back to profile
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                Create a post
-              </h1>
-              <p className="text-sm text-muted-foreground sm:text-base">
-                Share dive photos or a short Moment from your profile.
-              </p>
+              </div>
+            </section>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h1 className="text-lg font-medium tracking-tight text-foreground">
+                  Create a post
+                </h1>
+                <p className="max-w-xl text-xs leading-5 text-muted-foreground">
+                  Share dive photos or a short Moment from your profile.
+                </p>
+              </div>
+
+              <ProfileMediaComposer
+                username={normalizedTargetUsername}
+                onPublished={() => {
+                  router.replace(getProfileRoute(normalizedTargetUsername));
+                }}
+              />
             </div>
-
-            <MomentUploadPanel />
-
-            <ProfileMediaComposer
-              username={normalizedTargetUsername}
-              onPublished={() => {
-                router.replace(getProfileRoute(normalizedTargetUsername));
-              }}
-            />
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </AuthGuard>
   );

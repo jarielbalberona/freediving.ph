@@ -10,10 +10,12 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Film,
   ImagePlus,
   LoaderCircle,
   RefreshCcw,
   Trash2,
+  UploadCloud,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -23,7 +25,6 @@ import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -34,12 +35,19 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DiveSiteCombobox,
   formatDiveSiteOptionLabel,
 } from "@/features/diveSpots/components/DiveSiteCombobox";
-import { useCreateMediaPost, useUploadMedia } from "@/features/media/hooks";
+import {
+  useCompleteMomentUpload,
+  useCreateMediaPost,
+  useCreateMomentUploadIntent,
+  useSyncMomentStatus,
+  useUploadMedia,
+} from "@/features/media/hooks";
 import { createMediaPostSchema } from "@/features/media/schemas/create-media-post.schema";
 import { getProfileRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -50,6 +58,13 @@ type ProfileMediaComposerProps = {
 };
 
 type UploadStatus = "queued" | "uploading" | "uploaded" | "failed";
+type ComposerMode = "photos" | "moments";
+type MomentUploadState =
+  | "idle"
+  | "uploading"
+  | "processing"
+  | "ready"
+  | "failed";
 
 type ComposerPhoto = {
   localId: string;
@@ -64,12 +79,14 @@ type ComposerPhoto = {
 
 const MAX_FILES = 10;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
 ]);
+const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/quicktime"]);
 
 export function ProfileMediaComposer({
   username,
@@ -77,14 +94,23 @@ export function ProfileMediaComposer({
 }: ProfileMediaComposerProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
   const photosRef = useRef<ComposerPhoto[]>([]);
+  const [mode, setMode] = useState<ComposerMode>("photos");
   const [photos, setPhotos] = useState<ComposerPhoto[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedDiveSite, setSelectedDiveSite] =
     useState<ExploreSiteCard | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [momentProgress, setMomentProgress] = useState(0);
+  const [momentState, setMomentState] = useState<MomentUploadState>("idle");
+  const [momentPostId, setMomentPostId] = useState<string | null>(null);
   const uploadMutation = useUploadMedia();
   const createPostMutation = useCreateMediaPost();
+  const createMomentIntent = useCreateMomentUploadIntent();
+  const completeMomentUpload = useCompleteMomentUpload();
+  const syncMomentStatus = useSyncMomentStatus();
 
   const form = useForm<CreateMediaPostValues>({
     resolver: zodResolver(createMediaPostSchema),
@@ -113,6 +139,11 @@ export function ProfileMediaComposer({
     failedCount === 0 &&
     form.formState.isValid &&
     !createPostMutation.isPending;
+  const momentBusy =
+    createMomentIntent.isPending ||
+    completeMomentUpload.isPending ||
+    syncMomentStatus.isPending ||
+    momentState === "uploading";
 
   useEffect(() => {
     photosRef.current = photos;
@@ -233,6 +264,83 @@ export function ProfileMediaComposer({
     });
   }
 
+  function chooseVideo(nextFile: File | null) {
+    if (!nextFile) return;
+    if (!ALLOWED_VIDEO_TYPES.has(nextFile.type)) {
+      toast.error("Use an MP4 or MOV video for Moments.");
+      return;
+    }
+    if (nextFile.size > MAX_VIDEO_BYTES) {
+      toast.error("Moments must be 200 MB or smaller.");
+      return;
+    }
+    setVideoFile(nextFile);
+    setMomentState("idle");
+    setMomentProgress(0);
+    setMomentPostId(null);
+  }
+
+  async function uploadMoment() {
+    if (!videoFile) {
+      toast.error("Choose a video first.");
+      return;
+    }
+    const values = form.getValues();
+    if (!values.diveSiteId) {
+      form.setError("diveSiteId", { message: "Choose a dive site" });
+      return;
+    }
+
+    setMomentState("uploading");
+    setMomentProgress(0);
+    try {
+      const intent = await createMomentIntent.mutateAsync({
+        caption: values.postCaption?.trim() || null,
+        diveSiteId: values.diveSiteId,
+        filename: videoFile.name,
+        contentType: videoFile.type,
+      });
+      setMomentPostId(intent.postId);
+      await uploadToCloudflare(intent.uploadUrl, videoFile, setMomentProgress);
+      const completed = await completeMomentUpload.mutateAsync(intent.postId);
+      setMomentState(completed.status === "ready" ? "ready" : "processing");
+      toast.success(
+        completed.status === "ready"
+          ? "Moment published."
+          : "Your Moment is processing and will appear once it's ready.",
+      );
+      if (completed.status === "ready") {
+        onPublished?.();
+      }
+    } catch (error) {
+      setMomentState("failed");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "We couldn't process this Moment. Please try another video.",
+      );
+    }
+  }
+
+  async function refreshMomentStatus() {
+    if (!momentPostId) return;
+    const result = await syncMomentStatus.mutateAsync(momentPostId);
+    setMomentState(
+      result.status === "ready"
+        ? "ready"
+        : result.status === "failed"
+          ? "failed"
+          : "processing",
+    );
+    if (result.status === "ready") {
+      toast.success("Moment is ready.");
+      onPublished?.();
+    }
+    if (result.status === "failed") {
+      toast.error("We couldn't process this Moment. Please try another video.");
+    }
+  }
+
   async function onSubmit(values: CreateMediaPostValues) {
     const uploadedPhotos = photos.filter(
       (item) => item.status === "uploaded" && item.upload,
@@ -275,20 +383,38 @@ export function ProfileMediaComposer({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(21rem,28rem)]"
+        className="flex flex-col gap-4"
       >
-        <div className="space-y-4">
-          <Card
-            className={cn(
-              "border-dashed bg-muted/20 transition-colors",
-              isDragging && "border-primary bg-primary/5",
-            )}
-          >
-            <CardContent className="p-0">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">
+            Publish to @{username}
+          </p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Location is required. Caption applies to Photos and Moments.
+          </p>
+        </div>
+
+        <Tabs
+          value={mode}
+          onValueChange={(value) => setMode(value as ComposerMode)}
+          className="gap-4"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="photos">Photos</TabsTrigger>
+            <TabsTrigger value="moments">Moments</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="photos" className="space-y-3">
+            <div
+              className={cn(
+                "overflow-hidden rounded-xl border border-dashed border-border/70 bg-muted/20 transition-colors",
+                isDragging && "border-primary bg-primary/5",
+              )}
+            >
               {photos.length === 0 ? (
                 <button
                   type="button"
-                  className="flex min-h-[28rem] w-full flex-col items-center justify-center gap-4 px-6 text-center"
+                  className="flex min-h-80 w-full flex-col items-center justify-center gap-3 px-4 text-center"
                   onClick={() => inputRef.current?.click()}
                   onDragOver={(event) => {
                     event.preventDefault();
@@ -303,24 +429,24 @@ export function ProfileMediaComposer({
                     );
                   }}
                 >
-                  <div className="rounded-full border border-border bg-background p-4">
-                    <ImagePlus className="size-8 text-muted-foreground" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-lg font-semibold text-foreground">
+                  <span className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                    <ImagePlus className="size-5" />
+                  </span>
+                  <span className="space-y-1">
+                    <span className="block text-sm font-semibold text-foreground">
                       Drag photos here or choose files
-                    </p>
-                    <p className="text-sm text-muted-foreground">
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
                       Upload 1 to 10 photos. Each file must be 10 MB or smaller.
-                    </p>
-                  </div>
-                  <Button type="button" variant="outline">
+                    </span>
+                  </span>
+                  <Button type="button" variant="outline" size="sm">
                     Select photos
                   </Button>
                 </button>
               ) : (
-                <div className="space-y-4 p-4">
-                  <div className="relative overflow-hidden rounded-[1.75rem] border bg-background">
+                <div className="space-y-3 p-3">
+                  <div className="relative overflow-hidden rounded-xl border bg-background">
                     <div className="relative aspect-[4/5] w-full bg-muted/30">
                       <img
                         src={activePhoto?.previewUrl}
@@ -328,7 +454,7 @@ export function ProfileMediaComposer({
                         className="h-full w-full object-contain"
                       />
                     </div>
-                    <div className="pointer-events-none absolute left-4 top-4 flex gap-2">
+                    <div className="pointer-events-none absolute left-3 top-3 flex gap-2">
                       <Badge variant="secondary">
                         {activeIndex + 1} / {photos.length}
                       </Badge>
@@ -371,13 +497,13 @@ export function ProfileMediaComposer({
                   </div>
 
                   <ScrollArea className="w-full whitespace-nowrap">
-                    <div className="flex gap-3 pb-2">
+                    <div className="flex gap-2 pb-2">
                       {photos.map((item, index) => (
                         <button
                           key={item.localId}
                           type="button"
                           className={cn(
-                            "relative overflow-hidden rounded-2xl border transition-transform",
+                            "relative overflow-hidden rounded-lg border transition-transform",
                             activeIndex === index
                               ? "border-primary shadow-sm"
                               : "border-border opacity-80",
@@ -387,9 +513,9 @@ export function ProfileMediaComposer({
                           <img
                             src={item.previewUrl}
                             alt={item.file.name}
-                            className="h-24 w-24 object-cover"
+                            className="h-20 w-20 object-cover"
                           />
-                          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-background/80 px-2 py-1 text-[11px]">
+                          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-background/80 px-1.5 py-1 text-[10px]">
                             <span className="truncate">{index + 1}</span>
                             <span className="truncate">
                               {item.status === "uploaded"
@@ -403,34 +529,154 @@ export function ProfileMediaComposer({
                   </ScrollArea>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            multiple
-            className="hidden"
-            onChange={(event) => {
-              void handleFilesSelected(Array.from(event.target.files ?? []));
-              event.target.value = "";
-            }}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                void handleFilesSelected(Array.from(event.target.files ?? []));
+                event.target.value = "";
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="moments" className="space-y-3">
+            <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                    <Film className="size-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      {videoFile ? videoFile.name : "Choose a Moment video"}
+                    </p>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Share one MP4 or MOV video, up to 30 seconds.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={momentBusy}
+                >
+                  <UploadCloud className="size-4" />
+                  {videoFile ? "Change video" : "Choose video"}
+                </Button>
+              </div>
+
+              <input
+                ref={videoInputRef}
+                id="moment-video"
+                type="file"
+                accept="video/mp4,video/quicktime,.mp4,.mov"
+                className="hidden"
+                onChange={(event) => {
+                  chooseVideo(event.target.files?.[0] ?? null);
+                  event.target.value = "";
+                }}
+              />
+
+              {momentState === "uploading" ? (
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-sky-600 transition-[width]"
+                    style={{ width: `${momentProgress}%` }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <div className="space-y-4">
+          <FormField
+            control={form.control}
+            name="diveSiteId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Dive site</FormLabel>
+                <FormControl>
+                  <DiveSiteCombobox
+                    value={field.value}
+                    valueLabel={
+                      selectedDiveSite
+                        ? formatDiveSiteOptionLabel(selectedDiveSite)
+                        : undefined
+                    }
+                    limit={12}
+                    onValueChange={(value, site) => {
+                      field.onChange(value);
+                      setSelectedDiveSite(site);
+                    }}
+                    disabled={createPostMutation.isPending || momentBusy}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Choose from the approved FPH dive-site directory.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="postCaption"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Caption</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Optional caption for this post"
+                    className="min-h-24"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  This caption appears on the selected post type.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
 
-        <Card className="h-fit">
-          <CardContent className="space-y-6 p-5">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    Publish to @{username}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Location is required. Caption applies to the whole post.
-                  </p>
-                </div>
+        {mode === "photos" ? (
+          <PhotoUploadStatus
+            activePhoto={activePhoto}
+            uploadingCount={uploadingCount}
+            failedCount={failedCount}
+            photoCount={photos.length}
+            onRetry={(photo) => void uploadPhoto(photo.localId, photo.file)}
+            onRemove={() => removePhoto(activeIndex)}
+          />
+        ) : (
+          <MomentUploadStatus
+            state={momentState}
+            postId={momentPostId}
+            onRefresh={() => void refreshMomentStatus()}
+          />
+        )}
+
+        <div className="flex flex-wrap justify-between gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(getProfileRoute(username))}
+          >
+            Cancel
+          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            {mode === "photos" ? (
+              <>
                 <Button
                   type="button"
                   variant="outline"
@@ -439,154 +685,165 @@ export function ProfileMediaComposer({
                 >
                   Add photos
                 </Button>
-              </div>
-
-              {uploadingCount > 0 ? (
-                <Alert>
-                  <LoaderCircle className="size-4 animate-spin" />
-                  <AlertTitle>Uploading photos</AlertTitle>
-                  <AlertDescription>
-                    {uploadingCount} of {photos.length} photo
-                    {photos.length > 1 ? "s are" : " is"} still uploading.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-
-              {failedCount > 0 ? (
-                <Alert variant="destructive">
-                  <AlertCircle className="size-4" />
-                  <AlertTitle>Some uploads failed</AlertTitle>
-                  <AlertDescription>
-                    Remove failed files or retry them before publishing.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
-
-            <FormField
-              control={form.control}
-              name="diveSiteId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Dive site</FormLabel>
-                  <FormControl>
-                    <DiveSiteCombobox
-                      value={field.value}
-                      valueLabel={
-                        selectedDiveSite
-                          ? formatDiveSiteOptionLabel(selectedDiveSite)
-                          : undefined
-                      }
-                      limit={12}
-                      onValueChange={(value, site) => {
-                        field.onChange(value);
-                        setSelectedDiveSite(site);
-                      }}
-                      disabled={createPostMutation.isPending}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Choose from the approved FPH dive-site directory.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="postCaption"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Caption</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Optional caption for this post"
-                      className="min-h-24"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    This caption appears on the grouped photo post.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {activePhoto ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border bg-muted/20 p-4">
-                <div className="min-w-0 space-y-2">
-                  <p className="truncate text-sm text-muted-foreground">
-                    {activePhoto.file.name}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary" className="w-fit">
-                      {activePhoto.status === "uploaded"
-                        ? "Upload complete"
-                        : activePhoto.status}
-                    </Badge>
-                    {activePhoto.error ? (
-                      <p className="text-sm text-destructive">
-                        {activePhoto.error}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {activePhoto.status === "failed" ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        void uploadPhoto(activePhoto.localId, activePhoto.file)
-                      }
-                    >
-                      <RefreshCcw className="size-4" />
-                      Retry
-                    </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => removePhoto(activeIndex)}
-                  >
-                    <Trash2 className="size-4" />
-                    Remove
-                  </Button>
-                </div>
-              </div>
+                <Button type="submit" disabled={!canPublish}>
+                  {createPostMutation.isPending
+                    ? "Publishing..."
+                    : "Publish photos"}
+                </Button>
+              </>
             ) : (
-              <Alert>
-                <AlertCircle className="size-4" />
-                <AlertTitle>No photos selected yet</AlertTitle>
-                <AlertDescription>
-                  Add photos first. Upload starts immediately after selection.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex flex-wrap justify-end gap-2">
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => router.push(getProfileRoute(username))}
+                onClick={uploadMoment}
+                disabled={!videoFile || momentBusy}
               >
-                Cancel
+                {momentBusy ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : null}
+                Upload Moment
               </Button>
-              <Button type="submit" disabled={!canPublish}>
-                {createPostMutation.isPending
-                  ? "Publishing..."
-                  : "Publish photos"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            )}
+          </div>
+        </div>
       </form>
     </Form>
   );
+}
+
+function PhotoUploadStatus({
+  activePhoto,
+  uploadingCount,
+  failedCount,
+  photoCount,
+  onRetry,
+  onRemove,
+}: {
+  activePhoto: ComposerPhoto | null;
+  uploadingCount: number;
+  failedCount: number;
+  photoCount: number;
+  onRetry: (photo: ComposerPhoto) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {uploadingCount > 0 ? (
+        <Alert>
+          <LoaderCircle className="size-4 animate-spin" />
+          <AlertTitle>Uploading photos</AlertTitle>
+          <AlertDescription>
+            {uploadingCount} of {photoCount} photo
+            {photoCount > 1 ? "s are" : " is"} still uploading.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {failedCount > 0 ? (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertTitle>Some uploads failed</AlertTitle>
+          <AlertDescription>
+            Remove failed files or retry them before publishing.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {activePhoto ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+          <div className="min-w-0 space-y-1">
+            <p className="truncate text-sm text-muted-foreground">
+              {activePhoto.file.name}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="w-fit">
+                {activePhoto.status === "uploaded"
+                  ? "Upload complete"
+                  : activePhoto.status}
+              </Badge>
+              {activePhoto.error ? (
+                <p className="text-sm text-destructive">{activePhoto.error}</p>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {activePhoto.status === "failed" ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onRetry(activePhoto)}
+              >
+                <RefreshCcw className="size-4" />
+                Retry
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRemove}
+            >
+              <Trash2 className="size-4" />
+              Remove
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Alert>
+          <AlertCircle className="size-4" />
+          <AlertTitle>No photos selected yet</AlertTitle>
+          <AlertDescription>
+            Add photos first. Upload starts immediately after selection.
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}
+
+function MomentUploadStatus({
+  state,
+  postId,
+  onRefresh,
+}: {
+  state: MomentUploadState;
+  postId: string | null;
+  onRefresh: () => void;
+}) {
+  if (state === "processing") {
+    return (
+      <Alert>
+        <AlertTitle>Your Moment is processing</AlertTitle>
+        <AlertDescription>
+          It will appear on your profile and in the feed once it's ready.
+          {postId ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 w-fit"
+              onClick={onRefresh}
+            >
+              Check status
+            </Button>
+          ) : null}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (state === "failed") {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Moment failed</AlertTitle>
+        <AlertDescription>
+          We couldn't process this Moment. Please try another video.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return null;
 }
 
 function createLocalId() {
@@ -614,5 +871,32 @@ function readImageDimensions(
       URL.revokeObjectURL(objectUrl);
     };
     image.src = objectUrl;
+  });
+}
+
+function uploadToCloudflare(
+  uploadUrl: string,
+  file: File,
+  onProgress: (progress: number) => void,
+) {
+  return new Promise<void>((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", uploadUrl);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error("Moment upload failed."));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Moment upload failed."));
+    xhr.send(formData);
   });
 }
