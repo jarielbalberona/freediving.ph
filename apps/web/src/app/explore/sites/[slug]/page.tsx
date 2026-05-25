@@ -20,7 +20,8 @@ import type { ExploreSiteDetailResponse } from "@freediving.ph/types";
 import { UsernameLink } from "@/components/common/UsernameLink";
 import { TrustCard } from "@/components/trust-card";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StructuredData } from "@/features/public-content/components/StructuredData";
 import {
   getExploreSiteBySlugServer,
@@ -194,7 +195,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
   const conditionSummary = site.lastConditionSummary || site.typicalConditions;
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
+    <div className="min-h-full bg-gradient-to-b from-background to-muted/20 px-3 py-3 text-foreground sm:px-4 sm:py-4">
       <StructuredData
         data={[
           webPageJsonLd({
@@ -217,7 +218,7 @@ export default async function ExploreSharePage({ params }: PageProps) {
           }),
         ]}
       />
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
         <div className="space-y-3">
           <BackToExploreButton />
           <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
@@ -246,128 +247,124 @@ export default async function ExploreSharePage({ params }: PageProps) {
           </div>
         ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <Card>
-            <CardHeader className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                <Badge>{titleCase(site.difficulty)}</Badge>
-                <Badge variant="outline">
-                  {verificationLabel(site.verificationStatus)}
-                </Badge>
-                {depthRange ? (
-                  <Badge variant="outline">{depthRange}</Badge>
-                ) : null}
-              </div>
-              <CardTitle>Site briefing</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5 text-sm text-muted-foreground">
-              <p>
-                {site.description || "No site description has been added yet."}
-              </p>
+        <Tabs defaultValue="details" className="gap-4">
+          <TabsList className="grid w-full grid-cols-2 sm:w-fit">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="status">Status</TabsTrigger>
+          </TabsList>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <DetailItem
-                  label="Recent conditions"
-                  icon={<Waves className="size-4" />}
-                >
-                  {conditionSummary || "No condition reports yet."}
-                </DetailItem>
-                <DetailItem
-                  label="Typical conditions"
-                  icon={<Compass className="size-4" />}
-                >
-                  {site.typicalConditions || "Not listed yet."}
-                </DetailItem>
-                <DetailItem
-                  label="Best season"
-                  icon={<CalendarDays className="size-4" />}
-                >
-                  {site.bestSeason || "Not listed yet."}
-                </DetailItem>
-                <DetailItem label="Access" icon={<MapPin className="size-4" />}>
-                  {site.access || "Not listed yet."}
-                </DetailItem>
-                <DetailItem
-                  label="Fees"
-                  icon={<CircleDollarSign className="size-4" />}
-                >
-                  {site.fees || "Not listed yet."}
-                </DetailItem>
-                <DetailItem label="Contact" icon={<Radio className="size-4" />}>
-                  {site.contactInfo || "Not listed yet."}
-                </DetailItem>
-                <DetailItem
-                  label="Minimum depth"
-                  icon={<Gauge className="size-4" />}
-                >
-                  {formatDepthValue(site.depthMinM)}
-                </DetailItem>
-                <DetailItem
-                  label="Maximum depth"
-                  icon={<Gauge className="size-4" />}
-                >
-                  {formatDepthValue(site.depthMaxM)}
-                </DetailItem>
-                <DetailItem
-                  label="Coordinates"
-                  icon={<MapPin className="size-4" />}
-                >
-                  {coordinates || "No map pin listed."}
-                </DetailItem>
-              </div>
-
-              <div className="space-y-2">
-                <p className="flex items-center gap-2 font-medium text-foreground">
-                  <TriangleAlert className="size-4" />
-                  Hazards
-                </p>
-                {site.hazards.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {site.hazards.map((hazard) => (
-                      <Badge key={hazard} variant="outline">
-                        {hazard}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p>No hazards listed yet.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Directory status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <DetailItem
-                label="Verification"
-                icon={<ShieldCheck className="size-4" />}
-              >
+          <TabsContent value="details" className="space-y-5">
+            <div className="flex flex-wrap gap-2">
+              <Badge>{titleCase(site.difficulty)}</Badge>
+              <Badge variant="outline">
                 {verificationLabel(site.verificationStatus)}
-                {site.verifiedByDisplayName
-                  ? ` by ${site.verifiedByDisplayName}`
-                  : ""}
-              </DetailItem>
-              <DetailItem label="Reports" icon={<Flag className="size-4" />}>
-                {reportCountLabel(site.reportCount)}
-              </DetailItem>
+              </Badge>
+              {depthRange ? (
+                <Badge variant="outline">{depthRange}</Badge>
+              ) : null}
+            </div>
+
+            <p className="text-sm leading-6 text-muted-foreground">
+              {site.description || "No site description has been added yet."}
+            </p>
+
+            <div className="grid gap-4 text-sm text-muted-foreground sm:grid-cols-2">
               <DetailItem
-                label="Last updated"
-                icon={<Info className="size-4" />}
+                label="Recent conditions"
+                icon={<Waves className="size-4" />}
               >
-                {formatDateTime(site.lastUpdatedAt)}
+                {conditionSummary || "No condition reports yet."}
               </DetailItem>
               <DetailItem
-                label="Listed since"
+                label="Typical conditions"
+                icon={<Compass className="size-4" />}
+              >
+                {site.typicalConditions || "Not listed yet."}
+              </DetailItem>
+              <DetailItem
+                label="Best season"
                 icon={<CalendarDays className="size-4" />}
               >
-                {formatDateTime(site.createdAt)}
+                {site.bestSeason || "Not listed yet."}
               </DetailItem>
-            </CardContent>
-          </Card>
-        </div>
+              <DetailItem label="Access" icon={<MapPin className="size-4" />}>
+                {site.access || "Not listed yet."}
+              </DetailItem>
+              <DetailItem
+                label="Fees"
+                icon={<CircleDollarSign className="size-4" />}
+              >
+                {site.fees || "Not listed yet."}
+              </DetailItem>
+              <DetailItem label="Contact" icon={<Radio className="size-4" />}>
+                {site.contactInfo || "Not listed yet."}
+              </DetailItem>
+              <DetailItem
+                label="Minimum depth"
+                icon={<Gauge className="size-4" />}
+              >
+                {formatDepthValue(site.depthMinM)}
+              </DetailItem>
+              <DetailItem
+                label="Maximum depth"
+                icon={<Gauge className="size-4" />}
+              >
+                {formatDepthValue(site.depthMaxM)}
+              </DetailItem>
+              <DetailItem
+                label="Coordinates"
+                icon={<MapPin className="size-4" />}
+              >
+                {coordinates || "No map pin listed."}
+              </DetailItem>
+            </div>
+
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p className="flex items-center gap-2 font-medium text-foreground">
+                <TriangleAlert className="size-4" />
+                Hazards
+              </p>
+              {site.hazards.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {site.hazards.map((hazard) => (
+                    <Badge key={hazard} variant="outline">
+                      {hazard}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p>No hazards listed yet.</p>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            value="status"
+            className="grid gap-4 text-sm text-muted-foreground sm:grid-cols-2"
+          >
+            <DetailItem
+              label="Verification"
+              icon={<ShieldCheck className="size-4" />}
+            >
+              {verificationLabel(site.verificationStatus)}
+              {site.verifiedByDisplayName
+                ? ` by ${site.verifiedByDisplayName}`
+                : ""}
+            </DetailItem>
+            <DetailItem label="Reports" icon={<Flag className="size-4" />}>
+              {reportCountLabel(site.reportCount)}
+            </DetailItem>
+            <DetailItem label="Last updated" icon={<Info className="size-4" />}>
+              {formatDateTime(site.lastUpdatedAt)}
+            </DetailItem>
+            <DetailItem
+              label="Listed since"
+              icon={<CalendarDays className="size-4" />}
+            >
+              {formatDateTime(site.createdAt)}
+            </DetailItem>
+          </TabsContent>
+        </Tabs>
 
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-foreground">

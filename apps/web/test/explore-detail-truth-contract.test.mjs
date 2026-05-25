@@ -87,6 +87,17 @@ test("explore site detail renders real backend data or 404s honestly", async () 
   assert.match(sharePage, /site\.contactInfo/);
   assert.match(sharePage, /formatCoordinates\(site\)/);
   assert.match(sharePage, /site\.hazards\.map/);
+  assert.match(sharePage, /TabsList/);
+  assert.match(sharePage, /TabsTrigger value="details"/);
+  assert.match(sharePage, /TabsTrigger value="status"/);
+  assert.match(sharePage, /TabsContent value="details"/);
+  assert.match(sharePage, /TabsContent[\s\S]*value="status"/);
+  assert.match(sharePage, /max-w-2xl/);
+  assert.doesNotMatch(sharePage, /max-w-5xl/);
+  assert.match(loadingPage, /max-w-2xl/);
+  assert.doesNotMatch(loadingPage, /max-w-3xl/);
+  assert.doesNotMatch(sharePage, /Site briefing/);
+  assert.doesNotMatch(sharePage, /Directory status/);
   assert.doesNotMatch(sharePage, /buttonVariants/);
   assert.match(suggestEditLink, /"use client"/);
   assert.match(suggestEditLink, /Suggest edit/);

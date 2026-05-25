@@ -3,8 +3,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ExploreSiteLoading() {
   return (
-    <div className="min-h-full bg-gradient-to-b from-muted/30 to-background px-4 py-2">
-      <div className="mx-auto max-w-3xl space-y-6">
+    <div className="min-h-full bg-gradient-to-b from-background to-muted/20 px-3 py-3 text-foreground sm:px-4 sm:py-4">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
         <div className="space-y-3">
           <Skeleton className="h-8 w-32 rounded-full" />
           <Skeleton className="h-4 w-48" />
