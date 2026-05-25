@@ -1,3 +1,5 @@
+import type { MomentPlayback } from "./media";
+
 export type HomeFeedMode =
   | "latest"
   | "nearby"
@@ -147,6 +149,7 @@ export interface ActivityFeedMediaItem {
   sortOrder?: number;
   displayUrl?: string;
   dialogUrl?: string;
+  playback?: MomentPlayback | null;
   playbackUrl?: string;
   thumbnailUrl?: string;
   previewUrl?: string;

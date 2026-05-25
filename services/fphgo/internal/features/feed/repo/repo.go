@@ -76,6 +76,7 @@ type MediaPostCandidateItem struct {
 	Height        int32  `json:"height"`
 	Caption       string `json:"caption"`
 	SortOrder     int32  `json:"sortOrder"`
+	Playback      map[string]any `json:"playback,omitempty"`
 	PlaybackURL   string `json:"playbackUrl,omitempty"`
 	ThumbnailURL  string `json:"thumbnailUrl,omitempty"`
 	PreviewURL    string `json:"previewUrl,omitempty"`
@@ -506,6 +507,22 @@ func (r *Repo) ListMediaPostCandidates(ctx context.Context, input CandidateInput
 							'height', mi.height,
 							'caption', COALESCE(mi.caption, ''),
 							'sortOrder', mi.sort_order,
+							'playback',
+								CASE
+									WHEN mi.type = 'video' AND mi.provider = 'cloudflare_stream' THEN
+										json_build_object(
+											'provider', 'cloudflare_stream',
+											'iframeUrl', NULLIF(COALESCE(mi.playback_url, ''), ''),
+											'hlsUrl',
+												CASE
+													WHEN NULLIF(COALESCE(mi.playback_uid, ''), '') IS NOT NULL THEN
+														'https://videodelivery.net/' || mi.playback_uid || '/manifest/video.m3u8'
+													ELSE NULL
+												END,
+											'posterUrl', NULLIF(COALESCE(mi.thumbnail_url, mi.preview_url, ''), '')
+										)
+									ELSE NULL
+								END,
 							'playbackUrl', COALESCE(mi.playback_url, ''),
 							'thumbnailUrl', COALESCE(mi.thumbnail_url, ''),
 							'previewUrl', COALESCE(mi.preview_url, '')
@@ -1211,6 +1228,22 @@ func (r *Repo) RepairMediaPostActivityMedia(ctx context.Context) error {
 						'height', mi.height,
 						'caption', COALESCE(mi.caption, ''),
 						'sortOrder', mi.sort_order,
+						'playback',
+							CASE
+								WHEN mi.type = 'video' AND mi.provider = 'cloudflare_stream' THEN
+									jsonb_build_object(
+										'provider', 'cloudflare_stream',
+										'iframeUrl', NULLIF(COALESCE(mi.playback_url, ''), ''),
+										'hlsUrl',
+											CASE
+												WHEN NULLIF(COALESCE(mi.playback_uid, ''), '') IS NOT NULL THEN
+													'https://videodelivery.net/' || mi.playback_uid || '/manifest/video.m3u8'
+												ELSE NULL
+											END,
+										'posterUrl', NULLIF(COALESCE(mi.thumbnail_url, mi.preview_url, ''), '')
+									)
+								ELSE NULL
+							END,
 						'playbackUrl', COALESCE(mi.playback_url, ''),
 						'thumbnailUrl', COALESCE(mi.thumbnail_url, ''),
 						'previewUrl', COALESCE(mi.preview_url, '')
@@ -1349,6 +1382,22 @@ func (r *Repo) ListActivityItems(ctx context.Context, input ActivityListInput) (
 						'height', mi.height,
 						'caption', COALESCE(mi.caption, ''),
 						'sortOrder', mi.sort_order,
+						'playback',
+							CASE
+								WHEN mi.type = 'video' AND mi.provider = 'cloudflare_stream' THEN
+									jsonb_build_object(
+										'provider', 'cloudflare_stream',
+										'iframeUrl', NULLIF(COALESCE(mi.playback_url, ''), ''),
+										'hlsUrl',
+											CASE
+												WHEN NULLIF(COALESCE(mi.playback_uid, ''), '') IS NOT NULL THEN
+													'https://videodelivery.net/' || mi.playback_uid || '/manifest/video.m3u8'
+												ELSE NULL
+											END,
+										'posterUrl', NULLIF(COALESCE(mi.thumbnail_url, mi.preview_url, ''), '')
+									)
+								ELSE NULL
+							END,
 						'playbackUrl', COALESCE(mi.playback_url, ''),
 						'thumbnailUrl', COALESCE(mi.thumbnail_url, ''),
 						'previewUrl', COALESCE(mi.preview_url, ''),

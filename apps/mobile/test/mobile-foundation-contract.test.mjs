@@ -131,3 +131,60 @@ test("events uses shared contracts and read-only mobile routes", () => {
   assert.doesNotMatch(detail, /joinEvent|rsvp|booking|checkIn|receipt/i);
   assert.ok(format.includes('includes("/")'));
 });
+
+test("profiles use shared contracts, auth gating, and read-only routes", () => {
+  const api = read("src/features/profiles/api/profiles-api.ts");
+  const myHook = read("src/features/profiles/hooks/use-my-profile-query.ts");
+  const publicHook = read("src/features/profiles/hooks/use-public-profile-query.ts");
+  const ownScreen = read("src/features/profiles/screens/profile-screen.tsx");
+  const publicScreen = read("src/features/profiles/screens/public-profile-screen.tsx");
+  const format = read("src/features/profiles/lib/profile-format.ts");
+
+  assert.match(api, /@freediving\.ph\/types/);
+  assert.match(api, /ProfileResponse/);
+  assert.match(api, /PublicProfileResponse/);
+  assert.match(api, /fphgoFetch/);
+  assert.match(api, /\/v1\/me\/profile/);
+  assert.match(api, /\/v1\/profiles\/by-username/);
+  assert.match(api, /auth:\s*"required"/);
+  assert.doesNotMatch(api, /axios/i);
+  assert.doesNotMatch(api, /features\/profile\/types|features\/profiles\/types/);
+  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
+  assert.match(myHook, /useAuthenticatedFphgoQuery/);
+  assert.match(publicHook, /useAuthenticatedFphgoQuery/);
+  assert.match(publicHook, /safeProfileUsername/);
+  assert.match(ownScreen, /\/\(app\)\/settings/);
+  assert.match(publicScreen, /useLocalSearchParams/);
+  assert.doesNotMatch(ownScreen, /upload|editProfile|followAction|sendMessage|SQLite|Drizzle/i);
+  assert.doesNotMatch(publicScreen, /upload|editProfile|followAction|sendMessage|report|block/i);
+  assert.ok(format.includes('includes("/")'));
+});
+
+test("notifications use shared contracts, auth gating, and read-only routes", () => {
+  const api = read("src/features/notifications/api/notifications-api.ts");
+  const hook = read("src/features/notifications/hooks/use-notifications-query.ts");
+  const card = read("src/features/notifications/components/notification-card.tsx");
+  const screen = read("src/features/notifications/screens/notifications-screen.tsx");
+  const format = read("src/features/notifications/lib/notification-format.ts");
+
+  assert.match(api, /@freediving\.ph\/types/);
+  assert.match(api, /ListNotificationsResponse/);
+  assert.match(api, /NotificationFilters/);
+  assert.match(api, /fphgoFetch/);
+  assert.match(api, /\/v1\/notifications/);
+  assert.match(api, /auth:\s*"required"/);
+  assert.doesNotMatch(api, /axios/i);
+  assert.doesNotMatch(api, /features\/notifications\/types/);
+  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
+  assert.match(hook, /useAuthenticatedFphgoQuery/);
+  assert.match(hook, /mobileQueryKeys\.notifications\.list/);
+  assert.match(card, /notificationHref/);
+  assert.match(format, /\/\(app\)\/events\/\[slug\]/);
+  assert.match(format, /\/\(app\)\/chika\/\[slug\]/);
+  assert.match(format, /\/\(app\)\/explore\/\[slug\]/);
+  assert.match(format, /\/\(app\)\/profile\/\[username\]/);
+  assert.match(screen, /MobileLoadingState/);
+  assert.match(screen, /MobileEmptyState/);
+  assert.match(screen, /MobileErrorState/);
+  assert.doesNotMatch(screen, /markAsRead|markAllAsRead|pushToken|websocket|realtime/i);
+});

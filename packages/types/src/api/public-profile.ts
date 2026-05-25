@@ -20,6 +20,23 @@ export type PublicProfile = {
   };
 };
 
+export type PublicProfileApiProfile = {
+  userId: string;
+  username: string;
+  displayName: string;
+  bio?: string;
+  avatarUrl?: string;
+  counts: {
+    posts: number;
+    followers: number;
+    following: number;
+  };
+};
+
+export type PublicProfileResponse = {
+  profile: PublicProfileApiProfile;
+};
+
 export type ProfilePost = {
   id: string;
   siteId: string;

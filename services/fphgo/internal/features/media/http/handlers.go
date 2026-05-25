@@ -985,6 +985,7 @@ func mapProfileMediaDTOs(items []mediaservice.ProfileMediaItemResult) []ProfileM
 			SortOrder:        item.SortOrder,
 			Status:           item.Status,
 			ProcessingStatus: item.ProcessingStatus,
+			Playback:         mapMomentPlaybackDTO(item.Playback),
 			PlaybackURL:      item.PlaybackURL,
 			ThumbnailURL:     item.ThumbnailURL,
 			PreviewURL:       item.PreviewURL,
@@ -1013,6 +1014,7 @@ func mapMomentStatusResponse(result mediaservice.MomentStatusResult) MomentStatu
 		PostID:          result.PostID,
 		MediaItemID:     result.MediaItemID,
 		Status:          result.Status,
+		Playback:        mapMomentPlaybackDTO(result.Playback),
 		PlaybackURL:     result.PlaybackURL,
 		ThumbnailURL:    result.ThumbnailURL,
 		PreviewURL:      result.PreviewURL,
@@ -1022,6 +1024,19 @@ func mapMomentStatusResponse(result mediaservice.MomentStatusResult) MomentStatu
 		FailedReason:    result.FailedReason,
 		UploadExpiresAt: uploadExpiresAt,
 		ReadyAt:         readyAt,
+	}
+}
+
+func mapMomentPlaybackDTO(playback *mediaservice.MomentPlaybackResult) *MomentPlaybackDTO {
+	if playback == nil {
+		return nil
+	}
+	return &MomentPlaybackDTO{
+		Provider:  playback.Provider,
+		IframeURL: playback.IframeURL,
+		HLSURL:    playback.HLSURL,
+		DASHURL:   playback.DASHURL,
+		PosterURL: playback.PosterURL,
 	}
 }
 

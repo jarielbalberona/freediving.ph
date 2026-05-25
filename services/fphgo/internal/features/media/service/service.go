@@ -13,6 +13,7 @@ import (
 	"image/png"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -278,6 +279,7 @@ type ProfileMediaItemResult struct {
 	SortOrder        int
 	Status           string
 	ProcessingStatus string
+	Playback         *MomentPlaybackResult
 	PlaybackURL      *string
 	ThumbnailURL     *string
 	PreviewURL       *string
@@ -287,6 +289,14 @@ type ProfileMediaItemResult struct {
 	ViewerHasLiked   bool
 	ViewerHasSaved   bool
 	CreatedAt        time.Time
+}
+
+type MomentPlaybackResult struct {
+	Provider  string
+	IframeURL *string
+	HLSURL    *string
+	DASHURL   *string
+	PosterURL *string
 }
 
 type MediaPostAuthorResult struct {
@@ -335,6 +345,7 @@ type MomentStatusResult struct {
 	PostID          string
 	MediaItemID     string
 	Status          string
+	Playback        *MomentPlaybackResult
 	PlaybackURL     string
 	ThumbnailURL    string
 	PreviewURL      string
@@ -1195,10 +1206,11 @@ func (s *Service) publishMomentActivity(ctx context.Context, item mediarepo.Medi
 		"type":          item.Type,
 		"width":         int(item.Width),
 		"height":        int(item.Height),
-		"caption":       valueOrEmptyString(item.Caption),
-		"sortOrder":     int(item.SortOrder),
-		"playbackUrl":   valueOrEmptyString(item.PlaybackURL),
-		"thumbnailUrl":  valueOrEmptyString(item.ThumbnailURL),
+			"caption":       valueOrEmptyString(item.Caption),
+			"sortOrder":     int(item.SortOrder),
+			"playbackUrl":   valueOrEmptyString(item.PlaybackURL),
+			"playback":      momentPlaybackMapFromItem(item),
+			"thumbnailUrl":  valueOrEmptyString(item.ThumbnailURL),
 		"previewUrl":    valueOrEmptyString(item.PreviewURL),
 		"durationMs":    intValueFromInt32(item.DurationMs),
 	}}
@@ -1449,6 +1461,7 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 			SortOrder:        int(item.SortOrder),
 			Status:           item.Status,
 			ProcessingStatus: item.ProcessingStatus,
+			Playback:         momentPlaybackFromItem(item),
 			PlaybackURL:      item.PlaybackURL,
 			ThumbnailURL:     item.ThumbnailURL,
 			PreviewURL:       item.PreviewURL,
@@ -1584,6 +1597,7 @@ func (s *Service) ListProfileMedia(ctx context.Context, input ListProfileMediaIn
 			SortOrder:        int(row.SortOrder),
 			Status:           row.Status,
 			ProcessingStatus: row.ProcessingStatus,
+			Playback:         momentPlaybackFromProfileItem(row),
 			PlaybackURL:      row.PlaybackURL,
 			ThumbnailURL:     row.ThumbnailURL,
 			PreviewURL:       row.PreviewURL,
@@ -2344,11 +2358,89 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+func momentPlaybackFromProfileItem(item mediarepo.ProfileMediaItem) *MomentPlaybackResult {
+	return momentPlaybackFromItem(item.MediaItem)
+}
+
+func momentPlaybackFromItem(item mediarepo.MediaItem) *MomentPlaybackResult {
+	if item.Type != "video" || item.Provider != "cloudflare_stream" {
+		return nil
+	}
+	uid := valueOrEmptyString(item.PlaybackUID)
+	if uid == "" {
+		uid = valueOrEmptyString(item.StreamUID)
+	}
+	if uid == "" {
+		uid = cloudflareStreamUIDFromPlaybackURL(valueOrEmptyString(item.PlaybackURL))
+	}
+	if uid == "" && valueOrEmptyString(item.PlaybackURL) == "" {
+		return nil
+	}
+	iframeURL := valueOrEmptyString(item.PlaybackURL)
+	if iframeURL == "" && uid != "" {
+		iframeURL = "https://iframe.videodelivery.net/" + uid
+	}
+	hlsURL := ""
+	if uid != "" {
+		hlsURL = "https://videodelivery.net/" + uid + "/manifest/video.m3u8"
+	}
+	posterURL := firstNonEmpty(valueOrEmptyString(item.ThumbnailURL), valueOrEmptyString(item.PreviewURL))
+	return &MomentPlaybackResult{
+		Provider:  "cloudflare_stream",
+		IframeURL: optionalStringPtr(iframeURL),
+		HLSURL:    optionalStringPtr(hlsURL),
+		PosterURL: optionalStringPtr(posterURL),
+	}
+}
+
+func momentPlaybackMapFromItem(item mediarepo.MediaItem) map[string]any {
+	playback := momentPlaybackFromItem(item)
+	if playback == nil {
+		return nil
+	}
+	return map[string]any{
+		"provider":  playback.Provider,
+		"iframeUrl": playback.IframeURL,
+		"hlsUrl":    playback.HLSURL,
+		"dashUrl":   playback.DASHURL,
+		"posterUrl": playback.PosterURL,
+	}
+}
+
+func optionalStringPtr(value string) *string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	trimmed := strings.TrimSpace(value)
+	return &trimmed
+}
+
+func cloudflareStreamUIDFromPlaybackURL(playbackURL string) string {
+	trimmed := strings.TrimSpace(playbackURL)
+	if trimmed == "" {
+		return ""
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return ""
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if host != "iframe.videodelivery.net" && host != "videodelivery.net" {
+		return ""
+	}
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(parts[0])
+}
+
 func momentStatusFromItem(item mediarepo.MediaItem) MomentStatusResult {
 	return MomentStatusResult{
 		PostID:          item.PostID,
 		MediaItemID:     item.ID,
 		Status:          item.ProcessingStatus,
+		Playback:        momentPlaybackFromItem(item),
 		PlaybackURL:     valueOrEmptyString(item.PlaybackURL),
 		ThumbnailURL:    valueOrEmptyString(item.ThumbnailURL),
 		PreviewURL:      valueOrEmptyString(item.PreviewURL),
@@ -2542,6 +2634,7 @@ func profileMediaResultFromRepo(row mediarepo.ProfileMediaItem) ProfileMediaItem
 		SortOrder:        int(row.SortOrder),
 		Status:           row.Status,
 		ProcessingStatus: row.ProcessingStatus,
+		Playback:         momentPlaybackFromProfileItem(row),
 		PlaybackURL:      row.PlaybackURL,
 		ThumbnailURL:     row.ThumbnailURL,
 		PreviewURL:       row.PreviewURL,

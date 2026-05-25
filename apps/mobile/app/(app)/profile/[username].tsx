@@ -1,11 +1,5 @@
-import { DetailReadinessScreen } from "@/features/readiness/detail-readiness-screen";
+import { PublicProfileScreen } from "@/features/profiles/screens/public-profile-screen";
 
 export default function ProfileDetailRoute() {
-  return (
-    <DetailReadinessScreen
-      eyebrow="Profile"
-      title="Public profile"
-      description="This route is ready for shared public profile contracts."
-    />
-  );
+  return <PublicProfileScreen />;
 }

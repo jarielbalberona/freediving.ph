@@ -45,10 +45,15 @@ export const mobileQueryKeys = {
   },
   notifications: {
     all: ["notifications"] as const,
-    list: () => [...mobileQueryKeys.notifications.all, "list"] as const,
+    list: (params?: { limit?: number; offset?: number }) =>
+      [...mobileQueryKeys.notifications.all, "list", params ?? {}] as const,
+    unreadCount: () =>
+      [...mobileQueryKeys.notifications.all, "unread-count"] as const,
   },
   profile: {
     all: ["profile"] as const,
     me: () => [...mobileQueryKeys.profile.all, "me"] as const,
+    public: (username: string) =>
+      [...mobileQueryKeys.profile.all, "public", username] as const,
   },
 };

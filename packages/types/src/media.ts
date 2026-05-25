@@ -30,6 +30,14 @@ export type MomentProcessingStatus =
   | "failed"
   | "rejected";
 
+export interface MomentPlayback {
+  provider: "cloudflare_stream";
+  iframeUrl: string | null;
+  hlsUrl: string | null;
+  dashUrl?: string | null;
+  posterUrl?: string | null;
+}
+
 export interface MediaObject {
   id: string;
   ownerAppUserId: string;
@@ -150,6 +158,7 @@ export interface ProfileMediaItem {
   sortOrder: number;
   status: MediaItemStatus;
   processingStatus?: MomentProcessingStatus;
+  playback?: MomentPlayback | null;
   playbackUrl?: string | null;
   thumbnailUrl?: string | null;
   previewUrl?: string | null;
@@ -187,6 +196,7 @@ export interface MomentStatusResponse {
   postId: string;
   mediaItemId: string;
   status: MomentProcessingStatus;
+  playback?: MomentPlayback | null;
   playbackUrl?: string;
   thumbnailUrl?: string;
   previewUrl?: string;

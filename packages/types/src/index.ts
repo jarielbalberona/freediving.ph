@@ -1428,6 +1428,18 @@ export interface NotificationFilters {
   priority?: Notification["priority"];
 }
 
+export interface ListNotificationsResponse {
+  items: Notification[];
+  pagination: {
+    limit: number;
+    offset: number;
+  };
+}
+
+export interface UnreadNotificationCountResponse {
+  unreadCount: number;
+}
+
 export type BuddyRequestStatus =
   | "pending"
   | "accepted"

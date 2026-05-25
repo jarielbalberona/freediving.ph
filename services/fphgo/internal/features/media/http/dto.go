@@ -105,6 +105,7 @@ type MomentStatusResponse struct {
 	PostID          string  `json:"postId"`
 	MediaItemID     string  `json:"mediaItemId"`
 	Status          string  `json:"status"`
+	Playback        *MomentPlaybackDTO `json:"playback,omitempty"`
 	PlaybackURL     string  `json:"playbackUrl,omitempty"`
 	ThumbnailURL    string  `json:"thumbnailUrl,omitempty"`
 	PreviewURL      string  `json:"previewUrl,omitempty"`
@@ -114,6 +115,14 @@ type MomentStatusResponse struct {
 	FailedReason    *string `json:"failedReason,omitempty"`
 	UploadExpiresAt *string `json:"uploadExpiresAt,omitempty"`
 	ReadyAt         *string `json:"readyAt,omitempty"`
+}
+
+type MomentPlaybackDTO struct {
+	Provider  string  `json:"provider"`
+	IframeURL *string `json:"iframeUrl"`
+	HLSURL    *string `json:"hlsUrl"`
+	DASHURL   *string `json:"dashUrl,omitempty"`
+	PosterURL *string `json:"posterUrl,omitempty"`
 }
 
 type MediaPostDTO struct {
@@ -185,6 +194,7 @@ type ProfileMediaDTO struct {
 	SortOrder        int                 `json:"sortOrder"`
 	Status           string              `json:"status"`
 	ProcessingStatus string              `json:"processingStatus,omitempty"`
+	Playback         *MomentPlaybackDTO  `json:"playback,omitempty"`
 	PlaybackURL      *string             `json:"playbackUrl,omitempty"`
 	ThumbnailURL     *string             `json:"thumbnailUrl,omitempty"`
 	PreviewURL       *string             `json:"previewUrl,omitempty"`
