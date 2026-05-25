@@ -1,11 +1,5 @@
-import { DetailReadinessScreen } from "@/features/readiness/detail-readiness-screen";
+import { EventDetailScreen } from "@/features/events/screens/event-detail-screen";
 
 export default function EventDetailRoute() {
-  return (
-    <DetailReadinessScreen
-      eyebrow="Events"
-      title="Event detail"
-      description="This route is ready for shared event list and detail contracts."
-    />
-  );
+  return <EventDetailScreen />;
 }

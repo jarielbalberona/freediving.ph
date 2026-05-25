@@ -108,3 +108,26 @@ test("chika uses shared contracts and read-only mobile routes", () => {
   assert.doesNotMatch(detail, /createComment|setReaction|websocket|realtime/i);
   assert.ok(format.includes('includes("/")'));
 });
+
+test("events uses shared contracts and read-only mobile routes", () => {
+  const api = read("src/features/events/api/events-api.ts");
+  const card = read("src/features/events/components/event-card.tsx");
+  const detail = read("src/features/events/screens/event-detail-screen.tsx");
+  const format = read("src/features/events/lib/event-format.ts");
+
+  assert.match(api, /@freediving\.ph\/types/);
+  assert.match(api, /EventListResponse/);
+  assert.match(api, /EventDetailResponse/);
+  assert.match(api, /EventFilters/);
+  assert.match(api, /fphgoFetch/);
+  assert.match(api, /\/v1\/events/);
+  assert.match(api, /status/);
+  assert.doesNotMatch(api, /axios/i);
+  assert.doesNotMatch(api, /features\/events\/types/);
+  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
+  assert.match(card, /safeEventSlug/);
+  assert.match(card, /\/\(app\)\/events\/\[slug\]/);
+  assert.match(detail, /useLocalSearchParams/);
+  assert.doesNotMatch(detail, /joinEvent|rsvp|booking|checkIn|receipt/i);
+  assert.ok(format.includes('includes("/")'));
+});

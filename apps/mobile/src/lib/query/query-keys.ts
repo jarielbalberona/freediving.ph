@@ -34,6 +34,10 @@ export const mobileQueryKeys = {
   events: {
     all: ["events"] as const,
     lists: () => [...mobileQueryKeys.events.all, "list"] as const,
+    list: (params: { limit?: number; page?: number; status?: string }) =>
+      [...mobileQueryKeys.events.all, "list", params] as const,
+    detail: (slug: string) =>
+      [...mobileQueryKeys.events.all, "detail", slug] as const,
   },
   buddies: {
     all: ["buddies"] as const,

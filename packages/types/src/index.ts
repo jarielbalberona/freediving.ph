@@ -896,6 +896,24 @@ export interface EventFilters {
   price?: "free" | "paid";
 }
 
+export interface EventListPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface EventListResponse {
+  events: Event[];
+  pagination: EventListPagination;
+}
+
+export interface EventDetailResponse {
+  event: Event;
+}
+
 export interface Group {
   id: string;
   name: string;

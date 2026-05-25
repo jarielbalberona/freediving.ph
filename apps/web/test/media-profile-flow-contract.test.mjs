@@ -161,3 +161,31 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(comments, /unlikeMediaPostComment/);
   assert.match(comments, /aria-label=\{\s*comment\.viewerHasLiked/);
 });
+
+test("Moment upload panel previews and validates selected local videos", async () => {
+  const panel = await fs.readFile(
+    path.join(
+      repoRoot,
+      "src/features/media/components/MomentUploadPanel.tsx",
+    ),
+    "utf8",
+  );
+
+  assert.match(panel, /URL\.createObjectURL\(file\)/);
+  assert.match(panel, /URL\.revokeObjectURL\(objectUrl\)/);
+  assert.match(panel, /<video[\s\S]*src=\{previewUrl\}/);
+  assert.match(panel, /controls/);
+  assert.match(panel, /muted/);
+  assert.match(panel, /playsInline/);
+  assert.match(panel, /preload="metadata"/);
+  assert.match(panel, /onLoadedMetadata=\{handleLoadedMetadata\}/);
+  assert.match(panel, /MAX_VIDEO_SECONDS = 30/);
+  assert.match(panel, /MAX_VIDEO_BYTES = 200 \* 1024 \* 1024/);
+  assert.match(panel, /ALLOWED_VIDEO_EXTENSIONS = new Set\(\["mp4", "mov"\]\)/);
+  assert.match(panel, /Trim your video before uploading\./);
+  assert.match(panel, /Choose an MP4 or MOV video\./);
+  assert.match(panel, /Moments can be up to 30 seconds\./);
+  assert.match(panel, /disabled=\{uploadDisabled\}/);
+  assert.match(panel, /durationSeconds > MAX_VIDEO_SECONDS/);
+  assert.doesNotMatch(panel, /ffmpeg/i);
+});
