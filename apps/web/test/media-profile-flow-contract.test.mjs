@@ -39,6 +39,13 @@ test("profile create flow and masonry gallery are wired to the media posting sta
 
   assert.match(createPage, /ProfileMediaComposer/);
   assert.doesNotMatch(createPage, /MomentUploadPanel/);
+  assert.match(
+    await fs.readFile(
+      path.join(repoRoot, "src/app/[username]/create/page.tsx"),
+      "utf8",
+    ),
+    /<CreateProfilePostPage username=\{normalizedUsername\} \/>/,
+  );
   assert.match(createPage, /max-w-2xl/);
   assert.match(composer, /approved FPH dive-site directory/);
   assert.match(composer, /TabsTrigger value="photos"/);
@@ -60,6 +67,7 @@ test("media dialog is wired as an in-place social post view", async () => {
     feedRenderer,
     mediaPostComponent,
     mediaViewerDialog,
+    momentPlayer,
     carousel,
     profileGrid,
     socialPanel,
@@ -82,13 +90,17 @@ test("media dialog is wired as an in-place social post view", async () => {
       ),
       "utf8",
     ),
-    fs.readFile(
-      path.join(
-        repoRoot,
-        "src/features/media/components/MediaViewerDialog.tsx",
+      fs.readFile(
+        path.join(
+          repoRoot,
+          "src/features/media/components/MediaViewerDialog.tsx",
+        ),
+        "utf8",
       ),
-      "utf8",
-    ),
+      fs.readFile(
+        path.join(repoRoot, "src/features/media/components/MomentPlayer.tsx"),
+        "utf8",
+      ),
     fs.readFile(path.join(repoRoot, "src/components/ui/carousel.tsx"), "utf8"),
     fs.readFile(
       path.join(repoRoot, "src/features/profile/components/ProfileGrid.tsx"),
@@ -125,6 +137,8 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(feedRenderer, /MediaPostComponent/);
   assert.match(feedRenderer, /mediaPostFromHomeFeedItem/);
   assert.match(mediaPostComponent, /setViewerOpen\(true\)/);
+  assert.match(mediaPostComponent, /<MomentPlayer/);
+  assert.match(mediaPostComponent, /momentPlaybackFromUrls/);
   assertNoVideoOrIframeInsideButton(mediaPostComponent, "MediaPostComponent");
   assertNoVideoOrIframeInsideButton(profileGrid, "ProfileGrid");
   assert.match(mediaPostComponent, /setCommentFocusSignal/);
@@ -133,10 +147,12 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(mediaViewerDialog, /h-\[56dvh\]/);
   assert.match(mediaViewerDialog, /h-\[56dvh\][^"]*overflow-hidden/);
   assert.match(mediaViewerDialog, /className="h-full w-full overflow-hidden"/);
-  assert.match(mediaViewerDialog, /className="h-full w-full object-contain"/);
+  assert.match(mediaViewerDialog, /<MomentPlayer/);
+  assert.match(mediaViewerDialog, /videoClassName="object-contain"/);
   assert.doesNotMatch(mediaViewerDialog, /h-\[42dvh\]/);
   assert.match(carousel, /className="h-full w-full overflow-hidden"/);
   assert.match(profileGrid, /<MediaPostSocialPanel/);
+  assert.match(profileGrid, /<MomentPlayer/);
   assert.match(profileGrid, /MasonryPhotoAlbum/);
   assert.match(profileGrid, /<Image/);
   assert.match(profileGrid, /commentsScrollMode="desktop"/);
@@ -160,32 +176,62 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(comments, /likeMediaPostComment/);
   assert.match(comments, /unlikeMediaPostComment/);
   assert.match(comments, /aria-label=\{\s*comment\.viewerHasLiked/);
+  assert.match(momentPlayer, /import Hls from "hls\.js"/);
+  assert.match(momentPlayer, /video\.canPlayType\("application\/vnd\.apple\.mpegurl"\)/);
+  assert.match(momentPlayer, /Hls\.isSupported\(\)/);
+  assert.match(momentPlayer, /new Hls\(\)/);
+  assert.match(momentPlayer, /hls\.loadSource\(hlsUrl\)/);
+  assert.match(momentPlayer, /hls\.attachMedia\(video\)/);
+  assert.match(momentPlayer, /hls\.destroy\(\)/);
+  assert.match(momentPlayer, /mode === "iframe"/);
+  assert.match(momentPlayer, /This Moment is unavailable\./);
+  assert.match(momentPlayer, /https:\/\/videodelivery\.net\/\$\{playbackUID\}\/manifest\/video\.m3u8/);
 });
 
 test("Moment upload panel previews and validates selected local videos", async () => {
-  const panel = await fs.readFile(
-    path.join(
-      repoRoot,
-      "src/features/media/components/MomentUploadPanel.tsx",
+  const [panel, composer, preview] = await Promise.all([
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/media/components/MomentUploadPanel.tsx",
+      ),
+      "utf8",
     ),
-    "utf8",
-  );
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/media/components/ProfileMediaComposer.tsx",
+      ),
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/media/components/SelectedVideoPreview.tsx",
+      ),
+      "utf8",
+    ),
+  ]);
 
-  assert.match(panel, /URL\.createObjectURL\(file\)/);
-  assert.match(panel, /URL\.revokeObjectURL\(objectUrl\)/);
-  assert.match(panel, /<video[\s\S]*src=\{previewUrl\}/);
-  assert.match(panel, /controls/);
-  assert.match(panel, /muted/);
-  assert.match(panel, /playsInline/);
-  assert.match(panel, /preload="metadata"/);
-  assert.match(panel, /onLoadedMetadata=\{handleLoadedMetadata\}/);
-  assert.match(panel, /MAX_VIDEO_SECONDS = 30/);
-  assert.match(panel, /MAX_VIDEO_BYTES = 200 \* 1024 \* 1024/);
-  assert.match(panel, /ALLOWED_VIDEO_EXTENSIONS = new Set\(\["mp4", "mov"\]\)/);
-  assert.match(panel, /Trim your video before uploading\./);
-  assert.match(panel, /Choose an MP4 or MOV video\./);
-  assert.match(panel, /Moments can be up to 30 seconds\./);
-  assert.match(panel, /disabled=\{uploadDisabled\}/);
-  assert.match(panel, /durationSeconds > MAX_VIDEO_SECONDS/);
-  assert.doesNotMatch(panel, /ffmpeg/i);
+  assert.match(preview, /URL\.createObjectURL\(file\)/);
+  assert.match(preview, /URL\.revokeObjectURL\(objectUrl\)/);
+  assert.match(preview, /<video[\s\S]*src=\{previewUrl\}/);
+  assert.match(preview, /controls/);
+  assert.match(preview, /muted/);
+  assert.match(preview, /playsInline/);
+  assert.match(preview, /preload="metadata"/);
+  assert.match(preview, /onLoadedMetadata=\{handleLoadedMetadata\}/);
+  assert.match(preview, /MAX_MOMENT_VIDEO_SECONDS = 30/);
+  assert.match(preview, /MAX_MOMENT_VIDEO_BYTES = 200 \* 1024 \* 1024/);
+  assert.match(preview, /ALLOWED_VIDEO_EXTENSIONS = new Set\(\["mp4", "mov"\]\)/);
+  assert.match(preview, /Trim your video before uploading\./);
+  assert.match(preview, /Choose an MP4 or MOV video\./);
+  assert.match(panel, /<SelectedVideoPreview/);
+  assert.match(composer, /<SelectedVideoPreview/);
+  assert.match(composer, /Moments can be up to 30 seconds\./);
+  assert.match(composer, /Choose an MP4 or MOV video\./);
+  assert.match(composer, /disabled=\{!canUploadMoment\}/);
+  assert.match(composer, /validateSelectedMomentVideo\(nextFile\)/);
+  assert.match(composer, /validateMomentDuration\(videoDurationSeconds\)/);
+  assert.doesNotMatch(`${panel}\n${composer}\n${preview}`, /ffmpeg/i);
 });

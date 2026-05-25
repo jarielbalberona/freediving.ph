@@ -10,6 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { MediaPostActions } from "@/features/media/components/MediaPostActions";
 import { MediaPostSocialPanel } from "@/features/media/components/MediaPostSocialPanel";
 import { MediaViewerDialog } from "@/features/media/components/MediaViewerDialog";
+import {
+  MomentPlayer,
+  momentPlaybackFromUrls,
+} from "@/features/media/components/MomentPlayer";
 import { useMintedMediaMap } from "@/features/media/hooks";
 import type { MediaPostDisplay } from "@/features/media/types/post-display";
 import { cn } from "@/lib/utils";
@@ -38,6 +42,15 @@ export function MediaPostComponent({
     preview?.displayUrl ??
     preview?.thumbnailUrl ??
     (preview ? minted.urlMap.get(preview.mediaObjectId) : undefined);
+  const previewPlayback =
+    preview?.type === "video"
+      ? momentPlaybackFromUrls({
+          playbackUrl: preview.playbackUrl,
+          posterUrl: preview.thumbnailUrl ?? previewUrl,
+        })
+      : null;
+  const canOpenPreview =
+    preview?.type === "video" ? Boolean(preview.playbackUrl) : Boolean(previewUrl);
   const diveSiteHref = post.diveSite?.slug
     ? `/explore/sites/${post.diveSite.slug}`
     : undefined;
@@ -102,25 +115,19 @@ export function MediaPostComponent({
               {!imageLoaded ? (
                 <div className="absolute inset-0 animate-pulse bg-muted" />
               ) : null}
-              {preview.type === "video" && preview.playbackUrl?.includes("iframe.videodelivery.net") ? (
-                <iframe
-                  src={`${preview.playbackUrl}?muted=true&preload=true`}
+              {preview.type === "video" && previewPlayback ? (
+                <MomentPlayer
+                  hlsUrl={previewPlayback.hlsUrl}
+                  iframeUrl={previewPlayback.iframeUrl}
+                  posterUrl={previewPlayback.posterUrl}
                   title={preview.alt}
-                  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                  tabIndex={-1}
-                  className="absolute inset-0 h-full w-full"
-                  onLoad={() => setImageLoaded(true)}
-                />
-              ) : preview.type === "video" && preview.playbackUrl ? (
-                <video
-                  src={preview.playbackUrl}
-                  poster={preview.thumbnailUrl || previewUrl}
                   muted
+                  controls={false}
                   playsInline
-                  preload="metadata"
-                  className="absolute inset-0 h-full w-full object-cover"
-                  onLoadedData={() => setImageLoaded(true)}
+                  className="absolute inset-0"
+                  videoClassName="object-cover"
+                  iframeClassName="object-cover"
+                  onReady={() => setImageLoaded(true)}
                 />
               ) : previewUrl ? (
                 <Image
@@ -136,7 +143,7 @@ export function MediaPostComponent({
                   onLoad={() => setImageLoaded(true)}
                 />
               ) : null}
-              {previewUrl ? (
+              {canOpenPreview ? (
                 <button
                   type="button"
                   className="absolute inset-0 z-10 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

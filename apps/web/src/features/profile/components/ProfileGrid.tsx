@@ -14,6 +14,10 @@ import {
   type MediaViewerDialogItem,
 } from "@/features/media/components/MediaViewerDialog";
 import { MediaPostSocialPanel } from "@/features/media/components/MediaPostSocialPanel";
+import {
+  MomentPlayer,
+  momentPlaybackFromUrls,
+} from "@/features/media/components/MomentPlayer";
 import { useMintedMediaMap } from "@/features/media/hooks";
 
 type ProfileGridProps = {
@@ -138,38 +142,25 @@ export function ProfileGrid({
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
           {videoItems.map((item) => {
             const caption = getDisplayCaption(item);
+            const playback = momentPlaybackFromUrls({
+              playbackUrl: item.playbackUrl,
+              posterUrl: item.thumbnailUrl,
+            });
             return (
               <div
                 key={item.id}
                 className="relative aspect-[9/16] overflow-hidden rounded-[0.5rem] bg-muted/30"
               >
-                {item.playbackUrl?.includes("iframe.videodelivery.net") ? (
-                  <iframe
-                    src={`${item.playbackUrl}?muted=true&preload=true`}
-                    title={caption || `${username} Moment`}
-                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-                    tabIndex={-1}
-                    className="h-full w-full"
-                  />
-                ) : item.playbackUrl ? (
-                  <video
-                    src={item.playbackUrl}
-                    poster={item.thumbnailUrl ?? undefined}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-cover"
-                  />
-                ) : item.thumbnailUrl ? (
-                  <Image
-                    src={item.thumbnailUrl}
-                    alt={caption || `${username} Moment`}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : null}
+                <MomentPlayer
+                  hlsUrl={playback.hlsUrl}
+                  iframeUrl={playback.iframeUrl}
+                  posterUrl={playback.posterUrl}
+                  title={caption || `${username} Moment`}
+                  muted
+                  controls={false}
+                  playsInline
+                  videoClassName="object-cover"
+                />
                 <button
                   type="button"
                   className="absolute inset-0 z-10 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

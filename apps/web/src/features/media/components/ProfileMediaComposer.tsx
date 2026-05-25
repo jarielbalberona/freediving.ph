@@ -17,7 +17,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -48,6 +48,11 @@ import {
   useSyncMomentStatus,
   useUploadMedia,
 } from "@/features/media/hooks";
+import {
+  SelectedVideoPreview,
+  validateMomentDuration,
+  validateSelectedMomentVideo,
+} from "@/features/media/components/SelectedVideoPreview";
 import { createMediaPostSchema } from "@/features/media/schemas/create-media-post.schema";
 import { getProfileRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -79,14 +84,12 @@ type ComposerPhoto = {
 
 const MAX_FILES = 10;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
 ]);
-const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/quicktime"]);
 
 export function ProfileMediaComposer({
   username,
@@ -103,6 +106,12 @@ export function ProfileMediaComposer({
     useState<ExploreSiteCard | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState<
+    number | null
+  >(null);
+  const [videoValidationError, setVideoValidationError] = useState<
+    string | null
+  >(null);
   const [momentProgress, setMomentProgress] = useState(0);
   const [momentState, setMomentState] = useState<MomentUploadState>("idle");
   const [momentPostId, setMomentPostId] = useState<string | null>(null);
@@ -144,6 +153,19 @@ export function ProfileMediaComposer({
     completeMomentUpload.isPending ||
     syncMomentStatus.isPending ||
     momentState === "uploading";
+  const canUploadMoment =
+    Boolean(videoFile) &&
+    !momentBusy &&
+    videoValidationError === null &&
+    videoDurationSeconds !== null;
+
+  const handleVideoDurationChange = useCallback(
+    (nextDuration: number | null) => {
+      setVideoDurationSeconds(nextDuration);
+      setVideoValidationError(validateMomentDuration(nextDuration));
+    },
+    [],
+  );
 
   useEffect(() => {
     photosRef.current = photos;
@@ -266,14 +288,16 @@ export function ProfileMediaComposer({
 
   function chooseVideo(nextFile: File | null) {
     if (!nextFile) return;
-    if (!ALLOWED_VIDEO_TYPES.has(nextFile.type)) {
-      toast.error("Use an MP4 or MOV video for Moments.");
+    const error = validateSelectedMomentVideo(nextFile);
+    if (error) {
+      setVideoFile(null);
+      setVideoDurationSeconds(null);
+      setVideoValidationError(error);
+      toast.error(error);
       return;
     }
-    if (nextFile.size > MAX_VIDEO_BYTES) {
-      toast.error("Moments must be 200 MB or smaller.");
-      return;
-    }
+    setVideoValidationError(null);
+    setVideoDurationSeconds(null);
     setVideoFile(nextFile);
     setMomentState("idle");
     setMomentProgress(0);
@@ -283,6 +307,19 @@ export function ProfileMediaComposer({
   async function uploadMoment() {
     if (!videoFile) {
       toast.error("Choose a video first.");
+      return;
+    }
+    if (videoValidationError) {
+      toast.error(videoValidationError);
+      return;
+    }
+    const durationError = validateMomentDuration(videoDurationSeconds);
+    if (durationError) {
+      toast.error(durationError);
+      return;
+    }
+    if (videoDurationSeconds === null) {
+      toast.error("Trim your video before uploading.");
       return;
     }
     const values = form.getValues();
@@ -556,7 +593,10 @@ export function ProfileMediaComposer({
                       {videoFile ? videoFile.name : "Choose a Moment video"}
                     </p>
                     <p className="text-xs leading-5 text-muted-foreground">
-                      Share one MP4 or MOV video, up to 30 seconds.
+                      Moments can be up to 30 seconds.
+                    </p>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Choose an MP4 or MOV video.
                     </p>
                   </div>
                 </div>
@@ -583,6 +623,22 @@ export function ProfileMediaComposer({
                   event.target.value = "";
                 }}
               />
+
+              {videoFile ? (
+                <div className="mt-4">
+                  <SelectedVideoPreview
+                    file={videoFile}
+                    onDurationChange={handleVideoDurationChange}
+                  />
+                </div>
+              ) : null}
+
+              {videoValidationError ? (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertTitle>Moment cannot be uploaded</AlertTitle>
+                  <AlertDescription>{videoValidationError}</AlertDescription>
+                </Alert>
+              ) : null}
 
               {momentState === "uploading" ? (
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
@@ -695,7 +751,7 @@ export function ProfileMediaComposer({
               <Button
                 type="button"
                 onClick={uploadMoment}
-                disabled={!videoFile || momentBusy}
+                disabled={!canUploadMoment}
               >
                 {momentBusy ? (
                   <LoaderCircle className="size-4 animate-spin" />

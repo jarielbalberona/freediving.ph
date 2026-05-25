@@ -1,8 +1,7 @@
 "use client";
 
 import { Film, LoaderCircle, UploadCloud } from "lucide-react";
-import type { SyntheticEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,12 +18,12 @@ import {
   useCreateMomentUploadIntent,
   useSyncMomentStatus,
 } from "@/features/media/hooks";
+import {
+  SelectedVideoPreview,
+  validateMomentDuration,
+  validateSelectedMomentVideo,
+} from "@/features/media/components/SelectedVideoPreview";
 import type { ExploreSiteCard } from "@freediving.ph/types";
-
-const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
-const MAX_VIDEO_SECONDS = 30;
-const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/quicktime"]);
-const ALLOWED_VIDEO_EXTENSIONS = new Set(["mp4", "mov"]);
 
 type UploadState = "idle" | "uploading" | "processing" | "ready" | "failed";
 
@@ -36,54 +35,32 @@ export function MomentUploadPanel() {
   const [progress, setProgress] = useState(0);
   const [state, setState] = useState<UploadState>("idle");
   const [postId, setPostId] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const createIntent = useCreateMomentUploadIntent();
   const completeUpload = useCompleteMomentUpload();
   const syncStatus = useSyncMomentStatus();
 
-  useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null);
-      setDurationSeconds(null);
-      return;
-    }
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-    setDurationSeconds(null);
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-  }, [file]);
+  const handleDurationChange = useCallback((nextDuration: number | null) => {
+    setDurationSeconds(nextDuration);
+    setValidationError(validateMomentDuration(nextDuration));
+  }, []);
 
   function chooseFile(nextFile: File | null) {
     if (!nextFile) return;
-    const error = validateSelectedVideo(nextFile);
+    const error = validateSelectedMomentVideo(nextFile);
     if (error) {
       setFile(null);
+      setDurationSeconds(null);
       setValidationError(error);
       toast.error(error);
       return;
     }
     setValidationError(null);
+    setDurationSeconds(null);
     setFile(nextFile);
     setState("idle");
     setProgress(0);
-  }
-
-  function handleLoadedMetadata(event: SyntheticEvent<HTMLVideoElement>) {
-    const nextDuration = event.currentTarget.duration;
-    if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
-      setDurationSeconds(null);
-      return;
-    }
-    setDurationSeconds(nextDuration);
-    if (nextDuration > MAX_VIDEO_SECONDS) {
-      setValidationError("Trim your video before uploading.");
-      return;
-    }
-    setValidationError(null);
   }
 
   async function uploadMoment() {
@@ -95,7 +72,12 @@ export function MomentUploadPanel() {
       toast.error(validationError);
       return;
     }
-    if (durationSeconds !== null && durationSeconds > MAX_VIDEO_SECONDS) {
+    const durationError = validateMomentDuration(durationSeconds);
+    if (durationError) {
+      toast.error(durationError);
+      return;
+    }
+    if (durationSeconds === null) {
       toast.error("Trim your video before uploading.");
       return;
     }
@@ -185,38 +167,11 @@ export function MomentUploadPanel() {
           </Button>
         </div>
 
-        {file && previewUrl ? (
-          <div className="space-y-3">
-            <div className="overflow-hidden rounded-[0.5rem] border border-border bg-muted/20">
-              <video
-                src={previewUrl}
-                controls
-                muted
-                playsInline
-                preload="metadata"
-                className="aspect-video w-full bg-black object-contain"
-                onLoadedMetadata={handleLoadedMetadata}
-              />
-            </div>
-            <dl className="grid gap-2 rounded-[0.5rem] border border-border/70 p-3 text-sm sm:grid-cols-3">
-              <div>
-                <dt className="text-muted-foreground">File</dt>
-                <dd className="break-words font-medium">{file.name}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Size</dt>
-                <dd className="font-medium">{formatFileSizeMB(file.size)}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Duration</dt>
-                <dd className="font-medium">
-                  {durationSeconds === null
-                    ? "Reading video"
-                    : formatDuration(durationSeconds)}
-                </dd>
-              </div>
-            </dl>
-          </div>
+        {file ? (
+          <SelectedVideoPreview
+            file={file}
+            onDurationChange={handleDurationChange}
+          />
         ) : null}
 
         {validationError ? (
@@ -289,36 +244,6 @@ export function MomentUploadPanel() {
       </CardContent>
     </Card>
   );
-}
-
-function validateSelectedVideo(file: File): string | null {
-  if (!isAllowedVideoFile(file)) {
-    return "Choose an MP4 or MOV video.";
-  }
-  if (file.size > MAX_VIDEO_BYTES) {
-    return "Moments must be 200 MB or smaller.";
-  }
-  return null;
-}
-
-function isAllowedVideoFile(file: File): boolean {
-  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const hasAllowedExtension = ALLOWED_VIDEO_EXTENSIONS.has(extension);
-  if (!file.type) {
-    return hasAllowedExtension;
-  }
-  return (
-    file.type.startsWith("video/") &&
-    (ALLOWED_VIDEO_TYPES.has(file.type) || hasAllowedExtension)
-  );
-}
-
-function formatFileSizeMB(sizeBytes: number): string {
-  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDuration(seconds: number): string {
-  return `${Math.round(seconds)} seconds`;
 }
 
 function uploadToCloudflare(

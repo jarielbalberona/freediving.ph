@@ -14,6 +14,10 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
+import {
+  MomentPlayer,
+  momentPlaybackFromUrls,
+} from "@/features/media/components/MomentPlayer";
 import { useMintedMediaMap } from "@/features/media/hooks";
 
 export type MediaViewerDialogItem = {
@@ -141,29 +145,30 @@ export function MediaViewerDialog({
                         item.thumbnailUrl ??
                         dialogUrls.urlMap.get(item.mediaObjectId) ??
                         "";
+                      const momentPlayback =
+                        item.type === "video"
+                          ? momentPlaybackFromUrls({
+                              playbackUrl: item.playbackUrl,
+                              posterUrl: item.thumbnailUrl || src,
+                            })
+                          : null;
                       return (
                         <CarouselItem
                           key={item.id}
                           className="flex h-full min-w-0 items-center overflow-hidden pl-0"
                         >
                           <div className="flex h-full w-full items-center justify-center overflow-hidden">
-                            {item.type === "video" && item.playbackUrl?.includes("iframe.videodelivery.net") ? (
-                              <iframe
-                                src={`${item.playbackUrl}?muted=true&preload=true`}
+                            {item.type === "video" ? (
+                              <MomentPlayer
+                                hlsUrl={momentPlayback?.hlsUrl}
+                                iframeUrl={momentPlayback?.iframeUrl}
+                                posterUrl={momentPlayback?.posterUrl}
                                 title={item.alt}
-                                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-                                allowFullScreen
-                                className="h-full w-full"
-                              />
-                            ) : item.type === "video" && item.playbackUrl ? (
-                              <video
-                                src={item.playbackUrl}
-                                poster={item.thumbnailUrl || src}
                                 controls
                                 muted
                                 playsInline
-                                preload="metadata"
-                                className="h-full w-full object-contain"
+                                videoClassName="object-contain"
+                                iframeClassName="object-contain"
                               />
                             ) : src ? (
                               <Image
