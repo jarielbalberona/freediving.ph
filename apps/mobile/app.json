@@ -1,16 +1,18 @@
 {
   "expo": {
     "name": "Freediving PH",
-    "slug": "freediving-ph",
-    "scheme": "freediving-ph",
+    "slug": "freediving-ph-app",
+    "scheme": "freediving-ph-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "ph.freediving.app",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "ph.freediving.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
