@@ -1046,6 +1046,10 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/profiles/public/{username}"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/profiles/{userID}"
     },
     {

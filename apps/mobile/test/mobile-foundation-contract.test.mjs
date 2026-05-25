@@ -145,13 +145,15 @@ test("profiles use shared contracts, auth gating, and read-only routes", () => {
   assert.match(api, /PublicProfileResponse/);
   assert.match(api, /fphgoFetch/);
   assert.match(api, /\/v1\/me\/profile/);
-  assert.match(api, /\/v1\/profiles\/by-username/);
+  assert.match(api, /\/v1\/profiles\/public/);
   assert.match(api, /auth:\s*"required"/);
+  assert.match(api, /auth:\s*"none"/);
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/profile\/types|features\/profiles\/types/);
   assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
   assert.match(myHook, /useAuthenticatedFphgoQuery/);
-  assert.match(publicHook, /useAuthenticatedFphgoQuery/);
+  assert.doesNotMatch(publicHook, /useAuthenticatedFphgoQuery/);
+  assert.match(publicHook, /useQuery/);
   assert.match(publicHook, /safeProfileUsername/);
   assert.match(ownScreen, /\/\(app\)\/settings/);
   assert.match(publicScreen, /useLocalSearchParams/);

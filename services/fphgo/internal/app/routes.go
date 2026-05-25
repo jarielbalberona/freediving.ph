@@ -123,6 +123,7 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		}
 		if deps.ProfilesHandler != nil {
 			r.Get("/v1/profiles/{username}/diving", deps.ProfilesHandler.GetProfileDivingByUsername)
+			r.Mount("/v1/profiles", profileshttp.PublicRoutes(deps.ProfilesHandler))
 		}
 		if exploreRouter := resolveExploreRouter(deps); exploreRouter != nil {
 			r.Mount("/v1/explore", exploreRouter)

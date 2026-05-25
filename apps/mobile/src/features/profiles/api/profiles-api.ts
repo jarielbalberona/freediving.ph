@@ -13,12 +13,10 @@ export const getMyProfile = (authToken: string) =>
 
 export const getPublicProfileByUsername = (
   username: string,
-  authToken: string,
 ) =>
   fphgoFetch<PublicProfileResponse>(
-    `/v1/profiles/by-username/${encodeURIComponent(username)}`,
+    `/v1/profiles/public/${encodeURIComponent(username)}`,
     {
-      auth: "required",
-      authToken,
+      auth: "none",
     },
   );

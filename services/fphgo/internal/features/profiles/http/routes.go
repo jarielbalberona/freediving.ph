@@ -27,3 +27,11 @@ func Routes(h *Handlers) chi.Router {
 
 	return r
 }
+
+func PublicRoutes(h *Handlers) chi.Router {
+	r := chi.NewRouter()
+
+	r.Get("/public/{username}", h.GetPublicProfileByUsername)
+
+	return r
+}

@@ -124,6 +124,61 @@ func TestListSavedSitesForUserExcludesHiddenSites(t *testing.T) {
 	}
 }
 
+func TestGetPublicProfileByUsernameExposesOnlyActiveAccounts(t *testing.T) {
+	pool := testProfilesPool(t)
+	repo := profilesrepo.New(pool)
+	ctx := context.Background()
+	nonce := time.Now().UnixNano()
+
+	activeUsername := fmt.Sprintf("public_profile_active_%d", nonce)
+	suspendedUsername := fmt.Sprintf("public_profile_suspended_%d", nonce)
+
+	var activeID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO users (id, username, display_name, account_status, email_verified, phone_verified)
+		VALUES (gen_random_uuid(), $1, 'Public Profile Active', 'active', true, true)
+		RETURNING id
+	`, activeUsername).Scan(&activeID); err != nil {
+		t.Skipf("insert active user: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO profiles (user_id, bio, avatar_url, location, home_area, socials)
+		VALUES ($1, 'Public bio', 'https://example.test/avatar.png', 'Exact Private Barangay, Cebu', 'Cebu', '{"website":"https://example.test"}'::jsonb)
+	`, activeID); err != nil {
+		t.Skipf("insert active profile: %v", err)
+	}
+
+	var suspendedID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO users (id, username, display_name, account_status)
+		VALUES (gen_random_uuid(), $1, 'Suspended Profile', 'suspended')
+		RETURNING id
+	`, suspendedUsername).Scan(&suspendedID); err != nil {
+		t.Skipf("insert suspended user: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO profiles (user_id, bio)
+		VALUES ($1, 'Suspended bio')
+	`, suspendedID); err != nil {
+		t.Skipf("insert suspended profile: %v", err)
+	}
+
+	profile, err := repo.GetPublicProfileByUsername(ctx, activeUsername)
+	if err != nil {
+		t.Fatalf("get active public profile: %v", err)
+	}
+	if profile.UserID == "" || profile.Username != activeUsername || profile.DisplayName != "Public Profile Active" {
+		t.Fatalf("unexpected active public profile: %+v", profile)
+	}
+	if profile.Bio != "Public bio" || profile.AvatarURL == "" {
+		t.Fatalf("expected public bio/avatar, got %+v", profile)
+	}
+
+	if _, err := repo.GetPublicProfileByUsername(ctx, suspendedUsername); err == nil {
+		t.Fatal("expected suspended profile to be unavailable")
+	}
+}
+
 func TestListProfileDivingByUsernameAppliesVisibilityBlocksAndStatus(t *testing.T) {
 	pool := testProfilesPool(t)
 	repo := profilesrepo.New(pool)

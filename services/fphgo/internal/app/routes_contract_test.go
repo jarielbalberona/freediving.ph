@@ -249,6 +249,40 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		assertStringField(t, profile, "displayName")
 	})
 
+	t.Run("GET /v1/profiles/public/{username} guest public profile", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/profiles/public/member", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		profile, ok := payload["profile"].(map[string]any)
+		if !ok {
+			t.Fatal("expected profile object")
+		}
+		assertStringField(t, profile, "userId")
+		assertStringField(t, profile, "username")
+		assertStringField(t, profile, "displayName")
+		if _, ok := profile["emailVerified"]; ok {
+			t.Fatal("public profile leaked emailVerified")
+		}
+		if _, ok := profile["phoneVerified"]; ok {
+			t.Fatal("public profile leaked phoneVerified")
+		}
+		if _, ok := profile["location"]; ok {
+			t.Fatal("public profile leaked location")
+		}
+		if _, ok := profile["socials"]; ok {
+			t.Fatal("public profile leaked socials")
+		}
+	})
+
 	t.Run("GET /v1/users/search hits search route before username route", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/v1/users/search?q=theaikokitane&limit=8", nil)
 		req.Header.Set("Authorization", "Bearer contract-ok")

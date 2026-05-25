@@ -38,6 +38,43 @@ func TestProfilesRoutesRequireAuth(t *testing.T) {
 	}
 }
 
+func TestPublicProfileRouteIsGuestReadable(t *testing.T) {
+	v := validatex.New()
+	router := chi.NewRouter()
+	router.Mount("/", PublicRoutes(New(&stubProfilesService{}, v)))
+
+	req := httptest.NewRequest(http.MethodGet, "/public/member", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for guest public profile read, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to decode payload: %v", err)
+	}
+	profile, ok := payload["profile"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected profile object, got %v", payload)
+	}
+	if profile["username"] != "member" {
+		t.Fatalf("expected username member, got %v", profile["username"])
+	}
+	if _, ok := profile["emailVerified"]; ok {
+		t.Fatal("public profile leaked emailVerified")
+	}
+	if _, ok := profile["phoneVerified"]; ok {
+		t.Fatal("public profile leaked phoneVerified")
+	}
+	if _, ok := profile["location"]; ok {
+		t.Fatal("public profile leaked location")
+	}
+	if _, ok := profile["socials"]; ok {
+		t.Fatal("public profile leaked socials")
+	}
+}
+
 func TestProfilesRoutesRequirePermissions(t *testing.T) {
 	v := validatex.New()
 	identity := authz.Identity{

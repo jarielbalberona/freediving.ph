@@ -252,6 +252,8 @@ test("Moment upload panel previews and validates selected local videos", async (
   assert.doesNotMatch(preview, /border border-border/);
   assert.match(panel, /<SelectedVideoPreview/);
   assert.match(composer, /<SelectedVideoPreview/);
+  assert.match(composer, /Moments are still in progress/);
+  assert.match(composer, /You can test choosing and previewing a video/);
   assert.match(composer, /className="-mx-3 sm:mx-0"/);
   assert.match(composer, /className="flex min-h-80 w-full flex-col items-center justify-center gap-3 px-4 text-center"/);
   assert.match(composer, /<Film className="size-5" \/>/);
