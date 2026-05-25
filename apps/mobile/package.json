@@ -5,8 +5,6 @@
   "dependencies": {
     "@clerk/expo": "^3.2.16",
     "@freediving.ph/types": "workspace:*",
-    "@react-navigation/drawer": "^7.10.2",
-    "@react-navigation/native": "^7.2.4",
     "@sentry/react-native": "~7.11.0",
     "@tanstack/react-query": "^5.66.9",
     "clsx": "^2.1.1",
@@ -54,7 +52,7 @@
     "doctor": "npx expo-doctor",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "biome lint .",
+    "lint": "biome lint app src test app.json babel.config.cjs metro.config.cjs tailwind.config.cjs",
     "format": "biome format --write .",
     "type-check": "tsc --noEmit",
     "test": "node --test test/**/*.test.mjs",

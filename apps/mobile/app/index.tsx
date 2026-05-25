@@ -10,5 +10,5 @@ export default function IndexRoute() {
     return <MobileLoadingState message="Preparing Freediving Philippines." />;
   }
 
-  return <Redirect href="/(app)/(tabs)" />;
+  return <Redirect href="/(app)/(tabs)/(home)" />;
 }

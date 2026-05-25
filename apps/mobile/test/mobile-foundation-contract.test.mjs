@@ -4,12 +4,16 @@ import path from "node:path";
 import test from "node:test";
 
 const root = path.resolve(import.meta.dirname, "..");
-const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
+const read = (relativePath) =>
+  fs.readFileSync(path.join(root, relativePath), "utf8");
 
 test("mobile package aligns with repository tooling decisions", () => {
   const pkg = JSON.parse(read("package.json"));
 
-  assert.equal(pkg.scripts.lint, "biome lint .");
+  assert.equal(
+    pkg.scripts.lint,
+    "biome lint app src test app.json babel.config.cjs metro.config.cjs tailwind.config.cjs",
+  );
   assert.ok(!JSON.stringify(pkg).includes("eslint"));
   assert.ok(!JSON.stringify(pkg).includes("prettier"));
   assert.ok(!pkg.scripts["reset-project"]);
@@ -21,8 +25,12 @@ test("mobile package aligns with repository tooling decisions", () => {
 });
 
 test("mobile routes stay thin and shell-backed", () => {
-  assert.ok(fs.existsSync(path.join(root, "app/(app)/(tabs)/index.tsx")));
-  assert.ok(fs.existsSync(path.join(root, "src/components/shell/mobile-app-shell.tsx")));
+  assert.ok(
+    fs.existsSync(path.join(root, "app/(app)/(tabs)/(home)/index.tsx")),
+  );
+  assert.ok(
+    fs.existsSync(path.join(root, "src/components/shell/mobile-app-shell.tsx")),
+  );
   assert.ok(fs.existsSync(path.join(root, "src/lib/api/fphgo-client.ts")));
 });
 
@@ -51,7 +59,9 @@ test("protected fphgo query helper gates on Clerk readiness", () => {
 
 test("home feed uses shared activity contracts and fetch client", () => {
   const api = read("src/features/home-feed/api/get-home-activity-feed.ts");
-  const hook = read("src/features/home-feed/hooks/use-home-activity-feed-query.ts");
+  const hook = read(
+    "src/features/home-feed/hooks/use-home-activity-feed-query.ts",
+  );
   const mapper = read("src/features/home-feed/lib/activity-card-model.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
@@ -60,15 +70,17 @@ test("home feed uses shared activity contracts and fetch client", () => {
   assert.match(api, /\/v1\/feed\/activity/);
   assert.doesNotMatch(api, /axios/i);
   assert.match(hook, /mobileQueryKeys\.feed\.activity/);
-  assert.match(mapper, /\/\(app\)\/chika\/\[slug\]/);
-  assert.match(mapper, /\/\(app\)\/events\/\[slug\]/);
-  assert.match(mapper, /\/\(app\)\/explore\/\[slug\]/);
+  assert.match(mapper, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
+  assert.match(mapper, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
+  assert.match(mapper, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
 });
 
 test("explore uses shared contracts and safe mobile routes", () => {
   const api = read("src/features/explore/api/explore-api.ts");
   const card = read("src/features/explore/components/explore-site-card.tsx");
-  const detail = read("src/features/explore/screens/explore-site-detail-screen.tsx");
+  const detail = read(
+    "src/features/explore/screens/explore-site-detail-screen.tsx",
+  );
   const format = read("src/features/explore/lib/explore-format.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
@@ -79,7 +91,7 @@ test("explore uses shared contracts and safe mobile routes", () => {
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/explore\/types/);
   assert.match(card, /safeSiteSlug/);
-  assert.match(card, /\/\(app\)\/explore\/\[slug\]/);
+  assert.match(card, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
   assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
   assert.doesNotMatch(detail, /bookmark|gps/i);
@@ -89,7 +101,9 @@ test("explore uses shared contracts and safe mobile routes", () => {
 test("chika uses shared contracts and read-only mobile routes", () => {
   const api = read("src/features/chika/api/chika-api.ts");
   const card = read("src/features/chika/components/chika-thread-card.tsx");
-  const detail = read("src/features/chika/screens/chika-thread-detail-screen.tsx");
+  const detail = read(
+    "src/features/chika/screens/chika-thread-detail-screen.tsx",
+  );
   const format = read("src/features/chika/lib/chika-format.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
@@ -103,7 +117,7 @@ test("chika uses shared contracts and read-only mobile routes", () => {
   assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
   assert.match(card, /safeChikaSlug/);
   assert.match(format, /authorDisplayName/);
-  assert.match(card, /\/\(app\)\/chika\/\[slug\]/);
+  assert.match(card, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
   assert.doesNotMatch(detail, /createComment|setReaction|websocket|realtime/i);
   assert.ok(format.includes('includes("/")'));
@@ -126,7 +140,7 @@ test("events uses shared contracts and read-only mobile routes", () => {
   assert.doesNotMatch(api, /features\/events\/types/);
   assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
   assert.match(card, /safeEventSlug/);
-  assert.match(card, /\/\(app\)\/events\/\[slug\]/);
+  assert.match(card, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
   assert.doesNotMatch(detail, /joinEvent|rsvp|booking|checkIn|receipt/i);
   assert.ok(format.includes('includes("/")'));
@@ -135,9 +149,13 @@ test("events uses shared contracts and read-only mobile routes", () => {
 test("profiles use shared contracts, auth gating, and read-only routes", () => {
   const api = read("src/features/profiles/api/profiles-api.ts");
   const myHook = read("src/features/profiles/hooks/use-my-profile-query.ts");
-  const publicHook = read("src/features/profiles/hooks/use-public-profile-query.ts");
+  const publicHook = read(
+    "src/features/profiles/hooks/use-public-profile-query.ts",
+  );
   const ownScreen = read("src/features/profiles/screens/profile-screen.tsx");
-  const publicScreen = read("src/features/profiles/screens/public-profile-screen.tsx");
+  const publicScreen = read(
+    "src/features/profiles/screens/public-profile-screen.tsx",
+  );
   const format = read("src/features/profiles/lib/profile-format.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
@@ -149,24 +167,39 @@ test("profiles use shared contracts, auth gating, and read-only routes", () => {
   assert.match(api, /auth:\s*"required"/);
   assert.match(api, /auth:\s*"none"/);
   assert.doesNotMatch(api, /axios/i);
-  assert.doesNotMatch(api, /features\/profile\/types|features\/profiles\/types/);
+  assert.doesNotMatch(
+    api,
+    /features\/profile\/types|features\/profiles\/types/,
+  );
   assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
   assert.match(myHook, /useAuthenticatedFphgoQuery/);
   assert.doesNotMatch(publicHook, /useAuthenticatedFphgoQuery/);
   assert.match(publicHook, /useQuery/);
   assert.match(publicHook, /safeProfileUsername/);
-  assert.match(ownScreen, /\/\(app\)\/settings/);
+  assert.match(ownScreen, /\/\(app\)\/\(tabs\)\/profile\/settings/);
   assert.match(publicScreen, /useLocalSearchParams/);
-  assert.doesNotMatch(ownScreen, /upload|editProfile|followAction|sendMessage|SQLite|Drizzle/i);
-  assert.doesNotMatch(publicScreen, /upload|editProfile|followAction|sendMessage|report|block/i);
+  assert.doesNotMatch(
+    ownScreen,
+    /upload|editProfile|followAction|sendMessage|SQLite|Drizzle/i,
+  );
+  assert.doesNotMatch(
+    publicScreen,
+    /upload|editProfile|followAction|sendMessage|report|block/i,
+  );
   assert.ok(format.includes('includes("/")'));
 });
 
 test("notifications use shared contracts, auth gating, and read-only routes", () => {
   const api = read("src/features/notifications/api/notifications-api.ts");
-  const hook = read("src/features/notifications/hooks/use-notifications-query.ts");
-  const card = read("src/features/notifications/components/notification-card.tsx");
-  const screen = read("src/features/notifications/screens/notifications-screen.tsx");
+  const hook = read(
+    "src/features/notifications/hooks/use-notifications-query.ts",
+  );
+  const card = read(
+    "src/features/notifications/components/notification-card.tsx",
+  );
+  const screen = read(
+    "src/features/notifications/screens/notifications-screen.tsx",
+  );
   const format = read("src/features/notifications/lib/notification-format.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
@@ -181,14 +214,17 @@ test("notifications use shared contracts, auth gating, and read-only routes", ()
   assert.match(hook, /useAuthenticatedFphgoQuery/);
   assert.match(hook, /mobileQueryKeys\.notifications\.list/);
   assert.match(card, /notificationHref/);
-  assert.match(format, /\/\(app\)\/events\/\[slug\]/);
-  assert.match(format, /\/\(app\)\/chika\/\[slug\]/);
-  assert.match(format, /\/\(app\)\/explore\/\[slug\]/);
-  assert.match(format, /\/\(app\)\/profile\/\[username\]/);
+  assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
+  assert.match(format, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
+  assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
+  assert.match(format, /\/\(app\)\/\(tabs\)\/profile\/\[username\]/);
   assert.match(screen, /MobileLoadingState/);
   assert.match(screen, /MobileEmptyState/);
   assert.match(screen, /MobileErrorState/);
-  assert.doesNotMatch(screen, /markAsRead|markAllAsRead|pushToken|websocket|realtime/i);
+  assert.doesNotMatch(
+    screen,
+    /markAsRead|markAllAsRead|pushToken|websocket|realtime/i,
+  );
 });
 
 test("buddies use shared public preview contracts and read-only routes", () => {
@@ -207,7 +243,10 @@ test("buddies use shared public preview contracts and read-only routes", () => {
   assert.match(api, /auth:\s*"none"/);
   assert.match(api, /auth:\s*"required"/);
   assert.doesNotMatch(api, /axios/i);
-  assert.doesNotMatch(api, /features\/buddies\/types|features\/buddy-finder\/types/);
+  assert.doesNotMatch(
+    api,
+    /features\/buddies\/types|features\/buddy-finder\/types/,
+  );
   assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
   assert.doesNotMatch(hook, /useAuthenticatedFphgoQuery/);
   assert.match(hook, /mobileQueryKeys\.buddies\.preview/);
@@ -217,5 +256,8 @@ test("buddies use shared public preview contracts and read-only routes", () => {
   assert.match(screen, /MobileLoadingState/);
   assert.match(screen, /MobileEmptyState/);
   assert.match(screen, /MobileErrorState/);
-  assert.doesNotMatch(screen, /createIntent|deleteIntent|messageEntry|sendRequest|gps|location/i);
+  assert.doesNotMatch(
+    screen,
+    /createIntent|deleteIntent|messageEntry|sendRequest|gps|location/i,
+  );
 });

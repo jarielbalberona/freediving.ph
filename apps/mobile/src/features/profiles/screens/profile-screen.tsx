@@ -38,7 +38,10 @@ export function ProfileScreen() {
             message="Your profile is taking longer than expected to load."
             title="Profile unavailable"
           />
-          <MobileButton variant="secondary" onPress={() => void profileQuery.refetch()}>
+          <MobileButton
+            variant="secondary"
+            onPress={() => void profileQuery.refetch()}
+          >
             Try again
           </MobileButton>
         </View>
@@ -88,13 +91,16 @@ export function ProfileScreen() {
             value={profileCountLabel(profile.reportCount, "reports")}
           />
           {profile.interests?.length ? (
-            <ProfileDetailRow label="Interests" value={profile.interests.join(", ")} />
+            <ProfileDetailRow
+              label="Interests"
+              value={profile.interests.join(", ")}
+            />
           ) : null}
         </View>
       </MobileSection>
 
       <MobileSection title="Settings">
-        <Link href="/(app)/settings" asChild>
+        <Link href="/(app)/(tabs)/profile/settings" asChild>
           <Pressable accessibilityRole="link">
             <View className="rounded-2xl border border-border bg-card p-4">
               <Text className="text-base font-semibold text-foreground">

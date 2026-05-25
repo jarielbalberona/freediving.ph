@@ -29,7 +29,7 @@ type MobileNavIcon = ComponentType<{
 export type MobileBottomNavItem = {
   id: AppNavId;
   label: string;
-  routeName: "index" | "chika" | "create" | "messages" | "profile";
+  routeName: "(home)" | "chika" | "create" | "messages" | "profile";
   sf: string | { default: string; selected: string };
   md: string;
 };
@@ -54,7 +54,7 @@ const bottomRouteById: Record<
   AppNavId,
   MobileBottomNavItem["routeName"] | null
 > = {
-  home: "index",
+  home: "(home)",
   chika: "chika",
   create: "create",
   messages: "messages",

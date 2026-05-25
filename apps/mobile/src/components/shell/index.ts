@@ -1,6 +1,8 @@
 export { MobileActionSheet } from "./mobile-action-sheet";
 export { MobileAppShell } from "./mobile-app-shell";
+export { MobileAuthRequired } from "./mobile-auth-required";
 export { MobileCard } from "./mobile-card";
+export { MobileDrawerContent } from "./mobile-drawer-content";
 export { MobileEmptyState } from "./mobile-empty-state";
 export { MobileErrorState } from "./mobile-error-state";
 export { MobileLoadingState } from "./mobile-loading-state";

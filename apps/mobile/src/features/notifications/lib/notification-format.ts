@@ -64,7 +64,9 @@ const safeSegment = (value: string | undefined) => {
   return trimmed;
 };
 
-export const notificationHref = (notification: Notification): Href | undefined => {
+export const notificationHref = (
+  notification: Notification,
+): Href | undefined => {
   const actionUrl = notification.actionUrl?.trim();
   if (!actionUrl || !actionUrl.startsWith("/") || actionUrl.startsWith("//")) {
     return undefined;
@@ -76,28 +78,31 @@ export const notificationHref = (notification: Notification): Href | undefined =
   if (parts[0] === "events" && parts.length === 2) {
     const slug = safeSegment(parts[1]);
     return slug
-      ? { pathname: "/(app)/events/[slug]", params: { slug } }
+      ? { pathname: "/(app)/(tabs)/(home)/events/[slug]", params: { slug } }
       : undefined;
   }
 
   if (parts[0] === "chika" && parts.length === 2) {
     const slug = safeSegment(parts[1]);
     return slug
-      ? { pathname: "/(app)/chika/[slug]", params: { slug } }
+      ? { pathname: "/(app)/(tabs)/chika/[slug]", params: { slug } }
       : undefined;
   }
 
   if (parts[0] === "explore" && parts[1] === "sites" && parts.length === 3) {
     const slug = safeSegment(parts[2]);
     return slug
-      ? { pathname: "/(app)/explore/[slug]", params: { slug } }
+      ? {
+          pathname: "/(app)/(tabs)/(home)/explore/[slug]",
+          params: { slug },
+        }
       : undefined;
   }
 
   if (parts[0] === "profile" && parts.length === 2) {
     const username = safeSegment(parts[1]);
     return username
-      ? { pathname: "/(app)/profile/[username]", params: { username } }
+      ? { pathname: "/(app)/(tabs)/profile/[username]", params: { username } }
       : undefined;
   }
 

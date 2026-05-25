@@ -1,5 +1,4 @@
 import { useAuth } from "@clerk/expo";
-import { DrawerActions } from "@react-navigation/native";
 import { Link, useNavigation } from "expo-router";
 import { Bell, Menu, UserRound } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
@@ -14,6 +13,34 @@ export function MobileTopHeader({ subtitle, title }: MobileTopHeaderProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { isSignedIn } = useAuth();
+  const openDrawer = () => {
+    let target: unknown = navigation;
+    for (let depth = 0; depth < 5 && target != null; depth += 1) {
+      if (
+        typeof target === "object" &&
+        "openDrawer" in target &&
+        typeof target.openDrawer === "function"
+      ) {
+        target.openDrawer();
+        return;
+      }
+      if (
+        typeof target !== "object" ||
+        !("getParent" in target) ||
+        typeof target.getParent !== "function"
+      ) {
+        break;
+      }
+      target = target.getParent();
+    }
+    if (
+      typeof navigation === "object" &&
+      "dispatch" in navigation &&
+      typeof navigation.dispatch === "function"
+    ) {
+      navigation.dispatch({ type: "OPEN_DRAWER" });
+    }
+  };
 
   return (
     <View
@@ -24,7 +51,7 @@ export function MobileTopHeader({ subtitle, title }: MobileTopHeaderProps) {
         <Pressable
           accessibilityLabel="Open menu"
           className="h-10 w-10 items-center justify-center rounded-full bg-secondary"
-          onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+          onPress={openDrawer}
         >
           <Menu color="#0A1F2E" size={20} />
         </Pressable>
@@ -44,7 +71,10 @@ export function MobileTopHeader({ subtitle, title }: MobileTopHeaderProps) {
             </Text>
           ) : null}
         </View>
-        <Link href={isSignedIn ? "/(app)/notifications" : "/sign-in"} asChild>
+        <Link
+          href={isSignedIn ? "/(app)/(tabs)/(home)/notifications" : "/sign-in"}
+          asChild
+        >
           <Pressable
             accessibilityLabel="Open notifications"
             className="h-10 w-10 items-center justify-center rounded-full bg-secondary"

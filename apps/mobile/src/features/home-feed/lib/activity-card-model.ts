@@ -24,7 +24,12 @@ const ACTIVITY_LABELS: Record<ActivityFeedItem["type"], string> = {
 
 const safeSegment = (value: string | undefined) => {
   const trimmed = value?.trim();
-  if (!trimmed || trimmed.includes("/") || trimmed.includes("?") || trimmed.includes("#")) {
+  if (
+    !trimmed ||
+    trimmed.includes("/") ||
+    trimmed.includes("?") ||
+    trimmed.includes("#")
+  ) {
     return undefined;
   }
   return trimmed;
@@ -48,29 +53,44 @@ const firstThumbnailUrl = (item: ActivityFeedItem) => {
   return first?.displayUrl || first?.dialogUrl;
 };
 
-export const getHomeActivityCardHref = (item: ActivityFeedItem): Href | undefined => {
+export const getHomeActivityCardHref = (
+  item: ActivityFeedItem,
+): Href | undefined => {
   if (item.type === "chika_thread_created") {
     const slug = segmentFromHref(item.href, "/chika/");
-    return slug ? { pathname: "/(app)/chika/[slug]", params: { slug } } : undefined;
+    return slug
+      ? { pathname: "/(app)/(tabs)/chika/[slug]", params: { slug } }
+      : undefined;
   }
 
   if (item.type === "event_published") {
     const slug = segmentFromHref(item.href, "/events/");
-    return slug ? { pathname: "/(app)/events/[slug]", params: { slug } } : undefined;
+    return slug
+      ? { pathname: "/(app)/(tabs)/(home)/events/[slug]", params: { slug } }
+      : undefined;
   }
 
-  if (item.type === "dive_site_update_added" || item.type === "media_post_created") {
+  if (
+    item.type === "dive_site_update_added" ||
+    item.type === "media_post_created"
+  ) {
     const slug =
       safeSegment(stringMetadata(item.metadata, "diveSiteSlug")) ??
       segmentFromHref(item.href, "/explore/sites/");
     if (slug) {
-      return { pathname: "/(app)/explore/[slug]", params: { slug } };
+      return {
+        pathname: "/(app)/(tabs)/(home)/explore/[slug]",
+        params: { slug },
+      };
     }
   }
 
-  const username = item.type === "media_post_created" ? safeSegment(item.actor.username) : undefined;
+  const username =
+    item.type === "media_post_created"
+      ? safeSegment(item.actor.username)
+      : undefined;
   return username
-    ? { pathname: "/(app)/profile/[username]", params: { username } }
+    ? { pathname: "/(app)/(tabs)/profile/[username]", params: { username } }
     : undefined;
 };
 

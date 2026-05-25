@@ -17,7 +17,7 @@ export function AuthScreen({ mode }: AuthScreenProps) {
   }
 
   if (isSignedIn) {
-    return <Redirect href="/(app)/(tabs)" />;
+    return <Redirect href="/(app)/(tabs)/(home)" />;
   }
 
   return (
@@ -31,7 +31,8 @@ export function AuthScreen({ mode }: AuthScreenProps) {
             {mode === "signIn" ? "Sign in" : "Create account"}
           </Text>
           <Text className="text-sm leading-6 text-muted-foreground">
-            Use your FPH account to open the mobile app shell. Feature data integration comes next.
+            Use your FPH account to open the mobile app shell. Feature data
+            integration comes next.
           </Text>
         </View>
         <View className="min-h-[460px] overflow-hidden rounded-2xl border border-border bg-card">
@@ -40,7 +41,9 @@ export function AuthScreen({ mode }: AuthScreenProps) {
         <Link href={mode === "signIn" ? "/sign-up" : "/sign-in"} asChild>
           <Pressable className="items-center rounded-xl bg-secondary px-4 py-3">
             <Text className="text-sm font-semibold text-secondary-foreground">
-              {mode === "signIn" ? "Need an account? Sign up" : "Already have an account? Sign in"}
+              {mode === "signIn"
+                ? "Need an account? Sign up"
+                : "Already have an account? Sign in"}
             </Text>
           </Pressable>
         </Link>

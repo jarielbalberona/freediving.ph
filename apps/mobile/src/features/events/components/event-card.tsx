@@ -53,7 +53,10 @@ function EventCardContent({ event }: EventCardProps) {
           <Text className="text-base font-semibold leading-6 text-foreground">
             {event.title}
           </Text>
-          <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={3}>
+          <Text
+            className="text-sm leading-6 text-muted-foreground"
+            numberOfLines={3}
+          >
             {eventSummary(event)}
           </Text>
         </View>
@@ -83,7 +86,13 @@ export function EventCard({ event }: EventCardProps) {
   }
 
   return (
-    <Link href={{ pathname: "/(app)/events/[slug]", params: { slug } }} asChild>
+    <Link
+      href={{
+        pathname: "/(app)/(tabs)/(home)/events/[slug]",
+        params: { slug },
+      }}
+      asChild
+    >
       <Pressable accessibilityRole="link">
         <EventCardContent event={event} />
       </Pressable>

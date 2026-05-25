@@ -33,12 +33,17 @@ function ChikaThreadCardContent({ thread }: ChikaThreadCardProps) {
             </Text>
           </View>
           {dateLabel ? (
-            <Text className="shrink-0 text-xs text-muted-foreground">{dateLabel}</Text>
+            <Text className="shrink-0 text-xs text-muted-foreground">
+              {dateLabel}
+            </Text>
           ) : null}
         </View>
 
         {preview ? (
-          <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={3}>
+          <Text
+            className="text-sm leading-6 text-muted-foreground"
+            numberOfLines={3}
+          >
             {preview}
           </Text>
         ) : null}
@@ -53,7 +58,8 @@ function ChikaThreadCardContent({ thread }: ChikaThreadCardProps) {
             </Text>
           ) : null}
           <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {thread.commentCount} {thread.commentCount === 1 ? "reply" : "replies"}
+            {thread.commentCount}{" "}
+            {thread.commentCount === 1 ? "reply" : "replies"}
           </Text>
           {thread.isHidden ? (
             <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
@@ -74,7 +80,10 @@ export function ChikaThreadCard({ thread }: ChikaThreadCardProps) {
   }
 
   return (
-    <Link href={{ pathname: "/(app)/chika/[slug]", params: { slug } }} asChild>
+    <Link
+      href={{ pathname: "/(app)/(tabs)/chika/[slug]", params: { slug } }}
+      asChild
+    >
       <Pressable accessibilityRole="link">
         <ChikaThreadCardContent thread={thread} />
       </Pressable>

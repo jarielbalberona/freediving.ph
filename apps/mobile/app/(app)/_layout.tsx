@@ -1,10 +1,11 @@
 import { Drawer } from "expo-router/drawer";
 
-import { MOBILE_DRAWER_NAV_ITEMS } from "@/config/navigation";
+import { MobileDrawerContent } from "@/components/shell/mobile-drawer-content";
 
 export default function AppLayout() {
   return (
     <Drawer
+      drawerContent={(props) => <MobileDrawerContent {...props} />}
       screenOptions={{
         drawerActiveTintColor: "#0677A8",
         drawerInactiveTintColor: "#0A1F2E",
@@ -21,36 +22,6 @@ export default function AppLayout() {
           drawerItemStyle: { display: "none" },
         }}
       />
-      {MOBILE_DRAWER_NAV_ITEMS.map((item) => {
-        const Icon = item.icon;
-        return (
-          <Drawer.Screen
-            key={item.id}
-            name={item.routeName}
-            options={{
-              drawerIcon: ({ color, size }) => (
-                <Icon color={color} size={size} strokeWidth={2.1} />
-              ),
-              drawerLabel: item.label,
-              title: item.label,
-            }}
-          />
-        );
-      })}
-      {[
-        "notifications",
-        "settings",
-        "explore/[slug]",
-        "chika/[slug]",
-        "events/[slug]",
-        "profile/[username]",
-      ].map((name) => (
-        <Drawer.Screen
-          key={name}
-          name={name}
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-      ))}
     </Drawer>
   );
 }

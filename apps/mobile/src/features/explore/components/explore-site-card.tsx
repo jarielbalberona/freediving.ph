@@ -38,7 +38,10 @@ function ExploreSiteCardContent({ site }: ExploreSiteCardProps) {
           </Text>
           <Text className="text-sm text-muted-foreground">{site.area}</Text>
           {site.lastConditionSummary ? (
-            <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={3}>
+            <Text
+              className="text-sm leading-6 text-muted-foreground"
+              numberOfLines={3}
+            >
               {site.lastConditionSummary}
             </Text>
           ) : null}
@@ -75,7 +78,13 @@ export function ExploreSiteCard({ site }: ExploreSiteCardProps) {
   }
 
   return (
-    <Link href={{ pathname: "/(app)/explore/[slug]", params: { slug } }} asChild>
+    <Link
+      href={{
+        pathname: "/(app)/(tabs)/(home)/explore/[slug]",
+        params: { slug },
+      }}
+      asChild
+    >
       <Pressable accessibilityRole="link">
         <ExploreSiteCardContent site={site} />
       </Pressable>
