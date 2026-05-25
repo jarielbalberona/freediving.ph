@@ -30,6 +30,7 @@ export const mobileQueryKeys = {
       [...mobileQueryKeys.chika.all, "threads", "detail", slug] as const,
     threadComments: (threadId: string, params: { limit?: number }) =>
       [...mobileQueryKeys.chika.all, "threads", threadId, "comments", params] as const,
+    categories: () => [...mobileQueryKeys.chika.all, "categories"] as const,
   },
   events: {
     all: ["events"] as const,
@@ -45,6 +46,28 @@ export const mobileQueryKeys = {
       [...mobileQueryKeys.buddies.all, "preview", params ?? {}] as const,
     intents: (params?: { limit?: number }) =>
       [...mobileQueryKeys.buddies.all, "intents", params ?? {}] as const,
+    mine: () => [...mobileQueryKeys.buddies.all, "mine"] as const,
+  },
+  groups: {
+    all: ["groups"] as const,
+    list: (params?: { limit?: number; mine?: boolean }) =>
+      [...mobileQueryKeys.groups.all, "list", params ?? {}] as const,
+    detail: (slug: string) =>
+      [...mobileQueryKeys.groups.all, "detail", slug] as const,
+    members: (groupId: string) =>
+      [...mobileQueryKeys.groups.all, "detail", groupId, "members"] as const,
+    posts: (groupId: string) =>
+      [...mobileQueryKeys.groups.all, "detail", groupId, "posts"] as const,
+  },
+  messages: {
+    all: ["messages"] as const,
+    threads: (category: string) =>
+      [...mobileQueryKeys.messages.all, "threads", category] as const,
+    detail: (threadId: string) =>
+      [...mobileQueryKeys.messages.all, "threads", threadId] as const,
+    messages: (threadId: string) =>
+      [...mobileQueryKeys.messages.all, "threads", threadId, "messages"] as const,
+    unreadCount: () => [...mobileQueryKeys.messages.all, "unread-count"] as const,
   },
   notifications: {
     all: ["notifications"] as const,
@@ -58,5 +81,9 @@ export const mobileQueryKeys = {
     me: () => [...mobileQueryKeys.profile.all, "me"] as const,
     public: (username: string) =>
       [...mobileQueryKeys.profile.all, "public", username] as const,
+    posts: (username: string) =>
+      [...mobileQueryKeys.profile.all, "public", username, "posts"] as const,
+    diving: (username: string) =>
+      [...mobileQueryKeys.profile.all, "public", username, "diving"] as const,
   },
 };

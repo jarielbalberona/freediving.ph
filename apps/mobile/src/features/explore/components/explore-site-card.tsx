@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import type { ExploreSiteCard } from "@freediving.ph/types";
 
 import { MobileCard } from "@/components/shell";
+import { MobileButton } from "@/components/ui/mobile-button";
 import {
   formatDepthRange,
   safeSiteSlug,
@@ -13,10 +14,12 @@ import {
 } from "@/features/explore/lib/explore-format";
 
 type ExploreSiteCardProps = {
+  onLike?: (site: ExploreSiteCard) => void;
+  onSave?: (site: ExploreSiteCard) => void;
   site: ExploreSiteCard;
 };
 
-function ExploreSiteCardContent({ site }: ExploreSiteCardProps) {
+function ExploreSiteCardContent({ onLike, onSave, site }: ExploreSiteCardProps) {
   const depthRange = formatDepthRange(site);
 
   return (
@@ -65,16 +68,34 @@ function ExploreSiteCardContent({ site }: ExploreSiteCardProps) {
             </Text>
           ) : null}
         </View>
+        {(onLike || onSave) ? (
+          <View className="flex-row gap-2">
+            {onLike ? (
+              <View className="flex-1">
+                <MobileButton variant="secondary" onPress={() => onLike(site)}>
+                  {site.viewerHasLiked ? "Unlike" : "Like"} · {site.likeCount}
+                </MobileButton>
+              </View>
+            ) : null}
+            {onSave ? (
+              <View className="flex-1">
+                <MobileButton variant="secondary" onPress={() => onSave(site)}>
+                  {site.isSaved ? "Unsave" : "Save"}
+                </MobileButton>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </MobileCard>
   );
 }
 
-export function ExploreSiteCard({ site }: ExploreSiteCardProps) {
+export function ExploreSiteCard({ onLike, onSave, site }: ExploreSiteCardProps) {
   const slug = safeSiteSlug(site.slug);
 
   if (!slug) {
-    return <ExploreSiteCardContent site={site} />;
+    return <ExploreSiteCardContent onLike={onLike} onSave={onSave} site={site} />;
   }
 
   return (
@@ -86,7 +107,7 @@ export function ExploreSiteCard({ site }: ExploreSiteCardProps) {
       asChild
     >
       <Pressable accessibilityRole="link">
-        <ExploreSiteCardContent site={site} />
+        <ExploreSiteCardContent onLike={onLike} onSave={onSave} site={site} />
       </Pressable>
     </Link>
   );

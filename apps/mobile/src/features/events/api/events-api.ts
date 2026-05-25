@@ -2,6 +2,9 @@ import type {
   EventDetailResponse,
   EventFilters,
   EventListResponse,
+  EventPost,
+  EventPostReactionResponse,
+  JoinEventRequest,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -40,4 +43,74 @@ export const getEventDetail = (slug: string) =>
   fphgoFetch<EventDetailResponse>(
     `/v1/events/${encodeURIComponent(slug)}`,
     { auth: "none" },
+  );
+
+export const joinEvent = (eventId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/events/${encodeURIComponent(eventId)}/join`, {
+    auth: "required",
+    authToken,
+    body: { eventId } satisfies JoinEventRequest,
+    method: "POST",
+  });
+
+export const leaveEvent = (eventId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/events/${encodeURIComponent(eventId)}/leave`, {
+    auth: "required",
+    authToken,
+    method: "POST",
+  });
+
+export const setEventInterest = (eventId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/events/${encodeURIComponent(eventId)}/interest`, {
+    auth: "required",
+    authToken,
+    method: "PUT",
+  });
+
+export const removeEventInterest = (eventId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/events/${encodeURIComponent(eventId)}/interest`, {
+    auth: "required",
+    authToken,
+    method: "DELETE",
+  });
+
+export const getEventPosts = (eventId: string, authToken: string) =>
+  fphgoFetch<{ posts: EventPost[] }>(
+    `/v1/events/${encodeURIComponent(eventId)}/posts`,
+    { auth: "required", authToken },
+  );
+
+export const createEventPost = (
+  eventId: string,
+  bodyMarkdown: string,
+  authToken: string,
+) =>
+  fphgoFetch<{ post: EventPost }>(
+    `/v1/events/${encodeURIComponent(eventId)}/posts`,
+    {
+      auth: "required",
+      authToken,
+      body: { bodyMarkdown, postType: "general" },
+      method: "POST",
+    },
+  );
+
+export const setEventPostFish = (
+  eventId: string,
+  postId: string,
+  authToken: string,
+) =>
+  fphgoFetch<EventPostReactionResponse>(
+    `/v1/events/${encodeURIComponent(eventId)}/updates/${encodeURIComponent(postId)}/reactions/fish`,
+    { auth: "required", authToken, method: "POST" },
+  );
+
+export const removeEventPostFish = (
+  eventId: string,
+  postId: string,
+  authToken: string,
+) =>
+  fphgoFetch<EventPostReactionResponse>(
+    `/v1/events/${encodeURIComponent(eventId)}/updates/${encodeURIComponent(postId)}/reactions/fish`,
+    { auth: "required", authToken, method: "DELETE" },
   );

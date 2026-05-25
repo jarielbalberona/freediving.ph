@@ -1,6 +1,8 @@
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { Text, View } from "react-native";
+import { useState } from "react";
+import { Text, TextInput, View } from "react-native";
+import { useAuth } from "@clerk/expo";
 
 import {
   MobileEmptyState,
@@ -12,6 +14,13 @@ import {
 import { MobileButton } from "@/components/ui/mobile-button";
 import { EventDetailRow } from "@/features/events/components/event-detail-row";
 import { useEventDetailQuery } from "@/features/events/hooks/use-event-detail-query";
+import {
+  useCreateEventPostMutation,
+  useEventAttendanceMutation,
+  useEventInterestMutation,
+  useEventPostFishMutation,
+} from "@/features/events/hooks/use-event-mutations";
+import { useEventPostsQuery } from "@/features/events/hooks/use-event-posts-query";
 import {
   eventDifficultyLabel,
   eventLocationLabel,
@@ -31,7 +40,17 @@ export function EventDetailScreen() {
   const params = useLocalSearchParams<{ slug?: string | string[] }>();
   const slug = firstParam(params.slug);
   const eventQuery = useEventDetailQuery(slug);
+  const { isLoaded, isSignedIn } = useAuth();
   const event = eventQuery.data?.event;
+  const eventPostsQuery = useEventPostsQuery(
+    event?.id,
+    Boolean(event?.postsEnabled && isLoaded && isSignedIn),
+  );
+  const attendanceMutation = useEventAttendanceMutation(slug ?? "", event?.id ?? "");
+  const interestMutation = useEventInterestMutation(slug ?? "", event?.id ?? "");
+  const createPostMutation = useCreateEventPostMutation(slug ?? "", event?.id ?? "");
+  const fishMutation = useEventPostFishMutation(slug ?? "", event?.id ?? "");
+  const [postBody, setPostBody] = useState("");
 
   if (!slug) {
     return (
@@ -86,6 +105,12 @@ export function EventDetailScreen() {
     event.viewerCanViewPrivateDetails &&
     event.paymentMode !== "free" &&
     Boolean(event.paymentInstructions?.trim());
+  const canPost =
+    event.postsEnabled &&
+    (event.postCreatePolicy === "participants"
+      ? event.viewerJoined || event.viewerCanManage
+      : event.viewerCanManage);
+  const eventPosts = eventPostsQuery.data?.posts ?? [];
 
   return (
     <>
@@ -162,6 +187,36 @@ export function EventDetailScreen() {
 
         <MobileSection title="Attendance">
           <View className="gap-3">
+            <View className="flex-row gap-2">
+              <View className="flex-1">
+                <MobileButton
+                  disabled={attendanceMutation.isPending || event.viewerJoined}
+                  onPress={() => attendanceMutation.mutate("join")}
+                >
+                  {event.viewerJoined ? "Joined" : "Join"}
+                </MobileButton>
+              </View>
+              {event.viewerJoined ? (
+                <View className="flex-1">
+                  <MobileButton
+                    disabled={attendanceMutation.isPending}
+                    variant="danger"
+                    onPress={() => attendanceMutation.mutate("leave")}
+                  >
+                    Leave
+                  </MobileButton>
+                </View>
+              ) : null}
+            </View>
+            {event.interestedEnabled ? (
+              <MobileButton
+                disabled={interestMutation.isPending}
+                variant="secondary"
+                onPress={() => interestMutation.mutate(!event.viewerInterested)}
+              >
+                {event.viewerInterested ? "Remove interest" : "Interested"}
+              </MobileButton>
+            ) : null}
             <EventDetailRow
               label="Price"
               value={eventPriceLabel(event)}
@@ -182,6 +237,74 @@ export function EventDetailScreen() {
             />
           </View>
         </MobileSection>
+
+        {event.postsEnabled ? (
+          <MobileSection title="Event updates">
+            <View className="gap-3">
+              {canPost ? (
+                <View className="gap-3">
+                  <TextInput
+                    className="min-h-24 rounded-2xl border border-border bg-card p-3 text-foreground"
+                    multiline
+                    onChangeText={setPostBody}
+                    placeholder="Share an event update"
+                    placeholderTextColor="#64748b"
+                    value={postBody}
+                  />
+                  <MobileButton
+                    disabled={createPostMutation.isPending || postBody.trim().length === 0}
+                    onPress={() => {
+                      const body = postBody.trim();
+                      if (!body) return;
+                      createPostMutation.mutate(body, {
+                        onSuccess: () => setPostBody(""),
+                      });
+                    }}
+                  >
+                    Post update
+                  </MobileButton>
+                </View>
+              ) : null}
+
+              {eventPosts.length === 0 ? (
+                <MobileEmptyState
+                  description="Event updates will appear here when available."
+                  title="No updates"
+                />
+              ) : null}
+
+              {eventPosts.map((post) => (
+                <View key={post.id} className="rounded-2xl border border-border bg-card p-4">
+                  <Text className="text-sm font-semibold text-foreground">
+                    {post.authorDisplayName || "Organizer"}
+                  </Text>
+                  {post.title ? (
+                    <Text className="mt-2 text-base font-semibold text-foreground">
+                      {post.title}
+                    </Text>
+                  ) : null}
+                  <Text className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {stripMarkdownPreview(post.bodyMarkdown)}
+                  </Text>
+                  <View className="mt-3">
+                    <MobileButton
+                      disabled={fishMutation.isPending}
+                      variant="secondary"
+                      onPress={() =>
+                        fishMutation.mutate({
+                          hasFish: post.viewerHasFishReacted,
+                          postId: post.id,
+                        })
+                      }
+                    >
+                      {post.viewerHasFishReacted ? "Remove fish" : "Fish"} · {post.fishReactionCount}
+                    </MobileButton>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </MobileSection>
+        ) : null}
       </MobileScrollScreen>
     </>
   );

@@ -1,8 +1,9 @@
 import { Text, View } from "react-native";
 
-import type { BuddyFinderPreviewIntent } from "@freediving.ph/types";
+import type { BuddyFinderIntent, BuddyFinderPreviewIntent } from "@freediving.ph/types";
 
 import { MobileCard } from "@/components/shell";
+import { MobileButton } from "@/components/ui/mobile-button";
 import {
   buddyStatsLabel,
   certLevelLabel,
@@ -12,12 +13,15 @@ import {
 } from "@/features/buddies/lib/buddy-format";
 
 type BuddyIntentCardProps = {
-  intent: BuddyFinderPreviewIntent;
+  intent: BuddyFinderIntent | BuddyFinderPreviewIntent;
+  onMessage?: () => void;
 };
 
-export function BuddyIntentCard({ intent }: BuddyIntentCardProps) {
+export function BuddyIntentCard({ intent, onMessage }: BuddyIntentCardProps) {
   const certLevel = certLevelLabel(intent.certLevel);
   const createdAt = formatRecency(intent.createdAt);
+  const note =
+    "note" in intent ? intent.note : "notePreview" in intent ? intent.notePreview : undefined;
 
   return (
     <MobileCard>
@@ -38,14 +42,14 @@ export function BuddyIntentCard({ intent }: BuddyIntentCardProps) {
 
         <View className="gap-2">
           <Text className="text-base font-semibold leading-6 text-foreground">
-            Freediving buddy
+            {"displayName" in intent ? intent.displayName : "Freediving buddy"}
           </Text>
           <Text className="text-sm text-muted-foreground">
             {intent.area || "Area to be shared"}
           </Text>
-          {intent.notePreview ? (
+          {note ? (
             <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={4}>
-              {intent.notePreview}
+              {note}
             </Text>
           ) : null}
         </View>
@@ -68,6 +72,12 @@ export function BuddyIntentCard({ intent }: BuddyIntentCardProps) {
             </Text>
           ) : null}
         </View>
+
+        {onMessage ? (
+          <MobileButton variant="secondary" onPress={onMessage}>
+            Message
+          </MobileButton>
+        ) : null}
       </View>
     </MobileCard>
   );

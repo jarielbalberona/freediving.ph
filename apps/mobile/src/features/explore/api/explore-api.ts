@@ -1,6 +1,9 @@
 import type {
+  CreateExploreSiteSubmissionRequest,
   ExploreListResponse,
   ExploreSiteDetailResponse,
+  ExploreSiteSubmissionListResponse,
+  ExploreSiteSubmissionResponse,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -33,3 +36,48 @@ export const getExploreSiteDetail = (slug: string) =>
     }),
     { auth: "none" },
   );
+
+export const submitExploreSite = (
+  payload: CreateExploreSiteSubmissionRequest,
+  authToken: string,
+) =>
+  fphgoFetch<ExploreSiteSubmissionResponse>("/v1/explore/sites/submit", {
+    auth: "required",
+    authToken,
+    body: payload,
+    method: "POST",
+  });
+
+export const getMyExploreSiteSubmissions = (authToken: string) =>
+  fphgoFetch<ExploreSiteSubmissionListResponse>("/v1/explore/sites/submissions", {
+    auth: "required",
+    authToken,
+  });
+
+export const likeExploreSite = (siteId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/explore/sites/${encodeURIComponent(siteId)}/likes`, {
+    auth: "required",
+    authToken,
+    method: "POST",
+  });
+
+export const unlikeExploreSite = (siteId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/explore/sites/${encodeURIComponent(siteId)}/likes`, {
+    auth: "required",
+    authToken,
+    method: "DELETE",
+  });
+
+export const saveExploreSite = (siteId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/explore/sites/${encodeURIComponent(siteId)}/save`, {
+    auth: "required",
+    authToken,
+    method: "POST",
+  });
+
+export const unsaveExploreSite = (siteId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/explore/sites/${encodeURIComponent(siteId)}/save`, {
+    auth: "required",
+    authToken,
+    method: "DELETE",
+  });

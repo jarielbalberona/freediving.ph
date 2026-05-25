@@ -1,5 +1,6 @@
 import { Link } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 import {
   MobileEmptyState,
@@ -11,6 +12,11 @@ import {
 import { MobileButton } from "@/components/ui/mobile-button";
 import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
 import { ProfileSummaryCard } from "@/features/profiles/components/profile-summary-card";
+import {
+  useProfileDivingQuery,
+  useProfilePostsQuery,
+} from "@/features/profiles/hooks/use-profile-activity-query";
+import { useUpdateMyProfileMutation } from "@/features/profiles/hooks/use-profile-mutations";
 import { useMyProfileQuery } from "@/features/profiles/hooks/use-my-profile-query";
 import {
   certLevelLabel,
@@ -21,6 +27,13 @@ import {
 export function ProfileScreen() {
   const profileQuery = useMyProfileQuery();
   const profile = profileQuery.data?.profile;
+  const updateProfile = useUpdateMyProfileMutation();
+  const postsQuery = useProfilePostsQuery(profile?.username);
+  const divingQuery = useProfileDivingQuery(profile?.username);
+  const [isEditing, setIsEditing] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const posts = postsQuery.data ?? [];
 
   if (profileQuery.isLoading) {
     return (
@@ -76,7 +89,55 @@ export function ProfileScreen() {
           meta={location || certLevel}
           username={profile.username}
         />
+        <View className="mt-3">
+          <MobileButton
+            variant="secondary"
+            onPress={() => {
+              setDisplayName(profile.displayName);
+              setBio(profile.bio ?? "");
+              setIsEditing((value) => !value);
+            }}
+          >
+            {isEditing ? "Cancel edit" : "Edit profile"}
+          </MobileButton>
+        </View>
       </MobileSection>
+
+      {isEditing ? (
+        <MobileSection title="Edit profile">
+          <View className="gap-3">
+            <TextInput
+              className="rounded-2xl border border-border bg-card p-3 text-foreground"
+              onChangeText={setDisplayName}
+              placeholder="Display name"
+              placeholderTextColor="#64748b"
+              value={displayName}
+            />
+            <TextInput
+              className="min-h-24 rounded-2xl border border-border bg-card p-3 text-foreground"
+              multiline
+              onChangeText={setBio}
+              placeholder="Bio"
+              placeholderTextColor="#64748b"
+              value={bio}
+            />
+            <MobileButton
+              disabled={updateProfile.isPending || displayName.trim().length < 2}
+              onPress={() =>
+                updateProfile.mutate(
+                  {
+                    bio: bio.trim() || undefined,
+                    displayName: displayName.trim(),
+                  },
+                  { onSuccess: () => setIsEditing(false) },
+                )
+              }
+            >
+              Save profile
+            </MobileButton>
+          </View>
+        </MobileSection>
+      ) : null}
 
       <MobileSection title="Diver details">
         <View className="gap-3">
@@ -96,6 +157,20 @@ export function ProfileScreen() {
               value={profile.interests.join(", ")}
             />
           ) : null}
+        </View>
+      </MobileSection>
+
+      <MobileSection title="Posts">
+        <View className="gap-3">
+          <ProfileDetailRow label="Public posts" value={profileCountLabel(posts.length, "posts")} />
+          <ProfileDetailRow
+            label="Dive presence"
+            value={profileCountLabel(divingQuery.data?.presences.length ?? 0, "entries")}
+          />
+          <ProfileDetailRow
+            label="Dive sites"
+            value={profileCountLabel(divingQuery.data?.affinities.length ?? 0, "sites")}
+          />
         </View>
       </MobileSection>
 

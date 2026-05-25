@@ -1,6 +1,7 @@
 import type {
   ActivityFeedFilter,
   ActivityFeedResponse,
+  FeedActionsRequest,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -30,3 +31,11 @@ export const getHomeActivityFeed = (params: {
     }),
     { auth: "optional" },
   );
+
+export const postFeedActions = (payload: FeedActionsRequest, authToken: string) =>
+  fphgoFetch<void>("/v1/feed/actions", {
+    auth: "required",
+    authToken,
+    body: payload as unknown as Record<string, unknown>,
+    method: "POST",
+  });

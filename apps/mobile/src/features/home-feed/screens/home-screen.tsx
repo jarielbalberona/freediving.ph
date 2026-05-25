@@ -9,12 +9,14 @@ import {
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { HomeActivityCard } from "@/features/home-feed/components/home-activity-card";
+import { useFeedActionMutation } from "@/features/home-feed/hooks/use-feed-action-mutation";
 import { useHomeActivityFeedQuery } from "@/features/home-feed/hooks/use-home-activity-feed-query";
 import { toHomeActivityCardModel } from "@/features/home-feed/lib/activity-card-model";
 
 export function HomeScreen() {
   const feedQuery = useHomeActivityFeedQuery();
-  const items = feedQuery.data?.items.map(toHomeActivityCardModel) ?? [];
+  const feedAction = useFeedActionMutation();
+  const items = feedQuery.data?.items ?? [];
 
   return (
     <MobileScrollScreen subtitle="Community activity" title="Home">
@@ -48,7 +50,17 @@ export function HomeScreen() {
         {!feedQuery.isLoading && !feedQuery.error && items.length > 0 ? (
           <View className="gap-3">
             {items.map((item) => (
-              <HomeActivityCard key={item.id} item={item} />
+              <HomeActivityCard
+                key={item.id}
+                item={toHomeActivityCardModel(item)}
+                onAction={() =>
+                  feedAction.mutate({
+                    actionType:
+                      item.type === "chika_thread_created" ? "upvote" : "like",
+                    item,
+                  })
+                }
+              />
             ))}
           </View>
         ) : null}

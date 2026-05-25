@@ -75,7 +75,7 @@ test("home feed uses shared activity contracts and fetch client", () => {
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
 });
 
-test("explore uses shared contracts and safe mobile routes", () => {
+test("explore uses shared contracts, actions, and safe mobile routes", () => {
   const api = read("src/features/explore/api/explore-api.ts");
   const card = read("src/features/explore/components/explore-site-card.tsx");
   const detail = read(
@@ -93,12 +93,16 @@ test("explore uses shared contracts and safe mobile routes", () => {
   assert.match(card, /safeSiteSlug/);
   assert.match(card, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
-  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
-  assert.doesNotMatch(detail, /bookmark|gps/i);
+  assert.match(api, /CreateExploreSiteSubmissionRequest/);
+  assert.match(api, /\/v1\/explore\/sites\/submit/);
+  assert.match(api, /\/likes/);
+  assert.match(api, /\/save/);
+  assert.match(api, /auth:\s*"required"/);
+  assert.doesNotMatch(detail, /gps/i);
   assert.ok(format.includes('includes("/")'));
 });
 
-test("chika uses shared contracts and read-only mobile routes", () => {
+test("chika uses shared contracts, nested replies, and vote actions", () => {
   const api = read("src/features/chika/api/chika-api.ts");
   const card = read("src/features/chika/components/chika-thread-card.tsx");
   const detail = read(
@@ -114,16 +118,22 @@ test("chika uses shared contracts and read-only mobile routes", () => {
   assert.match(api, /\/v1\/chika\/threads/);
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/chika\/types/);
-  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
+  assert.match(api, /ChikaCommentReactionResponse/);
+  assert.match(api, /createChikaThread/);
+  assert.match(api, /createChikaComment/);
+  assert.match(api, /\/reactions/);
+  assert.match(api, /auth:\s*"required"/);
   assert.match(card, /safeChikaSlug/);
   assert.match(format, /authorDisplayName/);
   assert.match(card, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
-  assert.doesNotMatch(detail, /createComment|setReaction|websocket|realtime/i);
+  assert.match(detail, /parentCommentId/);
+  assert.match(detail, /useSetChikaCommentReactionMutation/);
+  assert.doesNotMatch(detail, /websocket|realtime/i);
   assert.ok(format.includes('includes("/")'));
 });
 
-test("events uses shared contracts and read-only mobile routes", () => {
+test("events uses shared contracts and member event actions", () => {
   const api = read("src/features/events/api/events-api.ts");
   const card = read("src/features/events/components/event-card.tsx");
   const detail = read("src/features/events/screens/event-detail-screen.tsx");
@@ -138,15 +148,21 @@ test("events uses shared contracts and read-only mobile routes", () => {
   assert.match(api, /status/);
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/events\/types/);
-  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
+  assert.match(api, /joinEvent/);
+  assert.match(api, /leaveEvent/);
+  assert.match(api, /setEventInterest/);
+  assert.match(api, /createEventPost/);
+  assert.match(api, /updates\/.*reactions\/fish/);
+  assert.match(api, /auth:\s*"required"/);
   assert.match(card, /safeEventSlug/);
   assert.match(card, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
-  assert.doesNotMatch(detail, /joinEvent|rsvp|booking|checkIn|receipt/i);
+  assert.match(detail, /useEventAttendanceMutation/);
+  assert.doesNotMatch(detail, /booking|checkIn|receipt/i);
   assert.ok(format.includes('includes("/")'));
 });
 
-test("profiles use shared contracts, auth gating, and read-only routes", () => {
+test("profiles use shared contracts, auth gating, edit, posts, and diving", () => {
   const api = read("src/features/profiles/api/profiles-api.ts");
   const myHook = read("src/features/profiles/hooks/use-my-profile-query.ts");
   const publicHook = read(
@@ -171,17 +187,18 @@ test("profiles use shared contracts, auth gating, and read-only routes", () => {
     api,
     /features\/profile\/types|features\/profiles\/types/,
   );
-  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
+  assert.match(api, /UpdateMyProfileRequest/);
+  assert.match(api, /method:\s*"PATCH"/);
+  assert.match(api, /\/posts/);
+  assert.match(api, /\/diving/);
   assert.match(myHook, /useAuthenticatedFphgoQuery/);
   assert.doesNotMatch(publicHook, /useAuthenticatedFphgoQuery/);
   assert.match(publicHook, /useQuery/);
   assert.match(publicHook, /safeProfileUsername/);
   assert.match(ownScreen, /\/\(app\)\/\(tabs\)\/profile\/settings/);
   assert.match(publicScreen, /useLocalSearchParams/);
-  assert.doesNotMatch(
-    ownScreen,
-    /upload|editProfile|followAction|sendMessage|SQLite|Drizzle/i,
-  );
+  assert.match(ownScreen, /Edit profile/);
+  assert.doesNotMatch(ownScreen, /upload|followAction|sendMessage|SQLite|Drizzle/i);
   assert.doesNotMatch(
     publicScreen,
     /upload|editProfile|followAction|sendMessage|report|block/i,
@@ -227,7 +244,7 @@ test("notifications use shared contracts, auth gating, and read-only routes", ()
   );
 });
 
-test("buddies use shared public preview contracts and read-only routes", () => {
+test("buddies use shared public and member intent contracts", () => {
   const api = read("src/features/buddies/api/buddies-api.ts");
   const hook = read("src/features/buddies/hooks/use-buddy-finder-query.ts");
   const card = read("src/features/buddies/components/buddy-intent-card.tsx");
@@ -247,17 +264,54 @@ test("buddies use shared public preview contracts and read-only routes", () => {
     api,
     /features\/buddies\/types|features\/buddy-finder\/types/,
   );
-  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
-  assert.doesNotMatch(hook, /useAuthenticatedFphgoQuery/);
+  assert.match(api, /CreateBuddyFinderIntentRequest/);
+  assert.match(api, /createBuddyFinderIntent/);
+  assert.match(api, /deleteBuddyFinderIntent/);
+  assert.match(api, /getBuddyFinderMessageEntry/);
+  assert.match(api, /auth:\s*"required"/);
+  assert.match(hook, /useAuthenticatedFphgoQuery/);
   assert.match(hook, /mobileQueryKeys\.buddies\.preview/);
   assert.match(card, /BuddyFinderPreviewIntent/);
+  assert.match(card, /BuddyFinderIntent/);
   assert.doesNotMatch(card, /Link|Pressable|buddyProfileHref/);
   assert.ok(format.includes('includes("/")'));
   assert.match(screen, /MobileLoadingState/);
   assert.match(screen, /MobileEmptyState/);
   assert.match(screen, /MobileErrorState/);
-  assert.doesNotMatch(
-    screen,
-    /createIntent|deleteIntent|messageEntry|sendRequest|gps|location/i,
+  assert.match(screen, /Create weekend intent/);
+  assert.match(screen, /Close intent/);
+  assert.doesNotMatch(screen, /gps|location/i);
+});
+
+test("messages and groups expose member-safe Phase 2 routes", () => {
+  const messagesApi = read("src/features/messages/api/messages-api.ts");
+  const messagesScreen = read("src/features/messages/screens/messages-screen.tsx");
+  const messageThreadScreen = read(
+    "src/features/messages/screens/message-thread-screen.tsx",
   );
+  const groupsApi = read("src/features/groups/api/groups-api.ts");
+  const groupDetailScreen = read(
+    "src/features/groups/screens/group-detail-screen.tsx",
+  );
+
+  assert.match(messagesApi, /@freediving\.ph\/types/);
+  assert.match(messagesApi, /\/v1\/messages\/threads/);
+  assert.match(messagesApi, /sendThreadMessage/);
+  assert.match(messagesApi, /acceptThreadRequest/);
+  assert.match(messagesApi, /declineThreadRequest/);
+  assert.match(messagesApi, /auth:\s*"required"/);
+  assert.match(messagesScreen, /requests/);
+  assert.match(messageThreadScreen, /canResolveRequest/);
+  assert.match(messageThreadScreen, /Send/);
+  assert.doesNotMatch(messageThreadScreen, /websocket|realtime|push/i);
+
+  assert.match(groupsApi, /@freediving\.ph\/types/);
+  assert.match(groupsApi, /\/v1\/groups/);
+  assert.match(groupsApi, /joinGroup/);
+  assert.match(groupsApi, /leaveGroup/);
+  assert.match(groupsApi, /createGroupPost/);
+  assert.match(groupsApi, /auth:\s*"required"/);
+  assert.match(groupDetailScreen, /Join group/);
+  assert.match(groupDetailScreen, /Post to group/);
+  assert.doesNotMatch(groupDetailScreen, /admin|moderation/i);
 });

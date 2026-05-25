@@ -3,6 +3,7 @@ import { Link } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
 import { MobileCard } from "@/components/shell";
+import { MobileButton } from "@/components/ui/mobile-button";
 import type { HomeActivityCardModel } from "@/features/home-feed/lib/activity-card-model";
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -17,9 +18,10 @@ const formatActivityDate = (value: string) => {
 
 type HomeActivityCardProps = {
   item: HomeActivityCardModel;
+  onAction?: () => void;
 };
 
-function HomeActivityCardContent({ item }: HomeActivityCardProps) {
+function HomeActivityCardContent({ item, onAction }: HomeActivityCardProps) {
   const occurredAt = formatActivityDate(item.occurredAt);
 
   return (
@@ -67,20 +69,26 @@ function HomeActivityCardContent({ item }: HomeActivityCardProps) {
             </Text>
           ) : null}
         </View>
+
+        {onAction ? (
+          <MobileButton variant="secondary" onPress={onAction}>
+            React
+          </MobileButton>
+        ) : null}
       </View>
     </MobileCard>
   );
 }
 
-export function HomeActivityCard({ item }: HomeActivityCardProps) {
+export function HomeActivityCard({ item, onAction }: HomeActivityCardProps) {
   if (!item.href) {
-    return <HomeActivityCardContent item={item} />;
+    return <HomeActivityCardContent item={item} onAction={onAction} />;
   }
 
   return (
     <Link href={item.href} asChild>
       <Pressable accessibilityRole="link">
-        <HomeActivityCardContent item={item} />
+        <HomeActivityCardContent item={item} onAction={onAction} />
       </Pressable>
     </Link>
   );

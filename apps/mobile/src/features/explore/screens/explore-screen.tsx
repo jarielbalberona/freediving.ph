@@ -1,4 +1,5 @@
-import { View } from "react-native";
+import { useState } from "react";
+import { Text, TextInput, View } from "react-native";
 
 import {
   MobileEmptyState,
@@ -9,14 +10,130 @@ import {
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { ExploreSiteCard } from "@/features/explore/components/explore-site-card";
+import {
+  useExploreSiteLikeMutation,
+  useExploreSiteSaveMutation,
+  useSubmitExploreSiteMutation,
+} from "@/features/explore/hooks/use-explore-mutations";
 import { useExploreSitesQuery } from "@/features/explore/hooks/use-explore-sites-query";
+import { useMyExploreSubmissionsQuery } from "@/features/explore/hooks/use-my-explore-submissions-query";
 
 export function ExploreScreen() {
   const sitesQuery = useExploreSitesQuery();
+  const submissionsQuery = useMyExploreSubmissionsQuery();
+  const submitSite = useSubmitExploreSiteMutation();
+  const likeSite = useExploreSiteLikeMutation();
+  const saveSite = useExploreSiteSaveMutation();
+  const [showSubmit, setShowSubmit] = useState(false);
+  const [name, setName] = useState("");
+  const [area, setArea] = useState("");
+  const [description, setDescription] = useState("");
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
   const sites = sitesQuery.data?.items ?? [];
+  const submissions = submissionsQuery.data?.items ?? [];
 
   return (
     <MobileScrollScreen subtitle="Dive spots" title="Explore">
+      <MobileSection
+        description="Map rendering and clustering need the native map dependency pass. This code-wise pass keeps the backed list, actions, submit-site, and my submissions flows."
+        title="Dive spot tools"
+      >
+        <View className="gap-3">
+          <MobileButton variant="secondary" onPress={() => setShowSubmit((value) => !value)}>
+            {showSubmit ? "Hide submit form" : "Submit a site"}
+          </MobileButton>
+          {showSubmit ? (
+            <View className="gap-3">
+              <TextInput
+                className="rounded-2xl border border-border bg-card p-3 text-foreground"
+                onChangeText={setName}
+                placeholder="Site name"
+                placeholderTextColor="#64748b"
+                value={name}
+              />
+              <TextInput
+                className="rounded-2xl border border-border bg-card p-3 text-foreground"
+                onChangeText={setArea}
+                placeholder="Area"
+                placeholderTextColor="#64748b"
+                value={area}
+              />
+              <View className="flex-row gap-2">
+                <TextInput
+                  className="flex-1 rounded-2xl border border-border bg-card p-3 text-foreground"
+                  keyboardType="decimal-pad"
+                  onChangeText={setLat}
+                  placeholder="Latitude"
+                  placeholderTextColor="#64748b"
+                  value={lat}
+                />
+                <TextInput
+                  className="flex-1 rounded-2xl border border-border bg-card p-3 text-foreground"
+                  keyboardType="decimal-pad"
+                  onChangeText={setLng}
+                  placeholder="Longitude"
+                  placeholderTextColor="#64748b"
+                  value={lng}
+                />
+              </View>
+              <TextInput
+                className="min-h-24 rounded-2xl border border-border bg-card p-3 text-foreground"
+                multiline
+                onChangeText={setDescription}
+                placeholder="Description"
+                placeholderTextColor="#64748b"
+                value={description}
+              />
+              <MobileButton
+                disabled={
+                  submitSite.isPending ||
+                  name.trim().length < 2 ||
+                  description.trim().length < 5 ||
+                  Number.isNaN(Number(lat)) ||
+                  Number.isNaN(Number(lng))
+                }
+                onPress={() => {
+                  submitSite.mutate(
+                    {
+                      area: area.trim() || undefined,
+                      description: description.trim(),
+                      entryDifficulty: "moderate",
+                      lat: Number(lat),
+                      lng: Number(lng),
+                      name: name.trim(),
+                    },
+                    {
+                      onSuccess: () => {
+                        setName("");
+                        setArea("");
+                        setDescription("");
+                        setLat("");
+                        setLng("");
+                        setShowSubmit(false);
+                      },
+                    },
+                  );
+                }}
+              >
+                Submit for review
+              </MobileButton>
+            </View>
+          ) : null}
+
+          {submissions.length > 0 ? (
+            <View className="gap-2">
+              <Text className="text-sm font-semibold text-foreground">My submissions</Text>
+              {submissions.map((submission) => (
+                <Text key={submission.id} className="text-sm text-muted-foreground">
+                  {submission.name} · {submission.moderationState}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </MobileSection>
+
       <MobileSection
         description="Browse community-shared places to dive across the Philippines."
         title="Dive spots"
@@ -45,7 +162,19 @@ export function ExploreScreen() {
         {!sitesQuery.isLoading && !sitesQuery.error && sites.length > 0 ? (
           <View className="gap-3">
             {sites.map((site) => (
-              <ExploreSiteCard key={site.id} site={site} />
+              <ExploreSiteCard
+                key={site.id}
+                site={site}
+                onLike={(item) =>
+                  likeSite.mutate({
+                    siteId: item.id,
+                    viewerHasLiked: item.viewerHasLiked,
+                  })
+                }
+                onSave={(item) =>
+                  saveSite.mutate({ isSaved: item.isSaved, siteId: item.id })
+                }
+              />
             ))}
           </View>
         ) : null}

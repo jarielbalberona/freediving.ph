@@ -2,6 +2,7 @@ import { Pressable, Text } from "react-native";
 
 type MobileButtonProps = {
   children: React.ReactNode;
+  disabled?: boolean;
   onPress?: () => void;
   variant?: "primary" | "secondary" | "ghost" | "danger";
 };
@@ -22,13 +23,15 @@ const textClassName = {
 
 export function MobileButton({
   children,
+  disabled = false,
   onPress,
   variant = "primary",
 }: MobileButtonProps) {
   return (
     <Pressable
-      className={`min-h-11 items-center justify-center rounded-xl px-4 ${variantClassName[variant]}`}
-      onPress={onPress}
+      className={`min-h-11 items-center justify-center rounded-xl px-4 ${variantClassName[variant]} ${disabled ? "opacity-50" : ""}`}
+      disabled={disabled}
+      onPress={disabled ? undefined : onPress}
     >
       <Text className={`text-sm font-semibold ${textClassName[variant]}`}>{children}</Text>
     </Pressable>
