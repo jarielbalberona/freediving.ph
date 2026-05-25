@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 
@@ -32,6 +32,9 @@ import {
   stripMarkdownPreview,
   titleCase,
 } from "@/features/events/lib/event-format";
+import { useLocalDraft } from "@/local/drafts/use-local-draft";
+import { useOutbox } from "@/local/outbox/use-outbox";
+import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
 const firstParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
@@ -51,6 +54,10 @@ export function EventDetailScreen() {
   const createPostMutation = useCreateEventPostMutation(slug ?? "", event?.id ?? "");
   const fishMutation = useEventPostFishMutation(slug ?? "", event?.id ?? "");
   const [postBody, setPostBody] = useState("");
+  const eventPostDraft = useLocalDraft<{ bodyMarkdown: string; eventId?: string }>(
+    "event_post",
+  );
+  const outbox = useOutbox();
 
   if (!slug) {
     return (
@@ -111,6 +118,12 @@ export function EventDetailScreen() {
       ? event.viewerJoined || event.viewerCanManage
       : event.viewerCanManage);
   const eventPosts = eventPostsQuery.data?.posts ?? [];
+  const draftApplies = eventPostDraft.draft?.payload.eventId === event.id;
+
+  useEffect(() => {
+    if (!draftApplies || !eventPostDraft.draft) return;
+    setPostBody(eventPostDraft.draft.payload.bodyMarkdown);
+  }, [draftApplies, eventPostDraft.draft]);
 
   return (
     <>
@@ -212,7 +225,20 @@ export function EventDetailScreen() {
               <MobileButton
                 disabled={interestMutation.isPending}
                 variant="secondary"
-                onPress={() => interestMutation.mutate(!event.viewerInterested)}
+                onPress={() =>
+                  interestMutation.mutate(!event.viewerInterested, {
+                    onError: () =>
+                      void outbox.enqueue({
+                        entityId: event.id,
+                        entityType: "event",
+                        operationType: "event_interest",
+                        payload: {
+                          eventId: event.id,
+                          viewerInterested: event.viewerInterested,
+                        },
+                      }),
+                  })
+                }
               >
                 {event.viewerInterested ? "Remove interest" : "Interested"}
               </MobileButton>
@@ -241,6 +267,17 @@ export function EventDetailScreen() {
         {event.postsEnabled ? (
           <MobileSection title="Event updates">
             <View className="gap-3">
+              <PendingSyncPanel
+                isSyncing={outbox.isSyncing}
+                items={outbox.items}
+                message={
+                  eventPostDraft.status === "saved" && draftApplies
+                    ? "Saved as draft"
+                    : outbox.message
+                }
+                onDiscard={outbox.discard}
+                onSyncNow={outbox.syncNow}
+              />
               {canPost ? (
                 <View className="gap-3">
                   <TextInput
@@ -252,12 +289,41 @@ export function EventDetailScreen() {
                     value={postBody}
                   />
                   <MobileButton
+                    variant="secondary"
+                    onPress={() =>
+                      void eventPostDraft.save({
+                        bodyMarkdown: postBody,
+                        eventId: event.id,
+                      })
+                    }
+                  >
+                    Save draft
+                  </MobileButton>
+                  <MobileButton
                     disabled={createPostMutation.isPending || postBody.trim().length === 0}
                     onPress={() => {
                       const body = postBody.trim();
                       if (!body) return;
                       createPostMutation.mutate(body, {
-                        onSuccess: () => setPostBody(""),
+                        onError: () => {
+                          void eventPostDraft.save({
+                            bodyMarkdown: body,
+                            eventId: event.id,
+                          });
+                          void outbox.enqueue({
+                            entityId: event.id,
+                            entityType: "event_post",
+                            operationType: "event_post_create",
+                            payload: {
+                              bodyMarkdown: body,
+                              eventId: event.id,
+                            },
+                          });
+                        },
+                        onSuccess: () => {
+                          void eventPostDraft.clearSubmitted();
+                          setPostBody("");
+                        },
                       });
                     }}
                   >
@@ -291,10 +357,25 @@ export function EventDetailScreen() {
                       disabled={fishMutation.isPending}
                       variant="secondary"
                       onPress={() =>
-                        fishMutation.mutate({
-                          hasFish: post.viewerHasFishReacted,
-                          postId: post.id,
-                        })
+                        fishMutation.mutate(
+                          {
+                            hasFish: post.viewerHasFishReacted,
+                            postId: post.id,
+                          },
+                          {
+                            onError: () =>
+                              void outbox.enqueue({
+                                entityId: post.id,
+                                entityType: "event_post",
+                                operationType: "event_post_fish",
+                                payload: {
+                                  eventId: event.id,
+                                  postId: post.id,
+                                  viewerHasFishReacted: post.viewerHasFishReacted,
+                                },
+                              }),
+                          },
+                        )
                       }
                     >
                       {post.viewerHasFishReacted ? "Remove fish" : "Fish"} · {post.fishReactionCount}

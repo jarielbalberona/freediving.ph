@@ -1140,6 +1140,12 @@ func (r *notificationRepoStub) UpdateSettingsForUser(context.Context, string, no
 	return notificationsrepo.NotificationSettings{}, nil
 }
 
+func (r *notificationRepoStub) RegisterDevice(context.Context, notificationsrepo.RegisterDeviceInput) (notificationsrepo.DevicePushToken, error) {
+	return notificationsrepo.DevicePushToken{}, nil
+}
+
+func (r *notificationRepoStub) DeleteDeviceForUser(context.Context, string, string) error { return nil }
+
 func (r *notificationRepoStub) ListActiveExploreModeratorRecipients(_ context.Context, excludeUserID string) ([]string, error) {
 	return filteredRecipients(r.exploreModeratorRecipients, excludeUserID), nil
 }

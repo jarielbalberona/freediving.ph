@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
 import {
@@ -21,6 +21,9 @@ import {
   useLeaveGroupMutation,
 } from "@/features/groups/hooks/use-group-mutations";
 import { useGroupDetailQuery } from "@/features/groups/hooks/use-groups-query";
+import { useLocalDraft } from "@/local/drafts/use-local-draft";
+import { useOutbox } from "@/local/outbox/use-outbox";
+import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
 const firstParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
@@ -37,8 +40,18 @@ export function GroupDetailScreen() {
   const leaveMutation = useLeaveGroupMutation(slug ?? "", group?.id ?? "");
   const createPostMutation = useCreateGroupPostMutation(slug ?? "", group?.id ?? "");
   const [postText, setPostText] = useState("");
+  const groupPostDraft = useLocalDraft<{ content: string; groupId?: string }>(
+    "group_post",
+  );
+  const outbox = useOutbox();
   const posts = postsQuery.data?.posts ?? [];
   const members = membersQuery.data?.members ?? [];
+
+  useEffect(() => {
+    const draft = groupPostDraft.draft;
+    if (!draft || draft.payload.groupId !== group?.id) return;
+    setPostText(draft.payload.content);
+  }, [group?.id, groupPostDraft.draft]);
 
   if (!slug) {
     return (
@@ -116,6 +129,15 @@ export function GroupDetailScreen() {
         {isMember ? (
           <MobileSection title="Post to group">
             <View className="gap-3">
+              <PendingSyncPanel
+                isSyncing={outbox.isSyncing}
+                items={outbox.items}
+                message={
+                  groupPostDraft.status === "saved" ? "Saved as draft" : outbox.message
+                }
+                onDiscard={outbox.discard}
+                onSyncNow={outbox.syncNow}
+              />
               <TextInput
                 className="min-h-24 rounded-2xl border border-border bg-card p-3 text-foreground"
                 multiline
@@ -125,13 +147,41 @@ export function GroupDetailScreen() {
                 value={postText}
               />
               <MobileButton
+                variant="secondary"
+                onPress={() =>
+                  void groupPostDraft.save({
+                    content: postText,
+                    groupId: group.id,
+                  })
+                }
+              >
+                Save draft
+              </MobileButton>
+              <MobileButton
                 disabled={createPostMutation.isPending || postText.trim().length === 0}
                 onPress={() => {
                   const content = postText.trim();
                   if (!content) return;
                   createPostMutation.mutate(
                     { content },
-                    { onSuccess: () => setPostText("") },
+                    {
+                      onError: () => {
+                        void groupPostDraft.save({
+                          content,
+                          groupId: group.id,
+                        });
+                        void outbox.enqueue({
+                          entityId: group.id,
+                          entityType: "group_post",
+                          operationType: "group_post_create",
+                          payload: { content, groupId: group.id },
+                        });
+                      },
+                      onSuccess: () => {
+                        void groupPostDraft.clearSubmitted();
+                        setPostText("");
+                      },
+                    },
                   );
                 }}
               >

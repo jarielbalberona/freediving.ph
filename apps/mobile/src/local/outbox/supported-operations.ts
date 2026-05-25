@@ -11,6 +11,7 @@ export const QUEUEABLE_OPERATION_TYPES: SyncOperationType[] = [
   "chika_thread_reaction",
   "event_interest",
   "event_post_create",
+  "event_post_fish",
   "explore_site_like",
   "explore_site_save",
   "group_post_create",

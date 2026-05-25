@@ -1354,6 +1354,13 @@ export interface NotificationSettings {
   chikaReplies: boolean;
   instructorApplicationNotifications: boolean;
   instructorStatusNotifications: boolean;
+  buddyUpdates: boolean;
+  profileSocialUpdates: boolean;
+  diveConditionAlerts: boolean;
+  diveConditionSavedSites: boolean;
+  diveConditionRegions: string[];
+  diveConditionNearMe: boolean;
+  diveConditionCoarseArea?: string;
   digestFrequency: "IMMEDIATE" | "DAILY" | "WEEKLY" | "NEVER";
   quietHoursStart?: string;
   quietHoursEnd?: string;
@@ -1414,10 +1421,41 @@ export interface UpdateNotificationSettingsRequest {
   chikaReplies?: boolean;
   instructorApplicationNotifications?: boolean;
   instructorStatusNotifications?: boolean;
+  buddyUpdates?: boolean;
+  profileSocialUpdates?: boolean;
+  diveConditionAlerts?: boolean;
+  diveConditionSavedSites?: boolean;
+  diveConditionRegions?: string[];
+  diveConditionNearMe?: boolean;
+  diveConditionCoarseArea?: string;
   digestFrequency?: NotificationSettings["digestFrequency"];
   quietHoursStart?: string;
   quietHoursEnd?: string;
   timezone?: string;
+}
+
+export type PushDevicePlatform = "ios" | "android" | "web" | "unknown";
+
+export interface RegisterPushDeviceRequest {
+  expoPushToken: string;
+  platform: PushDevicePlatform;
+  deviceId?: string;
+  deviceName?: string;
+  appVersion?: string;
+}
+
+export interface PushDeviceToken {
+  id: string;
+  userId: string;
+  expoPushToken: string;
+  platform: PushDevicePlatform;
+  deviceId?: string;
+  deviceName?: string;
+  appVersion?: string;
+  enabled: boolean;
+  lastSeenAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface NotificationFilters {

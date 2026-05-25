@@ -17,6 +17,8 @@ import {
 } from "@/features/explore/hooks/use-explore-mutations";
 import { useExploreSitesQuery } from "@/features/explore/hooks/use-explore-sites-query";
 import { useMyExploreSubmissionsQuery } from "@/features/explore/hooks/use-my-explore-submissions-query";
+import { useOutbox } from "@/local/outbox/use-outbox";
+import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
 export function ExploreScreen() {
   const sitesQuery = useExploreSitesQuery();
@@ -24,6 +26,7 @@ export function ExploreScreen() {
   const submitSite = useSubmitExploreSiteMutation();
   const likeSite = useExploreSiteLikeMutation();
   const saveSite = useExploreSiteSaveMutation();
+  const outbox = useOutbox();
   const [showSubmit, setShowSubmit] = useState(false);
   const [name, setName] = useState("");
   const [area, setArea] = useState("");
@@ -40,6 +43,13 @@ export function ExploreScreen() {
         title="Dive spot tools"
       >
         <View className="gap-3">
+          <PendingSyncPanel
+            isSyncing={outbox.isSyncing}
+            items={outbox.items}
+            message={outbox.message}
+            onDiscard={outbox.discard}
+            onSyncNow={outbox.syncNow}
+          />
           <MobileButton variant="secondary" onPress={() => setShowSubmit((value) => !value)}>
             {showSubmit ? "Hide submit form" : "Submit a site"}
           </MobileButton>
@@ -166,13 +176,38 @@ export function ExploreScreen() {
                 key={site.id}
                 site={site}
                 onLike={(item) =>
-                  likeSite.mutate({
-                    siteId: item.id,
-                    viewerHasLiked: item.viewerHasLiked,
-                  })
+                  likeSite.mutate(
+                    {
+                      siteId: item.id,
+                      viewerHasLiked: item.viewerHasLiked,
+                    },
+                    {
+                      onError: () =>
+                        void outbox.enqueue({
+                          entityId: item.id,
+                          entityType: "explore_site",
+                          operationType: "explore_site_like",
+                          payload: {
+                            siteId: item.id,
+                            viewerHasLiked: item.viewerHasLiked,
+                          },
+                        }),
+                    },
+                  )
                 }
                 onSave={(item) =>
-                  saveSite.mutate({ isSaved: item.isSaved, siteId: item.id })
+                  saveSite.mutate(
+                    { isSaved: item.isSaved, siteId: item.id },
+                    {
+                      onError: () =>
+                        void outbox.enqueue({
+                          entityId: item.id,
+                          entityType: "explore_site",
+                          operationType: "explore_site_save",
+                          payload: { isSaved: item.isSaved, siteId: item.id },
+                        }),
+                    },
+                  )
                 }
               />
             ))}

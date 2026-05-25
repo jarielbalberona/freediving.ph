@@ -58,67 +58,103 @@ type MarkAllReadResponse struct {
 }
 
 type NotificationSettings struct {
-	ID                         string  `json:"id"`
-	UserID                     string  `json:"userId"`
-	EmailEnabled               bool    `json:"emailEnabled"`
-	PushEnabled                bool    `json:"pushEnabled"`
-	InAppEnabled               bool    `json:"inAppEnabled"`
-	SystemNotifications        bool    `json:"systemNotifications"`
-	MessageNotifications       bool    `json:"messageNotifications"`
-	EventNotifications         bool    `json:"eventNotifications"`
-	GroupNotifications         bool    `json:"groupNotifications"`
-	ServiceNotifications       bool    `json:"serviceNotifications"`
-	BookingNotifications       bool    `json:"bookingNotifications"`
-	SessionNotifications       bool    `json:"sessionNotifications"`
-	ReviewNotifications        bool    `json:"reviewNotifications"`
-	MentionNotifications       bool    `json:"mentionNotifications"`
-	LikeNotifications          bool    `json:"likeNotifications"`
-	CommentNotifications       bool    `json:"commentNotifications"`
-	FriendRequestNotifications bool    `json:"friendRequestNotifications"`
-	GroupInviteNotifications   bool    `json:"groupInviteNotifications"`
-	EventReminderNotifications bool    `json:"eventReminderNotifications"`
-	PaymentNotifications       bool    `json:"paymentNotifications"`
-	SecurityNotifications      bool    `json:"securityNotifications"`
-	NewDiveSitePublished       bool    `json:"newDiveSitePublished"`
-	ChikaReplies               bool    `json:"chikaReplies"`
-	InstructorApplication      bool    `json:"instructorApplicationNotifications"`
-	InstructorStatus           bool    `json:"instructorStatusNotifications"`
-	DigestFrequency            string  `json:"digestFrequency"`
-	QuietHoursStart            *string `json:"quietHoursStart,omitempty"`
-	QuietHoursEnd              *string `json:"quietHoursEnd,omitempty"`
-	Timezone                   string  `json:"timezone"`
-	CreatedAt                  string  `json:"createdAt"`
-	UpdatedAt                  string  `json:"updatedAt"`
+	ID                         string   `json:"id"`
+	UserID                     string   `json:"userId"`
+	EmailEnabled               bool     `json:"emailEnabled"`
+	PushEnabled                bool     `json:"pushEnabled"`
+	InAppEnabled               bool     `json:"inAppEnabled"`
+	SystemNotifications        bool     `json:"systemNotifications"`
+	MessageNotifications       bool     `json:"messageNotifications"`
+	EventNotifications         bool     `json:"eventNotifications"`
+	GroupNotifications         bool     `json:"groupNotifications"`
+	ServiceNotifications       bool     `json:"serviceNotifications"`
+	BookingNotifications       bool     `json:"bookingNotifications"`
+	SessionNotifications       bool     `json:"sessionNotifications"`
+	ReviewNotifications        bool     `json:"reviewNotifications"`
+	MentionNotifications       bool     `json:"mentionNotifications"`
+	LikeNotifications          bool     `json:"likeNotifications"`
+	CommentNotifications       bool     `json:"commentNotifications"`
+	FriendRequestNotifications bool     `json:"friendRequestNotifications"`
+	GroupInviteNotifications   bool     `json:"groupInviteNotifications"`
+	EventReminderNotifications bool     `json:"eventReminderNotifications"`
+	PaymentNotifications       bool     `json:"paymentNotifications"`
+	SecurityNotifications      bool     `json:"securityNotifications"`
+	NewDiveSitePublished       bool     `json:"newDiveSitePublished"`
+	ChikaReplies               bool     `json:"chikaReplies"`
+	InstructorApplication      bool     `json:"instructorApplicationNotifications"`
+	InstructorStatus           bool     `json:"instructorStatusNotifications"`
+	BuddyUpdates               bool     `json:"buddyUpdates"`
+	ProfileSocialUpdates       bool     `json:"profileSocialUpdates"`
+	DiveConditionAlerts        bool     `json:"diveConditionAlerts"`
+	DiveConditionSavedSites    bool     `json:"diveConditionSavedSites"`
+	DiveConditionRegions       []string `json:"diveConditionRegions"`
+	DiveConditionNearMe        bool     `json:"diveConditionNearMe"`
+	DiveConditionCoarseArea    *string  `json:"diveConditionCoarseArea,omitempty"`
+	DigestFrequency            string   `json:"digestFrequency"`
+	QuietHoursStart            *string  `json:"quietHoursStart,omitempty"`
+	QuietHoursEnd              *string  `json:"quietHoursEnd,omitempty"`
+	Timezone                   string   `json:"timezone"`
+	CreatedAt                  string   `json:"createdAt"`
+	UpdatedAt                  string   `json:"updatedAt"`
 }
 
 type UpdateNotificationSettingsRequest struct {
-	EmailEnabled               *bool   `json:"emailEnabled,omitempty"`
-	PushEnabled                *bool   `json:"pushEnabled,omitempty"`
-	InAppEnabled               *bool   `json:"inAppEnabled,omitempty"`
-	SystemNotifications        *bool   `json:"systemNotifications,omitempty"`
-	MessageNotifications       *bool   `json:"messageNotifications,omitempty"`
-	EventNotifications         *bool   `json:"eventNotifications,omitempty"`
-	GroupNotifications         *bool   `json:"groupNotifications,omitempty"`
-	ServiceNotifications       *bool   `json:"serviceNotifications,omitempty"`
-	BookingNotifications       *bool   `json:"bookingNotifications,omitempty"`
-	SessionNotifications       *bool   `json:"sessionNotifications,omitempty"`
-	ReviewNotifications        *bool   `json:"reviewNotifications,omitempty"`
-	MentionNotifications       *bool   `json:"mentionNotifications,omitempty"`
-	LikeNotifications          *bool   `json:"likeNotifications,omitempty"`
-	CommentNotifications       *bool   `json:"commentNotifications,omitempty"`
-	FriendRequestNotifications *bool   `json:"friendRequestNotifications,omitempty"`
-	GroupInviteNotifications   *bool   `json:"groupInviteNotifications,omitempty"`
-	EventReminderNotifications *bool   `json:"eventReminderNotifications,omitempty"`
-	PaymentNotifications       *bool   `json:"paymentNotifications,omitempty"`
-	SecurityNotifications      *bool   `json:"securityNotifications,omitempty"`
-	NewDiveSitePublished       *bool   `json:"newDiveSitePublished,omitempty"`
-	ChikaReplies               *bool   `json:"chikaReplies,omitempty"`
-	InstructorApplication      *bool   `json:"instructorApplicationNotifications,omitempty"`
-	InstructorStatus           *bool   `json:"instructorStatusNotifications,omitempty"`
-	DigestFrequency            *string `json:"digestFrequency,omitempty" validate:"omitempty,oneof=IMMEDIATE DAILY WEEKLY NEVER"`
-	QuietHoursStart            *string `json:"quietHoursStart,omitempty" validate:"omitempty,max=5"`
-	QuietHoursEnd              *string `json:"quietHoursEnd,omitempty" validate:"omitempty,max=5"`
-	Timezone                   *string `json:"timezone,omitempty" validate:"omitempty,max=50"`
+	EmailEnabled               *bool     `json:"emailEnabled,omitempty"`
+	PushEnabled                *bool     `json:"pushEnabled,omitempty"`
+	InAppEnabled               *bool     `json:"inAppEnabled,omitempty"`
+	SystemNotifications        *bool     `json:"systemNotifications,omitempty"`
+	MessageNotifications       *bool     `json:"messageNotifications,omitempty"`
+	EventNotifications         *bool     `json:"eventNotifications,omitempty"`
+	GroupNotifications         *bool     `json:"groupNotifications,omitempty"`
+	ServiceNotifications       *bool     `json:"serviceNotifications,omitempty"`
+	BookingNotifications       *bool     `json:"bookingNotifications,omitempty"`
+	SessionNotifications       *bool     `json:"sessionNotifications,omitempty"`
+	ReviewNotifications        *bool     `json:"reviewNotifications,omitempty"`
+	MentionNotifications       *bool     `json:"mentionNotifications,omitempty"`
+	LikeNotifications          *bool     `json:"likeNotifications,omitempty"`
+	CommentNotifications       *bool     `json:"commentNotifications,omitempty"`
+	FriendRequestNotifications *bool     `json:"friendRequestNotifications,omitempty"`
+	GroupInviteNotifications   *bool     `json:"groupInviteNotifications,omitempty"`
+	EventReminderNotifications *bool     `json:"eventReminderNotifications,omitempty"`
+	PaymentNotifications       *bool     `json:"paymentNotifications,omitempty"`
+	SecurityNotifications      *bool     `json:"securityNotifications,omitempty"`
+	NewDiveSitePublished       *bool     `json:"newDiveSitePublished,omitempty"`
+	ChikaReplies               *bool     `json:"chikaReplies,omitempty"`
+	InstructorApplication      *bool     `json:"instructorApplicationNotifications,omitempty"`
+	InstructorStatus           *bool     `json:"instructorStatusNotifications,omitempty"`
+	BuddyUpdates               *bool     `json:"buddyUpdates,omitempty"`
+	ProfileSocialUpdates       *bool     `json:"profileSocialUpdates,omitempty"`
+	DiveConditionAlerts        *bool     `json:"diveConditionAlerts,omitempty"`
+	DiveConditionSavedSites    *bool     `json:"diveConditionSavedSites,omitempty"`
+	DiveConditionRegions       *[]string `json:"diveConditionRegions,omitempty" validate:"omitempty,max=20"`
+	DiveConditionNearMe        *bool     `json:"diveConditionNearMe,omitempty"`
+	DiveConditionCoarseArea    *string   `json:"diveConditionCoarseArea,omitempty" validate:"omitempty,max=120"`
+	DigestFrequency            *string   `json:"digestFrequency,omitempty" validate:"omitempty,oneof=IMMEDIATE DAILY WEEKLY NEVER"`
+	QuietHoursStart            *string   `json:"quietHoursStart,omitempty" validate:"omitempty,max=5"`
+	QuietHoursEnd              *string   `json:"quietHoursEnd,omitempty" validate:"omitempty,max=5"`
+	Timezone                   *string   `json:"timezone,omitempty" validate:"omitempty,max=50"`
+}
+
+type RegisterPushDeviceRequest struct {
+	ExpoPushToken string  `json:"expoPushToken" validate:"required,max=255"`
+	Platform      string  `json:"platform" validate:"required,oneof=ios android web unknown"`
+	DeviceID      *string `json:"deviceId,omitempty" validate:"omitempty,max=160"`
+	DeviceName    *string `json:"deviceName,omitempty" validate:"omitempty,max=160"`
+	AppVersion    *string `json:"appVersion,omitempty" validate:"omitempty,max=80"`
+}
+
+type PushDeviceToken struct {
+	ID            string  `json:"id"`
+	UserID        string  `json:"userId"`
+	ExpoPushToken string  `json:"expoPushToken"`
+	Platform      string  `json:"platform"`
+	DeviceID      *string `json:"deviceId,omitempty"`
+	DeviceName    *string `json:"deviceName,omitempty"`
+	AppVersion    *string `json:"appVersion,omitempty"`
+	Enabled       bool    `json:"enabled"`
+	LastSeenAt    string  `json:"lastSeenAt"`
+	CreatedAt     string  `json:"createdAt"`
+	UpdatedAt     string  `json:"updatedAt"`
 }
 
 type NotificationStatsResponse struct {

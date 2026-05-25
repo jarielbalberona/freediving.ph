@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
 import {
@@ -12,6 +12,9 @@ import {
 import { MobileButton } from "@/components/ui/mobile-button";
 import { useChikaCategoriesQuery } from "@/features/chika/hooks/use-chika-categories-query";
 import { useCreateChikaThreadMutation } from "@/features/chika/hooks/use-chika-mutations";
+import { useLocalDraft } from "@/local/drafts/use-local-draft";
+import { useOutbox } from "@/local/outbox/use-outbox";
+import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
 type CreateMode = "photo" | "chika" | undefined;
 
@@ -22,8 +25,22 @@ export function CreateScreen() {
   const [content, setContent] = useState("");
   const categoriesQuery = useChikaCategoriesQuery();
   const createThread = useCreateChikaThreadMutation();
+  const chikaDraft = useLocalDraft<{
+    categoryId?: string;
+    content: string;
+    title: string;
+  }>("chika_thread");
+  const postComposerDraft = useLocalDraft<{ kind: string }>("post_composer");
+  const outbox = useOutbox();
   const categories = categoriesQuery.data?.items ?? [];
   const selectedCategoryId = categoryId || categories[0]?.id || "";
+
+  useEffect(() => {
+    if (!chikaDraft.draft) return;
+    setCategoryId(chikaDraft.draft.payload.categoryId ?? "");
+    setTitle(chikaDraft.draft.payload.title);
+    setContent(chikaDraft.draft.payload.content);
+  }, [chikaDraft.draft]);
 
   return (
     <MobileScrollScreen subtitle="Create" title="Post">
@@ -32,6 +49,19 @@ export function CreateScreen() {
         title="What do you want to post?"
       >
         <View className="gap-3">
+          <PendingSyncPanel
+            isSyncing={outbox.isSyncing}
+            items={outbox.items}
+            message={
+              chikaDraft.status === "saved"
+                ? "Saved as draft"
+                : postComposerDraft.status === "saved"
+                  ? "Saved as draft"
+                  : outbox.message
+            }
+            onDiscard={outbox.discard}
+            onSyncNow={outbox.syncNow}
+          />
           <MobileButton onPress={() => setMode("photo")}>Photos or moments</MobileButton>
           <MobileButton variant="secondary" onPress={() => setMode("chika")}>
             Post in Chika
@@ -44,10 +74,18 @@ export function CreateScreen() {
         visible={mode === "photo"}
         onClose={() => setMode(undefined)}
       >
-        <MobileEmptyState
-          description="The backend media contracts exist, but native upload, preview, and retry handling need a dedicated media pass."
-          title="Media upload deferred"
-        />
+        <View className="gap-3">
+          <MobileEmptyState
+            description="The backend media contracts exist. This phase saves metadata drafts only; local file upload queueing remains media-specific."
+            title="Media upload deferred"
+          />
+          <MobileButton
+            variant="secondary"
+            onPress={() => void postComposerDraft.save({ kind: "media_post_metadata" })}
+          >
+            Save as draft
+          </MobileButton>
+        </View>
       </MobileActionSheet>
 
       <MobileActionSheet
@@ -91,6 +129,18 @@ export function CreateScreen() {
             Pseudonymous categories use the display name returned by the server.
           </Text>
           <MobileButton
+            variant="secondary"
+            onPress={() =>
+              void chikaDraft.save({
+                categoryId: selectedCategoryId,
+                content,
+                title,
+              })
+            }
+          >
+            Save as draft
+          </MobileButton>
+          <MobileButton
             disabled={
               createThread.isPending ||
               !selectedCategoryId ||
@@ -105,7 +155,24 @@ export function CreateScreen() {
                   title: title.trim(),
                 },
                 {
+                  onError: () => {
+                    void chikaDraft.save({
+                      categoryId: selectedCategoryId,
+                      content: content.trim(),
+                      title: title.trim(),
+                    });
+                    void outbox.enqueue({
+                      entityType: "chika_thread",
+                      operationType: "chika_thread_create",
+                      payload: {
+                        categoryId: selectedCategoryId,
+                        content: content.trim(),
+                        title: title.trim(),
+                      },
+                    });
+                  },
                   onSuccess: (thread) => {
+                    void chikaDraft.clearSubmitted();
                     setMode(undefined);
                     setTitle("");
                     setContent("");

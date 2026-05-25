@@ -278,9 +278,35 @@ CREATE TABLE IF NOT EXISTS notification_settings (
   quiet_hours_start TEXT,
   quiet_hours_end TEXT,
   timezone TEXT NOT NULL DEFAULT 'Asia/Manila',
+  buddy_updates BOOLEAN NOT NULL DEFAULT TRUE,
+  profile_social_updates BOOLEAN NOT NULL DEFAULT TRUE,
+  dive_condition_alerts BOOLEAN NOT NULL DEFAULT FALSE,
+  dive_condition_saved_sites BOOLEAN NOT NULL DEFAULT TRUE,
+  dive_condition_regions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  dive_condition_near_me BOOLEAN NOT NULL DEFAULT FALSE,
+  dive_condition_coarse_area TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS device_push_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expo_push_token TEXT NOT NULL UNIQUE,
+  platform TEXT NOT NULL DEFAULT 'unknown',
+  device_id TEXT,
+  device_name TEXT,
+  app_version TEXT,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (platform IN ('ios', 'android', 'web', 'unknown'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_push_tokens_user_id
+  ON device_push_tokens(user_id)
+  WHERE enabled = TRUE;
 
 CREATE TABLE IF NOT EXISTS chika_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

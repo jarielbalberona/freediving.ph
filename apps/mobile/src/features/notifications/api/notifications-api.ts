@@ -1,6 +1,10 @@
 import type {
   ListNotificationsResponse,
   NotificationFilters,
+  NotificationSettings,
+  PushDeviceToken,
+  RegisterPushDeviceRequest,
+  UpdateNotificationSettingsRequest,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -35,3 +39,38 @@ export const getNotifications = (
       authToken,
     },
   );
+
+export const getNotificationSettings = (authToken: string) =>
+  fphgoFetch<NotificationSettings>("/v1/notifications/preferences", {
+    auth: "required",
+    authToken,
+  });
+
+export const updateNotificationSettings = (
+  input: UpdateNotificationSettingsRequest,
+  authToken: string,
+) =>
+  fphgoFetch<NotificationSettings>("/v1/notifications/preferences", {
+    auth: "required",
+    authToken,
+    body: input,
+    method: "PUT",
+  });
+
+export const registerPushDevice = (
+  input: RegisterPushDeviceRequest,
+  authToken: string,
+) =>
+  fphgoFetch<PushDeviceToken>("/v1/notifications/devices", {
+    auth: "required",
+    authToken,
+    body: input,
+    method: "POST",
+  });
+
+export const deletePushDevice = (deviceId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/notifications/devices/${encodeURIComponent(deviceId)}`, {
+    auth: "required",
+    authToken,
+    method: "DELETE",
+  });

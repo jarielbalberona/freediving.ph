@@ -171,6 +171,10 @@ func (r *outboxAdminRepoStub) CreateDefaultSettingsForUser(context.Context, stri
 func (r *outboxAdminRepoStub) UpdateSettingsForUser(context.Context, string, notificationsrepo.SettingsUpdateInput) (notificationsrepo.NotificationSettings, error) {
 	return notificationsrepo.NotificationSettings{}, nil
 }
+func (r *outboxAdminRepoStub) RegisterDevice(context.Context, notificationsrepo.RegisterDeviceInput) (notificationsrepo.DevicePushToken, error) {
+	return notificationsrepo.DevicePushToken{}, nil
+}
+func (r *outboxAdminRepoStub) DeleteDeviceForUser(context.Context, string, string) error { return nil }
 func (r *outboxAdminRepoStub) ListActiveExploreModeratorRecipients(context.Context, string) ([]string, error) {
 	return nil, nil
 }

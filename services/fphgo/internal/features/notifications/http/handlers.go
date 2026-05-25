@@ -256,6 +256,13 @@ func (h *Handlers) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		ChikaReplies:               req.ChikaReplies,
 		InstructorApplication:      req.InstructorApplication,
 		InstructorStatus:           req.InstructorStatus,
+		BuddyUpdates:               req.BuddyUpdates,
+		ProfileSocialUpdates:       req.ProfileSocialUpdates,
+		DiveConditionAlerts:        req.DiveConditionAlerts,
+		DiveConditionSavedSites:    req.DiveConditionSavedSites,
+		DiveConditionRegions:       req.DiveConditionRegions,
+		DiveConditionNearMe:        req.DiveConditionNearMe,
+		DiveConditionCoarseArea:    req.DiveConditionCoarseArea,
 		DigestFrequency:            req.DigestFrequency,
 		QuietHoursStart:            req.QuietHoursStart,
 		QuietHoursEnd:              req.QuietHoursEnd,
@@ -266,6 +273,44 @@ func (h *Handlers) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, mapSettings(updated))
+}
+
+func (h *Handlers) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[RegisterPushDeviceRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, err := h.service.RegisterDevice(r.Context(), actorID, notificationsservice.RegisterDeviceInput{
+		ExpoPushToken: req.ExpoPushToken,
+		Platform:      req.Platform,
+		DeviceID:      req.DeviceID,
+		DeviceName:    req.DeviceName,
+		AppVersion:    req.AppVersion,
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, mapDevicePushToken(item))
+}
+
+func (h *Handlers) DeleteDevice(w http.ResponseWriter, r *http.Request) {
+	actorID, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	if err := h.service.DeleteDevice(r.Context(), actorID, chi.URLParam(r, "deviceId")); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handlers) ListOutbox(w http.ResponseWriter, r *http.Request) {
@@ -530,12 +575,35 @@ func mapSettings(input notificationsservice.NotificationSettings) NotificationSe
 		ChikaReplies:               input.ChikaReplies,
 		InstructorApplication:      input.InstructorApplication,
 		InstructorStatus:           input.InstructorStatus,
+		BuddyUpdates:               input.BuddyUpdates,
+		ProfileSocialUpdates:       input.ProfileSocialUpdates,
+		DiveConditionAlerts:        input.DiveConditionAlerts,
+		DiveConditionSavedSites:    input.DiveConditionSavedSites,
+		DiveConditionRegions:       input.DiveConditionRegions,
+		DiveConditionNearMe:        input.DiveConditionNearMe,
+		DiveConditionCoarseArea:    input.DiveConditionCoarseArea,
 		DigestFrequency:            input.DigestFrequency,
 		QuietHoursStart:            input.QuietHoursStart,
 		QuietHoursEnd:              input.QuietHoursEnd,
 		Timezone:                   input.Timezone,
 		CreatedAt:                  input.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:                  input.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func mapDevicePushToken(input notificationsservice.DevicePushToken) PushDeviceToken {
+	return PushDeviceToken{
+		ID:            input.ID,
+		UserID:        input.UserID,
+		ExpoPushToken: input.ExpoPushToken,
+		Platform:      input.Platform,
+		DeviceID:      input.DeviceID,
+		DeviceName:    input.DeviceName,
+		AppVersion:    input.AppVersion,
+		Enabled:       input.Enabled,
+		LastSeenAt:    input.LastSeenAt.UTC().Format(time.RFC3339),
+		CreatedAt:     input.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:     input.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

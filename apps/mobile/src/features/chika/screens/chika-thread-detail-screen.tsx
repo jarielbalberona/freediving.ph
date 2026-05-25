@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
 import {
@@ -18,6 +18,9 @@ import {
 } from "@/features/chika/hooks/use-chika-mutations";
 import { useChikaCommentsQuery } from "@/features/chika/hooks/use-chika-comments-query";
 import { useChikaThreadDetailQuery } from "@/features/chika/hooks/use-chika-thread-detail-query";
+import { useLocalDraft } from "@/local/drafts/use-local-draft";
+import { useOutbox } from "@/local/outbox/use-outbox";
+import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 import {
   chikaAuthorLabel,
   formatChikaDate,
@@ -39,6 +42,12 @@ export function ChikaThreadDetailScreen() {
   const commentReaction = useSetChikaCommentReactionMutation(thread?.id ?? "");
   const [replyTo, setReplyTo] = useState<string | undefined>();
   const [commentDraft, setCommentDraft] = useState("");
+  const localCommentDraft = useLocalDraft<{
+    content: string;
+    parentCommentId?: string;
+    threadId?: string;
+  }>("chika_comment");
+  const outbox = useOutbox();
   const nestedComments = useMemo(() => {
     const byParent = new Map<string, typeof comments>();
     const roots: typeof comments = [];
@@ -57,6 +66,13 @@ export function ChikaThreadDetailScreen() {
       ]);
     return flatten(roots);
   }, [comments]);
+
+  useEffect(() => {
+    const draft = localCommentDraft.draft;
+    if (!draft || draft.payload.threadId !== thread?.id) return;
+    setCommentDraft(draft.payload.content);
+    setReplyTo(draft.payload.parentCommentId);
+  }, [localCommentDraft.draft, thread?.id]);
 
   if (!slug) {
     return (
@@ -151,6 +167,18 @@ export function ChikaThreadDetailScreen() {
                 onPress={() =>
                   threadReaction.mutate(
                     thread.userReaction === "upvote" ? null : "upvote",
+                    {
+                      onError: () =>
+                        void outbox.enqueue({
+                          entityId: thread.id,
+                          entityType: "chika_thread",
+                          operationType: "chika_thread_reaction",
+                          payload: {
+                            threadId: thread.id,
+                            type: thread.userReaction === "upvote" ? null : "upvote",
+                          },
+                        }),
+                    },
                   )
                 }
               >
@@ -161,6 +189,19 @@ export function ChikaThreadDetailScreen() {
                 onPress={() =>
                   threadReaction.mutate(
                     thread.userReaction === "downvote" ? null : "downvote",
+                    {
+                      onError: () =>
+                        void outbox.enqueue({
+                          entityId: thread.id,
+                          entityType: "chika_thread",
+                          operationType: "chika_thread_reaction",
+                          payload: {
+                            threadId: thread.id,
+                            type:
+                              thread.userReaction === "downvote" ? null : "downvote",
+                          },
+                        }),
+                    },
                   )
                 }
               >
@@ -172,6 +213,17 @@ export function ChikaThreadDetailScreen() {
 
         <MobileSection title="Replies">
           <View className="mb-4 gap-3">
+            <PendingSyncPanel
+              isSyncing={outbox.isSyncing}
+              items={outbox.items}
+              message={
+                localCommentDraft.status === "saved"
+                  ? "Saved as draft"
+                  : outbox.message
+              }
+              onDiscard={outbox.discard}
+              onSyncNow={outbox.syncNow}
+            />
             {replyTo ? (
               <Text className="text-xs text-muted-foreground">
                 Replying to a comment
@@ -188,6 +240,20 @@ export function ChikaThreadDetailScreen() {
             <View className="flex-row gap-2">
               <View className="flex-1">
                 <MobileButton
+                  variant="secondary"
+                  onPress={() =>
+                    void localCommentDraft.save({
+                      content: commentDraft,
+                      parentCommentId: replyTo,
+                      threadId: thread.id,
+                    })
+                  }
+                >
+                  Save draft
+                </MobileButton>
+              </View>
+              <View className="flex-1">
+                <MobileButton
                   disabled={createComment.isPending || commentDraft.trim().length === 0}
                   onPress={() => {
                     const content = commentDraft.trim();
@@ -195,7 +261,25 @@ export function ChikaThreadDetailScreen() {
                     createComment.mutate(
                       { content, parentCommentId: replyTo },
                       {
+                        onError: () => {
+                          void localCommentDraft.save({
+                            content,
+                            parentCommentId: replyTo,
+                            threadId: thread.id,
+                          });
+                          void outbox.enqueue({
+                            entityId: thread.id,
+                            entityType: "chika_comment",
+                            operationType: "chika_comment_create",
+                            payload: {
+                              content,
+                              parentCommentId: replyTo,
+                              threadId: thread.id,
+                            },
+                          });
+                        },
                         onSuccess: () => {
+                          void localCommentDraft.clearSubmitted();
                           setCommentDraft("");
                           setReplyTo(undefined);
                         },
@@ -250,7 +334,18 @@ export function ChikaThreadDetailScreen() {
                   comment={comment}
                   depth={depth}
                   onReact={(commentId, type) =>
-                    commentReaction.mutate({ commentId, type })
+                    commentReaction.mutate(
+                      { commentId, type },
+                      {
+                        onError: () =>
+                          void outbox.enqueue({
+                            entityId: commentId,
+                            entityType: "chika_comment",
+                            operationType: "chika_comment_reaction",
+                            payload: { commentId, type },
+                          }),
+                      },
+                    )
                   }
                   onReply={setReplyTo}
                 />

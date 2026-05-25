@@ -18,6 +18,7 @@ export type SyncOperationType =
   | "profile_edit_update"
   | "buddy_intent_create"
   | "event_post_create"
+  | "event_post_fish"
   | "group_post_create"
   | "chika_thread_reaction"
   | "chika_comment_reaction"

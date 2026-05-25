@@ -40,7 +40,14 @@
       "@clerk/expo",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Use your location once to find nearby dive sites and set nearby condition alerts."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

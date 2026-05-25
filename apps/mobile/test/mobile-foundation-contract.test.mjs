@@ -19,7 +19,7 @@ test("mobile package aligns with repository tooling decisions", () => {
   assert.ok(!pkg.scripts["reset-project"]);
   assert.ok(!pkg.dependencies.axios);
   assert.ok(!pkg.dependencies["drizzle-orm"]);
-  assert.ok(!pkg.dependencies["expo-sqlite"]);
+  assert.ok(pkg.dependencies["expo-sqlite"]);
   assert.ok(!pkg.dependencies["@expo/ui"]);
   assert.ok(!pkg.dependencies["expo-glass-effect"]);
 });
@@ -206,10 +206,19 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   assert.ok(format.includes('includes("/")'));
 });
 
-test("notifications use shared contracts, auth gating, and read-only routes", () => {
+test("notifications use shared contracts, auth gating, preferences, and safe push routes", () => {
   const api = read("src/features/notifications/api/notifications-api.ts");
   const hook = read(
     "src/features/notifications/hooks/use-notifications-query.ts",
+  );
+  const settingsHook = read(
+    "src/features/notifications/hooks/use-notification-settings-query.ts",
+  );
+  const settingsMutation = read(
+    "src/features/notifications/hooks/use-notification-settings-mutation.ts",
+  );
+  const pushMutation = read(
+    "src/features/notifications/hooks/use-register-push-device-mutation.ts",
   );
   const card = read(
     "src/features/notifications/components/notification-card.tsx",
@@ -222,26 +231,67 @@ test("notifications use shared contracts, auth gating, and read-only routes", ()
   assert.match(api, /@freediving\.ph\/types/);
   assert.match(api, /ListNotificationsResponse/);
   assert.match(api, /NotificationFilters/);
+  assert.match(api, /RegisterPushDeviceRequest/);
+  assert.match(api, /UpdateNotificationSettingsRequest/);
   assert.match(api, /fphgoFetch/);
   assert.match(api, /\/v1\/notifications/);
+  assert.match(api, /\/v1\/notifications\/devices/);
+  assert.match(api, /\/v1\/notifications\/preferences/);
   assert.match(api, /auth:\s*"required"/);
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/notifications\/types/);
-  assert.doesNotMatch(api, /method:\s*"(POST|PATCH|DELETE|PUT)"/);
+  assert.match(api, /method:\s*"POST"/);
+  assert.match(api, /method:\s*"PUT"/);
+  assert.match(api, /method:\s*"DELETE"/);
   assert.match(hook, /useAuthenticatedFphgoQuery/);
   assert.match(hook, /mobileQueryKeys\.notifications\.list/);
+  assert.match(settingsHook, /mobileQueryKeys\.notifications\.settings/);
+  assert.match(settingsMutation, /updateNotificationSettings/);
+  assert.match(pushMutation, /registerPushDevice/);
+  assert.match(pushMutation, /getToken/);
+  assert.match(pushMutation, /Authentication required/);
   assert.match(card, /notificationHref/);
   assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
   assert.match(format, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
   assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
   assert.match(format, /\/\(app\)\/\(tabs\)\/profile\/\[username\]/);
+  assert.match(format, /notificationsFallbackHref/);
   assert.match(screen, /MobileLoadingState/);
   assert.match(screen, /MobileEmptyState/);
   assert.match(screen, /MobileErrorState/);
-  assert.doesNotMatch(
-    screen,
-    /markAsRead|markAllAsRead|pushToken|websocket|realtime/i,
+  assert.match(screen, /Enable push/);
+  assert.match(screen, /Dive condition alerts/);
+  assert.doesNotMatch(screen, /markAsRead|markAllAsRead|websocket|realtime/i);
+});
+
+test("Phase 4 location and push helpers stay foreground-only and user initiated", () => {
+  const pkg = JSON.parse(read("package.json"));
+  const appConfig = read("app.json");
+  const push = read("src/features/notifications/lib/push-notifications.ts");
+  const listener = read(
+    "src/features/notifications/components/push-notification-route-listener.tsx",
   );
+  const location = read("src/features/location/lib/foreground-location.ts");
+  const screen = read(
+    "src/features/notifications/screens/notifications-screen.tsx",
+  );
+
+  assert.ok(pkg.dependencies["expo-notifications"]);
+  assert.ok(pkg.dependencies["expo-location"]);
+  assert.match(appConfig, /locationWhenInUsePermission/);
+  assert.doesNotMatch(appConfig, /locationAlways|UIBackgroundModes/i);
+  assert.match(push, /requestPermissionsAsync/);
+  assert.match(push, /getExpoPushTokenAsync/);
+  assert.match(push, /Device\.isDevice/);
+  assert.doesNotMatch(push, /getToken|registerPushDevice\(|setInterval|Background/i);
+  assert.match(listener, /addNotificationResponseReceivedListener/);
+  assert.match(listener, /notificationsFallbackHref/);
+  assert.match(location, /requestForegroundPermissionsAsync/);
+  assert.match(location, /getCurrentPositionAsync/);
+  assert.doesNotMatch(location, /requestBackgroundPermissionsAsync|watchPositionAsync|startLocationUpdatesAsync/i);
+  assert.match(screen, /Use my current area/);
+  assert.match(screen, /diveConditionCoarseArea/);
+  assert.doesNotMatch(screen, /background location|continuous tracking/i);
 });
 
 test("buddies use shared public and member intent contracts", () => {
@@ -314,4 +364,77 @@ test("messages and groups expose member-safe Phase 2 routes", () => {
   assert.match(groupDetailScreen, /Join group/);
   assert.match(groupDetailScreen, /Post to group/);
   assert.doesNotMatch(groupDetailScreen, /admin|moderation/i);
+});
+
+test("local Phase 3 storage is bounded to drafts and sync outbox", () => {
+  const database = read("src/local/db/database.ts");
+  const types = read("src/local/db/types.ts");
+  const draftRepo = read("src/local/drafts/drafts-repository.ts");
+  const outboxRepo = read("src/local/outbox/outbox-repository.ts");
+  const supported = read("src/local/outbox/supported-operations.ts");
+
+  assert.match(database, /expo-sqlite/);
+  assert.match(database, /CREATE TABLE IF NOT EXISTS local_drafts/);
+  assert.match(database, /CREATE TABLE IF NOT EXISTS sync_outbox/);
+  assert.match(database, /CREATE TABLE IF NOT EXISTS local_media_queue/);
+  assert.match(database, /PRAGMA user_version/);
+  assert.doesNotMatch(database, /server|profile_posts|events|messages/i);
+  assert.match(types, /LocalDraftStatus/);
+  assert.match(types, /SyncOutboxStatus/);
+  assert.match(types, /idempotencyKey/);
+  assert.match(types, /OFFLINE_OPERATION_CLASSIFICATION/);
+  assert.match(types, /message_send:\s*"online_only"/);
+  assert.match(types, /event_join_leave:\s*"online_only"/);
+  assert.match(types, /explore_site_submit:\s*"online_only"/);
+  assert.match(types, /notification_mark_read:\s*"unsupported"/);
+  assert.match(draftRepo, /saveLocalDraft/);
+  assert.match(draftRepo, /getLatestLocalDraft/);
+  assert.match(draftRepo, /discardLocalDraft/);
+  assert.match(outboxRepo, /createOutboxItem/);
+  assert.match(outboxRepo, /makeIdempotencyKey/);
+  assert.match(outboxRepo, /markOutboxSynced/);
+  assert.match(outboxRepo, /markOutboxFailed/);
+  assert.match(supported, /QUEUEABLE_OPERATION_TYPES/);
+  assert.doesNotMatch(supported, /message_send|event_join_leave|payment|booking/i);
+});
+
+test("sync runner is manual, idempotent, and server-response gated", () => {
+  const syncRunner = read("src/local/sync/sync-runner.ts");
+  const outboxHook = read("src/local/outbox/use-outbox.ts");
+  const client = read("src/lib/api/fphgo-client.ts");
+  const createScreen = read("src/features/create/screens/create-screen.tsx");
+  const buddiesScreen = read("src/features/buddies/screens/buddies-screen.tsx");
+  const chikaDetail = read("src/features/chika/screens/chika-thread-detail-screen.tsx");
+
+  assert.match(client, /Idempotency-Key/);
+  assert.match(syncRunner, /runSyncOutbox/);
+  assert.match(syncRunner, /idempotencyKey:\s*item\.idempotencyKey/);
+  assert.match(syncRunner, /markOutboxSynced/);
+  assert.match(syncRunner, /markOutboxFailed/);
+  assert.match(syncRunner, /break/);
+  assert.doesNotMatch(syncRunner, /setInterval|Background|TaskManager|push/i);
+  assert.match(outboxHook, /syncNow/);
+  assert.match(outboxHook, /Waiting to sync/);
+  assert.match(outboxHook, /Could not sync\. Try again\./);
+  assert.match(createScreen, /Save as draft/);
+  assert.match(createScreen, /chika_thread_create/);
+  assert.match(buddiesScreen, /buddy_intent_create/);
+  assert.match(chikaDetail, /chika_comment_create/);
+});
+
+test("local state does not become canonical server state", () => {
+  const localFiles = fs
+    .readdirSync(path.join(root, "src/local"), { recursive: true })
+    .filter((file) => String(file).endsWith(".ts") || String(file).endsWith(".tsx"))
+    .map((file) => read(path.join("src/local", String(file))))
+    .join("\n");
+  const source = fs
+    .readdirSync(path.join(root, "src"), { recursive: true })
+    .filter((file) => String(file).endsWith(".ts") || String(file).endsWith(".tsx"))
+    .map((file) => read(path.join("src", String(file))))
+    .join("\n");
+
+  assert.doesNotMatch(localFiles, /zustand|create\s*\(/i);
+  assert.doesNotMatch(localFiles, /CREATE TABLE IF NOT EXISTS (events|messages|profiles|groups|explore_sites)/i);
+  assert.doesNotMatch(source, /drizzle-orm|expo-network|BackgroundFetch|TaskManager/i);
 });

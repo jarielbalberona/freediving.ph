@@ -51,6 +51,9 @@ export const notificationTypeLabel = (type: Notification["type"]) => {
 export const priorityLabel = (priority: Notification["priority"]) =>
   priority.toLowerCase().replace(/^\w/, (match) => match.toUpperCase());
 
+export const notificationsFallbackHref: Href =
+  "/(app)/(tabs)/(home)/notifications";
+
 const safeSegment = (value: string | undefined) => {
   const trimmed = value?.trim();
   if (
@@ -64,10 +67,10 @@ const safeSegment = (value: string | undefined) => {
   return trimmed;
 };
 
-export const notificationHref = (
-  notification: Notification,
+export const notificationHrefFromActionUrl = (
+  rawActionUrl: string | undefined,
 ): Href | undefined => {
-  const actionUrl = notification.actionUrl?.trim();
+  const actionUrl = rawActionUrl?.trim();
   if (!actionUrl || !actionUrl.startsWith("/") || actionUrl.startsWith("//")) {
     return undefined;
   }
@@ -106,8 +109,16 @@ export const notificationHref = (
       : undefined;
   }
 
+  if (parts[0] === "buddies" && parts.length === 1) {
+    return "/(app)/(tabs)/(home)/buddies";
+  }
+
   return undefined;
 };
+
+export const notificationHref = (
+  notification: Notification,
+): Href | undefined => notificationHrefFromActionUrl(notification.actionUrl);
 
 export const notificationTitle = (notification: Notification) =>
   notification.title?.trim() || notificationTypeLabel(notification.type);

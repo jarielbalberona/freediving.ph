@@ -73,6 +73,8 @@ export const mobileQueryKeys = {
     all: ["notifications"] as const,
     list: (params?: { limit?: number; offset?: number }) =>
       [...mobileQueryKeys.notifications.all, "list", params ?? {}] as const,
+    settings: () =>
+      [...mobileQueryKeys.notifications.all, "settings"] as const,
     unreadCount: () =>
       [...mobileQueryKeys.notifications.all, "unread-count"] as const,
   },

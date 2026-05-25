@@ -3,12 +3,13 @@ import type { ApiError } from "@freediving.ph/types";
 import { getMobileAuthToken } from "@/lib/auth";
 import { env } from "@/lib/env";
 
-type JsonBody = Record<string, unknown> | unknown[] | string | number | boolean;
+type JsonBody = object | unknown[] | string | number | boolean;
 
 export type FphgoRequestInit = Omit<RequestInit, "body"> & {
   auth?: "optional" | "required" | "none";
   authToken?: string | null;
   body?: BodyInit | JsonBody | null;
+  idempotencyKey?: string;
 };
 
 export class FphgoApiError extends Error {
@@ -78,7 +79,7 @@ export async function fphgoFetch<T>(path: string, init: FphgoRequestInit = {}) {
     throw new Error(`FPHGO path must be relative and start with "/": ${path}`);
   }
 
-  const { auth, authToken, body: requestBody, ...requestInit } = init;
+  const { auth, authToken, body: requestBody, idempotencyKey, ...requestInit } = init;
   const headers = new Headers(requestInit.headers);
   const authMode = auth ?? "optional";
   const token =
@@ -90,6 +91,9 @@ export async function fphgoFetch<T>(path: string, init: FphgoRequestInit = {}) {
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
+  }
+  if (idempotencyKey) {
+    headers.set("Idempotency-Key", idempotencyKey);
   }
 
   const response = await fetch(`${env.apiBaseUrl}${path}`, {

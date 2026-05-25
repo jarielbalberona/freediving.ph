@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
 import {
@@ -20,6 +20,9 @@ import {
   useMemberBuddyFinderIntentsQuery,
   useMyBuddyFinderIntentsQuery,
 } from "@/features/buddies/hooks/use-buddy-finder-query";
+import { useLocalDraft } from "@/local/drafts/use-local-draft";
+import { useOutbox } from "@/local/outbox/use-outbox";
+import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
 export function BuddiesScreen() {
   const buddiesQuery = useBuddyFinderQuery();
@@ -28,10 +31,18 @@ export function BuddiesScreen() {
   const createIntent = useCreateBuddyIntentMutation();
   const deleteIntent = useDeleteBuddyIntentMutation();
   const messageEntry = useBuddyMessageEntryMutation();
+  const buddyDraft = useLocalDraft<{ area: string; note?: string }>("buddy_intent");
+  const outbox = useOutbox();
   const [area, setArea] = useState("");
   const [note, setNote] = useState("");
   const intents = memberIntentsQuery.data?.items ?? buddiesQuery.data?.items ?? [];
   const myIntents = myIntentsQuery.data?.items ?? [];
+
+  useEffect(() => {
+    if (!buddyDraft.draft) return;
+    setArea(buddyDraft.draft.payload.area);
+    setNote(buddyDraft.draft.payload.note ?? "");
+  }, [buddyDraft.draft]);
 
   return (
     <MobileScrollScreen subtitle="Buddy Finder" title="Buddies">
@@ -40,6 +51,13 @@ export function BuddiesScreen() {
         title="Your buddy intent"
       >
         <View className="gap-3">
+          <PendingSyncPanel
+            isSyncing={outbox.isSyncing}
+            items={outbox.items}
+            message={buddyDraft.status === "saved" ? "Saved as draft" : outbox.message}
+            onDiscard={outbox.discard}
+            onSyncNow={outbox.syncNow}
+          />
           <TextInput
             className="rounded-2xl border border-border bg-card p-3 text-foreground"
             onChangeText={setArea}
@@ -56,6 +74,17 @@ export function BuddiesScreen() {
             value={note}
           />
           <MobileButton
+            variant="secondary"
+            onPress={() =>
+              void buddyDraft.save({
+                area: area.trim(),
+                note: note.trim() || undefined,
+              })
+            }
+          >
+            Save as draft
+          </MobileButton>
+          <MobileButton
             disabled={createIntent.isPending || area.trim().length < 2}
             onPress={() => {
               createIntent.mutate(
@@ -66,7 +95,24 @@ export function BuddiesScreen() {
                   timeWindow: "weekend",
                 },
                 {
+                  onError: () => {
+                    void buddyDraft.save({
+                      area: area.trim(),
+                      note: note.trim() || undefined,
+                    });
+                    void outbox.enqueue({
+                      entityType: "buddy_intent",
+                      operationType: "buddy_intent_create",
+                      payload: {
+                        area: area.trim(),
+                        intentType: "fun_dive",
+                        note: note.trim() || undefined,
+                        timeWindow: "weekend",
+                      },
+                    });
+                  },
                   onSuccess: () => {
+                    void buddyDraft.clearSubmitted();
                     setArea("");
                     setNote("");
                   },

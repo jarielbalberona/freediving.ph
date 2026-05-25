@@ -70,12 +70,33 @@ type NotificationSettings struct {
 	ChikaReplies               bool
 	InstructorApplication      bool
 	InstructorStatus           bool
+	BuddyUpdates               bool
+	ProfileSocialUpdates       bool
+	DiveConditionAlerts        bool
+	DiveConditionSavedSites    bool
+	DiveConditionRegions       []string
+	DiveConditionNearMe        bool
+	DiveConditionCoarseArea    *string
 	DigestFrequency            string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
 	Timezone                   string
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
+}
+
+type DevicePushToken struct {
+	ID            string
+	UserID        string
+	ExpoPushToken string
+	Platform      string
+	DeviceID      *string
+	DeviceName    *string
+	AppVersion    *string
+	Enabled       bool
+	LastSeenAt    time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type CreateInput struct {
@@ -128,10 +149,26 @@ type SettingsUpdateInput struct {
 	ChikaReplies               *bool
 	InstructorApplication      *bool
 	InstructorStatus           *bool
+	BuddyUpdates               *bool
+	ProfileSocialUpdates       *bool
+	DiveConditionAlerts        *bool
+	DiveConditionSavedSites    *bool
+	DiveConditionRegions       *[]string
+	DiveConditionNearMe        *bool
+	DiveConditionCoarseArea    *string
 	DigestFrequency            *string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
 	Timezone                   *string
+}
+
+type RegisterDeviceInput struct {
+	UserID        string
+	ExpoPushToken string
+	Platform      string
+	DeviceID      *string
+	DeviceName    *string
+	AppVersion    *string
 }
 
 const (
@@ -186,6 +223,67 @@ type outboxExecutor interface {
 
 func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
+}
+
+func (r *Repo) RegisterDevice(ctx context.Context, input RegisterDeviceInput) (DevicePushToken, error) {
+	row := r.pool.QueryRow(ctx, `
+		INSERT INTO device_push_tokens (
+			user_id,
+			expo_push_token,
+			platform,
+			device_id,
+			device_name,
+			app_version
+		) VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (expo_push_token) DO UPDATE
+		SET
+			user_id = EXCLUDED.user_id,
+			platform = EXCLUDED.platform,
+			device_id = EXCLUDED.device_id,
+			device_name = EXCLUDED.device_name,
+			app_version = EXCLUDED.app_version,
+			enabled = TRUE,
+			last_seen_at = NOW(),
+			updated_at = NOW()
+		RETURNING
+			id::text,
+			user_id::text,
+			expo_push_token,
+			platform,
+			device_id,
+			device_name,
+			app_version,
+			enabled,
+			last_seen_at,
+			created_at,
+			updated_at
+	`,
+		strings.TrimSpace(input.UserID),
+		strings.TrimSpace(input.ExpoPushToken),
+		normalizeDevicePlatform(input.Platform),
+		trimStringPtr(input.DeviceID),
+		trimStringPtr(input.DeviceName),
+		trimStringPtr(input.AppVersion),
+	)
+	return scanDevicePushTokenRow(row)
+}
+
+func (r *Repo) DeleteDeviceForUser(ctx context.Context, userID, deviceID string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE device_push_tokens
+		SET
+			enabled = FALSE,
+			updated_at = NOW()
+		WHERE id = $1::uuid
+		  AND user_id = $2::uuid
+	`, strings.TrimSpace(deviceID), strings.TrimSpace(userID))
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *Repo) EnqueueOutbox(ctx context.Context, input OutboxEnqueueInput) (NotificationOutbox, error) {
@@ -1104,6 +1202,13 @@ func (r *Repo) GetSettingsForUser(ctx context.Context, userID string) (Notificat
 				chika_replies,
 				instructor_application_notifications,
 				instructor_status_notifications,
+				buddy_updates,
+				profile_social_updates,
+				dive_condition_alerts,
+				dive_condition_saved_sites,
+				dive_condition_regions,
+				dive_condition_near_me,
+				dive_condition_coarse_area,
 				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
@@ -1147,6 +1252,13 @@ func (r *Repo) CreateDefaultSettingsForUser(ctx context.Context, userID string) 
 				chika_replies,
 				instructor_application_notifications,
 				instructor_status_notifications,
+				buddy_updates,
+				profile_social_updates,
+				dive_condition_alerts,
+				dive_condition_saved_sites,
+				dive_condition_regions,
+				dive_condition_near_me,
+				dive_condition_coarse_area,
 				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
@@ -1237,6 +1349,31 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 	if input.InstructorStatus != nil {
 		addSet("instructor_status_notifications", *input.InstructorStatus)
 	}
+	if input.BuddyUpdates != nil {
+		addSet("buddy_updates", *input.BuddyUpdates)
+	}
+	if input.ProfileSocialUpdates != nil {
+		addSet("profile_social_updates", *input.ProfileSocialUpdates)
+	}
+	if input.DiveConditionAlerts != nil {
+		addSet("dive_condition_alerts", *input.DiveConditionAlerts)
+	}
+	if input.DiveConditionSavedSites != nil {
+		addSet("dive_condition_saved_sites", *input.DiveConditionSavedSites)
+	}
+	if input.DiveConditionRegions != nil {
+		regionsJSON, err := json.Marshal(cleanStringSlice(*input.DiveConditionRegions))
+		if err != nil {
+			return NotificationSettings{}, fmt.Errorf("marshal dive condition regions: %w", err)
+		}
+		addSet("dive_condition_regions", string(regionsJSON))
+	}
+	if input.DiveConditionNearMe != nil {
+		addSet("dive_condition_near_me", *input.DiveConditionNearMe)
+	}
+	if input.DiveConditionCoarseArea != nil {
+		addSet("dive_condition_coarse_area", strings.TrimSpace(*input.DiveConditionCoarseArea))
+	}
 	if input.DigestFrequency != nil {
 		addSet("digest_frequency", *input.DigestFrequency)
 	}
@@ -1288,6 +1425,13 @@ func (r *Repo) UpdateSettingsForUser(ctx context.Context, userID string, input S
 				chika_replies,
 				instructor_application_notifications,
 				instructor_status_notifications,
+				buddy_updates,
+				profile_social_updates,
+				dive_condition_alerts,
+				dive_condition_saved_sites,
+				dive_condition_regions,
+				dive_condition_near_me,
+				dive_condition_coarse_area,
 				digest_frequency::text,
 			quiet_hours_start,
 			quiet_hours_end,
@@ -1406,8 +1550,33 @@ func scanOutboxRow(row rowScanner) (NotificationOutbox, error) {
 	return item, nil
 }
 
+func scanDevicePushTokenRow(row rowScanner) (DevicePushToken, error) {
+	var item DevicePushToken
+	err := row.Scan(
+		&item.ID,
+		&item.UserID,
+		&item.ExpoPushToken,
+		&item.Platform,
+		&item.DeviceID,
+		&item.DeviceName,
+		&item.AppVersion,
+		&item.Enabled,
+		&item.LastSeenAt,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
+	if err != nil {
+		return DevicePushToken{}, err
+	}
+	item.LastSeenAt = item.LastSeenAt.UTC()
+	item.CreatedAt = item.CreatedAt.UTC()
+	item.UpdatedAt = item.UpdatedAt.UTC()
+	return item, nil
+}
+
 func scanSettingsRow(row rowScanner) (NotificationSettings, error) {
 	var item NotificationSettings
+	var regionsRaw []byte
 	err := row.Scan(
 		&item.ID,
 		&item.UserID,
@@ -1434,6 +1603,13 @@ func scanSettingsRow(row rowScanner) (NotificationSettings, error) {
 		&item.ChikaReplies,
 		&item.InstructorApplication,
 		&item.InstructorStatus,
+		&item.BuddyUpdates,
+		&item.ProfileSocialUpdates,
+		&item.DiveConditionAlerts,
+		&item.DiveConditionSavedSites,
+		&regionsRaw,
+		&item.DiveConditionNearMe,
+		&item.DiveConditionCoarseArea,
 		&item.DigestFrequency,
 		&item.QuietHoursStart,
 		&item.QuietHoursEnd,
@@ -1443,6 +1619,12 @@ func scanSettingsRow(row rowScanner) (NotificationSettings, error) {
 	)
 	if err != nil {
 		return NotificationSettings{}, err
+	}
+	item.DiveConditionRegions = []string{}
+	if len(regionsRaw) > 0 {
+		if unmarshalErr := json.Unmarshal(regionsRaw, &item.DiveConditionRegions); unmarshalErr != nil {
+			return NotificationSettings{}, fmt.Errorf("unmarshal dive condition regions: %w", unmarshalErr)
+		}
 	}
 	item.CreatedAt = item.CreatedAt.UTC()
 	item.UpdatedAt = item.UpdatedAt.UTC()
@@ -1470,4 +1652,48 @@ func toUTCPtr(value *time.Time) *time.Time {
 	}
 	utc := value.UTC()
 	return &utc
+}
+
+func normalizeDevicePlatform(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "ios", "android", "web":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return "unknown"
+	}
+}
+
+func trimStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func cleanStringSlice(values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if len(trimmed) > 120 {
+			trimmed = trimmed[:120]
+		}
+		key := strings.ToLower(trimmed)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, trimmed)
+		if len(result) >= 20 {
+			break
+		}
+	}
+	return result
 }

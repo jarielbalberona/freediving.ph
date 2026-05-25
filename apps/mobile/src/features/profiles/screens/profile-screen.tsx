@@ -1,5 +1,5 @@
 import { Link } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 import {
@@ -23,6 +23,9 @@ import {
   profileCountLabel,
   profileLocationLabel,
 } from "@/features/profiles/lib/profile-format";
+import { useLocalDraft } from "@/local/drafts/use-local-draft";
+import { useOutbox } from "@/local/outbox/use-outbox";
+import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
 export function ProfileScreen() {
   const profileQuery = useMyProfileQuery();
@@ -33,7 +36,16 @@ export function ProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
+  const profileDraft = useLocalDraft<{ bio?: string; displayName: string }>("profile_edit");
+  const outbox = useOutbox();
   const posts = postsQuery.data ?? [];
+
+  useEffect(() => {
+    if (!profileDraft.draft) return;
+    setDisplayName(profileDraft.draft.payload.displayName);
+    setBio(profileDraft.draft.payload.bio ?? "");
+    setIsEditing(true);
+  }, [profileDraft.draft]);
 
   if (profileQuery.isLoading) {
     return (
@@ -106,6 +118,15 @@ export function ProfileScreen() {
       {isEditing ? (
         <MobileSection title="Edit profile">
           <View className="gap-3">
+            <PendingSyncPanel
+              isSyncing={outbox.isSyncing}
+              items={outbox.items}
+              message={
+                profileDraft.status === "saved" ? "Saved as draft" : outbox.message
+              }
+              onDiscard={outbox.discard}
+              onSyncNow={outbox.syncNow}
+            />
             <TextInput
               className="rounded-2xl border border-border bg-card p-3 text-foreground"
               onChangeText={setDisplayName}
@@ -122,6 +143,17 @@ export function ProfileScreen() {
               value={bio}
             />
             <MobileButton
+              variant="secondary"
+              onPress={() =>
+                void profileDraft.save({
+                  bio: bio.trim() || undefined,
+                  displayName: displayName.trim(),
+                })
+              }
+            >
+              Save draft
+            </MobileButton>
+            <MobileButton
               disabled={updateProfile.isPending || displayName.trim().length < 2}
               onPress={() =>
                 updateProfile.mutate(
@@ -129,7 +161,26 @@ export function ProfileScreen() {
                     bio: bio.trim() || undefined,
                     displayName: displayName.trim(),
                   },
-                  { onSuccess: () => setIsEditing(false) },
+                  {
+                    onError: () => {
+                      void profileDraft.save({
+                        bio: bio.trim() || undefined,
+                        displayName: displayName.trim(),
+                      });
+                      void outbox.enqueue({
+                        entityType: "profile",
+                        operationType: "profile_edit_update",
+                        payload: {
+                          bio: bio.trim() || undefined,
+                          displayName: displayName.trim(),
+                        },
+                      });
+                    },
+                    onSuccess: () => {
+                      void profileDraft.clearSubmitted();
+                      setIsEditing(false);
+                    },
+                  },
                 )
               }
             >

@@ -33,6 +33,8 @@ type repository interface {
 	GetSettingsForUser(ctx context.Context, userID string) (notificationsrepo.NotificationSettings, error)
 	CreateDefaultSettingsForUser(ctx context.Context, userID string) (notificationsrepo.NotificationSettings, error)
 	UpdateSettingsForUser(ctx context.Context, userID string, input notificationsrepo.SettingsUpdateInput) (notificationsrepo.NotificationSettings, error)
+	RegisterDevice(ctx context.Context, input notificationsrepo.RegisterDeviceInput) (notificationsrepo.DevicePushToken, error)
+	DeleteDeviceForUser(ctx context.Context, userID, deviceID string) error
 	ListActiveExploreModeratorRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ListActiveInstructorReviewerRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error)
@@ -127,12 +129,33 @@ type NotificationSettings struct {
 	ChikaReplies               bool
 	InstructorApplication      bool
 	InstructorStatus           bool
+	BuddyUpdates               bool
+	ProfileSocialUpdates       bool
+	DiveConditionAlerts        bool
+	DiveConditionSavedSites    bool
+	DiveConditionRegions       []string
+	DiveConditionNearMe        bool
+	DiveConditionCoarseArea    *string
 	DigestFrequency            string
 	QuietHoursStart            *string
 	QuietHoursEnd              *string
 	Timezone                   string
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
+}
+
+type DevicePushToken struct {
+	ID            string
+	UserID        string
+	ExpoPushToken string
+	Platform      string
+	DeviceID      *string
+	DeviceName    *string
+	AppVersion    *string
+	Enabled       bool
+	LastSeenAt    time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type Stats struct {
@@ -153,6 +176,14 @@ type OutboxListInput struct {
 	Status *string
 	Limit  int
 	Offset int
+}
+
+type RegisterDeviceInput struct {
+	ExpoPushToken string
+	Platform      string
+	DeviceID      *string
+	DeviceName    *string
+	AppVersion    *string
 }
 
 type OutboxItem struct {
@@ -1532,6 +1563,49 @@ func (s *Service) UpdateSettings(ctx context.Context, actorUserID string, input 
 	return mapSettings(updated), nil
 }
 
+func (s *Service) RegisterDevice(ctx context.Context, actorUserID string, input RegisterDeviceInput) (DevicePushToken, error) {
+	if err := validateActorID(actorUserID); err != nil {
+		return DevicePushToken{}, err
+	}
+	issues := validateRegisterDeviceInput(input)
+	if len(issues) > 0 {
+		return DevicePushToken{}, ValidationFailure{Issues: issues}
+	}
+
+	item, err := s.repo.RegisterDevice(ctx, notificationsrepo.RegisterDeviceInput{
+		UserID:        actorUserID,
+		ExpoPushToken: strings.TrimSpace(input.ExpoPushToken),
+		Platform:      normalizePlatform(input.Platform),
+		DeviceID:      trimPtr(input.DeviceID),
+		DeviceName:    trimPtr(input.DeviceName),
+		AppVersion:    trimPtr(input.AppVersion),
+	})
+	if err != nil {
+		return DevicePushToken{}, apperrors.New(http.StatusInternalServerError, "push_device_register_failed", "failed to register this device", err)
+	}
+	return mapDevicePushToken(item), nil
+}
+
+func (s *Service) DeleteDevice(ctx context.Context, actorUserID string, deviceID string) error {
+	if err := validateActorID(actorUserID); err != nil {
+		return err
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(deviceID)); err != nil {
+		return ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{"deviceId"},
+			Code:    "invalid_uuid",
+			Message: "deviceId must be a valid UUID",
+		}}}
+	}
+	if err := s.repo.DeleteDeviceForUser(ctx, actorUserID, deviceID); err != nil {
+		if notificationsrepo.IsNoRows(err) {
+			return apperrors.New(http.StatusNotFound, "not_found", "push device not found", err)
+		}
+		return apperrors.New(http.StatusInternalServerError, "push_device_delete_failed", "failed to remove this device", err)
+	}
+	return nil
+}
+
 func validateActorID(userID string) error {
 	if _, err := uuid.Parse(strings.TrimSpace(userID)); err != nil {
 		return apperrors.New(http.StatusUnauthorized, "unauthorized", "authentication required", err)
@@ -1741,6 +1815,46 @@ func validateSettingsInput(input UpdateSettingsInput) []validatex.Issue {
 				Message: "invalid digest frequency",
 			})
 		}
+	}
+	if input.DiveConditionRegions != nil && len(*input.DiveConditionRegions) > 20 {
+		issues = append(issues, validatex.Issue{
+			Path:    []any{"diveConditionRegions"},
+			Code:    "too_many",
+			Message: "select up to 20 alert regions",
+		})
+	}
+	if input.DiveConditionCoarseArea != nil && len(strings.TrimSpace(*input.DiveConditionCoarseArea)) > 120 {
+		issues = append(issues, validatex.Issue{
+			Path:    []any{"diveConditionCoarseArea"},
+			Code:    "too_long",
+			Message: "area label is too long",
+		})
+	}
+	return issues
+}
+
+func validateRegisterDeviceInput(input RegisterDeviceInput) []validatex.Issue {
+	issues := []validatex.Issue{}
+	token := strings.TrimSpace(input.ExpoPushToken)
+	if token == "" {
+		issues = append(issues, validatex.Issue{
+			Path:    []any{"expoPushToken"},
+			Code:    "required",
+			Message: "push token is required",
+		})
+	} else if len(token) > 255 || (!strings.HasPrefix(token, "ExponentPushToken[") && !strings.HasPrefix(token, "ExpoPushToken[")) {
+		issues = append(issues, validatex.Issue{
+			Path:    []any{"expoPushToken"},
+			Code:    "invalid",
+			Message: "push token is invalid",
+		})
+	}
+	if _, ok := toSet("ios", "android", "web", "unknown")[normalizePlatform(input.Platform)]; !ok {
+		issues = append(issues, validatex.Issue{
+			Path:    []any{"platform"},
+			Code:    "invalid_enum",
+			Message: "platform is invalid",
+		})
 	}
 	return issues
 }
@@ -2004,6 +2118,13 @@ func mapSettings(input notificationsrepo.NotificationSettings) NotificationSetti
 		ChikaReplies:               input.ChikaReplies,
 		InstructorApplication:      input.InstructorApplication,
 		InstructorStatus:           input.InstructorStatus,
+		BuddyUpdates:               input.BuddyUpdates,
+		ProfileSocialUpdates:       input.ProfileSocialUpdates,
+		DiveConditionAlerts:        input.DiveConditionAlerts,
+		DiveConditionSavedSites:    input.DiveConditionSavedSites,
+		DiveConditionRegions:       append([]string{}, input.DiveConditionRegions...),
+		DiveConditionNearMe:        input.DiveConditionNearMe,
+		DiveConditionCoarseArea:    input.DiveConditionCoarseArea,
 		DigestFrequency:            input.DigestFrequency,
 		QuietHoursStart:            input.QuietHoursStart,
 		QuietHoursEnd:              input.QuietHoursEnd,
@@ -2013,11 +2134,36 @@ func mapSettings(input notificationsrepo.NotificationSettings) NotificationSetti
 	}
 }
 
+func mapDevicePushToken(input notificationsrepo.DevicePushToken) DevicePushToken {
+	return DevicePushToken{
+		ID:            input.ID,
+		UserID:        input.UserID,
+		ExpoPushToken: input.ExpoPushToken,
+		Platform:      input.Platform,
+		DeviceID:      input.DeviceID,
+		DeviceName:    input.DeviceName,
+		AppVersion:    input.AppVersion,
+		Enabled:       input.Enabled,
+		LastSeenAt:    input.LastSeenAt,
+		CreatedAt:     input.CreatedAt,
+		UpdatedAt:     input.UpdatedAt,
+	}
+}
+
 func defaultString(value, fallback string) string {
 	if strings.TrimSpace(value) == "" {
 		return fallback
 	}
 	return value
+}
+
+func normalizePlatform(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "ios", "android", "web":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return "unknown"
+	}
 }
 
 func manageBookingsURL(schoolSlug string) string {
