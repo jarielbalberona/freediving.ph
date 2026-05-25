@@ -142,12 +142,16 @@ export function MomentUploadPanel() {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="moment-video">Video</Label>
-          <div className="space-y-1 text-sm text-muted-foreground">
-            <p>Moments can be up to 30 seconds.</p>
-            <p>Choose an MP4 or MOV video.</p>
-          </div>
+        <div className="space-y-3">
+          {!file ? (
+            <div className="space-y-2">
+              <Label htmlFor="moment-video">Video</Label>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <p>Moments can be up to 30 seconds.</p>
+                <p>Choose an MP4 or MOV video.</p>
+              </div>
+            </div>
+          ) : null}
           <input
             ref={inputRef}
             id="moment-video"
@@ -156,22 +160,37 @@ export function MomentUploadPanel() {
             className="hidden"
             onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
           />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => inputRef.current?.click()}
-            disabled={busy}
-          >
-            <UploadCloud className="size-4" />
-            {file ? file.name : "Choose video"}
-          </Button>
+          {!file ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+              disabled={busy}
+            >
+              <UploadCloud className="size-4" />
+              Choose video
+            </Button>
+          ) : null}
         </div>
 
         {file ? (
-          <SelectedVideoPreview
-            file={file}
-            onDurationChange={handleDurationChange}
-          />
+          <div className="space-y-3">
+            <SelectedVideoPreview
+              file={file}
+              onDurationChange={handleDurationChange}
+            />
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => inputRef.current?.click()}
+                disabled={busy}
+              >
+                <UploadCloud className="size-4" />
+                Change video
+              </Button>
+            </div>
+          </div>
         ) : null}
 
         {validationError ? (

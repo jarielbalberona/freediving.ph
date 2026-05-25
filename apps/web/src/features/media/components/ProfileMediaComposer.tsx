@@ -582,24 +582,61 @@ export function ProfileMediaComposer({
           </TabsContent>
 
           <TabsContent value="moments" className="space-y-3">
-            <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
-                    <Film className="size-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      {videoFile ? videoFile.name : "Choose a Moment video"}
-                    </p>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      Moments can be up to 30 seconds.
-                    </p>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      Choose an MP4 or MOV video.
-                    </p>
+            {!videoFile ? (
+              <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                      <Film className="size-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        Choose a Moment video
+                      </p>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        Moments can be up to 30 seconds.
+                      </p>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        Choose an MP4 or MOV video.
+                      </p>
+                    </div>
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={momentBusy}
+                  >
+                    <UploadCloud className="size-4" />
+                    Choose video
+                  </Button>
                 </div>
+              </div>
+            ) : null}
+
+            <input
+              ref={videoInputRef}
+              id="moment-video"
+              type="file"
+              accept="video/mp4,video/quicktime,.mp4,.mov"
+              className="hidden"
+              onChange={(event) => {
+                chooseVideo(event.target.files?.[0] ?? null);
+                event.target.value = "";
+              }}
+            />
+
+            {videoFile ? (
+              <SelectedVideoPreview
+                file={videoFile}
+                onDurationChange={handleVideoDurationChange}
+                className="-mx-3 sm:mx-0"
+              />
+            ) : null}
+
+            {videoFile ? (
+              <div className="flex justify-center">
                 <Button
                   type="button"
                   variant="outline"
@@ -608,47 +645,26 @@ export function ProfileMediaComposer({
                   disabled={momentBusy}
                 >
                   <UploadCloud className="size-4" />
-                  {videoFile ? "Change video" : "Choose video"}
+                  Change video
                 </Button>
               </div>
+            ) : null}
 
-              <input
-                ref={videoInputRef}
-                id="moment-video"
-                type="file"
-                accept="video/mp4,video/quicktime,.mp4,.mov"
-                className="hidden"
-                onChange={(event) => {
-                  chooseVideo(event.target.files?.[0] ?? null);
-                  event.target.value = "";
-                }}
-              />
+            {videoValidationError ? (
+              <Alert variant="destructive">
+                <AlertTitle>Moment cannot be uploaded</AlertTitle>
+                <AlertDescription>{videoValidationError}</AlertDescription>
+              </Alert>
+            ) : null}
 
-              {videoFile ? (
-                <div className="mt-4">
-                  <SelectedVideoPreview
-                    file={videoFile}
-                    onDurationChange={handleVideoDurationChange}
-                  />
-                </div>
-              ) : null}
-
-              {videoValidationError ? (
-                <Alert variant="destructive" className="mt-4">
-                  <AlertTitle>Moment cannot be uploaded</AlertTitle>
-                  <AlertDescription>{videoValidationError}</AlertDescription>
-                </Alert>
-              ) : null}
-
-              {momentState === "uploading" ? (
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-sky-600 transition-[width]"
-                    style={{ width: `${momentProgress}%` }}
-                  />
-                </div>
-              ) : null}
-            </div>
+            {momentState === "uploading" ? (
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-sky-600 transition-[width]"
+                  style={{ width: `${momentProgress}%` }}
+                />
+              </div>
+            ) : null}
           </TabsContent>
         </Tabs>
 
