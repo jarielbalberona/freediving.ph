@@ -274,6 +274,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		cfg.MediaSigningKeyVersion,
 		mediaservice.WithSiteLookup(mediaSiteLookup{explore: exploreRepo}),
 		mediaservice.WithActivityPublisher(feedService),
+		mediaservice.WithMomentsEnabled(cfg.MomentsEnabled),
 		mediaservice.WithStreamClient(
 			mediaservice.NewCloudflareStreamClient(cfg.CloudflareAccountID, cfg.CloudflareStreamAPIToken),
 			cfg.CloudflareStreamRequireSignedURLs,

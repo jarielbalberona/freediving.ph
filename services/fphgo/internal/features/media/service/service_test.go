@@ -1254,6 +1254,9 @@ func TestCreateMomentUploadIntentCreatesPendingStreamMoment(t *testing.T) {
 	if result.PostID == "" || result.UploadURL == "" || result.Status != "upload_requested" {
 		t.Fatalf("unexpected moment intent result: %+v", result)
 	}
+	if strings.Contains(result.UploadURL, "stream-token") {
+		t.Fatalf("upload intent response must not expose API token: %+v", result)
+	}
 	if stream.createInput.MaxDurationSeconds != 30 || stream.createInput.RequireSignedURLs {
 		t.Fatalf("unexpected stream create input: %+v", stream.createInput)
 	}
@@ -1284,6 +1287,32 @@ func TestCreateMomentUploadIntentRejectsUnsafeSignedPlayback(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(appErr.Message), "cloudflare") || strings.Contains(strings.ToLower(appErr.Message), "stream") {
 		t.Fatalf("user-facing error should not mention provider internals: %q", appErr.Message)
+	}
+}
+
+func TestCreateMomentUploadIntentRejectsDisabledMoments(t *testing.T) {
+	svc := New(
+		&fakeRepo{},
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret-v1",
+		1,
+		WithMomentsEnabled(false),
+		WithStreamClient(&fakeStreamClient{}, false),
+	)
+
+	_, err := svc.CreateMomentUploadIntent(context.Background(), CreateMomentUploadIntentInput{
+		ActorID:     "550e8400-e29b-41d4-a716-446655440000",
+		Filename:    ptrString("moment.mp4"),
+		ContentType: ptrString("video/mp4"),
+	})
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected app error, got %T %v", err, err)
+	}
+	if appErr.Status != http.StatusServiceUnavailable || appErr.Code != "moments_unavailable" {
+		t.Fatalf("expected unavailable guard, got status=%d code=%s", appErr.Status, appErr.Code)
 	}
 }
 
@@ -1436,6 +1465,9 @@ func TestCompleteMomentUploadMarksReadyWhenStreamIsReady(t *testing.T) {
 	}
 	if result.Status != "ready" || result.DurationMs == nil || *result.DurationMs != 12500 {
 		t.Fatalf("expected ready moment status, got %+v", result)
+	}
+	if result.Playback == nil || result.Playback.HLSURL == nil || *result.Playback.HLSURL != "https://videodelivery.net/stream123/manifest/video.m3u8" {
+		t.Fatalf("expected explicit HLS playback contract, got %+v", result.Playback)
 	}
 	if len(activity.items) != 1 || activity.items[0].Type != feedservice.ActivityMediaPostCreated {
 		t.Fatalf("expected media activity publish, got %+v", activity.items)

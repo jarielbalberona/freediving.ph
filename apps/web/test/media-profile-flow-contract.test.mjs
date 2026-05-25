@@ -139,6 +139,7 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(mediaPostComponent, /setViewerOpen\(true\)/);
   assert.match(mediaPostComponent, /<MomentPlayer/);
   assert.match(mediaPostComponent, /momentPlaybackFromUrls/);
+  assert.match(mediaPostComponent, /playback: preview\.playback/);
   assertNoVideoOrIframeInsideButton(mediaPostComponent, "MediaPostComponent");
   assertNoVideoOrIframeInsideButton(profileGrid, "ProfileGrid");
   assert.match(mediaPostComponent, /setCommentFocusSignal/);
@@ -148,12 +149,14 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(mediaViewerDialog, /className="w-full overflow-hidden md:h-full"/);
   assert.match(mediaViewerDialog, /max-h-\[85dvh\]/);
   assert.match(mediaViewerDialog, /<MomentPlayer/);
+  assert.match(mediaViewerDialog, /playback: item\.playback/);
   assert.match(mediaViewerDialog, /videoClassName="object-contain"/);
   assert.doesNotMatch(mediaViewerDialog, /h-\[56dvh\]/);
   assert.doesNotMatch(mediaViewerDialog, /h-\[42dvh\]/);
   assert.match(carousel, /className="h-full w-full overflow-hidden"/);
   assert.match(profileGrid, /<MediaPostSocialPanel/);
   assert.match(profileGrid, /<MomentPlayer/);
+  assert.match(profileGrid, /playback: item\.playback/);
   assert.match(profileGrid, /MasonryPhotoAlbum/);
   assert.match(profileGrid, /<Image/);
   assert.match(profileGrid, /commentsScrollMode="desktop"/);
@@ -187,6 +190,9 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(momentPlayer, /mode === "iframe"/);
   assert.match(momentPlayer, /This Moment is unavailable\./);
   assert.match(momentPlayer, /https:\/\/videodelivery\.net\/\$\{playbackUID\}\/manifest\/video\.m3u8/);
+  assert.match(momentPlayer, /input\.playback\?\.provider === "cloudflare_stream"/);
+  assert.match(momentPlayer, /extractCloudflareStreamUID\(playbackUrl\)/);
+  assert.match(momentPlayer, /iframe\.videodelivery\.net/);
 });
 
 test("Moment upload panel previews and validates selected local videos", async () => {

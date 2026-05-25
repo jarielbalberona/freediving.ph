@@ -45,12 +45,15 @@ export function MediaPostComponent({
   const previewPlayback =
     preview?.type === "video"
       ? momentPlaybackFromUrls({
+          playback: preview.playback,
           playbackUrl: preview.playbackUrl,
           posterUrl: preview.thumbnailUrl ?? previewUrl,
         })
       : null;
   const canOpenPreview =
-    preview?.type === "video" ? Boolean(preview.playbackUrl) : Boolean(previewUrl);
+    preview?.type === "video"
+      ? Boolean(preview.playback?.hlsUrl || preview.playback?.iframeUrl || preview.playbackUrl)
+      : Boolean(previewUrl);
   const diveSiteHref = post.diveSite?.slug
     ? `/explore/sites/${post.diveSite.slug}`
     : undefined;
@@ -183,6 +186,7 @@ export function MediaPostComponent({
           type: item.type,
           displayUrl: item.dialogUrl || item.displayUrl,
           playbackUrl: item.playbackUrl,
+          playback: item.playback,
           thumbnailUrl: item.thumbnailUrl,
           width: item.width,
           height: item.height,

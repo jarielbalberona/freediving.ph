@@ -102,19 +102,19 @@ type MomentUploadIntentResponse struct {
 }
 
 type MomentStatusResponse struct {
-	PostID          string  `json:"postId"`
-	MediaItemID     string  `json:"mediaItemId"`
-	Status          string  `json:"status"`
+	PostID          string             `json:"postId"`
+	MediaItemID     string             `json:"mediaItemId"`
+	Status          string             `json:"status"`
 	Playback        *MomentPlaybackDTO `json:"playback,omitempty"`
-	PlaybackURL     string  `json:"playbackUrl,omitempty"`
-	ThumbnailURL    string  `json:"thumbnailUrl,omitempty"`
-	PreviewURL      string  `json:"previewUrl,omitempty"`
-	DurationMs      *int    `json:"durationMs,omitempty"`
-	Width           int     `json:"width"`
-	Height          int     `json:"height"`
-	FailedReason    *string `json:"failedReason,omitempty"`
-	UploadExpiresAt *string `json:"uploadExpiresAt,omitempty"`
-	ReadyAt         *string `json:"readyAt,omitempty"`
+	PlaybackURL     string             `json:"playbackUrl,omitempty"`
+	ThumbnailURL    string             `json:"thumbnailUrl,omitempty"`
+	PreviewURL      string             `json:"previewUrl,omitempty"`
+	DurationMs      *int               `json:"durationMs,omitempty"`
+	Width           int                `json:"width"`
+	Height          int                `json:"height"`
+	FailedReason    *string            `json:"failedReason,omitempty"`
+	UploadExpiresAt *string            `json:"uploadExpiresAt,omitempty"`
+	ReadyAt         *string            `json:"readyAt,omitempty"`
 }
 
 type MomentPlaybackDTO struct {

@@ -102,6 +102,7 @@ type Service struct {
 	nowFn                    func() time.Time
 	activity                 activityPublisher
 	stream                   streamClient
+	momentsEnabled           bool
 	streamRequireSignedURLs  bool
 	streamMaxDurationSeconds int
 	streamUploadExpiry       time.Duration
@@ -143,6 +144,12 @@ func WithStreamClient(client streamClient, requireSignedURLs bool) Option {
 	return func(s *Service) {
 		s.stream = client
 		s.streamRequireSignedURLs = requireSignedURLs
+	}
+}
+
+func WithMomentsEnabled(enabled bool) Option {
+	return func(s *Service) {
+		s.momentsEnabled = enabled
 	}
 }
 
@@ -580,6 +587,7 @@ func New(repo repository, uploader uploader, bucketName, cdnBaseURL, signingSecr
 		nowFn: func() time.Time {
 			return time.Now().UTC()
 		},
+		momentsEnabled:           true,
 		streamMaxDurationSeconds: momentMaxDurationSeconds,
 		streamUploadExpiry:       momentUploadExpiry,
 	}
@@ -981,6 +989,9 @@ func (s *Service) CreateMomentUploadIntent(ctx context.Context, input CreateMome
 	if _, err := uuid.Parse(actorID); err != nil {
 		return MomentUploadIntentResult{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
 	}
+	if !s.momentsEnabled {
+		return MomentUploadIntentResult{}, apperrors.New(http.StatusServiceUnavailable, "moments_unavailable", "Moments uploads are temporarily unavailable", nil)
+	}
 	if s.stream == nil {
 		return MomentUploadIntentResult{}, apperrors.New(http.StatusInternalServerError, "moments_stream_unavailable", "Moments video upload is not configured", nil)
 	}
@@ -1206,11 +1217,11 @@ func (s *Service) publishMomentActivity(ctx context.Context, item mediarepo.Medi
 		"type":          item.Type,
 		"width":         int(item.Width),
 		"height":        int(item.Height),
-			"caption":       valueOrEmptyString(item.Caption),
-			"sortOrder":     int(item.SortOrder),
-			"playbackUrl":   valueOrEmptyString(item.PlaybackURL),
-			"playback":      momentPlaybackMapFromItem(item),
-			"thumbnailUrl":  valueOrEmptyString(item.ThumbnailURL),
+		"caption":       valueOrEmptyString(item.Caption),
+		"sortOrder":     int(item.SortOrder),
+		"playbackUrl":   valueOrEmptyString(item.PlaybackURL),
+		"playback":      momentPlaybackMapFromItem(item),
+		"thumbnailUrl":  valueOrEmptyString(item.ThumbnailURL),
 		"previewUrl":    valueOrEmptyString(item.PreviewURL),
 		"durationMs":    intValueFromInt32(item.DurationMs),
 	}}

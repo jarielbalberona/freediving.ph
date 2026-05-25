@@ -41,7 +41,8 @@ export const mobileQueryKeys = {
   },
   buddies: {
     all: ["buddies"] as const,
-    intents: () => [...mobileQueryKeys.buddies.all, "intents"] as const,
+    intents: (params?: { limit?: number }) =>
+      [...mobileQueryKeys.buddies.all, "intents", params ?? {}] as const,
   },
   notifications: {
     all: ["notifications"] as const,

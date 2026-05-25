@@ -1,6 +1,7 @@
 "use client";
 
 import Hls from "hls.js";
+import type { MomentPlayback as SharedMomentPlayback } from "@freediving.ph/types";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -9,6 +10,7 @@ export type MomentPlayback = {
   provider: "cloudflare_stream";
   iframeUrl?: string | null;
   hlsUrl?: string | null;
+  dashUrl?: string | null;
   posterUrl?: string | null;
 };
 
@@ -153,9 +155,19 @@ export function MomentPlayer({
 }
 
 export function momentPlaybackFromUrls(input: {
+  playback?: SharedMomentPlayback | MomentPlayback | null;
   playbackUrl?: string | null;
   posterUrl?: string | null;
 }): MomentPlayback {
+  if (input.playback?.provider === "cloudflare_stream") {
+    return {
+      provider: "cloudflare_stream",
+      iframeUrl: input.playback.iframeUrl ?? null,
+      hlsUrl: input.playback.hlsUrl ?? null,
+      dashUrl: input.playback.dashUrl ?? null,
+      posterUrl: input.playback.posterUrl ?? input.posterUrl ?? null,
+    };
+  }
   const playbackUrl = input.playbackUrl?.trim() || "";
   const playbackUID = extractCloudflareStreamUID(playbackUrl);
   return {

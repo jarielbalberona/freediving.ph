@@ -34,6 +34,7 @@ type Config struct {
 	MediaCDNBaseURL                   string
 	MediaSigningSecretV1              string
 	MediaSigningKeyVersion            int
+	MomentsEnabled                    bool
 	CloudflareAccountID               string
 	CloudflareStreamAPIToken          string
 	CloudflareStreamRequireSignedURLs bool
@@ -117,6 +118,7 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	momentsEnabled := parseBoolEnvWithDefault(os.Getenv("MOMENTS_ENABLED"), strings.EqualFold(env, "production"))
 	cloudflareAccountID := strings.TrimSpace(os.Getenv("CLOUDFLARE_ACCOUNT_ID"))
 	cloudflareStreamAPIToken := strings.TrimSpace(os.Getenv("CLOUDFLARE_STREAM_API_TOKEN"))
 	cloudflareStreamRequireSignedURLs := parseBoolEnv(os.Getenv("CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS"))
@@ -159,11 +161,13 @@ func Load() (Config, error) {
 		if mediaSigningSecretV1 == "" {
 			return Config{}, fmt.Errorf("MEDIA_SIGNING_SECRET_V1 is required in production")
 		}
+	}
+	if momentsEnabled {
 		if cloudflareAccountID == "" {
-			return Config{}, fmt.Errorf("CLOUDFLARE_ACCOUNT_ID is required in production")
+			return Config{}, fmt.Errorf("CLOUDFLARE_ACCOUNT_ID is required when MOMENTS_ENABLED=true")
 		}
 		if cloudflareStreamAPIToken == "" {
-			return Config{}, fmt.Errorf("CLOUDFLARE_STREAM_API_TOKEN is required in production")
+			return Config{}, fmt.Errorf("CLOUDFLARE_STREAM_API_TOKEN is required when MOMENTS_ENABLED=true")
 		}
 	}
 	if clerkSecretKey == "" && !devAuth {
@@ -198,6 +202,7 @@ func Load() (Config, error) {
 		MediaCDNBaseURL:                   mediaCDNBaseURL,
 		MediaSigningSecretV1:              mediaSigningSecretV1,
 		MediaSigningKeyVersion:            mediaSigningKeyVersion,
+		MomentsEnabled:                    momentsEnabled,
 		CloudflareAccountID:               cloudflareAccountID,
 		CloudflareStreamAPIToken:          cloudflareStreamAPIToken,
 		CloudflareStreamRequireSignedURLs: cloudflareStreamRequireSignedURLs,
@@ -208,6 +213,14 @@ func Load() (Config, error) {
 
 func parseBoolEnv(raw string) bool {
 	value := strings.TrimSpace(strings.ToLower(raw))
+	return value == "1" || value == "true" || value == "yes" || value == "on"
+}
+
+func parseBoolEnvWithDefault(raw string, fallback bool) bool {
+	value := strings.TrimSpace(strings.ToLower(raw))
+	if value == "" {
+		return fallback
+	}
 	return value == "1" || value == "true" || value == "yes" || value == "on"
 }
 

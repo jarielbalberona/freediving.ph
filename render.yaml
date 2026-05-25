@@ -57,6 +57,14 @@ services:
         value: "1"
       - key: MEDIA_SIGNING_SECRET_V1
         sync: false
+      - key: MOMENTS_ENABLED
+        value: "true"
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_STREAM_API_TOKEN
+        sync: false
+      - key: CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS
+        value: "false"
       - key: CHIKA_PSEUDONYM_SECRET
         sync: false
 

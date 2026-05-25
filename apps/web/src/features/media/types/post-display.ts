@@ -1,4 +1,8 @@
-import type { HomeFeedItem, MediaPostDetailResponse } from "@freediving.ph/types";
+import type {
+  HomeFeedItem,
+  MediaPostDetailResponse,
+  MomentPlayback,
+} from "@freediving.ph/types";
 import { canLinkToProfileUsername, getProfileRoute } from "@/lib/routes";
 
 export type MediaPostDisplayItem = {
@@ -7,6 +11,7 @@ export type MediaPostDisplayItem = {
   type: "photo" | "video";
   displayUrl?: string;
   dialogUrl?: string;
+  playback?: MomentPlayback | null;
   playbackUrl?: string;
   thumbnailUrl?: string;
   previewUrl?: string;
@@ -58,6 +63,24 @@ const booleanValue = (value: Record<string, unknown>, key: string) => {
   return typeof candidate === "boolean" ? candidate : undefined;
 };
 
+const momentPlaybackValue = (
+  value: Record<string, unknown>,
+): MomentPlayback | null => {
+  const candidate = value.playback;
+  if (!candidate || typeof candidate !== "object") return null;
+  const playback = candidate as Record<string, unknown>;
+  if (playback.provider !== "cloudflare_stream") return null;
+  return {
+    provider: "cloudflare_stream",
+    iframeUrl:
+      typeof playback.iframeUrl === "string" ? playback.iframeUrl : null,
+    hlsUrl: typeof playback.hlsUrl === "string" ? playback.hlsUrl : null,
+    dashUrl: typeof playback.dashUrl === "string" ? playback.dashUrl : null,
+    posterUrl:
+      typeof playback.posterUrl === "string" ? playback.posterUrl : null,
+  };
+};
+
 export function mediaPostFromHomeFeedItem(item: HomeFeedItem): MediaPostDisplay {
   const payload = item.payload ?? {};
   const caption =
@@ -83,11 +106,13 @@ export function mediaPostFromHomeFeedItem(item: HomeFeedItem): MediaPostDisplay 
       const displayUrl = stringValue(photo, "displayUrl");
       const dialogUrl = stringValue(photo, "dialogUrl");
       const playbackUrl = stringValue(photo, "playbackUrl");
+      const playback = momentPlaybackValue(photo);
       const thumbnailUrl = stringValue(photo, "thumbnailUrl");
       const previewUrl = stringValue(photo, "previewUrl");
       const photoCaption = stringValue(photo, "caption");
       if (displayUrl) displayItem.displayUrl = displayUrl;
       if (dialogUrl) displayItem.dialogUrl = dialogUrl;
+      if (playback) displayItem.playback = playback;
       if (playbackUrl) displayItem.playbackUrl = playbackUrl;
       if (thumbnailUrl) displayItem.thumbnailUrl = thumbnailUrl;
       if (previewUrl) displayItem.previewUrl = previewUrl;
@@ -122,6 +147,8 @@ export function mediaPostFromHomeFeedItem(item: HomeFeedItem): MediaPostDisplay 
     const previewThumbnailUrl = stringValue(payload, "previewThumbnailUrl");
     if (previewDisplayUrl) fallbackItem.displayUrl = previewDisplayUrl;
     if (previewDialogUrl) fallbackItem.dialogUrl = previewDialogUrl;
+    const previewPlayback = momentPlaybackValue(payload);
+    if (previewPlayback) fallbackItem.playback = previewPlayback;
     if (previewPlaybackUrl) fallbackItem.playbackUrl = previewPlaybackUrl;
     if (previewThumbnailUrl) fallbackItem.thumbnailUrl = previewThumbnailUrl;
   }
@@ -182,6 +209,7 @@ export function mediaPostFromDetail(
       width: item.width,
       height: item.height,
       caption: item.caption,
+      playback: item.playback ?? null,
       playbackUrl: item.playbackUrl ?? undefined,
       thumbnailUrl: item.thumbnailUrl ?? undefined,
       previewUrl: item.previewUrl ?? undefined,

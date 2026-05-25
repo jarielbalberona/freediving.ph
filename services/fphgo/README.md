@@ -51,12 +51,18 @@ await fetch("/v1/messages/threads?category=primary", {
 - `CDN_BASE_URL` (required in production; public media delivery base URL)
 - `MEDIA_SIGNING_SECRET_V1` (required in production; HMAC signing secret for media URLs)
 - `MEDIA_SIGNING_KEY_VERSION` (optional, default `1`)
+- `MOMENTS_ENABLED` (optional; defaults to `true` in production and `false` elsewhere)
+- `CLOUDFLARE_ACCOUNT_ID` (required when `MOMENTS_ENABLED=true`)
+- `CLOUDFLARE_STREAM_API_TOKEN` (required when `MOMENTS_ENABLED=true`; server-side only)
+- `CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS` (must remain `false`; signed Moment playback is not implemented)
 - `CHIKA_PSEUDONYM_SECRET` (required in production; HMAC secret for pseudonymous alias generation)
 
 Production guards:
 - `APP_ENV=production` rejects `DEV_AUTH=true`.
 - `APP_ENV=production` rejects wildcard `CORS_ORIGINS=*`.
 - `APP_ENV=production` requires the R2 upload envs plus `CDN_BASE_URL` and `MEDIA_SIGNING_SECRET_V1`.
+- `MOMENTS_ENABLED=true` requires Cloudflare Stream account id and API token.
+- `CLOUDFLARE_STREAM_REQUIRE_SIGNED_URLS=true` is rejected until signed Moment playback token generation exists.
 - `APP_ENV=production` requires `CHIKA_PSEUDONYM_SECRET`.
 
 ## Example curl

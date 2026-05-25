@@ -7,6 +7,7 @@ import type {
   MediaContextType,
   MediaItemType,
   MediaPreset,
+  MomentPlayback,
   MintMediaUrlItem,
   MintMediaUrlsResponse,
 } from "../src/index.ts";
@@ -34,4 +35,17 @@ type _profileMediaList = Assert<IsEqual<ListProfileMediaResponse["items"][number
 
 test("media contracts expose upload, publish, and gallery enums", () => {
   assert.equal(true, true);
+});
+
+test("Moment playback contract exposes explicit Stream URLs", () => {
+  const playback = {
+    provider: "cloudflare_stream",
+    iframeUrl: "https://iframe.videodelivery.net/stream123",
+    hlsUrl: "https://videodelivery.net/stream123/manifest/video.m3u8",
+    dashUrl: null,
+    posterUrl: "https://videodelivery.net/stream123/thumbnails/thumbnail.jpg",
+  } satisfies MomentPlayback;
+
+  assert.equal(playback.provider, "cloudflare_stream");
+  assert.match(playback.hlsUrl ?? "", /manifest\/video\.m3u8$/);
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import type { MomentPlayback } from "@freediving.ph/types";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { LoaderCircle, XIcon } from "lucide-react";
@@ -25,6 +26,7 @@ export type MediaViewerDialogItem = {
   mediaObjectId: string;
   type?: "photo" | "video";
   displayUrl?: string;
+  playback?: MomentPlayback | null;
   playbackUrl?: string;
   thumbnailUrl?: string;
   width: number;
@@ -148,6 +150,7 @@ export function MediaViewerDialog({
                       const momentPlayback =
                         item.type === "video"
                           ? momentPlaybackFromUrls({
+                              playback: item.playback,
                               playbackUrl: item.playbackUrl,
                               posterUrl: item.thumbnailUrl || src,
                             })

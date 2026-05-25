@@ -128,6 +128,7 @@ export function ProfileGrid({
     id: item.id,
     mediaObjectId: item.mediaObjectId,
     type: item.type === "video" ? "video" : "photo",
+    playback: item.playback ?? null,
     playbackUrl: item.playbackUrl ?? undefined,
     thumbnailUrl: item.thumbnailUrl ?? undefined,
     width: item.width,
@@ -143,6 +144,7 @@ export function ProfileGrid({
           {videoItems.map((item) => {
             const caption = getDisplayCaption(item);
             const playback = momentPlaybackFromUrls({
+              playback: item.playback,
               playbackUrl: item.playbackUrl,
               posterUrl: item.thumbnailUrl,
             });

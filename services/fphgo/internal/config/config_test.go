@@ -74,6 +74,33 @@ func TestLoadRejectsUnsafeSignedStreamPlayback(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsMissingCloudflareConfigWhenMomentsEnabled(t *testing.T) {
+	t.Setenv("DB_DSN", "postgres://example")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("DEV_AUTH", "true")
+	t.Setenv("MOMENTS_ENABLED", "true")
+
+	_, err := Load()
+	if err == nil || err.Error() != "CLOUDFLARE_ACCOUNT_ID is required when MOMENTS_ENABLED=true" {
+		t.Fatalf("expected missing Cloudflare account guard error, got %v", err)
+	}
+}
+
+func TestLoadAllowsMissingCloudflareConfigWhenMomentsDisabled(t *testing.T) {
+	t.Setenv("DB_DSN", "postgres://example")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("DEV_AUTH", "true")
+	t.Setenv("MOMENTS_ENABLED", "false")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("expected config to load with Moments disabled, got %v", err)
+	}
+	if cfg.MomentsEnabled {
+		t.Fatal("expected Moments to be disabled")
+	}
+}
+
 func TestLoadExpandsDevelopmentLoopbackCORSOrigins(t *testing.T) {
 	t.Setenv("DB_DSN", "postgres://example")
 	t.Setenv("APP_ENV", "development")

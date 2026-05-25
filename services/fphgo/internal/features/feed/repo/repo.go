@@ -69,17 +69,17 @@ type MediaPostCandidate struct {
 }
 
 type MediaPostCandidateItem struct {
-	ID            string `json:"id"`
-	MediaObjectID string `json:"mediaObjectId"`
-	Type          string `json:"type"`
-	Width         int32  `json:"width"`
-	Height        int32  `json:"height"`
-	Caption       string `json:"caption"`
-	SortOrder     int32  `json:"sortOrder"`
+	ID            string         `json:"id"`
+	MediaObjectID string         `json:"mediaObjectId"`
+	Type          string         `json:"type"`
+	Width         int32          `json:"width"`
+	Height        int32          `json:"height"`
+	Caption       string         `json:"caption"`
+	SortOrder     int32          `json:"sortOrder"`
 	Playback      map[string]any `json:"playback,omitempty"`
-	PlaybackURL   string `json:"playbackUrl,omitempty"`
-	ThumbnailURL  string `json:"thumbnailUrl,omitempty"`
-	PreviewURL    string `json:"previewUrl,omitempty"`
+	PlaybackURL   string         `json:"playbackUrl,omitempty"`
+	ThumbnailURL  string         `json:"thumbnailUrl,omitempty"`
+	PreviewURL    string         `json:"previewUrl,omitempty"`
 }
 
 type CommunityCandidate struct {
