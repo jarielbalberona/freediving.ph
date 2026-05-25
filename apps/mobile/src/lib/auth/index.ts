@@ -1,2 +1,6 @@
 export { MobileAuthBridge } from "./mobile-auth-bridge";
-export { getMobileAuthToken, setMobileAuthTokenGetter } from "./mobile-auth-token";
+export {
+  getMobileAuthToken,
+  getMobileAuthTokenSafe,
+  setMobileAuthTokenGetter,
+} from "./mobile-auth-token";

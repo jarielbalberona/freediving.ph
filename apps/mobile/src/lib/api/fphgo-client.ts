@@ -7,6 +7,7 @@ type JsonBody = Record<string, unknown> | unknown[] | string | number | boolean;
 
 export type FphgoRequestInit = Omit<RequestInit, "body"> & {
   auth?: "optional" | "required" | "none";
+  authToken?: string | null;
   body?: BodyInit | JsonBody | null;
 };
 
@@ -23,6 +24,8 @@ export class FphgoApiError extends Error {
     this.apiError = apiError;
   }
 }
+
+export const isAuthErrorStatus = (status: number) => status === 401 || status === 403;
 
 const isBodyInit = (value: unknown): value is BodyInit =>
   typeof value === "string" ||
@@ -61,7 +64,12 @@ const normalizeApiError = (body: unknown, status: number) => {
 
   return {
     apiError: undefined,
-    message: `Request failed with ${status}`,
+    message:
+      status === 401
+        ? "Authentication required"
+        : status === 403
+          ? "Permission denied"
+          : `Request failed with ${status}`,
   };
 };
 
@@ -70,9 +78,11 @@ export async function fphgoFetch<T>(path: string, init: FphgoRequestInit = {}) {
     throw new Error(`FPHGO path must be relative and start with "/": ${path}`);
   }
 
-  const headers = new Headers(init.headers);
-  const authMode = init.auth ?? "optional";
-  const token = authMode === "none" ? null : await getMobileAuthToken();
+  const { auth, authToken, body: requestBody, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
+  const authMode = auth ?? "optional";
+  const token =
+    authMode === "none" ? null : (authToken ?? (await getMobileAuthToken()));
 
   if (authMode === "required" && !token) {
     throw new FphgoApiError(401, "Authentication required", null);
@@ -83,8 +93,8 @@ export async function fphgoFetch<T>(path: string, init: FphgoRequestInit = {}) {
   }
 
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
-    ...init,
-    body: resolveBody(headers, init.body),
+    ...requestInit,
+    body: resolveBody(headers, requestBody),
     headers,
   });
 

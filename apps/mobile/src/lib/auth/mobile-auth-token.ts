@@ -7,6 +7,10 @@ export function setMobileAuthTokenGetter(getToken: ClerkTokenGetter | null) {
 }
 
 export async function getMobileAuthToken() {
+  return getMobileAuthTokenSafe();
+}
+
+export async function getMobileAuthTokenSafe() {
   if (!tokenGetter) {
     return null;
   }
