@@ -5,6 +5,7 @@ import {
   type Profile,
   type ProfileResponse,
   type PublicProfile,
+  type PublicProfileResponse,
   type SaveUserResponse,
   type SavedHubResponse,
   type SearchUsersResponse,
@@ -40,20 +41,10 @@ export const profilesApi = {
   },
 
   getPublicProfileByUsername: async (username: string): Promise<PublicProfile> => {
-    const response = await fphgoFetchClient<{
-      profile: {
-        userId: string;
-        username: string;
-        displayName: string;
-        bio: string;
-        avatarUrl: string;
-        counts: {
-          posts: number;
-          followers: number;
-          following: number;
-        };
-      };
-    }>(routes.v1.profiles.publicByUsername(username));
+    const response = await fphgoFetchClient<PublicProfileResponse>(
+      routes.v1.profiles.publicByUsername(username),
+      { auth: "none" },
+    );
 
     return {
       id: response.profile.userId,

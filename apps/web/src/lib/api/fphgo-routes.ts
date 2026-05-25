@@ -65,7 +65,7 @@ export const routes = {
       saved: () => "/v1/me/saved",
       byUserId: (userId: string | number) => `/v1/profiles/${toPathId(userId)}`,
       publicByUsername: (username: string | number) =>
-        `/v1/profiles/by-username/${toPathId(username)}`,
+        `/v1/profiles/public/${toPathId(username)}`,
       publicPostsByUsername: (username: string | number) =>
         `/v1/profiles/by-username/${toPathId(username)}/posts`,
       publicBucketListByUsername: (username: string | number) =>
