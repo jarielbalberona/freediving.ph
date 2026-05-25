@@ -3,8 +3,13 @@ import type {
   ChikaCommentListResponse,
   ChikaCommentReactionResponse,
   ChikaCommentResponse,
+  ChikaReactionType,
+  ChikaThreadReactionResponse,
   ChikaThreadListResponse,
   ChikaThreadResponse,
+  CreateChikaCommentRequest,
+  CreateChikaThreadRequest,
+  SetChikaReactionRequest,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -50,7 +55,7 @@ export const getChikaCategories = () =>
   });
 
 export const createChikaThread = (
-  payload: { title: string; content: string; categoryId: string },
+  payload: CreateChikaThreadRequest,
   authToken: string,
 ) =>
   fphgoFetch<ChikaThreadResponse>("/v1/chika/threads", {
@@ -62,7 +67,7 @@ export const createChikaThread = (
 
 export const createChikaComment = (
   threadId: string,
-  payload: { content: string; parentCommentId?: string },
+  payload: CreateChikaCommentRequest,
   authToken: string,
 ) =>
   fphgoFetch<ChikaCommentResponse>(
@@ -77,15 +82,15 @@ export const createChikaComment = (
 
 export const setChikaThreadReaction = (
   threadId: string,
-  type: "upvote" | "downvote",
+  type: ChikaReactionType,
   authToken: string,
 ) =>
-  fphgoFetch<void>(
+  fphgoFetch<ChikaThreadReactionResponse>(
     `/v1/chika/threads/${encodeURIComponent(threadId)}/reactions`,
     {
       auth: "required",
       authToken,
-      body: { type },
+      body: { type } satisfies SetChikaReactionRequest,
       method: "POST",
     },
   );
@@ -102,7 +107,7 @@ export const removeChikaThreadReaction = (threadId: string, authToken: string) =
 
 export const setChikaCommentReaction = (
   commentId: string,
-  type: "upvote" | "downvote",
+  type: ChikaReactionType,
   authToken: string,
 ) =>
   fphgoFetch<ChikaCommentReactionResponse>(
@@ -110,7 +115,7 @@ export const setChikaCommentReaction = (
     {
       auth: "required",
       authToken,
-      body: { type },
+      body: { type } satisfies SetChikaReactionRequest,
       method: "POST",
     },
   );

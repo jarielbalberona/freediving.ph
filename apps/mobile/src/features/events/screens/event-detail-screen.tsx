@@ -58,6 +58,14 @@ export function EventDetailScreen() {
     "event_post",
   );
   const outbox = useOutbox();
+  const draftApplies = Boolean(
+    event && eventPostDraft.draft?.payload.eventId === event.id,
+  );
+
+  useEffect(() => {
+    if (!draftApplies || !eventPostDraft.draft) return;
+    setPostBody(eventPostDraft.draft.payload.bodyMarkdown);
+  }, [draftApplies, eventPostDraft.draft]);
 
   if (!slug) {
     return (
@@ -118,12 +126,6 @@ export function EventDetailScreen() {
       ? event.viewerJoined || event.viewerCanManage
       : event.viewerCanManage);
   const eventPosts = eventPostsQuery.data?.posts ?? [];
-  const draftApplies = eventPostDraft.draft?.payload.eventId === event.id;
-
-  useEffect(() => {
-    if (!draftApplies || !eventPostDraft.draft) return;
-    setPostBody(eventPostDraft.draft.payload.bodyMarkdown);
-  }, [draftApplies, eventPostDraft.draft]);
 
   return (
     <>

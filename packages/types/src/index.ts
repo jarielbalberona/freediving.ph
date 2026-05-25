@@ -89,7 +89,7 @@ export interface ChikaThreadResponse {
   content: string;
   voteCount: number;
   commentCount: number;
-  userReaction?: "upvote" | "downvote";
+  userReaction?: ChikaReactionType;
   mode: string;
   categoryId: string;
   categorySlug: string;
@@ -106,13 +106,36 @@ export interface ChikaThreadResponse {
   updatedAt: string;
 }
 
+export type ChikaReactionType = "upvote" | "downvote";
+
+export interface CreateChikaThreadRequest {
+  title: string;
+  content: string;
+  categoryId: string;
+}
+
+export interface CreateChikaCommentRequest {
+  content: string;
+  parentCommentId?: string;
+}
+
+export interface SetChikaReactionRequest {
+  type: ChikaReactionType;
+}
+
+export interface ChikaThreadReactionResponse {
+  threadId: string;
+  userId: string;
+  type: ChikaReactionType;
+}
+
 export interface ChikaCommentResponse {
   id: string;
   threadId: string;
   parentCommentId?: string;
   voteCount: number;
   replyCount: number;
-  userReaction?: "upvote" | "downvote";
+  userReaction?: ChikaReactionType;
   authorDisplayName: string;
   authorAvatarUrl?: string;
   realAuthorUserId?: string;
@@ -128,7 +151,7 @@ export interface ChikaCommentReactionResponse {
   commentId: string;
   threadId: string;
   voteCount: number;
-  userReaction: "upvote" | "downvote" | null;
+  userReaction: ChikaReactionType | null;
 }
 
 export interface ChikaCategoryResponse {

@@ -39,7 +39,7 @@ export function ExploreScreen() {
   return (
     <MobileScrollScreen subtitle="Dive spots" title="Explore">
       <MobileSection
-        description="Map rendering and clustering need the native map dependency pass. This code-wise pass keeps the backed list, actions, submit-site, and my submissions flows."
+        description="Browse dive spots, save favorites, send a new spot, and check your submissions. Map view is coming later."
         title="Dive spot tools"
       >
         <View className="gap-3">

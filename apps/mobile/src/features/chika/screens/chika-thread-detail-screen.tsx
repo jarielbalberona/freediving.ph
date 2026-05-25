@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Text, TextInput, View } from "react-native";
+import { useAuth } from "@clerk/expo";
 
 import {
   MobileEmptyState,
@@ -21,6 +22,7 @@ import { useChikaThreadDetailQuery } from "@/features/chika/hooks/use-chika-thre
 import { useLocalDraft } from "@/local/drafts/use-local-draft";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
+import { FphgoApiError, isAuthErrorStatus } from "@/lib/api/fphgo-client";
 import {
   chikaAuthorLabel,
   formatChikaDate,
@@ -34,14 +36,19 @@ export function ChikaThreadDetailScreen() {
   const params = useLocalSearchParams<{ slug?: string | string[] }>();
   const slug = firstParam(params.slug);
   const threadQuery = useChikaThreadDetailQuery(slug);
+  const { isLoaded, isSignedIn } = useAuth();
   const thread = threadQuery.data;
   const commentsQuery = useChikaCommentsQuery(thread?.id);
   const comments = commentsQuery.data?.items ?? [];
   const createComment = useCreateChikaCommentMutation(thread?.id ?? "");
-  const threadReaction = useSetChikaThreadReactionMutation(thread?.id ?? "");
+  const threadReaction = useSetChikaThreadReactionMutation(
+    thread?.id ?? "",
+    thread?.slug ?? slug ?? "",
+  );
   const commentReaction = useSetChikaCommentReactionMutation(thread?.id ?? "");
   const [replyTo, setReplyTo] = useState<string | undefined>();
   const [commentDraft, setCommentDraft] = useState("");
+  const [actionMessage, setActionMessage] = useState<string | undefined>();
   const localCommentDraft = useLocalDraft<{
     content: string;
     parentCommentId?: string;
@@ -73,6 +80,24 @@ export function ChikaThreadDetailScreen() {
     setCommentDraft(draft.payload.content);
     setReplyTo(draft.payload.parentCommentId);
   }, [localCommentDraft.draft, thread?.id]);
+
+  const requireSignedIn = () => {
+    if (!isLoaded) {
+      setActionMessage("Checking your session. Try again in a moment.");
+      return false;
+    }
+    if (!isSignedIn) {
+      setActionMessage("Sign in to reply or vote in Chika.");
+      return false;
+    }
+    setActionMessage(undefined);
+    return true;
+  };
+
+  const canQueueFailedMutation = (error: unknown) =>
+    !(error instanceof FphgoApiError && isAuthErrorStatus(error.status)) &&
+    isLoaded &&
+    isSignedIn;
 
   if (!slug) {
     return (
@@ -164,50 +189,68 @@ export function ChikaThreadDetailScreen() {
             <View className="flex-row flex-wrap gap-2">
               <MobileButton
                 variant={thread.userReaction === "upvote" ? "primary" : "secondary"}
+                disabled={threadReaction.isPending}
                 onPress={() =>
-                  threadReaction.mutate(
-                    thread.userReaction === "upvote" ? null : "upvote",
-                    {
-                      onError: () =>
-                        void outbox.enqueue({
-                          entityId: thread.id,
-                          entityType: "chika_thread",
-                          operationType: "chika_thread_reaction",
-                          payload: {
-                            threadId: thread.id,
-                            type: thread.userReaction === "upvote" ? null : "upvote",
-                          },
-                        }),
-                    },
-                  )
+                  requireSignedIn()
+                    ? threadReaction.mutate(
+                        thread.userReaction === "upvote" ? null : "upvote",
+                        {
+                          onError: (error) =>
+                            canQueueFailedMutation(error)
+                              ? void outbox.enqueue({
+                                  entityId: thread.id,
+                                  entityType: "chika_thread",
+                                  operationType: "chika_thread_reaction",
+                                  payload: {
+                                    threadId: thread.id,
+                                    type:
+                                      thread.userReaction === "upvote"
+                                        ? null
+                                        : "upvote",
+                                  },
+                                })
+                              : undefined,
+                        },
+                      )
+                    : undefined
                 }
               >
                 Up · {thread.voteCount}
               </MobileButton>
               <MobileButton
                 variant={thread.userReaction === "downvote" ? "primary" : "secondary"}
+                disabled={threadReaction.isPending}
                 onPress={() =>
-                  threadReaction.mutate(
-                    thread.userReaction === "downvote" ? null : "downvote",
-                    {
-                      onError: () =>
-                        void outbox.enqueue({
-                          entityId: thread.id,
-                          entityType: "chika_thread",
-                          operationType: "chika_thread_reaction",
-                          payload: {
-                            threadId: thread.id,
-                            type:
-                              thread.userReaction === "downvote" ? null : "downvote",
-                          },
-                        }),
-                    },
-                  )
+                  requireSignedIn()
+                    ? threadReaction.mutate(
+                        thread.userReaction === "downvote" ? null : "downvote",
+                        {
+                          onError: (error) =>
+                            canQueueFailedMutation(error)
+                              ? void outbox.enqueue({
+                                  entityId: thread.id,
+                                  entityType: "chika_thread",
+                                  operationType: "chika_thread_reaction",
+                                  payload: {
+                                    threadId: thread.id,
+                                    type:
+                                      thread.userReaction === "downvote"
+                                        ? null
+                                        : "downvote",
+                                  },
+                                })
+                              : undefined,
+                        },
+                      )
+                    : undefined
                 }
               >
                 Down
               </MobileButton>
             </View>
+            {actionMessage ? (
+              <Text className="text-xs text-muted-foreground">{actionMessage}</Text>
+            ) : null}
           </View>
         </MobileSection>
 
@@ -258,15 +301,17 @@ export function ChikaThreadDetailScreen() {
                   onPress={() => {
                     const content = commentDraft.trim();
                     if (!content || !thread.id) return;
+                    if (!requireSignedIn()) return;
                     createComment.mutate(
                       { content, parentCommentId: replyTo },
                       {
-                        onError: () => {
+                        onError: (error) => {
                           void localCommentDraft.save({
                             content,
                             parentCommentId: replyTo,
                             threadId: thread.id,
                           });
+                          if (!canQueueFailedMutation(error)) return;
                           void outbox.enqueue({
                             entityId: thread.id,
                             entityType: "chika_comment",
@@ -330,22 +375,27 @@ export function ChikaThreadDetailScreen() {
             <View className="gap-3">
               {nestedComments.map(({ comment, depth }) => (
                 <ChikaCommentCard
+                  actionsDisabled={commentReaction.isPending}
                   key={comment.id}
                   comment={comment}
                   depth={depth}
                   onReact={(commentId, type) =>
-                    commentReaction.mutate(
-                      { commentId, type },
-                      {
-                        onError: () =>
-                          void outbox.enqueue({
-                            entityId: commentId,
-                            entityType: "chika_comment",
-                            operationType: "chika_comment_reaction",
-                            payload: { commentId, type },
-                          }),
-                      },
-                    )
+                    requireSignedIn()
+                      ? commentReaction.mutate(
+                          { commentId, type },
+                          {
+                            onError: (error) =>
+                              canQueueFailedMutation(error)
+                                ? void outbox.enqueue({
+                                    entityId: commentId,
+                                    entityType: "chika_comment",
+                                    operationType: "chika_comment_reaction",
+                                    payload: { commentId, type },
+                                  })
+                                : undefined,
+                          },
+                        )
+                      : undefined
                   }
                   onReply={setReplyTo}
                 />

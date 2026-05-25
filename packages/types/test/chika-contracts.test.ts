@@ -6,6 +6,9 @@ import type {
   ChikaCommentReactionResponse,
   ChikaCommentResponse,
   ChikaThreadResponse,
+  CreateChikaCommentRequest,
+  CreateChikaThreadRequest,
+  SetChikaReactionRequest,
 } from "../src/index.ts";
 
 test("chika thread contracts support pseudonymous and moderator fields", () => {
@@ -56,6 +59,23 @@ test("chika comment reaction contract returns fresh cache patch state", () => {
   };
   assert.equal(reaction.userReaction, null);
   assert.equal(reaction.voteCount, 9);
+});
+
+test("chika write request contracts match fphgo v1 payloads", () => {
+  const thread: CreateChikaThreadRequest = {
+    categoryId: "1a9e0387-5ddf-4c66-90f3-b2836a1165a2",
+    content: "Where should I train this weekend?",
+    title: "Weekend training spots",
+  };
+  const comment: CreateChikaCommentRequest = {
+    content: "Try a sheltered shore entry first.",
+    parentCommentId: "42",
+  };
+  const reaction: SetChikaReactionRequest = { type: "upvote" };
+
+  assert.equal(thread.categoryId.length > 0, true);
+  assert.equal(comment.parentCommentId, "42");
+  assert.equal(reaction.type, "upvote");
 });
 
 test("chika category contract includes pseudonymous flag", () => {

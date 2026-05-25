@@ -26,10 +26,14 @@ export const mobileQueryKeys = {
     threads: () => [...mobileQueryKeys.chika.all, "threads"] as const,
     threadList: (params: { limit?: number }) =>
       [...mobileQueryKeys.chika.all, "threads", params] as const,
+    threadDetails: () =>
+      [...mobileQueryKeys.chika.all, "threads", "detail"] as const,
     threadDetail: (slug: string) =>
-      [...mobileQueryKeys.chika.all, "threads", "detail", slug] as const,
+      [...mobileQueryKeys.chika.threadDetails(), slug] as const,
+    threadCommentsRoot: (threadId: string) =>
+      [...mobileQueryKeys.chika.all, "threads", threadId, "comments"] as const,
     threadComments: (threadId: string, params: { limit?: number }) =>
-      [...mobileQueryKeys.chika.all, "threads", threadId, "comments", params] as const,
+      [...mobileQueryKeys.chika.threadCommentsRoot(threadId), params] as const,
     categories: () => [...mobileQueryKeys.chika.all, "categories"] as const,
   },
   events: {

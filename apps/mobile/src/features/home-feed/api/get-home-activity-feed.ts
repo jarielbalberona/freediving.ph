@@ -2,6 +2,7 @@ import type {
   ActivityFeedFilter,
   ActivityFeedResponse,
   FeedActionsRequest,
+  MediaPostLikeState,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -39,3 +40,23 @@ export const postFeedActions = (payload: FeedActionsRequest, authToken: string) 
     body: payload as unknown as Record<string, unknown>,
     method: "POST",
   });
+
+export const likeMediaPost = (postId: string, authToken: string) =>
+  fphgoFetch<MediaPostLikeState>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/likes`,
+    {
+      auth: "required",
+      authToken,
+      method: "POST",
+    },
+  );
+
+export const unlikeMediaPost = (postId: string, authToken: string) =>
+  fphgoFetch<MediaPostLikeState>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/likes`,
+    {
+      auth: "required",
+      authToken,
+      method: "DELETE",
+    },
+  );

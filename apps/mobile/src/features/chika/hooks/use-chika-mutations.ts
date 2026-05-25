@@ -1,5 +1,15 @@
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type {
+  ChikaCommentListResponse,
+  ChikaCommentReactionResponse,
+  ChikaCommentResponse,
+  ChikaReactionType,
+  ChikaThreadListResponse,
+  ChikaThreadResponse,
+  CreateChikaCommentRequest,
+  CreateChikaThreadRequest,
+} from "@freediving.ph/types";
 
 import {
   createChikaComment,
@@ -11,6 +21,26 @@ import {
 } from "@/features/chika/api/chika-api";
 import { FphgoApiError } from "@/lib/api";
 import { mobileQueryKeys } from "@/lib/query";
+
+const patchCommentReaction = (
+  comment: ChikaCommentResponse,
+  response: ChikaCommentReactionResponse,
+) =>
+  comment.id === response.commentId
+    ? {
+        ...comment,
+        userReaction: response.userReaction ?? undefined,
+        voteCount: response.voteCount,
+      }
+    : comment;
+
+const incrementThreadCommentCount = (
+  thread: ChikaThreadResponse,
+  threadId: string,
+) =>
+  thread.id === threadId
+    ? { ...thread, commentCount: thread.commentCount + 1 }
+    : thread;
 
 const useRequiredToken = () => {
   const { getToken } = useAuth();
@@ -28,13 +58,11 @@ export const useCreateChikaThreadMutation = () => {
   const getRequiredToken = useRequiredToken();
 
   return useMutation({
-    mutationFn: async (payload: {
-      title: string;
-      content: string;
-      categoryId: string;
-    }) => createChikaThread(payload, await getRequiredToken()),
+    mutationFn: async (payload: CreateChikaThreadRequest) =>
+      createChikaThread(payload, await getRequiredToken()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.chika.threads() });
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.feed.all });
     },
   });
 };
@@ -44,23 +72,54 @@ export const useCreateChikaCommentMutation = (threadId: string) => {
   const getRequiredToken = useRequiredToken();
 
   return useMutation({
-    mutationFn: async (payload: { content: string; parentCommentId?: string }) =>
+    mutationFn: async (payload: CreateChikaCommentRequest) =>
       createChikaComment(threadId, payload, await getRequiredToken()),
-    onSuccess: () => {
+    onSuccess: (comment) => {
+      queryClient.setQueriesData<ChikaThreadListResponse>(
+        { queryKey: mobileQueryKeys.chika.threads() },
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((thread) =>
+                  incrementThreadCommentCount(thread, threadId),
+                ),
+              }
+            : current,
+      );
+      queryClient.setQueriesData<ChikaThreadResponse>(
+        { queryKey: mobileQueryKeys.chika.threadDetails() },
+        (current) =>
+          current ? incrementThreadCommentCount(current, threadId) : current,
+      );
+      queryClient.setQueriesData<ChikaCommentListResponse>(
+        { queryKey: mobileQueryKeys.chika.threadCommentsRoot(threadId) },
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: comment.parentCommentId
+                  ? current.items
+                  : [
+                      comment,
+                      ...current.items.filter((item) => item.id !== comment.id),
+                    ],
+              }
+            : current,
+      );
       queryClient.invalidateQueries({
-        queryKey: mobileQueryKeys.chika.threadComments(threadId, { limit: 50 }),
+        queryKey: mobileQueryKeys.chika.threadCommentsRoot(threadId),
       });
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.chika.threads() });
     },
   });
 };
 
-export const useSetChikaThreadReactionMutation = (threadId: string) => {
+export const useSetChikaThreadReactionMutation = (threadId: string, slug: string) => {
   const queryClient = useQueryClient();
   const getRequiredToken = useRequiredToken();
 
   return useMutation({
-    mutationFn: async (type: "upvote" | "downvote" | null) => {
+    mutationFn: async (type: ChikaReactionType | null) => {
       const token = await getRequiredToken();
       return type
         ? setChikaThreadReaction(threadId, type, token)
@@ -68,9 +127,10 @@ export const useSetChikaThreadReactionMutation = (threadId: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: mobileQueryKeys.chika.threadDetail(threadId),
+        queryKey: mobileQueryKeys.chika.threadDetail(slug),
       });
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.chika.threads() });
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.feed.all });
     },
   });
 };
@@ -82,16 +142,28 @@ export const useSetChikaCommentReactionMutation = (threadId: string) => {
   return useMutation({
     mutationFn: async (payload: {
       commentId: string;
-      type: "upvote" | "downvote" | null;
+      type: ChikaReactionType | null;
     }) => {
       const token = await getRequiredToken();
       return payload.type
         ? setChikaCommentReaction(payload.commentId, payload.type, token)
         : removeChikaCommentReaction(payload.commentId, token);
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      queryClient.setQueriesData<ChikaCommentListResponse>(
+        { queryKey: mobileQueryKeys.chika.threadCommentsRoot(threadId) },
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((comment) =>
+                  patchCommentReaction(comment, response),
+                ),
+              }
+            : current,
+      );
       queryClient.invalidateQueries({
-        queryKey: mobileQueryKeys.chika.threadComments(threadId, { limit: 50 }),
+        queryKey: mobileQueryKeys.chika.threadCommentsRoot(threadId),
       });
     },
   });

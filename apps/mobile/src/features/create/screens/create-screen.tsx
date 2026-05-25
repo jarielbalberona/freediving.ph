@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
+import { useAuth } from "@clerk/expo";
 
 import {
   MobileActionSheet,
@@ -15,14 +16,17 @@ import { useCreateChikaThreadMutation } from "@/features/chika/hooks/use-chika-m
 import { useLocalDraft } from "@/local/drafts/use-local-draft";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
+import { FphgoApiError, isAuthErrorStatus } from "@/lib/api/fphgo-client";
 
 type CreateMode = "photo" | "chika" | undefined;
 
 export function CreateScreen() {
+  const { isLoaded, isSignedIn } = useAuth();
   const [mode, setMode] = useState<CreateMode>();
   const [categoryId, setCategoryId] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [actionMessage, setActionMessage] = useState<string | undefined>();
   const categoriesQuery = useChikaCategoriesQuery();
   const createThread = useCreateChikaThreadMutation();
   const chikaDraft = useLocalDraft<{
@@ -41,6 +45,24 @@ export function CreateScreen() {
     setTitle(chikaDraft.draft.payload.title);
     setContent(chikaDraft.draft.payload.content);
   }, [chikaDraft.draft]);
+
+  const requireSignedIn = () => {
+    if (!isLoaded) {
+      setActionMessage("Checking your session. Try again in a moment.");
+      return false;
+    }
+    if (!isSignedIn) {
+      setActionMessage("Sign in to publish in Chika.");
+      return false;
+    }
+    setActionMessage(undefined);
+    return true;
+  };
+
+  const canQueueFailedMutation = (error: unknown) =>
+    !(error instanceof FphgoApiError && isAuthErrorStatus(error.status)) &&
+    isLoaded &&
+    isSignedIn;
 
   return (
     <MobileScrollScreen subtitle="Create" title="Post">
@@ -76,7 +98,7 @@ export function CreateScreen() {
       >
         <View className="gap-3">
           <MobileEmptyState
-            description="The backend media contracts exist. This phase saves metadata drafts only; local file upload queueing remains media-specific."
+            description="Save the idea for now. Photo and video upload will be available in a later pass."
             title="Media upload deferred"
           />
           <MobileButton
@@ -128,6 +150,9 @@ export function CreateScreen() {
           <Text className="text-xs text-muted-foreground">
             Pseudonymous categories use the display name returned by the server.
           </Text>
+          {actionMessage ? (
+            <Text className="text-xs text-muted-foreground">{actionMessage}</Text>
+          ) : null}
           <MobileButton
             variant="secondary"
             onPress={() =>
@@ -148,6 +173,7 @@ export function CreateScreen() {
               content.trim().length < 3
             }
             onPress={() => {
+              if (!requireSignedIn()) return;
               createThread.mutate(
                 {
                   categoryId: selectedCategoryId,
@@ -155,12 +181,13 @@ export function CreateScreen() {
                   title: title.trim(),
                 },
                 {
-                  onError: () => {
+                  onError: (error) => {
                     void chikaDraft.save({
                       categoryId: selectedCategoryId,
                       content: content.trim(),
                       title: title.trim(),
                     });
+                    if (!canQueueFailedMutation(error)) return;
                     void outbox.enqueue({
                       entityType: "chika_thread",
                       operationType: "chika_thread_create",

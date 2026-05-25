@@ -64,8 +64,8 @@ export function FeatureReadinessScreen({
               </Text>
               <Text className="text-sm leading-6 text-muted-foreground">
                 {healthQuery.data?.status
-                  ? `Health endpoint status: ${healthQuery.data.status}`
-                  : "The fetch client is configured; live API availability depends on the local/server environment."}
+                  ? `Service status: ${healthQuery.data.status}`
+                  : "The app is configured. Live availability depends on the current service environment."}
               </Text>
             </View>
           </MobileCard>

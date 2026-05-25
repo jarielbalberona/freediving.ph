@@ -7,6 +7,7 @@ import { MobileButton } from "@/components/ui/mobile-button";
 import { formatChikaDate, stripMarkdownPreview } from "@/features/chika/lib/chika-format";
 
 type ChikaCommentCardProps = {
+  actionsDisabled?: boolean;
   comment: ChikaCommentResponse;
   depth?: number;
   onReact?: (commentId: string, type: "upvote" | "downvote" | null) => void;
@@ -14,6 +15,7 @@ type ChikaCommentCardProps = {
 };
 
 export function ChikaCommentCard({
+  actionsDisabled = false,
   comment,
   depth = 0,
   onReact,
@@ -44,6 +46,7 @@ export function ChikaCommentCard({
         ) : null}
         <View className="flex-row flex-wrap gap-2">
           <MobileButton
+            disabled={actionsDisabled}
             variant={comment.userReaction === "upvote" ? "primary" : "secondary"}
             onPress={() =>
               onReact?.(
@@ -55,6 +58,7 @@ export function ChikaCommentCard({
             Up · {comment.voteCount}
           </MobileButton>
           <MobileButton
+            disabled={actionsDisabled}
             variant={comment.userReaction === "downvote" ? "primary" : "secondary"}
             onPress={() =>
               onReact?.(
@@ -65,7 +69,11 @@ export function ChikaCommentCard({
           >
             Down
           </MobileButton>
-          <MobileButton variant="ghost" onPress={() => onReply?.(comment.id)}>
+          <MobileButton
+            disabled={actionsDisabled}
+            variant="ghost"
+            onPress={() => onReply?.(comment.id)}
+          >
             Reply
           </MobileButton>
         </View>

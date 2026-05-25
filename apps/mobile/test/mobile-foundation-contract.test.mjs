@@ -59,20 +59,53 @@ test("protected fphgo query helper gates on Clerk readiness", () => {
 
 test("home feed uses shared activity contracts and fetch client", () => {
   const api = read("src/features/home-feed/api/get-home-activity-feed.ts");
+  const card = read("src/features/home-feed/components/home-activity-card.tsx");
+  const feedAction = read(
+    "src/features/home-feed/hooks/use-feed-action-mutation.ts",
+  );
   const hook = read(
     "src/features/home-feed/hooks/use-home-activity-feed-query.ts",
   );
   const mapper = read("src/features/home-feed/lib/activity-card-model.ts");
+  const screen = read("src/features/home-feed/screens/home-screen.tsx");
 
   assert.match(api, /@freediving\.ph\/types/);
   assert.match(api, /ActivityFeedResponse/);
+  assert.match(api, /MediaPostLikeState/);
   assert.match(api, /fphgoFetch/);
   assert.match(api, /\/v1\/feed\/activity/);
+  assert.match(api, /auth:\s*"optional"/);
+  assert.match(api, /\/v1\/feed\/actions/);
+  assert.match(api, /auth:\s*"required"/);
+  assert.match(api, /\/v1\/media\/posts\/\$\{encodeURIComponent\(postId\)\}\/likes/);
   assert.doesNotMatch(api, /axios/i);
+  assert.doesNotMatch(api, /apps\/web|features\/home-feed\/types/);
   assert.match(hook, /mobileQueryKeys\.feed\.activity/);
+  assert.match(mapper, /HomeActivityCardType/);
+  assert.match(mapper, /chika_thread_created/);
+  assert.match(mapper, /media_post_created/);
+  assert.match(mapper, /dive_site_update_added/);
+  assert.match(mapper, /event_published/);
+  assert.match(mapper, /buddy_intent_created/);
+  assert.match(mapper, /unknown/);
+  assert.match(mapper, /safeSegment/);
+  assert.match(mapper, /getHomeActivityCardHref/);
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
+  assert.match(card, /ChikaActions/);
+  assert.match(card, /MediaActions/);
+  assert.match(card, /Not interested/);
+  assert.match(feedAction, /setChikaThreadReaction/);
+  assert.match(feedAction, /removeChikaThreadReaction/);
+  assert.match(feedAction, /likeMediaPost/);
+  assert.match(feedAction, /unlikeMediaPost/);
+  assert.match(feedAction, /auth|token|getToken/);
+  assert.match(feedAction, /setQueriesData<ActivityFeedResponse>/);
+  assert.match(feedAction, /not_interested/);
+  assert.match(screen, /requireSignedIn/);
+  assert.match(screen, /Sign in to react to community activity/);
+  assert.doesNotMatch(screen, /Zustand|use.*Store/);
 });
 
 test("explore uses shared contracts, actions, and safe mobile routes", () => {
@@ -108,28 +141,54 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   const detail = read(
     "src/features/chika/screens/chika-thread-detail-screen.tsx",
   );
+  const mutations = read("src/features/chika/hooks/use-chika-mutations.ts");
   const format = read("src/features/chika/lib/chika-format.ts");
+  const createScreen = read("src/features/create/screens/create-screen.tsx");
+  const queryKeys = read("src/lib/query/query-keys.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
   assert.match(api, /ChikaThreadListResponse/);
   assert.match(api, /ChikaThreadResponse/);
   assert.match(api, /ChikaCommentListResponse/);
+  assert.match(api, /CreateChikaThreadRequest/);
+  assert.match(api, /CreateChikaCommentRequest/);
+  assert.match(api, /SetChikaReactionRequest/);
   assert.match(api, /fphgoFetch/);
   assert.match(api, /\/v1\/chika\/threads/);
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/chika\/types/);
+  assert.match(api, /getChikaThreads[\s\S]*auth:\s*"none"/);
+  assert.match(api, /getChikaThreadDetail[\s\S]*auth:\s*"none"/);
+  assert.match(api, /getChikaComments[\s\S]*auth:\s*"none"/);
   assert.match(api, /ChikaCommentReactionResponse/);
   assert.match(api, /createChikaThread/);
   assert.match(api, /createChikaComment/);
+  assert.match(api, /\/v1\/chika\/comments\/\$\{encodeURIComponent\(commentId\)\}\/reactions/);
   assert.match(api, /\/reactions/);
-  assert.match(api, /auth:\s*"required"/);
+  assert.match(api, /createChikaThread[\s\S]*auth:\s*"required"/);
+  assert.match(api, /createChikaComment[\s\S]*auth:\s*"required"/);
+  assert.match(api, /setChikaThreadReaction[\s\S]*auth:\s*"required"/);
+  assert.match(api, /removeChikaThreadReaction[\s\S]*auth:\s*"required"/);
+  assert.match(api, /setChikaCommentReaction[\s\S]*auth:\s*"required"/);
+  assert.match(api, /removeChikaCommentReaction[\s\S]*auth:\s*"required"/);
   assert.match(card, /safeChikaSlug/);
   assert.match(format, /authorDisplayName/);
   assert.match(card, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
   assert.match(detail, /parentCommentId/);
   assert.match(detail, /useSetChikaCommentReactionMutation/);
+  assert.match(detail, /requireSignedIn/);
+  assert.match(detail, /isAuthErrorStatus/);
+  assert.match(detail, /actionsDisabled/);
+  assert.match(createScreen, /requireSignedIn/);
+  assert.match(createScreen, /isAuthErrorStatus/);
+  assert.match(mutations, /threadCommentsRoot\(threadId\)/);
+  assert.doesNotMatch(mutations, /limit:\s*50/);
+  assert.match(mutations, /threadDetail\(slug\)/);
+  assert.match(mutations, /setQueriesData<ChikaCommentListResponse>/);
+  assert.match(queryKeys, /threadCommentsRoot/);
   assert.doesNotMatch(detail, /websocket|realtime/i);
+  assert.doesNotMatch(detail, /moderation|admin|report|block/i);
   assert.ok(format.includes('includes("/")'));
 });
 

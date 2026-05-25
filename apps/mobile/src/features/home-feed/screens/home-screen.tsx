@@ -1,4 +1,6 @@
-import { View } from "react-native";
+import { useAuth } from "@clerk/expo";
+import { useState } from "react";
+import { Text, View } from "react-native";
 
 import {
   MobileEmptyState,
@@ -14,9 +16,24 @@ import { useHomeActivityFeedQuery } from "@/features/home-feed/hooks/use-home-ac
 import { toHomeActivityCardModel } from "@/features/home-feed/lib/activity-card-model";
 
 export function HomeScreen() {
+  const { isLoaded, isSignedIn } = useAuth();
   const feedQuery = useHomeActivityFeedQuery();
   const feedAction = useFeedActionMutation();
+  const [actionMessage, setActionMessage] = useState<string | undefined>();
   const items = feedQuery.data?.items ?? [];
+
+  const requireSignedIn = () => {
+    if (!isLoaded) {
+      setActionMessage("Checking your session. Try again in a moment.");
+      return false;
+    }
+    if (!isSignedIn) {
+      setActionMessage("Sign in to react to community activity.");
+      return false;
+    }
+    setActionMessage(undefined);
+    return true;
+  };
 
   return (
     <MobileScrollScreen subtitle="Community activity" title="Home">
@@ -49,19 +66,48 @@ export function HomeScreen() {
 
         {!feedQuery.isLoading && !feedQuery.error && items.length > 0 ? (
           <View className="gap-3">
-            {items.map((item) => (
-              <HomeActivityCard
-                key={item.id}
-                item={toHomeActivityCardModel(item)}
-                onAction={() =>
-                  feedAction.mutate({
-                    actionType:
-                      item.type === "chika_thread_created" ? "upvote" : "like",
-                    item,
-                  })
-                }
-              />
-            ))}
+            {actionMessage ? (
+              <Text className="text-sm text-muted-foreground">{actionMessage}</Text>
+            ) : null}
+            {items.map((item) => {
+              const card = toHomeActivityCardModel(item);
+              return (
+                <HomeActivityCard
+                  actionsDisabled={feedAction.isPending}
+                  key={item.id}
+                  item={card}
+                  onChikaVote={
+                    card.cardType === "chika"
+                      ? (reaction) =>
+                          requireSignedIn()
+                            ? feedAction.mutate({
+                                actionType: "chika_vote",
+                                item,
+                                reaction,
+                              })
+                            : undefined
+                      : undefined
+                  }
+                  onMediaLike={
+                    card.cardType === "media_post"
+                      ? () =>
+                          requireSignedIn()
+                            ? feedAction.mutate({
+                                actionType: "media_like",
+                                item,
+                                liked: Boolean(card.media?.viewerHasLiked),
+                              })
+                            : undefined
+                      : undefined
+                  }
+                  onNotInterested={() =>
+                    requireSignedIn()
+                      ? feedAction.mutate({ actionType: "not_interested", item })
+                      : undefined
+                  }
+                />
+              );
+            })}
           </View>
         ) : null}
       </MobileSection>
