@@ -220,7 +220,15 @@ test("Moment upload panel previews and validates selected local videos", async (
   assert.match(preview, /muted/);
   assert.match(preview, /playsInline/);
   assert.match(preview, /preload="metadata"/);
-  assert.match(preview, /aspect-\[9\/16\]/);
+  assert.match(preview, /video\.videoWidth > 0 && video\.videoHeight > 0/);
+  assert.match(
+    preview,
+    /setAspectRatio\(`\$\{video\.videoWidth\} \/ \$\{video\.videoHeight\}`\)/,
+  );
+  assert.match(preview, /style=\{aspectRatio \? \{ aspectRatio \} : undefined\}/);
+  assert.match(preview, /object-cover/);
+  assert.doesNotMatch(preview, /aspect-\[9\/16\]/);
+  assert.doesNotMatch(preview, /object-contain/);
   assert.match(preview, /sm:max-w-sm/);
   assert.match(preview, /onLoadedMetadata=\{handleLoadedMetadata\}/);
   assert.match(preview, /MAX_MOMENT_VIDEO_SECONDS = 30/);

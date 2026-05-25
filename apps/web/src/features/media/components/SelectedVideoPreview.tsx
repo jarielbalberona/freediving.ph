@@ -25,10 +25,12 @@ export function SelectedVideoPreview({
   videoClassName,
 }: SelectedVideoPreviewProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<string | null>(null);
 
   useEffect(() => {
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
+    setAspectRatio(null);
     onDurationChange(null);
     return () => {
       URL.revokeObjectURL(objectUrl);
@@ -36,7 +38,11 @@ export function SelectedVideoPreview({
   }, [file, onDurationChange]);
 
   function handleLoadedMetadata(event: SyntheticEvent<HTMLVideoElement>) {
-    const nextDuration = event.currentTarget.duration;
+    const video = event.currentTarget;
+    const nextDuration = video.duration;
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      setAspectRatio(`${video.videoWidth} / ${video.videoHeight}`);
+    }
     if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
       onDurationChange(null);
       return;
@@ -53,8 +59,9 @@ export function SelectedVideoPreview({
           muted
           playsInline
           preload="metadata"
+          style={aspectRatio ? { aspectRatio } : undefined}
           className={cn(
-            "aspect-[9/16] max-h-[70vh] w-full bg-black object-contain sm:max-w-sm",
+            "h-auto max-h-[70vh] w-full bg-black object-cover sm:max-w-sm",
             videoClassName,
           )}
           onLoadedMetadata={handleLoadedMetadata}

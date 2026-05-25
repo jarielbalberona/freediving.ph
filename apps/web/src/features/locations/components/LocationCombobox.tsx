@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import {
   Combobox,
   ComboboxContent,
@@ -18,7 +20,7 @@ type LocationComboboxProps = {
   inputValue: string;
   onInputValueChange: (value: string) => void;
   searchPlaceholder: string;
-  emptyMessage: string;
+  emptyMessage: ReactNode;
   disabled?: boolean;
   id?: string;
   showClear?: boolean;

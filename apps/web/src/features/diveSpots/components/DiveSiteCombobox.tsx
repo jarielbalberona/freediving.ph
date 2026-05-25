@@ -2,6 +2,7 @@
 
 import type { ExploreSiteCard } from "@freediving.ph/types";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import type { ComboboxOption } from "@/components/ui/combobox";
@@ -27,6 +28,7 @@ type DiveSiteComboboxProps = {
   allOption?: DiveSiteComboboxAllOption;
   searchPlaceholder?: string;
   emptyMessage?: string;
+  emptyMessageHref?: string | null;
   loadingMessage?: string;
 };
 
@@ -46,7 +48,8 @@ export function DiveSiteCombobox({
   limit = DEFAULT_LIMIT,
   allOption,
   searchPlaceholder = "Search approved dive sites",
-  emptyMessage = "No dive sites found",
+  emptyMessage = "Submit a dive site",
+  emptyMessageHref = "/explore/submit",
   loadingMessage = "Loading dive sites...",
 }: DiveSiteComboboxProps) {
   const [search, setSearch] = useState("");
@@ -91,6 +94,18 @@ export function DiveSiteCombobox({
       : selectedSite
         ? formatDiveSiteOptionLabel(selectedSite)
         : undefined);
+  const emptyContent = query.isPending ? (
+    loadingMessage
+  ) : emptyMessageHref ? (
+    <Link
+      href={emptyMessageHref}
+      className="font-medium text-primary underline-offset-4 hover:underline"
+    >
+      {emptyMessage}
+    </Link>
+  ) : (
+    emptyMessage
+  );
 
   return (
     <LocationCombobox
@@ -118,7 +133,7 @@ export function DiveSiteCombobox({
       inputValue={search}
       onInputValueChange={setSearch}
       searchPlaceholder={searchPlaceholder}
-      emptyMessage={query.isPending ? loadingMessage : emptyMessage}
+      emptyMessage={emptyContent}
       disabled={disabled}
       showClear={!!value && value !== allOption?.value}
     />
