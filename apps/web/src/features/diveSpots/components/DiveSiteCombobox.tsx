@@ -48,7 +48,7 @@ export function DiveSiteCombobox({
   limit = DEFAULT_LIMIT,
   allOption,
   searchPlaceholder = "Search approved dive sites",
-  emptyMessage = "Submit a dive site",
+  emptyMessage = "Can't find this dive site? Submit it.",
   emptyMessageHref = "/explore/submit",
   loadingMessage = "Loading dive sites...",
 }: DiveSiteComboboxProps) {

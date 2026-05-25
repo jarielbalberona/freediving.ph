@@ -144,11 +144,12 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(mediaPostComponent, /setCommentFocusSignal/);
   assert.match(mediaPostComponent, /<MediaPostSocialPanel/);
   assert.match(mediaPostComponent, /commentsScrollMode="desktop"/);
-  assert.match(mediaViewerDialog, /h-\[56dvh\]/);
-  assert.match(mediaViewerDialog, /h-\[56dvh\][^"]*overflow-hidden/);
-  assert.match(mediaViewerDialog, /className="h-full w-full overflow-hidden"/);
+  assert.match(mediaViewerDialog, /aspectRatio: `\$\{item\.width\} \/ \$\{item\.height\}`/);
+  assert.match(mediaViewerDialog, /className="w-full overflow-hidden md:h-full"/);
+  assert.match(mediaViewerDialog, /max-h-\[85dvh\]/);
   assert.match(mediaViewerDialog, /<MomentPlayer/);
   assert.match(mediaViewerDialog, /videoClassName="object-contain"/);
+  assert.doesNotMatch(mediaViewerDialog, /h-\[56dvh\]/);
   assert.doesNotMatch(mediaViewerDialog, /h-\[42dvh\]/);
   assert.match(carousel, /className="h-full w-full overflow-hidden"/);
   assert.match(profileGrid, /<MediaPostSocialPanel/);

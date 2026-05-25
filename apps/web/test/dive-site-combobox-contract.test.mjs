@@ -20,7 +20,10 @@ const locationCombobox = readFileSync(
 test("dive site picker empty state sends users to the submission form", () => {
   assert.match(locationCombobox, /emptyMessage: ReactNode/);
   assert.match(diveSiteCombobox, /import Link from "next\/link"/);
-  assert.match(diveSiteCombobox, /emptyMessage = "Submit a dive site"/);
+  assert.match(
+    diveSiteCombobox,
+    /emptyMessage = "Can't find this dive site\? Submit it\."/,
+  );
   assert.match(diveSiteCombobox, /emptyMessageHref = "\/explore\/submit"/);
   assert.match(diveSiteCombobox, /href=\{emptyMessageHref\}/);
   assert.doesNotMatch(

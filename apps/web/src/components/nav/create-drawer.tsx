@@ -22,17 +22,17 @@ type CreateDrawerProps = {
 
 const CREATE_OPTIONS = [
   {
-    id: "community-post",
-    label: "Post in Chika",
-    description: "Ask a question or start a community conversation.",
-    icon: MessageSquarePlus,
-  },
-  {
     id: "profile-post",
     label: "Share photos or moments",
     description: "Add dive photos to your profile.",
     icon: ImagePlus,
   },
+  {
+    id: "community-post",
+    label: "Post in Chika",
+    description: "Ask a question or start a community conversation.",
+    icon: MessageSquarePlus,
+  }
 ] as const;
 
 export function CreateDrawer({ open, onOpenChange }: CreateDrawerProps) {

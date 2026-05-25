@@ -53,14 +53,14 @@ export function DesktopCreateFab() {
           <ImagePlus className="size-5" aria-hidden />
           <span>Post</span>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" side="top" className="w-56">
-          <DropdownMenuItem onClick={() => router.push("/chika/create")}>
-            <MessageSquarePlus className="size-4" aria-hidden />
-            Post in Chika
-          </DropdownMenuItem>
+        <DropdownMenuContent align="end" side="top" className="w-60">
           <DropdownMenuItem onClick={() => router.push(profileCreateHref)}>
             <UserRoundPen className="size-4" aria-hidden />
             Share photos or moments
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/chika/create")}>
+            <MessageSquarePlus className="size-4" aria-hidden />
+            Post in Chika
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

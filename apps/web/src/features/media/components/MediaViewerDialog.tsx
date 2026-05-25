@@ -127,18 +127,18 @@ export function MediaViewerDialog({
           </div>
 
           <div className="flex min-h-full flex-col md:h-full md:min-h-0 md:flex-row">
-            <div className="relative h-[56dvh] shrink-0 overflow-hidden bg-muted/30 md:h-auto md:min-h-full md:flex-1">
+            <div className="relative shrink-0 overflow-hidden bg-muted/30 md:h-auto md:min-h-full md:flex-1">
               {needsMintedUrls && dialogUrls.isPending ? (
-                <div className="flex h-full items-center justify-center">
+                <div className="flex min-h-[85dvh] items-center justify-center md:h-full md:min-h-0">
                   <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <Carousel
                   setApi={setCarouselApi}
                   opts={{ startIndex: initialIndex }}
-                  className="h-full w-full overflow-hidden"
+                  className="w-full overflow-hidden md:h-full"
                 >
-                  <CarouselContent className="ml-0 h-full items-center">
+                  <CarouselContent className="ml-0 items-start md:h-full md:items-center">
                     {normalizedItems.map((item) => {
                       const src =
                         item.displayUrl ??
@@ -155,9 +155,14 @@ export function MediaViewerDialog({
                       return (
                         <CarouselItem
                           key={item.id}
-                          className="flex h-full min-w-0 items-center overflow-hidden pl-0"
+                          className="flex min-w-0 items-start overflow-hidden pl-0 md:h-full md:items-center"
                         >
-                          <div className="flex h-full w-full items-center justify-center overflow-hidden">
+                          <div
+                            className="flex w-full items-center justify-center overflow-hidden md:h-full"
+                            style={{
+                              aspectRatio: `${item.width} / ${item.height}`,
+                            }}
+                          >
                             {item.type === "video" ? (
                               <MomentPlayer
                                 hlsUrl={momentPlayback?.hlsUrl}
@@ -167,6 +172,7 @@ export function MediaViewerDialog({
                                 controls
                                 muted
                                 playsInline
+                                className="h-full max-h-[85dvh] w-full md:max-h-none"
                                 videoClassName="object-contain"
                                 iframeClassName="object-contain"
                               />
@@ -176,7 +182,7 @@ export function MediaViewerDialog({
                                 alt={item.alt}
                                 width={item.width}
                                 height={item.height}
-                                className="h-full w-full object-contain"
+                                className="h-auto max-h-[85dvh] w-full object-contain md:h-full md:max-h-none"
                                 unoptimized
                               />
                             ) : (
