@@ -37,6 +37,24 @@ export const USE_IOS_NATIVE_HEADER = process.env.EXPO_OS === "ios";
 const USE_ANDROID_NATIVE_HEADER = process.env.EXPO_OS === "android";
 const HOME_LOGO = require("../../../assets/images/fph-text-logo.png");
 
+function HomeCompactHeaderLogo() {
+  if (!USE_IOS_NATIVE_HEADER) {
+    return null;
+  }
+
+  return (
+    <View className="h-10 w-44 items-center justify-center">
+      <Image
+        accessibilityIgnoresInvertColors
+        accessibilityLabel="Freediving Philippines"
+        className="h-8 w-40"
+        resizeMode="contain"
+        source={HOME_LOGO}
+      />
+    </View>
+  );
+}
+
 function IOSDrawerButton() {
   const navigation = useNavigation();
 
@@ -185,8 +203,8 @@ export const IOS_NATIVE_STACK_SCREEN_OPTIONS = {
   headerShown: true,
   headerStyle: USE_ANDROID_NATIVE_HEADER
     ? {
-        backgroundColor: "#F7FCFF",
-      }
+      backgroundColor: "#F7FCFF",
+    }
     : undefined,
   headerTitle: USE_ANDROID_NATIVE_HEADER
     ? ({ children }: { children?: string }) => <AndroidHeaderTitle title={children} />
@@ -208,9 +226,18 @@ export function nativeLargeTitleOptions(
     headerSearchBarOptions:
       USE_IOS_NATIVE_HEADER && options?.searchPlaceholder
         ? {
-            placeholder: options.searchPlaceholder,
-          }
+          placeholder: options.searchPlaceholder,
+        }
         : undefined,
     title,
+  };
+}
+
+export function homeNativeLargeTitleOptions() {
+  return {
+    ...nativeLargeTitleOptions("Home"),
+    headerTitle: USE_IOS_NATIVE_HEADER
+      ? () => <HomeCompactHeaderLogo />
+      : IOS_NATIVE_STACK_SCREEN_OPTIONS.headerTitle,
   };
 }

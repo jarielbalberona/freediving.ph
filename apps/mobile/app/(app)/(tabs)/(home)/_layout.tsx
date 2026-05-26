@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 
 import {
   IOS_NATIVE_STACK_SCREEN_OPTIONS,
+  homeNativeLargeTitleOptions,
   nativeLargeTitleOptions,
 } from "@/components/shell/mobile-native-header";
 
@@ -10,7 +11,7 @@ export default function HomeStackLayout() {
     <Stack screenOptions={IOS_NATIVE_STACK_SCREEN_OPTIONS}>
       <Stack.Screen
         name="index"
-        options={nativeLargeTitleOptions("Home")}
+        options={homeNativeLargeTitleOptions()}
       />
       <Stack.Screen
         name="explore"

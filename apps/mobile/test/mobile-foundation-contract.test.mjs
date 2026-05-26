@@ -64,6 +64,7 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   const mobileNav = read("src/config/navigation.ts");
   const tabsLayout = read("app/(app)/(tabs)/_layout.tsx");
   const nativeHeader = read("src/components/shell/mobile-native-header.tsx");
+  const homeLayout = read("app/(app)/(tabs)/(home)/_layout.tsx");
   const createRoute = read("app/(app)/(tabs)/create/index.tsx");
   const createScreen = read("src/features/create/screens/create-screen.tsx");
   const chikaScreen = read("src/features/chika/screens/chika-screen.tsx");
@@ -105,8 +106,10 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   assert.match(nativeHeader, /headerLeft:/);
   assert.match(nativeHeader, /headerRight:/);
   assert.match(nativeHeader, /nativeLargeTitleOptions/);
+  assert.match(nativeHeader, /homeNativeLargeTitleOptions/);
   assert.match(nativeHeader, /headerLargeTitle:\s*USE_IOS_NATIVE_HEADER/);
-  assert.doesNotMatch(nativeHeader, /headerTransparent|headerBlurEffect/);
+  assert.match(nativeHeader, /HomeCompactHeaderLogo/);
+  assert.doesNotMatch(nativeHeader, /headerTransparent|headerBlurEffect|headerBackground/);
   assert.match(nativeHeader, /headerTitle:/);
   assert.match(nativeHeader, /AndroidHeaderTitle/);
   assert.match(nativeHeader, /HOME_LOGO/);
@@ -119,6 +122,8 @@ test("native tabs expose mobile search without fake search plumbing", () => {
     nativeHeader,
     /headerRightBarButtonItems|headerLeftBarButtonItems|lucide-react-native/,
   );
+  assert.match(homeLayout, /homeNativeLargeTitleOptions\(\)/);
+  assert.doesNotMatch(homeLayout, /headerTitle:\s*\(\)\s*=>/);
   assert.doesNotMatch(searchLayout, /headerSearchBarOptions|nativeSearchOptions/);
   assert.match(searchScreen, /@expo\/ui/);
   assert.match(searchScreen, /<Host/);

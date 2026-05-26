@@ -21,25 +21,11 @@ export function AuthScreen({ mode }: AuthScreenProps) {
   }
 
   return (
-    <View className="flex-1 items-center bg-background px-4 py-6">
-      <View className="w-full max-w-phone flex-1 justify-center gap-5">
-        <View className="gap-2">
-          <Text className="text-xs font-semibold uppercase tracking-wide text-primary">
-            Freediving Philippines
-          </Text>
-          <Text className="text-2xl font-semibold text-foreground">
-            {mode === "signIn" ? "Sign in" : "Create account"}
-          </Text>
-          <Text className="text-sm leading-6 text-muted-foreground">
-            Use your FPH account to open the mobile app shell. Feature data
-            integration comes next.
-          </Text>
-        </View>
-        <View className="min-h-[460px] overflow-hidden rounded-2xl border border-border bg-card">
-          <AuthView isDismissable={false} mode={mode} />
-        </View>
+    <View className="flex-1 bg-background">
+      <AuthView isDismissable={false} mode={mode} />
+      <View className="absolute bottom-8 left-4 right-4 gap-3">
         <Link href="/(app)/(tabs)/(home)" asChild>
-          <Pressable className="items-center rounded-xl bg-card px-4 py-3">
+          <Pressable className="items-center rounded-xl bg-card px-4 py-3 shadow-sm">
             <Text className="text-sm font-semibold text-foreground">
               Continue without signing in
             </Text>
