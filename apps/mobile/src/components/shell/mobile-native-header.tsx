@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/expo";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, Stack, useNavigation } from "expo-router";
+import { router, useNavigation } from "expo-router";
 import { Image, Pressable, Text, View } from "react-native";
 
 function openParentDrawer(navigation: unknown) {
@@ -37,7 +37,7 @@ export const USE_IOS_NATIVE_HEADER = process.env.EXPO_OS === "ios";
 const USE_ANDROID_NATIVE_HEADER = process.env.EXPO_OS === "android";
 const HOME_LOGO = require("../../../assets/images/fph-text-logo.png");
 
-export function NativeHeaderToolbar() {
+function IOSDrawerButton() {
   const navigation = useNavigation();
 
   if (!USE_IOS_NATIVE_HEADER) {
@@ -45,27 +45,41 @@ export function NativeHeaderToolbar() {
   }
 
   return (
-    <>
-      <Stack.Toolbar placement="left">
-        <Stack.Toolbar.Button
-          accessibilityLabel="Open menu"
-          icon="line.3.horizontal"
-          onPress={() => openParentDrawer(navigation)}
-        />
-      </Stack.Toolbar>
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button
-          accessibilityLabel="Open notifications"
-          icon="bell"
-          onPress={() => router.push("/(app)/(tabs)/(home)/notifications")}
-        />
-        <Stack.Toolbar.Button
-          accessibilityLabel="Open profile"
-          icon="person.crop.circle"
-          onPress={() => router.push("/(app)/(tabs)/(home)/profile")}
-        />
-      </Stack.Toolbar>
-    </>
+    <Pressable
+      accessibilityLabel="Open menu"
+      className="h-11 w-11 items-center justify-center rounded-full"
+      hitSlop={12}
+      onPress={() => openParentDrawer(navigation)}
+    >
+      <Ionicons color="#0A1F2E" name="menu-outline" size={25} />
+    </Pressable>
+  );
+}
+
+function IOSHeaderActions() {
+  if (!USE_IOS_NATIVE_HEADER) {
+    return null;
+  }
+
+  return (
+    <View className="flex-row items-center gap-2">
+      <Pressable
+        accessibilityLabel="Open notifications"
+        className="h-11 w-11 items-center justify-center rounded-full"
+        hitSlop={12}
+        onPress={() => router.push("/(app)/(tabs)/(home)/notifications")}
+      >
+        <Ionicons color="#0A1F2E" name="notifications-outline" size={23} />
+      </Pressable>
+      <Pressable
+        accessibilityLabel="Open profile"
+        className="h-11 w-11 items-center justify-center rounded-full"
+        hitSlop={12}
+        onPress={() => router.push("/(app)/(tabs)/(home)/profile")}
+      >
+        <Ionicons color="#0A1F2E" name="person-circle-outline" size={25} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -151,18 +165,29 @@ function AndroidHeaderActions() {
 }
 
 export const IOS_NATIVE_STACK_SCREEN_OPTIONS = {
-  headerLargeTitle: USE_IOS_NATIVE_HEADER,
+  headerLargeTitle: false,
+  headerLargeTitleShadowVisible: false,
   headerLargeTitleStyle: {
     fontSize: 32,
     fontWeight: "700" as const,
   },
-  headerLeft: USE_ANDROID_NATIVE_HEADER ? () => <AndroidDrawerButton /> : undefined,
-  headerRight: USE_ANDROID_NATIVE_HEADER ? () => <AndroidHeaderActions /> : undefined,
+  headerLeft: USE_IOS_NATIVE_HEADER
+    ? () => <IOSDrawerButton />
+    : USE_ANDROID_NATIVE_HEADER
+      ? () => <AndroidDrawerButton />
+      : undefined,
+  headerRight: USE_IOS_NATIVE_HEADER
+    ? () => <IOSHeaderActions />
+    : USE_ANDROID_NATIVE_HEADER
+      ? () => <AndroidHeaderActions />
+      : undefined,
   headerShadowVisible: false,
   headerShown: true,
-  headerStyle: {
-    backgroundColor: "#F7FCFF",
-  },
+  headerStyle: USE_ANDROID_NATIVE_HEADER
+    ? {
+        backgroundColor: "#F7FCFF",
+      }
+    : undefined,
   headerTitle: USE_ANDROID_NATIVE_HEADER
     ? ({ children }: { children?: string }) => <AndroidHeaderTitle title={children} />
     : undefined,
@@ -172,3 +197,20 @@ export const IOS_NATIVE_STACK_SCREEN_OPTIONS = {
     fontWeight: "600" as const,
   },
 };
+
+export function nativeLargeTitleOptions(
+  title: string,
+  options?: { searchPlaceholder?: string },
+) {
+  return {
+    ...IOS_NATIVE_STACK_SCREEN_OPTIONS,
+    headerLargeTitle: USE_IOS_NATIVE_HEADER,
+    headerSearchBarOptions:
+      USE_IOS_NATIVE_HEADER && options?.searchPlaceholder
+        ? {
+            placeholder: options.searchPlaceholder,
+          }
+        : undefined,
+    title,
+  };
+}

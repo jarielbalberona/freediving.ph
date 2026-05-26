@@ -27,7 +27,7 @@ export type MobileBottomNavItem = {
   id: AppNavId;
   label: string;
   routeName: "(home)" | "chika" | "search" | "create" | "messages" | "profile";
-  icon: { default: IoniconName; selected: IoniconName };
+  icon: IoniconName;
   role?: "search";
 };
 
@@ -69,36 +69,21 @@ const bottomRouteById: Record<
 };
 
 const bottomIconById: Record<AppNavId, MobileBottomNavItem["icon"]> = {
-  home: { default: "home-outline", selected: "home" },
-  chika: {
-    default: "chatbubbles-outline",
-    selected: "chatbubbles",
-  },
-  search: {
-    default: "search-outline",
-    selected: "search",
-  },
-  create: {
-    default: "create-outline",
-    selected: "create",
-  },
-  messages: {
-    default: "chatbubble-ellipses-outline",
-    selected: "chatbubble-ellipses",
-  },
-  profile: { default: "person-circle-outline", selected: "person-circle" },
-  explore: { default: "compass-outline", selected: "compass" },
-  buddies: { default: "people-outline", selected: "people" },
-  groups: { default: "people-circle-outline", selected: "people-circle" },
-  events: { default: "calendar-outline", selected: "calendar" },
-  schools: { default: "school-outline", selected: "school" },
-  "manage-schools": { default: "business-outline", selected: "business" },
-  "instructor-application": { default: "ribbon-outline", selected: "ribbon" },
-  learn: { default: "book-outline", selected: "book" },
-  "founders-note": {
-    default: "information-circle-outline",
-    selected: "information-circle",
-  },
+  home: "home-outline",
+  chika: "chatbubbles-outline",
+  search: "search-outline",
+  create: "create-outline",
+  messages: "chatbubble-ellipses-outline",
+  profile: "person-circle-outline",
+  explore: "compass-outline",
+  buddies: "people-outline",
+  groups: "people-circle-outline",
+  events: "calendar-outline",
+  schools: "school-outline",
+  "manage-schools": "business-outline",
+  "instructor-application": "ribbon-outline",
+  learn: "book-outline",
+  "founders-note": "information-circle-outline",
 };
 
 const drawerRouteById: Record<

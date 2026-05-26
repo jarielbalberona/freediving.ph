@@ -1,10 +1,5 @@
 import { ScrollView } from "react-native";
 
-import {
-  NativeHeaderToolbar,
-  USE_IOS_NATIVE_HEADER,
-} from "@/components/shell/mobile-native-header";
-
 type MobileScrollScreenProps = {
   children: React.ReactNode;
   subtitle?: string;
@@ -21,7 +16,6 @@ export function MobileScrollScreen({ children, subtitle, title }: MobileScrollSc
       >
         {children}
       </ScrollView>
-      {USE_IOS_NATIVE_HEADER ? <NativeHeaderToolbar /> : null}
     </>
   );
 }

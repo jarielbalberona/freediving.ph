@@ -97,19 +97,23 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   assert.equal(fs.existsSync(path.join(root, "app/(app)/(tabs)/create/photos.tsx")), false);
   assert.equal(fs.existsSync(path.join(root, "app/(app)/(tabs)/create/chika.tsx")), false);
   assert.ok(fs.existsSync(path.join(root, "app/(app)/(tabs)/chika/post.tsx")));
-  assert.match(nativeHeader, /Stack\.Toolbar placement="left"/);
-  assert.match(nativeHeader, /Stack\.Toolbar placement="right"/);
+  assert.doesNotMatch(nativeHeader, /Stack\.Toolbar/);
+  assert.match(nativeHeader, /IOSDrawerButton/);
+  assert.match(nativeHeader, /IOSHeaderActions/);
   assert.match(nativeHeader, /USE_ANDROID_NATIVE_HEADER/);
   assert.match(nativeHeader, /headerShown:\s*true/);
   assert.match(nativeHeader, /headerLeft:/);
   assert.match(nativeHeader, /headerRight:/);
+  assert.match(nativeHeader, /nativeLargeTitleOptions/);
+  assert.match(nativeHeader, /headerLargeTitle:\s*USE_IOS_NATIVE_HEADER/);
+  assert.doesNotMatch(nativeHeader, /headerTransparent|headerBlurEffect/);
   assert.match(nativeHeader, /headerTitle:/);
   assert.match(nativeHeader, /AndroidHeaderTitle/);
   assert.match(nativeHeader, /HOME_LOGO/);
   assert.match(nativeHeader, /title === "Home"/);
-  assert.match(nativeHeader, /icon="line\.3\.horizontal"/);
-  assert.match(nativeHeader, /icon="bell"/);
-  assert.match(nativeHeader, /icon="person\.crop\.circle"/);
+  assert.match(nativeHeader, /name="menu-outline"/);
+  assert.match(nativeHeader, /name="notifications-outline"/);
+  assert.match(nativeHeader, /name="person-circle-outline"/);
   assert.match(nativeHeader, /\/\(app\)\/\(tabs\)\/\(home\)\/profile/);
   assert.doesNotMatch(
     nativeHeader,

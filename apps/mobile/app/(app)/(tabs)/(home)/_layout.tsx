@@ -1,21 +1,20 @@
 import { Stack } from "expo-router";
 
-import { IOS_NATIVE_STACK_SCREEN_OPTIONS } from "@/components/shell/mobile-native-header";
+import {
+  IOS_NATIVE_STACK_SCREEN_OPTIONS,
+  nativeLargeTitleOptions,
+} from "@/components/shell/mobile-native-header";
 
 export default function HomeStackLayout() {
   return (
     <Stack screenOptions={IOS_NATIVE_STACK_SCREEN_OPTIONS}>
       <Stack.Screen
         name="index"
-        options={{
-          title: "Home",
-        }}
+        options={nativeLargeTitleOptions("Home")}
       />
       <Stack.Screen
         name="explore"
-        options={{
-          title: "Explore",
-        }}
+        options={nativeLargeTitleOptions("Explore")}
       />
       <Stack.Screen
         name="explore/[slug]"
@@ -25,15 +24,11 @@ export default function HomeStackLayout() {
       />
       <Stack.Screen
         name="buddies"
-        options={{
-          title: "Buddies",
-        }}
+        options={nativeLargeTitleOptions("Buddies")}
       />
       <Stack.Screen
         name="events"
-        options={{
-          title: "Events",
-        }}
+        options={nativeLargeTitleOptions("Events")}
       />
       <Stack.Screen
         name="events/[slug]"
@@ -43,9 +38,7 @@ export default function HomeStackLayout() {
       />
       <Stack.Screen
         name="schools"
-        options={{
-          title: "Schools",
-        }}
+        options={nativeLargeTitleOptions("Schools")}
       />
       <Stack.Screen
         name="manage-schools"
@@ -61,9 +54,7 @@ export default function HomeStackLayout() {
       />
       <Stack.Screen
         name="groups/index"
-        options={{
-          title: "Groups",
-        }}
+        options={nativeLargeTitleOptions("Groups")}
       />
       <Stack.Screen
         name="groups/[slug]"
@@ -91,9 +82,7 @@ export default function HomeStackLayout() {
       />
       <Stack.Screen
         name="profile/index"
-        options={{
-          title: "Profile",
-        }}
+        options={nativeLargeTitleOptions("Profile")}
       />
       <Stack.Screen
         name="profile/settings"

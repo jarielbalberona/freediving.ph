@@ -7,8 +7,8 @@ export { MobileErrorState } from "./mobile-error-state";
 export { MobileLoadingState } from "./mobile-loading-state";
 export {
   IOS_NATIVE_STACK_SCREEN_OPTIONS,
-  NativeHeaderToolbar,
   USE_IOS_NATIVE_HEADER,
+  nativeLargeTitleOptions,
 } from "./mobile-native-header";
 export { MobileScreen } from "./mobile-screen";
 export { MobileScrollScreen } from "./mobile-scroll-screen";

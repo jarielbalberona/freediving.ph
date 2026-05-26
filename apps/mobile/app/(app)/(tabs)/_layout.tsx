@@ -38,20 +38,9 @@ export default function AppTabsLayout() {
       {MOBILE_BOTTOM_NAV_ITEMS.map((item) => {
         const iconProps = {
           renderingMode: "template",
-          src: {
-            default: (
-              <NativeTabs.Trigger.VectorIcon
-                family={Ionicons}
-                name={item.icon.default}
-              />
-            ),
-            selected: (
-              <NativeTabs.Trigger.VectorIcon
-                family={Ionicons}
-                name={item.icon.selected}
-              />
-            ),
-          },
+          src: (
+            <NativeTabs.Trigger.VectorIcon family={Ionicons} name={item.icon} />
+          ),
         } as NativeTabsTriggerIconProps;
         return (
           <NativeTabs.Trigger
