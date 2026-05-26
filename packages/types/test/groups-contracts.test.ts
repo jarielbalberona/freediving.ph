@@ -62,3 +62,25 @@ test("groups contracts include structured location fields used by LocationPicker
     assert.match(source, new RegExp(`${field}\\?:`));
   }
 });
+
+test("groups contracts expose shared API response wrappers", () => {
+  for (const contract of [
+    "GroupPagination",
+    "GroupListResponse",
+    "GroupDetailResponse",
+    "GroupMembersResponse",
+    "GroupPostsResponse",
+    "GroupMembershipResponse",
+    "CreateGroupResponse",
+    "CreateGroupPostResponse",
+  ]) {
+    assert.match(source, new RegExp(`interface ${contract}`));
+  }
+
+  assert.match(source, /groups:\s*Group\[\]/);
+  assert.match(source, /group:\s*Group/);
+  assert.match(source, /members:\s*GroupMember\[\]/);
+  assert.match(source, /posts:\s*GroupPost\[\]/);
+  assert.match(source, /membership:\s*GroupMember/);
+  assert.match(source, /pagination:\s*GroupPagination/);
+});

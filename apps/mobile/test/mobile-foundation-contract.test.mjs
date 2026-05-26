@@ -574,6 +574,16 @@ test("messages and groups expose member-safe Phase 2 routes", () => {
   assert.doesNotMatch(messageThreadScreen, /endpoint|DTO|payload|debug|code-wise/i);
 
   assert.match(groupsApi, /@freediving\.ph\/types/);
+  assert.match(groupsApi, /GroupListResponse/);
+  assert.match(groupsApi, /GroupDetailResponse/);
+  assert.match(groupsApi, /GroupMembersResponse/);
+  assert.match(groupsApi, /GroupPostsResponse/);
+  assert.match(groupsApi, /GroupMembershipResponse/);
+  assert.match(groupsApi, /CreateGroupPostResponse/);
+  assert.doesNotMatch(groupsApi, /export type GroupListResponse/);
+  assert.doesNotMatch(groupsApi, /export type GroupDetailResponse/);
+  assert.doesNotMatch(groupsApi, /export type GroupMembersResponse/);
+  assert.doesNotMatch(groupsApi, /export type GroupPostsResponse/);
   assert.match(groupsApi, /\/v1\/groups/);
   assert.match(groupsApi, /joinGroup/);
   assert.match(groupsApi, /leaveGroup/);

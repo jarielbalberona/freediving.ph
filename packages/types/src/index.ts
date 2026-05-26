@@ -1026,6 +1026,46 @@ export interface GroupPost {
   authorAvatarUrl?: string;
 }
 
+export interface GroupPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface GroupListResponse {
+  groups: Group[];
+  pagination: GroupPagination;
+}
+
+export interface GroupDetailResponse {
+  group: Group;
+}
+
+export interface GroupMembersResponse {
+  members: GroupMember[];
+  pagination: GroupPagination;
+}
+
+export interface GroupPostsResponse {
+  posts: GroupPost[];
+  pagination: GroupPagination;
+}
+
+export interface GroupMembershipResponse {
+  membership: GroupMember;
+}
+
+export interface CreateGroupResponse {
+  group: Group;
+}
+
+export interface CreateGroupPostResponse {
+  post: GroupPost;
+}
+
 export interface CreateGroupRequest {
   name: string;
   slug?: string;

@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { GroupPostsResponse } from "@/features/groups/api/groups-api";
+import type { GroupPostsResponse } from "@freediving.ph/types";
 
 import {
   acceptGroupInvite,

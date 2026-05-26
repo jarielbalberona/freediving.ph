@@ -5,16 +5,17 @@ import {
   nativeSearchOptions,
 } from "@/components/shell/mobile-native-header";
 
-export default function ChikaStackLayout() {
+export default function MessagesStackLayout() {
   return (
     <Stack screenOptions={IOS_NATIVE_STACK_SCREEN_OPTIONS}>
       <Stack.Screen
         name="index"
         options={{
-          headerSearchBarOptions: nativeSearchOptions("Search Chika"),
-          title: "Chika",
+          headerSearchBarOptions: nativeSearchOptions("Search messages"),
+          title: "Messages",
         }}
       />
+      <Stack.Screen name="[threadId]" options={{ title: "Conversation" }} />
     </Stack>
   );
 }

@@ -1,40 +1,15 @@
 import type {
+  CreateGroupPostResponse,
   CreateGroupPostRequest,
-  Group,
+  GroupDetailResponse,
   GroupFilters,
-  GroupMember,
-  GroupPost,
+  GroupMembershipResponse,
+  GroupListResponse,
+  GroupMembersResponse,
+  GroupPostsResponse,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
-
-type Pagination = {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-};
-
-export type GroupListResponse = {
-  groups: Group[];
-  pagination: Pagination;
-};
-
-export type GroupDetailResponse = {
-  group: Group;
-};
-
-export type GroupMembersResponse = {
-  members: GroupMember[];
-  pagination: Pagination;
-};
-
-export type GroupPostsResponse = {
-  posts: GroupPost[];
-  pagination: Pagination;
-};
 
 const withQuery = (
   path: string,
@@ -79,7 +54,7 @@ export const getGroupPosts = (groupId: string) =>
   );
 
 export const joinGroup = (groupId: string, authToken: string) =>
-  fphgoFetch<{ membership: GroupMember }>(
+  fphgoFetch<GroupMembershipResponse>(
     `/v1/groups/${encodeURIComponent(groupId)}/join`,
     { auth: "required", authToken, method: "POST" },
   );
@@ -92,13 +67,13 @@ export const leaveGroup = (groupId: string, authToken: string) =>
   });
 
 export const acceptGroupInvite = (groupId: string, authToken: string) =>
-  fphgoFetch<{ membership: GroupMember }>(
+  fphgoFetch<GroupMembershipResponse>(
     `/v1/groups/${encodeURIComponent(groupId)}/invites/accept`,
     { auth: "required", authToken, method: "POST" },
   );
 
 export const rejectGroupInvite = (groupId: string, authToken: string) =>
-  fphgoFetch<{ membership: GroupMember }>(
+  fphgoFetch<GroupMembershipResponse>(
     `/v1/groups/${encodeURIComponent(groupId)}/invites/reject`,
     { auth: "required", authToken, method: "POST" },
   );
@@ -107,7 +82,7 @@ export const createGroupPost = (
   payload: CreateGroupPostRequest,
   authToken: string,
 ) =>
-  fphgoFetch<{ post: GroupPost }>(
+  fphgoFetch<CreateGroupPostResponse>(
     `/v1/groups/${encodeURIComponent(payload.groupId)}/posts`,
     {
       auth: "required",
