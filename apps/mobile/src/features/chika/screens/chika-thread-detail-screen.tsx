@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useGlobalSearchParams, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
@@ -26,6 +26,7 @@ import { FphgoApiError, isAuthErrorStatus } from "@/lib/api/fphgo-client";
 import {
   chikaAuthorLabel,
   formatChikaDate,
+  safeChikaSlug,
   stripMarkdownPreview,
 } from "@/features/chika/lib/chika-format";
 
@@ -33,12 +34,16 @@ const firstParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
 export function ChikaThreadDetailScreen() {
-  const params = useLocalSearchParams<{ slug?: string | string[] }>();
-  const slug = firstParam(params.slug);
+  const localParams = useLocalSearchParams<{ slug?: string | string[] }>();
+  const globalParams = useGlobalSearchParams<{ slug?: string | string[] }>();
+  const slug = safeChikaSlug(firstParam(globalParams.slug) ?? firstParam(localParams.slug));
   const threadQuery = useChikaThreadDetailQuery(slug);
   const { isLoaded, isSignedIn } = useAuth();
   const canUseChikaActions = isLoaded && Boolean(isSignedIn);
-  const thread = threadQuery.data;
+  const thread =
+    threadQuery.data && safeChikaSlug(threadQuery.data.slug) === slug
+      ? threadQuery.data
+      : undefined;
   const commentsQuery = useChikaCommentsQuery(thread?.id);
   const comments = commentsQuery.data?.items ?? [];
   const createComment = useCreateChikaCommentMutation(thread?.id ?? "");
@@ -81,6 +86,12 @@ export function ChikaThreadDetailScreen() {
     setCommentDraft(draft.payload.content);
     setReplyTo(draft.payload.parentCommentId);
   }, [localCommentDraft.draft, thread?.id]);
+
+  useEffect(() => {
+    setActionMessage(undefined);
+    setCommentDraft("");
+    setReplyTo(undefined);
+  }, [slug]);
 
   const requireSignedIn = () => {
     if (!isLoaded) {

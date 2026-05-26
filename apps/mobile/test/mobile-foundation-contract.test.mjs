@@ -95,6 +95,14 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   assert.doesNotMatch(createScreen, /Post in Chika|Publish Chika|ActionSheetIOS/);
   assert.match(chikaScreen, /Post Chika/);
   assert.match(chikaPostScreen, /Publish Chika/);
+  const chikaDetailRoute = read("app/(app)/(tabs)/chika/[slug].tsx");
+  const chikaDetailScreen = read(
+    "src/features/chika/screens/chika-thread-detail-screen.tsx",
+  );
+  assert.match(chikaDetailRoute, /key=\{slug \?\? "missing-chika-slug"\}/);
+  assert.match(chikaDetailScreen, /useGlobalSearchParams/);
+  assert.match(chikaDetailScreen, /safeChikaSlug\(threadQuery\.data\.slug\) === slug/);
+  assert.match(chikaDetailScreen, /<Stack\.Screen options=\{\{ title: "Chika" \}\}/);
   assert.equal(fs.existsSync(path.join(root, "app/(app)/(tabs)/create/photos.tsx")), false);
   assert.equal(fs.existsSync(path.join(root, "app/(app)/(tabs)/create/chika.tsx")), false);
   assert.ok(fs.existsSync(path.join(root, "app/(app)/(tabs)/chika/post.tsx")));
