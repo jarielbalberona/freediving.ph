@@ -39,7 +39,7 @@ export function MobileDrawerContent({ navigation }: MobileDrawerContentProps) {
             }}
           >
             <View className="flex-row items-center gap-4 rounded-2xl px-4 py-4">
-              <Icon color="#0A1F2E" size={26} strokeWidth={2.2} />
+              <Icon color="#0A1F2E" size={26} />
               <Text className="text-base font-semibold text-foreground">
                 {item.label}
               </Text>

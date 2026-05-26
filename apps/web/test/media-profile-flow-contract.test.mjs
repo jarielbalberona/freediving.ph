@@ -90,17 +90,17 @@ test("media dialog is wired as an in-place social post view", async () => {
       ),
       "utf8",
     ),
-      fs.readFile(
-        path.join(
-          repoRoot,
-          "src/features/media/components/MediaViewerDialog.tsx",
-        ),
-        "utf8",
+    fs.readFile(
+      path.join(
+        repoRoot,
+        "src/features/media/components/MediaViewerDialog.tsx",
       ),
-      fs.readFile(
-        path.join(repoRoot, "src/features/media/components/MomentPlayer.tsx"),
-        "utf8",
-      ),
+      "utf8",
+    ),
+    fs.readFile(
+      path.join(repoRoot, "src/features/media/components/MomentPlayer.tsx"),
+      "utf8",
+    ),
     fs.readFile(path.join(repoRoot, "src/components/ui/carousel.tsx"), "utf8"),
     fs.readFile(
       path.join(repoRoot, "src/features/profile/components/ProfileGrid.tsx"),
@@ -145,12 +145,22 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(mediaPostComponent, /setCommentFocusSignal/);
   assert.match(mediaPostComponent, /<MediaPostSocialPanel/);
   assert.match(mediaPostComponent, /commentsScrollMode="desktop"/);
-  assert.match(mediaViewerDialog, /aspectRatio: `\$\{item\.width\} \/ \$\{item\.height\}`/);
-  assert.match(mediaViewerDialog, /className="w-full overflow-hidden md:h-full"/);
-  assert.match(mediaViewerDialog, /max-h-\[85dvh\]/);
+  assert.doesNotMatch(
+    mediaViewerDialog,
+    /aspectRatio: `\$\{item\.width\} \/ \$\{item\.height\}`/,
+  );
+  assert.match(mediaViewerDialog, /md:grid-cols-\[minmax\(0,1fr\)_24rem\]/);
+  assert.match(mediaViewerDialog, /md:h-\[min\(90dvh,54rem\)\]/);
+  assert.match(mediaViewerDialog, /className="h-full w-full overflow-hidden"/);
+  assert.match(
+    mediaViewerDialog,
+    /className="flex h-full w-full items-center justify-center overflow-hidden"/,
+  );
+  assert.match(mediaViewerDialog, /h-\[85dvh\]/);
   assert.match(mediaViewerDialog, /<MomentPlayer/);
   assert.match(mediaViewerDialog, /playback: item\.playback/);
   assert.match(mediaViewerDialog, /videoClassName="object-contain"/);
+  assert.match(mediaViewerDialog, /className="h-full w-full object-contain"/);
   assert.doesNotMatch(mediaViewerDialog, /h-\[56dvh\]/);
   assert.doesNotMatch(mediaViewerDialog, /h-\[42dvh\]/);
   assert.match(carousel, /className="h-full w-full overflow-hidden"/);
@@ -181,7 +191,10 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(comments, /unlikeMediaPostComment/);
   assert.match(comments, /aria-label=\{\s*comment\.viewerHasLiked/);
   assert.match(momentPlayer, /import Hls from "hls\.js"/);
-  assert.match(momentPlayer, /video\.canPlayType\("application\/vnd\.apple\.mpegurl"\)/);
+  assert.match(
+    momentPlayer,
+    /video\.canPlayType\("application\/vnd\.apple\.mpegurl"\)/,
+  );
   assert.match(momentPlayer, /Hls\.isSupported\(\)/);
   assert.match(momentPlayer, /new Hls\(\)/);
   assert.match(momentPlayer, /hls\.loadSource\(hlsUrl\)/);
@@ -189,8 +202,14 @@ test("media dialog is wired as an in-place social post view", async () => {
   assert.match(momentPlayer, /hls\.destroy\(\)/);
   assert.match(momentPlayer, /mode === "iframe"/);
   assert.match(momentPlayer, /This Moment is unavailable\./);
-  assert.match(momentPlayer, /https:\/\/videodelivery\.net\/\$\{playbackUID\}\/manifest\/video\.m3u8/);
-  assert.match(momentPlayer, /input\.playback\?\.provider === "cloudflare_stream"/);
+  assert.match(
+    momentPlayer,
+    /https:\/\/videodelivery\.net\/\$\{playbackUID\}\/manifest\/video\.m3u8/,
+  );
+  assert.match(
+    momentPlayer,
+    /input\.playback\?\.provider === "cloudflare_stream"/,
+  );
   assert.match(momentPlayer, /extractCloudflareStreamUID\(playbackUrl\)/);
   assert.match(momentPlayer, /iframe\.videodelivery\.net/);
 });
@@ -232,7 +251,10 @@ test("Moment upload panel previews and validates selected local videos", async (
     preview,
     /setAspectRatio\(`\$\{video\.videoWidth\} \/ \$\{video\.videoHeight\}`\)/,
   );
-  assert.match(preview, /style=\{aspectRatio \? \{ aspectRatio \} : undefined\}/);
+  assert.match(
+    preview,
+    /style=\{aspectRatio \? \{ aspectRatio \} : undefined\}/,
+  );
   assert.match(preview, /object-cover/);
   assert.match(preview, /max-h-\[85dvh\]/);
   assert.doesNotMatch(preview, /aspect-\[9\/16\]/);
@@ -242,7 +264,10 @@ test("Moment upload panel previews and validates selected local videos", async (
   assert.match(preview, /onLoadedMetadata=\{handleLoadedMetadata\}/);
   assert.match(preview, /MAX_MOMENT_VIDEO_SECONDS = 30/);
   assert.match(preview, /MAX_MOMENT_VIDEO_BYTES = 200 \* 1024 \* 1024/);
-  assert.match(preview, /ALLOWED_VIDEO_EXTENSIONS = new Set\(\["mp4", "mov"\]\)/);
+  assert.match(
+    preview,
+    /ALLOWED_VIDEO_EXTENSIONS = new Set\(\["mp4", "mov"\]\)/,
+  );
   assert.match(preview, /Trim your video before uploading\./);
   assert.match(preview, /Choose an MP4 or MOV video\./);
   assert.doesNotMatch(preview, /<dl/);
@@ -255,12 +280,21 @@ test("Moment upload panel previews and validates selected local videos", async (
   assert.match(composer, /Moments are still in progress/);
   assert.match(composer, /You can test choosing and previewing a video/);
   assert.match(composer, /className="-mx-3 sm:mx-0"/);
-  assert.match(composer, /className="flex min-h-80 w-full flex-col items-center justify-center gap-3 px-4 text-center"/);
+  assert.match(
+    composer,
+    /className="flex min-h-80 w-full flex-col items-center justify-center gap-3 px-4 text-center"/,
+  );
   assert.match(composer, /<Film className="size-5" \/>/);
   assert.match(composer, /className="-mx-3 flex justify-center sm:mx-0"/);
-  assert.match(composer, /className="max-h-\[85dvh\] w-full bg-black object-cover"/);
+  assert.match(
+    composer,
+    /className="max-h-\[85dvh\] w-full bg-black object-cover"/,
+  );
   assert.doesNotMatch(composer, /relative aspect-\[4\/5\] w-full bg-muted\/30/);
-  assert.doesNotMatch(composer, /relative overflow-hidden rounded-xl border bg-background/);
+  assert.doesNotMatch(
+    composer,
+    /relative overflow-hidden rounded-xl border bg-background/,
+  );
   assert.doesNotMatch(composer, /videoFile \? videoFile\.name/);
   assert.match(composer, /Moments can be up to 30 seconds\./);
   assert.match(composer, /Choose an MP4 or MOV video\./);

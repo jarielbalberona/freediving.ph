@@ -20,7 +20,9 @@ test("mobile package aligns with repository tooling decisions", () => {
   assert.ok(!pkg.dependencies.axios);
   assert.ok(!pkg.dependencies["drizzle-orm"]);
   assert.ok(pkg.dependencies["expo-sqlite"]);
-  assert.ok(!pkg.dependencies["@expo/ui"]);
+  assert.equal(pkg.dependencies["@expo/ui"], "~56.0.13");
+  assert.ok(pkg.dependencies["@expo/vector-icons"]);
+  assert.ok(!pkg.dependencies["lucide-react-native"]);
   assert.ok(!pkg.dependencies["expo-glass-effect"]);
 });
 
@@ -48,7 +50,11 @@ test("mobile routes stay thin and shell-backed", () => {
     ),
   );
   assert.ok(
-    fs.existsSync(path.join(root, "src/components/shell/mobile-app-shell.tsx")),
+    fs.existsSync(path.join(root, "src/components/shell/mobile-native-header.tsx")),
+  );
+  assert.equal(
+    fs.existsSync(path.join(root, "src/components/shell/mobile-top-header.tsx")),
+    false,
   );
   assert.ok(fs.existsSync(path.join(root, "src/lib/api/fphgo-client.ts")));
 });
@@ -93,15 +99,26 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   assert.ok(fs.existsSync(path.join(root, "app/(app)/(tabs)/chika/post.tsx")));
   assert.match(nativeHeader, /Stack\.Toolbar placement="left"/);
   assert.match(nativeHeader, /Stack\.Toolbar placement="right"/);
+  assert.match(nativeHeader, /USE_ANDROID_NATIVE_HEADER/);
+  assert.match(nativeHeader, /headerShown:\s*true/);
+  assert.match(nativeHeader, /headerLeft:/);
+  assert.match(nativeHeader, /headerRight:/);
+  assert.match(nativeHeader, /headerTitle:/);
+  assert.match(nativeHeader, /AndroidHeaderTitle/);
+  assert.match(nativeHeader, /TEMP_HOME_LOGO/);
+  assert.match(nativeHeader, /title === "Home"/);
   assert.match(nativeHeader, /icon="line\.3\.horizontal"/);
   assert.match(nativeHeader, /icon="bell"/);
   assert.match(nativeHeader, /icon="person\.crop\.circle"/);
   assert.match(nativeHeader, /\/\(app\)\/\(tabs\)\/\(home\)\/profile/);
   assert.doesNotMatch(
     nativeHeader,
-    /headerRight:|headerLeft:|headerRightBarButtonItems|headerLeftBarButtonItems|lucide-react-native/,
+    /headerRightBarButtonItems|headerLeftBarButtonItems|lucide-react-native/,
   );
   assert.doesNotMatch(searchLayout, /headerSearchBarOptions|nativeSearchOptions/);
+  assert.match(searchScreen, /@expo\/ui/);
+  assert.match(searchScreen, /<Host/);
+  assert.match(searchScreen, /<Column/);
   assert.match(searchScreen, /Search is coming soon\./);
   assert.doesNotMatch(searchScreen, /fetch|fphgo|useQuery|TODO|mock|fake/i);
 });

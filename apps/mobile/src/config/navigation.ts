@@ -3,29 +3,17 @@ import {
   APP_DRAWER_NAV_ITEMS,
   type AppNavId,
 } from "@freediving.ph/types";
-import {
-  BookOpen,
-  CalendarDays,
-  Compass,
-  Edit3,
-  GraduationCap,
-  Home,
-  Info,
-  Search,
-  MessageCircle,
-  MessageSquareText,
-  School,
-  UserRound,
-  UsersRound,
-} from "lucide-react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentType } from "react";
+import { createElement } from "react";
 import type { ColorValue } from "react-native";
 
 type MobileNavIcon = ComponentType<{
   color?: ColorValue;
   size?: number;
-  strokeWidth?: number;
 }>;
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
 
 type MobilePlatformNavItem = {
   id: AppNavId;
@@ -138,22 +126,27 @@ const drawerRouteById: Record<
   "founders-note": "founders-note",
 };
 
+const makeDrawerIcon = (name: IoniconName): MobileNavIcon =>
+  function DrawerIcon({ color, size }) {
+    return createElement(Ionicons, { color, name, size });
+  };
+
 const drawerIconById: Record<AppNavId, MobileNavIcon> = {
-  home: Home,
-  chika: MessageCircle,
-  search: Search,
-  create: Edit3,
-  messages: MessageSquareText,
-  profile: UserRound,
-  explore: Compass,
-  buddies: UsersRound,
-  groups: UsersRound,
-  events: CalendarDays,
-  schools: School,
-  "manage-schools": School,
-  "instructor-application": GraduationCap,
-  learn: BookOpen,
-  "founders-note": Info,
+  home: makeDrawerIcon("home-outline"),
+  chika: makeDrawerIcon("chatbubbles-outline"),
+  search: makeDrawerIcon("search-outline"),
+  create: makeDrawerIcon("create-outline"),
+  messages: makeDrawerIcon("chatbubble-ellipses-outline"),
+  profile: makeDrawerIcon("person-circle-outline"),
+  explore: makeDrawerIcon("compass-outline"),
+  buddies: makeDrawerIcon("people-outline"),
+  groups: makeDrawerIcon("people-circle-outline"),
+  events: makeDrawerIcon("calendar-outline"),
+  schools: makeDrawerIcon("school-outline"),
+  "manage-schools": makeDrawerIcon("business-outline"),
+  "instructor-application": makeDrawerIcon("ribbon-outline"),
+  learn: makeDrawerIcon("book-outline"),
+  "founders-note": makeDrawerIcon("information-circle-outline"),
 };
 
 export const MOBILE_BOTTOM_NAV_ITEMS = APP_BOTTOM_NAV_ITEMS.filter(

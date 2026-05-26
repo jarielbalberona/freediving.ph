@@ -55,7 +55,9 @@ export function MediaViewerDialog({
     () => items.filter((item) => item.width > 0 && item.height > 0),
     [items],
   );
-  const needsMintedUrls = normalizedItems.some((item) => item.type !== "video" && !item.displayUrl);
+  const needsMintedUrls = normalizedItems.some(
+    (item) => item.type !== "video" && !item.displayUrl,
+  );
   const dialogUrls = useMintedMediaMap(
     normalizedItems
       .filter((item) => item.type !== "video" && !item.displayUrl)
@@ -111,7 +113,7 @@ export function MediaViewerDialog({
         <DialogContent
           containerClassName="p-0"
           showCloseButton={false}
-          className="relative h-dvh max-h-dvh w-full max-w-none overflow-y-auto rounded-none! border-0 bg-background p-0 text-foreground shadow-none ring-0 md:max-w-[min(100vw-2rem,72rem)] md:overflow-hidden md:rounded-2xl"
+          className="relative h-dvh max-h-dvh w-full max-w-none overflow-y-auto rounded-none! border-0 bg-background p-0 text-foreground shadow-none ring-0 md:h-[min(90dvh,54rem)] md:max-w-[min(100vw-2rem,72rem)] md:overflow-hidden md:rounded-2xl"
         >
           <div className="absolute right-4 top-4 z-30">
             <DialogClose
@@ -128,19 +130,25 @@ export function MediaViewerDialog({
             </DialogClose>
           </div>
 
-          <div className="flex min-h-full flex-col md:h-full md:min-h-0 md:flex-row">
-            <div className="relative shrink-0 overflow-hidden bg-muted/30 md:h-auto md:min-h-full md:flex-1">
+          <div
+            className={
+              renderSidebar
+                ? "flex min-h-full flex-col md:grid md:h-full md:min-h-0 md:grid-cols-[minmax(0,1fr)_24rem]"
+                : "flex min-h-full flex-col md:h-full md:min-h-0"
+            }
+          >
+            <div className="relative h-[85dvh] shrink-0 overflow-hidden bg-muted/30 md:h-full md:min-h-0">
               {needsMintedUrls && dialogUrls.isPending ? (
-                <div className="flex min-h-[85dvh] items-center justify-center md:h-full md:min-h-0">
+                <div className="flex h-full items-center justify-center">
                   <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
                 <Carousel
                   setApi={setCarouselApi}
                   opts={{ startIndex: initialIndex }}
-                  className="w-full overflow-hidden md:h-full"
+                  className="h-full w-full overflow-hidden"
                 >
-                  <CarouselContent className="ml-0 items-start md:h-full md:items-center">
+                  <CarouselContent className="ml-0 h-full items-center">
                     {normalizedItems.map((item) => {
                       const src =
                         item.displayUrl ??
@@ -158,14 +166,9 @@ export function MediaViewerDialog({
                       return (
                         <CarouselItem
                           key={item.id}
-                          className="flex min-w-0 items-start overflow-hidden pl-0 md:h-full md:items-center"
+                          className="flex h-full min-w-0 items-center overflow-hidden pl-0"
                         >
-                          <div
-                            className="flex w-full items-center justify-center overflow-hidden md:h-full"
-                            style={{
-                              aspectRatio: `${item.width} / ${item.height}`,
-                            }}
-                          >
+                          <div className="flex h-full w-full items-center justify-center overflow-hidden">
                             {item.type === "video" ? (
                               <MomentPlayer
                                 hlsUrl={momentPlayback?.hlsUrl}
@@ -175,7 +178,7 @@ export function MediaViewerDialog({
                                 controls
                                 muted
                                 playsInline
-                                className="h-full max-h-[85dvh] w-full md:max-h-none"
+                                className="h-full w-full"
                                 videoClassName="object-contain"
                                 iframeClassName="object-contain"
                               />
@@ -185,7 +188,7 @@ export function MediaViewerDialog({
                                 alt={item.alt}
                                 width={item.width}
                                 height={item.height}
-                                className="h-auto max-h-[85dvh] w-full object-contain md:h-full md:max-h-none"
+                                className="h-full w-full object-contain"
                                 unoptimized
                               />
                             ) : (

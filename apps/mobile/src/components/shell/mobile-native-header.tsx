@@ -1,4 +1,7 @@
+import { useAuth } from "@clerk/expo";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, Stack, useNavigation } from "expo-router";
+import { Image, Pressable, Text, View } from "react-native";
 
 function openParentDrawer(navigation: unknown) {
   let target = navigation;
@@ -31,6 +34,8 @@ function openParentDrawer(navigation: unknown) {
 }
 
 export const USE_IOS_NATIVE_HEADER = process.env.EXPO_OS === "ios";
+const USE_ANDROID_NATIVE_HEADER = process.env.EXPO_OS === "android";
+const HOME_LOGO = require("../../../assets/images/fph-text-logo.png");
 
 export function NativeHeaderToolbar() {
   const navigation = useNavigation();
@@ -64,14 +69,104 @@ export function NativeHeaderToolbar() {
   );
 }
 
+function AndroidDrawerButton() {
+  const navigation = useNavigation();
+
+  if (!USE_ANDROID_NATIVE_HEADER) {
+    return null;
+  }
+
+  return (
+    <Pressable
+      accessibilityLabel="Open menu"
+      className="h-11 w-11 items-center justify-center rounded-full"
+      hitSlop={12}
+      onPress={() => openParentDrawer(navigation)}
+    >
+      <Ionicons color="#0A1F2E" name="menu" size={25} />
+    </Pressable>
+  );
+}
+
+function AndroidHeaderTitle({ title }: { title?: string }) {
+  if (!USE_ANDROID_NATIVE_HEADER) {
+    return null;
+  }
+
+  if (title === "Home") {
+    return (
+      <View className="ml-2 flex-row items-center">
+        <Image
+          accessibilityIgnoresInvertColors
+          accessibilityLabel="Freediving Philippines"
+          className="h-12 w-32"
+          resizeMode="contain"
+          source={HOME_LOGO}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View className="ml-2 min-w-0">
+      <Text className="text-xl font-semibold text-foreground" numberOfLines={1}>
+        {title ?? ""}
+      </Text>
+    </View>
+  );
+}
+
+function AndroidHeaderActions() {
+  const { isSignedIn } = useAuth();
+
+  if (!USE_ANDROID_NATIVE_HEADER) {
+    return null;
+  }
+
+  const notificationsHref = isSignedIn
+    ? "/(app)/(tabs)/(home)/notifications"
+    : "/sign-in";
+  const profileHref = isSignedIn ? "/(app)/(tabs)/(home)/profile" : "/sign-in";
+
+  return (
+    <View className="flex-row items-center gap-2">
+      <Pressable
+        accessibilityLabel="Open notifications"
+        className="h-11 w-11 items-center justify-center rounded-full"
+        hitSlop={12}
+        onPress={() => router.push(notificationsHref)}
+      >
+        <Ionicons color="#0A1F2E" name="notifications-outline" size={23} />
+      </Pressable>
+      <Pressable
+        accessibilityLabel="Open profile"
+        className="h-11 w-11 items-center justify-center rounded-full"
+        hitSlop={12}
+        onPress={() => router.push(profileHref)}
+      >
+        <Ionicons color="#0A1F2E" name="person-circle-outline" size={25} />
+      </Pressable>
+    </View>
+  );
+}
+
 export const IOS_NATIVE_STACK_SCREEN_OPTIONS = {
-  headerLargeTitle: true,
+  headerLargeTitle: USE_IOS_NATIVE_HEADER,
   headerLargeTitleStyle: {
     fontSize: 32,
     fontWeight: "700" as const,
   },
+  headerLeft: USE_ANDROID_NATIVE_HEADER ? () => <AndroidDrawerButton /> : undefined,
+  headerRight: USE_ANDROID_NATIVE_HEADER ? () => <AndroidHeaderActions /> : undefined,
   headerShadowVisible: false,
-  headerShown: USE_IOS_NATIVE_HEADER,
+  headerShown: true,
+  headerStyle: {
+    backgroundColor: "#F7FCFF",
+  },
+  headerTitle: USE_ANDROID_NATIVE_HEADER
+    ? ({ children }: { children?: string }) => <AndroidHeaderTitle title={children} />
+    : undefined,
+  headerTitleAlign: "left" as const,
   headerTitleStyle: {
     fontSize: 17,
     fontWeight: "600" as const,

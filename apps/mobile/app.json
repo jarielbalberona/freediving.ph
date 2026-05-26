@@ -9,12 +9,12 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "ph.freediving.app",
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.png"
     },
     "android": {
       "package": "ph.freediving.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#507abc",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -30,7 +30,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#507abc",
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
