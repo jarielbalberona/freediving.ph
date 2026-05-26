@@ -27,8 +27,7 @@ export type MobileBottomNavItem = {
   id: AppNavId;
   label: string;
   routeName: "(home)" | "chika" | "search" | "create" | "messages" | "profile";
-  sf: string | { default: string; selected: string };
-  md: string;
+  icon: { default: IoniconName; selected: IoniconName };
   role?: "search";
 };
 
@@ -69,40 +68,37 @@ const bottomRouteById: Record<
   "founders-note": null,
 };
 
-const nativeTabIconById: Record<
-  AppNavId,
-  { sf: MobileBottomNavItem["sf"]; md: string }
-> = {
-  home: { sf: { default: "house", selected: "house.fill" }, md: "home" },
+const bottomIconById: Record<AppNavId, MobileBottomNavItem["icon"]> = {
+  home: { default: "home-outline", selected: "home" },
   chika: {
-    sf: {
-      default: "bubble.left.and.bubble.right",
-      selected: "bubble.left.and.bubble.right.fill",
-    },
-    md: "forum",
+    default: "chatbubbles-outline",
+    selected: "chatbubbles",
   },
   search: {
-    sf: { default: "magnifyingglass", selected: "magnifyingglass" },
-    md: "search",
+    default: "search-outline",
+    selected: "search",
   },
   create: {
-    sf: { default: "square.and.pencil", selected: "square.and.pencil" },
-    md: "edit_square",
+    default: "create-outline",
+    selected: "create",
   },
   messages: {
-    sf: { default: "message", selected: "message.fill" },
-    md: "chat",
+    default: "chatbubble-ellipses-outline",
+    selected: "chatbubble-ellipses",
   },
-  profile: { sf: { default: "person", selected: "person.fill" }, md: "person" },
-  explore: { sf: "safari", md: "explore" },
-  buddies: { sf: "person.2", md: "group" },
-  groups: { sf: "person.3", md: "groups" },
-  events: { sf: "calendar", md: "event" },
-  schools: { sf: "graduationcap", md: "school" },
-  "manage-schools": { sf: "building.2", md: "business" },
-  "instructor-application": { sf: "checkmark.seal", md: "verified" },
-  learn: { sf: "book", md: "menu-book" },
-  "founders-note": { sf: "info.circle", md: "info" },
+  profile: { default: "person-circle-outline", selected: "person-circle" },
+  explore: { default: "compass-outline", selected: "compass" },
+  buddies: { default: "people-outline", selected: "people" },
+  groups: { default: "people-circle-outline", selected: "people-circle" },
+  events: { default: "calendar-outline", selected: "calendar" },
+  schools: { default: "school-outline", selected: "school" },
+  "manage-schools": { default: "business-outline", selected: "business" },
+  "instructor-application": { default: "ribbon-outline", selected: "ribbon" },
+  learn: { default: "book-outline", selected: "book" },
+  "founders-note": {
+    default: "information-circle-outline",
+    selected: "information-circle",
+  },
 };
 
 const drawerRouteById: Record<
@@ -161,7 +157,7 @@ export const MOBILE_BOTTOM_NAV_ITEMS = APP_BOTTOM_NAV_ITEMS.filter(
     label: item.label,
     routeName,
     role: item.id === "search" ? ("search" as const) : undefined,
-    ...nativeTabIconById[item.id],
+    icon: bottomIconById[item.id],
   };
 });
 

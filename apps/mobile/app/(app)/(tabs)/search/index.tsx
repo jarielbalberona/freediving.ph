@@ -8,7 +8,7 @@ export default function SearchRoute() {
       <Host
         matchContents
         style={{
-          width: "100%",
+          flexGrow: 1,
         }}
       >
         <Column
@@ -19,7 +19,6 @@ export default function SearchRoute() {
             borderRadius: 24,
             borderWidth: 1,
             padding: 20,
-            width: "100%",
           }}
         >
           <Text

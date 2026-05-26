@@ -2,6 +2,7 @@ import {
   NativeTabs,
   type NativeTabsTriggerIconProps,
 } from "expo-router/unstable-native-tabs";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { DynamicColorIOS } from "react-native";
 
 import { MOBILE_BOTTOM_NAV_ITEMS } from "@/config/navigation";
@@ -27,7 +28,7 @@ const nativeTabProps =
         tintColor: adaptiveTabTintColor,
       }
     : {
-        backgroundColor: "#F4F3FA",
+        backgroundColor: "#FFFFFF",
         tintColor: adaptiveTabTintColor,
       };
 
@@ -36,8 +37,21 @@ export default function AppTabsLayout() {
     <NativeTabs {...nativeTabProps}>
       {MOBILE_BOTTOM_NAV_ITEMS.map((item) => {
         const iconProps = {
-          md: item.md,
-          sf: item.sf,
+          renderingMode: "template",
+          src: {
+            default: (
+              <NativeTabs.Trigger.VectorIcon
+                family={Ionicons}
+                name={item.icon.default}
+              />
+            ),
+            selected: (
+              <NativeTabs.Trigger.VectorIcon
+                family={Ionicons}
+                name={item.icon.selected}
+              />
+            ),
+          },
         } as NativeTabsTriggerIconProps;
         return (
           <NativeTabs.Trigger
