@@ -17,6 +17,21 @@ test("groups API serializes mine=true and exposes real invite endpoints", async 
   const queriesSource = await readApp("src/features/groups/hooks/queries.ts");
 
   assert.match(apiSource, /params\.append\(['"]mine['"], ['"]true['"]\)/);
+  assert.match(apiSource, /GroupListResponse/);
+  assert.match(apiSource, /GroupDetailResponse/);
+  assert.match(apiSource, /GroupMembershipResponse/);
+  assert.match(apiSource, /GroupMembersResponse/);
+  assert.match(apiSource, /GroupPostsResponse/);
+  assert.match(apiSource, /CreateGroupResponse/);
+  assert.match(apiSource, /CreateGroupPostResponse/);
+  assert.doesNotMatch(apiSource, /type Pagination/);
+  assert.doesNotMatch(apiSource, /type ListGroupsPayload/);
+  assert.doesNotMatch(apiSource, /type GroupDetailPayload/);
+  assert.doesNotMatch(apiSource, /type JoinGroupPayload/);
+  assert.doesNotMatch(apiSource, /type ListMembersPayload/);
+  assert.doesNotMatch(apiSource, /type ListPostsPayload/);
+  assert.doesNotMatch(apiSource, /type CreateGroupPayload/);
+  assert.doesNotMatch(apiSource, /type CreatePostPayload/);
   assert.match(
     queriesSource,
     /groupsApi\.getGroups\(\{\s*mine:\s*true,\s*page,\s*limit\s*\}\)/,

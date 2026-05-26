@@ -1,58 +1,25 @@
 import { axiosInstance } from "@/lib/http/axios";
 import type {
-  Group,
-  GroupMember,
-  GroupPost,
-  CreateGroupRequest,
-  UpdateGroupRequest,
-  JoinGroupRequest,
-  InviteGroupMemberRequest,
   CreateGroupPostRequest,
+  CreateGroupPostResponse,
+  CreateGroupRequest,
+  CreateGroupResponse,
+  Group,
+  GroupDetailResponse,
   GroupFilters,
+  GroupListResponse,
+  GroupMember,
+  GroupMembersResponse,
+  GroupMembershipResponse,
+  GroupPost,
+  GroupPostsResponse,
+  InviteGroupMemberRequest,
+  JoinGroupRequest,
+  UpdateGroupRequest,
 } from "@freediving.ph/types";
 
-type Pagination = {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-};
-
-type ListGroupsPayload = {
-  groups: Group[];
-  pagination: Pagination;
-};
-
-type GroupDetailPayload = {
-  group: Group;
-};
-
-type JoinGroupPayload = {
-  membership: GroupMember;
-};
-
-type ListMembersPayload = {
-  members: GroupMember[];
-  pagination: Pagination;
-};
-
-type ListPostsPayload = {
-  posts: GroupPost[];
-  pagination: Pagination;
-};
-
-type CreateGroupPayload = {
-  group: Group;
-};
-
-type CreatePostPayload = {
-  post: GroupPost;
-};
-
 export const groupsApi = {
-  getGroups: async (filters?: GroupFilters): Promise<ListGroupsPayload> => {
+  getGroups: async (filters?: GroupFilters): Promise<GroupListResponse> => {
     const params = new URLSearchParams();
     if (filters?.page) params.append("page", filters.page.toString());
     if (filters?.limit) params.append("limit", filters.limit.toString());
@@ -63,19 +30,19 @@ export const groupsApi = {
     const queryString = params.toString();
     const url = `/v1/groups${queryString ? `?${queryString}` : ""}`;
 
-    const response = await axiosInstance.get<ListGroupsPayload>(url);
+    const response = await axiosInstance.get<GroupListResponse>(url);
     return response.data;
   },
 
   getGroupBySlug: async (slug: string): Promise<Group> => {
-    const response = await axiosInstance.get<GroupDetailPayload>(
+    const response = await axiosInstance.get<GroupDetailResponse>(
       `/v1/groups/${encodeURIComponent(slug)}`,
     );
     return response.data.group;
   },
 
   createGroup: async (data: CreateGroupRequest): Promise<Group> => {
-    const response = await axiosInstance.post<CreateGroupPayload>(
+    const response = await axiosInstance.post<CreateGroupResponse>(
       "/v1/groups",
       data,
     );
@@ -86,7 +53,7 @@ export const groupsApi = {
     groupId: string,
     data: UpdateGroupRequest,
   ): Promise<Group> => {
-    const response = await axiosInstance.patch<CreateGroupPayload>(
+    const response = await axiosInstance.patch<CreateGroupResponse>(
       `/v1/groups/${groupId}`,
       data,
     );
@@ -94,7 +61,7 @@ export const groupsApi = {
   },
 
   joinGroup: async (data: JoinGroupRequest): Promise<GroupMember> => {
-    const response = await axiosInstance.post<JoinGroupPayload>(
+    const response = await axiosInstance.post<GroupMembershipResponse>(
       `/v1/groups/${data.groupId}/join`,
     );
     return response.data.membership;
@@ -111,7 +78,7 @@ export const groupsApi = {
   inviteMember: async (
     data: InviteGroupMemberRequest,
   ): Promise<GroupMember> => {
-    const response = await axiosInstance.post<JoinGroupPayload>(
+    const response = await axiosInstance.post<GroupMembershipResponse>(
       `/v1/groups/${data.groupId}/invites`,
       {
         userId: data.userId,
@@ -121,14 +88,14 @@ export const groupsApi = {
   },
 
   acceptInvite: async (groupId: string): Promise<GroupMember> => {
-    const response = await axiosInstance.post<JoinGroupPayload>(
+    const response = await axiosInstance.post<GroupMembershipResponse>(
       `/v1/groups/${groupId}/invites/accept`,
     );
     return response.data.membership;
   },
 
   rejectInvite: async (groupId: string): Promise<GroupMember> => {
-    const response = await axiosInstance.post<JoinGroupPayload>(
+    const response = await axiosInstance.post<GroupMembershipResponse>(
       `/v1/groups/${groupId}/invites/reject`,
     );
     return response.data.membership;
@@ -138,7 +105,7 @@ export const groupsApi = {
     groupId: string,
     page?: number,
     limit?: number,
-  ): Promise<ListMembersPayload> => {
+  ): Promise<GroupMembersResponse> => {
     const params = new URLSearchParams();
     if (page) params.append("page", page.toString());
     if (limit) params.append("limit", limit.toString());
@@ -146,7 +113,7 @@ export const groupsApi = {
     const queryString = params.toString();
     const url = `/v1/groups/${groupId}/members${queryString ? `?${queryString}` : ""}`;
 
-    const response = await axiosInstance.get<ListMembersPayload>(url);
+    const response = await axiosInstance.get<GroupMembersResponse>(url);
     return response.data;
   },
 
@@ -154,7 +121,7 @@ export const groupsApi = {
     groupId: string,
     page?: number,
     limit?: number,
-  ): Promise<ListPostsPayload> => {
+  ): Promise<GroupPostsResponse> => {
     const params = new URLSearchParams();
     if (page) params.append("page", page.toString());
     if (limit) params.append("limit", limit.toString());
@@ -162,12 +129,12 @@ export const groupsApi = {
     const queryString = params.toString();
     const url = `/v1/groups/${groupId}/posts${queryString ? `?${queryString}` : ""}`;
 
-    const response = await axiosInstance.get<ListPostsPayload>(url);
+    const response = await axiosInstance.get<GroupPostsResponse>(url);
     return response.data;
   },
 
   createGroupPost: async (data: CreateGroupPostRequest): Promise<GroupPost> => {
-    const response = await axiosInstance.post<CreatePostPayload>(
+    const response = await axiosInstance.post<CreateGroupPostResponse>(
       `/v1/groups/${data.groupId}/posts`,
       {
         title: data.title,
