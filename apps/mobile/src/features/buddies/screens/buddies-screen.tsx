@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import type { Href } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
+import { useAuth } from "@clerk/expo";
 
 import type { CreateBuddyFinderIntentRequest } from "@freediving.ph/types";
 
@@ -87,6 +88,7 @@ const buddyDraftPayload = (draft: BuddyDraft): CreateBuddyFinderIntentRequest =>
 
 export function BuddiesScreen() {
   const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth();
   const buddiesQuery = useBuddyFinderQuery();
   const memberIntentsQuery = useMemberBuddyFinderIntentsQuery();
   const myIntentsQuery = useMyBuddyFinderIntentsQuery();
@@ -105,8 +107,11 @@ export function BuddiesScreen() {
   const [note, setNote] = useState("");
   const [timeWindow, setTimeWindow] =
     useState<CreateBuddyFinderIntentRequest["timeWindow"]>("weekend");
-  const intents = memberIntentsQuery.data?.items ?? buddiesQuery.data?.items ?? [];
-  const myIntents = myIntentsQuery.data?.items ?? [];
+  const canUseMemberBuddies = isLoaded && Boolean(isSignedIn);
+  const intents = canUseMemberBuddies
+    ? (memberIntentsQuery.data?.items ?? buddiesQuery.data?.items ?? [])
+    : (buddiesQuery.data?.items ?? []);
+  const myIntents = canUseMemberBuddies ? (myIntentsQuery.data?.items ?? []) : [];
   const myIntentIds = new Set(myIntents.map((intent) => intent.id));
 
   useEffect(() => {
@@ -134,18 +139,19 @@ export function BuddiesScreen() {
 
   return (
     <MobileScrollScreen subtitle="Buddy Finder" title="Buddies">
-      <MobileSection
-        description="Create a lightweight intent so other members know where and when you want to dive."
-        title="Your buddy intent"
-      >
-        <View className="gap-3">
-          <PendingSyncPanel
-            isSyncing={outbox.isSyncing}
-            items={outbox.items}
-            message={buddyDraft.status === "saved" ? "Saved as draft" : outbox.message}
-            onDiscard={outbox.discard}
-            onSyncNow={outbox.syncNow}
-          />
+      {canUseMemberBuddies ? (
+        <MobileSection
+          description="Create a lightweight intent so other members know where and when you want to dive."
+          title="Your buddy intent"
+        >
+          <View className="gap-3">
+            <PendingSyncPanel
+              isSyncing={outbox.isSyncing}
+              items={outbox.items}
+              message={buddyDraft.status === "saved" ? "Saved as draft" : outbox.message}
+              onDiscard={outbox.discard}
+              onSyncNow={outbox.syncNow}
+            />
           <TextInput
             className="rounded-2xl border border-border bg-card p-3 text-foreground"
             onChangeText={setArea}
@@ -263,18 +269,33 @@ export function BuddiesScreen() {
               ))}
             </View>
           ) : null}
-        </View>
-      </MobileSection>
+          </View>
+        </MobileSection>
+      ) : (
+        <MobileSection
+          description="Preview public buddy posts. Sign in to post your own buddy request and message other divers."
+          title="Find a dive buddy"
+        >
+          {!isLoaded ? (
+            <MobileLoadingState message="Checking your session." />
+          ) : (
+            <Text className="text-sm leading-6 text-muted-foreground">
+              Sign in to post a buddy request.
+            </Text>
+          )}
+        </MobileSection>
+      )}
 
       <MobileSection
         description="Find divers who have shared where and when they want to dive."
         title="Looking for a dive buddy"
       >
-        {buddiesQuery.isLoading || memberIntentsQuery.isLoading ? (
+        {buddiesQuery.isLoading ||
+        (canUseMemberBuddies && memberIntentsQuery.isLoading) ? (
           <MobileLoadingState message="Loading buddy posts." />
         ) : null}
 
-        {buddiesQuery.error && !memberIntentsQuery.data ? (
+        {buddiesQuery.error && (!canUseMemberBuddies || !memberIntentsQuery.data) ? (
           <View className="gap-3">
             <MobileErrorState
               message="Buddy posts are taking longer than expected to load."
@@ -286,14 +307,20 @@ export function BuddiesScreen() {
           </View>
         ) : null}
 
-        {!buddiesQuery.isLoading && !memberIntentsQuery.isLoading && !buddiesQuery.error && intents.length === 0 ? (
+        {!buddiesQuery.isLoading &&
+        (!canUseMemberBuddies || !memberIntentsQuery.isLoading) &&
+        !buddiesQuery.error &&
+        intents.length === 0 ? (
           <MobileEmptyState
             description="No buddy posts yet. Check back as divers share where and when they want to dive."
             title="No buddy posts yet"
           />
         ) : null}
 
-        {!buddiesQuery.isLoading && !memberIntentsQuery.isLoading && !buddiesQuery.error && intents.length > 0 ? (
+        {!buddiesQuery.isLoading &&
+        (!canUseMemberBuddies || !memberIntentsQuery.isLoading) &&
+        !buddiesQuery.error &&
+        intents.length > 0 ? (
           <View className="gap-3">
             {intents.map((intent) => (
               <BuddyIntentCard
@@ -305,7 +332,9 @@ export function BuddiesScreen() {
                     : undefined
                 }
                 onMessage={
-                  "authorAppUserId" in intent && !myIntentIds.has(intent.id)
+                  canUseMemberBuddies &&
+                  "authorAppUserId" in intent &&
+                  !myIntentIds.has(intent.id)
                     ? () => {
                         setMessageError(null);
                         messageEntry.mutate(intent.id, {

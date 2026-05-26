@@ -207,10 +207,18 @@ export function ExploreScreen() {
               Sign in to save spots, like spots, submit a site, or view your submissions.
             </Text>
           ) : null}
-          <MobileButton variant="secondary" onPress={() => setShowSubmit((value) => !value)}>
-            {showSubmit ? "Hide submit form" : "Submit a site"}
+          <MobileButton
+            disabled={!canUseMemberActions}
+            variant="secondary"
+            onPress={() => setShowSubmit((value) => !value)}
+          >
+            {!canUseMemberActions
+              ? "Sign in to submit a site"
+              : showSubmit
+                ? "Hide submit form"
+                : "Submit a site"}
           </MobileButton>
-          {showSubmit ? (
+          {showSubmit && canUseMemberActions ? (
             <View className="gap-3">
               {formMessage ? (
                 <Text className="text-sm text-muted-foreground">{formMessage}</Text>

@@ -38,47 +38,59 @@ export function ExploreSiteDetailScreen() {
 
   if (!slug) {
     return (
-      <MobileScrollScreen subtitle="Dive spot" title="Explore">
-        <MobileEmptyState
-          description="Choose a dive spot from Explore to see its details."
-          title="Dive spot not found"
-        />
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Dive spot" }} />
+        <MobileScrollScreen subtitle="Dive spot" title="Explore">
+          <MobileEmptyState
+            description="Choose a dive spot from Explore to see its details."
+            title="Dive spot not found"
+          />
+        </MobileScrollScreen>
+      </>
     );
   }
 
   if (detailQuery.isLoading) {
     return (
-      <MobileScrollScreen subtitle="Dive spot" title="Explore">
-        <MobileLoadingState message="Loading dive spot." />
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Dive spot" }} />
+        <MobileScrollScreen subtitle="Dive spot" title="Explore">
+          <MobileLoadingState message="Loading dive spot." />
+        </MobileScrollScreen>
+      </>
     );
   }
 
   if (detailQuery.error) {
     return (
-      <MobileScrollScreen subtitle="Dive spot" title="Explore">
-        <View className="gap-3">
-          <MobileErrorState
-            message="This dive spot is taking longer than expected to load."
-            title="Dive spot unavailable"
-          />
-          <MobileButton variant="secondary" onPress={() => void detailQuery.refetch()}>
-            Try again
-          </MobileButton>
-        </View>
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Dive spot" }} />
+        <MobileScrollScreen subtitle="Dive spot" title="Explore">
+          <View className="gap-3">
+            <MobileErrorState
+              message="This dive spot is taking longer than expected to load."
+              title="Dive spot unavailable"
+            />
+            <MobileButton variant="secondary" onPress={() => void detailQuery.refetch()}>
+              Try again
+            </MobileButton>
+          </View>
+        </MobileScrollScreen>
+      </>
     );
   }
 
   if (!site) {
     return (
-      <MobileScrollScreen subtitle="Dive spot" title="Explore">
-        <MobileEmptyState
-          description="This dive spot may have been removed or is not available yet."
-          title="Dive spot not found"
-        />
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Dive spot" }} />
+        <MobileScrollScreen subtitle="Dive spot" title="Explore">
+          <MobileEmptyState
+            description="This dive spot may have been removed or is not available yet."
+            title="Dive spot not found"
+          />
+        </MobileScrollScreen>
+      </>
     );
   }
 

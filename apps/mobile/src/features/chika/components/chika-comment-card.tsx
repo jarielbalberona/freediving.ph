@@ -23,6 +23,7 @@ export function ChikaCommentCard({
 }: ChikaCommentCardProps) {
   const dateLabel = formatChikaDate(comment.createdAt);
   const content = stripMarkdownPreview(comment.content);
+  const showActions = Boolean(onReact || onReply);
 
   return (
     <View style={{ marginLeft: Math.min(depth, 2) * 16 }}>
@@ -44,39 +45,51 @@ export function ChikaCommentCard({
             {comment.replyCount} {comment.replyCount === 1 ? "reply" : "replies"}
           </Text>
         ) : null}
-        <View className="flex-row flex-wrap gap-2">
-          <MobileButton
-            disabled={actionsDisabled}
-            variant={comment.userReaction === "upvote" ? "primary" : "secondary"}
-            onPress={() =>
-              onReact?.(
-                comment.id,
-                comment.userReaction === "upvote" ? null : "upvote",
-              )
-            }
-          >
-            Up · {comment.voteCount}
-          </MobileButton>
-          <MobileButton
-            disabled={actionsDisabled}
-            variant={comment.userReaction === "downvote" ? "primary" : "secondary"}
-            onPress={() =>
-              onReact?.(
-                comment.id,
-                comment.userReaction === "downvote" ? null : "downvote",
-              )
-            }
-          >
-            Down
-          </MobileButton>
-          <MobileButton
-            disabled={actionsDisabled}
-            variant="ghost"
-            onPress={() => onReply?.(comment.id)}
-          >
-            Reply
-          </MobileButton>
-        </View>
+        {showActions ? (
+          <View className="flex-row flex-wrap gap-2">
+            {onReact ? (
+              <>
+                <MobileButton
+                  disabled={actionsDisabled}
+                  variant={
+                    comment.userReaction === "upvote" ? "primary" : "secondary"
+                  }
+                  onPress={() =>
+                    onReact(
+                      comment.id,
+                      comment.userReaction === "upvote" ? null : "upvote",
+                    )
+                  }
+                >
+                  Up · {comment.voteCount}
+                </MobileButton>
+                <MobileButton
+                  disabled={actionsDisabled}
+                  variant={
+                    comment.userReaction === "downvote" ? "primary" : "secondary"
+                  }
+                  onPress={() =>
+                    onReact(
+                      comment.id,
+                      comment.userReaction === "downvote" ? null : "downvote",
+                    )
+                  }
+                >
+                  Down
+                </MobileButton>
+              </>
+            ) : null}
+            {onReply ? (
+              <MobileButton
+                disabled={actionsDisabled}
+                variant="ghost"
+                onPress={() => onReply(comment.id)}
+              >
+                Reply
+              </MobileButton>
+            ) : null}
+          </View>
+        ) : null}
       </View>
       </MobileCard>
     </View>

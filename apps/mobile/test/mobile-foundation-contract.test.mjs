@@ -105,7 +105,7 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   assert.match(nativeHeader, /headerRight:/);
   assert.match(nativeHeader, /headerTitle:/);
   assert.match(nativeHeader, /AndroidHeaderTitle/);
-  assert.match(nativeHeader, /TEMP_HOME_LOGO/);
+  assert.match(nativeHeader, /HOME_LOGO/);
   assert.match(nativeHeader, /title === "Home"/);
   assert.match(nativeHeader, /icon="line\.3\.horizontal"/);
   assert.match(nativeHeader, /icon="bell"/);
@@ -144,6 +144,14 @@ test("protected fphgo query helper gates on Clerk readiness", () => {
   assert.match(helper, /isSignedIn/);
   assert.match(helper, /enabled/);
   assert.match(helper, /getToken/);
+});
+
+test("signed-out users have a public shell entry from auth screens", () => {
+  const authScreen = read("src/features/auth/auth-screen.tsx");
+
+  assert.match(authScreen, /Continue without signing in/);
+  assert.match(authScreen, /href="\/\(app\)\/\(tabs\)\/\(home\)"/);
+  assert.match(authScreen, /AuthView isDismissable=\{false\}/);
 });
 
 test("home feed uses shared activity contracts and fetch client", () => {
@@ -350,6 +358,11 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(detail, /useSetChikaCommentReactionMutation/);
   assert.match(detail, /requireSignedIn/);
   assert.match(detail, /isAuthErrorStatus/);
+  assert.match(detail, /canUseChikaActions/);
+  assert.match(detail, /Sign in to vote in Chika\./);
+  assert.match(detail, /Sign in to reply in Chika\./);
+  assert.match(detail, /onReact=\{\s*canUseChikaActions/);
+  assert.match(detail, /onReply=\{canUseChikaActions \? setReplyTo : undefined\}/);
   assert.match(detail, /actionsDisabled/);
   assert.match(postScreen, /requireSignedIn/);
   assert.match(postScreen, /Could not publish in Chika\. Saved as draft\./);
@@ -361,6 +374,13 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.doesNotMatch(detail, /websocket|realtime/i);
   assert.doesNotMatch(detail, /moderation|admin|report|block/i);
   assert.ok(format.includes('includes("/")'));
+
+  const screen = read("src/features/chika/screens/chika-screen.tsx");
+  const commentCard = read("src/features/chika/components/chika-comment-card.tsx");
+  assert.match(screen, /canPostChika/);
+  assert.match(screen, /Sign in to post Chika/);
+  assert.match(commentCard, /showActions/);
+  assert.match(commentCard, /Boolean\(onReact \|\| onReply\)/);
 });
 
 test("events uses shared contracts and member event actions", () => {
@@ -623,6 +643,10 @@ test("buddies use shared public and member intent contracts", () => {
   );
   assert.match(hook, /useAuthenticatedFphgoQuery/);
   assert.match(hook, /mobileQueryKeys\.buddies\.preview/);
+  assert.match(screen, /canUseMemberBuddies/);
+  assert.match(screen, /Sign in to post a buddy request\./);
+  assert.match(screen, /canUseMemberBuddies\s*\?\s*\(memberIntentsQuery\.data/);
+  assert.match(screen, /canUseMemberBuddies &&\s*"authorAppUserId" in intent/);
   assert.match(mutations, /getRequiredToken/);
   assert.match(mutations, /requireIntentId/);
   assert.match(mutations, /openDirectMessageThread/);

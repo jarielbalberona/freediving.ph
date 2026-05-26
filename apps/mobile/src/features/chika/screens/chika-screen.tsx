@@ -1,5 +1,6 @@
 import { Link } from "expo-router";
 import { View } from "react-native";
+import { useAuth } from "@clerk/expo";
 
 import {
   MobileEmptyState,
@@ -13,8 +14,10 @@ import { ChikaThreadCard } from "@/features/chika/components/chika-thread-card";
 import { useChikaThreadsQuery } from "@/features/chika/hooks/use-chika-threads-query";
 
 export function ChikaScreen() {
+  const { isLoaded, isSignedIn } = useAuth();
   const threadsQuery = useChikaThreadsQuery();
   const threads = threadsQuery.data?.items ?? [];
+  const canPostChika = isLoaded && Boolean(isSignedIn);
 
   return (
     <MobileScrollScreen subtitle="Community threads" title="Chika">
@@ -22,9 +25,17 @@ export function ChikaScreen() {
         description="Start a new Chika thread for questions, trip reports, tips, and community updates."
         title="Share with Chika"
       >
-        <Link href="/(app)/(tabs)/chika/post" asChild>
-          <MobileButton>Post Chika</MobileButton>
-        </Link>
+        {canPostChika ? (
+          <Link href="/(app)/(tabs)/chika/post" asChild>
+            <MobileButton>Post Chika</MobileButton>
+          </Link>
+        ) : (
+          <Link href="/sign-in" asChild>
+            <MobileButton variant="secondary">
+              {isLoaded ? "Sign in to post Chika" : "Checking your session"}
+            </MobileButton>
+          </Link>
+        )}
       </MobileSection>
 
       <MobileSection

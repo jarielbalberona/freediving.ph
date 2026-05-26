@@ -38,6 +38,13 @@ export function AuthScreen({ mode }: AuthScreenProps) {
         <View className="min-h-[460px] overflow-hidden rounded-2xl border border-border bg-card">
           <AuthView isDismissable={false} mode={mode} />
         </View>
+        <Link href="/(app)/(tabs)/(home)" asChild>
+          <Pressable className="items-center rounded-xl bg-card px-4 py-3">
+            <Text className="text-sm font-semibold text-foreground">
+              Continue without signing in
+            </Text>
+          </Pressable>
+        </Link>
         <Link href={mode === "signIn" ? "/sign-up" : "/sign-in"} asChild>
           <Pressable className="items-center rounded-xl bg-secondary px-4 py-3">
             <Text className="text-sm font-semibold text-secondary-foreground">
