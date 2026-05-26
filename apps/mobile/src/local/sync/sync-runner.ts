@@ -31,32 +31,6 @@ const executeOutboxItem = async (
   const payload = item.payload;
 
   switch (item.operationType) {
-    case "chika_thread_create":
-      return fphgoFetch("/v1/chika/threads", {
-        auth: "required",
-        authToken,
-        body: {
-          categoryId: stringValue(payload, "categoryId"),
-          content: stringValue(payload, "content"),
-          title: stringValue(payload, "title"),
-        },
-        idempotencyKey: item.idempotencyKey,
-        method: "POST",
-      });
-    case "chika_comment_create":
-      return fphgoFetch(
-        `/v1/chika/threads/${encodeURIComponent(stringValue(payload, "threadId"))}/comments`,
-        {
-          auth: "required",
-          authToken,
-          body: {
-          content: stringValue(payload, "content"),
-          parentCommentId: optionalString(payload, "parentCommentId"),
-        },
-          idempotencyKey: item.idempotencyKey,
-          method: "POST",
-        },
-      );
     case "chika_thread_reaction": {
       const type = optionalString(payload, "type");
       return type === "upvote" || type === "downvote"
@@ -103,44 +77,6 @@ const executeOutboxItem = async (
             },
           );
     }
-    case "profile_edit_update":
-      return fphgoFetch("/v1/me/profile", {
-        auth: "required",
-        authToken,
-        body: payload,
-        idempotencyKey: item.idempotencyKey,
-        method: "PATCH",
-      });
-    case "buddy_intent_create":
-      return fphgoFetch("/v1/buddy-finder/intents", {
-        auth: "required",
-        authToken,
-        body: {
-          area: optionalString(payload, "area"),
-          dateEnd: optionalString(payload, "dateEnd"),
-          dateStart: optionalString(payload, "dateStart"),
-          diveSiteId: optionalString(payload, "diveSiteId"),
-          intentType: stringValue(payload, "intentType") as never,
-          note: optionalString(payload, "note"),
-          timeWindow: stringValue(payload, "timeWindow") as never,
-        },
-        idempotencyKey: item.idempotencyKey,
-        method: "POST",
-      });
-    case "event_post_create":
-      return fphgoFetch(
-        `/v1/events/${encodeURIComponent(stringValue(payload, "eventId"))}/posts`,
-        {
-          auth: "required",
-          authToken,
-          body: {
-            bodyMarkdown: stringValue(payload, "bodyMarkdown"),
-            postType: "general",
-          },
-          idempotencyKey: item.idempotencyKey,
-          method: "POST",
-        },
-      );
     case "event_post_fish":
       return payload.viewerHasFishReacted
         ? fphgoFetch(
@@ -161,20 +97,6 @@ const executeOutboxItem = async (
               method: "POST",
             },
           );
-    case "group_post_create":
-      return fphgoFetch(
-        `/v1/groups/${encodeURIComponent(stringValue(payload, "groupId"))}/posts`,
-        {
-          auth: "required",
-          authToken,
-          body: {
-          content: stringValue(payload, "content"),
-          title: optionalString(payload, "title"),
-        },
-          idempotencyKey: item.idempotencyKey,
-          method: "POST",
-        },
-      );
     case "explore_site_like":
       return payload.viewerHasLiked
         ? fphgoFetch(

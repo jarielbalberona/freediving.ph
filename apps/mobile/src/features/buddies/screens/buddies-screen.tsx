@@ -1,5 +1,9 @@
+import { useRouter } from "expo-router";
+import type { Href } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
+
+import type { CreateBuddyFinderIntentRequest } from "@freediving.ph/types";
 
 import {
   MobileEmptyState,
@@ -20,29 +24,113 @@ import {
   useMemberBuddyFinderIntentsQuery,
   useMyBuddyFinderIntentsQuery,
 } from "@/features/buddies/hooks/use-buddy-finder-query";
+import {
+  intentTypeLabel,
+  safeBuddyUsername,
+} from "@/features/buddies/lib/buddy-format";
 import { useLocalDraft } from "@/local/drafts/use-local-draft";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
+type BuddyDraft = {
+  area: string;
+  dateEnd?: string;
+  dateStart?: string;
+  intentType: CreateBuddyFinderIntentRequest["intentType"];
+  note?: string;
+  timeWindow: CreateBuddyFinderIntentRequest["timeWindow"];
+};
+
+const intentTypeOptions: Array<CreateBuddyFinderIntentRequest["intentType"]> = [
+  "fun_dive",
+  "training",
+  "line_training",
+  "depth",
+  "pool",
+];
+
+const timeWindowOptions: Array<CreateBuddyFinderIntentRequest["timeWindow"]> = [
+  "today",
+  "weekend",
+  "specific_date",
+];
+
+const timeWindowOptionLabel = (
+  value: CreateBuddyFinderIntentRequest["timeWindow"],
+) => {
+  if (value === "today") return "Today";
+  if (value === "weekend") return "This weekend";
+  return "Specific date";
+};
+
+const profileHrefForUsername = (username: string | undefined) => {
+  const safeUsername = safeBuddyUsername(username);
+  if (!safeUsername) return undefined;
+  return {
+    pathname: "/(app)/(tabs)/profile/[username]",
+    params: { username: safeUsername },
+  } as Href;
+};
+
+const buddyDraftPayload = (draft: BuddyDraft): CreateBuddyFinderIntentRequest => ({
+  area: draft.area.trim(),
+  dateEnd:
+    draft.timeWindow === "specific_date" ? draft.dateEnd?.trim() || undefined : undefined,
+  dateStart:
+    draft.timeWindow === "specific_date"
+      ? draft.dateStart?.trim() || undefined
+      : undefined,
+  intentType: draft.intentType,
+  note: draft.note?.trim() || undefined,
+  timeWindow: draft.timeWindow,
+});
+
 export function BuddiesScreen() {
+  const router = useRouter();
   const buddiesQuery = useBuddyFinderQuery();
   const memberIntentsQuery = useMemberBuddyFinderIntentsQuery();
   const myIntentsQuery = useMyBuddyFinderIntentsQuery();
   const createIntent = useCreateBuddyIntentMutation();
   const deleteIntent = useDeleteBuddyIntentMutation();
   const messageEntry = useBuddyMessageEntryMutation();
-  const buddyDraft = useLocalDraft<{ area: string; note?: string }>("buddy_intent");
+  const buddyDraft = useLocalDraft<BuddyDraft>("buddy_intent");
   const outbox = useOutbox();
   const [area, setArea] = useState("");
+  const [dateEnd, setDateEnd] = useState("");
+  const [dateStart, setDateStart] = useState("");
+  const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [intentType, setIntentType] =
+    useState<CreateBuddyFinderIntentRequest["intentType"]>("fun_dive");
+  const [messageError, setMessageError] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [timeWindow, setTimeWindow] =
+    useState<CreateBuddyFinderIntentRequest["timeWindow"]>("weekend");
   const intents = memberIntentsQuery.data?.items ?? buddiesQuery.data?.items ?? [];
   const myIntents = myIntentsQuery.data?.items ?? [];
+  const myIntentIds = new Set(myIntents.map((intent) => intent.id));
 
   useEffect(() => {
     if (!buddyDraft.draft) return;
     setArea(buddyDraft.draft.payload.area);
+    setDateEnd(buddyDraft.draft.payload.dateEnd ?? "");
+    setDateStart(buddyDraft.draft.payload.dateStart ?? "");
+    setIntentType(buddyDraft.draft.payload.intentType ?? "fun_dive");
     setNote(buddyDraft.draft.payload.note ?? "");
+    setTimeWindow(buddyDraft.draft.payload.timeWindow ?? "weekend");
   }, [buddyDraft.draft]);
+
+  const draft: BuddyDraft = {
+    area,
+    dateEnd: dateEnd || undefined,
+    dateStart: dateStart || undefined,
+    intentType,
+    note: note || undefined,
+    timeWindow,
+  };
+  const createPayload = buddyDraftPayload(draft);
+  const canCreate =
+    area.trim().length >= 2 &&
+    (timeWindow !== "specific_date" || dateStart.trim().length > 0);
 
   return (
     <MobileScrollScreen subtitle="Buddy Finder" title="Buddies">
@@ -65,6 +153,52 @@ export function BuddiesScreen() {
             placeholderTextColor="#64748b"
             value={area}
           />
+          <View className="gap-2">
+            <Text className="text-sm font-semibold text-foreground">Dive type</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {intentTypeOptions.map((option) => (
+                <MobileButton
+                  key={option}
+                  variant={option === intentType ? "primary" : "secondary"}
+                  onPress={() => setIntentType(option)}
+                >
+                  {intentTypeLabel(option)}
+                </MobileButton>
+              ))}
+            </View>
+          </View>
+          <View className="gap-2">
+            <Text className="text-sm font-semibold text-foreground">When</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {timeWindowOptions.map((option) => (
+                <MobileButton
+                  key={option}
+                  variant={option === timeWindow ? "primary" : "secondary"}
+                  onPress={() => setTimeWindow(option)}
+                >
+                  {timeWindowOptionLabel(option)}
+                </MobileButton>
+              ))}
+            </View>
+          </View>
+          {timeWindow === "specific_date" ? (
+            <View className="gap-2">
+              <TextInput
+                className="rounded-2xl border border-border bg-card p-3 text-foreground"
+                onChangeText={setDateStart}
+                placeholder="Start date, YYYY-MM-DD"
+                placeholderTextColor="#64748b"
+                value={dateStart}
+              />
+              <TextInput
+                className="rounded-2xl border border-border bg-card p-3 text-foreground"
+                onChangeText={setDateEnd}
+                placeholder="End date, optional"
+                placeholderTextColor="#64748b"
+                value={dateEnd}
+              />
+            </View>
+          ) : null}
           <TextInput
             className="min-h-20 rounded-2xl border border-border bg-card p-3 text-foreground"
             multiline
@@ -76,75 +210,56 @@ export function BuddiesScreen() {
           <MobileButton
             variant="secondary"
             onPress={() =>
-              void buddyDraft.save({
-                area: area.trim(),
-                note: note.trim() || undefined,
+              void buddyDraft.save(draft).then(() => {
+                setFormMessage("Saved as draft");
               })
             }
           >
             Save as draft
           </MobileButton>
           <MobileButton
-            disabled={createIntent.isPending || area.trim().length < 2}
+            disabled={createIntent.isPending || !canCreate}
             onPress={() => {
-              createIntent.mutate(
-                {
-                  area: area.trim(),
-                  intentType: "fun_dive",
-                  note: note.trim() || undefined,
-                  timeWindow: "weekend",
+              setFormMessage(null);
+              createIntent.mutate(createPayload, {
+                onError: () => {
+                  setFormMessage("Could not post this yet. Saved as draft.");
+                  void buddyDraft.save(draft);
                 },
-                {
-                  onError: () => {
-                    void buddyDraft.save({
-                      area: area.trim(),
-                      note: note.trim() || undefined,
-                    });
-                    void outbox.enqueue({
-                      entityType: "buddy_intent",
-                      operationType: "buddy_intent_create",
-                      payload: {
-                        area: area.trim(),
-                        intentType: "fun_dive",
-                        note: note.trim() || undefined,
-                        timeWindow: "weekend",
-                      },
-                    });
-                  },
-                  onSuccess: () => {
-                    void buddyDraft.clearSubmitted();
-                    setArea("");
-                    setNote("");
-                  },
+                onSuccess: () => {
+                  void buddyDraft.clearSubmitted();
+                  setArea("");
+                  setDateEnd("");
+                  setDateStart("");
+                  setFormMessage("Buddy intent posted.");
+                  setIntentType("fun_dive");
+                  setNote("");
+                  setTimeWindow("weekend");
                 },
-              );
+              });
             }}
           >
-            Create weekend intent
+            Create intent
           </MobileButton>
+          {formMessage ? (
+            <Text className="text-sm text-muted-foreground">{formMessage}</Text>
+          ) : null}
           {myIntents.length > 0 ? (
-            <View className="gap-2">
+            <View className="gap-3">
               {myIntents.map((intent) => (
-                <View
+                <BuddyIntentCard
+                  intent={intent}
+                  isClosePending={deleteIntent.isPending}
                   key={intent.id}
-                  className="rounded-2xl border border-border bg-card p-4"
-                >
-                  <Text className="text-sm font-semibold text-foreground">
-                    {intent.area}
-                  </Text>
-                  <Text className="mt-1 text-xs text-muted-foreground">
-                    {intent.intentType} · {intent.timeWindow}
-                  </Text>
-                  <View className="mt-3">
-                    <MobileButton
-                      disabled={deleteIntent.isPending}
-                      variant="danger"
-                      onPress={() => deleteIntent.mutate(intent.id)}
-                    >
-                      Close intent
-                    </MobileButton>
-                  </View>
-                </View>
+                  showEditDeferred
+                  onClose={() =>
+                    deleteIntent.mutate(intent.id, {
+                      onError: () =>
+                        setFormMessage("Could not close this intent. Try again."),
+                      onSuccess: () => setFormMessage("Buddy intent closed."),
+                    })
+                  }
+                />
               ))}
             </View>
           ) : null}
@@ -184,13 +299,35 @@ export function BuddiesScreen() {
               <BuddyIntentCard
                 intent={intent}
                 key={intent.id}
+                profileHref={
+                  "username" in intent
+                    ? profileHrefForUsername(intent.username)
+                    : undefined
+                }
                 onMessage={
-                  "authorAppUserId" in intent
-                    ? () => messageEntry.mutate(intent.id)
+                  "authorAppUserId" in intent && !myIntentIds.has(intent.id)
+                    ? () => {
+                        setMessageError(null);
+                        messageEntry.mutate(intent.id, {
+                          onError: () =>
+                            setMessageError(
+                              "Could not open messages for this buddy.",
+                            ),
+                          onSuccess: (thread) => {
+                            router.push({
+                              pathname: "/(app)/(tabs)/messages/[threadId]",
+                              params: { threadId: thread.id },
+                            } as Href);
+                          },
+                        });
+                      }
                     : undefined
                 }
               />
             ))}
+            {messageError ? (
+              <Text className="text-sm text-muted-foreground">{messageError}</Text>
+            ) : null}
           </View>
         ) : null}
       </MobileSection>

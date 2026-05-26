@@ -16,9 +16,11 @@ import {
   useIsSignedIn,
 } from "@/features/groups/hooks/use-group-member-queries";
 import {
+  useAcceptGroupInviteMutation,
   useCreateGroupPostMutation,
   useJoinGroupMutation,
   useLeaveGroupMutation,
+  useRejectGroupInviteMutation,
 } from "@/features/groups/hooks/use-group-mutations";
 import { useGroupDetailQuery } from "@/features/groups/hooks/use-groups-query";
 import { useLocalDraft } from "@/local/drafts/use-local-draft";
@@ -34,13 +36,27 @@ export function GroupDetailScreen() {
   const isSignedIn = useIsSignedIn();
   const groupQuery = useGroupDetailQuery(slug);
   const group = groupQuery.data?.group;
-  const membersQuery = useGroupMembersQuery(group?.id, isSignedIn && Boolean(group));
-  const postsQuery = useGroupPostsQuery(group?.id, isSignedIn && Boolean(group));
+  const membersQuery = useGroupMembersQuery(group?.id, Boolean(group));
+  const postsQuery = useGroupPostsQuery(group?.id, Boolean(group));
   const joinMutation = useJoinGroupMutation(slug ?? "", group?.id ?? "");
   const leaveMutation = useLeaveGroupMutation(slug ?? "", group?.id ?? "");
+  const acceptInviteMutation = useAcceptGroupInviteMutation(
+    slug ?? "",
+    group?.id ?? "",
+  );
+  const rejectInviteMutation = useRejectGroupInviteMutation(
+    slug ?? "",
+    group?.id ?? "",
+  );
   const createPostMutation = useCreateGroupPostMutation(slug ?? "", group?.id ?? "");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [postText, setPostText] = useState("");
-  const groupPostDraft = useLocalDraft<{ content: string; groupId?: string }>(
+  const [postTitle, setPostTitle] = useState("");
+  const groupPostDraft = useLocalDraft<{
+    content: string;
+    groupId?: string;
+    title?: string;
+  }>(
     "group_post",
   );
   const outbox = useOutbox();
@@ -51,6 +67,7 @@ export function GroupDetailScreen() {
     const draft = groupPostDraft.draft;
     if (!draft || draft.payload.groupId !== group?.id) return;
     setPostText(draft.payload.content);
+    setPostTitle(draft.payload.title ?? "");
   }, [group?.id, groupPostDraft.draft]);
 
   if (!slug) {
@@ -81,8 +98,14 @@ export function GroupDetailScreen() {
   }
 
   const isMember = group.viewerMembershipStatus === "active";
+  const isInvited = group.viewerMembershipStatus === "invited";
   const canJoin = isSignedIn && !isMember && group.joinPolicy === "open";
   const canLeave = isSignedIn && isMember && group.viewerRole !== "owner";
+  const membershipPending =
+    joinMutation.isPending ||
+    leaveMutation.isPending ||
+    acceptInviteMutation.isPending ||
+    rejectInviteMutation.isPending;
 
   return (
     <>
@@ -103,24 +126,92 @@ export function GroupDetailScreen() {
             </View>
             {canJoin ? (
               <MobileButton
-                disabled={joinMutation.isPending}
-                onPress={() => joinMutation.mutate()}
+                disabled={membershipPending}
+                onPress={() => {
+                  setActionMessage(null);
+                  joinMutation.mutate(undefined, {
+                    onError: () =>
+                      setActionMessage("Could not join this group. Try again."),
+                    onSuccess: () => setActionMessage("You joined this group."),
+                  });
+                }}
               >
                 Join group
               </MobileButton>
             ) : null}
+            {isSignedIn && isInvited ? (
+              <View className="gap-2">
+                <Text className="text-sm text-muted-foreground">
+                  You have an invitation to this group.
+                </Text>
+                <View className="flex-row gap-2">
+                  <View className="flex-1">
+                    <MobileButton
+                      disabled={membershipPending}
+                      onPress={() => {
+                        setActionMessage(null);
+                        acceptInviteMutation.mutate(undefined, {
+                          onError: () =>
+                            setActionMessage(
+                              "Could not accept this invite. Try again.",
+                            ),
+                          onSuccess: () =>
+                            setActionMessage("Group invitation accepted."),
+                        });
+                      }}
+                    >
+                      Accept invite
+                    </MobileButton>
+                  </View>
+                  <View className="flex-1">
+                    <MobileButton
+                      disabled={membershipPending}
+                      variant="secondary"
+                      onPress={() => {
+                        setActionMessage(null);
+                        rejectInviteMutation.mutate(undefined, {
+                          onError: () =>
+                            setActionMessage(
+                              "Could not decline this invite. Try again.",
+                            ),
+                          onSuccess: () =>
+                            setActionMessage("Group invitation declined."),
+                        });
+                      }}
+                    >
+                      Decline
+                    </MobileButton>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+            {isSignedIn && !isMember && group.joinPolicy === "invite_only" && !isInvited ? (
+              <Text className="text-sm text-muted-foreground">
+                This group is invite only.
+              </Text>
+            ) : null}
             {canLeave ? (
               <MobileButton
-                disabled={leaveMutation.isPending}
+                disabled={membershipPending}
                 variant="danger"
-                onPress={() => leaveMutation.mutate()}
+                onPress={() => {
+                  setActionMessage(null);
+                  leaveMutation.mutate(undefined, {
+                    onError: () =>
+                      setActionMessage("Could not leave this group. Try again."),
+                    onSuccess: () => setActionMessage("You left this group."),
+                  });
+                }}
               >
                 Leave group
               </MobileButton>
             ) : null}
+            {actionMessage ? (
+              <Text className="text-sm text-muted-foreground">{actionMessage}</Text>
+            ) : null}
             {!isSignedIn ? (
               <Text className="text-sm text-muted-foreground">
-                Sign in to join, view member details, and post.
+                Sign in to join and post.
               </Text>
             ) : null}
           </View>
@@ -139,6 +230,13 @@ export function GroupDetailScreen() {
                 onSyncNow={outbox.syncNow}
               />
               <TextInput
+                className="rounded-2xl border border-border bg-card p-3 text-foreground"
+                onChangeText={setPostTitle}
+                placeholder="Title, optional"
+                placeholderTextColor="#64748b"
+                value={postTitle}
+              />
+              <TextInput
                 className="min-h-24 rounded-2xl border border-border bg-card p-3 text-foreground"
                 multiline
                 onChangeText={setPostText}
@@ -152,6 +250,7 @@ export function GroupDetailScreen() {
                   void groupPostDraft.save({
                     content: postText,
                     groupId: group.id,
+                    title: postTitle.trim() || undefined,
                   })
                 }
               >
@@ -163,23 +262,20 @@ export function GroupDetailScreen() {
                   const content = postText.trim();
                   if (!content) return;
                   createPostMutation.mutate(
-                    { content },
+                    { content, title: postTitle.trim() || undefined },
                     {
                       onError: () => {
                         void groupPostDraft.save({
                           content,
                           groupId: group.id,
+                          title: postTitle.trim() || undefined,
                         });
-                        void outbox.enqueue({
-                          entityId: group.id,
-                          entityType: "group_post",
-                          operationType: "group_post_create",
-                          payload: { content, groupId: group.id },
-                        });
+                        setActionMessage("Could not post to group. Saved as draft.");
                       },
                       onSuccess: () => {
                         void groupPostDraft.clearSubmitted();
                         setPostText("");
+                        setPostTitle("");
                       },
                     },
                   );
@@ -193,9 +289,27 @@ export function GroupDetailScreen() {
 
         <MobileSection title="Posts">
           {postsQuery.isLoading ? <MobileLoadingState message="Loading posts." /> : null}
+          {postsQuery.error ? (
+            <View className="gap-3">
+              <MobileErrorState
+                message="Group posts are taking longer than expected to load."
+                title="Posts unavailable"
+              />
+              <MobileButton
+                variant="secondary"
+                onPress={() => void postsQuery.refetch()}
+              >
+                Try again
+              </MobileButton>
+            </View>
+          ) : null}
           {!postsQuery.isLoading && posts.length === 0 ? (
             <MobileEmptyState
-              description={isMember ? "No group posts yet." : "Join the group to see member posts when available."}
+              description={
+                isMember
+                  ? "No group posts yet."
+                  : "Public group posts will appear here when available."
+              }
               title="No posts"
             />
           ) : null}
@@ -221,12 +335,22 @@ export function GroupDetailScreen() {
         </MobileSection>
 
         <MobileSection title="Members">
-          {members.length === 0 ? (
+          {membersQuery.isLoading ? (
+            <MobileLoadingState message="Loading members." />
+          ) : null}
+          {membersQuery.error ? (
+            <MobileErrorState
+              message="Member preview is not available for this group."
+              title="Members unavailable"
+            />
+          ) : null}
+          {!membersQuery.isLoading && !membersQuery.error && members.length === 0 ? (
             <MobileEmptyState
-              description="Member preview is available after joining when the group exposes it."
+              description="Member preview is available when the group exposes it."
               title="No member preview"
             />
-          ) : (
+          ) : null}
+          {!membersQuery.isLoading && !membersQuery.error && members.length > 0 ? (
             <View className="gap-2">
               {members.map((member) => (
                 <Text key={member.userId} className="text-sm text-muted-foreground">
@@ -234,7 +358,7 @@ export function GroupDetailScreen() {
                 </Text>
               ))}
             </View>
-          )}
+          ) : null}
         </MobileSection>
       </MobileScrollScreen>
     </>

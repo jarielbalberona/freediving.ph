@@ -1,6 +1,8 @@
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import { Text, View } from "react-native";
+import { useAuth } from "@clerk/expo";
 
 import {
   MobileEmptyState,
@@ -11,6 +13,7 @@ import {
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { ExploreDetailRow } from "@/features/explore/components/explore-detail-row";
+import { useExploreSiteLikeMutation } from "@/features/explore/hooks/use-explore-mutations";
 import { useExploreSiteDetailQuery } from "@/features/explore/hooks/use-explore-site-detail-query";
 import {
   formatDepthRange,
@@ -24,7 +27,10 @@ const firstParam = (value: string | string[] | undefined) =>
 export function ExploreSiteDetailScreen() {
   const params = useLocalSearchParams<{ slug?: string | string[] }>();
   const slug = firstParam(params.slug);
+  const { isLoaded, isSignedIn } = useAuth();
   const detailQuery = useExploreSiteDetailQuery(slug);
+  const likeMutation = useExploreSiteLikeMutation();
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const data = detailQuery.data;
   const site = data?.site;
   const depthRange = site ? formatDepthRange(site) : undefined;
@@ -117,6 +123,35 @@ export function ExploreSiteDetailScreen() {
 
         <MobileSection title="Dive information">
           <View className="gap-3">
+            {actionMessage ? (
+              <Text className="text-sm text-muted-foreground">{actionMessage}</Text>
+            ) : null}
+            {!isLoaded || !isSignedIn ? (
+              <Text className="text-sm text-muted-foreground">
+                Sign in to like this dive spot.
+              </Text>
+            ) : null}
+            <MobileButton
+              disabled={!isLoaded || !isSignedIn || likeMutation.isPending}
+              variant="secondary"
+              onPress={() =>
+                likeMutation.mutate(
+                  {
+                    siteId: site.id,
+                    viewerHasLiked: site.viewerHasLiked,
+                  },
+                  {
+                    onError: () => setActionMessage("Could not update like. Try again."),
+                    onSuccess: () =>
+                      setActionMessage(
+                        site.viewerHasLiked ? "Removed like." : "Liked dive spot.",
+                      ),
+                  },
+                )
+              }
+            >
+              {site.viewerHasLiked ? "Unlike" : "Like"} · {site.likeCount}
+            </MobileButton>
             <ExploreDetailRow label="Area" value={site.area} />
             <ExploreDetailRow label="Recent conditions" value={conditionSummary} />
             <ExploreDetailRow label="Best season" value={site.bestSeason} />

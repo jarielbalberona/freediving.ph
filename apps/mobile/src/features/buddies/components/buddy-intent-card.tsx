@@ -1,3 +1,5 @@
+import { Link } from "expo-router";
+import type { Href } from "expo-router";
 import { Text, View } from "react-native";
 
 import type { BuddyFinderIntent, BuddyFinderPreviewIntent } from "@freediving.ph/types";
@@ -14,10 +16,21 @@ import {
 
 type BuddyIntentCardProps = {
   intent: BuddyFinderIntent | BuddyFinderPreviewIntent;
+  isClosePending?: boolean;
   onMessage?: () => void;
+  onClose?: () => void;
+  profileHref?: Href;
+  showEditDeferred?: boolean;
 };
 
-export function BuddyIntentCard({ intent, onMessage }: BuddyIntentCardProps) {
+export function BuddyIntentCard({
+  intent,
+  isClosePending = false,
+  onClose,
+  onMessage,
+  profileHref,
+  showEditDeferred = false,
+}: BuddyIntentCardProps) {
   const certLevel = certLevelLabel(intent.certLevel);
   const createdAt = formatRecency(intent.createdAt);
   const note =
@@ -76,6 +89,25 @@ export function BuddyIntentCard({ intent, onMessage }: BuddyIntentCardProps) {
         {onMessage ? (
           <MobileButton variant="secondary" onPress={onMessage}>
             Message
+          </MobileButton>
+        ) : null}
+        {profileHref ? (
+          <Link asChild href={profileHref}>
+            <MobileButton variant="ghost">View profile</MobileButton>
+          </Link>
+        ) : null}
+        {showEditDeferred ? (
+          <Text className="text-xs text-muted-foreground">
+            To change this post, close it and create a new one.
+          </Text>
+        ) : null}
+        {onClose ? (
+          <MobileButton
+            disabled={isClosePending}
+            variant="danger"
+            onPress={onClose}
+          >
+            Close intent
           </MobileButton>
         ) : null}
       </View>

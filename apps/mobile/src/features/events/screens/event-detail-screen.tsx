@@ -47,16 +47,21 @@ export function EventDetailScreen() {
   const event = eventQuery.data?.event;
   const eventPostsQuery = useEventPostsQuery(
     event?.id,
-    Boolean(event?.postsEnabled && isLoaded && isSignedIn),
+    Boolean(event?.postsEnabled),
   );
   const attendanceMutation = useEventAttendanceMutation(slug ?? "", event?.id ?? "");
   const interestMutation = useEventInterestMutation(slug ?? "", event?.id ?? "");
   const createPostMutation = useCreateEventPostMutation(slug ?? "", event?.id ?? "");
   const fishMutation = useEventPostFishMutation(slug ?? "", event?.id ?? "");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [postTitle, setPostTitle] = useState("");
   const [postBody, setPostBody] = useState("");
-  const eventPostDraft = useLocalDraft<{ bodyMarkdown: string; eventId?: string }>(
-    "event_post",
-  );
+  const [postMessage, setPostMessage] = useState<string | null>(null);
+  const eventPostDraft = useLocalDraft<{
+    bodyMarkdown: string;
+    eventId?: string;
+    title?: string;
+  }>("event_post");
   const outbox = useOutbox();
   const draftApplies = Boolean(
     event && eventPostDraft.draft?.payload.eventId === event.id,
@@ -64,6 +69,7 @@ export function EventDetailScreen() {
 
   useEffect(() => {
     if (!draftApplies || !eventPostDraft.draft) return;
+    setPostTitle(eventPostDraft.draft.payload.title ?? "");
     setPostBody(eventPostDraft.draft.payload.bodyMarkdown);
   }, [draftApplies, eventPostDraft.draft]);
 
@@ -115,11 +121,6 @@ export function EventDetailScreen() {
 
   const coverUrl = safeImageUrl(event.coverPhotoUrl);
   const body = stripMarkdownPreview(event.descriptionMarkdown || event.description);
-  const showPaymentInstructions =
-    event.visibility === "public" &&
-    event.viewerCanViewPrivateDetails &&
-    event.paymentMode !== "free" &&
-    Boolean(event.paymentInstructions?.trim());
   const canPost =
     event.postsEnabled &&
     (event.postCreatePolicy === "participants"
@@ -202,21 +203,58 @@ export function EventDetailScreen() {
 
         <MobileSection title="Attendance">
           <View className="gap-3">
+            {!isLoaded ? (
+              <Text className="text-sm text-muted-foreground">
+                Checking your session.
+              </Text>
+            ) : null}
+            {isLoaded && !isSignedIn ? (
+              <Text className="text-sm text-muted-foreground">
+                Sign in to join events, save interest, and react to updates.
+              </Text>
+            ) : null}
+            {actionMessage ? (
+              <Text className="text-sm text-muted-foreground">{actionMessage}</Text>
+            ) : null}
             <View className="flex-row gap-2">
               <View className="flex-1">
                 <MobileButton
-                  disabled={attendanceMutation.isPending || event.viewerJoined}
-                  onPress={() => attendanceMutation.mutate("join")}
+                  disabled={
+                    !isLoaded ||
+                    !isSignedIn ||
+                    attendanceMutation.isPending ||
+                    event.viewerJoined
+                  }
+                  onPress={() =>
+                    attendanceMutation.mutate("join", {
+                      onError: () =>
+                        setActionMessage("Could not update attendance. Try again."),
+                      onSuccess: () =>
+                        setActionMessage(
+                          event.requiresApproval ? "Join request sent." : "Joined event.",
+                        ),
+                    })
+                  }
                 >
-                  {event.viewerJoined ? "Joined" : "Join"}
+                  {event.viewerJoined
+                    ? "Joined"
+                    : event.requiresApproval
+                      ? "Request to join"
+                      : "Join"}
                 </MobileButton>
               </View>
               {event.viewerJoined ? (
                 <View className="flex-1">
                   <MobileButton
-                    disabled={attendanceMutation.isPending}
+                    disabled={!isLoaded || !isSignedIn || attendanceMutation.isPending}
                     variant="danger"
-                    onPress={() => attendanceMutation.mutate("leave")}
+                    onPress={() =>
+                      attendanceMutation.mutate("leave", {
+                        onError: () =>
+                          setActionMessage("Could not update attendance. Try again."),
+                        onSuccess: () => setActionMessage("Left event."),
+                      })
+                    }
                   >
                     Leave
                   </MobileButton>
@@ -225,11 +263,12 @@ export function EventDetailScreen() {
             </View>
             {event.interestedEnabled ? (
               <MobileButton
-                disabled={interestMutation.isPending}
+                disabled={!isLoaded || !isSignedIn || interestMutation.isPending}
                 variant="secondary"
                 onPress={() =>
                   interestMutation.mutate(!event.viewerInterested, {
-                    onError: () =>
+                    onError: () => {
+                      setActionMessage("Could not update interest. Try again.");
                       void outbox.enqueue({
                         entityId: event.id,
                         entityType: "event",
@@ -238,7 +277,14 @@ export function EventDetailScreen() {
                           eventId: event.id,
                           viewerInterested: event.viewerInterested,
                         },
-                      }),
+                      });
+                    },
+                    onSuccess: () =>
+                      setActionMessage(
+                        event.viewerInterested
+                          ? "Removed interest."
+                          : "Marked interested.",
+                      ),
                   })
                 }
               >
@@ -253,12 +299,6 @@ export function EventDetailScreen() {
               label="Approval"
               value={event.requiresApproval ? "Approval required" : "No approval required"}
             />
-            {showPaymentInstructions ? (
-              <EventDetailRow
-                label="Payment instructions"
-                value={event.paymentInstructions}
-              />
-            ) : null}
             <EventDetailRow
               label="Cancellation"
               value={event.cancellationPolicy}
@@ -282,6 +322,16 @@ export function EventDetailScreen() {
               />
               {canPost ? (
                 <View className="gap-3">
+                  {postMessage ? (
+                    <Text className="text-sm text-muted-foreground">{postMessage}</Text>
+                  ) : null}
+                  <TextInput
+                    className="rounded-2xl border border-border bg-card p-3 text-foreground"
+                    onChangeText={setPostTitle}
+                    placeholder="Update title"
+                    placeholderTextColor="#64748b"
+                    value={postTitle}
+                  />
                   <TextInput
                     className="min-h-24 rounded-2xl border border-border bg-card p-3 text-foreground"
                     multiline
@@ -296,6 +346,7 @@ export function EventDetailScreen() {
                       void eventPostDraft.save({
                         bodyMarkdown: postBody,
                         eventId: event.id,
+                        title: postTitle.trim() || undefined,
                       })
                     }
                   >
@@ -305,28 +356,30 @@ export function EventDetailScreen() {
                     disabled={createPostMutation.isPending || postBody.trim().length === 0}
                     onPress={() => {
                       const body = postBody.trim();
+                      const title = postTitle.trim();
                       if (!body) return;
-                      createPostMutation.mutate(body, {
-                        onError: () => {
-                          void eventPostDraft.save({
-                            bodyMarkdown: body,
-                            eventId: event.id,
-                          });
-                          void outbox.enqueue({
-                            entityId: event.id,
-                            entityType: "event_post",
-                            operationType: "event_post_create",
-                            payload: {
+                      createPostMutation.mutate(
+                        {
+                          bodyMarkdown: body,
+                          title: title || undefined,
+                        },
+                        {
+                          onError: () => {
+                            setPostMessage("Could not post update. Saved as draft.");
+                            void eventPostDraft.save({
                               bodyMarkdown: body,
                               eventId: event.id,
-                            },
-                          });
+                              title: title || undefined,
+                            });
+                          },
+                          onSuccess: () => {
+                            void eventPostDraft.clearSubmitted();
+                            setPostMessage("Posted update.");
+                            setPostBody("");
+                            setPostTitle("");
+                          },
                         },
-                        onSuccess: () => {
-                          void eventPostDraft.clearSubmitted();
-                          setPostBody("");
-                        },
-                      });
+                      );
                     }}
                   >
                     Post update
@@ -334,7 +387,24 @@ export function EventDetailScreen() {
                 </View>
               ) : null}
 
-              {eventPosts.length === 0 ? (
+              {eventPostsQuery.isLoading ? (
+                <MobileLoadingState message="Loading event updates." />
+              ) : null}
+              {eventPostsQuery.error ? (
+                <View className="gap-3">
+                  <MobileErrorState
+                    message="Event updates are taking longer than expected to load."
+                    title="Updates unavailable"
+                  />
+                  <MobileButton
+                    variant="secondary"
+                    onPress={() => void eventPostsQuery.refetch()}
+                  >
+                    Try again
+                  </MobileButton>
+                </View>
+              ) : null}
+              {!eventPostsQuery.isLoading && !eventPostsQuery.error && eventPosts.length === 0 ? (
                 <MobileEmptyState
                   description="Event updates will appear here when available."
                   title="No updates"
@@ -356,7 +426,7 @@ export function EventDetailScreen() {
                   </Text>
                   <View className="mt-3">
                     <MobileButton
-                      disabled={fishMutation.isPending}
+                      disabled={!isLoaded || !isSignedIn || fishMutation.isPending}
                       variant="secondary"
                       onPress={() =>
                         fishMutation.mutate(
@@ -365,7 +435,8 @@ export function EventDetailScreen() {
                             postId: post.id,
                           },
                           {
-                            onError: () =>
+                            onError: () => {
+                              setPostMessage("Could not update fish reaction. Try again.");
                               void outbox.enqueue({
                                 entityId: post.id,
                                 entityType: "event_post",
@@ -375,7 +446,8 @@ export function EventDetailScreen() {
                                   postId: post.id,
                                   viewerHasFishReacted: post.viewerHasFishReacted,
                                 },
-                              }),
+                              });
+                            },
                           },
                         )
                       }

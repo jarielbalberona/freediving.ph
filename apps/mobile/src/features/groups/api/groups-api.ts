@@ -66,16 +66,16 @@ export const getGroupDetail = (slug: string) =>
     auth: "optional",
   });
 
-export const getGroupMembers = (groupId: string, authToken: string) =>
+export const getGroupMembers = (groupId: string) =>
   fphgoFetch<GroupMembersResponse>(
     `/v1/groups/${encodeURIComponent(groupId)}/members?limit=12`,
-    { auth: "required", authToken },
+    { auth: "optional" },
   );
 
-export const getGroupPosts = (groupId: string, authToken: string) =>
+export const getGroupPosts = (groupId: string) =>
   fphgoFetch<GroupPostsResponse>(
     `/v1/groups/${encodeURIComponent(groupId)}/posts?limit=20`,
-    { auth: "required", authToken },
+    { auth: "optional" },
   );
 
 export const joinGroup = (groupId: string, authToken: string) =>
@@ -90,6 +90,18 @@ export const leaveGroup = (groupId: string, authToken: string) =>
     authToken,
     method: "POST",
   });
+
+export const acceptGroupInvite = (groupId: string, authToken: string) =>
+  fphgoFetch<{ membership: GroupMember }>(
+    `/v1/groups/${encodeURIComponent(groupId)}/invites/accept`,
+    { auth: "required", authToken, method: "POST" },
+  );
+
+export const rejectGroupInvite = (groupId: string, authToken: string) =>
+  fphgoFetch<{ membership: GroupMember }>(
+    `/v1/groups/${encodeURIComponent(groupId)}/invites/reject`,
+    { auth: "required", authToken, method: "POST" },
+  );
 
 export const createGroupPost = (
   payload: CreateGroupPostRequest,

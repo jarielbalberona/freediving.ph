@@ -902,6 +902,152 @@ func TestProcessDueOutboxDoesNotDuplicateNotificationsAfterPartialFailureRetry(t
 	}
 }
 
+func TestProcessDueOutboxDeliversPushForOutboxNotifications(t *testing.T) {
+	repo := newNotificationRepoStub()
+	submitterID := "550e8400-e29b-41d4-a716-446655440001"
+	recipientID := "550e8400-e29b-41d4-a716-446655440002"
+	repo.newDiveSiteRecipients = []string{recipientID}
+	event := newDiveSiteOutboxEvent(1, submitterID)
+	event.IdempotencyKey = "explore:site:770e8400-e29b-41d4-a716-446655440000:published"
+	repo.claimedOutbox = []notificationsrepo.NotificationOutbox{event}
+	actionURL := "/explore/reef-point"
+	relatedEntityType := "dive_site"
+	relatedEntityID := "770e8400-e29b-41d4-a716-446655440000"
+	repo.pushTargets = []notificationsrepo.PushDeliveryTarget{{
+		Notification: notificationsrepo.Notification{
+			ID:                42,
+			UserID:            recipientID,
+			Type:              notificationsrepo.OutboxEventNewDiveSitePublished,
+			Category:          "explore",
+			Title:             "New dive site: Reef Point",
+			Message:           "Reef Point in Batangas is now on Freediving Philippines.",
+			ActionURL:         &actionURL,
+			RelatedEntityType: &relatedEntityType,
+			RelatedEntityID:   &relatedEntityID,
+		},
+		DeviceToken: notificationsrepo.DevicePushToken{
+			ExpoPushToken: "ExponentPushToken[valid]",
+		},
+	}}
+	push := &pushSenderStub{}
+	svc := New(repo, WithPushSender(push))
+
+	result, err := svc.ProcessDueOutbox(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ProcessDueOutbox returned error: %v", err)
+	}
+	if result.Processed != 1 || result.Retried != 0 {
+		t.Fatalf("expected outbox processed after push delivery, got %+v", result)
+	}
+	if len(repo.listedPushOutboxKeys) != 1 || repo.listedPushOutboxKeys[0] != event.IdempotencyKey {
+		t.Fatalf("expected push targets listed by outbox key, got %#v", repo.listedPushOutboxKeys)
+	}
+	if len(push.sent) != 1 {
+		t.Fatalf("expected one push message, got %d", len(push.sent))
+	}
+	if push.sent[0].To != "ExponentPushToken[valid]" {
+		t.Fatalf("unexpected push token %q", push.sent[0].To)
+	}
+	if push.sent[0].Data["actionUrl"] != actionURL {
+		t.Fatalf("expected safe action URL in push data, got %#v", push.sent[0].Data)
+	}
+	if _, ok := push.sent[0].Data["metadata"]; ok {
+		t.Fatal("push data must not include raw notification metadata")
+	}
+	if len(repo.markedPushSent) != 1 || repo.markedPushSent[0] != 42 {
+		t.Fatalf("expected notification marked push sent, got %#v", repo.markedPushSent)
+	}
+}
+
+func TestProcessDueOutboxSkipsPushWhenPreferencesFilterTargets(t *testing.T) {
+	repo := newNotificationRepoStub()
+	event := newDiveSiteOutboxEvent(1, "550e8400-e29b-41d4-a716-446655440001")
+	event.IdempotencyKey = "explore:site:770e8400-e29b-41d4-a716-446655440000:published"
+	repo.claimedOutbox = []notificationsrepo.NotificationOutbox{event}
+	push := &pushSenderStub{}
+	svc := New(repo, WithPushSender(push))
+
+	result, err := svc.ProcessDueOutbox(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ProcessDueOutbox returned error: %v", err)
+	}
+	if result.Processed != 1 || result.Retried != 0 {
+		t.Fatalf("expected outbox processed when no eligible push targets remain, got %+v", result)
+	}
+	if len(push.sent) != 0 {
+		t.Fatalf("expected no push messages, got %d", len(push.sent))
+	}
+	if len(repo.markedPushSent) != 0 {
+		t.Fatalf("expected no push sent marks, got %#v", repo.markedPushSent)
+	}
+}
+
+func TestProcessDueOutboxDisablesStalePushToken(t *testing.T) {
+	repo := newNotificationRepoStub()
+	event := newDiveSiteOutboxEvent(1, "550e8400-e29b-41d4-a716-446655440001")
+	event.IdempotencyKey = "explore:site:770e8400-e29b-41d4-a716-446655440000:published"
+	repo.claimedOutbox = []notificationsrepo.NotificationOutbox{event}
+	repo.pushTargets = []notificationsrepo.PushDeliveryTarget{{
+		Notification: notificationsrepo.Notification{
+			ID:       42,
+			Type:     notificationsrepo.OutboxEventNewDiveSitePublished,
+			Category: "explore",
+			Title:    "New dive site",
+			Message:  "A new site is available.",
+		},
+		DeviceToken: notificationsrepo.DevicePushToken{ExpoPushToken: "ExponentPushToken[stale]"},
+	}}
+	push := &pushSenderStub{staleTokens: map[string]bool{"ExponentPushToken[stale]": true}}
+	svc := New(repo, WithPushSender(push))
+
+	result, err := svc.ProcessDueOutbox(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ProcessDueOutbox returned error: %v", err)
+	}
+	if result.Processed != 1 || result.Retried != 0 {
+		t.Fatalf("expected stale-token outbox processed after disabling token, got %+v", result)
+	}
+	if len(repo.disabledPushTokens) != 1 || repo.disabledPushTokens[0] != "ExponentPushToken[stale]" {
+		t.Fatalf("expected stale token disabled, got %#v", repo.disabledPushTokens)
+	}
+	if len(repo.markedPushSent) != 0 {
+		t.Fatalf("stale-only target should not mark notification push sent, got %#v", repo.markedPushSent)
+	}
+}
+
+func TestProcessDueOutboxRetriesOnPushDeliveryFailure(t *testing.T) {
+	repo := newNotificationRepoStub()
+	event := newDiveSiteOutboxEvent(1, "550e8400-e29b-41d4-a716-446655440001")
+	event.IdempotencyKey = "explore:site:770e8400-e29b-41d4-a716-446655440000:published"
+	repo.claimedOutbox = []notificationsrepo.NotificationOutbox{event}
+	repo.pushTargets = []notificationsrepo.PushDeliveryTarget{{
+		Notification: notificationsrepo.Notification{
+			ID:       42,
+			Type:     notificationsrepo.OutboxEventNewDiveSitePublished,
+			Category: "explore",
+			Title:    "New dive site",
+			Message:  "A new site is available.",
+		},
+		DeviceToken: notificationsrepo.DevicePushToken{ExpoPushToken: "ExponentPushToken[fails]"},
+	}}
+	push := &pushSenderStub{failTokens: map[string]error{"ExponentPushToken[fails]": errors.New("expo unavailable")}}
+	svc := New(repo, WithPushSender(push))
+
+	result, err := svc.ProcessDueOutbox(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ProcessDueOutbox returned error: %v", err)
+	}
+	if result.Retried != 1 || result.Processed != 0 {
+		t.Fatalf("expected push failure to retry outbox, got %+v", result)
+	}
+	if len(repo.retryOutbox) != 1 || repo.retryOutbox[0].lastError == "" {
+		t.Fatalf("expected retry with delivery error, got %#v", repo.retryOutbox)
+	}
+	if len(repo.markedPushSent) != 0 {
+		t.Fatalf("failed push should not mark notification sent, got %#v", repo.markedPushSent)
+	}
+}
+
 func TestListOutboxReturnsSafeSummary(t *testing.T) {
 	repo := newNotificationRepoStub()
 	now := time.Now().UTC()
@@ -1005,6 +1151,10 @@ type notificationRepoStub struct {
 	listOutboxInput                      notificationsrepo.OutboxListInput
 	retryOutboxResult                    notificationsrepo.NotificationOutbox
 	retriedOutboxID                      string
+	pushTargets                          []notificationsrepo.PushDeliveryTarget
+	listedPushOutboxKeys                 []string
+	markedPushSent                       []int64
+	disabledPushTokens                   []string
 	processedOutboxIDs                   []string
 	retryOutbox                          []outboxRetry
 	failedOutboxIDs                      []string
@@ -1146,6 +1296,21 @@ func (r *notificationRepoStub) RegisterDevice(context.Context, notificationsrepo
 
 func (r *notificationRepoStub) DeleteDeviceForUser(context.Context, string, string) error { return nil }
 
+func (r *notificationRepoStub) ListPushDeliveryTargetsForOutbox(_ context.Context, outboxIdempotencyKey string) ([]notificationsrepo.PushDeliveryTarget, error) {
+	r.listedPushOutboxKeys = append(r.listedPushOutboxKeys, outboxIdempotencyKey)
+	return r.pushTargets, nil
+}
+
+func (r *notificationRepoStub) MarkNotificationPushSent(_ context.Context, notificationID int64) error {
+	r.markedPushSent = append(r.markedPushSent, notificationID)
+	return nil
+}
+
+func (r *notificationRepoStub) DisablePushToken(_ context.Context, expoPushToken string) error {
+	r.disabledPushTokens = append(r.disabledPushTokens, expoPushToken)
+	return nil
+}
+
 func (r *notificationRepoStub) ListActiveExploreModeratorRecipients(_ context.Context, excludeUserID string) ([]string, error) {
 	return filteredRecipients(r.exploreModeratorRecipients, excludeUserID), nil
 }
@@ -1280,6 +1445,23 @@ type notificationBroadcasterStub struct {
 func (b *notificationBroadcasterStub) BroadcastEnvelopeToUsers(userIDs []string, env ws.Envelope) {
 	b.targets = append(b.targets, append([]string{}, userIDs...))
 	b.events = append(b.events, env)
+}
+
+type pushSenderStub struct {
+	sent        []PushMessage
+	staleTokens map[string]bool
+	failTokens  map[string]error
+}
+
+func (p *pushSenderStub) Send(_ context.Context, message PushMessage) (PushSendResult, error) {
+	p.sent = append(p.sent, message)
+	if err := p.failTokens[message.To]; err != nil {
+		return PushSendResult{}, err
+	}
+	if p.staleTokens[message.To] {
+		return PushSendResult{StaleToken: true}, nil
+	}
+	return PushSendResult{}, nil
 }
 
 func derefString(value *string) string {

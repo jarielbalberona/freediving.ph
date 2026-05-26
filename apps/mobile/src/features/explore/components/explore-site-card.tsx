@@ -14,12 +14,18 @@ import {
 } from "@/features/explore/lib/explore-format";
 
 type ExploreSiteCardProps = {
+  actionsDisabled?: boolean;
   onLike?: (site: ExploreSiteCard) => void;
   onSave?: (site: ExploreSiteCard) => void;
   site: ExploreSiteCard;
 };
 
-function ExploreSiteCardContent({ onLike, onSave, site }: ExploreSiteCardProps) {
+function ExploreSiteCardContent({
+  actionsDisabled,
+  onLike,
+  onSave,
+  site,
+}: ExploreSiteCardProps) {
   const depthRange = formatDepthRange(site);
 
   return (
@@ -72,14 +78,22 @@ function ExploreSiteCardContent({ onLike, onSave, site }: ExploreSiteCardProps) 
           <View className="flex-row gap-2">
             {onLike ? (
               <View className="flex-1">
-                <MobileButton variant="secondary" onPress={() => onLike(site)}>
+                <MobileButton
+                  disabled={actionsDisabled}
+                  variant="secondary"
+                  onPress={() => onLike(site)}
+                >
                   {site.viewerHasLiked ? "Unlike" : "Like"} · {site.likeCount}
                 </MobileButton>
               </View>
             ) : null}
             {onSave ? (
               <View className="flex-1">
-                <MobileButton variant="secondary" onPress={() => onSave(site)}>
+                <MobileButton
+                  disabled={actionsDisabled}
+                  variant="secondary"
+                  onPress={() => onSave(site)}
+                >
                   {site.isSaved ? "Unsave" : "Save"}
                 </MobileButton>
               </View>
@@ -91,11 +105,23 @@ function ExploreSiteCardContent({ onLike, onSave, site }: ExploreSiteCardProps) 
   );
 }
 
-export function ExploreSiteCard({ onLike, onSave, site }: ExploreSiteCardProps) {
+export function ExploreSiteCard({
+  actionsDisabled,
+  onLike,
+  onSave,
+  site,
+}: ExploreSiteCardProps) {
   const slug = safeSiteSlug(site.slug);
 
   if (!slug) {
-    return <ExploreSiteCardContent onLike={onLike} onSave={onSave} site={site} />;
+    return (
+      <ExploreSiteCardContent
+        actionsDisabled={actionsDisabled}
+        onLike={onLike}
+        onSave={onSave}
+        site={site}
+      />
+    );
   }
 
   return (
@@ -107,7 +133,12 @@ export function ExploreSiteCard({ onLike, onSave, site }: ExploreSiteCardProps) 
       asChild
     >
       <Pressable accessibilityRole="link">
-        <ExploreSiteCardContent onLike={onLike} onSave={onSave} site={site} />
+        <ExploreSiteCardContent
+          actionsDisabled={actionsDisabled}
+          onLike={onLike}
+          onSave={onSave}
+          site={site}
+        />
       </Pressable>
     </Link>
   );

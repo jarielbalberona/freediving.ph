@@ -1,6 +1,8 @@
 import type {
   CreateExploreSiteSubmissionRequest,
   ExploreListResponse,
+  ExploreSiteLikeResponse,
+  ExploreSiteSaveResponse,
   ExploreSiteDetailResponse,
   ExploreSiteSubmissionListResponse,
   ExploreSiteSubmissionResponse,
@@ -26,7 +28,7 @@ export const getExploreSites = (params: { limit?: number } = {}) =>
     withQuery("/v1/explore/sites", {
       limit: params.limit,
     }),
-    { auth: "none" },
+    { auth: "optional" },
   );
 
 export const getExploreSiteDetail = (slug: string) =>
@@ -34,7 +36,7 @@ export const getExploreSiteDetail = (slug: string) =>
     withQuery(`/v1/explore/sites/${encodeURIComponent(slug)}`, {
       updatesLimit: 5,
     }),
-    { auth: "none" },
+    { auth: "optional" },
   );
 
 export const submitExploreSite = (
@@ -55,21 +57,21 @@ export const getMyExploreSiteSubmissions = (authToken: string) =>
   });
 
 export const likeExploreSite = (siteId: string, authToken: string) =>
-  fphgoFetch<void>(`/v1/explore/sites/${encodeURIComponent(siteId)}/likes`, {
+  fphgoFetch<ExploreSiteLikeResponse>(`/v1/explore/sites/${encodeURIComponent(siteId)}/likes`, {
     auth: "required",
     authToken,
     method: "POST",
   });
 
 export const unlikeExploreSite = (siteId: string, authToken: string) =>
-  fphgoFetch<void>(`/v1/explore/sites/${encodeURIComponent(siteId)}/likes`, {
+  fphgoFetch<ExploreSiteLikeResponse>(`/v1/explore/sites/${encodeURIComponent(siteId)}/likes`, {
     auth: "required",
     authToken,
     method: "DELETE",
   });
 
 export const saveExploreSite = (siteId: string, authToken: string) =>
-  fphgoFetch<void>(`/v1/explore/sites/${encodeURIComponent(siteId)}/save`, {
+  fphgoFetch<ExploreSiteSaveResponse>(`/v1/explore/sites/${encodeURIComponent(siteId)}/save`, {
     auth: "required",
     authToken,
     method: "POST",

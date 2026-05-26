@@ -1,6 +1,5 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-import { Image } from "expo-image";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
 import {
   MobileEmptyState,
@@ -11,6 +10,11 @@ import {
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
+import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
+import {
+  ProfilePostCard,
+  ProfilePostFallback,
+} from "@/features/profiles/components/profile-post-card";
 import { ProfileSummaryCard } from "@/features/profiles/components/profile-summary-card";
 import {
   useProfileDivingQuery,
@@ -113,63 +117,25 @@ export function PublicProfileScreen() {
         </MobileSection>
 
         <MobileSection title="Posts">
-          {posts.length === 0 ? (
-            <MobileEmptyState
-              description="Public media posts will appear here when available."
-              title="No posts"
-            />
-          ) : (
+          {postsQuery.isLoading ? (
+            <ProfileDetailRow label="Posts" value="Loading public posts." />
+          ) : posts.length > 0 ? (
             <View className="gap-3">
               {posts.map((post) => (
-                <View key={post.id} className="rounded-2xl border border-border bg-card p-4">
-                  {post.thumbUrl ? (
-                    <Image
-                      accessibilityLabel=""
-                      className="h-44 w-full rounded-xl bg-secondary"
-                      contentFit="cover"
-                      source={{ uri: post.thumbUrl }}
-                    />
-                  ) : null}
-                  <Text className="mt-3 text-sm font-semibold text-foreground">
-                    {post.siteName}
-                  </Text>
-                  {post.caption ? (
-                    <Text className="mt-1 text-sm leading-6 text-muted-foreground">
-                      {post.caption}
-                    </Text>
-                  ) : null}
-                  <Text className="mt-2 text-xs text-muted-foreground">
-                    {post.likeCount} likes · {post.commentCount} comments
-                  </Text>
-                </View>
+                <ProfilePostCard key={post.id} post={post} />
               ))}
             </View>
+          ) : (
+            <ProfilePostFallback error={postsQuery.error} />
           )}
         </MobileSection>
 
         <MobileSection title="Diving">
-          <View className="gap-3">
-            {presences.map((presence) => (
-              <ProfileDetailRow
-                key={presence.id}
-                label={presence.diveSiteName}
-                value={`${presence.presenceType}${presence.note ? ` · ${presence.note}` : ""}`}
-              />
-            ))}
-            {affinities.map((affinity) => (
-              <ProfileDetailRow
-                key={affinity.id}
-                label={affinity.diveSiteName}
-                value={affinity.relationship}
-              />
-            ))}
-            {presences.length === 0 && affinities.length === 0 ? (
-              <MobileEmptyState
-                description="Visible dive presence and dive-site relationships will appear here."
-                title="No diving activity"
-              />
-            ) : null}
-          </View>
+          <ProfileDivingSection
+            affinities={affinities}
+            isLoading={divingQuery.isLoading}
+            presences={presences}
+          />
         </MobileSection>
       </MobileScrollScreen>
     </>

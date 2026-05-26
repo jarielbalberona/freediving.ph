@@ -15,7 +15,7 @@ import {
 import { MobileButton } from "@/components/ui/mobile-button";
 import { useMessageThreadsQuery } from "@/features/messages/hooks/use-message-queries";
 
-const categories: MessagingThreadCategory[] = ["primary", "requests", "transactions"];
+const categories: MessagingThreadCategory[] = ["primary", "requests"];
 
 const categoryLabel = (category: MessagingThreadCategory) =>
   category === "primary"
@@ -104,8 +104,12 @@ export function MessagesScreen() {
 
         {!threadsQuery.isLoading && !threadsQuery.error && threads.length === 0 ? (
           <MobileEmptyState
-            description="Conversations and message requests will appear here."
-            title="No messages"
+            description={
+              category === "requests"
+                ? "New message requests will appear here."
+                : "Your conversations will appear here."
+            }
+            title={category === "requests" ? "No requests" : "No messages"}
           />
         ) : null}
 

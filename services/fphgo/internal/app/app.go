@@ -211,10 +211,14 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	feedHandler := feedhttp.New(feedService, v)
 
 	notificationsRepo := notificationsrepo.New(pool)
-	notificationsService := notificationsservice.New(
-		notificationsRepo,
-		notificationsservice.WithBroadcaster(hub),
-	)
+	notificationOptions := []notificationsservice.Option{notificationsservice.WithBroadcaster(hub)}
+	if cfg.PushDeliveryEnabled {
+		notificationOptions = append(notificationOptions, notificationsservice.WithPushSender(
+			notificationsservice.NewExpoPushSender(cfg.ExpoPushAccessToken, nil),
+		))
+		logger.Info("push delivery enabled", "provider", "expo")
+	}
+	notificationsService := notificationsservice.New(notificationsRepo, notificationOptions...)
 	notificationsHandler := notificationshttp.New(notificationsService, v)
 
 	chikaRepo := chikarepo.New(pool)

@@ -175,6 +175,11 @@ func (r *outboxAdminRepoStub) RegisterDevice(context.Context, notificationsrepo.
 	return notificationsrepo.DevicePushToken{}, nil
 }
 func (r *outboxAdminRepoStub) DeleteDeviceForUser(context.Context, string, string) error { return nil }
+func (r *outboxAdminRepoStub) ListPushDeliveryTargetsForOutbox(context.Context, string) ([]notificationsrepo.PushDeliveryTarget, error) {
+	return nil, nil
+}
+func (r *outboxAdminRepoStub) MarkNotificationPushSent(context.Context, int64) error { return nil }
+func (r *outboxAdminRepoStub) DisablePushToken(context.Context, string) error        { return nil }
 func (r *outboxAdminRepoStub) ListActiveExploreModeratorRecipients(context.Context, string) ([]string, error) {
 	return nil, nil
 }

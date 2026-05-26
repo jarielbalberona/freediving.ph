@@ -13,10 +13,10 @@ import {
 import { MobileButton } from "@/components/ui/mobile-button";
 import { useChikaCategoriesQuery } from "@/features/chika/hooks/use-chika-categories-query";
 import { useCreateChikaThreadMutation } from "@/features/chika/hooks/use-chika-mutations";
+import { MediaComposerSheet } from "@/features/media/components/media-composer-sheet";
 import { useLocalDraft } from "@/local/drafts/use-local-draft";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
-import { FphgoApiError, isAuthErrorStatus } from "@/lib/api/fphgo-client";
 
 type CreateMode = "photo" | "chika" | undefined;
 
@@ -59,11 +59,6 @@ export function CreateScreen() {
     return true;
   };
 
-  const canQueueFailedMutation = (error: unknown) =>
-    !(error instanceof FphgoApiError && isAuthErrorStatus(error.status)) &&
-    isLoaded &&
-    isSignedIn;
-
   return (
     <MobileScrollScreen subtitle="Create" title="Post">
       <MobileSection
@@ -96,18 +91,7 @@ export function CreateScreen() {
         visible={mode === "photo"}
         onClose={() => setMode(undefined)}
       >
-        <View className="gap-3">
-          <MobileEmptyState
-            description="Save the idea for now. Photo and video upload will be available in a later pass."
-            title="Media upload deferred"
-          />
-          <MobileButton
-            variant="secondary"
-            onPress={() => void postComposerDraft.save({ kind: "media_post_metadata" })}
-          >
-            Save as draft
-          </MobileButton>
-        </View>
+        <MediaComposerSheet onClose={() => setMode(undefined)} />
       </MobileActionSheet>
 
       <MobileActionSheet
@@ -181,22 +165,13 @@ export function CreateScreen() {
                   title: title.trim(),
                 },
                 {
-                  onError: (error) => {
+                  onError: () => {
                     void chikaDraft.save({
                       categoryId: selectedCategoryId,
                       content: content.trim(),
                       title: title.trim(),
                     });
-                    if (!canQueueFailedMutation(error)) return;
-                    void outbox.enqueue({
-                      entityType: "chika_thread",
-                      operationType: "chika_thread_create",
-                      payload: {
-                        categoryId: selectedCategoryId,
-                        content: content.trim(),
-                        title: title.trim(),
-                      },
-                    });
+                    setActionMessage("Could not publish in Chika. Saved as draft.");
                   },
                   onSuccess: (thread) => {
                     void chikaDraft.clearSubmitted();

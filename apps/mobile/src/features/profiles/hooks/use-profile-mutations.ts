@@ -17,8 +17,13 @@ export const useUpdateMyProfileMutation = () => {
       if (!token) throw new FphgoApiError(401, "Sign in to continue.", null);
       return updateMyProfile(payload, token);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.profile.me() });
+    onSuccess: (response) => {
+      queryClient.setQueryData(mobileQueryKeys.profile.me(), response);
+      if (response.profile.username) {
+        queryClient.invalidateQueries({
+          queryKey: mobileQueryKeys.profile.public(response.profile.username),
+        });
+      }
     },
   });
 };

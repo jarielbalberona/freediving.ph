@@ -879,6 +879,14 @@ export interface EventPostReactionResponse {
   viewerHasFishReacted: boolean;
 }
 
+export interface EventPostsResponse {
+  posts: EventPost[];
+}
+
+export interface EventPostResponse {
+  post: EventPost;
+}
+
 export interface UpdateEventPostSettingsRequest {
   postsEnabled: boolean;
   postCreatePolicy: EventPostCreatePolicy;
@@ -893,6 +901,11 @@ export interface JoinEventRequest {
   participantNote?: string;
   notes?: string;
   joinAnswers?: Record<string, unknown>;
+}
+
+export interface JoinEventResponse {
+  attendee?: EventParticipant;
+  participant?: EventParticipant;
 }
 
 export interface SubmitEventPaymentRequest {
@@ -1997,6 +2010,16 @@ export type ExploreSiteDetailResponse = {
   site: ExploreSiteDetail;
   updates: ExploreSiteUpdate[];
   nextUpdatesCursor?: string;
+};
+
+export type ExploreSiteSaveResponse = {
+  saved: boolean;
+};
+
+export type ExploreSiteLikeResponse = {
+  targetId: string;
+  likeCount: number;
+  viewerHasLiked: boolean;
 };
 
 export type ExploreSiteRelatedCounts = {

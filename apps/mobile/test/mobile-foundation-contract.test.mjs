@@ -114,25 +114,93 @@ test("explore uses shared contracts, actions, and safe mobile routes", () => {
   const detail = read(
     "src/features/explore/screens/explore-site-detail-screen.tsx",
   );
+  const mutations = read("src/features/explore/hooks/use-explore-mutations.ts");
+  const submissionsQuery = read(
+    "src/features/explore/hooks/use-my-explore-submissions-query.ts",
+  );
+  const screen = read("src/features/explore/screens/explore-screen.tsx");
   const format = read("src/features/explore/lib/explore-format.ts");
+  const queryKeys = read("src/lib/query/query-keys.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
   assert.match(api, /ExploreListResponse/);
   assert.match(api, /ExploreSiteDetailResponse/);
+  assert.match(api, /ExploreSiteLikeResponse/);
+  assert.match(api, /ExploreSiteSaveResponse/);
   assert.match(api, /fphgoFetch/);
   assert.match(api, /\/v1\/explore\/sites/);
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/explore\/types/);
+  assert.match(api, /getExploreSites[\s\S]*auth:\s*"optional"/);
+  assert.match(api, /getExploreSiteDetail[\s\S]*auth:\s*"optional"/);
   assert.match(card, /safeSiteSlug/);
+  assert.match(card, /actionsDisabled/);
   assert.match(card, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
+  assert.match(detail, /useExploreSiteLikeMutation/);
   assert.match(api, /CreateExploreSiteSubmissionRequest/);
   assert.match(api, /\/v1\/explore\/sites\/submit/);
   assert.match(api, /\/likes/);
   assert.match(api, /\/save/);
-  assert.match(api, /auth:\s*"required"/);
-  assert.doesNotMatch(detail, /gps/i);
+  assert.match(api, /submitExploreSite[\s\S]*auth:\s*"required"/);
+  assert.match(api, /getMyExploreSiteSubmissions[\s\S]*auth:\s*"required"/);
+  assert.match(api, /likeExploreSite[\s\S]*auth:\s*"required"/);
+  assert.match(api, /saveExploreSite[\s\S]*auth:\s*"required"/);
+  assert.match(submissionsQuery, /useAuthenticatedFphgoQuery/);
+  assert.match(submissionsQuery, /mySubmissions\(\)/);
+  assert.match(mutations, /requireSiteId/);
+  assert.match(mutations, /setQueriesData<ExploreListResponse>/);
+  assert.match(mutations, /setQueriesData<ExploreSiteDetailResponse>/);
+  assert.match(mutations, /mySubmissions\(\)/);
+  assert.match(screen, /validateSubmission/);
+  assert.match(screen, /Latitude must be between -90 and 90/);
+  assert.match(screen, /Pending review/);
+  assert.match(screen, /Sign in to save spots/);
+  assert.match(queryKeys, /mySubmissions/);
+  assert.doesNotMatch(screen, /expo-location|react-native-maps|MapView|cluster|custom marker|gps/i);
+  assert.doesNotMatch(detail, /expo-location|react-native-maps|MapView|cluster|custom marker|gps/i);
   assert.ok(format.includes('includes("/")'));
+});
+
+test("media composer uses real upload contracts and native picker guards", () => {
+  const api = read("src/features/media/api/media-api.ts");
+  const mutations = read("src/features/media/hooks/use-media-mutations.ts");
+  const guards = read("src/features/media/lib/media-upload-guards.ts");
+  const composer = read("src/features/media/components/media-composer-sheet.tsx");
+  const createScreen = read("src/features/create/screens/create-screen.tsx");
+
+  assert.match(api, /@freediving\.ph\/types/);
+  assert.match(api, /MediaUploadResponse/);
+  assert.match(api, /CreateMediaPostRequest/);
+  assert.match(api, /MomentUploadIntentResponse/);
+  assert.match(api, /\/v1\/media\/upload-multiple/);
+  assert.match(api, /\/v1\/media\/posts/);
+  assert.match(api, /\/v1\/media\/moments\/upload-intents/);
+  assert.match(api, /\/complete/);
+  assert.match(api, /auth:\s*"required"/);
+  assert.match(api, /fetch\(uploadUrl/);
+  assert.doesNotMatch(api, /axios/i);
+  assert.match(mutations, /uploadMediaFiles/);
+  assert.match(mutations, /createMediaPost/);
+  assert.match(mutations, /createMomentUploadIntent/);
+  assert.match(mutations, /uploadMomentToDirectUrl/);
+  assert.match(mutations, /completeMomentUpload/);
+  assert.match(mutations, /getRequiredToken/);
+  assert.match(guards, /MEDIA_UPLOAD_LIMIT_BYTES = 10 \* 1024 \* 1024/);
+  assert.match(guards, /MOMENT_UPLOAD_LIMIT_BYTES = 200 \* 1024 \* 1024/);
+  assert.match(guards, /MOMENT_MAX_DURATION_SECONDS = 30/);
+  assert.match(guards, /validatePhotoAsset/);
+  assert.match(guards, /validateMomentAsset/);
+  assert.match(composer, /expo-image-picker/);
+  assert.match(composer, /requestMediaLibraryPermissionsAsync/);
+  assert.match(composer, /launchImageLibraryAsync/);
+  assert.match(composer, /Choose photos/);
+  assert.match(composer, /Choose Moment/);
+  assert.match(composer, /Share photos/);
+  assert.match(composer, /Upload Moment/);
+  assert.match(createScreen, /MediaComposerSheet/);
+  assert.doesNotMatch(composer, /fake|mock|deferred/i);
+  assert.doesNotMatch(api, /fake|mock|placeholder/i);
 });
 
 test("chika uses shared contracts, nested replies, and vote actions", () => {
@@ -181,7 +249,7 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(detail, /isAuthErrorStatus/);
   assert.match(detail, /actionsDisabled/);
   assert.match(createScreen, /requireSignedIn/);
-  assert.match(createScreen, /isAuthErrorStatus/);
+  assert.match(createScreen, /Could not publish in Chika\. Saved as draft\./);
   assert.match(mutations, /threadCommentsRoot\(threadId\)/);
   assert.doesNotMatch(mutations, /limit:\s*50/);
   assert.match(mutations, /threadDetail\(slug\)/);
@@ -197,27 +265,49 @@ test("events uses shared contracts and member event actions", () => {
   const card = read("src/features/events/components/event-card.tsx");
   const detail = read("src/features/events/screens/event-detail-screen.tsx");
   const format = read("src/features/events/lib/event-format.ts");
+  const mutations = read("src/features/events/hooks/use-event-mutations.ts");
+  const postsQuery = read("src/features/events/hooks/use-event-posts-query.ts");
+  const queryKeys = read("src/lib/query/query-keys.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
   assert.match(api, /EventListResponse/);
   assert.match(api, /EventDetailResponse/);
+  assert.match(api, /EventPostResponse/);
+  assert.match(api, /EventPostsResponse/);
+  assert.match(api, /JoinEventResponse/);
   assert.match(api, /EventFilters/);
   assert.match(api, /fphgoFetch/);
   assert.match(api, /\/v1\/events/);
   assert.match(api, /status/);
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/events\/types/);
-  assert.match(api, /joinEvent/);
-  assert.match(api, /leaveEvent/);
-  assert.match(api, /setEventInterest/);
-  assert.match(api, /createEventPost/);
-  assert.match(api, /updates\/.*reactions\/fish/);
-  assert.match(api, /auth:\s*"required"/);
+  assert.match(api, /getEvents[\s\S]*auth:\s*"optional"/);
+  assert.match(api, /getEventDetail[\s\S]*auth:\s*"optional"/);
+  assert.match(api, /getEventPosts[\s\S]*auth:\s*"optional"/);
+  assert.match(api, /joinEvent[\s\S]*auth:\s*"required"/);
+  assert.match(api, /leaveEvent[\s\S]*auth:\s*"required"/);
+  assert.match(api, /setEventInterest[\s\S]*auth:\s*"required"/);
+  assert.match(api, /removeEventInterest[\s\S]*auth:\s*"required"/);
+  assert.match(api, /createEventPost[\s\S]*auth:\s*"required"/);
+  assert.match(api, /updates\/.*reactions\/fish[\s\S]*auth:\s*"required"/);
   assert.match(card, /safeEventSlug/);
   assert.match(card, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
   assert.match(detail, /useEventAttendanceMutation/);
-  assert.doesNotMatch(detail, /booking|checkIn|receipt/i);
+  assert.match(detail, /Request to join/);
+  assert.match(detail, /Marked interested/);
+  assert.match(detail, /Post update/);
+  assert.match(detail, /Could not update fish reaction/);
+  assert.doesNotMatch(
+    detail,
+    /booking|check-in|check in|receipt|Payment instructions|admin/i,
+  );
+  assert.match(mutations, /requireEventId/);
+  assert.match(mutations, /setQueryData<EventPostsResponse>/);
+  assert.match(mutations, /mobileQueryKeys\.events\.posts\(eventId\)/);
+  assert.match(postsQuery, /useQuery/);
+  assert.doesNotMatch(postsQuery, /useAuthenticatedFphgoQuery/);
+  assert.match(queryKeys, /posts:\s*\(eventId:\s*string\)/);
   assert.ok(format.includes('includes("/")'));
 });
 
@@ -231,11 +321,22 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   const publicScreen = read(
     "src/features/profiles/screens/public-profile-screen.tsx",
   );
+  const activityHook = read(
+    "src/features/profiles/hooks/use-profile-activity-query.ts",
+  );
+  const mutationHook = read(
+    "src/features/profiles/hooks/use-profile-mutations.ts",
+  );
+  const divingSection = read(
+    "src/features/profiles/components/profile-diving-section.tsx",
+  );
+  const postCard = read("src/features/profiles/components/profile-post-card.tsx");
   const format = read("src/features/profiles/lib/profile-format.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
   assert.match(api, /ProfileResponse/);
   assert.match(api, /PublicProfileResponse/);
+  assert.match(api, /ProfilePostsResponse/);
   assert.match(api, /fphgoFetch/);
   assert.match(api, /\/v1\/me\/profile/);
   assert.match(api, /\/v1\/profiles\/public/);
@@ -249,20 +350,35 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   assert.match(api, /UpdateMyProfileRequest/);
   assert.match(api, /method:\s*"PATCH"/);
   assert.match(api, /\/posts/);
+  assert.match(api, /response\) => response\.items/);
   assert.match(api, /\/diving/);
   assert.match(myHook, /useAuthenticatedFphgoQuery/);
   assert.doesNotMatch(publicHook, /useAuthenticatedFphgoQuery/);
   assert.match(publicHook, /useQuery/);
   assert.match(publicHook, /safeProfileUsername/);
+  assert.match(activityHook, /safeProfileUsername/);
+  assert.match(mutationHook, /setQueryData\(mobileQueryKeys\.profile\.me\(\), response\)/);
+  assert.match(mutationHook, /profile\.public\(response\.profile\.username\)/);
   assert.match(ownScreen, /\/\(app\)\/\(tabs\)\/profile\/settings/);
   assert.match(publicScreen, /useLocalSearchParams/);
   assert.match(ownScreen, /Edit profile/);
+  assert.match(ownScreen, /ProfilePostCard/);
+  assert.match(ownScreen, /ProfileDivingSection/);
+  assert.match(ownScreen, /Could not update profile\. Saved as draft\./);
+  assert.match(publicScreen, /ProfilePostCard/);
+  assert.match(publicScreen, /ProfileDivingSection/);
+  assert.match(postCard, /safeImageUrl/);
+  assert.match(postCard, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
+  assert.match(divingSection, /diveSiteSlug/);
+  assert.match(divingSection, /Only diving details this profile can share are shown/);
   assert.doesNotMatch(ownScreen, /upload|followAction|sendMessage|SQLite|Drizzle/i);
   assert.doesNotMatch(
     publicScreen,
     /upload|editProfile|followAction|sendMessage|report|block/i,
   );
+  assert.doesNotMatch(postCard, /upload|sendMessage|report|block/i);
   assert.ok(format.includes('includes("/")'));
+  assert.match(format, /safeImageUrl/);
 });
 
 test("notifications use shared contracts, auth gating, preferences, and safe push routes", () => {
@@ -356,9 +472,12 @@ test("Phase 4 location and push helpers stay foreground-only and user initiated"
 test("buddies use shared public and member intent contracts", () => {
   const api = read("src/features/buddies/api/buddies-api.ts");
   const hook = read("src/features/buddies/hooks/use-buddy-finder-query.ts");
+  const mutations = read("src/features/buddies/hooks/use-buddy-mutations.ts");
   const card = read("src/features/buddies/components/buddy-intent-card.tsx");
   const screen = read("src/features/buddies/screens/buddies-screen.tsx");
   const format = read("src/features/buddies/lib/buddy-format.ts");
+  const messageApi = read("src/features/messages/api/messages-api.ts");
+  const queryKeys = read("src/lib/query/query-keys.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
   assert.match(api, /BuddyFinderPreviewResponse/);
@@ -378,51 +497,108 @@ test("buddies use shared public and member intent contracts", () => {
   assert.match(api, /deleteBuddyFinderIntent/);
   assert.match(api, /getBuddyFinderMessageEntry/);
   assert.match(api, /auth:\s*"required"/);
+  assert.doesNotMatch(api, /method:\s*"PATCH"|method:\s*"PUT"|updateBuddyFinderIntent/);
   assert.match(hook, /useAuthenticatedFphgoQuery/);
   assert.match(hook, /mobileQueryKeys\.buddies\.preview/);
+  assert.match(mutations, /getRequiredToken/);
+  assert.match(mutations, /requireIntentId/);
+  assert.match(mutations, /openDirectMessageThread/);
+  assert.match(mutations, /mobileQueryKeys\.buddies\.intentLists/);
+  assert.match(mutations, /mobileQueryKeys\.buddies\.previews/);
+  assert.match(messageApi, /\/v1\/messages\/threads\/direct/);
+  assert.match(queryKeys, /previews/);
+  assert.match(queryKeys, /intentLists/);
   assert.match(card, /BuddyFinderPreviewIntent/);
   assert.match(card, /BuddyFinderIntent/);
-  assert.doesNotMatch(card, /Link|Pressable|buddyProfileHref/);
+  assert.match(card, /profileHref/);
+  assert.match(card, /View profile/);
+  assert.match(card, /To change this post, close it and create a new one/);
+  assert.match(card, /Close intent/);
   assert.ok(format.includes('includes("/")'));
   assert.match(screen, /MobileLoadingState/);
   assert.match(screen, /MobileEmptyState/);
   assert.match(screen, /MobileErrorState/);
-  assert.match(screen, /Create weekend intent/);
-  assert.match(screen, /Close intent/);
+  assert.match(screen, /Create intent/);
+  assert.match(screen, /profileHrefForUsername/);
+  assert.match(screen, /\/\(app\)\/\(tabs\)\/messages\/\[threadId\]/);
+  assert.match(screen, /specific_date/);
   assert.doesNotMatch(screen, /gps|location/i);
 });
 
 test("messages and groups expose member-safe Phase 2 routes", () => {
   const messagesApi = read("src/features/messages/api/messages-api.ts");
+  const messagesQueries = read("src/features/messages/hooks/use-message-queries.ts");
+  const messagesMutations = read(
+    "src/features/messages/hooks/use-message-mutations.ts",
+  );
   const messagesScreen = read("src/features/messages/screens/messages-screen.tsx");
   const messageThreadScreen = read(
     "src/features/messages/screens/message-thread-screen.tsx",
   );
+  const queryKeys = read("src/lib/query/query-keys.ts");
   const groupsApi = read("src/features/groups/api/groups-api.ts");
+  const groupQueries = read("src/features/groups/hooks/use-group-member-queries.ts");
+  const groupMutations = read("src/features/groups/hooks/use-group-mutations.ts");
+  const groupsScreen = read("src/features/groups/screens/groups-screen.tsx");
   const groupDetailScreen = read(
     "src/features/groups/screens/group-detail-screen.tsx",
   );
 
   assert.match(messagesApi, /@freediving\.ph\/types/);
   assert.match(messagesApi, /\/v1\/messages\/threads/);
+  assert.match(messagesApi, /\/v1\/messages\/unread-count/);
+  assert.match(messagesApi, /MessagingSendMessageRequest/);
+  assert.match(messagesApi, /MessagingMarkReadRequest/);
   assert.match(messagesApi, /sendThreadMessage/);
   assert.match(messagesApi, /acceptThreadRequest/);
   assert.match(messagesApi, /declineThreadRequest/);
+  assert.match(messagesApi, /markThreadRead/);
   assert.match(messagesApi, /auth:\s*"required"/);
+  assert.match(messagesQueries, /useAuthenticatedFphgoQuery/);
+  assert.match(messagesMutations, /getRequiredToken/);
+  assert.match(messagesMutations, /requireThreadId/);
+  assert.match(messagesMutations, /mobileQueryKeys\.messages\.threadLists/);
+  assert.match(messagesMutations, /mobileQueryKeys\.messages\.unreadCount/);
+  assert.match(queryKeys, /threadLists/);
+  assert.match(queryKeys, /threadDetails/);
   assert.match(messagesScreen, /requests/);
+  assert.doesNotMatch(messagesScreen, /"transactions"/);
   assert.match(messageThreadScreen, /canResolveRequest/);
   assert.match(messageThreadScreen, /Send/);
+  assert.match(messageThreadScreen, /lastMarkedReadRef/);
+  assert.match(messageThreadScreen, /Could not send message/);
   assert.doesNotMatch(messageThreadScreen, /websocket|realtime|push/i);
+  assert.doesNotMatch(messagesApi, /axios/i);
+  assert.doesNotMatch(messagesApi, /apps\/web|features\/messages\/types/);
+  assert.doesNotMatch(messagesScreen, /endpoint|DTO|payload|debug|code-wise/i);
+  assert.doesNotMatch(messageThreadScreen, /endpoint|DTO|payload|debug|code-wise/i);
 
   assert.match(groupsApi, /@freediving\.ph\/types/);
   assert.match(groupsApi, /\/v1\/groups/);
   assert.match(groupsApi, /joinGroup/);
   assert.match(groupsApi, /leaveGroup/);
+  assert.match(groupsApi, /acceptGroupInvite/);
+  assert.match(groupsApi, /rejectGroupInvite/);
   assert.match(groupsApi, /createGroupPost/);
+  assert.match(groupsApi, /auth:\s*"optional"/);
   assert.match(groupsApi, /auth:\s*"required"/);
+  assert.doesNotMatch(groupsApi, /axios/i);
+  assert.doesNotMatch(groupsApi, /apps\/web|features\/groups\/types/);
+  assert.doesNotMatch(groupsApi, /archiveGroup|inviteMember|updateGroup/);
+  assert.match(groupQueries, /useQuery/);
+  assert.doesNotMatch(groupQueries, /useAuthenticatedFphgoQuery/);
+  assert.match(groupMutations, /getRequiredToken/);
+  assert.match(groupMutations, /requireGroupId/);
+  assert.match(groupMutations, /mobileQueryKeys\.groups\.lists/);
+  assert.match(groupMutations, /mobileQueryKeys\.groups\.posts/);
+  assert.match(groupsScreen, /safeSlug/);
   assert.match(groupDetailScreen, /Join group/);
+  assert.match(groupDetailScreen, /Accept invite/);
+  assert.match(groupDetailScreen, /Decline/);
   assert.match(groupDetailScreen, /Post to group/);
-  assert.doesNotMatch(groupDetailScreen, /admin|moderation/i);
+  assert.match(groupDetailScreen, /Title, optional/);
+  assert.match(groupDetailScreen, /Members unavailable/);
+  assert.doesNotMatch(groupDetailScreen, /admin|moderation|archive/i);
 });
 
 test("local Phase 3 storage is bounded to drafts and sync outbox", () => {
@@ -446,6 +622,18 @@ test("local Phase 3 storage is bounded to drafts and sync outbox", () => {
   assert.match(types, /event_join_leave:\s*"online_only"/);
   assert.match(types, /explore_site_submit:\s*"online_only"/);
   assert.match(types, /notification_mark_read:\s*"unsupported"/);
+  assert.match(types, /chika_thread_create:\s*"draft_only"/);
+  assert.match(types, /chika_comment_create:\s*"draft_only"/);
+  assert.match(types, /buddy_intent_create:\s*"draft_only"/);
+  assert.match(types, /profile_edit_update:\s*"draft_only"/);
+  assert.match(types, /event_post_create:\s*"draft_only"/);
+  assert.match(types, /group_post_create:\s*"draft_only"/);
+  assert.match(types, /chika_thread_reaction:\s*"queue_safe"/);
+  assert.match(types, /chika_comment_reaction:\s*"queue_safe"/);
+  assert.match(types, /event_interest:\s*"queue_safe"/);
+  assert.match(types, /event_post_fish:\s*"queue_safe"/);
+  assert.match(types, /explore_site_like:\s*"queue_safe"/);
+  assert.match(types, /explore_site_save:\s*"queue_safe"/);
   assert.match(draftRepo, /saveLocalDraft/);
   assert.match(draftRepo, /getLatestLocalDraft/);
   assert.match(draftRepo, /discardLocalDraft/);
@@ -454,7 +642,10 @@ test("local Phase 3 storage is bounded to drafts and sync outbox", () => {
   assert.match(outboxRepo, /markOutboxSynced/);
   assert.match(outboxRepo, /markOutboxFailed/);
   assert.match(supported, /QUEUEABLE_OPERATION_TYPES/);
-  assert.doesNotMatch(supported, /message_send|event_join_leave|payment|booking/i);
+  assert.doesNotMatch(
+    supported,
+    /message_send|event_join_leave|payment|booking|chika_thread_create|chika_comment_create|buddy_intent_create|profile_edit_update|event_post_create|group_post_create/i,
+  );
 });
 
 test("sync runner is manual, idempotent, and server-response gated", () => {
@@ -476,9 +667,13 @@ test("sync runner is manual, idempotent, and server-response gated", () => {
   assert.match(outboxHook, /Waiting to sync/);
   assert.match(outboxHook, /Could not sync\. Try again\./);
   assert.match(createScreen, /Save as draft/);
-  assert.match(createScreen, /chika_thread_create/);
-  assert.match(buddiesScreen, /buddy_intent_create/);
-  assert.match(chikaDetail, /chika_comment_create/);
+  assert.doesNotMatch(syncRunner, /chika_thread_create|chika_comment_create|buddy_intent_create|profile_edit_update|event_post_create|group_post_create/);
+  assert.doesNotMatch(createScreen, /chika_thread_create/);
+  assert.doesNotMatch(buddiesScreen, /buddy_intent_create/);
+  assert.doesNotMatch(chikaDetail, /chika_comment_create/);
+  assert.match(createScreen, /Saved as draft/);
+  assert.match(buddiesScreen, /Saved as draft/);
+  assert.match(chikaDetail, /Saved as draft/);
 });
 
 test("local state does not become canonical server state", () => {

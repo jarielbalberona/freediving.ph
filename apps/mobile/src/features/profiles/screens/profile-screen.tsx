@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/expo";
 import { Link } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
@@ -11,6 +12,11 @@ import {
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
+import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
+import {
+  ProfilePostCard,
+  ProfilePostFallback,
+} from "@/features/profiles/components/profile-post-card";
 import { ProfileSummaryCard } from "@/features/profiles/components/profile-summary-card";
 import {
   useProfileDivingQuery,
@@ -28,17 +34,21 @@ import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
 export function ProfileScreen() {
+  const { isLoaded, isSignedIn } = useAuth();
   const profileQuery = useMyProfileQuery();
   const profile = profileQuery.data?.profile;
   const updateProfile = useUpdateMyProfileMutation();
   const postsQuery = useProfilePostsQuery(profile?.username);
   const divingQuery = useProfileDivingQuery(profile?.username);
   const [isEditing, setIsEditing] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | undefined>();
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const profileDraft = useLocalDraft<{ bio?: string; displayName: string }>("profile_edit");
   const outbox = useOutbox();
   const posts = postsQuery.data ?? [];
+  const presences = divingQuery.data?.presences ?? [];
+  const affinities = divingQuery.data?.affinities ?? [];
 
   useEffect(() => {
     if (!profileDraft.draft) return;
@@ -87,7 +97,18 @@ export function ProfileScreen() {
 
   const location = profileLocationLabel(profile);
   const certLevel = certLevelLabel(profile.certLevel);
-
+  const requireSignedIn = () => {
+    if (!isLoaded) {
+      setActionMessage("Checking your session. Try again in a moment.");
+      return false;
+    }
+    if (!isSignedIn) {
+      setActionMessage("Sign in to edit your profile.");
+      return false;
+    }
+    setActionMessage(undefined);
+    return true;
+  };
   return (
     <MobileScrollScreen subtitle="Your diver profile" title="Profile">
       <MobileSection
@@ -127,6 +148,9 @@ export function ProfileScreen() {
               onDiscard={outbox.discard}
               onSyncNow={outbox.syncNow}
             />
+            {actionMessage ? (
+              <Text className="text-sm text-muted-foreground">{actionMessage}</Text>
+            ) : null}
             <TextInput
               className="rounded-2xl border border-border bg-card p-3 text-foreground"
               onChangeText={setDisplayName}
@@ -155,7 +179,8 @@ export function ProfileScreen() {
             </MobileButton>
             <MobileButton
               disabled={updateProfile.isPending || displayName.trim().length < 2}
-              onPress={() =>
+              onPress={() => {
+                if (!requireSignedIn()) return;
                 updateProfile.mutate(
                   {
                     bio: bio.trim() || undefined,
@@ -167,22 +192,15 @@ export function ProfileScreen() {
                         bio: bio.trim() || undefined,
                         displayName: displayName.trim(),
                       });
-                      void outbox.enqueue({
-                        entityType: "profile",
-                        operationType: "profile_edit_update",
-                        payload: {
-                          bio: bio.trim() || undefined,
-                          displayName: displayName.trim(),
-                        },
-                      });
+                      setActionMessage("Could not update profile. Saved as draft.");
                     },
                     onSuccess: () => {
                       void profileDraft.clearSubmitted();
                       setIsEditing(false);
                     },
                   },
-                )
-              }
+                );
+              }}
             >
               Save profile
             </MobileButton>
@@ -212,17 +230,25 @@ export function ProfileScreen() {
       </MobileSection>
 
       <MobileSection title="Posts">
-        <View className="gap-3">
-          <ProfileDetailRow label="Public posts" value={profileCountLabel(posts.length, "posts")} />
-          <ProfileDetailRow
-            label="Dive presence"
-            value={profileCountLabel(divingQuery.data?.presences.length ?? 0, "entries")}
-          />
-          <ProfileDetailRow
-            label="Dive sites"
-            value={profileCountLabel(divingQuery.data?.affinities.length ?? 0, "sites")}
-          />
-        </View>
+        {postsQuery.isLoading ? (
+          <ProfileDetailRow label="Posts" value="Loading public posts." />
+        ) : posts.length > 0 ? (
+          <View className="gap-3">
+            {posts.map((post) => (
+              <ProfilePostCard key={post.id} post={post} />
+            ))}
+          </View>
+        ) : (
+          <ProfilePostFallback error={postsQuery.error} />
+        )}
+      </MobileSection>
+
+      <MobileSection title="Diving">
+        <ProfileDivingSection
+          affinities={affinities}
+          isLoading={divingQuery.isLoading}
+          presences={presences}
+        />
       </MobileSection>
 
       <MobileSection title="Settings">

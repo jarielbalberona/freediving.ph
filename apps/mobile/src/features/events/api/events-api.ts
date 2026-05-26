@@ -1,9 +1,12 @@
 import type {
+  CreateEventPostRequest,
   EventDetailResponse,
   EventFilters,
   EventListResponse,
-  EventPost,
+  EventPostResponse,
   EventPostReactionResponse,
+  EventPostsResponse,
+  JoinEventResponse,
   JoinEventRequest,
 } from "@freediving.ph/types";
 
@@ -36,20 +39,20 @@ export const getEvents = (filters: EventFilters = {}) =>
       status: filters.status,
       type: filters.type,
     }),
-    { auth: "none" },
+    { auth: "optional" },
   );
 
 export const getEventDetail = (slug: string) =>
   fphgoFetch<EventDetailResponse>(
     `/v1/events/${encodeURIComponent(slug)}`,
-    { auth: "none" },
+    { auth: "optional" },
   );
 
 export const joinEvent = (eventId: string, authToken: string) =>
-  fphgoFetch<void>(`/v1/events/${encodeURIComponent(eventId)}/join`, {
+  fphgoFetch<JoinEventResponse>(`/v1/events/${encodeURIComponent(eventId)}/join`, {
     auth: "required",
     authToken,
-    body: { eventId } satisfies JoinEventRequest,
+    body: { eventId, joinAnswers: {} } satisfies JoinEventRequest,
     method: "POST",
   });
 
@@ -61,36 +64,36 @@ export const leaveEvent = (eventId: string, authToken: string) =>
   });
 
 export const setEventInterest = (eventId: string, authToken: string) =>
-  fphgoFetch<void>(`/v1/events/${encodeURIComponent(eventId)}/interest`, {
+  fphgoFetch<EventDetailResponse>(`/v1/events/${encodeURIComponent(eventId)}/interest`, {
     auth: "required",
     authToken,
     method: "PUT",
   });
 
 export const removeEventInterest = (eventId: string, authToken: string) =>
-  fphgoFetch<void>(`/v1/events/${encodeURIComponent(eventId)}/interest`, {
+  fphgoFetch<EventDetailResponse>(`/v1/events/${encodeURIComponent(eventId)}/interest`, {
     auth: "required",
     authToken,
     method: "DELETE",
   });
 
-export const getEventPosts = (eventId: string, authToken: string) =>
-  fphgoFetch<{ posts: EventPost[] }>(
+export const getEventPosts = (eventId: string) =>
+  fphgoFetch<EventPostsResponse>(
     `/v1/events/${encodeURIComponent(eventId)}/posts`,
-    { auth: "required", authToken },
+    { auth: "optional" },
   );
 
 export const createEventPost = (
   eventId: string,
-  bodyMarkdown: string,
+  payload: CreateEventPostRequest,
   authToken: string,
 ) =>
-  fphgoFetch<{ post: EventPost }>(
+  fphgoFetch<EventPostResponse>(
     `/v1/events/${encodeURIComponent(eventId)}/posts`,
     {
       auth: "required",
       authToken,
-      body: { bodyMarkdown, postType: "general" },
+      body: payload,
       method: "POST",
     },
   );

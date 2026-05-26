@@ -19,6 +19,7 @@ import (
 type Service struct {
 	repo        repository
 	broadcaster targetedBroadcaster
+	pushSender  pushSender
 }
 
 type repository interface {
@@ -35,6 +36,9 @@ type repository interface {
 	UpdateSettingsForUser(ctx context.Context, userID string, input notificationsrepo.SettingsUpdateInput) (notificationsrepo.NotificationSettings, error)
 	RegisterDevice(ctx context.Context, input notificationsrepo.RegisterDeviceInput) (notificationsrepo.DevicePushToken, error)
 	DeleteDeviceForUser(ctx context.Context, userID, deviceID string) error
+	ListPushDeliveryTargetsForOutbox(ctx context.Context, outboxIdempotencyKey string) ([]notificationsrepo.PushDeliveryTarget, error)
+	MarkNotificationPushSent(ctx context.Context, notificationID int64) error
+	DisablePushToken(ctx context.Context, expoPushToken string) error
 	ListActiveExploreModeratorRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ListActiveInstructorReviewerRecipients(ctx context.Context, excludeUserID string) ([]string, error)
 	ListActiveNewDiveSiteRecipients(ctx context.Context, excludeUserID string) ([]string, error)
@@ -61,11 +65,32 @@ type targetedBroadcaster interface {
 	BroadcastEnvelopeToUsers(userIDs []string, env ws.Envelope)
 }
 
+type PushMessage struct {
+	To    string
+	Title string
+	Body  string
+	Data  map[string]any
+}
+
+type PushSendResult struct {
+	StaleToken bool
+}
+
+type pushSender interface {
+	Send(ctx context.Context, message PushMessage) (PushSendResult, error)
+}
+
 type Option func(*Service)
 
 func WithBroadcaster(broadcaster targetedBroadcaster) Option {
 	return func(s *Service) {
 		s.broadcaster = broadcaster
+	}
+}
+
+func WithPushSender(sender pushSender) Option {
+	return func(s *Service) {
+		s.pushSender = sender
 	}
 }
 
@@ -1118,31 +1143,15 @@ func (s *Service) ProcessDueOutbox(ctx context.Context, limit int) (OutboxProces
 	result := OutboxProcessResult{Claimed: len(events)}
 	for _, event := range events {
 		if err := s.processOutboxEvent(ctx, event); err != nil {
-			if event.Attempts >= maxOutboxAttempts {
-				if markErr := s.repo.MarkOutboxFailed(ctx, event.ID, err.Error()); markErr != nil {
-					return result, apperrors.New(http.StatusInternalServerError, "notification_outbox_mark_failed", "failed to mark notification outbox event failed", markErr)
-				}
-				result.Failed++
-				slog.Default().Error("notification_outbox.event_failed",
-					slog.String("event_id", event.ID),
-					slog.String("event_type", event.EventType),
-					slog.Int("attempts", event.Attempts),
-					slog.Any("error", err),
-				)
-				continue
+			if handleErr := s.handleOutboxFailure(ctx, now, event, err, &result); handleErr != nil {
+				return result, handleErr
 			}
-			nextRetryAt := now.Add(outboxRetryDelay(event.Attempts))
-			if markErr := s.repo.MarkOutboxRetry(ctx, event.ID, nextRetryAt, err.Error()); markErr != nil {
-				return result, apperrors.New(http.StatusInternalServerError, "notification_outbox_mark_retry", "failed to schedule notification outbox retry", markErr)
+			continue
+		}
+		if err := s.deliverOutboxPush(ctx, event); err != nil {
+			if handleErr := s.handleOutboxFailure(ctx, now, event, err, &result); handleErr != nil {
+				return result, handleErr
 			}
-			result.Retried++
-			slog.Default().Warn("notification_outbox.event_retry_scheduled",
-				slog.String("event_id", event.ID),
-				slog.String("event_type", event.EventType),
-				slog.Int("attempts", event.Attempts),
-				slog.Time("next_retry_at", nextRetryAt),
-				slog.Any("error", err),
-			)
 			continue
 		}
 
@@ -1152,6 +1161,84 @@ func (s *Service) ProcessDueOutbox(ctx context.Context, limit int) (OutboxProces
 		result.Processed++
 	}
 	return result, nil
+}
+
+func (s *Service) handleOutboxFailure(ctx context.Context, now time.Time, event notificationsrepo.NotificationOutbox, err error, result *OutboxProcessResult) error {
+	if event.Attempts >= maxOutboxAttempts {
+		if markErr := s.repo.MarkOutboxFailed(ctx, event.ID, err.Error()); markErr != nil {
+			return apperrors.New(http.StatusInternalServerError, "notification_outbox_mark_failed", "failed to mark notification outbox event failed", markErr)
+		}
+		result.Failed++
+		slog.Default().Error("notification_outbox.event_failed",
+			slog.String("event_id", event.ID),
+			slog.String("event_type", event.EventType),
+			slog.Int("attempts", event.Attempts),
+			slog.Any("error", err),
+		)
+		return nil
+	}
+	nextRetryAt := now.Add(outboxRetryDelay(event.Attempts))
+	if markErr := s.repo.MarkOutboxRetry(ctx, event.ID, nextRetryAt, err.Error()); markErr != nil {
+		return apperrors.New(http.StatusInternalServerError, "notification_outbox_mark_retry", "failed to schedule notification outbox retry", markErr)
+	}
+	result.Retried++
+	slog.Default().Warn("notification_outbox.event_retry_scheduled",
+		slog.String("event_id", event.ID),
+		slog.String("event_type", event.EventType),
+		slog.Int("attempts", event.Attempts),
+		slog.Time("next_retry_at", nextRetryAt),
+		slog.Any("error", err),
+	)
+	return nil
+}
+
+func (s *Service) deliverOutboxPush(ctx context.Context, event notificationsrepo.NotificationOutbox) error {
+	if s.pushSender == nil {
+		return nil
+	}
+	targets, err := s.repo.ListPushDeliveryTargetsForOutbox(ctx, event.IdempotencyKey)
+	if err != nil {
+		return fmt.Errorf("list push delivery targets: %w", err)
+	}
+	sentNotificationIDs := map[int64]bool{}
+	for _, target := range targets {
+		result, sendErr := s.pushSender.Send(ctx, pushMessageFromTarget(target))
+		if sendErr != nil {
+			return fmt.Errorf("send push notification: %w", sendErr)
+		}
+		if result.StaleToken {
+			if disableErr := s.repo.DisablePushToken(ctx, target.DeviceToken.ExpoPushToken); disableErr != nil {
+				return fmt.Errorf("disable stale push token: %w", disableErr)
+			}
+			continue
+		}
+		sentNotificationIDs[target.Notification.ID] = true
+	}
+	for notificationID := range sentNotificationIDs {
+		if markErr := s.repo.MarkNotificationPushSent(ctx, notificationID); markErr != nil {
+			return fmt.Errorf("mark push notification sent: %w", markErr)
+		}
+	}
+	return nil
+}
+
+func pushMessageFromTarget(target notificationsrepo.PushDeliveryTarget) PushMessage {
+	data := map[string]any{
+		"notificationId":    target.Notification.ID,
+		"type":              target.Notification.Type,
+		"category":          target.Notification.Category,
+		"relatedEntityType": target.Notification.RelatedEntityType,
+		"relatedEntityId":   target.Notification.RelatedEntityID,
+	}
+	if target.Notification.ActionURL != nil && strings.TrimSpace(*target.Notification.ActionURL) != "" {
+		data["actionUrl"] = strings.TrimSpace(*target.Notification.ActionURL)
+	}
+	return PushMessage{
+		To:    target.DeviceToken.ExpoPushToken,
+		Title: target.Notification.Title,
+		Body:  target.Notification.Message,
+		Data:  data,
+	}
 }
 
 func (s *Service) ListOutbox(ctx context.Context, input OutboxListInput) ([]OutboxItem, error) {

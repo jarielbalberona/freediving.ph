@@ -81,26 +81,26 @@ export type LocalMediaQueueRecord<TUploadIntent = Record<string, unknown>> = {
 export const LOCAL_SCHEMA_VERSION = 1;
 
 export const OFFLINE_OPERATION_CLASSIFICATION: Record<string, OfflineClassification> = {
-  buddy_intent_create: "queue_safe",
+  buddy_intent_create: "draft_only",
   buddy_intent_delete: "online_only",
-  chika_comment_create: "queue_safe",
+  chika_comment_create: "draft_only",
   chika_comment_reaction: "queue_safe",
-  chika_thread_create: "queue_safe",
+  chika_thread_create: "draft_only",
   chika_thread_reaction: "queue_safe",
   event_interest: "queue_safe",
   event_join_leave: "online_only",
-  event_post_create: "queue_safe",
+  event_post_create: "draft_only",
   event_post_fish: "queue_safe",
   explore_site_like: "queue_safe",
   explore_site_save: "queue_safe",
   explore_site_submit: "online_only",
-  feed_action: "queue_safe",
+  feed_action: "online_only",
   group_join_leave: "online_only",
-  group_post_create: "queue_safe",
+  group_post_create: "draft_only",
   media_upload: "draft_only",
   message_send: "online_only",
   notification_mark_read: "unsupported",
-  profile_edit_update: "queue_safe",
+  profile_edit_update: "draft_only",
 };
 
 export const nowIso = () => new Date().toISOString();

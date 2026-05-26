@@ -1,6 +1,7 @@
 import type { MessagingThreadCategory } from "@freediving.ph/types";
 
 import {
+  getMessageUnreadCount,
   getMessageThread,
   listMessageThreads,
   listThreadMessages,
@@ -12,6 +13,13 @@ export const useMessageThreadsQuery = (category: MessagingThreadCategory) =>
   useAuthenticatedFphgoQuery({
     queryFn: (_context, authToken) => listMessageThreads(category, authToken),
     queryKey: mobileQueryKeys.messages.threads(category),
+    staleTime: 30 * 1000,
+  });
+
+export const useMessageUnreadCountQuery = () =>
+  useAuthenticatedFphgoQuery({
+    queryFn: (_context, authToken) => getMessageUnreadCount(authToken),
+    queryKey: mobileQueryKeys.messages.unreadCount(),
     staleTime: 30 * 1000,
   });
 

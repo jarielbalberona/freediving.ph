@@ -1,11 +1,15 @@
 import type {
+  MessagingMarkReadRequest,
   MessagingMarkReadResponse,
+  MessagingOpenDirectThreadRequest,
   MessagingResolveThreadRequestResponse,
+  MessagingSendMessageRequest,
   MessagingSendMessageResponse,
   MessagingThreadCategory,
   MessagingThreadDetailResponse,
   MessagingThreadListResponse,
   MessagingThreadMessagesResponse,
+  MessagingUnreadCountResponse,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -32,11 +36,28 @@ export const listMessageThreads = (
     { auth: "required", authToken },
   );
 
+export const getMessageUnreadCount = (authToken: string) =>
+  fphgoFetch<MessagingUnreadCountResponse>("/v1/messages/unread-count", {
+    auth: "required",
+    authToken,
+  });
+
 export const getMessageThread = (threadId: string, authToken: string) =>
   fphgoFetch<MessagingThreadDetailResponse>(
     `/v1/messages/threads/${encodeURIComponent(threadId)}`,
     { auth: "required", authToken },
   );
+
+export const openDirectMessageThread = (
+  payload: MessagingOpenDirectThreadRequest,
+  authToken: string,
+) =>
+  fphgoFetch<MessagingThreadDetailResponse>("/v1/messages/threads/direct", {
+    auth: "required",
+    authToken,
+    body: payload,
+    method: "POST",
+  });
 
 export const listThreadMessages = (threadId: string, authToken: string) =>
   fphgoFetch<MessagingThreadMessagesResponse>(
@@ -48,7 +69,7 @@ export const listThreadMessages = (threadId: string, authToken: string) =>
 
 export const sendThreadMessage = (
   threadId: string,
-  payload: { body: string; clientId: string },
+  payload: MessagingSendMessageRequest,
   authToken: string,
 ) =>
   fphgoFetch<MessagingSendMessageResponse>(
@@ -77,13 +98,16 @@ export const markThreadRead = (
   threadId: string,
   lastReadMessageId: string,
   authToken: string,
-) =>
-  fphgoFetch<MessagingMarkReadResponse>(
+) => {
+  const body: MessagingMarkReadRequest = { lastReadMessageId };
+
+  return fphgoFetch<MessagingMarkReadResponse>(
     `/v1/messages/threads/${encodeURIComponent(threadId)}/read`,
     {
       auth: "required",
       authToken,
-      body: { lastReadMessageId },
+      body,
       method: "POST",
     },
   );
+};

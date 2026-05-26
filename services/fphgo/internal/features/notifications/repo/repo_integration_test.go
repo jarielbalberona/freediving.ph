@@ -86,6 +86,91 @@ func TestOutboxEnqueueIdempotencyPreventsDuplicateRows(t *testing.T) {
 	}
 }
 
+func TestListPushDeliveryTargetsForOutboxRespectsPreferencesAndDisabledTokens(t *testing.T) {
+	pool := testNotificationsPool(t)
+	repo := notificationsrepo.New(pool)
+	ctx := context.Background()
+
+	enabledUserID := uuid.NewString()
+	optedOutUserID := uuid.NewString()
+	disabledTokenUserID := uuid.NewString()
+	outboxKey := "test:notification-push-targets:" + uuid.NewString()
+	userIDs := []string{enabledUserID, optedOutUserID, disabledTokenUserID}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `
+			DELETE FROM notifications WHERE idempotency_key LIKE $1 || ':%';
+			DELETE FROM device_push_tokens WHERE user_id::text = ANY($2);
+			DELETE FROM notification_settings WHERE user_id::text = ANY($2);
+			DELETE FROM users WHERE id::text = ANY($2);
+		`, outboxKey, userIDs)
+	})
+
+	for _, userID := range userIDs {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO users (id, username, display_name, global_role, account_status)
+			VALUES ($1, $2, 'Push Test', 'member', 'active')
+		`, userID, "push_"+userID[:8]); err != nil {
+			t.Fatalf("insert user: %v", err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO notification_settings (user_id, push_enabled, chika_replies)
+		VALUES ($1, TRUE, TRUE), ($2, TRUE, FALSE), ($3, TRUE, TRUE)
+	`, enabledUserID, optedOutUserID, disabledTokenUserID); err != nil {
+		t.Fatalf("insert settings: %v", err)
+	}
+
+	for _, userID := range userIDs {
+		if _, err := repo.RegisterDevice(ctx, notificationsrepo.RegisterDeviceInput{
+			UserID:        userID,
+			ExpoPushToken: "ExponentPushToken[" + userID + "]",
+			Platform:      "ios",
+		}); err != nil {
+			t.Fatalf("register device: %v", err)
+		}
+	}
+	if err := repo.DisablePushToken(ctx, "ExponentPushToken["+disabledTokenUserID+"]"); err != nil {
+		t.Fatalf("disable token: %v", err)
+	}
+
+	for _, userID := range userIDs {
+		idempotencyKey := outboxKey + ":" + userID
+		if _, err := repo.Create(ctx, notificationsrepo.CreateInput{
+			UserID:         userID,
+			Type:           "CHIKA_THREAD_COMMENTED",
+			Category:       "chika",
+			Title:          "Someone replied",
+			Message:        "A new reply was added.",
+			Priority:       "NORMAL",
+			IdempotencyKey: &idempotencyKey,
+		}); err != nil {
+			t.Fatalf("create notification: %v", err)
+		}
+	}
+
+	targets, err := repo.ListPushDeliveryTargetsForOutbox(ctx, outboxKey)
+	if err != nil {
+		t.Fatalf("list push delivery targets: %v", err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("expected only enabled opted-in token, got %d targets: %#v", len(targets), targets)
+	}
+	if targets[0].Notification.UserID != enabledUserID {
+		t.Fatalf("expected enabled user target, got %s", targets[0].Notification.UserID)
+	}
+
+	if err := repo.MarkNotificationPushSent(ctx, targets[0].Notification.ID); err != nil {
+		t.Fatalf("mark notification push sent: %v", err)
+	}
+	targets, err = repo.ListPushDeliveryTargetsForOutbox(ctx, outboxKey)
+	if err != nil {
+		t.Fatalf("list push delivery targets after mark sent: %v", err)
+	}
+	if len(targets) != 0 {
+		t.Fatalf("expected push-sent notification to be filtered out, got %#v", targets)
+	}
+}
+
 func TestListActiveInstructorReviewerRecipientsFiltersToSuperAdmins(t *testing.T) {
 	pool := testNotificationsPool(t)
 	repo := notificationsrepo.New(pool)

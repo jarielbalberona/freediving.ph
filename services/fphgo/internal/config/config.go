@@ -40,6 +40,8 @@ type Config struct {
 	CloudflareStreamRequireSignedURLs bool
 	ChikaPseudonymSecret              string
 	WSFanoutChannel                   string
+	PushDeliveryEnabled               bool
+	ExpoPushAccessToken               string
 }
 
 func Load() (Config, error) {
@@ -129,6 +131,8 @@ func Load() (Config, error) {
 	}
 	chikaPseudonymSecret := strings.TrimSpace(os.Getenv("CHIKA_PSEUDONYM_SECRET"))
 	wsFanoutChannel := strings.TrimSpace(os.Getenv("WS_FANOUT_CHANNEL"))
+	pushDeliveryEnabled := parseBoolEnv(os.Getenv("PUSH_DELIVERY_ENABLED"))
+	expoPushAccessToken := strings.TrimSpace(os.Getenv("EXPO_PUSH_ACCESS_TOKEN"))
 
 	if strings.EqualFold(env, "production") {
 		if clerkSecretKey == "" {
@@ -208,6 +212,8 @@ func Load() (Config, error) {
 		CloudflareStreamRequireSignedURLs: cloudflareStreamRequireSignedURLs,
 		ChikaPseudonymSecret:              chikaPseudonymSecret,
 		WSFanoutChannel:                   wsFanoutChannel,
+		PushDeliveryEnabled:               pushDeliveryEnabled,
+		ExpoPushAccessToken:               expoPushAccessToken,
 	}, nil
 }
 

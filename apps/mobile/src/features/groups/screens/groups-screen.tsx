@@ -16,7 +16,12 @@ import { useGroupsQuery } from "@/features/groups/hooks/use-groups-query";
 
 const safeSlug = (value: string | undefined) => {
   const trimmed = value?.trim();
-  return trimmed && !trimmed.includes("/") ? trimmed : undefined;
+  return trimmed &&
+    !trimmed.includes("/") &&
+    !trimmed.includes("?") &&
+    !trimmed.includes("#")
+    ? trimmed
+    : undefined;
 };
 
 function GroupCard({ group }: { group: Group }) {

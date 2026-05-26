@@ -1,6 +1,7 @@
 import type {
   ProfileDivingResponse,
   ProfilePost,
+  ProfilePostsResponse,
   ProfileResponse,
   PublicProfileResponse,
   UpdateMyProfileRequest,
@@ -36,10 +37,10 @@ export const updateMyProfile = (
   });
 
 export const getProfilePosts = (username: string) =>
-  fphgoFetch<ProfilePost[]>(
+  fphgoFetch<ProfilePostsResponse>(
     `/v1/profiles/by-username/${encodeURIComponent(username)}/posts`,
     { auth: "optional" },
-  );
+  ).then((response) => response.items);
 
 export const getProfileDiving = (username: string) =>
   fphgoFetch<ProfileDivingResponse>(

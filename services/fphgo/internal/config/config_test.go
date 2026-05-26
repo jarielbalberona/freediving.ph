@@ -39,6 +39,8 @@ func TestLoadReadsTuningEnv(t *testing.T) {
 	t.Setenv("DB_MIN_CONNS", "5")
 	t.Setenv("DB_CONN_MAX_LIFETIME", "45m")
 	t.Setenv("LOG_LEVEL", "warn")
+	t.Setenv("PUSH_DELIVERY_ENABLED", "true")
+	t.Setenv("EXPO_PUSH_ACCESS_TOKEN", "expo-token")
 
 	cfg, err := Load()
 	if err != nil {
@@ -59,6 +61,12 @@ func TestLoadReadsTuningEnv(t *testing.T) {
 	}
 	if cfg.LogLevel != "warn" {
 		t.Fatalf("expected log level warn, got %s", cfg.LogLevel)
+	}
+	if !cfg.PushDeliveryEnabled {
+		t.Fatal("expected push delivery to be enabled")
+	}
+	if cfg.ExpoPushAccessToken != "expo-token" {
+		t.Fatalf("expected Expo push access token to load, got %q", cfg.ExpoPushAccessToken)
 	}
 }
 

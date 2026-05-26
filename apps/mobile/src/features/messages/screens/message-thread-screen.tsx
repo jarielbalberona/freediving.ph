@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
 import {
@@ -32,18 +32,36 @@ export function MessageThreadScreen() {
   const resolveMutation = useResolveMessageRequestMutation(threadId ?? "");
   const markReadMutation = useMarkThreadReadMutation(threadId ?? "");
   const [draft, setDraft] = useState("");
+  const [requestMessage, setRequestMessage] = useState<string | null>(null);
+  const [sendErrorMessage, setSendErrorMessage] = useState<string | null>(null);
+  const lastMarkedReadRef = useRef<string | null>(null);
   const messages = useMemo(
-    () => [...(messagesQuery.data?.items ?? [])].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    () =>
+      [...(messagesQuery.data?.items ?? [])].sort((a, b) =>
+        a.createdAt.localeCompare(b.createdAt),
+      ),
     [messagesQuery.data?.items],
   );
   const thread = threadQuery.data;
   const lastMessageId = messages.at(-1)?.id;
+  const markRead = markReadMutation.mutate;
 
   useEffect(() => {
-    if (threadId && lastMessageId) {
-      markReadMutation.mutate(lastMessageId);
-    }
-  }, [threadId, lastMessageId]);
+    if (!threadId || !lastMessageId || markReadMutation.isPending) return;
+    if (thread?.lastReadMessageId === lastMessageId) return;
+
+    const markReadKey = `${threadId}:${lastMessageId}`;
+    if (lastMarkedReadRef.current === markReadKey) return;
+
+    lastMarkedReadRef.current = markReadKey;
+    markRead(lastMessageId);
+  }, [
+    threadId,
+    lastMessageId,
+    markRead,
+    markReadMutation.isPending,
+    thread?.lastReadMessageId,
+  ]);
 
   if (!threadId) {
     return (
@@ -71,11 +89,22 @@ export function MessageThreadScreen() {
           message="This conversation is taking longer than expected to load."
           title="Conversation unavailable"
         />
+        <View className="mt-3">
+          <MobileButton
+            variant="secondary"
+            onPress={() => {
+              void threadQuery.refetch();
+              void messagesQuery.refetch();
+            }}
+          >
+            Try again
+          </MobileButton>
+        </View>
       </MobileScrollScreen>
     );
   }
 
-  const participant = thread?.participants.find((item) => item.id !== messages.at(-1)?.senderUserId);
+  const participant = thread?.participants[0];
   const title = participant?.displayName || participant?.username || "Conversation";
   const canSend = Boolean(thread?.canSend);
   const canResolve = Boolean(thread?.canResolveRequest);
@@ -93,7 +122,16 @@ export function MessageThreadScreen() {
               <View className="flex-1">
                 <MobileButton
                   disabled={resolveMutation.isPending}
-                  onPress={() => resolveMutation.mutate("accept")}
+                  onPress={() => {
+                    setRequestMessage(null);
+                    resolveMutation.mutate("accept", {
+                      onError: () =>
+                        setRequestMessage(
+                          "Could not update this request. Try again.",
+                        ),
+                      onSuccess: () => setRequestMessage("Request accepted."),
+                    });
+                  }}
                 >
                   Accept
                 </MobileButton>
@@ -102,12 +140,24 @@ export function MessageThreadScreen() {
                 <MobileButton
                   disabled={resolveMutation.isPending}
                   variant="danger"
-                  onPress={() => resolveMutation.mutate("decline")}
+                  onPress={() => {
+                    setRequestMessage(null);
+                    resolveMutation.mutate("decline", {
+                      onError: () =>
+                        setRequestMessage(
+                          "Could not update this request. Try again.",
+                        ),
+                      onSuccess: () => setRequestMessage("Request declined."),
+                    });
+                  }}
                 >
                   Decline
                 </MobileButton>
               </View>
             </View>
+            {requestMessage ? (
+              <Text className="text-sm text-muted-foreground">{requestMessage}</Text>
+            ) : null}
           </MobileSection>
         ) : null}
 
@@ -145,7 +195,9 @@ export function MessageThreadScreen() {
               editable={canSend && !sendMutation.isPending}
               multiline
               onChangeText={setDraft}
-              placeholder={canSend ? "Write a message" : "You cannot reply to this request yet."}
+              placeholder={
+                canSend ? "Write a message" : "You cannot reply to this request yet."
+              }
               placeholderTextColor="#64748b"
               value={draft}
             />
@@ -154,13 +206,19 @@ export function MessageThreadScreen() {
               onPress={() => {
                 const body = draft.trim();
                 if (!body) return;
+                setSendErrorMessage(null);
                 sendMutation.mutate(body, {
+                  onError: () =>
+                    setSendErrorMessage("Could not send message. Try again."),
                   onSuccess: () => setDraft(""),
                 });
               }}
             >
               Send
             </MobileButton>
+            {sendErrorMessage ? (
+              <Text className="text-sm text-muted-foreground">{sendErrorMessage}</Text>
+            ) : null}
           </View>
         </MobileSection>
       </MobileScrollScreen>

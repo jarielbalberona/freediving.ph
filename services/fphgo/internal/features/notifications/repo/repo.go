@@ -99,6 +99,11 @@ type DevicePushToken struct {
 	UpdatedAt     time.Time
 }
 
+type PushDeliveryTarget struct {
+	Notification Notification
+	DeviceToken  DevicePushToken
+}
+
 type CreateInput struct {
 	UserID            string
 	Type              string
@@ -284,6 +289,109 @@ func (r *Repo) DeleteDeviceForUser(ctx context.Context, userID, deviceID string)
 		return pgx.ErrNoRows
 	}
 	return nil
+}
+
+func (r *Repo) ListPushDeliveryTargetsForOutbox(ctx context.Context, outboxIdempotencyKey string) ([]PushDeliveryTarget, error) {
+	prefix := strings.TrimSpace(outboxIdempotencyKey)
+	if prefix == "" {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT
+			n.id,
+			n.user_id::text,
+			n.type::text,
+			n.category,
+			n.title,
+			n.message,
+			n.status::text,
+			n.priority::text,
+			n.actor_user_id::text,
+			n.related_user_id::text,
+			n.related_entity_type,
+			n.related_entity_id,
+			n.image_url,
+			n.action_url,
+			n.metadata,
+			n.is_email_sent,
+			n.is_push_sent,
+			n.email_sent_at,
+			n.push_sent_at,
+			n.read_at,
+			n.seen_at,
+			n.archived_at,
+			n.idempotency_key,
+			n.created_at,
+			n.updated_at,
+			d.id::text,
+			d.user_id::text,
+			d.expo_push_token,
+			d.platform,
+			d.device_id,
+			d.device_name,
+			d.app_version,
+			d.enabled,
+			d.last_seen_at,
+			d.created_at,
+			d.updated_at
+		FROM notifications n
+		JOIN device_push_tokens d ON d.user_id = n.user_id AND d.enabled = TRUE
+		LEFT JOIN notification_settings ns ON ns.user_id = n.user_id
+		WHERE n.idempotency_key LIKE $1 || ':%'
+		  AND n.status <> 'DELETED'
+		  AND n.is_push_sent = FALSE
+		  AND COALESCE(ns.push_enabled, TRUE) = TRUE
+		  AND CASE
+			WHEN n.category = 'chika' THEN COALESCE(ns.chika_replies, TRUE)
+			WHEN n.category = 'events' THEN COALESCE(ns.event_notifications, TRUE)
+			WHEN n.category = 'groups' THEN COALESCE(ns.group_notifications, TRUE)
+			WHEN n.category = 'booking' THEN COALESCE(ns.booking_notifications, TRUE)
+			WHEN n.category = 'session' THEN COALESCE(ns.session_notifications, TRUE)
+			WHEN n.category = 'service' THEN COALESCE(ns.service_notifications, TRUE)
+			WHEN n.type::text = 'NEW_DIVE_SITE_PUBLISHED' THEN COALESCE(ns.new_dive_site_published, TRUE)
+			WHEN n.type::text LIKE 'INSTRUCTOR_APPLICATION_%' THEN COALESCE(ns.instructor_application_notifications, TRUE)
+			ELSE TRUE
+		  END
+		ORDER BY n.id ASC, d.created_at ASC
+	`, prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	targets := make([]PushDeliveryTarget, 0)
+	for rows.Next() {
+		target, scanErr := scanPushDeliveryTargetRow(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		targets = append(targets, target)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return targets, nil
+}
+
+func (r *Repo) MarkNotificationPushSent(ctx context.Context, notificationID int64) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE notifications
+		SET
+			is_push_sent = TRUE,
+			push_sent_at = COALESCE(push_sent_at, NOW()),
+			updated_at = NOW()
+		WHERE id = $1
+	`, notificationID)
+	return err
+}
+
+func (r *Repo) DisablePushToken(ctx context.Context, expoPushToken string) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE device_push_tokens
+		SET enabled = FALSE, updated_at = NOW()
+		WHERE expo_push_token = $1
+	`, strings.TrimSpace(expoPushToken))
+	return err
 }
 
 func (r *Repo) EnqueueOutbox(ctx context.Context, input OutboxEnqueueInput) (NotificationOutbox, error) {
@@ -1514,6 +1622,69 @@ func scanNotificationRow(row rowScanner) (Notification, error) {
 	item.SeenAt = toUTCPtr(item.SeenAt)
 	item.ArchivedAt = toUTCPtr(item.ArchivedAt)
 	return item, nil
+}
+
+func scanPushDeliveryTargetRow(row rowScanner) (PushDeliveryTarget, error) {
+	var target PushDeliveryTarget
+	var metadataRaw []byte
+	err := row.Scan(
+		&target.Notification.ID,
+		&target.Notification.UserID,
+		&target.Notification.Type,
+		&target.Notification.Category,
+		&target.Notification.Title,
+		&target.Notification.Message,
+		&target.Notification.Status,
+		&target.Notification.Priority,
+		&target.Notification.ActorUserID,
+		&target.Notification.RelatedUserID,
+		&target.Notification.RelatedEntityType,
+		&target.Notification.RelatedEntityID,
+		&target.Notification.ImageURL,
+		&target.Notification.ActionURL,
+		&metadataRaw,
+		&target.Notification.IsEmailSent,
+		&target.Notification.IsPushSent,
+		&target.Notification.EmailSentAt,
+		&target.Notification.PushSentAt,
+		&target.Notification.ReadAt,
+		&target.Notification.SeenAt,
+		&target.Notification.ArchivedAt,
+		&target.Notification.IdempotencyKey,
+		&target.Notification.CreatedAt,
+		&target.Notification.UpdatedAt,
+		&target.DeviceToken.ID,
+		&target.DeviceToken.UserID,
+		&target.DeviceToken.ExpoPushToken,
+		&target.DeviceToken.Platform,
+		&target.DeviceToken.DeviceID,
+		&target.DeviceToken.DeviceName,
+		&target.DeviceToken.AppVersion,
+		&target.DeviceToken.Enabled,
+		&target.DeviceToken.LastSeenAt,
+		&target.DeviceToken.CreatedAt,
+		&target.DeviceToken.UpdatedAt,
+	)
+	if err != nil {
+		return PushDeliveryTarget{}, err
+	}
+	target.Notification.Metadata = map[string]any{}
+	if len(metadataRaw) > 0 {
+		if unmarshalErr := json.Unmarshal(metadataRaw, &target.Notification.Metadata); unmarshalErr != nil {
+			return PushDeliveryTarget{}, fmt.Errorf("unmarshal notification metadata: %w", unmarshalErr)
+		}
+	}
+	target.Notification.CreatedAt = target.Notification.CreatedAt.UTC()
+	target.Notification.UpdatedAt = target.Notification.UpdatedAt.UTC()
+	target.Notification.EmailSentAt = toUTCPtr(target.Notification.EmailSentAt)
+	target.Notification.PushSentAt = toUTCPtr(target.Notification.PushSentAt)
+	target.Notification.ReadAt = toUTCPtr(target.Notification.ReadAt)
+	target.Notification.SeenAt = toUTCPtr(target.Notification.SeenAt)
+	target.Notification.ArchivedAt = toUTCPtr(target.Notification.ArchivedAt)
+	target.DeviceToken.LastSeenAt = target.DeviceToken.LastSeenAt.UTC()
+	target.DeviceToken.CreatedAt = target.DeviceToken.CreatedAt.UTC()
+	target.DeviceToken.UpdatedAt = target.DeviceToken.UpdatedAt.UTC()
+	return target, nil
 }
 
 func scanOutboxRow(row rowScanner) (NotificationOutbox, error) {

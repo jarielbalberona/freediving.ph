@@ -18,8 +18,12 @@ export const mobileQueryKeys = {
     sites: () => [...mobileQueryKeys.explore.all, "sites"] as const,
     siteList: (params: { limit?: number }) =>
       [...mobileQueryKeys.explore.all, "sites", params] as const,
+    siteDetails: () =>
+      [...mobileQueryKeys.explore.all, "sites", "detail"] as const,
     siteDetail: (slug: string) =>
-      [...mobileQueryKeys.explore.all, "sites", "detail", slug] as const,
+      [...mobileQueryKeys.explore.siteDetails(), slug] as const,
+    submissions: () => [...mobileQueryKeys.explore.all, "submissions"] as const,
+    mySubmissions: () => [...mobileQueryKeys.explore.submissions(), "mine"] as const,
   },
   chika: {
     all: ["chika"] as const,
@@ -43,21 +47,27 @@ export const mobileQueryKeys = {
       [...mobileQueryKeys.events.all, "list", params] as const,
     detail: (slug: string) =>
       [...mobileQueryKeys.events.all, "detail", slug] as const,
+    posts: (eventId: string) =>
+      [...mobileQueryKeys.events.all, "posts", eventId] as const,
   },
   buddies: {
     all: ["buddies"] as const,
+    previews: () => [...mobileQueryKeys.buddies.all, "preview"] as const,
     preview: (params?: { limit?: number }) =>
-      [...mobileQueryKeys.buddies.all, "preview", params ?? {}] as const,
+      [...mobileQueryKeys.buddies.previews(), params ?? {}] as const,
+    intentLists: () => [...mobileQueryKeys.buddies.all, "intents"] as const,
     intents: (params?: { limit?: number }) =>
-      [...mobileQueryKeys.buddies.all, "intents", params ?? {}] as const,
+      [...mobileQueryKeys.buddies.intentLists(), params ?? {}] as const,
     mine: () => [...mobileQueryKeys.buddies.all, "mine"] as const,
   },
   groups: {
     all: ["groups"] as const,
+    lists: () => [...mobileQueryKeys.groups.all, "list"] as const,
     list: (params?: { limit?: number; mine?: boolean }) =>
-      [...mobileQueryKeys.groups.all, "list", params ?? {}] as const,
+      [...mobileQueryKeys.groups.lists(), params ?? {}] as const,
+    details: () => [...mobileQueryKeys.groups.all, "detail"] as const,
     detail: (slug: string) =>
-      [...mobileQueryKeys.groups.all, "detail", slug] as const,
+      [...mobileQueryKeys.groups.details(), slug] as const,
     members: (groupId: string) =>
       [...mobileQueryKeys.groups.all, "detail", groupId, "members"] as const,
     posts: (groupId: string) =>
@@ -65,12 +75,16 @@ export const mobileQueryKeys = {
   },
   messages: {
     all: ["messages"] as const,
+    threadLists: () =>
+      [...mobileQueryKeys.messages.all, "threads", "list"] as const,
     threads: (category: string) =>
-      [...mobileQueryKeys.messages.all, "threads", category] as const,
+      [...mobileQueryKeys.messages.threadLists(), category] as const,
+    threadDetails: () =>
+      [...mobileQueryKeys.messages.all, "threads", "detail"] as const,
     detail: (threadId: string) =>
-      [...mobileQueryKeys.messages.all, "threads", threadId] as const,
+      [...mobileQueryKeys.messages.threadDetails(), threadId] as const,
     messages: (threadId: string) =>
-      [...mobileQueryKeys.messages.all, "threads", threadId, "messages"] as const,
+      [...mobileQueryKeys.messages.detail(threadId), "messages"] as const,
     unreadCount: () => [...mobileQueryKeys.messages.all, "unread-count"] as const,
   },
   notifications: {

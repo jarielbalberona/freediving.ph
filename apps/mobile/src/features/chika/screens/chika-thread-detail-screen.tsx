@@ -305,23 +305,13 @@ export function ChikaThreadDetailScreen() {
                     createComment.mutate(
                       { content, parentCommentId: replyTo },
                       {
-                        onError: (error) => {
+                        onError: () => {
                           void localCommentDraft.save({
                             content,
                             parentCommentId: replyTo,
                             threadId: thread.id,
                           });
-                          if (!canQueueFailedMutation(error)) return;
-                          void outbox.enqueue({
-                            entityId: thread.id,
-                            entityType: "chika_comment",
-                            operationType: "chika_comment_create",
-                            payload: {
-                              content,
-                              parentCommentId: replyTo,
-                              threadId: thread.id,
-                            },
-                          });
+                          setActionMessage("Could not post reply. Saved as draft.");
                         },
                         onSuccess: () => {
                           void localCommentDraft.clearSubmitted();

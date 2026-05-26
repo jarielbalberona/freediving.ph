@@ -51,6 +51,10 @@ export type ProfilePost = {
   commentCount: number;
 };
 
+export type ProfilePostsResponse = {
+  items: ProfilePost[];
+};
+
 export type ProfileDivePresence = {
   id: string;
   diveSiteId: string;

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type {
+  ExploreSiteLikeResponse,
+  ExploreSiteSaveResponse,
   NotificationSettings,
   PushDevicePlatform,
   RegisterPushDeviceRequest,
@@ -68,4 +70,19 @@ test("notification contracts expose push device and dive alert preferences", () 
   assert.equal(device.platform, "ios");
   assert.equal(update.diveConditionRegions?.[0], "Batangas");
   assert.equal(settings.profileSocialUpdates, true);
+});
+
+test("explore social action responses expose server truth", () => {
+  const like: ExploreSiteLikeResponse = {
+    likeCount: 3,
+    targetId: "site-1",
+    viewerHasLiked: true,
+  };
+  const save: ExploreSiteSaveResponse = {
+    saved: true,
+  };
+
+  assert.equal(like.targetId, "site-1");
+  assert.equal(like.viewerHasLiked, true);
+  assert.equal(save.saved, true);
 });
