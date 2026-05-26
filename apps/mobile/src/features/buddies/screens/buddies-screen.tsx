@@ -229,6 +229,24 @@ export function BuddiesScreen() {
           >
             Save as draft
           </MobileButton>
+          {buddyDraft.draft ? (
+            <MobileButton
+              variant="ghost"
+              onPress={() =>
+                void buddyDraft.discard().then(() => {
+                  setArea("");
+                  setDateEnd("");
+                  setDateStart("");
+                  setFormMessage("Draft discarded.");
+                  setIntentType("fun_dive");
+                  setNote("");
+                  setTimeWindow("weekend");
+                })
+              }
+            >
+              Discard draft
+            </MobileButton>
+          ) : null}
           <MobileButton
             disabled={createIntent.isPending || !canCreate}
             onPress={() => {

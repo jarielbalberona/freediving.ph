@@ -177,6 +177,20 @@ export function ProfileScreen() {
             >
               Save draft
             </MobileButton>
+            {profileDraft.draft ? (
+              <MobileButton
+                variant="ghost"
+                onPress={() =>
+                  void profileDraft.discard().then(() => {
+                    setActionMessage("Draft discarded.");
+                    setBio(profile.bio ?? "");
+                    setDisplayName(profile.displayName);
+                  })
+                }
+              >
+                Discard draft
+              </MobileButton>
+            ) : null}
             <MobileButton
               disabled={updateProfile.isPending || displayName.trim().length < 2}
               onPress={() => {

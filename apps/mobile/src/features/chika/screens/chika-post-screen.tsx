@@ -141,6 +141,21 @@ export function ChikaPostScreen() {
           >
             Save as draft
           </MobileButton>
+          {chikaDraft.draft ? (
+            <MobileButton
+              variant="ghost"
+              onPress={() =>
+                void chikaDraft.discard().then(() => {
+                  setActionMessage("Draft discarded.");
+                  setCategoryId("");
+                  setContent("");
+                  setTitle("");
+                })
+              }
+            >
+              Discard draft
+            </MobileButton>
+          ) : null}
           <MobileButton
             disabled={
               createThread.isPending ||

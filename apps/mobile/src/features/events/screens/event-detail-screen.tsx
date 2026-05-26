@@ -387,6 +387,20 @@ export function EventDetailScreen() {
                   >
                     Save draft
                   </MobileButton>
+                  {eventPostDraft.draft && draftApplies ? (
+                    <MobileButton
+                      variant="ghost"
+                      onPress={() =>
+                        void eventPostDraft.discard().then(() => {
+                          setPostBody("");
+                          setPostMessage("Draft discarded.");
+                          setPostTitle("");
+                        })
+                      }
+                    >
+                      Discard draft
+                    </MobileButton>
+                  ) : null}
                   <MobileButton
                     disabled={createPostMutation.isPending || postBody.trim().length === 0}
                     onPress={() => {

@@ -365,9 +365,9 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(api, /\/v1\/chika\/threads/);
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /features\/chika\/types/);
-  assert.match(api, /getChikaThreads[\s\S]*auth:\s*"none"/);
-  assert.match(api, /getChikaThreadDetail[\s\S]*auth:\s*"none"/);
-  assert.match(api, /getChikaComments[\s\S]*auth:\s*"none"/);
+  assert.match(api, /getChikaThreads[\s\S]*auth:\s*"optional"/);
+  assert.match(api, /getChikaThreadDetail[\s\S]*auth:\s*"optional"/);
+  assert.match(api, /getChikaComments[\s\S]*auth:\s*"optional"/);
   assert.match(api, /ChikaCommentReactionResponse/);
   assert.match(api, /createChikaThread/);
   assert.match(api, /createChikaComment/);
@@ -379,9 +379,15 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(api, /createChikaThread[\s\S]*auth:\s*"required"/);
   assert.match(api, /createChikaComment[\s\S]*auth:\s*"required"/);
   assert.match(api, /setChikaThreadReaction[\s\S]*auth:\s*"required"/);
+  assert.match(api, /setChikaThreadReaction[\s\S]*idempotencyKey/);
   assert.match(api, /removeChikaThreadReaction[\s\S]*auth:\s*"required"/);
+  assert.match(api, /removeChikaThreadReaction[\s\S]*method:\s*"DELETE"/);
+  assert.match(api, /removeChikaThreadReaction[\s\S]*idempotencyKey/);
   assert.match(api, /setChikaCommentReaction[\s\S]*auth:\s*"required"/);
+  assert.match(api, /setChikaCommentReaction[\s\S]*idempotencyKey/);
   assert.match(api, /removeChikaCommentReaction[\s\S]*auth:\s*"required"/);
+  assert.match(api, /removeChikaCommentReaction[\s\S]*method:\s*"DELETE"/);
+  assert.match(api, /removeChikaCommentReaction[\s\S]*idempotencyKey/);
   assert.match(card, /safeChikaSlug/);
   assert.match(format, /authorDisplayName/);
   assert.match(card, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
@@ -397,6 +403,8 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(detail, /onReact=\{\s*canUseChikaActions/);
   assert.match(detail, /onReply=\{canUseChikaActions \? setReplyTo : undefined\}/);
   assert.match(detail, /actionsDisabled/);
+  assert.match(detail, /shouldFallbackToLocalChikaState/);
+  assert.match(detail, /error instanceof TypeError/);
   assert.match(postScreen, /requireSignedIn/);
   assert.match(postScreen, /Sign in to post Chika/);
   assert.match(postScreen, /Categories unavailable/);
@@ -404,7 +412,23 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(mutations, /requireMutationTarget/);
   assert.match(mutations, /Checking your session\. Try again in a moment\./);
   assert.match(mutations, /Sign in to continue\./);
+  assert.match(mutations, /chikaThreadListKey/);
   assert.match(mutations, /threadCommentsRoot\(threadId\)/);
+  assert.match(mutations, /patchThreadReaction/);
+  assert.match(mutations, /patchCommentReactionState/);
+  assert.match(mutations, /nextVoteCount/);
+  assert.match(mutations, /makeOnlineMutationKey/);
+  assert.match(mutations, /makeIdempotencyKey/);
+  assert.match(mutations, /getMobileAuthTokenSafe/);
+  assert.match(mutations, /onMutate/);
+  assert.match(
+    mutations,
+    /removeChikaThreadReaction\(targetThreadId, token, idempotencyKey\)/,
+  );
+  assert.match(
+    mutations,
+    /removeChikaCommentReaction\(targetCommentId, token, idempotencyKey\)/,
+  );
   assert.doesNotMatch(mutations, /limit:\s*50/);
   assert.match(mutations, /threadDetail\(slug\)/);
   assert.match(mutations, /setQueriesData<ChikaCommentListResponse>/);
@@ -419,6 +443,9 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(screen, /Sign in to post Chika/);
   assert.match(commentCard, /showActions/);
   assert.match(commentCard, /Boolean\(onReact \|\| onReply\)/);
+  assert.match(detail, /canQueueFailedMutation\(error\)/);
+  assert.match(detail, /Could not post reply\. Saved as draft\./);
+  assert.match(detail, /Could not post reply\./);
 });
 
 test("events uses shared contracts and member event actions", () => {
@@ -462,6 +489,7 @@ test("events uses shared contracts and member event actions", () => {
   assert.match(detail, /Request to join/);
   assert.match(detail, /Marked interested/);
   assert.match(detail, /Post update/);
+  assert.match(detail, /Discard draft/);
   assert.match(detail, /Could not update fish reaction/);
   assert.doesNotMatch(
     detail,
@@ -547,6 +575,7 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   assert.match(ownScreen, /ProfilePostCard/);
   assert.match(ownScreen, /ProfileDivingSection/);
   assert.match(ownScreen, /Could not update profile\. Saved as draft\./);
+  assert.match(ownScreen, /Discard draft/);
   assert.match(publicScreen, /ProfilePostCard/);
   assert.match(publicScreen, /ProfileDivingSection/);
   assert.match(postCard, /safeImageUrl/);
@@ -742,6 +771,7 @@ test("buddies use shared public and member intent contracts", () => {
   assert.match(screen, /MobileEmptyState/);
   assert.match(screen, /MobileErrorState/);
   assert.match(screen, /Create intent/);
+  assert.match(screen, /Discard draft/);
   assert.match(screen, /profileHrefForUsername/);
   assert.match(screen, /\/\(app\)\/\(tabs\)\/messages\/\[threadId\]/);
   assert.match(screen, /specific_date/);
@@ -949,9 +979,13 @@ test("sync runner is manual, idempotent, and server-response gated", () => {
   assert.match(chikaDetail, /shouldQueueFailedMutation/);
   assert.match(eventsDetail, /shouldQueueFailedMutation/);
   assert.match(exploreScreen, /shouldQueueFailedMutation/);
+  assert.match(exploreScreen, /outbox\.message === "Synced"/);
+  assert.match(exploreScreen, /setActionMessage\(null\)/);
   assert.match(createScreen, /Saved as draft/);
   assert.match(buddiesScreen, /Saved as draft/);
+  assert.match(buddiesScreen, /Discard draft/);
   assert.match(chikaDetail, /Saved as draft/);
+  assert.match(chikaDetail, /Discard draft/);
 });
 
 test("local state does not become canonical server state", () => {

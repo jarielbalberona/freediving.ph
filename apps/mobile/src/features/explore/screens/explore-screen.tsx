@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 import type { CreateExploreSiteSubmissionRequest } from "@freediving.ph/types";
@@ -180,6 +180,12 @@ export function ExploreScreen() {
   const sites = sitesQuery.data?.items ?? [];
   const submissions = submissionsQuery.data?.items ?? [];
   const canUseMemberActions = isLoaded && Boolean(isSignedIn);
+
+  useEffect(() => {
+    if (outbox.message === "Synced") {
+      setActionMessage(null);
+    }
+  }, [outbox.message]);
 
   const updateForm = <Key extends keyof SubmissionFormState>(
     key: Key,

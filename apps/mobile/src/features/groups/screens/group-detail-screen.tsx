@@ -259,6 +259,20 @@ export function GroupDetailScreen() {
               >
                 Save draft
               </MobileButton>
+              {groupPostDraft.draft?.payload.groupId === group.id ? (
+                <MobileButton
+                  variant="ghost"
+                  onPress={() =>
+                    void groupPostDraft.discard().then(() => {
+                      setActionMessage("Draft discarded.");
+                      setPostText("");
+                      setPostTitle("");
+                    })
+                  }
+                >
+                  Discard draft
+                </MobileButton>
+              ) : null}
               <MobileButton
                 disabled={createPostMutation.isPending || postText.trim().length === 0}
                 onPress={() => {

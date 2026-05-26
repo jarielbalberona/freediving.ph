@@ -32,13 +32,13 @@ export const getChikaThreads = (params: { limit?: number } = {}) =>
     withQuery("/v1/chika/threads", {
       limit: params.limit,
     }),
-    { auth: "none" },
+    { auth: "optional" },
   );
 
 export const getChikaThreadDetail = (slug: string) =>
   fphgoFetch<ChikaThreadResponse>(
     `/v1/chika/threads/${encodeURIComponent(slug)}`,
-    { auth: "none" },
+    { auth: "optional" },
   );
 
 export const getChikaComments = (threadId: string, params: { limit?: number } = {}) =>
@@ -46,7 +46,7 @@ export const getChikaComments = (threadId: string, params: { limit?: number } = 
     withQuery(`/v1/chika/threads/${encodeURIComponent(threadId)}/comments`, {
       limit: params.limit,
     }),
-    { auth: "none" },
+    { auth: "optional" },
   );
 
 export const getChikaCategories = () =>
@@ -84,6 +84,7 @@ export const setChikaThreadReaction = (
   threadId: string,
   type: ChikaReactionType,
   authToken: string,
+  idempotencyKey?: string,
 ) =>
   fphgoFetch<ChikaThreadReactionResponse>(
     `/v1/chika/threads/${encodeURIComponent(threadId)}/reactions`,
@@ -91,16 +92,22 @@ export const setChikaThreadReaction = (
       auth: "required",
       authToken,
       body: { type } satisfies SetChikaReactionRequest,
+      idempotencyKey,
       method: "POST",
     },
   );
 
-export const removeChikaThreadReaction = (threadId: string, authToken: string) =>
+export const removeChikaThreadReaction = (
+  threadId: string,
+  authToken: string,
+  idempotencyKey?: string,
+) =>
   fphgoFetch<void>(
     `/v1/chika/threads/${encodeURIComponent(threadId)}/reactions`,
     {
       auth: "required",
       authToken,
+      idempotencyKey,
       method: "DELETE",
     },
   );
@@ -109,6 +116,7 @@ export const setChikaCommentReaction = (
   commentId: string,
   type: ChikaReactionType,
   authToken: string,
+  idempotencyKey?: string,
 ) =>
   fphgoFetch<ChikaCommentReactionResponse>(
     `/v1/chika/comments/${encodeURIComponent(commentId)}/reactions`,
@@ -116,6 +124,7 @@ export const setChikaCommentReaction = (
       auth: "required",
       authToken,
       body: { type } satisfies SetChikaReactionRequest,
+      idempotencyKey,
       method: "POST",
     },
   );
@@ -123,12 +132,14 @@ export const setChikaCommentReaction = (
 export const removeChikaCommentReaction = (
   commentId: string,
   authToken: string,
+  idempotencyKey?: string,
 ) =>
   fphgoFetch<ChikaCommentReactionResponse>(
     `/v1/chika/comments/${encodeURIComponent(commentId)}/reactions`,
     {
       auth: "required",
       authToken,
+      idempotencyKey,
       method: "DELETE",
     },
   );

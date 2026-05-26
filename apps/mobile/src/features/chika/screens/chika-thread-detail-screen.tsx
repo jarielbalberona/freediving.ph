@@ -37,6 +37,10 @@ const firstParam = (value: string | string[] | undefined) =>
 const chikaActionErrorMessage = (fallback: string, error: unknown) =>
   error instanceof FphgoApiError ? error.message : fallback;
 
+const shouldFallbackToLocalChikaState = (error: unknown) =>
+  error instanceof TypeError ||
+  (error instanceof FphgoApiError && shouldQueueFailedMutation(error));
+
 export function ChikaThreadDetailScreen() {
   const localParams = useLocalSearchParams<{ slug?: string | string[] }>();
   const globalParams = useGlobalSearchParams<{ slug?: string | string[] }>();
@@ -111,7 +115,7 @@ export function ChikaThreadDetailScreen() {
   };
 
   const canQueueFailedMutation = (error: unknown) =>
-    isLoaded && isSignedIn && shouldQueueFailedMutation(error);
+    isLoaded && isSignedIn && shouldFallbackToLocalChikaState(error);
 
   if (!slug) {
     return (
@@ -346,6 +350,22 @@ export function ChikaThreadDetailScreen() {
                     Save draft
                   </MobileButton>
                 </View>
+                {localCommentDraft.draft ? (
+                  <View className="flex-1">
+                    <MobileButton
+                      variant="ghost"
+                      onPress={() =>
+                        void localCommentDraft.discard().then(() => {
+                          setActionMessage("Draft discarded.");
+                          setCommentDraft("");
+                          setReplyTo(undefined);
+                        })
+                      }
+                    >
+                      Discard draft
+                    </MobileButton>
+                  </View>
+                ) : null}
                 <View className="flex-1">
                   <MobileButton
                     disabled={
@@ -359,16 +379,22 @@ export function ChikaThreadDetailScreen() {
                         { content, parentCommentId: replyTo },
                         {
                           onError: (error) => {
-                            void localCommentDraft.save({
-                              content,
-                              parentCommentId: replyTo,
-                              threadId: thread.id,
-                            });
+                            if (canQueueFailedMutation(error)) {
+                              void localCommentDraft.save({
+                                content,
+                                parentCommentId: replyTo,
+                                threadId: thread.id,
+                              });
+                              setActionMessage(
+                                chikaActionErrorMessage(
+                                  "Could not post reply. Saved as draft.",
+                                  error,
+                                ),
+                              );
+                              return;
+                            }
                             setActionMessage(
-                              chikaActionErrorMessage(
-                                "Could not post reply. Saved as draft.",
-                                error,
-                              ),
+                              chikaActionErrorMessage("Could not post reply.", error),
                             );
                           },
                           onSuccess: () => {

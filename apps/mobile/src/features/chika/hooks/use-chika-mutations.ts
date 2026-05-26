@@ -19,8 +19,15 @@ import {
   setChikaCommentReaction,
   setChikaThreadReaction,
 } from "@/features/chika/api/chika-api";
+import { makeIdempotencyKey, makeLocalId } from "@/local/db/types";
+import { getMobileAuthTokenSafe } from "@/lib/auth";
 import { FphgoApiError } from "@/lib/api";
 import { mobileQueryKeys } from "@/lib/query";
+
+const CHIKA_THREAD_LIST_LIMIT = 20;
+const chikaThreadListKey = mobileQueryKeys.chika.threadList({
+  limit: CHIKA_THREAD_LIST_LIMIT,
+});
 
 const patchCommentReaction = (
   comment: ChikaCommentResponse,
@@ -31,6 +38,49 @@ const patchCommentReaction = (
         ...comment,
         userReaction: response.userReaction ?? undefined,
         voteCount: response.voteCount,
+      }
+    : comment;
+
+const voteScore = (value: ChikaReactionType | null | undefined) =>
+  value === "upvote" ? 1 : value === "downvote" ? -1 : 0;
+
+const nextVoteCount = (
+  currentCount: number,
+  currentReaction: ChikaReactionType | null | undefined,
+  nextReaction: ChikaReactionType | null,
+) => currentCount + voteScore(nextReaction) - voteScore(currentReaction);
+
+const patchThreadReaction = (
+  thread: ChikaThreadResponse,
+  threadId: string,
+  nextReaction: ChikaReactionType | null,
+) =>
+  thread.id === threadId
+    ? {
+        ...thread,
+        userReaction: nextReaction ?? undefined,
+        voteCount: nextVoteCount(
+          thread.voteCount,
+          thread.userReaction,
+          nextReaction,
+        ),
+      }
+    : thread;
+
+const patchCommentReactionState = (
+  comment: ChikaCommentResponse,
+  commentId: string,
+  nextReaction: ChikaReactionType | null,
+) =>
+  comment.id === commentId
+    ? {
+        ...comment,
+        userReaction: nextReaction ?? undefined,
+        voteCount: nextVoteCount(
+          comment.voteCount,
+          comment.userReaction,
+          nextReaction,
+        ),
       }
     : comment;
 
@@ -50,8 +100,12 @@ const requireMutationTarget = (value: string, label: string) => {
   return trimmed;
 };
 
+const makeOnlineMutationKey = (
+  operationType: "chika_comment_reaction" | "chika_thread_reaction",
+) => makeIdempotencyKey(operationType, makeLocalId(operationType));
+
 const useRequiredToken = () => {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   return async () => {
     if (!isLoaded) {
       throw new FphgoApiError(401, "Checking your session. Try again in a moment.", null);
@@ -59,7 +113,7 @@ const useRequiredToken = () => {
     if (!isSignedIn) {
       throw new FphgoApiError(401, "Sign in to continue.", null);
     }
-    const token = await getToken();
+    const token = await getMobileAuthTokenSafe();
     if (!token) {
       throw new FphgoApiError(401, "Sign in to continue.", null);
     }
@@ -94,7 +148,7 @@ export const useCreateChikaCommentMutation = (threadId: string) => {
       ),
     onSuccess: (comment) => {
       queryClient.setQueriesData<ChikaThreadListResponse>(
-        { queryKey: mobileQueryKeys.chika.threads() },
+        { queryKey: chikaThreadListKey },
         (current) =>
           current
             ? {
@@ -140,9 +194,44 @@ export const useSetChikaThreadReactionMutation = (threadId: string, slug: string
     mutationFn: async (type: ChikaReactionType | null) => {
       const token = await getRequiredToken();
       const targetThreadId = requireMutationTarget(threadId, "Chika thread");
+      const idempotencyKey = makeOnlineMutationKey("chika_thread_reaction");
       return type
-        ? setChikaThreadReaction(targetThreadId, type, token)
-        : removeChikaThreadReaction(targetThreadId, token);
+        ? setChikaThreadReaction(targetThreadId, type, token, idempotencyKey)
+        : removeChikaThreadReaction(targetThreadId, token, idempotencyKey);
+    },
+    onMutate: async (type) => {
+      const targetThreadId = requireMutationTarget(threadId, "Chika thread");
+      const threadDetailKey = mobileQueryKeys.chika.threadDetail(slug);
+      const threadListKey = chikaThreadListKey;
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: threadDetailKey }),
+        queryClient.cancelQueries({ queryKey: threadListKey }),
+      ]);
+      const previousDetail =
+        queryClient.getQueryData<ChikaThreadResponse>(threadDetailKey);
+      const previousLists = queryClient.getQueriesData<ChikaThreadListResponse>({
+        queryKey: threadListKey,
+      });
+
+      queryClient.setQueriesData<ChikaThreadResponse>(
+        { queryKey: threadDetailKey },
+        (current) =>
+          current ? patchThreadReaction(current, targetThreadId, type) : current,
+      );
+      queryClient.setQueriesData<ChikaThreadListResponse>(
+        { queryKey: threadListKey },
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((thread) =>
+                  patchThreadReaction(thread, targetThreadId, type),
+                ),
+              }
+            : current,
+      );
+
+      return { previousDetail, previousLists, threadDetailKey };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -150,6 +239,14 @@ export const useSetChikaThreadReactionMutation = (threadId: string, slug: string
       });
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.chika.threads() });
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.feed.all });
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousDetail) {
+        queryClient.setQueryData(context.threadDetailKey, context.previousDetail);
+      }
+      for (const [queryKey, data] of context?.previousLists ?? []) {
+        queryClient.setQueryData(queryKey, data);
+      }
     },
   });
 };
@@ -165,9 +262,38 @@ export const useSetChikaCommentReactionMutation = (threadId: string) => {
     }) => {
       const token = await getRequiredToken();
       const targetCommentId = requireMutationTarget(payload.commentId, "Chika reply");
+      const idempotencyKey = makeOnlineMutationKey("chika_comment_reaction");
       return payload.type
-        ? setChikaCommentReaction(targetCommentId, payload.type, token)
-        : removeChikaCommentReaction(targetCommentId, token);
+        ? setChikaCommentReaction(
+            targetCommentId,
+            payload.type,
+            token,
+            idempotencyKey,
+          )
+        : removeChikaCommentReaction(targetCommentId, token, idempotencyKey);
+    },
+    onMutate: async ({ commentId, type }) => {
+      const commentsKey = mobileQueryKeys.chika.threadCommentsRoot(threadId);
+      await queryClient.cancelQueries({ queryKey: commentsKey });
+      const previousComments =
+        queryClient.getQueriesData<ChikaCommentListResponse>({
+          queryKey: commentsKey,
+        });
+
+      queryClient.setQueriesData<ChikaCommentListResponse>(
+        { queryKey: commentsKey },
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((comment) =>
+                  patchCommentReactionState(comment, commentId, type),
+                ),
+              }
+            : current,
+      );
+
+      return { commentsKey, previousComments };
     },
     onSuccess: (response) => {
       queryClient.setQueriesData<ChikaCommentListResponse>(
@@ -185,6 +311,11 @@ export const useSetChikaCommentReactionMutation = (threadId: string) => {
       queryClient.invalidateQueries({
         queryKey: mobileQueryKeys.chika.threadCommentsRoot(threadId),
       });
+    },
+    onError: (_error, _variables, context) => {
+      for (const [queryKey, data] of context?.previousComments ?? []) {
+        queryClient.setQueryData(queryKey, data);
+      }
     },
   });
 };
