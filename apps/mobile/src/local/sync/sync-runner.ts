@@ -6,7 +6,10 @@ import {
   markOutboxSynced,
   markOutboxSyncing,
 } from "@/local/outbox/outbox-repository";
-import { assertQueueableOperation } from "@/local/outbox/supported-operations";
+import {
+  assertQueueableOperation,
+  assertQueueablePayload,
+} from "@/local/outbox/supported-operations";
 
 export type SyncResult = {
   failed: number;
@@ -15,7 +18,7 @@ export type SyncResult = {
 
 const stringValue = (payload: Record<string, unknown>, key: string) => {
   const value = payload[key];
-  return typeof value === "string" ? value : "";
+  return typeof value === "string" ? value.trim() : "";
 };
 
 const optionalString = (payload: Record<string, unknown>, key: string) => {
@@ -28,6 +31,7 @@ const executeOutboxItem = async (
   authToken: string,
 ) => {
   assertQueueableOperation(item.operationType);
+  assertQueueablePayload(item.operationType, item.payload);
   const payload = item.payload;
 
   switch (item.operationType) {

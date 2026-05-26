@@ -16,8 +16,18 @@ import { FphgoApiError } from "@/lib/api";
 import { mobileQueryKeys } from "@/lib/query";
 
 const useRequiredToken = () => {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   return async () => {
+    if (!isLoaded) {
+      throw new FphgoApiError(
+        401,
+        "Checking your session. Try again in a moment.",
+        null,
+      );
+    }
+    if (!isSignedIn) {
+      throw new FphgoApiError(401, "Sign in to continue.", null);
+    }
     const token = await getToken();
     if (!token) throw new FphgoApiError(401, "Sign in to continue.", null);
     return token;
@@ -25,10 +35,27 @@ const useRequiredToken = () => {
 };
 
 const requireThreadId = (threadId: string) => {
-  if (!threadId) {
+  const trimmed = threadId.trim();
+  if (!trimmed) {
     throw new FphgoApiError(400, "Conversation unavailable.", null);
   }
-  return threadId;
+  return trimmed;
+};
+
+const requireMessageId = (messageId: string) => {
+  const trimmed = messageId.trim();
+  if (!trimmed) {
+    throw new FphgoApiError(400, "Message unavailable.", null);
+  }
+  return trimmed;
+};
+
+const requireMessageBody = (body: string) => {
+  const trimmed = body.trim();
+  if (!trimmed) {
+    throw new FphgoApiError(400, "Write a message before sending.", null);
+  }
+  return trimmed;
 };
 
 export const useSendMessageMutation = (threadId: string) => {
@@ -38,9 +65,10 @@ export const useSendMessageMutation = (threadId: string) => {
   return useMutation({
     mutationFn: async (body: string) => {
       const targetThreadId = requireThreadId(threadId);
+      const messageBody = requireMessageBody(body);
       return sendThreadMessage(
         targetThreadId,
-        { body, clientId: `mobile-${Date.now()}` },
+        { body: messageBody, clientId: `mobile-${targetThreadId}-${Date.now()}` },
         await getRequiredToken(),
       );
     },
@@ -133,7 +161,7 @@ export const useMarkThreadReadMutation = (threadId: string) => {
       const targetThreadId = requireThreadId(threadId);
       return markThreadRead(
         targetThreadId,
-        lastReadMessageId,
+        requireMessageId(lastReadMessageId),
         await getRequiredToken(),
       );
     },

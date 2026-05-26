@@ -73,6 +73,7 @@ export function GroupDetailScreen() {
   if (!slug) {
     return (
       <MobileScrollScreen subtitle="Group" title="Groups">
+        <Stack.Screen options={{ title: "Group unavailable" }} />
         <MobileEmptyState description="Choose a group to view it." title="Group not found" />
       </MobileScrollScreen>
     );
@@ -81,6 +82,7 @@ export function GroupDetailScreen() {
   if (groupQuery.isLoading) {
     return (
       <MobileScrollScreen subtitle="Group" title="Groups">
+        <Stack.Screen options={{ title: "Groups" }} />
         <MobileLoadingState message="Loading group." />
       </MobileScrollScreen>
     );
@@ -89,6 +91,7 @@ export function GroupDetailScreen() {
   if (groupQuery.error || !group) {
     return (
       <MobileScrollScreen subtitle="Group" title="Groups">
+        <Stack.Screen options={{ title: "Group unavailable" }} />
         <MobileErrorState
           message="This group could not be loaded."
           title="Group unavailable"
@@ -303,7 +306,7 @@ export function GroupDetailScreen() {
               </MobileButton>
             </View>
           ) : null}
-          {!postsQuery.isLoading && posts.length === 0 ? (
+          {!postsQuery.isLoading && !postsQuery.error && posts.length === 0 ? (
             <MobileEmptyState
               description={
                 isMember

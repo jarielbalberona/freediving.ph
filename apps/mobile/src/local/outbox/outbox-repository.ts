@@ -10,6 +10,7 @@ import {
   type SyncOutboxRecord,
   type SyncOutboxStatus,
 } from "@/local/db/types";
+import { assertQueueablePayload } from "@/local/outbox/supported-operations";
 
 type SyncOutboxRow = {
   id: string;
@@ -52,6 +53,7 @@ export const createOutboxItem = async <TPayload extends Record<string, unknown>>
     idempotencyKey?: string;
   },
 ) => {
+  assertQueueablePayload(input.operationType, input.payload);
   const db = await getLocalDatabase();
   const now = nowIso();
   const id = makeLocalId(input.operationType);

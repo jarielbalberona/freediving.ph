@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Switch, Text, View } from "react-native";
+import { useAuth } from "@clerk/expo";
 
 import type { UpdateNotificationSettingsRequest } from "@freediving.ph/types";
 
@@ -48,6 +49,7 @@ function PreferenceRow({
 }
 
 export function NotificationsScreen() {
+  const { isLoaded, isSignedIn } = useAuth();
   const notificationsQuery = useNotificationsQuery();
   const settingsQuery = useNotificationSettingsQuery();
   const settingsMutation = useNotificationSettingsMutation();
@@ -60,6 +62,8 @@ export function NotificationsScreen() {
     (notification) => notification.status === "UNREAD",
   ).length;
   const preferencesDisabled =
+    !isLoaded ||
+    !isSignedIn ||
     settingsQuery.isLoading ||
     settingsMutation.isPending ||
     registerPushMutation.isPending;
@@ -73,6 +77,14 @@ export function NotificationsScreen() {
 
   const enablePush = async () => {
     setPermissionMessage(null);
+    if (!isLoaded) {
+      setPermissionMessage("Checking your session. Try again in a moment.");
+      return;
+    }
+    if (!isSignedIn) {
+      setPermissionMessage("Sign in to enable notifications.");
+      return;
+    }
     const result = await buildPushDeviceRegistrationRequest();
     if (result.status !== "granted") {
       setPermissionMessage(result.message);
@@ -119,10 +131,11 @@ export function NotificationsScreen() {
               </Text>
               <Text className="text-sm leading-6 text-muted-foreground">
                 Enable updates for this device. You can turn them off here anytime.
+                Real iPhone push delivery still needs App Store setup before release.
               </Text>
             </View>
             <MobileButton
-              disabled={registerPushMutation.isPending}
+              disabled={!isLoaded || !isSignedIn || registerPushMutation.isPending}
               onPress={() => void enablePush()}
               variant={settings?.pushEnabled ? "secondary" : "primary"}
             >

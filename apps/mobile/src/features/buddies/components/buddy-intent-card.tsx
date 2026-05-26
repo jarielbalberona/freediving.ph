@@ -17,6 +17,7 @@ import {
 type BuddyIntentCardProps = {
   intent: BuddyFinderIntent | BuddyFinderPreviewIntent;
   isClosePending?: boolean;
+  isMessagePending?: boolean;
   onMessage?: () => void;
   onClose?: () => void;
   profileHref?: Href;
@@ -26,6 +27,7 @@ type BuddyIntentCardProps = {
 export function BuddyIntentCard({
   intent,
   isClosePending = false,
+  isMessagePending = false,
   onClose,
   onMessage,
   profileHref,
@@ -87,7 +89,11 @@ export function BuddyIntentCard({
         </View>
 
         {onMessage ? (
-          <MobileButton variant="secondary" onPress={onMessage}>
+          <MobileButton
+            disabled={isMessagePending}
+            variant="secondary"
+            onPress={onMessage}
+          >
             Message
           </MobileButton>
         ) : null}

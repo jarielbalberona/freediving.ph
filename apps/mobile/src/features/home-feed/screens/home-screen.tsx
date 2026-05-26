@@ -21,6 +21,7 @@ export function HomeScreen() {
   const feedAction = useFeedActionMutation();
   const [actionMessage, setActionMessage] = useState<string | undefined>();
   const items = feedQuery.data?.items ?? [];
+  const canUseFeedActions = isLoaded && Boolean(isSignedIn);
 
   const requireSignedIn = () => {
     if (!isLoaded) {
@@ -69,18 +70,34 @@ export function HomeScreen() {
             {actionMessage ? (
               <Text className="text-sm text-muted-foreground">{actionMessage}</Text>
             ) : null}
+            {!canUseFeedActions ? (
+              <Text className="text-sm text-muted-foreground">
+                Sign in to react to community activity.
+              </Text>
+            ) : null}
             {items.map((item) => {
               const card = toHomeActivityCardModel(item);
+              const mutateFeedAction = (
+                payload: Parameters<typeof feedAction.mutate>[0],
+              ) =>
+                feedAction.mutate(payload, {
+                  onError: (error) =>
+                    setActionMessage(
+                      error instanceof Error
+                        ? error.message
+                        : "That action did not go through. Try again.",
+                    ),
+                });
               return (
                 <HomeActivityCard
-                  actionsDisabled={feedAction.isPending}
+                  actionsDisabled={!canUseFeedActions || feedAction.isPending}
                   key={item.id}
                   item={card}
                   onChikaVote={
                     card.cardType === "chika"
                       ? (reaction) =>
                           requireSignedIn()
-                            ? feedAction.mutate({
+                            ? mutateFeedAction({
                                 actionType: "chika_vote",
                                 item,
                                 reaction,
@@ -92,7 +109,7 @@ export function HomeScreen() {
                     card.cardType === "media_post"
                       ? () =>
                           requireSignedIn()
-                            ? feedAction.mutate({
+                            ? mutateFeedAction({
                                 actionType: "media_like",
                                 item,
                                 liked: Boolean(card.media?.viewerHasLiked),
@@ -102,7 +119,7 @@ export function HomeScreen() {
                   }
                   onNotInterested={() =>
                     requireSignedIn()
-                      ? feedAction.mutate({ actionType: "not_interested", item })
+                      ? mutateFeedAction({ actionType: "not_interested", item })
                       : undefined
                   }
                 />

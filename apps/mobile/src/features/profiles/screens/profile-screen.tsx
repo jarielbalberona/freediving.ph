@@ -88,7 +88,7 @@ export function ProfileScreen() {
     return (
       <MobileScrollScreen subtitle="Your diver profile" title="Profile">
         <MobileEmptyState
-          description="Your profile is ready. Add more details on the web while mobile editing is being prepared."
+          description="Your profile is ready. Add your display name and bio when you are ready."
           title="Profile ready"
         />
       </MobileScrollScreen>
@@ -246,6 +246,7 @@ export function ProfileScreen() {
       <MobileSection title="Diving">
         <ProfileDivingSection
           affinities={affinities}
+          error={divingQuery.error}
           isLoading={divingQuery.isLoading}
           presences={presences}
         />

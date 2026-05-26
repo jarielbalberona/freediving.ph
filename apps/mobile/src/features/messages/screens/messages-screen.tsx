@@ -15,7 +15,11 @@ import {
 import { MobileButton } from "@/components/ui/mobile-button";
 import { useMessageThreadsQuery } from "@/features/messages/hooks/use-message-queries";
 
-const categories: MessagingThreadCategory[] = ["primary", "requests"];
+const categories: MessagingThreadCategory[] = [
+  "primary",
+  "requests",
+  "transactions",
+];
 
 const categoryLabel = (category: MessagingThreadCategory) =>
   category === "primary"
@@ -107,9 +111,17 @@ export function MessagesScreen() {
             description={
               category === "requests"
                 ? "New message requests will appear here."
+                : category === "transactions"
+                  ? "Booking and transaction conversations will appear here."
                 : "Your conversations will appear here."
             }
-            title={category === "requests" ? "No requests" : "No messages"}
+            title={
+              category === "requests"
+                ? "No requests"
+                : category === "transactions"
+                  ? "No booking messages"
+                  : "No messages"
+            }
           />
         ) : null}
 

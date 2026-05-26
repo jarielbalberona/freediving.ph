@@ -42,9 +42,23 @@ const incrementThreadCommentCount = (
     ? { ...thread, commentCount: thread.commentCount + 1 }
     : thread;
 
+const requireMutationTarget = (value: string, label: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new FphgoApiError(400, `${label} is unavailable. Try again.`, null);
+  }
+  return trimmed;
+};
+
 const useRequiredToken = () => {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   return async () => {
+    if (!isLoaded) {
+      throw new FphgoApiError(401, "Checking your session. Try again in a moment.", null);
+    }
+    if (!isSignedIn) {
+      throw new FphgoApiError(401, "Sign in to continue.", null);
+    }
     const token = await getToken();
     if (!token) {
       throw new FphgoApiError(401, "Sign in to continue.", null);
@@ -73,7 +87,11 @@ export const useCreateChikaCommentMutation = (threadId: string) => {
 
   return useMutation({
     mutationFn: async (payload: CreateChikaCommentRequest) =>
-      createChikaComment(threadId, payload, await getRequiredToken()),
+      createChikaComment(
+        requireMutationTarget(threadId, "Chika thread"),
+        payload,
+        await getRequiredToken(),
+      ),
     onSuccess: (comment) => {
       queryClient.setQueriesData<ChikaThreadListResponse>(
         { queryKey: mobileQueryKeys.chika.threads() },
@@ -121,9 +139,10 @@ export const useSetChikaThreadReactionMutation = (threadId: string, slug: string
   return useMutation({
     mutationFn: async (type: ChikaReactionType | null) => {
       const token = await getRequiredToken();
+      const targetThreadId = requireMutationTarget(threadId, "Chika thread");
       return type
-        ? setChikaThreadReaction(threadId, type, token)
-        : removeChikaThreadReaction(threadId, token);
+        ? setChikaThreadReaction(targetThreadId, type, token)
+        : removeChikaThreadReaction(targetThreadId, token);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -145,9 +164,10 @@ export const useSetChikaCommentReactionMutation = (threadId: string) => {
       type: ChikaReactionType | null;
     }) => {
       const token = await getRequiredToken();
+      const targetCommentId = requireMutationTarget(payload.commentId, "Chika reply");
       return payload.type
-        ? setChikaCommentReaction(payload.commentId, payload.type, token)
-        : removeChikaCommentReaction(payload.commentId, token);
+        ? setChikaCommentReaction(targetCommentId, payload.type, token)
+        : removeChikaCommentReaction(targetCommentId, token);
     },
     onSuccess: (response) => {
       queryClient.setQueriesData<ChikaCommentListResponse>(

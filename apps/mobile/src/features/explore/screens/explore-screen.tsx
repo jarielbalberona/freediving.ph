@@ -20,6 +20,7 @@ import {
 import { useExploreSitesQuery } from "@/features/explore/hooks/use-explore-sites-query";
 import { useMyExploreSubmissionsQuery } from "@/features/explore/hooks/use-my-explore-submissions-query";
 import { FphgoApiError, isAuthErrorStatus } from "@/lib/api/fphgo-client";
+import { shouldQueueFailedMutation } from "@/local/outbox/supported-operations";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
@@ -475,6 +476,7 @@ export function ExploreScreen() {
                           return;
                         }
                         setActionMessage("Could not update like. Try again.");
+                        if (!shouldQueueFailedMutation(error)) return;
                         void outbox.enqueue({
                           entityId: item.id,
                           entityType: "explore_site",
@@ -498,6 +500,7 @@ export function ExploreScreen() {
                           return;
                         }
                         setActionMessage("Could not update saved spot. Try again.");
+                        if (!shouldQueueFailedMutation(error)) return;
                         void outbox.enqueue({
                           entityId: item.id,
                           entityType: "explore_site",

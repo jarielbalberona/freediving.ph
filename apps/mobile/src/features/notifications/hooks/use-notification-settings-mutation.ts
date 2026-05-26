@@ -8,11 +8,21 @@ import { FphgoApiError } from "@/lib/api";
 import { mobileQueryKeys } from "@/lib/query";
 
 export function useNotificationSettingsMutation() {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: UpdateNotificationSettingsRequest) => {
+      if (!isLoaded) {
+        throw new FphgoApiError(
+          401,
+          "Checking your session. Try again in a moment.",
+          null,
+        );
+      }
+      if (!isSignedIn) {
+        throw new FphgoApiError(401, "Sign in to continue.", null);
+      }
       const authToken = await getToken();
       if (!authToken) {
         throw new FphgoApiError(401, "Authentication required", null);

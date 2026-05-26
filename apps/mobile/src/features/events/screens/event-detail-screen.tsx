@@ -33,6 +33,7 @@ import {
   titleCase,
 } from "@/features/events/lib/event-format";
 import { useLocalDraft } from "@/local/drafts/use-local-draft";
+import { shouldQueueFailedMutation } from "@/local/outbox/supported-operations";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
@@ -76,6 +77,7 @@ export function EventDetailScreen() {
   if (!slug) {
     return (
       <MobileScrollScreen subtitle="Event" title="Events">
+        <Stack.Screen options={{ title: "Event unavailable" }} />
         <MobileEmptyState
           description="Choose an event from the calendar to see its details."
           title="Event not found"
@@ -87,6 +89,7 @@ export function EventDetailScreen() {
   if (eventQuery.isLoading) {
     return (
       <MobileScrollScreen subtitle="Event" title="Events">
+        <Stack.Screen options={{ title: "Events" }} />
         <MobileLoadingState message="Loading event." />
       </MobileScrollScreen>
     );
@@ -95,6 +98,7 @@ export function EventDetailScreen() {
   if (eventQuery.error) {
     return (
       <MobileScrollScreen subtitle="Event" title="Events">
+        <Stack.Screen options={{ title: "Event unavailable" }} />
         <View className="gap-3">
           <MobileErrorState
             message="This event is taking longer than expected to load."
@@ -111,6 +115,7 @@ export function EventDetailScreen() {
   if (!event) {
     return (
       <MobileScrollScreen subtitle="Event" title="Events">
+        <Stack.Screen options={{ title: "Event unavailable" }} />
         <MobileEmptyState
           description="This event may have been removed or is not available yet."
           title="Event not found"
@@ -121,6 +126,30 @@ export function EventDetailScreen() {
 
   const coverUrl = safeImageUrl(event.coverPhotoUrl);
   const body = stripMarkdownPreview(event.descriptionMarkdown || event.description);
+  const viewerState = event.viewerEventState ?? "none";
+  const canUseInterest =
+    event.visibility !== "private" ||
+    event.viewerCanViewPrivateDetails ||
+    event.viewerCanManage;
+  const canToggleInterest =
+    isLoaded &&
+    Boolean(isSignedIn) &&
+    event.interestedEnabled &&
+    canUseInterest &&
+    event.status === "published" &&
+    ["none", "interested", "rejected", "left", "cancelled"].includes(
+      viewerState,
+    );
+  const canJoin =
+    isLoaded &&
+    Boolean(isSignedIn) &&
+    !event.viewerParticipation &&
+    event.status === "published";
+  const canLeave =
+    isLoaded &&
+    Boolean(isSignedIn) &&
+    event.viewerJoined &&
+    event.viewerParticipation?.role !== "organizer";
   const canPost =
     event.postsEnabled &&
     (event.postCreatePolicy === "participants"
@@ -219,12 +248,7 @@ export function EventDetailScreen() {
             <View className="flex-row gap-2">
               <View className="flex-1">
                 <MobileButton
-                  disabled={
-                    !isLoaded ||
-                    !isSignedIn ||
-                    attendanceMutation.isPending ||
-                    event.viewerJoined
-                  }
+                  disabled={!canJoin || attendanceMutation.isPending}
                   onPress={() =>
                     attendanceMutation.mutate("join", {
                       onError: () =>
@@ -246,7 +270,7 @@ export function EventDetailScreen() {
               {event.viewerJoined ? (
                 <View className="flex-1">
                   <MobileButton
-                    disabled={!isLoaded || !isSignedIn || attendanceMutation.isPending}
+                    disabled={!canLeave || attendanceMutation.isPending}
                     variant="danger"
                     onPress={() =>
                       attendanceMutation.mutate("leave", {
@@ -263,12 +287,13 @@ export function EventDetailScreen() {
             </View>
             {event.interestedEnabled ? (
               <MobileButton
-                disabled={!isLoaded || !isSignedIn || interestMutation.isPending}
+                disabled={!canToggleInterest || interestMutation.isPending}
                 variant="secondary"
                 onPress={() =>
                   interestMutation.mutate(!event.viewerInterested, {
-                    onError: () => {
+                    onError: (error) => {
                       setActionMessage("Could not update interest. Try again.");
+                      if (!shouldQueueFailedMutation(error)) return;
                       void outbox.enqueue({
                         entityId: event.id,
                         entityType: "event",
@@ -299,6 +324,16 @@ export function EventDetailScreen() {
               label="Approval"
               value={event.requiresApproval ? "Approval required" : "No approval required"}
             />
+            {event.viewerParticipation?.role === "organizer" ? (
+              <Text className="text-sm text-muted-foreground">
+                Organizers cannot leave their own event from mobile.
+              </Text>
+            ) : null}
+            {isLoaded && isSignedIn && event.status !== "published" ? (
+              <Text className="text-sm text-muted-foreground">
+                Event actions are available after the event is published.
+              </Text>
+            ) : null}
             <EventDetailRow
               label="Cancellation"
               value={event.cancellationPolicy}
@@ -435,8 +470,9 @@ export function EventDetailScreen() {
                             postId: post.id,
                           },
                           {
-                            onError: () => {
+                            onError: (error) => {
                               setPostMessage("Could not update fish reaction. Try again.");
+                              if (!shouldQueueFailedMutation(error)) return;
                               void outbox.enqueue({
                                 entityId: post.id,
                                 entityType: "event_post",

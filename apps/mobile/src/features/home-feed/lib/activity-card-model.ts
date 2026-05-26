@@ -102,7 +102,24 @@ const reactionValue = (
 
 const firstThumbnailUrl = (item: ActivityFeedItem) => {
   const first = item.media?.[0];
-  return first?.displayUrl || first?.thumbnailUrl || first?.previewUrl || first?.dialogUrl;
+  return safeRemoteImageUrl(
+    first?.displayUrl ||
+      first?.thumbnailUrl ||
+      first?.previewUrl ||
+      first?.dialogUrl,
+  );
+};
+
+const safeRemoteImageUrl = (value: string | undefined) => {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? value
+      : undefined;
+  } catch {
+    return undefined;
+  }
 };
 
 const withTags = (...values: Array<string | number | undefined>) =>
@@ -202,7 +219,7 @@ export const toHomeActivityCardModel = (
     0;
 
   return {
-    actorAvatarUrl: item.actor.avatarUrl,
+    actorAvatarUrl: safeRemoteImageUrl(item.actor.avatarUrl),
     actorName: item.actor.name,
     actorUsername: safeSegment(item.actor.username),
     area: item.area,

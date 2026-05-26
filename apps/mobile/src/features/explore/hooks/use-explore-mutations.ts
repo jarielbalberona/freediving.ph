@@ -5,6 +5,7 @@ import type {
   CreateExploreSiteSubmissionRequest,
   ExploreListResponse,
   ExploreSiteDetailResponse,
+  ExploreSiteSubmissionListResponse,
 } from "@freediving.ph/types";
 
 import {
@@ -18,8 +19,18 @@ import { FphgoApiError } from "@/lib/api";
 import { mobileQueryKeys } from "@/lib/query";
 
 const useRequiredToken = () => {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   return async () => {
+    if (!isLoaded) {
+      throw new FphgoApiError(
+        401,
+        "Checking your session. Try again in a moment.",
+        null,
+      );
+    }
+    if (!isSignedIn) {
+      throw new FphgoApiError(401, "Sign in to continue.", null);
+    }
     const token = await getToken();
     if (!token) throw new FphgoApiError(401, "Sign in to continue.", null);
     return token;
@@ -27,8 +38,49 @@ const useRequiredToken = () => {
 };
 
 const requireSiteId = (siteId: string) => {
-  if (!siteId) throw new FphgoApiError(400, "Dive spot unavailable.", null);
-  return siteId;
+  const trimmedSiteId = siteId.trim();
+  if (!trimmedSiteId) {
+    throw new FphgoApiError(400, "Dive spot unavailable.", null);
+  }
+  return trimmedSiteId;
+};
+
+const requireSiteSubmissionPayload = (
+  payload: CreateExploreSiteSubmissionRequest,
+): CreateExploreSiteSubmissionRequest => {
+  const name = payload.name.trim();
+  const description = payload.description.trim();
+  if (name.length < 3) {
+    throw new FphgoApiError(400, "Site name must be at least 3 characters.", null);
+  }
+  if (description.length < 12) {
+    throw new FphgoApiError(
+      400,
+      "Description must be at least 12 characters.",
+      null,
+    );
+  }
+  if (
+    !Number.isFinite(payload.lat) ||
+    payload.lat < -90 ||
+    payload.lat > 90 ||
+    !Number.isFinite(payload.lng) ||
+    payload.lng < -180 ||
+    payload.lng > 180
+  ) {
+    throw new FphgoApiError(400, "Enter valid dive spot coordinates.", null);
+  }
+  return {
+    ...payload,
+    access: payload.access?.trim() || undefined,
+    area: payload.area?.trim() || undefined,
+    bestSeason: payload.bestSeason?.trim() || undefined,
+    description,
+    fees: payload.fees?.trim() || undefined,
+    hazards: payload.hazards?.map((item) => item.trim()).filter(Boolean),
+    name,
+    typicalConditions: payload.typicalConditions?.trim() || undefined,
+  };
 };
 
 const patchExploreSite = (
@@ -66,18 +118,23 @@ export const useSubmitExploreSiteMutation = () => {
 
   return useMutation({
     mutationFn: async (payload: CreateExploreSiteSubmissionRequest) =>
-      submitExploreSite(payload, await getRequiredToken()),
+      submitExploreSite(
+        requireSiteSubmissionPayload(payload),
+        await getRequiredToken(),
+      ),
     onSuccess: (response) => {
-      queryClient.setQueryData(
+      queryClient.setQueryData<ExploreSiteSubmissionListResponse>(
         mobileQueryKeys.explore.mySubmissions(),
-        (current: { items?: unknown[]; nextCursor?: string } | undefined) => ({
+        (current) => ({
           items: current?.items
             ? [response.submission, ...current.items]
             : [response.submission],
           nextCursor: current?.nextCursor,
         }),
       );
-      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.explore.mySubmissions() });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.explore.mySubmissions(),
+      });
       if (response.submission.moderationState === "approved") {
         queryClient.invalidateQueries({ queryKey: mobileQueryKeys.explore.sites() });
       }

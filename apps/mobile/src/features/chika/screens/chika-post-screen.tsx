@@ -4,6 +4,8 @@ import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 
 import {
+  MobileEmptyState,
+  MobileErrorState,
   MobileLoadingState,
   MobileScrollScreen,
   MobileSection,
@@ -49,6 +51,25 @@ export function ChikaPostScreen() {
     return true;
   };
 
+  if (!isLoaded) {
+    return (
+      <MobileScrollScreen subtitle="Community threads" title="Post Chika">
+        <MobileLoadingState message="Checking your session." />
+      </MobileScrollScreen>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <MobileScrollScreen subtitle="Community threads" title="Post Chika">
+        <MobileEmptyState
+          description="Sign in to start a Chika thread with the community."
+          title="Sign in to post Chika"
+        />
+      </MobileScrollScreen>
+    );
+  }
+
   return (
     <MobileScrollScreen subtitle="Community threads" title="Post Chika">
       <MobileSection
@@ -59,10 +80,25 @@ export function ChikaPostScreen() {
           {categoriesQuery.isLoading ? (
             <MobileLoadingState message="Loading Chika categories." />
           ) : null}
+          {categoriesQuery.error ? (
+            <View className="gap-3">
+              <MobileErrorState
+                message="Chika categories are taking longer than expected to load."
+                title="Categories unavailable"
+              />
+              <MobileButton
+                variant="secondary"
+                onPress={() => void categoriesQuery.refetch()}
+              >
+                Try again
+              </MobileButton>
+            </View>
+          ) : null}
           {categories.length > 0 ? (
             <View className="flex-row flex-wrap gap-2">
               {categories.map((category) => (
                 <MobileButton
+                  disabled={createThread.isPending}
                   key={category.id}
                   variant={selectedCategoryId === category.id ? "primary" : "secondary"}
                   onPress={() => setCategoryId(category.id)}

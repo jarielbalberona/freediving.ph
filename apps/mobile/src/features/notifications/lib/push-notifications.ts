@@ -38,7 +38,7 @@ export async function buildPushDeviceRegistrationRequest(): Promise<PushPermissi
   if (!Device.isDevice) {
     return {
       status: "unavailable",
-      message: "Push notifications need a physical device.",
+      message: "Push notifications need a real phone.",
     };
   }
 
@@ -51,7 +51,7 @@ export async function buildPushDeviceRegistrationRequest(): Promise<PushPermissi
   if (finalStatus !== "granted") {
     return {
       status: "denied",
-      message: "Notifications are off for this device.",
+      message: "Notifications are off for this device. Turn them on in system settings to receive updates.",
     };
   }
 

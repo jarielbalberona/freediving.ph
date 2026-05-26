@@ -16,8 +16,18 @@ import { FphgoApiError } from "@/lib/api";
 import { mobileQueryKeys } from "@/lib/query";
 
 const useRequiredToken = () => {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   return async () => {
+    if (!isLoaded) {
+      throw new FphgoApiError(
+        401,
+        "Checking your session. Try again in a moment.",
+        null,
+      );
+    }
+    if (!isSignedIn) {
+      throw new FphgoApiError(401, "Sign in to continue.", null);
+    }
     const token = await getToken();
     if (!token) throw new FphgoApiError(401, "Sign in to continue.", null);
     return token;
@@ -25,10 +35,11 @@ const useRequiredToken = () => {
 };
 
 const requireIntentId = (intentId: string) => {
-  if (!intentId) {
+  const trimmedIntentId = intentId.trim();
+  if (!trimmedIntentId) {
     throw new FphgoApiError(400, "Buddy post unavailable.", null);
   }
-  return intentId;
+  return trimmedIntentId;
 };
 
 export const useCreateBuddyIntentMutation = () => {

@@ -20,9 +20,10 @@ import {
 import { useChikaCommentsQuery } from "@/features/chika/hooks/use-chika-comments-query";
 import { useChikaThreadDetailQuery } from "@/features/chika/hooks/use-chika-thread-detail-query";
 import { useLocalDraft } from "@/local/drafts/use-local-draft";
+import { shouldQueueFailedMutation } from "@/local/outbox/supported-operations";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
-import { FphgoApiError, isAuthErrorStatus } from "@/lib/api/fphgo-client";
+import { FphgoApiError } from "@/lib/api/fphgo-client";
 import {
   chikaAuthorLabel,
   formatChikaDate,
@@ -32,6 +33,9 @@ import {
 
 const firstParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
+
+const chikaActionErrorMessage = (fallback: string, error: unknown) =>
+  error instanceof FphgoApiError ? error.message : fallback;
 
 export function ChikaThreadDetailScreen() {
   const localParams = useLocalSearchParams<{ slug?: string | string[] }>();
@@ -107,9 +111,7 @@ export function ChikaThreadDetailScreen() {
   };
 
   const canQueueFailedMutation = (error: unknown) =>
-    !(error instanceof FphgoApiError && isAuthErrorStatus(error.status)) &&
-    isLoaded &&
-    isSignedIn;
+    isLoaded && isSignedIn && shouldQueueFailedMutation(error);
 
   if (!slug) {
     return (
@@ -220,9 +222,10 @@ export function ChikaThreadDetailScreen() {
                       ? threadReaction.mutate(
                           thread.userReaction === "upvote" ? null : "upvote",
                           {
-                            onError: (error) =>
-                              canQueueFailedMutation(error)
-                                ? void outbox.enqueue({
+                            onError: (error) => {
+                              if (canQueueFailedMutation(error)) {
+                                setActionMessage("Vote saved. It will sync when possible.");
+                                void outbox.enqueue({
                                     entityId: thread.id,
                                     entityType: "chika_thread",
                                     operationType: "chika_thread_reaction",
@@ -233,8 +236,16 @@ export function ChikaThreadDetailScreen() {
                                           ? null
                                           : "upvote",
                                     },
-                                  })
-                                : undefined,
+                                  });
+                                return;
+                              }
+                              setActionMessage(
+                                chikaActionErrorMessage(
+                                  "Could not update your vote.",
+                                  error,
+                                ),
+                              );
+                            },
                           },
                         )
                       : undefined
@@ -250,9 +261,10 @@ export function ChikaThreadDetailScreen() {
                       ? threadReaction.mutate(
                           thread.userReaction === "downvote" ? null : "downvote",
                           {
-                            onError: (error) =>
-                              canQueueFailedMutation(error)
-                                ? void outbox.enqueue({
+                            onError: (error) => {
+                              if (canQueueFailedMutation(error)) {
+                                setActionMessage("Vote saved. It will sync when possible.");
+                                void outbox.enqueue({
                                     entityId: thread.id,
                                     entityType: "chika_thread",
                                     operationType: "chika_thread_reaction",
@@ -263,8 +275,16 @@ export function ChikaThreadDetailScreen() {
                                           ? null
                                           : "downvote",
                                     },
-                                  })
-                                : undefined,
+                                  });
+                                return;
+                              }
+                              setActionMessage(
+                                chikaActionErrorMessage(
+                                  "Could not update your vote.",
+                                  error,
+                                ),
+                              );
+                            },
                           },
                         )
                       : undefined
@@ -338,13 +358,18 @@ export function ChikaThreadDetailScreen() {
                       createComment.mutate(
                         { content, parentCommentId: replyTo },
                         {
-                          onError: () => {
+                          onError: (error) => {
                             void localCommentDraft.save({
                               content,
                               parentCommentId: replyTo,
                               threadId: thread.id,
                             });
-                            setActionMessage("Could not post reply. Saved as draft.");
+                            setActionMessage(
+                              chikaActionErrorMessage(
+                                "Could not post reply. Saved as draft.",
+                                error,
+                              ),
+                            );
                           },
                           onSuccess: () => {
                             void localCommentDraft.clearSubmitted();
@@ -414,15 +439,26 @@ export function ChikaThreadDetailScreen() {
                             ? commentReaction.mutate(
                                 { commentId, type },
                                 {
-                                  onError: (error) =>
-                                    canQueueFailedMutation(error)
-                                      ? void outbox.enqueue({
+                                  onError: (error) => {
+                                    if (canQueueFailedMutation(error)) {
+                                      setActionMessage(
+                                        "Vote saved. It will sync when possible.",
+                                      );
+                                      void outbox.enqueue({
                                           entityId: commentId,
                                           entityType: "chika_comment",
                                           operationType: "chika_comment_reaction",
                                           payload: { commentId, type },
-                                        })
-                                      : undefined,
+                                        });
+                                      return;
+                                    }
+                                    setActionMessage(
+                                      chikaActionErrorMessage(
+                                        "Could not update your vote.",
+                                        error,
+                                      ),
+                                    );
+                                  },
                                 },
                               )
                             : undefined

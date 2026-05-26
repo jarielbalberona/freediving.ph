@@ -109,8 +109,14 @@ export function BuddiesScreen() {
     useState<CreateBuddyFinderIntentRequest["timeWindow"]>("weekend");
   const canUseMemberBuddies = isLoaded && Boolean(isSignedIn);
   const intents = canUseMemberBuddies
-    ? (memberIntentsQuery.data?.items ?? buddiesQuery.data?.items ?? [])
+    ? (memberIntentsQuery.data?.items ?? [])
     : (buddiesQuery.data?.items ?? []);
+  const isListLoading =
+    buddiesQuery.isLoading ||
+    (canUseMemberBuddies && memberIntentsQuery.isLoading);
+  const listError = canUseMemberBuddies
+    ? memberIntentsQuery.error
+    : buddiesQuery.error;
   const myIntents = canUseMemberBuddies ? (myIntentsQuery.data?.items ?? []) : [];
   const myIntentIds = new Set(myIntents.map((intent) => intent.id));
 
@@ -290,26 +296,31 @@ export function BuddiesScreen() {
         description="Find divers who have shared where and when they want to dive."
         title="Looking for a dive buddy"
       >
-        {buddiesQuery.isLoading ||
-        (canUseMemberBuddies && memberIntentsQuery.isLoading) ? (
+        {isListLoading ? (
           <MobileLoadingState message="Loading buddy posts." />
         ) : null}
 
-        {buddiesQuery.error && (!canUseMemberBuddies || !memberIntentsQuery.data) ? (
+        {listError ? (
           <View className="gap-3">
             <MobileErrorState
               message="Buddy posts are taking longer than expected to load."
               title="Buddy Finder unavailable"
             />
-            <MobileButton variant="secondary" onPress={() => void buddiesQuery.refetch()}>
+            <MobileButton
+              variant="secondary"
+              onPress={() =>
+                void (canUseMemberBuddies
+                  ? memberIntentsQuery.refetch()
+                  : buddiesQuery.refetch())
+              }
+            >
               Try again
             </MobileButton>
           </View>
         ) : null}
 
-        {!buddiesQuery.isLoading &&
-        (!canUseMemberBuddies || !memberIntentsQuery.isLoading) &&
-        !buddiesQuery.error &&
+        {!isListLoading &&
+        !listError &&
         intents.length === 0 ? (
           <MobileEmptyState
             description="No buddy posts yet. Check back as divers share where and when they want to dive."
@@ -317,14 +328,14 @@ export function BuddiesScreen() {
           />
         ) : null}
 
-        {!buddiesQuery.isLoading &&
-        (!canUseMemberBuddies || !memberIntentsQuery.isLoading) &&
-        !buddiesQuery.error &&
+        {!isListLoading &&
+        !listError &&
         intents.length > 0 ? (
           <View className="gap-3">
             {intents.map((intent) => (
               <BuddyIntentCard
                 intent={intent}
+                isMessagePending={messageEntry.isPending}
                 key={intent.id}
                 profileHref={
                   "username" in intent

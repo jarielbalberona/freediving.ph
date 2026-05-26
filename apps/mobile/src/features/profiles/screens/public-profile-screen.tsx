@@ -39,56 +39,69 @@ export function PublicProfileScreen() {
   const posts = postsQuery.data ?? [];
   const presences = divingQuery.data?.presences ?? [];
   const affinities = divingQuery.data?.affinities ?? [];
+  const headerTitle = profile?.displayName ?? "Profile";
 
   if (!username) {
     return (
-      <MobileScrollScreen subtitle="Diver profile" title="Profile">
-        <MobileEmptyState
-          description="Choose a diver from the community to see their profile."
-          title="Profile not found"
-        />
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Profile" }} />
+        <MobileScrollScreen subtitle="Diver profile" title="Profile">
+          <MobileEmptyState
+            description="Choose a diver from the community to see their profile."
+            title="Profile not found"
+          />
+        </MobileScrollScreen>
+      </>
     );
   }
 
   if (profileQuery.isLoading) {
     return (
-      <MobileScrollScreen subtitle="Diver profile" title="Profile">
-        <MobileLoadingState message="Loading profile." />
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Profile" }} />
+        <MobileScrollScreen subtitle="Diver profile" title="Profile">
+          <MobileLoadingState message="Loading profile." />
+        </MobileScrollScreen>
+      </>
     );
   }
 
   if (profileQuery.error) {
     return (
-      <MobileScrollScreen subtitle="Diver profile" title="Profile">
-        <View className="gap-3">
-          <MobileErrorState
-            message="This diver profile is taking longer than expected to load."
-            title="Profile unavailable"
-          />
-          <MobileButton variant="secondary" onPress={() => void profileQuery.refetch()}>
-            Try again
-          </MobileButton>
-        </View>
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Profile unavailable" }} />
+        <MobileScrollScreen subtitle="Diver profile" title="Profile">
+          <View className="gap-3">
+            <MobileErrorState
+              message="This diver profile is taking longer than expected to load."
+              title="Profile unavailable"
+            />
+            <MobileButton variant="secondary" onPress={() => void profileQuery.refetch()}>
+              Try again
+            </MobileButton>
+          </View>
+        </MobileScrollScreen>
+      </>
     );
   }
 
   if (!profile) {
     return (
-      <MobileScrollScreen subtitle="Diver profile" title="Profile">
-        <MobileEmptyState
-          description="This diver has not shared much yet."
-          title="Profile not found"
-        />
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Profile" }} />
+        <MobileScrollScreen subtitle="Diver profile" title="Profile">
+          <MobileEmptyState
+            description="This diver has not shared much yet."
+            title="Profile not found"
+          />
+        </MobileScrollScreen>
+      </>
     );
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: profile.displayName }} />
+      <Stack.Screen options={{ title: headerTitle }} />
       <MobileScrollScreen subtitle="Diver profile" title="Profile">
         <MobileSection title={profile.displayName}>
           <ProfileSummaryCard
@@ -133,6 +146,7 @@ export function PublicProfileScreen() {
         <MobileSection title="Diving">
           <ProfileDivingSection
             affinities={affinities}
+            error={divingQuery.error}
             isLoading={divingQuery.isLoading}
             presences={presences}
           />

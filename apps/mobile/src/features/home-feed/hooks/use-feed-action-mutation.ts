@@ -42,6 +42,35 @@ const feedActionForItem = (item: ActivityFeedItem) => ({
   feedItemId: item.id,
 });
 
+const requireActionTarget = (value: string, label: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new FphgoApiError(400, `${label} is unavailable. Try again.`, null);
+  }
+  return trimmed;
+};
+
+const useRequiredToken = () => {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+  return async () => {
+    if (!isLoaded) {
+      throw new FphgoApiError(
+        401,
+        "Checking your session. Try again in a moment.",
+        null,
+      );
+    }
+    if (!isSignedIn) {
+      throw new FphgoApiError(401, "Sign in to continue.", null);
+    }
+    const token = await getToken();
+    if (!token) {
+      throw new FphgoApiError(401, "Sign in to continue.", null);
+    }
+    return token;
+  };
+};
+
 const patchStats = (
   item: ActivityFeedItem,
   patch: Record<string, unknown>,
@@ -91,27 +120,29 @@ const removeActivityFeedItem = (
     : response;
 
 export const useFeedActionMutation = () => {
-  const { getToken } = useAuth();
+  const getRequiredToken = useRequiredToken();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (payload: HomeFeedActionPayload) => {
-      const token = await getToken();
-      if (!token) throw new FphgoApiError(401, "Sign in to continue.", null);
+      const token = await getRequiredToken();
 
       if (payload.actionType === "chika_vote") {
+        const threadId = requireActionTarget(payload.item.sourceId, "Chika thread");
         if (payload.reaction) {
-          return setChikaThreadReaction(payload.item.sourceId, payload.reaction, token);
+          return setChikaThreadReaction(threadId, payload.reaction, token);
         }
-        return removeChikaThreadReaction(payload.item.sourceId, token);
+        return removeChikaThreadReaction(threadId, token);
       }
 
       if (payload.actionType === "media_like") {
+        const postId = requireActionTarget(payload.item.sourceId, "Media post");
         return payload.liked
-          ? unlikeMediaPost(payload.item.sourceId, token)
-          : likeMediaPost(payload.item.sourceId, token);
+          ? unlikeMediaPost(postId, token)
+          : likeMediaPost(postId, token);
       }
 
+      requireActionTarget(payload.item.id, "Feed item");
       return postFeedActions(
         {
           items: [

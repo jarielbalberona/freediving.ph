@@ -1,6 +1,9 @@
-import { useAuth } from "@clerk/expo";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { GroupPostsResponse } from "@freediving.ph/types";
+import { useAuth } from "@clerk/expo";
+import type {
+  CreateGroupPostRequest,
+  GroupPostsResponse,
+} from "@freediving.ph/types";
 
 import {
   acceptGroupInvite,
@@ -13,8 +16,18 @@ import { FphgoApiError } from "@/lib/api";
 import { mobileQueryKeys } from "@/lib/query";
 
 const useRequiredToken = () => {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   return async () => {
+    if (!isLoaded) {
+      throw new FphgoApiError(
+        401,
+        "Checking your session. Try again in a moment.",
+        null,
+      );
+    }
+    if (!isSignedIn) {
+      throw new FphgoApiError(401, "Sign in to continue.", null);
+    }
     const token = await getToken();
     if (!token) throw new FphgoApiError(401, "Sign in to continue.", null);
     return token;
@@ -22,10 +35,26 @@ const useRequiredToken = () => {
 };
 
 const requireGroupId = (groupId: string) => {
-  if (!groupId) {
+  const trimmedGroupId = groupId.trim();
+  if (!trimmedGroupId) {
     throw new FphgoApiError(400, "Group unavailable.", null);
   }
-  return groupId;
+  return trimmedGroupId;
+};
+
+const requireGroupPostPayload = (
+  groupId: string,
+  payload: { content: string; title?: string },
+): CreateGroupPostRequest => {
+  const content = payload.content.trim();
+  if (!content) {
+    throw new FphgoApiError(400, "Write something before posting.", null);
+  }
+  return {
+    content,
+    groupId: requireGroupId(groupId),
+    title: payload.title?.trim() || undefined,
+  };
 };
 
 const invalidateGroupMembership = (
@@ -100,7 +129,10 @@ export const useCreateGroupPostMutation = (slug: string, groupId: string) => {
 
   return useMutation({
     mutationFn: async (payload: { content: string; title?: string }) =>
-      createGroupPost({ groupId: requireGroupId(groupId), ...payload }, await getRequiredToken()),
+      createGroupPost(
+        requireGroupPostPayload(groupId, payload),
+        await getRequiredToken(),
+      ),
     onSuccess: (response) => {
       queryClient.setQueryData<GroupPostsResponse>(
         mobileQueryKeys.groups.posts(groupId),
@@ -112,7 +144,10 @@ export const useCreateGroupPostMutation = (slug: string, groupId: string) => {
                   ...current.pagination,
                   total: current.pagination.total + 1,
                 },
-                posts: [response.post, ...current.posts],
+                posts: [
+                  response.post,
+                  ...current.posts.filter((post) => post.id !== response.post.id),
+                ],
               }
             : current,
       );

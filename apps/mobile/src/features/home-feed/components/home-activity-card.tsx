@@ -156,6 +156,28 @@ function CardBody({ item }: { item: HomeActivityCardModel }) {
     );
   }
 
+  if (item.cardType === "dive_report") {
+    return (
+      <View className="gap-2">
+        <Text className="text-base font-semibold leading-6 text-foreground">
+          {item.diveSiteName || item.title}
+        </Text>
+        {item.body ? (
+          <Text
+            className="text-sm leading-6 text-muted-foreground"
+            numberOfLines={4}
+          >
+            {item.body}
+          </Text>
+        ) : (
+          <Text className="text-sm leading-6 text-muted-foreground">
+            Dive conditions update
+          </Text>
+        )}
+      </View>
+    );
+  }
+
   if (item.cardType === "buddy_signal") {
     return (
       <View className="gap-2">
@@ -229,7 +251,7 @@ export function HomeActivityCard({
             onLike={onMediaLike}
           />
           <ViewAction item={item} />
-          {onNotInterested ? (
+          {onNotInterested && item.cardType !== "unknown" ? (
             <MobileButton
               disabled={actionsDisabled}
               variant="ghost"

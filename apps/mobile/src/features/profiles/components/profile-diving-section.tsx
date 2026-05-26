@@ -11,6 +11,7 @@ import type {
 
 type ProfileDivingSectionProps = {
   affinities: ProfileDiveSiteAffinity[];
+  error?: unknown;
   isLoading?: boolean;
   presences: ProfileDivePresence[];
 };
@@ -52,12 +53,22 @@ function DiveSiteRow({
 
 export function ProfileDivingSection({
   affinities,
+  error,
   isLoading = false,
   presences,
 }: ProfileDivingSectionProps) {
   if (isLoading) {
     return (
       <ProfileDetailRow label="Diving" value="Loading visible diving activity." />
+    );
+  }
+
+  if (error) {
+    return (
+      <ProfileDetailRow
+        label="Diving"
+        value="Diving activity is unavailable right now."
+      />
     );
   }
 

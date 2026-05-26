@@ -65,42 +65,51 @@ export function MessageThreadScreen() {
 
   if (!threadId) {
     return (
-      <MobileScrollScreen subtitle="Conversation" title="Messages">
-        <MobileEmptyState
-          description="Choose a conversation from Messages."
-          title="Conversation not found"
-        />
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Conversation" }} />
+        <MobileScrollScreen subtitle="Conversation" title="Messages">
+          <MobileEmptyState
+            description="Choose a conversation from Messages."
+            title="Conversation not found"
+          />
+        </MobileScrollScreen>
+      </>
     );
   }
 
   if (threadQuery.isLoading || messagesQuery.isLoading) {
     return (
-      <MobileScrollScreen subtitle="Conversation" title="Messages">
-        <MobileLoadingState message="Loading conversation." />
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Conversation" }} />
+        <MobileScrollScreen subtitle="Conversation" title="Messages">
+          <MobileLoadingState message="Loading conversation." />
+        </MobileScrollScreen>
+      </>
     );
   }
 
   if (threadQuery.error || messagesQuery.error) {
     return (
-      <MobileScrollScreen subtitle="Conversation" title="Messages">
-        <MobileErrorState
-          message="This conversation is taking longer than expected to load."
-          title="Conversation unavailable"
-        />
-        <View className="mt-3">
-          <MobileButton
-            variant="secondary"
-            onPress={() => {
-              void threadQuery.refetch();
-              void messagesQuery.refetch();
-            }}
-          >
-            Try again
-          </MobileButton>
-        </View>
-      </MobileScrollScreen>
+      <>
+        <Stack.Screen options={{ title: "Conversation unavailable" }} />
+        <MobileScrollScreen subtitle="Conversation" title="Messages">
+          <MobileErrorState
+            message="This conversation is taking longer than expected to load."
+            title="Conversation unavailable"
+          />
+          <View className="mt-3">
+            <MobileButton
+              variant="secondary"
+              onPress={() => {
+                void threadQuery.refetch();
+                void messagesQuery.refetch();
+              }}
+            >
+              Try again
+            </MobileButton>
+          </View>
+        </MobileScrollScreen>
+      </>
     );
   }
 

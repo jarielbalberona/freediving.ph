@@ -92,8 +92,11 @@ export const notificationHrefFromActionUrl = (
       : undefined;
   }
 
-  if (parts[0] === "explore" && parts[1] === "sites" && parts.length === 3) {
-    const slug = safeSegment(parts[2]);
+  if (
+    parts[0] === "explore" &&
+    ((parts[1] === "sites" && parts.length === 3) || parts.length === 2)
+  ) {
+    const slug = safeSegment(parts[1] === "sites" ? parts[2] : parts[1]);
     return slug
       ? {
           pathname: "/(app)/(tabs)/(home)/explore/[slug]",

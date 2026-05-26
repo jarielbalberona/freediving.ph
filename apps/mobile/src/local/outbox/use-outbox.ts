@@ -6,7 +6,10 @@ import {
   discardOutboxItem,
   listOutboxItems,
 } from "@/local/outbox/outbox-repository";
-import { assertQueueableOperation } from "@/local/outbox/supported-operations";
+import {
+  assertQueueableOperation,
+  assertQueueablePayload,
+} from "@/local/outbox/supported-operations";
 import { runSyncOutbox } from "@/local/sync/sync-runner";
 import type {
   SyncEntityType,
@@ -40,6 +43,7 @@ export const useOutbox = () => {
       payload: Record<string, unknown>;
     }) => {
       assertQueueableOperation(input.operationType);
+      assertQueueablePayload(input.operationType, input.payload);
       const item = await createOutboxItem(input);
       await refresh();
       setMessage("Waiting to sync");

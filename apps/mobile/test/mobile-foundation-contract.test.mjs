@@ -20,7 +20,7 @@ test("mobile package aligns with repository tooling decisions", () => {
   assert.ok(!pkg.dependencies.axios);
   assert.ok(!pkg.dependencies["drizzle-orm"]);
   assert.ok(pkg.dependencies["expo-sqlite"]);
-  assert.equal(pkg.dependencies["@expo/ui"], "~56.0.13");
+  assert.equal(pkg.dependencies["@expo/ui"], "~56.0.14");
   assert.ok(pkg.dependencies["@expo/vector-icons"]);
   assert.ok(!pkg.dependencies["lucide-react-native"]);
   assert.ok(!pkg.dependencies["expo-glass-effect"]);
@@ -206,21 +206,28 @@ test("home feed uses shared activity contracts and fetch client", () => {
   assert.match(mapper, /buddy_intent_created/);
   assert.match(mapper, /unknown/);
   assert.match(mapper, /safeSegment/);
+  assert.match(mapper, /safeRemoteImageUrl/);
   assert.match(mapper, /getHomeActivityCardHref/);
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
   assert.match(card, /ChikaActions/);
   assert.match(card, /MediaActions/);
+  assert.match(card, /cardType === "dive_report"/);
+  assert.match(card, /item\.cardType !== "unknown"/);
   assert.match(card, /Not interested/);
   assert.match(feedAction, /setChikaThreadReaction/);
   assert.match(feedAction, /removeChikaThreadReaction/);
   assert.match(feedAction, /likeMediaPost/);
   assert.match(feedAction, /unlikeMediaPost/);
-  assert.match(feedAction, /auth|token|getToken/);
+  assert.match(feedAction, /useRequiredToken/);
+  assert.match(feedAction, /isLoaded/);
+  assert.match(feedAction, /isSignedIn/);
+  assert.match(feedAction, /requireActionTarget/);
   assert.match(feedAction, /setQueriesData<ActivityFeedResponse>/);
   assert.match(feedAction, /not_interested/);
   assert.match(screen, /requireSignedIn/);
+  assert.match(screen, /canUseFeedActions/);
   assert.match(screen, /Sign in to react to community activity/);
   assert.doesNotMatch(screen, /Zustand|use.*Store/);
 });
@@ -255,6 +262,7 @@ test("explore uses shared contracts, actions, and safe mobile routes", () => {
   assert.match(card, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
   assert.match(detail, /useExploreSiteLikeMutation/);
+  assert.match(detail, /Sign in to like this dive spot\./);
   assert.match(api, /CreateExploreSiteSubmissionRequest/);
   assert.match(api, /\/v1\/explore\/sites\/submit/);
   assert.match(api, /\/likes/);
@@ -265,7 +273,14 @@ test("explore uses shared contracts, actions, and safe mobile routes", () => {
   assert.match(api, /saveExploreSite[\s\S]*auth:\s*"required"/);
   assert.match(submissionsQuery, /useAuthenticatedFphgoQuery/);
   assert.match(submissionsQuery, /mySubmissions\(\)/);
+  assert.match(mutations, /isLoaded/);
+  assert.match(mutations, /isSignedIn/);
+  assert.match(mutations, /Checking your session\. Try again in a moment\./);
   assert.match(mutations, /requireSiteId/);
+  assert.match(mutations, /trim\(\)/);
+  assert.match(mutations, /requireSiteSubmissionPayload/);
+  assert.match(mutations, /Enter valid dive spot coordinates\./);
+  assert.match(mutations, /ExploreSiteSubmissionListResponse/);
   assert.match(mutations, /setQueriesData<ExploreListResponse>/);
   assert.match(mutations, /setQueriesData<ExploreSiteDetailResponse>/);
   assert.match(mutations, /mySubmissions\(\)/);
@@ -374,15 +389,21 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(detail, /parentCommentId/);
   assert.match(detail, /useSetChikaCommentReactionMutation/);
   assert.match(detail, /requireSignedIn/);
-  assert.match(detail, /isAuthErrorStatus/);
+  assert.match(detail, /shouldQueueFailedMutation/);
   assert.match(detail, /canUseChikaActions/);
+  assert.match(detail, /chikaActionErrorMessage/);
   assert.match(detail, /Sign in to vote in Chika\./);
   assert.match(detail, /Sign in to reply in Chika\./);
   assert.match(detail, /onReact=\{\s*canUseChikaActions/);
   assert.match(detail, /onReply=\{canUseChikaActions \? setReplyTo : undefined\}/);
   assert.match(detail, /actionsDisabled/);
   assert.match(postScreen, /requireSignedIn/);
+  assert.match(postScreen, /Sign in to post Chika/);
+  assert.match(postScreen, /Categories unavailable/);
   assert.match(postScreen, /Could not publish in Chika\. Saved as draft\./);
+  assert.match(mutations, /requireMutationTarget/);
+  assert.match(mutations, /Checking your session\. Try again in a moment\./);
+  assert.match(mutations, /Sign in to continue\./);
   assert.match(mutations, /threadCommentsRoot\(threadId\)/);
   assert.doesNotMatch(mutations, /limit:\s*50/);
   assert.match(mutations, /threadDetail\(slug\)/);
@@ -434,6 +455,10 @@ test("events uses shared contracts and member event actions", () => {
   assert.match(card, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
   assert.match(detail, /useLocalSearchParams/);
   assert.match(detail, /useEventAttendanceMutation/);
+  assert.match(detail, /canToggleInterest/);
+  assert.match(detail, /event\.status === "published"/);
+  assert.match(detail, /viewerParticipation\?\.role !== "organizer"/);
+  assert.match(detail, /Event unavailable/);
   assert.match(detail, /Request to join/);
   assert.match(detail, /Marked interested/);
   assert.match(detail, /Post update/);
@@ -443,6 +468,12 @@ test("events uses shared contracts and member event actions", () => {
     /booking|check-in|check in|receipt|Payment instructions|admin/i,
   );
   assert.match(mutations, /requireEventId/);
+  assert.match(mutations, /isLoaded/);
+  assert.match(mutations, /isSignedIn/);
+  assert.match(mutations, /Checking your session\. Try again in a moment\./);
+  assert.match(mutations, /requireEventPostId/);
+  assert.match(mutations, /requireEventPostPayload/);
+  assert.match(mutations, /Write an update before posting\./);
   assert.match(mutations, /setQueryData<EventPostsResponse>/);
   assert.match(mutations, /mobileQueryKeys\.events\.posts\(eventId\)/);
   assert.match(postsQuery, /useQuery/);
@@ -503,9 +534,15 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
     mutationHook,
     /setQueryData\(mobileQueryKeys\.profile\.me\(\), response\)/,
   );
+  assert.match(mutationHook, /isLoaded/);
+  assert.match(mutationHook, /isSignedIn/);
+  assert.match(mutationHook, /Checking your session\. Try again in a moment\./);
+  assert.match(mutationHook, /PublicProfileResponse/);
   assert.match(mutationHook, /profile\.public\(response\.profile\.username\)/);
+  assert.match(mutationHook, /setQueryData<PublicProfileResponse>/);
   assert.match(ownScreen, /\/\(app\)\/\(tabs\)\/\(home\)\/profile\/settings/);
   assert.match(publicScreen, /useLocalSearchParams/);
+  assert.match(publicScreen, /Stack\.Screen options=\{\{ title: "Profile unavailable" \}\}/);
   assert.match(ownScreen, /Edit profile/);
   assert.match(ownScreen, /ProfilePostCard/);
   assert.match(ownScreen, /ProfileDivingSection/);
@@ -515,6 +552,7 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   assert.match(postCard, /safeImageUrl/);
   assert.match(postCard, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
   assert.match(divingSection, /diveSiteSlug/);
+  assert.match(divingSection, /Diving activity is unavailable right now/);
   assert.match(
     divingSection,
     /Only diving details this profile can share are shown/,
@@ -573,8 +611,12 @@ test("notifications use shared contracts, auth gating, preferences, and safe pus
   assert.match(hook, /mobileQueryKeys\.notifications\.list/);
   assert.match(settingsHook, /mobileQueryKeys\.notifications\.settings/);
   assert.match(settingsMutation, /updateNotificationSettings/);
+  assert.match(settingsMutation, /isLoaded/);
+  assert.match(settingsMutation, /isSignedIn/);
   assert.match(pushMutation, /registerPushDevice/);
   assert.match(pushMutation, /getToken/);
+  assert.match(pushMutation, /isLoaded/);
+  assert.match(pushMutation, /isSignedIn/);
   assert.match(pushMutation, /Authentication required/);
   assert.match(card, /notificationHref/);
   assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
@@ -582,10 +624,13 @@ test("notifications use shared contracts, auth gating, preferences, and safe pus
   assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
   assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/profile\/\[username\]/);
   assert.match(format, /notificationsFallbackHref/);
+  assert.match(format, /return undefined/);
   assert.match(screen, /MobileLoadingState/);
   assert.match(screen, /MobileEmptyState/);
   assert.match(screen, /MobileErrorState/);
   assert.match(screen, /Enable push/);
+  assert.match(screen, /Sign in to enable notifications/);
+  assert.match(screen, /Real iPhone push delivery still needs App Store setup/);
   assert.match(screen, /Dive condition alerts/);
   assert.doesNotMatch(screen, /markAsRead|markAllAsRead|websocket|realtime/i);
 });
@@ -609,9 +654,10 @@ test("Phase 4 location and push helpers stay foreground-only and user initiated"
   assert.match(push, /requestPermissionsAsync/);
   assert.match(push, /getExpoPushTokenAsync/);
   assert.match(push, /Device\.isDevice/);
+  assert.match(push, /Turn them on in system settings/);
   assert.doesNotMatch(
     push,
-    /getToken|registerPushDevice\(|setInterval|Background/i,
+    /getToken|registerPushDevice\(|setInterval|Background|APNs|TestFlight/i,
   );
   assert.match(listener, /addNotificationResponseReceivedListener/);
   assert.match(listener, /notificationsFallbackHref/);
@@ -623,7 +669,9 @@ test("Phase 4 location and push helpers stay foreground-only and user initiated"
   );
   assert.match(screen, /Use my current area/);
   assert.match(screen, /diveConditionCoarseArea/);
-  assert.doesNotMatch(screen, /background location|continuous tracking/i);
+  assert.match(screen, /requestForegroundCoarseLocation/);
+  assert.doesNotMatch(screen, /continuous tracking/i);
+  assert.doesNotMatch(screen, /requestBackgroundPermissions|watchPosition/i);
 });
 
 test("buddies use shared public and member intent contracts", () => {
@@ -663,9 +711,19 @@ test("buddies use shared public and member intent contracts", () => {
   assert.match(screen, /canUseMemberBuddies/);
   assert.match(screen, /Sign in to post a buddy request\./);
   assert.match(screen, /canUseMemberBuddies\s*\?\s*\(memberIntentsQuery\.data/);
+  assert.doesNotMatch(
+    screen,
+    /memberIntentsQuery\.data\?\.items\s*\?\?\s*buddiesQuery\.data\?\.items/,
+  );
+  assert.match(screen, /listError/);
+  assert.match(screen, /memberIntentsQuery\.refetch/);
   assert.match(screen, /canUseMemberBuddies &&\s*"authorAppUserId" in intent/);
   assert.match(mutations, /getRequiredToken/);
+  assert.match(mutations, /isLoaded/);
+  assert.match(mutations, /isSignedIn/);
+  assert.match(mutations, /Checking your session\. Try again in a moment\./);
   assert.match(mutations, /requireIntentId/);
+  assert.match(mutations, /trim\(\)/);
   assert.match(mutations, /openDirectMessageThread/);
   assert.match(mutations, /mobileQueryKeys\.buddies\.intentLists/);
   assert.match(mutations, /mobileQueryKeys\.buddies\.previews/);
@@ -675,6 +733,7 @@ test("buddies use shared public and member intent contracts", () => {
   assert.match(card, /BuddyFinderPreviewIntent/);
   assert.match(card, /BuddyFinderIntent/);
   assert.match(card, /profileHref/);
+  assert.match(card, /isMessagePending/);
   assert.match(card, /View profile/);
   assert.match(card, /To change this post, close it and create a new one/);
   assert.match(card, /Close intent/);
@@ -728,17 +787,23 @@ test("messages and groups expose member-safe Phase 2 routes", () => {
   assert.match(messagesApi, /auth:\s*"required"/);
   assert.match(messagesQueries, /useAuthenticatedFphgoQuery/);
   assert.match(messagesMutations, /getRequiredToken/);
+  assert.match(messagesMutations, /isLoaded/);
+  assert.match(messagesMutations, /isSignedIn/);
   assert.match(messagesMutations, /requireThreadId/);
+  assert.match(messagesMutations, /requireMessageId/);
+  assert.match(messagesMutations, /requireMessageBody/);
   assert.match(messagesMutations, /mobileQueryKeys\.messages\.threadLists/);
   assert.match(messagesMutations, /mobileQueryKeys\.messages\.unreadCount/);
   assert.match(queryKeys, /threadLists/);
   assert.match(queryKeys, /threadDetails/);
   assert.match(messagesScreen, /requests/);
-  assert.doesNotMatch(messagesScreen, /"transactions"/);
+  assert.match(messagesScreen, /transactions/);
+  assert.match(messagesScreen, /Booking and transaction conversations will appear here/);
   assert.match(messageThreadScreen, /canResolveRequest/);
   assert.match(messageThreadScreen, /Send/);
   assert.match(messageThreadScreen, /lastMarkedReadRef/);
   assert.match(messageThreadScreen, /Could not send message/);
+  assert.match(messageThreadScreen, /Conversation unavailable/);
   assert.doesNotMatch(messageThreadScreen, /websocket|realtime|push/i);
   assert.doesNotMatch(messagesApi, /axios/i);
   assert.doesNotMatch(messagesApi, /apps\/web|features\/messages\/types/);
@@ -773,16 +838,24 @@ test("messages and groups expose member-safe Phase 2 routes", () => {
   assert.match(groupQueries, /useQuery/);
   assert.doesNotMatch(groupQueries, /useAuthenticatedFphgoQuery/);
   assert.match(groupMutations, /getRequiredToken/);
+  assert.match(groupMutations, /isLoaded/);
+  assert.match(groupMutations, /isSignedIn/);
+  assert.match(groupMutations, /Checking your session\. Try again in a moment\./);
   assert.match(groupMutations, /requireGroupId/);
+  assert.match(groupMutations, /trim\(\)/);
+  assert.match(groupMutations, /requireGroupPostPayload/);
+  assert.match(groupMutations, /Write something before posting\./);
   assert.match(groupMutations, /mobileQueryKeys\.groups\.lists/);
   assert.match(groupMutations, /mobileQueryKeys\.groups\.posts/);
   assert.match(groupsScreen, /safeSlug/);
+  assert.match(groupDetailScreen, /Group unavailable/);
   assert.match(groupDetailScreen, /Join group/);
   assert.match(groupDetailScreen, /Accept invite/);
   assert.match(groupDetailScreen, /Decline/);
   assert.match(groupDetailScreen, /Post to group/);
   assert.match(groupDetailScreen, /Title, optional/);
   assert.match(groupDetailScreen, /Members unavailable/);
+  assert.match(groupDetailScreen, /!postsQuery\.error/);
   assert.doesNotMatch(groupDetailScreen, /admin|moderation|archive/i);
 });
 
@@ -824,9 +897,18 @@ test("local Phase 3 storage is bounded to drafts and sync outbox", () => {
   assert.match(draftRepo, /discardLocalDraft/);
   assert.match(outboxRepo, /createOutboxItem/);
   assert.match(outboxRepo, /makeIdempotencyKey/);
+  assert.match(outboxRepo, /assertQueueablePayload/);
   assert.match(outboxRepo, /markOutboxSynced/);
   assert.match(outboxRepo, /markOutboxFailed/);
   assert.match(supported, /QUEUEABLE_OPERATION_TYPES/);
+  assert.match(supported, /QUEUEABLE_OPERATION_SAFETY/);
+  assert.match(supported, /server_state_idempotent/);
+  assert.match(supported, /requiredStringKeys/);
+  assert.match(supported, /requiredBooleanKeys/);
+  assert.match(supported, /shouldQueueFailedMutation/);
+  assert.match(supported, /error\.status >= 500/);
+  assert.match(supported, /error\.status === 429/);
+  assert.doesNotMatch(supported, /error\.status === 400/);
   assert.doesNotMatch(
     supported,
     /message_send|event_join_leave|payment|booking|chika_thread_create|chika_comment_create|buddy_intent_create|profile_edit_update|event_post_create|group_post_create/i,
@@ -842,10 +924,13 @@ test("sync runner is manual, idempotent, and server-response gated", () => {
   const chikaDetail = read(
     "src/features/chika/screens/chika-thread-detail-screen.tsx",
   );
+  const eventsDetail = read("src/features/events/screens/event-detail-screen.tsx");
+  const exploreScreen = read("src/features/explore/screens/explore-screen.tsx");
 
   assert.match(client, /Idempotency-Key/);
   assert.match(syncRunner, /runSyncOutbox/);
   assert.match(syncRunner, /idempotencyKey:\s*item\.idempotencyKey/);
+  assert.match(syncRunner, /assertQueueablePayload\(item\.operationType, item\.payload\)/);
   assert.match(syncRunner, /markOutboxSynced/);
   assert.match(syncRunner, /markOutboxFailed/);
   assert.match(syncRunner, /break/);
@@ -861,6 +946,9 @@ test("sync runner is manual, idempotent, and server-response gated", () => {
   assert.doesNotMatch(createScreen, /chika_thread_create/);
   assert.doesNotMatch(buddiesScreen, /buddy_intent_create/);
   assert.doesNotMatch(chikaDetail, /chika_comment_create/);
+  assert.match(chikaDetail, /shouldQueueFailedMutation/);
+  assert.match(eventsDetail, /shouldQueueFailedMutation/);
+  assert.match(exploreScreen, /shouldQueueFailedMutation/);
   assert.match(createScreen, /Saved as draft/);
   assert.match(buddiesScreen, /Saved as draft/);
   assert.match(chikaDetail, /Saved as draft/);
