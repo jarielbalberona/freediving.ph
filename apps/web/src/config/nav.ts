@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import {
-  APP_BOTTOM_NAV_IDS,
+  APP_BOTTOM_NAV_ITEMS,
   APP_DRAWER_NAV_IDS,
   APP_DRAWER_NAV_ITEMS,
   getAppNavItem,
@@ -328,7 +328,11 @@ const MAIN_NAV_ORDER: string[] = [
   "more",
 ];
 
-const MOBILE_MAIN_NAV_ORDER: string[] = [...APP_BOTTOM_NAV_IDS];
+const MOBILE_MAIN_NAV_ORDER: string[] = APP_BOTTOM_NAV_ITEMS.filter((item) => {
+  const platforms = (item as { platforms?: readonly ("mobile" | "web")[] })
+    .platforms;
+  return platforms == null ? true : platforms.includes("web");
+}).map((item) => item.id);
 
 const MOBILE_SIDEBAR_ORDER: string[] = [...APP_DRAWER_NAV_IDS];
 

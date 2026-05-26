@@ -7,6 +7,7 @@ export default function ProfileStackLayout() {
     <Stack screenOptions={IOS_NATIVE_STACK_SCREEN_OPTIONS}>
       <Stack.Screen name="index" options={{ title: "Profile" }} />
       <Stack.Screen name="settings" options={{ title: "Settings" }} />
+      <Stack.Screen name="[username]" options={{ title: "Profile" }} />
     </Stack>
   );
 }

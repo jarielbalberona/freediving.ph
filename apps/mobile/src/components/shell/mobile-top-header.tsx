@@ -82,7 +82,10 @@ export function MobileTopHeader({ subtitle, title }: MobileTopHeaderProps) {
             <Bell color="#0A1F2E" size={19} />
           </Pressable>
         </Link>
-        <Link href={isSignedIn ? "/(app)/(tabs)/profile" : "/sign-in"} asChild>
+        <Link
+          href={isSignedIn ? "/(app)/(tabs)/(home)/profile" : "/sign-in"}
+          asChild
+        >
           <Pressable
             accessibilityLabel="Open profile"
             className="h-10 w-10 items-center justify-center rounded-full bg-primary"

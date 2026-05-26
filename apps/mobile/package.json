@@ -3,7 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@clerk/expo": "^3.2.16",
+    "@clerk/expo": "3.3.0-canary.v20260522203516",
+    "@expo/ui": "~56.0.13",
     "@freediving.ph/types": "workspace:*",
     "@sentry/react-native": "~7.11.0",
     "@tanstack/react-query": "^5.66.9",

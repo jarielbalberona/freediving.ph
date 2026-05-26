@@ -1,3 +1,4 @@
+import { Link } from "expo-router";
 import { View } from "react-native";
 
 import {
@@ -17,6 +18,15 @@ export function ChikaScreen() {
 
   return (
     <MobileScrollScreen subtitle="Community threads" title="Chika">
+      <MobileSection
+        description="Start a new Chika thread for questions, trip reports, tips, and community updates."
+        title="Share with Chika"
+      >
+        <Link href="/(app)/(tabs)/chika/post" asChild>
+          <MobileButton>Post Chika</MobileButton>
+        </Link>
+      </MobileSection>
+
       <MobileSection
         description="Read the latest community conversations from divers around the Philippines."
         title="Latest Chika"

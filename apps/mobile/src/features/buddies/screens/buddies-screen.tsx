@@ -67,7 +67,7 @@ const profileHrefForUsername = (username: string | undefined) => {
   const safeUsername = safeBuddyUsername(username);
   if (!safeUsername) return undefined;
   return {
-    pathname: "/(app)/(tabs)/profile/[username]",
+    pathname: "/(app)/(tabs)/(home)/profile/[username]",
     params: { username: safeUsername },
   } as Href;
 };

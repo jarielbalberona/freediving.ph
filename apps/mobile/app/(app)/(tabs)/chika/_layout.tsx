@@ -1,9 +1,6 @@
 import { Stack } from "expo-router";
 
-import {
-  IOS_NATIVE_STACK_SCREEN_OPTIONS,
-  nativeSearchOptions,
-} from "@/components/shell/mobile-native-header";
+import { IOS_NATIVE_STACK_SCREEN_OPTIONS } from "@/components/shell/mobile-native-header";
 
 export default function ChikaStackLayout() {
   return (
@@ -11,10 +8,11 @@ export default function ChikaStackLayout() {
       <Stack.Screen
         name="index"
         options={{
-          headerSearchBarOptions: nativeSearchOptions("Search Chika"),
           title: "Chika",
         }}
       />
+      <Stack.Screen name="post" options={{ title: "Post Chika" }} />
+      <Stack.Screen name="[slug]" options={{ title: "Chika" }} />
     </Stack>
   );
 }

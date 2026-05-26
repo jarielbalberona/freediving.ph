@@ -40,7 +40,11 @@ export default function AppTabsLayout() {
           sf: item.sf,
         } as NativeTabsTriggerIconProps;
         return (
-          <NativeTabs.Trigger key={item.id} name={item.routeName}>
+          <NativeTabs.Trigger
+            key={item.id}
+            name={item.routeName}
+            role={item.role}
+          >
             <NativeTabs.Trigger.Icon {...iconProps} />
             <NativeTabs.Trigger.Label>{item.label}</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>

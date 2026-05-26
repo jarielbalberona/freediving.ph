@@ -5,6 +5,7 @@ export type AppNavAuth = "public" | "member";
 export type AppNavId =
   | "home"
   | "chika"
+  | "search"
   | "create"
   | "messages"
   | "profile"
@@ -25,6 +26,7 @@ export type AppNavItemContract = {
   order: number;
   auth: AppNavAuth;
   intent: "primary" | "community" | "learning" | "management";
+  platforms?: readonly ("mobile" | "web")[];
 };
 
 export const APP_NAV_ITEMS = [
@@ -45,10 +47,19 @@ export const APP_NAV_ITEMS = [
     intent: "primary",
   },
   {
+    id: "search",
+    label: "Search",
+    area: "bottom",
+    order: 30,
+    auth: "public",
+    intent: "primary",
+    platforms: ["mobile"],
+  },
+  {
     id: "create",
     label: "Post",
     area: "bottom",
-    order: 30,
+    order: 40,
     auth: "member",
     intent: "primary",
   },
@@ -56,7 +67,7 @@ export const APP_NAV_ITEMS = [
     id: "messages",
     label: "Messages",
     area: "bottom",
-    order: 40,
+    order: 50,
     auth: "member",
     intent: "primary",
   },
@@ -64,9 +75,10 @@ export const APP_NAV_ITEMS = [
     id: "profile",
     label: "Profile",
     area: "bottom",
-    order: 50,
+    order: 60,
     auth: "member",
     intent: "primary",
+    platforms: ["web"],
   },
   {
     id: "explore",

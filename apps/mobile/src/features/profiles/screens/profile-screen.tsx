@@ -252,7 +252,7 @@ export function ProfileScreen() {
       </MobileSection>
 
       <MobileSection title="Settings">
-        <Link href="/(app)/(tabs)/profile/settings" asChild>
+        <Link href="/(app)/(tabs)/(home)/profile/settings" asChild>
           <Pressable accessibilityRole="link">
             <View className="rounded-2xl border border-border bg-card p-4">
               <Text className="text-base font-semibold text-foreground">

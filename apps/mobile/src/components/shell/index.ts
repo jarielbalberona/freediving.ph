@@ -8,10 +8,8 @@ export { MobileErrorState } from "./mobile-error-state";
 export { MobileLoadingState } from "./mobile-loading-state";
 export {
   IOS_NATIVE_STACK_SCREEN_OPTIONS,
-  NativeHeaderActions,
-  NativeHeaderMenuButton,
+  NativeHeaderToolbar,
   USE_IOS_NATIVE_HEADER,
-  nativeSearchOptions,
 } from "./mobile-native-header";
 export { MobileScreen } from "./mobile-screen";
 export { MobileScrollScreen } from "./mobile-scroll-screen";

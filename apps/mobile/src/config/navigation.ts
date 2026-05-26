@@ -11,6 +11,7 @@ import {
   GraduationCap,
   Home,
   Info,
+  Search,
   MessageCircle,
   MessageSquareText,
   School,
@@ -26,12 +27,21 @@ type MobileNavIcon = ComponentType<{
   strokeWidth?: number;
 }>;
 
+type MobilePlatformNavItem = {
+  id: AppNavId;
+  platforms?: readonly ("mobile" | "web")[];
+};
+
+const supportsMobile = (item: MobilePlatformNavItem) =>
+  item.platforms == null || item.platforms.includes("mobile");
+
 export type MobileBottomNavItem = {
   id: AppNavId;
   label: string;
-  routeName: "(home)" | "chika" | "create" | "messages" | "profile";
+  routeName: "(home)" | "chika" | "search" | "create" | "messages" | "profile";
   sf: string | { default: string; selected: string };
   md: string;
+  role?: "search";
 };
 
 export type MobileDrawerNavItem = {
@@ -56,6 +66,7 @@ const bottomRouteById: Record<
 > = {
   home: "(home)",
   chika: "chika",
+  search: "search",
   create: "create",
   messages: "messages",
   profile: "profile",
@@ -81,6 +92,10 @@ const nativeTabIconById: Record<
       selected: "bubble.left.and.bubble.right.fill",
     },
     md: "forum",
+  },
+  search: {
+    sf: { default: "magnifyingglass", selected: "magnifyingglass" },
+    md: "search",
   },
   create: {
     sf: { default: "square.and.pencil", selected: "square.and.pencil" },
@@ -108,6 +123,7 @@ const drawerRouteById: Record<
 > = {
   home: null,
   chika: null,
+  search: null,
   create: null,
   messages: null,
   profile: null,
@@ -125,6 +141,7 @@ const drawerRouteById: Record<
 const drawerIconById: Record<AppNavId, MobileNavIcon> = {
   home: Home,
   chika: MessageCircle,
+  search: Search,
   create: Edit3,
   messages: MessageSquareText,
   profile: UserRound,
@@ -139,7 +156,9 @@ const drawerIconById: Record<AppNavId, MobileNavIcon> = {
   "founders-note": Info,
 };
 
-export const MOBILE_BOTTOM_NAV_ITEMS = APP_BOTTOM_NAV_ITEMS.map((item) => {
+export const MOBILE_BOTTOM_NAV_ITEMS = APP_BOTTOM_NAV_ITEMS.filter(
+  supportsMobile,
+).map((item) => {
   const routeName = bottomRouteById[item.id];
   if (routeName == null) {
     throw new Error(`Missing mobile bottom route for ${item.id}`);
@@ -148,6 +167,7 @@ export const MOBILE_BOTTOM_NAV_ITEMS = APP_BOTTOM_NAV_ITEMS.map((item) => {
     id: item.id,
     label: item.label,
     routeName,
+    role: item.id === "search" ? ("search" as const) : undefined,
     ...nativeTabIconById[item.id],
   };
 });

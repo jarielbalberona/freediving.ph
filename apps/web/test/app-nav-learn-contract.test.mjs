@@ -30,6 +30,8 @@ test("app sidebar derives Learn and Founder note footer links from nav config", 
   assert.match(nav, /id: "founders-note"[\s\S]*?href: "\/founder-note"/);
   assert.match(nav, /id: "founders-note"[\s\S]*?icon: Info/);
   assert.match(nav, /getSidebarFooterNavItems/);
+  assert.match(nav, /platforms\.includes\("web"\)/);
+  assert.doesNotMatch(nav, /id: "search"/);
 
   const learnIndex = sharedNav.indexOf('id: "learn"');
   const founderIndex = sharedNav.indexOf('id: "founders-note"');
@@ -51,7 +53,7 @@ test("Learn active matching covers guides without matching features", () => {
       "--eval",
       `
         import assert from "node:assert/strict";
-        import { getSidebarFooterNavItems, isActiveRoute } from "./src/config/nav.ts";
+        import { getMobileMainNavItems, getSidebarFooterNavItems, isActiveRoute } from "./src/config/nav.ts";
 
         assert.equal(isActiveRoute("/guides", "/guides"), true);
         assert.equal(isActiveRoute("/guides/freediving-safety-basics", "/guides"), true);
@@ -60,6 +62,10 @@ test("Learn active matching covers guides without matching features", () => {
         assert.deepEqual(
           getSidebarFooterNavItems({ isSignedIn: true }).map((item) => item.id),
           ["learn", "founders-note"],
+        );
+        assert.deepEqual(
+          getMobileMainNavItems({ isSignedIn: true }).map((item) => item.id),
+          ["home", "chika", "create", "messages", "profile"],
         );
 
         console.log("ok");

@@ -105,7 +105,10 @@ export const notificationHrefFromActionUrl = (
   if (parts[0] === "profile" && parts.length === 2) {
     const username = safeSegment(parts[1]);
     return username
-      ? { pathname: "/(app)/(tabs)/profile/[username]", params: { username } }
+      ? {
+          pathname: "/(app)/(tabs)/(home)/profile/[username]",
+          params: { username },
+        }
       : undefined;
   }
 

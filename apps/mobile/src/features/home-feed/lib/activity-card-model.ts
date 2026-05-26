@@ -145,7 +145,10 @@ export const getHomeActivityCardHref = (
   if (item.type === "buddy_intent_created") {
     const username = safeSegment(item.actor.username);
     return username
-      ? { pathname: "/(app)/(tabs)/profile/[username]", params: { username } }
+      ? {
+          pathname: "/(app)/(tabs)/(home)/profile/[username]",
+          params: { username },
+        }
       : { pathname: "/(app)/(tabs)/(home)/buddies" };
   }
 

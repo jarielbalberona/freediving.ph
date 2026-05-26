@@ -2,16 +2,15 @@ import { Stack } from "expo-router";
 
 import { IOS_NATIVE_STACK_SCREEN_OPTIONS } from "@/components/shell/mobile-native-header";
 
-export default function MessagesStackLayout() {
+export default function SearchStackLayout() {
   return (
     <Stack screenOptions={IOS_NATIVE_STACK_SCREEN_OPTIONS}>
       <Stack.Screen
         name="index"
         options={{
-          title: "Messages",
+          title: "Search",
         }}
       />
-      <Stack.Screen name="[threadId]" options={{ title: "Conversation" }} />
     </Stack>
   );
 }

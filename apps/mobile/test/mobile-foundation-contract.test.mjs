@@ -29,9 +29,81 @@ test("mobile routes stay thin and shell-backed", () => {
     fs.existsSync(path.join(root, "app/(app)/(tabs)/(home)/index.tsx")),
   );
   assert.ok(
+    fs.existsSync(path.join(root, "app/(app)/(tabs)/search/index.tsx")),
+  );
+  assert.ok(
+    fs.existsSync(path.join(root, "app/(app)/(tabs)/search/_layout.tsx")),
+  );
+  assert.ok(
+    fs.existsSync(path.join(root, "app/(app)/(tabs)/(home)/profile/index.tsx")),
+  );
+  assert.ok(
+    fs.existsSync(
+      path.join(root, "app/(app)/(tabs)/(home)/profile/settings.tsx"),
+    ),
+  );
+  assert.ok(
+    fs.existsSync(
+      path.join(root, "app/(app)/(tabs)/(home)/profile/[username].tsx"),
+    ),
+  );
+  assert.ok(
     fs.existsSync(path.join(root, "src/components/shell/mobile-app-shell.tsx")),
   );
   assert.ok(fs.existsSync(path.join(root, "src/lib/api/fphgo-client.ts")));
+});
+
+test("native tabs expose mobile search without fake search plumbing", () => {
+  const sharedNav = read("../../packages/types/src/navigation.ts");
+  const mobileNav = read("src/config/navigation.ts");
+  const tabsLayout = read("app/(app)/(tabs)/_layout.tsx");
+  const nativeHeader = read("src/components/shell/mobile-native-header.tsx");
+  const createRoute = read("app/(app)/(tabs)/create/index.tsx");
+  const createScreen = read("src/features/create/screens/create-screen.tsx");
+  const chikaScreen = read("src/features/chika/screens/chika-screen.tsx");
+  const chikaPostScreen = read("src/features/chika/screens/chika-post-screen.tsx");
+  const searchLayout = read("app/(app)/(tabs)/search/_layout.tsx");
+  const searchScreen = read("app/(app)/(tabs)/search/index.tsx");
+
+  assert.match(sharedNav, /id: "search"[\s\S]*?label: "Search"/);
+  assert.match(sharedNav, /id: "search"[\s\S]*?platforms: \["mobile"\]/);
+  assert.ok(
+    sharedNav.indexOf('id: "chika"') < sharedNav.indexOf('id: "search"'),
+  );
+  assert.ok(
+    sharedNav.indexOf('id: "search"') < sharedNav.indexOf('id: "create"'),
+  );
+  assert.match(sharedNav, /id: "profile"[\s\S]*?platforms: \["web"\]/);
+  assert.match(mobileNav, /search: "search"/);
+  assert.match(mobileNav, /APP_BOTTOM_NAV_ITEMS\.filter\(\s*supportsMobile,\s*\)/);
+  assert.match(
+    mobileNav,
+    /role: item\.id === "search" \? \("search" as const\)/,
+  );
+  assert.match(tabsLayout, /role=\{item\.role\}/);
+  assert.match(tabsLayout, /minimizeBehavior: "onScrollDown"/);
+  assert.match(createRoute, /CreateScreen/);
+  assert.match(createScreen, /MediaComposerSheet/);
+  assert.match(createScreen, /Photos and moments/);
+  assert.doesNotMatch(createScreen, /Post in Chika|Publish Chika|ActionSheetIOS/);
+  assert.match(chikaScreen, /Post Chika/);
+  assert.match(chikaPostScreen, /Publish Chika/);
+  assert.equal(fs.existsSync(path.join(root, "app/(app)/(tabs)/create/photos.tsx")), false);
+  assert.equal(fs.existsSync(path.join(root, "app/(app)/(tabs)/create/chika.tsx")), false);
+  assert.ok(fs.existsSync(path.join(root, "app/(app)/(tabs)/chika/post.tsx")));
+  assert.match(nativeHeader, /Stack\.Toolbar placement="left"/);
+  assert.match(nativeHeader, /Stack\.Toolbar placement="right"/);
+  assert.match(nativeHeader, /icon="line\.3\.horizontal"/);
+  assert.match(nativeHeader, /icon="bell"/);
+  assert.match(nativeHeader, /icon="person\.crop\.circle"/);
+  assert.match(nativeHeader, /\/\(app\)\/\(tabs\)\/\(home\)\/profile/);
+  assert.doesNotMatch(
+    nativeHeader,
+    /headerRight:|headerLeft:|headerRightBarButtonItems|headerLeftBarButtonItems|lucide-react-native/,
+  );
+  assert.doesNotMatch(searchLayout, /headerSearchBarOptions|nativeSearchOptions/);
+  assert.match(searchScreen, /Search is coming soon\./);
+  assert.doesNotMatch(searchScreen, /fetch|fphgo|useQuery|TODO|mock|fake/i);
 });
 
 test("required environment contract is documented", () => {
@@ -77,7 +149,10 @@ test("home feed uses shared activity contracts and fetch client", () => {
   assert.match(api, /auth:\s*"optional"/);
   assert.match(api, /\/v1\/feed\/actions/);
   assert.match(api, /auth:\s*"required"/);
-  assert.match(api, /\/v1\/media\/posts\/\$\{encodeURIComponent\(postId\)\}\/likes/);
+  assert.match(
+    api,
+    /\/v1\/media\/posts\/\$\{encodeURIComponent\(postId\)\}\/likes/,
+  );
   assert.doesNotMatch(api, /axios/i);
   assert.doesNotMatch(api, /apps\/web|features\/home-feed\/types/);
   assert.match(hook, /mobileQueryKeys\.feed\.activity/);
@@ -157,8 +232,14 @@ test("explore uses shared contracts, actions, and safe mobile routes", () => {
   assert.match(screen, /Pending review/);
   assert.match(screen, /Sign in to save spots/);
   assert.match(queryKeys, /mySubmissions/);
-  assert.doesNotMatch(screen, /expo-location|react-native-maps|MapView|cluster|custom marker|gps/i);
-  assert.doesNotMatch(detail, /expo-location|react-native-maps|MapView|cluster|custom marker|gps/i);
+  assert.doesNotMatch(
+    screen,
+    /expo-location|react-native-maps|MapView|cluster|custom marker|gps/i,
+  );
+  assert.doesNotMatch(
+    detail,
+    /expo-location|react-native-maps|MapView|cluster|custom marker|gps/i,
+  );
   assert.ok(format.includes('includes("/")'));
 });
 
@@ -166,7 +247,9 @@ test("media composer uses real upload contracts and native picker guards", () =>
   const api = read("src/features/media/api/media-api.ts");
   const mutations = read("src/features/media/hooks/use-media-mutations.ts");
   const guards = read("src/features/media/lib/media-upload-guards.ts");
-  const composer = read("src/features/media/components/media-composer-sheet.tsx");
+  const composer = read(
+    "src/features/media/components/media-composer-sheet.tsx",
+  );
   const createScreen = read("src/features/create/screens/create-screen.tsx");
 
   assert.match(api, /@freediving\.ph\/types/);
@@ -209,9 +292,9 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   const detail = read(
     "src/features/chika/screens/chika-thread-detail-screen.tsx",
   );
+  const postScreen = read("src/features/chika/screens/chika-post-screen.tsx");
   const mutations = read("src/features/chika/hooks/use-chika-mutations.ts");
   const format = read("src/features/chika/lib/chika-format.ts");
-  const createScreen = read("src/features/create/screens/create-screen.tsx");
   const queryKeys = read("src/lib/query/query-keys.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
@@ -231,7 +314,10 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(api, /ChikaCommentReactionResponse/);
   assert.match(api, /createChikaThread/);
   assert.match(api, /createChikaComment/);
-  assert.match(api, /\/v1\/chika\/comments\/\$\{encodeURIComponent\(commentId\)\}\/reactions/);
+  assert.match(
+    api,
+    /\/v1\/chika\/comments\/\$\{encodeURIComponent\(commentId\)\}\/reactions/,
+  );
   assert.match(api, /\/reactions/);
   assert.match(api, /createChikaThread[\s\S]*auth:\s*"required"/);
   assert.match(api, /createChikaComment[\s\S]*auth:\s*"required"/);
@@ -248,8 +334,8 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(detail, /requireSignedIn/);
   assert.match(detail, /isAuthErrorStatus/);
   assert.match(detail, /actionsDisabled/);
-  assert.match(createScreen, /requireSignedIn/);
-  assert.match(createScreen, /Could not publish in Chika\. Saved as draft\./);
+  assert.match(postScreen, /requireSignedIn/);
+  assert.match(postScreen, /Could not publish in Chika\. Saved as draft\./);
   assert.match(mutations, /threadCommentsRoot\(threadId\)/);
   assert.doesNotMatch(mutations, /limit:\s*50/);
   assert.match(mutations, /threadDetail\(slug\)/);
@@ -330,7 +416,9 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   const divingSection = read(
     "src/features/profiles/components/profile-diving-section.tsx",
   );
-  const postCard = read("src/features/profiles/components/profile-post-card.tsx");
+  const postCard = read(
+    "src/features/profiles/components/profile-post-card.tsx",
+  );
   const format = read("src/features/profiles/lib/profile-format.ts");
 
   assert.match(api, /@freediving\.ph\/types/);
@@ -357,9 +445,12 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   assert.match(publicHook, /useQuery/);
   assert.match(publicHook, /safeProfileUsername/);
   assert.match(activityHook, /safeProfileUsername/);
-  assert.match(mutationHook, /setQueryData\(mobileQueryKeys\.profile\.me\(\), response\)/);
+  assert.match(
+    mutationHook,
+    /setQueryData\(mobileQueryKeys\.profile\.me\(\), response\)/,
+  );
   assert.match(mutationHook, /profile\.public\(response\.profile\.username\)/);
-  assert.match(ownScreen, /\/\(app\)\/\(tabs\)\/profile\/settings/);
+  assert.match(ownScreen, /\/\(app\)\/\(tabs\)\/\(home\)\/profile\/settings/);
   assert.match(publicScreen, /useLocalSearchParams/);
   assert.match(ownScreen, /Edit profile/);
   assert.match(ownScreen, /ProfilePostCard/);
@@ -370,8 +461,14 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   assert.match(postCard, /safeImageUrl/);
   assert.match(postCard, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
   assert.match(divingSection, /diveSiteSlug/);
-  assert.match(divingSection, /Only diving details this profile can share are shown/);
-  assert.doesNotMatch(ownScreen, /upload|followAction|sendMessage|SQLite|Drizzle/i);
+  assert.match(
+    divingSection,
+    /Only diving details this profile can share are shown/,
+  );
+  assert.doesNotMatch(
+    ownScreen,
+    /upload|followAction|sendMessage|SQLite|Drizzle/i,
+  );
   assert.doesNotMatch(
     publicScreen,
     /upload|editProfile|followAction|sendMessage|report|block/i,
@@ -429,7 +526,7 @@ test("notifications use shared contracts, auth gating, preferences, and safe pus
   assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
   assert.match(format, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
   assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
-  assert.match(format, /\/\(app\)\/\(tabs\)\/profile\/\[username\]/);
+  assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/profile\/\[username\]/);
   assert.match(format, /notificationsFallbackHref/);
   assert.match(screen, /MobileLoadingState/);
   assert.match(screen, /MobileEmptyState/);
@@ -458,12 +555,18 @@ test("Phase 4 location and push helpers stay foreground-only and user initiated"
   assert.match(push, /requestPermissionsAsync/);
   assert.match(push, /getExpoPushTokenAsync/);
   assert.match(push, /Device\.isDevice/);
-  assert.doesNotMatch(push, /getToken|registerPushDevice\(|setInterval|Background/i);
+  assert.doesNotMatch(
+    push,
+    /getToken|registerPushDevice\(|setInterval|Background/i,
+  );
   assert.match(listener, /addNotificationResponseReceivedListener/);
   assert.match(listener, /notificationsFallbackHref/);
   assert.match(location, /requestForegroundPermissionsAsync/);
   assert.match(location, /getCurrentPositionAsync/);
-  assert.doesNotMatch(location, /requestBackgroundPermissionsAsync|watchPositionAsync|startLocationUpdatesAsync/i);
+  assert.doesNotMatch(
+    location,
+    /requestBackgroundPermissionsAsync|watchPositionAsync|startLocationUpdatesAsync/i,
+  );
   assert.match(screen, /Use my current area/);
   assert.match(screen, /diveConditionCoarseArea/);
   assert.doesNotMatch(screen, /background location|continuous tracking/i);
@@ -497,7 +600,10 @@ test("buddies use shared public and member intent contracts", () => {
   assert.match(api, /deleteBuddyFinderIntent/);
   assert.match(api, /getBuddyFinderMessageEntry/);
   assert.match(api, /auth:\s*"required"/);
-  assert.doesNotMatch(api, /method:\s*"PATCH"|method:\s*"PUT"|updateBuddyFinderIntent/);
+  assert.doesNotMatch(
+    api,
+    /method:\s*"PATCH"|method:\s*"PUT"|updateBuddyFinderIntent/,
+  );
   assert.match(hook, /useAuthenticatedFphgoQuery/);
   assert.match(hook, /mobileQueryKeys\.buddies\.preview/);
   assert.match(mutations, /getRequiredToken/);
@@ -527,18 +633,26 @@ test("buddies use shared public and member intent contracts", () => {
 
 test("messages and groups expose member-safe Phase 2 routes", () => {
   const messagesApi = read("src/features/messages/api/messages-api.ts");
-  const messagesQueries = read("src/features/messages/hooks/use-message-queries.ts");
+  const messagesQueries = read(
+    "src/features/messages/hooks/use-message-queries.ts",
+  );
   const messagesMutations = read(
     "src/features/messages/hooks/use-message-mutations.ts",
   );
-  const messagesScreen = read("src/features/messages/screens/messages-screen.tsx");
+  const messagesScreen = read(
+    "src/features/messages/screens/messages-screen.tsx",
+  );
   const messageThreadScreen = read(
     "src/features/messages/screens/message-thread-screen.tsx",
   );
   const queryKeys = read("src/lib/query/query-keys.ts");
   const groupsApi = read("src/features/groups/api/groups-api.ts");
-  const groupQueries = read("src/features/groups/hooks/use-group-member-queries.ts");
-  const groupMutations = read("src/features/groups/hooks/use-group-mutations.ts");
+  const groupQueries = read(
+    "src/features/groups/hooks/use-group-member-queries.ts",
+  );
+  const groupMutations = read(
+    "src/features/groups/hooks/use-group-mutations.ts",
+  );
   const groupsScreen = read("src/features/groups/screens/groups-screen.tsx");
   const groupDetailScreen = read(
     "src/features/groups/screens/group-detail-screen.tsx",
@@ -571,7 +685,10 @@ test("messages and groups expose member-safe Phase 2 routes", () => {
   assert.doesNotMatch(messagesApi, /axios/i);
   assert.doesNotMatch(messagesApi, /apps\/web|features\/messages\/types/);
   assert.doesNotMatch(messagesScreen, /endpoint|DTO|payload|debug|code-wise/i);
-  assert.doesNotMatch(messageThreadScreen, /endpoint|DTO|payload|debug|code-wise/i);
+  assert.doesNotMatch(
+    messageThreadScreen,
+    /endpoint|DTO|payload|debug|code-wise/i,
+  );
 
   assert.match(groupsApi, /@freediving\.ph\/types/);
   assert.match(groupsApi, /GroupListResponse/);
@@ -664,7 +781,9 @@ test("sync runner is manual, idempotent, and server-response gated", () => {
   const client = read("src/lib/api/fphgo-client.ts");
   const createScreen = read("src/features/create/screens/create-screen.tsx");
   const buddiesScreen = read("src/features/buddies/screens/buddies-screen.tsx");
-  const chikaDetail = read("src/features/chika/screens/chika-thread-detail-screen.tsx");
+  const chikaDetail = read(
+    "src/features/chika/screens/chika-thread-detail-screen.tsx",
+  );
 
   assert.match(client, /Idempotency-Key/);
   assert.match(syncRunner, /runSyncOutbox/);
@@ -676,8 +795,11 @@ test("sync runner is manual, idempotent, and server-response gated", () => {
   assert.match(outboxHook, /syncNow/);
   assert.match(outboxHook, /Waiting to sync/);
   assert.match(outboxHook, /Could not sync\. Try again\./);
-  assert.match(createScreen, /Save as draft/);
-  assert.doesNotMatch(syncRunner, /chika_thread_create|chika_comment_create|buddy_intent_create|profile_edit_update|event_post_create|group_post_create/);
+  assert.match(createScreen, /Saved as draft/);
+  assert.doesNotMatch(
+    syncRunner,
+    /chika_thread_create|chika_comment_create|buddy_intent_create|profile_edit_update|event_post_create|group_post_create/,
+  );
   assert.doesNotMatch(createScreen, /chika_thread_create/);
   assert.doesNotMatch(buddiesScreen, /buddy_intent_create/);
   assert.doesNotMatch(chikaDetail, /chika_comment_create/);
@@ -689,16 +811,26 @@ test("sync runner is manual, idempotent, and server-response gated", () => {
 test("local state does not become canonical server state", () => {
   const localFiles = fs
     .readdirSync(path.join(root, "src/local"), { recursive: true })
-    .filter((file) => String(file).endsWith(".ts") || String(file).endsWith(".tsx"))
+    .filter(
+      (file) => String(file).endsWith(".ts") || String(file).endsWith(".tsx"),
+    )
     .map((file) => read(path.join("src/local", String(file))))
     .join("\n");
   const source = fs
     .readdirSync(path.join(root, "src"), { recursive: true })
-    .filter((file) => String(file).endsWith(".ts") || String(file).endsWith(".tsx"))
+    .filter(
+      (file) => String(file).endsWith(".ts") || String(file).endsWith(".tsx"),
+    )
     .map((file) => read(path.join("src", String(file))))
     .join("\n");
 
   assert.doesNotMatch(localFiles, /zustand|create\s*\(/i);
-  assert.doesNotMatch(localFiles, /CREATE TABLE IF NOT EXISTS (events|messages|profiles|groups|explore_sites)/i);
-  assert.doesNotMatch(source, /drizzle-orm|expo-network|BackgroundFetch|TaskManager/i);
+  assert.doesNotMatch(
+    localFiles,
+    /CREATE TABLE IF NOT EXISTS (events|messages|profiles|groups|explore_sites)/i,
+  );
+  assert.doesNotMatch(
+    source,
+    /drizzle-orm|expo-network|BackgroundFetch|TaskManager/i,
+  );
 });

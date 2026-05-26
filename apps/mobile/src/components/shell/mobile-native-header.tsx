@@ -1,6 +1,4 @@
-import { Link, useNavigation } from "expo-router";
-import { Bell, Menu, UserRound } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { router, Stack, useNavigation } from "expo-router";
 
 function openParentDrawer(navigation: unknown) {
   let target = navigation;
@@ -32,54 +30,50 @@ function openParentDrawer(navigation: unknown) {
   }
 }
 
-export function NativeHeaderMenuButton() {
+export const USE_IOS_NATIVE_HEADER = process.env.EXPO_OS === "ios";
+
+export function NativeHeaderToolbar() {
   const navigation = useNavigation();
 
+  if (!USE_IOS_NATIVE_HEADER) {
+    return null;
+  }
+
   return (
-    <Pressable
-      accessibilityLabel="Open menu"
-      hitSlop={10}
-      onPress={() => openParentDrawer(navigation)}
-    >
-      <Menu color="#0A1F2E" size={22} />
-    </Pressable>
+    <>
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button
+          accessibilityLabel="Open menu"
+          icon="line.3.horizontal"
+          onPress={() => openParentDrawer(navigation)}
+        />
+      </Stack.Toolbar>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          accessibilityLabel="Open notifications"
+          icon="bell"
+          onPress={() => router.push("/(app)/(tabs)/(home)/notifications")}
+        />
+        <Stack.Toolbar.Button
+          accessibilityLabel="Open profile"
+          icon="person.crop.circle"
+          onPress={() => router.push("/(app)/(tabs)/(home)/profile")}
+        />
+      </Stack.Toolbar>
+    </>
   );
 }
-
-export function NativeHeaderActions() {
-  return (
-    <View className="flex-row items-center gap-4">
-      <Link href="/(app)/(tabs)/(home)/notifications" asChild>
-        <Pressable accessibilityLabel="Open notifications" hitSlop={10}>
-          <Bell color="#0A1F2E" size={21} />
-        </Pressable>
-      </Link>
-      <Link href="/(app)/(tabs)/profile" asChild>
-        <Pressable accessibilityLabel="Open profile" hitSlop={10}>
-          <UserRound color="#0A1F2E" size={21} />
-        </Pressable>
-      </Link>
-    </View>
-  );
-}
-
-export const USE_IOS_NATIVE_HEADER = process.env.EXPO_OS === "ios";
 
 export const IOS_NATIVE_STACK_SCREEN_OPTIONS = {
   headerLargeTitle: true,
-  headerLeft: () => <NativeHeaderMenuButton />,
-  headerRight: () => <NativeHeaderActions />,
+  headerLargeTitleStyle: {
+    fontSize: 32,
+    fontWeight: "700" as const,
+  },
   headerShadowVisible: false,
   headerShown: USE_IOS_NATIVE_HEADER,
+  headerTitleStyle: {
+    fontSize: 17,
+    fontWeight: "600" as const,
+  },
 };
-
-export function nativeSearchOptions(placeholder: string) {
-  if (!USE_IOS_NATIVE_HEADER) {
-    return undefined;
-  }
-  return {
-    autoCapitalize: "none" as const,
-    hideWhenScrolling: false,
-    placeholder,
-  };
-}
