@@ -640,12 +640,38 @@ func (h *Handlers) UpdateThreadCategory(w http.ResponseWriter, r *http.Request) 
 func mapThreadDetail(result messagingservice.ThreadDetailResult, actorID string) ThreadDetailResponse {
 	participants := make([]ThreadParticipantItem, 0, len(result.Participants))
 	for _, participant := range result.Participants {
+		if participant.UserID == actorID {
+			continue
+		}
+		item := ThreadParticipantItem{
+			ID:          participant.UserID,
+			Username:    participant.Username,
+			DisplayName: participant.DisplayName,
+			AvatarURL:   mediaurl.MaterializeWithDefault(participant.AvatarURL),
+		}
+		participants = append(participants, item)
+	}
+	for _, participant := range result.Participants {
+		if participant.UserID != actorID {
+			continue
+		}
 		participants = append(participants, ThreadParticipantItem{
 			ID:          participant.UserID,
 			Username:    participant.Username,
 			DisplayName: participant.DisplayName,
 			AvatarURL:   mediaurl.MaterializeWithDefault(participant.AvatarURL),
 		})
+		break
+	}
+	if len(participants) == 0 {
+		for _, participant := range result.Participants {
+			participants = append(participants, ThreadParticipantItem{
+				ID:          participant.UserID,
+				Username:    participant.Username,
+				DisplayName: participant.DisplayName,
+				AvatarURL:   mediaurl.MaterializeWithDefault(participant.AvatarURL),
+			})
+		}
 	}
 	lastReadMessageID := ""
 	if result.Thread.LastReadID != nil {

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { eventsApi } from "../api/events";
+import { eventsApi, type JoinEventMutationRequest } from "../api/events";
 import { trackProductEvent } from "@/lib/analytics/product-events";
 import { queryKeys } from "@/lib/query/query-keys";
 import type {
@@ -13,7 +13,6 @@ import type {
   DuplicateEventRequest,
   ReviewEventPaymentRequest,
   SubmitEventPaymentRequest,
-  JoinEventRequest,
   UpdateEventCompetitionRequest,
   UpdateEventJoinFormFieldsRequest,
   UpdateEventModulesRequest,
@@ -239,7 +238,7 @@ export const useJoinEvent = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: JoinEventRequest) => eventsApi.joinEvent(data),
+    mutationFn: (data: JoinEventMutationRequest) => eventsApi.joinEvent(data),
     onSuccess: (_response, variables) => {
       trackProductEvent("event_joined");
       queryClient.invalidateQueries({

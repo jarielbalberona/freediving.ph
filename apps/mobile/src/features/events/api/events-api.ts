@@ -52,7 +52,7 @@ export const joinEvent = (eventId: string, authToken: string) =>
   fphgoFetch<JoinEventResponse>(`/v1/events/${encodeURIComponent(eventId)}/join`, {
     auth: "required",
     authToken,
-    body: { eventId, joinAnswers: {} } satisfies JoinEventRequest,
+    body: { joinAnswers: {} } satisfies JoinEventRequest,
     method: "POST",
   });
 

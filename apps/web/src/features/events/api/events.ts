@@ -38,6 +38,10 @@ import type {
   UpdateEventSponsorRequest,
 } from "@freediving.ph/types";
 
+export interface JoinEventMutationRequest extends JoinEventRequest {
+  eventId: string;
+}
+
 type Pagination = {
   page: number;
   limit: number;
@@ -220,7 +224,9 @@ export const eventsApi = {
     return eventsApi.getEventParticipants(eventId);
   },
 
-  joinEvent: async (data: JoinEventRequest): Promise<EventParticipant> => {
+  joinEvent: async (
+    data: JoinEventMutationRequest,
+  ): Promise<EventParticipant> => {
     const response = await axiosInstance.post<JoinEventPayload>(
       `/v1/events/${data.eventId}/join`,
       {

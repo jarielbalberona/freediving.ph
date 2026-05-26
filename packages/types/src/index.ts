@@ -897,7 +897,6 @@ export interface UpdateEventParticipantRoleRequest {
 }
 
 export interface JoinEventRequest {
-  eventId: string;
   participantNote?: string;
   notes?: string;
   joinAnswers?: Record<string, unknown>;

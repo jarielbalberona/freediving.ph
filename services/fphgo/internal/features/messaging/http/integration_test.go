@@ -282,6 +282,30 @@ type testHub struct{}
 func (testHub) BroadcastEnvelope(ws.Envelope)                  {}
 func (testHub) BroadcastEnvelopeToUsers([]string, ws.Envelope) {}
 
+func TestMapThreadDetailOrdersOtherParticipantFirst(t *testing.T) {
+	actorID := "550e8400-e29b-41d4-a716-446655440000"
+	otherID := "550e8400-e29b-41d4-a716-446655440001"
+	response := mapThreadDetail(messagingservice.ThreadDetailResult{
+		Thread: messagingrepo.Thread{
+			ID:        "550e8400-e29b-41d4-a716-446655440099",
+			Type:      "direct",
+			Category:  messagingrepo.ThreadCategoryPrimary,
+			CreatedAt: time.Now(),
+		},
+		Participants: []messagingrepo.ThreadParticipant{
+			{UserID: actorID, Username: "viewer", DisplayName: "Viewer"},
+			{UserID: otherID, Username: "buddy", DisplayName: "Buddy"},
+		},
+	}, actorID)
+
+	if len(response.Participants) != 2 {
+		t.Fatalf("expected two participants, got %#v", response.Participants)
+	}
+	if response.Participants[0].ID != otherID {
+		t.Fatalf("expected other participant first, got %#v", response.Participants)
+	}
+}
+
 func TestMessagingThreadOpenSendReadFlow(t *testing.T) {
 	repo := newMemoryMessagingRepo()
 	svc := messagingservice.New(repo, testHub{}, memoryBlockChecker{})
