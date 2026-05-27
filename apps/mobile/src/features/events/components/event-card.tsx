@@ -4,7 +4,7 @@ import { Pressable, Text, View } from "react-native";
 
 import type { Event } from "@freediving.ph/types";
 
-import { MobileCard } from "@/components/shell";
+import { SocialListRow, SocialMetadataLine, StatusPill } from "@/components/social";
 import {
   eventLocationLabel,
   eventPriceLabel,
@@ -21,60 +21,46 @@ type EventCardProps = {
 
 function EventCardContent({ event }: EventCardProps) {
   const coverUrl = safeImageUrl(event.coverPhotoUrl);
+  const pendingApproval = event.viewerEventState === "pending_approval";
 
   return (
-    <MobileCard>
-      <View className="gap-3">
-        {coverUrl ? (
-          <Image
-            accessibilityLabel=""
-            className="h-40 w-full rounded-xl bg-secondary"
-            contentFit="cover"
-            source={{ uri: coverUrl }}
-            transition={150}
-          />
-        ) : null}
-
-        <View className="flex-row flex-wrap gap-2">
-          <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {eventTypeLabel(event.type)}
-          </Text>
-          <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {eventPriceLabel(event)}
-          </Text>
-          {event.beginnerFriendly ? (
-            <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-              Beginner friendly
-            </Text>
-          ) : null}
+    <SocialListRow
+      body={eventSummary(event)}
+      meta={[
+        eventTypeLabel(event.type),
+        eventPriceLabel(event),
+        event.beginnerFriendly ? "Beginner friendly" : undefined,
+      ]}
+      name="Event"
+      title={event.title}
+    >
+      {coverUrl ? (
+        <Image
+          accessibilityLabel=""
+          className="mb-3 w-full rounded-xl bg-secondary"
+          contentFit="cover"
+          source={{ uri: coverUrl }}
+          style={{ aspectRatio: 4 / 5 }}
+          transition={150}
+        />
+      ) : null}
+      <SocialMetadataLine
+        values={[
+          formatEventDate(event.startsAt, event.endsAt, event.timezone),
+          eventLocationLabel(event),
+          `${event.goingCount || event.currentAttendees} confirmed${
+            event.capacity ? ` · ${event.capacity} capacity` : ""
+          }`,
+        ]}
+      />
+      {event.viewerJoined || pendingApproval ? (
+        <View className="mt-2 flex-row">
+          <StatusPill tone="primary">
+            {event.viewerJoined ? "Joined" : "Pending"}
+          </StatusPill>
         </View>
-
-        <View className="gap-2">
-          <Text className="text-base font-semibold leading-6 text-foreground">
-            {event.title}
-          </Text>
-          <Text
-            className="text-sm leading-6 text-muted-foreground"
-            numberOfLines={3}
-          >
-            {eventSummary(event)}
-          </Text>
-        </View>
-
-        <View className="gap-1">
-          <Text className="text-xs text-muted-foreground">
-            {formatEventDate(event.startsAt, event.endsAt, event.timezone)}
-          </Text>
-          <Text className="text-xs text-muted-foreground">
-            {eventLocationLabel(event)}
-          </Text>
-          <Text className="text-xs text-muted-foreground">
-            {event.goingCount || event.currentAttendees} confirmed
-            {event.capacity ? ` · ${event.capacity} capacity` : ""}
-          </Text>
-        </View>
-      </View>
-    </MobileCard>
+      ) : null}
+    </SocialListRow>
   );
 }
 

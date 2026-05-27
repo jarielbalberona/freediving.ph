@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { Link } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
+import { SocialActionRow, SocialListRow } from "@/components/social";
 import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
 import { safeImageUrl } from "@/features/profiles/lib/profile-format";
 import type { ProfilePost } from "@freediving.ph/types";
@@ -13,31 +14,37 @@ type ProfilePostCardProps = {
 export function ProfilePostCard({ post }: ProfilePostCardProps) {
   const imageUrl = safeImageUrl(post.thumbUrl);
   const content = (
-    <View className="rounded-2xl border border-border bg-card p-4">
+    <SocialListRow
+      body={post.caption}
+      meta={[post.siteArea]}
+      name={post.siteName || "Dive post"}
+      title={post.siteName || "Dive post"}
+    >
       {imageUrl ? (
         <Image
           accessibilityLabel=""
-          className="h-44 w-full rounded-xl bg-secondary"
+          className="mb-3 w-full rounded-xl bg-secondary"
           contentFit="cover"
           source={{ uri: imageUrl }}
+          style={{ aspectRatio: 4 / 5 }}
           transition={150}
         />
       ) : null}
-      <Text className="mt-3 text-sm font-semibold text-foreground">
-        {post.siteName || "Dive post"}
-      </Text>
-      {post.siteArea ? (
-        <Text className="mt-1 text-xs text-muted-foreground">{post.siteArea}</Text>
-      ) : null}
-      {post.caption ? (
-        <Text className="mt-2 text-sm leading-6 text-muted-foreground" numberOfLines={4}>
-          {post.caption}
-        </Text>
-      ) : null}
-      <Text className="mt-2 text-xs text-muted-foreground">
-        {post.likeCount} likes · {post.commentCount} comments
-      </Text>
-    </View>
+      <SocialActionRow
+        actions={[
+          {
+            accessibilityLabel: "Profile post likes",
+            icon: "fish-outline",
+            label: `${post.likeCount} likes`,
+          },
+          {
+            accessibilityLabel: "Profile post comments",
+            icon: "chatbubble-outline",
+            label: `${post.commentCount} comments`,
+          },
+        ]}
+      />
+    </SocialListRow>
   );
 
   if (!post.siteSlug) return content;

@@ -247,7 +247,7 @@ export function ProfileScreen() {
         {postsQuery.isLoading ? (
           <ProfileDetailRow label="Posts" value="Loading public posts." />
         ) : posts.length > 0 ? (
-          <View className="gap-3">
+          <View>
             {posts.map((post) => (
               <ProfilePostCard key={post.id} post={post} />
             ))}

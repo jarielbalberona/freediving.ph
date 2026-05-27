@@ -4,8 +4,7 @@ import { Pressable, Text, View } from "react-native";
 
 import type { ExploreSiteCard } from "@freediving.ph/types";
 
-import { MobileCard } from "@/components/shell";
-import { MobileButton } from "@/components/ui/mobile-button";
+import { SocialActionRow, SocialListRow, SocialMetadataLine, StatusPill } from "@/components/social";
 import {
   formatDepthRange,
   safeSiteSlug,
@@ -27,81 +26,77 @@ function ExploreSiteCardContent({
   site,
 }: ExploreSiteCardProps) {
   const depthRange = formatDepthRange(site);
+  const likeIcon: "fish" | "fish-outline" = site.viewerHasLiked
+    ? "fish"
+    : "fish-outline";
+  const saveIcon: "bookmark" | "bookmark-outline" = site.isSaved
+    ? "bookmark"
+    : "bookmark-outline";
 
   return (
-    <MobileCard>
-      <View className="gap-3">
-        {site.coverMedia?.displayUrl ? (
-          <Image
-            accessibilityLabel=""
-            className="h-40 w-full rounded-xl bg-secondary"
-            contentFit="cover"
-            source={{ uri: site.coverMedia.displayUrl }}
-            transition={150}
+    <SocialListRow
+      body={site.lastConditionSummary}
+      meta={[
+        site.area,
+        titleCase(site.difficulty),
+        verificationLabel(site.verificationStatus),
+        depthRange,
+      ]}
+      name="Dive spot"
+      status={site.buddySignal?.label ? <StatusPill>{site.buddySignal.label}</StatusPill> : null}
+      title={site.name}
+    >
+      {site.coverMedia?.displayUrl ? (
+        <Image
+          accessibilityLabel=""
+          className="mb-3 w-full rounded-xl bg-secondary"
+          contentFit="cover"
+          source={{ uri: site.coverMedia.displayUrl }}
+          style={{ aspectRatio: 4 / 5 }}
+          transition={150}
+        />
+      ) : null}
+      <SocialMetadataLine
+        values={[
+          `${site.likeCount.toLocaleString()} likes`,
+          site.isSaved ? "Saved" : undefined,
+        ]}
+      />
+      {onLike || onSave ? (
+        <View className="mt-2">
+          <SocialActionRow
+            actions={[
+              ...(onLike
+                ? [
+                    {
+                      accessibilityLabel: site.viewerHasLiked
+                        ? "Unlike dive spot"
+                        : "Like dive spot",
+                      active: site.viewerHasLiked,
+                      disabled: actionsDisabled,
+                      icon: likeIcon,
+                      label: `${site.viewerHasLiked ? "Liked" : "Like"} · ${site.likeCount}`,
+                      onPress: () => onLike(site),
+                    },
+                  ]
+                : []),
+              ...(onSave
+                ? [
+                    {
+                      accessibilityLabel: site.isSaved ? "Unsave dive spot" : "Save dive spot",
+                      active: site.isSaved,
+                      disabled: actionsDisabled,
+                      icon: saveIcon,
+                      label: site.isSaved ? "Saved" : "Save",
+                      onPress: () => onSave(site),
+                    },
+                  ]
+                : []),
+            ]}
           />
-        ) : null}
-
-        <View className="gap-2">
-          <Text className="text-base font-semibold leading-6 text-foreground">
-            {site.name}
-          </Text>
-          <Text className="text-sm text-muted-foreground">{site.area}</Text>
-          {site.lastConditionSummary ? (
-            <Text
-              className="text-sm leading-6 text-muted-foreground"
-              numberOfLines={3}
-            >
-              {site.lastConditionSummary}
-            </Text>
-          ) : null}
         </View>
-
-        <View className="flex-row flex-wrap gap-2">
-          <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {titleCase(site.difficulty)}
-          </Text>
-          <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {verificationLabel(site.verificationStatus)}
-          </Text>
-          {depthRange ? (
-            <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-              {depthRange}
-            </Text>
-          ) : null}
-          {site.buddySignal?.label ? (
-            <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-              {site.buddySignal.label}
-            </Text>
-          ) : null}
-        </View>
-        {(onLike || onSave) ? (
-          <View className="flex-row gap-2">
-            {onLike ? (
-              <View className="flex-1">
-                <MobileButton
-                  disabled={actionsDisabled}
-                  variant="secondary"
-                  onPress={() => onLike(site)}
-                >
-                  {site.viewerHasLiked ? "Unlike" : "Like"} · {site.likeCount}
-                </MobileButton>
-              </View>
-            ) : null}
-            {onSave ? (
-              <View className="flex-1">
-                <MobileButton
-                  disabled={actionsDisabled}
-                  variant="secondary"
-                  onPress={() => onSave(site)}
-                >
-                  {site.isSaved ? "Unsave" : "Save"}
-                </MobileButton>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
-    </MobileCard>
+      ) : null}
+    </SocialListRow>
   );
 }
 

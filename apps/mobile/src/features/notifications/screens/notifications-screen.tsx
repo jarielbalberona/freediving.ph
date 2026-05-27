@@ -272,7 +272,7 @@ export function NotificationsScreen() {
         notifications.length > 0 ? (
           <View className="gap-3">
             {unreadCount > 0 ? (
-              <View className="rounded-2xl border border-border bg-card p-4">
+              <View className="border-y border-border/60 bg-background px-4 py-4">
                 <Text className="text-sm font-semibold text-foreground">
                   {unreadCount} unread notification{unreadCount === 1 ? "" : "s"}
                 </Text>

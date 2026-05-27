@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 
 import type { MessagingThreadCategory, MessagingThreadSummary } from "@freediving.ph/types";
 
+import { SocialListRow, StatusPill } from "@/components/social";
 import {
   MobileEmptyState,
   MobileErrorState,
@@ -30,6 +31,7 @@ const categoryLabel = (category: MessagingThreadCategory) =>
 
 function ThreadRow({ thread }: { thread: MessagingThreadSummary }) {
   const lastMessage = thread.lastMessage?.body;
+  const name = thread.participant.displayName || thread.participant.username;
 
   return (
     <Link
@@ -41,30 +43,17 @@ function ThreadRow({ thread }: { thread: MessagingThreadSummary }) {
       }
       asChild
     >
-      <Pressable
-        accessibilityRole="link"
-        className="rounded-2xl border border-border bg-card p-4"
-      >
-        <View className="gap-2">
-          <View className="flex-row items-start justify-between gap-3">
-            <Text className="min-w-0 flex-1 text-base font-semibold text-foreground">
-              {thread.participant.displayName || thread.participant.username}
-            </Text>
-            {thread.hasUnread ? (
-              <Text className="rounded-full bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">
-                {thread.unreadCount}
-              </Text>
-            ) : null}
-          </View>
-          {lastMessage ? (
-            <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={2}>
-              {lastMessage}
-            </Text>
-          ) : null}
-          {thread.activeRequest ? (
-            <Text className="text-xs font-medium text-primary">Message request</Text>
-          ) : null}
-        </View>
+      <Pressable accessibilityRole="link">
+        <SocialListRow
+          body={lastMessage}
+          meta={[thread.activeRequest ? "Message request" : undefined]}
+          name={name}
+          status={
+            thread.hasUnread ? (
+              <StatusPill tone="primary">{thread.unreadCount}</StatusPill>
+            ) : null
+          }
+        />
       </Pressable>
     </Link>
   );
@@ -126,7 +115,7 @@ export function MessagesScreen() {
         ) : null}
 
         {!threadsQuery.isLoading && !threadsQuery.error && threads.length > 0 ? (
-          <View className="gap-3">
+          <View>
             {threads.map((thread) => (
               <ThreadRow key={thread.id} thread={thread} />
             ))}

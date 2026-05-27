@@ -4,6 +4,7 @@ import { Pressable, Text, View } from "react-native";
 
 import type { Group } from "@freediving.ph/types";
 
+import { SocialListRow, SocialMetadataLine, StatusPill } from "@/components/social";
 import {
   MobileEmptyState,
   MobileErrorState,
@@ -27,29 +28,19 @@ const safeSlug = (value: string | undefined) => {
 function GroupCard({ group }: { group: Group }) {
   const slug = safeSlug(group.slug);
   const content = (
-    <View className="rounded-2xl border border-border bg-card p-4">
-      <View className="gap-3">
-        <View className="gap-1">
-          <Text className="text-base font-semibold text-foreground">{group.name}</Text>
-          {group.bio || group.description ? (
-            <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={3}>
-              {group.bio || group.description}
-            </Text>
-          ) : null}
-        </View>
-        <View className="flex-row flex-wrap gap-2">
-          <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {group.visibility}
-          </Text>
-          <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {group.joinPolicy === "open" ? "Open" : "Invite only"}
-          </Text>
-          <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {group.memberCount} members
-          </Text>
-        </View>
-      </View>
-    </View>
+    <SocialListRow
+      body={group.bio || group.description}
+      meta={[group.visibility, `${group.memberCount} members`]}
+      name="Group"
+      status={
+        group.joinPolicy === "open" ? null : <StatusPill>Invite only</StatusPill>
+      }
+      title={group.name}
+    >
+      <SocialMetadataLine
+        values={[group.joinPolicy === "open" ? "Open to join" : "Invite only"]}
+      />
+    </SocialListRow>
   );
 
   if (!slug) return content;
@@ -101,7 +92,7 @@ export function GroupsScreen() {
         ) : null}
 
         {!groupsQuery.isLoading && !groupsQuery.error && groups.length > 0 ? (
-          <View className="gap-3">
+          <View>
             {groups.map((group) => (
               <GroupCard group={group} key={group.id} />
             ))}

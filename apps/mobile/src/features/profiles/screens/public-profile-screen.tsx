@@ -113,7 +113,7 @@ export function PublicProfileScreen() {
         </MobileSection>
 
         <MobileSection title="Community activity">
-          <View className="gap-3">
+          <View>
             <ProfileDetailRow
               label="Posts"
               value={profileCountLabel(profile.counts.posts, "posts")}
@@ -133,7 +133,7 @@ export function PublicProfileScreen() {
           {postsQuery.isLoading ? (
             <ProfileDetailRow label="Posts" value="Loading public posts." />
           ) : posts.length > 0 ? (
-            <View className="gap-3">
+            <View>
               {posts.map((post) => (
                 <ProfilePostCard key={post.id} post={post} />
               ))}

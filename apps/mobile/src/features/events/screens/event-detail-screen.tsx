@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 
+import { SocialActionRow, SocialListRow } from "@/components/social";
 import {
   MobileEmptyState,
   MobileErrorState,
@@ -461,51 +462,52 @@ export function EventDetailScreen() {
               ) : null}
 
               {eventPosts.map((post) => (
-                <View key={post.id} className="rounded-2xl border border-border bg-card p-4">
-                  <Text className="text-sm font-semibold text-foreground">
-                    {post.authorDisplayName || "Organizer"}
-                  </Text>
-                  {post.title ? (
-                    <Text className="mt-2 text-base font-semibold text-foreground">
-                      {post.title}
-                    </Text>
-                  ) : null}
-                  <Text className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {stripMarkdownPreview(post.bodyMarkdown)}
-                  </Text>
-                  <View className="mt-3">
-                    <MobileButton
-                      disabled={!isLoaded || !isSignedIn || fishMutation.isPending}
-                      variant="secondary"
-                      onPress={() =>
-                        fishMutation.mutate(
-                          {
-                            hasFish: post.viewerHasFishReacted,
-                            postId: post.id,
-                          },
-                          {
-                            onError: (error) => {
-                              setPostMessage("Could not update fish reaction. Try again.");
-                              if (!shouldQueueFailedMutation(error)) return;
-                              void outbox.enqueue({
-                                entityId: post.id,
-                                entityType: "event_post",
-                                operationType: "event_post_fish",
-                                payload: {
-                                  eventId: event.id,
-                                  postId: post.id,
-                                  viewerHasFishReacted: post.viewerHasFishReacted,
-                                },
-                              });
+                <SocialListRow
+                  body={stripMarkdownPreview(post.bodyMarkdown)}
+                  key={post.id}
+                  meta={[post.authorUsername]}
+                  name={post.authorDisplayName || "Organizer"}
+                  title={post.title}
+                >
+                  <SocialActionRow
+                    actions={[
+                      {
+                        accessibilityLabel: post.viewerHasFishReacted
+                          ? "Remove fish reaction"
+                          : "React with fish",
+                        active: post.viewerHasFishReacted,
+                        disabled: !isLoaded || !isSignedIn || fishMutation.isPending,
+                        icon: post.viewerHasFishReacted ? "fish" : "fish-outline",
+                        label: `Fish · ${post.fishReactionCount}`,
+                        onPress: () =>
+                          fishMutation.mutate(
+                            {
+                              hasFish: post.viewerHasFishReacted,
+                              postId: post.id,
                             },
-                          },
-                        )
-                      }
-                    >
-                      {post.viewerHasFishReacted ? "Remove fish" : "Fish"} · {post.fishReactionCount}
-                    </MobileButton>
-                  </View>
-                </View>
+                            {
+                              onError: (error) => {
+                                setPostMessage(
+                                  "Could not update fish reaction. Try again.",
+                                );
+                                if (!shouldQueueFailedMutation(error)) return;
+                                void outbox.enqueue({
+                                  entityId: post.id,
+                                  entityType: "event_post",
+                                  operationType: "event_post_fish",
+                                  payload: {
+                                    eventId: event.id,
+                                    postId: post.id,
+                                    viewerHasFishReacted: post.viewerHasFishReacted,
+                                  },
+                                });
+                              },
+                            },
+                          ),
+                      },
+                    ]}
+                  />
+                </SocialListRow>
               ))}
             </View>
           </MobileSection>

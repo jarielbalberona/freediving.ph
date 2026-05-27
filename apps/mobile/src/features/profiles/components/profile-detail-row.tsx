@@ -11,7 +11,7 @@ export function ProfileDetailRow({ label, value }: ProfileDetailRowProps) {
   }
 
   return (
-    <View className="rounded-2xl border border-border bg-card p-4">
+    <View className="border-b border-border/60 bg-background px-4 py-3">
       <Text className="text-xs font-semibold uppercase text-muted-foreground">
         {label}
       </Text>

@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 
 import type { BuddyFinderIntent, BuddyFinderPreviewIntent } from "@freediving.ph/types";
 
-import { MobileCard } from "@/components/shell";
+import { SocialActionRow, SocialListRow } from "@/components/social";
 import { MobileButton } from "@/components/ui/mobile-button";
 import {
   buddyStatsLabel,
@@ -37,65 +37,50 @@ export function BuddyIntentCard({
   const createdAt = formatRecency(intent.createdAt);
   const note =
     "note" in intent ? intent.note : "notePreview" in intent ? intent.notePreview : undefined;
+  const displayName = "displayName" in intent ? intent.displayName : "Freediving buddy";
 
   return (
-    <MobileCard>
-      <View className="gap-3">
-        <View className="flex-row flex-wrap gap-2">
-          <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {intentTypeLabel(intent.intentType)}
-          </Text>
-          <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-            {timeWindowLabel(intent)}
-          </Text>
-          {certLevel ? (
-            <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-              {certLevel}
-            </Text>
-          ) : null}
-        </View>
+    <SocialListRow
+      body={note}
+      meta={[
+        intent.area || "Area to be shared",
+        intentTypeLabel(intent.intentType),
+        timeWindowLabel(intent),
+        certLevel,
+        createdAt ? `Posted ${createdAt}` : undefined,
+      ]}
+      name={displayName}
+      title={buddyStatsLabel(intent)}
+    >
+      {intent.emailVerified || intent.phoneVerified ? (
+        <Text className="mb-2 text-xs text-muted-foreground">
+          {[
+            intent.emailVerified ? "Email verified" : "",
+            intent.phoneVerified ? "Phone verified" : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </Text>
+      ) : null}
 
-        <View className="gap-2">
-          <Text className="text-base font-semibold leading-6 text-foreground">
-            {"displayName" in intent ? intent.displayName : "Freediving buddy"}
-          </Text>
-          <Text className="text-sm text-muted-foreground">
-            {intent.area || "Area to be shared"}
-          </Text>
-          {note ? (
-            <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={4}>
-              {note}
-            </Text>
-          ) : null}
-        </View>
-
-        <View className="gap-1">
-          <Text className="text-xs text-muted-foreground">
-            {buddyStatsLabel(intent)}
-          </Text>
-          {createdAt ? (
-            <Text className="text-xs text-muted-foreground">Posted {createdAt}</Text>
-          ) : null}
-          {intent.emailVerified || intent.phoneVerified ? (
-            <Text className="text-xs text-muted-foreground">
-              {[
-                intent.emailVerified ? "Email verified" : "",
-                intent.phoneVerified ? "Phone verified" : "",
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </Text>
-          ) : null}
-        </View>
-
+      <View className="gap-2">
+        <SocialActionRow
+          actions={[
+            ...(onMessage
+              ? [
+                  {
+                    accessibilityLabel: "Message buddy",
+                    disabled: isMessagePending,
+                    icon: "chatbubble-outline" as const,
+                    label: "Message",
+                    onPress: onMessage,
+                  },
+                ]
+              : []),
+          ]}
+        />
         {onMessage ? (
-          <MobileButton
-            disabled={isMessagePending}
-            variant="secondary"
-            onPress={onMessage}
-          >
-            Message
-          </MobileButton>
+          null
         ) : null}
         {profileHref ? (
           <Link asChild href={profileHref}>
@@ -117,6 +102,6 @@ export function BuddyIntentCard({
           </MobileButton>
         ) : null}
       </View>
-    </MobileCard>
+    </SocialListRow>
   );
 }

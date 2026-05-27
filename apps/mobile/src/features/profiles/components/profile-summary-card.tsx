@@ -1,7 +1,6 @@
 import { Text, View } from "react-native";
 
-import { MobileCard } from "@/components/shell";
-import { ProfileAvatar } from "@/features/profiles/components/profile-avatar";
+import { AvatarIdentityRow } from "@/components/social";
 import {
   profileBio,
   profileHandle,
@@ -23,27 +22,15 @@ export function ProfileSummaryCard({
   username,
 }: ProfileSummaryCardProps) {
   return (
-    <MobileCard>
-      <View className="gap-4">
-        <View className="flex-row gap-4">
-          <ProfileAvatar displayName={displayName} imageUrl={avatarUrl} />
-          <View className="min-w-0 flex-1 justify-center gap-1">
-            <Text className="text-lg font-semibold leading-6 text-foreground">
-              {displayName}
-            </Text>
-            <Text className="text-sm text-muted-foreground">
-              {profileHandle(username)}
-            </Text>
-            {meta ? (
-              <Text className="text-sm text-muted-foreground">{meta}</Text>
-            ) : null}
-          </View>
-        </View>
-
-        <Text className="text-sm leading-6 text-muted-foreground">
-          {profileBio({ bio })}
-        </Text>
-      </View>
-    </MobileCard>
+    <View className="border-b border-border/60 bg-background px-4 py-5">
+      <AvatarIdentityRow
+        avatarUrl={avatarUrl}
+        meta={[profileHandle(username), meta]}
+        name={displayName}
+      />
+      <Text className="mt-4 text-sm leading-6 text-muted-foreground">
+        {profileBio({ bio })}
+      </Text>
+    </View>
   );
 }

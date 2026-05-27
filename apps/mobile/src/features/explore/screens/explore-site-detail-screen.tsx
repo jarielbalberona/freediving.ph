@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 
+import { SocialActionRow, SocialMetadataLine } from "@/components/social";
 import {
   MobileEmptyState,
   MobileErrorState,
@@ -113,19 +114,13 @@ export function ExploreSiteDetailScreen() {
               />
             ) : null}
 
-            <View className="flex-row flex-wrap gap-2">
-              <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                {titleCase(site.difficulty)}
-              </Text>
-              <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                {verificationLabel(site.verificationStatus)}
-              </Text>
-              {depthRange ? (
-                <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                  {depthRange}
-                </Text>
-              ) : null}
-            </View>
+            <SocialMetadataLine
+              values={[
+                titleCase(site.difficulty),
+                verificationLabel(site.verificationStatus),
+                depthRange,
+              ]}
+            />
 
             <Text className="text-sm leading-6 text-muted-foreground">
               {site.description || "No site description has been added yet."}
@@ -143,27 +138,38 @@ export function ExploreSiteDetailScreen() {
                 Sign in to like this dive spot.
               </Text>
             ) : null}
-            <MobileButton
-              disabled={!isLoaded || !isSignedIn || likeMutation.isPending}
-              variant="secondary"
-              onPress={() =>
-                likeMutation.mutate(
-                  {
-                    siteId: site.id,
-                    viewerHasLiked: site.viewerHasLiked,
-                  },
-                  {
-                    onError: () => setActionMessage("Could not update like. Try again."),
-                    onSuccess: () =>
-                      setActionMessage(
-                        site.viewerHasLiked ? "Removed like." : "Liked dive spot.",
-                      ),
-                  },
-                )
-              }
-            >
-              {site.viewerHasLiked ? "Unlike" : "Like"} · {site.likeCount}
-            </MobileButton>
+            <SocialActionRow
+              actions={[
+                {
+                  accessibilityLabel: site.viewerHasLiked
+                    ? "Unlike dive spot"
+                    : "Like dive spot",
+                  active: site.viewerHasLiked,
+                  disabled: !isLoaded || !isSignedIn || likeMutation.isPending,
+                  icon: site.viewerHasLiked ? "fish" : "fish-outline",
+                  label: `${site.viewerHasLiked ? "Liked" : "Like"} · ${
+                    site.likeCount
+                  }`,
+                  onPress: () =>
+                    likeMutation.mutate(
+                      {
+                        siteId: site.id,
+                        viewerHasLiked: site.viewerHasLiked,
+                      },
+                      {
+                        onError: () =>
+                          setActionMessage("Could not update like. Try again."),
+                        onSuccess: () =>
+                          setActionMessage(
+                            site.viewerHasLiked
+                              ? "Removed like."
+                              : "Liked dive spot.",
+                          ),
+                      },
+                    ),
+                },
+              ]}
+            />
             <ExploreDetailRow label="Area" value={site.area} />
             <ExploreDetailRow label="Recent conditions" value={conditionSummary} />
             <ExploreDetailRow label="Best season" value={site.bestSeason} />
@@ -188,7 +194,7 @@ export function ExploreSiteDetailScreen() {
 
         {data.updates.length > 0 ? (
           <MobileSection title="Recent reports">
-            <View className="gap-3">
+            <View>
               {data.updates.map((update) => (
                 <ExploreDetailRow
                   key={update.id}

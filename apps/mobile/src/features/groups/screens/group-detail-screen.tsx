@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
+import { AvatarIdentityRow, SocialListRow, SocialMetadataLine, StatusPill } from "@/components/social";
 import {
   MobileEmptyState,
   MobileErrorState,
@@ -116,17 +117,18 @@ export function GroupDetailScreen() {
       <MobileScrollScreen subtitle="Group" title="Groups">
         <MobileSection title={group.name} description={group.bio || group.description}>
           <View className="gap-3">
-            <View className="flex-row flex-wrap gap-2">
-              <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                {group.visibility}
-              </Text>
-              <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                {group.memberCount} members
-              </Text>
-              <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                {group.postCount} posts
-              </Text>
-            </View>
+            <SocialMetadataLine
+              values={[
+                group.visibility,
+                `${group.memberCount} members`,
+                `${group.postCount} posts`,
+              ]}
+            />
+            {isMember ? (
+              <View className="flex-row">
+                <StatusPill tone="primary">Joined</StatusPill>
+              </View>
+            ) : null}
             {canJoin ? (
               <MobileButton
                 disabled={membershipPending}
@@ -331,21 +333,15 @@ export function GroupDetailScreen() {
             />
           ) : null}
           {posts.length > 0 ? (
-            <View className="gap-3">
+            <View>
               {posts.map((post) => (
-                <View key={post.id} className="rounded-2xl border border-border bg-card p-4">
-                  <Text className="text-sm font-semibold text-foreground">
-                    {post.authorName || "Group member"}
-                  </Text>
-                  {post.title ? (
-                    <Text className="mt-2 text-base font-semibold text-foreground">
-                      {post.title}
-                    </Text>
-                  ) : null}
-                  <Text className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {post.content}
-                  </Text>
-                </View>
+                <SocialListRow
+                  body={post.content}
+                  key={post.id}
+                  meta={[]}
+                  name={post.authorName || "Group member"}
+                  title={post.title}
+                />
               ))}
             </View>
           ) : null}
@@ -368,11 +364,17 @@ export function GroupDetailScreen() {
             />
           ) : null}
           {!membersQuery.isLoading && !membersQuery.error && members.length > 0 ? (
-            <View className="gap-2">
+            <View>
               {members.map((member) => (
-                <Text key={member.userId} className="text-sm text-muted-foreground">
-                  {member.displayName || member.username || "Member"} · {member.role}
-                </Text>
+                <View
+                  className="border-b border-border/60 bg-background px-4 py-3"
+                  key={member.userId}
+                >
+                  <AvatarIdentityRow
+                    meta={[member.username, member.role]}
+                    name={member.displayName || member.username || "Member"}
+                  />
+                </View>
               ))}
             </View>
           ) : null}

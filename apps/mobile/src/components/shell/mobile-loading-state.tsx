@@ -8,11 +8,9 @@ export function MobileLoadingState({
   message = "Loading",
 }: MobileLoadingStateProps) {
   return (
-    <View className="flex-1 items-center justify-center bg-background px-6">
-      <View className="w-full max-w-phone items-center gap-3 rounded-2xl border border-border bg-card p-5">
-        <ActivityIndicator color="#0677A8" />
-        <Text className="text-center text-sm text-muted-foreground">{message}</Text>
-      </View>
+    <View className="flex-row items-center justify-center gap-3 bg-background px-4 py-6">
+      <ActivityIndicator color="#0677A8" />
+      <Text className="text-sm text-muted-foreground">{message}</Text>
     </View>
   );
 }
