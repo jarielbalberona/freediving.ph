@@ -49,10 +49,12 @@ export type HomeActivityCardModel = {
 
 export type HomeActivityMediaItem = {
   dialogUrl?: string;
+  displayUrl?: string;
   height?: number;
   id: string;
   mediaObjectId?: string;
   previewUrl?: string;
+  thumbnailUrl?: string;
   width?: number;
 };
 
@@ -121,12 +123,14 @@ const mediaItemPreview = (
   dialogUrl: safeRemoteImageUrl(
     media.dialogUrl || media.displayUrl || media.previewUrl || media.thumbnailUrl,
   ),
+  displayUrl: safeRemoteImageUrl(media.displayUrl),
   height: typeof media.height === "number" ? media.height : undefined,
   id: media.id || media.mediaObjectId || `media-${index + 1}`,
   mediaObjectId: media.mediaObjectId,
   previewUrl: safeRemoteImageUrl(
-    media.displayUrl || media.thumbnailUrl || media.previewUrl || media.dialogUrl,
+    media.previewUrl || media.displayUrl || media.thumbnailUrl || media.dialogUrl,
   ),
+  thumbnailUrl: safeRemoteImageUrl(media.thumbnailUrl),
   width: typeof media.width === "number" ? media.width : undefined,
 });
 

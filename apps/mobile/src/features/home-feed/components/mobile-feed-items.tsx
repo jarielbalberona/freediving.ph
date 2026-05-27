@@ -66,9 +66,14 @@ function LinkedTextBlock({
 }) {
   const content = (
     <View className="gap-2 px-4">
-      <Text className="text-base font-semibold leading-6 text-foreground">{title}</Text>
+      <Text className="text-base font-semibold leading-6 text-foreground">
+        {title}
+      </Text>
       {body ? (
-        <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={4}>
+        <Text
+          className="text-sm leading-6 text-muted-foreground"
+          numberOfLines={4}
+        >
           {body}
         </Text>
       ) : null}
@@ -114,7 +119,10 @@ export function MobileMediaFeedItem({
   const hasMultipleItems = (item.media?.itemCount ?? 0) > 1;
   const viewerItems = viewerMediaItemsFromFeedMedia(item.media?.items ?? []);
 
-  if ((!imageUrl || viewerItems.length === 0) && process.env.NODE_ENV === "development") {
+  if (
+    (!imageUrl || viewerItems.length === 0) &&
+    process.env.NODE_ENV === "development"
+  ) {
     console.warn("Media feed item missing preview URL", {
       id: item.id,
       mediaObjectId: item.media?.mediaObjectId,
@@ -124,14 +132,16 @@ export function MobileMediaFeedItem({
   return (
     <MobileFeedArticle item={item} onNotInterested={onNotInterested}>
       {item.body ? (
-        <Text className="px-4 text-sm leading-6 text-foreground" numberOfLines={4}>
+        <Text
+          className="px-4 text-sm leading-6 text-foreground"
+          numberOfLines={4}
+        >
           {item.body}
         </Text>
       ) : null}
       {imageUrl ? (
         <MobileMediaGalleryPreview
           accessibilityLabel={item.title}
-          hidePageIndicators={!hasMultipleItems}
           items={viewerItems}
           previewUrl={imageUrl}
           showMultipleBadge={hasMultipleItems}
@@ -182,7 +192,8 @@ export function MobileChikaFeedItem({
 }: CommonFeedItemProps) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const nextUpvote = item.chika?.userReaction === "upvote" ? null : "upvote";
-  const nextDownvote = item.chika?.userReaction === "downvote" ? null : "downvote";
+  const nextDownvote =
+    item.chika?.userReaction === "downvote" ? null : "downvote";
 
   return (
     <MobileFeedArticle item={item} onNotInterested={onNotInterested}>
@@ -374,10 +385,15 @@ export function MobileUnknownFeedItem({
       <View className="gap-2 px-4">
         <View className="flex-row items-center gap-2">
           <Ionicons color="#64748b" name="radio-outline" size={18} />
-          <Text className="text-sm font-semibold text-foreground">{item.title}</Text>
+          <Text className="text-sm font-semibold text-foreground">
+            {item.title}
+          </Text>
         </View>
         {item.body ? (
-          <Text className="text-sm leading-6 text-muted-foreground" numberOfLines={4}>
+          <Text
+            className="text-sm leading-6 text-muted-foreground"
+            numberOfLines={4}
+          >
             {item.body}
           </Text>
         ) : null}

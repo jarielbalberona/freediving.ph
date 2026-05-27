@@ -22,18 +22,23 @@ const withQuery = (
 };
 
 export const getHomeActivityFeed = (params: {
+  cursor?: string;
   filter?: ActivityFeedFilter;
   limit?: number;
 }) =>
   fphgoFetch<ActivityFeedResponse>(
     withQuery("/v1/feed/activity", {
+      cursor: params.cursor,
       filter: params.filter,
       limit: params.limit,
     }),
     { auth: "optional" },
   );
 
-export const postFeedActions = (payload: FeedActionsRequest, authToken: string) =>
+export const postFeedActions = (
+  payload: FeedActionsRequest,
+  authToken: string,
+) =>
   fphgoFetch<void>("/v1/feed/actions", {
     auth: "required",
     authToken,

@@ -14,6 +14,7 @@ import {
 
 import { useCreateMediaPostCommentMutation } from "@/features/media/hooks/use-media-mutations";
 import { useMediaPostCommentsQuery } from "@/features/media/hooks/use-media-post-comments-query";
+import { LinkedText } from "@/features/shared/links/components/LinkedText";
 
 const relativeTime = (value: string) => {
   const timestamp = new Date(value).getTime();
@@ -72,9 +73,7 @@ function MediaPostCommentRow({ comment }: { comment: MediaPostComment }) {
             {relativeTime(comment.createdAt)}
           </Text>
         </View>
-        <Text className="mt-1 text-sm leading-5 text-foreground">
-          {comment.body}
-        </Text>
+        <LinkedText className="mt-1 text-sm leading-5 text-foreground" text={comment.body} />
         {comment.likeCount > 0 ? (
           <Text className="mt-1 text-xs font-medium text-muted-foreground">
             {comment.likeCount.toLocaleString()} likes

@@ -1,5 +1,9 @@
 import { useAuth } from "@clerk/expo";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  type InfiniteData,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import type {
   ActivityFeedItem,
@@ -108,6 +112,42 @@ const patchActivityFeedItem = (
       }
     : response;
 
+const patchActivityFeedPage = (
+  response: ActivityFeedResponse,
+  itemId: string,
+  patch: (item: ActivityFeedItem) => ActivityFeedItem,
+): ActivityFeedResponse => ({
+  ...response,
+  items: response.items.map((item) =>
+    item.id === itemId ? patch(item) : item,
+  ),
+});
+
+const isInfiniteFeedResponse = (
+  response:
+    | ActivityFeedResponse
+    | InfiniteData<ActivityFeedResponse>
+    | undefined,
+): response is InfiniteData<ActivityFeedResponse> =>
+  Boolean(response && "pages" in response && Array.isArray(response.pages));
+
+const patchActivityFeedData = (
+  response:
+    | ActivityFeedResponse
+    | InfiniteData<ActivityFeedResponse>
+    | undefined,
+  itemId: string,
+  patch: (item: ActivityFeedItem) => ActivityFeedItem,
+) =>
+  isInfiniteFeedResponse(response)
+    ? {
+        ...response,
+        pages: response.pages.map((page) =>
+          patchActivityFeedPage(page, itemId, patch),
+        ),
+      }
+    : patchActivityFeedItem(response, itemId, patch);
+
 const removeActivityFeedItem = (
   response: ActivityFeedResponse | undefined,
   itemId: string,
@@ -119,6 +159,30 @@ const removeActivityFeedItem = (
       }
     : response;
 
+const removeActivityFeedPage = (
+  response: ActivityFeedResponse,
+  itemId: string,
+): ActivityFeedResponse => ({
+  ...response,
+  items: response.items.filter((item) => item.id !== itemId),
+});
+
+const removeActivityFeedData = (
+  response:
+    | ActivityFeedResponse
+    | InfiniteData<ActivityFeedResponse>
+    | undefined,
+  itemId: string,
+) =>
+  isInfiniteFeedResponse(response)
+    ? {
+        ...response,
+        pages: response.pages.map((page) =>
+          removeActivityFeedPage(page, itemId),
+        ),
+      }
+    : removeActivityFeedItem(response, itemId);
+
 export const useFeedActionMutation = () => {
   const getRequiredToken = useRequiredToken();
   const queryClient = useQueryClient();
@@ -128,7 +192,10 @@ export const useFeedActionMutation = () => {
       const token = await getRequiredToken();
 
       if (payload.actionType === "chika_vote") {
-        const threadId = requireActionTarget(payload.item.sourceId, "Chika thread");
+        const threadId = requireActionTarget(
+          payload.item.sourceId,
+          "Chika thread",
+        );
         if (payload.reaction) {
           return setChikaThreadReaction(threadId, payload.reaction, token);
         }
@@ -162,54 +229,57 @@ export const useFeedActionMutation = () => {
     onSuccess: (response, payload) => {
       if (payload.actionType === "media_like") {
         const likeState = response as MediaPostLikeState;
-        queryClient.setQueriesData<ActivityFeedResponse>(
-          { queryKey: mobileQueryKeys.feed.all },
-          (current) =>
-            patchActivityFeedItem(current, payload.item.id, (item) =>
-              patchStats(item, {
-                likeCount: likeState.likeCount,
-                viewerHasLiked: likeState.viewerHasLiked,
-              }),
-            ),
+        queryClient.setQueriesData<
+          ActivityFeedResponse | InfiniteData<ActivityFeedResponse>
+        >({ queryKey: mobileQueryKeys.feed.all }, (current) =>
+          patchActivityFeedData(current, payload.item.id, (item) =>
+            patchStats(item, {
+              likeCount: likeState.likeCount,
+              viewerHasLiked: likeState.viewerHasLiked,
+            }),
+          ),
         );
         return;
       }
 
       if (payload.actionType === "chika_vote") {
-        queryClient.setQueriesData<ActivityFeedResponse>(
-          { queryKey: mobileQueryKeys.feed.all },
-          (current) =>
-            patchActivityFeedItem(current, payload.item.id, (item) => {
-              const currentVote =
-                item.stats?.userReaction === "upvote" ||
-                item.stats?.userReaction === "downvote"
-                  ? item.stats.userReaction
-                  : undefined;
-              const voteCount =
-                typeof item.stats?.voteCount === "number"
-                  ? item.stats.voteCount
-                  : 0;
-              const nextCount = nextVoteCount(
-                currentVote,
-                payload.reaction,
-                voteCount,
-              );
-              return patchStats(item, {
-                reactionCount: nextCount,
-                reactions: nextCount,
-                userReaction: payload.reaction,
-                viewerReaction: payload.reaction,
-                voteCount: nextCount,
-              });
-            }),
+        queryClient.setQueriesData<
+          ActivityFeedResponse | InfiniteData<ActivityFeedResponse>
+        >({ queryKey: mobileQueryKeys.feed.all }, (current) =>
+          patchActivityFeedData(current, payload.item.id, (item) => {
+            const currentVote =
+              item.stats?.userReaction === "upvote" ||
+              item.stats?.userReaction === "downvote"
+                ? item.stats.userReaction
+                : undefined;
+            const voteCount =
+              typeof item.stats?.voteCount === "number"
+                ? item.stats.voteCount
+                : 0;
+            const nextCount = nextVoteCount(
+              currentVote,
+              payload.reaction,
+              voteCount,
+            );
+            return patchStats(item, {
+              reactionCount: nextCount,
+              reactions: nextCount,
+              userReaction: payload.reaction,
+              viewerReaction: payload.reaction,
+              voteCount: nextCount,
+            });
+          }),
         );
-        queryClient.invalidateQueries({ queryKey: mobileQueryKeys.chika.threads() });
+        queryClient.invalidateQueries({
+          queryKey: mobileQueryKeys.chika.threads(),
+        });
         return;
       }
 
-      queryClient.setQueriesData<ActivityFeedResponse>(
-        { queryKey: mobileQueryKeys.feed.all },
-        (current) => removeActivityFeedItem(current, payload.item.id),
+      queryClient.setQueriesData<
+        ActivityFeedResponse | InfiniteData<ActivityFeedResponse>
+      >({ queryKey: mobileQueryKeys.feed.all }, (current) =>
+        removeActivityFeedData(current, payload.item.id),
       );
     },
   });

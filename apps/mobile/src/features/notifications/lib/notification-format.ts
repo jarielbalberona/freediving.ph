@@ -2,6 +2,8 @@ import type { Href } from "expo-router";
 
 import type { Notification } from "@freediving.ph/types";
 
+import { resolveFphLink } from "@/features/shared/links/lib/resolve-fph-link";
+
 export const formatNotificationDate = (createdAt: string | undefined) => {
   const date = createdAt ? new Date(createdAt) : null;
   if (!date || Number.isNaN(date.getTime())) return "";
@@ -54,74 +56,16 @@ export const priorityLabel = (priority: Notification["priority"]) =>
 export const notificationsFallbackHref: Href =
   "/(app)/(tabs)/(home)/notifications";
 
-// TODO: Migrate this notification-only relative path mapper to the shared
-// FPH link resolver after notification parity is covered end to end.
-const safeSegment = (value: string | undefined) => {
-  const trimmed = value?.trim();
-  if (
-    !trimmed ||
-    trimmed.includes("/") ||
-    trimmed.includes("?") ||
-    trimmed.includes("#")
-  ) {
-    return undefined;
-  }
-  return trimmed;
-};
-
 export const notificationHrefFromActionUrl = (
   rawActionUrl: string | undefined,
 ): Href | undefined => {
   const actionUrl = rawActionUrl?.trim();
-  if (!actionUrl || !actionUrl.startsWith("/") || actionUrl.startsWith("//")) {
+  if (!actionUrl || actionUrl.startsWith("//")) {
     return undefined;
   }
 
-  const [path] = actionUrl.split("?");
-  const parts = path.split("/").filter(Boolean);
-
-  if (parts[0] === "events" && parts.length === 2) {
-    const slug = safeSegment(parts[1]);
-    return slug
-      ? { pathname: "/(app)/(tabs)/(home)/events/[slug]", params: { slug } }
-      : undefined;
-  }
-
-  if (parts[0] === "chika" && parts.length === 2) {
-    const slug = safeSegment(parts[1]);
-    return slug
-      ? { pathname: "/(app)/(tabs)/chika/[slug]", params: { slug } }
-      : undefined;
-  }
-
-  if (
-    parts[0] === "explore" &&
-    ((parts[1] === "sites" && parts.length === 3) || parts.length === 2)
-  ) {
-    const slug = safeSegment(parts[1] === "sites" ? parts[2] : parts[1]);
-    return slug
-      ? {
-          pathname: "/(app)/(tabs)/(home)/explore/[slug]",
-          params: { slug },
-        }
-      : undefined;
-  }
-
-  if (parts[0] === "profile" && parts.length === 2) {
-    const username = safeSegment(parts[1]);
-    return username
-      ? {
-          pathname: "/(app)/(tabs)/(home)/profile/[username]",
-          params: { username },
-        }
-      : undefined;
-  }
-
-  if (parts[0] === "buddies" && parts.length === 1) {
-    return "/(app)/(tabs)/(home)/buddies";
-  }
-
-  return undefined;
+  const resolution = resolveFphLink(actionUrl);
+  return resolution.type === "native" ? (resolution.href as Href) : undefined;
 };
 
 export const notificationHref = (

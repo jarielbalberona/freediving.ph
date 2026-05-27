@@ -11,5 +11,12 @@ export async function openFphLink(rawUrl: string): Promise<void> {
     return;
   }
 
-  await Linking.openURL(resolution.url);
+  if (/^https?:/i.test(resolution.url)) {
+    await Linking.openURL(resolution.url);
+    return;
+  }
+
+  if (await Linking.canOpenURL(resolution.url)) {
+    await Linking.openURL(resolution.url);
+  }
 }

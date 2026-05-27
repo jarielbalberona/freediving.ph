@@ -50,10 +50,14 @@ test("mobile routes stay thin and shell-backed", () => {
     ),
   );
   assert.ok(
-    fs.existsSync(path.join(root, "src/components/shell/mobile-native-header.tsx")),
+    fs.existsSync(
+      path.join(root, "src/components/shell/mobile-native-header.tsx"),
+    ),
   );
   assert.equal(
-    fs.existsSync(path.join(root, "src/components/shell/mobile-top-header.tsx")),
+    fs.existsSync(
+      path.join(root, "src/components/shell/mobile-top-header.tsx"),
+    ),
     false,
   );
   assert.ok(fs.existsSync(path.join(root, "src/lib/api/fphgo-client.ts")));
@@ -68,7 +72,9 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   const createRoute = read("app/(app)/(tabs)/create/index.tsx");
   const createScreen = read("src/features/create/screens/create-screen.tsx");
   const chikaScreen = read("src/features/chika/screens/chika-screen.tsx");
-  const chikaPostScreen = read("src/features/chika/screens/chika-post-screen.tsx");
+  const chikaPostScreen = read(
+    "src/features/chika/screens/chika-post-screen.tsx",
+  );
   const searchLayout = read("app/(app)/(tabs)/search/_layout.tsx");
   const searchScreen = read("app/(app)/(tabs)/search/index.tsx");
 
@@ -82,7 +88,10 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   );
   assert.match(sharedNav, /id: "profile"[\s\S]*?platforms: \["web"\]/);
   assert.match(mobileNav, /search: "search"/);
-  assert.match(mobileNav, /APP_BOTTOM_NAV_ITEMS\.filter\(\s*supportsMobile,\s*\)/);
+  assert.match(
+    mobileNav,
+    /APP_BOTTOM_NAV_ITEMS\.filter\(\s*supportsMobile,\s*\)/,
+  );
   assert.match(
     mobileNav,
     /role: item\.id === "search" \? \("search" as const\)/,
@@ -92,7 +101,10 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   assert.match(createRoute, /CreateScreen/);
   assert.match(createScreen, /MediaComposerSheet/);
   assert.match(createScreen, /Photos and moments/);
-  assert.doesNotMatch(createScreen, /Post in Chika|Publish Chika|ActionSheetIOS/);
+  assert.doesNotMatch(
+    createScreen,
+    /Post in Chika|Publish Chika|ActionSheetIOS/,
+  );
   assert.match(chikaScreen, /Post Chika/);
   assert.match(chikaPostScreen, /Publish Chika/);
   const chikaDetailRoute = read("app/(app)/(tabs)/chika/[slug].tsx");
@@ -101,10 +113,22 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   );
   assert.match(chikaDetailRoute, /key=\{slug \?\? "missing-chika-slug"\}/);
   assert.match(chikaDetailScreen, /useGlobalSearchParams/);
-  assert.match(chikaDetailScreen, /safeChikaSlug\(threadQuery\.data\.slug\) === slug/);
-  assert.match(chikaDetailScreen, /<Stack\.Screen options=\{\{ title: "Chika" \}\}/);
-  assert.equal(fs.existsSync(path.join(root, "app/(app)/(tabs)/create/photos.tsx")), false);
-  assert.equal(fs.existsSync(path.join(root, "app/(app)/(tabs)/create/chika.tsx")), false);
+  assert.match(
+    chikaDetailScreen,
+    /safeChikaSlug\(threadQuery\.data\.slug\) === slug/,
+  );
+  assert.match(
+    chikaDetailScreen,
+    /<Stack\.Screen options=\{\{ title: "Chika" \}\}/,
+  );
+  assert.equal(
+    fs.existsSync(path.join(root, "app/(app)/(tabs)/create/photos.tsx")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(root, "app/(app)/(tabs)/create/chika.tsx")),
+    false,
+  );
   assert.ok(fs.existsSync(path.join(root, "app/(app)/(tabs)/chika/post.tsx")));
   assert.doesNotMatch(nativeHeader, /Stack\.Toolbar/);
   assert.match(nativeHeader, /IOSDrawerButton/);
@@ -117,7 +141,10 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   assert.match(nativeHeader, /homeNativeLargeTitleOptions/);
   assert.match(nativeHeader, /headerLargeTitle:\s*USE_IOS_NATIVE_HEADER/);
   assert.match(nativeHeader, /HomeCompactHeaderLogo/);
-  assert.doesNotMatch(nativeHeader, /headerTransparent|headerBlurEffect|headerBackground/);
+  assert.doesNotMatch(
+    nativeHeader,
+    /headerTransparent|headerBlurEffect|headerBackground/,
+  );
   assert.match(nativeHeader, /headerTitle:/);
   assert.match(nativeHeader, /AndroidHeaderTitle/);
   assert.match(nativeHeader, /HOME_LOGO/);
@@ -132,7 +159,10 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   );
   assert.match(homeLayout, /homeNativeLargeTitleOptions\(\)/);
   assert.doesNotMatch(homeLayout, /headerTitle:\s*\(\)\s*=>/);
-  assert.doesNotMatch(searchLayout, /headerSearchBarOptions|nativeSearchOptions/);
+  assert.doesNotMatch(
+    searchLayout,
+    /headerSearchBarOptions|nativeSearchOptions/,
+  );
   assert.match(searchScreen, /@expo\/ui/);
   assert.match(searchScreen, /<Host/);
   assert.match(searchScreen, /<Column/);
@@ -224,8 +254,10 @@ test("home feed uses shared activity contracts and fetch client", () => {
   assert.match(feedAction, /isLoaded/);
   assert.match(feedAction, /isSignedIn/);
   assert.match(feedAction, /requireActionTarget/);
-  assert.match(feedAction, /setQueriesData<ActivityFeedResponse>/);
+  assert.match(feedAction, /InfiniteData<ActivityFeedResponse>/);
   assert.match(feedAction, /not_interested/);
+  assert.match(screen, /FlatList/);
+  assert.doesNotMatch(screen, /@legendapp\/list\/react-native|LegendList/);
   assert.match(screen, /requireSignedIn/);
   assert.match(screen, /canUseFeedActions/);
   assert.match(screen, /Sign in to react to community activity/);
@@ -401,7 +433,10 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(detail, /Sign in to vote in Chika\./);
   assert.match(detail, /Sign in to reply in Chika\./);
   assert.match(detail, /onReact=\{\s*canUseChikaActions/);
-  assert.match(detail, /onReply=\{canUseChikaActions \? setReplyTo : undefined\}/);
+  assert.match(
+    detail,
+    /onReply=\{canUseChikaActions \? setReplyTo : undefined\}/,
+  );
   assert.match(detail, /actionsDisabled/);
   assert.match(detail, /shouldFallbackToLocalChikaState/);
   assert.match(detail, /error instanceof TypeError/);
@@ -438,7 +473,9 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.ok(format.includes('includes("/")'));
 
   const screen = read("src/features/chika/screens/chika-screen.tsx");
-  const commentCard = read("src/features/chika/components/chika-comment-card.tsx");
+  const commentCard = read(
+    "src/features/chika/components/chika-comment-card.tsx",
+  );
   assert.match(screen, /canPostChika/);
   assert.match(screen, /Sign in to post Chika/);
   assert.match(commentCard, /showActions/);
@@ -570,7 +607,10 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   assert.match(mutationHook, /setQueryData<PublicProfileResponse>/);
   assert.match(ownScreen, /\/\(app\)\/\(tabs\)\/\(home\)\/profile\/settings/);
   assert.match(publicScreen, /useLocalSearchParams/);
-  assert.match(publicScreen, /Stack\.Screen options=\{\{ title: "Profile unavailable" \}\}/);
+  assert.match(
+    publicScreen,
+    /Stack\.Screen options=\{\{ title: "Profile unavailable" \}\}/,
+  );
   assert.match(ownScreen, /Edit profile/);
   assert.match(ownScreen, /ProfilePostCard/);
   assert.match(ownScreen, /ProfileDivingSection/);
@@ -648,10 +688,8 @@ test("notifications use shared contracts, auth gating, preferences, and safe pus
   assert.match(pushMutation, /isSignedIn/);
   assert.match(pushMutation, /Authentication required/);
   assert.match(card, /notificationHref/);
-  assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
-  assert.match(format, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
-  assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
-  assert.match(format, /\/\(app\)\/\(tabs\)\/\(home\)\/profile\/\[username\]/);
+  assert.match(format, /resolveFphLink/);
+  assert.match(format, /resolution\.type === "native"/);
   assert.match(format, /notificationsFallbackHref/);
   assert.match(format, /return undefined/);
   assert.match(screen, /MobileLoadingState/);
@@ -828,7 +866,10 @@ test("messages and groups expose member-safe Phase 2 routes", () => {
   assert.match(queryKeys, /threadDetails/);
   assert.match(messagesScreen, /requests/);
   assert.match(messagesScreen, /transactions/);
-  assert.match(messagesScreen, /Booking and transaction conversations will appear here/);
+  assert.match(
+    messagesScreen,
+    /Booking and transaction conversations will appear here/,
+  );
   assert.match(messageThreadScreen, /canResolveRequest/);
   assert.match(messageThreadScreen, /Send/);
   assert.match(messageThreadScreen, /lastMarkedReadRef/);
@@ -870,7 +911,10 @@ test("messages and groups expose member-safe Phase 2 routes", () => {
   assert.match(groupMutations, /getRequiredToken/);
   assert.match(groupMutations, /isLoaded/);
   assert.match(groupMutations, /isSignedIn/);
-  assert.match(groupMutations, /Checking your session\. Try again in a moment\./);
+  assert.match(
+    groupMutations,
+    /Checking your session\. Try again in a moment\./,
+  );
   assert.match(groupMutations, /requireGroupId/);
   assert.match(groupMutations, /trim\(\)/);
   assert.match(groupMutations, /requireGroupPostPayload/);
@@ -954,13 +998,18 @@ test("sync runner is manual, idempotent, and server-response gated", () => {
   const chikaDetail = read(
     "src/features/chika/screens/chika-thread-detail-screen.tsx",
   );
-  const eventsDetail = read("src/features/events/screens/event-detail-screen.tsx");
+  const eventsDetail = read(
+    "src/features/events/screens/event-detail-screen.tsx",
+  );
   const exploreScreen = read("src/features/explore/screens/explore-screen.tsx");
 
   assert.match(client, /Idempotency-Key/);
   assert.match(syncRunner, /runSyncOutbox/);
   assert.match(syncRunner, /idempotencyKey:\s*item\.idempotencyKey/);
-  assert.match(syncRunner, /assertQueueablePayload\(item\.operationType, item\.payload\)/);
+  assert.match(
+    syncRunner,
+    /assertQueueablePayload\(item\.operationType, item\.payload\)/,
+  );
   assert.match(syncRunner, /markOutboxSynced/);
   assert.match(syncRunner, /markOutboxFailed/);
   assert.match(syncRunner, /break/);

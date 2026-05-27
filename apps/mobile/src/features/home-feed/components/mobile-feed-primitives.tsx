@@ -1,8 +1,17 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BottomSheet } from "@expo/ui";
+import { PagerView } from "@expo/ui/community/pager-view";
 import { Galeria } from "@nandorojo/galeria";
 import { Image } from "expo-image";
-import { Pressable, Share, Text, View } from "react-native";
+import { useState } from "react";
+import {
+  type LayoutChangeEvent,
+  Pressable,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import type {
   HomeActivityCardModel,
@@ -22,9 +31,10 @@ const relativeTime = (value: string) => {
   if (diffDays < 7) return `${diffDays}d`;
   const diffWeeks = Math.floor(diffDays / 7);
   if (diffWeeks < 5) return `${diffWeeks}w`;
-  return new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }).format(
-    new Date(value),
-  );
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(value));
 };
 
 const initialsFor = (name: string) =>
@@ -34,6 +44,14 @@ const initialsFor = (name: string) =>
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+const MEDIA_PREVIEW_ASPECT_RATIO = 4 / 5;
+const MEDIA_PREVIEW_BLUR_RADIUS = 28;
+const MEDIA_PREVIEW_DIM_STYLE = [
+  StyleSheet.absoluteFill,
+  { backgroundColor: "rgba(10, 31, 46, 0.18)" },
+];
+const MEDIA_PREVIEW_FILL_STYLE = StyleSheet.absoluteFill;
 
 export function MobileFeedPostHeader({
   item,
@@ -62,11 +80,16 @@ export function MobileFeedPostHeader({
         />
       ) : (
         <View className="size-10 items-center justify-center rounded-full bg-primary/10">
-          <Text className="text-xs font-semibold text-primary">{initialsFor(name)}</Text>
+          <Text className="text-xs font-semibold text-primary">
+            {initialsFor(name)}
+          </Text>
         </View>
       )}
       <View className="min-w-0 flex-1">
-        <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+        <Text
+          className="text-sm font-semibold text-foreground"
+          numberOfLines={1}
+        >
           {name}
         </Text>
         {metadata.length > 0 ? (
@@ -194,8 +217,13 @@ export function MobileFeedCommentsSheet({
     >
       <View className="gap-3 bg-background pb-5">
         <View>
-          <Text className="text-base font-semibold text-foreground">Comments</Text>
-          <Text className="mt-1 text-sm text-muted-foreground" numberOfLines={1}>
+          <Text className="text-base font-semibold text-foreground">
+            Comments
+          </Text>
+          <Text
+            className="mt-1 text-sm text-muted-foreground"
+            numberOfLines={1}
+          >
             {item.title}
           </Text>
         </View>
@@ -223,74 +251,126 @@ export function MobileFeedCommentsSheet({
 
 export function MobileMediaGalleryPreview({
   accessibilityLabel,
-  hidePageIndicators = false,
   items,
   previewUrl,
   showMultipleBadge,
 }: {
   accessibilityLabel: string;
-  hidePageIndicators?: boolean;
   items: MobileViewerMediaItem[];
   previewUrl: string;
   showMultipleBadge?: boolean;
 }) {
-  if (items.length === 0) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const mediaItems = normalizeViewerMediaItems(items, previewUrl);
+  const viewerUrls = mediaItems.map((item) => item.viewerUrl);
+  const viewportHeight = viewportWidth / MEDIA_PREVIEW_ASPECT_RATIO;
+  const measuredViewportStyle =
+    viewportWidth > 0
+      ? { height: viewportHeight, width: viewportWidth }
+      : { height: "100%" as const, width: "100%" as const };
+  const handlePreviewLayout = (event: LayoutChangeEvent) => {
+    const nextWidth = event.nativeEvent.layout.width;
+    if (nextWidth > 0 && Math.abs(nextWidth - viewportWidth) > 0.5) {
+      setViewportWidth(nextWidth);
+    }
+  };
+
+  if (mediaItems.length === 0) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Media gallery preview has no renderable media", {
+        itemCount: items.length,
+        previewUrl: Boolean(previewUrl),
+      });
+    }
+    return null;
+  }
+
+  if (mediaItems.length === 1) {
+    const item = mediaItems[0];
     return (
-      <Image
-        accessibilityLabel={accessibilityLabel}
-        cachePolicy="memory-disk"
-        className="w-full bg-secondary"
-        contentFit="cover"
-        source={{ uri: previewUrl }}
-        style={{ aspectRatio: 4 / 5 }}
-        transition={150}
-      />
+      <Galeria closeIconName="xmark" theme="light" urls={viewerUrls}>
+        <View
+          className="relative overflow-hidden bg-secondary"
+          onLayout={handlePreviewLayout}
+          style={{ aspectRatio: MEDIA_PREVIEW_ASPECT_RATIO, width: "100%" }}
+        >
+          <Image
+            accessibilityLabel=""
+            blurRadius={MEDIA_PREVIEW_BLUR_RADIUS}
+            cachePolicy="memory-disk"
+            contentFit="cover"
+            contentPosition="center"
+            source={{ uri: item.previewUrl }}
+            style={MEDIA_PREVIEW_FILL_STYLE}
+          />
+          <View pointerEvents="none" style={MEDIA_PREVIEW_DIM_STYLE} />
+          <Galeria.Image index={0} style={measuredViewportStyle}>
+            <Image
+              accessibilityLabel={accessibilityLabel}
+              cachePolicy="memory-disk"
+              contentPosition="center"
+              contentFit="cover"
+              source={{ uri: item.previewUrl }}
+              style={measuredViewportStyle}
+              transition={150}
+            />
+          </Galeria.Image>
+        </View>
+      </Galeria>
     );
   }
 
   return (
-    <Galeria
-      closeIconName="xmark"
-      hidePageIndicators={hidePageIndicators}
-      theme="dark"
-      urls={items.map((item) => item.url)}
-    >
-      <View className="relative">
-        {items.map((galleryItem, index) => {
-          const visible = index === 0;
-          const sourceUrl = visible ? previewUrl : galleryItem.url;
-
-          return (
-            <Galeria.Image
-              index={index}
+    <Galeria closeIconName="xmark" theme="light" urls={viewerUrls}>
+      <View
+        className="relative overflow-hidden bg-secondary"
+        onLayout={handlePreviewLayout}
+        style={{ aspectRatio: MEDIA_PREVIEW_ASPECT_RATIO, width: "100%" }}
+      >
+        <PagerView
+          initialPage={0}
+          onPageSelected={(event) => setActiveIndex(event.nativeEvent.position)}
+          style={measuredViewportStyle}
+        >
+          {mediaItems.map((galleryItem, index) => (
+            <View
               key={galleryItem.id}
-              style={
-                visible
-                  ? { aspectRatio: 4 / 5, width: "100%" }
-                  : {
-                      height: 1,
-                      opacity: 0,
-                      position: "absolute",
-                      width: 1,
-                    }
-              }
+              style={measuredViewportStyle}
             >
               <Image
-                accessibilityLabel={visible ? accessibilityLabel : ""}
+                accessibilityLabel=""
+                blurRadius={MEDIA_PREVIEW_BLUR_RADIUS}
                 cachePolicy="memory-disk"
-                className={visible ? "w-full bg-secondary" : ""}
                 contentFit="cover"
-                source={{ uri: sourceUrl }}
-                style={visible ? { aspectRatio: 4 / 5 } : { height: 1, width: 1 }}
-                transition={visible ? 150 : 0}
+                contentPosition="center"
+                source={{ uri: galleryItem.previewUrl }}
+                style={MEDIA_PREVIEW_FILL_STYLE}
               />
-            </Galeria.Image>
-          );
-        })}
+              <View pointerEvents="none" style={MEDIA_PREVIEW_DIM_STYLE} />
+              <Galeria.Image index={index} style={measuredViewportStyle}>
+                <Image
+                  accessibilityLabel={
+                    index === activeIndex
+                      ? mediaItems.length > 1
+                        ? `${accessibilityLabel}, image ${index + 1} of ${mediaItems.length}`
+                        : accessibilityLabel
+                      : ""
+                  }
+                  cachePolicy="memory-disk"
+                  contentPosition="center"
+                  contentFit="cover"
+                  source={{ uri: galleryItem.previewUrl }}
+                  style={measuredViewportStyle}
+                  transition={150}
+                />
+              </Galeria.Image>
+            </View>
+          ))}
+        </PagerView>
         {showMultipleBadge ? (
-          <View className="absolute right-3 top-3 flex-row items-center gap-1 rounded-full bg-black/60 px-2.5 py-1">
+          <View className="absolute right-3 top-3 rounded-full bg-black/55 p-1.5">
             <Ionicons color="white" name="images-outline" size={14} />
-            <Text className="text-xs font-semibold text-white">{items.length}</Text>
           </View>
         ) : null}
       </View>
@@ -300,11 +380,45 @@ export function MobileMediaGalleryPreview({
 
 export type MobileViewerMediaItem = {
   alt?: string | null;
+  displayUrl?: string;
   height?: number | null;
   id: string;
-  url: string;
+  previewUrl?: string;
+  thumbnailUrl?: string;
+  viewerUrl?: string;
   width?: number | null;
 };
+
+type NormalizedViewerMediaItem = MobileViewerMediaItem & {
+  previewUrl: string;
+  viewerUrl: string;
+};
+
+const normalizeViewerMediaItems = (
+  items: MobileViewerMediaItem[],
+  fallbackPreviewUrl: string,
+): NormalizedViewerMediaItem[] =>
+  items
+    .map((item, index) => {
+      const preview =
+        item.previewUrl ||
+        item.displayUrl ||
+        item.thumbnailUrl ||
+        item.viewerUrl ||
+        (index === 0 ? fallbackPreviewUrl : undefined);
+      const viewer =
+        item.viewerUrl || item.displayUrl || item.previewUrl || item.thumbnailUrl;
+
+      if (!preview && !viewer) return null;
+
+      return {
+        ...item,
+        id: item.id || `media-${index + 1}`,
+        previewUrl: preview || viewer || fallbackPreviewUrl,
+        viewerUrl: viewer || preview || fallbackPreviewUrl,
+      };
+    })
+    .filter((item): item is NormalizedViewerMediaItem => Boolean(item));
 
 export const viewerMediaItemsFromFeedMedia = (
   items: HomeActivityMediaItem[],
@@ -312,12 +426,16 @@ export const viewerMediaItemsFromFeedMedia = (
   items
     .map((item) => ({
       alt: null,
+      displayUrl: item.displayUrl,
       height: item.height ?? null,
       id: item.id,
-      url: item.dialogUrl || item.previewUrl || "",
+      previewUrl: item.previewUrl,
+      thumbnailUrl: item.thumbnailUrl,
+      viewerUrl:
+        item.dialogUrl || item.displayUrl || item.previewUrl || item.thumbnailUrl,
       width: item.width ?? null,
     }))
-    .filter((item) => item.url);
+    .filter((item) => item.previewUrl || item.viewerUrl);
 
 export const shareFeedItem = async (item: HomeActivityCardModel) => {
   const message = item.body ? `${item.title}\n\n${item.body}` : item.title;

@@ -120,7 +120,10 @@ export function resolveFphLink(rawUrl: string): FphLinkResolution {
     return { type: "external", url: rawUrl.trim() || rawUrl };
   }
 
-  const isRelativeInternal = rawUrl.trim().startsWith("/");
+  const trimmedRawUrl = rawUrl.trim();
+  const isProtocolRelative = trimmedRawUrl.startsWith("//");
+  const isRelativeInternal =
+    trimmedRawUrl.startsWith("/") && !isProtocolRelative;
   const isInternal =
     isRelativeInternal || FPH_PUBLIC_LINK_HOSTS.has(parsed.hostname.toLowerCase());
 
