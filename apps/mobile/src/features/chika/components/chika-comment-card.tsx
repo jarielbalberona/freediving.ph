@@ -5,6 +5,7 @@ import type { ChikaCommentResponse } from "@freediving.ph/types";
 import { MobileCard } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { formatChikaDate, stripMarkdownPreview } from "@/features/chika/lib/chika-format";
+import { LinkedText } from "@/features/shared/links/components/LinkedText";
 
 type ChikaCommentCardProps = {
   actionsDisabled?: boolean;
@@ -37,9 +38,10 @@ export function ChikaCommentCard({
             <Text className="shrink-0 text-xs text-muted-foreground">{dateLabel}</Text>
           ) : null}
         </View>
-        <Text className="text-sm leading-6 text-muted-foreground">
-          {content || "This reply is not available."}
-        </Text>
+        <LinkedText
+          className="text-sm leading-6 text-muted-foreground"
+          text={content || "This reply is not available."}
+        />
         {comment.replyCount > 0 ? (
           <Text className="text-xs text-muted-foreground">
             {comment.replyCount} {comment.replyCount === 1 ? "reply" : "replies"}

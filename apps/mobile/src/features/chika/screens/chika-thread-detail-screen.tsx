@@ -24,6 +24,7 @@ import { shouldQueueFailedMutation } from "@/local/outbox/supported-operations";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 import { FphgoApiError } from "@/lib/api/fphgo-client";
+import { LinkedText } from "@/features/shared/links/components/LinkedText";
 import {
   chikaAuthorLabel,
   formatChikaDate,
@@ -209,9 +210,10 @@ export function ChikaThreadDetailScreen() {
               ) : null}
             </View>
 
-            <Text className="text-sm leading-6 text-muted-foreground">
-              {content || "This Chika thread has no content yet."}
-            </Text>
+            <LinkedText
+              className="text-sm leading-6 text-muted-foreground"
+              text={content || "This Chika thread has no content yet."}
+            />
 
             <Text className="text-xs text-muted-foreground">
               {thread.commentCount} {thread.commentCount === 1 ? "reply" : "replies"}

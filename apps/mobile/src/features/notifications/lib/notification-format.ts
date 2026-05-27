@@ -54,6 +54,8 @@ export const priorityLabel = (priority: Notification["priority"]) =>
 export const notificationsFallbackHref: Href =
   "/(app)/(tabs)/(home)/notifications";
 
+// TODO: Migrate this notification-only relative path mapper to the shared
+// FPH link resolver after notification parity is covered end to end.
 const safeSegment = (value: string | undefined) => {
   const trimmed = value?.trim();
   if (
