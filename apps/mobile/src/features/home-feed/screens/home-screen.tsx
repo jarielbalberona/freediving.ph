@@ -7,13 +7,11 @@ import {
   MobileErrorState,
   MobileLoadingState,
   MobileScrollScreen,
-  MobileSection,
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
-import { HomeActivityCard } from "@/features/home-feed/components/home-activity-card";
+import { MobileFeedItemRenderer } from "@/features/home-feed/components/mobile-feed-item-renderer";
 import { useFeedActionMutation } from "@/features/home-feed/hooks/use-feed-action-mutation";
 import { useHomeActivityFeedQuery } from "@/features/home-feed/hooks/use-home-activity-feed-query";
-import { toHomeActivityCardModel } from "@/features/home-feed/lib/activity-card-model";
 
 export function HomeScreen() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -38,16 +36,15 @@ export function HomeScreen() {
 
   return (
     <MobileScrollScreen subtitle="Community activity" title="Home">
-      <MobileSection
-        description="See the latest public updates from divers, Chika, events, dive spots, and buddy signals."
-        title="Latest from the community"
-      >
+      <View className="-mx-6 gap-0">
         {feedQuery.isLoading ? (
-          <MobileLoadingState message="Loading community activity." />
+          <View className="px-6">
+            <MobileLoadingState message="Loading community activity." />
+          </View>
         ) : null}
 
         {feedQuery.error ? (
-          <View className="gap-3">
+          <View className="gap-3 px-6">
             <MobileErrorState
               message="Community activity is taking longer than expected. Try again in a moment."
               title="Activity is unavailable"
@@ -59,24 +56,27 @@ export function HomeScreen() {
         ) : null}
 
         {!feedQuery.isLoading && !feedQuery.error && items.length === 0 ? (
-          <MobileEmptyState
-            description="Check back as divers share updates, events, and dive reports."
-            title="No community activity yet"
-          />
+          <View className="px-6">
+            <MobileEmptyState
+              description="Check back as divers share updates, events, and dive reports."
+              title="No community activity yet"
+            />
+          </View>
         ) : null}
 
         {!feedQuery.isLoading && !feedQuery.error && items.length > 0 ? (
-          <View className="gap-3">
+          <View>
             {actionMessage ? (
-              <Text className="text-sm text-muted-foreground">{actionMessage}</Text>
+              <Text className="px-4 pb-3 text-sm text-muted-foreground">
+                {actionMessage}
+              </Text>
             ) : null}
             {!canUseFeedActions ? (
-              <Text className="text-sm text-muted-foreground">
+              <Text className="px-4 pb-3 text-sm text-muted-foreground">
                 Sign in to react to community activity.
               </Text>
             ) : null}
             {items.map((item) => {
-              const card = toHomeActivityCardModel(item);
               const mutateFeedAction = (
                 payload: Parameters<typeof feedAction.mutate>[0],
               ) =>
@@ -89,32 +89,26 @@ export function HomeScreen() {
                     ),
                 });
               return (
-                <HomeActivityCard
-                  actionsDisabled={!canUseFeedActions || feedAction.isPending}
+                <MobileFeedItemRenderer
                   key={item.id}
-                  item={card}
-                  onChikaVote={
-                    card.cardType === "chika"
-                      ? (reaction) =>
-                          requireSignedIn()
-                            ? mutateFeedAction({
-                                actionType: "chika_vote",
-                                item,
-                                reaction,
-                              })
-                            : undefined
+                  actionsDisabled={!canUseFeedActions || feedAction.isPending}
+                  item={item}
+                  onChikaVote={(_, _card, reaction) =>
+                    requireSignedIn()
+                      ? mutateFeedAction({
+                          actionType: "chika_vote",
+                          item,
+                          reaction,
+                        })
                       : undefined
                   }
-                  onMediaLike={
-                    card.cardType === "media_post"
-                      ? () =>
-                          requireSignedIn()
-                            ? mutateFeedAction({
-                                actionType: "media_like",
-                                item,
-                                liked: Boolean(card.media?.viewerHasLiked),
-                              })
-                            : undefined
+                  onMediaLike={(_, card) =>
+                    requireSignedIn()
+                      ? mutateFeedAction({
+                          actionType: "media_like",
+                          item,
+                          liked: Boolean(card.media?.viewerHasLiked),
+                        })
                       : undefined
                   }
                   onNotInterested={() =>
@@ -127,7 +121,7 @@ export function HomeScreen() {
             })}
           </View>
         ) : null}
-      </MobileSection>
+      </View>
     </MobileScrollScreen>
   );
 }

@@ -3,6 +3,8 @@ import type {
   CreateMediaPostResponse,
   CreateMomentUploadIntentRequest,
   MediaContextType,
+  MediaPostComment,
+  MediaPostCommentListResponse,
   MediaUploadResponse,
   MomentStatusResponse,
   MomentUploadIntentResponse,
@@ -14,6 +16,19 @@ type NativeUploadFile = {
   name: string;
   type: string;
   uri: string;
+};
+
+const withQuery = (
+  path: string,
+  params: Record<string, string | number | boolean | undefined>,
+) => {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "") continue;
+    search.set(key, String(value));
+  }
+  const query = search.toString();
+  return query ? `${path}?${query}` : path;
 };
 
 export const uploadMediaFiles = (
@@ -48,6 +63,32 @@ export const createMediaPost = (
     body: payload,
     method: "POST",
   });
+
+export const getMediaPostComments = (
+  postId: string,
+  params: { limit?: number } = {},
+) =>
+  fphgoFetch<MediaPostCommentListResponse>(
+    withQuery(`/v1/media/posts/${encodeURIComponent(postId)}/comments`, {
+      limit: params.limit,
+    }),
+    { auth: "optional" },
+  );
+
+export const createMediaPostComment = (
+  postId: string,
+  payload: { body: string },
+  authToken: string,
+) =>
+  fphgoFetch<MediaPostComment>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/comments`,
+    {
+      auth: "required",
+      authToken,
+      body: payload,
+      method: "POST",
+    },
+  );
 
 export const createMomentUploadIntent = (
   payload: CreateMomentUploadIntentRequest,

@@ -13,6 +13,13 @@ export const mobileQueryKeys = {
     activity: (params: { filter?: string; limit?: number }) =>
       [...mobileQueryKeys.feed.all, "activity", params] as const,
   },
+  media: {
+    all: ["media"] as const,
+    postCommentsRoot: (postId: string) =>
+      [...mobileQueryKeys.media.all, "posts", postId, "comments"] as const,
+    postComments: (postId: string, params: { limit?: number }) =>
+      [...mobileQueryKeys.media.postCommentsRoot(postId), params] as const,
+  },
   explore: {
     all: ["explore"] as const,
     sites: () => [...mobileQueryKeys.explore.all, "sites"] as const,

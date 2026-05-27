@@ -5,6 +5,7 @@ import type { CreateMediaPostRequest } from "@freediving.ph/types";
 
 import {
   completeMomentUpload,
+  createMediaPostComment,
   createMediaPost,
   createMomentUploadIntent,
   syncMomentStatus,
@@ -130,5 +131,25 @@ export const useSyncMomentStatusMutation = () => {
   return useMutation({
     mutationFn: async (postId: string) =>
       syncMomentStatus(requirePostId(postId), await getRequiredToken()),
+  });
+};
+
+export const useCreateMediaPostCommentMutation = (postId: string | undefined) => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (body: string) => {
+      const targetPostId = requirePostId(postId ?? "");
+      const token = await getRequiredToken();
+      return createMediaPostComment(targetPostId, { body }, token);
+    },
+    onSuccess: () => {
+      if (!postId) return;
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.media.postCommentsRoot(postId),
+      });
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.feed.all });
+    },
   });
 };

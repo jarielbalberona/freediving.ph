@@ -123,12 +123,13 @@ function CardBody({ item }: { item: HomeActivityCardModel }) {
   if (item.cardType === "media_post") {
     return (
       <View className="gap-3">
-        {item.media?.thumbnailUrl ? (
+        {item.media?.previewUrl ? (
           <Image
             accessibilityLabel=""
-            className="h-44 w-full rounded-xl bg-secondary"
+            className="w-full rounded-xl bg-secondary"
             contentFit="cover"
-            source={{ uri: item.media.thumbnailUrl }}
+            source={{ uri: item.media.previewUrl }}
+            style={{ aspectRatio: 4 / 5 }}
             transition={150}
           />
         ) : null}

@@ -1,4 +1,5 @@
-import { Modal, Pressable, Text, View } from "react-native";
+import { BottomSheet } from "@expo/ui";
+import { Text, View } from "react-native";
 
 type MobileActionSheetProps = {
   children: React.ReactNode;
@@ -14,18 +15,11 @@ export function MobileActionSheet({
   visible,
 }: MobileActionSheetProps) {
   return (
-    <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
-      <View className="flex-1 justify-end bg-black/30">
-        <View className="rounded-t-3xl bg-card p-4">
-          <View className="mb-4 flex-row items-center justify-between">
-            <Text className="text-base font-semibold text-foreground">{title}</Text>
-            <Pressable className="rounded-full bg-secondary px-3 py-2" onPress={onClose}>
-              <Text className="text-sm font-semibold text-secondary-foreground">Close</Text>
-            </Pressable>
-          </View>
-          {children}
-        </View>
+    <BottomSheet isPresented={visible} onDismiss={onClose} snapPoints={["half"]}>
+      <View className="gap-4 bg-card pb-4">
+        <Text className="text-base font-semibold text-foreground">{title}</Text>
+        {children}
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }

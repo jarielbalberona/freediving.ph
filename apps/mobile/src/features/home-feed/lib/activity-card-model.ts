@@ -30,16 +30,30 @@ export type HomeActivityCardModel = {
   intentType?: string;
   media?: {
     commentCount: number;
+    dialogUrl?: string;
+    height?: number;
     itemCount: number;
+    items: HomeActivityMediaItem[];
     likeCount: number;
+    mediaObjectId?: string;
     postId: string;
-    thumbnailUrl?: string;
+    previewUrl?: string;
     viewerHasLiked: boolean;
+    width?: number;
   };
   occurredAt: string;
   sourceLabel: string;
   tags: string[];
   title: string;
+};
+
+export type HomeActivityMediaItem = {
+  dialogUrl?: string;
+  height?: number;
+  id: string;
+  mediaObjectId?: string;
+  previewUrl?: string;
+  width?: number;
 };
 
 const ACTIVITY_LABELS: Record<ActivityFeedItem["type"], string> = {
@@ -100,14 +114,35 @@ const reactionValue = (
   return value === "upvote" || value === "downvote" ? value : undefined;
 };
 
-const firstThumbnailUrl = (item: ActivityFeedItem) => {
-  const first = item.media?.[0];
-  return safeRemoteImageUrl(
-    first?.displayUrl ||
-      first?.thumbnailUrl ||
-      first?.previewUrl ||
-      first?.dialogUrl,
-  );
+const mediaItemPreview = (
+  media: NonNullable<ActivityFeedItem["media"]>[number],
+  index: number,
+): HomeActivityMediaItem => ({
+  dialogUrl: safeRemoteImageUrl(
+    media.dialogUrl || media.displayUrl || media.previewUrl || media.thumbnailUrl,
+  ),
+  height: typeof media.height === "number" ? media.height : undefined,
+  id: media.id || media.mediaObjectId || `media-${index + 1}`,
+  mediaObjectId: media.mediaObjectId,
+  previewUrl: safeRemoteImageUrl(
+    media.displayUrl || media.thumbnailUrl || media.previewUrl || media.dialogUrl,
+  ),
+  width: typeof media.width === "number" ? media.width : undefined,
+});
+
+const mediaPreviews = (item: ActivityFeedItem) =>
+  (item.media ?? []).map((media, index) => mediaItemPreview(media, index));
+
+const firstMediaPreview = (items: HomeActivityMediaItem[]) => {
+  const first = items[0];
+  if (!first) return undefined;
+  return {
+    dialogUrl: first.dialogUrl,
+    height: first.height,
+    mediaObjectId: first.mediaObjectId,
+    previewUrl: first.previewUrl,
+    width: first.width,
+  };
 };
 
 const safeRemoteImageUrl = (value: string | undefined) => {
@@ -217,6 +252,8 @@ export const toHomeActivityCardModel = (
     numberValue(item.stats, "replyCount") ??
     numberValue(item.stats, "replies") ??
     0;
+  const mediaItems = mediaPreviews(item);
+  const mediaPreview = firstMediaPreview(mediaItems);
 
   return {
     actorAvatarUrl: safeRemoteImageUrl(item.actor.avatarUrl),
@@ -250,14 +287,19 @@ export const toHomeActivityCardModel = (
       cardType === "media_post"
         ? {
             commentCount: mediaCommentCount,
+            dialogUrl: mediaPreview?.dialogUrl,
+            height: mediaPreview?.height,
             itemCount: item.media?.length ?? 0,
+            items: mediaItems,
             likeCount: mediaLikeCount,
+            mediaObjectId: mediaPreview?.mediaObjectId,
             postId: item.sourceId,
-            thumbnailUrl: firstThumbnailUrl(item),
+            previewUrl: mediaPreview?.previewUrl,
             viewerHasLiked:
               booleanValue(item.stats, "viewerHasLiked") ??
               booleanValue(item.metadata, "viewerHasLiked") ??
               false,
+            width: mediaPreview?.width,
           }
         : undefined,
     occurredAt: item.occurredAt,
