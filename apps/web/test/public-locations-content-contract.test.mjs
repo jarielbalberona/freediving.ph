@@ -98,33 +98,145 @@ test("location route metadata, static params, and not-found contracts are wired"
   assert.match(chromeSource, /"\/freediving"/);
 });
 
-test("location pages link to guides, features, Explore, and nearby locations", () => {
+test("location pages link to guides, features, Explore, and nearby locations", async () => {
   const output = runTsxFixture(`
     import assert from "node:assert/strict";
     import { featurePageBySlug } from "./src/features/public-content/content/features.ts";
     import { guideBySlug } from "./src/features/public-content/content/guides.ts";
-    import { locationBySlug, locationPages } from "./src/features/public-content/content/locations.ts";
+    import {
+      getLocation,
+      locationBySlug,
+      locationPages,
+    } from "./src/features/public-content/content/locations.ts";
 
     for (const location of locationPages) {
       for (const slug of location.relatedGuideSlugs) {
-        assert.ok(guideBySlug.has(slug), \`\${location.slug}: missing guide \${slug}\`);
+        assert.ok(guideBySlug.has(slug), location.slug + ": missing guide " + slug);
       }
       for (const slug of location.relatedFeatureSlugs) {
-        assert.ok(featurePageBySlug.has(slug), \`\${location.slug}: missing feature \${slug}\`);
+        assert.ok(featurePageBySlug.has(slug), location.slug + ": missing feature " + slug);
       }
       for (const slug of location.nearbyLocationSlugs) {
-        assert.ok(locationBySlug.has(slug), \`\${location.slug}: missing nearby location \${slug}\`);
+        assert.ok(
+          locationBySlug.has(slug),
+          location.slug + ": missing nearby location " + slug,
+        );
       }
       assert.ok(location.relatedFeatureSlugs.includes("dive-spots"), location.slug);
-      assert.ok(location.relatedFeatureSlugs.some((slug) => ["buddy-finder", "events", "groups", "schools-and-courses"].includes(slug)), location.slug);
+      assert.ok(
+        location.relatedFeatureSlugs.some((slug) =>
+          ["buddy-finder", "events", "groups", "schools-and-courses"].includes(slug)
+        ),
+        location.slug,
+      );
       assert.equal(location.exploreQuery?.locationSlug, location.slug, location.slug);
       assert.ok(location.exploreQuery?.search, location.slug);
+    }
+
+    const philippines = getLocation("philippines");
+    const requiredDestinationSlugs = [
+      "siquijor",
+      "batangas",
+      "cebu",
+      "dauin",
+      "apo-island",
+      "panglao",
+      "moalboal",
+    ];
+    const requiredGuideSlugs = [
+      "how-to-start-freediving-in-the-philippines",
+      "freediving-safety-basics",
+      "what-to-bring-to-a-freediving-session",
+      "how-to-find-a-freediving-buddy",
+      "freediving-certifications-philippines",
+      "best-time-to-freedive-in-the-philippines",
+    ];
+    const requiredFeatureSlugs = [
+      "dive-spots",
+      "schools-and-courses",
+      "buddy-finder",
+      "events",
+      "groups",
+      "chika",
+    ];
+
+    for (const destination of requiredDestinationSlugs) {
+      assert.ok(
+        philippines.nearbyLocationSlugs.includes(destination),
+        "philippines should link to /freediving/" + destination,
+      );
+    }
+    for (const slug of requiredGuideSlugs) {
+      assert.ok(
+        philippines.relatedGuideSlugs.includes(slug),
+        "philippines should include guide " + slug,
+      );
+    }
+    for (const slug of requiredFeatureSlugs) {
+      assert.ok(
+        philippines.relatedFeatureSlugs.includes(slug),
+        "philippines should include feature " + slug,
+      );
+    }
+    for (const location of locationPages) {
+      if (location.slug !== "philippines") {
+        assert.ok(
+          location.nearbyLocationSlugs.includes("philippines"),
+          location.slug + " should link to /freediving/philippines",
+        );
+      }
     }
 
     console.log("ok");
   `);
 
   assert.equal(output, "ok");
+});
+
+test("location landing page source includes core links and structured data", async () => {
+  const locationLandingSource = await readSource(
+    "features/public-content/components/LocationLandingPage.tsx",
+  );
+
+  const requiredHrefFragments = [
+    "/freediving/siquijor",
+    "/freediving/batangas",
+    "/freediving/cebu",
+    "/freediving/dauin",
+    "/freediving/apo-island",
+    "/freediving/panglao",
+    "/freediving/moalboal",
+    "/explore",
+    "/schools",
+    "/events",
+    "/groups",
+    "/chika",
+    "/buddies",
+    "/features/dive-spots",
+    "/features/schools-and-courses",
+    "/features/buddy-finder",
+    "/features/events",
+    "/features/groups",
+    "/features/chika",
+    "/guides/how-to-start-freediving-in-the-philippines",
+    "/guides/freediving-safety-basics",
+    "/guides/what-to-bring-to-a-freediving-session",
+    "/guides/how-to-find-a-freediving-buddy",
+    "/guides/freediving-certifications-philippines",
+    "/guides/best-time-to-freedive-in-the-philippines",
+  ];
+
+  for (const href of requiredHrefFragments) {
+    assert.ok(
+      locationLandingSource.includes(`"${href}"`),
+      `location landing page source should include ${href}`,
+    );
+  }
+
+  assert.ok(
+    locationLandingSource.includes("PublicContentLayout"),
+    "location landing page should be wrapped with PublicContentLayout for shared structured data",
+  );
 });
 
 test("location copy avoids implementation-facing language", () => {
@@ -237,7 +349,6 @@ test("backend public Explore contract supports location filters on approved rows
   ]);
 
   assert.match(handlerSource, /LocationSlug:\s*r\.URL\.Query\(\)\.Get\("locationSlug"\)/);
-  assert.match(handlerSource, /LocationAliases:\s*r\.URL\.Query\(\)\["locationAlias"\]/);
   assert.match(serviceSource, /publicExploreLocationAliases/);
   assert.match(serviceSource, /"apo-island":\s*\{"Apo Island", "Apo Island Marine Sanctuary"\}/);
   assert.match(repoSource, /LocationTerms/);

@@ -20,6 +20,65 @@ import {
 import { fetchLocationDiveSpots } from "@/features/public-content/lib/locationDiveSpots";
 import type { BreadcrumbItem } from "@/features/public-content/seo/jsonLd";
 
+const philippinesDestinationLinks = [
+  { href: "/freediving/siquijor", label: "Siquijor" },
+  { href: "/freediving/batangas", label: "Batangas" },
+  { href: "/freediving/cebu", label: "Cebu" },
+  { href: "/freediving/dauin", label: "Dauin" },
+  { href: "/freediving/apo-island", label: "Apo Island" },
+  { href: "/freediving/panglao", label: "Panglao" },
+  { href: "/freediving/moalboal", label: "Moalboal" },
+] as const;
+
+const philippinesAppLinks = [
+  { href: "/explore", label: "Explore community dive spots" },
+  { href: "/schools", label: "Browse schools and courses" },
+  { href: "/events", label: "See upcoming events" },
+  { href: "/groups", label: "Join local groups" },
+  { href: "/chika", label: "Ask questions in Chika" },
+  { href: "/buddies", label: "Find a buddy" },
+] as const;
+
+const philippinesGuideLinks = [
+  {
+    href: "/guides/how-to-start-freediving-in-the-philippines",
+    label: "How to start freediving in the Philippines",
+  },
+  { href: "/guides/freediving-safety-basics", label: "Freediving safety basics" },
+  {
+    href: "/guides/what-to-bring-to-a-freediving-session",
+    label: "What to bring to a session",
+  },
+  {
+    href: "/guides/how-to-find-a-freediving-buddy",
+    label: "How to find a freediving buddy",
+  },
+  {
+    href: "/guides/freediving-certifications-philippines",
+    label: "Freediving certifications in the Philippines",
+  },
+  {
+    href: "/guides/best-time-to-freedive-in-the-philippines",
+    label: "Best time to freedive in the Philippines",
+  },
+] as const;
+
+const philippinesFeatureLinks = [
+  { href: "/features/dive-spots", label: "Explore dive spots in the app" },
+  {
+    href: "/features/schools-and-courses",
+    label: "Browse schools and courses",
+  },
+  { href: "/features/buddy-finder", label: "Use Buddy Finder" },
+  { href: "/features/events", label: "Discover community events" },
+  { href: "/features/groups", label: "Find local groups" },
+  { href: "/features/chika", label: "Follow community discussions" },
+] as const;
+
+function isPhilippinesLanding(location: PublicLocationContent) {
+  return location.slug === "philippines";
+}
+
 export async function LocationLandingPage({
   location,
 }: {
@@ -61,6 +120,154 @@ export async function LocationLandingPage({
             label: "Read safety basics",
           }}
         />
+
+        {isPhilippinesLanding(location) ? (
+          <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:px-8">
+            <article className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+              <h2 className="text-xl font-semibold tracking-normal text-foreground">
+                Why the Philippines is a strong freediving destination
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                The Philippines is a practical national hub for people in different
+                stages: beginners, travelers, regular practitioners, and people
+                checking schools for their next step. The right destination often
+                comes down to conditions, buddy setup, training access, and local
+                support.
+              </p>
+              <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
+                <li>- island variety for multiple water profiles</li>
+                <li>- local schools and communities you can coordinate with</li>
+                <li>- access to both training-focused and travel-focused dives</li>
+              </ul>
+            </article>
+
+            <article className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+              <h2 className="text-xl font-semibold tracking-normal text-foreground">
+                Best places to start exploring
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Use the destination guides below as first-pass options. Confirm
+                local access and conditions before planning a session.
+              </p>
+              <div className="grid gap-2">
+                {philippinesDestinationLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-sm text-primary underline-offset-4 hover:underline"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </article>
+
+            <article className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+              <h2 className="text-xl font-semibold tracking-normal text-foreground">
+                How to choose a destination
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Pick by intent, not by hype: beginner-friendly learning, weekend
+                trips from Manila, schools and courses, community dives, marine
+                life focus, or quieter island time.
+              </p>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Start broad, then narrow by weather window, buddy team, training
+                plan, and local rules before committing.
+              </p>
+            </article>
+
+            <article className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+              <h2 className="text-xl font-semibold tracking-normal text-foreground">
+                Schools, guides, and next actions
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                For most beginners, the most realistic next step is to join a
+                guided session first, then choose your next island based on
+                comfort and local support.
+              </p>
+              <div className="grid gap-2">
+                <Link
+                  href="/schools"
+                  className="text-sm text-primary underline-offset-4 hover:underline"
+                >
+                  Compare schools
+                </Link>
+                <Link
+                  href="/features/schools-and-courses"
+                  className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  Schools and courses
+                </Link>
+                <Link
+                  href="/guides/freediving-certifications-philippines"
+                  className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  Freediving certifications in the Philippines
+                </Link>
+              </div>
+            </article>
+
+            <article className="space-y-4 rounded-lg border border-border bg-muted/30 p-4 lg:col-span-2">
+              <h2 className="text-xl font-semibold tracking-normal text-foreground">
+                Safety and planning
+              </h2>
+              <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
+                <li>
+                  - Never freedive alone. Build a trained buddy setup for every
+                  session.
+                </li>
+                <li>
+                  - Confirm tide, swell, current, boat traffic, and entry
+                  conditions before entering.
+                </li>
+                <li>
+                  - Respect marine protected areas and local rules, and follow
+                  community guidance when in doubt.
+                </li>
+              </ul>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {philippinesGuideLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </article>
+
+            <article className="space-y-4 rounded-lg border border-border bg-muted/30 p-4 lg:col-span-2">
+              <h2 className="text-xl font-semibold tracking-normal text-foreground">
+                Community next steps
+              </h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {philippinesFeatureLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+              <div className="grid gap-2 pt-2 sm:grid-cols-2">
+                {philippinesAppLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </article>
+          </section>
+        ) : null}
 
         <section className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">
           <aside className="space-y-3">
