@@ -176,7 +176,7 @@ export const uploadMomentToDirectUrl = async (
   }
 };
 
-export const getProfileMediaByUsername = (
+export const getProfileMedia = (
   username: string,
   params: { limit?: number; cursor?: string } = {},
 ) =>

@@ -59,7 +59,7 @@ test("profile create flow and masonry gallery are wired to the media posting sta
   assert.match(gallery, /MasonryPhotoAlbum/);
   assert.match(gallery, /react-photo-album\/masonry\.css/);
   assert.match(routes, /posts: \(\) => "\/v1\/media\/posts"/);
-  assert.match(routes, /mediaByUsername:[\s\S]*\/v1\/profiles\/\$\{toPathId\(username\)\}\/media/);
+  assert.match(routes, /profileMedia:[\s\S]*\/v1\/profiles\/\$\{toPathId\(username\)\}\/media/);
 });
 
 test("media dialog is wired as an in-place social post view", async () => {

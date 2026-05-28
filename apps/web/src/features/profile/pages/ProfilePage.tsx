@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef } from "react";
-import { useUser } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -41,7 +40,6 @@ export default function ProfilePage({ username }: ProfilePageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const session = useSession();
-  const { user } = useUser();
   const messageClickStartRef = useRef<number | null>(null);
   const normalizedUsername = normalizeUsername(username);
   const profileQuery = useProfileViewQuery(normalizedUsername);
@@ -51,11 +49,6 @@ export default function ProfilePage({ username }: ProfilePageProps) {
   const saveUserMutation = useSaveUser();
   const unsaveUserMutation = useUnsaveUser();
   const currentProfileHref = useCurrentProfileHref();
-  const viewerUsername = session.me?.username ?? user?.username ?? null;
-  const isOwner =
-    session.status === "signed_in" &&
-    viewerUsername != null &&
-    normalizeUsername(viewerUsername) === normalizedUsername;
   const openThreadMutation = useMutation({
     mutationFn: async ({ profileUserId }: { profileUserId: string }) => {
       const startedAt = currentMessagePerfTime();
@@ -87,10 +80,15 @@ export default function ProfilePage({ username }: ProfilePageProps) {
   const isFollowPending =
     saveUserMutation.isPending || unsaveUserMutation.isPending;
 
+  const viewerRelationship = profileQuery.data?.viewerRelationship;
+
+  const isOwner = Boolean(viewerRelationship?.isSelf);
+  const canMessage = Boolean(viewerRelationship?.canMessage);
   const isFollowing = Boolean(
-    savedHubQuery.data?.users?.some(
-      (saved) => saved.userId === profileQuery.data?.id,
-    ),
+    viewerRelationship?.isFollowing ??
+      savedHubQuery.data?.users?.some(
+        (saved) => saved.userId === profileQuery.data?.id,
+      ),
   );
   const mediaItems = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
 
@@ -129,7 +127,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
         <ProfileHeader
           profile={profileQuery.data}
           isOwner={isOwner}
-          canMessage={session.status === "signed_in"}
+          canMessage={canMessage}
           isFollowing={isFollowing}
           settingsHref={
             currentProfileHref === `/${normalizedUsername}`

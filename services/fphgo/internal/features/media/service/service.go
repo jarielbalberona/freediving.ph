@@ -1587,41 +1587,33 @@ func (s *Service) ListProfileMedia(ctx context.Context, input ListProfileMediaIn
 
 	items := make([]ProfileMediaItemResult, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, ProfileMediaItemResult{
-			ID:               row.ID,
-			MediaObjectID:    row.MediaObjectID,
-			PostID:           row.PostID,
-			PostCaption:      row.PostCaption,
-			UploadGroupID:    row.UploadGroupID,
-			AuthorAppUserID:  row.AuthorAppUserID,
-			Type:             row.Type,
-			StorageKey:       row.StorageKey,
-			MimeType:         row.MimeType,
-			Width:            int(row.Width),
-			Height:           int(row.Height),
-			DurationMs:       intPtrFromInt32(row.DurationMs),
-			Caption:          row.Caption,
-			DiveSiteID:       row.DiveSiteID,
-			DiveSiteSlug:     row.DiveSiteSlug,
-			DiveSiteName:     row.DiveSiteName,
-			DiveSiteArea:     row.DiveSiteArea,
-			SortOrder:        int(row.SortOrder),
-			Status:           row.Status,
-			ProcessingStatus: row.ProcessingStatus,
-			Playback:         momentPlaybackFromProfileItem(row),
-			PlaybackURL:      row.PlaybackURL,
-			ThumbnailURL:     row.ThumbnailURL,
-			PreviewURL:       row.PreviewURL,
-			StreamUID:        row.StreamUID,
-			LikeCount:        row.LikeCount,
-			CommentCount:     row.CommentCount,
-			ViewerHasLiked:   row.ViewerHasLiked,
-			ViewerHasSaved:   row.ViewerHasSaved,
-			CreatedAt:        row.CreatedAt,
-		})
+		item := profileMediaResultFromRepo(row)
+		item.ThumbnailURL, item.PreviewURL = mediaItemURLsForProfileGrid(row, s.signMediaURL)
+		items = append(items, item)
 	}
 
 	return ListProfileMediaResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func mediaItemURLsForProfileGrid(
+	item mediarepo.ProfileMediaItem,
+	sign func(objectKey, preset string) string,
+) (thumbnailURL *string, previewURL *string) {
+	thumbnailURL = item.ThumbnailURL
+	previewURL = item.PreviewURL
+
+	itemType := strings.ToLower(strings.TrimSpace(item.Type))
+	if itemType != "photo" {
+		return thumbnailURL, previewURL
+	}
+
+	signed := sign(item.StorageKey, PresetCard)
+	if strings.TrimSpace(signed) == "" {
+		return thumbnailURL, previewURL
+	}
+
+	cardURL := signed
+	return &cardURL, &cardURL
 }
 
 func (s *Service) ListProfileMoments(ctx context.Context, input ListProfileMediaInput) (ListProfileMediaResult, error) {

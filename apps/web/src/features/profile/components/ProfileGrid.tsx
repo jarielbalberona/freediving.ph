@@ -18,7 +18,6 @@ import {
   MomentPlayer,
   momentPlaybackFromUrls,
 } from "@/features/media/components/MomentPlayer";
-import { useMintedMediaMap } from "@/features/media/hooks";
 
 type ProfileGridProps = {
   items: ProfileMediaItem[];
@@ -57,11 +56,6 @@ export function ProfileGrid({
   const validItems = items.filter((item) => item.width > 0 && item.height > 0);
   const photoItems = validItems.filter((item) => item.type !== "video");
   const videoItems = validItems.filter((item) => item.type === "video");
-  const galleryUrls = useMintedMediaMap(
-    photoItems.map((item) => item.mediaObjectId),
-    "card",
-    photoItems.length > 0,
-  );
 
   if (isLoading) {
     return (
@@ -111,7 +105,7 @@ export function ProfileGrid({
 
   const photos: AlbumPhoto[] = photoItems
     .map((item) => {
-      const src = galleryUrls.urlMap.get(item.mediaObjectId);
+      const src = item.previewUrl || item.thumbnailUrl;
       if (!src) return null;
       const caption = getDisplayCaption(item);
       return {
@@ -128,6 +122,7 @@ export function ProfileGrid({
     id: item.id,
     mediaObjectId: item.mediaObjectId,
     type: item.type === "video" ? "video" : "photo",
+    displayUrl: item.previewUrl ?? item.thumbnailUrl ?? undefined,
     playback: item.playback ?? null,
     playbackUrl: item.playbackUrl ?? undefined,
     thumbnailUrl: item.thumbnailUrl ?? undefined,
@@ -180,7 +175,7 @@ export function ProfileGrid({
         </div>
       ) : null}
 
-      {galleryUrls.isPending && photos.length === 0 && photoItems.length > 0 ? (
+      {photos.length === 0 && photoItems.length > 0 ? (
         <div className="columns-2 gap-3 md:columns-3 xl:columns-4">
           {Array.from({ length: 8 }, (_, index) => (
             <Skeleton

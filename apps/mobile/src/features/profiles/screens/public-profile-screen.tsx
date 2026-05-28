@@ -19,7 +19,7 @@ import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-
 import {
   useProfileDivingQuery,
 } from "@/features/profiles/hooks/use-profile-activity-query";
-import { useProfileMediaByUsernameQuery } from "@/features/media/hooks/use-profile-media-query";
+import { useProfileMediaQuery } from "@/features/media/hooks/use-profile-media-query";
 import { usePublicProfileQuery } from "@/features/profiles/hooks/use-public-profile-query";
 import { safeProfileUsername } from "@/features/profiles/lib/profile-format";
 
@@ -32,7 +32,7 @@ export function PublicProfileScreen() {
   const username = routeUsername;
   const profileQuery = usePublicProfileQuery(username);
   const profile = profileQuery.data?.profile;
-  const mediaQuery = useProfileMediaByUsernameQuery(profile?.username);
+  const mediaQuery = useProfileMediaQuery(profile?.username);
   const divingQuery = useProfileDivingQuery(profile?.username);
   const posts = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const presences = divingQuery.data?.presences ?? [];
@@ -93,6 +93,7 @@ export function PublicProfileScreen() {
     { label: "Followers", value: profile.counts.followers },
     { label: "Following", value: profile.counts.following },
   ];
+  const isOwner = Boolean(profile.viewerRelationship?.canEdit);
 
   return (
     <>
@@ -100,7 +101,7 @@ export function PublicProfileScreen() {
       <MobileScrollScreen subtitle="Diver profile" title="Profile">
         <MobileSection>
           <ProfileHeader
-            isOwner={false}
+            isOwner={isOwner}
             profile={profile as HeaderProfile}
             stats={headerStats}
           />

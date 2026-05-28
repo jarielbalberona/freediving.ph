@@ -15,7 +15,7 @@ const profilesApiPath = path.join(appRoot, "src/features/profiles/api/profiles.t
 const routesPath = path.join(appRoot, "src/lib/api/fphgo-routes.ts");
 const typesPath = path.join(
   cwd.endsWith(path.join("apps", "web")) ? path.dirname(path.dirname(appRoot)) : cwd,
-  "packages/types/src/api/public-profile.ts",
+  "packages/types/src/api/profile-view.ts",
 );
 
 test("/[username] profile has Posts and Diving tabs with Posts as default", async () => {
@@ -82,11 +82,11 @@ test("Profile diving API and shared types use profile-scoped Dive Presence shape
     readFile(typesPath, "utf8"),
   ]);
 
-  assert.match(routes, /divingByUsername/);
   assert.match(routes, /\/v1\/profiles\/\$\{toPathId\(username\)\}\/diving/);
-  assert.match(routes, /byUsername/);
+  assert.match(routes, /profileDiving/);
+  assert.match(routes, /profile:\s*\(/);
   assert.match(profilesApi, /ProfileViewResponse/);
-  assert.match(profilesApi, /routes\.v1\.profiles\.byUsername\(username\)/);
+  assert.match(profilesApi, /routes\.v1\.profiles\.profile\(username\)/);
   assert.match(profilesApi, /auth: "none"/);
   assert.match(profilesApi, /getProfileDivingByUsername/);
   assert.match(profilesApi, /auth: "ready-only"/);

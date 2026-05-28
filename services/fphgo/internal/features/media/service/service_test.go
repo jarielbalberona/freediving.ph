@@ -1053,6 +1053,53 @@ func TestMintURLsRejectsForeignProfileFeedOriginalPreset(t *testing.T) {
 	}
 }
 
+func TestListProfileMediaHydratesSignedPhotoURLsForPublicAndAuthenticatedViewers(t *testing.T) {
+	created := time.Now().UTC()
+	repo := &fakeRepo{
+		profileMedia: []mediarepo.ProfileMediaItem{
+			testProfileMediaItem("11111111-1111-4111-8111-111111111111", "photo", created),
+			testProfileMediaItem("22222222-2222-4222-8222-222222222222", "video", created.Add(-time.Minute)),
+		},
+	}
+	svc := New(repo, nil, "bucket", "https://cdn.example.com", "secret-v1", 1)
+
+	guestResult, guestErr := svc.ListProfileMedia(context.Background(), ListProfileMediaInput{
+		Username: "member",
+		Limit:    24,
+	})
+	if guestErr != nil {
+		t.Fatalf("list profile media as guest: %v", guestErr)
+	}
+	if len(guestResult.Items) != 2 {
+		t.Fatalf("expected 2 media items, got %d", len(guestResult.Items))
+	}
+	if guestResult.Items[0].Type == "photo" {
+		if guestResult.Items[0].PreviewURL == nil || guestResult.Items[0].ThumbnailURL == nil {
+			t.Fatalf("expected signed photo URLs for unauthenticated profile media, got %+v", guestResult.Items[0])
+		}
+		if strings.TrimSpace(*guestResult.Items[0].PreviewURL) == "" || strings.TrimSpace(*guestResult.Items[0].ThumbnailURL) == "" {
+			t.Fatalf("expected non-empty signed photo URLs for unauthenticated profile media, got %+v", guestResult.Items[0])
+		}
+	}
+
+	authResult, authErr := svc.ListProfileMedia(context.Background(), ListProfileMediaInput{
+		Username:    "member",
+		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
+		Limit:       24,
+	})
+	if authErr != nil {
+		t.Fatalf("list profile media as authenticated viewer: %v", authErr)
+	}
+	if len(authResult.Items) != 2 {
+		t.Fatalf("expected 2 media items with viewer, got %d", len(authResult.Items))
+	}
+	if authResult.Items[0].Type == "photo" {
+		if authResult.Items[0].PreviewURL == nil || authResult.Items[0].ThumbnailURL == nil {
+			t.Fatalf("expected signed photo URLs for authenticated profile media, got %+v", authResult.Items[0])
+		}
+	}
+}
+
 func TestListMediaByContextReturnsOnlyOwnerItems(t *testing.T) {
 	contextID := "22222222-2222-2222-2222-222222222222"
 	repo := &fakeRepo{mediaByID: map[string]mediarepo.MediaObject{

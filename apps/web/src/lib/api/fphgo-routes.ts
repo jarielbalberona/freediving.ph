@@ -63,11 +63,11 @@ export const routes = {
     profiles: {
       me: () => "/v1/me/profile",
       saved: () => "/v1/me/saved",
-      byUsername: (username: string | number) =>
+      profile: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}`,
-      mediaByUsername: (username: string | number) =>
+      profileMedia: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}/media`,
-      divingByUsername: (username: string | number) =>
+      profileDiving: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}/diving`,
       searchUsers: () => "/v1/users/search",
       saveUser: (userId: string | number) =>

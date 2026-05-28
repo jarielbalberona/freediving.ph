@@ -1,19 +1,35 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	profilesservice "fphgo/internal/features/profiles/service"
 	"fphgo/internal/middleware"
 	"fphgo/internal/shared/authz"
+	"fphgo/internal/shared/errors"
 	"fphgo/internal/shared/httpx"
 	"fphgo/internal/shared/validatex"
 )
+
+type publicProfileViewerService struct {
+	*stubProfilesService
+	getProfileViewByUsernameFn func(context.Context, string, string) (profilesservice.ProfileView, error)
+}
+
+func (s *publicProfileViewerService) GetProfileViewByUsername(ctx context.Context, username, viewerID string) (profilesservice.ProfileView, error) {
+	if s.getProfileViewByUsernameFn != nil {
+		return s.getProfileViewByUsernameFn(ctx, username, viewerID)
+	}
+	return s.stubProfilesService.GetProfileViewByUsername(ctx, username, viewerID)
+}
 
 func TestProfilesRoutesRequireAuth(t *testing.T) {
 	v := validatex.New()
@@ -37,8 +53,11 @@ func TestProfilesRoutesRequireAuth(t *testing.T) {
 
 func TestPublicProfileRouteIsGuestReadable(t *testing.T) {
 	v := validatex.New()
+	service := &publicProfileViewerService{
+		stubProfilesService: &stubProfilesService{},
+	}
 	router := chi.NewRouter()
-	router.Mount("/", PublicRoutes(New(&stubProfilesService{}, v)))
+	router.Mount("/", PublicRoutes(New(service, v)))
 
 	req := httptest.NewRequest(http.MethodGet, "/member", nil)
 	rec := httptest.NewRecorder()
@@ -69,6 +88,172 @@ func TestPublicProfileRouteIsGuestReadable(t *testing.T) {
 	}
 	if _, ok := profile["socials"]; ok {
 		t.Fatal("public profile leaked socials")
+	}
+	if viewerRelationship, ok := profile["viewerRelationship"].(map[string]any); ok {
+		if viewerRelationship["isSelf"] != false {
+			t.Fatalf("expected guest viewer isSelf=false, got %v", viewerRelationship["isSelf"])
+		}
+		if viewerRelationship["isFollowing"] != false {
+			t.Fatalf("expected guest viewer isFollowing=false, got %v", viewerRelationship["isFollowing"])
+		}
+		if viewerRelationship["isBlocked"] != false {
+			t.Fatalf("expected guest viewer isBlocked=false, got %v", viewerRelationship["isBlocked"])
+		}
+		if viewerRelationship["hasBlockedViewer"] != false {
+			t.Fatalf("expected guest viewer hasBlockedViewer=false, got %v", viewerRelationship["hasBlockedViewer"])
+		}
+		if viewerRelationship["canMessage"] != false {
+			t.Fatalf("expected guest viewer canMessage=false, got %v", viewerRelationship["canMessage"])
+		}
+		if viewerRelationship["canFollow"] != false {
+			t.Fatalf("expected guest viewer canFollow=false, got %v", viewerRelationship["canFollow"])
+		}
+		if viewerRelationship["canEdit"] != false {
+			t.Fatalf("expected guest viewer canEdit=false, got %v", viewerRelationship["canEdit"])
+		}
+	} else {
+		t.Fatalf("missing viewerRelationship in guest public profile response: %v", profile)
+	}
+}
+
+func TestPublicProfileRouteViewerFlagsForSelfAndOther(t *testing.T) {
+	v := validatex.New()
+	selfID := "550e8400-e29b-41d4-a716-446655440000"
+	otherID := "550e8400-e29b-41d4-a716-446655440111"
+
+	makeRequest := func(viewerID string) *httptest.ResponseRecorder {
+		service := &publicProfileViewerService{
+			stubProfilesService: &stubProfilesService{},
+			getProfileViewByUsernameFn: func(_ context.Context, username, _ string) (profilesservice.ProfileView, error) {
+				viewer := profilesservice.ProfileViewerRelationship{}
+				if viewerID == selfID {
+					viewer = profilesservice.ProfileViewerRelationship{
+						IsSelf:           true,
+						CanMessage:       false,
+						CanFollow:        false,
+						CanEdit:          true,
+						IsFollowing:      false,
+						IsBlocked:        false,
+						HasBlockedViewer: false,
+					}
+				} else if viewerID != "" && viewerID != selfID {
+					viewer = profilesservice.ProfileViewerRelationship{
+						IsSelf:           false,
+						CanMessage:       true,
+						CanFollow:        true,
+						CanEdit:          false,
+						IsFollowing:      true,
+						IsBlocked:        false,
+						HasBlockedViewer: false,
+					}
+				}
+				return profilesservice.ProfileView{
+					UserID:      "550e8400-e29b-41d4-a716-446655440011",
+					Username:    username,
+					DisplayName: "Member User",
+					Bio:         "Bio",
+					AvatarURL:   "https://example.com/avatar.jpg",
+					CreatedAt:   time.Now().UTC(),
+					Counts: profilesservice.ProfileViewCounts{
+						MediaPosts: 2,
+						Followers:  3,
+						Following:  4,
+					},
+					Viewer: viewer,
+				}, nil
+			},
+		}
+
+		router := chi.NewRouter()
+		if viewerID != "" {
+			router.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					ctx := middleware.WithIdentity(req.Context(), authz.Identity{UserID: viewerID})
+					next.ServeHTTP(w, req.WithContext(ctx))
+				})
+			})
+		}
+		router.Mount("/", PublicRoutes(New(service, v)))
+		req := httptest.NewRequest(http.MethodGet, "/member", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	assertViewerRelationship := func(t *testing.T, rec *httptest.ResponseRecorder, expected map[string]any) {
+		t.Helper()
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("failed to decode payload: %v", err)
+		}
+		profile, ok := payload["profile"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected profile object, got %v", payload)
+		}
+		viewerRelationship, ok := profile["viewerRelationship"].(map[string]any)
+		if !ok {
+			t.Fatalf("missing viewerRelationship in profile response: %v", payload)
+		}
+		for key, expectedValue := range expected {
+			if viewerRelationship[key] != expectedValue {
+				t.Fatalf("expected viewerRelationship[%s]=%v, got %v", key, expectedValue, viewerRelationship[key])
+			}
+		}
+	}
+
+	assertViewerRelationship(
+		t,
+		makeRequest(selfID),
+		map[string]any{
+			"isSelf":      true,
+			"canEdit":     true,
+			"canMessage":  false,
+			"canFollow":   false,
+			"isFollowing": false,
+		},
+	)
+	assertViewerRelationship(
+		t,
+		makeRequest(otherID),
+		map[string]any{
+			"isSelf":      false,
+			"canEdit":     false,
+			"canMessage":  true,
+			"canFollow":   true,
+			"isFollowing": true,
+		},
+	)
+}
+
+func TestPublicProfileRouteReturns404ForMissingUsername(t *testing.T) {
+	v := validatex.New()
+	service := &publicProfileViewerService{
+		stubProfilesService: &stubProfilesService{},
+		getProfileViewByUsernameFn: func(_ context.Context, username, _ string) (profilesservice.ProfileView, error) {
+			if username == "member" {
+				return profilesservice.ProfileView{
+					UserID:      "550e8400-e29b-41d4-a716-446655440011",
+					Username:    username,
+					DisplayName: "Member User",
+					Bio:         "Bio",
+					AvatarURL:   "https://example.com/avatar.jpg",
+					CreatedAt:   time.Now().UTC(),
+				}, nil
+			}
+			return profilesservice.ProfileView{}, errors.New(http.StatusNotFound, "profile_not_found", "profile not found", nil)
+		},
+	}
+	router := chi.NewRouter()
+	router.Mount("/", PublicRoutes(New(service, v)))
+
+	req := httptest.NewRequest(http.MethodGet, "/not-found", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for missing profile, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

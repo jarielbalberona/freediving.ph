@@ -229,7 +229,7 @@ export const mediaApi = {
     if (params.cursor) query.set("cursor", params.cursor);
     const suffix = query.toString() ? `?${query.toString()}` : "";
     return fphgoFetchClient<ListProfileMediaResponse>(
-      `${routes.v1.profiles.mediaByUsername(username)}${suffix}`,
+      `${routes.v1.profiles.profileMedia(username)}${suffix}`,
     );
   },
 

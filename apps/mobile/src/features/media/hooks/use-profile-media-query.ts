@@ -2,13 +2,13 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 
 import type { ListProfileMediaResponse } from "@freediving.ph/types";
 
-import { getProfileMediaByUsername } from "@/features/media/api/media-api";
+import { getProfileMedia } from "@/features/media/api/media-api";
 import { mobileQueryKeys } from "@/lib/query";
 import { safeProfileUsername } from "@/features/profiles/lib/profile-format";
 
 const PROFILE_MEDIA_PAGE_LIMIT = 24;
 
-export const useProfileMediaByUsernameQuery = (
+export const useProfileMediaQuery = (
   username: string | undefined,
   options: { enabled?: boolean; limit?: number } = {},
 ) => {
@@ -20,7 +20,7 @@ export const useProfileMediaByUsernameQuery = (
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
-      getProfileMediaByUsername(safeUsername ?? "", {
+      getProfileMedia(safeUsername ?? "", {
         cursor: pageParam as string | undefined,
         limit,
       }),

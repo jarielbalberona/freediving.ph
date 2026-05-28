@@ -50,7 +50,7 @@ test("messages, chika, buddies, and add-on builders map to fphgo v1 prefixes", a
   assert.match(source, /mine: \(\) => "\/v1\/buddy-finder\/intents\/mine"/);
   assert.match(source, /saved: \(\) => "\/v1\/me\/saved"/);
   assert.match(source, /saveUser: \(userId: string \| number\) =>/);
-  assert.match(source, /byUsername: \(username: string \| number\) =>/);
+  assert.match(source, /profile: \(username: string \| number\) =>/);
   assert.match(source, /\/v1\/profiles\/\$\{toPathId\(username\)\}/);
   assert.match(source, /latestUpdates: \(\) => "\/v1\/explore\/updates"/);
   assert.match(source, /sharePreview: \(id: string \| number\) =>/);

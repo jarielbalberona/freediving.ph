@@ -10,7 +10,7 @@ import {
   MobileSection,
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
-import { useProfileMediaByUsernameQuery } from "@/features/media/hooks/use-profile-media-query";
+import { useProfileMediaQuery } from "@/features/media/hooks/use-profile-media-query";
 import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
 import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
 import {
@@ -38,7 +38,7 @@ export function ProfileScreen() {
   const profileQuery = useMyProfileQuery();
   const profile = profileQuery.data?.profile;
   const updateProfile = useUpdateMyProfileMutation();
-  const mediaQuery = useProfileMediaByUsernameQuery(profile?.username);
+  const mediaQuery = useProfileMediaQuery(profile?.username);
   const divingQuery = useProfileDivingQuery(profile?.username);
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [isEditing, setIsEditing] = useState(false);

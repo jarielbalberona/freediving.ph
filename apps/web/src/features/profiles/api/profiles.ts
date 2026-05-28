@@ -19,7 +19,7 @@ export const profilesApi = {
   },
 
   getProfileByUserId: async (userId: string): Promise<ProfileResponse> => {
-    return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.byUsername(userId));
+    return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.profile(userId));
   },
 
   getUserByUsername: async (username: string): Promise<Profile> => {
@@ -40,7 +40,7 @@ export const profilesApi = {
 
   getProfileViewByUsername: async (username: string): Promise<ProfileView> => {
     const response = await fphgoFetchClient<ProfileViewResponse>(
-      routes.v1.profiles.byUsername(username),
+      routes.v1.profiles.profile(username),
       { auth: "none" },
     );
     return response.profile;
@@ -50,7 +50,7 @@ export const profilesApi = {
     username: string,
   ): Promise<ProfileDivingResponse> => {
     return fphgoFetchClient<ProfileDivingResponse>(
-      routes.v1.profiles.divingByUsername(username),
+      routes.v1.profiles.profileDiving(username),
       { auth: "ready-only" },
     );
   },
