@@ -249,8 +249,8 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		assertStringField(t, profile, "displayName")
 	})
 
-	t.Run("GET /v1/profiles/public/{username} guest public profile", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/v1/profiles/public/member", nil)
+	t.Run("GET /v1/profiles/{username} guest public profile", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/profiles/member", nil)
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
 
@@ -266,7 +266,7 @@ func TestV1CoreEndpointContracts(t *testing.T) {
 		if !ok {
 			t.Fatal("expected profile object")
 		}
-		assertStringField(t, profile, "userId")
+		assertStringField(t, profile, "id")
 		assertStringField(t, profile, "username")
 		assertStringField(t, profile, "displayName")
 		if _, ok := profile["emailVerified"]; ok {
@@ -700,12 +700,20 @@ func (s *contractProfilesService) GetSavedHub(_ context.Context, _ string) (prof
 	return profilesservice.SavedHub{Sites: []profilesrepo.SavedSite{}, Users: []profilesrepo.SavedUser{}}, nil
 }
 
-func (s *contractProfilesService) GetPublicProfileByUsername(_ context.Context, username string) (profilesservice.PublicProfile, error) {
-	return profilesservice.PublicProfile{UserID: "550e8400-e29b-41d4-a716-446655440099", Username: username, DisplayName: "Member User"}, nil
-}
-
-func (s *contractProfilesService) ListPublicProfilePostsByUsername(_ context.Context, _ string, _ int32) ([]profilesservice.PublicProfilePost, error) {
-	return []profilesservice.PublicProfilePost{}, nil
+func (s *contractProfilesService) GetProfileViewByUsername(_ context.Context, username, viewerUserID string) (profilesservice.ProfileView, error) {
+	return profilesservice.ProfileView{
+		UserID:      "550e8400-e29b-41d4-a716-446655440099",
+		Username:    username,
+		DisplayName: "Member User",
+		Counts: profilesservice.ProfileViewCounts{
+			MediaPosts: 0,
+			Followers:  0,
+			Following:  0,
+		},
+		Viewer: profilesservice.ProfileViewerRelationship{
+			IsSelf: viewerUserID == "550e8400-e29b-41d4-a716-446655440099",
+		},
+	}, nil
 }
 
 func (s *contractProfilesService) ListProfileBucketListByUsername(_ context.Context, _ string, _ int32) ([]profilesservice.ProfileBucketListItem, error) {

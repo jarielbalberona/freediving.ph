@@ -110,8 +110,6 @@ export const mobileQueryKeys = {
     me: () => [...mobileQueryKeys.profile.all, "me"] as const,
     public: (username: string) =>
       [...mobileQueryKeys.profile.all, "public", username] as const,
-    posts: (username: string) =>
-      [...mobileQueryKeys.profile.all, "public", username, "posts"] as const,
     diving: (username: string) =>
       [...mobileQueryKeys.profile.all, "public", username, "diving"] as const,
   },

@@ -2,7 +2,7 @@ import { useAuth } from "@clerk/expo";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import type {
-  PublicProfileResponse,
+  ProfileViewResponse,
   UpdateMyProfileRequest,
 } from "@freediving.ph/types";
 
@@ -33,7 +33,7 @@ export const useUpdateMyProfileMutation = () => {
     onSuccess: (response) => {
       queryClient.setQueryData(mobileQueryKeys.profile.me(), response);
       if (response.profile.username) {
-        queryClient.setQueryData<PublicProfileResponse>(
+        queryClient.setQueryData<ProfileViewResponse>(
           mobileQueryKeys.profile.public(response.profile.username),
           (current) =>
             current

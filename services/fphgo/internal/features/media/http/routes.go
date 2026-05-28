@@ -38,10 +38,6 @@ func Routes(h *Handlers) chi.Router {
 		read.Get("/mine", h.ListMine)
 		read.Post("/urls", h.MintURLs)
 	})
-	r.Get("/by-username/{username}", h.ListProfileMedia)
-	r.Get("/by-username/{username}/moments", h.ListProfileMoments)
-	r.Get("/by-username/{username}/dive-spot-highlights", h.ListDiveSpotHighlights)
-	r.Get("/by-username/{username}/dive-spot-highlights/{diveSpotId}/media", h.ListDiveSpotHighlightMedia)
 	r.Get("/dive-sites/{siteId}/moments", h.ListDiveSiteMoments)
 
 	return r

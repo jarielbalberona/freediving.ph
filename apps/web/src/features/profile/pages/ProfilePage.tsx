@@ -4,10 +4,8 @@ import { useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { buttonVariants } from "@/components/ui/button";
 import { useSession } from "@/features/auth/session";
 import { messagesApi } from "@/features/messages/api/messages";
 import { messageQueryKeys } from "@/features/messages/hooks/queries";
@@ -18,7 +16,6 @@ import {
 } from "@/features/messages/lib/perf";
 import { useProfileMediaInfiniteQuery } from "@/features/media/hooks";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
-import { DiveSpotHighlights } from "@/features/profile/components/DiveSpotHighlights";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
 import { ProfileBucketList } from "@/features/profile/components/ProfileBucketList";
 import { ProfileSkeleton } from "@/features/profile/components/ProfileSkeleton";
@@ -29,9 +26,8 @@ import {
 } from "@/features/profiles/hooks/mutations";
 import { useSavedHub } from "@/features/profiles/hooks/queries";
 import {
-  useProfileBucketListQuery,
   useProfileDivingQuery,
-  usePublicProfileQuery,
+  useProfileViewQuery,
 } from "@/features/profile/hooks/queries";
 import { getProfileSettingsRoute, normalizeUsername } from "@/lib/routes";
 
@@ -48,9 +44,8 @@ export default function ProfilePage({ username }: ProfilePageProps) {
   const { user } = useUser();
   const messageClickStartRef = useRef<number | null>(null);
   const normalizedUsername = normalizeUsername(username);
-  const profileQuery = usePublicProfileQuery(normalizedUsername);
+  const profileQuery = useProfileViewQuery(normalizedUsername);
   const mediaQuery = useProfileMediaInfiniteQuery(normalizedUsername);
-  const bucketListQuery = useProfileBucketListQuery(normalizedUsername);
   const divingQuery = useProfileDivingQuery(normalizedUsername);
   const savedHubQuery = useSavedHub(session.status === "signed_in");
   const saveUserMutation = useSaveUser();
@@ -124,12 +119,6 @@ export default function ProfilePage({ username }: ProfilePageProps) {
         <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
           This public profile could not be loaded right now.
         </p>
-        <p className="mt-2 text-sm font-medium text-foreground">
-          Sign in to view this profile.
-        </p>
-        <Link href="/sign-in" className={buttonVariants({ className: "mt-6" })}>
-          Sign in
-        </Link>
       </div>
     );
   }
@@ -167,12 +156,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
           }}
           isMessagePending={openThreadMutation.isPending}
         />
-        <DiveSpotHighlights
-          username={profileQuery.data.username}
-          displayName={profileQuery.data.displayName}
-          avatarUrl={profileQuery.data.avatarUrl}
-        />
-        <ProfileBucketList items={bucketListQuery.data ?? []} />
+        <ProfileBucketList items={[]} />
         <ProfileTabs
           mediaItems={mediaItems}
           isLoadingMedia={mediaQuery.isPending && mediaItems.length === 0}
@@ -182,7 +166,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
             void mediaQuery.fetchNextPage();
           }}
           username={profileQuery.data.username}
-          displayName={profileQuery.data.displayName}
+          displayName={profileQuery.data.displayName ?? profileQuery.data.username}
           avatarUrl={profileQuery.data.avatarUrl}
           diving={divingQuery.data}
           isLoadingDiving={divingQuery.isPending}

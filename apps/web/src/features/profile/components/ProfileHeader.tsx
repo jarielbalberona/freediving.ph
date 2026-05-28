@@ -8,12 +8,12 @@ import {
   instructorAgencyLabels,
   usePublicInstructor,
 } from "@/features/instructors";
-import type { PublicProfile } from "@/features/profile/types";
+import type { ProfileView } from "@/features/profile/types";
 import { getProfileSettingsRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type ProfileHeaderProps = {
-  profile: PublicProfile;
+  profile: ProfileView;
   isOwner: boolean;
   canMessage: boolean;
   isFollowing?: boolean;
@@ -112,7 +112,7 @@ export function ProfileHeader({
             size="lg"
           />
           <div className="grid grid-cols-3 gap-3">
-            <ProfileStat label="posts" value={profile.counts.posts} />
+            <ProfileStat label="posts" value={profile.counts.mediaPosts} />
             <ProfileStat label="followers" value={profile.counts.followers} />
             <ProfileStat label="following" value={profile.counts.following} />
           </div>
@@ -207,7 +207,7 @@ export function ProfileHeader({
           </div>
 
           <div className="flex flex-wrap gap-8">
-            <ProfileStat label="posts" value={profile.counts.posts} />
+            <ProfileStat label="posts" value={profile.counts.mediaPosts} />
             <ProfileStat label="followers" value={profile.counts.followers} />
             <ProfileStat label="following" value={profile.counts.following} />
           </div>

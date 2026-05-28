@@ -3,37 +3,29 @@ import test from "node:test";
 
 import type {
   ProfileDivingResponse,
-  ProfilePostsResponse,
-  PublicProfileResponse,
+  ProfileViewResponse,
   UpdateMyProfileRequest,
 } from "../src/index.ts";
 
-test("public profile contracts expose safe public profile, posts, and diving shapes", () => {
-  const profile: PublicProfileResponse = {
+test("profile view contracts expose safe profile and diving shapes", () => {
+  const profile: ProfileViewResponse = {
     profile: {
+      createdAt: "2026-05-26T00:00:00Z",
       bio: "Line diver",
-      counts: { followers: 2, following: 1, posts: 3 },
+      counts: { followers: 2, following: 1, mediaPosts: 3 },
       displayName: "Ana Diver",
-      userId: "550e8400-e29b-41d4-a716-446655440000",
+      id: "550e8400-e29b-41d4-a716-446655440000",
       username: "ana",
-    },
-  };
-  const posts: ProfilePostsResponse = {
-    items: [
-      {
-        caption: "Training day",
-        commentCount: 1,
-        id: "post-1",
-        likeCount: 4,
-        mediaType: "image",
-        occurredAt: "2026-05-26T00:00:00Z",
-        siteArea: "Batangas",
-        siteId: "site-1",
-        siteName: "Anilao",
-        siteSlug: "anilao",
-        thumbUrl: "https://cdn.freediving.ph/post.jpg",
+      viewerRelationship: {
+        canEdit: false,
+        canFollow: false,
+        canMessage: false,
+        hasBlockedViewer: false,
+        isBlocked: false,
+        isFollowing: false,
+        isSelf: false,
       },
-    ],
+    },
   };
   const diving: ProfileDivingResponse = {
     affinities: [],
@@ -53,7 +45,6 @@ test("public profile contracts expose safe public profile, posts, and diving sha
   };
 
   assert.equal(profile.profile.username, "ana");
-  assert.equal(posts.items[0]?.siteSlug, "anilao");
   assert.equal(diving.presences[0]?.visibility, "public");
 });
 

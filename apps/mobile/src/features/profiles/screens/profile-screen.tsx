@@ -19,7 +19,9 @@ import {
 } from "@/features/profiles/components/profile-header";
 import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
 import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
-import { useProfileDivingQuery } from "@/features/profiles/hooks/use-profile-activity-query";
+import {
+  useProfileDivingQuery,
+} from "@/features/profiles/hooks/use-profile-activity-query";
 import { useUpdateMyProfileMutation } from "@/features/profiles/hooks/use-profile-mutations";
 import { useMyProfileQuery } from "@/features/profiles/hooks/use-my-profile-query";
 import {

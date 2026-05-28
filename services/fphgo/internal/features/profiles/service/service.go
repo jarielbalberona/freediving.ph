@@ -27,8 +27,7 @@ type repository interface {
 	SearchUsers(ctx context.Context, viewerID, q string, limit int32) ([]profilesrepo.SearchUser, error)
 	ListSavedSitesForUser(ctx context.Context, appUserID string) ([]profilesrepo.SavedSite, error)
 	ListSavedUsersForUser(ctx context.Context, viewerUserID string) ([]profilesrepo.SavedUser, error)
-	GetPublicProfileByUsername(ctx context.Context, username string) (profilesrepo.PublicProfile, error)
-	ListPublicProfilePostsByUsername(ctx context.Context, username string, limit int32) ([]profilesrepo.PublicProfilePost, error)
+	GetProfileViewByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileView, error)
 	ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]profilesrepo.ProfileBucketListItem, error)
 	ListProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileDiving, error)
 }
@@ -81,33 +80,32 @@ type SavedHub struct {
 	Users []profilesrepo.SavedUser `json:"users"`
 }
 
-type PublicProfile struct {
+type ProfileView struct {
 	UserID      string
 	Username    string
 	DisplayName string
 	Bio         string
 	AvatarURL   string
-	Counts      PublicProfileCounts
+	Location    string
+	CreatedAt   time.Time
+	Counts      ProfileViewCounts
+	Viewer      ProfileViewerRelationship
 }
 
-type PublicProfileCounts struct {
-	Posts     int64
-	Followers int64
-	Following int64
+type ProfileViewCounts struct {
+	MediaPosts int64
+	Followers  int64
+	Following  int64
 }
 
-type PublicProfilePost struct {
-	ID           string
-	SiteID       string
-	SiteSlug     string
-	SiteName     string
-	SiteArea     string
-	Caption      string
-	OccurredAt   string
-	ThumbURL     string
-	MediaType    string
-	LikeCount    int64
-	CommentCount int64
+type ProfileViewerRelationship struct {
+	IsSelf           bool
+	IsFollowing      bool
+	IsBlocked        bool
+	HasBlockedViewer bool
+	CanMessage       bool
+	CanFollow        bool
+	CanEdit          bool
 }
 
 type ProfileBucketListItem struct {
@@ -309,61 +307,52 @@ func (s *Service) GetSavedHub(ctx context.Context, actorID string) (SavedHub, er
 	return SavedHub{Sites: sites, Users: materializedUsers}, nil
 }
 
-func (s *Service) GetPublicProfileByUsername(ctx context.Context, username string) (PublicProfile, error) {
+func (s *Service) GetProfileViewByUsername(ctx context.Context, username, viewerUserID string) (ProfileView, error) {
 	value := strings.TrimSpace(username)
 	if value == "" {
-		return PublicProfile{}, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
+		return ProfileView{}, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
 	}
-	item, err := s.repo.GetPublicProfileByUsername(ctx, value)
+	viewerID := strings.TrimSpace(viewerUserID)
+	if viewerID != "" {
+		if _, err := uuid.Parse(viewerID); err != nil {
+			return ProfileView{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+
+	item, err := s.repo.GetProfileViewByUsername(ctx, value, viewerID)
 	if err != nil {
 		if profilesrepo.IsNoRows(err) {
-			return PublicProfile{}, apperrors.New(http.StatusNotFound, "profile_not_found", "profile not found", err)
+			return ProfileView{}, apperrors.New(http.StatusNotFound, "profile_not_found", "profile not found", err)
 		}
-		return PublicProfile{}, apperrors.New(http.StatusInternalServerError, "profile_get_failed", "failed to fetch profile", err)
+		return ProfileView{}, apperrors.New(http.StatusInternalServerError, "profile_get_failed", "failed to fetch profile", err)
 	}
-	return PublicProfile{
+
+	isSelf := viewerID != "" && viewerID == item.UserID
+	canInteract := viewerID != "" && !isSelf && !item.IsBlocked && !item.HasBlocked
+
+	return ProfileView{
 		UserID:      item.UserID,
 		Username:    item.Username,
 		DisplayName: item.DisplayName,
 		Bio:         item.Bio,
 		AvatarURL:   mediaurl.Materialize(item.AvatarURL, s.mediaBaseURL),
-		Counts: PublicProfileCounts{
-			Posts:     item.PostsCount,
-			Followers: item.FollowersCount,
-			Following: item.FollowingCount,
+		Location:    coarseLocation(item.LocationText),
+		CreatedAt:   item.CreatedAt.UTC(),
+		Counts: ProfileViewCounts{
+			MediaPosts: item.PostsCount,
+			Followers:  item.FollowersCount,
+			Following:  item.FollowingCount,
+		},
+		Viewer: ProfileViewerRelationship{
+			IsSelf:           isSelf,
+			IsFollowing:      canInteract && item.IsFollowing,
+			IsBlocked:        item.IsBlocked,
+			HasBlockedViewer: item.HasBlocked,
+			CanMessage:       canInteract,
+			CanFollow:        canInteract,
+			CanEdit:          isSelf,
 		},
 	}, nil
-}
-
-func (s *Service) ListPublicProfilePostsByUsername(ctx context.Context, username string, limit int32) ([]PublicProfilePost, error) {
-	value := strings.TrimSpace(username)
-	if value == "" {
-		return nil, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
-	}
-	if limit <= 0 || limit > 60 {
-		limit = 24
-	}
-	items, err := s.repo.ListPublicProfilePostsByUsername(ctx, value, limit)
-	if err != nil {
-		return nil, apperrors.New(http.StatusInternalServerError, "profile_posts_failed", "failed to fetch profile posts", err)
-	}
-	posts := make([]PublicProfilePost, 0, len(items))
-	for _, item := range items {
-		posts = append(posts, PublicProfilePost{
-			ID:           item.ID,
-			SiteID:       item.SiteID,
-			SiteSlug:     item.SiteSlug,
-			SiteName:     item.SiteName,
-			SiteArea:     item.SiteArea,
-			Caption:      item.Caption,
-			OccurredAt:   item.OccurredAt,
-			ThumbURL:     item.ThumbURL,
-			MediaType:    item.MediaType,
-			LikeCount:    item.LikeCount,
-			CommentCount: item.CommentCount,
-		})
-	}
-	return posts, nil
 }
 
 func (s *Service) ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]ProfileBucketListItem, error) {

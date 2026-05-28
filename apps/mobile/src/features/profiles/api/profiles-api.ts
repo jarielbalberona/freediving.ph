@@ -1,9 +1,7 @@
 import type {
   ProfileDivingResponse,
-  ProfilePost,
-  ProfilePostsResponse,
+  ProfileViewResponse,
   ProfileResponse,
-  PublicProfileResponse,
   UpdateMyProfileRequest,
 } from "@freediving.ph/types";
 
@@ -15,11 +13,11 @@ export const getMyProfile = (authToken: string) =>
     authToken,
   });
 
-export const getPublicProfileByUsername = (
+export const getProfileViewByUsername = (
   username: string,
 ) =>
-  fphgoFetch<PublicProfileResponse>(
-    `/v1/profiles/public/${encodeURIComponent(username)}`,
+  fphgoFetch<ProfileViewResponse>(
+    `/v1/profiles/${encodeURIComponent(username)}`,
     {
       auth: "none",
     },
@@ -35,12 +33,6 @@ export const updateMyProfile = (
     body: payload,
     method: "PATCH",
   });
-
-export const getProfilePosts = (username: string) =>
-  fphgoFetch<ProfilePostsResponse>(
-    `/v1/profiles/by-username/${encodeURIComponent(username)}/posts`,
-    { auth: "optional" },
-  ).then((response) => response.items);
 
 export const getProfileDiving = (username: string) =>
   fphgoFetch<ProfileDivingResponse>(

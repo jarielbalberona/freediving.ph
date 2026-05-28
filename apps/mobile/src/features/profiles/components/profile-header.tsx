@@ -5,9 +5,9 @@ import { UserIdentityRow } from "@/components/social";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { certLevelLabel, profileBio, profileHandle } from "@/features/profiles/lib/profile-format";
 
-import type { Profile, PublicProfileApiProfile } from "@freediving.ph/types";
+import type { Profile, ProfileView } from "@freediving.ph/types";
 
-type HeaderProfile = Profile | PublicProfileApiProfile;
+type HeaderProfile = Profile | ProfileView;
 
 type ProfileStat = {
   label: string;
@@ -35,6 +35,7 @@ export function ProfileHeader({
   const meta = [
     "location" in profile ? profile.location : undefined,
     "homeArea" in profile ? profile.homeArea : undefined,
+    "locationText" in profile ? profile.locationText : undefined,
     certification,
   ]
     .filter(Boolean)

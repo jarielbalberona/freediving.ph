@@ -1,10 +1,9 @@
-import { MobileAuthRequired } from "@/components/shell/mobile-auth-required";
+import { useAuth } from "@clerk/expo";
+
 import { ProfileScreen } from "@/features/profiles/screens/profile-screen";
+import { PublicProfileScreen } from "@/features/profiles/screens/public-profile-screen";
 
 export default function ProfileRoute() {
-  return (
-    <MobileAuthRequired>
-      <ProfileScreen />
-    </MobileAuthRequired>
-  );
+  const { isSignedIn } = useAuth();
+  return isSignedIn ? <ProfileScreen /> : <PublicProfileScreen />;
 }

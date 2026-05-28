@@ -63,14 +63,11 @@ export const routes = {
     profiles: {
       me: () => "/v1/me/profile",
       saved: () => "/v1/me/saved",
-      byUserId: (userId: string | number) => `/v1/profiles/${toPathId(userId)}`,
-      publicByUsername: (username: string | number) =>
-        `/v1/profiles/public/${toPathId(username)}`,
-      publicPostsByUsername: (username: string | number) =>
-        `/v1/profiles/by-username/${toPathId(username)}/posts`,
-      publicBucketListByUsername: (username: string | number) =>
-        `/v1/profiles/by-username/${toPathId(username)}/bucketlist`,
-      publicDivingByUsername: (username: string | number) =>
+      byUsername: (username: string | number) =>
+        `/v1/profiles/${toPathId(username)}`,
+      mediaByUsername: (username: string | number) =>
+        `/v1/profiles/${toPathId(username)}/media`,
+      divingByUsername: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}/diving`,
       searchUsers: () => "/v1/users/search",
       saveUser: (userId: string | number) =>
@@ -246,19 +243,8 @@ export const routes = {
         `/v1/media/posts/${toPathId(postId)}/comments`,
       postCommentLikes: (postId: string | number, commentId: string | number) =>
         `/v1/media/posts/${toPathId(postId)}/comments/${toPathId(commentId)}/likes`,
-      byUsername: (username: string | number) =>
-        `/v1/media/by-username/${toPathId(username)}`,
-      momentsByUsername: (username: string | number) =>
-        `/v1/media/by-username/${toPathId(username)}/moments`,
       momentsByDiveSite: (siteId: string | number) =>
         `/v1/media/dive-sites/${toPathId(siteId)}/moments`,
-      diveSpotHighlightsByUsername: (username: string | number) =>
-        `/v1/media/by-username/${toPathId(username)}/dive-spot-highlights`,
-      diveSpotHighlightMediaByUsername: (
-        username: string | number,
-        diveSpotId: string | number,
-      ) =>
-        `/v1/media/by-username/${toPathId(username)}/dive-spot-highlights/${toPathId(diveSpotId)}/media`,
       mine: () => "/v1/media/mine",
       urls: () => "/v1/media/urls",
     },

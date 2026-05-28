@@ -82,14 +82,13 @@ test("Profile diving API and shared types use profile-scoped Dive Presence shape
     readFile(typesPath, "utf8"),
   ]);
 
-  assert.match(routes, /publicDivingByUsername/);
+  assert.match(routes, /divingByUsername/);
   assert.match(routes, /\/v1\/profiles\/\$\{toPathId\(username\)\}\/diving/);
-  assert.match(routes, /publicByUsername/);
-  assert.match(routes, /\/v1\/profiles\/public\/\$\{toPathId\(username\)\}/);
-  assert.match(profilesApi, /PublicProfileResponse/);
-  assert.match(profilesApi, /routes\.v1\.profiles\.publicByUsername\(username\)/);
+  assert.match(routes, /byUsername/);
+  assert.match(profilesApi, /ProfileViewResponse/);
+  assert.match(profilesApi, /routes\.v1\.profiles\.byUsername\(username\)/);
   assert.match(profilesApi, /auth: "none"/);
-  assert.match(profilesApi, /getPublicProfileDivingByUsername/);
+  assert.match(profilesApi, /getProfileDivingByUsername/);
   assert.match(profilesApi, /auth: "ready-only"/);
   assert.match(profileApi, /getProfileDiving/);
   assert.match(hooks, /useProfileDivingQuery/);

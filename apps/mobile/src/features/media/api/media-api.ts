@@ -181,7 +181,7 @@ export const getProfileMediaByUsername = (
   params: { limit?: number; cursor?: string } = {},
 ) =>
   fphgoFetch<ListProfileMediaResponse>(
-    withQuery(`/v1/media/by-username/${encodeURIComponent(username)}`, {
+    withQuery(`/v1/profiles/${encodeURIComponent(username)}/media`, {
       limit: params.limit,
       cursor: params.cursor,
     }),

@@ -1,11 +1,9 @@
 import {
-  type ProfileBucketListItem,
   type ProfileDivingResponse,
-  type ProfilePost,
   type Profile,
   type ProfileResponse,
-  type PublicProfile,
-  type PublicProfileResponse,
+  type ProfileView,
+  type ProfileViewResponse,
   type SaveUserResponse,
   type SavedHubResponse,
   type SearchUsersResponse,
@@ -21,7 +19,7 @@ export const profilesApi = {
   },
 
   getProfileByUserId: async (userId: string): Promise<ProfileResponse> => {
-    return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.byUserId(userId));
+    return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.byUsername(userId));
   },
 
   getUserByUsername: async (username: string): Promise<Profile> => {
@@ -40,47 +38,19 @@ export const profilesApi = {
     };
   },
 
-  getPublicProfileByUsername: async (username: string): Promise<PublicProfile> => {
-    const response = await fphgoFetchClient<PublicProfileResponse>(
-      routes.v1.profiles.publicByUsername(username),
+  getProfileViewByUsername: async (username: string): Promise<ProfileView> => {
+    const response = await fphgoFetchClient<ProfileViewResponse>(
+      routes.v1.profiles.byUsername(username),
       { auth: "none" },
     );
-
-    return {
-      id: response.profile.userId,
-      username: response.profile.username,
-      displayName: response.profile.displayName,
-      bio: response.profile.bio,
-      avatarUrl: response.profile.avatarUrl,
-      counts: response.profile.counts,
-    };
+    return response.profile;
   },
 
-  getPublicProfilePostsByUsername: async (
-    username: string,
-    limit = 24,
-  ): Promise<ProfilePost[]> => {
-    const response = await fphgoFetchClient<{ items: ProfilePost[] }>(
-      `${routes.v1.profiles.publicPostsByUsername(username)}?limit=${limit}`,
-    );
-    return response.items ?? [];
-  },
-
-  getPublicProfileBucketListByUsername: async (
-    username: string,
-    limit = 24,
-  ): Promise<ProfileBucketListItem[]> => {
-    const response = await fphgoFetchClient<{ items: ProfileBucketListItem[] }>(
-      `${routes.v1.profiles.publicBucketListByUsername(username)}?limit=${limit}`,
-    );
-    return response.items ?? [];
-  },
-
-  getPublicProfileDivingByUsername: async (
+  getProfileDivingByUsername: async (
     username: string,
   ): Promise<ProfileDivingResponse> => {
     return fphgoFetchClient<ProfileDivingResponse>(
-      routes.v1.profiles.publicDivingByUsername(username),
+      routes.v1.profiles.divingByUsername(username),
       { auth: "ready-only" },
     );
   },

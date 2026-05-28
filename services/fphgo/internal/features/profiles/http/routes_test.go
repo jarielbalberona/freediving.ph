@@ -23,10 +23,7 @@ func TestProfilesRoutesRequireAuth(t *testing.T) {
 
 	paths := []string{
 		"/me/profile",
-		"/profiles/550e8400-e29b-41d4-a716-446655440000",
-		"/profiles/by-username/member",
-		"/profiles/by-username/member/posts",
-		"/profiles/by-username/member/bucketlist",
+		"/me/saved",
 	}
 	for _, path := range paths {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -43,7 +40,7 @@ func TestPublicProfileRouteIsGuestReadable(t *testing.T) {
 	router := chi.NewRouter()
 	router.Mount("/", PublicRoutes(New(&stubProfilesService{}, v)))
 
-	req := httptest.NewRequest(http.MethodGet, "/public/member", nil)
+	req := httptest.NewRequest(http.MethodGet, "/member", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {

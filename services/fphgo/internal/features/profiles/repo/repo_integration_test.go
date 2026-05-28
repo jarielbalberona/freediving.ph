@@ -163,7 +163,7 @@ func TestGetPublicProfileByUsernameExposesOnlyActiveAccounts(t *testing.T) {
 		t.Skipf("insert suspended profile: %v", err)
 	}
 
-	profile, err := repo.GetPublicProfileByUsername(ctx, activeUsername)
+	profile, err := repo.GetProfileViewByUsername(ctx, activeUsername, "")
 	if err != nil {
 		t.Fatalf("get active public profile: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestGetPublicProfileByUsernameExposesOnlyActiveAccounts(t *testing.T) {
 		t.Fatalf("expected public bio/avatar, got %+v", profile)
 	}
 
-	if _, err := repo.GetPublicProfileByUsername(ctx, suspendedUsername); err == nil {
+	if _, err := repo.GetProfileViewByUsername(ctx, suspendedUsername, ""); err == nil {
 		t.Fatal("expected suspended profile to be unavailable")
 	}
 }

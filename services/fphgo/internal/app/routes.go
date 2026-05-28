@@ -122,7 +122,6 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 			r.Get("/profiles/{username}", deps.UsersHandler.GetProfileByUsername)
 		}
 		if deps.ProfilesHandler != nil {
-			r.Get("/v1/profiles/{username}/diving", deps.ProfilesHandler.GetProfileDivingByUsername)
 			r.Mount("/v1/profiles", profileshttp.PublicRoutes(deps.ProfilesHandler))
 		}
 		if exploreRouter := resolveExploreRouter(deps); exploreRouter != nil {
@@ -136,6 +135,9 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		}
 		if mediaRouter := resolveMediaRouter(deps); mediaRouter != nil {
 			r.Mount("/v1/media", mediaRouter)
+		}
+		if deps.MediaHandler != nil {
+			r.Get("/v1/profiles/{username}/media", deps.MediaHandler.ListProfileMedia)
 		}
 		if buddyFinderRouter := resolveBuddyFinderRouter(deps); buddyFinderRouter != nil {
 			r.Mount("/v1/buddy-finder", buddyFinderRouter)

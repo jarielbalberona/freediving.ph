@@ -1,6 +1,6 @@
 import type { Href } from "expo-router";
 
-import type { Profile, PublicProfileApiProfile } from "@freediving.ph/types";
+import type { Profile, ProfileView } from "@freediving.ph/types";
 
 export const safeProfileUsername = (username: string | undefined) => {
   const trimmed = username?.trim().replace(/^@/, "");
@@ -51,7 +51,7 @@ export const profileLocationLabel = (profile: Profile) =>
   profile.homeArea?.trim() || profile.location?.trim() || "";
 
 export const profileBio = (
-  profile: Pick<Profile, "bio"> | Pick<PublicProfileApiProfile, "bio">,
+  profile: Pick<Profile, "bio"> | Pick<ProfileView, "bio">,
 ) =>
   profile.bio?.trim() ||
   "This diver has not shared much yet.";

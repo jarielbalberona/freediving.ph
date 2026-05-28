@@ -220,7 +220,7 @@ test("home feed uses shared activity contracts and fetch client", () => {
   assert.match(api, /MediaPostLikeState/);
   assert.match(api, /fphgoFetch/);
   assert.match(api, /\/v1\/feed\/activity/);
-  assert.match(api, /auth:\s*"optional"/);
+  assert.match(api, /auth:\s*"none"/);
   assert.match(api, /\/v1\/feed\/actions/);
   assert.match(api, /auth:\s*"required"/);
   assert.match(
@@ -576,11 +576,10 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
 
   assert.match(api, /@freediving\.ph\/types/);
   assert.match(api, /ProfileResponse/);
-  assert.match(api, /PublicProfileResponse/);
-  assert.match(api, /ProfilePostsResponse/);
+  assert.match(api, /ProfileViewResponse/);
   assert.match(api, /fphgoFetch/);
   assert.match(api, /\/v1\/me\/profile/);
-  assert.match(api, /\/v1\/profiles\/public/);
+  assert.match(api, /\/v1\/profiles\//);
   assert.match(api, /auth:\s*"required"/);
   assert.match(api, /auth:\s*"none"/);
   assert.doesNotMatch(api, /axios/i);
@@ -590,8 +589,6 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   );
   assert.match(api, /UpdateMyProfileRequest/);
   assert.match(api, /method:\s*"PATCH"/);
-  assert.match(api, /\/posts/);
-  assert.match(api, /response\) => response\.items/);
   assert.match(api, /\/diving/);
   assert.match(myHook, /useAuthenticatedFphgoQuery/);
   assert.doesNotMatch(publicHook, /useAuthenticatedFphgoQuery/);
@@ -605,9 +602,9 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   assert.match(mutationHook, /isLoaded/);
   assert.match(mutationHook, /isSignedIn/);
   assert.match(mutationHook, /Checking your session\. Try again in a moment\./);
-  assert.match(mutationHook, /PublicProfileResponse/);
+  assert.match(mutationHook, /ProfileViewResponse/);
   assert.match(mutationHook, /profile\.public\(response\.profile\.username\)/);
-  assert.match(mutationHook, /setQueryData<PublicProfileResponse>/);
+  assert.match(mutationHook, /setQueryData<ProfileViewResponse>/);
   assert.match(ownScreen, /\/\(app\)\/\(tabs\)\/\(home\)\/profile\/settings/);
   assert.match(publicScreen, /useLocalSearchParams/);
   assert.match(

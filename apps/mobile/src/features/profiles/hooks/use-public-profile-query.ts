@@ -1,4 +1,4 @@
-import { getPublicProfileByUsername } from "@/features/profiles/api/profiles-api";
+import { getProfileViewByUsername } from "@/features/profiles/api/profiles-api";
 import { safeProfileUsername } from "@/features/profiles/lib/profile-format";
 import { useQuery } from "@tanstack/react-query";
 
@@ -9,7 +9,7 @@ export function usePublicProfileQuery(username: string | undefined) {
 
   return useQuery({
     enabled: Boolean(safeUsername),
-    queryFn: () => getPublicProfileByUsername(safeUsername ?? ""),
+    queryFn: () => getProfileViewByUsername(safeUsername ?? ""),
     queryKey: mobileQueryKeys.profile.public(safeUsername ?? ""),
     staleTime: 5 * 60 * 1000,
   });

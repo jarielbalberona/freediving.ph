@@ -3,7 +3,6 @@ import type {
   CreateMediaPostResponse,
   CreateMomentUploadIntentRequest,
   ListMyMediaResponse,
-  ListDiveSpotHighlightsResponse,
   ListProfileMediaResponse,
   MediaContextType,
   MediaPostComment,
@@ -230,20 +229,7 @@ export const mediaApi = {
     if (params.cursor) query.set("cursor", params.cursor);
     const suffix = query.toString() ? `?${query.toString()}` : "";
     return fphgoFetchClient<ListProfileMediaResponse>(
-      `${routes.v1.media.byUsername(username)}${suffix}`,
-    );
-  },
-
-  listProfileMoments: async (
-    username: string,
-    params: { limit?: number; cursor?: string } = {},
-  ): Promise<ListProfileMediaResponse> => {
-    const query = new URLSearchParams();
-    if (params.limit) query.set("limit", String(params.limit));
-    if (params.cursor) query.set("cursor", params.cursor);
-    const suffix = query.toString() ? `?${query.toString()}` : "";
-    return fphgoFetchClient<ListProfileMediaResponse>(
-      `${routes.v1.media.momentsByUsername(username)}${suffix}`,
+      `${routes.v1.profiles.mediaByUsername(username)}${suffix}`,
     );
   },
 
@@ -260,29 +246,4 @@ export const mediaApi = {
     );
   },
 
-  listDiveSpotHighlights: async (
-    username: string,
-    params: { limit?: number } = {},
-  ): Promise<ListDiveSpotHighlightsResponse> => {
-    const query = new URLSearchParams();
-    if (params.limit) query.set("limit", String(params.limit));
-    const suffix = query.toString() ? `?${query.toString()}` : "";
-    return fphgoFetchClient<ListDiveSpotHighlightsResponse>(
-      `${routes.v1.media.diveSpotHighlightsByUsername(username)}${suffix}`,
-    );
-  },
-
-  listDiveSpotHighlightMedia: async (
-    username: string,
-    diveSpotId: string,
-    params: { limit?: number; cursor?: string } = {},
-  ): Promise<ListProfileMediaResponse> => {
-    const query = new URLSearchParams();
-    if (params.limit) query.set("limit", String(params.limit));
-    if (params.cursor) query.set("cursor", params.cursor);
-    const suffix = query.toString() ? `?${query.toString()}` : "";
-    return fphgoFetchClient<ListProfileMediaResponse>(
-      `${routes.v1.media.diveSpotHighlightMediaByUsername(username, diveSpotId)}${suffix}`,
-    );
-  },
 };

@@ -7,52 +7,34 @@ export type ProfileBucketListItem = {
   hasDived: boolean;
 };
 
-export type PublicProfile = {
+export type ProfileViewerRelationship = {
+  isSelf: boolean;
+  isFollowing: boolean;
+  isBlocked: boolean;
+  hasBlockedViewer: boolean;
+  canMessage: boolean;
+  canFollow: boolean;
+  canEdit: boolean;
+};
+
+export type ProfileView = {
   id: string;
   username: string;
-  displayName: string;
+  displayName?: string;
   bio?: string;
   avatarUrl?: string;
+  locationText?: string;
+  createdAt: string;
   counts: {
-    posts: number;
+    mediaPosts: number;
     followers: number;
     following: number;
   };
+  viewerRelationship: ProfileViewerRelationship;
 };
 
-export type PublicProfileApiProfile = {
-  userId: string;
-  username: string;
-  displayName: string;
-  bio?: string;
-  avatarUrl?: string;
-  counts: {
-    posts: number;
-    followers: number;
-    following: number;
-  };
-};
-
-export type PublicProfileResponse = {
-  profile: PublicProfileApiProfile;
-};
-
-export type ProfilePost = {
-  id: string;
-  siteId: string;
-  siteSlug: string;
-  siteName: string;
-  siteArea: string;
-  caption: string;
-  occurredAt: string;
-  thumbUrl: string;
-  mediaType: "image" | "video";
-  likeCount: number;
-  commentCount: number;
-};
-
-export type ProfilePostsResponse = {
-  items: ProfilePost[];
+export type ProfileViewResponse = {
+  profile: ProfileView;
 };
 
 export type ProfileDivePresence = {

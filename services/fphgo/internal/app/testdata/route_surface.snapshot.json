@@ -870,22 +870,6 @@
     },
     {
       "method": "GET",
-      "pattern": "/v1/media/by-username/{username}"
-    },
-    {
-      "method": "GET",
-      "pattern": "/v1/media/by-username/{username}/dive-spot-highlights"
-    },
-    {
-      "method": "GET",
-      "pattern": "/v1/media/by-username/{username}/dive-spot-highlights/{diveSpotId}/media"
-    },
-    {
-      "method": "GET",
-      "pattern": "/v1/media/by-username/{username}/moments"
-    },
-    {
-      "method": "GET",
       "pattern": "/v1/media/dive-sites/{siteId}/moments"
     },
     {
@@ -1034,27 +1018,15 @@
     },
     {
       "method": "GET",
-      "pattern": "/v1/profiles/by-username/{username}"
-    },
-    {
-      "method": "GET",
-      "pattern": "/v1/profiles/by-username/{username}/bucketlist"
-    },
-    {
-      "method": "GET",
-      "pattern": "/v1/profiles/by-username/{username}/posts"
-    },
-    {
-      "method": "GET",
-      "pattern": "/v1/profiles/public/{username}"
-    },
-    {
-      "method": "GET",
-      "pattern": "/v1/profiles/{userID}"
+      "pattern": "/v1/profiles/{username}"
     },
     {
       "method": "GET",
       "pattern": "/v1/profiles/{username}/diving"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/{username}/media"
     },
     {
       "method": "GET",

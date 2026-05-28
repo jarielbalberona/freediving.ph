@@ -373,26 +373,6 @@ export const queryKeys = {
     profileLists: () => [...queryKeys.media.all, "profile"] as const,
     profile: (username: string, limit = 24) =>
       [...queryKeys.media.profileLists(), username, limit] as const,
-    diveSpotHighlights: (username: string, limit = 24) =>
-      [
-        ...queryKeys.media.profileLists(),
-        username,
-        "dive-spot-highlights",
-        limit,
-      ] as const,
-    diveSpotHighlightMedia: (
-      username: string,
-      diveSpotId: string,
-      limit = 60,
-    ) =>
-      [
-        ...queryKeys.media.profileLists(),
-        username,
-        "dive-spot-highlights",
-        diveSpotId,
-        "media",
-        limit,
-      ] as const,
     posts: () => [...queryKeys.media.all, "post"] as const,
     post: (postId: string) => [...queryKeys.media.posts(), postId] as const,
     postDetail: (postId: string) =>
@@ -404,14 +384,10 @@ export const queryKeys = {
   profile: {
     all: ["profile"] as const,
     me: () => [...queryKeys.profile.all, "me"] as const,
-    public: (username: string) =>
-      [...queryKeys.profile.all, "public", username] as const,
-    posts: (username: string) =>
-      [...queryKeys.profile.public(username), "posts"] as const,
-    bucketList: (username: string) =>
-      [...queryKeys.profile.public(username), "bucketlist"] as const,
+    view: (username: string) =>
+      [...queryKeys.profile.all, "view", username] as const,
     diving: (username: string) =>
-      [...queryKeys.profile.public(username), "diving"] as const,
+      [...queryKeys.profile.view(username), "diving"] as const,
     byUserId: (userId: string) =>
       [...queryKeys.profile.all, "user", userId] as const,
     search: (params: ProfileSearchParamInput = {}) =>

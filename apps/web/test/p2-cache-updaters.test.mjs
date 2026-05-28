@@ -172,7 +172,7 @@ test("dive-site and feed updater helpers patch targeted caches and support rollb
   assert.equal(output, "ok");
 });
 
-test("profile update helper writes my profile, public profile, and session cache", () => {
+test("profile update helper writes my profile, profile view, and session cache", () => {
   const output = runTsxFixture(`
     import assert from "node:assert/strict";
     import { QueryClient } from "@tanstack/react-query";
@@ -183,17 +183,17 @@ test("profile update helper writes my profile, public profile, and session cache
     const sessionQueryKey = queryKeys.session.current();
     client.setQueryData(sessionQueryKey, { userId: "u1", username: "old", displayName: "Old", permissions: [], scopes: {}, accountStatus: "active", globalRole: "MEMBER", clerkSubject: "clerk" });
     client.setQueryData(queryKeys.profile.me(), { profile: { userId: "u1", username: "old", displayName: "Old" } });
-    client.setQueryData(queryKeys.profile.public("new"), { id: "u1", username: "new", displayName: "Old", bio: "", counts: { posts: 0, followers: 0, following: 0 } });
+    client.setQueryData(queryKeys.profile.view("new"), { id: "u1", username: "new", displayName: "Old", bio: "", counts: { mediaPosts: 0, followers: 0, following: 0 }, viewerRelationship: { isSelf: false, isFollowing: false, isBlocked: false, hasBlockedViewer: false, canMessage: false, canFollow: false, canEdit: false }, createdAt: "2026-01-01T00:00:00Z" });
 
     updateProfileInCaches(client, { profile: { userId: "u1", username: "new", displayName: "New", bio: "Updated", avatarUrl: "https://cdn.example/avatar.jpg" } });
 
     assert.equal(client.getQueryData(queryKeys.profile.me()).profile.displayName, "New");
     assert.equal(client.getQueryData(sessionQueryKey).username, "new");
     assert.equal(client.getQueryData(sessionQueryKey).displayName, "New");
-    const publicProfile = client.getQueryData(queryKeys.profile.public("new"));
-    assert.equal(publicProfile.displayName, "New");
-    assert.equal(publicProfile.bio, "Updated");
-    assert.equal(publicProfile.avatarUrl, "https://cdn.example/avatar.jpg");
+    const profileView = client.getQueryData(queryKeys.profile.view("new"));
+    assert.equal(profileView.displayName, "New");
+    assert.equal(profileView.bio, "Updated");
+    assert.equal(profileView.avatarUrl, "https://cdn.example/avatar.jpg");
     console.log("ok");
   `);
   assert.equal(output, "ok");

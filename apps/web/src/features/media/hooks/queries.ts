@@ -76,39 +76,6 @@ export const useProfileMediaInfiniteQuery = (username: string, limit = 24) => {
   });
 };
 
-export const useDiveSpotHighlights = (username: string, limit = 24) => {
-  return useQuery({
-    queryKey: queryKeys.media.diveSpotHighlights(username, limit),
-    queryFn: () => mediaApi.listDiveSpotHighlights(username, { limit }),
-    enabled: Boolean(username),
-    staleTime: 2 * 60_000,
-  });
-};
-
-export const useDiveSpotHighlightMediaInfiniteQuery = (
-  username: string,
-  diveSpotId: string | null,
-  limit = 60,
-  enabled = true,
-) => {
-  return useInfiniteQuery({
-    queryKey: queryKeys.media.diveSpotHighlightMedia(
-      username,
-      diveSpotId ?? "",
-      limit,
-    ),
-    queryFn: ({ pageParam }: { pageParam?: string }) =>
-      mediaApi.listDiveSpotHighlightMedia(username, diveSpotId ?? "", {
-        limit,
-        cursor: pageParam,
-      }),
-    initialPageParam: undefined as string | undefined,
-    enabled: enabled && Boolean(username) && Boolean(diveSpotId),
-    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
-    staleTime: 2 * 60_000,
-  });
-};
-
 export const useMediaPostQuery = (postId: string, enabled = true) => {
   return useQuery({
     queryKey: queryKeys.media.postDetail(postId),

@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { Stack } from "expo-router";
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import {
   MobileErrorState,
@@ -16,7 +16,9 @@ import {
 } from "@/features/profiles/components/profile-header";
 import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
 import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
-import { useProfileDivingQuery } from "@/features/profiles/hooks/use-profile-activity-query";
+import {
+  useProfileDivingQuery,
+} from "@/features/profiles/hooks/use-profile-activity-query";
 import { useProfileMediaByUsernameQuery } from "@/features/media/hooks/use-profile-media-query";
 import { usePublicProfileQuery } from "@/features/profiles/hooks/use-public-profile-query";
 import { safeProfileUsername } from "@/features/profiles/lib/profile-format";
@@ -26,7 +28,8 @@ const firstParam = (value: string | string[] | undefined) =>
 
 export function PublicProfileScreen() {
   const params = useLocalSearchParams<{ username?: string | string[] }>();
-  const username = safeProfileUsername(firstParam(params.username));
+  const routeUsername = safeProfileUsername(firstParam(params.username));
+  const username = routeUsername;
   const profileQuery = usePublicProfileQuery(username);
   const profile = profileQuery.data?.profile;
   const mediaQuery = useProfileMediaByUsernameQuery(profile?.username);
@@ -39,9 +42,12 @@ export function PublicProfileScreen() {
   if (!username) {
     return (
       <>
-        <Stack.Screen options={{ title: "Profile" }} />
+        <Stack.Screen options={{ title: "Profile not found" }} />
         <MobileScrollScreen subtitle="Diver profile" title="Profile">
-          <Text className="text-sm text-muted-foreground">Choose a diver to view.</Text>
+          <MobileErrorState
+            title="Profile not found"
+            message="A username is required in the route to view a public profile."
+          />
         </MobileScrollScreen>
       </>
     );
@@ -83,7 +89,7 @@ export function PublicProfileScreen() {
   }
 
   const headerStats = [
-    { label: "Posts", value: profile.counts.posts },
+    { label: "Posts", value: profile.counts.mediaPosts },
     { label: "Followers", value: profile.counts.followers },
     { label: "Following", value: profile.counts.following },
   ];

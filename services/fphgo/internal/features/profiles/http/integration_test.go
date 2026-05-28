@@ -69,21 +69,18 @@ func (m *memoryProfilesRepo) ListSavedUsersForUser(_ context.Context, _ string) 
 	return []profilesrepo.SavedUser{}, nil
 }
 
-func (m *memoryProfilesRepo) GetPublicProfileByUsername(_ context.Context, username string) (profilesrepo.PublicProfile, error) {
-	return profilesrepo.PublicProfile{
+func (m *memoryProfilesRepo) GetProfileViewByUsername(_ context.Context, username, _ string) (profilesrepo.ProfileView, error) {
+	return profilesrepo.ProfileView{
 		UserID:         "550e8400-e29b-41d4-a716-446655440099",
 		Username:       username,
 		DisplayName:    "Member User",
 		Bio:            "Bio",
 		AvatarURL:      "https://example.com/avatar.jpg",
+		CreatedAt:      time.Now().UTC(),
 		PostsCount:     2,
 		FollowersCount: 3,
 		FollowingCount: 4,
 	}, nil
-}
-
-func (m *memoryProfilesRepo) ListPublicProfilePostsByUsername(_ context.Context, _ string, _ int32) ([]profilesrepo.PublicProfilePost, error) {
-	return []profilesrepo.PublicProfilePost{}, nil
 }
 
 func (m *memoryProfilesRepo) ListProfileBucketListByUsername(_ context.Context, _ string, _ int32) ([]profilesrepo.ProfileBucketListItem, error) {
@@ -167,36 +164,20 @@ func (s *stubProfilesService) GetSavedHub(_ context.Context, _ string) (profiles
 	}, nil
 }
 
-func (s *stubProfilesService) GetPublicProfileByUsername(_ context.Context, username string) (profilesservice.PublicProfile, error) {
-	return profilesservice.PublicProfile{
+func (s *stubProfilesService) GetProfileViewByUsername(_ context.Context, username, _ string) (profilesservice.ProfileView, error) {
+	return profilesservice.ProfileView{
 		UserID:      "550e8400-e29b-41d4-a716-446655440011",
 		Username:    username,
 		DisplayName: "Member User",
 		Bio:         "Bio",
 		AvatarURL:   "https://example.com/avatar.jpg",
-		Counts: profilesservice.PublicProfileCounts{
-			Posts:     2,
-			Followers: 3,
-			Following: 4,
+		CreatedAt:   time.Now().UTC(),
+		Counts: profilesservice.ProfileViewCounts{
+			MediaPosts: 2,
+			Followers:  3,
+			Following:  4,
 		},
-	}, nil
-}
-
-func (s *stubProfilesService) ListPublicProfilePostsByUsername(_ context.Context, _ string, _ int32) ([]profilesservice.PublicProfilePost, error) {
-	return []profilesservice.PublicProfilePost{
-		{
-			ID:           "550e8400-e29b-41d4-a716-446655440061",
-			SiteID:       "550e8400-e29b-41d4-a716-446655440062",
-			SiteSlug:     "twin-rocks-anilao",
-			SiteName:     "Twin Rocks",
-			SiteArea:     "Mabini, Batangas",
-			Caption:      "Great visibility today",
-			OccurredAt:   time.Now().UTC().Format(time.RFC3339),
-			MediaType:    "image",
-			ThumbURL:     "",
-			LikeCount:    0,
-			CommentCount: 0,
-		},
+		Viewer: profilesservice.ProfileViewerRelationship{},
 	}, nil
 }
 
@@ -263,10 +244,6 @@ func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 			{method: http.MethodGet, path: "/me/profile"},
 			{method: http.MethodGet, path: "/me/saved"},
 			{method: http.MethodPatch, path: "/me/profile", body: `{"displayName":"New Name"}`},
-			{method: http.MethodGet, path: "/profiles/550e8400-e29b-41d4-a716-446655440000"},
-			{method: http.MethodGet, path: "/profiles/by-username/member"},
-			{method: http.MethodGet, path: "/profiles/by-username/member/posts"},
-			{method: http.MethodGet, path: "/profiles/by-username/member/bucketlist"},
 		}
 
 		for _, tc := range cases {
@@ -337,34 +314,6 @@ func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 		router.ServeHTTP(patchRec, patchReq)
 		if patchRec.Code != http.StatusOK {
 			t.Fatalf("expected 200 for PATCH /me/profile, got %d", patchRec.Code)
-		}
-
-		byIDReq := httptest.NewRequest(http.MethodGet, "/profiles/550e8400-e29b-41d4-a716-446655440000", nil)
-		byIDRec := httptest.NewRecorder()
-		router.ServeHTTP(byIDRec, byIDReq)
-		if byIDRec.Code != http.StatusOK {
-			t.Fatalf("expected 200 for GET /profiles/{userID}, got %d", byIDRec.Code)
-		}
-
-		byUsernameReq := httptest.NewRequest(http.MethodGet, "/profiles/by-username/member", nil)
-		byUsernameRec := httptest.NewRecorder()
-		router.ServeHTTP(byUsernameRec, byUsernameReq)
-		if byUsernameRec.Code != http.StatusOK {
-			t.Fatalf("expected 200 for GET /profiles/by-username/{username}, got %d", byUsernameRec.Code)
-		}
-
-		postsReq := httptest.NewRequest(http.MethodGet, "/profiles/by-username/member/posts", nil)
-		postsRec := httptest.NewRecorder()
-		router.ServeHTTP(postsRec, postsReq)
-		if postsRec.Code != http.StatusOK {
-			t.Fatalf("expected 200 for GET /profiles/by-username/{username}/posts, got %d", postsRec.Code)
-		}
-
-		bucketReq := httptest.NewRequest(http.MethodGet, "/profiles/by-username/member/bucketlist", nil)
-		bucketRec := httptest.NewRecorder()
-		router.ServeHTTP(bucketRec, bucketReq)
-		if bucketRec.Code != http.StatusOK {
-			t.Fatalf("expected 200 for GET /profiles/by-username/{username}/bucketlist, got %d", bucketRec.Code)
 		}
 
 	})

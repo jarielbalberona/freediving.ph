@@ -14,10 +14,6 @@ func Routes(h *Handlers) chi.Router {
 		read.Use(middleware.RequirePermission(authz.PermissionProfilesRead))
 		read.Get("/me/profile", h.GetMeProfile)
 		read.Get("/me/saved", h.GetSavedHub)
-		read.Get("/profiles/{userID}", h.GetProfileByUserID)
-		read.Get("/profiles/by-username/{username}", h.GetPublicProfileByUsername)
-		read.Get("/profiles/by-username/{username}/posts", h.ListPublicProfilePostsByUsername)
-		read.Get("/profiles/by-username/{username}/bucketlist", h.ListProfileBucketListByUsername)
 	})
 
 	r.Group(func(write chi.Router) {
@@ -31,7 +27,8 @@ func Routes(h *Handlers) chi.Router {
 func PublicRoutes(h *Handlers) chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/public/{username}", h.GetPublicProfileByUsername)
+	r.Get("/{username}", h.GetProfileViewByUsername)
+	r.Get("/{username}/diving", h.GetProfileDivingByUsername)
 
 	return r
 }

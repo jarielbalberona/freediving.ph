@@ -6,35 +6,13 @@ import { profileApi } from "@/features/profile/api/profileApi";
 import { queryKeys } from "@/lib/query/query-keys";
 import { normalizeUsername } from "@/lib/routes";
 
-export const usePublicProfileQuery = (username: string) => {
+export const useProfileViewQuery = (username: string) => {
   const normalizedUsername = normalizeUsername(username);
 
   return useQuery({
-    queryKey: queryKeys.profile.public(normalizedUsername),
+    queryKey: queryKeys.profile.view(normalizedUsername),
     enabled: Boolean(normalizedUsername),
-    queryFn: () => profileApi.getPublicProfile(normalizedUsername),
-    staleTime: 5 * 60_000,
-    placeholderData: keepPreviousData,
-  });
-};
-
-export const useProfilePostsQuery = (username: string) => {
-  const normalizedUsername = normalizeUsername(username);
-
-  return useQuery({
-    queryKey: queryKeys.profile.posts(normalizedUsername),
-    queryFn: () => profileApi.getProfilePosts(normalizedUsername),
-    staleTime: 2 * 60_000,
-    placeholderData: keepPreviousData,
-  });
-};
-
-export const useProfileBucketListQuery = (username: string) => {
-  const normalizedUsername = normalizeUsername(username);
-
-  return useQuery({
-    queryKey: queryKeys.profile.bucketList(normalizedUsername),
-    queryFn: () => profileApi.getProfileBucketList(normalizedUsername),
+    queryFn: () => profileApi.getProfileView(normalizedUsername),
     staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
   });
