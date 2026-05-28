@@ -214,7 +214,7 @@ func (s *Service) SubmitProfile(ctx context.Context, userID string, input Submit
 		return Application{}, apperrors.New(http.StatusInternalServerError, "instructor_certifications_list_failed", "failed to fetch instructor certifications", err)
 	}
 	if len(certs) == 0 {
-		return Application{}, validation("certifications", "required", "Add at least one instructor certification before submitting")
+		return Application{}, validation("certifications", "required", "Add at least one certification to submit your instructor profile.")
 	}
 	if !hasCertificationProof(certs) {
 		return Application{}, validation("certificationProof", "required", "Add proof of certification or an official verification/profile URL before submitting")
@@ -263,6 +263,13 @@ func (s *Service) DeleteCertification(ctx context.Context, userID, certification
 	profile, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {
 		return mapNotFound(err, "instructor_profile_not_found")
+	}
+	count, err := s.repo.CountCertifications(ctx, profile.ID)
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "instructor_certification_count_failed", "failed to check instructor certifications", err)
+	}
+	if count <= 1 {
+		return validation("certifications", "required", "At least one certification is required to keep your instructor profile complete.")
 	}
 	return mapNotFound(s.repo.DeleteCertification(ctx, profile.ID, strings.TrimSpace(certificationID)), "instructor_certification_not_found")
 }

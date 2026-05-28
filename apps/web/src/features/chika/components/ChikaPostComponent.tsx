@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { MessageSquareText } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,12 @@ export function ChikaPostComponent({
   actions,
   className,
 }: ChikaPostComponentProps) {
+  const [relativeTime, setRelativeTime] = useState("");
+
+  useEffect(() => {
+    setRelativeTime(formatElapsedTime(post.createdAt));
+  }, [post.createdAt]);
+
   return (
     <article
       className={cn(
@@ -54,7 +61,7 @@ export function ChikaPostComponent({
                 post.author.pseudonymous ? "Pseudonymous" : ""
               }
               metadata={post.category ? [post.category] : []}
-              time={formatElapsedTime(post.createdAt)}
+              time={relativeTime}
               className="min-w-[12rem] flex-1"
             />
             <div className="flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">

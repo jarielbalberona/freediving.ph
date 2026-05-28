@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const ADMIN_SECTIONS = [
   {
-    href: "/moderation",
+    href: "/admin/moderation",
     title: "Moderation triage",
     description: "Reports, dive site review queues, and Chika/user actions.",
     icon: Flag,
@@ -48,6 +48,7 @@ export default function AdminOverviewPage() {
       <AdminPageShell
         title="Admin Overview"
         description="One operator entry point for the platform surfaces that are real today."
+        showNavigation={false}
       >
         <div className="grid gap-3 md:grid-cols-2">
           {ADMIN_SECTIONS.map((section) => (

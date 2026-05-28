@@ -28,6 +28,7 @@ export const stablePublicRoutes = [
 ] as const;
 
 export const privateRoutePrefixes = [
+  "/management",
   "/admin",
   "/auth",
   "/manage",

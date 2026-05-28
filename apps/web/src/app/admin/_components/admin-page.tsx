@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Overview" },
-  { href: "/moderation", label: "Moderation" },
+  { href: "/admin/moderation", label: "Moderation" },
   { href: "/admin/buddies", label: "Buddies" },
   { href: "/admin/dive-sites", label: "Dive Sites" },
   { href: "/admin/groups", label: "Groups" },
@@ -52,11 +52,13 @@ export function AdminPageShell({
   title,
   description,
   total,
+  showNavigation = true,
   children,
 }: {
   title: string;
   description: string;
   total?: number;
+  showNavigation?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -65,29 +67,33 @@ export function AdminPageShell({
     <div className="container mx-auto max-w-6xl px-4 py-6">
       <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="mb-2 flex flex-wrap gap-2">
-            {ADMIN_NAV.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium",
-                    active
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+          {showNavigation ? (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {ADMIN_NAV.map((item) => {
+                const active = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
+          <div>
+            <h1 className="text-2xl font-semibold tracking-normal">{title}</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              {description}
+            </p>
           </div>
-          <h1 className="text-2xl font-semibold tracking-normal">{title}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            {description}
-          </p>
         </div>
         {typeof total === "number" ? (
           <Badge variant="outline" className="h-7 px-3">

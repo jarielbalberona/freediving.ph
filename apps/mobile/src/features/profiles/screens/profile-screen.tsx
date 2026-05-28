@@ -57,6 +57,12 @@ export function ProfileScreen() {
   const highlights = normalizeProfileDiveSpotHighlights(posts);
   const presences = divingQuery.data?.presences ?? [];
   const affinities = divingQuery.data?.affinities ?? [];
+  const profileWithOptionalCounts = profile as
+    | (typeof profile & { counts?: { mediaPosts?: number } })
+    | null;
+  const derivedPostsCount = mediaQuery.hasNextPage ? `${posts.length}+` : posts.length;
+  const postsStatValue =
+    profileWithOptionalCounts?.counts?.mediaPosts ?? derivedPostsCount;
 
   useEffect(() => {
     if (!profileDraft.draft) return;
@@ -113,7 +119,7 @@ export function ProfileScreen() {
   };
 
   const headerStats = [
-    { label: "Posts", value: posts.length },
+    { label: "Posts", value: postsStatValue },
     { label: "Followers", value: 0 },
     { label: "Following", value: 0 },
   ];

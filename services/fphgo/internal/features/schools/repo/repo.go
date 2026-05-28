@@ -349,9 +349,15 @@ func (r *Repo) ListSchools(ctx context.Context, actorID string) ([]School, error
 	return items, rows.Err()
 }
 
-func (r *Repo) IsVerifiedInstructor(ctx context.Context, userID string) (bool, error) {
+func (r *Repo) HasInstructorProfile(ctx context.Context, userID string) (bool, error) {
 	var ok bool
-	err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM instructor_profiles WHERE user_id=$1 AND verification_status='verified')`, userID).Scan(&ok)
+	err := r.pool.QueryRow(ctx, `
+	SELECT EXISTS (
+		SELECT 1
+		FROM instructor_profiles ip
+		WHERE ip.user_id=$1
+			AND EXISTS (SELECT 1 FROM instructor_certifications ic WHERE ic.instructor_profile_id = ip.id)
+	)`, userID).Scan(&ok)
 	return ok, err
 }
 

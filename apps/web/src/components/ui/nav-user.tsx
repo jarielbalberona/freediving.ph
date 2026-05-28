@@ -1,6 +1,6 @@
 "use client";
 import { User } from "lucide-react";
-import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
+import { UserButton, SignInButton, useAuth } from "@clerk/nextjs";
 import {
   SidebarMenu,
   SidebarMenuItem,
@@ -8,21 +8,34 @@ import {
 import { Button } from "@/components/ui/button";
 
 export function NavUser() {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <div className="flex items-center justify-center p-2">
+            <div className="h-8 w-8 rounded-lg bg-muted/30" />
+          </div>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <SignedIn>
+        {isSignedIn ? (
           <div className="flex items-center justify-center p-2">
             <UserButton
               appearance={{
                 elements: {
-                  avatarBox: "w-8 h-8 rounded-lg"
-                }
+                  avatarBox: "w-8 h-8 rounded-lg",
+                },
               }}
             />
           </div>
-        </SignedIn>
-        <SignedOut>
+        ) : (
           <div className="w-full">
             <SignInButton mode="modal">
               <Button
@@ -34,7 +47,7 @@ export function NavUser() {
               </Button>
             </SignInButton>
           </div>
-        </SignedOut>
+        )}
       </SidebarMenuItem>
     </SidebarMenu>
   );

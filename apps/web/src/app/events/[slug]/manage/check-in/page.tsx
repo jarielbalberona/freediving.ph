@@ -1,27 +1,10 @@
-import type { Metadata } from "next";
-
-import { siteConfig } from "@/config/site";
-
-import { EventCheckInClient } from "../../client-page";
+import { redirect } from "next/navigation";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
-const eventCheckInUrl = (slug: string) =>
-  `${siteConfig.url}/events/${encodeURIComponent(slug)}/manage/check-in`;
-
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+export default async function Page({ params }: PageProps) {
   const { slug } = await params;
-  return {
-    title: "Check-in scanner | Freediving Philippines",
-    alternates: { canonical: eventCheckInUrl(slug) },
-  };
-}
-
-export default async function EventCheckInPage({ params }: PageProps) {
-  const { slug } = await params;
-  return <EventCheckInClient slug={slug} />;
+  redirect(`/management/events/${encodeURIComponent(slug)}/check-in`);
 }

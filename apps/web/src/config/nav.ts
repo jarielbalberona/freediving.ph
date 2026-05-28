@@ -7,7 +7,6 @@ import {
   type AppNavId,
 } from "@freediving.ph/types";
 import {
-  BadgeCheck,
   BookOpen,
   ClipboardList,
   Compass,
@@ -29,6 +28,7 @@ import {
   ShieldAlert,
   Store,
   Users,
+  UserRoundPen,
   Waves,
 } from "lucide-react";
 
@@ -66,7 +66,7 @@ const GROUP_DISPLAY_TITLES: Record<NavGroupId, string> = {
   diving: "Diving and Progress",
   resources: "Resources",
   future: "Future",
-  manage: "Manage",
+  manage: "Management",
   admin: "Admin",
 };
 
@@ -230,21 +230,50 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "manage-schools",
-    title: sharedNav("manage-schools").label,
+    title: "Manage",
     kind: "link",
-    href: "/manage/schools",
+    href: "/management",
     icon: School,
     isProtected: sharedNav("manage-schools").auth === "member",
     group: "manage",
-  },
-  {
-    id: "instructor-application",
-    title: sharedNav("instructor-application").label,
-    kind: "link",
-    href: "/instructor/apply",
-    icon: BadgeCheck,
-    isProtected: sharedNav("instructor-application").auth === "member",
-    group: "manage",
+    items: [
+      {
+        id: "manage-events",
+        title: "Events",
+        kind: "link",
+        href: "/management/events",
+        icon: CalendarHeart,
+        isProtected: sharedNav("manage-schools").auth === "member",
+        group: "manage",
+      },
+      {
+        id: "manage-schools-overview",
+        title: "Schools",
+        kind: "link",
+        href: "/management/schools",
+        icon: School,
+        isProtected: sharedNav("manage-schools").auth === "member",
+        group: "manage",
+      },
+      {
+        id: "manage-groups",
+        title: "Groups",
+        kind: "link",
+        href: "/management/groups",
+        icon: Users,
+        isProtected: sharedNav("manage-schools").auth === "member",
+        group: "manage",
+      },
+      {
+        id: "management-instructor-profile",
+        title: "Instructor Profile",
+        kind: "link",
+        href: "/management/instructor-profile",
+        icon: UserRoundPen,
+        isProtected: sharedNav("manage-schools").auth === "member",
+        group: "manage",
+      },
+    ],
   },
   {
     id: "learn",
@@ -270,7 +299,7 @@ export const NAV_ITEMS: NavItem[] = [
     id: "moderation",
     title: "Moderation",
     kind: "link",
-    href: "/moderation/reports",
+    href: "/admin/moderation",
     icon: Gavel,
     isProtected: true,
     group: "admin",
@@ -472,6 +501,11 @@ export function getMoreNavGroups({
 export function isActiveRoute(pathname: string, href: string): boolean {
   if (href === "/#" || href === "/") return pathname === "/" || pathname === "";
   const base = href.replace(/#.*$/, "").replace(/\/$/, "") || "/";
+
+  if (base === "/management" || base === "/admin") {
+    return pathname === base || pathname.startsWith(`${base}/`);
+  }
+
   return pathname === base || pathname.startsWith(base + "/");
 }
 

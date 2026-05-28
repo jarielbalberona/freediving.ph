@@ -368,7 +368,7 @@ export function ExploreLayout() {
           </Link>
         ) : null}
         {session.hasPermission("explore.moderate") ? (
-          <Link href="/moderation/explore-sites" className={reviewClassName}>
+          <Link href="/admin/moderation/explore-sites" className={reviewClassName}>
             <Gavel className="mr-2 size-4" />
             Review pending
           </Link>

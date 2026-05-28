@@ -268,7 +268,7 @@ func mapApplication(app instructorsservice.Application, includePrivate bool) map
 	return map[string]any{
 		"profile":                mapProfile(app.Profile, includePrivate),
 		"certifications":         mapCertifications(app.Certifications, includePrivate),
-		"viewerInstructorStatus": viewerStatus(app.Profile),
+		"viewerInstructorStatus": viewerStatus(app.Profile, app.Certifications),
 	}
 }
 
@@ -356,27 +356,34 @@ func mapCertification(item instructorsrepo.Certification, includePrivate bool) m
 	return out
 }
 
-func viewerStatus(profile *instructorsrepo.Profile) map[string]any {
+func viewerStatus(profile *instructorsrepo.Profile, certifications []instructorsrepo.Certification) map[string]any {
 	status := "none"
 	canCreate := false
-	reason := "School creation is available for verified instructors."
+	reason := "Create/complete your instructor profile before creating a school."
 	rejectionReason := ""
+	hasCertifications := len(certifications) > 0
 	if profile != nil {
 		status = profile.VerificationStatus
-		canCreate = status == "verified"
 		rejectionReason = profile.RejectionReason
 		switch status {
 		case "draft":
-			reason = "Complete and submit your instructor application before creating a school."
+			reason = "Create or complete your instructor profile and add at least one certification before creating a school."
 		case "pending":
-			reason = "Your instructor application is under review."
+			reason = "Your instructor profile is complete. You can now create and manage schools."
 		case "verified":
-			reason = "You are verified as an instructor. You can now create and manage schools."
+			reason = "Your instructor profile is complete. You can now create and manage schools."
 		case "rejected":
 			reason = "Your instructor application needs changes."
 		case "suspended":
 			reason = "Your instructor privileges are suspended."
 		}
+	}
+	canCreate = profile != nil && hasCertifications && status != "rejected" && status != "suspended"
+	if status == "none" {
+		canCreate = false
+	}
+	if profile != nil && !hasCertifications {
+		reason = "Add at least one certification before creating a school."
 	}
 	return map[string]any{
 		"status":          status,

@@ -85,3 +85,10 @@ export const normalizeProfileDiveSpotHighlights = (
     return b.latestMediaCreatedAt.localeCompare(a.latestMediaCreatedAt);
   });
 };
+
+/**
+ * Derived from currently loaded profile media rows only.
+ * This keeps highlights available in the app without an endpoint, but it can
+ * under-report if the media feed is not fully loaded.
+ * Switch this to a profile highlights endpoint-backed query when available.
+ */

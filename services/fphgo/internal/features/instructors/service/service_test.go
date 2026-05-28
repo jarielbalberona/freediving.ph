@@ -176,6 +176,31 @@ func TestSubmitRequiresCertification(t *testing.T) {
 	}
 }
 
+func TestDeleteCertificationCannotLeaveZeroCertifications(t *testing.T) {
+	repo := &fakeRepo{}
+	repo.profile = instructorsrepo.Profile{ID: "profile-1", UserID: "user-1"}
+	repo.certs = []instructorsrepo.Certification{
+		{
+			ID:                  "cert-1",
+			InstructorProfileID:  "profile-1",
+			Agency:              "padi",
+			CertificationLevel:   "Instructor",
+			VerificationStatus:   "pending",
+			ProofMediaID:        "media-1",
+			OfficialVerificationURL: "https://verify.example.com/member/123",
+		},
+	}
+	svc := New(repo)
+	err := svc.DeleteCertification(context.Background(), "user-1", "cert-1")
+	var validationErr ValidationFailure
+	if err == nil || !errors.As(err, &validationErr) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if validationErr.Issues[0].Path[0] != "certifications" {
+		t.Fatalf("expected certifications validation issue, got %#v", validationErr.Issues)
+	}
+}
+
 func TestSubmitRequiresProfileBasicsAndAttestation(t *testing.T) {
 	tests := []struct {
 		name   string

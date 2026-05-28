@@ -40,7 +40,7 @@ const (
 
 type repository interface {
 	ListSchools(context.Context, string) ([]schoolsrepo.School, error)
-	IsVerifiedInstructor(context.Context, string) (bool, error)
+	HasInstructorProfile(context.Context, string) (bool, error)
 	IsPlatformAdmin(context.Context, string) (bool, error)
 	CreateSchool(context.Context, schoolsrepo.CreateSchoolInput) (schoolsrepo.School, error)
 	GetSchoolBySlug(context.Context, string, string) (schoolsrepo.School, error)
@@ -153,7 +153,7 @@ func (s *Service) CreateSchool(ctx context.Context, actorID string, input school
 	if ok, err := s.CanCreateSchool(ctx, actorID); err != nil {
 		return schoolsrepo.School{}, err
 	} else if !ok {
-		return schoolsrepo.School{}, apperrors.New(http.StatusForbidden, "instructor_verification_required", "You need to be a verified instructor before creating a school.", nil)
+		return schoolsrepo.School{}, apperrors.New(http.StatusForbidden, "instructor_profile_required", "Create/complete your instructor profile before creating a school.", nil)
 	}
 	input.OwnerUserID = actorID
 	input.Name = strings.TrimSpace(input.Name)
@@ -186,8 +186,8 @@ func (s *Service) CanCreateSchool(ctx context.Context, userID string) (bool, err
 	if userID == "" {
 		return false, apperrors.New(http.StatusUnauthorized, "auth_required", "sign in required", nil)
 	}
-	if ok, err := s.repo.IsVerifiedInstructor(ctx, userID); err != nil {
-		return false, apperrors.New(http.StatusInternalServerError, "instructor_status_check_failed", "failed to check instructor verification", err)
+	if ok, err := s.repo.HasInstructorProfile(ctx, userID); err != nil {
+		return false, apperrors.New(http.StatusInternalServerError, "instructor_profile_check_failed", "failed to check instructor profile", err)
 	} else if ok {
 		return true, nil
 	}

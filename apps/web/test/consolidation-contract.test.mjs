@@ -54,12 +54,12 @@ test("parked routes render their pages instead of proxy redirects", async () => 
 test("admin and moderation have unified operator landing surfaces", async () => {
   const [adminPage, moderationPage, sidebar] = await Promise.all([
     readApp("src/app/admin/page.tsx"),
-    readApp("src/app/moderation/page.tsx"),
+    readApp("src/app/admin/moderation/page.tsx"),
     readApp("src/components/ui/app-sidebar.tsx"),
   ]);
 
   assert.match(adminPage, /Admin Overview/);
-  assert.match(adminPage, /\/moderation/);
+  assert.match(adminPage, /\/admin\/moderation/);
   assert.match(adminPage, /\/admin\/groups/);
   assert.match(moderationPage, /reports\.read/);
   assert.match(moderationPage, /explore\.moderate/);
@@ -70,8 +70,8 @@ test("admin and moderation have unified operator landing surfaces", async () => 
 
 test("frontend permission gates use backend permission names", async () => {
   const [reportsList, reportsDetail, config, backendAuthz] = await Promise.all([
-    readApp("src/app/moderation/reports/page.tsx"),
-    readApp("src/app/moderation/reports/[reportId]/page.tsx"),
+    readApp("src/app/admin/moderation/reports/page.tsx"),
+    readApp("src/app/admin/moderation/reports/[reportId]/page.tsx"),
     readRepo("packages/config/src/rbac/permissions.ts"),
     readRepo("services/fphgo/internal/shared/authz/authz.go"),
   ]);
@@ -147,4 +147,59 @@ test("product analytics tracks only activation events through gtag", async () =>
   assert.match(profile, /trackProductEvent\("profile_completed"\)/);
   assert.match(explore, /trackProductEvent\("dive_spot_saved"\)/);
   assert.match(submitDiveSite, /trackProductEvent\("dive_spot_submitted"\)/);
+});
+
+test("management entity workspaces render with dedicated workspace shells", async () => {
+  const [
+    schoolOverview,
+    schoolInstructors,
+    schoolPayments,
+    eventOverview,
+    eventPayments,
+    eventParticipants,
+    groupWorkspace,
+    groupMembers,
+    schoolsNav,
+  ] =
+    await Promise.all([
+      readApp("src/app/management/schools/[slug]/page.tsx"),
+      readApp("src/app/management/schools/[slug]/instructors/page.tsx"),
+      readApp("src/app/management/schools/[slug]/payments/page.tsx"),
+      readApp("src/app/management/events/[slug]/page.tsx"),
+      readApp("src/app/management/events/[slug]/payments/page.tsx"),
+      readApp("src/app/management/events/[slug]/participants/page.tsx"),
+      readApp("src/app/management/groups/[slug]/page.tsx"),
+      readApp("src/app/management/groups/[slug]/members/page.tsx"),
+      readApp("src/features/schools/pages/ManageSchoolsPage.tsx"),
+    ]);
+
+  assert.match(schoolOverview, /ManageSchoolOverviewPage/);
+  assert.match(schoolInstructors, /ManageSchoolInstructorsPage/);
+  assert.match(schoolPayments, /ManageSchoolPaymentsPage/);
+  assert.match(eventOverview, /EventManagementOverviewPage/);
+  assert.match(eventPayments, /EventManagementShell/);
+  assert.match(eventParticipants, /EventManagementSectionPlaceholder/);
+  assert.match(groupWorkspace, /GroupManagementWorkspacePage/);
+  assert.match(groupMembers, /GroupManagementSectionPage/);
+  assert.match(schoolsNav, /SchoolManagementShell/);
+  assert.doesNotMatch(eventParticipants, /redirect\(/);
+});
+
+test("management module list pages and workspace switchers follow dedicated workspace contract", async () => {
+  const [groupsList, eventsList, groupShell, eventShell] = await Promise.all([
+    readApp("src/app/management/groups/page.tsx"),
+    readApp("src/app/management/events/page.tsx"),
+    readApp("src/features/groups/components/group-management-shell.tsx"),
+    readApp("src/features/events/components/event-management-shell.tsx"),
+  ]);
+
+  assert.match(groupsList, /CommunityHeader/);
+  assert.match(groupsList, /ManagementEntityCard/);
+  assert.match(groupsList, /variant="wide"/);
+  assert.match(eventsList, /ManagementEntityCard/);
+  assert.match(eventsList, /variant="wide"/);
+  assert.match(groupShell, /View all groups/);
+  assert.match(eventShell, /View all events/);
+  assert.match(eventShell, /switcher/);
+  assert.match(groupShell, /Groups/);
 });

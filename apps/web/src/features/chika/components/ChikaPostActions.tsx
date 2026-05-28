@@ -54,6 +54,7 @@ export function ChikaPostActions({
         size="xs"
         variant="ghost"
         className="rounded-full px-2.5"
+        nativeButton={false}
         render={<Link href={href} aria-label="View Chika comments" />}
       >
         <MessageCircle className="size-3.5" />

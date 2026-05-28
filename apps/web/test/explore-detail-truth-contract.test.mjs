@@ -126,13 +126,10 @@ test("explore site edits use a separate proposal workflow", async () => {
   );
   assert.match(suggestEditPage, /Super admins apply edits immediately/);
   assert.doesNotMatch(suggestEditPage, /dive_sites/i);
-  assert.match(moderationEditPage, /getModerationSiteEditById/);
-  assert.match(moderationEditPage, /approveSiteEdit/);
-  assert.match(moderationEditPage, /rejectSiteEdit/);
-  assert.match(moderationEditPage, /Current/);
-  assert.match(moderationEditPage, /Proposed/);
-  assert.match(moderationEditPage, /siteChangedSinceProposal/);
-  assert.match(moderationEditPage, /changed after the edit was submitted/);
+  assert.match(
+    moderationEditPage,
+    /redirect\(`\/admin\/moderation\/explore-site-edits\/\$\{encodeURIComponent\(id\)\}`\)/,
+  );
   assert.match(routes, /createSiteEditProposal/);
   assert.match(routes, /moderationPendingSiteEdits/);
   assert.match(routes, /approveSiteEdit/);

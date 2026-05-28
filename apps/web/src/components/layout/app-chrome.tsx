@@ -6,7 +6,9 @@ import type { ReactNode } from "react";
 
 import { ProductAnalyticsProvider } from "@/components/analytics/product-analytics-provider";
 import { AuthGate } from "@/features/auth/auth-gate";
+import { ManagementShell } from "@/components/layout/management-shell";
 import { DesktopCreateFab } from "@/components/nav/desktop-create-fab";
+import { AdminShell } from "@/components/layout/admin-shell";
 import { MobileNavWithDrawers } from "@/components/nav/mobile-nav-with-drawers";
 import { NotificationCenter } from "@/components/nav/notification-center";
 import { AppLogo } from "@/components/ui/app-logo";
@@ -33,8 +35,47 @@ const isPublicContentPath = (pathname: string | null): boolean => {
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const isManagementRoute = pathname?.startsWith("/management") ?? false;
+  const isManagementWorkspaceRoute =
+    (pathname?.startsWith("/management/schools/") ?? false) ||
+    (pathname?.startsWith("/management/events/") ?? false) ||
+    (pathname?.startsWith("/management/groups/") ?? false);
+  const isAdminRoute = pathname?.startsWith("/admin") ?? false;
+  const isPublicChromeBypass =
+    isManagementRoute || isAdminRoute || isPublicContentPath(pathname);
 
-  if (isPublicContentPath(pathname)) {
+  if (isPublicChromeBypass) {
+    if (isManagementRoute && isManagementWorkspaceRoute) {
+      return (
+        <ClerkProvider>
+          <AuthGate />
+          <div>{children}</div>
+        </ClerkProvider>
+      );
+    }
+
+    if (isManagementRoute) {
+      return (
+        <ClerkProvider>
+          <ManagementShell>
+            <AuthGate />
+            <div>{children}</div>
+          </ManagementShell>
+        </ClerkProvider>
+      );
+    }
+
+    if (isAdminRoute) {
+      return (
+        <ClerkProvider>
+          <AdminShell>
+            <AuthGate />
+            <div>{children}</div>
+          </AdminShell>
+        </ClerkProvider>
+      );
+    }
+
     return <>{children}</>;
   }
 

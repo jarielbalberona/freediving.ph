@@ -6,9 +6,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   CommunityEmptyState,
   CommunityHeader,
-  CommunityPageShell,
   CommunityStats,
 } from "@/components/community/community-page";
+import { ManagementEntityCard } from "@/components/layout/management-entity-card";
+import { ManagementPageContainer } from "@/components/layout/management-page-container";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +39,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@clerk/nextjs";
 import { DEFAULT_TIMEZONE } from "@freediving.ph/config";
@@ -62,7 +62,6 @@ import type {
   UpdateCoursePaymentMethodRequest,
 } from "@freediving.ph/types";
 import {
-  ArrowLeft,
   CalendarPlus,
   Check,
   ExternalLink,
@@ -95,6 +94,7 @@ import { applyApiErrorsToForm } from "@/lib/forms/api-errors";
 import { getApiErrorMessage } from "@/lib/http/api-error";
 import { formatPeso } from "@/lib/money";
 import { schoolsApi } from "../api/schools";
+import { SchoolManagementShell } from "@/features/schools/components/school-management-shell";
 import {
   bookingStatusLabels,
   bookingModeLabels,
@@ -195,19 +195,19 @@ export function ManageSchoolsPage() {
   }
 
   const schools = schoolsQuery.data ?? [];
-  const instructorStatus =
-    instructorQuery.data?.application.viewerInstructorStatus;
+  const instructorApplication = instructorQuery.data?.application;
+  const instructorStatus = instructorApplication?.viewerInstructorStatus;
   const canCreateSchool = instructorStatus?.canCreateSchool === true;
 
   async function onCreate(data: CreateSchoolRequest) {
     if (!canCreateSchool) return;
     const school = await createSchool.mutateAsync(data);
     setOpen(false);
-    router.push(`/manage/schools/${school.slug}`);
+    router.push(`/management/schools/${school.slug}`);
   }
 
   return (
-    <CommunityPageShell>
+    <ManagementPageContainer variant="wide">
       <CommunityHeader
         title="Manage schools"
         subtitle="Create and manage freediving schools, courses, bookings, and sessions."
@@ -278,44 +278,31 @@ export function ManageSchoolsPage() {
             )
           }
         />
-      ) : null}
-      <div className="divide-y divide-border/70 border-y border-border/70">
+        ) : null}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {schools.map((school) => (
-          <div
+          <ManagementEntityCard
             key={school.id}
-            className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between"
-          >
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-sm font-semibold">
-                  {school.name}
-                </h2>
-                <Badge variant="secondary" className="h-5 px-2 text-[11px]">
-                  {schoolStatusLabels[school.status]}
-                </Badge>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {school.baseLocation || "No base location yet"}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                <span>{school.courseCount} courses</span>
-                <span>{school.upcomingSessionCount} upcoming sessions</span>
-                <span>{school.pendingBookingCount} pending bookings</span>
-              </div>
-            </div>
-            <Button
-              className="self-start"
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              render={<Link href={`/manage/schools/${school.slug}`} />}
-            >
-              Open
-            </Button>
-          </div>
+            title={school.name}
+            description={school.shortDescription || "No school description yet."}
+            location={school.baseLocation || "No base location yet"}
+            status={schoolStatusLabels[school.status]}
+            href={`/management/schools/${school.slug}`}
+            stats={[
+              { label: "Courses", value: String(school.courseCount) },
+              {
+                label: "Upcoming Sessions",
+                value: String(school.upcomingSessionCount),
+              },
+              {
+                label: "Pending Bookings",
+                value: String(school.pendingBookingCount),
+              },
+            ]}
+          />
         ))}
       </div>
-    </CommunityPageShell>
+    </ManagementPageContainer>
   );
 }
 
@@ -346,6 +333,57 @@ export function ManageSchoolOverviewPage({ slug }: { slug: string }) {
           </AlertDescription>
         </Alert>
       ) : null}
+    </SchoolShell>
+  );
+}
+
+export function ManageSchoolProfilePage({ slug }: { slug: string }) {
+  const schoolQuery = useManageSchool(slug);
+  const school = schoolQuery.data;
+
+  if (schoolQuery.isError) return <UnauthorizedState />;
+  if (!school) return <PageState text="Loading school profile..." />;
+
+  return (
+    <SchoolShell school={school}>
+      <CommunityEmptyState
+        title="School profile"
+        description="Profile and profile-level settings are not yet available in management."
+      />
+    </SchoolShell>
+  );
+}
+
+export function ManageSchoolInstructorsPage({ slug }: { slug: string }) {
+  const schoolQuery = useManageSchool(slug);
+  const school = schoolQuery.data;
+
+  if (schoolQuery.isError) return <UnauthorizedState />;
+  if (!school) return <PageState text="Loading school instructors..." />;
+
+  return (
+    <SchoolShell school={school}>
+      <CommunityEmptyState
+        title="School instructors"
+        description="Instructor management is coming soon in the school workspace."
+      />
+    </SchoolShell>
+  );
+}
+
+export function ManageSchoolPaymentsPage({ slug }: { slug: string }) {
+  const schoolQuery = useManageSchool(slug);
+  const school = schoolQuery.data;
+
+  if (schoolQuery.isError) return <UnauthorizedState />;
+  if (!school) return <PageState text="Loading school payments..." />;
+
+  return (
+    <SchoolShell school={school}>
+      <CommunityEmptyState
+        title="School payments"
+        description="School payment management is coming soon in this workspace."
+      />
     </SchoolShell>
   );
 }
@@ -540,7 +578,7 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
                     variant="outline"
                     size="xs"
                     nativeButton={false}
-                    render={<Link href={`/manage/schools/${slug}/sessions`} />}
+                    render={<Link href={`/management/schools/${slug}/sessions`} />}
                   >
                     <CalendarPlus />
                     Create session
@@ -934,38 +972,15 @@ function SchoolShell({
   children,
 }: {
   school: School;
-  active?: "courses" | "bookings" | "sessions" | "settings";
+  active?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const activeTab = active ?? "overview";
-
-  const onTabChange = (value: string) => {
-    const baseHref = `/manage/schools/${school.slug}`;
-    if (value === "overview") {
-      router.push(baseHref);
-      return;
-    }
-    router.push(`${baseHref}/${value}`);
-  };
-
   return (
-    <CommunityPageShell>
+    <SchoolManagementShell school={school}>
       <CommunityHeader
         title={school.name}
         subtitle={school.shortDescription || "No school description yet."}
-        navigation={
-          <Button
-            size="sm"
-            variant="outline"
-            nativeButton={false}
-            render={<Link href="/manage/schools" />}
-          >
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Manage schools
-          </Button>
-        }
         action={
           <>
             <Badge variant="secondary" className="h-5 px-2 text-[11px]">
@@ -979,17 +994,8 @@ function SchoolShell({
           {school.baseLocation || "No base location set"}
         </p>
       </CommunityHeader>
-      <Tabs value={activeTab} onValueChange={onTabChange} className="gap-0">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="courses">Courses</TabsTrigger>
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
-          <TabsTrigger value="sessions">Sessions</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
-      </Tabs>
       {children}
-    </CommunityPageShell>
+    </SchoolManagementShell>
   );
 }
 
@@ -2730,20 +2736,20 @@ function SchoolCreateBlockedState({
 
 function PageState({ text }: { text: string }) {
   return (
-    <CommunityPageShell>
+    <ManagementPageContainer variant="wide">
       <StateText text={text} />
-    </CommunityPageShell>
+    </ManagementPageContainer>
   );
 }
 
 function UnauthorizedState() {
   return (
-    <CommunityPageShell>
+    <ManagementPageContainer variant="wide">
       <CommunityEmptyState
         title="School management unavailable"
         description="Sign in with a school owner, admin, or instructor account to manage schools."
       />
-    </CommunityPageShell>
+    </ManagementPageContainer>
   );
 }
 

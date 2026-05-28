@@ -122,7 +122,7 @@ export const APP_NAV_ITEMS = [
   },
   {
     id: "manage-schools",
-    label: "Manage Schools",
+    label: "Manage",
     area: "drawer",
     order: 60,
     auth: "member",

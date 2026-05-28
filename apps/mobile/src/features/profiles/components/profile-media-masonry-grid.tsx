@@ -23,6 +23,11 @@ type ProfileMediaDisplayCompat = {
   dialogUrl?: string | null;
 };
 
+type ProfileMediaCompat = ProfileMediaItem & ProfileMediaDisplayCompat;
+
+const getProfileMediaCompatUrls = (item: ProfileMediaItem) =>
+  item as ProfileMediaCompat;
+
 /**
  * Compatibility guard for richer media URL payloads that can appear on web,
  * while this mobile profile media endpoint currently returns thumbnail/preview URLs.
@@ -51,8 +56,14 @@ const normalizePositiveNumber = (value: number | undefined | null) =>
   typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 
 const getMediaSourceUrl = (item: ProfileMediaItem) => {
-  const displayUrl = (item as ProfileMediaDisplayCompat).displayUrl;
-  const dialogUrl = (item as ProfileMediaDisplayCompat).dialogUrl;
+  const {
+    displayUrl,
+    dialogUrl,
+  } = getProfileMediaCompatUrls(item);
+
+  // Compatibility fallback:
+  // backend profile media returns thumbnail/preview urls today; displayUrl/dialogUrl
+  // are retained to support any richer payload without changing API shape.
   return (
     displayUrl ||
     item.thumbnailUrl ||
@@ -63,8 +74,11 @@ const getMediaSourceUrl = (item: ProfileMediaItem) => {
 };
 
 const getMediaViewerUrl = (item: ProfileMediaItem) => {
-  const displayUrl = (item as ProfileMediaDisplayCompat).displayUrl;
-  const dialogUrl = (item as ProfileMediaDisplayCompat).dialogUrl;
+  const {
+    displayUrl,
+    dialogUrl,
+  } = getProfileMediaCompatUrls(item);
+
   return (
     dialogUrl ||
     displayUrl ||

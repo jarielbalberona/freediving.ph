@@ -26,18 +26,18 @@ type fakeRepo struct {
 	listPaymentsSchoolID string
 
 	verifiedInstructor bool
-	instructorStatus   string
+	instructorProfileReady bool
 	platformAdmin      bool
 }
 
 func (f *fakeRepo) ListSchools(context.Context, string) ([]schoolsrepo.School, error) {
 	return []schoolsrepo.School{f.school}, nil
 }
-func (f *fakeRepo) IsVerifiedInstructor(context.Context, string) (bool, error) {
-	if f.instructorStatus != "" {
-		return f.instructorStatus == "verified", nil
+func (f *fakeRepo) HasInstructorProfile(context.Context, string) (bool, error) {
+	if f.instructorProfileReady {
+		return true, nil
 	}
-	return f.verifiedInstructor, nil
+	return false, nil
 }
 func (f *fakeRepo) IsPlatformAdmin(context.Context, string) (bool, error) {
 	return f.platformAdmin, nil
@@ -185,30 +185,26 @@ func seededService() *Service {
 	})
 }
 
-func TestCreateSchoolRequiresVerifiedInstructor(t *testing.T) {
-	for _, status := range []string{"", "draft", "pending", "rejected", "suspended"} {
-		t.Run(defaultString(status, "none"), func(t *testing.T) {
-			repo := seededService().repo.(*fakeRepo)
-			repo.instructorStatus = status
-			svc := New(repo)
-			_, err := svc.CreateSchool(context.Background(), "actor", schoolsrepo.CreateSchoolInput{Name: "School"})
-			if err == nil {
-				t.Fatal("expected school create to require verified instructor")
-			}
-			if !strings.Contains(err.Error(), "instructor_verification_required") {
-				t.Fatalf("expected instructor gate error, got %v", err)
-			}
-		})
+func TestCreateSchoolRequiresInstructorProfile(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	repo.instructorProfileReady = false
+	svc := New(repo)
+	_, err := svc.CreateSchool(context.Background(), "actor", schoolsrepo.CreateSchoolInput{Name: "School"})
+	if err == nil {
+		t.Fatal("expected school create to require instructor profile")
+	}
+	if !strings.Contains(err.Error(), "instructor_profile_required") {
+		t.Fatalf("expected instructor profile gate error, got %v", err)
 	}
 }
 
-func TestVerifiedInstructorCanCreateSchool(t *testing.T) {
+func TestVerifiedInstructorProfileCanCreateSchool(t *testing.T) {
 	repo := seededService().repo.(*fakeRepo)
-	repo.verifiedInstructor = true
+	repo.instructorProfileReady = true
 	svc := New(repo)
 	_, err := svc.CreateSchool(context.Background(), "actor", schoolsrepo.CreateSchoolInput{Name: "School"})
 	if err != nil {
-		t.Fatalf("expected verified instructor to create school: %v", err)
+		t.Fatalf("expected instructor profile to create school: %v", err)
 	}
 }
 

@@ -8,7 +8,7 @@ export function AppLogo() {
         alt="Freediving Philippines"
         width={130}
         height={30}
-        className="h-auto w-[130px]"
+        className="h-auto w-auto"
       />
     </div>
   );

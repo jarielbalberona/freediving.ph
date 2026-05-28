@@ -881,7 +881,7 @@ export default function EventDetailClient({ slug }: { slug: string }) {
                   ? proofUrlMutation.variables?.paymentId
                   : undefined
               }
-              onManagePaymentHref={`/events/${encodeURIComponent(event.slug)}/manage/payments`}
+              onManagePaymentHref={`/management/events/${encodeURIComponent(event.slug)}/payments`}
             />
           </TabsContent>
         ) : null}
@@ -1033,7 +1033,7 @@ export function EventManageClient({ slug }: { slug: string }) {
             nativeButton={false}
             render={
               <Link
-                href={`/events/${encodeURIComponent(event.slug)}/manage/check-in`}
+                href={`/management/events/${encodeURIComponent(event.slug)}/check-in`}
               />
             }
           >
@@ -1087,7 +1087,7 @@ export function EventManageClient({ slug }: { slug: string }) {
             nativeButton={false}
             render={
               <Link
-                href={`/events/${encodeURIComponent(event.slug)}/manage/check-in`}
+                href={`/management/events/${encodeURIComponent(event.slug)}/check-in`}
               />
             }
           >
@@ -1114,7 +1114,7 @@ export function EventManageClient({ slug }: { slug: string }) {
             </button>
           ))}
           <Link
-            href={`/events/${encodeURIComponent(event.slug)}/manage/check-in`}
+            href={`/management/events/${encodeURIComponent(event.slug)}/check-in`}
             className={cn(
               manageSideNavTriggerClassName,
               "inline-flex items-center text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -1848,7 +1848,7 @@ export function EventCheckInClient({ slug }: { slug: string }) {
             nativeButton={false}
             render={
               <Link
-                href={`/events/${encodeURIComponent(event.slug)}/manage#participants`}
+                href={`/management/events/${encodeURIComponent(event.slug)}#participants`}
               />
             }
           >
@@ -1863,7 +1863,7 @@ export function EventCheckInClient({ slug }: { slug: string }) {
             nativeButton={false}
             render={
               <Link
-                href={`/events/${encodeURIComponent(event.slug)}/manage#participants`}
+                href={`/management/events/${encodeURIComponent(event.slug)}#participants`}
               />
             }
           >
@@ -2160,7 +2160,7 @@ export function EventPassVerificationClient({
               nativeButton={false}
               render={
                 <Link
-                  href={`/events/${encodeURIComponent(pass.event.slug)}/manage/check-in?token=${encodeURIComponent(pass.participant.qrToken ?? "")}`}
+                  href={`/management/events/${encodeURIComponent(pass.event.slug)}/check-in?token=${encodeURIComponent(pass.participant.qrToken ?? "")}`}
                 />
               }
             >
@@ -2391,7 +2391,7 @@ function BackToManageButton({ event }: { event: Event }) {
       nativeButton={false}
       render={
         <Link
-          href={`/events/${encodeURIComponent(event.slug)}/manage#payment`}
+          href={`/management/events/${encodeURIComponent(event.slug)}#payment`}
         />
       }
     >
@@ -2760,7 +2760,7 @@ function HeaderAction({
         size="sm"
         nativeButton={false}
         render={
-          <Link href={`/events/${encodeURIComponent(event.slug)}/manage`} />
+          <Link href={`/management/events/${encodeURIComponent(event.slug)}`} />
         }
       >
         <Pencil className="mr-1 h-4 w-4" />
@@ -2966,7 +2966,7 @@ function OverviewTab({
           className="h-auto px-0"
           nativeButton={false}
           render={
-            <Link href={`/events/${encodeURIComponent(event.slug)}/manage`} />
+            <Link href={`/management/events/${encodeURIComponent(event.slug)}`} />
           }
         >
           Manage details
@@ -3512,7 +3512,7 @@ function PrizesTab({
             nativeButton={false}
             render={
               <Link
-                href={`/events/${encodeURIComponent(event.slug)}/manage#awards`}
+                href={`/management/events/${encodeURIComponent(event.slug)}#awards`}
               />
             }
           >
@@ -4135,7 +4135,7 @@ function SponsorsTab({
             nativeButton={false}
             render={
               <Link
-                href={`/events/${encodeURIComponent(event.slug)}/manage#sponsors`}
+                href={`/management/events/${encodeURIComponent(event.slug)}#sponsors`}
               />
             }
           >
@@ -5055,7 +5055,7 @@ function PostsTab({
                 nativeButton={false}
                 render={
                   <Link
-                    href={`/events/${encodeURIComponent(event.slug)}/manage#updates`}
+                    href={`/management/events/${encodeURIComponent(event.slug)}#updates`}
                   />
                 }
               >
@@ -5717,7 +5717,7 @@ function ParticipantsSection({
             nativeButton={false}
             render={
               <Link
-                href={`/events/${encodeURIComponent(event.slug)}/manage#participants`}
+                href={`/management/events/${encodeURIComponent(event.slug)}#participants`}
               />
             }
           >
@@ -5732,7 +5732,7 @@ function ParticipantsSection({
             nativeButton={false}
             render={
               <Link
-                href={`/events/${encodeURIComponent(event.slug)}/manage/check-in`}
+                href={`/management/events/${encodeURIComponent(event.slug)}/check-in`}
               />
             }
           >
@@ -6004,7 +6004,7 @@ function OrganizerActions({
           nativeButton={false}
           render={
             <Link
-              href={`/events/${encodeURIComponent(event.slug)}/manage/check-in?token=${encodeURIComponent(participant.qrToken)}`}
+              href={`/management/events/${encodeURIComponent(event.slug)}/check-in?token=${encodeURIComponent(participant.qrToken)}`}
             />
           }
         >
@@ -6839,7 +6839,7 @@ function DuplicateEventSection({ event }: { event: Event }) {
       {
         onSuccess: (created) => {
           toast.success("Event duplicated as draft.");
-          window.location.href = `/events/${encodeURIComponent(created.slug)}/manage`;
+          window.location.href = `/management/events/${encodeURIComponent(created.slug)}`;
         },
         onError: (error) =>
           toast.error(getApiErrorMessage(error, "Failed to duplicate event")),
@@ -7334,7 +7334,7 @@ function OrganizerManageTab({
             title="Payment setup"
             status={getPaymentSetupStatus(event, activePaymentMethods.length)}
             actionLabel="Manage"
-            href={`/events/${encodeURIComponent(event.slug)}/manage/payments`}
+            href={`/management/events/${encodeURIComponent(event.slug)}/payments`}
           />
         ) : null}
       </div>

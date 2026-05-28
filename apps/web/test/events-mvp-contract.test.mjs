@@ -81,7 +81,7 @@ test("events create and management use user-facing labels", () => {
   assert.match(constants, /label: "Fun dive"/);
   assert.doesNotMatch(createPage, />fun_dive</);
   assert.match(detailPage, /Manage event/);
-  assert.match(managePage, /EventManageClient/);
+  assert.match(managePage, /redirect\(.*\/management\/events/);
   assert.match(detailPage, /Add participant-facing details/);
   assert.match(detailPage, /Manage participant payment instructions/);
   assert.match(detailPage, /Payment setup is incomplete/);
@@ -193,7 +193,7 @@ test("events detail exposes join, payment proof, and organizer review controls",
   assert.match(detailPage, /Upload payment proof/);
   assert.match(api, /\/payments\/\$\{paymentId\}\/proof-url/);
   assert.doesNotMatch(detailPage, /href=\{payment\.proofAttachmentUrl\}/);
-  assert.match(managePage, /EventManageClient/);
+  assert.match(managePage, /redirect\(.*\/management\/events/);
   assert.match(detailPage, /Approve/);
   assert.match(detailPage, /Verify payment/);
   assert.match(detailPage, /viewerCanViewPrivateDetails/);
@@ -236,7 +236,7 @@ test("events detail organizes content into visibility-aware tabs", () => {
   assert.doesNotMatch(detailPage, /value="posts"/);
   assert.doesNotMatch(detailPage, /value="manage"/);
   assert.doesNotMatch(detailPage, /value="join"/);
-  assert.match(managePage, /\/manage/);
+  assert.match(managePage, /\/management\/events/);
   assert.ok(
     detailPage.indexOf('value="updates"') <
       detailPage.indexOf('value="overview"'),
@@ -313,7 +313,7 @@ test("events detail renders management extensions through tabs and dialogs", () 
     /manageNestedTabsListClassName = manageTabsListClassName/,
   );
   assert.doesNotMatch(detailPage, /<div className="space-y-8">/);
-  assert.match(managePage, /EventManageClient/);
+  assert.match(managePage, /redirect\(.*\/management\/events/);
   assert.match(competitionPage, /EventCompetitionPrizesClient/);
   assert.match(detailPage, /function CompetitionList/);
   assert.match(detailPage, /getCompetitionHref/);
@@ -435,7 +435,10 @@ test("events check-in scanner is a dedicated organizer workflow", () => {
   const checkInPage = read("src/app/events/[slug]/manage/check-in/page.tsx");
   const api = read("src/features/events/api/events.ts");
   const mutations = read("src/features/events/hooks/mutations.ts");
-  assert.match(checkInPage, /EventCheckInClient/);
+  assert.match(
+    checkInPage,
+    /redirect\(`\/management\/events\/\$\{encodeURIComponent\(slug\)\}\/check-in`\)/,
+  );
   assert.match(detailPage, /parseEventPassScanValue/);
   assert.match(detailPage, /BrowserQRCodeReader/);
   assert.match(detailPage, /Start scanner/);
@@ -444,8 +447,8 @@ test("events check-in scanner is a dedicated organizer workflow", () => {
   assert.match(detailPage, /Payment is not verified/);
   assert.match(detailPage, /Check in anyway/);
   assert.match(detailPage, /Already checked in/);
-  assert.match(detailPage, /manage\/check-in\?token=/);
-  assert.match(detailPage, /manage\/check-in/);
+  assert.match(detailPage, /management\/events\/.+\/check-in\?token=/);
+  assert.match(detailPage, /management\/events\/.+\/check-in/);
   assert.match(detailPage, /<QrCode className="mr-1 h-4 w-4"/);
   assert.match(api, /\/pass\/\$\{encodeURIComponent\(token\)\}\/check-in/);
   assert.match(mutations, /useCheckInEventPass/);

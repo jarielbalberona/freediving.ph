@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
-
-import { ManageSchoolsPage } from "@/features/schools/pages/ManageSchoolsPage";
-
-export const metadata: Metadata = {
-  title: "Manage schools | Freediving Philippines",
-};
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ManageSchoolsPage />;
+  redirect("/management/schools");
 }

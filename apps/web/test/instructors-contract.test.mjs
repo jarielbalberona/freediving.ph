@@ -18,9 +18,7 @@ test("instructor application routes and labels are discoverable", () => {
   assert.match(applyPage, /InstructorApplicationPage/);
   assert.match(profilePage, /InstructorApplicationPage/);
   assert.match(certificationsPage, /InstructorApplicationPage/);
-  assert.match(nav, /id: "instructor-application"/);
-  assert.match(nav, /href: "\/instructor\/apply"/);
-  assert.match(nav, /sharedNav\("instructor-application"\)\.label/);
+  assert.match(nav, /id: "manage-schools"/);
   assert.match(
     nav,
     /MOBILE_SIDEBAR_ORDER: string\[\] = \[\.\.\.APP_DRAWER_NAV_IDS\]/,
@@ -63,11 +61,13 @@ test("school create UI is gated by verified instructor status", () => {
 test("admin instructors review page supports verify and reject actions", () => {
   const adminPage = read("src/app/admin/instructors/page.tsx");
   const adminNav = read("src/app/admin/_components/admin-page.tsx");
+  const adminSidebar = read("src/components/layout/admin-sidebar.tsx");
   const appSidebar = read("src/components/ui/app-sidebar.tsx");
   const routes = read("src/lib/api/fphgo-routes.ts");
 
   assert.match(adminNav, /\/admin\/instructors/);
-  assert.match(appSidebar, /\/admin\/instructors/);
+  assert.match(adminSidebar, /\/admin\/instructors/);
+  assert.doesNotMatch(appSidebar, /\/admin\/instructors/);
   assert.match(adminPage, /useVerifyInstructor/);
   assert.match(adminPage, /useRejectInstructor/);
   assert.match(adminPage, /statusOptions/);
