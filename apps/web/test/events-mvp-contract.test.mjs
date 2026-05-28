@@ -102,7 +102,7 @@ test("events create and management use user-facing labels", () => {
 });
 
 test("events listing links to create page and no longer owns create dialog", () => {
-  const eventsPage = read("src/app/events/page.tsx");
+  const eventsPage = read("src/app/events/client-page.tsx");
   assert.match(eventsPage, /href="\/events\/create"/);
   assert.match(eventsPage, /DiveSiteCombobox/);
   assert.match(eventsPage, /Load more/);
@@ -111,7 +111,7 @@ test("events listing links to create page and no longer owns create dialog", () 
 });
 
 test("events discovery page keeps compact friendly filters", () => {
-  const eventsPage = read("src/app/events/page.tsx");
+  const eventsPage = read("src/app/events/client-page.tsx");
   assert.match(
     eventsPage,
     /Find freediving sessions, trips, courses, and community events/,
@@ -153,7 +153,7 @@ test("events discovery page keeps compact friendly filters", () => {
 });
 
 test("events empty state and cards avoid raw discovery labels", () => {
-  const eventsPage = read("src/app/events/page.tsx");
+  const eventsPage = read("src/app/events/client-page.tsx");
   const eventCard = read("src/features/events/components/EventCard.tsx");
   const eventList = read("src/features/events/components/EventList.tsx");
   assert.match(eventsPage, /No events found/);

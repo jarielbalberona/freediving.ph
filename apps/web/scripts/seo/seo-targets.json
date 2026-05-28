@@ -35,6 +35,36 @@
     "primaryKeyword": "freediving schools philippines"
   },
   {
+    "path": "/explore",
+    "type": "public_app_index",
+    "primaryKeyword": "freediving spots philippines"
+  },
+  {
+    "path": "/schools",
+    "type": "public_app_index",
+    "primaryKeyword": "freediving schools philippines"
+  },
+  {
+    "path": "/events",
+    "type": "public_app_index",
+    "primaryKeyword": "freediving events philippines"
+  },
+  {
+    "path": "/groups",
+    "type": "public_app_index",
+    "primaryKeyword": "freediving groups philippines"
+  },
+  {
+    "path": "/chika",
+    "type": "public_app_index",
+    "primaryKeyword": "freediving community philippines"
+  },
+  {
+    "path": "/buddies",
+    "type": "public_app_index",
+    "primaryKeyword": "freediving buddy philippines"
+  },
+  {
     "path": "/guides",
     "type": "guide_index",
     "primaryKeyword": "freediving guides philippines"

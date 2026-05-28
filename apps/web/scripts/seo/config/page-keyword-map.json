@@ -48,6 +48,51 @@
       "freediving courses philippines"
     ]
   },
+  "/explore": {
+    "primary": "freediving spots philippines",
+    "secondary": [
+      "freediving dive spots philippines",
+      "freediving sites philippines",
+      "where to freedive in the philippines"
+    ]
+  },
+  "/schools": {
+    "primary": "freediving schools philippines",
+    "secondary": [
+      "freediving course philippines",
+      "freediving instructor philippines",
+      "freediving certification philippines"
+    ]
+  },
+  "/events": {
+    "primary": "freediving events philippines",
+    "secondary": [
+      "freediving meetups philippines",
+      "freediving competitions philippines",
+      "community dives philippines"
+    ]
+  },
+  "/groups": {
+    "primary": "freediving groups philippines",
+    "secondary": [
+      "freediving community philippines",
+      "freediving clubs philippines"
+    ]
+  },
+  "/chika": {
+    "primary": "freediving community philippines",
+    "secondary": [
+      "freediving questions philippines",
+      "freediving discussions philippines"
+    ]
+  },
+  "/buddies": {
+    "primary": "freediving buddy philippines",
+    "secondary": [
+      "find freediving buddy",
+      "freediving buddy system philippines"
+    ]
+  },
   "/guides": {
     "primary": "freediving guides philippines",
     "secondary": [

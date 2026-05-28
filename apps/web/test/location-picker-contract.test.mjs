@@ -35,7 +35,7 @@ const locationCombobox = readFileSync(
   "utf8",
 );
 const groupsPage = readFileSync(
-  new URL("../src/app/groups/page.tsx", import.meta.url),
+  new URL("../src/app/groups/client-page.tsx", import.meta.url),
   "utf8",
 );
 const schoolsPage = readFileSync(

@@ -7,12 +7,12 @@ const cwd = path.resolve(globalThis.process.cwd());
 const appRoot = cwd.endsWith(path.join("apps", "web"))
   ? cwd
   : path.join(cwd, "apps", "web");
-const pagePath = path.join(appRoot, "src/app/buddies/page.tsx");
+const clientPagePath = path.join(appRoot, "src/app/buddies/client-page.tsx");
 const exploreApiPath = path.join(appRoot, "src/features/diveSpots/api/explore-v1.ts");
 const routesPath = path.join(appRoot, "src/lib/api/fphgo-routes.ts");
 
 test("/buddies is the Dive Presence discovery and management surface", async () => {
-  const page = await readFile(pagePath, "utf8");
+  const page = await readFile(clientPagePath, "utf8");
 
   assert.match(page, /Find Buddies/);
   assert.match(page, /My Dive Presence/);
@@ -38,7 +38,7 @@ test("/buddies is the Dive Presence discovery and management surface", async () 
 });
 
 test("/buddies creates dive-site-backed presence and affinity payloads", async () => {
-  const page = await readFile(pagePath, "utf8");
+  const page = await readFile(clientPagePath, "utf8");
 
   assert.match(page, /siteSlug: ""/);
   assert.match(page, /presenceType: "available"/);
@@ -52,7 +52,7 @@ test("/buddies creates dive-site-backed presence and affinity payloads", async (
 });
 
 test("/buddies does not use the legacy buddy intent API", async () => {
-  const page = await readFile(pagePath, "utf8");
+  const page = await readFile(clientPagePath, "utf8");
 
   assert.doesNotMatch(page, /buddyFinderApi/);
   assert.doesNotMatch(page, /buddy-finder/);

@@ -8,6 +8,7 @@ import {
   loadSearchMarkets,
   loadSeoConfig,
   loadTargets,
+  loadPageKeywordMap,
   redactSecrets,
   reportsDir,
   requireDataForSeoCredentials,
@@ -88,6 +89,42 @@ test("route target loading includes current public guide pages", () => {
   assert.ok(paths.has("/guides/freediving-safety-basics"));
   assert.ok(paths.has("/guides/best-time-to-freedive-in-the-philippines"));
   assert.ok(paths.has("/about-us"));
+});
+
+test("public app index targets are part of audit coverage", () => {
+  const targets = loadTargets();
+  const paths = new Set(targets.map((target) => target.path));
+  const publicIndexPaths: Array<`/${string}`> = [
+    "/explore",
+    "/schools",
+    "/events",
+    "/groups",
+    "/chika",
+    "/buddies",
+  ];
+
+  for (const path of publicIndexPaths) {
+    assert.ok(paths.has(path), `Missing target for ${path}`);
+  }
+});
+
+test("public app index targets include keyword mapping", () => {
+  const keywordMap = loadPageKeywordMap();
+  const publicIndexPaths: Array<`/${string}`> = [
+    "/explore",
+    "/schools",
+    "/events",
+    "/groups",
+    "/chika",
+    "/buddies",
+  ];
+
+  for (const path of publicIndexPaths) {
+    assert.ok(keywordMap[path], `Missing keyword map for ${path}`);
+    assert.equal(typeof keywordMap[path].primary, "string");
+    assert.ok(Array.isArray(keywordMap[path].secondary));
+    assert.ok(keywordMap[path].secondary.length > 0);
+  }
 });
 
 test("cache key generation is deterministic and request scoped", () => {

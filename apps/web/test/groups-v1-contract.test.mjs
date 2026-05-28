@@ -46,7 +46,7 @@ test("groups API serializes mine=true and exposes real invite endpoints", async 
 });
 
 test("groups list/create UI uses V1 visibility, join policy, and structured location", async () => {
-  const pageSource = await readApp("src/app/groups/page.tsx");
+  const pageSource = await readApp("src/app/groups/client-page.tsx");
 
   assert.match(
     pageSource,
