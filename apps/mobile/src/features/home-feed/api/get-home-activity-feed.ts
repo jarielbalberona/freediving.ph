@@ -32,7 +32,7 @@ export const getHomeActivityFeed = (params: {
       filter: params.filter,
       limit: params.limit,
     }),
-    { auth: "optional" },
+    { auth: "none" },
   );
 
 export const postFeedActions = (

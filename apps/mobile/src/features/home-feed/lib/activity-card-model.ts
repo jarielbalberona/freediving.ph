@@ -238,7 +238,9 @@ export const toHomeActivityCardModel = (
     stringValue(item.metadata, "diveSiteName") ??
     (cardType === "dive_report" ? item.title : undefined);
   const sourceLabel =
-    ACTIVITY_LABELS[item.type] ?? item.sourceModule.trim() ?? "Activity";
+    cardType === "media_post"
+      ? ""
+      : ACTIVITY_LABELS[item.type] ?? item.sourceModule.trim() ?? "Activity";
   const mediaLikeCount =
     numberValue(item.stats, "likeCount") ??
     numberValue(item.metadata, "likeCount") ??
@@ -322,9 +324,6 @@ export const toHomeActivityCardModel = (
               ? withTags(item.area, stringValue(item.metadata, "timeWindow"))
               : withTags(diveSiteName, item.area),
     title:
-      item.title ||
-      (cardType === "media_post" ? "Media post" : undefined) ||
-      item.body ||
-      "Community update",
+      item.title || item.body || "Community update",
   };
 };

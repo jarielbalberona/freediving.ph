@@ -19,6 +19,8 @@ export const mobileQueryKeys = {
       [...mobileQueryKeys.media.all, "posts", postId, "comments"] as const,
     postComments: (postId: string, params: { limit?: number }) =>
       [...mobileQueryKeys.media.postCommentsRoot(postId), params] as const,
+    profileMedia: (username: string, limit = 24) =>
+      [...mobileQueryKeys.media.all, "profile", username, limit] as const,
   },
   explore: {
     all: ["explore"] as const,

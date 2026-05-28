@@ -1,30 +1,25 @@
-import { Stack, useLocalSearchParams } from "expo-router";
-import { View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import { Stack } from "expo-router";
+import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
 
 import {
-  MobileEmptyState,
   MobileErrorState,
   MobileLoadingState,
   MobileScrollScreen,
   MobileSection,
 } from "@/components/shell";
-import { MobileButton } from "@/components/ui/mobile-button";
-import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
 import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
 import {
-  ProfilePostCard,
-  ProfilePostFallback,
-} from "@/features/profiles/components/profile-post-card";
-import { ProfileSummaryCard } from "@/features/profiles/components/profile-summary-card";
-import {
-  useProfileDivingQuery,
-  useProfilePostsQuery,
-} from "@/features/profiles/hooks/use-profile-activity-query";
+  type HeaderProfile,
+  ProfileHeader,
+} from "@/features/profiles/components/profile-header";
+import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
+import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
+import { useProfileDivingQuery } from "@/features/profiles/hooks/use-profile-activity-query";
+import { useProfileMediaByUsernameQuery } from "@/features/media/hooks/use-profile-media-query";
 import { usePublicProfileQuery } from "@/features/profiles/hooks/use-public-profile-query";
-import {
-  profileCountLabel,
-  safeProfileUsername,
-} from "@/features/profiles/lib/profile-format";
+import { safeProfileUsername } from "@/features/profiles/lib/profile-format";
 
 const firstParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
@@ -34,22 +29,19 @@ export function PublicProfileScreen() {
   const username = safeProfileUsername(firstParam(params.username));
   const profileQuery = usePublicProfileQuery(username);
   const profile = profileQuery.data?.profile;
-  const postsQuery = useProfilePostsQuery(username);
-  const divingQuery = useProfileDivingQuery(username);
-  const posts = postsQuery.data ?? [];
+  const mediaQuery = useProfileMediaByUsernameQuery(profile?.username);
+  const divingQuery = useProfileDivingQuery(profile?.username);
+  const posts = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const presences = divingQuery.data?.presences ?? [];
   const affinities = divingQuery.data?.affinities ?? [];
-  const headerTitle = profile?.displayName ?? "Profile";
+  const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
 
   if (!username) {
     return (
       <>
         <Stack.Screen options={{ title: "Profile" }} />
         <MobileScrollScreen subtitle="Diver profile" title="Profile">
-          <MobileEmptyState
-            description="Choose a diver from the community to see their profile."
-            title="Profile not found"
-          />
+          <Text className="text-sm text-muted-foreground">Choose a diver to view.</Text>
         </MobileScrollScreen>
       </>
     );
@@ -66,7 +58,7 @@ export function PublicProfileScreen() {
     );
   }
 
-  if (profileQuery.error) {
+  if (profileQuery.error || !profile) {
     return (
       <>
         <Stack.Screen options={{ title: "Profile unavailable" }} />
@@ -76,81 +68,65 @@ export function PublicProfileScreen() {
               message="This diver profile is taking longer than expected to load."
               title="Profile unavailable"
             />
-            <MobileButton variant="secondary" onPress={() => void profileQuery.refetch()}>
+            <Pressable
+              accessibilityLabel="Retry loading profile"
+              accessibilityRole="button"
+              className="rounded-full bg-secondary px-3 py-2"
+              onPress={() => void profileQuery.refetch()}
+            >
               Try again
-            </MobileButton>
+            </Pressable>
           </View>
         </MobileScrollScreen>
       </>
     );
   }
 
-  if (!profile) {
-    return (
-      <>
-        <Stack.Screen options={{ title: "Profile" }} />
-        <MobileScrollScreen subtitle="Diver profile" title="Profile">
-          <MobileEmptyState
-            description="This diver has not shared much yet."
-            title="Profile not found"
-          />
-        </MobileScrollScreen>
-      </>
-    );
-  }
+  const headerStats = [
+    { label: "Posts", value: profile.counts.posts },
+    { label: "Followers", value: profile.counts.followers },
+    { label: "Following", value: profile.counts.following },
+  ];
 
   return (
     <>
-      <Stack.Screen options={{ title: headerTitle }} />
+      <Stack.Screen options={{ title: profile.displayName }} />
       <MobileScrollScreen subtitle="Diver profile" title="Profile">
-        <MobileSection title={profile.displayName}>
-          <ProfileSummaryCard
-            avatarUrl={profile.avatarUrl}
-            bio={profile.bio}
-            displayName={profile.displayName}
-            username={profile.username}
+        <MobileSection>
+          <ProfileHeader
+            isOwner={false}
+            profile={profile as HeaderProfile}
+            stats={headerStats}
           />
         </MobileSection>
 
-        <MobileSection title="Community activity">
-          <View>
-            <ProfileDetailRow
-              label="Posts"
-              value={profileCountLabel(profile.counts.posts, "posts")}
-            />
-            <ProfileDetailRow
-              label="Followers"
-              value={profileCountLabel(profile.counts.followers, "followers")}
-            />
-            <ProfileDetailRow
-              label="Following"
-              value={profileCountLabel(profile.counts.following, "following")}
-            />
-          </View>
-        </MobileSection>
+        <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
 
-        <MobileSection title="Posts">
-          {postsQuery.isLoading ? (
-            <ProfileDetailRow label="Posts" value="Loading public posts." />
-          ) : posts.length > 0 ? (
-            <View>
-              {posts.map((post) => (
-                <ProfilePostCard key={post.id} post={post} />
-              ))}
-            </View>
-          ) : (
-            <ProfilePostFallback error={postsQuery.error} />
-          )}
-        </MobileSection>
+        {activeTab === "posts" ? (
+          <MobileSection title="Posts">
+            <ProfileMediaMasonryGrid
+              error={mediaQuery.error}
+              hasNextPage={Boolean(mediaQuery.hasNextPage)}
+              isFetchingNextPage={mediaQuery.isFetchingNextPage}
+              isLoading={mediaQuery.isLoading && posts.length === 0}
+              items={posts}
+              onLoadMore={() => {
+                void mediaQuery.fetchNextPage();
+              }}
+            />
+          </MobileSection>
+        ) : null}
 
-        <MobileSection title="Diving">
-          <ProfileDivingSection
-            affinities={affinities}
-            error={divingQuery.error}
-            isLoading={divingQuery.isLoading}
-            presences={presences}
-          />
-        </MobileSection>
+        {activeTab === "diving" ? (
+          <MobileSection title="Diving">
+            <ProfileDivingSection
+              affinities={affinities}
+              error={divingQuery.error}
+              isLoading={divingQuery.isLoading}
+              presences={presences}
+            />
+          </MobileSection>
+        ) : null}
       </MobileScrollScreen>
     </>
   );

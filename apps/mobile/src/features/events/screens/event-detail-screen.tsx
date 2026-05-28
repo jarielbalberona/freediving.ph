@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 
-import { SocialActionRow, SocialListRow, SocialMetadataLine } from "@/components/social";
+import { SocialActionRow, SocialMetadataLine, UserIdentityRow } from "@/components/social";
 import {
   MobileEmptyState,
   MobileErrorState,
@@ -454,52 +454,70 @@ export function EventDetailScreen() {
               ) : null}
 
               {eventPosts.map((post) => (
-                <SocialListRow
-                  body={stripMarkdownPreview(post.bodyMarkdown)}
-                  key={post.id}
-                  meta={[post.authorUsername]}
-                  name={post.authorDisplayName || "Organizer"}
-                  title={post.title}
-                >
-                  <SocialActionRow
-                    actions={[
-                      {
-                        accessibilityLabel: post.viewerHasFishReacted
-                          ? "Remove fish reaction"
-                          : "React with fish",
-                        active: post.viewerHasFishReacted,
-                        disabled: !isLoaded || !isSignedIn || fishMutation.isPending,
-                        icon: post.viewerHasFishReacted ? "fish" : "fish-outline",
-                        label: `Fish · ${post.fishReactionCount}`,
-                        onPress: () =>
-                          fishMutation.mutate(
-                            {
-                              hasFish: post.viewerHasFishReacted,
-                              postId: post.id,
-                            },
-                            {
-                              onError: (error) => {
-                                setPostMessage(
-                                  "Could not update fish reaction. Try again.",
-                                );
-                                if (!shouldQueueFailedMutation(error)) return;
-                                void outbox.enqueue({
-                                  entityId: post.id,
-                                  entityType: "event_post",
-                                  operationType: "event_post_fish",
-                                  payload: {
-                                    eventId: event.id,
-                                    postId: post.id,
-                                    viewerHasFishReacted: post.viewerHasFishReacted,
+                <UserIdentityRow
+                  avatarUrl={post.authorAvatarUrl}
+                  bottomSlot={
+                    <View className="mt-2">
+                      <Text className="mt-1 text-sm leading-6 text-foreground">
+                        {stripMarkdownPreview(post.bodyMarkdown)}
+                      </Text>
+                      <SocialMetadataLine
+                        values={[
+                          `Fish · ${post.fishReactionCount}`,
+                        ]}
+                      />
+                      <SocialActionRow
+                        actions={[
+                          {
+                            accessibilityLabel: post.viewerHasFishReacted
+                              ? "Remove fish reaction"
+                              : "React with fish",
+                            active: post.viewerHasFishReacted,
+                            disabled: !isLoaded || !isSignedIn || fishMutation.isPending,
+                            icon: post.viewerHasFishReacted ? "fish" : "fish-outline",
+                            label: `Fish · ${post.fishReactionCount}`,
+                            onPress: () =>
+                              fishMutation.mutate(
+                                {
+                                  hasFish: post.viewerHasFishReacted,
+                                  postId: post.id,
+                                },
+                                {
+                                  onError: (error) => {
+                                    setPostMessage(
+                                      "Could not update fish reaction. Try again.",
+                                    );
+                                    if (!shouldQueueFailedMutation(error)) return;
+                                    void outbox.enqueue({
+                                      entityId: post.id,
+                                      entityType: "event_post",
+                                      operationType: "event_post_fish",
+                                      payload: {
+                                        eventId: event.id,
+                                        postId: post.id,
+                                        viewerHasFishReacted: post.viewerHasFishReacted,
+                                      },
+                                    });
                                   },
-                                });
-                              },
-                            },
-                          ),
-                      },
-                    ]}
-                  />
-                </SocialListRow>
+                                },
+                              ),
+                          },
+                        ]}
+                      />
+                    </View>
+                  }
+                  key={post.id}
+                  locationText={new Date(post.createdAt).toLocaleDateString("en-PH", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                  showLocation
+                  showUsername={Boolean(post.authorUsername)}
+                  size="md"
+                  username={post.authorUsername}
+                  displayName={post.authorDisplayName || "Organizer"}
+                />
               ))}
             </View>
           </MobileSection>

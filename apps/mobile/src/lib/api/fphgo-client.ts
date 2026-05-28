@@ -74,6 +74,33 @@ const normalizeApiError = (body: unknown, status: number) => {
   };
 };
 
+const parseResponseBody = async (response: Response) => {
+  if (response.status === 204) {
+    return undefined;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  return contentType.includes("application/json")
+    ? await response.json().catch(() => null)
+    : await response.text().catch(() => null);
+};
+
+const requestWithHeaders = async (
+  path: string,
+  requestInit: Omit<RequestInit, "body">,
+  headers: Headers,
+  requestBody: FphgoRequestInit["body"],
+) => {
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    ...requestInit,
+    body: resolveBody(headers, requestBody),
+    headers,
+  });
+
+  const body = await parseResponseBody(response);
+  return { response, body };
+};
+
 export async function fphgoFetch<T>(path: string, init: FphgoRequestInit = {}) {
   if (!path.startsWith("/")) {
     throw new Error(`FPHGO path must be relative and start with "/": ${path}`);
@@ -89,29 +116,49 @@ export async function fphgoFetch<T>(path: string, init: FphgoRequestInit = {}) {
     throw new FphgoApiError(401, "Authentication required", null);
   }
 
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
+  const requestHeaders = new Headers(headers);
   if (idempotencyKey) {
-    headers.set("Idempotency-Key", idempotencyKey);
+    requestHeaders.set("Idempotency-Key", idempotencyKey);
   }
-
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+  const requestInitWithoutBody = {
     ...requestInit,
-    body: resolveBody(headers, requestBody),
-    headers,
-  });
+  } as Omit<RequestInit, "body">;
 
-  if (response.status === 204) {
-    return undefined as T;
+  const requestHeadersWithToken = new Headers(requestHeaders);
+  if (token) {
+    requestHeadersWithToken.set("Authorization", `Bearer ${token}`);
   }
 
-  const contentType = response.headers.get("content-type") ?? "";
-  const body = contentType.includes("application/json")
-    ? await response.json().catch(() => null)
-    : await response.text().catch(() => null);
+  const withToken = authMode !== "none";
+  const { response, body } = withToken
+    ? await requestWithHeaders(path, requestInitWithoutBody, requestHeadersWithToken, requestBody)
+    : await requestWithHeaders(path, requestInitWithoutBody, requestHeaders, requestBody);
 
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      authMode === "optional" &&
+      !authToken &&
+      token
+    ) {
+      const unauthenticated = await requestWithHeaders(path, requestInitWithoutBody, requestHeaders, requestBody);
+
+      if (unauthenticated.response.ok) {
+        return unauthenticated.body as T;
+      }
+
+      const retryError = normalizeApiError(
+        unauthenticated.body,
+        unauthenticated.response.status,
+      );
+      throw new FphgoApiError(
+        unauthenticated.response.status,
+        retryError.message,
+        unauthenticated.body,
+        retryError.apiError,
+      );
+    }
+
     const normalized = normalizeApiError(body, response.status);
     throw new FphgoApiError(
       response.status,

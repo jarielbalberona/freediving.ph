@@ -2,7 +2,7 @@ import { Text, View } from "react-native";
 
 import type { ChikaCommentResponse } from "@freediving.ph/types";
 
-import { AvatarIdentityRow, SocialActionRow } from "@/components/social";
+import { SocialActionRow, UserIdentityRow } from "@/components/social";
 import { formatChikaDate, stripMarkdownPreview } from "@/features/chika/lib/chika-format";
 import { LinkedText } from "@/features/shared/links/components/LinkedText";
 
@@ -39,9 +39,11 @@ export function ChikaCommentCard({
             <View className="w-3 border-l-2 border-border/40" />
           ) : null}
           <View className="flex-1">
-            <AvatarIdentityRow
-              meta={[dateLabel]}
-              name={comment.authorDisplayName || "Community member"}
+            <UserIdentityRow
+              displayName={comment.authorDisplayName || "Community member"}
+              disabled
+              showUsername={false}
+              subtitle={dateLabel}
             />
             <LinkedText
               className="mt-3 text-sm leading-6 text-muted-foreground"

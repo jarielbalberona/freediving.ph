@@ -9,8 +9,8 @@ const pressedFeedbackStyle = (pressed: boolean) => ({
 
 type SocialAvatarProps = {
   imageUrl?: string | null;
-  label: string;
-  size?: "sm" | "md";
+  label?: string;
+  size?: "sm" | "md" | "lg";
 };
 
 const initialsFor = (label: string) =>
@@ -21,8 +21,22 @@ const initialsFor = (label: string) =>
     .slice(0, 2)
     .toUpperCase();
 
+const avatarSizeClass = {
+  lg: "size-12",
+  md: "size-11",
+  sm: "size-9",
+};
+
+const iconSize = {
+  lg: 22,
+  md: 20,
+  sm: 16,
+};
+
 export function SocialAvatar({ imageUrl, label, size = "md" }: SocialAvatarProps) {
-  const sizeClass = size === "sm" ? "size-9" : "size-11";
+  const fallbackLabel = (label ?? "").trim();
+  const sizeClass = avatarSizeClass[size];
+  const avatarIconSize = iconSize[size];
 
   if (imageUrl) {
     return (
@@ -39,7 +53,13 @@ export function SocialAvatar({ imageUrl, label, size = "md" }: SocialAvatarProps
 
   return (
     <View className={`${sizeClass} items-center justify-center rounded-full bg-primary/10`}>
-      <Text className="text-xs font-semibold text-primary">{initialsFor(label)}</Text>
+      {fallbackLabel ? (
+        <Text className="text-xs font-semibold text-primary">
+          {initialsFor(fallbackLabel)}
+        </Text>
+      ) : (
+        <Ionicons color="#fff" name="person" size={avatarIconSize} />
+      )}
     </View>
   );
 }

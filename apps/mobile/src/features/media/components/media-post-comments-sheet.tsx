@@ -2,7 +2,6 @@ import { BottomSheet, Host } from "@expo/ui";
 import { useAuth, useUser } from "@clerk/expo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { MediaPostComment } from "@freediving.ph/types";
-import { Image } from "expo-image";
 import { Keyboard } from "react-native";
 import { useState } from "react";
 import {
@@ -18,13 +17,14 @@ import {
   useWindowDimensions,
 } from "react-native";
 
+import { UserIdentityRow } from "@/components/social";
+import { MobileErrorState } from "@/components/shell";
 import {
   useCreateMediaPostCommentMutation,
   useDeleteMediaPostCommentMutation,
   useToggleMediaPostCommentLikeMutation,
 } from "@/features/media/hooks/use-media-mutations";
 import { useMediaPostCommentsQuery } from "@/features/media/hooks/use-media-post-comments-query";
-import { MobileErrorState } from "@/components/shell";
 import { LinkedText } from "@/features/shared/links/components/LinkedText";
 
 const pressedFeedbackStyle = (pressed: boolean) => ({
@@ -49,14 +49,6 @@ const relativeTime = (value: string) => {
   }).format(new Date(value));
 };
 
-const initialsFor = (name: string) =>
-  name
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
 const canDeleteComment = (
   comment: MediaPostComment,
   viewerUserId: string | null | undefined,
@@ -78,77 +70,68 @@ function MediaPostCommentRow({
   onLike?: () => void;
 }) {
   return (
-        <View className="flex-row gap-2.5">
-      {comment.author.avatarUrl ? (
-        <Image
-          accessibilityLabel=""
-          cachePolicy="memory-disk"
-          className="size-8 rounded-full bg-secondary"
-          contentFit="cover"
-          source={{ uri: comment.author.avatarUrl }}
-          transition={120}
-        />
-      ) : (
-        <View className="size-8 items-center justify-center rounded-full bg-primary/10">
-          <Text className="text-[11px] font-semibold text-primary">
-            {initialsFor(comment.author.displayName || comment.author.username || "D")}
-          </Text>
-        </View>
-      )}
-      <View className="min-w-0 flex-1 border-b border-border/40 pb-3">
-        <View className="flex-row items-center gap-2">
-          <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-            {comment.author.displayName || comment.author.username || "Diver"}
-          </Text>
-          <Text className="text-xs text-muted-foreground">{relativeTime(comment.createdAt)}</Text>
-        </View>
-        <LinkedText className="mt-1 flex-1 text-sm leading-5 text-foreground" text={comment.body} />
-        <View className="mt-2 flex-row items-center gap-3">
-          <Pressable
-            accessibilityLabel={comment.viewerHasLiked ? "Unlike comment" : "Like comment"}
-            accessibilityRole="button"
-            className={`flex-row items-center gap-1 rounded-full bg-secondary/70 px-3 py-1 ${
-              isLiking ? "opacity-60" : ""
-            }`}
-            disabled={!onLike || isLiking}
-            onPress={onLike}
-            style={({ pressed }) =>
-              pressedFeedbackStyle(pressed && !Boolean(!onLike || isLiking))
-            }
-          >
-            {isLiking ? (
-              <ActivityIndicator color="#475569" size="small" />
-            ) : (
-              <Ionicons
-                color="#475569"
-                name={comment.viewerHasLiked ? "heart" : "heart-outline"}
-                size={14}
-              />
-            )}
-            <Text className="text-[11px] font-semibold text-muted-foreground">
-              {comment.likeCount > 0 ? comment.likeCount.toLocaleString() : "Like"}
-            </Text>
-          </Pressable>
-          {canDelete ? (
-            <Pressable
-              accessibilityLabel="Delete comment"
-              accessibilityRole="button"
-              className={`rounded-full bg-secondary/70 px-3 py-1 ${isDeleting ? "opacity-60" : ""}`}
-              disabled={isDeleting}
-              onPress={onDelete}
-              style={({ pressed }) =>
-                pressedFeedbackStyle(pressed && !isDeleting)
-              }
-            >
-              {isDeleting ? (
-                <ActivityIndicator color="#475569" size="small" />
-              ) : (
-                <Ionicons color="#475569" name="trash-outline" size={14} />
-              )}
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
+    <View className="border-b border-border/40 pb-3">
+      <UserIdentityRow
+        avatarUrl={comment.author.avatarUrl}
+        bottomSlot={
+          <View className="mt-2">
+            <LinkedText
+              className="flex-1 text-sm leading-5 text-foreground"
+              text={comment.body}
+            />
+            <View className="mt-2 flex-row items-center gap-3">
+              <Pressable
+                accessibilityLabel={comment.viewerHasLiked ? "Unlike comment" : "Like comment"}
+                accessibilityRole="button"
+                className={`flex-row items-center gap-1 rounded-full bg-secondary/70 px-3 py-1 ${
+                  isLiking ? "opacity-60" : ""
+                }`}
+                disabled={!onLike || isLiking}
+                onPress={onLike}
+                style={({ pressed }) =>
+                  pressedFeedbackStyle(pressed && !Boolean(!onLike || isLiking))
+                }
+              >
+                {isLiking ? (
+                  <ActivityIndicator color="#475569" size="small" />
+                ) : (
+                  <Ionicons
+                    color="#475569"
+                    name={comment.viewerHasLiked ? "heart" : "heart-outline"}
+                    size={14}
+                  />
+                )}
+                <Text className="text-[11px] font-semibold text-muted-foreground">
+                  {comment.likeCount > 0 ? comment.likeCount.toLocaleString() : "Like"}
+                </Text>
+              </Pressable>
+              {canDelete ? (
+                <Pressable
+                  accessibilityLabel="Delete comment"
+                  accessibilityRole="button"
+                  className={`rounded-full bg-secondary/70 px-3 py-1 ${
+                    isDeleting ? "opacity-60" : ""
+                  }`}
+                  disabled={isDeleting}
+                  onPress={onDelete}
+                  style={({ pressed }) => pressedFeedbackStyle(pressed && !isDeleting)}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator color="#475569" size="small" />
+                  ) : (
+                    <Ionicons color="#475569" name="trash-outline" size={14} />
+                  )}
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        }
+        displayName={comment.author.displayName || comment.author.username || "Diver"}
+        showLocation={false}
+        size="sm"
+        subtitle={relativeTime(comment.createdAt)}
+        username={comment.author.username}
+      />
     </View>
   );
 }
@@ -175,8 +158,7 @@ export function MediaPostCommentsSheet({
   const comments = commentsQuery.data?.items ?? [];
   const trimmedDraft = draft.trim();
   const canPost = isLoaded && isSignedIn;
-  const canSend =
-    Boolean(postId) && canPost && trimmedDraft.length > 0 && !createComment.isPending;
+  const canSend = Boolean(postId) && canPost && trimmedDraft.length > 0 && !createComment.isPending;
 
   const sheetWidth = Math.min(width - 28, 430);
 

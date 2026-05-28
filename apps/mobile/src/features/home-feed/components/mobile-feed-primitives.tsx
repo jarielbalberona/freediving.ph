@@ -17,6 +17,7 @@ import type {
   HomeActivityCardModel,
   HomeActivityMediaItem,
 } from "@/features/home-feed/lib/activity-card-model";
+import { UserIdentityRow } from "@/components/social";
 
 const pressedFeedbackStyle = (pressed: boolean) => ({
   opacity: pressed ? 0.95 : 1,
@@ -42,14 +43,6 @@ const relativeTime = (value: string) => {
   }).format(new Date(value));
 };
 
-const initialsFor = (name: string) =>
-  name
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
 const MEDIA_PREVIEW_ASPECT_RATIO = 4 / 5;
 const MEDIA_PREVIEW_BLUR_RADIUS = 28;
 const MEDIA_PREVIEW_DIM_STYLE = [
@@ -67,53 +60,36 @@ export function MobileFeedPostHeader({
 }) {
   const name = item.actorName || item.title || "Community member";
   const metadata = [
-    item.area || item.diveSiteName,
-    item.sourceLabel,
+    item.area,
+    item.cardType === "media_post" ? "" : item.sourceLabel,
     relativeTime(item.occurredAt),
-  ].filter(Boolean);
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <View className="flex-row items-center gap-3 px-4">
-      {item.actorAvatarUrl ? (
-        <Image
-          accessibilityLabel=""
-          cachePolicy="memory-disk"
-          className="size-10 rounded-full bg-secondary"
-          contentFit="cover"
-          source={{ uri: item.actorAvatarUrl }}
-          transition={120}
-        />
-      ) : (
-        <View className="size-10 items-center justify-center rounded-full bg-primary/10">
-          <Text className="text-xs font-semibold text-primary">
-            {initialsFor(name)}
-          </Text>
-        </View>
-      )}
-      <View className="min-w-0 flex-1">
-        <Text
-          className="text-sm font-semibold text-foreground"
-          numberOfLines={1}
-        >
-          {name}
-        </Text>
-        {metadata.length > 0 ? (
-          <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-            {metadata.join(" · ")}
-          </Text>
-        ) : null}
-      </View>
-      {onMorePress ? (
-        <Pressable
-          accessibilityLabel="More feed actions"
-          className="size-10 items-center justify-center rounded-full active:bg-secondary"
-          hitSlop={8}
-          onPress={onMorePress}
-          style={({ pressed }) => pressedFeedbackStyle(pressed)}
-        >
-          <Ionicons color="#64748b" name="ellipsis-horizontal" size={20} />
-        </Pressable>
-      ) : null}
+    <View className="px-4">
+      <UserIdentityRow
+        avatarUrl={item.actorAvatarUrl}
+        displayName={name}
+        locationText={metadata}
+        username={item.actorUsername}
+        showLocation={Boolean(metadata)}
+        size="md"
+        rightSlot={
+          onMorePress ? (
+            <Pressable
+              accessibilityLabel="More feed actions"
+              className="size-10 items-center justify-center rounded-full active:bg-secondary"
+              hitSlop={8}
+              onPress={onMorePress}
+              style={({ pressed }) => pressedFeedbackStyle(pressed)}
+            >
+              <Ionicons color="#64748b" name="ellipsis-horizontal" size={20} />
+            </Pressable>
+          ) : null
+        }
+      />
     </View>
   );
 }

@@ -1,3 +1,5 @@
+import type { Href } from "expo-router";
+
 import type { Profile, PublicProfileApiProfile } from "@freediving.ph/types";
 
 export const safeProfileUsername = (username: string | undefined) => {
@@ -11,6 +13,16 @@ export const safeProfileUsername = (username: string | undefined) => {
     return undefined;
   }
   return trimmed;
+};
+
+export const profileRoute = (username: string | undefined): Href | undefined => {
+  const safeUsername = safeProfileUsername(username);
+  if (!safeUsername) return undefined;
+
+  return {
+    pathname: "/(app)/(tabs)/(home)/profile/[username]",
+    params: { username: safeUsername },
+  };
 };
 
 export const safeImageUrl = (url: string | undefined) => {

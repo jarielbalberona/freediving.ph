@@ -4,24 +4,22 @@ import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 import {
-  MobileEmptyState,
   MobileErrorState,
   MobileLoadingState,
   MobileScrollScreen,
   MobileSection,
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
+import { useProfileMediaByUsernameQuery } from "@/features/media/hooks/use-profile-media-query";
 import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
 import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
 import {
-  ProfilePostCard,
-  ProfilePostFallback,
-} from "@/features/profiles/components/profile-post-card";
-import { ProfileSummaryCard } from "@/features/profiles/components/profile-summary-card";
-import {
-  useProfileDivingQuery,
-  useProfilePostsQuery,
-} from "@/features/profiles/hooks/use-profile-activity-query";
+  type HeaderProfile,
+  ProfileHeader,
+} from "@/features/profiles/components/profile-header";
+import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
+import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
+import { useProfileDivingQuery } from "@/features/profiles/hooks/use-profile-activity-query";
 import { useUpdateMyProfileMutation } from "@/features/profiles/hooks/use-profile-mutations";
 import { useMyProfileQuery } from "@/features/profiles/hooks/use-my-profile-query";
 import {
@@ -38,15 +36,18 @@ export function ProfileScreen() {
   const profileQuery = useMyProfileQuery();
   const profile = profileQuery.data?.profile;
   const updateProfile = useUpdateMyProfileMutation();
-  const postsQuery = useProfilePostsQuery(profile?.username);
+  const mediaQuery = useProfileMediaByUsernameQuery(profile?.username);
   const divingQuery = useProfileDivingQuery(profile?.username);
+  const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [isEditing, setIsEditing] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | undefined>();
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
-  const profileDraft = useLocalDraft<{ bio?: string; displayName: string }>("profile_edit");
+  const profileDraft = useLocalDraft<{ bio?: string; displayName: string }>(
+    "profile_edit",
+  );
   const outbox = useOutbox();
-  const posts = postsQuery.data ?? [];
+  const posts = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const presences = divingQuery.data?.presences ?? [];
   const affinities = divingQuery.data?.affinities ?? [];
 
@@ -73,10 +74,7 @@ export function ProfileScreen() {
             message="Your profile is taking longer than expected to load."
             title="Profile unavailable"
           />
-          <MobileButton
-            variant="secondary"
-            onPress={() => void profileQuery.refetch()}
-          >
+          <MobileButton variant="secondary" onPress={() => void profileQuery.refetch()}>
             Try again
           </MobileButton>
         </View>
@@ -87,10 +85,7 @@ export function ProfileScreen() {
   if (!profile) {
     return (
       <MobileScrollScreen subtitle="Your diver profile" title="Profile">
-        <MobileEmptyState
-          description="Your profile is ready. Add your display name and bio when you are ready."
-          title="Profile ready"
-        />
+        <Text className="text-sm text-muted-foreground">Profile data is unavailable.</Text>
       </MobileScrollScreen>
     );
   }
@@ -109,32 +104,53 @@ export function ProfileScreen() {
     setActionMessage(undefined);
     return true;
   };
+
+  const headerStats = [
+    { label: "Posts", value: posts.length },
+    { label: "Followers", value: 0 },
+    { label: "Following", value: 0 },
+  ];
+
   return (
     <MobileScrollScreen subtitle="Your diver profile" title="Profile">
-      <MobileSection
-        description="Review how your profile appears across the Freediving Philippines community."
-        title="Your profile"
-      >
-        <ProfileSummaryCard
-          avatarUrl={profile.avatarUrl}
-          bio={profile.bio}
-          displayName={profile.displayName}
-          meta={location || certLevel}
-          username={profile.username}
+      <MobileSection>
+        <ProfileHeader
+          isOwner
+          onEdit={() => {
+            setDisplayName(profile.displayName);
+            setBio(profile.bio ?? "");
+            setIsEditing((value) => !value);
+          }}
+          profile={profile as HeaderProfile}
+          stats={headerStats}
         />
-        <View className="mt-3">
-          <MobileButton
-            variant="secondary"
-            onPress={() => {
-              setDisplayName(profile.displayName);
-              setBio(profile.bio ?? "");
-              setIsEditing((value) => !value);
-            }}
-          >
-            {isEditing ? "Cancel edit" : "Edit profile"}
-          </MobileButton>
-        </View>
       </MobileSection>
+
+      <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
+
+      {activeTab === "posts" ? (
+        <MobileSection title="Posts">
+          <ProfileMediaMasonryGrid
+            error={mediaQuery.error}
+            hasNextPage={Boolean(mediaQuery.hasNextPage)}
+            isFetchingNextPage={mediaQuery.isFetchingNextPage}
+            isLoading={mediaQuery.isLoading}
+            items={posts}
+            onLoadMore={() => void mediaQuery.fetchNextPage()}
+          />
+        </MobileSection>
+      ) : null}
+
+      {activeTab === "diving" ? (
+        <MobileSection title="Diving">
+          <ProfileDivingSection
+            affinities={affinities}
+            error={divingQuery.error}
+            isLoading={divingQuery.isLoading}
+            presences={presences}
+          />
+        </MobileSection>
+      ) : null}
 
       {isEditing ? (
         <MobileSection title="Edit profile">
@@ -243,36 +259,11 @@ export function ProfileScreen() {
         </View>
       </MobileSection>
 
-      <MobileSection title="Posts">
-        {postsQuery.isLoading ? (
-          <ProfileDetailRow label="Posts" value="Loading public posts." />
-        ) : posts.length > 0 ? (
-          <View>
-            {posts.map((post) => (
-              <ProfilePostCard key={post.id} post={post} />
-            ))}
-          </View>
-        ) : (
-          <ProfilePostFallback error={postsQuery.error} />
-        )}
-      </MobileSection>
-
-      <MobileSection title="Diving">
-        <ProfileDivingSection
-          affinities={affinities}
-          error={divingQuery.error}
-          isLoading={divingQuery.isLoading}
-          presences={presences}
-        />
-      </MobileSection>
-
       <MobileSection title="Settings">
         <Link href="/(app)/(tabs)/(home)/profile/settings" asChild>
           <Pressable accessibilityRole="link">
             <View className="rounded-2xl border border-border bg-card p-4">
-              <Text className="text-base font-semibold text-foreground">
-                Account settings
-              </Text>
+              <Text className="text-base font-semibold text-foreground">Account settings</Text>
               <Text className="mt-1 text-sm leading-6 text-muted-foreground">
                 Manage sign-out and account access from settings.
               </Text>

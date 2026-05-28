@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 
-import { AvatarIdentityRow } from "@/components/social";
+import { UserIdentityRow } from "@/components/social";
 import {
   profileBio,
   profileHandle,
@@ -23,14 +23,20 @@ export function ProfileSummaryCard({
 }: ProfileSummaryCardProps) {
   return (
     <View className="border-b border-border/60 bg-background px-4 py-5">
-      <AvatarIdentityRow
+      <UserIdentityRow
         avatarUrl={avatarUrl}
-        meta={[profileHandle(username), meta]}
-        name={displayName}
+        bottomSlot={
+          <Text className="mt-2 text-sm leading-6 text-muted-foreground">
+            {profileBio({ bio })}
+          </Text>
+        }
+        displayName={displayName}
+        locationText={profileHandle(username)}
+        showUsername={false}
+        username={username}
+        size="md"
+        subtitle={meta}
       />
-      <Text className="mt-4 text-sm leading-6 text-muted-foreground">
-        {profileBio({ bio })}
-      </Text>
     </View>
   );
 }

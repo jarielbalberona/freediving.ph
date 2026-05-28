@@ -27,11 +27,11 @@ import {
 } from "@/features/buddies/hooks/use-buddy-finder-query";
 import {
   intentTypeLabel,
-  safeBuddyUsername,
 } from "@/features/buddies/lib/buddy-format";
 import { useLocalDraft } from "@/local/drafts/use-local-draft";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
+import { profileRoute } from "@/features/profiles/lib/profile-format";
 
 type BuddyDraft = {
   area: string;
@@ -64,14 +64,8 @@ const timeWindowOptionLabel = (
   return "Specific date";
 };
 
-const profileHrefForUsername = (username: string | undefined) => {
-  const safeUsername = safeBuddyUsername(username);
-  if (!safeUsername) return undefined;
-  return {
-    pathname: "/(app)/(tabs)/(home)/profile/[username]",
-    params: { username: safeUsername },
-  } as Href;
-};
+const profileHrefForUsername = (username: string | undefined) =>
+  profileRoute(username);
 
 const buddyDraftPayload = (draft: BuddyDraft): CreateBuddyFinderIntentRequest => ({
   area: draft.area.trim(),
@@ -355,11 +349,11 @@ export function BuddiesScreen() {
                 intent={intent}
                 isMessagePending={messageEntry.isPending}
                 key={intent.id}
-                profileHref={
-                  "username" in intent
-                    ? profileHrefForUsername(intent.username)
-                    : undefined
-                }
+                    profileHref={
+                      "username" in intent
+                        ? profileHrefForUsername(intent.username)
+                        : undefined
+                    }
                 onMessage={
                   canUseMemberBuddies &&
                   "authorAppUserId" in intent &&

@@ -569,8 +569,8 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   const divingSection = read(
     "src/features/profiles/components/profile-diving-section.tsx",
   );
-  const postCard = read(
-    "src/features/profiles/components/profile-post-card.tsx",
+  const profileGrid = read(
+    "src/features/profiles/components/profile-media-masonry-grid.tsx",
   );
   const format = read("src/features/profiles/lib/profile-format.ts");
 
@@ -615,14 +615,13 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
     /Stack\.Screen options=\{\{ title: "Profile unavailable" \}\}/,
   );
   assert.match(ownScreen, /Edit profile/);
-  assert.match(ownScreen, /ProfilePostCard/);
+  assert.match(ownScreen, /ProfileMediaMasonryGrid/);
   assert.match(ownScreen, /ProfileDivingSection/);
   assert.match(ownScreen, /Could not update profile\. Saved as draft\./);
   assert.match(ownScreen, /Discard draft/);
-  assert.match(publicScreen, /ProfilePostCard/);
+  assert.match(publicScreen, /ProfileMediaMasonryGrid/);
   assert.match(publicScreen, /ProfileDivingSection/);
-  assert.match(postCard, /safeImageUrl/);
-  assert.match(postCard, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
+  assert.match(profileGrid, /FlashList/);
   assert.match(divingSection, /diveSiteSlug/);
   assert.match(divingSection, /Diving activity is unavailable right now/);
   assert.match(
@@ -637,7 +636,7 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
     publicScreen,
     /upload|editProfile|followAction|sendMessage|report|block/i,
   );
-  assert.doesNotMatch(postCard, /upload|sendMessage|report|block/i);
+  assert.doesNotMatch(profileGrid, /upload|sendMessage|report|block/i);
   assert.ok(format.includes('includes("/")'));
   assert.match(format, /safeImageUrl/);
 });

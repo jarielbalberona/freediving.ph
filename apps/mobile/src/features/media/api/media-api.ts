@@ -3,6 +3,7 @@ import type {
   CreateMediaPostResponse,
   CreateMomentUploadIntentRequest,
   MediaContextType,
+  ListProfileMediaResponse,
   MediaPostComment,
   MediaPostCommentLikeState,
   MediaPostCommentListResponse,
@@ -174,3 +175,15 @@ export const uploadMomentToDirectUrl = async (
     throw new Error("Moment upload failed.");
   }
 };
+
+export const getProfileMediaByUsername = (
+  username: string,
+  params: { limit?: number; cursor?: string } = {},
+) =>
+  fphgoFetch<ListProfileMediaResponse>(
+    withQuery(`/v1/media/by-username/${encodeURIComponent(username)}`, {
+      limit: params.limit,
+      cursor: params.cursor,
+    }),
+    { auth: "optional" },
+  );

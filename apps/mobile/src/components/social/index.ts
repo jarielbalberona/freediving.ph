@@ -7,3 +7,4 @@ export {
   SocialMetadataLine,
   StatusPill,
 } from "./social-primitives";
+export { UserIdentityRow } from "./user-identity-row";

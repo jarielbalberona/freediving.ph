@@ -2,7 +2,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
-import { SocialListRow, SocialMetadataLine, StatusPill } from "@/components/social";
+import { SocialMetadataLine, StatusPill, UserIdentityRow } from "@/components/social";
 import {
   MobileEmptyState,
   MobileErrorState,
@@ -349,25 +349,40 @@ export function GroupDetailScreen() {
           {posts.length > 0 ? (
             <View>
               {posts.map((post) => (
-                <SocialListRow
-                  avatarUrl={post.authorAvatarUrl}
-                  body={post.content}
+                  <UserIdentityRow
+                    avatarUrl={post.authorAvatarUrl}
+                    bottomSlot={
+                      <View className="mt-2">
+                      {post.title ? (
+                        <Text className="text-base font-semibold leading-6 text-foreground">
+                          {post.title}
+                        </Text>
+                      ) : null}
+                      <Text className="mt-1 text-sm leading-6 text-muted-foreground">
+                        {post.content}
+                      </Text>
+                      <SocialMetadataLine
+                        values={[
+                          new Date(post.createdAt).toLocaleDateString("en-PH", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          }),
+                          `${post.commentCount} comments`,
+                        ]}
+                      />
+                    </View>
+                  }
                   key={post.id}
-                  meta={[post.authorName || "Group member", post.authorUsername]}
-                  name={post.authorName || post.authorUsername || "Group member"}
-                  title={post.title}
-                >
-                  <SocialMetadataLine
-                    values={[
-                      new Date(post.createdAt).toLocaleDateString("en-PH", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      }),
-                      `${post.commentCount} comments`,
-                    ]}
-                  />
-                </SocialListRow>
+                  displayName={post.authorName || post.authorUsername || "Group member"}
+                  locationText={new Date(post.createdAt).toLocaleDateString("en-PH", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                  username={post.authorUsername}
+                  showLocation
+                />
               ))}
             </View>
           ) : null}
@@ -393,11 +408,17 @@ export function GroupDetailScreen() {
           {!membersQuery.isLoading && !membersQuery.error && members.length > 0 ? (
             <View>
               {members.map((member) => (
-                <SocialListRow
+                <UserIdentityRow
                   avatarUrl={member.avatarUrl}
-                  meta={[member.username, member.role]}
-                  name={member.displayName || member.username || "Member"}
                   key={member.userId}
+                  bottomSlot={
+                    <Text className="mt-1 text-sm text-muted-foreground">
+                      {member.role}
+                    </Text>
+                  }
+                  displayName={member.displayName || member.username || "Member"}
+                  username={member.username}
+                  showLocation={false}
                 />
               ))}
             </View>
