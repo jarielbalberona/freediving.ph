@@ -15,11 +15,15 @@ import {
   ProfileHeader,
 } from "@/features/profiles/components/profile-header";
 import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
+import { ProfileDiveSpotHighlights } from "@/features/profiles/components/profile-dive-spot-highlights";
 import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
 import {
   useProfileDivingQuery,
 } from "@/features/profiles/hooks/use-profile-activity-query";
-import { useProfileMediaQuery } from "@/features/media/hooks/use-profile-media-query";
+import {
+  normalizeProfileDiveSpotHighlights,
+  useProfileMediaQuery,
+} from "@/features/media/hooks/use-profile-media-query";
 import { usePublicProfileQuery } from "@/features/profiles/hooks/use-public-profile-query";
 import { safeProfileUsername } from "@/features/profiles/lib/profile-format";
 
@@ -35,6 +39,7 @@ export function PublicProfileScreen() {
   const mediaQuery = useProfileMediaQuery(profile?.username);
   const divingQuery = useProfileDivingQuery(profile?.username);
   const posts = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const highlights = normalizeProfileDiveSpotHighlights(posts);
   const presences = divingQuery.data?.presences ?? [];
   const affinities = divingQuery.data?.affinities ?? [];
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
@@ -99,15 +104,17 @@ export function PublicProfileScreen() {
     <>
       <Stack.Screen options={{ title: profile.displayName }} />
       <MobileScrollScreen subtitle="Diver profile" title="Profile">
-        <MobileSection>
-          <ProfileHeader
-            isOwner={isOwner}
-            profile={profile as HeaderProfile}
-            stats={headerStats}
-          />
-        </MobileSection>
+      <MobileSection>
+        <ProfileHeader
+          isOwner={isOwner}
+          profile={profile as HeaderProfile}
+          stats={headerStats}
+        />
+      </MobileSection>
 
-        <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
+      <ProfileDiveSpotHighlights highlights={highlights} />
+
+      <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
 
         {activeTab === "posts" ? (
           <MobileSection title="Posts">

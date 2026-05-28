@@ -72,7 +72,7 @@ function ChikaDetailSkeleton() {
                 <Skeleton className="h-4 w-64 max-w-full" />
                 <Skeleton className="h-5 w-20 rounded-full" />
               </div>
-              <Skeleton className="h-7 w-3/4 max-w-2xl" />
+              <Skeleton className="h-7 w-3/4 max-w-2xl!" />
               <div className="mt-3 space-y-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-11/12" />

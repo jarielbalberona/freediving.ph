@@ -222,7 +222,7 @@ export function ManageSchoolsPage() {
                   </Button>
                 }
               />
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl!">
                 <DialogHeader>
                   <DialogTitle>Add school</DialogTitle>
                 </DialogHeader>
@@ -672,7 +672,7 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
                       : "Open capacity"}
                   </span>
                   {session.capacity &&
-                  session.assignedBookingCount >= session.capacity ? (
+                    session.assignedBookingCount >= session.capacity ? (
                     <span>Full</span>
                   ) : null}
                   <span>
@@ -1804,7 +1804,7 @@ function SessionForm({
     courses.find((course) => course.id === firstCourse) ?? courses[0];
   const firstCourseMode =
     initialCourse?.locationMode === "structured" ||
-    initialCourse?.locationMode === "text_only"
+      initialCourse?.locationMode === "text_only"
       ? "inherit_course"
       : "inherit_school";
   const [form, setForm] = useState<CreateCourseSessionRequest>({
@@ -1858,7 +1858,7 @@ function SessionForm({
     const course = courses.find((item) => item.id === courseId);
     const locationMode =
       course?.locationMode === "structured" ||
-      course?.locationMode === "text_only"
+        course?.locationMode === "text_only"
         ? "inherit_course"
         : "inherit_school";
     setForm({ ...form, courseId, locationMode });
@@ -2309,7 +2309,7 @@ function BookingRow({
               {booking.sessionTitle || "Not assigned"}
             </p>
             {booking.bookingMode === "preferred_date" &&
-            booking.preferredDate ? (
+              booking.preferredDate ? (
               <p>
                 <span className="text-foreground">Preferred:</span>{" "}
                 {booking.preferredDate}
@@ -2418,8 +2418,8 @@ function BookingRow({
                       </Button>
                     ) : null}
                     {!canCancel &&
-                    booking.status !== "pending_review" &&
-                    booking.status !== "scheduled" ? (
+                      booking.status !== "pending_review" &&
+                      booking.status !== "scheduled" ? (
                       <p className="text-xs text-muted-foreground">
                         No status actions are available for this booking.
                       </p>

@@ -18,6 +18,16 @@ import {
   MobileLoadingState,
 } from "@/components/shell";
 
+type ProfileMediaDisplayCompat = {
+  displayUrl?: string | null;
+  dialogUrl?: string | null;
+};
+
+/**
+ * Compatibility guard for richer media URL payloads that can appear on web,
+ * while this mobile profile media endpoint currently returns thumbnail/preview URLs.
+ */
+
 type ProfileMediaGridItem = {
   caption: string | null;
   id: string;
@@ -40,11 +50,29 @@ const clampAspectRatio = (ratio: number) =>
 const normalizePositiveNumber = (value: number | undefined | null) =>
   typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 
-const getMediaSourceUrl = (item: ProfileMediaItem) =>
-  item.previewUrl || item.thumbnailUrl || item.playbackUrl;
+const getMediaSourceUrl = (item: ProfileMediaItem) => {
+  const displayUrl = (item as ProfileMediaDisplayCompat).displayUrl;
+  const dialogUrl = (item as ProfileMediaDisplayCompat).dialogUrl;
+  return (
+    displayUrl ||
+    item.thumbnailUrl ||
+    item.previewUrl ||
+    dialogUrl ||
+    item.playbackUrl
+  );
+};
 
-const getMediaViewerUrl = (item: ProfileMediaItem) =>
-  item.previewUrl || item.thumbnailUrl || item.playbackUrl;
+const getMediaViewerUrl = (item: ProfileMediaItem) => {
+  const displayUrl = (item as ProfileMediaDisplayCompat).displayUrl;
+  const dialogUrl = (item as ProfileMediaDisplayCompat).dialogUrl;
+  return (
+    dialogUrl ||
+    displayUrl ||
+    item.previewUrl ||
+    item.thumbnailUrl ||
+    item.playbackUrl
+  );
+};
 
 const normalizeMedia = (
   item: ProfileMediaItem,
@@ -91,10 +119,16 @@ export function ProfileMediaMasonryGrid({
   const { width } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(0);
   const availableWidth = containerWidth > 0 ? containerWidth : Math.max(width - HORIZONTAL_PADDING, 0);
+  const columnCount = PROFILE_MEDIA_COLUMNS;
   const tileWidth = useMemo(
     () =>
-      Math.max(80, Math.floor((availableWidth - GRID_GAP * (PROFILE_MEDIA_COLUMNS - 1)) / PROFILE_MEDIA_COLUMNS)),
-    [availableWidth],
+      Math.max(
+        80,
+        Math.floor(
+          (availableWidth - HORIZONTAL_PADDING - GRID_GAP * (columnCount - 1)) / columnCount,
+        ),
+      ),
+    [availableWidth, columnCount],
   );
 
   const normalizedItems = useMemo(
@@ -149,15 +183,21 @@ export function ProfileMediaMasonryGrid({
         <FlashList<ProfileMediaGridItem>
           data={normalizedItems}
           keyExtractor={(item) => item.id}
-          numColumns={PROFILE_MEDIA_COLUMNS}
+          masonry
+          numColumns={columnCount}
           onEndReached={hasNextPage ? onLoadMore : undefined}
           onEndReachedThreshold={0.65}
+          contentContainerStyle={{
+            paddingLeft: Math.max(0, Math.floor(HORIZONTAL_PADDING / 2)),
+            paddingRight: Math.max(0, Math.floor(HORIZONTAL_PADDING / 2)),
+            paddingTop: 2,
+            paddingBottom: 8,
+          }}
           renderItem={({ item, index }) => (
             <View
               className="overflow-hidden rounded-lg bg-secondary"
               style={{
                 marginBottom: GRID_GAP,
-                marginRight: index % PROFILE_MEDIA_COLUMNS === PROFILE_MEDIA_COLUMNS - 1 ? 0 : GRID_GAP,
                 width: item.tileWidth,
               }}
             >

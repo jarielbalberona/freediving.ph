@@ -10,13 +10,17 @@ import {
   MobileSection,
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
-import { useProfileMediaQuery } from "@/features/media/hooks/use-profile-media-query";
+import {
+  normalizeProfileDiveSpotHighlights,
+  useProfileMediaQuery,
+} from "@/features/media/hooks/use-profile-media-query";
 import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
 import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
 import {
   type HeaderProfile,
   ProfileHeader,
 } from "@/features/profiles/components/profile-header";
+import { ProfileDiveSpotHighlights } from "@/features/profiles/components/profile-dive-spot-highlights";
 import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
 import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
 import {
@@ -50,6 +54,7 @@ export function ProfileScreen() {
   );
   const outbox = useOutbox();
   const posts = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const highlights = normalizeProfileDiveSpotHighlights(posts);
   const presences = divingQuery.data?.presences ?? [];
   const affinities = divingQuery.data?.affinities ?? [];
 
@@ -127,6 +132,8 @@ export function ProfileScreen() {
           stats={headerStats}
         />
       </MobileSection>
+
+      <ProfileDiveSpotHighlights highlights={highlights} />
 
       <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
 

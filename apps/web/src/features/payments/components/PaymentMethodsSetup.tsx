@@ -178,7 +178,7 @@ export function PaymentMethodsSetup({
           }
         }}
       >
-        <DialogContent className="gap-4 sm:max-w-2xl">
+        <DialogContent className="gap-4 sm:max-w-2xl!">
           <DialogHeader>
             <DialogTitle>Add payment method</DialogTitle>
             <DialogDescription>
@@ -341,7 +341,7 @@ function PaymentMethodEditorRow({
           }
         }}
       >
-        <DialogContent className="gap-4 sm:max-w-2xl">
+        <DialogContent className="gap-4 sm:max-w-2xl!">
           <DialogHeader>
             <DialogTitle>
               {form.name || defaultPaymentMethodName(form.type)}
