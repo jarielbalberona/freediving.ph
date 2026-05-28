@@ -450,7 +450,7 @@ func (h *Handlers) ListProfileMedia(w http.ResponseWriter, r *http.Request) {
 		limit = int32(parsed)
 	}
 
-	result, err := h.service.ListProfileMoments(r.Context(), mediaservice.ListProfileMediaInput{
+	result, err := h.service.ListProfileMedia(r.Context(), mediaservice.ListProfileMediaInput{
 		Username:     chi.URLParam(r, "username"),
 		ViewerUserID: actorIDIfPresent(r),
 		Cursor:       strings.TrimSpace(r.URL.Query().Get("cursor")),

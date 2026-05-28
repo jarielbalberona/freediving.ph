@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 
-import { SocialActionRow, SocialListRow } from "@/components/social";
+import { SocialActionRow, SocialListRow, SocialMetadataLine } from "@/components/social";
 import {
   MobileEmptyState,
   MobileErrorState,
@@ -162,7 +162,7 @@ export function EventDetailScreen() {
     <>
       <Stack.Screen options={{ title: event.title }} />
       <MobileScrollScreen subtitle={eventTypeLabel(event.type)} title="Events">
-        <MobileSection description={eventSummary(event)} title={event.title}>
+        <MobileSection title={event.title}>
           <View className="gap-4">
             {coverUrl ? (
               <Image
@@ -174,21 +174,18 @@ export function EventDetailScreen() {
               />
             ) : null}
 
-            <View className="flex-row flex-wrap gap-2">
-              <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                {eventTypeLabel(event.type)}
+            <View className="gap-2">
+              <Text className="text-sm text-muted-foreground">
+                {eventSummary(event)}
               </Text>
-              <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                {eventDifficultyLabel(event.difficulty)}
-              </Text>
-              <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                {eventPriceLabel(event)}
-              </Text>
-              {event.beginnerFriendly ? (
-                <Text className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                  Beginner friendly
-                </Text>
-              ) : null}
+              <SocialMetadataLine
+                values={[
+                  eventTypeLabel(event.type),
+                  eventDifficultyLabel(event.difficulty),
+                  eventPriceLabel(event),
+                  event.beginnerFriendly ? "Beginner friendly" : undefined,
+                ]}
+              />
             </View>
 
             {body ? (
@@ -198,7 +195,7 @@ export function EventDetailScreen() {
         </MobileSection>
 
         <MobileSection title="Event details">
-          <View className="gap-3">
+          <View className="gap-2 divide-y divide-border/40">
             <EventDetailRow
               label="Schedule"
               value={formatEventDate(event.startsAt, event.endsAt, event.timezone)}
@@ -211,11 +208,6 @@ export function EventDetailScreen() {
               label="Capacity"
               value={event.capacity ? `${event.capacity} divers` : undefined}
             />
-          </View>
-        </MobileSection>
-
-        <MobileSection title="Dive information">
-          <View className="gap-3">
             <EventDetailRow label="Type" value={eventTypeLabel(event.type)} />
             <EventDetailRow
               label="Difficulty"

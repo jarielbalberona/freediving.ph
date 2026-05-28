@@ -45,7 +45,15 @@ export function NotificationCard({ notification }: NotificationCardProps) {
 
   return (
     <Link href={href} asChild>
-      <Pressable accessibilityRole="link">
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Open ${notificationTitle(notification)} notification`}
+        className="active:opacity-80"
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.9 : 1,
+          transform: pressed ? [{ scale: 0.985 }] : [],
+        })}
+      >
         <NotificationCardContent notification={notification} />
       </Pressable>
     </Link>

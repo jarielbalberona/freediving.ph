@@ -9,7 +9,6 @@ import type { ChikaReactionType } from "@freediving.ph/types";
 import type { HomeActivityCardModel } from "@/features/home-feed/lib/activity-card-model";
 import {
   MobileFeedActionRow,
-  MobileFeedCommentsSheet,
   MobileFeedOverflowMenu,
   MobileFeedPostHeader,
   MobileMediaGalleryPreview,
@@ -84,7 +83,11 @@ function LinkedTextBlock({
 
   return (
     <Link href={href} asChild>
-      <Pressable accessibilityRole="link" className="active:opacity-80">
+      <Pressable
+        accessibilityLabel={`Open ${title}`}
+        accessibilityRole="link"
+        className="active:opacity-80"
+      >
         {content}
       </Pressable>
     </Link>
@@ -162,6 +165,7 @@ export function MobileMediaFeedItem({
           },
           {
             accessibilityLabel: "Open media comments",
+            disabled: !item.media?.postId,
             count: item.media?.commentCount ?? 0,
             icon: "chatbubble-outline",
             label: "Comments",
@@ -190,7 +194,6 @@ export function MobileChikaFeedItem({
   onChikaVote,
   onNotInterested,
 }: CommonFeedItemProps) {
-  const [commentsOpen, setCommentsOpen] = useState(false);
   const nextUpvote = item.chika?.userReaction === "upvote" ? null : "upvote";
   const nextDownvote =
     item.chika?.userReaction === "downvote" ? null : "downvote";
@@ -223,7 +226,8 @@ export function MobileChikaFeedItem({
             count: item.chika?.replyCount ?? 0,
             icon: "chatbubble-outline",
             label: "Replies",
-            onPress: () => setCommentsOpen(true),
+            disabled: !item.href,
+            onPress: item.href ? () => openHref(item.href) : undefined,
           },
           {
             accessibilityLabel: "Share Chika",
@@ -233,12 +237,6 @@ export function MobileChikaFeedItem({
           },
         ]}
       />
-      <MobileFeedCommentsSheet
-        item={item}
-        onClose={() => setCommentsOpen(false)}
-        onOpenDetail={item.href ? () => openHref(item.href) : undefined}
-        visible={commentsOpen}
-      />
     </MobileFeedArticle>
   );
 }
@@ -247,8 +245,6 @@ export function MobileEventFeedItem({
   item,
   onNotInterested,
 }: CommonFeedItemProps) {
-  const [commentsOpen, setCommentsOpen] = useState(false);
-
   return (
     <MobileFeedArticle item={item} onNotInterested={onNotInterested}>
       <LinkedTextBlock body={item.body} href={item.href} title={item.title} />
@@ -265,14 +261,9 @@ export function MobileEventFeedItem({
           {
             accessibilityLabel: "Open event",
             icon: "calendar-outline",
-            label: "Event",
+            label: "View event",
+            disabled: !item.href,
             onPress: () => openHref(item.href),
-          },
-          {
-            accessibilityLabel: "Open event discussion",
-            icon: "chatbubble-outline",
-            label: "Updates",
-            onPress: () => setCommentsOpen(true),
           },
           {
             accessibilityLabel: "Share event",
@@ -282,12 +273,6 @@ export function MobileEventFeedItem({
           },
         ]}
       />
-      <MobileFeedCommentsSheet
-        item={item}
-        onClose={() => setCommentsOpen(false)}
-        onOpenDetail={item.href ? () => openHref(item.href) : undefined}
-        visible={commentsOpen}
-      />
     </MobileFeedArticle>
   );
 }
@@ -296,8 +281,6 @@ export function MobileDiveReportFeedItem({
   item,
   onNotInterested,
 }: CommonFeedItemProps) {
-  const [commentsOpen, setCommentsOpen] = useState(false);
-
   return (
     <MobileFeedArticle item={item} onNotInterested={onNotInterested}>
       <LinkedTextBlock
@@ -311,14 +294,9 @@ export function MobileDiveReportFeedItem({
           {
             accessibilityLabel: "Open dive spot",
             icon: "compass-outline",
-            label: "Spot",
+            label: "View report",
+            disabled: !item.href,
             onPress: () => openHref(item.href),
-          },
-          {
-            accessibilityLabel: "Open dive report comments",
-            icon: "chatbubble-outline",
-            label: "Discuss",
-            onPress: () => setCommentsOpen(true),
           },
           {
             accessibilityLabel: "Share dive report",
@@ -327,12 +305,6 @@ export function MobileDiveReportFeedItem({
             onPress: () => void shareFeedItem(item),
           },
         ]}
-      />
-      <MobileFeedCommentsSheet
-        item={item}
-        onClose={() => setCommentsOpen(false)}
-        onOpenDetail={item.href ? () => openHref(item.href) : undefined}
-        visible={commentsOpen}
       />
     </MobileFeedArticle>
   );
@@ -356,6 +328,7 @@ export function MobileBuddySignalFeedItem({
             accessibilityLabel: "Open buddy profile",
             icon: "person-circle-outline",
             label: "Profile",
+            disabled: !item.href,
             onPress: () => openHref(item.href),
           },
           {
@@ -404,6 +377,7 @@ export function MobileUnknownFeedItem({
             accessibilityLabel: "Open feed item",
             icon: "open-outline",
             label: "Open",
+            disabled: !item.href,
             onPress: () => openHref(item.href),
           },
         ]}

@@ -2,6 +2,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { Pressable, Text, View } from "react-native";
 
+const pressedFeedbackStyle = (pressed: boolean) => ({
+  opacity: pressed ? 0.95 : 1,
+  transform: pressed ? [{ scale: 0.985 }] : [],
+});
+
 type SocialAvatarProps = {
   imageUrl?: string | null;
   label: string;
@@ -143,7 +148,12 @@ export function SocialListRow({
   if (!onPress) return content;
 
   return (
-    <Pressable accessibilityRole="button" className="active:bg-secondary/60" onPress={onPress}>
+    <Pressable
+      accessibilityRole="button"
+      className="active:bg-secondary/60"
+      onPress={onPress}
+      style={({ pressed }) => pressedFeedbackStyle(pressed)}
+    >
       {content}
     </Pressable>
   );
@@ -171,6 +181,7 @@ export function SocialActionRow({ actions }: { actions: SocialAction[] }) {
           disabled={action.disabled}
           key={action.accessibilityLabel}
           onPress={action.disabled ? undefined : action.onPress}
+          style={({ pressed }) => pressedFeedbackStyle(pressed && !action.disabled)}
         >
           <Ionicons
             color={action.active ? "#0677A8" : "#475569"}
@@ -198,6 +209,7 @@ export function CompactOverflowAction({ onPress }: { onPress?: () => void }) {
       className="size-10 items-center justify-center rounded-full active:bg-secondary"
       hitSlop={8}
       onPress={onPress}
+      style={({ pressed }) => pressedFeedbackStyle(pressed)}
     >
       <Ionicons color="#64748b" name="ellipsis-horizontal" size={20} />
     </Pressable>

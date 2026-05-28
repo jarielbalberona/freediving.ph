@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { StructuredData } from "@/features/public-content/components/StructuredData";
 import { breadcrumbJsonLd, webPageJsonLd } from "@/features/public-content/seo/jsonLd";
@@ -34,7 +35,15 @@ export default function BuddiesPage() {
           ]),
         ]}
       />
-      <BuddiesPageClient />
+      <Suspense
+        fallback={
+          <div className="py-12 text-center text-muted-foreground">
+            Loading buddies...
+          </div>
+        }
+      >
+        <BuddiesPageClient />
+      </Suspense>
     </>
   );
 }

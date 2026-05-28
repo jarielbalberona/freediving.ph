@@ -2,7 +2,7 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 
-import { AvatarIdentityRow, SocialListRow, SocialMetadataLine, StatusPill } from "@/components/social";
+import { SocialListRow, SocialMetadataLine, StatusPill } from "@/components/social";
 import {
   MobileEmptyState,
   MobileErrorState,
@@ -111,116 +111,129 @@ export function GroupDetailScreen() {
     acceptInviteMutation.isPending ||
     rejectInviteMutation.isPending;
 
+  const visibilityLabel =
+    group.visibility === "public" ? "Public" : "Private";
+
   return (
     <>
       <Stack.Screen options={{ title: group.name }} />
       <MobileScrollScreen subtitle="Group" title="Groups">
-        <MobileSection title={group.name} description={group.bio || group.description}>
-          <View className="gap-3">
+        <View className="gap-3">
+          <Text className="text-base font-semibold text-foreground">{group.name}</Text>
+          <View className="gap-1">
             <SocialMetadataLine
               values={[
-                group.visibility,
+                visibilityLabel,
+                group.joinPolicy === "open" ? "Open to join" : "Invite only",
                 `${group.memberCount} members`,
                 `${group.postCount} posts`,
               ]}
             />
-            {isMember ? (
-              <View className="flex-row">
-                <StatusPill tone="primary">Joined</StatusPill>
-              </View>
-            ) : null}
-            {canJoin ? (
-              <MobileButton
-                disabled={membershipPending}
-                onPress={() => {
-                  setActionMessage(null);
-                  joinMutation.mutate(undefined, {
-                    onError: () =>
-                      setActionMessage("Could not join this group. Try again."),
-                    onSuccess: () => setActionMessage("You joined this group."),
-                  });
-                }}
-              >
-                Join group
-              </MobileButton>
-            ) : null}
-            {isSignedIn && isInvited ? (
-              <View className="gap-2">
-                <Text className="text-sm text-muted-foreground">
-                  You have an invitation to this group.
-                </Text>
-                <View className="flex-row gap-2">
-                  <View className="flex-1">
-                    <MobileButton
-                      disabled={membershipPending}
-                      onPress={() => {
-                        setActionMessage(null);
-                        acceptInviteMutation.mutate(undefined, {
-                          onError: () =>
-                            setActionMessage(
-                              "Could not accept this invite. Try again.",
-                            ),
-                          onSuccess: () =>
-                            setActionMessage("Group invitation accepted."),
-                        });
-                      }}
-                    >
-                      Accept invite
-                    </MobileButton>
-                  </View>
-                  <View className="flex-1">
-                    <MobileButton
-                      disabled={membershipPending}
-                      variant="secondary"
-                      onPress={() => {
-                        setActionMessage(null);
-                        rejectInviteMutation.mutate(undefined, {
-                          onError: () =>
-                            setActionMessage(
-                              "Could not decline this invite. Try again.",
-                            ),
-                          onSuccess: () =>
-                            setActionMessage("Group invitation declined."),
-                        });
-                      }}
-                    >
-                      Decline
-                    </MobileButton>
-                  </View>
-                </View>
-              </View>
-            ) : null}
-            {isSignedIn && !isMember && group.joinPolicy === "invite_only" && !isInvited ? (
-              <Text className="text-sm text-muted-foreground">
-                This group is invite only.
-              </Text>
-            ) : null}
-            {canLeave ? (
-              <MobileButton
-                disabled={membershipPending}
-                variant="danger"
-                onPress={() => {
-                  setActionMessage(null);
-                  leaveMutation.mutate(undefined, {
-                    onError: () =>
-                      setActionMessage("Could not leave this group. Try again."),
-                    onSuccess: () => setActionMessage("You left this group."),
-                  });
-                }}
-              >
-                Leave group
-              </MobileButton>
-            ) : null}
-            {actionMessage ? (
-              <Text className="text-sm text-muted-foreground">{actionMessage}</Text>
-            ) : null}
-            {!isSignedIn ? (
-              <Text className="text-sm text-muted-foreground">
-                Sign in to join and post.
+            {(group.bio || group.description) ? (
+              <Text className="text-sm leading-6 text-muted-foreground">
+                {group.bio || group.description}
               </Text>
             ) : null}
           </View>
-        </MobileSection>
+          {isMember ? (
+            <View className="flex-row items-center gap-2">
+              <StatusPill tone="primary">Joined</StatusPill>
+              <Text className="text-sm text-muted-foreground">
+                You are a member.
+              </Text>
+            </View>
+          ) : null}
+          {canJoin ? (
+            <MobileButton
+              disabled={membershipPending}
+              onPress={() => {
+                setActionMessage(null);
+                joinMutation.mutate(undefined, {
+                  onError: () =>
+                    setActionMessage("Could not join this group. Try again."),
+                  onSuccess: () => setActionMessage("You joined this group."),
+                });
+              }}
+            >
+              Join group
+            </MobileButton>
+          ) : null}
+          {isSignedIn && isInvited ? (
+            <View className="gap-2">
+              <Text className="text-sm text-muted-foreground">
+                You have an invitation to this group.
+              </Text>
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <MobileButton
+                    disabled={membershipPending}
+                    onPress={() => {
+                      setActionMessage(null);
+                      acceptInviteMutation.mutate(undefined, {
+                        onError: () =>
+                          setActionMessage(
+                            "Could not accept this invite. Try again.",
+                          ),
+                        onSuccess: () =>
+                          setActionMessage("Group invitation accepted."),
+                      });
+                    }}
+                  >
+                    Accept invite
+                  </MobileButton>
+                </View>
+                <View className="flex-1">
+                  <MobileButton
+                    disabled={membershipPending}
+                    variant="secondary"
+                    onPress={() => {
+                      setActionMessage(null);
+                      rejectInviteMutation.mutate(undefined, {
+                        onError: () =>
+                          setActionMessage(
+                            "Could not decline this invite. Try again.",
+                          ),
+                        onSuccess: () =>
+                          setActionMessage("Group invitation declined."),
+                      });
+                    }}
+                  >
+                    Decline
+                  </MobileButton>
+                </View>
+              </View>
+            </View>
+          ) : null}
+          {isSignedIn && !isMember && group.joinPolicy === "invite_only" && !isInvited ? (
+            <Text className="text-sm text-muted-foreground">
+              This group is invite only.
+            </Text>
+          ) : null}
+          {canLeave ? (
+            <MobileButton
+              disabled={membershipPending}
+              variant="danger"
+              onPress={() => {
+                setActionMessage(null);
+                leaveMutation.mutate(undefined, {
+                  onError: () =>
+                    setActionMessage("Could not leave this group. Try again."),
+                  onSuccess: () => setActionMessage("You left this group."),
+                });
+              }}
+            >
+              Leave group
+            </MobileButton>
+          ) : null}
+          {actionMessage ? (
+            <Text className="text-sm text-muted-foreground">{actionMessage}</Text>
+          ) : null}
+          {!isSignedIn ? (
+            <Text className="text-sm text-muted-foreground">
+              Sign in to join and post.
+            </Text>
+          ) : null}
+        </View>
 
         {isMember ? (
           <MobileSection title="Post to group">
@@ -306,7 +319,8 @@ export function GroupDetailScreen() {
           </MobileSection>
         ) : null}
 
-        <MobileSection title="Posts">
+        <View className="gap-1">
+          <Text className="text-base font-semibold text-foreground">Posts</Text>
           {postsQuery.isLoading ? <MobileLoadingState message="Loading posts." /> : null}
           {postsQuery.error ? (
             <View className="gap-3">
@@ -336,18 +350,31 @@ export function GroupDetailScreen() {
             <View>
               {posts.map((post) => (
                 <SocialListRow
+                  avatarUrl={post.authorAvatarUrl}
                   body={post.content}
                   key={post.id}
-                  meta={[]}
-                  name={post.authorName || "Group member"}
+                  meta={[post.authorName || "Group member", post.authorUsername]}
+                  name={post.authorName || post.authorUsername || "Group member"}
                   title={post.title}
-                />
+                >
+                  <SocialMetadataLine
+                    values={[
+                      new Date(post.createdAt).toLocaleDateString("en-PH", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      }),
+                      `${post.commentCount} comments`,
+                    ]}
+                  />
+                </SocialListRow>
               ))}
             </View>
           ) : null}
-        </MobileSection>
+        </View>
 
-        <MobileSection title="Members">
+        <View className="gap-1">
+          <Text className="text-base font-semibold text-foreground">Members</Text>
           {membersQuery.isLoading ? (
             <MobileLoadingState message="Loading members." />
           ) : null}
@@ -366,19 +393,16 @@ export function GroupDetailScreen() {
           {!membersQuery.isLoading && !membersQuery.error && members.length > 0 ? (
             <View>
               {members.map((member) => (
-                <View
-                  className="border-b border-border/60 bg-background px-4 py-3"
+                <SocialListRow
+                  avatarUrl={member.avatarUrl}
+                  meta={[member.username, member.role]}
+                  name={member.displayName || member.username || "Member"}
                   key={member.userId}
-                >
-                  <AvatarIdentityRow
-                    meta={[member.username, member.role]}
-                    name={member.displayName || member.username || "Member"}
-                  />
-                </View>
+                />
               ))}
             </View>
           ) : null}
-        </MobileSection>
+        </View>
       </MobileScrollScreen>
     </>
   );

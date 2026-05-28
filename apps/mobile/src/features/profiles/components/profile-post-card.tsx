@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Link } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
-import { SocialActionRow, SocialListRow } from "@/components/social";
+import { SocialListRow } from "@/components/social";
 import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
 import { safeImageUrl } from "@/features/profiles/lib/profile-format";
 import type { ProfilePost } from "@freediving.ph/types";
@@ -13,10 +13,16 @@ type ProfilePostCardProps = {
 
 export function ProfilePostCard({ post }: ProfilePostCardProps) {
   const imageUrl = safeImageUrl(post.thumbUrl);
+  const mediaMetrics = [
+    `${post.likeCount} likes`,
+    `${post.commentCount} comments`,
+    post.siteArea,
+  ].filter(Boolean);
+
   const content = (
     <SocialListRow
       body={post.caption}
-      meta={[post.siteArea]}
+      meta={mediaMetrics}
       name={post.siteName || "Dive post"}
       title={post.siteName || "Dive post"}
     >
@@ -30,20 +36,6 @@ export function ProfilePostCard({ post }: ProfilePostCardProps) {
           transition={150}
         />
       ) : null}
-      <SocialActionRow
-        actions={[
-          {
-            accessibilityLabel: "Profile post likes",
-            icon: "fish-outline",
-            label: `${post.likeCount} likes`,
-          },
-          {
-            accessibilityLabel: "Profile post comments",
-            icon: "chatbubble-outline",
-            label: `${post.commentCount} comments`,
-          },
-        ]}
-      />
     </SocialListRow>
   );
 
@@ -57,7 +49,17 @@ export function ProfilePostCard({ post }: ProfilePostCardProps) {
       }}
       asChild
     >
-      <Pressable accessibilityRole="link">{content}</Pressable>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Open post ${post.siteName || "dive post"}`}
+        className="active:opacity-80"
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.9 : 1,
+          transform: pressed ? [{ scale: 0.985 }] : [],
+        })}
+      >
+        {content}
+      </Pressable>
     </Link>
   );
 }

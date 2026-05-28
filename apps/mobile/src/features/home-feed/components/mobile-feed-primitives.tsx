@@ -18,6 +18,11 @@ import type {
   HomeActivityMediaItem,
 } from "@/features/home-feed/lib/activity-card-model";
 
+const pressedFeedbackStyle = (pressed: boolean) => ({
+  opacity: pressed ? 0.95 : 1,
+  transform: pressed ? [{ scale: 0.985 }] : [],
+});
+
 const relativeTime = (value: string) => {
   const timestamp = new Date(value).getTime();
   if (!Number.isFinite(timestamp)) return "";
@@ -104,6 +109,7 @@ export function MobileFeedPostHeader({
           className="size-10 items-center justify-center rounded-full active:bg-secondary"
           hitSlop={8}
           onPress={onMorePress}
+          style={({ pressed }) => pressedFeedbackStyle(pressed)}
         >
           <Ionicons color="#64748b" name="ellipsis-horizontal" size={20} />
         </Pressable>
@@ -135,6 +141,7 @@ export function MobileFeedActionRow({ actions }: { actions: FeedAction[] }) {
           disabled={action.disabled}
           key={action.accessibilityLabel}
           onPress={action.disabled ? undefined : action.onPress}
+          style={({ pressed }) => pressedFeedbackStyle(pressed && !action.disabled)}
         >
           <Ionicons
             color={action.active ? "#0677A8" : "#475569"}
@@ -182,6 +189,7 @@ export function MobileFeedOverflowMenu({
           <Pressable
             accessibilityRole="button"
             className="min-h-12 flex-row items-center gap-3 rounded-2xl px-2 active:bg-secondary"
+            style={({ pressed }) => pressedFeedbackStyle(pressed)}
             onPress={() => {
               onClose();
               onNotInterested();
@@ -190,57 +198,6 @@ export function MobileFeedOverflowMenu({
             <Ionicons color="#475569" name="eye-off-outline" size={20} />
             <Text className="text-sm font-semibold text-foreground">
               Show me less like this
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </BottomSheet>
-  );
-}
-
-export function MobileFeedCommentsSheet({
-  item,
-  onClose,
-  onOpenDetail,
-  visible,
-}: {
-  item: HomeActivityCardModel;
-  onClose: () => void;
-  onOpenDetail?: () => void;
-  visible: boolean;
-}) {
-  return (
-    <BottomSheet
-      isPresented={visible}
-      onDismiss={onClose}
-      snapPoints={[{ fraction: 0.45 }]}
-    >
-      <View className="gap-3 bg-background pb-5">
-        <View>
-          <Text className="text-base font-semibold text-foreground">
-            Comments
-          </Text>
-          <Text
-            className="mt-1 text-sm text-muted-foreground"
-            numberOfLines={1}
-          >
-            {item.title}
-          </Text>
-        </View>
-        <Text className="text-sm leading-6 text-muted-foreground">
-          Comments open on the full post for this feed item.
-        </Text>
-        {onOpenDetail ? (
-          <Pressable
-            accessibilityRole="button"
-            className="min-h-12 items-center justify-center rounded-2xl bg-primary px-4"
-            onPress={() => {
-              onClose();
-              onOpenDetail();
-            }}
-          >
-            <Text className="text-sm font-semibold text-primary-foreground">
-              Open post
             </Text>
           </Pressable>
         ) : null}

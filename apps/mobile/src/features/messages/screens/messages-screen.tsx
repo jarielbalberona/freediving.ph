@@ -43,7 +43,15 @@ function ThreadRow({ thread }: { thread: MessagingThreadSummary }) {
       }
       asChild
     >
-      <Pressable accessibilityRole="link">
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Open thread with ${name}`}
+        className="active:opacity-80"
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.9 : 1,
+          transform: pressed ? [{ scale: 0.985 }] : [],
+        })}
+      >
         <SocialListRow
           body={lastMessage}
           meta={[thread.activeRequest ? "Message request" : undefined]}

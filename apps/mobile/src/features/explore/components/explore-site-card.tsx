@@ -127,7 +127,15 @@ export function ExploreSiteCard({
       }}
       asChild
     >
-      <Pressable accessibilityRole="link">
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Open dive spot ${site.name}`}
+        className="active:opacity-80"
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.9 : 1,
+          transform: pressed ? [{ scale: 0.985 }] : [],
+        })}
+      >
         <ExploreSiteCardContent
           actionsDisabled={actionsDisabled}
           onLike={onLike}

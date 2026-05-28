@@ -27,6 +27,11 @@ import { useMediaPostCommentsQuery } from "@/features/media/hooks/use-media-post
 import { MobileErrorState } from "@/components/shell";
 import { LinkedText } from "@/features/shared/links/components/LinkedText";
 
+const pressedFeedbackStyle = (pressed: boolean) => ({
+  opacity: pressed ? 0.92 : 1,
+  transform: pressed ? [{ scale: 0.97 }] : [],
+});
+
 const relativeTime = (value: string) => {
   const timestamp = new Date(value).getTime();
   if (!Number.isFinite(timestamp)) return "";
@@ -73,7 +78,7 @@ function MediaPostCommentRow({
   onLike?: () => void;
 }) {
   return (
-    <View className="flex-row gap-2.5">
+        <View className="flex-row gap-2.5">
       {comment.author.avatarUrl ? (
         <Image
           accessibilityLabel=""
@@ -102,15 +107,24 @@ function MediaPostCommentRow({
           <Pressable
             accessibilityLabel={comment.viewerHasLiked ? "Unlike comment" : "Like comment"}
             accessibilityRole="button"
-            className="flex-row items-center gap-1 rounded-full bg-secondary/70 px-3 py-1"
+            className={`flex-row items-center gap-1 rounded-full bg-secondary/70 px-3 py-1 ${
+              isLiking ? "opacity-60" : ""
+            }`}
             disabled={!onLike || isLiking}
             onPress={onLike}
+            style={({ pressed }) =>
+              pressedFeedbackStyle(pressed && !Boolean(!onLike || isLiking))
+            }
           >
-            <Ionicons
-              color="#475569"
-              name={comment.viewerHasLiked ? "heart" : "heart-outline"}
-              size={14}
-            />
+            {isLiking ? (
+              <ActivityIndicator color="#475569" size="small" />
+            ) : (
+              <Ionicons
+                color="#475569"
+                name={comment.viewerHasLiked ? "heart" : "heart-outline"}
+                size={14}
+              />
+            )}
             <Text className="text-[11px] font-semibold text-muted-foreground">
               {comment.likeCount > 0 ? comment.likeCount.toLocaleString() : "Like"}
             </Text>
@@ -119,11 +133,18 @@ function MediaPostCommentRow({
             <Pressable
               accessibilityLabel="Delete comment"
               accessibilityRole="button"
-              className="rounded-full bg-secondary/70 px-3 py-1"
+              className={`rounded-full bg-secondary/70 px-3 py-1 ${isDeleting ? "opacity-60" : ""}`}
               disabled={isDeleting}
               onPress={onDelete}
+              style={({ pressed }) =>
+                pressedFeedbackStyle(pressed && !isDeleting)
+              }
             >
-              <Ionicons color="#475569" name="trash-outline" size={14} />
+              {isDeleting ? (
+                <ActivityIndicator color="#475569" size="small" />
+              ) : (
+                <Ionicons color="#475569" name="trash-outline" size={14} />
+              )}
             </Pressable>
           ) : null}
         </View>
@@ -222,6 +243,7 @@ export function MediaPostCommentsSheet({
                     />
                     <Pressable
                       accessibilityRole="button"
+                      accessibilityLabel="Try again"
                       className="min-h-10 items-center justify-center rounded-full bg-secondary/90 px-4"
                       onPress={() => void commentsQuery.refetch()}
                     >
@@ -293,6 +315,7 @@ export function MediaPostCommentsSheet({
                   }`}
                   disabled={!canSend}
                   onPress={submitComment}
+                  style={({ pressed }) => pressedFeedbackStyle(pressed && canSend)}
                 >
                   {createComment.isPending ? (
                     <ActivityIndicator color="#e2e8f0" size="small" />
