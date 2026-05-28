@@ -4,6 +4,7 @@ import type {
   CreateMomentUploadIntentRequest,
   MediaContextType,
   MediaPostComment,
+  MediaPostCommentLikeState,
   MediaPostCommentListResponse,
   MediaUploadResponse,
   MomentStatusResponse,
@@ -99,7 +100,45 @@ export const createMomentUploadIntent = (
     authToken,
     body: payload,
     method: "POST",
-  });
+    });
+
+export const deleteMediaPostComment = (postId: string, commentId: string, authToken: string) =>
+  fphgoFetch<void>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      auth: "required",
+      authToken,
+      method: "DELETE",
+    },
+  );
+
+export const likeMediaPostComment = (
+  postId: string,
+  commentId: string,
+  authToken: string,
+) =>
+  fphgoFetch<MediaPostCommentLikeState>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/likes`,
+    {
+      auth: "required",
+      authToken,
+      method: "POST",
+    },
+  );
+
+export const unlikeMediaPostComment = (
+  postId: string,
+  commentId: string,
+  authToken: string,
+) =>
+  fphgoFetch<MediaPostCommentLikeState>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/likes`,
+    {
+      auth: "required",
+      authToken,
+      method: "DELETE",
+    },
+  );
 
 export const completeMomentUpload = (postId: string, authToken: string) =>
   fphgoFetch<MomentStatusResponse>(

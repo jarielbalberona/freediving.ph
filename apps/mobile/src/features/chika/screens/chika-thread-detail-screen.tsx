@@ -88,6 +88,10 @@ export function ChikaThreadDetailScreen() {
       ]);
     return flatten(roots);
   }, [comments]);
+  const replyTarget = useMemo(() => {
+    if (!replyTo) return undefined;
+    return comments.find((comment) => comment.id === replyTo);
+  }, [comments, replyTo]);
 
   useEffect(() => {
     const draft = localCommentDraft.draft;
@@ -326,7 +330,7 @@ export function ChikaThreadDetailScreen() {
               />
               {replyTo ? (
                 <Text className="text-xs text-muted-foreground">
-                  Replying to a comment
+                  Replying to {replyTarget?.authorDisplayName || "this comment"}
                 </Text>
               ) : null}
               <TextInput

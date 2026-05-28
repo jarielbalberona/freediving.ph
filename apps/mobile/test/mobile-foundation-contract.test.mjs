@@ -203,7 +203,9 @@ test("signed-out users have a public shell entry from auth screens", () => {
 
 test("home feed uses shared activity contracts and fetch client", () => {
   const api = read("src/features/home-feed/api/get-home-activity-feed.ts");
-  const card = read("src/features/home-feed/components/home-activity-card.tsx");
+  const feedItemRenderer = read(
+    "src/features/home-feed/components/mobile-feed-item-renderer.tsx",
+  );
   const feedAction = read(
     "src/features/home-feed/hooks/use-feed-action-mutation.ts",
   );
@@ -241,11 +243,12 @@ test("home feed uses shared activity contracts and fetch client", () => {
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/chika\/\[slug\]/);
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/\(home\)\/events\/\[slug\]/);
   assert.match(mapper, /\/\(app\)\/\(tabs\)\/\(home\)\/explore\/\[slug\]/);
-  assert.match(card, /ChikaActions/);
-  assert.match(card, /MediaActions/);
-  assert.match(card, /cardType === "dive_report"/);
-  assert.match(card, /item\.cardType !== "unknown"/);
-  assert.match(card, /Not interested/);
+  assert.match(feedItemRenderer, /MobileMediaFeedItem/);
+  assert.match(feedItemRenderer, /MobileChikaFeedItem/);
+  assert.match(feedItemRenderer, /MobileEventFeedItem/);
+  assert.match(feedItemRenderer, /MobileDiveReportFeedItem/);
+  assert.match(feedItemRenderer, /MobileBuddySignalFeedItem/);
+  assert.match(feedItemRenderer, /onNotInterested/);
   assert.match(feedAction, /setChikaThreadReaction/);
   assert.match(feedAction, /removeChikaThreadReaction/);
   assert.match(feedAction, /likeMediaPost/);
