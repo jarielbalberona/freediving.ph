@@ -96,6 +96,10 @@ type EventResponse struct {
 	ShortDescription            string                           `json:"shortDescription,omitempty"`
 	Description                 string                           `json:"description,omitempty"`
 	DescriptionMarkdown         string                           `json:"descriptionMarkdown,omitempty"`
+	LogoMediaID                 string                           `json:"logoMediaId,omitempty"`
+	LogoURL                     string                           `json:"logoUrl,omitempty"`
+	CoverMediaID                string                           `json:"coverMediaId,omitempty"`
+	CoverURL                    string                           `json:"coverUrl,omitempty"`
 	CoverPhotoURL               string                           `json:"coverPhotoUrl,omitempty"`
 	Location                    string                           `json:"location,omitempty"`
 	LocationName                string                           `json:"locationName,omitempty"`

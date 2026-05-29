@@ -22,6 +22,10 @@ type Group struct {
 	Slug                   string
 	Bio                    string
 	Description            string
+	LogoMediaID            string
+	LogoURL                string
+	CoverMediaID           string
+	CoverURL               string
 	Visibility             string
 	Status                 string
 	JoinPolicy             string
@@ -448,6 +452,10 @@ func mapListGroup(row groupsqlc.ListGroupsRow) Group {
 		Slug:                   row.Slug,
 		Bio:                    row.Bio,
 		Description:            row.Description,
+		LogoMediaID:            row.LogoMediaID,
+		LogoURL:                row.LogoUrl,
+		CoverMediaID:           row.CoverMediaID,
+		CoverURL:               row.CoverUrl,
 		Visibility:             row.Visibility,
 		Status:                 row.Status,
 		JoinPolicy:             row.JoinPolicy,
@@ -482,6 +490,10 @@ func mapGetGroup(row groupsqlc.GetGroupByIDRow) Group {
 		Slug:                   row.Slug,
 		Bio:                    row.Bio,
 		Description:            row.Description,
+		LogoMediaID:            row.LogoMediaID,
+		LogoURL:                row.LogoUrl,
+		CoverMediaID:           row.CoverMediaID,
+		CoverURL:               row.CoverUrl,
 		Visibility:             row.Visibility,
 		Status:                 row.Status,
 		JoinPolicy:             row.JoinPolicy,
@@ -517,6 +529,10 @@ func mapGetGroupBySlug(row groupsqlc.GetGroupBySlugRow) Group {
 		Slug:                   row.Slug,
 		Bio:                    row.Bio,
 		Description:            row.Description,
+		LogoMediaID:            row.LogoMediaID,
+		LogoURL:                row.LogoUrl,
+		CoverMediaID:           row.CoverMediaID,
+		CoverURL:               row.CoverUrl,
 		Visibility:             row.Visibility,
 		Status:                 row.Status,
 		JoinPolicy:             row.JoinPolicy,
@@ -551,6 +567,10 @@ func mapCreateGroup(row groupsqlc.CreateGroupRow) Group {
 		Slug:                   row.Slug,
 		Bio:                    row.Bio,
 		Description:            row.Description,
+		LogoMediaID:            row.LogoMediaID,
+		LogoURL:                row.LogoUrl,
+		CoverMediaID:           row.CoverMediaID,
+		CoverURL:               row.CoverUrl,
 		Visibility:             row.Visibility,
 		Status:                 row.Status,
 		JoinPolicy:             row.JoinPolicy,
@@ -585,6 +605,10 @@ func mapUpdateGroup(row groupsqlc.UpdateGroupRow) Group {
 		Slug:                   row.Slug,
 		Bio:                    row.Bio,
 		Description:            row.Description,
+		LogoMediaID:            row.LogoMediaID,
+		LogoURL:                row.LogoUrl,
+		CoverMediaID:           row.CoverMediaID,
+		CoverURL:               row.CoverUrl,
 		Visibility:             row.Visibility,
 		Status:                 row.Status,
 		JoinPolicy:             row.JoinPolicy,

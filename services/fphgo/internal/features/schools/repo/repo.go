@@ -32,6 +32,10 @@ type School struct {
 	Name                  string
 	ShortDescription      string
 	DescriptionMarkdown   string
+	LogoMediaID           string
+	LogoURL               string
+	CoverMediaID          string
+	CoverURL              string
 	BaseLocation          string
 	BaseLocationLabel     string
 	FormattedAddress      string
@@ -1300,8 +1304,8 @@ func schoolFields(alias string) string {
 		diveSlug = "''"
 		diveArea = "''"
 	}
-	return fmt.Sprintf(`%s.id,%s.slug,%s.name,%s.short_description,%s.description_markdown,COALESCE(%s.base_location,''),COALESCE(%s.base_location_label,COALESCE(%s.base_location,'')),COALESCE(%s.formatted_address,''),COALESCE(%s.region_code,''),COALESCE(%s.region_name,''),COALESCE(%s.province_code,''),COALESCE(%s.province_name,''),COALESCE(%s.city_code,''),COALESCE(%s.city_name,''),COALESCE(%s.barangay_code,''),COALESCE(%s.barangay_name,''),COALESCE(%s.location_source,'manual'),COALESCE(%s.dive_site_id::text,''),%s,%s,%s,COALESCE(%s.contact_email,''),COALESCE(%s.contact_phone,''),COALESCE(%s.website_url,''),COALESCE(%s.facebook_url,''),COALESCE(%s.instagram_url,''),%s.status,%s.owner_user_id,%s.created_at,%s.updated_at`,
-		alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, diveName, diveSlug, diveArea, alias, alias, alias, alias, alias, alias, alias, alias, alias)
+	return fmt.Sprintf(`%s.id,%s.slug,%s.name,%s.short_description,%s.description_markdown,COALESCE(%s.logo_media_id::text,''),COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = %s.logo_media_id),''),COALESCE(%s.cover_media_id::text,''),COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = %s.cover_media_id),''),COALESCE(%s.base_location,''),COALESCE(%s.base_location_label,COALESCE(%s.base_location,'')),COALESCE(%s.formatted_address,''),COALESCE(%s.region_code,''),COALESCE(%s.region_name,''),COALESCE(%s.province_code,''),COALESCE(%s.province_name,''),COALESCE(%s.city_code,''),COALESCE(%s.city_name,''),COALESCE(%s.barangay_code,''),COALESCE(%s.barangay_name,''),COALESCE(%s.location_source,'manual'),COALESCE(%s.dive_site_id::text,''),%s,%s,%s,COALESCE(%s.contact_email,''),COALESCE(%s.contact_phone,''),COALESCE(%s.website_url,''),COALESCE(%s.facebook_url,''),COALESCE(%s.instagram_url,''),%s.status,%s.owner_user_id,%s.created_at,%s.updated_at`,
+		alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, alias, diveName, diveSlug, diveArea, alias, alias, alias, alias, alias, alias, alias, alias, alias)
 }
 
 func scanSchool(s scanner) (School, error) {
@@ -1311,7 +1315,7 @@ func scanSchool(s scanner) (School, error) {
 }
 
 func scanSchoolInto(s scanner, item *School) error {
-	return s.Scan(&item.ID, &item.Slug, &item.Name, &item.ShortDescription, &item.DescriptionMarkdown, &item.BaseLocation, &item.BaseLocationLabel, &item.FormattedAddress, &item.RegionCode, &item.RegionName, &item.ProvinceCode, &item.ProvinceName, &item.CityCode, &item.CityName, &item.BarangayCode, &item.BarangayName, &item.LocationSource, &item.DiveSiteID, &item.DiveSiteName, &item.DiveSiteSlug, &item.DiveSiteArea, &item.ContactEmail, &item.ContactPhone, &item.WebsiteURL, &item.FacebookURL, &item.InstagramURL, &item.Status, &item.OwnerUserID, &item.CreatedAt, &item.UpdatedAt, &item.CourseCount, &item.PublishedCourseCount, &item.PendingBookingCount, &item.UpcomingSessionCount, &item.PaymentsToReviewCount)
+	return s.Scan(&item.ID, &item.Slug, &item.Name, &item.ShortDescription, &item.DescriptionMarkdown, &item.LogoMediaID, &item.LogoURL, &item.CoverMediaID, &item.CoverURL, &item.BaseLocation, &item.BaseLocationLabel, &item.FormattedAddress, &item.RegionCode, &item.RegionName, &item.ProvinceCode, &item.ProvinceName, &item.CityCode, &item.CityName, &item.BarangayCode, &item.BarangayName, &item.LocationSource, &item.DiveSiteID, &item.DiveSiteName, &item.DiveSiteSlug, &item.DiveSiteArea, &item.ContactEmail, &item.ContactPhone, &item.WebsiteURL, &item.FacebookURL, &item.InstagramURL, &item.Status, &item.OwnerUserID, &item.CreatedAt, &item.UpdatedAt, &item.CourseCount, &item.PublishedCourseCount, &item.PendingBookingCount, &item.UpcomingSessionCount, &item.PaymentsToReviewCount)
 }
 func scanCourse(s scanner) (Course, error) {
 	var item Course

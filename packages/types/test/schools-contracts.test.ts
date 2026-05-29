@@ -21,6 +21,22 @@ import type {
   SchoolStatus,
 } from "../src/index";
 
+type Assert<T extends true> = T;
+type IsEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
+type _schoolLogoMediaIdShape = Assert<
+  IsEqual<PublicSchool["logoMediaId"], string | null | undefined>
+>;
+type _schoolLogoUrlShape = Assert<
+  IsEqual<PublicSchool["logoUrl"], string | null | undefined>
+>;
+type _schoolCoverMediaIdShape = Assert<
+  IsEqual<PublicSchool["coverMediaId"], string | null | undefined>
+>;
+type _schoolCoverUrlShape = Assert<
+  IsEqual<PublicSchool["coverUrl"], string | null | undefined>
+>;
+
 test("schools module shared contracts expose backend enum values", () => {
   const schoolStatus: SchoolStatus = "published";
   const courseType: CourseType = "pool_training";

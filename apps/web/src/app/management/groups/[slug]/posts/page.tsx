@@ -15,8 +15,7 @@ export default async function Page({ params }: PageProps) {
   return (
     <GroupManagementSectionPage
       slug={slug}
-      title="Group posts"
-      description="Post management is coming soon in the group workspace."
+      section="posts"
     />
   );
 }

@@ -155,6 +155,10 @@ RETURNING
   slug,
   COALESCE(bio, '') AS bio,
   COALESCE(description, '') AS description,
+  COALESCE(logo_media_id::text, '')::text AS logo_media_id,
+  ''::text AS logo_url,
+  COALESCE(cover_media_id::text, '')::text AS cover_media_id,
+  ''::text AS cover_url,
   visibility,
   status,
   join_policy,
@@ -208,6 +212,10 @@ type CreateGroupRow struct {
 	Slug                   string             `db:"slug" json:"slug"`
 	Bio                    string             `db:"bio" json:"bio"`
 	Description            string             `db:"description" json:"description"`
+	LogoMediaID            string             `db:"logo_media_id" json:"logo_media_id"`
+	LogoUrl                string             `db:"logo_url" json:"logo_url"`
+	CoverMediaID           string             `db:"cover_media_id" json:"cover_media_id"`
+	CoverUrl               string             `db:"cover_url" json:"cover_url"`
 	Visibility             string             `db:"visibility" json:"visibility"`
 	Status                 string             `db:"status" json:"status"`
 	JoinPolicy             string             `db:"join_policy" json:"join_policy"`
@@ -262,6 +270,10 @@ func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Creat
 		&i.Slug,
 		&i.Bio,
 		&i.Description,
+		&i.LogoMediaID,
+		&i.LogoUrl,
+		&i.CoverMediaID,
+		&i.CoverUrl,
 		&i.Visibility,
 		&i.Status,
 		&i.JoinPolicy,
@@ -374,6 +386,10 @@ SELECT
   g.slug,
   COALESCE(g.bio, '') AS bio,
   COALESCE(g.description, '') AS description,
+  COALESCE(g.logo_media_id::text, '')::text AS logo_media_id,
+  COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = g.logo_media_id), '')::text AS logo_url,
+  COALESCE(g.cover_media_id::text, '')::text AS cover_media_id,
+  COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = g.cover_media_id), '')::text AS cover_url,
   g.visibility,
   g.status,
   g.join_policy,
@@ -416,6 +432,10 @@ type GetGroupByIDRow struct {
 	Slug                   string             `db:"slug" json:"slug"`
 	Bio                    string             `db:"bio" json:"bio"`
 	Description            string             `db:"description" json:"description"`
+	LogoMediaID            string             `db:"logo_media_id" json:"logo_media_id"`
+	LogoUrl                string             `db:"logo_url" json:"logo_url"`
+	CoverMediaID           string             `db:"cover_media_id" json:"cover_media_id"`
+	CoverUrl               string             `db:"cover_url" json:"cover_url"`
 	Visibility             string             `db:"visibility" json:"visibility"`
 	Status                 string             `db:"status" json:"status"`
 	JoinPolicy             string             `db:"join_policy" json:"join_policy"`
@@ -451,6 +471,10 @@ func (q *Queries) GetGroupByID(ctx context.Context, arg GetGroupByIDParams) (Get
 		&i.Slug,
 		&i.Bio,
 		&i.Description,
+		&i.LogoMediaID,
+		&i.LogoUrl,
+		&i.CoverMediaID,
+		&i.CoverUrl,
 		&i.Visibility,
 		&i.Status,
 		&i.JoinPolicy,
@@ -486,6 +510,10 @@ SELECT
   g.slug,
   COALESCE(g.bio, '') AS bio,
   COALESCE(g.description, '') AS description,
+  COALESCE(g.logo_media_id::text, '')::text AS logo_media_id,
+  COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = g.logo_media_id), '')::text AS logo_url,
+  COALESCE(g.cover_media_id::text, '')::text AS cover_media_id,
+  COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = g.cover_media_id), '')::text AS cover_url,
   g.visibility,
   g.status,
   g.join_policy,
@@ -528,6 +556,10 @@ type GetGroupBySlugRow struct {
 	Slug                   string             `db:"slug" json:"slug"`
 	Bio                    string             `db:"bio" json:"bio"`
 	Description            string             `db:"description" json:"description"`
+	LogoMediaID            string             `db:"logo_media_id" json:"logo_media_id"`
+	LogoUrl                string             `db:"logo_url" json:"logo_url"`
+	CoverMediaID           string             `db:"cover_media_id" json:"cover_media_id"`
+	CoverUrl               string             `db:"cover_url" json:"cover_url"`
 	Visibility             string             `db:"visibility" json:"visibility"`
 	Status                 string             `db:"status" json:"status"`
 	JoinPolicy             string             `db:"join_policy" json:"join_policy"`
@@ -563,6 +595,10 @@ func (q *Queries) GetGroupBySlug(ctx context.Context, arg GetGroupBySlugParams) 
 		&i.Slug,
 		&i.Bio,
 		&i.Description,
+		&i.LogoMediaID,
+		&i.LogoUrl,
+		&i.CoverMediaID,
+		&i.CoverUrl,
 		&i.Visibility,
 		&i.Status,
 		&i.JoinPolicy,
@@ -791,6 +827,10 @@ SELECT
   g.slug,
   COALESCE(g.bio, '') AS bio,
   COALESCE(g.description, '') AS description,
+  COALESCE(g.logo_media_id::text, '')::text AS logo_media_id,
+  COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = g.logo_media_id), '')::text AS logo_url,
+  COALESCE(g.cover_media_id::text, '')::text AS cover_media_id,
+  COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = g.cover_media_id), '')::text AS cover_url,
   g.visibility,
   g.status,
   g.join_policy,
@@ -866,6 +906,10 @@ type ListGroupsRow struct {
 	Slug                   string             `db:"slug" json:"slug"`
 	Bio                    string             `db:"bio" json:"bio"`
 	Description            string             `db:"description" json:"description"`
+	LogoMediaID            string             `db:"logo_media_id" json:"logo_media_id"`
+	LogoUrl                string             `db:"logo_url" json:"logo_url"`
+	CoverMediaID           string             `db:"cover_media_id" json:"cover_media_id"`
+	CoverUrl               string             `db:"cover_url" json:"cover_url"`
 	Visibility             string             `db:"visibility" json:"visibility"`
 	Status                 string             `db:"status" json:"status"`
 	JoinPolicy             string             `db:"join_policy" json:"join_policy"`
@@ -915,6 +959,10 @@ func (q *Queries) ListGroups(ctx context.Context, arg ListGroupsParams) ([]ListG
 			&i.Slug,
 			&i.Bio,
 			&i.Description,
+			&i.LogoMediaID,
+			&i.LogoUrl,
+			&i.CoverMediaID,
+			&i.CoverUrl,
 			&i.Visibility,
 			&i.Status,
 			&i.JoinPolicy,
@@ -1233,6 +1281,10 @@ RETURNING
   slug,
   COALESCE(bio, '') AS bio,
   COALESCE(description, '') AS description,
+  COALESCE(logo_media_id::text, '')::text AS logo_media_id,
+  COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = groups.logo_media_id), '')::text AS logo_url,
+  COALESCE(cover_media_id::text, '')::text AS cover_media_id,
+  COALESCE((SELECT mo.object_key FROM media_objects mo WHERE mo.id = groups.cover_media_id), '')::text AS cover_url,
   visibility,
   status,
   join_policy,
@@ -1303,6 +1355,10 @@ type UpdateGroupRow struct {
 	Slug                   string             `db:"slug" json:"slug"`
 	Bio                    string             `db:"bio" json:"bio"`
 	Description            string             `db:"description" json:"description"`
+	LogoMediaID            string             `db:"logo_media_id" json:"logo_media_id"`
+	LogoUrl                string             `db:"logo_url" json:"logo_url"`
+	CoverMediaID           string             `db:"cover_media_id" json:"cover_media_id"`
+	CoverUrl               string             `db:"cover_url" json:"cover_url"`
 	Visibility             string             `db:"visibility" json:"visibility"`
 	Status                 string             `db:"status" json:"status"`
 	JoinPolicy             string             `db:"join_policy" json:"join_policy"`
@@ -1374,6 +1430,10 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Updat
 		&i.Slug,
 		&i.Bio,
 		&i.Description,
+		&i.LogoMediaID,
+		&i.LogoUrl,
+		&i.CoverMediaID,
+		&i.CoverUrl,
 		&i.Visibility,
 		&i.Status,
 		&i.JoinPolicy,

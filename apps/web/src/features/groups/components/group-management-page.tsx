@@ -2,6 +2,7 @@
 
 import { Archive, ArrowLeft, Check, CalendarDays, ChevronLeft, Clock3, MessageSquare, Pencil, Users } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -95,6 +96,37 @@ function visibilityLabel(visibility: Group["visibility"]) {
 
 function joinPolicyLabel(policy: Group["joinPolicy"]) {
   return policy === "invite_only" ? "Invite only" : "Open join";
+}
+
+function GroupManagementShell({
+  group,
+  children,
+}: {
+  group: Group;
+  children: ReactNode;
+}) {
+  const baseHref = `/management/groups/${encodeURIComponent(group.slug)}`;
+  return (
+    <ManagementWorkspaceShell
+      backHref={`/groups/${encodeURIComponent(group.slug)}`}
+      backLabel="Back to group"
+      switcher={
+        <div className="min-w-0 px-2">
+          <p className="truncate text-sm font-medium">{group.name}</p>
+          <p className="truncate text-xs text-muted-foreground">Group workspace</p>
+        </div>
+      }
+      navItems={[
+        { label: "Overview", href: baseHref, icon: CalendarDays, exact: true },
+        { label: "Profile", href: `${baseHref}/profile`, icon: Pencil },
+        { label: "Members", href: `${baseHref}/members`, icon: Users },
+        { label: "Posts", href: `${baseHref}/posts`, icon: MessageSquare },
+        { label: "Settings", href: `${baseHref}/settings`, icon: Archive },
+      ]}
+    >
+      {children}
+    </ManagementWorkspaceShell>
+  );
 }
 
 export function GroupManagementWorkspacePage({ slug }: { slug: string }) {
@@ -311,7 +343,7 @@ function GroupProfileSection({ group }: { group: Group }) {
     updateGroupMutation.isPending === false;
 
   const onUpdateGroup = async () => {
-    if (!session.status === "signed_in") return;
+    if (session.status !== "signed_in") return;
     if (editName.trim().length < 3) {
       toast.error("Group name must be at least 3 characters.");
       return;

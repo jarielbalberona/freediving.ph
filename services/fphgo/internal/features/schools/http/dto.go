@@ -18,7 +18,9 @@ func mapSchools(items []schoolsrepo.School) []map[string]any {
 func mapSchool(item schoolsrepo.School) map[string]any {
 	return map[string]any{
 		"id": item.ID, "slug": item.Slug, "name": item.Name, "shortDescription": item.ShortDescription,
-		"descriptionMarkdown": item.DescriptionMarkdown, "baseLocation": item.BaseLocation, "contactEmail": item.ContactEmail,
+		"descriptionMarkdown": item.DescriptionMarkdown, "logoMediaId": item.LogoMediaID, "logoUrl": mediaurl.MaterializeWithDefault(item.LogoURL),
+		"coverMediaId": item.CoverMediaID, "coverUrl": mediaurl.MaterializeWithDefault(item.CoverURL),
+		"baseLocation": item.BaseLocation, "contactEmail": item.ContactEmail,
 		"baseLocationLabel": item.BaseLocationLabel, "formattedAddress": item.FormattedAddress, "regionCode": item.RegionCode,
 		"regionName": item.RegionName, "provinceCode": item.ProvinceCode, "provinceName": item.ProvinceName,
 		"cityCode": item.CityCode, "cityName": item.CityName, "barangayCode": item.BarangayCode, "barangayName": item.BarangayName,
@@ -42,6 +44,8 @@ func mapPublicSchool(item schoolsrepo.School) map[string]any {
 	return map[string]any{
 		"id": item.ID, "slug": item.Slug, "name": item.Name, "shortDescription": item.ShortDescription,
 		"descriptionMarkdown": item.DescriptionMarkdown, "baseLocation": publicFirstNonEmpty(item.BaseLocationLabel, item.BaseLocation),
+		"logoMediaId": item.LogoMediaID, "logoUrl": mediaurl.MaterializeWithDefault(item.LogoURL),
+		"coverMediaId": item.CoverMediaID, "coverUrl": mediaurl.MaterializeWithDefault(item.CoverURL),
 		"baseLocationLabel": item.BaseLocationLabel, "formattedAddress": item.FormattedAddress,
 		"regionCode": item.RegionCode, "regionName": item.RegionName, "provinceCode": item.ProvinceCode, "provinceName": item.ProvinceName,
 		"cityCode": item.CityCode, "cityName": item.CityName, "barangayCode": item.BarangayCode, "barangayName": item.BarangayName,

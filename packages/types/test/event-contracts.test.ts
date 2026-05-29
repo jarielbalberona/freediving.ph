@@ -116,6 +116,21 @@ type _eventInterestedCountShape = Assert<
   IsEqual<Event["interestedCount"], number>
 >;
 type _eventGoingCountShape = Assert<IsEqual<Event["goingCount"], number>>;
+type _eventLogoMediaIdShape = Assert<
+  IsEqual<Event["logoMediaId"], string | null | undefined>
+>;
+type _eventLogoUrlShape = Assert<
+  IsEqual<Event["logoUrl"], string | null | undefined>
+>;
+type _eventCoverMediaIdShape = Assert<
+  IsEqual<Event["coverMediaId"], string | null | undefined>
+>;
+type _eventCoverUrlShape = Assert<
+  IsEqual<Event["coverUrl"], string | null | undefined>
+>;
+type _eventLegacyCoverPhotoUrlShape = Assert<
+  IsEqual<Event["coverPhotoUrl"], string | null | undefined>
+>;
 type _eventViewerInterestedShape = Assert<
   IsEqual<Event["viewerInterested"], boolean>
 >;

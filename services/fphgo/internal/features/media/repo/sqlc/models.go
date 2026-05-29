@@ -303,6 +303,20 @@ type CourseSession struct {
 	DeletedAt        pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
+type DevicePushToken struct {
+	ID            pgtype.UUID        `db:"id" json:"id"`
+	UserID        pgtype.UUID        `db:"user_id" json:"user_id"`
+	ExpoPushToken string             `db:"expo_push_token" json:"expo_push_token"`
+	Platform      string             `db:"platform" json:"platform"`
+	DeviceID      *string            `db:"device_id" json:"device_id"`
+	DeviceName    *string            `db:"device_name" json:"device_name"`
+	AppVersion    *string            `db:"app_version" json:"app_version"`
+	Enabled       bool               `db:"enabled" json:"enabled"`
+	LastSeenAt    pgtype.Timestamptz `db:"last_seen_at" json:"last_seen_at"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type DivePresence struct {
 	ID             pgtype.UUID        `db:"id" json:"id"`
 	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`
@@ -418,6 +432,8 @@ type Event struct {
 	Description          *string            `db:"description" json:"description"`
 	ShortDescription     *string            `db:"short_description" json:"short_description"`
 	DescriptionMarkdown  *string            `db:"description_markdown" json:"description_markdown"`
+	LogoMediaID          pgtype.UUID        `db:"logo_media_id" json:"logo_media_id"`
+	CoverMediaID         pgtype.UUID        `db:"cover_media_id" json:"cover_media_id"`
 	Location             *string            `db:"location" json:"location"`
 	LocationName         *string            `db:"location_name" json:"location_name"`
 	FormattedAddress     *string            `db:"formatted_address" json:"formatted_address"`
@@ -688,6 +704,8 @@ type Group struct {
 	Slug                 string             `db:"slug" json:"slug"`
 	Bio                  *string            `db:"bio" json:"bio"`
 	Description          *string            `db:"description" json:"description"`
+	LogoMediaID          pgtype.UUID        `db:"logo_media_id" json:"logo_media_id"`
+	CoverMediaID         pgtype.UUID        `db:"cover_media_id" json:"cover_media_id"`
 	Visibility           string             `db:"visibility" json:"visibility"`
 	Status               string             `db:"status" json:"status"`
 	JoinPolicy           string             `db:"join_policy" json:"join_policy"`
@@ -1015,6 +1033,13 @@ type NotificationSetting struct {
 	QuietHoursStart            *string            `db:"quiet_hours_start" json:"quiet_hours_start"`
 	QuietHoursEnd              *string            `db:"quiet_hours_end" json:"quiet_hours_end"`
 	Timezone                   string             `db:"timezone" json:"timezone"`
+	BuddyUpdates               bool               `db:"buddy_updates" json:"buddy_updates"`
+	ProfileSocialUpdates       bool               `db:"profile_social_updates" json:"profile_social_updates"`
+	DiveConditionAlerts        bool               `db:"dive_condition_alerts" json:"dive_condition_alerts"`
+	DiveConditionSavedSites    bool               `db:"dive_condition_saved_sites" json:"dive_condition_saved_sites"`
+	DiveConditionRegions       []byte             `db:"dive_condition_regions" json:"dive_condition_regions"`
+	DiveConditionNearMe        bool               `db:"dive_condition_near_me" json:"dive_condition_near_me"`
+	DiveConditionCoarseArea    *string            `db:"dive_condition_coarse_area" json:"dive_condition_coarse_area"`
 	CreatedAt                  pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }

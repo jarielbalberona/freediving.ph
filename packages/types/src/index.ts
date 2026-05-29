@@ -647,7 +647,11 @@ export interface Event {
   shortDescription?: string;
   description?: string;
   descriptionMarkdown?: string;
-  coverPhotoUrl?: string;
+  logoMediaId?: string | null;
+  logoUrl?: string | null;
+  coverMediaId?: string | null;
+  coverUrl?: string | null;
+  coverPhotoUrl?: string | null;
   location?: string;
   locationName?: string;
   formattedAddress?: string;
@@ -956,6 +960,10 @@ export interface Group {
   slug: string;
   bio?: string;
   description?: string;
+  logoMediaId?: string | null;
+  logoUrl?: string | null;
+  coverMediaId?: string | null;
+  coverUrl?: string | null;
   visibility: "public" | "private";
   status: "active" | "archived" | "deleted";
   joinPolicy: "open" | "invite_only";

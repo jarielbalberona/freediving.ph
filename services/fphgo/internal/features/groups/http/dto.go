@@ -17,6 +17,10 @@ type GroupResponse struct {
 	Slug                     string     `json:"slug"`
 	Bio                      string     `json:"bio,omitempty"`
 	Description              string     `json:"description,omitempty"`
+	LogoMediaID              string     `json:"logoMediaId,omitempty"`
+	LogoURL                  string     `json:"logoUrl,omitempty"`
+	CoverMediaID             string     `json:"coverMediaId,omitempty"`
+	CoverURL                 string     `json:"coverUrl,omitempty"`
 	Visibility               string     `json:"visibility"`
 	Status                   string     `json:"status"`
 	JoinPolicy               string     `json:"joinPolicy"`

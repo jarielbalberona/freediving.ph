@@ -15,8 +15,7 @@ export default async function Page({ params }: PageProps) {
   return (
     <GroupManagementSectionPage
       slug={slug}
-      title="Group profile"
-      description="Profile management for groups is not yet available from this workspace."
+      section="profile"
     />
   );
 }

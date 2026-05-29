@@ -42,6 +42,10 @@ type Event struct {
 	Description                 string
 	ShortDescription            string
 	DescriptionMarkdown         string
+	LogoMediaID                 string
+	LogoURL                     string
+	CoverMediaID                string
+	CoverURL                    string
 	CoverPhotoURL               string
 	Location                    string
 	LocationName                string
@@ -2024,6 +2028,10 @@ func eventSelectColumns() string {
 		coalesce(e.description, ''),
 		coalesce(e.short_description, ''),
 		coalesce(e.description_markdown, ''),
+		coalesce(e.logo_media_id::text, ''),
+		coalesce((SELECT mo.object_key FROM media_objects mo WHERE mo.id = e.logo_media_id), ''),
+		coalesce(e.cover_media_id::text, ''),
+		coalesce((SELECT mo.object_key FROM media_objects mo WHERE mo.id = e.cover_media_id), ''),
 		coalesce(e.cover_photo_url, ''),
 		coalesce(e.location, ''),
 		coalesce(e.location_name, ''),
@@ -2195,6 +2203,10 @@ func scanEvent(row eventScanner, item *Event, total *int) error {
 		&item.Description,
 		&item.ShortDescription,
 		&item.DescriptionMarkdown,
+		&item.LogoMediaID,
+		&item.LogoURL,
+		&item.CoverMediaID,
+		&item.CoverURL,
 		&item.CoverPhotoURL,
 		&item.Location,
 		&item.LocationName,

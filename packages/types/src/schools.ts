@@ -77,6 +77,10 @@ export interface School {
   name: string;
   shortDescription: string;
   descriptionMarkdown: string;
+  logoMediaId?: string | null;
+  logoUrl?: string | null;
+  coverMediaId?: string | null;
+  coverUrl?: string | null;
   baseLocation: string;
   baseLocationLabel: string;
   formattedAddress: string;
@@ -286,6 +290,10 @@ export interface PublicSchool {
   name: string;
   shortDescription: string;
   descriptionMarkdown: string;
+  logoMediaId?: string | null;
+  logoUrl?: string | null;
+  coverMediaId?: string | null;
+  coverUrl?: string | null;
   baseLocation: string;
   baseLocationLabel: string;
   formattedAddress: string;

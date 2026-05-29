@@ -618,12 +618,21 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 func mapEvent(item eventsrepo.Event) EventResponse {
 	privateUnauthorized := item.Visibility == "private" && !item.ViewerCanViewPrivateDetails
 	allowPaymentDetails := item.ViewerJoined || item.ViewerCanManage
+	coverPhotoURL := mediaurl.MaterializeWithDefault(item.CoverPhotoURL)
+	coverURL := mediaurl.MaterializeWithDefault(item.CoverURL)
+	if coverURL == "" {
+		coverURL = coverPhotoURL
+	}
 	response := EventResponse{
 		ID:                item.ID,
 		Slug:              item.Slug,
 		Title:             item.Title,
 		ShortDescription:  item.ShortDescription,
-		CoverPhotoURL:     mediaurl.MaterializeWithDefault(item.CoverPhotoURL),
+		LogoMediaID:       item.LogoMediaID,
+		LogoURL:           mediaurl.MaterializeWithDefault(item.LogoURL),
+		CoverMediaID:      item.CoverMediaID,
+		CoverURL:          coverURL,
+		CoverPhotoURL:     coverPhotoURL,
 		Location:          item.Location,
 		LocationName:      item.LocationName,
 		FormattedAddress:  item.FormattedAddress,
@@ -718,6 +727,10 @@ func mapEvent(item eventsrepo.Event) EventResponse {
 	if privateUnauthorized {
 		response.Description = ""
 		response.DescriptionMarkdown = ""
+		response.LogoMediaID = ""
+		response.LogoURL = ""
+		response.CoverMediaID = ""
+		response.CoverURL = ""
 		response.CoverPhotoURL = ""
 		response.Location = ""
 		response.LocationName = ""

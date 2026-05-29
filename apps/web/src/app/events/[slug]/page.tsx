@@ -81,7 +81,7 @@ export async function generateMetadata({
     title: `${event.title} | Freediving Events`,
     description: eventDescription(event),
     path,
-    image: event.coverPhotoUrl,
+    image: event.coverUrl ?? event.coverPhotoUrl ?? undefined,
   });
 }
 
@@ -113,7 +113,7 @@ export default async function EventDetailPage({ params }: PageProps) {
               locationName:
                 event.locationName || event.formattedAddress || event.location,
               address: event.formattedAddress || event.location,
-              image: event.coverPhotoUrl,
+              image: event.coverUrl ?? event.coverPhotoUrl ?? undefined,
             }),
           ]}
         />

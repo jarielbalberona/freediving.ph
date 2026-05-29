@@ -63,6 +63,12 @@ test("groups contracts include structured location fields used by LocationPicker
   }
 });
 
+test("groups contracts expose normalized logo and cover media fields", () => {
+  for (const field of ["logoMediaId", "logoUrl", "coverMediaId", "coverUrl"]) {
+    assert.match(source, new RegExp(`${field}\\?:\\s*string \\| null`));
+  }
+});
+
 test("groups contracts expose shared API response wrappers", () => {
   for (const contract of [
     "GroupPagination",
