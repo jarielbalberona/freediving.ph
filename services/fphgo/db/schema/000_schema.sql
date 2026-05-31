@@ -673,6 +673,7 @@ CREATE TABLE IF NOT EXISTS events (
   description_markdown TEXT,
   logo_media_id UUID REFERENCES media_objects(id) ON DELETE SET NULL,
   cover_media_id UUID REFERENCES media_objects(id) ON DELETE SET NULL,
+  cover_photo_url TEXT,
   location TEXT,
   location_name TEXT,
   formatted_address TEXT,
@@ -843,9 +844,55 @@ CREATE TABLE IF NOT EXISTS media_objects (
     'dive_spot_attachment',
     'group_logo',
     'group_cover',
-    'instructor_certification_proof'
+    'instructor_certification_proof',
+    'badge_proof'
   )),
   CHECK (state IN ('active', 'hidden', 'deleted'))
+);
+
+CREATE TABLE IF NOT EXISTS badge_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  value_type TEXT NOT NULL,
+  unit TEXT,
+  icon TEXT,
+  description TEXT,
+  is_system BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (category IN ('personal_best', 'certification', 'experience', 'auto_stat')),
+  CHECK (value_type IN ('time', 'distance', 'number', 'text', 'none')),
+  CHECK (length(trim(slug)) > 0),
+  CHECK (length(trim(name)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS user_badges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  badge_template_id UUID NOT NULL REFERENCES badge_templates(id) ON DELETE RESTRICT,
+  value_text TEXT,
+  value_number NUMERIC(12, 2),
+  value_minutes INTEGER,
+  value_seconds INTEGER,
+  reference_label TEXT,
+  reference_value TEXT,
+  proof_media_id UUID REFERENCES media_objects(id) ON DELETE SET NULL,
+  verification_status TEXT NOT NULL DEFAULT 'unverified',
+  verified_at TIMESTAMPTZ,
+  verified_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (verification_status IN ('unverified', 'pending', 'verified', 'rejected')),
+  CHECK (value_minutes IS NULL OR value_minutes >= 0),
+  CHECK (value_seconds IS NULL OR (value_seconds >= 0 AND value_seconds <= 59)),
+  CHECK (value_number IS NULL OR value_number >= 0),
+  CHECK (
+    (verification_status = 'verified' AND verified_at IS NOT NULL)
+    OR
+    (verification_status <> 'verified')
+  )
 );
 
 CREATE TABLE IF NOT EXISTS media_upload_groups (
@@ -1806,6 +1853,8 @@ CREATE INDEX IF NOT EXISTS idx_media_assets_entity ON media_assets (entity_type,
 CREATE INDEX IF NOT EXISTS idx_media_objects_owner_created_at ON media_objects (owner_app_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_media_objects_context_created_at ON media_objects (context_type, context_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_media_objects_state ON media_objects (state);
+CREATE INDEX IF NOT EXISTS idx_user_badges_user_created_at ON user_badges (user_id, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_user_badges_template ON user_badges (badge_template_id);
 CREATE INDEX IF NOT EXISTS idx_media_upload_groups_author_created_at ON media_upload_groups (author_app_user_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_media_posts_author_created_at ON media_posts (author_app_user_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_posts_site_cover_candidates ON media_posts (dive_site_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;

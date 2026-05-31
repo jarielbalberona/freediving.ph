@@ -268,6 +268,190 @@ func TestUpdateEventNotificationIncludesSlug(t *testing.T) {
 	}
 }
 
+func TestUpdateEventSetsAndRemovesImageMedia(t *testing.T) {
+	const (
+		eventID      = "550e8400-e29b-41d4-a716-446655443321"
+		actorID      = "550e8400-e29b-41d4-a716-446655443322"
+		logoMediaID  = "550e8400-e29b-41d4-a716-446655443323"
+		coverMediaID = "550e8400-e29b-41d4-a716-446655443324"
+	)
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:         eventID,
+			Status:     "published",
+			Visibility: "public",
+		},
+		updatedEvent: eventsrepo.Event{ID: eventID, Status: "published", Visibility: "public"},
+	}
+	svc := New(repo)
+
+	if _, err := svc.UpdateEvent(context.Background(), eventID, actorID, eventsrepo.UpdateEventInput{
+		LogoMediaID:  ptr(logoMediaID),
+		CoverMediaID: ptr(coverMediaID),
+	}); err != nil {
+		t.Fatalf("UpdateEvent(image media) returned error: %v", err)
+	}
+	if repo.updateInput.LogoMediaID == nil || *repo.updateInput.LogoMediaID != logoMediaID {
+		t.Fatalf("logo media id was not forwarded, got %#v", repo.updateInput.LogoMediaID)
+	}
+	if repo.updateInput.CoverMediaID == nil || *repo.updateInput.CoverMediaID != coverMediaID {
+		t.Fatalf("cover media id was not forwarded, got %#v", repo.updateInput.CoverMediaID)
+	}
+
+	if _, err := svc.UpdateEvent(context.Background(), eventID, actorID, eventsrepo.UpdateEventInput{
+		LogoMediaID:  ptr(""),
+		CoverMediaID: ptr(""),
+	}); err != nil {
+		t.Fatalf("UpdateEvent(remove image media) returned error: %v", err)
+	}
+	if repo.updateInput.LogoMediaID == nil || *repo.updateInput.LogoMediaID != "" {
+		t.Fatalf("logo removal was not forwarded, got %#v", repo.updateInput.LogoMediaID)
+	}
+	if repo.updateInput.CoverMediaID == nil || *repo.updateInput.CoverMediaID != "" {
+		t.Fatalf("cover removal was not forwarded, got %#v", repo.updateInput.CoverMediaID)
+	}
+}
+
+func TestUpdateEventOmittedImageMediaDoesNotClearExistingValues(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443325"
+		actorID = "550e8400-e29b-41d4-a716-446655443326"
+	)
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:           eventID,
+			Status:       "published",
+			Visibility:   "public",
+			LogoMediaID:  "550e8400-e29b-41d4-a716-446655443327",
+			CoverMediaID: "550e8400-e29b-41d4-a716-446655443328",
+		},
+		updatedEvent: eventsrepo.Event{ID: eventID, Status: "published", Visibility: "public"},
+	}
+	svc := New(repo)
+	title := "Updated title"
+
+	if _, err := svc.UpdateEvent(context.Background(), eventID, actorID, eventsrepo.UpdateEventInput{Title: &title}); err != nil {
+		t.Fatalf("UpdateEvent(title only) returned error: %v", err)
+	}
+	if repo.updateInput.LogoMediaID != nil {
+		t.Fatalf("omitted logoMediaId should remain nil, got %#v", repo.updateInput.LogoMediaID)
+	}
+	if repo.updateInput.CoverMediaID != nil {
+		t.Fatalf("omitted coverMediaId should remain nil, got %#v", repo.updateInput.CoverMediaID)
+	}
+}
+
+func TestUpdateEventRejectsInvalidImageMediaID(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443329"
+		actorID = "550e8400-e29b-41d4-a716-446655443330"
+	)
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:         eventID,
+			Status:     "published",
+			Visibility: "public",
+		},
+	}
+	svc := New(repo)
+
+	_, err := svc.UpdateEvent(context.Background(), eventID, actorID, eventsrepo.UpdateEventInput{LogoMediaID: ptr("not-a-uuid")})
+	assertValidationIssue(t, err, "logoMediaId", "invalid_uuid")
+}
+
+func TestUpdateEventRejectsUnusableImageMedia(t *testing.T) {
+	tests := []struct {
+		name  string
+		field string
+		input eventsrepo.UpdateEventInput
+	}{
+		{
+			name:  "wrong context",
+			field: "coverMediaId",
+			input: eventsrepo.UpdateEventInput{CoverMediaID: ptr("550e8400-e29b-41d4-a716-446655443331")},
+		},
+		{
+			name:  "owned by another entity",
+			field: "logoMediaId",
+			input: eventsrepo.UpdateEventInput{LogoMediaID: ptr("550e8400-e29b-41d4-a716-446655443332")},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const (
+				eventID = "550e8400-e29b-41d4-a716-446655443333"
+				actorID = "550e8400-e29b-41d4-a716-446655443334"
+			)
+			repo := &eventsRepoStub{
+				event: eventsrepo.Event{
+					ID:         eventID,
+					Status:     "published",
+					Visibility: "public",
+				},
+				mediaBelongsSet: true,
+				mediaBelongs:    false,
+			}
+			svc := New(repo)
+
+			_, err := svc.UpdateEvent(context.Background(), eventID, actorID, tt.input)
+			assertValidationIssue(t, err, tt.field, "not_found")
+		})
+	}
+}
+
+func TestUpdateEventImageMediaRequiresManager(t *testing.T) {
+	const (
+		eventID = "550e8400-e29b-41d4-a716-446655443335"
+		actorID = "550e8400-e29b-41d4-a716-446655443336"
+	)
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:         eventID,
+			Status:     "published",
+			Visibility: "public",
+		},
+		canManageSet: true,
+		canManage:    false,
+	}
+	svc := New(repo)
+
+	_, err := svc.UpdateEvent(context.Background(), eventID, actorID, eventsrepo.UpdateEventInput{
+		LogoMediaID: ptr("550e8400-e29b-41d4-a716-446655443337"),
+	})
+	assertAppErrorStatus(t, err, http.StatusForbidden)
+	if repo.updateInput.LogoMediaID != nil {
+		t.Fatalf("unauthorized update reached repo: %#v", repo.updateInput.LogoMediaID)
+	}
+}
+
+func TestUpdateEventPreservesCoverPhotoURLCompatibility(t *testing.T) {
+	const (
+		eventID       = "550e8400-e29b-41d4-a716-446655443338"
+		actorID       = "550e8400-e29b-41d4-a716-446655443339"
+		coverPhotoURL = "events/event-id/legacy-cover.jpg"
+	)
+	repo := &eventsRepoStub{
+		event: eventsrepo.Event{
+			ID:            eventID,
+			Status:        "published",
+			Visibility:    "public",
+			CoverPhotoURL: coverPhotoURL,
+		},
+		updatedEvent: eventsrepo.Event{ID: eventID, Status: "published", Visibility: "public", CoverPhotoURL: coverPhotoURL},
+	}
+	svc := New(repo)
+
+	if _, err := svc.UpdateEvent(context.Background(), eventID, actorID, eventsrepo.UpdateEventInput{CoverPhotoURL: ptr(coverPhotoURL)}); err != nil {
+		t.Fatalf("UpdateEvent(coverPhotoUrl) returned error: %v", err)
+	}
+	if repo.updateInput.CoverPhotoURL == nil || *repo.updateInput.CoverPhotoURL != coverPhotoURL {
+		t.Fatalf("legacy coverPhotoUrl was not forwarded, got %#v", repo.updateInput.CoverPhotoURL)
+	}
+	if repo.updateInput.CoverMediaID != nil {
+		t.Fatalf("legacy coverPhotoUrl update should not imply coverMediaId change, got %#v", repo.updateInput.CoverMediaID)
+	}
+}
+
 func TestCancelEventNotificationIncludesSlug(t *testing.T) {
 	const (
 		eventID = "550e8400-e29b-41d4-a716-446655443131"
@@ -2202,6 +2386,20 @@ func assertValidationFailure(t *testing.T, err error) {
 	if len(validationErr.Issues) == 0 {
 		t.Fatalf("expected validation issues, got none")
 	}
+}
+
+func assertValidationIssue(t *testing.T, err error, path string, code string) {
+	t.Helper()
+	var validationErr ValidationFailure
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("expected validation failure, got %v", err)
+	}
+	for _, issue := range validationErr.Issues {
+		if len(issue.Path) == 1 && issue.Path[0] == path && issue.Code == code {
+			return
+		}
+	}
+	t.Fatalf("expected validation issue %s/%s, got %#v", path, code, validationErr.Issues)
 }
 
 type eventsActivityStub struct{}

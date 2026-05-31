@@ -39,13 +39,20 @@ const CONTEXT_OPTIONS: { value: MediaContextType; label: string }[] = [
   { value: "profile_feed", label: "profile_feed" },
   { value: "chika_attachment", label: "chika_attachment" },
   { value: "event_attachment", label: "event_attachment" },
+  { value: "event_logo", label: "event_logo" },
+  { value: "event_cover", label: "event_cover" },
+  { value: "school_logo", label: "school_logo" },
+  { value: "school_cover", label: "school_cover" },
   { value: "payment_method_qr", label: "payment_method_qr" },
+  { value: "course_booking_receipt", label: "course_booking_receipt" },
   { value: "dive_spot_attachment", label: "dive_spot_attachment" },
+  { value: "group_logo", label: "group_logo" },
   { value: "group_cover", label: "group_cover" },
   {
     value: "instructor_certification_proof",
     label: "instructor_certification_proof",
   },
+  { value: "badge_proof", label: "badge_proof" },
 ];
 
 export function MediaUploadPanel({
@@ -55,10 +62,10 @@ export function MediaUploadPanel({
   const [files, setFiles] = useState<File[]>([]);
   const mutation = useUploadMultipleMedia();
 
-  const form = useForm<MediaUploadValues>({
+  const form = useForm<MediaUploadValues, unknown, MediaUploadValues>({
     resolver: zodResolver(mediaUploadSchema),
     defaultValues: {
-      contextType: defaultContextType,
+      contextType: defaultContextType as MediaUploadValues["contextType"],
       contextId: defaultContextId ?? "",
     },
   });

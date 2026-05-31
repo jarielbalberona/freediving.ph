@@ -12,9 +12,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 import type { Group } from "@freediving.ph/types";
+import { EntityAvatar } from "@/components/common/entity-media";
 import { ManagementWorkspaceShell } from "@/components/layout/management-workspace-shell";
 import { useSession } from "@/features/auth/session";
+import { useUpdateGroup } from "@/features/groups/hooks/mutations";
 import { useUserGroups } from "@/features/groups/hooks/queries";
+import { EntityLogoCoverSettings } from "@/features/media/components";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   SidebarMenu,
@@ -44,6 +47,7 @@ export function GroupManagementShell({
     session.status === "signed_in",
   );
   const manageableGroups = manageableGroupsQuery.data?.groups ?? [];
+  const updateGroup = useUpdateGroup();
   const navItems = groupWorkspaceNavItems.map((item) => ({
     label: item.label,
     href: `/management/groups/${encodeURIComponent(group.slug)}${item.hrefSuffix}`,
@@ -62,9 +66,13 @@ export function GroupManagementShell({
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground h-8 w-full justify-between gap-2 px-2"
               >
-                <div className="flex aspect-square size-7 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Users className="size-3.5" />
-                </div>
+                <EntityAvatar
+                  src={group.logoUrl}
+                  label={group.name}
+                  icon={Users}
+                  className="size-7 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
+                  fallbackClassName="text-sidebar-primary-foreground"
+                />
                 <div className="grid flex-1 min-w-0 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{group.name}</span>
                   <span className="truncate text-xs text-muted-foreground">Group</span>
@@ -104,9 +112,12 @@ export function GroupManagementShell({
                           )
                         }
                       >
-                        <div className="flex size-6 items-center justify-center rounded-md border">
-                          <Users className="size-3.5 shrink-0" />
-                        </div>
+                        <EntityAvatar
+                          src={item.logoUrl}
+                          label={item.name}
+                          icon={Users}
+                          className="size-6 rounded-md"
+                        />
                         {item.name}
                       </DropdownMenuItem>
                     );
@@ -139,6 +150,24 @@ export function GroupManagementShell({
       backHref="/management/groups"
       backLabel="Back to groups"
     >
+      <EntityLogoCoverSettings
+        title="Group images"
+        logoUrl={group.logoUrl}
+        logoMediaId={group.logoMediaId}
+        coverUrl={group.coverUrl}
+        coverMediaId={group.coverMediaId}
+        logoContext="group_logo"
+        coverContext="group_cover"
+        contextId={group.id}
+        disabled={group.viewerRole !== "owner" && group.viewerRole !== "moderator"}
+        isSaving={updateGroup.isPending}
+        onSave={(data) =>
+          updateGroup.mutateAsync({
+            groupId: group.id,
+            data,
+          })
+        }
+      />
       {children}
     </ManagementWorkspaceShell>
   );

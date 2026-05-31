@@ -1,6 +1,7 @@
 export * from "./MediaCard";
 export * from "./MediaList";
 export * from "./MediaUploadPanel";
+export * from "./EntityLogoCoverSettings";
 export * from "./MediaPostLikeButton";
 export * from "./MediaPostComponent";
 export * from "./AvatarCropDialog";

@@ -1,6 +1,6 @@
 "use client";
 
-import type { MediaUploadResponse } from "@freediving.ph/types";
+import type { MediaContextType, MediaUploadResponse } from "@freediving.ph/types";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,7 @@ import { MediaCard } from "./MediaCard";
 import { useListMyMedia, useMintMediaUrls } from "../hooks";
 
 interface MediaListProps {
-  contextType?:
-    | "profile_avatar"
-    | "profile_feed"
-    | "chika_attachment"
-    | "event_attachment"
-    | "dive_spot_attachment"
-    | "group_cover";
+  contextType?: MediaContextType;
 }
 
 export function MediaList({ contextType }: MediaListProps) {

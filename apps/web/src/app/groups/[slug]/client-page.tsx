@@ -24,6 +24,7 @@ import type {
   Profile,
 } from "@freediving.ph/types";
 
+import { EntityAvatar, EntityCover } from "@/components/common/entity-media";
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
 import {
   CommunityEmptyState,
@@ -236,6 +237,20 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
       <BackToGroupsButton />
 
       <header className="space-y-3">
+        <div className="relative">
+          <EntityCover
+            src={group.coverUrl}
+            label={group.name}
+            className="aspect-[16/7]"
+            fallback="Group cover photo coming soon."
+          />
+          <EntityAvatar
+            src={group.logoUrl}
+            label={group.name}
+            icon={Users}
+            className="absolute bottom-2 left-2 h-14 w-14 rounded-xl bg-background/90 backdrop-blur"
+          />
+        </div>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1.5">
             <h1 className="text-lg font-semibold tracking-tight text-foreground">

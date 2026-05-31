@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EntityAvatar, EntityCover } from "@/components/common/entity-media";
 import {
   CommunityBrowseToolbar,
   CommunityEmptyState,
@@ -47,7 +48,7 @@ import type {
   PublicSchoolFilters,
   SchoolPaymentMethod,
 } from "@freediving.ph/types";
-import { ArrowLeft, CalendarPlus, Search, Upload, X } from "lucide-react";
+import { ArrowLeft, Building2, CalendarPlus, Search, Upload, X } from "lucide-react";
 import Link from "next/link";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -501,7 +502,14 @@ export function MyBookingsPage() {
 function SchoolCard({ school }: { school: PublicSchool }) {
   return (
     <article className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0">
+      <div className="flex min-w-0 gap-3">
+        <EntityAvatar
+          src={school.logoUrl}
+          label={school.name}
+          icon={Building2}
+          className="h-11 w-11"
+        />
+        <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2 className="truncate text-sm font-semibold text-foreground">
             {school.name}
@@ -517,6 +525,7 @@ function SchoolCard({ school }: { school: PublicSchool }) {
           {school.baseLocation || "Philippines"}
           {school.diveSiteName ? ` • ${school.diveSiteName}` : ""}
         </p>
+        </div>
       </div>
       <Button
         className="self-start"
@@ -604,6 +613,22 @@ function SchoolPublicHeader({
               View courses
             </Button>
           ) : null}
+        </div>
+      }
+      beforeTitle={
+        <div className="relative">
+          <EntityCover
+            src={school.coverUrl}
+            label={school.name}
+            className="aspect-[16/7]"
+            fallback="School cover photo coming soon."
+          />
+          <EntityAvatar
+            src={school.logoUrl}
+            label={school.name}
+            icon={Building2}
+            className="absolute bottom-2 left-2 h-14 w-14 rounded-xl bg-background/90 backdrop-blur"
+          />
         </div>
       }
     />

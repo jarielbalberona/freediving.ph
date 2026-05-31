@@ -109,7 +109,8 @@ function EventManagementCard({ event }: { event: Event }) {
       }
       status={event.status}
       href={`/management/events/${encodeURIComponent(event.slug)}`}
-      coverImage={event.coverPhotoUrl ?? null}
+      coverImage={event.coverUrl ?? event.coverPhotoUrl ?? null}
+      avatarUrl={event.logoUrl ?? null}
       placeholderIcon={CalendarClock}
       stats={[
         { label: "Status", value: event.status },

@@ -34,6 +34,20 @@ type ActivityItem struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type BadgeTemplate struct {
+	ID          pgtype.UUID        `db:"id" json:"id"`
+	Slug        string             `db:"slug" json:"slug"`
+	Name        string             `db:"name" json:"name"`
+	Category    string             `db:"category" json:"category"`
+	ValueType   string             `db:"value_type" json:"value_type"`
+	Unit        *string            `db:"unit" json:"unit"`
+	Icon        *string            `db:"icon" json:"icon"`
+	Description *string            `db:"description" json:"description"`
+	IsSystem    bool               `db:"is_system" json:"is_system"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type Block struct {
 	BlockerID pgtype.UUID        `db:"blocker_id" json:"blocker_id"`
 	BlockedID pgtype.UUID        `db:"blocked_id" json:"blocked_id"`
@@ -434,6 +448,7 @@ type Event struct {
 	DescriptionMarkdown  *string            `db:"description_markdown" json:"description_markdown"`
 	LogoMediaID          pgtype.UUID        `db:"logo_media_id" json:"logo_media_id"`
 	CoverMediaID         pgtype.UUID        `db:"cover_media_id" json:"cover_media_id"`
+	CoverPhotoUrl        *string            `db:"cover_photo_url" json:"cover_photo_url"`
 	Location             *string            `db:"location" json:"location"`
 	LocationName         *string            `db:"location_name" json:"location_name"`
 	FormattedAddress     *string            `db:"formatted_address" json:"formatted_address"`
@@ -1243,6 +1258,24 @@ type User struct {
 	GlobalRole         string             `db:"global_role" json:"global_role"`
 	AccountStatus      string             `db:"account_status" json:"account_status"`
 	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type UserBadge struct {
+	ID                 pgtype.UUID        `db:"id" json:"id"`
+	UserID             pgtype.UUID        `db:"user_id" json:"user_id"`
+	BadgeTemplateID    pgtype.UUID        `db:"badge_template_id" json:"badge_template_id"`
+	ValueText          *string            `db:"value_text" json:"value_text"`
+	ValueNumber        pgtype.Numeric     `db:"value_number" json:"value_number"`
+	ValueMinutes       *int32             `db:"value_minutes" json:"value_minutes"`
+	ValueSeconds       *int32             `db:"value_seconds" json:"value_seconds"`
+	ReferenceLabel     *string            `db:"reference_label" json:"reference_label"`
+	ReferenceValue     *string            `db:"reference_value" json:"reference_value"`
+	ProofMediaID       pgtype.UUID        `db:"proof_media_id" json:"proof_media_id"`
+	VerificationStatus string             `db:"verification_status" json:"verification_status"`
+	VerifiedAt         pgtype.Timestamptz `db:"verified_at" json:"verified_at"`
+	VerifiedBy         pgtype.UUID        `db:"verified_by" json:"verified_by"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type UserBlock struct {

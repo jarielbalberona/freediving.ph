@@ -70,7 +70,12 @@ export default function ManagementInstructorProfilePage() {
           title="Instructor Profile"
           description="You do not have an instructor profile yet."
           action={
-            <Button size="sm" variant="outline" render={<Link href="/instructor/apply" />}>
+            <Button
+              size="sm"
+              variant="outline"
+              nativeButton={false}
+              render={<Link href="/instructor/apply" />}
+            >
               Apply to become an instructor
             </Button>
           }

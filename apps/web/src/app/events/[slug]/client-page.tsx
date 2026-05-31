@@ -88,6 +88,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { UserIdentityHeader } from "@/components/common/UserIdentityHeader";
+import { EntityAvatar } from "@/components/common/entity-media";
 import {
   CommunityEmptyState,
   CommunityHeader,
@@ -2630,7 +2631,8 @@ function EventCoverPhoto({ event }: { event: Event }) {
     };
   }, [previewUrl]);
 
-  const displayUrl = removePhoto ? "" : previewUrl || event.coverPhotoUrl || "";
+  const currentCoverUrl = event.coverUrl ?? event.coverPhotoUrl ?? "";
+  const displayUrl = removePhoto ? "" : previewUrl || currentCoverUrl;
 
   const saveCover = async () => {
     setIsUploading(true);
@@ -2661,9 +2663,9 @@ function EventCoverPhoto({ event }: { event: Event }) {
 
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      {event.coverPhotoUrl ? (
+      {currentCoverUrl ? (
         <img
-          src={event.coverPhotoUrl}
+          src={currentCoverUrl}
           alt={`${event.title} cover photo`}
           className="aspect-[16/7] w-full object-cover"
         />
@@ -2674,6 +2676,12 @@ function EventCoverPhoto({ event }: { event: Event }) {
             : "Event cover photo coming soon."}
         </div>
       )}
+      <EntityAvatar
+        src={event.logoUrl}
+        label={event.title}
+        icon={CalendarClock}
+        className="absolute bottom-2 left-2 h-14 w-14 rounded-xl bg-background/90 backdrop-blur"
+      />
       {event.viewerCanManage ? (
         <div className="absolute right-2 bottom-2">
           <Button
@@ -2683,7 +2691,7 @@ function EventCoverPhoto({ event }: { event: Event }) {
             onClick={() => setDialogOpen(true)}
           >
             <ImageIcon className="mr-1 h-4 w-4" />
-            {event.coverPhotoUrl ? "Edit cover" : "Add cover photo"}
+            {currentCoverUrl ? "Edit cover" : "Add cover photo"}
           </Button>
         </div>
       ) : null}
@@ -6846,8 +6854,10 @@ function JoinFormManageSection({
   error: unknown;
 }) {
   const updateFieldsMutation = useUpdateEventJoinFormFields();
-  const configured =
-    fields.length > 0 ? fields : defaultJoinFormFields(event.id);
+  const configured = useMemo(
+    () => (fields.length > 0 ? fields : defaultJoinFormFields(event.id)),
+    [event.id, fields],
+  );
   const [draftFields, setDraftFields] = useState(configured);
   useEffect(() => {
     setDraftFields(configured);

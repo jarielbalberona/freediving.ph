@@ -16,6 +16,7 @@ export const mediaUploadSchema = z.object({
     "group_logo",
     "group_cover",
     "instructor_certification_proof",
+    "badge_proof",
   ]),
   contextId: z.string().optional(),
 });

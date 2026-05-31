@@ -118,6 +118,8 @@ function GroupManagementCard({ group }: { group: Group }) {
       location={group.locationName || "Location not set"}
       status={group.status}
       href={`/management/groups/${encodeURIComponent(group.slug)}`}
+      coverImage={group.coverUrl ?? null}
+      avatarUrl={group.logoUrl ?? null}
       placeholderIcon={Users}
       stats={[
         { label: "Members", value: String(group.memberCount) },

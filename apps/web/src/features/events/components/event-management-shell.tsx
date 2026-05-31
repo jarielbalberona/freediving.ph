@@ -26,6 +26,9 @@ import {
 import { useRouter } from "next/navigation";
 import { useEvent } from "@/features/events";
 import { useEvents } from "@/features/events/hooks/queries";
+import { useUpdateEvent } from "@/features/events/hooks/mutations";
+import { EntityLogoCoverSettings } from "@/features/media/components";
+import { EntityAvatar } from "@/components/common/entity-media";
 import { ManagementWorkspaceShell } from "@/components/layout/management-workspace-shell";
 import { useSession } from "@/features/auth/session";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -61,12 +64,14 @@ export function EventManagementShell({
   emptyState?: React.ReactNode;
 }) {
   const session = useSession();
+  const router = useRouter();
   const managedEventsQuery = useEvents(undefined, session.status === "signed_in");
   const manageableEvents =
     managedEventsQuery.data?.events?.filter((event) => event.viewerCanManage) ?? [];
   const eventQuery = useEvent(slug);
   const event = eventQuery.data;
   const isMobile = useIsMobile();
+  const updateEvent = useUpdateEvent();
 
   if (eventQuery.isLoading) {
     return (
@@ -141,7 +146,6 @@ export function EventManagementShell({
     href: `/management/events/${encodeURIComponent(event.slug)}${item.hrefSuffix}`,
     icon: item.icon,
   }));
-  const router = useRouter();
 
   const switcher = (
     <SidebarMenu>
@@ -153,9 +157,13 @@ export function EventManagementShell({
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground h-8 w-full justify-between gap-2 px-2"
               >
-                <div className="flex aspect-square size-7 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <CalendarClock className="size-3.5 shrink-0" />
-                </div>
+                <EntityAvatar
+                  src={event.logoUrl}
+                  label={event.title}
+                  icon={CalendarClock}
+                  className="size-7 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
+                  fallbackClassName="text-sidebar-primary-foreground"
+                />
                 <div className="grid flex-1 min-w-0 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{event.title}</span>
                   <span className="truncate text-xs text-muted-foreground">Event</span>
@@ -189,9 +197,12 @@ export function EventManagementShell({
                           router.push(`/management/events/${encodeURIComponent(item.slug)}`)
                         }
                       >
-                        <div className="flex size-6 items-center justify-center rounded-md border">
-                          <CalendarClock className="size-3.5 shrink-0" />
-                        </div>
+                        <EntityAvatar
+                          src={item.logoUrl}
+                          label={item.title}
+                          icon={CalendarClock}
+                          className="size-6 rounded-md"
+                        />
                         {item.title}
                       </DropdownMenuItem>
                     );
@@ -224,6 +235,24 @@ export function EventManagementShell({
       backHref="/management/events"
       backLabel="Back to events"
     >
+      <EntityLogoCoverSettings
+        title="Event images"
+        logoUrl={event.logoUrl}
+        logoMediaId={event.logoMediaId}
+        coverUrl={event.coverUrl ?? event.coverPhotoUrl}
+        coverMediaId={event.coverMediaId}
+        logoContext="event_logo"
+        coverContext="event_cover"
+        contextId={event.id}
+        disabled={!event.viewerCanManage}
+        isSaving={updateEvent.isPending}
+        onSave={(data) =>
+          updateEvent.mutateAsync({
+            eventId: event.id,
+            data,
+          })
+        }
+      />
       {children}
     </ManagementWorkspaceShell>
   );

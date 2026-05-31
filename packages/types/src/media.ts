@@ -13,6 +13,7 @@ export const mediaContextTypes = [
   "group_logo",
   "group_cover",
   "instructor_certification_proof",
+  "badge_proof",
 ] as const;
 
 export type MediaContextType = (typeof mediaContextTypes)[number];

@@ -288,6 +288,8 @@ export function ManageSchoolsPage() {
             location={school.baseLocation || "No base location yet"}
             status={schoolStatusLabels[school.status]}
             href={`/management/schools/${school.slug}`}
+            coverImage={school.coverUrl ?? null}
+            avatarUrl={school.logoUrl ?? null}
             stats={[
               { label: "Courses", value: String(school.courseCount) },
               {

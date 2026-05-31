@@ -68,6 +68,66 @@ func TestParticipantMapperDoesNotLeakPassTokenWithoutManagerScope(t *testing.T) 
 	}
 }
 
+func TestUpdateEventMapsImageMediaNullAndValueHTTP(t *testing.T) {
+	const (
+		eventID      = "550e8400-e29b-41d4-a716-446655443301"
+		actorID      = "550e8400-e29b-41d4-a716-446655443302"
+		coverMediaID = "550e8400-e29b-41d4-a716-446655443303"
+	)
+	repo := &eventCreateRepoStub{
+		event: eventsrepo.Event{
+			ID:         eventID,
+			Status:     "published",
+			Visibility: "public",
+		},
+	}
+	router := Routes(New(eventsservice.New(repo), validatex.New()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/"+eventID, strings.NewReader(`{"logoMediaId":null,"coverMediaId":"`+coverMediaID+`"}`))
+	req = req.WithContext(middleware.WithIdentity(req.Context(), authz.Identity{UserID: actorID}))
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if repo.updateInput.LogoMediaID == nil || *repo.updateInput.LogoMediaID != "" {
+		t.Fatalf("logo null should map to explicit removal, got %#v", repo.updateInput.LogoMediaID)
+	}
+	if repo.updateInput.CoverMediaID == nil || *repo.updateInput.CoverMediaID != coverMediaID {
+		t.Fatalf("cover media id was not forwarded, got %#v", repo.updateInput.CoverMediaID)
+	}
+}
+
+func TestMapEventCoverURLPrefersMediaAndFallsBackToLegacy(t *testing.T) {
+	withMedia := mapEvent(eventsrepo.Event{
+		ID:            "550e8400-e29b-41d4-a716-446655443311",
+		Title:         "Line training",
+		Status:        "published",
+		Visibility:    "public",
+		CoverMediaID:  "550e8400-e29b-41d4-a716-446655443312",
+		CoverURL:      "events/event-id/cover/media.jpg",
+		CoverPhotoURL: "events/event-id/legacy.jpg",
+	})
+	if withMedia.CoverURL == "" || !strings.Contains(withMedia.CoverURL, "media.jpg") {
+		t.Fatalf("coverUrl should prefer hydrated media URL, got %#v", withMedia)
+	}
+	if withMedia.CoverPhotoURL == "" || !strings.Contains(withMedia.CoverPhotoURL, "legacy.jpg") {
+		t.Fatalf("coverPhotoUrl compatibility was not preserved, got %#v", withMedia)
+	}
+
+	legacyOnly := mapEvent(eventsrepo.Event{
+		ID:            "550e8400-e29b-41d4-a716-446655443313",
+		Title:         "Line training",
+		Status:        "published",
+		Visibility:    "public",
+		CoverPhotoURL: "events/event-id/legacy.jpg",
+	})
+	if legacyOnly.CoverURL == "" || legacyOnly.CoverURL != legacyOnly.CoverPhotoURL {
+		t.Fatalf("coverUrl should fall back to legacy coverPhotoUrl, got %#v", legacyOnly)
+	}
+}
+
 func TestListEventsReturnsPublicEventForAnonymousHTTP(t *testing.T) {
 	event := privateEventFixture(true, false)
 	event.Visibility = "public"
@@ -671,6 +731,7 @@ type eventCreateRepoStub struct {
 	total       int
 	listInput   eventsrepo.ListEventsInput
 	createInput eventsrepo.CreateEventInput
+	updateInput eventsrepo.UpdateEventInput
 	joinInput   eventsrepo.JoinEventInput
 }
 
@@ -715,8 +776,22 @@ func (r *eventCreateRepoStub) CreateEvent(_ context.Context, input eventsrepo.Cr
 	}, nil
 }
 
-func (r *eventCreateRepoStub) UpdateEvent(context.Context, eventsrepo.UpdateEventInput) (eventsrepo.Event, error) {
-	return eventsrepo.Event{}, nil
+func (r *eventCreateRepoStub) UpdateEvent(_ context.Context, input eventsrepo.UpdateEventInput) (eventsrepo.Event, error) {
+	r.updateInput = input
+	event := r.event
+	if event.ID == "" {
+		event.ID = input.EventID
+	}
+	event.LogoMediaID = stringPtrValue(input.LogoMediaID, event.LogoMediaID)
+	event.CoverMediaID = stringPtrValue(input.CoverMediaID, event.CoverMediaID)
+	return event, nil
+}
+
+func stringPtrValue(value *string, fallback string) string {
+	if value == nil {
+		return fallback
+	}
+	return *value
 }
 
 func (r *eventCreateRepoStub) GetGroupRole(context.Context, string, string) (string, error) {

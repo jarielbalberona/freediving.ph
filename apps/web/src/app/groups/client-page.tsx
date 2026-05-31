@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 import type { Group } from "@freediving.ph/types";
 
+import { EntityAvatar, EntityCover } from "@/components/common/entity-media";
 import {
   CommunityAccessNote,
   CommunityBrowseToolbar,
@@ -530,7 +531,20 @@ function GroupCard({
   return (
     <Card className="rounded-xl border-border/70 bg-background/80 py-0 shadow-none">
       <CardContent className="space-y-3 p-3">
+        <EntityCover
+          src={group.coverUrl}
+          label={group.name}
+          className="aspect-[16/6] rounded-lg"
+          fallback="Group cover photo coming soon."
+        />
         <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 gap-3">
+            <EntityAvatar
+              src={group.logoUrl}
+              label={group.name}
+              icon={Users}
+              className="h-11 w-11"
+            />
           <div className="min-w-0 space-y-1">
             <Link
               href={`/groups/${group.slug}`}
@@ -541,6 +555,7 @@ function GroupCard({
             <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
               {group.bio || "This group has not added a bio yet."}
             </p>
+          </div>
           </div>
           {group.visibility !== "public" ? (
             <Lock className="mt-1 h-4 w-4 text-muted-foreground" />

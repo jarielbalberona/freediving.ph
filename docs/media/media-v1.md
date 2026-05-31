@@ -66,8 +66,30 @@ This document defines how Freediving Philippines (FPH) stores and serves images 
 | `profile_feed` | `feed/{userId}/{yyyy}/{mm}/` | 3 days | 10 MB | 2048 | card, dialog | High volume. Batch minting required. |
 | `chika_attachment` | `chika/{threadId}/` | 12 hours | 10 MB | 1600 | card, dialog | More takedown-sensitive. |
 | `event_attachment` | `events/{eventId}/` | 3 days | 10 MB | 2048 | card, dialog | |
+| `event_logo` | `events/{eventId}/logo/` | 7 days | 10 MB | 1024 | thumb, card, dialog | Event identity image. |
+| `event_cover` | `events/{eventId}/cover/` | 7 days | 10 MB | 2048 | card, dialog | Event wide header image. |
+| `school_logo` | `schools/{schoolId}/logo/` | 7 days | 10 MB | 1024 | thumb, card, dialog | School identity image. |
+| `school_cover` | `schools/{schoolId}/cover/` | 7 days | 10 MB | 2048 | card, dialog | School wide header image. |
 | `dive_spot_attachment` | `dive-spots/{spotId}/` | 7 days | 10 MB | 2048 | card, dialog | Often reused. |
+| `group_logo` | `groups/{groupId}/logo/` | 7 days | 10 MB | 1024 | thumb, card, dialog | Group identity image. |
 | `group_cover` | `groups/{groupId}/cover/` | 7 days | 10 MB | 2048 | card, dialog | |
+
+### Entity logo and cover contract
+
+Events, schools, and groups store logo and cover references as nullable media IDs:
+
+- `logoMediaId`: square-ish identity image used in cards, switchers, compact headers, and sidebars.
+- `logoUrl`: hydrated delivery URL for the logo media ID.
+- `coverMediaId`: wide/banner image used in public and management headers.
+- `coverUrl`: hydrated delivery URL for the cover media ID.
+
+Events also keep the legacy `coverPhotoUrl` contract during migration. Display code must prefer `coverUrl` and fall back to `coverPhotoUrl`:
+
+```ts
+const eventCover = event.coverUrl ?? event.coverPhotoUrl ?? null;
+```
+
+Schools and groups should use `coverUrl` directly with a local fallback when absent. Removing a logo or cover sets the corresponding media ID column to `NULL`; it must not delete the underlying media object, blob, or file. Future modules that need the same behavior should add explicit upload contexts for `{module}_logo` and `{module}_cover`, validate media ownership/context in the backend write path, and hydrate response URLs through the existing media URL materialization layer.
 
 ### Allowed types (v1)
 
@@ -100,7 +122,12 @@ Disallow in v1:
 - `profile_feed`: `feed/{userId}/{yyyy}/{mm}/{unixMillis}-{randHex}.{ext}`
 - `chika_attachment`: `chika/{threadId}/{unixMillis}-{randHex}.{ext}`
 - `event_attachment`: `events/{eventId}/{unixMillis}-{randHex}.{ext}`
+- `event_logo`: `events/{eventId}/logo/{unixMillis}-{randHex}.{ext}`
+- `event_cover`: `events/{eventId}/cover/{unixMillis}-{randHex}.{ext}`
+- `school_logo`: `schools/{schoolId}/logo/{unixMillis}-{randHex}.{ext}`
+- `school_cover`: `schools/{schoolId}/cover/{unixMillis}-{randHex}.{ext}`
 - `dive_spot_attachment`: `dive-spots/{spotId}/{unixMillis}-{randHex}.{ext}`
+- `group_logo`: `groups/{groupId}/logo/{unixMillis}-{randHex}.{ext}`
 - `group_cover`: `groups/{groupId}/cover/{unixMillis}-{randHex}.{ext}`
 
 ---

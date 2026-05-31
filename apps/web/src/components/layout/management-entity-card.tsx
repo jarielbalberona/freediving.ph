@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EntityAvatar, EntityCover } from "@/components/common/entity-media";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,20 +57,23 @@ export function ManagementEntityCard({
       <CardContent className="flex h-full flex-col p-0">
         <div className="relative h-32 overflow-hidden rounded-t-lg border-b border-border/70 bg-muted/40">
           {hasCover ? (
-            <div className="h-full w-full bg-gradient-to-br from-muted to-muted/10" />
+            <EntityCover
+              src={coverImage}
+              label={title}
+              className="h-full rounded-none border-0"
+            />
           ) : (
             <div className="grid h-full place-items-center text-muted-foreground/70">
               <Camera className="h-6 w-6" />
             </div>
           )}
           <div className="absolute -bottom-5 left-4">
-            <div className="grid h-12 w-12 place-items-center rounded-lg border border-border/70 bg-background shadow-sm">
-              {hasAvatar ? (
-                <div className="h-full w-full bg-muted" />
-              ) : (
-                <PlaceholderIcon className="h-5 w-5 text-muted-foreground" />
-              )}
-            </div>
+            <EntityAvatar
+              src={avatarUrl}
+              label={title}
+              icon={hasAvatar ? undefined : PlaceholderIcon}
+              className="h-12 w-12 rounded-lg"
+            />
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-3 p-4 pt-6">

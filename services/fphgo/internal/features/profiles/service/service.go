@@ -30,6 +30,16 @@ type repository interface {
 	GetProfileViewByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileView, error)
 	ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]profilesrepo.ProfileBucketListItem, error)
 	ListProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileDiving, error)
+	ListBadgeTemplates(ctx context.Context) ([]profilesrepo.BadgeTemplate, error)
+	GetBadgeTemplate(ctx context.Context, templateID string) (profilesrepo.BadgeTemplate, error)
+	ListUserBadgesByUserID(ctx context.Context, userID string) ([]profilesrepo.UserBadge, error)
+	ListProfileBadgesByUsername(ctx context.Context, username string) ([]profilesrepo.UserBadge, error)
+	CreateUserBadge(ctx context.Context, input profilesrepo.UpsertUserBadgeInput) (profilesrepo.UserBadge, error)
+	UpdateUserBadge(ctx context.Context, input profilesrepo.UpsertUserBadgeInput) (profilesrepo.UserBadge, error)
+	DeleteUserBadge(ctx context.Context, badgeID, userID string) error
+	CountDiveSitesVisitedByUsername(ctx context.Context, username string) (int64, error)
+	CountDiveSitesVisitedByUserID(ctx context.Context, userID string) (int64, error)
+	UserOwnsProofMedia(ctx context.Context, userID, mediaID string) (bool, error)
 }
 
 type rateLimiter interface {
@@ -151,6 +161,57 @@ type ProfileDiveSiteAffinity struct {
 type ProfileDiving struct {
 	Presences  []ProfileDivePresence
 	Affinities []ProfileDiveSiteAffinity
+}
+
+type BadgeTemplate struct {
+	ID          string `json:"id"`
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Category    string `json:"category"`
+	ValueType   string `json:"valueType"`
+	Unit        string `json:"unit,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	Description string `json:"description,omitempty"`
+	IsSystem    bool   `json:"isSystem"`
+}
+
+type UserBadge struct {
+	ID                 string         `json:"id"`
+	Template           BadgeTemplate  `json:"template"`
+	ValueText          string         `json:"valueText,omitempty"`
+	ValueNumber        *float64       `json:"valueNumber,omitempty"`
+	ValueMinutes       *int32         `json:"valueMinutes,omitempty"`
+	ValueSeconds       *int32         `json:"valueSeconds,omitempty"`
+	DisplayValue       string         `json:"displayValue,omitempty"`
+	ReferenceLabel     string         `json:"referenceLabel,omitempty"`
+	ReferenceValue     string         `json:"referenceValue,omitempty"`
+	ProofMediaID       string         `json:"proofMediaId,omitempty"`
+	ProofMediaObjectKey string        `json:"proofMediaObjectKey,omitempty"`
+	VerificationStatus string         `json:"verificationStatus"`
+	VerifiedAt         *time.Time     `json:"verifiedAt,omitempty"`
+	VerifiedBy         string         `json:"verifiedBy,omitempty"`
+	IsSystemVerified   bool           `json:"isSystemVerified"`
+	CreatedAt          time.Time      `json:"createdAt"`
+	UpdatedAt          time.Time      `json:"updatedAt"`
+}
+
+type ProfileBadges struct {
+	Templates []BadgeTemplate `json:"templates,omitempty"`
+	Badges    []UserBadge     `json:"badges"`
+	AutoStats []UserBadge     `json:"autoStats"`
+}
+
+type UpsertUserBadgeInput struct {
+	ActorID        string
+	BadgeID        string
+	BadgeTemplateID string
+	ValueText      *string
+	ValueNumber    *float64
+	ValueMinutes   *int32
+	ValueSeconds   *int32
+	ReferenceLabel *string
+	ReferenceValue *string
+	ProofMediaID   *string
 }
 
 type UpdateMyProfileInput struct {
@@ -438,6 +499,191 @@ func (s *Service) GetProfileDivingByUsername(ctx context.Context, username, view
 	return ProfileDiving{Presences: presences, Affinities: affinities}, nil
 }
 
+func (s *Service) GetMyBadges(ctx context.Context, actorID string) (ProfileBadges, error) {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return ProfileBadges{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+
+	templates, err := s.repo.ListBadgeTemplates(ctx)
+	if err != nil {
+		return ProfileBadges{}, apperrors.New(http.StatusInternalServerError, "badge_templates_failed", "failed to load badge templates", err)
+	}
+	rows, err := s.repo.ListUserBadgesByUserID(ctx, actorID)
+	if err != nil {
+		return ProfileBadges{}, apperrors.New(http.StatusInternalServerError, "badges_failed", "failed to load badges", err)
+	}
+	visited, err := s.repo.CountDiveSitesVisitedByUserID(ctx, actorID)
+	if err != nil {
+		return ProfileBadges{}, apperrors.New(http.StatusInternalServerError, "badge_stats_failed", "failed to load badge stats", err)
+	}
+
+	return ProfileBadges{
+		Templates: mapBadgeTemplates(templates),
+		Badges:    s.mapUserBadges(rows),
+		AutoStats: buildAutoStats(templates, visited),
+	}, nil
+}
+
+func (s *Service) GetProfileBadgesByUsername(ctx context.Context, username string) (ProfileBadges, error) {
+	value := strings.TrimSpace(username)
+	if value == "" {
+		return ProfileBadges{}, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
+	}
+	rows, err := s.repo.ListProfileBadgesByUsername(ctx, value)
+	if err != nil {
+		return ProfileBadges{}, apperrors.New(http.StatusInternalServerError, "badges_failed", "failed to load badges", err)
+	}
+	templates, err := s.repo.ListBadgeTemplates(ctx)
+	if err != nil {
+		return ProfileBadges{}, apperrors.New(http.StatusInternalServerError, "badge_templates_failed", "failed to load badge templates", err)
+	}
+	visited, err := s.repo.CountDiveSitesVisitedByUsername(ctx, value)
+	if err != nil {
+		return ProfileBadges{}, apperrors.New(http.StatusInternalServerError, "badge_stats_failed", "failed to load badge stats", err)
+	}
+	return ProfileBadges{
+		Badges:    s.mapUserBadges(rows),
+		AutoStats: buildAutoStats(templates, visited),
+	}, nil
+}
+
+func (s *Service) CreateUserBadge(ctx context.Context, input UpsertUserBadgeInput) (UserBadge, error) {
+	cleaned, err := s.validateBadgeInput(ctx, input, false)
+	if err != nil {
+		return UserBadge{}, err
+	}
+	if err := s.enforceRateLimit(ctx, "profiles.badges.write", cleaned.UserID, 20, time.Minute, "badge update rate exceeded"); err != nil {
+		return UserBadge{}, err
+	}
+	row, err := s.repo.CreateUserBadge(ctx, cleaned)
+	if err != nil {
+		return UserBadge{}, apperrors.New(http.StatusInternalServerError, "badge_create_failed", "failed to create badge", err)
+	}
+	return s.mapUserBadge(row), nil
+}
+
+func (s *Service) UpdateUserBadge(ctx context.Context, input UpsertUserBadgeInput) (UserBadge, error) {
+	cleaned, err := s.validateBadgeInput(ctx, input, true)
+	if err != nil {
+		return UserBadge{}, err
+	}
+	if err := s.enforceRateLimit(ctx, "profiles.badges.write", cleaned.UserID, 20, time.Minute, "badge update rate exceeded"); err != nil {
+		return UserBadge{}, err
+	}
+	row, err := s.repo.UpdateUserBadge(ctx, cleaned)
+	if err != nil {
+		if profilesrepo.IsNoRows(err) {
+			return UserBadge{}, apperrors.New(http.StatusNotFound, "badge_not_found", "badge not found", err)
+		}
+		return UserBadge{}, apperrors.New(http.StatusInternalServerError, "badge_update_failed", "failed to update badge", err)
+	}
+	return s.mapUserBadge(row), nil
+}
+
+func (s *Service) DeleteUserBadge(ctx context.Context, actorID, badgeID string) error {
+	if _, err := uuid.Parse(actorID); err != nil {
+		return apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if _, err := uuid.Parse(badgeID); err != nil {
+		return apperrors.New(http.StatusBadRequest, "invalid_badge_id", "invalid badge id", err)
+	}
+	if err := s.enforceRateLimit(ctx, "profiles.badges.write", actorID, 20, time.Minute, "badge update rate exceeded"); err != nil {
+		return err
+	}
+	if err := s.repo.DeleteUserBadge(ctx, badgeID, actorID); err != nil {
+		if profilesrepo.IsNoRows(err) {
+			return apperrors.New(http.StatusNotFound, "badge_not_found", "badge not found", err)
+		}
+		return apperrors.New(http.StatusInternalServerError, "badge_delete_failed", "failed to delete badge", err)
+	}
+	return nil
+}
+
+func (s *Service) validateBadgeInput(ctx context.Context, input UpsertUserBadgeInput, requireBadgeID bool) (profilesrepo.UpsertUserBadgeInput, error) {
+	if _, err := uuid.Parse(input.ActorID); err != nil {
+		return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid actor id", err)
+	}
+	if requireBadgeID {
+		if _, err := uuid.Parse(input.BadgeID); err != nil {
+			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_badge_id", "invalid badge id", err)
+		}
+	}
+	if _, err := uuid.Parse(input.BadgeTemplateID); err != nil {
+		return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_badge_template_id", "invalid badge template id", err)
+	}
+	template, err := s.repo.GetBadgeTemplate(ctx, input.BadgeTemplateID)
+	if err != nil {
+		if profilesrepo.IsNoRows(err) {
+			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_badge_template_id", "badge template not found", err)
+		}
+		return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusInternalServerError, "badge_template_failed", "failed to load badge template", err)
+	}
+	if template.IsSystem {
+		return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "system_badge_read_only", "system badges cannot be edited", nil)
+	}
+
+	valueText := trimOptional(input.ValueText, 160)
+	referenceLabel := trimOptional(input.ReferenceLabel, 80)
+	referenceValue := trimOptional(input.ReferenceValue, 160)
+	proofMediaID := trimOptional(input.ProofMediaID, 80)
+	if proofMediaID != nil {
+		if _, err := uuid.Parse(*proofMediaID); err != nil {
+			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_proof_media_id", "invalid proof media id", err)
+		}
+		ok, err := s.repo.UserOwnsProofMedia(ctx, input.ActorID, *proofMediaID)
+		if err != nil {
+			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusInternalServerError, "proof_media_check_failed", "failed to check proof media", err)
+		}
+		if !ok {
+			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_proof_media_id", "proof media must be an active badge proof upload owned by the user", nil)
+		}
+	}
+
+	cleaned := profilesrepo.UpsertUserBadgeInput{
+		ID:             input.BadgeID,
+		UserID:         input.ActorID,
+		TemplateID:     input.BadgeTemplateID,
+		ValueText:      valueText,
+		ReferenceLabel: referenceLabel,
+		ReferenceValue: referenceValue,
+		ProofMediaID:   proofMediaID,
+	}
+
+	switch template.ValueType {
+	case "time":
+		if input.ValueMinutes == nil && input.ValueSeconds == nil {
+			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "badge_value_required", "time badge requires minutes or seconds", nil)
+		}
+		minutes := int32(0)
+		seconds := int32(0)
+		if input.ValueMinutes != nil {
+			minutes = *input.ValueMinutes
+		}
+		if input.ValueSeconds != nil {
+			seconds = *input.ValueSeconds
+		}
+		if minutes < 0 || seconds < 0 || seconds > 59 {
+			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_badge_value", "time badge seconds must be 0-59 and minutes must be non-negative", nil)
+		}
+		cleaned.ValueMinutes = &minutes
+		cleaned.ValueSeconds = &seconds
+	case "distance", "number":
+		if input.ValueNumber == nil || *input.ValueNumber < 0 {
+			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "badge_value_required", "numeric badge requires a non-negative value", nil)
+		}
+		cleaned.ValueNumber = input.ValueNumber
+	case "text":
+		if valueText == nil {
+			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "badge_value_required", "text badge requires a value", nil)
+		}
+	case "none":
+	default:
+		return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_badge_value_type", "unsupported badge value type", nil)
+	}
+
+	return cleaned, nil
+}
+
 func (s *Service) mapProfile(item profilesrepo.Profile) Profile {
 	return Profile{
 		UserID:        item.UserID,
@@ -455,6 +701,129 @@ func (s *Service) mapProfile(item profilesrepo.Profile) Profile {
 		CertLevel:     strings.TrimSpace(item.CertLevel),
 		Socials:       trimSocials(item.Socials),
 	}
+}
+
+func (s *Service) mapUserBadges(rows []profilesrepo.UserBadge) []UserBadge {
+	items := make([]UserBadge, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, s.mapUserBadge(row))
+	}
+	return items
+}
+
+func (s *Service) mapUserBadge(row profilesrepo.UserBadge) UserBadge {
+	item := UserBadge{
+		ID:                  row.ID,
+		Template:            mapBadgeTemplate(row.Template),
+		ValueText:           row.ValueText,
+		ValueNumber:         row.ValueNumber,
+		ValueMinutes:        row.ValueMinutes,
+		ValueSeconds:        row.ValueSeconds,
+		ReferenceLabel:      row.ReferenceLabel,
+		ReferenceValue:      row.ReferenceValue,
+		ProofMediaID:        row.ProofMediaID,
+		ProofMediaObjectKey: row.ProofMediaObjectKey,
+		VerificationStatus:  row.VerificationStatus,
+		VerifiedAt:          row.VerifiedAt,
+		VerifiedBy:          row.VerifiedBy,
+		CreatedAt:           row.CreatedAt,
+		UpdatedAt:           row.UpdatedAt,
+	}
+	item.DisplayValue = displayBadgeValue(item.Template, item.ValueNumber, item.ValueMinutes, item.ValueSeconds, item.ValueText)
+	return item
+}
+
+func mapBadgeTemplates(rows []profilesrepo.BadgeTemplate) []BadgeTemplate {
+	items := make([]BadgeTemplate, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapBadgeTemplate(row))
+	}
+	return items
+}
+
+func mapBadgeTemplate(row profilesrepo.BadgeTemplate) BadgeTemplate {
+	return BadgeTemplate{
+		ID:          row.ID,
+		Slug:        row.Slug,
+		Name:        row.Name,
+		Category:    row.Category,
+		ValueType:   row.ValueType,
+		Unit:        row.Unit,
+		Icon:        row.Icon,
+		Description: row.Description,
+		IsSystem:    row.IsSystem,
+	}
+}
+
+func buildAutoStats(templates []profilesrepo.BadgeTemplate, diveSitesVisited int64) []UserBadge {
+	items := make([]UserBadge, 0, 1)
+	for _, template := range templates {
+		if template.Slug != "dive-sites-visited" {
+			continue
+		}
+		value := float64(diveSitesVisited)
+		item := UserBadge{
+			ID:                 "system:dive-sites-visited",
+			Template:           mapBadgeTemplate(template),
+			ValueNumber:        &value,
+			DisplayValue:       fmt.Sprintf("%d", diveSitesVisited),
+			VerificationStatus: "verified",
+			IsSystemVerified:   true,
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func displayBadgeValue(template BadgeTemplate, valueNumber *float64, minutes *int32, seconds *int32, valueText string) string {
+	switch template.ValueType {
+	case "time":
+		minuteValue := int32(0)
+		secondValue := int32(0)
+		if minutes != nil {
+			minuteValue = *minutes
+		}
+		if seconds != nil {
+			secondValue = *seconds
+		}
+		return fmt.Sprintf("%d:%02d", minuteValue, secondValue)
+	case "distance":
+		if valueNumber == nil {
+			return ""
+		}
+		unit := strings.TrimSpace(template.Unit)
+		return fmt.Sprintf("%s%s", formatNumber(*valueNumber), unit)
+	case "number":
+		if valueNumber == nil {
+			return ""
+		}
+		return formatNumber(*valueNumber)
+	case "text":
+		return strings.TrimSpace(valueText)
+	default:
+		return ""
+	}
+}
+
+func formatNumber(value float64) string {
+	if value == float64(int64(value)) {
+		return fmt.Sprintf("%d", int64(value))
+	}
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", value), "0"), ".")
+}
+
+func trimOptional(input *string, maxLen int) *string {
+	if input == nil {
+		return nil
+	}
+	value := strings.TrimSpace(*input)
+	if value == "" {
+		return nil
+	}
+	if maxLen > 0 && len(value) > maxLen {
+		value = value[:maxLen]
+	}
+	return &value
 }
 
 func coarseLocation(input string) string {

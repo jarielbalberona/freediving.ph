@@ -5,6 +5,7 @@ import { DEFAULT_TIMEZONE } from "@freediving.ph/config";
 import { CalendarClock, Lock, MapPin, Star, Ticket, Users } from "lucide-react";
 import Link from "next/link";
 
+import { EntityAvatar, EntityCover } from "@/components/common/entity-media";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +44,7 @@ export function EventCard({
   const statusLabel =
     stateLabel ?? (event.requiresApproval ? "Approval required" : "Open join");
   const canJoin = !event.viewerParticipation;
+  const coverUrl = event.coverUrl ?? event.coverPhotoUrl ?? null;
 
   if (privateLocked) {
     return (
@@ -88,6 +90,12 @@ export function EventCard({
   return (
     <Card className="rounded-xl border-border/70 bg-background/80 py-0 shadow-none">
       <CardContent className="space-y-3 p-3">
+        <EntityCover
+          src={coverUrl}
+          label={event.title}
+          className="aspect-[16/6] rounded-lg"
+          fallback="Event cover photo coming soon."
+        />
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge className="h-5 rounded-full px-2 text-[11px]">
             {eventOptionLabel(event.type)}
@@ -100,18 +108,26 @@ export function EventCard({
           </Badge>
         </div>
 
-        <div className="space-y-1">
-          <Link
-            href={`/events/${event.slug}`}
-            className="block text-base font-semibold leading-tight text-foreground hover:underline"
-          >
-            {event.title}
-          </Link>
-          <p className="line-clamp-2 min-h-10 text-sm leading-5 text-muted-foreground">
-            {event.shortDescription ||
-              event.description ||
-              "No summary has been added yet."}
-          </p>
+        <div className="flex min-w-0 items-start gap-3">
+          <EntityAvatar
+            src={event.logoUrl}
+            label={event.title}
+            icon={CalendarClock}
+            className="h-11 w-11"
+          />
+          <div className="min-w-0 space-y-1">
+            <Link
+              href={`/events/${event.slug}`}
+              className="block text-base font-semibold leading-tight text-foreground hover:underline"
+            >
+              {event.title}
+            </Link>
+            <p className="line-clamp-2 min-h-10 text-sm leading-5 text-muted-foreground">
+              {event.shortDescription ||
+                event.description ||
+                "No summary has been added yet."}
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-1.5 text-xs text-muted-foreground">

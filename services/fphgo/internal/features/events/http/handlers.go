@@ -168,6 +168,8 @@ func (h *Handlers) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		ShortDescription:    req.ShortDescription,
 		Description:         req.DescriptionMarkdown,
 		DescriptionMarkdown: req.DescriptionMarkdown,
+		LogoMediaID:         req.LogoMediaID.PtrOrEmptyForNull(),
+		CoverMediaID:        req.CoverMediaID.PtrOrEmptyForNull(),
 		DiveSiteID:          req.DiveSiteID,
 		StartsAt:            startsAt,
 		EndsAt:              endsAt,

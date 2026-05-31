@@ -25,6 +25,9 @@ import {
 import { useRouter } from "next/navigation";
 import { useManageSchools } from "@/features/schools/hooks/queries";
 import { ManagementWorkspaceShell } from "@/components/layout/management-workspace-shell";
+import { EntityAvatar } from "@/components/common/entity-media";
+import { EntityLogoCoverSettings } from "@/features/media/components";
+import { useUpdateSchool } from "@/features/schools/hooks/mutations";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   SidebarMenu,
@@ -98,6 +101,7 @@ export function SchoolManagementShell({
   const canSwitch = managedSchools.length > 1;
   const isMobile = useIsMobile();
   const router = useRouter();
+  const updateSchool = useUpdateSchool(school.slug);
 
   const navItems = schoolWorkspaceNavItems.map((item) => ({
     label: item.label,
@@ -115,9 +119,13 @@ export function SchoolManagementShell({
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground h-8 w-full justify-between gap-2 px-2"
               >
-                <div className="flex aspect-square size-7 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Building2 className="size-3.5" />
-                </div>
+                <EntityAvatar
+                  src={school.logoUrl}
+                  label={school.name}
+                  icon={Building2}
+                  className="size-7 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
+                  fallbackClassName="text-sidebar-primary-foreground"
+                />
                 <div className="grid flex-1 min-w-0 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{school.name}</span>
                   <span className="truncate text-xs text-muted-foreground">School</span>
@@ -148,9 +156,12 @@ export function SchoolManagementShell({
                       router.push(`/management/schools/${encodeURIComponent(item.slug)}`)
                     }
                   >
-                    <div className="flex size-6 items-center justify-center rounded-md border">
-                      <Building2 className="size-3.5 shrink-0" />
-                    </div>
+                    <EntityAvatar
+                      src={item.logoUrl}
+                      label={item.name}
+                      icon={Building2}
+                      className="size-6 rounded-md"
+                    />
                     {item.name}
                     {!isCurrent ? (
                       <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
@@ -187,6 +198,19 @@ export function SchoolManagementShell({
       containerVariant="wide"
     >
       {canSwitch || !managedSchoolsQuery.isLoading ? emptyState : null}
+      <EntityLogoCoverSettings
+        title="School images"
+        logoUrl={school.logoUrl}
+        logoMediaId={school.logoMediaId}
+        coverUrl={school.coverUrl}
+        coverMediaId={school.coverMediaId}
+        logoContext="school_logo"
+        coverContext="school_cover"
+        contextId={school.id}
+        disabled={school.currentUserRole !== "owner"}
+        isSaving={updateSchool.isPending}
+        onSave={(data) => updateSchool.mutateAsync(data)}
+      />
       {children}
     </ManagementWorkspaceShell>
   );

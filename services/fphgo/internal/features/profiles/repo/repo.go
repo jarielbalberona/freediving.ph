@@ -143,6 +143,50 @@ type ProfileDiving struct {
 	Affinities []ProfileDiveSiteAffinity
 }
 
+type BadgeTemplate struct {
+	ID          string
+	Slug        string
+	Name        string
+	Category    string
+	ValueType   string
+	Unit        string
+	Icon        string
+	Description string
+	IsSystem    bool
+}
+
+type UserBadge struct {
+	ID                 string
+	UserID             string
+	Template           BadgeTemplate
+	ValueText          string
+	ValueNumber        *float64
+	ValueMinutes       *int32
+	ValueSeconds       *int32
+	ReferenceLabel     string
+	ReferenceValue     string
+	ProofMediaID       string
+	ProofMediaObjectKey string
+	VerificationStatus string
+	VerifiedAt         *time.Time
+	VerifiedBy         string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+type UpsertUserBadgeInput struct {
+	ID             string
+	UserID         string
+	TemplateID     string
+	ValueText      *string
+	ValueNumber    *float64
+	ValueMinutes   *int32
+	ValueSeconds   *int32
+	ReferenceLabel *string
+	ReferenceValue *string
+	ProofMediaID   *string
+}
+
 func New(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool, queries: profilesqlc.New(pool)}
 }
@@ -648,6 +692,353 @@ func (r *Repo) ListProfileDivingByUsername(ctx context.Context, username, viewer
 	return ProfileDiving{Presences: presences, Affinities: affinities}, nil
 }
 
+func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) {
+	const q = `
+		SELECT id, slug, name, category, value_type, COALESCE(unit, ''), COALESCE(icon, ''), COALESCE(description, ''), is_system
+		FROM badge_templates
+		ORDER BY
+			CASE category
+				WHEN 'personal_best' THEN 1
+				WHEN 'certification' THEN 2
+				WHEN 'experience' THEN 3
+				WHEN 'auto_stat' THEN 4
+				ELSE 5
+			END,
+			name
+	`
+	rows, err := r.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]BadgeTemplate, 0)
+	for rows.Next() {
+		var id pgtype.UUID
+		var item BadgeTemplate
+		if err := rows.Scan(
+			&id,
+			&item.Slug,
+			&item.Name,
+			&item.Category,
+			&item.ValueType,
+			&item.Unit,
+			&item.Icon,
+			&item.Description,
+			&item.IsSystem,
+		); err != nil {
+			return nil, err
+		}
+		item.ID = id.String()
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repo) GetBadgeTemplate(ctx context.Context, templateID string) (BadgeTemplate, error) {
+	const q = `
+		SELECT id, slug, name, category, value_type, COALESCE(unit, ''), COALESCE(icon, ''), COALESCE(description, ''), is_system
+		FROM badge_templates
+		WHERE id = $1
+	`
+	var id pgtype.UUID
+	var item BadgeTemplate
+	err := r.pool.QueryRow(ctx, q, toUUID(templateID)).Scan(
+		&id,
+		&item.Slug,
+		&item.Name,
+		&item.Category,
+		&item.ValueType,
+		&item.Unit,
+		&item.Icon,
+		&item.Description,
+		&item.IsSystem,
+	)
+	if err != nil {
+		return BadgeTemplate{}, err
+	}
+	item.ID = id.String()
+	return item, nil
+}
+
+func (r *Repo) ListUserBadgesByUserID(ctx context.Context, userID string) ([]UserBadge, error) {
+	return r.listUserBadges(ctx, "u.id = $1", toUUID(userID))
+}
+
+func (r *Repo) ListProfileBadgesByUsername(ctx context.Context, username string) ([]UserBadge, error) {
+	return r.listUserBadges(ctx, "lower(u.username) = lower($1)", username)
+}
+
+func (r *Repo) listUserBadges(ctx context.Context, userPredicate string, arg any) ([]UserBadge, error) {
+	q := `
+		SELECT
+			ub.id,
+			ub.user_id,
+			bt.id,
+			bt.slug,
+			bt.name,
+			bt.category,
+			bt.value_type,
+			COALESCE(bt.unit, ''),
+			COALESCE(bt.icon, ''),
+			COALESCE(bt.description, ''),
+			bt.is_system,
+			COALESCE(ub.value_text, ''),
+			ub.value_number,
+			ub.value_minutes,
+			ub.value_seconds,
+			COALESCE(ub.reference_label, ''),
+			COALESCE(ub.reference_value, ''),
+			ub.proof_media_id,
+			COALESCE(mo.object_key, ''),
+			ub.verification_status,
+			ub.verified_at,
+			ub.verified_by,
+			ub.created_at,
+			ub.updated_at
+		FROM users u
+		JOIN user_badges ub ON ub.user_id = u.id
+		JOIN badge_templates bt ON bt.id = ub.badge_template_id
+		LEFT JOIN media_objects mo ON mo.id = ub.proof_media_id AND mo.state = 'active'
+		WHERE ` + userPredicate + `
+		  AND u.account_status = 'active'
+		ORDER BY
+			CASE bt.category
+				WHEN 'personal_best' THEN 1
+				WHEN 'certification' THEN 2
+				WHEN 'experience' THEN 3
+				ELSE 4
+			END,
+			ub.created_at DESC,
+			ub.id DESC
+	`
+	rows, err := r.pool.Query(ctx, q, arg)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]UserBadge, 0)
+	for rows.Next() {
+		item, err := scanUserBadge(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repo) CreateUserBadge(ctx context.Context, input UpsertUserBadgeInput) (UserBadge, error) {
+	const q = `
+		INSERT INTO user_badges (
+			user_id,
+			badge_template_id,
+			value_text,
+			value_number,
+			value_minutes,
+			value_seconds,
+			reference_label,
+			reference_value,
+			proof_media_id
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id
+	`
+	var id pgtype.UUID
+	if err := r.pool.QueryRow(ctx, q,
+		toUUID(input.UserID),
+		toUUID(input.TemplateID),
+		input.ValueText,
+		numericValue(input.ValueNumber),
+		input.ValueMinutes,
+		input.ValueSeconds,
+		input.ReferenceLabel,
+		input.ReferenceValue,
+		uuidPtr(input.ProofMediaID),
+	).Scan(&id); err != nil {
+		return UserBadge{}, err
+	}
+	return r.GetUserBadgeByID(ctx, id.String(), input.UserID)
+}
+
+func (r *Repo) UpdateUserBadge(ctx context.Context, input UpsertUserBadgeInput) (UserBadge, error) {
+	const q = `
+		UPDATE user_badges
+		SET
+			badge_template_id = $3,
+			value_text = $4,
+			value_number = $5,
+			value_minutes = $6,
+			value_seconds = $7,
+			reference_label = $8,
+			reference_value = $9,
+			proof_media_id = $10,
+			verification_status = CASE WHEN verification_status = 'verified' THEN 'unverified' ELSE verification_status END,
+			verified_at = CASE WHEN verification_status = 'verified' THEN NULL ELSE verified_at END,
+			verified_by = CASE WHEN verification_status = 'verified' THEN NULL ELSE verified_by END,
+			updated_at = NOW()
+		WHERE id = $1
+		  AND user_id = $2
+		RETURNING id
+	`
+	var id pgtype.UUID
+	if err := r.pool.QueryRow(ctx, q,
+		toUUID(input.ID),
+		toUUID(input.UserID),
+		toUUID(input.TemplateID),
+		input.ValueText,
+		numericValue(input.ValueNumber),
+		input.ValueMinutes,
+		input.ValueSeconds,
+		input.ReferenceLabel,
+		input.ReferenceValue,
+		uuidPtr(input.ProofMediaID),
+	).Scan(&id); err != nil {
+		return UserBadge{}, err
+	}
+	return r.GetUserBadgeByID(ctx, id.String(), input.UserID)
+}
+
+func (r *Repo) DeleteUserBadge(ctx context.Context, badgeID, userID string) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM user_badges WHERE id = $1 AND user_id = $2`, toUUID(badgeID), toUUID(userID))
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repo) GetUserBadgeByID(ctx context.Context, badgeID, userID string) (UserBadge, error) {
+	const q = `
+		SELECT
+			ub.id,
+			ub.user_id,
+			bt.id,
+			bt.slug,
+			bt.name,
+			bt.category,
+			bt.value_type,
+			COALESCE(bt.unit, ''),
+			COALESCE(bt.icon, ''),
+			COALESCE(bt.description, ''),
+			bt.is_system,
+			COALESCE(ub.value_text, ''),
+			ub.value_number,
+			ub.value_minutes,
+			ub.value_seconds,
+			COALESCE(ub.reference_label, ''),
+			COALESCE(ub.reference_value, ''),
+			ub.proof_media_id,
+			COALESCE(mo.object_key, ''),
+			ub.verification_status,
+			ub.verified_at,
+			ub.verified_by,
+			ub.created_at,
+			ub.updated_at
+		FROM user_badges ub
+		JOIN badge_templates bt ON bt.id = ub.badge_template_id
+		LEFT JOIN media_objects mo ON mo.id = ub.proof_media_id AND mo.state = 'active'
+		WHERE ub.id = $1
+		  AND ub.user_id = $2
+	`
+	row := r.pool.QueryRow(ctx, q, toUUID(badgeID), toUUID(userID))
+	return scanUserBadge(row)
+}
+
+func (r *Repo) CountDiveSitesVisitedByUsername(ctx context.Context, username string) (int64, error) {
+	const q = `
+		WITH target_user AS (
+			SELECT id
+			FROM users
+			WHERE lower(username) = lower($1)
+			  AND account_status = 'active'
+			LIMIT 1
+		),
+		tagged_sites AS (
+			SELECT mp.dive_site_id
+			FROM target_user u
+			JOIN media_posts mp ON mp.author_app_user_id = u.id
+			WHERE mp.deleted_at IS NULL
+			  AND mp.dive_site_id IS NOT NULL
+			UNION
+			SELECT mi.dive_site_id
+			FROM target_user u
+			JOIN media_items mi ON mi.author_app_user_id = u.id
+			WHERE mi.deleted_at IS NULL
+			  AND mi.status = 'active'
+			  AND mi.dive_site_id IS NOT NULL
+			UNION
+			SELECT dsu.dive_site_id
+			FROM target_user u
+			JOIN dive_site_updates dsu ON dsu.author_app_user_id = u.id
+			WHERE dsu.state = 'active'
+		)
+		SELECT COUNT(DISTINCT s.id)::bigint
+		FROM tagged_sites tagged
+		JOIN dive_sites s ON s.id = tagged.dive_site_id
+		WHERE s.moderation_state = 'approved'
+	`
+	var count int64
+	if err := r.pool.QueryRow(ctx, q, username).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repo) CountDiveSitesVisitedByUserID(ctx context.Context, userID string) (int64, error) {
+	const q = `
+		WITH tagged_sites AS (
+			SELECT dive_site_id
+			FROM media_posts
+			WHERE author_app_user_id = $1
+			  AND deleted_at IS NULL
+			  AND dive_site_id IS NOT NULL
+			UNION
+			SELECT dive_site_id
+			FROM media_items
+			WHERE author_app_user_id = $1
+			  AND deleted_at IS NULL
+			  AND status = 'active'
+			  AND dive_site_id IS NOT NULL
+			UNION
+			SELECT dive_site_id
+			FROM dive_site_updates
+			WHERE author_app_user_id = $1
+			  AND state = 'active'
+		)
+		SELECT COUNT(DISTINCT s.id)::bigint
+		FROM tagged_sites tagged
+		JOIN dive_sites s ON s.id = tagged.dive_site_id
+		WHERE s.moderation_state = 'approved'
+	`
+	var count int64
+	if err := r.pool.QueryRow(ctx, q, toUUID(userID)).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repo) UserOwnsProofMedia(ctx context.Context, userID, mediaID string) (bool, error) {
+	const q = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM media_objects
+			WHERE id = $1
+			  AND owner_app_user_id = $2
+			  AND context_type = 'badge_proof'
+			  AND state = 'active'
+		)
+	`
+	var exists bool
+	if err := r.pool.QueryRow(ctx, q, toUUID(mediaID), toUUID(userID)).Scan(&exists); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func IsNoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
 }
@@ -698,4 +1089,104 @@ func anyString(input any) string {
 	default:
 		return ""
 	}
+}
+
+type badgeScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanUserBadge(row badgeScanner) (UserBadge, error) {
+	var (
+		id           pgtype.UUID
+		userID       pgtype.UUID
+		templateID   pgtype.UUID
+		valueNumber  pgtype.Numeric
+		valueMinutes *int32
+		valueSeconds *int32
+		proofMediaID pgtype.UUID
+		verifiedAt   pgtype.Timestamptz
+		verifiedBy   pgtype.UUID
+		createdAt    pgtype.Timestamptz
+		updatedAt    pgtype.Timestamptz
+		item         UserBadge
+	)
+	if err := row.Scan(
+		&id,
+		&userID,
+		&templateID,
+		&item.Template.Slug,
+		&item.Template.Name,
+		&item.Template.Category,
+		&item.Template.ValueType,
+		&item.Template.Unit,
+		&item.Template.Icon,
+		&item.Template.Description,
+		&item.Template.IsSystem,
+		&item.ValueText,
+		&valueNumber,
+		&valueMinutes,
+		&valueSeconds,
+		&item.ReferenceLabel,
+		&item.ReferenceValue,
+		&proofMediaID,
+		&item.ProofMediaObjectKey,
+		&item.VerificationStatus,
+		&verifiedAt,
+		&verifiedBy,
+		&createdAt,
+		&updatedAt,
+	); err != nil {
+		return UserBadge{}, err
+	}
+	item.ID = id.String()
+	item.UserID = userID.String()
+	item.Template.ID = templateID.String()
+	item.ValueNumber = numericPtr(valueNumber)
+	item.ValueMinutes = valueMinutes
+	item.ValueSeconds = valueSeconds
+	if proofMediaID.Valid {
+		item.ProofMediaID = proofMediaID.String()
+	}
+	if verifiedAt.Valid {
+		value := verifiedAt.Time.UTC()
+		item.VerifiedAt = &value
+	}
+	if verifiedBy.Valid {
+		item.VerifiedBy = verifiedBy.String()
+	}
+	if createdAt.Valid {
+		item.CreatedAt = createdAt.Time.UTC()
+	}
+	if updatedAt.Valid {
+		item.UpdatedAt = updatedAt.Time.UTC()
+	}
+	return item, nil
+}
+
+func numericPtr(value pgtype.Numeric) *float64 {
+	if !value.Valid {
+		return nil
+	}
+	floatVal, err := value.Float64Value()
+	if err != nil || !floatVal.Valid {
+		return nil
+	}
+	result := floatVal.Float64
+	return &result
+}
+
+func numericValue(value *float64) pgtype.Numeric {
+	if value == nil {
+		return pgtype.Numeric{}
+	}
+	var numeric pgtype.Numeric
+	_ = numeric.Scan(*value)
+	return numeric
+}
+
+func uuidPtr(value *string) pgtype.UUID {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return pgtype.UUID{}
+	}
+	return toUUID(strings.TrimSpace(*value))
 }

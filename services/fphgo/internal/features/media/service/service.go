@@ -46,6 +46,7 @@ const (
 	ContextGroupLogo            = "group_logo"
 	ContextGroupCover           = "group_cover"
 	ContextInstructorProof      = "instructor_certification_proof"
+	ContextBadgeProof           = "badge_proof"
 
 	PresetThumb    = "thumb"
 	PresetCard     = "card"
@@ -585,6 +586,12 @@ var contextRules = map[string]contextRule{
 		allowedPresets:    map[string]bool{PresetThumb: true, PresetCard: true, PresetDialog: true},
 	},
 	ContextInstructorProof: {
+		maxUploadBytes:    maxUploadBytes,
+		ttl:               3 * 24 * time.Hour,
+		maxTransformWidth: 2048,
+		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
+	},
+	ContextBadgeProof: {
 		maxUploadBytes:    maxUploadBytes,
 		ttl:               3 * 24 * time.Hour,
 		maxTransformWidth: 2048,
@@ -2550,6 +2557,8 @@ func buildObjectKey(contextType, ownerUserID string, contextID *string, filename
 		return path.Join("groups", valueOrEmpty(contextID), "logo", filename)
 	case ContextInstructorProof:
 		return path.Join("instructors", ownerUserID, "certification-proof", filename)
+	case ContextBadgeProof:
+		return path.Join("badges", ownerUserID, "proof", filename)
 	default:
 		return path.Join("unknown", ownerUserID, filename)
 	}

@@ -27,6 +27,11 @@ type profileService interface {
 	GetProfileViewByUsername(ctx context.Context, username, viewerUserID string) (profilesservice.ProfileView, error)
 	ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]profilesservice.ProfileBucketListItem, error)
 	GetProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (profilesservice.ProfileDiving, error)
+	GetMyBadges(ctx context.Context, actorID string) (profilesservice.ProfileBadges, error)
+	GetProfileBadgesByUsername(ctx context.Context, username string) (profilesservice.ProfileBadges, error)
+	CreateUserBadge(ctx context.Context, input profilesservice.UpsertUserBadgeInput) (profilesservice.UserBadge, error)
+	UpdateUserBadge(ctx context.Context, input profilesservice.UpsertUserBadgeInput) (profilesservice.UserBadge, error)
+	DeleteUserBadge(ctx context.Context, actorID, badgeID string) error
 }
 
 func New(service profileService, validator httpx.Validator) *Handlers {
@@ -145,6 +150,72 @@ func (h *Handlers) GetSavedHub(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	httpx.JSON(w, http.StatusOK, SavedHubResponse{Sites: sites, Users: users})
+}
+
+func (h *Handlers) GetMyBadges(w http.ResponseWriter, r *http.Request) {
+	actor, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	result, err := h.service.GetMyBadges(r.Context(), actor)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, profileBadgesToDTO(result, true))
+}
+
+func (h *Handlers) CreateUserBadge(w http.ResponseWriter, r *http.Request) {
+	actor, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	req, issues, ok := httpx.DecodeAndValidate[UpsertUserBadgeRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	badge, err := h.service.CreateUserBadge(r.Context(), badgeRequestToService(actor, "", req))
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, UserBadgeResponse{Badge: userBadgeToDTO(badge)})
+}
+
+func (h *Handlers) UpdateUserBadge(w http.ResponseWriter, r *http.Request) {
+	actor, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	badgeID := chi.URLParam(r, "badgeID")
+	req, issues, ok := httpx.DecodeAndValidate[UpsertUserBadgeRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	badge, err := h.service.UpdateUserBadge(r.Context(), badgeRequestToService(actor, badgeID, req))
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, UserBadgeResponse{Badge: userBadgeToDTO(badge)})
+}
+
+func (h *Handlers) DeleteUserBadge(w http.ResponseWriter, r *http.Request) {
+	actor, err := requireActorID(r)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	if err := h.service.DeleteUserBadge(r.Context(), actor, chi.URLParam(r, "badgeID")); err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handlers) SearchUsers(w http.ResponseWriter, r *http.Request) {
@@ -295,6 +366,15 @@ func (h *Handlers) GetProfileDivingByUsername(w http.ResponseWriter, r *http.Req
 	})
 }
 
+func (h *Handlers) GetProfileBadgesByUsername(w http.ResponseWriter, r *http.Request) {
+	result, err := h.service.GetProfileBadgesByUsername(r.Context(), chi.URLParam(r, "username"))
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, profileBadgesToDTO(result, false))
+}
+
 func requireActorID(r *http.Request) (string, error) {
 	identity, ok := middleware.CurrentIdentity(r.Context())
 	if !ok || identity.UserID == "" {
@@ -334,5 +414,76 @@ func profileToDTO(input profilesservice.Profile) Profile {
 		Interests:     input.Interests,
 		CertLevel:     input.CertLevel,
 		Socials:       input.Socials,
+	}
+}
+
+func badgeRequestToService(actorID, badgeID string, req UpsertUserBadgeRequest) profilesservice.UpsertUserBadgeInput {
+	return profilesservice.UpsertUserBadgeInput{
+		ActorID:         actorID,
+		BadgeID:         badgeID,
+		BadgeTemplateID: req.BadgeTemplateID,
+		ValueText:       req.ValueText,
+		ValueNumber:     req.ValueNumber,
+		ValueMinutes:    req.ValueMinutes,
+		ValueSeconds:    req.ValueSeconds,
+		ReferenceLabel:  req.ReferenceLabel,
+		ReferenceValue:  req.ReferenceValue,
+		ProofMediaID:    req.ProofMediaID,
+	}
+}
+
+func profileBadgesToDTO(input profilesservice.ProfileBadges, includeTemplates bool) ProfileBadgesResponse {
+	badges := make([]UserBadge, 0, len(input.Badges))
+	for _, badge := range input.Badges {
+		badges = append(badges, userBadgeToDTO(badge))
+	}
+	autoStats := make([]UserBadge, 0, len(input.AutoStats))
+	for _, badge := range input.AutoStats {
+		autoStats = append(autoStats, userBadgeToDTO(badge))
+	}
+	resp := ProfileBadgesResponse{Badges: badges, AutoStats: autoStats}
+	if includeTemplates {
+		resp.Templates = badgeTemplatesToDTO(input.Templates)
+	}
+	return resp
+}
+
+func badgeTemplatesToDTO(input []profilesservice.BadgeTemplate) []BadgeTemplate {
+	items := make([]BadgeTemplate, 0, len(input))
+	for _, item := range input {
+		items = append(items, BadgeTemplate{
+			ID:          item.ID,
+			Slug:        item.Slug,
+			Name:        item.Name,
+			Category:    item.Category,
+			ValueType:   item.ValueType,
+			Unit:        item.Unit,
+			Icon:        item.Icon,
+			Description: item.Description,
+			IsSystem:    item.IsSystem,
+		})
+	}
+	return items
+}
+
+func userBadgeToDTO(input profilesservice.UserBadge) UserBadge {
+	return UserBadge{
+		ID:                  input.ID,
+		Template:            badgeTemplatesToDTO([]profilesservice.BadgeTemplate{input.Template})[0],
+		ValueText:           input.ValueText,
+		ValueNumber:         input.ValueNumber,
+		ValueMinutes:        input.ValueMinutes,
+		ValueSeconds:        input.ValueSeconds,
+		DisplayValue:        input.DisplayValue,
+		ReferenceLabel:      input.ReferenceLabel,
+		ReferenceValue:      input.ReferenceValue,
+		ProofMediaID:        input.ProofMediaID,
+		ProofMediaObjectKey: input.ProofMediaObjectKey,
+		VerificationStatus:  input.VerificationStatus,
+		VerifiedAt:          formatOptionalTime(input.VerifiedAt),
+		VerifiedBy:          input.VerifiedBy,
+		IsSystemVerified:    input.IsSystemVerified,
+		CreatedAt:           input.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:           input.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }
