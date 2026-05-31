@@ -82,6 +82,13 @@ export const useManagePaymentMethods = (slug: string) =>
     enabled: Boolean(slug),
   });
 
+export const useManageMembers = (slug: string) =>
+  useQuery({
+    queryKey: queryKeys.schools.members(slug),
+    queryFn: () => schoolsApi.listMembers(slug),
+    enabled: Boolean(slug),
+  });
+
 export const useManageSessions = (
   slug: string,
   filters: CourseSessionFilters = {},

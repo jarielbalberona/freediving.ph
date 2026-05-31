@@ -5,9 +5,11 @@ import type {
   CreateCoursePaymentMethodRequest,
   CreateCourseRequest,
   CreateCourseSessionRequest,
+  CreateSchoolMemberRequest,
   CreateSchoolRequest,
   CreateStudentCourseBookingRequest,
   SubmitCourseBookingPaymentRequest,
+  UpdateSchoolMemberRequest,
   UpdateCoursePaymentMethodRequest,
   UpdateCourseRequest,
   UpdateCourseSessionRequest,
@@ -89,6 +91,58 @@ export const useUpdatePaymentMethod = (slug: string) => {
   });
 };
 
+export const useDeletePaymentMethod = (slug: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (paymentMethodId: string) =>
+      schoolsApi.deletePaymentMethod(slug, paymentMethodId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.paymentMethods(slug),
+      }),
+  });
+};
+
+export const useCreateMember = (slug: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateSchoolMemberRequest) =>
+      schoolsApi.createMember(slug, data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.members(slug),
+      }),
+  });
+};
+
+export const useUpdateMember = (slug: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      memberId,
+      data,
+    }: {
+      memberId: string;
+      data: UpdateSchoolMemberRequest;
+    }) => schoolsApi.updateMember(slug, memberId, data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.members(slug),
+      }),
+  });
+};
+
+export const useDeleteMember = (slug: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (memberId: string) => schoolsApi.deleteMember(slug, memberId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.members(slug),
+      }),
+  });
+};
+
 export const useCreateSession = (slug: string) => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -123,6 +177,24 @@ export const useSetSessionStatus = (slug: string) => {
       sessionId: string;
       action: "complete" | "cancel";
     }) => schoolsApi.setSessionStatus(slug, sessionId, action),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.schools.detail(slug),
+      }),
+  });
+};
+
+export const useDuplicateSession = (slug: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      data,
+    }: {
+      sessionId: string;
+      data: Partial<CreateCourseSessionRequest> &
+        Pick<CreateCourseSessionRequest, "startsAt" | "endsAt">;
+    }) => schoolsApi.duplicateSession(slug, sessionId, data),
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: queryKeys.schools.detail(slug),

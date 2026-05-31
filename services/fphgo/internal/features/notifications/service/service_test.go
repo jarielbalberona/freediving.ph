@@ -366,7 +366,7 @@ func TestNotifyBookingCreatedNotifiesManagersAndExcludesStudentActor(t *testing.
 		if created.UserID == studentID {
 			t.Fatal("student actor should not receive manager booking-created notification")
 		}
-		if created.Type != "BOOKING_CREATED" || derefString(created.ActionURL) != "/manage/schools/reef-school/bookings" {
+		if created.Type != "BOOKING_CREATED" || derefString(created.ActionURL) != "/management/schools/reef-school/bookings" {
 			t.Fatalf("unexpected booking-created notification: type=%s action=%s", created.Type, derefString(created.ActionURL))
 		}
 		for _, forbidden := range []string{"studentEmail", "studentPhone", "adminNotes", "proofMediaId", "referenceNumber"} {
@@ -457,7 +457,7 @@ func TestNotifySessionCancelledTargetsAffectedStudentsAndManagers(t *testing.T) 
 		if created.UserID == studentID && derefString(created.ActionURL) != "/my/bookings" {
 			t.Fatalf("student action url = %s", derefString(created.ActionURL))
 		}
-		if created.UserID == managerID && derefString(created.ActionURL) != "/manage/schools/reef-school/sessions" {
+		if created.UserID == managerID && derefString(created.ActionURL) != "/management/schools/reef-school/sessions" {
 			t.Fatalf("manager action url = %s", derefString(created.ActionURL))
 		}
 	}

@@ -16,7 +16,6 @@ import {
 import { useProfileMediaInfiniteQuery } from "@/features/media/hooks";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
-import { ProfileBadges } from "@/features/profile/components/ProfileBadges";
 import { ProfileBucketList } from "@/features/profile/components/ProfileBucketList";
 import { ProfileSkeleton } from "@/features/profile/components/ProfileSkeleton";
 import { ProfileTabs } from "@/features/profile/components/ProfileTabs";
@@ -159,11 +158,6 @@ export default function ProfilePage({ username }: ProfilePageProps) {
           isMessagePending={openThreadMutation.isPending}
         />
         <ProfileBucketList items={[]} />
-        <ProfileBadges
-          badges={badgesQuery.data?.badges ?? []}
-          autoStats={badgesQuery.data?.autoStats ?? []}
-          isOwner={isOwner}
-        />
         <ProfileTabs
           mediaItems={mediaItems}
           isLoadingMedia={mediaQuery.isPending && mediaItems.length === 0}
@@ -179,6 +173,8 @@ export default function ProfilePage({ username }: ProfilePageProps) {
           avatarUrl={profileQuery.data.avatarUrl}
           diving={divingQuery.data}
           isLoadingDiving={divingQuery.isPending}
+          badges={badgesQuery.data?.badges ?? []}
+          autoStats={badgesQuery.data?.autoStats ?? []}
           isOwner={isOwner}
         />
       </div>

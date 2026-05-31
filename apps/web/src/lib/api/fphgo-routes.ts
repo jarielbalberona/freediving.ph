@@ -81,10 +81,18 @@ export const routes = {
         `/v1/profiles/${toPathId(username)}/passport`,
       profileJourney: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}/journey`,
+      profileDiveMemories: (username: string | number) =>
+        `/v1/profiles/${toPathId(username)}/dive-memories`,
       myPassportSettings: () => "/v1/me/passport/settings",
       myJourney: () => "/v1/me/journey",
       myJourneyEntry: (entryId: string | number) =>
         `/v1/me/journey/${toPathId(entryId)}`,
+      myDiveMemories: () => "/v1/me/dive-memories",
+      myDiveMemory: (memoryId: string | number) =>
+        `/v1/me/dive-memories/${toPathId(memoryId)}`,
+      myDiveMemoryTags: () => "/v1/me/dive-memory-tags",
+      myDiveMemoryTag: (memoryId: string | number) =>
+        `/v1/me/dive-memory-tags/${toPathId(memoryId)}`,
       myBadges: () => "/v1/me/badges",
       myBadge: (badgeId: string | number) =>
         `/v1/me/badges/${toPathId(badgeId)}`,

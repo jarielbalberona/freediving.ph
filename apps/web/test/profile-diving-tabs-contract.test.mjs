@@ -18,7 +18,7 @@ const typesPath = path.join(
   "packages/types/src/api/profile-view.ts",
 );
 
-test("/[username] profile has Posts and Diving tabs with Posts as default", async () => {
+test("/[username] profile has the required profile experience tabs with Posts as default", async () => {
   const [page, tabs] = await Promise.all([
     readFile(pagePath, "utf8"),
     readFile(tabsPath, "utf8"),
@@ -26,12 +26,20 @@ test("/[username] profile has Posts and Diving tabs with Posts as default", asyn
 
   assert.match(page, /useProfileDivingQuery\(normalizedUsername\)/);
   assert.match(page, /<ProfileTabs/);
-  assert.match(tabs, /type ProfileTabValue = "posts" \| "diving"/);
-  assert.match(tabs, /tabParam === "diving" \? "diving" : "posts"/);
+  assert.match(tabs, /"posts"/);
+  assert.match(tabs, /"badges"/);
+  assert.match(tabs, /"diving"/);
+  assert.match(tabs, /"dive-map"/);
+  assert.match(tabs, /"dive-journey"/);
+  assert.match(tabs, /"dive-passport"/);
+  assert.match(tabs, /: "posts"/);
   assert.match(tabs, /<TabsTrigger value="posts">Posts<\/TabsTrigger>/);
+  assert.match(tabs, /<TabsTrigger value="badges">Badges<\/TabsTrigger>/);
   assert.match(tabs, /<TabsTrigger value="diving">Diving<\/TabsTrigger>/);
-  assert.match(tabs, /nextParams\.set\("tab", "posts"\)/);
-  assert.match(tabs, /nextParams\.set\("tab", "diving"\)/);
+  assert.match(tabs, /<TabsTrigger value="dive-map">Dive Map<\/TabsTrigger>/);
+  assert.match(tabs, /<TabsTrigger value="dive-journey">Dive Journey<\/TabsTrigger>/);
+  assert.match(tabs, /<TabsTrigger value="dive-passport">Dive Passport<\/TabsTrigger>/);
+  assert.match(tabs, /nextParams\.set\("tab", nextTab\)/);
 });
 
 test("Posts tab preserves the current profile media grid behavior", async () => {
@@ -60,7 +68,7 @@ test("Diving tab renders separate Dive Presence and Dive Sites sections", async 
   assert.match(tabs, /viewerCanContact/);
 });
 
-test("Profile experience modules compose without hiding source sections behind Passport", async () => {
+test("Profile experience modules are routed to separate source-owned tabs", async () => {
   const [page, tabs, passport, journey] = await Promise.all([
     readFile(pagePath, "utf8"),
     readFile(tabsPath, "utf8"),
@@ -68,15 +76,29 @@ test("Profile experience modules compose without hiding source sections behind P
     readFile(path.join(appRoot, "src/features/profile/components/ProfileJourney.tsx"), "utf8"),
   ]);
 
-  assert.match(page, /<ProfileBadges/);
+  assert.doesNotMatch(page, /<ProfileBadges/);
+  assert.match(tabs, /<ProfileBadges badges=\{badges\} autoStats=\{autoStats\} isOwner=\{isOwner\} \/>/);
   assert.match(tabs, /<ProfilePassport username=\{username\} isOwner=\{isOwner\} \/>/);
   assert.match(tabs, /<ProfileDiveMap username=\{username\} isOwner=\{isOwner\} \/>/);
   assert.match(tabs, /<ProfileJourney username=\{username\} isOwner=\{isOwner\} \/>/);
 
-  const passportIndex = tabs.indexOf("<ProfilePassport");
+  const badgeTabIndex = tabs.indexOf('value="badges"');
+  const divingTabIndex = tabs.indexOf('value="diving"');
+  const mapTabIndex = tabs.indexOf('value="dive-map"');
+  const journeyTabIndex = tabs.indexOf('value="dive-journey"');
+  const passportTabIndex = tabs.indexOf('value="dive-passport"');
+  assert.ok(
+    badgeTabIndex > -1 &&
+      divingTabIndex > badgeTabIndex &&
+      mapTabIndex > divingTabIndex &&
+      journeyTabIndex > mapTabIndex &&
+      passportTabIndex > journeyTabIndex,
+  );
+
   const mapIndex = tabs.indexOf("<ProfileDiveMap");
   const journeyIndex = tabs.indexOf("<ProfileJourney");
-  assert.ok(passportIndex > -1 && mapIndex > passportIndex && journeyIndex > mapIndex);
+  const passportIndex = tabs.indexOf("<ProfilePassport");
+  assert.ok(mapIndex > -1 && journeyIndex > mapIndex && passportIndex > journeyIndex);
 
   assert.match(passport, /isOwner \? \(/);
   assert.match(passport, /<PassportSettingsPanel username=\{username\} settings=\{passport\.settings\} \/>/);

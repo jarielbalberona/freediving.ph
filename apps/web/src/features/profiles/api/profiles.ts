@@ -2,6 +2,7 @@ import {
   type ProfileDiveMapResponse,
   type ProfileDiveMapSiteResponse,
   type ProfileJourneyResponse,
+  type ProfileDiveMemoriesResponse,
   type ProfileDivingResponse,
   type ProfileBadgesResponse,
   type ProfilePassportResponse,
@@ -16,6 +17,11 @@ import {
   type UpsertUserBadgeRequest,
   type CreateManualJourneyEntryRequest,
   type JourneyEntryResponse,
+  type CreateDiveMemoryRequest,
+  type DiveMemoryResponse,
+  type DiveMemoryTagsResponse,
+  type UpdateDiveMemoryRequest,
+  type UpdateDiveMemoryTagRequest,
   type UpdatePassportSettingsRequest,
   type UpdateMyProfileRequest,
   type UserBadgeResponse,
@@ -111,6 +117,71 @@ export const profilesApi = {
     return fphgoFetchClient<ProfileJourneyResponse>(
       routes.v1.profiles.profileJourney(username),
       { auth: "ready-only" },
+    );
+  },
+
+  getProfileDiveMemoriesByUsername: async (
+    username: string,
+  ): Promise<ProfileDiveMemoriesResponse> => {
+    return fphgoFetchClient<ProfileDiveMemoriesResponse>(
+      routes.v1.profiles.profileDiveMemories(username),
+      { auth: "ready-only" },
+    );
+  },
+
+  getMyDiveMemories: async (): Promise<ProfileDiveMemoriesResponse> => {
+    return fphgoFetchClient<ProfileDiveMemoriesResponse>(
+      routes.v1.profiles.myDiveMemories(),
+    );
+  },
+
+  createDiveMemory: async (
+    payload: CreateDiveMemoryRequest,
+  ): Promise<DiveMemoryResponse> => {
+    return fphgoFetchClient<DiveMemoryResponse>(
+      routes.v1.profiles.myDiveMemories(),
+      {
+        method: "POST",
+        body: payload as unknown as Record<string, unknown>,
+      },
+    );
+  },
+
+  updateDiveMemory: async (
+    memoryId: string,
+    payload: UpdateDiveMemoryRequest,
+  ): Promise<DiveMemoryResponse> => {
+    return fphgoFetchClient<DiveMemoryResponse>(
+      routes.v1.profiles.myDiveMemory(memoryId),
+      {
+        method: "PATCH",
+        body: payload as unknown as Record<string, unknown>,
+      },
+    );
+  },
+
+  deleteDiveMemory: async (memoryId: string): Promise<void> => {
+    return fphgoFetchClient<void>(routes.v1.profiles.myDiveMemory(memoryId), {
+      method: "DELETE",
+    });
+  },
+
+  getMyDiveMemoryTags: async (): Promise<DiveMemoryTagsResponse> => {
+    return fphgoFetchClient<DiveMemoryTagsResponse>(
+      routes.v1.profiles.myDiveMemoryTags(),
+    );
+  },
+
+  updateDiveMemoryTag: async (
+    memoryId: string,
+    payload: UpdateDiveMemoryTagRequest,
+  ): Promise<DiveMemoryTagsResponse> => {
+    return fphgoFetchClient<DiveMemoryTagsResponse>(
+      routes.v1.profiles.myDiveMemoryTag(memoryId),
+      {
+        method: "PATCH",
+        body: payload as unknown as Record<string, unknown>,
+      },
     );
   },
 

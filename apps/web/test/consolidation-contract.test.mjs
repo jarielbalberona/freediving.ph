@@ -131,7 +131,10 @@ test("product analytics tracks only activation events through gtag", async () =>
   assert.match(analytics, /window\.gtag\?\.\("event", eventName/);
   assert.match(events, /trackProductEvent\("event_joined"\)/);
   assert.match(events, /trackProductEvent\("event_interested"\)/);
-  assert.match(groups, /useJoinGroup[\s\S]*trackProductEvent\("group_joined"\)/);
+  assert.match(
+    groups,
+    /useJoinGroup[\s\S]*trackProductEvent\("group_joined"\)/,
+  );
   assert.doesNotMatch(
     groups,
     /useUpdateGroup[\s\S]*trackProductEvent\("group_joined"\)[\s\S]*useJoinGroup/,
@@ -152,7 +155,7 @@ test("product analytics tracks only activation events through gtag", async () =>
 test("management entity workspaces render with dedicated workspace shells", async () => {
   const [
     schoolOverview,
-    schoolInstructors,
+    schoolMembers,
     schoolPayments,
     eventOverview,
     eventPayments,
@@ -160,21 +163,20 @@ test("management entity workspaces render with dedicated workspace shells", asyn
     groupWorkspace,
     groupMembers,
     schoolsNav,
-  ] =
-    await Promise.all([
-      readApp("src/app/management/schools/[slug]/page.tsx"),
-      readApp("src/app/management/schools/[slug]/instructors/page.tsx"),
-      readApp("src/app/management/schools/[slug]/payments/page.tsx"),
-      readApp("src/app/management/events/[slug]/page.tsx"),
-      readApp("src/app/management/events/[slug]/payments/page.tsx"),
-      readApp("src/app/management/events/[slug]/participants/page.tsx"),
-      readApp("src/app/management/groups/[slug]/page.tsx"),
-      readApp("src/app/management/groups/[slug]/members/page.tsx"),
-      readApp("src/features/schools/pages/ManageSchoolsPage.tsx"),
-    ]);
+  ] = await Promise.all([
+    readApp("src/app/management/schools/[slug]/page.tsx"),
+    readApp("src/app/management/schools/[slug]/members/page.tsx"),
+    readApp("src/app/management/schools/[slug]/payments/page.tsx"),
+    readApp("src/app/management/events/[slug]/page.tsx"),
+    readApp("src/app/management/events/[slug]/payments/page.tsx"),
+    readApp("src/app/management/events/[slug]/participants/page.tsx"),
+    readApp("src/app/management/groups/[slug]/page.tsx"),
+    readApp("src/app/management/groups/[slug]/members/page.tsx"),
+    readApp("src/features/schools/pages/ManageSchoolsPage.tsx"),
+  ]);
 
   assert.match(schoolOverview, /ManageSchoolOverviewPage/);
-  assert.match(schoolInstructors, /ManageSchoolInstructorsPage/);
+  assert.match(schoolMembers, /ManageSchoolMembersPage/);
   assert.match(schoolPayments, /ManageSchoolPaymentsPage/);
   assert.match(eventOverview, /EventManagementShell/);
   assert.match(eventOverview, /EventManageClient/);

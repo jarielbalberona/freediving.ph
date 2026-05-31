@@ -19,9 +19,15 @@ test("profile dive map UI consumes server contracts and proof APIs", () => {
   assert.match(api, /ProfileDiveMapResponse/);
   assert.match(api, /ProfileDiveMapSiteResponse/);
   assert.match(component, /ProfileDiveMapMarker/);
+  assert.match(component, /MapProvider/);
+  assert.match(component, /from "@vis\.gl\/react-google-maps"/);
+  assert.match(component, /markersWithCoordinates/);
+  assert.match(component, /Map coordinates unavailable/);
   assert.match(component, /mediaPostCount/);
   assert.match(component, /aria-pressed=\{active\}/);
   assert.match(component, /Proof media is not visible\./);
-  assert.doesNotMatch(component, /memory|memories|manual/i);
+  assert.match(component, /memories/);
+  assert.match(component, /marker\.mediaPostCount/);
+  assert.doesNotMatch(component, /visitedSiteCount.*memories|unlock.*memories|ProfileDiveMemories/i);
   assert.match(tabs, /<ProfileDiveMap username=\{username\} isOwner=\{isOwner\} \/>/);
 });

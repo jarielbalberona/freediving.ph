@@ -48,7 +48,14 @@ import type {
   PublicSchoolFilters,
   SchoolPaymentMethod,
 } from "@freediving.ph/types";
-import { ArrowLeft, Building2, CalendarPlus, Search, Upload, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  CalendarPlus,
+  Search,
+  Upload,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -510,21 +517,21 @@ function SchoolCard({ school }: { school: PublicSchool }) {
           className="h-11 w-11"
         />
         <div className="min-w-0">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h2 className="truncate text-sm font-semibold text-foreground">
-            {school.name}
-          </h2>
-          <Badge variant="secondary" className="h-5 px-2 text-[11px]">
-            {school.publishedCourseCount} courses
-          </Badge>
-        </div>
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-          {school.shortDescription || "Published freediving courses"}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {school.baseLocation || "Philippines"}
-          {school.diveSiteName ? ` • ${school.diveSiteName}` : ""}
-        </p>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="truncate text-sm font-semibold text-foreground">
+              {school.name}
+            </h2>
+            <Badge variant="secondary" className="h-5 px-2 text-[11px]">
+              {school.publishedCourseCount} courses
+            </Badge>
+          </div>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+            {school.shortDescription || "Published freediving courses"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {school.baseLocation || "Philippines"}
+            {school.diveSiteName ? ` • ${school.diveSiteName}` : ""}
+          </p>
         </div>
       </div>
       <Button
@@ -565,7 +572,9 @@ function SchoolPublicHeader({
   compact?: boolean;
 }) {
   const { isLoaded, isSignedIn } = useAuth();
-  const manageableSchoolsQuery = useManageSchools(Boolean(isLoaded && isSignedIn));
+  const manageableSchoolsQuery = useManageSchools(
+    Boolean(isLoaded && isSignedIn),
+  );
   const canManageSchool = Boolean(
     manageableSchoolsQuery.data?.some((item) => item.slug === school.slug),
   );
@@ -680,6 +689,7 @@ function CourseGrid({
             className="self-start"
             size="sm"
             variant="outline"
+            nativeButton={false}
             render={
               <Link href={`/schools/${school.slug}/courses/${course.slug}`} />
             }

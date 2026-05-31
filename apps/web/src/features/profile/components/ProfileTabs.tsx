@@ -5,6 +5,7 @@ import type {
   ProfileDiveSiteAffinity,
   ProfileDivingResponse,
   ProfileMediaItem,
+  UserBadge,
 } from "@freediving.ph/types";
 import { CalendarClock, MapPinned, MessageCircle } from "lucide-react";
 import Link from "next/link";
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProfileBadges } from "@/features/profile/components/ProfileBadges";
 import { ProfileDiveMap } from "@/features/profile/components/ProfileDiveMap";
 import { ProfileGrid } from "@/features/profile/components/ProfileGrid";
 import { ProfileJourney } from "@/features/profile/components/ProfileJourney";
@@ -30,10 +32,30 @@ type ProfileTabsProps = {
   avatarUrl?: string;
   diving?: ProfileDivingResponse;
   isLoadingDiving: boolean;
+  badges: UserBadge[];
+  autoStats: UserBadge[];
   isOwner: boolean;
 };
 
-type ProfileTabValue = "posts" | "diving";
+type ProfileTabValue =
+  | "posts"
+  | "badges"
+  | "diving"
+  | "dive-map"
+  | "dive-journey"
+  | "dive-passport";
+
+const profileTabValues: ProfileTabValue[] = [
+  "posts",
+  "badges",
+  "diving",
+  "dive-map",
+  "dive-journey",
+  "dive-passport",
+];
+
+const isProfileTabValue = (value: string | null): value is ProfileTabValue =>
+  profileTabValues.includes(value as ProfileTabValue);
 
 export function ProfileTabs({
   mediaItems,
@@ -46,22 +68,24 @@ export function ProfileTabs({
   avatarUrl,
   diving,
   isLoadingDiving,
+  badges,
+  autoStats,
   isOwner,
 }: ProfileTabsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const activeTab: ProfileTabValue = tabParam === "diving" ? "diving" : "posts";
+  const activeTab: ProfileTabValue = isProfileTabValue(tabParam)
+    ? tabParam
+    : "posts";
 
   const setTab = (value: string | null) => {
-    const nextTab: ProfileTabValue = value === "diving" ? "diving" : "posts";
+    const nextTab: ProfileTabValue = isProfileTabValue(value)
+      ? value
+      : "posts";
     const nextParams = new URLSearchParams(searchParams.toString());
-    if (nextTab === "posts") {
-      nextParams.set("tab", "posts");
-    } else {
-      nextParams.set("tab", "diving");
-    }
+    nextParams.set("tab", nextTab);
     const suffix = nextParams.toString();
     router.replace(`${pathname}${suffix ? `?${suffix}` : ""}`, {
       scroll: false,
@@ -72,9 +96,13 @@ export function ProfileTabs({
     <section className="space-y-0">
       <Separator />
       <Tabs value={activeTab} onValueChange={setTab} className="gap-5 pt-2">
-        <TabsList className="mx-auto grid w-full max-w-sm grid-cols-2">
+        <TabsList className="mx-auto grid h-auto w-full max-w-3xl grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           <TabsTrigger value="posts">Posts</TabsTrigger>
+          <TabsTrigger value="badges">Badges</TabsTrigger>
           <TabsTrigger value="diving">Diving</TabsTrigger>
+          <TabsTrigger value="dive-map">Dive Map</TabsTrigger>
+          <TabsTrigger value="dive-journey">Dive Journey</TabsTrigger>
+          <TabsTrigger value="dive-passport">Dive Passport</TabsTrigger>
         </TabsList>
         <TabsContent value="posts" className="px-1">
           <ProfilePostsTab
@@ -88,13 +116,24 @@ export function ProfileTabs({
             avatarUrl={avatarUrl}
           />
         </TabsContent>
+        <TabsContent value="badges">
+          <ProfileBadges badges={badges} autoStats={autoStats} isOwner={isOwner} />
+        </TabsContent>
         <TabsContent value="diving">
           <ProfileDivingTab
-            username={username}
             data={diving}
             isLoading={isLoadingDiving}
             isOwner={isOwner}
           />
+        </TabsContent>
+        <TabsContent value="dive-map">
+          <ProfileDiveMap username={username} isOwner={isOwner} />
+        </TabsContent>
+        <TabsContent value="dive-journey">
+          <ProfileJourney username={username} isOwner={isOwner} />
+        </TabsContent>
+        <TabsContent value="dive-passport">
+          <ProfilePassport username={username} isOwner={isOwner} />
         </TabsContent>
       </Tabs>
     </section>
@@ -110,7 +149,10 @@ function ProfilePostsTab({
   username,
   displayName,
   avatarUrl,
-}: Omit<ProfileTabsProps, "diving" | "isLoadingDiving" | "isOwner">) {
+}: Omit<
+  ProfileTabsProps,
+  "diving" | "isLoadingDiving" | "badges" | "autoStats" | "isOwner"
+>) {
   return (
     <ProfileGrid
       items={mediaItems}
@@ -126,12 +168,10 @@ function ProfilePostsTab({
 }
 
 function ProfileDivingTab({
-  username,
   data,
   isLoading,
   isOwner,
 }: {
-  username: string;
   data?: ProfileDivingResponse;
   isLoading: boolean;
   isOwner: boolean;
@@ -147,9 +187,10 @@ function ProfileDivingTab({
 
   return (
     <div className="space-y-5">
-      <ProfilePassport username={username} isOwner={isOwner} />
-      <ProfileDiveMap username={username} isOwner={isOwner} />
-      <ProfileJourney username={username} isOwner={isOwner} />
+      <div>
+        <h2 className="text-base font-semibold">Diving</h2>
+        <p className="text-muted-foreground text-sm">Presence and dive sites.</p>
+      </div>
       <ProfileDivePresenceSection
         items={data?.presences ?? []}
         isOwner={isOwner}

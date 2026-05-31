@@ -123,6 +123,23 @@ func mapPaymentMethod(item schoolsrepo.PaymentMethod) map[string]any {
 	}
 }
 
+func mapMembers(items []schoolsrepo.Member) []map[string]any {
+	out := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		out = append(out, mapMember(item))
+	}
+	return out
+}
+
+func mapMember(item schoolsrepo.Member) map[string]any {
+	return map[string]any{
+		"id": item.ID, "schoolId": item.SchoolID, "userId": item.UserID, "username": item.Username,
+		"displayName": item.DisplayName, "avatarUrl": mediaurl.MaterializeWithDefault(item.AvatarURL),
+		"instructorDisplayName": item.InstructorDisplayName, "instructorBio": item.InstructorBio,
+		"role": item.Role, "status": item.Status, "createdAt": item.CreatedAt, "updatedAt": item.UpdatedAt,
+	}
+}
+
 func mapSessions(items []schoolsrepo.Session) []map[string]any {
 	out := make([]map[string]any, 0, len(items))
 	for _, item := range items {

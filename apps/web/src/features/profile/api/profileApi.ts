@@ -10,6 +10,12 @@ import type {
   ProfileView,
   CreateManualJourneyEntryRequest,
   JourneyEntryResponse,
+  ProfileDiveMemoriesResponse,
+  CreateDiveMemoryRequest,
+  DiveMemoryResponse,
+  DiveMemoryTagsResponse,
+  UpdateDiveMemoryRequest,
+  UpdateDiveMemoryTagRequest,
 } from "@freediving.ph/types";
 
 import { profilesApi } from "@/features/profiles/api/profiles";
@@ -48,6 +54,44 @@ export const profileApi = {
 
   async getProfilePassport(username: string): Promise<ProfilePassportResponse> {
     return profilesApi.getProfilePassportByUsername(normalizeUsername(username));
+  },
+
+  async getProfileDiveMemories(
+    username: string,
+  ): Promise<ProfileDiveMemoriesResponse> {
+    return profilesApi.getProfileDiveMemoriesByUsername(normalizeUsername(username));
+  },
+
+  async getMyDiveMemories(): Promise<ProfileDiveMemoriesResponse> {
+    return profilesApi.getMyDiveMemories();
+  },
+
+  async createDiveMemory(
+    payload: CreateDiveMemoryRequest,
+  ): Promise<DiveMemoryResponse> {
+    return profilesApi.createDiveMemory(payload);
+  },
+
+  async updateDiveMemory(
+    memoryId: string,
+    payload: UpdateDiveMemoryRequest,
+  ): Promise<DiveMemoryResponse> {
+    return profilesApi.updateDiveMemory(memoryId, payload);
+  },
+
+  async deleteDiveMemory(memoryId: string): Promise<void> {
+    return profilesApi.deleteDiveMemory(memoryId);
+  },
+
+  async getMyDiveMemoryTags(): Promise<DiveMemoryTagsResponse> {
+    return profilesApi.getMyDiveMemoryTags();
+  },
+
+  async updateDiveMemoryTag(
+    memoryId: string,
+    payload: UpdateDiveMemoryTagRequest,
+  ): Promise<DiveMemoryTagsResponse> {
+    return profilesApi.updateDiveMemoryTag(memoryId, payload);
   },
 
   async getMyPassportSettings(): Promise<PassportSettingsResponse> {

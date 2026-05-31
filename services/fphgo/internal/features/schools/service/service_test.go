@@ -86,6 +86,22 @@ func (f *fakeRepo) UpdatePaymentMethod(context.Context, string, string, schoolsr
 	return schoolsrepo.PaymentMethod{}, nil
 }
 func (f *fakeRepo) DeletePaymentMethod(context.Context, string, string) error { return nil }
+func (f *fakeRepo) ListMembers(context.Context, string) ([]schoolsrepo.Member, error) {
+	return nil, nil
+}
+func (f *fakeRepo) CreateMember(context.Context, string, schoolsrepo.CreateMemberInput) (schoolsrepo.Member, error) {
+	return schoolsrepo.Member{}, nil
+}
+func (f *fakeRepo) GetMember(context.Context, string, string) (schoolsrepo.Member, error) {
+	return schoolsrepo.Member{ID: "member-1", Role: "instructor", Status: "active"}, nil
+}
+func (f *fakeRepo) CountActiveOwners(context.Context, string) (int, error) {
+	return 1, nil
+}
+func (f *fakeRepo) UpdateMember(context.Context, string, string, schoolsrepo.UpdateMemberInput) (schoolsrepo.Member, error) {
+	return schoolsrepo.Member{}, nil
+}
+func (f *fakeRepo) DeleteMember(context.Context, string, string) error { return nil }
 func (f *fakeRepo) ListSessions(context.Context, string, schoolsrepo.ListSessionsInput) ([]schoolsrepo.Session, error) {
 	return []schoolsrepo.Session{f.session}, nil
 }

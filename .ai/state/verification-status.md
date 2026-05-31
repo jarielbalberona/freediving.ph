@@ -44,7 +44,7 @@ Phase reports must record exact commands, pass/fail status, and relevant failure
 - Ready for execution: yes
 - Execution started: yes
 - Verification status: completed/pass with unrelated issue
-- Notes: Final Profile Experience Integration verification passed on 2026-05-31 for targeted scope. Passed profile, Dive Map, Dive Journey, Dive Passport, app route, shared types, web type-check/test/lint, `pnpm test:go`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `git diff --stat`, and `git diff --check`. Repo-level `pnpm test` failed only in unrelated `apps/mobile` due dirty Expo dependency drift: `@expo/ui` is `~56.0.15` but the mobile foundation contract expects `~56.0.14`.
+- Notes: Final Profile Experience Integration verification passed on 2026-05-31 for targeted scope. Passed profile, Dive Map, Dive Journey, Dive Passport, app route, shared types, web type-check/test/lint, `pnpm test:go`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `git diff --stat`, and `git diff --check`. Repo-level `pnpm test` failed only in unrelated `apps/mobile` due dirty Expo dependency drift: `@expo/ui` is `~56.0.15` but the mobile foundation contract expects `~56.0.14`. Focused 2026-06-01 profile UI hardening verification passed for profile tab/map/memory/Journey/Passport web tests, web type-check, web lint, and `git diff --check`.
 
 ### `local-ai-memory-hardening`
 
@@ -59,5 +59,5 @@ Phase reports must record exact commands, pass/fail status, and relevant failure
 - Status: locked
 - Ready for execution: yes
 - Execution started: yes
-- Verification status: Phase 7 passed; Phase 8 in progress
-- Notes: Phase 1 passed on 2026-05-31. Phase 2 passed on 2026-06-01. Phase 3 passed on 2026-06-01. Phase 4 passed on 2026-06-01. Phase 5 passed on 2026-06-01. Phase 6 passed on 2026-06-01. Phase 7 passed on 2026-06-01. Latest passed checks: profile/Dive Map/Dive Memories Go tests, types type-check, web type-check, and `git diff --check`. Commands required explicit PATH entries because the current shell omitted installed Go/pnpm/sqlc locations.
+- Verification status: completed/passed
+- Notes: Phase 1 passed on 2026-05-31. Phases 2-10 passed on 2026-06-01. Final verification passed for targeted Go checks, app route checks, DB checks, sqlc generation, shared type-check/tests, web type-check/lint/test, repo lint/typecheck/test/build, and `git diff --check`. Commands required explicit PATH entries because the current shell omitted installed Go/pnpm/sqlc locations.

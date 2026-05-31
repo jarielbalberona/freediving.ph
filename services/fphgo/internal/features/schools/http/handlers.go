@@ -37,6 +37,10 @@ func Routes(h *Handlers) chi.Router {
 	r.Post("/schools/{slug}/payment-methods", h.CreatePaymentMethod)
 	r.Patch("/schools/{slug}/payment-methods/{paymentMethodId}", h.UpdatePaymentMethod)
 	r.Delete("/schools/{slug}/payment-methods/{paymentMethodId}", h.DeletePaymentMethod)
+	r.Get("/schools/{slug}/members", h.ListMembers)
+	r.Post("/schools/{slug}/members", h.CreateMember)
+	r.Patch("/schools/{slug}/members/{memberId}", h.UpdateMember)
+	r.Delete("/schools/{slug}/members/{memberId}", h.DeleteMember)
 	r.Get("/schools/{slug}/courses", h.ListCourses)
 	r.Post("/schools/{slug}/courses", h.CreateCourse)
 	r.Get("/schools/{slug}/courses/{courseIdOrSlug}", h.GetCourse)
@@ -49,6 +53,7 @@ func Routes(h *Handlers) chi.Router {
 	r.Get("/schools/{slug}/sessions", h.ListSessions)
 	r.Post("/schools/{slug}/sessions", h.CreateSession)
 	r.Get("/schools/{slug}/sessions/{sessionIdOrSlug}", h.GetSession)
+	r.Post("/schools/{slug}/sessions/{sessionIdOrSlug}/duplicate", h.DuplicateSession)
 	r.Patch("/schools/{slug}/sessions/{sessionIdOrSlug}", h.UpdateSession)
 	r.Delete("/schools/{slug}/sessions/{sessionIdOrSlug}", h.DeleteSession)
 	r.Patch("/schools/{slug}/sessions/{sessionIdOrSlug}/complete", h.CompleteSession)
@@ -91,6 +96,7 @@ func MeRoutes(h *Handlers) chi.Router {
 	r.Get("/{bookingId}", h.GetMyBooking)
 	r.Patch("/{bookingId}/cancel", h.CancelMyBooking)
 	r.Patch("/{bookingId}/payment", h.SubmitMyBookingPayment)
+	r.Post("/{bookingId}/payment-proof", h.SubmitMyBookingPayment)
 	return r
 }
 
@@ -191,6 +197,12 @@ type PaymentMethodRequest struct {
 	AccountName   string `json:"accountName"`
 	AccountNumber string `json:"accountNumber"`
 	IsActive      *bool  `json:"isActive"`
+}
+
+type MemberRequest struct {
+	UserID string `json:"userId"`
+	Role   string `json:"role"`
+	Status string `json:"status"`
 }
 
 type SessionRequest struct {
@@ -544,6 +556,58 @@ func (h *Handlers) DeletePaymentMethod(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handlers) ListMembers(w http.ResponseWriter, r *http.Request) {
+	items, err := h.service.ListMembers(r.Context(), chi.URLParam(r, "slug"), actorID(r))
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"members": mapMembers(items)})
+}
+
+func (h *Handlers) CreateMember(w http.ResponseWriter, r *http.Request) {
+	req, issues, ok := httpx.DecodeAndValidate[MemberRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, err := h.service.CreateMember(r.Context(), chi.URLParam(r, "slug"), actorID(r), schoolsrepo.CreateMemberInput{
+		UserID: req.UserID,
+		Role:   req.Role,
+		Status: req.Status,
+	})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, map[string]any{"member": mapMember(item)})
+}
+
+func (h *Handlers) UpdateMember(w http.ResponseWriter, r *http.Request) {
+	req, issues, ok := httpx.DecodeAndValidate[MemberRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	item, err := h.service.UpdateMember(r.Context(), chi.URLParam(r, "slug"), actorID(r), chi.URLParam(r, "memberId"), schoolsrepo.UpdateMemberInput{
+		Role:   req.Role,
+		Status: req.Status,
+	})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"member": mapMember(item)})
+}
+
+func (h *Handlers) DeleteMember(w http.ResponseWriter, r *http.Request) {
+	if err := h.service.DeleteMember(r.Context(), chi.URLParam(r, "slug"), actorID(r), chi.URLParam(r, "memberId")); err != nil {
+		handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handlers) ListSessions(w http.ResponseWriter, r *http.Request) {
 	input := schoolsrepo.ListSessionsInput{CourseID: q(r, "course"), Status: q(r, "status"), InstructorUserID: q(r, "instructor"), Search: q(r, "search"), DateFrom: parseDatePtr(q(r, "dateFrom")), DateTo: parseDatePtr(q(r, "dateTo"))}
 	items, err := h.service.ListSessions(r.Context(), chi.URLParam(r, "slug"), actorID(r), input)
@@ -587,6 +651,30 @@ func (h *Handlers) writeSession(w http.ResponseWriter, r *http.Request, create b
 		status = http.StatusCreated
 	}
 	httpx.JSON(w, status, map[string]any{"session": mapSession(item)})
+}
+func (h *Handlers) DuplicateSession(w http.ResponseWriter, r *http.Request) {
+	req, issues, ok := httpx.DecodeAndValidate[SessionRequest](r, h.validator)
+	if !ok {
+		httpx.WriteValidationError(w, issues)
+		return
+	}
+	startsAt, err := parseTime(req.StartsAt, "startsAt")
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	endsAt, err := parseTime(req.EndsAt, "endsAt")
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	input := schoolsrepo.CreateSessionInput{CourseID: req.CourseID, Title: req.Title, StartsAt: startsAt, EndsAt: endsAt, Timezone: req.Timezone, LocationMode: req.LocationMode, LocationLabel: req.LocationLabel, LocationNote: req.LocationNote, FormattedAddress: req.FormattedAddress, RegionCode: req.RegionCode, RegionName: req.RegionName, ProvinceCode: req.ProvinceCode, ProvinceName: req.ProvinceName, CityCode: req.CityCode, CityName: req.CityName, BarangayCode: req.BarangayCode, BarangayName: req.BarangayName, LocationSource: req.LocationSource, DiveSiteID: req.DiveSiteID, InstructorUserID: req.InstructorUserID, Capacity: req.Capacity, Status: req.Status, NotesMarkdown: req.NotesMarkdown}
+	item, err := h.service.DuplicateSession(r.Context(), chi.URLParam(r, "slug"), actorID(r), chi.URLParam(r, "sessionIdOrSlug"), input)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, map[string]any{"session": mapSession(item)})
 }
 func (h *Handlers) GetSession(w http.ResponseWriter, r *http.Request) {
 	items, err := h.service.ListSessions(r.Context(), chi.URLParam(r, "slug"), actorID(r), schoolsrepo.ListSessionsInput{})

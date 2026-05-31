@@ -1,6 +1,6 @@
 # Phase 8: Dive Journey And Passport Integration
 
-Status: in_progress
+Status: passed
 
 Allowed values: `pending`, `in_progress`, `repairing`, `passed`, `passed_with_issues`, `blocked`, `failed`.
 
@@ -63,4 +63,4 @@ Hard-stop if integration requires Passport or Journey to own memory source data.
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Passed on 2026-06-01. Dive Memories now refresh display-only Journey entries for memory source rows and Dive Passport consumes visible recent memories through the memory-owned read boundary. `tagged` and private memories map to private Journey display rows to avoid leaking tag-only visibility through Journey's public/followers/private visibility model.

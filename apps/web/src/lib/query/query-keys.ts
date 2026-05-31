@@ -398,6 +398,12 @@ export const queryKeys = {
       [...queryKeys.profile.view(username), "passport"] as const,
     journey: (username: string) =>
       [...queryKeys.profile.view(username), "journey"] as const,
+    diveMemories: (username: string) =>
+      [...queryKeys.profile.view(username), "dive-memories"] as const,
+    myDiveMemories: () =>
+      [...queryKeys.profile.all, "my-dive-memories"] as const,
+    myDiveMemoryTags: () =>
+      [...queryKeys.profile.all, "my-dive-memory-tags"] as const,
     myPassportSettings: () =>
       [...queryKeys.profile.all, "my-passport-settings"] as const,
     myBadges: () => [...queryKeys.profile.all, "my-badges"] as const,
@@ -593,6 +599,8 @@ export const queryKeys = {
       [...queryKeys.schools.detail(slug), "courses"] as const,
     paymentMethods: (slug: string) =>
       [...queryKeys.schools.detail(slug), "payment-methods"] as const,
+    members: (slug: string) =>
+      [...queryKeys.schools.detail(slug), "members"] as const,
     sessions: (slug: string, filters: Record<string, unknown> = {}) =>
       [
         ...queryKeys.schools.detail(slug),

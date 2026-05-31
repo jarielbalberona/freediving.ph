@@ -75,6 +75,7 @@ type PaymentMethodsSetupProps = {
     methodId: string,
     value: PaymentMethodSetupSaveValue,
   ) => Promise<void> | void;
+  onDelete?: (methodId: string) => Promise<void> | void;
 };
 
 const methodTypeItems: Array<{ value: PaymentMethodType; label: string }> = [
@@ -91,6 +92,7 @@ export function PaymentMethodsSetup({
   emptyDescription = "Add Manual QR or bank transfer details before collecting payments.",
   onCreate,
   onUpdate,
+  onDelete,
 }: PaymentMethodsSetupProps) {
   const [newMethod, setNewMethod] = useState<PaymentMethodFormState>(
     emptyPaymentMethodForm(),
@@ -163,6 +165,19 @@ export function PaymentMethodsSetup({
                     setBusyId(null);
                   }
                 }}
+                onDelete={
+                  onDelete
+                    ? async () => {
+                        if (!method.id) return;
+                        setBusyId(method.id);
+                        try {
+                          await onDelete(method.id);
+                        } finally {
+                          setBusyId(null);
+                        }
+                      }
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -276,12 +291,14 @@ function PaymentMethodEditorRow({
   mediaContextType,
   mediaContextId,
   onSave,
+  onDelete,
 }: {
   method: PaymentMethodSetupValue;
   disabled?: boolean;
   mediaContextType: MediaContextType;
   mediaContextId?: string;
   onSave: (value: PaymentMethodSetupSaveValue) => Promise<void> | void;
+  onDelete?: () => Promise<void> | void;
 }) {
   const [form, setForm] = useState(formStateFromPaymentMethod(method));
   const [open, setOpen] = useState(false);
@@ -359,20 +376,35 @@ function PaymentMethodEditorRow({
           />
           {error ? <p className="text-xs text-destructive">{error}</p> : null}
           <DialogFooter className="gap-2 sm:justify-between">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={disabled}
-              onClick={() => {
-                const next = { ...form, isActive: !form.isActive };
-                setForm(next);
-                void save(next);
-              }}
-            >
-              <Trash2 className="mr-1 h-4 w-4" />
-              {form.isActive ? "Deactivate" : "Activate"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={disabled}
+                onClick={() => {
+                  const next = { ...form, isActive: !form.isActive };
+                  setForm(next);
+                  void save(next);
+                }}
+              >
+                {form.isActive ? "Deactivate" : "Activate"}
+              </Button>
+              {onDelete ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={disabled}
+                  onClick={() => {
+                    void Promise.resolve(onDelete()).then(() => setOpen(false));
+                  }}
+                >
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  Delete
+                </Button>
+              ) : null}
+            </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <DialogClose render={<Button variant="outline" size="sm" />}>
                 Cancel

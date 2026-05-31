@@ -678,163 +678,183 @@
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools"
+      "pattern": "/v1/management/schools"
     },
     {
       "method": "POST",
-      "pattern": "/v1/manage/schools"
+      "pattern": "/v1/management/schools"
     },
     {
       "method": "DELETE",
-      "pattern": "/v1/manage/schools/{slug}"
+      "pattern": "/v1/management/schools/{slug}"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}"
+      "pattern": "/v1/management/schools/{slug}"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}"
+      "pattern": "/v1/management/schools/{slug}"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/bookings"
+      "pattern": "/v1/management/schools/{slug}/bookings"
     },
     {
       "method": "POST",
-      "pattern": "/v1/manage/schools/{slug}/bookings"
+      "pattern": "/v1/management/schools/{slug}/bookings"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/approve"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/approve"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/assign-session"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/assign-session"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/cancel"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/cancel"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/complete"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/complete"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/payment/proof-url"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/payment/proof-url"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/payment/reject"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/payment/reject"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/payment/verify"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/payment/verify"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/reject"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/reject"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/schedule"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/schedule"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/bookings/{bookingId}/unassign-session"
+      "pattern": "/v1/management/schools/{slug}/bookings/{bookingId}/unassign-session"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/courses"
+      "pattern": "/v1/management/schools/{slug}/courses"
     },
     {
       "method": "POST",
-      "pattern": "/v1/manage/schools/{slug}/courses"
+      "pattern": "/v1/management/schools/{slug}/courses"
     },
     {
       "method": "DELETE",
-      "pattern": "/v1/manage/schools/{slug}/courses/{courseIdOrSlug}"
+      "pattern": "/v1/management/schools/{slug}/courses/{courseIdOrSlug}"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/courses/{courseIdOrSlug}"
+      "pattern": "/v1/management/schools/{slug}/courses/{courseIdOrSlug}"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/courses/{courseIdOrSlug}"
+      "pattern": "/v1/management/schools/{slug}/courses/{courseIdOrSlug}"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/courses/{courseIdOrSlug}/payment-methods"
+      "pattern": "/v1/management/schools/{slug}/courses/{courseIdOrSlug}/payment-methods"
     },
     {
       "method": "POST",
-      "pattern": "/v1/manage/schools/{slug}/courses/{courseIdOrSlug}/payment-methods"
+      "pattern": "/v1/management/schools/{slug}/courses/{courseIdOrSlug}/payment-methods"
     },
     {
       "method": "DELETE",
-      "pattern": "/v1/manage/schools/{slug}/courses/{courseIdOrSlug}/payment-methods/{paymentMethodId}"
+      "pattern": "/v1/management/schools/{slug}/courses/{courseIdOrSlug}/payment-methods/{paymentMethodId}"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/courses/{courseIdOrSlug}/payment-methods/{paymentMethodId}"
+      "pattern": "/v1/management/schools/{slug}/courses/{courseIdOrSlug}/payment-methods/{paymentMethodId}"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/payment-methods"
+      "pattern": "/v1/management/schools/{slug}/members"
     },
     {
       "method": "POST",
-      "pattern": "/v1/manage/schools/{slug}/payment-methods"
+      "pattern": "/v1/management/schools/{slug}/members"
     },
     {
       "method": "DELETE",
-      "pattern": "/v1/manage/schools/{slug}/payment-methods/{paymentMethodId}"
+      "pattern": "/v1/management/schools/{slug}/members/{memberId}"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/payment-methods/{paymentMethodId}"
+      "pattern": "/v1/management/schools/{slug}/members/{memberId}"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/sessions"
+      "pattern": "/v1/management/schools/{slug}/payment-methods"
     },
     {
       "method": "POST",
-      "pattern": "/v1/manage/schools/{slug}/sessions"
+      "pattern": "/v1/management/schools/{slug}/payment-methods"
     },
     {
       "method": "DELETE",
-      "pattern": "/v1/manage/schools/{slug}/sessions/{sessionIdOrSlug}"
+      "pattern": "/v1/management/schools/{slug}/payment-methods/{paymentMethodId}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/management/schools/{slug}/payment-methods/{paymentMethodId}"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/sessions/{sessionIdOrSlug}"
+      "pattern": "/v1/management/schools/{slug}/sessions"
     },
     {
-      "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/sessions/{sessionIdOrSlug}"
+      "method": "POST",
+      "pattern": "/v1/management/schools/{slug}/sessions"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/management/schools/{slug}/sessions/{sessionIdOrSlug}"
     },
     {
       "method": "GET",
-      "pattern": "/v1/manage/schools/{slug}/sessions/{sessionIdOrSlug}/bookings"
+      "pattern": "/v1/management/schools/{slug}/sessions/{sessionIdOrSlug}"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/sessions/{sessionIdOrSlug}/cancel"
+      "pattern": "/v1/management/schools/{slug}/sessions/{sessionIdOrSlug}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/management/schools/{slug}/sessions/{sessionIdOrSlug}/bookings"
     },
     {
       "method": "PATCH",
-      "pattern": "/v1/manage/schools/{slug}/sessions/{sessionIdOrSlug}/complete"
+      "pattern": "/v1/management/schools/{slug}/sessions/{sessionIdOrSlug}/cancel"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/management/schools/{slug}/sessions/{sessionIdOrSlug}/complete"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/management/schools/{slug}/sessions/{sessionIdOrSlug}/duplicate"
     },
     {
       "method": "GET",
@@ -871,6 +891,10 @@
     {
       "method": "PATCH",
       "pattern": "/v1/me/course-bookings/{bookingId}/payment"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/me/course-bookings/{bookingId}/payment-proof"
     },
     {
       "method": "GET",

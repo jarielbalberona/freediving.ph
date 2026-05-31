@@ -95,3 +95,28 @@ export const useProfilePassportQuery = (username: string, enabled = true) => {
     placeholderData: keepPreviousData,
   });
 };
+
+export const useProfileDiveMemoriesQuery = (
+  username: string,
+  enabled = true,
+) => {
+  const normalizedUsername = normalizeUsername(username);
+
+  return useQuery({
+    queryKey: queryKeys.profile.diveMemories(normalizedUsername),
+    enabled: enabled && Boolean(normalizedUsername),
+    queryFn: () => profileApi.getProfileDiveMemories(normalizedUsername),
+    staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useMyDiveMemoryTagsQuery = (enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.profile.myDiveMemoryTags(),
+    enabled,
+    queryFn: () => profileApi.getMyDiveMemoryTags(),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+};

@@ -216,9 +216,9 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 					instructorsAdmin.Mount("/v1/admin/instructors", instructorsAdminRouter)
 				}
 			})
-			member.Group(func(manage chi.Router) {
+			member.Group(func(management chi.Router) {
 				if schoolsRouter := resolveSchoolsRouter(deps); schoolsRouter != nil {
-					manage.Mount("/v1/manage", schoolsRouter)
+					management.Mount("/v1/management", schoolsRouter)
 				}
 			})
 			if deps.SchoolsHandler != nil {

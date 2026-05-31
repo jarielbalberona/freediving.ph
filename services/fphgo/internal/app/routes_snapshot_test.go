@@ -123,6 +123,19 @@ func TestRouteSurfaceInvariantsFullSurface(t *testing.T) {
 	}
 }
 
+func TestRouteSurfaceExcludesLegacySchoolManagement(t *testing.T) {
+	router := buildFullSurfaceRouter()
+
+	if err := chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		if strings.HasPrefix(route, "/v1/manage/") || route == "/v1/manage" {
+			t.Errorf("legacy school management route must not be registered: %s %s", method, route)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("walk routes: %v", err)
+	}
+}
+
 func collectRoutes(t *testing.T, router chi.Router) []routeSnapshotEntry {
 	t.Helper()
 	allowNonV1 := map[string]bool{

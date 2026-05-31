@@ -36,7 +36,7 @@ test("profile Passport UI exposes empty states without source-truth claims", asy
   assert.match(component, /No visited sites yet/);
   assert.match(component, /No journey highlights yet/);
   assert.match(component, /No badges yet/);
-  assert.match(component, /Memories are not available yet/);
+  assert.match(component, /No memories yet/);
   assert.match(component, /No recent media yet/);
   assert.doesNotMatch(component, /verified passport|certified passport|rank|score/i);
   assert.doesNotMatch(component, /verified credential|unlock site|award badge/i);

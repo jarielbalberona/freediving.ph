@@ -68,9 +68,9 @@ const schoolWorkspaceNavItems = [
     icon: CreditCard,
   },
   {
-    label: "Instructors",
-    value: "instructors",
-    hrefSuffix: "/instructors",
+    label: "Members",
+    value: "members",
+    hrefSuffix: "/members",
     icon: Users,
   },
   {
@@ -128,7 +128,9 @@ export function SchoolManagementShell({
                 />
                 <div className="grid flex-1 min-w-0 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{school.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">School</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    School
+                  </span>
                 </div>
                 <ChevronsUpDown className="ml-auto size-4" />
               </SidebarMenuButton>
@@ -153,7 +155,9 @@ export function SchoolManagementShell({
                     className="gap-2 p-2"
                     onClick={() =>
                       !isCurrent &&
-                      router.push(`/management/schools/${encodeURIComponent(item.slug)}`)
+                      router.push(
+                        `/management/schools/${encodeURIComponent(item.slug)}`,
+                      )
                     }
                   >
                     <EntityAvatar
@@ -170,7 +174,9 @@ export function SchoolManagementShell({
                 );
               })}
               {managedSchools.length === 0 ? (
-                <DropdownMenuItem disabled>Loading managed schools</DropdownMenuItem>
+                <DropdownMenuItem disabled>
+                  Loading managed schools
+                </DropdownMenuItem>
               ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -180,7 +186,9 @@ export function SchoolManagementShell({
                 <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                   <Plus className="size-4" />
                 </div>
-                <div className="font-medium text-muted-foreground">View all schools</div>
+                <div className="font-medium text-muted-foreground">
+                  View all schools
+                </div>
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

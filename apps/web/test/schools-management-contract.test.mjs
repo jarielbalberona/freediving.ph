@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) =>
@@ -8,15 +8,28 @@ const read = (path) =>
 test("manage schools routes and sidebar use /management", () => {
   const nav = read("src/config/nav.ts");
   const listPage = read("src/app/management/schools/page.tsx");
-  const legacyListPage = read("src/app/manage/schools/page.tsx");
   const overviewPage = read("src/app/management/schools/[slug]/page.tsx");
-  const coursesPage = read("src/app/management/schools/[slug]/courses/page.tsx");
-  const profilePage = read("src/app/management/schools/[slug]/profile/page.tsx");
-  const instructorsPage = read("src/app/management/schools/[slug]/instructors/page.tsx");
-  const paymentsPage = read("src/app/management/schools/[slug]/payments/page.tsx");
-  const bookingsPage = read("src/app/management/schools/[slug]/bookings/page.tsx");
-  const sessionsPage = read("src/app/management/schools/[slug]/sessions/page.tsx");
-  const settingsPage = read("src/app/management/schools/[slug]/settings/page.tsx");
+  const coursesPage = read(
+    "src/app/management/schools/[slug]/courses/page.tsx",
+  );
+  const profilePage = read(
+    "src/app/management/schools/[slug]/profile/page.tsx",
+  );
+  const membersPage = read(
+    "src/app/management/schools/[slug]/members/page.tsx",
+  );
+  const paymentsPage = read(
+    "src/app/management/schools/[slug]/payments/page.tsx",
+  );
+  const bookingsPage = read(
+    "src/app/management/schools/[slug]/bookings/page.tsx",
+  );
+  const sessionsPage = read(
+    "src/app/management/schools/[slug]/sessions/page.tsx",
+  );
+  const settingsPage = read(
+    "src/app/management/schools/[slug]/settings/page.tsx",
+  );
 
   assert.match(nav, /manage-schools/);
   assert.match(nav, /title: "Manage"/);
@@ -25,13 +38,19 @@ test("manage schools routes and sidebar use /management", () => {
   assert.match(overviewPage, /ManageSchoolOverviewPage/);
   assert.match(coursesPage, /ManageCoursesPage/);
   assert.match(profilePage, /ManageSchoolProfilePage/);
-  assert.match(instructorsPage, /ManageSchoolInstructorsPage/);
+  assert.match(membersPage, /ManageSchoolMembersPage/);
   assert.match(paymentsPage, /ManageSchoolPaymentsPage/);
   assert.match(bookingsPage, /ManageBookingsPage/);
   assert.match(sessionsPage, /ManageSessionsPage/);
   assert.match(settingsPage, /ManageSchoolSettingsPage/);
-  assert.match(legacyListPage, /redirect\("\/management\/schools"\)/);
-  assert.doesNotMatch(nav + listPage + overviewPage, /href: "\/manage\/schools"/);
+  assert.equal(
+    existsSync(new URL("../src/app/manage/schools", import.meta.url)),
+    false,
+  );
+  assert.doesNotMatch(
+    nav + listPage + overviewPage,
+    /href: "\/manage\/schools"/,
+  );
 });
 
 test("schools management UI uses friendly labels and Base UI Select wrapper", () => {

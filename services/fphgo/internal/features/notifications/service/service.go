@@ -2256,17 +2256,17 @@ func normalizePlatform(value string) string {
 func manageBookingsURL(schoolSlug string) string {
 	slug := strings.TrimSpace(schoolSlug)
 	if slug == "" {
-		return "/manage/schools"
+		return "/management/schools"
 	}
-	return "/manage/schools/" + slug + "/bookings"
+	return "/management/schools/" + slug + "/bookings"
 }
 
 func manageSessionsURL(schoolSlug string) string {
 	slug := strings.TrimSpace(schoolSlug)
 	if slug == "" {
-		return "/manage/schools"
+		return "/management/schools"
 	}
-	return "/manage/schools/" + slug + "/sessions"
+	return "/management/schools/" + slug + "/sessions"
 }
 
 func bookingMetadata(input BookingNotificationInput) map[string]any {

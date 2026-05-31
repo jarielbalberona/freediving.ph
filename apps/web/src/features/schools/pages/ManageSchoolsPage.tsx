@@ -55,8 +55,12 @@ import type {
   CreateCoursePaymentMethodRequest,
   CreateCourseRequest,
   CreateCourseSessionRequest,
+  CreateSchoolMemberRequest,
   CreateSchoolRequest,
   School,
+  SchoolMember,
+  SchoolMemberRole,
+  SchoolMemberStatus,
   SchoolStatus,
   SessionLocationMode,
   UpdateCoursePaymentMethodRequest,
@@ -102,6 +106,8 @@ import {
   courseLevelLabels,
   courseStatusLabels,
   courseTypeLabels,
+  memberRoleLabels,
+  memberStatusLabels,
   paymentStatusLabels,
   schoolStatusLabels,
   sessionLocationModeLabels,
@@ -111,13 +117,18 @@ import {
   useAssignBookingSession,
   useCreateBooking,
   useCreateCourse,
+  useCreateMember,
   useCreatePaymentMethod,
   useCreateSchool,
   useCreateSession,
+  useDeleteMember,
+  useDeletePaymentMethod,
+  useDuplicateSession,
   useReviewBookingPayment,
   useSetBookingStatus,
   useSetSessionStatus,
   useUpdateCourse,
+  useUpdateMember,
   useUpdatePaymentMethod,
   useUpdateSchool,
   useUpdateSession,
@@ -125,6 +136,7 @@ import {
 import {
   useManageBookings,
   useManageCourses,
+  useManageMembers,
   useManagePaymentMethods,
   useManageSchool,
   useManageSchools,
@@ -278,13 +290,15 @@ export function ManageSchoolsPage() {
             )
           }
         />
-        ) : null}
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {schools.map((school) => (
           <ManagementEntityCard
             key={school.id}
             title={school.name}
-            description={school.shortDescription || "No school description yet."}
+            description={
+              school.shortDescription || "No school description yet."
+            }
             location={school.baseLocation || "No base location yet"}
             status={schoolStatusLabels[school.status]}
             href={`/management/schools/${school.slug}`}
@@ -356,35 +370,105 @@ export function ManageSchoolProfilePage({ slug }: { slug: string }) {
   );
 }
 
-export function ManageSchoolInstructorsPage({ slug }: { slug: string }) {
+export function ManageSchoolMembersPage({ slug }: { slug: string }) {
   const schoolQuery = useManageSchool(slug);
+  const membersQuery = useManageMembers(slug);
+  const createMember = useCreateMember(slug);
+  const updateMember = useUpdateMember(slug);
+  const deleteMember = useDeleteMember(slug);
   const school = schoolQuery.data;
+  const members = membersQuery.data ?? [];
+  const [open, setOpen] = useState(false);
+  const canManage = school ? canManageSchoolOperations(school) : false;
 
   if (schoolQuery.isError) return <UnauthorizedState />;
-  if (!school) return <PageState text="Loading school instructors..." />;
+  if (!school) return <PageState text="Loading school members..." />;
 
   return (
-    <SchoolShell school={school}>
-      <CommunityEmptyState
-        title="School instructors"
-        description="Instructor management is coming soon in the school workspace."
+    <SchoolShell school={school} active="members">
+      <Toolbar
+        title="Members"
+        subtitle="Manage school admins and instructors. Instructors can view the workspace but cannot mutate school data."
+        action={
+          canManage ? (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger
+                render={
+                  <Button size="sm">
+                    <Plus />
+                    Add member
+                  </Button>
+                }
+              />
+              <DialogContent className="max-w-xl!">
+                <DialogHeader>
+                  <DialogTitle>Add member</DialogTitle>
+                  <DialogDescription>
+                    Add an existing Freediving Philippines user by user id.
+                  </DialogDescription>
+                </DialogHeader>
+                <MemberForm
+                  busy={createMember.isPending}
+                  onSubmit={async (data) => {
+                    await createMember.mutateAsync(data);
+                    setOpen(false);
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          ) : null
+        }
+      />
+      <MemberList
+        members={members}
+        canManage={canManage}
+        currentUserRole={school.currentUserRole}
+        onUpdate={(memberId, data) => updateMember.mutate({ memberId, data })}
+        onRemove={(memberId) => deleteMember.mutate(memberId)}
       />
     </SchoolShell>
   );
 }
 
+export const ManageSchoolInstructorsPage = ManageSchoolMembersPage;
+
 export function ManageSchoolPaymentsPage({ slug }: { slug: string }) {
   const schoolQuery = useManageSchool(slug);
+  const methodsQuery = useManagePaymentMethods(slug);
+  const createPaymentMethod = useCreatePaymentMethod(slug);
+  const updatePaymentMethod = useUpdatePaymentMethod(slug);
+  const deletePaymentMethod = useDeletePaymentMethod(slug);
   const school = schoolQuery.data;
+  const methods = methodsQuery.data ?? [];
+  const canManage = school ? canManageSchoolOperations(school) : false;
 
   if (schoolQuery.isError) return <UnauthorizedState />;
   if (!school) return <PageState text="Loading school payments..." />;
 
   return (
-    <SchoolShell school={school}>
-      <CommunityEmptyState
-        title="School payments"
-        description="School payment management is coming soon in this workspace."
+    <SchoolShell school={school} active="payments">
+      <Toolbar
+        title="Payment methods"
+        subtitle="Students will see active payment methods when booking paid courses."
+        action={null}
+      />
+      <PaymentMethodsSetup
+        methods={methods}
+        disabled={!canManage}
+        mediaContextType="payment_method_qr"
+        mediaContextId={school.id}
+        emptyTitle="No payment methods"
+        emptyDescription="Add Manual QR or bank transfer details before accepting paid course bookings."
+        onCreate={async (value) => {
+          await createPaymentMethod.mutateAsync(value);
+        }}
+        onUpdate={async (methodId, value) => {
+          await updatePaymentMethod.mutateAsync({
+            paymentMethodId: methodId,
+            data: value,
+          });
+        }}
+        onDelete={(methodId) => deletePaymentMethod.mutateAsync(methodId)}
       />
     </SchoolShell>
   );
@@ -580,7 +664,9 @@ export function ManageCoursesPage({ slug }: { slug: string }) {
                     variant="outline"
                     size="xs"
                     nativeButton={false}
-                    render={<Link href={`/management/schools/${slug}/sessions`} />}
+                    render={
+                      <Link href={`/management/schools/${slug}/sessions`} />
+                    }
                   >
                     <CalendarPlus />
                     Create session
@@ -628,12 +714,19 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
   );
   const sessionsQuery = useManageSessions(slug, filters);
   const createSession = useCreateSession(slug);
+  const duplicateSession = useDuplicateSession(slug);
   const setSessionStatus = useSetSessionStatus(slug);
   const [open, setOpen] = useState(false);
   const [editSession, setEditSession] = useState<CourseSession | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<CourseSession | null>(
+    null,
+  );
+  const [showPast, setShowPast] = useState(false);
   const school = schoolQuery.data;
   const courses = coursesQuery.data ?? [];
-  const sessions = sessionsQuery.data ?? [];
+  const sessions = (sessionsQuery.data ?? []).filter(
+    (session) => showPast || new Date(session.endsAt).getTime() >= Date.now(),
+  );
   const canManage = school ? canManageSchoolOperations(school) : false;
 
   if (schoolQuery.isError) return <UnauthorizedState />;
@@ -683,6 +776,15 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
             ...sessionStatusOptions,
           ]}
         />
+        <label className="flex items-end gap-2 text-sm">
+          <input
+            className="mb-2"
+            type="checkbox"
+            checked={showPast}
+            onChange={(event) => setShowPast(event.target.checked)}
+          />
+          <span className="pb-1.5">Show past sessions</span>
+        </label>
       </div>
       <div className="divide-y divide-border/70 border-y border-border/70">
         {sessions.map((session) => (
@@ -712,7 +814,7 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
                       : "Open capacity"}
                   </span>
                   {session.capacity &&
-                    session.assignedBookingCount >= session.capacity ? (
+                  session.assignedBookingCount >= session.capacity ? (
                     <span>Full</span>
                   ) : null}
                   <span>
@@ -729,6 +831,14 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
                   >
                     <Pencil />
                     Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setDuplicateSource(session)}
+                  >
+                    <Plus />
+                    Duplicate
                   </Button>
                   <Button
                     variant="outline"
@@ -787,6 +897,35 @@ export function ManageSessionsPage({ slug }: { slug: string }) {
               courses={courses}
               session={editSession}
               onDone={() => setEditSession(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={duplicateSource != null}
+        onOpenChange={(next) => !next && setDuplicateSource(null)}
+      >
+        <DialogContent className="max-w-3xl!">
+          <DialogHeader>
+            <DialogTitle>Duplicate session</DialogTitle>
+            <DialogDescription>
+              Copy the course, instructor, location, and capacity. Bookings are
+              not copied.
+            </DialogDescription>
+          </DialogHeader>
+          {duplicateSource ? (
+            <SessionForm
+              school={school}
+              courses={courses}
+              initial={{ ...duplicateSource, status: "draft" }}
+              onSubmit={async (data) => {
+                await duplicateSession.mutateAsync({
+                  sessionId: duplicateSource.id,
+                  data,
+                });
+                setDuplicateSource(null);
+              }}
+              busy={duplicateSession.isPending}
             />
           ) : null}
         </DialogContent>
@@ -998,6 +1137,170 @@ function SchoolShell({
       </CommunityHeader>
       {children}
     </SchoolManagementShell>
+  );
+}
+
+function MemberList({
+  members,
+  canManage,
+  currentUserRole,
+  onUpdate,
+  onRemove,
+}: {
+  members: SchoolMember[];
+  canManage: boolean;
+  currentUserRole: SchoolMemberRole | "";
+  onUpdate: (
+    memberId: string,
+    data: { role?: SchoolMemberRole; status?: SchoolMemberStatus },
+  ) => void;
+  onRemove: (memberId: string) => void;
+}) {
+  const grouped = {
+    active: members.filter((member) => member.status === "active"),
+    invited: members.filter((member) => member.status === "invited"),
+    removed: members.filter((member) => member.status === "removed"),
+  };
+  return (
+    <div className="grid gap-4">
+      {(["active", "invited", "removed"] as const).map((status) => (
+        <section key={status} className="grid gap-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">
+              {memberStatusLabels[status]}
+            </h2>
+            <Badge variant="outline">{grouped[status].length}</Badge>
+          </div>
+          <div className="divide-y divide-border/70 border-y border-border/70">
+            {grouped[status].map((member) => (
+              <article
+                key={member.id}
+                className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-medium">
+                      {member.instructorDisplayName ||
+                        member.displayName ||
+                        member.username ||
+                        member.userId}
+                    </h3>
+                    <Badge variant="secondary">
+                      {memberRoleLabels[member.role]}
+                    </Badge>
+                    <Badge variant="outline">
+                      {memberStatusLabels[member.status]}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {member.username ? `@${member.username}` : member.userId}
+                  </p>
+                  {member.instructorBio ? (
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {member.instructorBio}
+                    </p>
+                  ) : null}
+                </div>
+                {canManage ? (
+                  <div className="flex flex-wrap gap-2">
+                    {member.role === "owner" ? null : (
+                      <SelectField
+                        label="Role"
+                        value={member.role}
+                        onChange={(role) =>
+                          onUpdate(member.id, {
+                            role: role as SchoolMemberRole,
+                            status: member.status,
+                          })
+                        }
+                        options={[
+                          ...(currentUserRole === "owner"
+                            ? [{ value: "admin", label: "Admin" }]
+                            : []),
+                          { value: "instructor", label: "Instructor" },
+                        ]}
+                      />
+                    )}
+                    {member.status !== "removed" ? (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        disabled={member.role === "owner"}
+                        onClick={() => onRemove(member.id)}
+                      >
+                        Remove
+                      </Button>
+                    ) : (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() =>
+                          onUpdate(member.id, {
+                            role: member.role,
+                            status: "active",
+                          })
+                        }
+                      >
+                        Restore
+                      </Button>
+                    )}
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+          {grouped[status].length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No {memberStatusLabels[status].toLowerCase()} members.
+            </p>
+          ) : null}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function MemberForm({
+  busy,
+  onSubmit,
+}: {
+  busy: boolean;
+  onSubmit: (data: CreateSchoolMemberRequest) => Promise<void>;
+}) {
+  const [userId, setUserId] = useState("");
+  const [role, setRole] =
+    useState<Exclude<SchoolMemberRole, "owner">>("instructor");
+  const [error, setError] = useState("");
+
+  return (
+    <form
+      className="grid gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setError("");
+        onSubmit({ userId, role, status: "active" }).catch((err) =>
+          setError(getApiErrorMessage(err, "Could not add member")),
+        );
+      }}
+    >
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      <TextField label="User ID" value={userId} onChange={setUserId} required />
+      <SelectField
+        label="Role"
+        value={role}
+        onChange={(next) => setRole(next as Exclude<SchoolMemberRole, "owner">)}
+        options={[
+          { value: "instructor", label: "Instructor" },
+          { value: "admin", label: "Admin" },
+        ]}
+      />
+      <DialogFooter>
+        <Button type="submit" size="sm" disabled={busy || !userId.trim()}>
+          <Plus />
+          Add member
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 
@@ -1812,7 +2115,7 @@ function SessionForm({
     courses.find((course) => course.id === firstCourse) ?? courses[0];
   const firstCourseMode =
     initialCourse?.locationMode === "structured" ||
-      initialCourse?.locationMode === "text_only"
+    initialCourse?.locationMode === "text_only"
       ? "inherit_course"
       : "inherit_school";
   const [form, setForm] = useState<CreateCourseSessionRequest>({
@@ -1866,7 +2169,7 @@ function SessionForm({
     const course = courses.find((item) => item.id === courseId);
     const locationMode =
       course?.locationMode === "structured" ||
-        course?.locationMode === "text_only"
+      course?.locationMode === "text_only"
         ? "inherit_course"
         : "inherit_school";
     setForm({ ...form, courseId, locationMode });
@@ -2317,7 +2620,7 @@ function BookingRow({
               {booking.sessionTitle || "Not assigned"}
             </p>
             {booking.bookingMode === "preferred_date" &&
-              booking.preferredDate ? (
+            booking.preferredDate ? (
               <p>
                 <span className="text-foreground">Preferred:</span>{" "}
                 {booking.preferredDate}
@@ -2426,8 +2729,8 @@ function BookingRow({
                       </Button>
                     ) : null}
                     {!canCancel &&
-                      booking.status !== "pending_review" &&
-                      booking.status !== "scheduled" ? (
+                    booking.status !== "pending_review" &&
+                    booking.status !== "scheduled" ? (
                       <p className="text-xs text-muted-foreground">
                         No status actions are available for this booking.
                       </p>

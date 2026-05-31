@@ -85,6 +85,7 @@ Risk lifecycle labels:
 - active: Phase 5 confirmed Journey can accept downstream map-style generated entries idempotently, but no actual map milestone producer/catalog was added. Future milestone producers must derive only from `user_dive_sites` and must not let Journey unlock locations.
 - resolved: Phase 6 confirmed Passport reads Journey through Journey-owned visibility filtering. Future changes to Journey visibility can affect Passport output and must be tested at the Journey boundary, not patched inside Passport.
 - accepted: Phase 7 preserved Passport and standalone source sections together in the profile Diving tab. That is coherent for V1, but a future UX decision may still split Passport into a route or tab if the profile grows too dense.
+- resolved: The 2026-06-01 profile UI hardening split profile experience modules into separate top-level tabs and reframed Dive Memories as Dive Map entry context rather than a top-level profile stream.
 - resolved: Phase 8 fixed Passport DTO drift by making shared Passport child previews compact. Any web view needing full child fields must call the owning child API directly instead of treating Passport as a full source mirror.
 - accepted: Phase 9 recommended follow-up initiatives for Dive Memories/privacy, map milestone producers, profile UX density, and mobile profile experience. None block final verification of the current locked integration initiative.
 - active: Full repo `pnpm test` currently fails only because unrelated dirty mobile dependency drift changed `@expo/ui` from the contract-expected `~56.0.14` to `~56.0.15`.
@@ -111,7 +112,11 @@ Risk lifecycle labels:
 - resolved: Phase 5 added tag lifecycle APIs with pending defaults, accepted/declined/hidden transitions, tagged-user management reads, and bidirectional `user_blocks` enforcement.
 - resolved: Phase 6 added shared TypeScript contracts for Dive Memories and tag lifecycle without exposing proof, unlock, badge, credential, or visited-site-count fields.
 - resolved: Phase 7 added Dive Map marker detail memory previews only after `user_dive_sites` marker gating; memories still do not unlock markers, change proof fields, or affect visited-site counts.
-- active: Tagged-memory management UI may require a safe fallback if a complete UX requires product decisions not locked in the initiative.
+- resolved: Phase 8 added display-only Journey integration and read-only Passport memory previews through Dive Memories-owned visibility reads.
+- accepted: Journey cannot represent accepted-tag visibility directly. Tagged memories are represented as private generated Journey display rows in V1 to avoid privacy leakage.
+- accepted: Phase 9 implemented tagged-memory management as an owner-only pending count/fallback. A complete tagged-memory inbox/notification UX remains future work rather than an inferred V1 product decision.
+- resolved: Initial full web type-check drift in payments/schools and full web test drift in management school route contracts were corrected before final Dive Memories verification.
+- resolved: Final Dive Memories verification passed on 2026-06-01, including targeted Go checks, app route checks, db checks, sqlc generation, shared type-check/tests, web type-check/lint/test, repo lint/typecheck/test/build, and `git diff --check`.
 - active: Memory integration must not create source-of-truth drift: memories cannot unlock map locations, inflate counts, mutate `user_dive_sites`, award badges, or verify credentials.
 - active: Repo-level `pnpm test` may remain polluted by unrelated mobile `@expo/ui` drift; execution must use targeted checks if that persists.
 - active: Local shell PATH drift can hide installed Go, pnpm, and sqlc binaries. Use explicit PATH entries for verification if the default shell omits `/usr/local/go/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, or `/Users/jariel/go/bin`.

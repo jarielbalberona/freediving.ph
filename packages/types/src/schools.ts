@@ -118,6 +118,11 @@ export interface SchoolMember {
   id: string;
   schoolId: string;
   userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string;
+  instructorDisplayName: string;
+  instructorBio: string;
   role: SchoolMemberRole;
   status: SchoolMemberStatus;
   createdAt: string;
@@ -453,6 +458,23 @@ export type CreateCourseSessionRequest = Omit<
   | "assignedBookingCount"
 > & { timezone?: string };
 export type UpdateCourseSessionRequest = CreateCourseSessionRequest;
+export type DuplicateCourseSessionRequest =
+  Partial<CreateCourseSessionRequest> &
+    Pick<CreateCourseSessionRequest, "startsAt" | "endsAt">;
+export interface DuplicateCourseSessionResponse {
+  session: CourseSession;
+}
+
+export interface CreateSchoolMemberRequest {
+  userId: string;
+  role: Exclude<SchoolMemberRole, "owner">;
+  status?: Extract<SchoolMemberStatus, "active" | "invited">;
+}
+
+export interface UpdateSchoolMemberRequest {
+  role?: SchoolMemberRole;
+  status?: SchoolMemberStatus;
+}
 
 export type CreateCourseBookingRequest = Omit<
   CourseBookingRequest,

@@ -1,6 +1,6 @@
 # Phase 9: Web UI And Management Surfaces
 
-Status: pending
+Status: passed
 
 Allowed values: `pending`, `in_progress`, `repairing`, `passed`, `passed_with_issues`, `blocked`, `failed`.
 
@@ -65,4 +65,4 @@ Hard-stop if a safe tagged-memory management UX requires product decisions not l
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Passed on 2026-06-01. Added web API routes/clients/hooks, public memory display, owner create/edit/delete controls, owner-only tagged-request count fallback, and focused profile tests. Initial unrelated web type/test drift was later resolved in the working tree; final web checks passed.

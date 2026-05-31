@@ -36,3 +36,28 @@ Consequences:
 - `followers` memory visibility is allowed in V1.
 - If the saved/follower model changes later, Dive Memories and Dive Journey must be tested together.
 - Tagged-user access still requires tag status and blocking checks; follower visibility does not override tag decline/hidden or blocking behavior.
+
+## 2026-06-01: Tagged Memories Use Private Journey Display Rows In V1
+
+Decision: When Dive Memories generate downstream Dive Journey display rows, `public` and `followers` visibility are preserved, while `tagged` and `private` memories are written as private Journey display rows.
+
+Rationale: Dive Journey V1 supports `public`, `followers`, and `private` visibility, but it does not own accepted-tag visibility semantics. Mapping tagged memories to private Journey rows prevents leaking tag-only memories through a downstream storytelling surface.
+
+Consequences:
+
+- Dive Memories remain the source of truth for tagged-user access.
+- Journey memory entries remain display-only and cannot authorize tagged-user visibility by themselves.
+- A richer shared/tagged Journey display requires a separate locked Journey visibility extension or memory inbox UX decision.
+
+## 2026-06-01: Profile Experience Modules Use Separate Top-Level Tabs
+
+Decision: Public/user profile experience modules are exposed as top-level tabs in this order: Posts, Badges, Diving, Dive Map, Dive Journey, Dive Passport. Dive Memories are contextual stories inside Dive Map entry/site details rather than a competing top-level profile tab.
+
+Rationale: Stacking all modules inside one Diving tab made module ownership blurry and made Dive Memories look like a parallel content stream. The profile UI should expose each source-owned module directly while preserving the rule that Dive Memories are attached to proof-backed Dive Map entries.
+
+Consequences:
+
+- Posts remains the raw media/content stream.
+- Badges, Dive Map, Dive Journey, and Dive Passport remain separate source-owned surfaces.
+- Diving is the overview for presence and dive-site affinity only.
+- Dive Memories are accessed through selected Dive Map entry details and must not create or unlock map entries.

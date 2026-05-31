@@ -7,6 +7,8 @@ import type {
   CourseSessionStatus,
   CourseStatus,
   CourseType,
+  SchoolMemberRole,
+  SchoolMemberStatus,
   SchoolStatus,
   SessionLocationMode,
 } from "@freediving.ph/types";
@@ -15,6 +17,18 @@ export const schoolStatusLabels: Record<SchoolStatus, string> = {
   draft: "Draft",
   published: "Published",
   suspended: "Suspended",
+};
+
+export const memberRoleLabels: Record<SchoolMemberRole, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  instructor: "Instructor",
+};
+
+export const memberStatusLabels: Record<SchoolMemberStatus, string> = {
+  active: "Active",
+  invited: "Invites",
+  removed: "Removed",
 };
 
 export const courseTypeLabels: Record<CourseType, string> = {

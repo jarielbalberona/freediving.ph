@@ -57,6 +57,12 @@ type repository interface {
 	CreatePaymentMethod(context.Context, string, schoolsrepo.CreatePaymentMethodInput) (schoolsrepo.PaymentMethod, error)
 	UpdatePaymentMethod(context.Context, string, string, schoolsrepo.CreatePaymentMethodInput) (schoolsrepo.PaymentMethod, error)
 	DeletePaymentMethod(context.Context, string, string) error
+	ListMembers(context.Context, string) ([]schoolsrepo.Member, error)
+	CreateMember(context.Context, string, schoolsrepo.CreateMemberInput) (schoolsrepo.Member, error)
+	GetMember(context.Context, string, string) (schoolsrepo.Member, error)
+	CountActiveOwners(context.Context, string) (int, error)
+	UpdateMember(context.Context, string, string, schoolsrepo.UpdateMemberInput) (schoolsrepo.Member, error)
+	DeleteMember(context.Context, string, string) error
 	ListSessions(context.Context, string, schoolsrepo.ListSessionsInput) ([]schoolsrepo.Session, error)
 	CreateSession(context.Context, string, schoolsrepo.CreateSessionInput) (schoolsrepo.Session, error)
 	GetSession(context.Context, string, string) (schoolsrepo.Session, error)
@@ -500,6 +506,106 @@ func (s *Service) DeletePaymentMethod(ctx context.Context, slug, actorID, course
 	return s.repo.DeletePaymentMethod(ctx, school.ID, methodID)
 }
 
+func (s *Service) ListMembers(ctx context.Context, slug, actorID string) ([]schoolsrepo.Member, error) {
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin", "instructor")
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListMembers(ctx, school.ID)
+}
+
+func (s *Service) CreateMember(ctx context.Context, slug, actorID string, input schoolsrepo.CreateMemberInput) (schoolsrepo.Member, error) {
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin")
+	if err != nil {
+		return schoolsrepo.Member{}, err
+	}
+	input.UserID = strings.TrimSpace(input.UserID)
+	input.Role = normalize(input.Role)
+	input.Status = defaultString(normalize(input.Status), "active")
+	if !validUUID(input.UserID) {
+		return schoolsrepo.Member{}, validation("userId", "invalid_uuid", "Enter a valid user id")
+	}
+	if !oneOf(input.Role, "admin", "instructor") {
+		return schoolsrepo.Member{}, validation("role", "invalid", "Choose admin or instructor")
+	}
+	if school.CurrentUserRole != "owner" && input.Role == "admin" {
+		return schoolsrepo.Member{}, apperrors.New(http.StatusForbidden, "forbidden", "only owners can add admins", nil)
+	}
+	if !oneOf(input.Status, "active", "invited") {
+		return schoolsrepo.Member{}, validation("status", "invalid", "Invalid member status")
+	}
+	item, err := s.repo.CreateMember(ctx, school.ID, input)
+	if schoolsrepo.IsUniqueViolation(err) {
+		return schoolsrepo.Member{}, apperrors.New(http.StatusConflict, "member_exists", "This user is already an active school member.", err)
+	}
+	return item, mapRepoErr(err, "member_create_failed")
+}
+
+func (s *Service) UpdateMember(ctx context.Context, slug, actorID, memberID string, input schoolsrepo.UpdateMemberInput) (schoolsrepo.Member, error) {
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin")
+	if err != nil {
+		return schoolsrepo.Member{}, err
+	}
+	if !validUUID(memberID) {
+		return schoolsrepo.Member{}, validation("memberId", "invalid_uuid", "Invalid member id")
+	}
+	current, err := s.repo.GetMember(ctx, school.ID, memberID)
+	if err != nil {
+		return schoolsrepo.Member{}, mapNotFound(err, "member_not_found")
+	}
+	input.Role = defaultString(normalize(input.Role), current.Role)
+	input.Status = defaultString(normalize(input.Status), current.Status)
+	if !oneOf(input.Role, "owner", "admin", "instructor") {
+		return schoolsrepo.Member{}, validation("role", "invalid", "Invalid member role")
+	}
+	if !oneOf(input.Status, "active", "invited", "removed") {
+		return schoolsrepo.Member{}, validation("status", "invalid", "Invalid member status")
+	}
+	if current.Role == "owner" && (input.Role != "owner" || input.Status != "active") {
+		count, err := s.repo.CountActiveOwners(ctx, school.ID)
+		if err != nil {
+			return schoolsrepo.Member{}, err
+		}
+		if count <= 1 {
+			return schoolsrepo.Member{}, validation("role", "last_owner", "A school must keep at least one active owner")
+		}
+	}
+	if school.CurrentUserRole != "owner" {
+		if current.Role != "instructor" || input.Role != "instructor" {
+			return schoolsrepo.Member{}, apperrors.New(http.StatusForbidden, "forbidden", "admins can only manage instructors", nil)
+		}
+	}
+	item, err := s.repo.UpdateMember(ctx, school.ID, memberID, input)
+	return item, mapNotFound(err, "member_not_found")
+}
+
+func (s *Service) DeleteMember(ctx context.Context, slug, actorID, memberID string) error {
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin")
+	if err != nil {
+		return err
+	}
+	if !validUUID(memberID) {
+		return validation("memberId", "invalid_uuid", "Invalid member id")
+	}
+	current, err := s.repo.GetMember(ctx, school.ID, memberID)
+	if err != nil {
+		return mapNotFound(err, "member_not_found")
+	}
+	if current.Role == "owner" && current.Status == "active" {
+		count, err := s.repo.CountActiveOwners(ctx, school.ID)
+		if err != nil {
+			return err
+		}
+		if count <= 1 {
+			return validation("role", "last_owner", "A school must keep at least one active owner")
+		}
+	}
+	if school.CurrentUserRole != "owner" && current.Role != "instructor" {
+		return apperrors.New(http.StatusForbidden, "forbidden", "admins can only remove instructors", nil)
+	}
+	return mapNotFound(s.repo.DeleteMember(ctx, school.ID, memberID), "member_not_found")
+}
+
 func (s *Service) ListSessions(ctx context.Context, slug, actorID string, input schoolsrepo.ListSessionsInput) ([]schoolsrepo.Session, error) {
 	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin", "instructor")
 	if err != nil {
@@ -513,6 +619,47 @@ func (s *Service) CreateSession(ctx context.Context, slug, actorID string, input
 	if err != nil {
 		return schoolsrepo.Session{}, err
 	}
+	input = normalizeSession(input)
+	if err := s.validateSession(ctx, school.ID, input); err != nil {
+		return schoolsrepo.Session{}, err
+	}
+	return s.repo.CreateSession(ctx, school.ID, input)
+}
+
+func (s *Service) DuplicateSession(ctx context.Context, slug, actorID, sessionID string, input schoolsrepo.CreateSessionInput) (schoolsrepo.Session, error) {
+	school, err := s.requireRole(ctx, slug, actorID, "owner", "admin")
+	if err != nil {
+		return schoolsrepo.Session{}, err
+	}
+	current, err := s.repo.GetSession(ctx, school.ID, sessionID)
+	if err != nil {
+		return schoolsrepo.Session{}, mapNotFound(err, "session_not_found")
+	}
+	if input.Title == "" {
+		input.Title = current.Title + " copy"
+	}
+	input.CourseID = current.CourseID
+	input.Timezone = defaultString(input.Timezone, current.Timezone)
+	input.LocationMode = defaultString(input.LocationMode, current.LocationMode)
+	input.LocationLabel = defaultString(input.LocationLabel, current.LocationLabel)
+	input.LocationNote = defaultString(input.LocationNote, current.LocationNote)
+	input.FormattedAddress = defaultString(input.FormattedAddress, current.FormattedAddress)
+	input.RegionCode = defaultString(input.RegionCode, current.RegionCode)
+	input.RegionName = defaultString(input.RegionName, current.RegionName)
+	input.ProvinceCode = defaultString(input.ProvinceCode, current.ProvinceCode)
+	input.ProvinceName = defaultString(input.ProvinceName, current.ProvinceName)
+	input.CityCode = defaultString(input.CityCode, current.CityCode)
+	input.CityName = defaultString(input.CityName, current.CityName)
+	input.BarangayCode = defaultString(input.BarangayCode, current.BarangayCode)
+	input.BarangayName = defaultString(input.BarangayName, current.BarangayName)
+	input.LocationSource = defaultString(input.LocationSource, current.LocationSource)
+	input.DiveSiteID = defaultString(input.DiveSiteID, current.DiveSiteID)
+	input.InstructorUserID = defaultString(input.InstructorUserID, current.InstructorUserID)
+	if input.Capacity == nil {
+		input.Capacity = current.Capacity
+	}
+	input.Status = defaultString(input.Status, "draft")
+	input.NotesMarkdown = defaultString(input.NotesMarkdown, current.NotesMarkdown)
 	input = normalizeSession(input)
 	if err := s.validateSession(ctx, school.ID, input); err != nil {
 		return schoolsrepo.Session{}, err

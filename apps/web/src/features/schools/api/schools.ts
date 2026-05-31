@@ -8,6 +8,7 @@ import type {
   CoursePaymentMethod,
   CourseSession,
   CourseSessionFilters,
+  CreateSchoolMemberRequest,
   CreateCourseBookingRequest,
   CreateCoursePaymentMethodRequest,
   CreateCourseRequest,
@@ -21,7 +22,9 @@ import type {
   PublicSchool,
   PublicSchoolFilters,
   School,
+  SchoolMember,
   SubmitCourseBookingPaymentRequest,
+  UpdateSchoolMemberRequest,
   UpdateCourseBookingRequest,
   UpdateCoursePaymentMethodRequest,
   UpdateCourseRequest,
@@ -128,20 +131,20 @@ export const schoolsApi = {
   },
   listSchools: async (): Promise<School[]> => {
     const response = await axiosInstance.get<{ schools: School[] }>(
-      "/v1/manage/schools",
+      "/v1/management/schools",
     );
     return response.data.schools;
   },
   createSchool: async (data: CreateSchoolRequest): Promise<School> => {
     const response = await axiosInstance.post<{ school: School }>(
-      "/v1/manage/schools",
+      "/v1/management/schools",
       data,
     );
     return response.data.school;
   },
   getSchool: async (slug: string): Promise<School> => {
     const response = await axiosInstance.get<{ school: School }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}`,
     );
     return response.data.school;
   },
@@ -150,14 +153,14 @@ export const schoolsApi = {
     data: UpdateSchoolRequest,
   ): Promise<School> => {
     const response = await axiosInstance.patch<{ school: School }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}`,
       data,
     );
     return response.data.school;
   },
   listCourses: async (slug: string): Promise<Course[]> => {
     const response = await axiosInstance.get<{ courses: Course[] }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/courses`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/courses`,
     );
     return response.data.courses;
   },
@@ -166,7 +169,7 @@ export const schoolsApi = {
     data: CreateCourseRequest,
   ): Promise<Course> => {
     const response = await axiosInstance.post<{ course: Course }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/courses`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/courses`,
       data,
     );
     return response.data.course;
@@ -177,7 +180,7 @@ export const schoolsApi = {
     data: UpdateCourseRequest,
   ): Promise<Course> => {
     const response = await axiosInstance.patch<{ course: Course }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/courses/${encodeURIComponent(courseId)}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/courses/${encodeURIComponent(courseId)}`,
       data,
     );
     return response.data.course;
@@ -185,7 +188,7 @@ export const schoolsApi = {
   listPaymentMethods: async (slug: string): Promise<CoursePaymentMethod[]> => {
     const response = await axiosInstance.get<{
       paymentMethods: CoursePaymentMethod[];
-    }>(`/v1/manage/schools/${encodeURIComponent(slug)}/payment-methods`);
+    }>(`/v1/management/schools/${encodeURIComponent(slug)}/payment-methods`);
     return response.data.paymentMethods;
   },
   createPaymentMethod: async (
@@ -194,7 +197,10 @@ export const schoolsApi = {
   ): Promise<CoursePaymentMethod> => {
     const response = await axiosInstance.post<{
       paymentMethod: CoursePaymentMethod;
-    }>(`/v1/manage/schools/${encodeURIComponent(slug)}/payment-methods`, data);
+    }>(
+      `/v1/management/schools/${encodeURIComponent(slug)}/payment-methods`,
+      data,
+    );
     return response.data.paymentMethod;
   },
   updatePaymentMethod: async (
@@ -205,17 +211,57 @@ export const schoolsApi = {
     const response = await axiosInstance.patch<{
       paymentMethod: CoursePaymentMethod;
     }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/payment-methods/${encodeURIComponent(paymentMethodId)}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/payment-methods/${encodeURIComponent(paymentMethodId)}`,
       data,
     );
     return response.data.paymentMethod;
+  },
+  deletePaymentMethod: async (
+    slug: string,
+    paymentMethodId: string,
+  ): Promise<void> => {
+    await axiosInstance.delete(
+      `/v1/management/schools/${encodeURIComponent(slug)}/payment-methods/${encodeURIComponent(paymentMethodId)}`,
+    );
+  },
+  listMembers: async (slug: string): Promise<SchoolMember[]> => {
+    const response = await axiosInstance.get<{ members: SchoolMember[] }>(
+      `/v1/management/schools/${encodeURIComponent(slug)}/members`,
+    );
+    return response.data.members;
+  },
+  createMember: async (
+    slug: string,
+    data: CreateSchoolMemberRequest,
+  ): Promise<SchoolMember> => {
+    const response = await axiosInstance.post<{ member: SchoolMember }>(
+      `/v1/management/schools/${encodeURIComponent(slug)}/members`,
+      data,
+    );
+    return response.data.member;
+  },
+  updateMember: async (
+    slug: string,
+    memberId: string,
+    data: UpdateSchoolMemberRequest,
+  ): Promise<SchoolMember> => {
+    const response = await axiosInstance.patch<{ member: SchoolMember }>(
+      `/v1/management/schools/${encodeURIComponent(slug)}/members/${encodeURIComponent(memberId)}`,
+      data,
+    );
+    return response.data.member;
+  },
+  deleteMember: async (slug: string, memberId: string): Promise<void> => {
+    await axiosInstance.delete(
+      `/v1/management/schools/${encodeURIComponent(slug)}/members/${encodeURIComponent(memberId)}`,
+    );
   },
   listSessions: async (
     slug: string,
     filters?: CourseSessionFilters,
   ): Promise<CourseSession[]> => {
     const response = await axiosInstance.get<{ sessions: CourseSession[] }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/sessions${paramsFrom(filters)}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/sessions${paramsFrom(filters)}`,
     );
     return response.data.sessions;
   },
@@ -224,7 +270,7 @@ export const schoolsApi = {
     data: CreateCourseSessionRequest,
   ): Promise<CourseSession> => {
     const response = await axiosInstance.post<{ session: CourseSession }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/sessions`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/sessions`,
       data,
     );
     return response.data.session;
@@ -235,7 +281,7 @@ export const schoolsApi = {
     data: UpdateCourseSessionRequest,
   ): Promise<CourseSession> => {
     const response = await axiosInstance.patch<{ session: CourseSession }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(sessionId)}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(sessionId)}`,
       data,
     );
     return response.data.session;
@@ -246,8 +292,20 @@ export const schoolsApi = {
     status: "complete" | "cancel",
   ): Promise<CourseSession> => {
     const response = await axiosInstance.patch<{ session: CourseSession }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(sessionId)}/${status}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(sessionId)}/${status}`,
       {},
+    );
+    return response.data.session;
+  },
+  duplicateSession: async (
+    slug: string,
+    sessionId: string,
+    data: Partial<CreateCourseSessionRequest> &
+      Pick<CreateCourseSessionRequest, "startsAt" | "endsAt">,
+  ): Promise<CourseSession> => {
+    const response = await axiosInstance.post<{ session: CourseSession }>(
+      `/v1/management/schools/${encodeURIComponent(slug)}/sessions/${encodeURIComponent(sessionId)}/duplicate`,
+      data,
     );
     return response.data.session;
   },
@@ -258,7 +316,7 @@ export const schoolsApi = {
     const response = await axiosInstance.get<{
       bookings: CourseBookingRequest[];
     }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/bookings${paramsFrom(filters)}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/bookings${paramsFrom(filters)}`,
     );
     return response.data.bookings;
   },
@@ -268,7 +326,7 @@ export const schoolsApi = {
   ): Promise<CourseBookingRequest> => {
     const response = await axiosInstance.post<{
       booking: CourseBookingRequest;
-    }>(`/v1/manage/schools/${encodeURIComponent(slug)}/bookings`, data);
+    }>(`/v1/management/schools/${encodeURIComponent(slug)}/bookings`, data);
     return response.data.booking;
   },
   updateBooking: async (
@@ -279,7 +337,7 @@ export const schoolsApi = {
     const response = await axiosInstance.patch<{
       booking: CourseBookingRequest;
     }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}`,
       data,
     );
     return response.data.booking;
@@ -292,7 +350,7 @@ export const schoolsApi = {
     const response = await axiosInstance.patch<{
       booking: CourseBookingRequest;
     }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/${action}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/${action}`,
       {},
     );
     return response.data.booking;
@@ -305,7 +363,7 @@ export const schoolsApi = {
     const response = await axiosInstance.patch<{
       booking: CourseBookingRequest;
     }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/assign-session`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/assign-session`,
       { sessionId },
     );
     return response.data.booking;
@@ -317,7 +375,7 @@ export const schoolsApi = {
     const response = await axiosInstance.patch<{
       booking: CourseBookingRequest;
     }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/unassign-session`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/unassign-session`,
       {},
     );
     return response.data.booking;
@@ -331,7 +389,7 @@ export const schoolsApi = {
     const response = await axiosInstance.patch<{
       payment: CourseBookingPayment;
     }>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/payment/${action}`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/payment/${action}`,
       { reviewNotes },
     );
     return response.data.payment;
@@ -341,7 +399,7 @@ export const schoolsApi = {
     bookingId: string,
   ): Promise<CourseBookingPaymentProofUrl> => {
     const response = await axiosInstance.get<CourseBookingPaymentProofUrl>(
-      `/v1/manage/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/payment/proof-url`,
+      `/v1/management/schools/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(bookingId)}/payment/proof-url`,
     );
     return response.data;
   },
