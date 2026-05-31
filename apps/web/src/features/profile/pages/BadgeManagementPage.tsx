@@ -51,6 +51,7 @@ type BadgeFormState = {
   referenceLabel: string;
   referenceValue: string;
   proofMediaId: string;
+  visibility: "public" | "private";
 };
 
 const initialForm: BadgeFormState = {
@@ -63,6 +64,7 @@ const initialForm: BadgeFormState = {
   referenceLabel: "",
   referenceValue: "",
   proofMediaId: "",
+  visibility: "public",
 };
 
 export default function BadgeManagementPage() {
@@ -222,6 +224,31 @@ export default function BadgeManagementPage() {
                   }
                 />
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Visibility</Label>
+              <Select
+                value={form.visibility}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    visibility: value === "private" ? "private" : "public",
+                  }))
+                }
+                items={[
+                  { value: "public", label: "Public" },
+                  { value: "private", label: "Private" },
+                ]}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Public</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">
@@ -419,6 +446,7 @@ function BadgeRow({
           >
             {system ? "System Verified" : badge.verificationStatus}
           </Badge>
+          {!system ? <Badge variant="outline">{badge.visibility}</Badge> : null}
         </div>
         {badge.referenceLabel || badge.referenceValue ? (
           <p className="text-xs text-muted-foreground">
@@ -470,6 +498,7 @@ function buildPayload(
     referenceLabel: form.referenceLabel.trim() || undefined,
     referenceValue: form.referenceValue.trim() || undefined,
     proofMediaId: form.proofMediaId || undefined,
+    visibility: form.visibility,
   };
 
   if (template.valueType === "time") {
@@ -515,5 +544,6 @@ function formFromBadge(badge: UserBadge): BadgeFormState {
     referenceLabel: badge.referenceLabel ?? "",
     referenceValue: badge.referenceValue ?? "",
     proofMediaId: badge.proofMediaId ?? "",
+    visibility: badge.visibility ?? "public",
   };
 }

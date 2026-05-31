@@ -860,10 +860,19 @@ CREATE TABLE IF NOT EXISTS badge_templates (
   icon TEXT,
   description TEXT,
   is_system BOOLEAN NOT NULL DEFAULT FALSE,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  rarity TEXT NOT NULL DEFAULT 'common',
+  is_public BOOLEAN NOT NULL DEFAULT TRUE,
+  is_repeatable BOOLEAN NOT NULL DEFAULT FALSE,
+  source_module TEXT NOT NULL DEFAULT 'profile',
+  metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (category IN ('personal_best', 'certification', 'experience', 'auto_stat')),
   CHECK (value_type IN ('time', 'distance', 'number', 'text', 'none')),
+  CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary')),
+  CHECK (source_module IN ('profile', 'dive_map', 'courses', 'events', 'schools', 'system', 'admin')),
+  CHECK (jsonb_typeof(metadata_json) = 'object'),
   CHECK (length(trim(slug)) > 0),
   CHECK (length(trim(name)) > 0)
 );
@@ -882,9 +891,18 @@ CREATE TABLE IF NOT EXISTS user_badges (
   verification_status TEXT NOT NULL DEFAULT 'unverified',
   verified_at TIMESTAMPTZ,
   verified_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  source_type TEXT NOT NULL DEFAULT 'manual',
+  source_id TEXT,
+  earned_at TIMESTAMPTZ,
+  visibility TEXT NOT NULL DEFAULT 'public',
+  display_order INTEGER NOT NULL DEFAULT 0,
+  metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (verification_status IN ('unverified', 'pending', 'verified', 'rejected')),
+  CHECK (source_type IN ('manual', 'profile', 'dive_map', 'course', 'event', 'school', 'system', 'admin')),
+  CHECK (visibility IN ('public', 'private')),
+  CHECK (jsonb_typeof(metadata_json) = 'object'),
   CHECK (value_minutes IS NULL OR value_minutes >= 0),
   CHECK (value_seconds IS NULL OR (value_seconds >= 0 AND value_seconds <= 59)),
   CHECK (value_number IS NULL OR value_number >= 0),
@@ -1855,6 +1873,8 @@ CREATE INDEX IF NOT EXISTS idx_media_objects_context_created_at ON media_objects
 CREATE INDEX IF NOT EXISTS idx_media_objects_state ON media_objects (state);
 CREATE INDEX IF NOT EXISTS idx_user_badges_user_created_at ON user_badges (user_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_user_badges_template ON user_badges (badge_template_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_user_visibility_order ON user_badges (user_id, visibility, display_order, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_user_badges_source ON user_badges (source_type, source_id) WHERE source_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_media_upload_groups_author_created_at ON media_upload_groups (author_app_user_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_media_posts_author_created_at ON media_posts (author_app_user_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_posts_site_cover_candidates ON media_posts (dive_site_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;

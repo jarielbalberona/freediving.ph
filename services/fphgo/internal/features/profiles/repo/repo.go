@@ -145,15 +145,21 @@ type ProfileDiving struct {
 }
 
 type BadgeTemplate struct {
-	ID          string
-	Slug        string
-	Name        string
-	Category    string
-	ValueType   string
-	Unit        string
-	Icon        string
-	Description string
-	IsSystem    bool
+	ID           string
+	Slug         string
+	Name         string
+	Category     string
+	ValueType    string
+	Unit         string
+	Icon         string
+	Description  string
+	IsSystem     bool
+	DisplayOrder int32
+	Rarity       string
+	IsPublic     bool
+	IsRepeatable bool
+	SourceModule string
+	MetadataJSON map[string]any
 }
 
 type UserBadge struct {
@@ -171,6 +177,12 @@ type UserBadge struct {
 	VerificationStatus  string
 	VerifiedAt          *time.Time
 	VerifiedBy          string
+	SourceType          string
+	SourceID            string
+	EarnedAt            *time.Time
+	Visibility          string
+	DisplayOrder        int32
+	MetadataJSON        map[string]any
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -186,6 +198,12 @@ type UpsertUserBadgeInput struct {
 	ReferenceLabel *string
 	ReferenceValue *string
 	ProofMediaID   *string
+	SourceType     string
+	SourceID       *string
+	EarnedAt       *time.Time
+	Visibility     string
+	DisplayOrder   int32
+	MetadataJSON   map[string]any
 }
 
 func New(pool *pgxpool.Pool) *Repo {
@@ -695,8 +713,24 @@ func (r *Repo) ListProfileDivingByUsername(ctx context.Context, username, viewer
 
 func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) {
 	const q = `
-		SELECT id, slug, name, category, value_type, COALESCE(unit, ''), COALESCE(icon, ''), COALESCE(description, ''), is_system
+		SELECT
+			id,
+			slug,
+			name,
+			category,
+			value_type,
+			COALESCE(unit, ''),
+			COALESCE(icon, ''),
+			COALESCE(description, ''),
+			is_system,
+			display_order,
+			rarity,
+			is_public,
+			is_repeatable,
+			source_module,
+			metadata_json
 		FROM badge_templates
+		WHERE is_public = TRUE
 		ORDER BY
 			CASE category
 				WHEN 'personal_best' THEN 1
@@ -705,6 +739,7 @@ func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) 
 				WHEN 'auto_stat' THEN 4
 				ELSE 5
 			END,
+			display_order,
 			name
 	`
 	rows, err := r.pool.Query(ctx, q)
@@ -715,7 +750,10 @@ func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) 
 
 	items := make([]BadgeTemplate, 0)
 	for rows.Next() {
-		var id pgtype.UUID
+		var (
+			id          pgtype.UUID
+			metadataRaw []byte
+		)
 		var item BadgeTemplate
 		if err := rows.Scan(
 			&id,
@@ -727,10 +765,17 @@ func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) 
 			&item.Icon,
 			&item.Description,
 			&item.IsSystem,
+			&item.DisplayOrder,
+			&item.Rarity,
+			&item.IsPublic,
+			&item.IsRepeatable,
+			&item.SourceModule,
+			&metadataRaw,
 		); err != nil {
 			return nil, err
 		}
 		item.ID = id.String()
+		item.MetadataJSON = decodeMetadata(metadataRaw)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -738,11 +783,29 @@ func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) 
 
 func (r *Repo) GetBadgeTemplate(ctx context.Context, templateID string) (BadgeTemplate, error) {
 	const q = `
-		SELECT id, slug, name, category, value_type, COALESCE(unit, ''), COALESCE(icon, ''), COALESCE(description, ''), is_system
+		SELECT
+			id,
+			slug,
+			name,
+			category,
+			value_type,
+			COALESCE(unit, ''),
+			COALESCE(icon, ''),
+			COALESCE(description, ''),
+			is_system,
+			display_order,
+			rarity,
+			is_public,
+			is_repeatable,
+			source_module,
+			metadata_json
 		FROM badge_templates
 		WHERE id = $1
 	`
-	var id pgtype.UUID
+	var (
+		id          pgtype.UUID
+		metadataRaw []byte
+	)
 	var item BadgeTemplate
 	err := r.pool.QueryRow(ctx, q, toUUID(templateID)).Scan(
 		&id,
@@ -754,11 +817,18 @@ func (r *Repo) GetBadgeTemplate(ctx context.Context, templateID string) (BadgeTe
 		&item.Icon,
 		&item.Description,
 		&item.IsSystem,
+		&item.DisplayOrder,
+		&item.Rarity,
+		&item.IsPublic,
+		&item.IsRepeatable,
+		&item.SourceModule,
+		&metadataRaw,
 	)
 	if err != nil {
 		return BadgeTemplate{}, err
 	}
 	item.ID = id.String()
+	item.MetadataJSON = decodeMetadata(metadataRaw)
 	return item, nil
 }
 
@@ -767,7 +837,7 @@ func (r *Repo) ListUserBadgesByUserID(ctx context.Context, userID string) ([]Use
 }
 
 func (r *Repo) ListProfileBadgesByUsername(ctx context.Context, username string) ([]UserBadge, error) {
-	return r.listUserBadges(ctx, "lower(u.username) = lower($1)", username)
+	return r.listUserBadges(ctx, "lower(u.username) = lower($1) AND ub.visibility = 'public'", username)
 }
 
 func (r *Repo) listUserBadges(ctx context.Context, userPredicate string, arg any) ([]UserBadge, error) {
@@ -784,6 +854,12 @@ func (r *Repo) listUserBadges(ctx context.Context, userPredicate string, arg any
 			COALESCE(bt.icon, ''),
 			COALESCE(bt.description, ''),
 			bt.is_system,
+			bt.display_order,
+			bt.rarity,
+			bt.is_public,
+			bt.is_repeatable,
+			bt.source_module,
+			bt.metadata_json,
 			COALESCE(ub.value_text, ''),
 			ub.value_number,
 			ub.value_minutes,
@@ -795,6 +871,12 @@ func (r *Repo) listUserBadges(ctx context.Context, userPredicate string, arg any
 			ub.verification_status,
 			ub.verified_at,
 			ub.verified_by,
+			ub.source_type,
+			COALESCE(ub.source_id, ''),
+			ub.earned_at,
+			ub.visibility,
+			ub.display_order,
+			ub.metadata_json,
 			ub.created_at,
 			ub.updated_at
 		FROM users u
@@ -810,6 +892,8 @@ func (r *Repo) listUserBadges(ctx context.Context, userPredicate string, arg any
 				WHEN 'experience' THEN 3
 				ELSE 4
 			END,
+			ub.display_order,
+			bt.display_order,
 			ub.created_at DESC,
 			ub.id DESC
 	`
@@ -841,11 +925,21 @@ func (r *Repo) CreateUserBadge(ctx context.Context, input UpsertUserBadgeInput) 
 			value_seconds,
 			reference_label,
 			reference_value,
-			proof_media_id
+			proof_media_id,
+			source_type,
+			source_id,
+			earned_at,
+			visibility,
+			display_order,
+			metadata_json
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING id
 	`
+	metadataJSON, err := json.Marshal(input.MetadataJSON)
+	if err != nil {
+		return UserBadge{}, err
+	}
 	var id pgtype.UUID
 	if err := r.pool.QueryRow(ctx, q,
 		toUUID(input.UserID),
@@ -857,6 +951,12 @@ func (r *Repo) CreateUserBadge(ctx context.Context, input UpsertUserBadgeInput) 
 		input.ReferenceLabel,
 		input.ReferenceValue,
 		uuidPtr(input.ProofMediaID),
+		defaultString(input.SourceType, "manual"),
+		input.SourceID,
+		input.EarnedAt,
+		defaultString(input.Visibility, "public"),
+		input.DisplayOrder,
+		metadataJSON,
 	).Scan(&id); err != nil {
 		return UserBadge{}, err
 	}
@@ -875,6 +975,12 @@ func (r *Repo) UpdateUserBadge(ctx context.Context, input UpsertUserBadgeInput) 
 			reference_label = $8,
 			reference_value = $9,
 			proof_media_id = $10,
+			source_type = $11,
+			source_id = $12,
+			earned_at = COALESCE($13, earned_at),
+			visibility = $14,
+			display_order = $15,
+			metadata_json = $16,
 			verification_status = CASE WHEN verification_status = 'verified' THEN 'unverified' ELSE verification_status END,
 			verified_at = CASE WHEN verification_status = 'verified' THEN NULL ELSE verified_at END,
 			verified_by = CASE WHEN verification_status = 'verified' THEN NULL ELSE verified_by END,
@@ -883,6 +989,10 @@ func (r *Repo) UpdateUserBadge(ctx context.Context, input UpsertUserBadgeInput) 
 		  AND user_id = $2
 		RETURNING id
 	`
+	metadataJSON, err := json.Marshal(input.MetadataJSON)
+	if err != nil {
+		return UserBadge{}, err
+	}
 	var id pgtype.UUID
 	if err := r.pool.QueryRow(ctx, q,
 		toUUID(input.ID),
@@ -895,6 +1005,12 @@ func (r *Repo) UpdateUserBadge(ctx context.Context, input UpsertUserBadgeInput) 
 		input.ReferenceLabel,
 		input.ReferenceValue,
 		uuidPtr(input.ProofMediaID),
+		defaultString(input.SourceType, "manual"),
+		input.SourceID,
+		input.EarnedAt,
+		defaultString(input.Visibility, "public"),
+		input.DisplayOrder,
+		metadataJSON,
 	).Scan(&id); err != nil {
 		return UserBadge{}, err
 	}
@@ -926,6 +1042,12 @@ func (r *Repo) GetUserBadgeByID(ctx context.Context, badgeID, userID string) (Us
 			COALESCE(bt.icon, ''),
 			COALESCE(bt.description, ''),
 			bt.is_system,
+			bt.display_order,
+			bt.rarity,
+			bt.is_public,
+			bt.is_repeatable,
+			bt.source_module,
+			bt.metadata_json,
 			COALESCE(ub.value_text, ''),
 			ub.value_number,
 			ub.value_minutes,
@@ -937,6 +1059,12 @@ func (r *Repo) GetUserBadgeByID(ctx context.Context, badgeID, userID string) (Us
 			ub.verification_status,
 			ub.verified_at,
 			ub.verified_by,
+			ub.source_type,
+			COALESCE(ub.source_id, ''),
+			ub.earned_at,
+			ub.visibility,
+			ub.display_order,
+			ub.metadata_json,
 			ub.created_at,
 			ub.updated_at
 		FROM user_badges ub
@@ -950,6 +1078,17 @@ func (r *Repo) GetUserBadgeByID(ctx context.Context, badgeID, userID string) (Us
 }
 
 func (r *Repo) CountDiveSitesVisitedByUsername(ctx context.Context, username string) (int64, error) {
+	useUserDiveSites, err := r.userDiveSitesTableExists(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if useUserDiveSites {
+		return r.countDiveSitesVisitedFromUserDiveSitesByUsername(ctx, username)
+	}
+	// Transitional fallback until Dive Map owns `user_dive_sites`.
+	// Final contract: user_dive_sites must be derived only from qualifying,
+	// user-owned media_posts.dive_site_id. Tagged/shared memories and non-proof
+	// activity must not unlock sites or inflate this count.
 	const q = `
 		WITH target_user AS (
 			SELECT id
@@ -964,18 +1103,6 @@ func (r *Repo) CountDiveSitesVisitedByUsername(ctx context.Context, username str
 			JOIN media_posts mp ON mp.author_app_user_id = u.id
 			WHERE mp.deleted_at IS NULL
 			  AND mp.dive_site_id IS NOT NULL
-			UNION
-			SELECT mi.dive_site_id
-			FROM target_user u
-			JOIN media_items mi ON mi.author_app_user_id = u.id
-			WHERE mi.deleted_at IS NULL
-			  AND mi.status = 'active'
-			  AND mi.dive_site_id IS NOT NULL
-			UNION
-			SELECT dsu.dive_site_id
-			FROM target_user u
-			JOIN dive_site_updates dsu ON dsu.author_app_user_id = u.id
-			WHERE dsu.state = 'active'
 		)
 		SELECT COUNT(DISTINCT s.id)::bigint
 		FROM tagged_sites tagged
@@ -990,6 +1117,16 @@ func (r *Repo) CountDiveSitesVisitedByUsername(ctx context.Context, username str
 }
 
 func (r *Repo) CountDiveSitesVisitedByUserID(ctx context.Context, userID string) (int64, error) {
+	useUserDiveSites, err := r.userDiveSitesTableExists(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if useUserDiveSites {
+		return r.countDiveSitesVisitedFromUserDiveSitesByUserID(ctx, userID)
+	}
+	// Transitional fallback until Dive Map owns `user_dive_sites`.
+	// Count only the user's own media_posts tagged to dive_site_id. Shared or
+	// tagged memories are intentionally excluded from the badge contract.
 	const q = `
 		WITH tagged_sites AS (
 			SELECT dive_site_id
@@ -997,23 +1134,49 @@ func (r *Repo) CountDiveSitesVisitedByUserID(ctx context.Context, userID string)
 			WHERE author_app_user_id = $1
 			  AND deleted_at IS NULL
 			  AND dive_site_id IS NOT NULL
-			UNION
-			SELECT dive_site_id
-			FROM media_items
-			WHERE author_app_user_id = $1
-			  AND deleted_at IS NULL
-			  AND status = 'active'
-			  AND dive_site_id IS NOT NULL
-			UNION
-			SELECT dive_site_id
-			FROM dive_site_updates
-			WHERE author_app_user_id = $1
-			  AND state = 'active'
 		)
 		SELECT COUNT(DISTINCT s.id)::bigint
 		FROM tagged_sites tagged
 		JOIN dive_sites s ON s.id = tagged.dive_site_id
 		WHERE s.moderation_state = 'approved'
+	`
+	var count int64
+	if err := r.pool.QueryRow(ctx, q, toUUID(userID)).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repo) userDiveSitesTableExists(ctx context.Context) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `SELECT to_regclass('public.user_dive_sites') IS NOT NULL`).Scan(&exists)
+	return exists, err
+}
+
+func (r *Repo) countDiveSitesVisitedFromUserDiveSitesByUsername(ctx context.Context, username string) (int64, error) {
+	const q = `
+		SELECT COUNT(DISTINCT s.id)::bigint
+		FROM users u
+		JOIN user_dive_sites uds ON uds.user_id = u.id
+		JOIN dive_sites s ON s.id = uds.dive_site_id
+		WHERE lower(u.username) = lower($1)
+		  AND u.account_status = 'active'
+		  AND s.moderation_state = 'approved'
+	`
+	var count int64
+	if err := r.pool.QueryRow(ctx, q, username).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repo) countDiveSitesVisitedFromUserDiveSitesByUserID(ctx context.Context, userID string) (int64, error) {
+	const q = `
+		SELECT COUNT(DISTINCT s.id)::bigint
+		FROM user_dive_sites uds
+		JOIN dive_sites s ON s.id = uds.dive_site_id
+		WHERE uds.user_id = $1
+		  AND s.moderation_state = 'approved'
 	`
 	var count int64
 	if err := r.pool.QueryRow(ctx, q, toUUID(userID)).Scan(&count); err != nil {
@@ -1098,18 +1261,21 @@ type badgeScanner interface {
 
 func scanUserBadge(row badgeScanner) (UserBadge, error) {
 	var (
-		id           pgtype.UUID
-		userID       pgtype.UUID
-		templateID   pgtype.UUID
-		valueNumber  pgtype.Numeric
-		valueMinutes *int32
-		valueSeconds *int32
-		proofMediaID pgtype.UUID
-		verifiedAt   pgtype.Timestamptz
-		verifiedBy   pgtype.UUID
-		createdAt    pgtype.Timestamptz
-		updatedAt    pgtype.Timestamptz
-		item         UserBadge
+		id                  pgtype.UUID
+		userID              pgtype.UUID
+		templateID          pgtype.UUID
+		valueNumber         pgtype.Numeric
+		valueMinutes        *int32
+		valueSeconds        *int32
+		proofMediaID        pgtype.UUID
+		verifiedAt          pgtype.Timestamptz
+		verifiedBy          pgtype.UUID
+		earnedAt            pgtype.Timestamptz
+		createdAt           pgtype.Timestamptz
+		updatedAt           pgtype.Timestamptz
+		templateMetadataRaw []byte
+		badgeMetadataRaw    []byte
+		item                UserBadge
 	)
 	if err := row.Scan(
 		&id,
@@ -1123,6 +1289,12 @@ func scanUserBadge(row badgeScanner) (UserBadge, error) {
 		&item.Template.Icon,
 		&item.Template.Description,
 		&item.Template.IsSystem,
+		&item.Template.DisplayOrder,
+		&item.Template.Rarity,
+		&item.Template.IsPublic,
+		&item.Template.IsRepeatable,
+		&item.Template.SourceModule,
+		&templateMetadataRaw,
 		&item.ValueText,
 		&valueNumber,
 		&valueMinutes,
@@ -1134,6 +1306,12 @@ func scanUserBadge(row badgeScanner) (UserBadge, error) {
 		&item.VerificationStatus,
 		&verifiedAt,
 		&verifiedBy,
+		&item.SourceType,
+		&item.SourceID,
+		&earnedAt,
+		&item.Visibility,
+		&item.DisplayOrder,
+		&badgeMetadataRaw,
 		&createdAt,
 		&updatedAt,
 	); err != nil {
@@ -1155,6 +1333,12 @@ func scanUserBadge(row badgeScanner) (UserBadge, error) {
 	if verifiedBy.Valid {
 		item.VerifiedBy = verifiedBy.String()
 	}
+	if earnedAt.Valid {
+		value := earnedAt.Time.UTC()
+		item.EarnedAt = &value
+	}
+	item.Template.MetadataJSON = decodeMetadata(templateMetadataRaw)
+	item.MetadataJSON = decodeMetadata(badgeMetadataRaw)
 	if createdAt.Valid {
 		item.CreatedAt = createdAt.Time.UTC()
 	}
@@ -1190,4 +1374,22 @@ func uuidPtr(value *string) pgtype.UUID {
 		return pgtype.UUID{}
 	}
 	return toUUID(strings.TrimSpace(*value))
+}
+
+func decodeMetadata(raw []byte) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+	result := map[string]any{}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return map[string]any{}
+	}
+	return result
+}
+
+func defaultString(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return strings.TrimSpace(value)
 }

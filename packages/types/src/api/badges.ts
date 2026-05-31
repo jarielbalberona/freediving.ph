@@ -12,6 +12,29 @@ export type BadgeVerificationStatus =
   | "verified"
   | "rejected";
 
+export type BadgeRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+
+export type BadgeSourceModule =
+  | "profile"
+  | "dive_map"
+  | "courses"
+  | "events"
+  | "schools"
+  | "system"
+  | "admin";
+
+export type UserBadgeSourceType =
+  | "manual"
+  | "profile"
+  | "dive_map"
+  | "course"
+  | "event"
+  | "school"
+  | "system"
+  | "admin";
+
+export type UserBadgeVisibility = "public" | "private";
+
 export type BadgeTemplate = {
   id: string;
   slug: string;
@@ -22,16 +45,30 @@ export type BadgeTemplate = {
   icon?: string;
   description?: string;
   isSystem: boolean;
+  displayOrder: number;
+  rarity: BadgeRarity;
+  isPublic: boolean;
+  isRepeatable: boolean;
+  sourceModule: BadgeSourceModule;
+  metadataJson?: Record<string, unknown>;
 };
 
 export type UserBadge = {
   id: string;
   template: BadgeTemplate;
+  templateSlug: string;
+  name: string;
+  category: BadgeCategory;
+  valueType: BadgeValueType;
   valueText?: string;
   valueNumber?: number;
   valueMinutes?: number;
   valueSeconds?: number;
   displayValue?: string;
+  formattedValue?: string;
+  unit?: string;
+  icon?: string;
+  description?: string;
   referenceLabel?: string;
   referenceValue?: string;
   proofMediaId?: string;
@@ -40,6 +77,15 @@ export type UserBadge = {
   verifiedAt?: string;
   verifiedBy?: string;
   isSystemVerified?: boolean;
+  sourceType: UserBadgeSourceType;
+  sourceId?: string;
+  earnedAt?: string;
+  visibility: UserBadgeVisibility;
+  displayOrder: number;
+  rarity: BadgeRarity;
+  sourceModule: BadgeSourceModule;
+  isAutoStat: boolean;
+  metadataJson?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -63,4 +109,8 @@ export type UpsertUserBadgeRequest = {
   referenceLabel?: string;
   referenceValue?: string;
   proofMediaId?: string;
+  earnedAt?: string;
+  visibility?: UserBadgeVisibility;
+  displayOrder?: number;
+  metadataJson?: Record<string, unknown>;
 };

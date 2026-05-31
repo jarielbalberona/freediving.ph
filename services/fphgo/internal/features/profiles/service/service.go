@@ -164,35 +164,50 @@ type ProfileDiving struct {
 }
 
 type BadgeTemplate struct {
-	ID          string `json:"id"`
-	Slug        string `json:"slug"`
-	Name        string `json:"name"`
-	Category    string `json:"category"`
-	ValueType   string `json:"valueType"`
-	Unit        string `json:"unit,omitempty"`
-	Icon        string `json:"icon,omitempty"`
-	Description string `json:"description,omitempty"`
-	IsSystem    bool   `json:"isSystem"`
+	ID           string         `json:"id"`
+	Slug         string         `json:"slug"`
+	Name         string         `json:"name"`
+	Category     string         `json:"category"`
+	ValueType    string         `json:"valueType"`
+	Unit         string         `json:"unit,omitempty"`
+	Icon         string         `json:"icon,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	IsSystem     bool           `json:"isSystem"`
+	DisplayOrder int32          `json:"displayOrder"`
+	Rarity       string         `json:"rarity"`
+	IsPublic     bool           `json:"isPublic"`
+	IsRepeatable bool           `json:"isRepeatable"`
+	SourceModule string         `json:"sourceModule"`
+	MetadataJSON map[string]any `json:"metadataJson,omitempty"`
 }
 
 type UserBadge struct {
-	ID                  string        `json:"id"`
-	Template            BadgeTemplate `json:"template"`
-	ValueText           string        `json:"valueText,omitempty"`
-	ValueNumber         *float64      `json:"valueNumber,omitempty"`
-	ValueMinutes        *int32        `json:"valueMinutes,omitempty"`
-	ValueSeconds        *int32        `json:"valueSeconds,omitempty"`
-	DisplayValue        string        `json:"displayValue,omitempty"`
-	ReferenceLabel      string        `json:"referenceLabel,omitempty"`
-	ReferenceValue      string        `json:"referenceValue,omitempty"`
-	ProofMediaID        string        `json:"proofMediaId,omitempty"`
-	ProofMediaObjectKey string        `json:"proofMediaObjectKey,omitempty"`
-	VerificationStatus  string        `json:"verificationStatus"`
-	VerifiedAt          *time.Time    `json:"verifiedAt,omitempty"`
-	VerifiedBy          string        `json:"verifiedBy,omitempty"`
-	IsSystemVerified    bool          `json:"isSystemVerified"`
-	CreatedAt           time.Time     `json:"createdAt"`
-	UpdatedAt           time.Time     `json:"updatedAt"`
+	ID                  string         `json:"id"`
+	Template            BadgeTemplate  `json:"template"`
+	ValueText           string         `json:"valueText,omitempty"`
+	ValueNumber         *float64       `json:"valueNumber,omitempty"`
+	ValueMinutes        *int32         `json:"valueMinutes,omitempty"`
+	ValueSeconds        *int32         `json:"valueSeconds,omitempty"`
+	DisplayValue        string         `json:"displayValue,omitempty"`
+	ReferenceLabel      string         `json:"referenceLabel,omitempty"`
+	ReferenceValue      string         `json:"referenceValue,omitempty"`
+	ProofMediaID        string         `json:"proofMediaId,omitempty"`
+	ProofMediaObjectKey string         `json:"proofMediaObjectKey,omitempty"`
+	VerificationStatus  string         `json:"verificationStatus"`
+	VerifiedAt          *time.Time     `json:"verifiedAt,omitempty"`
+	VerifiedBy          string         `json:"verifiedBy,omitempty"`
+	IsSystemVerified    bool           `json:"isSystemVerified"`
+	SourceType          string         `json:"sourceType"`
+	SourceID            string         `json:"sourceId,omitempty"`
+	EarnedAt            *time.Time     `json:"earnedAt,omitempty"`
+	Visibility          string         `json:"visibility"`
+	DisplayOrder        int32          `json:"displayOrder"`
+	Rarity              string         `json:"rarity"`
+	SourceModule        string         `json:"sourceModule"`
+	IsAutoStat          bool           `json:"isAutoStat"`
+	MetadataJSON        map[string]any `json:"metadataJson,omitempty"`
+	CreatedAt           time.Time      `json:"createdAt"`
+	UpdatedAt           time.Time      `json:"updatedAt"`
 }
 
 type ProfileBadges struct {
@@ -212,6 +227,12 @@ type UpsertUserBadgeInput struct {
 	ReferenceLabel  *string
 	ReferenceValue  *string
 	ProofMediaID    *string
+	SourceType      *string
+	SourceID        *string
+	EarnedAt        *time.Time
+	Visibility      *string
+	DisplayOrder    *int32
+	MetadataJSON    map[string]any
 }
 
 type UpdateMyProfileInput struct {
@@ -626,6 +647,24 @@ func (s *Service) validateBadgeInput(ctx context.Context, input UpsertUserBadgeI
 	referenceLabel := trimOptional(input.ReferenceLabel, 80)
 	referenceValue := trimOptional(input.ReferenceValue, 160)
 	proofMediaID := trimOptional(input.ProofMediaID, 80)
+	sourceType := defaultStringPtr(input.SourceType, "manual")
+	sourceID := trimOptional(input.SourceID, 160)
+	visibility := defaultStringPtr(input.Visibility, "public")
+	displayOrder := int32(0)
+	if input.DisplayOrder != nil {
+		displayOrder = *input.DisplayOrder
+	}
+	earnedAt := input.EarnedAt
+	if earnedAt == nil && !requireBadgeID {
+		now := time.Now().UTC()
+		earnedAt = &now
+	}
+	if !validBadgeSourceType(sourceType) {
+		return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_source_type", "invalid badge source type", nil)
+	}
+	if !validBadgeVisibility(visibility) {
+		return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_visibility", "invalid badge visibility", nil)
+	}
 	if proofMediaID != nil {
 		if _, err := uuid.Parse(*proofMediaID); err != nil {
 			return profilesrepo.UpsertUserBadgeInput{}, apperrors.New(http.StatusBadRequest, "invalid_proof_media_id", "invalid proof media id", err)
@@ -647,6 +686,12 @@ func (s *Service) validateBadgeInput(ctx context.Context, input UpsertUserBadgeI
 		ReferenceLabel: referenceLabel,
 		ReferenceValue: referenceValue,
 		ProofMediaID:   proofMediaID,
+		SourceType:     sourceType,
+		SourceID:       sourceID,
+		EarnedAt:       earnedAt,
+		Visibility:     visibility,
+		DisplayOrder:   displayOrder,
+		MetadataJSON:   cleanMetadata(input.MetadataJSON),
 	}
 
 	switch template.ValueType {
@@ -726,6 +771,15 @@ func (s *Service) mapUserBadge(row profilesrepo.UserBadge) UserBadge {
 		VerificationStatus:  row.VerificationStatus,
 		VerifiedAt:          row.VerifiedAt,
 		VerifiedBy:          row.VerifiedBy,
+		SourceType:          row.SourceType,
+		SourceID:            row.SourceID,
+		EarnedAt:            row.EarnedAt,
+		Visibility:          row.Visibility,
+		DisplayOrder:        row.DisplayOrder,
+		Rarity:              row.Template.Rarity,
+		SourceModule:        row.Template.SourceModule,
+		IsAutoStat:          row.Template.Category == "auto_stat",
+		MetadataJSON:        cleanMetadata(row.MetadataJSON),
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 	}
@@ -743,15 +797,21 @@ func mapBadgeTemplates(rows []profilesrepo.BadgeTemplate) []BadgeTemplate {
 
 func mapBadgeTemplate(row profilesrepo.BadgeTemplate) BadgeTemplate {
 	return BadgeTemplate{
-		ID:          row.ID,
-		Slug:        row.Slug,
-		Name:        row.Name,
-		Category:    row.Category,
-		ValueType:   row.ValueType,
-		Unit:        row.Unit,
-		Icon:        row.Icon,
-		Description: row.Description,
-		IsSystem:    row.IsSystem,
+		ID:           row.ID,
+		Slug:         row.Slug,
+		Name:         row.Name,
+		Category:     row.Category,
+		ValueType:    row.ValueType,
+		Unit:         row.Unit,
+		Icon:         row.Icon,
+		Description:  row.Description,
+		IsSystem:     row.IsSystem,
+		DisplayOrder: row.DisplayOrder,
+		Rarity:       row.Rarity,
+		IsPublic:     row.IsPublic,
+		IsRepeatable: row.IsRepeatable,
+		SourceModule: row.SourceModule,
+		MetadataJSON: cleanMetadata(row.MetadataJSON),
 	}
 }
 
@@ -769,6 +829,15 @@ func buildAutoStats(templates []profilesrepo.BadgeTemplate, diveSitesVisited int
 			DisplayValue:       fmt.Sprintf("%d", diveSitesVisited),
 			VerificationStatus: "verified",
 			IsSystemVerified:   true,
+			SourceType:         "system",
+			Visibility:         "public",
+			DisplayOrder:       template.DisplayOrder,
+			Rarity:             template.Rarity,
+			SourceModule:       template.SourceModule,
+			IsAutoStat:         true,
+			MetadataJSON: map[string]any{
+				"contract": "transitional_media_posts_until_user_dive_sites",
+			},
 		}
 		items = append(items, item)
 	}
@@ -824,6 +893,52 @@ func trimOptional(input *string, maxLen int) *string {
 		value = value[:maxLen]
 	}
 	return &value
+}
+
+func defaultStringPtr(input *string, fallback string) string {
+	if input == nil || strings.TrimSpace(*input) == "" {
+		return fallback
+	}
+	return strings.TrimSpace(*input)
+}
+
+func validBadgeSourceType(value string) bool {
+	switch value {
+	case "manual", "profile", "dive_map", "course", "event", "school", "system", "admin":
+		return true
+	default:
+		return false
+	}
+}
+
+func validBadgeVisibility(value string) bool {
+	switch value {
+	case "public", "private":
+		return true
+	default:
+		return false
+	}
+}
+
+func cleanMetadata(input map[string]any) map[string]any {
+	if len(input) == 0 {
+		return map[string]any{}
+	}
+	return input
+}
+
+// BadgeJourneyEventPayload documents the stable payload future Dive Journey
+// integration should receive from badge create/update/verification/removal
+// flows. The profile service does not emit Journey events yet.
+type BadgeJourneyEventPayload struct {
+	UserID             string
+	BadgeTemplateID    string
+	UserBadgeID        string
+	SourceType         string
+	SourceID           string
+	EarnedAt           *time.Time
+	Visibility         string
+	VerificationStatus string
 }
 
 func coarseLocation(input string) string {

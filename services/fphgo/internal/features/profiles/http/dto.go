@@ -1,5 +1,7 @@
 package http
 
+import "time"
+
 type ProfileResponse struct {
 	Profile Profile `json:"profile"`
 }
@@ -122,35 +124,58 @@ type ProfileDiveSiteAffinity struct {
 }
 
 type BadgeTemplate struct {
-	ID          string `json:"id"`
-	Slug        string `json:"slug"`
-	Name        string `json:"name"`
-	Category    string `json:"category"`
-	ValueType   string `json:"valueType"`
-	Unit        string `json:"unit,omitempty"`
-	Icon        string `json:"icon,omitempty"`
-	Description string `json:"description,omitempty"`
-	IsSystem    bool   `json:"isSystem"`
+	ID           string         `json:"id"`
+	Slug         string         `json:"slug"`
+	Name         string         `json:"name"`
+	Category     string         `json:"category"`
+	ValueType    string         `json:"valueType"`
+	Unit         string         `json:"unit,omitempty"`
+	Icon         string         `json:"icon,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	IsSystem     bool           `json:"isSystem"`
+	DisplayOrder int32          `json:"displayOrder"`
+	Rarity       string         `json:"rarity"`
+	IsPublic     bool           `json:"isPublic"`
+	IsRepeatable bool           `json:"isRepeatable"`
+	SourceModule string         `json:"sourceModule"`
+	MetadataJSON map[string]any `json:"metadataJson,omitempty"`
 }
 
 type UserBadge struct {
-	ID                  string        `json:"id"`
-	Template            BadgeTemplate `json:"template"`
-	ValueText           string        `json:"valueText,omitempty"`
-	ValueNumber         *float64      `json:"valueNumber,omitempty"`
-	ValueMinutes        *int32        `json:"valueMinutes,omitempty"`
-	ValueSeconds        *int32        `json:"valueSeconds,omitempty"`
-	DisplayValue        string        `json:"displayValue,omitempty"`
-	ReferenceLabel      string        `json:"referenceLabel,omitempty"`
-	ReferenceValue      string        `json:"referenceValue,omitempty"`
-	ProofMediaID        string        `json:"proofMediaId,omitempty"`
-	ProofMediaObjectKey string        `json:"proofMediaObjectKey,omitempty"`
-	VerificationStatus  string        `json:"verificationStatus"`
-	VerifiedAt          string        `json:"verifiedAt,omitempty"`
-	VerifiedBy          string        `json:"verifiedBy,omitempty"`
-	IsSystemVerified    bool          `json:"isSystemVerified,omitempty"`
-	CreatedAt           string        `json:"createdAt,omitempty"`
-	UpdatedAt           string        `json:"updatedAt,omitempty"`
+	ID                  string         `json:"id"`
+	Template            BadgeTemplate  `json:"template"`
+	TemplateSlug        string         `json:"templateSlug"`
+	Name                string         `json:"name"`
+	Category            string         `json:"category"`
+	ValueType           string         `json:"valueType"`
+	ValueText           string         `json:"valueText,omitempty"`
+	ValueNumber         *float64       `json:"valueNumber,omitempty"`
+	ValueMinutes        *int32         `json:"valueMinutes,omitempty"`
+	ValueSeconds        *int32         `json:"valueSeconds,omitempty"`
+	DisplayValue        string         `json:"displayValue,omitempty"`
+	FormattedValue      string         `json:"formattedValue,omitempty"`
+	Unit                string         `json:"unit,omitempty"`
+	Icon                string         `json:"icon,omitempty"`
+	Description         string         `json:"description,omitempty"`
+	ReferenceLabel      string         `json:"referenceLabel,omitempty"`
+	ReferenceValue      string         `json:"referenceValue,omitempty"`
+	ProofMediaID        string         `json:"proofMediaId,omitempty"`
+	ProofMediaObjectKey string         `json:"proofMediaObjectKey,omitempty"`
+	VerificationStatus  string         `json:"verificationStatus"`
+	VerifiedAt          string         `json:"verifiedAt,omitempty"`
+	VerifiedBy          string         `json:"verifiedBy,omitempty"`
+	IsSystemVerified    bool           `json:"isSystemVerified,omitempty"`
+	SourceType          string         `json:"sourceType"`
+	SourceID            string         `json:"sourceId,omitempty"`
+	EarnedAt            string         `json:"earnedAt,omitempty"`
+	Visibility          string         `json:"visibility"`
+	DisplayOrder        int32          `json:"displayOrder"`
+	Rarity              string         `json:"rarity"`
+	SourceModule        string         `json:"sourceModule"`
+	IsAutoStat          bool           `json:"isAutoStat"`
+	MetadataJSON        map[string]any `json:"metadataJson,omitempty"`
+	CreatedAt           string         `json:"createdAt,omitempty"`
+	UpdatedAt           string         `json:"updatedAt,omitempty"`
 }
 
 type SavedSite struct {
@@ -190,14 +215,18 @@ type UpdateMyProfileRequest struct {
 }
 
 type UpsertUserBadgeRequest struct {
-	BadgeTemplateID string   `json:"badgeTemplateId" validate:"required,uuid"`
-	ValueText       *string  `json:"valueText,omitempty" validate:"omitempty,max=160"`
-	ValueNumber     *float64 `json:"valueNumber,omitempty" validate:"omitempty,min=0"`
-	ValueMinutes    *int32   `json:"valueMinutes,omitempty" validate:"omitempty,min=0,max=999"`
-	ValueSeconds    *int32   `json:"valueSeconds,omitempty" validate:"omitempty,min=0,max=59"`
-	ReferenceLabel  *string  `json:"referenceLabel,omitempty" validate:"omitempty,max=80"`
-	ReferenceValue  *string  `json:"referenceValue,omitempty" validate:"omitempty,max=160"`
-	ProofMediaID    *string  `json:"proofMediaId,omitempty" validate:"omitempty,uuid"`
+	BadgeTemplateID string         `json:"badgeTemplateId" validate:"required,uuid"`
+	ValueText       *string        `json:"valueText,omitempty" validate:"omitempty,max=160"`
+	ValueNumber     *float64       `json:"valueNumber,omitempty" validate:"omitempty,min=0"`
+	ValueMinutes    *int32         `json:"valueMinutes,omitempty" validate:"omitempty,min=0,max=999"`
+	ValueSeconds    *int32         `json:"valueSeconds,omitempty" validate:"omitempty,min=0,max=59"`
+	ReferenceLabel  *string        `json:"referenceLabel,omitempty" validate:"omitempty,max=80"`
+	ReferenceValue  *string        `json:"referenceValue,omitempty" validate:"omitempty,max=160"`
+	ProofMediaID    *string        `json:"proofMediaId,omitempty" validate:"omitempty,uuid"`
+	EarnedAt        *time.Time     `json:"earnedAt,omitempty"`
+	Visibility      *string        `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
+	DisplayOrder    *int32         `json:"displayOrder,omitempty" validate:"omitempty,min=0,max=100000"`
+	MetadataJSON    map[string]any `json:"metadataJson,omitempty"`
 }
 
 type SocialLinksUpdate struct {

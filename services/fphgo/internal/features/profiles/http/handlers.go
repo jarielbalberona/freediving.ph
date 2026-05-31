@@ -429,6 +429,10 @@ func badgeRequestToService(actorID, badgeID string, req UpsertUserBadgeRequest) 
 		ReferenceLabel:  req.ReferenceLabel,
 		ReferenceValue:  req.ReferenceValue,
 		ProofMediaID:    req.ProofMediaID,
+		EarnedAt:        req.EarnedAt,
+		Visibility:      req.Visibility,
+		DisplayOrder:    req.DisplayOrder,
+		MetadataJSON:    req.MetadataJSON,
 	}
 }
 
@@ -452,15 +456,21 @@ func badgeTemplatesToDTO(input []profilesservice.BadgeTemplate) []BadgeTemplate 
 	items := make([]BadgeTemplate, 0, len(input))
 	for _, item := range input {
 		items = append(items, BadgeTemplate{
-			ID:          item.ID,
-			Slug:        item.Slug,
-			Name:        item.Name,
-			Category:    item.Category,
-			ValueType:   item.ValueType,
-			Unit:        item.Unit,
-			Icon:        item.Icon,
-			Description: item.Description,
-			IsSystem:    item.IsSystem,
+			ID:           item.ID,
+			Slug:         item.Slug,
+			Name:         item.Name,
+			Category:     item.Category,
+			ValueType:    item.ValueType,
+			Unit:         item.Unit,
+			Icon:         item.Icon,
+			Description:  item.Description,
+			IsSystem:     item.IsSystem,
+			DisplayOrder: item.DisplayOrder,
+			Rarity:       item.Rarity,
+			IsPublic:     item.IsPublic,
+			IsRepeatable: item.IsRepeatable,
+			SourceModule: item.SourceModule,
+			MetadataJSON: item.MetadataJSON,
 		})
 	}
 	return items
@@ -470,11 +480,19 @@ func userBadgeToDTO(input profilesservice.UserBadge) UserBadge {
 	return UserBadge{
 		ID:                  input.ID,
 		Template:            badgeTemplatesToDTO([]profilesservice.BadgeTemplate{input.Template})[0],
+		TemplateSlug:        input.Template.Slug,
+		Name:                input.Template.Name,
+		Category:            input.Template.Category,
+		ValueType:           input.Template.ValueType,
 		ValueText:           input.ValueText,
 		ValueNumber:         input.ValueNumber,
 		ValueMinutes:        input.ValueMinutes,
 		ValueSeconds:        input.ValueSeconds,
 		DisplayValue:        input.DisplayValue,
+		FormattedValue:      input.DisplayValue,
+		Unit:                input.Template.Unit,
+		Icon:                input.Template.Icon,
+		Description:         input.Template.Description,
 		ReferenceLabel:      input.ReferenceLabel,
 		ReferenceValue:      input.ReferenceValue,
 		ProofMediaID:        input.ProofMediaID,
@@ -483,6 +501,15 @@ func userBadgeToDTO(input profilesservice.UserBadge) UserBadge {
 		VerifiedAt:          formatOptionalTime(input.VerifiedAt),
 		VerifiedBy:          input.VerifiedBy,
 		IsSystemVerified:    input.IsSystemVerified,
+		SourceType:          input.SourceType,
+		SourceID:            input.SourceID,
+		EarnedAt:            formatOptionalTime(input.EarnedAt),
+		Visibility:          input.Visibility,
+		DisplayOrder:        input.DisplayOrder,
+		Rarity:              input.Rarity,
+		SourceModule:        input.SourceModule,
+		IsAutoStat:          input.IsAutoStat,
+		MetadataJSON:        input.MetadataJSON,
 		CreatedAt:           input.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:           input.UpdatedAt.UTC().Format(time.RFC3339),
 	}
