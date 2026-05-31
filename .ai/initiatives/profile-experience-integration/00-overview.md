@@ -6,10 +6,10 @@
 
 ## Initiative Status
 
-- Status: authored
+- Status: locked
 - Ready for execution: yes
 - Execution started: no
-- Authored date: 2026-05-31
+- Locked date: 2026-05-31
 
 ## Objective
 
@@ -49,6 +49,7 @@ The work is integration-focused. It must identify and repair source-of-truth con
 - Dive Sites Visited auto stat aligns with `user_dive_sites`.
 - Future map-based badges source from `user_dive_sites`, not memories.
 - Badge `source_type`/`source_id` can support `dive_map` origins.
+- Badge additions can feed Journey display entries without Journey awarding, verifying, revoking, or mutating badges.
 - Dive Journey can consume map milestones and badge additions, but does not create map ownership, inflate counts, award badges, or verify credentials.
 - Dive Passport aggregates profile, badges, map preview, journey highlights, memories/media, and stats without mutating child systems or duplicating source data.
 - Public profile UI presents badges, map, journey, and passport coherently for owners and public viewers.
@@ -78,13 +79,14 @@ See `04-verification-plan.md`.
 - A migration would be destructive or would duplicate source data.
 - Passport attempts to duplicate module source data.
 - Journey attempts to act as a source of truth.
+- Journey attempts to award, verify, revoke, or mutate Profile Badges.
 - Badge/Dive Map integration would count memories or shared/tagged data as proof.
 - Profile UI composition requires an unresolved product/UX decision.
 - Repeated unrecoverable verification failures after bounded repair.
 
 ## Execution Readiness
 
-This initiative is authored and ready for future autonomous execution. Execution phases must remain pending until a human or runner explicitly starts them. Future agents must execute phases in dependency order and must treat this as integration hardening, not permission to rewrite the feature set.
+This initiative is locked and ready for future autonomous execution. Execution phases must remain pending until a human or runner explicitly starts them. Future agents must execute phases in dependency order and must treat this as integration hardening, not permission to rewrite the feature set.
 
 Every phase report must include:
 

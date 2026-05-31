@@ -27,6 +27,8 @@ Required backend behavioral tests:
 - Shared/tagged memories do not inflate visited-site counts.
 - Journey entries do not create or mutate `user_dive_sites`.
 - Journey entries do not award, verify, revoke, or mutate badges.
+- Badge additions can be represented as Journey display entries without Journey mutating Badge source data.
+- Badge-origin Journey entries are idempotent by `source_type`/`source_id` or an equivalent approved key.
 - Passport does not mutate badges, map, journey, profile source data, media, memories, or stats.
 - Visibility filtering works across Passport, Journey, Map, and Badges.
 - Badge `source_type`/`source_id` supports `dive_map` origins.
@@ -86,5 +88,6 @@ Stop instead of repairing when verification reveals:
 - destructive migration risk.
 - Passport duplicating module source data.
 - Journey acting as source of truth.
+- Journey mutating Profile Badges.
 - Badge auto stats counting memories or shared/tagged content.
 - repeated same failure after three repair attempts.

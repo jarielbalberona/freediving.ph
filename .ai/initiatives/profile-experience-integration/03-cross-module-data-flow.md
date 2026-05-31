@@ -38,6 +38,7 @@ Forbidden reverse flows:
 2. Journey display may include badge-related entries without performing verification.
 3. Profile Badges remains authoritative for badge status, verification, and visibility.
 4. Journey does not award, verify, revoke, or mutate badges.
+5. Badge-origin Journey entries must use `source_type` and `source_id` or an equivalent idempotency key to prevent duplicates.
 
 ## Passport Aggregate Flow
 

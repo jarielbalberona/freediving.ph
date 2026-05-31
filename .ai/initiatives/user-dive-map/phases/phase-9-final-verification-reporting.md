@@ -1,4 +1,4 @@
-# Phase 10: Final Verification/Reporting
+# Phase 9: Final Verification/Reporting
 
 Status: pending
 
@@ -24,6 +24,7 @@ Run final targeted and repo-level verification, document evidence, update state,
 - No new feature work.
 - No speculative cleanup.
 - No Journey/Passport/Badge implementation.
+- No Dive Memories implementation.
 - No app/runtime smoke tests unless a prior phase explicitly required and documented them.
 
 ## Non-Goals
@@ -45,6 +46,7 @@ Run final targeted and repo-level verification, document evidence, update state,
 - Run full repo checks where feasible.
 - Run `git diff --stat` and `git diff --check`.
 - Write `reports/final-report.md` with exact command evidence, known residual risks, and changed files.
+- Include follow-up recommendation for a separate `dive-memories` initiative.
 - Update `.ai/state/current-state.md`, `.ai/state/known-risks.md`, and `.ai/state/verification-status.md`.
 - Mark initiative completion only if verification evidence supports it.
 
@@ -57,6 +59,7 @@ Run final targeted and repo-level verification, document evidence, update state,
 
 - Final report must include exact commands, status, and relevant failure output.
 - Git diff review must be included.
+- Final report must confirm no Dive Memories implementation is present.
 
 ## Verification Commands
 
@@ -82,6 +85,7 @@ Run final targeted and repo-level verification, document evidence, update state,
 - Final diff contains only intended initiative implementation and report/state files.
 - Known risks and verification status are current.
 - No execution phase remains falsely marked complete without evidence.
+- No Dive Memories or tagged-user sharing implementation slipped in.
 
 ## Repair Policy
 
@@ -92,13 +96,14 @@ Allowed repairs:
 - formatting issues
 - documentation/report corrections
 
-Hard-stop if full verification exposes unrelated dirty-worktree failures that cannot be safely separated, repeated failures persist after bounded repair, or product/auth/privacy/destructive migration questions remain unresolved.
+Hard-stop if full verification exposes unrelated dirty-worktree failures that cannot be safely separated, repeated failures persist after bounded repair, product/auth/privacy/destructive migration questions remain unresolved, or the diff contains Dive Memories implementation.
 
 ## Stop Conditions
 
 - Any initiative-critical verification cannot be run or cannot pass.
 - Residual product/auth/privacy/destructive migration blockers remain.
 - Diff contains unrelated feature work or downstream product implementation.
+- Diff contains Dive Memories or tagged-user sharing implementation.
 
 ## Expected Report Output
 
@@ -107,6 +112,7 @@ Hard-stop if full verification exposes unrelated dirty-worktree failures that ca
 - Updated `.ai/state/known-risks.md`.
 - Updated `.ai/state/verification-status.md`.
 - Final diff summary and remaining risk list.
+- Follow-up recommendation for separate `dive-memories` initiative.
 
 ## Completion Notes
 

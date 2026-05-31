@@ -41,11 +41,13 @@ Verify or harden data-flow invariants across Badges, Dive Map, Journey, and Pass
 - Add or identify tests proving Passport is read-only.
 - Add or identify tests proving Journey is downstream.
 - Add or identify tests proving Badges do not create dive-site truth.
+- Add or identify tests proving badge-origin Journey entries do not mutate badges and are duplicate-safe.
 - Fix narrow violations inside the owning module only.
 
 ## Verification Requirements
 
 - Tests must fail if source ownership is reversed or duplicated.
+- Tests must fail if Journey awards, verifies, revokes, or mutates badges.
 - Diff review must show no duplicate source-of-truth table.
 
 ## Verification Commands
@@ -59,6 +61,7 @@ Verify or harden data-flow invariants across Badges, Dive Map, Journey, and Pass
 ## Expected Evidence
 
 - Source-of-truth invariant tests.
+- Badges -> Journey ownership/idempotency evidence.
 - Any fixes scoped to owning modules.
 - Report showing one-way data ownership.
 
@@ -76,12 +79,14 @@ Hard-stop for source ownership ambiguity, required destructive migration, or beh
 
 - Source ownership cannot be determined.
 - Existing behavior contradicts locked specs.
+- Badge/Journey flow cannot be made read-only/idempotent without product input.
 - Repair would require broad module rewrite.
 
 ## Expected Report Output
 
 - Passed/failed invariant evidence.
 - Source conflicts found.
+- Badges -> Journey display-event evidence.
 - Fixes made or blocker decisions needed.
 
 ## Completion Notes

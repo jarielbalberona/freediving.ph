@@ -21,7 +21,10 @@ Before executing an initiative phase, read the relevant `.ai/core` files, this s
 - Execution started: no
 - Initiative path: `.ai/initiatives/user-dive-map/`
 - Locked date: 2026-05-31
-- Notes: User Dive Map is authored as a proof-based initiative. A user unlocks a dive site only through the user's own qualifying media post tagged to `dive_site_id`. Shared/tagged Dive Memories are social/contextual and must not unlock locations or inflate visited-site counts.
+- Relocked date: 2026-05-31
+- Previous execution status: Phase 1 previously blocked on unresolved Dive Memories/tagged-user privacy rules before application code changes.
+- Latest planning status: blocker resolved by scope correction. Dive Memories and tagged-user sharing are deferred from User Dive Map V1 and require a separate locked privacy/tagging specification.
+- Notes: User Dive Map is authored as a proof-based initiative. A user unlocks a dive site only through the user's own qualifying media post tagged to `dive_site_id`. V1 marker contents show only the user's own qualifying media posts for that site. Shared/tagged memories must not unlock locations or inflate visited-site counts, and memory content must not appear in map markers until a separate Dive Memories initiative is specified and implemented.
 
 ### `dive-journey`
 
@@ -40,3 +43,12 @@ Before executing an initiative phase, read the relevant `.ai/core` files, this s
 - Initiative path: `.ai/initiatives/dive-passport/`
 - Locked date: 2026-05-31
 - Notes: Dive Passport is authored as the public diver identity/showcase layer. It is an aggregate/read model over Profile, Dive Map, Profile Badges, Dive Journey, media, memories, and summary stats, and must never become a competing source of truth or mutate child systems.
+
+### `profile-experience-integration`
+
+- Status: locked
+- Ready for execution: yes
+- Execution started: no
+- Initiative path: `.ai/initiatives/profile-experience-integration/`
+- Locked date: 2026-05-31
+- Notes: Profile Experience Integration is authored as the final cross-module audit/hardening initiative for Profile Badges, User Dive Map, Dive Journey, and Dive Passport. It verifies source-of-truth boundaries, visibility/privacy consistency, shared contracts, and public profile UX composition without changing locked product ownership rules.

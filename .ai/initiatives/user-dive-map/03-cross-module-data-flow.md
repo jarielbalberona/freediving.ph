@@ -6,10 +6,10 @@
 2. Web sends the request through existing media API client patterns using shared contracts from `packages/types`.
 3. `services/fphgo` receives the request in the media handler.
 4. Handler validates request shape and auth context, then delegates to media service.
-5. Media service enforces ownership, visibility, and qualifying proof rules.
+5. Media service enforces ownership, lifecycle, and qualifying proof rules.
 6. Media repository writes `media_posts` with `dive_site_id` when provided and valid.
 7. Dive Map derivation logic recomputes or upserts `user_dive_sites` for `(owner_user_id, dive_site_id)`.
-8. `user_dive_sites` becomes the source for profile Dive Map markers and future visited-site stats.
+8. `user_dive_sites` becomes the source for profile Dive Map markers, marker counts, and future visited-site stats.
 
 ## Dive Map Read Flow
 
@@ -25,34 +25,31 @@
 
 1. Web requests marker detail for a target user and `dive_site_id`.
 2. Backend verifies the target user has a `user_dive_sites` row for the site before returning marker contents.
-3. Response may include:
-   - the target user's qualifying media posts for that site
-   - the target user's own Dive Memories for that site
-   - shared/tagged memories for that site only when the target user has unlocked that site
-4. Backend does not return shared/tagged memories as marker contents for locked sites.
+3. Response includes the target user's own qualifying media posts for that site.
+4. Backend does not return own memories, shared memories, tagged memories, or memory-derived content in V1 marker details.
+5. Backend does not return marker detail for locked sites.
 
-## Dive Memories Flow
+## Dive Memories Deferred Flow
 
-1. User creates a Dive Memory for a `dive_site_id`.
-2. Backend stores `dive_memories` with `author_user_id`, `dive_site_id`, visibility, body/title, and timestamps.
-3. Optional attachments are stored through `dive_memory_media`.
-4. Optional tagged users are stored through `dive_memory_tagged_users`.
-5. Tagged users may access the memory according to visibility rules.
-6. No memory write creates, updates, or counts toward `user_dive_sites`.
+Dive Memories are not part of User Dive Map V1.
 
-## Sharing Rule Flow
+Deferred from this initiative:
 
-Scenario: User A creates a memory at Dive Site X and tags User B.
+- memory creation/edit/delete
+- `dive_memories`
+- `dive_memory_media`
+- `dive_memory_tagged_users`
+- tagged-user access
+- tag acceptance/decline
+- blocking behavior for memory tags
+- shared-memory visibility
+- showing shared/tagged memories inside map markers
 
-1. Memory access checks may allow User B to see the shared memory.
-2. Profile Dive Map marker list for User B still reads only from `user_dive_sites`.
-3. If User B does not have a `user_dive_sites` row for Dive Site X, Dive Site X is absent from User B's Dive Map.
-4. If User B later creates a qualifying owned media post tagged to Dive Site X, derivation creates `user_dive_sites`.
-5. After unlock, the shared memory can appear inside User B's marker contents if visibility permits.
+Future Dive Memories must be implemented in a separate locked initiative before memory content can be integrated into map markers.
 
 ## Future Consumer Flow
 
-Future Badge, Dive Journey, and Dive Passport work must consume `user_dive_sites` rather than re-deriving visited sites from memories, tagged users, or client-side counts.
+Future Profile Badges, Dive Journey, and Dive Passport work must consume `user_dive_sites` rather than re-deriving visited sites from memories, tagged users, Journey entries, Passport state, or client-side counts.
 
 Allowed integration point in this initiative:
 
@@ -65,3 +62,4 @@ Forbidden in this initiative:
 - Dive Journey timelines.
 - Dive Passport summaries.
 - Manual count override behavior.
+- Memory-driven marker contents.

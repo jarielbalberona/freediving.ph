@@ -47,12 +47,14 @@ Establish the exact current media, profile, dive site, auth, visibility, sqlc, r
 - Inspect shared contract patterns under `packages/types/src`.
 - Inspect web profile/media/explore UI and API client patterns under `apps/web/src/features`.
 - Decide whether Dive Map should be a new backend feature package or an extension of an existing feature, and justify the choice in the report.
-- Confirm whether Dive Memories are in V1 scope or require a product hard stop.
+- Confirm the prior Dive Memories/tagged-user hard stop is resolved by the relocked V1 scope correction.
+- Confirm no current phase or downstream V1 phase requires Dive Memories, tagged-user access, or shared-memory visibility.
 
 ## Implementation Notes
 
 - This phase is read-only by design. Use it to prevent bad execution, not to start coding early.
-- Treat unclear proof qualification, ownership, visibility, auth, or Dive Memories V1 scope as execution blockers.
+- Treat unclear proof qualification, ownership, visibility, or auth as execution blockers.
+- Do not revive Dive Memories inside this initiative; they are explicitly deferred to a separate initiative.
 
 ## Verification Requirements
 
@@ -72,6 +74,7 @@ Establish the exact current media, profile, dive site, auth, visibility, sqlc, r
 - Phase report names the implementation package boundaries for later phases.
 - Phase report lists any existing dirty worktree changes before implementation.
 - Phase report states whether the initiative can continue or must hard-stop for product/auth/schema ambiguity.
+- Phase report confirms Dive Memories and tagged-user sharing remain out of User Dive Map V1.
 
 ## Repair Policy
 
@@ -79,22 +82,22 @@ Allowed repairs:
 
 - None. This phase is read-only discovery.
 
-Hard-stop instead of continuing if discovery finds destructive migration risk, conflicting source-of-truth assumptions, ambiguous ownership, ambiguous visibility, ambiguous auth, or unresolved product scope for Dive Memories.
+Hard-stop instead of continuing if discovery finds destructive migration risk, conflicting source-of-truth assumptions, ambiguous ownership, ambiguous visibility, ambiguous auth, or any required memory/tagged-user behavior inside V1.
 
 ## Stop Conditions
 
 - Existing media schema cannot safely support `dive_site_id`.
 - Media ownership or visibility cannot be identified.
-- Dive Memories V1 scope is contradictory or absent.
+- Any V1 phase requires Dive Memories, tagged-user access, or shared-memory visibility.
 - Current dirty worktree changes make discovery unreliable.
 
 ## Expected Report Output
 
 - Discovered source-of-truth tables and fields.
 - Recommended backend feature boundary for Dive Map.
-- Decision on whether Dive Memories can proceed in V1.
+- Confirmation that Dive Memories are deferred from User Dive Map V1.
 - Exact blockers, if any, with the human decision required.
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+2026-05-31: Previous Phase 1 hard-stop is acknowledged and resolved by relocking User Dive Map V1 with Dive Memories and tagged-user sharing deferred. This phase is reset to pending for the next execution run; the prior blocked report remains historical evidence under `../reports/phase-1-discovery-and-contract-alignment.md`.

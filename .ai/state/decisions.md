@@ -11,3 +11,16 @@ Consequences:
 - No Postgres, pgvector, embeddings, vector databases, dashboards, or cloud orchestration in V1.
 - Initiative state changes must be visible in git diffs.
 - Any future V2 storage/indexing system must justify itself against this simpler baseline.
+
+## 2026-05-31: Dive Memories Deferred From User Dive Map V1
+
+Decision: Dive Memories and tagged-user sharing are deferred from User Dive Map V1 and require a separate locked privacy/tagging specification.
+
+Rationale: The prior User Dive Map initiative included Dive Memories, memory media, tagged users, tag acceptance/blocking, and shared-memory visibility behavior, but the repository has no existing `dive_memories` module and no locked privacy policy for tagged-user access. Implementing those rules during User Dive Map execution would require product guessing.
+
+Consequences:
+
+- User Dive Map V1 remains proof-based and uses qualifying user-owned `media_posts.dive_site_id` as the only unlock source.
+- V1 marker details may show only the target user's own qualifying media posts for the unlocked site.
+- `dive_memories`, `dive_memory_media`, `dive_memory_tagged_users`, memory CRUD, tagged-user access, tag acceptance/decline, blocking behavior for memory tags, shared-memory visibility, and showing shared/tagged memories inside map markers are out of scope for User Dive Map V1.
+- Future shared-memory marker integration must wait for a separate locked `dive-memories` initiative.

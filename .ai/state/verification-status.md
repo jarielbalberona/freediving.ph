@@ -19,8 +19,8 @@ Phase reports must record exact commands, pass/fail status, and relevant failure
 - Status: locked
 - Ready for execution: yes
 - Execution started: no
-- Verification status: not run
-- Notes: Initiative authoring review completed. No implementation phase has started, and no app/runtime smoke tests were run. Future execution must follow `.ai/initiatives/user-dive-map/04-verification-plan.md` and record exact command evidence in phase reports.
+- Verification status: not run after relock
+- Notes: Previous Phase 1 discovery stopped on unresolved Dive Memories/tagged-user privacy and wrote `.ai/initiatives/user-dive-map/reports/phase-1-discovery-and-contract-alignment.md`. The initiative has been relocked with Dive Memories and tagged-user sharing deferred from V1, so execution may restart at pending Phase 1. No implementation checks were run during the relock because this was planning-only initiative authoring.
 
 ### `dive-journey`
 
@@ -37,3 +37,11 @@ Phase reports must record exact commands, pass/fail status, and relevant failure
 - Execution started: no
 - Verification status: not run
 - Notes: Initiative authoring review completed. No implementation phase has started, and no app/runtime smoke tests were run. Future execution must follow `.ai/initiatives/dive-passport/04-verification-plan.md` and record exact command evidence in phase reports.
+
+### `profile-experience-integration`
+
+- Status: locked
+- Ready for execution: yes
+- Execution started: no
+- Verification status: not run
+- Notes: Initiative authoring review completed. No implementation phase has started, and no app/runtime smoke tests were run. Future execution must follow `.ai/initiatives/profile-experience-integration/04-verification-plan.md` and record exact command evidence in phase reports.

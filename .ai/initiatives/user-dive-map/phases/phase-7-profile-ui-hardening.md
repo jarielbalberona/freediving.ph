@@ -1,61 +1,57 @@
-# Phase 5: Web Profile Dive Map UI
+# Phase 7: Profile UI Hardening
 
 Status: pending
 
 ## Objective
 
-Render the proof-based Dive Map on profile surfaces using backend-provided state and shared contracts.
+Harden the profile Dive Map UI after initial rendering exists, without expanding into deferred memory or downstream product scope.
 
 ## Goal
 
-Add the profile Dive Map UI that displays unlocked sites and opens marker details using backend read APIs and shared contracts.
+Ensure profile Dive Map UI states are stable, accessible, responsive, and honest about proof-based V1 behavior.
 
 ## Scope
 
 - `apps/web/src/features/profile`
 - Existing profile routes under `apps/web/src/app/profile/[username]` and `apps/web/src/app/[username]` as applicable.
 - Existing API client and hook patterns under `apps/web/src/features/profile`.
-- Reusable map/site components from `apps/web/src/features/explore` or `apps/web/src/features/diveSpots` only if they fit existing conventions.
+- Shared contracts from `@freediving.ph/types`.
+- Web tests following existing conventions.
 
 ## Out Of Scope
 
-- No backend changes except fixing contract mismatches from Phase 4.
+- No backend feature expansion beyond direct contract mismatch fixes.
 - No Dive Memories UI.
 - No badges, Journey, Passport, favorites, want-to-visit, manual counts, region grouping, or advanced filters.
-- No new frontend feature-local API contract `types.ts` files for cross-boundary DTOs.
+- No unrelated profile redesign.
 
 ## Non-Goals
 
 - Do not calculate unlock status in the browser.
-- Do not show or imply shared/tagged memories are available in User Dive Map V1.
-- Do not add marketing/landing-page treatment; this is a profile product surface.
+- Do not calculate visited-site count in the browser.
+- Do not imply shared/tagged memories are part of V1.
+- Do not make the profile Dive Map a Passport surface.
 
 ## Inputs
 
-- Phase 4 contracts and API routes.
+- Phase 5 profile Dive Map UI.
+- Phase 6 hardening evidence.
 - Existing profile page/component conventions.
-- `03-cross-module-data-flow.md`
 - AGENTS rule to prefer shadcn/ui composition and existing file structure.
 
 ## Tasks
 
-- Add API client/hook support for profile Dive Map reads using `@freediving.ph/types`.
-- Add a profile Dive Map section with empty, loading, error, and populated states.
-- Add marker detail drawer/page/read surface for the user's own qualifying proof posts.
-- Ensure the UI does not imply shared memories are part of V1 marker contents.
-- Ensure the UI does not show manual visited counts.
-- Add or update relevant web tests following existing test conventions.
-
-## Implementation Notes
-
-- Keep the UI consistent with existing profile and shadcn/ui composition patterns.
-- Prefer backend response fields over client-side inference.
-- If map rendering needs an API key or runtime dependency not available in tests, provide a static/testable fallback state.
+- Review and harden empty, loading, error, populated, and locked-detail states.
+- Ensure marker detail copy and layout presents proof media as user-owned proof, not formal verification.
+- Ensure UI does not mention or render shared/tagged memories in V1.
+- Ensure owner/public viewer controls are consistent with backend fields.
+- Ensure responsive layout and text overflow are acceptable within existing test/static-check limits.
+- Add or update relevant web tests where local conventions support them.
 
 ## Verification Requirements
 
 - Web type-check is mandatory.
-- Tests or documented static evidence must show the locked/empty states do not imply manual visits.
+- Tests or documented static evidence must show empty and locked states do not imply manual visits or memory-driven unlocks.
 
 ## Verification Commands
 
@@ -71,7 +67,8 @@ Add the profile Dive Map UI that displays unlocked sites and opens marker detail
 - Relevant web tests pass.
 - UI consumes shared contracts from `packages/types`.
 - Empty state works for users with no unlocked dive sites.
-- Marker detail does not expose shared/tagged memories.
+- Marker detail shows own qualifying proof media only.
+- No shared/tagged memory UI is added.
 
 ## Repair Policy
 
@@ -82,6 +79,7 @@ Allowed repairs:
 - test failures inside changed web/profile modules
 - contract import/export mismatches
 - formatting issues
+- minor accessible markup fixes
 
 Hard-stop for unresolved UX decision about map presentation, missing API contract needed by UI, or auth/visibility uncertainty that would require guessing client behavior.
 
@@ -90,13 +88,15 @@ Hard-stop for unresolved UX decision about map presentation, missing API contrac
 - Required map presentation is unclear enough to affect implementation.
 - Backend contracts do not provide the fields needed to render without guessing.
 - Existing profile layout cannot accept the section without a broader UX decision.
+- UI hardening requires Dive Memories or tagged-user sharing behavior.
 
 ## Expected Report Output
 
 - Profile files changed.
-- API hooks/client changes.
-- UI states implemented.
+- API hooks/client changes if any.
+- UI states hardened.
 - Verification evidence for type-check, tests, and lint.
+- Confirmation no memory UI or downstream product UI was added.
 
 ## Completion Notes
 

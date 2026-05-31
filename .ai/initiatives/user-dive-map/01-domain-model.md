@@ -6,12 +6,13 @@ User Dive Map is proof-based. A user unlocks or owns a Dive Map location only wh
 
 Hard boundaries:
 
+- A dive site is unlocked only by a qualifying user-owned media post tagged to `dive_site_id`.
 - Tagged/shared memories must not independently unlock a Dive Map location.
 - Tagged/shared memories must not inflate visited-site counts.
 - Dive Map is proof-based.
-- Dive Memories are social/contextual.
+- Dive Memories are deferred from User Dive Map V1.
 - Dive Passport later aggregates Dive Map, Badges, Journey, certifications, PBs, and stats, but is not implemented here.
-- Dive Journey later consumes selected events, memories, and milestones, but is not implemented here.
+- Dive Journey later consumes selected events and milestones, but is not implemented here.
 
 ## `media_posts`
 
@@ -23,11 +24,12 @@ Required behavior:
 - A qualifying media post must be owned by the user.
 - A qualifying media post must be tagged to a valid dive site.
 - A qualifying media post unlocks the matching site for the owner only.
-- A media post owned by User A must not unlock a site for tagged users, mentioned users, buddies, group members, or viewers.
+- A media post owned by User A must not unlock a site for mentioned users, buddies, group members, viewers, or any future tagged-memory participant.
+- Deleted, hidden, rejected, inactive, or otherwise disqualified media must not keep a marker unlocked.
 
-Open discovery item:
+Execution note:
 
-- Future execution must identify the existing ownership, visibility, and lifecycle fields for `media_posts` before designing the migration and derivation logic.
+- Phase 1 previously confirmed the repo has identifiable media ownership and nullable `media_posts.dive_site_id`. Execution must re-run discovery because the initiative has been relocked and the worktree may have changed.
 
 ## `user_dive_sites`
 
@@ -51,82 +53,49 @@ Required behavior:
 - `first_post_id` and `first_visited_at` identify earliest qualifying proof.
 - `last_post_id` and `last_visited_at` identify latest qualifying proof.
 - `media_post_count` counts qualifying proof posts for that user and site only.
-- Shared/tagged memories do not affect this table.
-- Future source for "Dive Sites Visited" auto stat.
+- Memories, tagged users, comments, likes, feed items, reviews, manual inputs, and client-side counts do not affect this table.
+- Source for "Dive Sites Visited" auto stat.
 - Future input for map-based badges, Dive Journey milestones, and Dive Passport summary.
 
-## `dive_memories`
+## Marker Summary
 
-Social/contextual trip memories attached to a dive site.
-
-Fields:
-
-- `id`
-- `author_user_id`
-- `dive_site_id`
-- `title`
-- `body`
-- `visibility`
-- `occurred_at`
-- `created_at`
-- `updated_at`
-
-Purpose:
-
-- Allows a user to create memories or activities for a specific dive site.
-- May include dive trip activities, food, group photos, notes, non-dive trip moments, or other contextual memories.
-- Does not count as proof of visiting.
-- Does not create or update `user_dive_sites`.
-
-## `dive_memory_media`
-
-Optional media attachments for Dive Memories.
-
-Fields:
-
-- `memory_id`
-- `media_id`
-- `sort_order`
+Profile-facing list of unlocked dive sites.
 
 Required behavior:
 
-- Links existing media assets to memories.
-- Does not make the linked media proof unless that media is also a qualifying user-owned `media_posts` record tagged to the dive site under the media proof rules.
+- Reads only from `user_dive_sites`.
+- Joins dive-site display fields from the canonical dive-site/explore source.
+- Includes visited-site count derived from `user_dive_sites`.
+- Does not include manually entered site counts.
 
-## `dive_memory_tagged_users`
+## Marker Detail
 
-Tagged buddies or dive group members in a memory.
-
-Fields:
-
-- `memory_id`
-- `tagged_user_id`
-- `status`
+Profile-facing detail for one unlocked dive site.
 
 Required behavior:
 
-- Supports tagging buddies or dive group members in a memory.
-- Tagged users can access shared/tagged memories according to visibility rules.
-- A tagged memory appears inside a tagged user's Dive Map marker only when that tagged user already has `user_dive_sites` for the same `dive_site_id`.
-- A tagged memory never unlocks the site for the tagged user.
+- Backend must first prove the target user has a `user_dive_sites` row for the requested `dive_site_id`.
+- V1 detail includes only the target user's own qualifying media posts for that site.
+- V1 detail must not include own memories, shared memories, tagged memories, or memory-derived content.
+- Locked sites must not expose marker detail.
 
-## Sharing Rule
+## Deferred Domain Concepts
 
-If User A creates a memory at Dive Site X and tags User B:
+The following are explicitly out of User Dive Map V1:
 
-- User B may see/access the shared memory according to visibility and authorization rules.
-- Dive Site X must not appear on User B's Dive Map unless User B also has a qualifying user-owned media post tagged to Dive Site X.
-- The shared memory appears inside User B's Dive Map marker only if User B has already unlocked Dive Site X through `user_dive_sites`.
+- `dive_memories`
+- `dive_memory_media`
+- `dive_memory_tagged_users`
+- memory creation/edit/delete
+- tagged-user access
+- tag acceptance/decline
+- blocking behavior for memory tags
+- shared-memory visibility
+- showing shared/tagged memories inside map markers
 
-## Marker Contents Rule
+Future Dive Memories must be implemented in a separate initiative with a locked privacy/tagging specification before memory content can be integrated into map markers.
 
-A user's Dive Map marker may include:
-
-- the user's own qualifying media posts for that dive site
-- the user's own memories for that dive site
-- shared/tagged memories for that dive site only when the user has unlocked that dive site
-
-## Deferred Concepts
+## Deferred Product Concepts
 
 - favorites
 - want-to-visit

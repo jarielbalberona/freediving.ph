@@ -1,4 +1,4 @@
-# Phase 9: Badge/Journey/Passport Integration Preparation Only
+# Phase 8: Badge/Journey/Passport Integration Preparation Only
 
 Status: pending
 
@@ -8,13 +8,14 @@ Expose only the minimal future integration surface needed for downstream product
 
 ## Goal
 
-Prepare stable integration points for future Badge, Dive Journey, and Dive Passport work without implementing those products.
+Prepare stable integration points for future Profile Badges, Dive Journey, and Dive Passport work without implementing those products.
 
 ## Scope
 
 - Read-only or minimal read-model access around `user_dive_sites`.
 - Backend docs or comments where current conventions support them.
 - Tests proving visited-site stats can be derived from `user_dive_sites`.
+- Shared source identifiers only where needed to keep future contracts aligned.
 
 ## Out Of Scope
 
@@ -22,6 +23,7 @@ Prepare stable integration points for future Badge, Dive Journey, and Dive Passp
 - No badge definitions such as first dive site, 5 dive sites, Apo Island visitor, Dauin explorer, or Visayas explorer.
 - No Dive Journey timelines.
 - No Dive Passport summaries.
+- No Dive Memories.
 - No new UI for future products.
 - No manual visit count.
 
@@ -30,6 +32,7 @@ Prepare stable integration points for future Badge, Dive Journey, and Dive Passp
 - Do not add event buses, queues, cron jobs, or cache layers.
 - Do not create placeholder UI.
 - Do not implement downstream aggregation.
+- Do not create a memory-driven future hook.
 
 ## Inputs
 
@@ -42,8 +45,10 @@ Prepare stable integration points for future Badge, Dive Journey, and Dive Passp
 
 - Identify the service/repository method future consumers should use for visited-site data.
 - Ensure naming and tests make `user_dive_sites` the source for visited-site count.
+- Confirm Profile Badges transitional Dive Sites Visited fallback can be replaced or bypassed by `user_dive_sites` when present.
 - Add minimal documentation in the appropriate backend docs location if existing conventions support it.
 - Do not import or call badge, Journey, or Passport modules unless a compile-only contract boundary already exists and Phase 1 approved it.
+- Recommend a future `dive-memories` initiative for memory privacy/tagging before memory content appears in map markers.
 
 ## Implementation Notes
 
@@ -68,7 +73,8 @@ Prepare stable integration points for future Badge, Dive Journey, and Dive Passp
 
 - Tests prove visited-site count comes from `user_dive_sites`.
 - Future integration point is documented or obvious from service naming.
-- No badge, Journey, or Passport implementation files are added.
+- No badge, Journey, Passport, or Dive Memories implementation files are added.
+- Future `dive-memories` initiative recommendation is documented in the phase report or final report.
 
 ## Repair Policy
 
@@ -79,19 +85,20 @@ Allowed repairs:
 - documentation corrections
 - formatting issues
 
-Hard-stop if future integration requires product behavior, eventing infrastructure, badge rules, Journey timeline rules, Passport aggregation rules, or new dependencies.
+Hard-stop if future integration requires product behavior, eventing infrastructure, badge rules, Journey timeline rules, Passport aggregation rules, memory privacy rules, or new dependencies.
 
 ## Stop Conditions
 
 - Future integration cannot be prepared without implementing product behavior.
-- Any required badge, Journey, or Passport rule is undefined.
+- Any required badge, Journey, Passport, or memory rule is undefined.
 - New infrastructure would be needed.
 
 ## Expected Report Output
 
 - Integration point documented.
 - Tests proving visited-site source.
-- Confirmation that Badge, Journey, and Passport remain unimplemented.
+- Confirmation that Badge, Journey, Passport, and Dive Memories remain unimplemented.
+- Follow-up recommendation for separate `dive-memories` initiative.
 
 ## Completion Notes
 

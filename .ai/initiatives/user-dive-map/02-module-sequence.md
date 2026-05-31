@@ -7,11 +7,14 @@
 3. Media post to `user_dive_sites` derivation.
 4. Dive Map read APIs and shared contracts.
 5. Web profile Dive Map UI.
-6. Dive Memories backend.
-7. Dive Memories UI and tagging.
-8. Visibility/unlock enforcement hardening.
-9. Badge/Journey/Passport integration preparation only.
-10. Final verification/reporting.
+6. Map read model hardening.
+7. Profile UI hardening.
+8. Badge/Journey/Passport integration preparation only.
+9. Final verification/reporting.
+
+## Removed From V1 Sequence
+
+The previous Dive Memories backend, Dive Memories UI/tagging, and shared-memory visibility enforcement phases are removed from User Dive Map V1. Those belong in a future separate `dive-memories` initiative after privacy and tagging rules are locked.
 
 ## Phase 1: Discovery And Contract Alignment
 
@@ -61,7 +64,7 @@ Primary modules:
 - `services/fphgo/internal/features/profiles`
 - New or existing Dive Map backend feature package.
 - `services/fphgo/internal/app/routes.go`
-- `services/fphgo/internal/app/routes_snapshot_test.go`
+- route tests/snapshots under `services/fphgo/internal/app`
 - `packages/types/src/api`
 - `packages/types/src/index.ts`
 
@@ -77,43 +80,28 @@ Primary modules:
 - Existing API client/hooks under `apps/web/src/features/profile/api` and hooks.
 - Existing map or dive-site UI from `apps/web/src/features/explore` or `apps/web/src/features/diveSpots` when reusable.
 
-## Phase 6: Dive Memories Backend
+## Phase 6: Map Read Model Hardening
 
-Goal: implement Dive Memories persistence and APIs if discovery confirms they are V1.
-
-Primary modules:
-
-- New backend feature package such as `services/fphgo/internal/features/dive_memories`.
-- Goose migration and schema snapshot.
-- sqlc configuration and generated query package.
-- Route registration and route tests.
-
-Hard boundary: if discovery proves memories are not V1, stop for product decision instead of silently deferring or half-building.
-
-## Phase 7: Dive Memories UI And Tagging
-
-Goal: allow authorized creation/read/update/delete of memories and tagged users in the web UI if Phase 6 implemented backend support.
+Goal: prove the hard V1 rule that only qualifying owned media posts create markers, counts, and marker detail contents.
 
 Primary modules:
 
-- `packages/types/src/api`
+- Dive Map service/repository tests.
+- Media lifecycle derivation tests.
+- Profile read handler tests.
+- Shared type tests if marker DTOs need stronger shape assertions.
+
+## Phase 7: Profile UI Hardening
+
+Goal: harden profile Dive Map UI states without expanding into memories, Journey, Passport, badges, or advanced map features.
+
+Primary modules:
+
 - `apps/web/src/features/profile`
-- `apps/web/src/features/media`
-- Potential new `apps/web/src/features/dive-memories` or locally consistent feature folder.
+- shared contract imports from `@freediving.ph/types`
+- web tests for empty, loading, error, populated, locked-detail, and responsive states where local conventions support them.
 
-## Phase 8: Visibility/Unlock Enforcement Hardening
-
-Goal: prove the hard sharing rules across service, repository, API, and UI boundaries.
-
-Primary modules:
-
-- Dive Map service tests.
-- Dive Memories service tests.
-- Profile/Dive Map handler tests.
-- Shared type tests.
-- Web tests for locked vs unlocked marker content where applicable.
-
-## Phase 9: Badge/Journey/Passport Integration Preparation Only
+## Phase 8: Badge/Journey/Passport Integration Preparation Only
 
 Goal: document and expose clean read-model integration points without implementing badge, journey, or passport behavior.
 
@@ -123,7 +111,7 @@ Primary modules:
 - Minimal documentation where current backend docs convention supports it.
 - Contract comments or type names only where useful; no product implementation.
 
-## Phase 10: Final Verification/Reporting
+## Phase 9: Final Verification/Reporting
 
 Goal: run the full relevant verification set, write reports, and leave state accurate.
 

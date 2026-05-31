@@ -30,13 +30,14 @@ Primary modules:
 
 ## Phase 2: Source-Of-Truth And Data-Flow Verification
 
-Goal: prove or repair one-way source ownership across Badges, Map, Journey, and Passport.
+Goal: prove or repair one-way source ownership across Badges, Map, Journey, and Passport, including Badges -> Journey display events.
 
 Primary modules:
 
 - Backend services/repositories for profiles/badges, Dive Map, Journey, Passport.
 - Cross-module service tests.
 - Initiative reports documenting data ownership.
+- Badge/Journey integration payload or generated-entry contract if implemented.
 
 ## Phase 3: Visibility/Privacy Integration Audit
 

@@ -7,6 +7,7 @@
 - Do not claim repository health from memory.
 - If a command cannot run because required local services or environment variables are missing, record the blocker exactly and run the closest static/unit checks available.
 - Final verification must include a git diff review proving no unintended modules changed.
+- Do not run emulator tests, device tests, or manual browser UX smoke tests for autonomous execution.
 
 ## Backend Verification
 
@@ -23,7 +24,6 @@ Go code:
 - `cd services/fphgo && go test ./internal/features/profiles/...`
 - `cd services/fphgo && go test ./internal/features/explore/...`
 - `cd services/fphgo && go test ./internal/features/dive_map/...` if a new Dive Map package exists.
-- `cd services/fphgo && go test ./internal/features/dive_memories/...` if a Dive Memories package exists.
 - `cd services/fphgo && go test ./internal/app/...`
 - `pnpm test:go`
 
@@ -32,10 +32,12 @@ Required behavioral tests:
 - Qualifying user-owned media post tagged to `dive_site_id` creates or updates `user_dive_sites`.
 - Removing or untagging the last qualifying proof media post removes or recomputes the user's unlocked marker.
 - Multiple qualifying posts update first/last post fields and `media_post_count`.
-- Shared/tagged memories do not unlock a dive site.
-- Shared/tagged memories do not increase visited-site count.
-- Shared/tagged memories appear in marker contents only when the tagged user already has `user_dive_sites` for that dive site.
-- Unauthorized viewers cannot read private marker contents or private memories.
+- Another user's media post does not unlock the viewer's site.
+- Memories, tagged users, comments, likes, feed items, Journey entries, Passport state, and manual inputs do not unlock a dive site.
+- Memories, tagged users, comments, likes, feed items, Journey entries, Passport state, and manual inputs do not increase visited-site count.
+- Marker detail returns only the target user's own qualifying media posts for the unlocked site.
+- Locked sites do not return marker detail.
+- Unauthorized viewers cannot read private marker contents or private proof media.
 
 ## Shared Type Verification
 
@@ -44,8 +46,9 @@ Required behavioral tests:
 
 Required evidence:
 
-- API request/response contracts for Dive Map and Dive Memories compile.
-- Contract tests cover marker summary, marker detail, and memory/tagging shapes if those contracts are added.
+- API request/response contracts for Dive Map marker summary and marker detail compile.
+- Contract tests cover marker summary, marker detail, proof media shapes, empty states, and visited-site count.
+- No Dive Memories or tagged-memory contracts are added in User Dive Map V1.
 
 ## Web Verification
 
@@ -58,9 +61,10 @@ Add route or component tests where existing local conventions support them.
 Required evidence:
 
 - Profile Dive Map UI consumes shared contracts without local API contract types.
-- Locked shared memories do not appear as unlocked map markers.
-- Unlocked marker detail can show own proof posts, own memories, and allowed shared/tagged memories.
 - Empty state handles users with zero unlocked dive sites without implying manual visit counts.
+- Marker detail shows own qualifying proof media only.
+- UI does not imply shared/tagged memories are available in V1.
+- UI does not calculate unlock status or visited-site count client-side.
 
 ## Route Snapshot Verification
 
@@ -90,6 +94,7 @@ Stop instead of repairing when verification reveals:
 
 - destructive migration requirement
 - ambiguous auth or ownership behavior
-- product ambiguity around qualifying proof or V1 memory scope
+- product ambiguity around qualifying proof
+- any implementation of Dive Memories or tagged-user sharing inside User Dive Map V1
 - repeated same failure after three repair attempts
 - failures in unrelated dirty worktree files that cannot be safely separated from active phase work

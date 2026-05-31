@@ -21,7 +21,7 @@ Add non-destructive database support for media proof tagging and the `user_dive_
 ## Out Of Scope
 
 - No web changes.
-- No Dive Memories tables unless Phase 1 confirms they are V1 and the schema work is explicitly needed now.
+- No Dive Memories tables.
 - No badge, Dive Journey, or Dive Passport implementation.
 - No destructive migration.
 
@@ -30,6 +30,7 @@ Add non-destructive database support for media proof tagging and the `user_dive_
 - Do not implement derivation logic.
 - Do not add read APIs.
 - Do not backfill by guessing historical visits from memories or unrelated tables.
+- Do not add `dive_memories`, `dive_memory_media`, or `dive_memory_tagged_users`.
 
 ## Inputs
 

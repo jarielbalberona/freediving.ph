@@ -39,6 +39,7 @@ Audit and harden contract consistency for Badges, Map, Journey, Passport, and Pr
 
 - Compare backend DTOs with shared TypeScript contracts.
 - Verify badge source/visibility fields align.
+- Verify badge-origin Journey source fields align.
 - Verify map/journey/passport aggregate and empty-state contracts align.
 - Add shared contract tests for integrated profile DTOs.
 - Remove or flag feature-local cross-boundary DTO drift.
@@ -79,6 +80,7 @@ Hard-stop if DTO alignment requires changing source ownership or unresolved prod
 ## Stop Conditions
 
 - Backend/shared contracts conflict on ownership semantics.
+- Badge/Journey source identifier contracts conflict.
 - Web relies on feature-local DTOs that cannot be safely migrated.
 - Contract fix would alter locked product rules.
 

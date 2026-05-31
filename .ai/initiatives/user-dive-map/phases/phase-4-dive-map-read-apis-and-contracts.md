@@ -21,14 +21,14 @@ Expose backend read APIs and shared TypeScript contracts for profile Dive Map su
 ## Out Of Scope
 
 - No web UI rendering beyond contract compile support.
-- No Dive Memories write APIs unless Phase 6 starts.
+- No Dive Memories write APIs or read APIs.
 - No Journey/Passport/Badge implementation.
 - No map filter or region grouping behavior.
 
 ## Non-Goals
 
 - Do not expose APIs that let clients manually mark sites visited.
-- Do not include locked shared memories in marker detail responses.
+- Do not include own memories, shared memories, tagged memories, or memory-derived content in marker detail responses.
 - Do not add feature-local web DTOs for API contracts.
 
 ## Inputs
@@ -44,6 +44,7 @@ Expose backend read APIs and shared TypeScript contracts for profile Dive Map su
 - Add backend read service for unlocked marker list from `user_dive_sites`.
 - Add backend read service for marker detail contents.
 - Ensure visited-site count is derived from `user_dive_sites`, not memories.
+- Ensure marker detail contents are limited to the target user's own qualifying media posts for the requested unlocked site.
 - Add route(s) following existing auth and profile route conventions.
 - Add handler/service tests for ownership, visibility, and empty states.
 - Update route snapshot tests if routes change.
@@ -58,6 +59,7 @@ Expose backend read APIs and shared TypeScript contracts for profile Dive Map su
 
 - Shared contract tests must cover the shape used by web.
 - Backend tests must prove counts and marker presence come from `user_dive_sites`, not memories.
+- Backend tests must prove marker detail returns proof media only.
 
 ## Verification Commands
 
