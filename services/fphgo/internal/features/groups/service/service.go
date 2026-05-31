@@ -29,6 +29,7 @@ type repository interface {
 	CreateGroup(ctx context.Context, input groupsrepo.CreateGroupInput) (groupsrepo.Group, error)
 	AddOwnerMembership(ctx context.Context, groupID, userID string) error
 	UpdateGroup(ctx context.Context, input groupsrepo.UpdateGroupInput) (groupsrepo.Group, error)
+	MediaBelongsToGroup(ctx context.Context, groupID, mediaID string) (bool, error)
 	GetMembership(ctx context.Context, groupID, userID string) (groupsrepo.GroupMember, error)
 	UpsertMembership(ctx context.Context, groupID, userID, role, status string) (groupsrepo.GroupMember, error)
 	InviteMember(ctx context.Context, groupID, userID, invitedBy string) (groupsrepo.GroupMember, error)
@@ -229,6 +230,12 @@ func (s *Service) UpdateGroup(ctx context.Context, groupID string, input groupsr
 		v := strings.TrimSpace(*input.Description)
 		input.Description = &v
 	}
+	if err := validateOptionalMediaUUID("logoMediaId", input.LogoMediaID); err != nil {
+		return groupsrepo.Group{}, err
+	}
+	if err := validateOptionalMediaUUID("coverMediaId", input.CoverMediaID); err != nil {
+		return groupsrepo.Group{}, err
+	}
 	if input.Status != nil {
 		s := normalizeGroupStatus(*input.Status)
 		if s != "active" {
@@ -290,6 +297,12 @@ func (s *Service) UpdateGroupForMember(ctx context.Context, groupID, actorID str
 	}
 	if membership.Role != "owner" && membership.Role != "moderator" {
 		return groupsrepo.Group{}, apperrors.New(http.StatusForbidden, "forbidden", "only group owners and moderators can edit this group", nil)
+	}
+	if err := s.ensureGroupMediaUsable(ctx, groupID, "logoMediaId", input.LogoMediaID); err != nil {
+		return groupsrepo.Group{}, err
+	}
+	if err := s.ensureGroupMediaUsable(ctx, groupID, "coverMediaId", input.CoverMediaID); err != nil {
+		return groupsrepo.Group{}, err
 	}
 	return s.UpdateGroup(ctx, groupID, input)
 }
@@ -672,6 +685,38 @@ func privateGroupJoinPolicyFailure() ValidationFailure {
 		Code:    "private_invite_only",
 		Message: "Private groups are invite-only.",
 	}}}
+}
+
+func validateOptionalMediaUUID(field string, value *string) error {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return nil
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(*value)); err != nil {
+		return ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{field},
+			Code:    "invalid_uuid",
+			Message: "Must be a valid UUID",
+		}}}
+	}
+	return nil
+}
+
+func (s *Service) ensureGroupMediaUsable(ctx context.Context, groupID, field string, mediaID *string) error {
+	if mediaID == nil || strings.TrimSpace(*mediaID) == "" {
+		return nil
+	}
+	ok, err := s.repo.MediaBelongsToGroup(ctx, groupID, strings.TrimSpace(*mediaID))
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "media_check_failed", "failed to validate media ownership", err)
+	}
+	if !ok {
+		return ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{field},
+			Code:    "not_found",
+			Message: "Media was not found for this group",
+		}}}
+	}
+	return nil
 }
 
 func normalizeVisibility(value string) string {

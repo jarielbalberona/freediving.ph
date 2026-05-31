@@ -125,7 +125,7 @@ export function EventDetailScreen() {
     );
   }
 
-  const coverUrl = safeImageUrl(event.coverPhotoUrl);
+  const coverUrl = safeImageUrl(event.coverUrl ?? event.coverPhotoUrl ?? undefined);
   const body = stripMarkdownPreview(event.descriptionMarkdown || event.description);
   const viewerState = event.viewerEventState ?? "none";
   const canUseInterest =

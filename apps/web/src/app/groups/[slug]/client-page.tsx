@@ -2,7 +2,6 @@
 
 import { SignInButton } from "@clerk/nextjs";
 import {
-  Archive,
   ArrowLeft,
   Check,
   Lock,
@@ -10,13 +9,11 @@ import {
   MapPin,
   MessageSquare,
   PenSquare,
-  Pencil,
   UserPlus,
   Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 
@@ -32,17 +29,6 @@ import {
   CommunityEmptyState,
   CommunityPageShell,
 } from "@/components/community/community-page";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,28 +41,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/features/auth/session";
 import { ChikaMarkdown } from "@/features/chika/components/ChikaMarkdown";
 import { MarkdownEditor } from "@/features/chika/components/MarkdownEditor";
 import {
   useAcceptGroupInvite,
-  useArchiveGroup,
   useCreateGroupPost,
   useInviteGroupMember,
   useJoinGroup,
   useLeaveGroup,
   useRejectGroupInvite,
-  useUpdateGroup,
 } from "@/features/groups/hooks/mutations";
 import {
   useGroup,
@@ -88,7 +64,6 @@ import { useUserSearch } from "@/features/profiles/hooks/queries";
 import { getApiErrorMessage, getApiErrorStatus } from "@/lib/http/api-error";
 
 export default function GroupDetailClient({ slug }: { slug: string }) {
-  const router = useRouter();
   const session = useSession();
   const isSignedIn = session.status === "signed_in";
   const viewerScope = isSignedIn ? "signed_in" : "public";
@@ -96,19 +71,9 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
   const [activeTab, setActiveTab] = useState<"home" | "members">("home");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [postOpen, setPostOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
   const [inviteSearch, setInviteSearch] = useState("");
-  const [editName, setEditName] = useState("");
-  const [editBio, setEditBio] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-  const [editVisibility, setEditVisibility] = useState<"public" | "private">(
-    "public",
-  );
-  const [editJoinPolicy, setEditJoinPolicy] = useState<"open" | "invite_only">(
-    "open",
-  );
 
   const groupQuery = useGroup(slug, viewerScope, session.status !== "loading");
   const groupId = groupQuery.data?.id ?? "";
@@ -135,8 +100,6 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
   const acceptInviteMutation = useAcceptGroupInvite();
   const rejectInviteMutation = useRejectGroupInvite();
   const createPostMutation = useCreateGroupPost();
-  const updateGroupMutation = useUpdateGroup();
-  const archiveGroupMutation = useArchiveGroup();
 
   const group = groupQuery.data;
   const members = membersQuery.data?.members ?? [];
@@ -227,52 +190,6 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
     }
   };
 
-  const openEditDialog = (target: Group) => {
-    setEditName(target.name);
-    setEditBio(target.bio ?? "");
-    setEditDescription(target.description ?? "");
-    setEditVisibility(target.visibility);
-    setEditJoinPolicy(target.joinPolicy);
-    setEditOpen(true);
-  };
-
-  const onUpdateGroup = async () => {
-    if (!groupId) return;
-    if (editName.trim().length < 3) {
-      toast.error("Group name must be at least 3 characters.");
-      return;
-    }
-
-    try {
-      await updateGroupMutation.mutateAsync({
-        groupId,
-        data: {
-          name: editName.trim(),
-          bio: editBio.trim(),
-          description: editDescription.trim(),
-          visibility: editVisibility,
-          joinPolicy:
-            editVisibility === "private" ? "invite_only" : editJoinPolicy,
-        },
-      });
-      setEditOpen(false);
-      toast.success("Group details updated.");
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to update group"));
-    }
-  };
-
-  const onArchiveGroup = async () => {
-    if (!groupId) return;
-    try {
-      await archiveGroupMutation.mutateAsync({ groupId });
-      toast.success("Group archived.");
-      router.push("/groups");
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to archive group"));
-    }
-  };
-
   if (groupQuery.isLoading) {
     return (
       <CommunityPageShell>
@@ -308,7 +225,6 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
   const locationLabel = groupLocationLabel(group);
   const canManageGroup =
     group.viewerRole === "owner" || group.viewerRole === "moderator";
-  const canArchiveGroup = isSignedIn && group.createdBy === session.me?.userId;
   const actionPending =
     joinMutation.isPending ||
     leaveMutation.isPending ||
@@ -332,22 +248,17 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
           <div className="flex shrink-0 items-center gap-2">
             {canManageGroup ? (
               <Button
-                size="icon-sm"
+                size="sm"
                 variant="outline"
-                tooltip="Edit group"
-                aria-label="Edit group"
-                disabled={updateGroupMutation.isPending}
-                onClick={() => openEditDialog(group)}
+                nativeButton={false}
+                render={
+                  <Link
+                    href={`/management/groups/${encodeURIComponent(group.slug)}`}
+                  />
+                }
               >
-                <Pencil />
+                Manage
               </Button>
-            ) : null}
-            {canArchiveGroup ? (
-              <ArchiveGroupButton
-                groupName={group.name}
-                isPending={archiveGroupMutation.isPending}
-                onArchive={() => void onArchiveGroup()}
-              />
             ) : null}
           </div>
         </div>
@@ -535,115 +446,6 @@ export default function GroupDetailClient({ slug }: { slug: string }) {
               onClick={() => void onCreatePost()}
             >
               {createPostMutation.isPending ? "Publishing..." : "Publish post"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="gap-4 sm:max-w-2xl!">
-          <DialogHeader>
-            <DialogTitle>Edit group details</DialogTitle>
-            <DialogDescription>
-              Bio is used on group previews. Details are rendered as markdown on
-              this page.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-group-name">Name</Label>
-              <Input
-                id="edit-group-name"
-                value={editName}
-                onChange={(event) => setEditName(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-group-bio">Bio</Label>
-              <Textarea
-                id="edit-group-bio"
-                maxLength={280}
-                placeholder="Short preview for group cards"
-                value={editBio}
-                onChange={(event) => setEditBio(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                {editBio.length}/280
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Visibility</Label>
-                <Select
-                  value={editVisibility}
-                  onValueChange={(value) => {
-                    const next = value as "public" | "private";
-                    setEditVisibility(next);
-                    if (next === "private") {
-                      setEditJoinPolicy("invite_only");
-                    }
-                  }}
-                  items={[
-                    { value: "public", label: "Public" },
-                    { value: "private", label: "Private" },
-                  ]}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Join policy</Label>
-                <Select
-                  value={editJoinPolicy}
-                  onValueChange={(value) =>
-                    setEditJoinPolicy(value as "open" | "invite_only")
-                  }
-                  disabled={editVisibility === "private"}
-                  items={[
-                    ...(editVisibility === "private"
-                      ? []
-                      : [{ value: "open", label: "Open join" }]),
-                    { value: "invite_only", label: "Invite only" },
-                  ]}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {editVisibility === "private" ? null : (
-                      <SelectItem value="open">Open join</SelectItem>
-                    )}
-                    <SelectItem value="invite_only">Invite only</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Details</Label>
-              <MarkdownEditor
-                value={editDescription}
-                onChange={setEditDescription}
-                maxLength={2000}
-                minRows={6}
-                placeholder="Add group rules, focus, schedule, or community notes."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={updateGroupMutation.isPending}
-              onClick={() => void onUpdateGroup()}
-            >
-              {updateGroupMutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -855,50 +657,6 @@ function BackToGroupsButton() {
         Groups
       </Button>
     </div>
-  );
-}
-
-function ArchiveGroupButton({
-  groupName,
-  isPending,
-  onArchive,
-}: {
-  groupName: string;
-  isPending: boolean;
-  onArchive: () => void;
-}) {
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger
-        render={
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="destructive"
-            disabled={isPending}
-            aria-label={`Archive ${groupName}`}
-            tooltip="Archive group"
-          />
-        }
-      >
-        <Archive />
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Archive group?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This hides {groupName} from group lists. The group record is
-            preserved.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction disabled={isPending} onClick={onArchive}>
-            {isPending ? "Archiving..." : "Archive group"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }
 

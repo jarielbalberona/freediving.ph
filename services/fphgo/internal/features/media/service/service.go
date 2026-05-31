@@ -36,9 +36,14 @@ const (
 	ContextProfileFeed          = "profile_feed"
 	ContextChikaAttachment      = "chika_attachment"
 	ContextEventAttachment      = "event_attachment"
+	ContextEventLogo            = "event_logo"
+	ContextEventCover           = "event_cover"
+	ContextSchoolLogo           = "school_logo"
+	ContextSchoolCover          = "school_cover"
 	ContextPaymentMethodQR      = "payment_method_qr"
 	ContextCourseBookingReceipt = "course_booking_receipt"
 	ContextDiveSpotAttachment   = "dive_spot_attachment"
+	ContextGroupLogo            = "group_logo"
 	ContextGroupCover           = "group_cover"
 	ContextInstructorProof      = "instructor_certification_proof"
 
@@ -516,6 +521,34 @@ var contextRules = map[string]contextRule{
 		requiresContextID: true,
 		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
 	},
+	ContextEventLogo: {
+		maxUploadBytes:    maxUploadBytes,
+		ttl:               7 * 24 * time.Hour,
+		maxTransformWidth: 1024,
+		requiresContextID: true,
+		allowedPresets:    map[string]bool{PresetThumb: true, PresetCard: true, PresetDialog: true},
+	},
+	ContextEventCover: {
+		maxUploadBytes:    maxUploadBytes,
+		ttl:               7 * 24 * time.Hour,
+		maxTransformWidth: 2048,
+		requiresContextID: true,
+		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
+	},
+	ContextSchoolLogo: {
+		maxUploadBytes:    maxUploadBytes,
+		ttl:               7 * 24 * time.Hour,
+		maxTransformWidth: 1024,
+		requiresContextID: true,
+		allowedPresets:    map[string]bool{PresetThumb: true, PresetCard: true, PresetDialog: true},
+	},
+	ContextSchoolCover: {
+		maxUploadBytes:    maxUploadBytes,
+		ttl:               7 * 24 * time.Hour,
+		maxTransformWidth: 2048,
+		requiresContextID: true,
+		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
+	},
 	ContextPaymentMethodQR: {
 		maxUploadBytes:    maxUploadBytes,
 		ttl:               3 * 24 * time.Hour,
@@ -543,6 +576,13 @@ var contextRules = map[string]contextRule{
 		maxTransformWidth: 2048,
 		requiresContextID: true,
 		allowedPresets:    map[string]bool{PresetCard: true, PresetDialog: true},
+	},
+	ContextGroupLogo: {
+		maxUploadBytes:    maxUploadBytes,
+		ttl:               7 * 24 * time.Hour,
+		maxTransformWidth: 1024,
+		requiresContextID: true,
+		allowedPresets:    map[string]bool{PresetThumb: true, PresetCard: true, PresetDialog: true},
 	},
 	ContextInstructorProof: {
 		maxUploadBytes:    maxUploadBytes,
@@ -2490,6 +2530,14 @@ func buildObjectKey(contextType, ownerUserID string, contextID *string, filename
 		return path.Join("chika", valueOrEmpty(contextID), filename)
 	case ContextEventAttachment:
 		return path.Join("events", valueOrEmpty(contextID), filename)
+	case ContextEventLogo:
+		return path.Join("events", valueOrEmpty(contextID), "logo", filename)
+	case ContextEventCover:
+		return path.Join("events", valueOrEmpty(contextID), "cover", filename)
+	case ContextSchoolLogo:
+		return path.Join("schools", valueOrEmpty(contextID), "logo", filename)
+	case ContextSchoolCover:
+		return path.Join("schools", valueOrEmpty(contextID), "cover", filename)
 	case ContextPaymentMethodQR:
 		return path.Join("payment-methods", valueOrEmpty(contextID), filename)
 	case ContextCourseBookingReceipt:
@@ -2498,6 +2546,8 @@ func buildObjectKey(contextType, ownerUserID string, contextID *string, filename
 		return path.Join("dive-spots", valueOrEmpty(contextID), filename)
 	case ContextGroupCover:
 		return path.Join("groups", valueOrEmpty(contextID), "cover", filename)
+	case ContextGroupLogo:
+		return path.Join("groups", valueOrEmpty(contextID), "logo", filename)
 	case ContextInstructorProof:
 		return path.Join("instructors", ownerUserID, "certification-proof", filename)
 	default:

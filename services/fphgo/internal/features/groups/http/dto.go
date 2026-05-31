@@ -1,6 +1,10 @@
 package http
 
-import "time"
+import (
+	"time"
+
+	"fphgo/internal/shared/httpx"
+)
 
 type Pagination struct {
 	Page       int  `json:"page"`
@@ -120,23 +124,25 @@ type CreateGroupRequest struct {
 }
 
 type UpdateGroupRequest struct {
-	Name             *string  `json:"name,omitempty" validate:"omitempty,min=3,max=120"`
-	Bio              *string  `json:"bio,omitempty" validate:"omitempty,max=280"`
-	Description      *string  `json:"description,omitempty" validate:"omitempty,max=2000"`
-	Visibility       *string  `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
-	Status           *string  `json:"status,omitempty" validate:"omitempty,oneof=active archived deleted"`
-	JoinPolicy       *string  `json:"joinPolicy,omitempty" validate:"omitempty,oneof=open invite_only"`
-	Location         *string  `json:"location,omitempty" validate:"omitempty,max=255"`
-	LocationName     *string  `json:"locationName,omitempty" validate:"omitempty,max=255"`
-	FormattedAddress *string  `json:"formattedAddress,omitempty" validate:"omitempty,max=500"`
-	Latitude         *float64 `json:"latitude,omitempty"`
-	Longitude        *float64 `json:"longitude,omitempty"`
-	GooglePlaceID    *string  `json:"googlePlaceId,omitempty" validate:"omitempty,max=255"`
-	RegionCode       *string  `json:"regionCode,omitempty" validate:"omitempty,max=32"`
-	ProvinceCode     *string  `json:"provinceCode,omitempty" validate:"omitempty,max=32"`
-	CityCode         *string  `json:"cityCode,omitempty" validate:"omitempty,max=32"`
-	BarangayCode     *string  `json:"barangayCode,omitempty" validate:"omitempty,max=32"`
-	LocationSource   *string  `json:"locationSource,omitempty" validate:"omitempty,oneof=manual google_places psgc psgc_mapped unmapped"`
+	Name             *string              `json:"name,omitempty" validate:"omitempty,min=3,max=120"`
+	Bio              *string              `json:"bio,omitempty" validate:"omitempty,max=280"`
+	Description      *string              `json:"description,omitempty" validate:"omitempty,max=2000"`
+	LogoMediaID      httpx.NullableString `json:"logoMediaId,omitempty"`
+	CoverMediaID     httpx.NullableString `json:"coverMediaId,omitempty"`
+	Visibility       *string              `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
+	Status           *string              `json:"status,omitempty" validate:"omitempty,oneof=active archived deleted"`
+	JoinPolicy       *string              `json:"joinPolicy,omitempty" validate:"omitempty,oneof=open invite_only"`
+	Location         *string              `json:"location,omitempty" validate:"omitempty,max=255"`
+	LocationName     *string              `json:"locationName,omitempty" validate:"omitempty,max=255"`
+	FormattedAddress *string              `json:"formattedAddress,omitempty" validate:"omitempty,max=500"`
+	Latitude         *float64             `json:"latitude,omitempty"`
+	Longitude        *float64             `json:"longitude,omitempty"`
+	GooglePlaceID    *string              `json:"googlePlaceId,omitempty" validate:"omitempty,max=255"`
+	RegionCode       *string              `json:"regionCode,omitempty" validate:"omitempty,max=32"`
+	ProvinceCode     *string              `json:"provinceCode,omitempty" validate:"omitempty,max=32"`
+	CityCode         *string              `json:"cityCode,omitempty" validate:"omitempty,max=32"`
+	BarangayCode     *string              `json:"barangayCode,omitempty" validate:"omitempty,max=32"`
+	LocationSource   *string              `json:"locationSource,omitempty" validate:"omitempty,oneof=manual google_places psgc psgc_mapped unmapped"`
 }
 
 type InviteGroupMemberRequest struct {

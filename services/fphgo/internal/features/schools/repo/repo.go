@@ -236,7 +236,7 @@ type CreateSchoolInput struct {
 }
 
 type UpdateSchoolInput struct {
-	Name, ShortDescription, DescriptionMarkdown, BaseLocation, BaseLocationLabel, FormattedAddress, RegionCode, RegionName, ProvinceCode, ProvinceName, CityCode, CityName, BarangayCode, BarangayName, LocationSource, DiveSiteID, ContactEmail, ContactPhone, WebsiteURL, FacebookURL, InstagramURL, Status *string
+	Name, ShortDescription, DescriptionMarkdown, LogoMediaID, CoverMediaID, BaseLocation, BaseLocationLabel, FormattedAddress, RegionCode, RegionName, ProvinceCode, ProvinceName, CityCode, CityName, BarangayCode, BarangayName, LocationSource, DiveSiteID, ContactEmail, ContactPhone, WebsiteURL, FacebookURL, InstagramURL, Status *string
 }
 
 type CreateCourseInput struct {
@@ -460,11 +460,26 @@ func (r *Repo) UpdateSchool(ctx context.Context, schoolID string, input UpdateSc
 	instagramURL := coalesceString(input.InstagramURL, current.InstagramURL)
 	status := coalesceString(input.Status, current.Status)
 	row := r.pool.QueryRow(ctx, `
-		UPDATE schools SET name=$2, short_description=$3, description_markdown=$4, base_location=NULLIF($5,''), base_location_label=NULLIF($6,''), formatted_address=NULLIF($7,''), region_code=NULLIF($8,''), region_name=NULLIF($9,''), province_code=NULLIF($10,''), province_name=NULLIF($11,''), city_code=NULLIF($12,''), city_name=NULLIF($13,''), barangay_code=NULLIF($14,''), barangay_name=NULLIF($15,''), location_source=$16, dive_site_id=NULLIF($17,'')::uuid, contact_email=NULLIF($18,''), contact_phone=NULLIF($19,''), website_url=NULLIF($20,''), facebook_url=NULLIF($21,''), instagram_url=NULLIF($22,''), status=$23, updated_at=NOW()
+		UPDATE schools SET name=$2, short_description=$3, description_markdown=$4, base_location=NULLIF($5,''), base_location_label=NULLIF($6,''), formatted_address=NULLIF($7,''), region_code=NULLIF($8,''), region_name=NULLIF($9,''), province_code=NULLIF($10,''), province_name=NULLIF($11,''), city_code=NULLIF($12,''), city_name=NULLIF($13,''), barangay_code=NULLIF($14,''), barangay_name=NULLIF($15,''), location_source=$16, dive_site_id=NULLIF($17,'')::uuid, contact_email=NULLIF($18,''), contact_phone=NULLIF($19,''), website_url=NULLIF($20,''), facebook_url=NULLIF($21,''), instagram_url=NULLIF($22,''), status=$23, logo_media_id=CASE WHEN $24::boolean THEN NULLIF($25,'')::uuid ELSE logo_media_id END, cover_media_id=CASE WHEN $26::boolean THEN NULLIF($27,'')::uuid ELSE cover_media_id END, updated_at=NOW()
 		WHERE id=$1 AND deleted_at IS NULL
 		RETURNING `+schoolFields("schools")+`, 0, 0, 0, 0, 0`,
-		schoolID, name, shortDescription, descriptionMarkdown, baseLocation, baseLocationLabel, formattedAddress, regionCode, regionName, provinceCode, provinceName, cityCode, cityName, barangayCode, barangayName, defaultString(locationSource, "manual"), diveSiteID, contactEmail, contactPhone, websiteURL, facebookURL, instagramURL, status)
+		schoolID, name, shortDescription, descriptionMarkdown, baseLocation, baseLocationLabel, formattedAddress, regionCode, regionName, provinceCode, provinceName, cityCode, cityName, barangayCode, barangayName, defaultString(locationSource, "manual"), diveSiteID, contactEmail, contactPhone, websiteURL, facebookURL, instagramURL, status, input.LogoMediaID != nil, stringPtrValue(input.LogoMediaID), input.CoverMediaID != nil, stringPtrValue(input.CoverMediaID))
 	return scanSchool(row)
+}
+
+func (r *Repo) MediaBelongsToSchool(ctx context.Context, schoolID, mediaID string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM media_objects
+			WHERE id = $2::uuid
+				AND context_type IN ('school_logo', 'school_cover')
+				AND context_id = $1::uuid
+				AND state = 'active'
+		)
+	`, schoolID, mediaID).Scan(&exists)
+	return exists, err
 }
 
 func (r *Repo) DeleteSchool(ctx context.Context, schoolID string) error {
@@ -1354,6 +1369,13 @@ func scanBookingPayment(s scanner) (BookingPayment, error) {
 func coalesceString(value *string, fallback string) string {
 	if value == nil {
 		return fallback
+	}
+	return *value
+}
+
+func stringPtrValue(value *string) string {
+	if value == nil {
+		return ""
 	}
 	return *value
 }

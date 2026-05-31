@@ -120,6 +120,10 @@ func (r *groupsRepoStub) UpdateGroup(context.Context, groupsrepo.UpdateGroupInpu
 	return groupsrepo.Group{}, nil
 }
 
+func (r *groupsRepoStub) MediaBelongsToGroup(context.Context, string, string) (bool, error) {
+	return true, nil
+}
+
 func (r *groupsRepoStub) GetMembership(context.Context, string, string) (groupsrepo.GroupMember, error) {
 	return r.membership, nil
 }
@@ -298,6 +302,45 @@ func TestUpdateGroupForMemberRequiresActiveManager(t *testing.T) {
 	}
 	if updated.Name != newName {
 		t.Fatalf("UpdateGroupForMember(owner) name = %q, want %q", updated.Name, newName)
+	}
+}
+
+func TestUpdateGroupForMemberCanSetAndRemoveImageMedia(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	repo.groups[openGroupID] = fakeGroup(openGroupID, "public", "open")
+	repo.members[key(openGroupID, testOwnerID)] = fakeMember(openGroupID, testOwnerID, "owner", "active")
+	svc := New(repo)
+	logoID := "00000000-0000-0000-0000-000000000201"
+	removeCover := ""
+
+	updated, err := svc.UpdateGroupForMember(ctx, openGroupID, testOwnerID, groupsrepo.UpdateGroupInput{
+		LogoMediaID:  &logoID,
+		CoverMediaID: &removeCover,
+	})
+	if err != nil {
+		t.Fatalf("UpdateGroupForMember(image media) returned error: %v", err)
+	}
+	if updated.LogoMediaID != logoID {
+		t.Fatalf("logo media id = %q, want %q", updated.LogoMediaID, logoID)
+	}
+	if updated.CoverMediaID != "" {
+		t.Fatalf("cover media id = %q, want removal", updated.CoverMediaID)
+	}
+}
+
+func TestUpdateGroupForMemberRejectsUnusableImageMedia(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeRepo()
+	repo.mediaBelongs = false
+	repo.groups[openGroupID] = fakeGroup(openGroupID, "public", "open")
+	repo.members[key(openGroupID, testOwnerID)] = fakeMember(openGroupID, testOwnerID, "owner", "active")
+	svc := New(repo)
+	logoID := "00000000-0000-0000-0000-000000000201"
+
+	_, err := svc.UpdateGroupForMember(ctx, openGroupID, testOwnerID, groupsrepo.UpdateGroupInput{LogoMediaID: &logoID})
+	if !hasValidationIssue(err, "logoMediaId", "not_found") {
+		t.Fatalf("UpdateGroupForMember(unusable media) err = %v, want logoMediaId not_found", err)
 	}
 }
 
@@ -527,6 +570,7 @@ type fakeRepo struct {
 	posts         map[string][]groupsrepo.GroupPost
 	existingSlugs map[string]bool
 	activeUsers   map[string]bool
+	mediaBelongs  bool
 }
 
 func newFakeRepo() *fakeRepo {
@@ -543,6 +587,7 @@ func newFakeRepo() *fakeRepo {
 			testStrangerID: true,
 			testBlockedID:  true,
 		},
+		mediaBelongs: true,
 	}
 }
 
@@ -647,6 +692,12 @@ func (r *fakeRepo) UpdateGroup(_ context.Context, input groupsrepo.UpdateGroupIn
 	if input.Description != nil {
 		group.Description = *input.Description
 	}
+	if input.LogoMediaID != nil {
+		group.LogoMediaID = *input.LogoMediaID
+	}
+	if input.CoverMediaID != nil {
+		group.CoverMediaID = *input.CoverMediaID
+	}
 	if input.Visibility != nil {
 		group.Visibility = *input.Visibility
 	}
@@ -661,6 +712,10 @@ func (r *fakeRepo) UpdateGroup(_ context.Context, input groupsrepo.UpdateGroupIn
 	}
 	r.groups[input.GroupID] = group
 	return group, nil
+}
+
+func (r *fakeRepo) MediaBelongsToGroup(context.Context, string, string) (bool, error) {
+	return r.mediaBelongs, nil
 }
 
 func (r *fakeRepo) GetMembership(_ context.Context, groupID, userID string) (groupsrepo.GroupMember, error) {

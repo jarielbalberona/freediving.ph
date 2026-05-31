@@ -764,6 +764,8 @@ export type UpdateEventRequest = Partial<CreateEventRequest> & {
   postCreatePolicy?: EventPostCreatePolicy;
   cancelReason?: string;
   coverPhotoUrl?: string;
+  logoMediaId?: string | null;
+  coverMediaId?: string | null;
 };
 
 export interface UpdateEventModulesRequest {
@@ -1102,6 +1104,8 @@ export interface UpdateGroupRequest {
   name?: string;
   bio?: string;
   description?: string;
+  logoMediaId?: string | null;
+  coverMediaId?: string | null;
   visibility?: "public" | "private";
   status?: "active" | "archived" | "deleted";
   joinPolicy?: "open" | "invite_only";

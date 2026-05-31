@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -25,9 +26,10 @@ type fakeRepo struct {
 	capturedSchool       schoolsrepo.UpdateSchoolInput
 	listPaymentsSchoolID string
 
-	verifiedInstructor bool
+	verifiedInstructor     bool
 	instructorProfileReady bool
-	platformAdmin      bool
+	platformAdmin          bool
+	mediaBelongs           bool
 }
 
 func (f *fakeRepo) ListSchools(context.Context, string) ([]schoolsrepo.School, error) {
@@ -54,6 +56,9 @@ func (f *fakeRepo) GetMemberRole(context.Context, string, string) (string, error
 func (f *fakeRepo) UpdateSchool(_ context.Context, _ string, input schoolsrepo.UpdateSchoolInput) (schoolsrepo.School, error) {
 	f.capturedSchool = input
 	return f.school, nil
+}
+func (f *fakeRepo) MediaBelongsToSchool(context.Context, string, string) (bool, error) {
+	return f.mediaBelongs, nil
 }
 func (f *fakeRepo) DeleteSchool(context.Context, string) error { return nil }
 func (f *fakeRepo) ListCourses(context.Context, string) ([]schoolsrepo.Course, error) {
@@ -181,8 +186,22 @@ func seededService() *Service {
 			Status:   "scheduled",
 			StartsAt: time.Now().AddDate(0, 0, 7),
 		},
-		booking: schoolsrepo.Booking{ID: "booking-1", SchoolID: "school-1", CourseID: "course-1", Status: "approved"},
+		booking:      schoolsrepo.Booking{ID: "booking-1", SchoolID: "school-1", CourseID: "course-1", Status: "approved"},
+		mediaBelongs: true,
 	})
+}
+
+func hasValidationIssue(err error, path string, code string) bool {
+	var validationErr ValidationFailure
+	if !errors.As(err, &validationErr) {
+		return false
+	}
+	for _, issue := range validationErr.Issues {
+		if len(issue.Path) == 1 && issue.Path[0] == path && issue.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCreateSchoolRequiresInstructorProfile(t *testing.T) {
@@ -230,6 +249,42 @@ func TestOwnerCanPublishSchool(t *testing.T) {
 	}
 	if repo.capturedSchool.Status == nil || *repo.capturedSchool.Status != "published" {
 		t.Fatalf("expected published status update, got %#v", repo.capturedSchool.Status)
+	}
+}
+
+func TestOwnerCanSetAndRemoveSchoolImageMedia(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	repo.role = "owner"
+	repo.mediaBelongs = true
+	svc := New(repo)
+	logoID := "00000000-0000-0000-0000-000000000101"
+	removeCover := ""
+
+	_, err := svc.UpdateSchool(context.Background(), "school", "actor", schoolsrepo.UpdateSchoolInput{
+		LogoMediaID:  &logoID,
+		CoverMediaID: &removeCover,
+	})
+	if err != nil {
+		t.Fatalf("expected owner to update school image media: %v", err)
+	}
+	if repo.capturedSchool.LogoMediaID == nil || *repo.capturedSchool.LogoMediaID != logoID {
+		t.Fatalf("expected logo media id to be captured, got %#v", repo.capturedSchool.LogoMediaID)
+	}
+	if repo.capturedSchool.CoverMediaID == nil || *repo.capturedSchool.CoverMediaID != "" {
+		t.Fatalf("expected cover media removal to be captured, got %#v", repo.capturedSchool.CoverMediaID)
+	}
+}
+
+func TestUpdateSchoolRejectsUnusableImageMedia(t *testing.T) {
+	repo := seededService().repo.(*fakeRepo)
+	repo.role = "owner"
+	repo.mediaBelongs = false
+	svc := New(repo)
+	logoID := "00000000-0000-0000-0000-000000000101"
+
+	_, err := svc.UpdateSchool(context.Background(), "school", "actor", schoolsrepo.UpdateSchoolInput{LogoMediaID: &logoID})
+	if !hasValidationIssue(err, "logoMediaId", "not_found") {
+		t.Fatalf("expected unusable school media validation error, got %v", err)
 	}
 }
 

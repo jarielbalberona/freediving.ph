@@ -13,6 +13,7 @@ import (
 )
 
 type Repo struct {
+	db      groupsqlc.DBTX
 	queries *groupsqlc.Queries
 }
 
@@ -132,6 +133,8 @@ type UpdateGroupInput struct {
 	Name             *string
 	Bio              *string
 	Description      *string
+	LogoMediaID      *string
+	CoverMediaID     *string
 	Visibility       *string
 	Status           *string
 	JoinPolicy       *string
@@ -156,7 +159,7 @@ type CreateGroupPostInput struct {
 }
 
 func New(pool *pgxpool.Pool) *Repo {
-	return &Repo{queries: groupsqlc.New(pool)}
+	return &Repo{db: pool, queries: groupsqlc.New(pool)}
 }
 
 func (r *Repo) ListGroups(ctx context.Context, input ListGroupsInput) ([]Group, int, error) {
@@ -263,6 +266,14 @@ func (r *Repo) UpdateGroup(ctx context.Context, input UpdateGroupInput) (Group, 
 		params.SetDescription = true
 		params.Description = optionalString(*input.Description)
 	}
+	if input.LogoMediaID != nil {
+		params.SetLogoMediaID = true
+		params.LogoMediaID = optionalString(*input.LogoMediaID)
+	}
+	if input.CoverMediaID != nil {
+		params.SetCoverMediaID = true
+		params.CoverMediaID = optionalString(*input.CoverMediaID)
+	}
 	if input.Visibility != nil {
 		params.SetVisibility = true
 		params.Visibility = *input.Visibility
@@ -325,6 +336,20 @@ func (r *Repo) UpdateGroup(ctx context.Context, input UpdateGroupInput) (Group, 
 		return Group{}, err
 	}
 	return mapUpdateGroup(row), nil
+}
+
+func (r *Repo) MediaBelongsToGroup(ctx context.Context, groupID, mediaID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(ctx, `
+SELECT EXISTS (
+	SELECT 1
+	FROM media_objects
+	WHERE id = $2::uuid
+	  AND context_id = $1::uuid
+	  AND context_type IN ('group_logo', 'group_cover')
+	  AND state = 'active'
+)`, groupID, mediaID).Scan(&exists)
+	return exists, err
 }
 
 func (r *Repo) GetMembership(ctx context.Context, groupID, userID string) (GroupMember, error) {

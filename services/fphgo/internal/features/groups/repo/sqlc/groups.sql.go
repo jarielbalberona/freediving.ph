@@ -1259,22 +1259,24 @@ SET
   name = CASE WHEN $1::boolean THEN $2 ELSE name END,
   bio = CASE WHEN $3::boolean THEN $4 ELSE bio END,
   description = CASE WHEN $5::boolean THEN $6 ELSE description END,
-  visibility = CASE WHEN $7::boolean THEN $8 ELSE visibility END,
-  status = CASE WHEN $9::boolean THEN $10 ELSE status END,
-  join_policy = CASE WHEN $11::boolean THEN $12 ELSE join_policy END,
-  location = CASE WHEN $13::boolean THEN $14 ELSE location END,
-  location_name = CASE WHEN $15::boolean THEN $16 ELSE location_name END,
-  formatted_address = CASE WHEN $17::boolean THEN $18 ELSE formatted_address END,
-  lat = CASE WHEN $19::boolean THEN $20 ELSE lat END,
-  lng = CASE WHEN $21::boolean THEN $22 ELSE lng END,
-  google_place_id = CASE WHEN $23::boolean THEN $24 ELSE google_place_id END,
-  region_code = CASE WHEN $25::boolean THEN $26 ELSE region_code END,
-  province_code = CASE WHEN $27::boolean THEN $28 ELSE province_code END,
-  city_municipality_code = CASE WHEN $29::boolean THEN $30 ELSE city_municipality_code END,
-  barangay_code = CASE WHEN $31::boolean THEN $32 ELSE barangay_code END,
-  location_source = CASE WHEN $33::boolean THEN $34 ELSE location_source END,
+  logo_media_id = CASE WHEN $7::boolean THEN NULLIF($8, '')::uuid ELSE logo_media_id END,
+  cover_media_id = CASE WHEN $9::boolean THEN NULLIF($10, '')::uuid ELSE cover_media_id END,
+  visibility = CASE WHEN $11::boolean THEN $12 ELSE visibility END,
+  status = CASE WHEN $13::boolean THEN $14 ELSE status END,
+  join_policy = CASE WHEN $15::boolean THEN $16 ELSE join_policy END,
+  location = CASE WHEN $17::boolean THEN $18 ELSE location END,
+  location_name = CASE WHEN $19::boolean THEN $20 ELSE location_name END,
+  formatted_address = CASE WHEN $21::boolean THEN $22 ELSE formatted_address END,
+  lat = CASE WHEN $23::boolean THEN $24 ELSE lat END,
+  lng = CASE WHEN $25::boolean THEN $26 ELSE lng END,
+  google_place_id = CASE WHEN $27::boolean THEN $28 ELSE google_place_id END,
+  region_code = CASE WHEN $29::boolean THEN $30 ELSE region_code END,
+  province_code = CASE WHEN $31::boolean THEN $32 ELSE province_code END,
+  city_municipality_code = CASE WHEN $33::boolean THEN $34 ELSE city_municipality_code END,
+  barangay_code = CASE WHEN $35::boolean THEN $36 ELSE barangay_code END,
+  location_source = CASE WHEN $37::boolean THEN $38 ELSE location_source END,
   updated_at = NOW()
-WHERE id = $35::uuid
+WHERE id = $39::uuid
 RETURNING
   id,
   name,
@@ -1318,6 +1320,10 @@ type UpdateGroupParams struct {
 	Bio                     *string     `db:"bio" json:"bio"`
 	SetDescription          bool        `db:"set_description" json:"set_description"`
 	Description             *string     `db:"description" json:"description"`
+	SetLogoMediaID          bool        `db:"set_logo_media_id" json:"set_logo_media_id"`
+	LogoMediaID             interface{} `db:"logo_media_id" json:"logo_media_id"`
+	SetCoverMediaID         bool        `db:"set_cover_media_id" json:"set_cover_media_id"`
+	CoverMediaID            interface{} `db:"cover_media_id" json:"cover_media_id"`
 	SetVisibility           bool        `db:"set_visibility" json:"set_visibility"`
 	Visibility              string      `db:"visibility" json:"visibility"`
 	SetStatus               bool        `db:"set_status" json:"set_status"`
@@ -1393,6 +1399,10 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Updat
 		arg.Bio,
 		arg.SetDescription,
 		arg.Description,
+		arg.SetLogoMediaID,
+		arg.LogoMediaID,
+		arg.SetCoverMediaID,
+		arg.CoverMediaID,
 		arg.SetVisibility,
 		arg.Visibility,
 		arg.SetStatus,

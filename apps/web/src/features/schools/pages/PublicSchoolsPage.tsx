@@ -68,6 +68,7 @@ import {
 } from "../hooks/mutations";
 import {
   useMyCourseBookings,
+  useManageSchools,
   usePublicCourse,
   usePublicCourseSessions,
   usePublicCourses,
@@ -554,6 +555,12 @@ function SchoolPublicHeader({
   school: PublicSchool;
   compact?: boolean;
 }) {
+  const { isLoaded, isSignedIn } = useAuth();
+  const manageableSchoolsQuery = useManageSchools(Boolean(isLoaded && isSignedIn));
+  const canManageSchool = Boolean(
+    manageableSchoolsQuery.data?.some((item) => item.slug === school.slug),
+  );
+
   return (
     <CommunityHeader
       title={school.name}
@@ -572,16 +579,32 @@ function SchoolPublicHeader({
         </Button>
       }
       action={
-        !compact ? (
-          <Button
-            size="sm"
-            variant="outline"
-            nativeButton={false}
-            render={<Link href={`/schools/${school.slug}/courses`} />}
-          >
-            View courses
-          </Button>
-        ) : null
+        <div className="flex flex-wrap gap-2">
+          {canManageSchool ? (
+            <Button
+              size="sm"
+              variant="outline"
+              nativeButton={false}
+              render={
+                <Link
+                  href={`/management/schools/${encodeURIComponent(school.slug)}`}
+                />
+              }
+            >
+              Manage
+            </Button>
+          ) : null}
+          {!compact ? (
+            <Button
+              size="sm"
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`/schools/${school.slug}/courses`} />}
+            >
+              View courses
+            </Button>
+          ) : null}
+        </div>
       }
     />
   );

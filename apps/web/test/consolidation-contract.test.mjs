@@ -176,9 +176,13 @@ test("management entity workspaces render with dedicated workspace shells", asyn
   assert.match(schoolOverview, /ManageSchoolOverviewPage/);
   assert.match(schoolInstructors, /ManageSchoolInstructorsPage/);
   assert.match(schoolPayments, /ManageSchoolPaymentsPage/);
-  assert.match(eventOverview, /EventManagementOverviewPage/);
+  assert.match(eventOverview, /EventManagementShell/);
+  assert.match(eventOverview, /EventManageClient/);
+  assert.match(eventOverview, /initialSection="overview"/);
   assert.match(eventPayments, /EventManagementShell/);
-  assert.match(eventParticipants, /EventManagementSectionPlaceholder/);
+  assert.match(eventPayments, /embedded/);
+  assert.match(eventParticipants, /EventManagementShell/);
+  assert.match(eventParticipants, /initialSection="participants"/);
   assert.match(groupWorkspace, /GroupManagementWorkspacePage/);
   assert.match(groupMembers, /GroupManagementSectionPage/);
   assert.match(schoolsNav, /SchoolManagementShell/);
@@ -188,7 +192,7 @@ test("management entity workspaces render with dedicated workspace shells", asyn
 test("management module list pages and workspace switchers follow dedicated workspace contract", async () => {
   const [groupsList, eventsList, groupShell, eventShell] = await Promise.all([
     readApp("src/app/management/groups/page.tsx"),
-    readApp("src/app/management/events/page.tsx"),
+    readApp("src/features/events/components/management-events-list-page.tsx"),
     readApp("src/features/groups/components/group-management-shell.tsx"),
     readApp("src/features/events/components/event-management-shell.tsx"),
   ]);

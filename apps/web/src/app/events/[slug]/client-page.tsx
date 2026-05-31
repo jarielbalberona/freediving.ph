@@ -890,10 +890,16 @@ export default function EventDetailClient({ slug }: { slug: string }) {
   );
 }
 
-export function EventManageClient({ slug }: { slug: string }) {
+export function EventManageClient({
+  slug,
+  initialSection,
+}: {
+  slug: string;
+  initialSection?: EventManageTab;
+}) {
   const session = useSession();
   const [activeManageTab, setActiveManageTab] =
-    useState<EventManageTab>("overview");
+    useState<EventManageTab>(initialSection ?? "overview");
   const eventQuery = useEvent(slug);
   const event = eventQuery.data;
   const eventId = event?.id ?? "";
@@ -927,16 +933,19 @@ export function EventManageClient({ slug }: { slug: string }) {
   );
 
   useEffect(() => {
+    if (initialSection) return;
     const hash = window.location.hash.replace("#", "");
     if (isEventManageTab(hash)) {
       setActiveManageTab(hash);
     }
-  }, []);
+  }, [initialSection]);
 
   const setManageTab = (value: string) => {
     if (!isEventManageTab(value)) return;
     setActiveManageTab(value);
-    window.history.replaceState(null, "", `#${value}`);
+    if (!initialSection) {
+      window.history.replaceState(null, "", `#${value}`);
+    }
   };
 
   const visibleManageNavItems = useMemo(
@@ -945,15 +954,33 @@ export function EventManageClient({ slug }: { slug: string }) {
   );
 
   useEffect(() => {
+    if (initialSection) return;
     if (!event) return;
     if (visibleManageNavItems.some((item) => item.value === activeManageTab)) {
       return;
     }
     setActiveManageTab("settings");
-    window.history.replaceState(null, "", "#settings");
-  }, [activeManageTab, event, visibleManageNavItems]);
+    if (!initialSection) {
+      window.history.replaceState(null, "", "#settings");
+    }
+  }, [activeManageTab, event, initialSection, visibleManageNavItems]);
 
   if (eventQuery.isLoading) {
+    if (initialSection) {
+      return (
+        <>
+          <CommunityHeader
+            title="Opening management"
+            subtitle="Loading event operations."
+          />
+          <div className="space-y-3">
+            <Skeleton className="h-28 w-full rounded-xl" />
+            <Skeleton className="h-44 w-full rounded-xl" />
+          </div>
+        </>
+      );
+    }
+
     return (
       <CommunityPageShell>
         <CommunityHeader
@@ -970,6 +997,25 @@ export function EventManageClient({ slug }: { slug: string }) {
   }
 
   if (eventQuery.error || !event) {
+    if (initialSection) {
+      return (
+        <>
+          <CommunityHeader
+            title="Event unavailable"
+            subtitle="This event is taking longer than expected to open."
+          />
+          <Card className="border-destructive/30 bg-destructive/5 py-0">
+            <CardContent className="p-3 text-sm text-destructive">
+              {getApiErrorMessage(
+                eventQuery.error,
+                "This event could not be opened. Try again in a moment.",
+              )}
+            </CardContent>
+          </Card>
+        </>
+      );
+    }
+
     return (
       <CommunityPageShell>
         <CommunityHeader
@@ -990,6 +1036,21 @@ export function EventManageClient({ slug }: { slug: string }) {
   }
 
   if (!event.viewerCanManage) {
+    if (initialSection) {
+      return (
+        <>
+          <CommunityHeader
+            title="Manage event"
+            subtitle="You do not have permission to manage this event."
+          />
+          <StatusPanel
+            title="Organizer access required"
+            description="Only event organizers can open this workspace."
+          />
+        </>
+      );
+    }
+
     return (
       <CommunityPageShell>
         <CommunityHeader
@@ -1021,12 +1082,12 @@ export function EventManageClient({ slug }: { slug: string }) {
     );
   };
 
-  return (
-    <CommunityPageShell>
+  const content = (
+    <>
       <CommunityHeader
         title={event.title}
         subtitle="Manage event"
-        navigation={<BackToEventButton event={event} />}
+        navigation={initialSection ? undefined : <BackToEventButton event={event} />}
         action={
           <Button
             size="sm"
@@ -1061,7 +1122,14 @@ export function EventManageClient({ slug }: { slug: string }) {
         </div>
       </CommunityHeader>
 
-      <div className="grid gap-4 lg:grid-cols-[132px_minmax(0,1fr)]">
+      <div
+        className={
+          initialSection
+            ? "min-w-0"
+            : "grid gap-4 lg:grid-cols-[132px_minmax(0,1fr)]"
+        }
+      >
+        {!initialSection ? (
         <div className="space-y-2 lg:hidden">
           <Select
             value={activeManageTab}
@@ -1095,6 +1163,8 @@ export function EventManageClient({ slug }: { slug: string }) {
             Check in
           </Button>
         </div>
+        ) : null}
+        {!initialSection ? (
         <nav className="hidden w-full flex-col items-stretch gap-1 border-r border-border/70 pr-2 lg:flex">
           {visibleManageNavItems.map((item) => (
             <button
@@ -1124,6 +1194,7 @@ export function EventManageClient({ slug }: { slug: string }) {
             Check in
           </Link>
         </nav>
+        ) : null}
 
         <div className="min-w-0">
           {activeManageTab === "overview" ? (
@@ -1369,11 +1440,27 @@ export function EventManageClient({ slug }: { slug: string }) {
           ) : null}
         </div>
       </div>
+    </>
+  );
+
+  if (initialSection) {
+    return content;
+  }
+
+  return (
+    <CommunityPageShell>
+      {content}
     </CommunityPageShell>
   );
 }
 
-export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
+export function EventPaymentMethodsManageClient({
+  slug,
+  embedded = false,
+}: {
+  slug: string;
+  embedded?: boolean;
+}) {
   const eventQuery = useEvent(slug);
   const event = eventQuery.data;
   const updateEventMutation = useUpdateEvent();
@@ -1391,6 +1478,21 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
   }, [event]);
 
   if (eventQuery.isLoading) {
+    if (embedded) {
+      return (
+        <>
+          <CommunityHeader
+            title="Opening payments"
+            subtitle="Loading event payment setup."
+          />
+          <div className="space-y-3">
+            <Skeleton className="h-28 w-full rounded-xl" />
+            <Skeleton className="h-44 w-full rounded-xl" />
+          </div>
+        </>
+      );
+    }
+
     return (
       <CommunityPageShell>
         <CommunityHeader
@@ -1407,6 +1509,25 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
   }
 
   if (eventQuery.error || !event) {
+    if (embedded) {
+      return (
+        <>
+          <CommunityHeader
+            title="Payments unavailable"
+            subtitle="This event payment setup could not be opened."
+          />
+          <Card className="border-destructive/30 bg-destructive/5 py-0">
+            <CardContent className="p-3 text-sm text-destructive">
+              {getApiErrorMessage(
+                eventQuery.error,
+                "This event payment setup could not be opened.",
+              )}
+            </CardContent>
+          </Card>
+        </>
+      );
+    }
+
     return (
       <CommunityPageShell>
         <CommunityHeader
@@ -1427,6 +1548,21 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
   }
 
   if (!event.viewerCanManage) {
+    if (embedded) {
+      return (
+        <>
+          <CommunityHeader
+            title="Manage payments"
+            subtitle="You do not have permission to manage this event."
+          />
+          <StatusPanel
+            title="Organizer access required"
+            description="Only event organizers can open this payment workspace."
+          />
+        </>
+      );
+    }
+
     return (
       <CommunityPageShell>
         <CommunityHeader
@@ -1489,12 +1625,12 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
     );
   };
 
-  return (
-    <CommunityPageShell>
+  const content = (
+    <>
       <CommunityHeader
         title="Manage payments"
         subtitle={event.title}
-        navigation={<BackToManageButton event={event} />}
+        navigation={embedded ? undefined : <BackToManageButton event={event} />}
       >
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" className={getEventPriceBadgeClass(event)}>
@@ -1621,11 +1757,27 @@ export function EventPaymentMethodsManageClient({ slug }: { slug: string }) {
           />
         </DetailSection>
       </div>
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <CommunityPageShell>
+      {content}
     </CommunityPageShell>
   );
 }
 
-export function EventCheckInClient({ slug }: { slug: string }) {
+export function EventCheckInClient({
+  slug,
+  embedded = false,
+}: {
+  slug: string;
+  embedded?: boolean;
+}) {
   const searchParams = useSearchParams();
   const eventQuery = useEvent(slug);
   const event = eventQuery.data;
@@ -1789,6 +1941,18 @@ export function EventCheckInClient({ slug }: { slug: string }) {
     .slice(0, 8);
 
   if (eventQuery.isLoading) {
+    if (embedded) {
+      return (
+        <>
+          <CommunityHeader
+            title="Check-in scanner"
+            subtitle="Loading event."
+          />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </>
+      );
+    }
+
     return (
       <CommunityPageShell>
         <CommunityHeader
@@ -1802,6 +1966,24 @@ export function EventCheckInClient({ slug }: { slug: string }) {
   }
 
   if (eventQuery.error || !event) {
+    if (embedded) {
+      return (
+        <>
+          <CommunityHeader
+            title="Check-in scanner"
+            subtitle="Event unavailable."
+          />
+          <StatusPanel
+            title="Event unavailable"
+            description={getApiErrorMessage(
+              eventQuery.error,
+              "This event could not be opened.",
+            )}
+          />
+        </>
+      );
+    }
+
     return (
       <CommunityPageShell>
         <CommunityHeader
@@ -1821,6 +2003,21 @@ export function EventCheckInClient({ slug }: { slug: string }) {
   }
 
   if (!event.viewerCanManage) {
+    if (embedded) {
+      return (
+        <>
+          <CommunityHeader
+            title="Check-in scanner"
+            subtitle="Organizer access required."
+          />
+          <StatusPanel
+            title="Organizer access required"
+            description="Only event organizers can check in participants."
+          />
+        </>
+      );
+    }
+
     return (
       <CommunityPageShell>
         <CommunityHeader
@@ -1836,19 +2033,20 @@ export function EventCheckInClient({ slug }: { slug: string }) {
     );
   }
 
-  return (
-    <CommunityPageShell>
+  const content = (
+    <>
       <CommunityHeader
         title={event.title}
         subtitle="Check in participants"
         navigation={
+          embedded ? undefined :
           <Button
             size="sm"
             variant="outline"
             nativeButton={false}
             render={
               <Link
-                href={`/management/events/${encodeURIComponent(event.slug)}#participants`}
+                href={`/management/events/${encodeURIComponent(event.slug)}/participants`}
               />
             }
           >
@@ -1863,7 +2061,7 @@ export function EventCheckInClient({ slug }: { slug: string }) {
             nativeButton={false}
             render={
               <Link
-                href={`/management/events/${encodeURIComponent(event.slug)}#participants`}
+                href={`/management/events/${encodeURIComponent(event.slug)}/participants`}
               />
             }
           >
@@ -1872,7 +2070,7 @@ export function EventCheckInClient({ slug }: { slug: string }) {
         }
       />
 
-      <div className="mx-auto grid max-w-3xl gap-5">
+      <div className="grid gap-5">
         <section className="rounded-xl border border-border/70 bg-background/70 p-4">
           <div className="space-y-1">
             <h2 className="text-base font-semibold text-foreground">
@@ -2002,6 +2200,16 @@ export function EventCheckInClient({ slug }: { slug: string }) {
           )}
         </section>
       </div>
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <CommunityPageShell>
+      {content}
     </CommunityPageShell>
   );
 }
@@ -2391,7 +2599,7 @@ function BackToManageButton({ event }: { event: Event }) {
       nativeButton={false}
       render={
         <Link
-          href={`/management/events/${encodeURIComponent(event.slug)}#payment`}
+          href={`/management/events/${encodeURIComponent(event.slug)}/payments`}
         />
       }
     >
@@ -3512,7 +3720,7 @@ function PrizesTab({
             nativeButton={false}
             render={
               <Link
-                href={`/management/events/${encodeURIComponent(event.slug)}#awards`}
+                href={`/management/events/${encodeURIComponent(event.slug)}/awards`}
               />
             }
           >
@@ -4135,7 +4343,7 @@ function SponsorsTab({
             nativeButton={false}
             render={
               <Link
-                href={`/management/events/${encodeURIComponent(event.slug)}#sponsors`}
+                href={`/management/events/${encodeURIComponent(event.slug)}/sponsors`}
               />
             }
           >
@@ -5055,7 +5263,7 @@ function PostsTab({
                 nativeButton={false}
                 render={
                   <Link
-                    href={`/management/events/${encodeURIComponent(event.slug)}#updates`}
+                    href={`/management/events/${encodeURIComponent(event.slug)}/posts`}
                   />
                 }
               >
@@ -5717,7 +5925,7 @@ function ParticipantsSection({
             nativeButton={false}
             render={
               <Link
-                href={`/management/events/${encodeURIComponent(event.slug)}#participants`}
+                href={`/management/events/${encodeURIComponent(event.slug)}/participants`}
               />
             }
           >

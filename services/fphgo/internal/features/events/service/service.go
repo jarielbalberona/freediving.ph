@@ -393,6 +393,12 @@ func (s *Service) UpdateEvent(ctx context.Context, eventID, actorID string, inpu
 	if err := validateUpdateEventInput(&input, before); err != nil {
 		return eventsrepo.Event{}, err
 	}
+	if err := s.ensureEventMediaUsable(ctx, eventID, "logoMediaId", input.LogoMediaID); err != nil {
+		return eventsrepo.Event{}, err
+	}
+	if err := s.ensureEventMediaUsable(ctx, eventID, "coverMediaId", input.CoverMediaID); err != nil {
+		return eventsrepo.Event{}, err
+	}
 	input.EventID = eventID
 	updated, err := s.repo.UpdateEvent(ctx, input)
 	if err != nil {
@@ -1067,6 +1073,24 @@ func (s *Service) ensureCanManage(ctx context.Context, eventID, actorID string) 
 	return nil
 }
 
+func (s *Service) ensureEventMediaUsable(ctx context.Context, eventID, field string, mediaID *string) error {
+	if mediaID == nil || strings.TrimSpace(*mediaID) == "" {
+		return nil
+	}
+	exists, err := s.repo.MediaBelongsToEvent(ctx, eventID, strings.TrimSpace(*mediaID))
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "event_media_lookup_failed", "failed to validate event media", err)
+	}
+	if !exists {
+		return ValidationFailure{Issues: []validatex.Issue{{
+			Path:    []any{field},
+			Code:    "not_found",
+			Message: "Media does not belong to this event",
+		}}}
+	}
+	return nil
+}
+
 func validateInterestAccess(event eventsrepo.Event, markingInterested bool) error {
 	if event.Status != "published" {
 		return apperrors.New(http.StatusConflict, "event_not_open", "interest can only be changed on published events", nil)
@@ -1201,6 +1225,8 @@ func normalizeUpdateInput(input *eventsrepo.UpdateEventInput) {
 	trimStringPtr(&input.Title)
 	trimStringPtr(&input.ShortDescription)
 	trimStringPtr(&input.DescriptionMarkdown)
+	trimStringPtr(&input.LogoMediaID)
+	trimStringPtr(&input.CoverMediaID)
 	trimStringPtr(&input.DiveSiteID)
 	trimStringPtr(&input.PaymentInstructions)
 	trimStringPtr(&input.MeetingPoint)
@@ -1276,6 +1302,12 @@ func validateUpdateEventInput(input *eventsrepo.UpdateEventInput, before eventsr
 		if _, err := uuid.Parse(*input.DiveSiteID); err != nil {
 			return invalidUUID("diveSiteId")
 		}
+	}
+	if err := validateOptionalUUIDPtr("logoMediaId", input.LogoMediaID); err != nil {
+		return err
+	}
+	if err := validateOptionalUUIDPtr("coverMediaId", input.CoverMediaID); err != nil {
+		return err
 	}
 	if input.Timezone != nil {
 		if err := validateTimezone(*input.Timezone); err != nil {
@@ -1740,6 +1772,16 @@ func invalidUUID(field string) ValidationFailure {
 		Code:    "invalid_uuid",
 		Message: "Must be a valid UUID",
 	}}}
+}
+
+func validateOptionalUUIDPtr(field string, value *string) error {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return nil
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(*value)); err != nil {
+		return invalidUUID(field)
+	}
+	return nil
 }
 
 func required(field string) ValidationFailure {

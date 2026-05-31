@@ -120,28 +120,30 @@ type CreateSchoolRequest struct {
 }
 
 type UpdateSchoolRequest struct {
-	Name                *string `json:"name"`
-	ShortDescription    *string `json:"shortDescription"`
-	DescriptionMarkdown *string `json:"descriptionMarkdown"`
-	BaseLocation        *string `json:"baseLocation"`
-	BaseLocationLabel   *string `json:"baseLocationLabel"`
-	FormattedAddress    *string `json:"formattedAddress"`
-	RegionCode          *string `json:"regionCode"`
-	RegionName          *string `json:"regionName"`
-	ProvinceCode        *string `json:"provinceCode"`
-	ProvinceName        *string `json:"provinceName"`
-	CityCode            *string `json:"cityCode"`
-	CityName            *string `json:"cityName"`
-	BarangayCode        *string `json:"barangayCode"`
-	BarangayName        *string `json:"barangayName"`
-	LocationSource      *string `json:"locationSource"`
-	DiveSiteID          *string `json:"diveSiteId"`
-	ContactEmail        *string `json:"contactEmail"`
-	ContactPhone        *string `json:"contactPhone"`
-	WebsiteURL          *string `json:"websiteUrl"`
-	FacebookURL         *string `json:"facebookUrl"`
-	InstagramURL        *string `json:"instagramUrl"`
-	Status              *string `json:"status"`
+	Name                *string              `json:"name"`
+	ShortDescription    *string              `json:"shortDescription"`
+	DescriptionMarkdown *string              `json:"descriptionMarkdown"`
+	LogoMediaID         httpx.NullableString `json:"logoMediaId"`
+	CoverMediaID        httpx.NullableString `json:"coverMediaId"`
+	BaseLocation        *string              `json:"baseLocation"`
+	BaseLocationLabel   *string              `json:"baseLocationLabel"`
+	FormattedAddress    *string              `json:"formattedAddress"`
+	RegionCode          *string              `json:"regionCode"`
+	RegionName          *string              `json:"regionName"`
+	ProvinceCode        *string              `json:"provinceCode"`
+	ProvinceName        *string              `json:"provinceName"`
+	CityCode            *string              `json:"cityCode"`
+	CityName            *string              `json:"cityName"`
+	BarangayCode        *string              `json:"barangayCode"`
+	BarangayName        *string              `json:"barangayName"`
+	LocationSource      *string              `json:"locationSource"`
+	DiveSiteID          *string              `json:"diveSiteId"`
+	ContactEmail        *string              `json:"contactEmail"`
+	ContactPhone        *string              `json:"contactPhone"`
+	WebsiteURL          *string              `json:"websiteUrl"`
+	FacebookURL         *string              `json:"facebookUrl"`
+	InstagramURL        *string              `json:"instagramUrl"`
+	Status              *string              `json:"status"`
 }
 
 type CourseRequest struct {
@@ -301,7 +303,7 @@ func (h *Handlers) UpdateSchool(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteValidationError(w, issues)
 		return
 	}
-	item, err := h.service.UpdateSchool(r.Context(), chi.URLParam(r, "slug"), actorID(r), schoolsrepo.UpdateSchoolInput{Name: req.Name, ShortDescription: req.ShortDescription, DescriptionMarkdown: req.DescriptionMarkdown, BaseLocation: req.BaseLocation, BaseLocationLabel: req.BaseLocationLabel, FormattedAddress: req.FormattedAddress, RegionCode: req.RegionCode, RegionName: req.RegionName, ProvinceCode: req.ProvinceCode, ProvinceName: req.ProvinceName, CityCode: req.CityCode, CityName: req.CityName, BarangayCode: req.BarangayCode, BarangayName: req.BarangayName, LocationSource: req.LocationSource, DiveSiteID: req.DiveSiteID, ContactEmail: req.ContactEmail, ContactPhone: req.ContactPhone, WebsiteURL: req.WebsiteURL, FacebookURL: req.FacebookURL, InstagramURL: req.InstagramURL, Status: req.Status})
+	item, err := h.service.UpdateSchool(r.Context(), chi.URLParam(r, "slug"), actorID(r), schoolsrepo.UpdateSchoolInput{Name: req.Name, ShortDescription: req.ShortDescription, DescriptionMarkdown: req.DescriptionMarkdown, LogoMediaID: req.LogoMediaID.PtrOrEmptyForNull(), CoverMediaID: req.CoverMediaID.PtrOrEmptyForNull(), BaseLocation: req.BaseLocation, BaseLocationLabel: req.BaseLocationLabel, FormattedAddress: req.FormattedAddress, RegionCode: req.RegionCode, RegionName: req.RegionName, ProvinceCode: req.ProvinceCode, ProvinceName: req.ProvinceName, CityCode: req.CityCode, CityName: req.CityName, BarangayCode: req.BarangayCode, BarangayName: req.BarangayName, LocationSource: req.LocationSource, DiveSiteID: req.DiveSiteID, ContactEmail: req.ContactEmail, ContactPhone: req.ContactPhone, WebsiteURL: req.WebsiteURL, FacebookURL: req.FacebookURL, InstagramURL: req.InstagramURL, Status: req.Status})
 	if err != nil {
 		handleError(w, r, err)
 		return

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
-import { EventManagementSectionPlaceholder } from "@/features/events/components/event-management-section";
+import { EventManageClient } from "../../../../events/[slug]/client-page";
+import { EventManagementShell } from "@/features/events/components/event-management-shell";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -13,10 +14,8 @@ export const metadata: Metadata = {
 export default async function Page({ params }: PageProps) {
   const { slug } = await params;
   return (
-    <EventManagementSectionPlaceholder
-      slug={slug}
-      title="Event settings"
-      description="Settings management is coming soon in this workspace shell."
-    />
+    <EventManagementShell slug={slug}>
+      <EventManageClient slug={slug} initialSection="settings" />
+    </EventManagementShell>
   );
 }

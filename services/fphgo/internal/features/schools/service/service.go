@@ -46,6 +46,7 @@ type repository interface {
 	GetSchoolBySlug(context.Context, string, string) (schoolsrepo.School, error)
 	GetMemberRole(context.Context, string, string) (string, error)
 	UpdateSchool(context.Context, string, schoolsrepo.UpdateSchoolInput) (schoolsrepo.School, error)
+	MediaBelongsToSchool(context.Context, string, string) (bool, error)
 	DeleteSchool(context.Context, string) error
 	ListCourses(context.Context, string) ([]schoolsrepo.Course, error)
 	CreateCourse(context.Context, string, schoolsrepo.CreateCourseInput) (schoolsrepo.Course, error)
@@ -213,6 +214,18 @@ func (s *Service) UpdateSchool(ctx context.Context, slug, actorID string, input 
 	}
 	if input.Status != nil && !oneOf(normalize(*input.Status), "draft", "published", "suspended") {
 		return schoolsrepo.School{}, validation("status", "invalid", "Invalid school status")
+	}
+	if err := validateOptionalUUID("logoMediaId", input.LogoMediaID); err != nil {
+		return schoolsrepo.School{}, err
+	}
+	if err := validateOptionalUUID("coverMediaId", input.CoverMediaID); err != nil {
+		return schoolsrepo.School{}, err
+	}
+	if err := s.ensureSchoolMediaUsable(ctx, school.ID, "logoMediaId", input.LogoMediaID); err != nil {
+		return schoolsrepo.School{}, err
+	}
+	if err := s.ensureSchoolMediaUsable(ctx, school.ID, "coverMediaId", input.CoverMediaID); err != nil {
+		return schoolsrepo.School{}, err
 	}
 	return s.repo.UpdateSchool(ctx, school.ID, input)
 }
@@ -1303,6 +1316,30 @@ func mapRepoErr(err error, code string) error {
 
 func validation(path, code, message string) ValidationFailure {
 	return ValidationFailure{Issues: []validatex.Issue{{Path: []any{path}, Code: code, Message: message}}}
+}
+
+func validateOptionalUUID(field string, value *string) error {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return nil
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(*value)); err != nil {
+		return validation(field, "invalid_uuid", "Must be a valid UUID")
+	}
+	return nil
+}
+
+func (s *Service) ensureSchoolMediaUsable(ctx context.Context, schoolID, field string, mediaID *string) error {
+	if mediaID == nil || strings.TrimSpace(*mediaID) == "" {
+		return nil
+	}
+	ok, err := s.repo.MediaBelongsToSchool(ctx, schoolID, strings.TrimSpace(*mediaID))
+	if err != nil {
+		return apperrors.New(http.StatusInternalServerError, "media_check_failed", "failed to validate media ownership", err)
+	}
+	if !ok {
+		return validation(field, "not_found", "Media was not found for this school")
+	}
+	return nil
 }
 
 func normalize(value string) string {

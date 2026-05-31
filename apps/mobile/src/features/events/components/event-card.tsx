@@ -20,7 +20,7 @@ type EventCardProps = {
 };
 
 function EventCardContent({ event }: EventCardProps) {
-  const coverUrl = safeImageUrl(event.coverPhotoUrl);
+  const coverUrl = safeImageUrl(event.coverUrl ?? event.coverPhotoUrl ?? undefined);
   const pendingApproval = event.viewerEventState === "pending_approval";
 
   return (

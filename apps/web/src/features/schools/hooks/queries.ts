@@ -8,10 +8,11 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import { schoolsApi } from "../api/schools";
 
-export const useManageSchools = () =>
+export const useManageSchools = (enabled = true) =>
   useQuery({
     queryKey: queryKeys.schools.list(),
     queryFn: schoolsApi.listSchools,
+    enabled,
   });
 
 export const usePublicSchools = (filters: PublicSchoolFilters = {}) =>

@@ -1,8 +1,7 @@
 "use client";
 
-import { Archive, ArrowLeft, Check, CalendarDays, ChevronLeft, Clock3, MessageSquare, Pencil, Users } from "lucide-react";
+import { Archive, ArrowLeft, MessageSquare, Pencil, Users } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -42,7 +41,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 import { ChikaMarkdown } from "@/features/chika/components/ChikaMarkdown";
@@ -51,8 +49,6 @@ import { buildDisplayLocation } from "@/features/locations/types";
 import { useSession } from "@/features/auth/session";
 import type {
   Group,
-  GroupMember,
-  GroupPost,
   Profile,
 } from "@freediving.ph/types";
 import { useArchiveGroup, useCreateGroupPost, useInviteGroupMember, useUpdateGroup } from "@/features/groups/hooks/mutations";
@@ -65,7 +61,7 @@ import {
   CommunityHeader,
   CommunityStats,
 } from "@/components/community/community-page";
-import { ManagementWorkspaceShell } from "@/components/layout/management-workspace-shell";
+import { GroupManagementShell } from "./group-management-shell";
 
 function canManageGroup(group: Group | null | undefined) {
   if (!group) return false;
@@ -96,37 +92,6 @@ function visibilityLabel(visibility: Group["visibility"]) {
 
 function joinPolicyLabel(policy: Group["joinPolicy"]) {
   return policy === "invite_only" ? "Invite only" : "Open join";
-}
-
-function GroupManagementShell({
-  group,
-  children,
-}: {
-  group: Group;
-  children: ReactNode;
-}) {
-  const baseHref = `/management/groups/${encodeURIComponent(group.slug)}`;
-  return (
-    <ManagementWorkspaceShell
-      backHref={`/groups/${encodeURIComponent(group.slug)}`}
-      backLabel="Back to group"
-      switcher={
-        <div className="min-w-0 px-2">
-          <p className="truncate text-sm font-medium">{group.name}</p>
-          <p className="truncate text-xs text-muted-foreground">Group workspace</p>
-        </div>
-      }
-      navItems={[
-        { label: "Overview", href: baseHref, icon: CalendarDays, exact: true },
-        { label: "Profile", href: `${baseHref}/profile`, icon: Pencil },
-        { label: "Members", href: `${baseHref}/members`, icon: Users },
-        { label: "Posts", href: `${baseHref}/posts`, icon: MessageSquare },
-        { label: "Settings", href: `${baseHref}/settings`, icon: Archive },
-      ]}
-    >
-      {children}
-    </ManagementWorkspaceShell>
-  );
 }
 
 export function GroupManagementWorkspacePage({ slug }: { slug: string }) {
@@ -703,57 +668,49 @@ function GroupSettingsSection({ group }: { group: Group }) {
   return (
     <>
       <CommunityHeader title="Settings" subtitle="Group-level administrative actions." />
-      <Tabs defaultValue="status" className="w-full">
-        <TabsList className="w-full max-w-sm">
-          <TabsTrigger value="status">Status</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="status" className="space-y-3">
-          <Card>
-            <CardContent className="space-y-2 p-4 text-sm">
-              <p className="text-xs text-muted-foreground">
-                Status management is intentionally limited in the workspace to protect existing data.
-              </p>
-              <p className="text-xs">
-                Group status: <Badge className="h-5 px-2">{group.status}</Badge>
-              </p>
-              {canArchiveGroup(session.me, group) ? (
-                <div className="pt-2">
-                  <AlertDialog>
-                    <AlertDialogTrigger
-                      render={
-                        <Button type="button" variant="destructive" size="sm">
-                          <Archive className="mr-1 h-4 w-4" />
-                          Archive group
-                        </Button>
-                      }
-                    >
+      <Card>
+        <CardContent className="space-y-2 p-4 text-sm">
+          <p className="text-xs text-muted-foreground">
+            Status management is intentionally limited in the workspace to protect existing data.
+          </p>
+          <p className="text-xs">
+            Group status: <Badge className="h-5 px-2">{group.status}</Badge>
+          </p>
+          {canArchiveGroup(session.me, group) ? (
+            <div className="pt-2">
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button type="button" variant="destructive" size="sm">
+                      <Archive className="mr-1 h-4 w-4" />
                       Archive group
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Archive group?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This removes the group from public lists. Records stay intact.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          disabled={archiveGroupMutation.isPending}
-                          onClick={() => void onArchiveGroup()}
-                        >
-                          {archiveGroupMutation.isPending ? "Archiving..." : "Archive group"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                    </Button>
+                  }
+                >
+                  Archive group
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Archive group?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This removes the group from public lists. Records stay intact.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={archiveGroupMutation.isPending}
+                      onClick={() => void onArchiveGroup()}
+                    >
+                      {archiveGroupMutation.isPending ? "Archiving..." : "Archive group"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
     </>
   );
 }

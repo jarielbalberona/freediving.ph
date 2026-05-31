@@ -1,6 +1,10 @@
 package http
 
-import "time"
+import (
+	"time"
+
+	"fphgo/internal/shared/httpx"
+)
 
 type Pagination struct {
 	Page       int  `json:"page"`
@@ -237,40 +241,42 @@ type CreateEventRequest struct {
 }
 
 type UpdateEventRequest struct {
-	Title               *string  `json:"title,omitempty" validate:"omitempty,min=3,max=200"`
-	ShortDescription    *string  `json:"shortDescription,omitempty" validate:"omitempty,min=3,max=500"`
-	DescriptionMarkdown *string  `json:"descriptionMarkdown,omitempty" validate:"omitempty,min=3,max=20000"`
-	Type                *string  `json:"type,omitempty" validate:"omitempty,oneof=intro_session pool_training line_training fun_dive depth_training certification_course workshop competition cleanup_dive trip_retreat"`
-	DiveSiteID          *string  `json:"diveSiteId,omitempty" validate:"omitempty,uuid"`
-	StartsAt            *string  `json:"startsAt,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
-	EndsAt              *string  `json:"endsAt,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
-	Timezone            *string  `json:"timezone,omitempty" validate:"omitempty,max=80"`
-	Capacity            *int     `json:"capacity,omitempty" validate:"omitempty,min=1,max=100000"`
-	Status              *string  `json:"status,omitempty" validate:"omitempty,oneof=draft published full cancelled completed archived"`
-	Visibility          *string  `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
-	Difficulty          *string  `json:"difficulty,omitempty" validate:"omitempty,oneof=beginner intermediate advanced expert"`
-	RequiresApproval    *bool    `json:"requiresApproval,omitempty"`
-	IsPaid              *bool    `json:"isPaid,omitempty"`
-	PaymentMode         *string  `json:"paymentMode,omitempty" validate:"omitempty,oneof=free required optional"`
-	PriceAmount         *float64 `json:"priceAmount,omitempty" validate:"omitempty,min=0"`
-	Currency            *string  `json:"currency,omitempty" validate:"omitempty,len=3"`
-	PaymentInstructions *string  `json:"paymentInstructions,omitempty" validate:"omitempty,max=4000"`
-	MeetingPoint        *string  `json:"meetingPoint,omitempty" validate:"omitempty,max=1000"`
-	BeginnerFriendly    *bool    `json:"beginnerFriendly,omitempty"`
-	MaxDepthM           *int     `json:"maxDepthM,omitempty" validate:"omitempty,min=0,max=300"`
-	EntryType           *string  `json:"entryType,omitempty" validate:"omitempty,oneof=shore boat pool classroom_online"`
-	EquipmentNotes      *string  `json:"equipmentNotes,omitempty" validate:"omitempty,max=4000"`
-	SafetyNotes         *string  `json:"safetyNotes,omitempty" validate:"omitempty,max=4000"`
-	CancellationPolicy  *string  `json:"cancellationPolicy,omitempty" validate:"omitempty,max=4000"`
-	PostsEnabled        *bool    `json:"postsEnabled,omitempty"`
-	PaymentEnabled      *bool    `json:"paymentEnabled,omitempty"`
-	AwardsEnabled       *bool    `json:"awardsEnabled,omitempty"`
-	SponsorsEnabled     *bool    `json:"sponsorsEnabled,omitempty"`
-	InterestedEnabled   *bool    `json:"interestedEnabled,omitempty"`
-	ProgramEnabled      *bool    `json:"programEnabled,omitempty"`
-	PostCreatePolicy    *string  `json:"postCreatePolicy,omitempty" validate:"omitempty,oneof=organizers_only participants"`
-	CancelReason        *string  `json:"cancelReason,omitempty" validate:"omitempty,max=1000"`
-	CoverPhotoURL       *string  `json:"coverPhotoUrl,omitempty" validate:"omitempty,max=1000"`
+	Title               *string              `json:"title,omitempty" validate:"omitempty,min=3,max=200"`
+	ShortDescription    *string              `json:"shortDescription,omitempty" validate:"omitempty,min=3,max=500"`
+	DescriptionMarkdown *string              `json:"descriptionMarkdown,omitempty" validate:"omitempty,min=3,max=20000"`
+	LogoMediaID         httpx.NullableString `json:"logoMediaId,omitempty"`
+	CoverMediaID        httpx.NullableString `json:"coverMediaId,omitempty"`
+	Type                *string              `json:"type,omitempty" validate:"omitempty,oneof=intro_session pool_training line_training fun_dive depth_training certification_course workshop competition cleanup_dive trip_retreat"`
+	DiveSiteID          *string              `json:"diveSiteId,omitempty" validate:"omitempty,uuid"`
+	StartsAt            *string              `json:"startsAt,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
+	EndsAt              *string              `json:"endsAt,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
+	Timezone            *string              `json:"timezone,omitempty" validate:"omitempty,max=80"`
+	Capacity            *int                 `json:"capacity,omitempty" validate:"omitempty,min=1,max=100000"`
+	Status              *string              `json:"status,omitempty" validate:"omitempty,oneof=draft published full cancelled completed archived"`
+	Visibility          *string              `json:"visibility,omitempty" validate:"omitempty,oneof=public private"`
+	Difficulty          *string              `json:"difficulty,omitempty" validate:"omitempty,oneof=beginner intermediate advanced expert"`
+	RequiresApproval    *bool                `json:"requiresApproval,omitempty"`
+	IsPaid              *bool                `json:"isPaid,omitempty"`
+	PaymentMode         *string              `json:"paymentMode,omitempty" validate:"omitempty,oneof=free required optional"`
+	PriceAmount         *float64             `json:"priceAmount,omitempty" validate:"omitempty,min=0"`
+	Currency            *string              `json:"currency,omitempty" validate:"omitempty,len=3"`
+	PaymentInstructions *string              `json:"paymentInstructions,omitempty" validate:"omitempty,max=4000"`
+	MeetingPoint        *string              `json:"meetingPoint,omitempty" validate:"omitempty,max=1000"`
+	BeginnerFriendly    *bool                `json:"beginnerFriendly,omitempty"`
+	MaxDepthM           *int                 `json:"maxDepthM,omitempty" validate:"omitempty,min=0,max=300"`
+	EntryType           *string              `json:"entryType,omitempty" validate:"omitempty,oneof=shore boat pool classroom_online"`
+	EquipmentNotes      *string              `json:"equipmentNotes,omitempty" validate:"omitempty,max=4000"`
+	SafetyNotes         *string              `json:"safetyNotes,omitempty" validate:"omitempty,max=4000"`
+	CancellationPolicy  *string              `json:"cancellationPolicy,omitempty" validate:"omitempty,max=4000"`
+	PostsEnabled        *bool                `json:"postsEnabled,omitempty"`
+	PaymentEnabled      *bool                `json:"paymentEnabled,omitempty"`
+	AwardsEnabled       *bool                `json:"awardsEnabled,omitempty"`
+	SponsorsEnabled     *bool                `json:"sponsorsEnabled,omitempty"`
+	InterestedEnabled   *bool                `json:"interestedEnabled,omitempty"`
+	ProgramEnabled      *bool                `json:"programEnabled,omitempty"`
+	PostCreatePolicy    *string              `json:"postCreatePolicy,omitempty" validate:"omitempty,oneof=organizers_only participants"`
+	CancelReason        *string              `json:"cancelReason,omitempty" validate:"omitempty,max=1000"`
+	CoverPhotoURL       *string              `json:"coverPhotoUrl,omitempty" validate:"omitempty,max=1000"`
 }
 
 type JoinEventRequest struct {

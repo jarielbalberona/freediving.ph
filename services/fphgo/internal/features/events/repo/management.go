@@ -500,7 +500,7 @@ func (r *Repo) MediaBelongsToEvent(ctx context.Context, eventID, mediaID string)
 			SELECT 1
 			FROM media_objects
 			WHERE id = $2::uuid
-				AND context_type = 'event_attachment'
+				AND context_type IN ('event_attachment', 'event_logo', 'event_cover')
 				AND context_id = $1::uuid
 				AND state = 'active'
 		)

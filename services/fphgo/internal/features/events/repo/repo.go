@@ -260,6 +260,8 @@ type UpdateEventInput struct {
 	Description         *string
 	ShortDescription    *string
 	DescriptionMarkdown *string
+	LogoMediaID         *string
+	CoverMediaID        *string
 	StartsAt            *time.Time
 	EndsAt              *time.Time
 	Timezone            *string
@@ -777,6 +779,8 @@ func (r *Repo) UpdateEvent(ctx context.Context, input UpdateEventInput) (Event, 
 	addString("description", input.Description, false)
 	addString("short_description", input.ShortDescription, false)
 	addString("description_markdown", input.DescriptionMarkdown, false)
+	addUUIDStringPatch(&set, &args, &idx, "logo_media_id", input.LogoMediaID)
+	addUUIDStringPatch(&set, &args, &idx, "cover_media_id", input.CoverMediaID)
 	addTime("starts_at", input.StartsAt)
 	addTime("ends_at", input.EndsAt)
 	addString("timezone", input.Timezone, false)

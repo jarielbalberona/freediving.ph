@@ -12,6 +12,12 @@ test("instructor application routes and labels are discoverable", () => {
   const page = read(
     "src/features/instructors/pages/InstructorApplicationPage.tsx",
   );
+  const detailsFields = read(
+    "src/features/instructors/components/InstructorProfileDetailsFields.tsx",
+  );
+  const certificationsFields = read(
+    "src/features/instructors/components/InstructorCertificationsFields.tsx",
+  );
   const constants = read("src/features/instructors/constants.ts");
   const nav = read("src/config/nav.ts");
 
@@ -28,19 +34,22 @@ test("instructor application routes and labels are discoverable", () => {
   assert.match(page, /does not mean FPH issued, guarantees, or certifies/);
   assert.match(page, /attestationAccepted/);
   assert.match(page, /LocationPicker/);
-  assert.match(page, /grid min-w-0 gap-3 sm:grid-cols-2/);
-  assert.match(page, /cn\("grid min-w-0 gap-1\.5", className\)/);
-  assert.match(page, /Where are you mainly based for teaching or freediving/);
-  assert.match(page, /Certification proof/);
+  assert.match(detailsFields, /grid min-w-0 gap-3 sm:grid-cols-2/);
+  assert.match(detailsFields, /cn\("grid min-w-0 gap-1\.5", className\)/);
+  assert.match(
+    detailsFields,
+    /Where are you mainly based for teaching or freediving/,
+  );
+  assert.match(certificationsFields, /Certification proof/);
   assert.match(page, /instructor_certification_proof/);
-  assert.match(page, /Official verification link/);
-  assert.match(page, /items=\{instructorAgencyLabels\}/);
-  assert.match(page, /Molchanovs/);
-  assert.match(page, /PADI/);
-  assert.match(page, /AIDA/);
-  assert.match(page, /SSI/);
-  assert.match(page, /RAID/);
-  assert.match(page, /Apnea Academy/);
+  assert.match(certificationsFields, /Official verification link/);
+  assert.match(certificationsFields, /instructorAgencyLabels/);
+  assert.match(constants, /Molchanovs/);
+  assert.match(constants, /PADI/);
+  assert.match(constants, /AIDA/);
+  assert.match(constants, /SSI/);
+  assert.match(constants, /RAID/);
+  assert.match(constants, /Apnea Academy/);
   assert.match(constants, /apnea_academy: "Apnea Academy"/);
   assert.doesNotMatch(page, />apnea_academy</);
   assert.doesNotMatch(page, /Upload proof can be added/);

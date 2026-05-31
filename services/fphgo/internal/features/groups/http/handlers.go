@@ -104,6 +104,8 @@ func (h *Handlers) UpdateGroup(w http.ResponseWriter, r *http.Request) {
 		Name:             req.Name,
 		Bio:              req.Bio,
 		Description:      req.Description,
+		LogoMediaID:      req.LogoMediaID.PtrOrEmptyForNull(),
+		CoverMediaID:     req.CoverMediaID.PtrOrEmptyForNull(),
 		Visibility:       req.Visibility,
 		Status:           req.Status,
 		JoinPolicy:       req.JoinPolicy,

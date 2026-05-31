@@ -10,7 +10,7 @@ export default async function Page({ params }: PageProps) {
 
   return (
     <EventManagementShell slug={slug}>
-      <EventPaymentMethodsManageClient slug={slug} />
+      <EventPaymentMethodsManageClient slug={slug} embedded />
     </EventManagementShell>
   );
 }

@@ -10,7 +10,7 @@ export default async function Page({ params }: PageProps) {
 
   return (
     <EventManagementShell slug={slug}>
-      <EventCheckInClient slug={slug} />
+      <EventCheckInClient slug={slug} embedded />
     </EventManagementShell>
   );
 }

@@ -234,6 +234,8 @@ SET
   name = CASE WHEN sqlc.arg(set_name)::boolean THEN sqlc.arg(name) ELSE name END,
   bio = CASE WHEN sqlc.arg(set_bio)::boolean THEN sqlc.narg(bio) ELSE bio END,
   description = CASE WHEN sqlc.arg(set_description)::boolean THEN sqlc.narg(description) ELSE description END,
+  logo_media_id = CASE WHEN sqlc.arg(set_logo_media_id)::boolean THEN NULLIF(sqlc.narg(logo_media_id), '')::uuid ELSE logo_media_id END,
+  cover_media_id = CASE WHEN sqlc.arg(set_cover_media_id)::boolean THEN NULLIF(sqlc.narg(cover_media_id), '')::uuid ELSE cover_media_id END,
   visibility = CASE WHEN sqlc.arg(set_visibility)::boolean THEN sqlc.arg(visibility) ELSE visibility END,
   status = CASE WHEN sqlc.arg(set_status)::boolean THEN sqlc.arg(status) ELSE status END,
   join_policy = CASE WHEN sqlc.arg(set_join_policy)::boolean THEN sqlc.arg(join_policy) ELSE join_policy END,

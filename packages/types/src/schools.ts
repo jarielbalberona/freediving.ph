@@ -409,7 +409,10 @@ export type CreateSchoolRequest = Pick<
   | "instagramUrl"
 > & { status?: SchoolStatus };
 
-export type UpdateSchoolRequest = Partial<CreateSchoolRequest>;
+export type UpdateSchoolRequest = Partial<CreateSchoolRequest> & {
+  logoMediaId?: string | null;
+  coverMediaId?: string | null;
+};
 
 export type CreateCourseRequest = Omit<
   Course,
