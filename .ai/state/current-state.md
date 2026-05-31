@@ -77,3 +77,21 @@ Before executing an initiative phase, read the relevant `.ai/core` files, this s
 - Dependencies: `user-dive-map`, `dive-journey`, `dive-passport`, `profile-experience-integration`
 - Latest execution status: completed on 2026-06-01. All Dive Memories phases passed, final verification passed, and the initiative final report was written at `.ai/initiatives/dive-memories/reports/final-report.md`.
 - Notes: Dive Memories are site-attached social/contextual records for V1. They are not proof of visiting a dive site and must not unlock Dive Map locations, inflate visited-site counts, mutate `user_dive_sites`, award badges, or verify credentials.
+
+### `mobile-web-parity`
+
+- Status: locked
+- Ready for execution: partial
+- Execution started: yes
+- Initiative path: `.ai/initiatives/mobile-web-parity/`
+- Source assessment: `docs/mobile-web-parity-assessment.md`
+- Latest planning status: authored on 2026-06-01 as a multi-initiative parity plan from assessment lock through final release gate.
+- Latest execution status: `00-mobile-web-parity-assessment-lock.md` passed on 2026-06-01. Assessment evidence, dependency order, and decision gates are locked with no application code changes.
+- Latest readiness lock: corrected on 2026-06-01. Sequence dependency is not `Blocked`; autonomous implementation is intended to proceed through initiatives marked `Ready` and `Ready After Previous` in canonical order.
+- Safe next execution target: `.ai/initiatives/mobile-web-parity/01-auth-onboarding-account-setup.md`.
+- Execution prompts: `.ai/initiatives/mobile-web-parity/execution-prompts.md`.
+- Autonomous execution statuses: `00-mobile-web-parity-assessment-lock.md` is `Done`; `01-auth-onboarding-account-setup.md` is `Ready`; `02`, `03`, `04`, `05`, `06`, `07`, `08`, `10`, `12`, `13`, `14`, `16`, `09`, `11`, `15`, and `17` are `Ready After Previous`.
+- Decision-gated initiatives: none at the initiative level after the 2026-06-01 readiness correction. Specific sub-scopes must still hard-stop if they expose unresolved product, destructive-action, auth, privacy, safety, or missing-contract ambiguity.
+- Blocked initiatives: none at the initiative level after the 2026-06-01 readiness correction.
+- Verification policy: static/code-wise checks remain required. iOS Simulator smoke testing is required for mobile UI, navigation, auth/onboarding, deep-link, media, form, upload, permission, admin/management mobile screen, or user-facing screen changes, and is required for the final parity audit. Android emulator and physical-device testing remain optional unless an initiative explicitly requires Android-specific behavior. If iOS Simulator testing is unavailable or environment-blocked, implementation reports must document the exact command, failure reason, cause classification, static verification result, and manual checklist instead of claiming simulator verification passed.
+- Notes: The plan targets user-facing capability parity with native mobile UX, not pixel-for-pixel web layout copying. Backend and shared contracts remain canonical. Mobile must not treat placeholders as implemented, bypass auth/privacy/block/moderation/role rules, or use client cache/local state as durable truth. Dive Map/Passport/Journey/Memories phases must preserve the proof-based rule that only a user's own qualifying media post tagged to a dive site unlocks/owns that Dive Map location; tagged/shared memories alone must not unlock sites or inflate visited-site counts.
