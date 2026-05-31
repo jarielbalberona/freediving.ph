@@ -11,3 +11,14 @@ The repository is a pnpm monorepo with:
 AI memory V1 has been initialized as repository-local markdown under `.ai`. No application behavior depends on it.
 
 Before executing an initiative phase, read the relevant `.ai/core` files, this state file, `known-risks.md`, `verification-status.md`, the initiative overview, and the current phase file.
+
+## Initiatives
+
+### `user-dive-map`
+
+- Status: locked
+- Ready for execution: yes
+- Execution started: no
+- Initiative path: `.ai/initiatives/user-dive-map/`
+- Locked date: 2026-05-31
+- Notes: User Dive Map is authored as a proof-based initiative. A user unlocks a dive site only through the user's own qualifying media post tagged to `dive_site_id`. Shared/tagged Dive Memories are social/contextual and must not unlock locations or inflate visited-site counts.
