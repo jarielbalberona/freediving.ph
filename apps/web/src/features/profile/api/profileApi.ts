@@ -1,5 +1,7 @@
 import type {
   ProfileBadgesResponse,
+  ProfileDiveMapResponse,
+  ProfileDiveMapSiteResponse,
   ProfileDivingResponse,
   ProfileView,
 } from "@freediving.ph/types";
@@ -14,6 +16,20 @@ export const profileApi = {
 
   async getProfileDiving(username: string): Promise<ProfileDivingResponse> {
     return profilesApi.getProfileDivingByUsername(normalizeUsername(username));
+  },
+
+  async getProfileDiveMap(username: string): Promise<ProfileDiveMapResponse> {
+    return profilesApi.getProfileDiveMapByUsername(normalizeUsername(username));
+  },
+
+  async getProfileDiveMapSite(
+    username: string,
+    siteId: string,
+  ): Promise<ProfileDiveMapSiteResponse> {
+    return profilesApi.getProfileDiveMapSiteByUsername(
+      normalizeUsername(username),
+      siteId,
+    );
   },
 
   async getProfileBadges(username: string): Promise<ProfileBadgesResponse> {

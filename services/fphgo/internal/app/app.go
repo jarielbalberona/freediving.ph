@@ -25,6 +25,7 @@ import (
 	chikahttp "fphgo/internal/features/chika/http"
 	chikarepo "fphgo/internal/features/chika/repo"
 	chikaservice "fphgo/internal/features/chika/service"
+	divemaprepo "fphgo/internal/features/dive_map/repo"
 	eventshttp "fphgo/internal/features/events/http"
 	eventsrepo "fphgo/internal/features/events/repo"
 	eventsservice "fphgo/internal/features/events/service"
@@ -253,6 +254,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	)
 	moderationHandler := moderationhttp.New(moderationService, v)
 	exploreRepo := explorerepo.New(pool)
+	diveMapRepo := divemaprepo.New(pool)
 	mediaRepo := mediarepo.New(pool)
 	var mediaUploader *sharedr2.Client
 	mediaUploader, err := sharedr2.New(context.Background(), sharedr2.Config{
@@ -277,6 +279,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		cfg.MediaSigningSecretV1,
 		cfg.MediaSigningKeyVersion,
 		mediaservice.WithSiteLookup(mediaSiteLookup{explore: exploreRepo}),
+		mediaservice.WithDiveMapDeriver(diveMapRepo),
 		mediaservice.WithActivityPublisher(feedService),
 		mediaservice.WithMomentsEnabled(cfg.MomentsEnabled),
 		mediaservice.WithStreamClient(

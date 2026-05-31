@@ -1,6 +1,6 @@
 # Phase 7: Profile UI Hardening
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -100,4 +100,4 @@ Hard-stop for unresolved UX decision about map presentation, missing API contrac
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+2026-05-31: Phase 7 passed. Hardened profile Dive Map UI selected-marker accessibility and locked/hidden proof-media detail state without adding memories or downstream product UI. See `../reports/phase-7-profile-ui-hardening.md`.

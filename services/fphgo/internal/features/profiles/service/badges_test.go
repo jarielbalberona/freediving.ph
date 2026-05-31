@@ -47,6 +47,14 @@ func (r *badgeTestRepo) ListProfileDivingByUsername(context.Context, string, str
 	return profilesrepo.ProfileDiving{}, nil
 }
 
+func (r *badgeTestRepo) GetProfileDiveMapByUsername(context.Context, string, string) (profilesrepo.ProfileDiveMap, error) {
+	return profilesrepo.ProfileDiveMap{}, nil
+}
+
+func (r *badgeTestRepo) GetProfileDiveMapSiteByUsername(context.Context, string, string, string) (profilesrepo.ProfileDiveMapSiteDetail, error) {
+	return profilesrepo.ProfileDiveMapSiteDetail{}, nil
+}
+
 func (r *badgeTestRepo) ListBadgeTemplates(context.Context) ([]profilesrepo.BadgeTemplate, error) {
 	return []profilesrepo.BadgeTemplate{r.template}, nil
 }

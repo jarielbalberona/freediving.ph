@@ -10,7 +10,18 @@
 
 ### `user-dive-map`
 
-- Existing `media_posts` already has nullable `dive_site_id`, but `user_dive_sites` is not yet implemented as the required proof-based read model.
+- Existing `media_posts` already has nullable `dive_site_id`, and Phase 2 added `user_dive_sites` as the required proof-based read model.
+- Phase 2 added the `services/fphgo/internal/features/dive_map` sqlc query package foundation so derivation/read behavior does not get buried in media or profile services.
+- `user_dive_sites` derivation is implemented for profile media post creation and ready tagged Moment completion. Existing repository behavior can recompute delete/retag/untag states, but no profile media post edit/delete endpoint exists yet; future lifecycle work must call recompute for affected old/new user-site pairs.
+- `user_dive_sites.first_post_id` and `last_post_id` use `ON DELETE RESTRICT`; media lifecycle code must recompute/remove rows before any future hard deletion of proof posts.
+- Moment upload intents do not unlock sites until the Moment media item is active, ready, approved, and still tagged to the same dive site as the owning media post.
+- Profile Dive Map read APIs now use existing profile visibility semantics: `public` anonymous-visible, `members` signed-in visible, and `private` self-only. If product later wants different map-specific privacy semantics, that needs a separate locked decision.
+- The profile repository still contains a transitional media-post fallback for visited-site counts if `user_dive_sites` is absent; migrated environments use `user_dive_sites`.
+- Phase 5 implemented the V1 map as a dense profile section/list with selected-site proof detail, not a full geographic map canvas. This is deliberate until a map-provider UX/runtime requirement is locked.
+- Phase 6 hardening includes static repository contract assertions plus existing Postgres-backed derivation tests; full seeded HTTP integration for profile Dive Map reads remains optional future hardening.
+- Profile Dive Map UI remains a V1 profile section. It intentionally does not expose memory, Journey, Passport, favorites, want-to-visit, manual count, region grouping, or filter controls.
+- Future badges, Journey, and Passport work must consume the documented `user_dive_sites` boundary. If a future initiative bypasses it, source-of-truth conflicts will return.
+- Final User Dive Map V1 verification passed on 2026-05-31, including targeted Go/TypeScript/web checks, repo-level `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, and `git diff --check`.
 - Media ownership and basic qualifying-proof fields are identifiable through `media_posts.author_app_user_id`, `media_posts.dive_site_id`, media object ownership checks, deleted-state fields, and approved `dive_sites`.
 - Shared/tagged Dive Memories must remain social/contextual; treating them as visit proof would corrupt Dive Map counts and downstream badge/journey/passport inputs.
 - Dive Memories and tagged-user sharing are deferred from User Dive Map V1. Future memory integration remains blocked until a separate locked `dive-memories` privacy/tagging specification defines ownership, tagging, acceptance/decline, blocking, visibility, and authorization.

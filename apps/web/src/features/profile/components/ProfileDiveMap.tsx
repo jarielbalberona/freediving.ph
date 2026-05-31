@@ -1,0 +1,218 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import type {
+  ProfileDiveMapMarker,
+  ProfileDiveMapResponse,
+} from "@freediving.ph/types";
+import { ImageIcon, MapPinned } from "lucide-react";
+import Link from "next/link";
+
+import { Badge } from "@/components/ui/badge";
+import {
+  useProfileDiveMapQuery,
+  useProfileDiveMapSiteQuery,
+} from "@/features/profile/hooks/queries";
+
+type ProfileDiveMapProps = {
+  username: string;
+  isOwner: boolean;
+};
+
+export function ProfileDiveMap({ username, isOwner }: ProfileDiveMapProps) {
+  const mapQuery = useProfileDiveMapQuery(username);
+  const markers = mapQuery.data?.markers ?? [];
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const selectedMarker = useMemo(() => {
+    if (selectedSiteId) {
+      return markers.find((marker) => marker.diveSiteId === selectedSiteId);
+    }
+    return markers[0];
+  }, [markers, selectedSiteId]);
+  const selectedID = selectedMarker?.diveSiteId ?? null;
+  const detailQuery = useProfileDiveMapSiteQuery(username, selectedID, Boolean(selectedID));
+
+  if (mapQuery.isPending && !mapQuery.data) {
+    return <StatusCard text="Loading Dive Map" />;
+  }
+
+  if (mapQuery.isError) {
+    return <StatusCard text="Dive Map is unavailable." />;
+  }
+
+  if (markers.length === 0) {
+    return (
+      <EmptyDiveMapState
+        title={isOwner ? "No proof-backed dive sites yet." : "No visible Dive Map sites yet."}
+      />
+    );
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-base font-semibold">
+          <MapPinned className="h-4 w-4" />
+          <h2>Dive Map</h2>
+        </div>
+        <Badge variant="outline" className="h-6 px-2 text-xs">
+          {formatVisitedCount(mapQuery.data)}
+        </Badge>
+      </div>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
+        <div className="min-h-[220px] rounded-xl border border-border/70 bg-muted/30 p-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {markers.map((marker) => {
+              const active = marker.diveSiteId === selectedID;
+              return (
+                <button
+                  key={marker.diveSiteId}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setSelectedSiteId(marker.diveSiteId)}
+                  className={[
+                    "min-h-24 rounded-lg border bg-background p-3 text-left transition",
+                    active
+                      ? "border-primary shadow-sm"
+                      : "border-border/70 hover:border-primary/60",
+                  ].join(" ")}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="line-clamp-1 text-sm font-semibold text-foreground">
+                        {marker.diveSiteName}
+                      </p>
+                      <p className="line-clamp-1 text-xs text-muted-foreground">
+                        {marker.diveSiteArea}
+                      </p>
+                    </div>
+                    <Badge className="h-5 px-2 text-[11px]">
+                      {marker.mediaPostCount}
+                    </Badge>
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Last proof {formatShortDate(marker.lastVisitedAt)}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <DiveMapSiteDetail
+          marker={selectedMarker}
+          isLoading={detailQuery.isPending}
+          isError={detailQuery.isError}
+          media={detailQuery.data?.media ?? []}
+        />
+      </div>
+    </section>
+  );
+}
+
+function DiveMapSiteDetail({
+  marker,
+  isLoading,
+  isError,
+  media,
+}: {
+  marker?: ProfileDiveMapMarker;
+  isLoading: boolean;
+  isError: boolean;
+  media: NonNullable<ReturnType<typeof useProfileDiveMapSiteQuery>["data"]>["media"];
+}) {
+  if (!marker) return null;
+
+  return (
+    <aside className="rounded-xl border border-border/70 bg-background p-4">
+      <div className="space-y-1">
+        <Link
+          href={`/explore/sites/${marker.diveSiteSlug}`}
+          className="line-clamp-1 text-sm font-semibold hover:underline"
+        >
+          {marker.diveSiteName}
+        </Link>
+        <p className="line-clamp-1 text-xs text-muted-foreground">
+          {marker.diveSiteArea}
+        </p>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <Badge variant="outline" className="h-5 px-2 text-[11px]">
+          {marker.mediaPostCount} proof {marker.mediaPostCount === 1 ? "post" : "posts"}
+        </Badge>
+        <Badge variant="outline" className="h-5 px-2 text-[11px]">
+          {formatShortDate(marker.firstVisitedAt)}
+        </Badge>
+      </div>
+      <div className="mt-4 space-y-2">
+        {isLoading ? (
+          <StatusCard text="Loading proof media" />
+        ) : isError ? (
+          <StatusCard text="Proof media is not visible." />
+        ) : media.length > 0 ? (
+          media.slice(0, 4).map((item) => (
+            <div
+              key={item.mediaItemId}
+              className="flex items-center gap-3 rounded-lg border border-border/70 p-2"
+            >
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted">
+                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <p className="line-clamp-1 text-xs font-medium">
+                  {item.caption || `${titleCase(item.type)} proof`}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {formatShortDate(item.createdAt)}
+                </p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <StatusCard text="No visible proof media." />
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function EmptyDiveMapState({ title }: { title: string }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2 text-base font-semibold">
+        <MapPinned className="h-4 w-4" />
+        <h2>Dive Map</h2>
+      </div>
+      <div className="rounded-xl border border-dashed border-border/70 bg-background/55 px-4 py-4">
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+      </div>
+    </section>
+  );
+}
+
+function StatusCard({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-border/70 bg-background/55 px-4 py-3 text-sm text-muted-foreground">
+      {text}
+    </div>
+  );
+}
+
+function formatVisitedCount(data?: ProfileDiveMapResponse) {
+  const count = data?.visitedSiteCount ?? 0;
+  return `${count} ${count === 1 ? "site" : "sites"} visited`;
+}
+
+function formatShortDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function titleCase(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}

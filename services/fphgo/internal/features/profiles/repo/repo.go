@@ -144,6 +144,47 @@ type ProfileDiving struct {
 	Affinities []ProfileDiveSiteAffinity
 }
 
+type ProfileDiveMapMarker struct {
+	UserID           string
+	DiveSiteID       string
+	DiveSiteSlug     string
+	DiveSiteName     string
+	DiveSiteArea     string
+	Latitude         *float64
+	Longitude        *float64
+	FirstPostID      string
+	FirstVisitedAt   time.Time
+	LastPostID       string
+	LastVisitedAt    time.Time
+	MediaPostCount   int32
+	Visibility       string
+	UnlockedAt       time.Time
+	LastProofAddedAt time.Time
+}
+
+type ProfileDiveMap struct {
+	VisitedSiteCount int64
+	Markers          []ProfileDiveMapMarker
+}
+
+type ProfileDiveMapProofMedia struct {
+	PostID        string
+	MediaItemID   string
+	MediaObjectID string
+	Type          string
+	StorageKey    string
+	MimeType      string
+	Width         int32
+	Height        int32
+	Caption       string
+	CreatedAt     time.Time
+}
+
+type ProfileDiveMapSiteDetail struct {
+	Marker ProfileDiveMapMarker
+	Media  []ProfileDiveMapProofMedia
+}
+
 type BadgeTemplate struct {
 	ID           string
 	Slug         string
@@ -711,6 +752,208 @@ func (r *Repo) ListProfileDivingByUsername(ctx context.Context, username, viewer
 	return ProfileDiving{Presences: presences, Affinities: affinities}, nil
 }
 
+func (r *Repo) GetProfileDiveMapByUsername(ctx context.Context, username, viewerUserID string) (ProfileDiveMap, error) {
+	const q = `
+		WITH viewer AS (
+			SELECT NULLIF($2, '')::uuid AS id
+		),
+		visible_markers AS (
+			SELECT
+				uds.*,
+				s.slug AS dive_site_slug,
+				s.name AS dive_site_name,
+				s.area AS dive_site_area,
+				s.latitude,
+				s.longitude
+			FROM users u
+			CROSS JOIN viewer
+			JOIN user_dive_sites uds ON uds.user_id = u.id
+			JOIN dive_sites s ON s.id = uds.dive_site_id
+			WHERE lower(u.username) = lower($1)
+			  AND u.account_status = 'active'
+			  AND s.moderation_state = 'approved'
+			  AND (
+			    uds.visibility = 'public'
+			    OR (uds.visibility = 'members' AND viewer.id IS NOT NULL)
+			    OR (uds.visibility = 'private' AND viewer.id = u.id)
+			  )
+			  AND (
+			    viewer.id IS NULL
+			    OR viewer.id = u.id
+			    OR NOT EXISTS (
+			      SELECT 1
+			      FROM user_blocks ub
+			      WHERE (ub.blocker_app_user_id = viewer.id AND ub.blocked_app_user_id = u.id)
+			         OR (ub.blocker_app_user_id = u.id AND ub.blocked_app_user_id = viewer.id)
+			    )
+			  )
+		)
+		SELECT
+			COUNT(*) OVER ()::bigint AS visited_site_count,
+			user_id,
+			dive_site_id,
+			dive_site_slug,
+			dive_site_name,
+			dive_site_area,
+			latitude,
+			longitude,
+			first_post_id,
+			first_visited_at,
+			last_post_id,
+			last_visited_at,
+			media_post_count,
+			visibility,
+			created_at,
+			updated_at
+		FROM visible_markers
+		ORDER BY updated_at DESC, dive_site_id
+		LIMIT 500
+	`
+	rows, err := r.pool.Query(ctx, q, username, viewerUserID)
+	if err != nil {
+		return ProfileDiveMap{}, err
+	}
+	defer rows.Close()
+
+	result := ProfileDiveMap{Markers: []ProfileDiveMapMarker{}}
+	for rows.Next() {
+		var visitedSiteCount int64
+		marker, err := scanDiveMapMarker(rows.Scan, &visitedSiteCount)
+		if err != nil {
+			return ProfileDiveMap{}, err
+		}
+		result.VisitedSiteCount = visitedSiteCount
+		result.Markers = append(result.Markers, marker)
+	}
+	if err := rows.Err(); err != nil {
+		return ProfileDiveMap{}, err
+	}
+	return result, nil
+}
+
+func (r *Repo) GetProfileDiveMapSiteByUsername(ctx context.Context, username, diveSiteID, viewerUserID string) (ProfileDiveMapSiteDetail, error) {
+	const markerQuery = `
+		WITH viewer AS (
+			SELECT NULLIF($3, '')::uuid AS id
+		)
+		SELECT
+			1::bigint AS visited_site_count,
+			uds.user_id,
+			uds.dive_site_id,
+			s.slug AS dive_site_slug,
+			s.name AS dive_site_name,
+			s.area AS dive_site_area,
+			s.latitude,
+			s.longitude,
+			uds.first_post_id,
+			uds.first_visited_at,
+			uds.last_post_id,
+			uds.last_visited_at,
+			uds.media_post_count,
+			uds.visibility,
+			uds.created_at,
+			uds.updated_at
+		FROM users u
+		CROSS JOIN viewer
+		JOIN user_dive_sites uds ON uds.user_id = u.id
+		JOIN dive_sites s ON s.id = uds.dive_site_id
+		WHERE lower(u.username) = lower($1)
+		  AND u.account_status = 'active'
+		  AND uds.dive_site_id = $2
+		  AND s.moderation_state = 'approved'
+		  AND (
+		    uds.visibility = 'public'
+		    OR (uds.visibility = 'members' AND viewer.id IS NOT NULL)
+		    OR (uds.visibility = 'private' AND viewer.id = u.id)
+		  )
+		  AND (
+		    viewer.id IS NULL
+		    OR viewer.id = u.id
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_blocks ub
+		      WHERE (ub.blocker_app_user_id = viewer.id AND ub.blocked_app_user_id = u.id)
+		         OR (ub.blocker_app_user_id = u.id AND ub.blocked_app_user_id = viewer.id)
+		    )
+		  )
+	`
+	var ignoredCount int64
+	marker, err := scanDiveMapMarker(func(dest ...any) error {
+		return r.pool.QueryRow(ctx, markerQuery, username, toUUID(diveSiteID), viewerUserID).Scan(dest...)
+	}, &ignoredCount)
+	if err != nil {
+		return ProfileDiveMapSiteDetail{}, err
+	}
+
+	const mediaQuery = `
+		SELECT
+			p.id AS post_id,
+			mi.id AS media_item_id,
+			mi.media_object_id,
+			mi.type,
+			mi.storage_key,
+			mi.mime_type,
+			mi.width,
+			mi.height,
+			COALESCE(mi.caption, p.post_caption, '') AS caption,
+			mi.created_at
+		FROM media_posts p
+		JOIN media_items mi ON mi.post_id = p.id
+		JOIN dive_sites s ON s.id = p.dive_site_id
+		WHERE p.author_app_user_id = $1
+		  AND p.dive_site_id = $2
+		  AND p.deleted_at IS NULL
+		  AND s.moderation_state = 'approved'
+		  AND mi.author_app_user_id = p.author_app_user_id
+		  AND mi.dive_site_id = p.dive_site_id
+		  AND mi.status = 'active'
+		  AND mi.processing_status = 'ready'
+		  AND mi.moderation_status = 'approved'
+		  AND mi.deleted_at IS NULL
+		ORDER BY mi.created_at DESC, mi.id DESC
+		LIMIT 120
+	`
+	rows, err := r.pool.Query(ctx, mediaQuery, toUUID(marker.UserID), toUUID(marker.DiveSiteID))
+	if err != nil {
+		return ProfileDiveMapSiteDetail{}, err
+	}
+	defer rows.Close()
+
+	media := make([]ProfileDiveMapProofMedia, 0)
+	for rows.Next() {
+		var (
+			postID    pgtype.UUID
+			itemID    pgtype.UUID
+			objectID  pgtype.UUID
+			createdAt pgtype.Timestamptz
+			item      ProfileDiveMapProofMedia
+		)
+		if err := rows.Scan(
+			&postID,
+			&itemID,
+			&objectID,
+			&item.Type,
+			&item.StorageKey,
+			&item.MimeType,
+			&item.Width,
+			&item.Height,
+			&item.Caption,
+			&createdAt,
+		); err != nil {
+			return ProfileDiveMapSiteDetail{}, err
+		}
+		item.PostID = postID.String()
+		item.MediaItemID = itemID.String()
+		item.MediaObjectID = objectID.String()
+		item.CreatedAt = createdAt.Time.UTC()
+		media = append(media, item)
+	}
+	if err := rows.Err(); err != nil {
+		return ProfileDiveMapSiteDetail{}, err
+	}
+	return ProfileDiveMapSiteDetail{Marker: marker, Media: media}, nil
+}
+
 func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) {
 	const q = `
 		SELECT
@@ -1183,6 +1426,61 @@ func (r *Repo) countDiveSitesVisitedFromUserDiveSitesByUserID(ctx context.Contex
 		return 0, err
 	}
 	return count, nil
+}
+
+type scanFunc func(dest ...any) error
+
+func scanDiveMapMarker(scan scanFunc, visitedSiteCount *int64) (ProfileDiveMapMarker, error) {
+	var (
+		userID         pgtype.UUID
+		siteID         pgtype.UUID
+		firstPostID    pgtype.UUID
+		firstVisitedAt pgtype.Timestamptz
+		lastPostID     pgtype.UUID
+		lastVisitedAt  pgtype.Timestamptz
+		latitude       pgtype.Float8
+		longitude      pgtype.Float8
+		unlockedAt     pgtype.Timestamptz
+		updatedAt      pgtype.Timestamptz
+		marker         ProfileDiveMapMarker
+	)
+	if err := scan(
+		visitedSiteCount,
+		&userID,
+		&siteID,
+		&marker.DiveSiteSlug,
+		&marker.DiveSiteName,
+		&marker.DiveSiteArea,
+		&latitude,
+		&longitude,
+		&firstPostID,
+		&firstVisitedAt,
+		&lastPostID,
+		&lastVisitedAt,
+		&marker.MediaPostCount,
+		&marker.Visibility,
+		&unlockedAt,
+		&updatedAt,
+	); err != nil {
+		return ProfileDiveMapMarker{}, err
+	}
+	marker.UserID = userID.String()
+	marker.DiveSiteID = siteID.String()
+	if latitude.Valid {
+		value := latitude.Float64
+		marker.Latitude = &value
+	}
+	if longitude.Valid {
+		value := longitude.Float64
+		marker.Longitude = &value
+	}
+	marker.FirstPostID = firstPostID.String()
+	marker.FirstVisitedAt = firstVisitedAt.Time.UTC()
+	marker.LastPostID = lastPostID.String()
+	marker.LastVisitedAt = lastVisitedAt.Time.UTC()
+	marker.UnlockedAt = unlockedAt.Time.UTC()
+	marker.LastProofAddedAt = updatedAt.Time.UTC()
+	return marker, nil
 }
 
 func (r *Repo) UserOwnsProofMedia(ctx context.Context, userID, mediaID string) (bool, error) {

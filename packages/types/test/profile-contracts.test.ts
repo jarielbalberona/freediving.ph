@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type {
+  ProfileDiveMapResponse,
+  ProfileDiveMapSiteResponse,
   ProfileDivingResponse,
   ProfileViewResponse,
   UpdateMyProfileRequest,
@@ -56,4 +58,45 @@ test("profile edit request stays limited to user-editable fields", () => {
 
   assert.equal(update.displayName, "Ana Diver");
   assert.equal(update.bio, "Freediver");
+});
+
+test("profile dive map contracts expose proof-based marker and media shapes", () => {
+  const map: ProfileDiveMapResponse = {
+    visitedSiteCount: 1,
+    markers: [
+      {
+        diveSiteId: "66666666-6666-4666-8666-666666666666",
+        diveSiteSlug: "anilao",
+        diveSiteName: "Anilao",
+        diveSiteArea: "Batangas",
+        firstPostId: "11111111-1111-4111-8111-111111111111",
+        firstVisitedAt: "2026-05-31T00:00:00Z",
+        lastPostId: "11111111-1111-4111-8111-111111111111",
+        lastVisitedAt: "2026-05-31T00:00:00Z",
+        mediaPostCount: 1,
+        visibility: "members",
+        unlockedAt: "2026-05-31T00:00:00Z",
+        lastProofAddedAt: "2026-05-31T00:00:00Z",
+      },
+    ],
+  };
+  const detail: ProfileDiveMapSiteResponse = {
+    marker: map.markers[0],
+    media: [
+      {
+        postId: "11111111-1111-4111-8111-111111111111",
+        mediaItemId: "22222222-2222-4222-8222-222222222222",
+        mediaObjectId: "33333333-3333-4333-8333-333333333333",
+        type: "photo",
+        url: "profile-feed/anilao.jpg",
+        mimeType: "image/jpeg",
+        width: 1200,
+        height: 900,
+        createdAt: "2026-05-31T00:00:00Z",
+      },
+    ],
+  };
+
+  assert.equal(map.visitedSiteCount, 1);
+  assert.equal(detail.media[0]?.type, "photo");
 });

@@ -50,6 +50,7 @@ type fakeRepo struct {
 	lastProfileMomentsInput      mediarepo.ListProfileMediaInput
 	lastDiveSiteMomentsInput     mediarepo.ListDiveSiteMomentsInput
 	momentItem                   *mediarepo.MediaItem
+	momentReadyItem              *mediarepo.MediaItem
 	momentLookupErr              error
 	markMomentUploadedCalls      int
 	expiredMomentRows            []int64
@@ -294,6 +295,18 @@ func (f *fakeRepo) MarkMomentUploaded(_ context.Context, postID, ownerID string)
 }
 
 func (f *fakeRepo) MarkMomentReady(_ context.Context, input mediarepo.MomentStatusUpdate) (mediarepo.MediaItem, error) {
+	if f.momentReadyItem != nil {
+		item := *f.momentReadyItem
+		item.Status = "active"
+		item.ProcessingStatus = "ready"
+		item.ModerationStatus = "approved"
+		item.Width = input.Width
+		item.Height = input.Height
+		item.DurationMs = input.DurationMs
+		item.PlaybackURL = &input.PlaybackURL
+		item.ThumbnailURL = &input.ThumbnailURL
+		return item, nil
+	}
 	return mediarepo.MediaItem{
 		ID:               "44444444-4444-4444-4444-444444444444",
 		PostID:           "22222222-2222-2222-2222-222222222222",
@@ -493,6 +506,22 @@ type fakeActivityPublisher struct {
 func (f *fakeActivityPublisher) PublishActivity(_ context.Context, input feedservice.ActivityPublishInput) error {
 	f.items = append(f.items, input)
 	return nil
+}
+
+type fakeDiveMapDeriver struct {
+	calls []struct {
+		userID     string
+		diveSiteID string
+	}
+	err error
+}
+
+func (f *fakeDiveMapDeriver) RecomputeUserDiveSite(_ context.Context, userID, diveSiteID string) error {
+	f.calls = append(f.calls, struct {
+		userID     string
+		diveSiteID string
+	}{userID: userID, diveSiteID: diveSiteID})
+	return f.err
 }
 
 func (f fakeSiteLookup) GetSiteForWrite(context.Context, string) (SiteRecord, error) {
@@ -927,6 +956,62 @@ func TestCreateMediaPostPublishesGroupedPhotos(t *testing.T) {
 	}
 }
 
+func TestCreateMediaPostRecomputesDiveMapForOwnerAndSite(t *testing.T) {
+	repo := &fakeRepo{mediaByID: map[string]mediarepo.MediaObject{
+		"11111111-1111-1111-1111-111111111111": {
+			ID:             "11111111-1111-1111-1111-111111111111",
+			OwnerAppUserID: "550e8400-e29b-41d4-a716-446655440000",
+			ContextType:    ContextProfileFeed,
+			ObjectKey:      "feed/user/one.jpg",
+			MimeType:       "image/jpeg",
+			SizeBytes:      1024,
+			Width:          100,
+			Height:         120,
+			State:          "active",
+		},
+	}}
+	deriver := &fakeDiveMapDeriver{}
+	svc := New(
+		repo,
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret",
+		1,
+		WithSiteLookup(fakeSiteLookup{site: SiteRecord{
+			ID:              "66666666-6666-6666-6666-666666666666",
+			Slug:            "anilao",
+			Name:            "Anilao",
+			Area:            "Batangas",
+			ModerationState: "approved",
+		}}),
+		WithDiveMapDeriver(deriver),
+	)
+
+	_, err := svc.CreateMediaPost(context.Background(), CreateMediaPostInput{
+		ActorID:    "550e8400-e29b-41d4-a716-446655440000",
+		DiveSiteID: "66666666-6666-6666-6666-666666666666",
+		Items: []CreateMediaPostItemInput{{
+			MediaObjectID: "11111111-1111-1111-1111-111111111111",
+			Type:          "photo",
+			StorageKey:    "feed/user/one.jpg",
+			MimeType:      "image/jpeg",
+			Width:         100,
+			Height:        120,
+			SortOrder:     0,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("expected create media post success, got %v", err)
+	}
+	if len(deriver.calls) != 1 {
+		t.Fatalf("expected one dive map recompute, got %+v", deriver.calls)
+	}
+	if deriver.calls[0].userID != "550e8400-e29b-41d4-a716-446655440000" || deriver.calls[0].diveSiteID != "66666666-6666-6666-6666-666666666666" {
+		t.Fatalf("expected owner/site recompute, got %+v", deriver.calls[0])
+	}
+}
+
 func TestMintURLsRejectsInvalidObjectKey(t *testing.T) {
 	repo := &fakeRepo{mediaByID: map[string]mediarepo.MediaObject{
 		"11111111-1111-1111-1111-111111111111": {
@@ -1083,9 +1168,9 @@ func TestListProfileMediaHydratesSignedPhotoURLsForPublicAndAuthenticatedViewers
 	}
 
 	authResult, authErr := svc.ListProfileMedia(context.Background(), ListProfileMediaInput{
-		Username:    "member",
+		Username:     "member",
 		ViewerUserID: "550e8400-e29b-41d4-a716-446655440000",
-		Limit:       24,
+		Limit:        24,
 	})
 	if authErr != nil {
 		t.Fatalf("list profile media as authenticated viewer: %v", authErr)
@@ -1518,6 +1603,50 @@ func TestCompleteMomentUploadMarksReadyWhenStreamIsReady(t *testing.T) {
 	}
 	if len(activity.items) != 1 || activity.items[0].Type != feedservice.ActivityMediaPostCreated {
 		t.Fatalf("expected media activity publish, got %+v", activity.items)
+	}
+}
+
+func TestCompleteMomentUploadRecomputesDiveMapWhenTaggedMomentBecomesReady(t *testing.T) {
+	stream := &fakeStreamClient{video: StreamVideo{
+		UID:             "stream123",
+		ReadyToStream:   true,
+		StatusState:     "ready",
+		DurationSeconds: 12.5,
+		Width:           1080,
+		Height:          1920,
+	}}
+	repo := &fakeRepo{momentReadyItem: &mediarepo.MediaItem{
+		ID:              "44444444-4444-4444-4444-444444444444",
+		PostID:          "22222222-2222-2222-2222-222222222222",
+		AuthorAppUserID: "550e8400-e29b-41d4-a716-446655440000",
+		DiveSiteID:      "66666666-6666-6666-6666-666666666666",
+		Type:            "video",
+		Provider:        "cloudflare_stream",
+	}}
+	deriver := &fakeDiveMapDeriver{}
+	svc := New(
+		repo,
+		nil,
+		"bucket",
+		"https://cdn.example.com",
+		"secret-v1",
+		1,
+		WithStreamClient(stream, false),
+		WithDiveMapDeriver(deriver),
+	)
+
+	_, err := svc.CompleteMomentUpload(context.Background(), CompleteMomentUploadInput{
+		ActorID: "550e8400-e29b-41d4-a716-446655440000",
+		PostID:  "22222222-2222-4222-8222-222222222222",
+	})
+	if err != nil {
+		t.Fatalf("complete moment upload: %v", err)
+	}
+	if len(deriver.calls) != 1 {
+		t.Fatalf("expected one dive map recompute, got %+v", deriver.calls)
+	}
+	if deriver.calls[0].userID != "550e8400-e29b-41d4-a716-446655440000" || deriver.calls[0].diveSiteID != "66666666-6666-6666-6666-666666666666" {
+		t.Fatalf("expected owner/site recompute, got %+v", deriver.calls[0])
 	}
 }
 

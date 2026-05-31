@@ -388,6 +388,10 @@ export const queryKeys = {
       [...queryKeys.profile.all, "view", username] as const,
     diving: (username: string) =>
       [...queryKeys.profile.view(username), "diving"] as const,
+    diveMap: (username: string) =>
+      [...queryKeys.profile.view(username), "dive-map"] as const,
+    diveMapSite: (username: string, siteId: string) =>
+      [...queryKeys.profile.diveMap(username), "site", siteId] as const,
     badges: (username: string) =>
       [...queryKeys.profile.view(username), "badges"] as const,
     myBadges: () => [...queryKeys.profile.all, "my-badges"] as const,

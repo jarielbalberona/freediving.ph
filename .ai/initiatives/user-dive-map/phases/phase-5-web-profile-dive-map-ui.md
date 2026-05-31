@@ -1,6 +1,6 @@
 # Phase 5: Web Profile Dive Map UI
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -100,4 +100,4 @@ Hard-stop for unresolved UX decision about map presentation, missing API contrac
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+2026-05-31: Phase 5 passed. Added web API/client/query support and a profile Dive Map section under the existing Diving tab, with loading, error, empty, marker list, and selected-site proof media states. UI consumes shared `@freediving.ph/types` contracts and backend read APIs. See `../reports/phase-5-web-profile-dive-map-ui.md`.

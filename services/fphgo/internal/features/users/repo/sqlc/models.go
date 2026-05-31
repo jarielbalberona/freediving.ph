@@ -35,17 +35,23 @@ type ActivityItem struct {
 }
 
 type BadgeTemplate struct {
-	ID          pgtype.UUID        `db:"id" json:"id"`
-	Slug        string             `db:"slug" json:"slug"`
-	Name        string             `db:"name" json:"name"`
-	Category    string             `db:"category" json:"category"`
-	ValueType   string             `db:"value_type" json:"value_type"`
-	Unit        *string            `db:"unit" json:"unit"`
-	Icon        *string            `db:"icon" json:"icon"`
-	Description *string            `db:"description" json:"description"`
-	IsSystem    bool               `db:"is_system" json:"is_system"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	Slug         string             `db:"slug" json:"slug"`
+	Name         string             `db:"name" json:"name"`
+	Category     string             `db:"category" json:"category"`
+	ValueType    string             `db:"value_type" json:"value_type"`
+	Unit         *string            `db:"unit" json:"unit"`
+	Icon         *string            `db:"icon" json:"icon"`
+	Description  *string            `db:"description" json:"description"`
+	IsSystem     bool               `db:"is_system" json:"is_system"`
+	DisplayOrder int32              `db:"display_order" json:"display_order"`
+	Rarity       string             `db:"rarity" json:"rarity"`
+	IsPublic     bool               `db:"is_public" json:"is_public"`
+	IsRepeatable bool               `db:"is_repeatable" json:"is_repeatable"`
+	SourceModule string             `db:"source_module" json:"source_module"`
+	MetadataJson []byte             `db:"metadata_json" json:"metadata_json"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type Block struct {
@@ -1274,6 +1280,12 @@ type UserBadge struct {
 	VerificationStatus string             `db:"verification_status" json:"verification_status"`
 	VerifiedAt         pgtype.Timestamptz `db:"verified_at" json:"verified_at"`
 	VerifiedBy         pgtype.UUID        `db:"verified_by" json:"verified_by"`
+	SourceType         string             `db:"source_type" json:"source_type"`
+	SourceID           *string            `db:"source_id" json:"source_id"`
+	EarnedAt           pgtype.Timestamptz `db:"earned_at" json:"earned_at"`
+	Visibility         string             `db:"visibility" json:"visibility"`
+	DisplayOrder       int32              `db:"display_order" json:"display_order"`
+	MetadataJson       []byte             `db:"metadata_json" json:"metadata_json"`
 	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
@@ -1282,6 +1294,19 @@ type UserBlock struct {
 	BlockerAppUserID pgtype.UUID        `db:"blocker_app_user_id" json:"blocker_app_user_id"`
 	BlockedAppUserID pgtype.UUID        `db:"blocked_app_user_id" json:"blocked_app_user_id"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type UserDiveSite struct {
+	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`
+	DiveSiteID     pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	FirstPostID    pgtype.UUID        `db:"first_post_id" json:"first_post_id"`
+	FirstVisitedAt pgtype.Timestamptz `db:"first_visited_at" json:"first_visited_at"`
+	LastPostID     pgtype.UUID        `db:"last_post_id" json:"last_post_id"`
+	LastVisitedAt  pgtype.Timestamptz `db:"last_visited_at" json:"last_visited_at"`
+	MediaPostCount int32              `db:"media_post_count" json:"media_post_count"`
+	Visibility     string             `db:"visibility" json:"visibility"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type UserDiveSiteAffinity struct {

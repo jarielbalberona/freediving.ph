@@ -1,6 +1,6 @@
 # Phase 6: Map Read Model Hardening
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -102,4 +102,4 @@ Hard-stop if enforcing the rules conflicts with existing auth/visibility behavio
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+2026-05-31: Phase 6 passed. Added/strengthened repository contract coverage proving profile Dive Map reads require `user_dive_sites`, target-owned proof media, same-site media, active/ready/approved media, and no Dive Memories reads. See `../reports/phase-6-map-read-model-hardening.md`.

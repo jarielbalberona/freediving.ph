@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProfileDiveMap } from "@/features/profile/components/ProfileDiveMap";
 import { ProfileGrid } from "@/features/profile/components/ProfileGrid";
 
 type ProfileTabsProps = {
@@ -87,6 +88,7 @@ export function ProfileTabs({
         </TabsContent>
         <TabsContent value="diving">
           <ProfileDivingTab
+            username={username}
             data={diving}
             isLoading={isLoadingDiving}
             isOwner={isOwner}
@@ -122,10 +124,12 @@ function ProfilePostsTab({
 }
 
 function ProfileDivingTab({
+  username,
   data,
   isLoading,
   isOwner,
 }: {
+  username: string;
   data?: ProfileDivingResponse;
   isLoading: boolean;
   isOwner: boolean;
@@ -141,6 +145,7 @@ function ProfileDivingTab({
 
   return (
     <div className="space-y-5">
+      <ProfileDiveMap username={username} isOwner={isOwner} />
       <ProfileDivePresenceSection
         items={data?.presences ?? []}
         isOwner={isOwner}

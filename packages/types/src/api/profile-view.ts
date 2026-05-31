@@ -72,3 +72,43 @@ export type ProfileDivingResponse = {
   presences: ProfileDivePresence[];
   affinities: ProfileDiveSiteAffinity[];
 };
+
+export type ProfileDiveMapMarker = {
+  diveSiteId: string;
+  diveSiteSlug: string;
+  diveSiteName: string;
+  diveSiteArea: string;
+  latitude?: number;
+  longitude?: number;
+  firstPostId: string;
+  firstVisitedAt: string;
+  lastPostId: string;
+  lastVisitedAt: string;
+  mediaPostCount: number;
+  visibility: "public" | "members" | "private";
+  unlockedAt: string;
+  lastProofAddedAt: string;
+};
+
+export type ProfileDiveMapProofMedia = {
+  postId: string;
+  mediaItemId: string;
+  mediaObjectId: string;
+  type: "photo" | "video";
+  url: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  caption?: string;
+  createdAt: string;
+};
+
+export type ProfileDiveMapResponse = {
+  visitedSiteCount: number;
+  markers: ProfileDiveMapMarker[];
+};
+
+export type ProfileDiveMapSiteResponse = {
+  marker: ProfileDiveMapMarker;
+  media: ProfileDiveMapProofMedia[];
+};

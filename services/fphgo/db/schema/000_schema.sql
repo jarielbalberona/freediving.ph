@@ -1009,6 +1009,23 @@ CREATE TABLE IF NOT EXISTS media_post_comment_likes (
   PRIMARY KEY (comment_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS user_dive_sites (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE CASCADE,
+  first_post_id UUID NOT NULL REFERENCES media_posts(id) ON DELETE RESTRICT,
+  first_visited_at TIMESTAMPTZ NOT NULL,
+  last_post_id UUID NOT NULL REFERENCES media_posts(id) ON DELETE RESTRICT,
+  last_visited_at TIMESTAMPTZ NOT NULL,
+  media_post_count INTEGER NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'members',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, dive_site_id),
+  CHECK (media_post_count > 0),
+  CHECK (first_visited_at <= last_visited_at),
+  CHECK (visibility IN ('public', 'members', 'private'))
+);
+
 CREATE TABLE IF NOT EXISTS dive_site_likes (
   dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1895,5 +1912,9 @@ CREATE INDEX IF NOT EXISTS idx_media_post_comments_post_created_at ON media_post
 CREATE INDEX IF NOT EXISTS idx_media_post_comments_author_created_at ON media_post_comments (author_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_media_post_comment_likes_comment ON media_post_comment_likes (comment_id);
 CREATE INDEX IF NOT EXISTS idx_media_post_comment_likes_user ON media_post_comment_likes (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_dive_sites_dive_site ON user_dive_sites (dive_site_id, visibility, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_dive_sites_user_updated ON user_dive_sites (user_id, updated_at DESC, dive_site_id);
+CREATE INDEX IF NOT EXISTS idx_user_dive_sites_first_post ON user_dive_sites (first_post_id);
+CREATE INDEX IF NOT EXISTS idx_user_dive_sites_last_post ON user_dive_sites (last_post_id);
 CREATE INDEX IF NOT EXISTS idx_dive_site_likes_site ON dive_site_likes (dive_site_id);
 CREATE INDEX IF NOT EXISTS idx_dive_site_likes_user ON dive_site_likes (user_id);

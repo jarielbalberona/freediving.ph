@@ -724,6 +724,14 @@ func (s *contractProfilesService) GetProfileDivingByUsername(_ context.Context, 
 	return profilesservice.ProfileDiving{}, nil
 }
 
+func (s *contractProfilesService) GetProfileDiveMapByUsername(_ context.Context, _ string, _ string) (profilesservice.ProfileDiveMap, error) {
+	return profilesservice.ProfileDiveMap{Markers: []profilesservice.ProfileDiveMapMarker{}}, nil
+}
+
+func (s *contractProfilesService) GetProfileDiveMapSiteByUsername(_ context.Context, _ string, _ string, _ string) (profilesservice.ProfileDiveMapSiteDetail, error) {
+	return profilesservice.ProfileDiveMapSiteDetail{}, nil
+}
+
 func (s *contractProfilesService) GetMyBadges(_ context.Context, _ string) (profilesservice.ProfileBadges, error) {
 	return profilesservice.ProfileBadges{}, nil
 }

@@ -1,6 +1,6 @@
 # Phase 4: Dive Map Read APIs And Shared Contracts
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -105,4 +105,4 @@ Hard-stop for auth ambiguity, public/private profile ambiguity, ambiguous route 
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+2026-05-31: Phase 4 passed. Added shared TypeScript contracts and public profile Dive Map read endpoints for marker list and per-site proof-media details. Reads are sourced from `user_dive_sites`; marker detail first proves the target user has an unlocked visible marker and returns only that user's qualifying media items. See `../reports/phase-4-dive-map-read-apis-and-contracts.md`.

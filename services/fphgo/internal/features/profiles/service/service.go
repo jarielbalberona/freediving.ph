@@ -30,6 +30,8 @@ type repository interface {
 	GetProfileViewByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileView, error)
 	ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]profilesrepo.ProfileBucketListItem, error)
 	ListProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileDiving, error)
+	GetProfileDiveMapByUsername(ctx context.Context, username, viewerUserID string) (profilesrepo.ProfileDiveMap, error)
+	GetProfileDiveMapSiteByUsername(ctx context.Context, username, diveSiteID, viewerUserID string) (profilesrepo.ProfileDiveMapSiteDetail, error)
 	ListBadgeTemplates(ctx context.Context) ([]profilesrepo.BadgeTemplate, error)
 	GetBadgeTemplate(ctx context.Context, templateID string) (profilesrepo.BadgeTemplate, error)
 	ListUserBadgesByUserID(ctx context.Context, userID string) ([]profilesrepo.UserBadge, error)
@@ -161,6 +163,46 @@ type ProfileDiveSiteAffinity struct {
 type ProfileDiving struct {
 	Presences  []ProfileDivePresence
 	Affinities []ProfileDiveSiteAffinity
+}
+
+type ProfileDiveMapMarker struct {
+	DiveSiteID       string
+	DiveSiteSlug     string
+	DiveSiteName     string
+	DiveSiteArea     string
+	Latitude         *float64
+	Longitude        *float64
+	FirstPostID      string
+	FirstVisitedAt   time.Time
+	LastPostID       string
+	LastVisitedAt    time.Time
+	MediaPostCount   int32
+	Visibility       string
+	UnlockedAt       time.Time
+	LastProofAddedAt time.Time
+}
+
+type ProfileDiveMap struct {
+	VisitedSiteCount int64
+	Markers          []ProfileDiveMapMarker
+}
+
+type ProfileDiveMapProofMedia struct {
+	PostID        string
+	MediaItemID   string
+	MediaObjectID string
+	Type          string
+	URL           string
+	MimeType      string
+	Width         int32
+	Height        int32
+	Caption       string
+	CreatedAt     time.Time
+}
+
+type ProfileDiveMapSiteDetail struct {
+	Marker ProfileDiveMapMarker
+	Media  []ProfileDiveMapProofMedia
 }
 
 type BadgeTemplate struct {
@@ -518,6 +560,87 @@ func (s *Service) GetProfileDivingByUsername(ctx context.Context, username, view
 	}
 
 	return ProfileDiving{Presences: presences, Affinities: affinities}, nil
+}
+
+func (s *Service) GetProfileDiveMapByUsername(ctx context.Context, username, viewerUserID string) (ProfileDiveMap, error) {
+	value := strings.TrimSpace(username)
+	if value == "" {
+		return ProfileDiveMap{}, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
+	}
+	viewerID := strings.TrimSpace(viewerUserID)
+	if viewerID != "" {
+		if _, err := uuid.Parse(viewerID); err != nil {
+			return ProfileDiveMap{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+	result, err := s.repo.GetProfileDiveMapByUsername(ctx, value, viewerID)
+	if err != nil {
+		return ProfileDiveMap{}, apperrors.New(http.StatusInternalServerError, "profile_dive_map_failed", "failed to fetch profile dive map", err)
+	}
+	markers := make([]ProfileDiveMapMarker, 0, len(result.Markers))
+	for _, marker := range result.Markers {
+		markers = append(markers, profileDiveMapMarkerFromRepo(marker))
+	}
+	return ProfileDiveMap{VisitedSiteCount: result.VisitedSiteCount, Markers: markers}, nil
+}
+
+func (s *Service) GetProfileDiveMapSiteByUsername(ctx context.Context, username, diveSiteID, viewerUserID string) (ProfileDiveMapSiteDetail, error) {
+	value := strings.TrimSpace(username)
+	if value == "" {
+		return ProfileDiveMapSiteDetail{}, apperrors.New(http.StatusBadRequest, "invalid_username", "username is required", nil)
+	}
+	siteID := strings.TrimSpace(diveSiteID)
+	if _, err := uuid.Parse(siteID); err != nil {
+		return ProfileDiveMapSiteDetail{}, apperrors.New(http.StatusBadRequest, "invalid_dive_site_id", "dive site id is invalid", err)
+	}
+	viewerID := strings.TrimSpace(viewerUserID)
+	if viewerID != "" {
+		if _, err := uuid.Parse(viewerID); err != nil {
+			return ProfileDiveMapSiteDetail{}, apperrors.New(http.StatusUnauthorized, "unauthorized", "invalid viewer id", err)
+		}
+	}
+	result, err := s.repo.GetProfileDiveMapSiteByUsername(ctx, value, siteID, viewerID)
+	if err != nil {
+		if profilesrepo.IsNoRows(err) {
+			return ProfileDiveMapSiteDetail{}, apperrors.New(http.StatusNotFound, "dive_map_site_not_found", "dive map site not found", err)
+		}
+		return ProfileDiveMapSiteDetail{}, apperrors.New(http.StatusInternalServerError, "profile_dive_map_failed", "failed to fetch profile dive map site", err)
+	}
+	media := make([]ProfileDiveMapProofMedia, 0, len(result.Media))
+	for _, item := range result.Media {
+		media = append(media, ProfileDiveMapProofMedia{
+			PostID:        item.PostID,
+			MediaItemID:   item.MediaItemID,
+			MediaObjectID: item.MediaObjectID,
+			Type:          item.Type,
+			URL:           mediaurl.Materialize(item.StorageKey, s.mediaBaseURL),
+			MimeType:      item.MimeType,
+			Width:         item.Width,
+			Height:        item.Height,
+			Caption:       item.Caption,
+			CreatedAt:     item.CreatedAt,
+		})
+	}
+	return ProfileDiveMapSiteDetail{Marker: profileDiveMapMarkerFromRepo(result.Marker), Media: media}, nil
+}
+
+func profileDiveMapMarkerFromRepo(marker profilesrepo.ProfileDiveMapMarker) ProfileDiveMapMarker {
+	return ProfileDiveMapMarker{
+		DiveSiteID:       marker.DiveSiteID,
+		DiveSiteSlug:     marker.DiveSiteSlug,
+		DiveSiteName:     marker.DiveSiteName,
+		DiveSiteArea:     marker.DiveSiteArea,
+		Latitude:         marker.Latitude,
+		Longitude:        marker.Longitude,
+		FirstPostID:      marker.FirstPostID,
+		FirstVisitedAt:   marker.FirstVisitedAt,
+		LastPostID:       marker.LastPostID,
+		LastVisitedAt:    marker.LastVisitedAt,
+		MediaPostCount:   marker.MediaPostCount,
+		Visibility:       marker.Visibility,
+		UnlockedAt:       marker.UnlockedAt,
+		LastProofAddedAt: marker.LastProofAddedAt,
+	}
 }
 
 func (s *Service) GetMyBadges(ctx context.Context, actorID string) (ProfileBadges, error) {

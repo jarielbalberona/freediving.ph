@@ -1,6 +1,6 @@
 # Phase 3: Media Post To User Dive Sites Derivation
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -99,4 +99,4 @@ Hard-stop if qualifying proof rules are ambiguous, media ownership is ambiguous,
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+2026-05-31: Phase 3 passed. Implemented deterministic `user_dive_sites` recompute from qualifying owned media posts through the `dive_map` repository, wired media post creation and ready Moment completion to trigger recompute for the owner/site pair, and added service plus Postgres-backed repository tests. Existing update/delete/retag/untag runtime endpoints were not invented; the recompute repository behavior covers those lifecycle states when affected pairs are supplied by future lifecycle code. See `../reports/phase-3-media-post-derivation.md`.

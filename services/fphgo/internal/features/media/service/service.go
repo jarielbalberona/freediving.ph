@@ -101,6 +101,7 @@ type Service struct {
 	repo                     repository
 	uploader                 uploader
 	siteLookup               siteLookup
+	diveMapDeriver           diveMapDeriver
 	bucketName               string
 	cdnBaseURL               string
 	signingSecret            string
@@ -116,6 +117,10 @@ type Service struct {
 
 type siteLookup interface {
 	GetSiteForWrite(ctx context.Context, siteID string) (SiteRecord, error)
+}
+
+type diveMapDeriver interface {
+	RecomputeUserDiveSite(ctx context.Context, userID, diveSiteID string) error
 }
 
 type SiteRecord struct {
@@ -137,6 +142,12 @@ func WithSiteLookup(lookup siteLookup) Option {
 		if lookup != nil {
 			s.siteLookup = lookup
 		}
+	}
+}
+
+func WithDiveMapDeriver(deriver diveMapDeriver) Option {
+	return func(s *Service) {
+		s.diveMapDeriver = deriver
 	}
 }
 
@@ -1244,8 +1255,18 @@ func (s *Service) syncMomentStreamStatus(ctx context.Context, streamUID string) 
 	if err != nil {
 		return mediarepo.MediaItem{}, err
 	}
+	if err := s.recomputeDiveMap(ctx, item.AuthorAppUserID, item.DiveSiteID); err != nil {
+		return mediarepo.MediaItem{}, err
+	}
 	s.publishMomentActivity(ctx, item)
 	return item, nil
+}
+
+func (s *Service) recomputeDiveMap(ctx context.Context, userID, diveSiteID string) error {
+	if s.diveMapDeriver == nil || strings.TrimSpace(userID) == "" || strings.TrimSpace(diveSiteID) == "" {
+		return nil
+	}
+	return s.diveMapDeriver.RecomputeUserDiveSite(ctx, userID, diveSiteID)
 }
 
 func (s *Service) publishMomentActivity(ctx context.Context, item mediarepo.MediaItem) {
@@ -1495,6 +1516,9 @@ func (s *Service) CreateMediaPost(ctx context.Context, input CreateMediaPostInpu
 	})
 	if err != nil {
 		return CreateMediaPostResult{}, apperrors.New(http.StatusInternalServerError, "media_post_create_failed", "failed to create media post", err)
+	}
+	if err := s.recomputeDiveMap(ctx, createdPost.AuthorAppUserID, valueOrEmptyString(createdPost.DiveSiteID)); err != nil {
+		return CreateMediaPostResult{}, apperrors.New(http.StatusInternalServerError, "dive_map_derivation_failed", "failed to update dive map proof", err)
 	}
 
 	resultItems := make([]ProfileMediaItemResult, 0, len(createdItems))

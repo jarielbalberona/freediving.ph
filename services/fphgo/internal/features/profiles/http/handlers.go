@@ -27,6 +27,8 @@ type profileService interface {
 	GetProfileViewByUsername(ctx context.Context, username, viewerUserID string) (profilesservice.ProfileView, error)
 	ListProfileBucketListByUsername(ctx context.Context, username string, limit int32) ([]profilesservice.ProfileBucketListItem, error)
 	GetProfileDivingByUsername(ctx context.Context, username, viewerUserID string) (profilesservice.ProfileDiving, error)
+	GetProfileDiveMapByUsername(ctx context.Context, username, viewerUserID string) (profilesservice.ProfileDiveMap, error)
+	GetProfileDiveMapSiteByUsername(ctx context.Context, username, diveSiteID, viewerUserID string) (profilesservice.ProfileDiveMapSiteDetail, error)
 	GetMyBadges(ctx context.Context, actorID string) (profilesservice.ProfileBadges, error)
 	GetProfileBadgesByUsername(ctx context.Context, username string) (profilesservice.ProfileBadges, error)
 	CreateUserBadge(ctx context.Context, input profilesservice.UpsertUserBadgeInput) (profilesservice.UserBadge, error)
@@ -364,6 +366,73 @@ func (h *Handlers) GetProfileDivingByUsername(w http.ResponseWriter, r *http.Req
 		Presences:  presences,
 		Affinities: affinities,
 	})
+}
+
+func (h *Handlers) GetProfileDiveMapByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	viewerID := actorIDIfPresent(r)
+	result, err := h.service.GetProfileDiveMapByUsername(r.Context(), username, viewerID)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	markers := make([]ProfileDiveMapMarker, 0, len(result.Markers))
+	for _, marker := range result.Markers {
+		markers = append(markers, profileDiveMapMarkerToDTO(marker))
+	}
+	httpx.JSON(w, http.StatusOK, ProfileDiveMapResponse{
+		VisitedSiteCount: result.VisitedSiteCount,
+		Markers:          markers,
+	})
+}
+
+func (h *Handlers) GetProfileDiveMapSiteByUsername(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	siteID := chi.URLParam(r, "siteID")
+	viewerID := actorIDIfPresent(r)
+	result, err := h.service.GetProfileDiveMapSiteByUsername(r.Context(), username, siteID, viewerID)
+	if err != nil {
+		httpx.Error(w, middleware.RequestIDFromContext(r.Context()), err)
+		return
+	}
+	media := make([]ProfileDiveMapProofMedia, 0, len(result.Media))
+	for _, item := range result.Media {
+		media = append(media, ProfileDiveMapProofMedia{
+			PostID:        item.PostID,
+			MediaItemID:   item.MediaItemID,
+			MediaObjectID: item.MediaObjectID,
+			Type:          item.Type,
+			URL:           item.URL,
+			MimeType:      item.MimeType,
+			Width:         item.Width,
+			Height:        item.Height,
+			Caption:       item.Caption,
+			CreatedAt:     item.CreatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	httpx.JSON(w, http.StatusOK, ProfileDiveMapSiteResponse{
+		Marker: profileDiveMapMarkerToDTO(result.Marker),
+		Media:  media,
+	})
+}
+
+func profileDiveMapMarkerToDTO(marker profilesservice.ProfileDiveMapMarker) ProfileDiveMapMarker {
+	return ProfileDiveMapMarker{
+		DiveSiteID:       marker.DiveSiteID,
+		DiveSiteSlug:     marker.DiveSiteSlug,
+		DiveSiteName:     marker.DiveSiteName,
+		DiveSiteArea:     marker.DiveSiteArea,
+		Latitude:         marker.Latitude,
+		Longitude:        marker.Longitude,
+		FirstPostID:      marker.FirstPostID,
+		FirstVisitedAt:   marker.FirstVisitedAt.UTC().Format(time.RFC3339),
+		LastPostID:       marker.LastPostID,
+		LastVisitedAt:    marker.LastVisitedAt.UTC().Format(time.RFC3339),
+		MediaPostCount:   marker.MediaPostCount,
+		Visibility:       marker.Visibility,
+		UnlockedAt:       marker.UnlockedAt.UTC().Format(time.RFC3339),
+		LastProofAddedAt: marker.LastProofAddedAt.UTC().Format(time.RFC3339),
+	}
 }
 
 func (h *Handlers) GetProfileBadgesByUsername(w http.ResponseWriter, r *http.Request) {

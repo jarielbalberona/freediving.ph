@@ -1042,6 +1042,14 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/profiles/{username}/dive-map"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/{username}/dive-map/{siteID}"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/profiles/{username}/diving"
     },
     {

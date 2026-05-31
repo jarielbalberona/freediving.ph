@@ -15,6 +15,16 @@ type ProfileDivingResponse struct {
 	Affinities []ProfileDiveSiteAffinity `json:"affinities"`
 }
 
+type ProfileDiveMapResponse struct {
+	VisitedSiteCount int64                  `json:"visitedSiteCount"`
+	Markers          []ProfileDiveMapMarker `json:"markers"`
+}
+
+type ProfileDiveMapSiteResponse struct {
+	Marker ProfileDiveMapMarker       `json:"marker"`
+	Media  []ProfileDiveMapProofMedia `json:"media"`
+}
+
 type ProfileBadgesResponse struct {
 	Templates []BadgeTemplate `json:"templates,omitempty"`
 	Badges    []UserBadge     `json:"badges"`
@@ -121,6 +131,36 @@ type ProfileDiveSiteAffinity struct {
 	Note             string `json:"note,omitempty"`
 	CreatedAt        string `json:"createdAt"`
 	UpdatedAt        string `json:"updatedAt"`
+}
+
+type ProfileDiveMapMarker struct {
+	DiveSiteID       string   `json:"diveSiteId"`
+	DiveSiteSlug     string   `json:"diveSiteSlug"`
+	DiveSiteName     string   `json:"diveSiteName"`
+	DiveSiteArea     string   `json:"diveSiteArea"`
+	Latitude         *float64 `json:"latitude,omitempty"`
+	Longitude        *float64 `json:"longitude,omitempty"`
+	FirstPostID      string   `json:"firstPostId"`
+	FirstVisitedAt   string   `json:"firstVisitedAt"`
+	LastPostID       string   `json:"lastPostId"`
+	LastVisitedAt    string   `json:"lastVisitedAt"`
+	MediaPostCount   int32    `json:"mediaPostCount"`
+	Visibility       string   `json:"visibility"`
+	UnlockedAt       string   `json:"unlockedAt"`
+	LastProofAddedAt string   `json:"lastProofAddedAt"`
+}
+
+type ProfileDiveMapProofMedia struct {
+	PostID        string `json:"postId"`
+	MediaItemID   string `json:"mediaItemId"`
+	MediaObjectID string `json:"mediaObjectId"`
+	Type          string `json:"type"`
+	URL           string `json:"url"`
+	MimeType      string `json:"mimeType"`
+	Width         int32  `json:"width"`
+	Height        int32  `json:"height"`
+	Caption       string `json:"caption,omitempty"`
+	CreatedAt     string `json:"createdAt"`
 }
 
 type BadgeTemplate struct {

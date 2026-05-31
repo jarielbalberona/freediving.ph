@@ -91,6 +91,14 @@ func (m *memoryProfilesRepo) ListProfileDivingByUsername(_ context.Context, _ st
 	return profilesrepo.ProfileDiving{}, nil
 }
 
+func (m *memoryProfilesRepo) GetProfileDiveMapByUsername(_ context.Context, _ string, _ string) (profilesrepo.ProfileDiveMap, error) {
+	return profilesrepo.ProfileDiveMap{Markers: []profilesrepo.ProfileDiveMapMarker{}}, nil
+}
+
+func (m *memoryProfilesRepo) GetProfileDiveMapSiteByUsername(_ context.Context, _ string, _ string, _ string) (profilesrepo.ProfileDiveMapSiteDetail, error) {
+	return profilesrepo.ProfileDiveMapSiteDetail{}, nil
+}
+
 func (m *memoryProfilesRepo) ListBadgeTemplates(_ context.Context) ([]profilesrepo.BadgeTemplate, error) {
 	return []profilesrepo.BadgeTemplate{}, nil
 }
@@ -267,6 +275,59 @@ func (s *stubProfilesService) GetProfileDivingByUsername(_ context.Context, _ st
 	}, nil
 }
 
+func (s *stubProfilesService) GetProfileDiveMapByUsername(_ context.Context, _ string, _ string) (profilesservice.ProfileDiveMap, error) {
+	now := time.Now().UTC()
+	return profilesservice.ProfileDiveMap{
+		VisitedSiteCount: 1,
+		Markers: []profilesservice.ProfileDiveMapMarker{{
+			DiveSiteID:       "550e8400-e29b-41d4-a716-446655440092",
+			DiveSiteSlug:     "napaling-reef",
+			DiveSiteName:     "Napaling Reef",
+			DiveSiteArea:     "Panglao, Bohol",
+			FirstPostID:      "550e8400-e29b-41d4-a716-446655440093",
+			FirstVisitedAt:   now,
+			LastPostID:       "550e8400-e29b-41d4-a716-446655440093",
+			LastVisitedAt:    now,
+			MediaPostCount:   1,
+			Visibility:       "members",
+			UnlockedAt:       now,
+			LastProofAddedAt: now,
+		}},
+	}, nil
+}
+
+func (s *stubProfilesService) GetProfileDiveMapSiteByUsername(_ context.Context, _ string, _ string, _ string) (profilesservice.ProfileDiveMapSiteDetail, error) {
+	now := time.Now().UTC()
+	marker := profilesservice.ProfileDiveMapMarker{
+		DiveSiteID:       "550e8400-e29b-41d4-a716-446655440092",
+		DiveSiteSlug:     "napaling-reef",
+		DiveSiteName:     "Napaling Reef",
+		DiveSiteArea:     "Panglao, Bohol",
+		FirstPostID:      "550e8400-e29b-41d4-a716-446655440093",
+		FirstVisitedAt:   now,
+		LastPostID:       "550e8400-e29b-41d4-a716-446655440093",
+		LastVisitedAt:    now,
+		MediaPostCount:   1,
+		Visibility:       "members",
+		UnlockedAt:       now,
+		LastProofAddedAt: now,
+	}
+	return profilesservice.ProfileDiveMapSiteDetail{
+		Marker: marker,
+		Media: []profilesservice.ProfileDiveMapProofMedia{{
+			PostID:        "550e8400-e29b-41d4-a716-446655440093",
+			MediaItemID:   "550e8400-e29b-41d4-a716-446655440094",
+			MediaObjectID: "550e8400-e29b-41d4-a716-446655440095",
+			Type:          "photo",
+			URL:           "profile-feed/napaling.jpg",
+			MimeType:      "image/jpeg",
+			Width:         1200,
+			Height:        900,
+			CreatedAt:     now,
+		}},
+	}, nil
+}
+
 func TestProfilesEndpointsAuthPermissionAndSuccess(t *testing.T) {
 	v := validatex.New()
 	h := New(&stubProfilesService{}, v)
@@ -387,6 +448,42 @@ func TestProfileDivingEndpointIsPublicAndReturnsSeparatePresenceAndAffinityLists
 	}
 	if body.Affinities[0].DiveSiteSlug != "napaling-reef" || body.Affinities[0].DiveSiteName != "Napaling Reef" {
 		t.Fatalf("expected affinity dive-site data, got %+v", body.Affinities[0])
+	}
+}
+
+func TestProfileDiveMapEndpointsReturnMarkersAndProofMedia(t *testing.T) {
+	v := validatex.New()
+	h := New(&stubProfilesService{}, v)
+	router := chi.NewRouter()
+	router.Get("/profiles/{username}/dive-map", h.GetProfileDiveMapByUsername)
+	router.Get("/profiles/{username}/dive-map/{siteID}", h.GetProfileDiveMapSiteByUsername)
+
+	listReq := httptest.NewRequest(http.MethodGet, "/profiles/member/dive-map", nil)
+	listRec := httptest.NewRecorder()
+	router.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for profile dive map, got %d: %s", listRec.Code, listRec.Body.String())
+	}
+	var listBody ProfileDiveMapResponse
+	if err := json.Unmarshal(listRec.Body.Bytes(), &listBody); err != nil {
+		t.Fatalf("decode profile dive map response: %v", err)
+	}
+	if listBody.VisitedSiteCount != 1 || len(listBody.Markers) != 1 || listBody.Markers[0].MediaPostCount != 1 {
+		t.Fatalf("expected proof marker list, got %+v", listBody)
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/profiles/member/dive-map/550e8400-e29b-41d4-a716-446655440092", nil)
+	detailRec := httptest.NewRecorder()
+	router.ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for profile dive map site, got %d: %s", detailRec.Code, detailRec.Body.String())
+	}
+	var detailBody ProfileDiveMapSiteResponse
+	if err := json.Unmarshal(detailRec.Body.Bytes(), &detailBody); err != nil {
+		t.Fatalf("decode profile dive map site response: %v", err)
+	}
+	if detailBody.Marker.DiveSiteSlug != "napaling-reef" || len(detailBody.Media) != 1 || detailBody.Media[0].Type != "photo" {
+		t.Fatalf("expected proof media detail, got %+v", detailBody)
 	}
 }
 

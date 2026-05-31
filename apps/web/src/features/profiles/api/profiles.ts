@@ -1,4 +1,6 @@
 import {
+  type ProfileDiveMapResponse,
+  type ProfileDiveMapSiteResponse,
   type ProfileDivingResponse,
   type ProfileBadgesResponse,
   type Profile,
@@ -56,6 +58,25 @@ export const profilesApi = {
   ): Promise<ProfileDivingResponse> => {
     return fphgoFetchClient<ProfileDivingResponse>(
       routes.v1.profiles.profileDiving(username),
+      { auth: "ready-only" },
+    );
+  },
+
+  getProfileDiveMapByUsername: async (
+    username: string,
+  ): Promise<ProfileDiveMapResponse> => {
+    return fphgoFetchClient<ProfileDiveMapResponse>(
+      routes.v1.profiles.profileDiveMap(username),
+      { auth: "ready-only" },
+    );
+  },
+
+  getProfileDiveMapSiteByUsername: async (
+    username: string,
+    siteId: string,
+  ): Promise<ProfileDiveMapSiteResponse> => {
+    return fphgoFetchClient<ProfileDiveMapSiteResponse>(
+      routes.v1.profiles.profileDiveMapSite(username, siteId),
       { auth: "ready-only" },
     );
   },

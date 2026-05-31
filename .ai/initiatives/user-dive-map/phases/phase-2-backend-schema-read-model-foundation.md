@@ -1,6 +1,6 @@
 # Phase 2: Backend Schema/Read Model Foundation
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -106,4 +106,4 @@ Hard-stop for destructive migration, ambiguous target dive site table, ambiguous
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+2026-05-31: Phase 2 passed. Added non-destructive `0084_user_dive_sites.sql`, updated schema snapshot, added minimal `dive_map` sqlc query package/config, and generated sqlc output. No runtime behavior, web code, Journey, Passport, badges, or Dive Memories were implemented. See `../reports/phase-2-backend-schema-read-model-foundation.md`.
