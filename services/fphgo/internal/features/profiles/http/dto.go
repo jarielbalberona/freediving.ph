@@ -21,8 +21,9 @@ type ProfileDiveMapResponse struct {
 }
 
 type ProfileDiveMapSiteResponse struct {
-	Marker ProfileDiveMapMarker       `json:"marker"`
-	Media  []ProfileDiveMapProofMedia `json:"media"`
+	Marker   ProfileDiveMapMarker       `json:"marker"`
+	Media    []ProfileDiveMapProofMedia `json:"media"`
+	Memories []ProfileDiveMapMemory     `json:"memories"`
 }
 
 type ProfileBadgesResponse struct {
@@ -161,6 +162,19 @@ type ProfileDiveMapProofMedia struct {
 	Height        int32  `json:"height"`
 	Caption       string `json:"caption,omitempty"`
 	CreatedAt     string `json:"createdAt"`
+}
+
+type ProfileDiveMapMemory struct {
+	ID           string   `json:"id"`
+	AuthorUserID string   `json:"authorUserId"`
+	DiveSiteID   string   `json:"diveSiteId"`
+	Title        string   `json:"title"`
+	Body         string   `json:"body,omitempty"`
+	MediaIDs     []string `json:"mediaIds"`
+	Visibility   string   `json:"visibility"`
+	OccurredAt   string   `json:"occurredAt"`
+	CreatedAt    string   `json:"createdAt"`
+	UpdatedAt    string   `json:"updatedAt"`
 }
 
 type BadgeTemplate struct {

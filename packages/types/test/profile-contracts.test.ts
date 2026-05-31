@@ -95,8 +95,23 @@ test("profile dive map contracts expose proof-based marker and media shapes", ()
         createdAt: "2026-05-31T00:00:00Z",
       },
     ],
+    memories: [
+      {
+        id: "memory-1",
+        authorUserId: "user-1",
+        diveSiteId: "66666666-6666-4666-8666-666666666666",
+        title: "Current and calm",
+        mediaIds: [],
+        visibility: "public",
+        occurredAt: "2026-05-31T00:00:00Z",
+        createdAt: "2026-05-31T00:00:00Z",
+        updatedAt: "2026-05-31T00:00:00Z",
+      },
+    ],
   };
 
   assert.equal(map.visitedSiteCount, 1);
   assert.equal(detail.media[0]?.type, "photo");
+  assert.equal(detail.memories[0]?.title, "Current and calm");
+  assert.equal("visitedSiteCount" in detail.memories[0], false);
 });

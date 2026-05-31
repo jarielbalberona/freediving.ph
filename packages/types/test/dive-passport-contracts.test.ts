@@ -42,7 +42,7 @@ test("Passport aggregate contract represents empty and unavailable sections", ()
       badgeShowcase: { state: empty, badges: [], autoStats: [] },
       journeyHighlights: { state: empty, entries: [] },
       recentMedia: { state: empty, items: [] },
-      memories: unavailable,
+      memories: { state: unavailable, items: [] },
       settings: {
         showMap: true,
         showBadges: true,
@@ -54,7 +54,7 @@ test("Passport aggregate contract represents empty and unavailable sections", ()
   };
 
   assert.equal(response.passport.mapPreview.state.status, "empty");
-  assert.equal(response.passport.memories.status, "unavailable");
+  assert.equal(response.passport.memories.state.status, "unavailable");
   assert.equal(response.passport.stats.visitedSiteCount, 0);
   assert.equal(response.passport.stats.badgeCount, 0);
   assert.equal(response.passport.stats.journeyEntryCount, 0);

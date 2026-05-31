@@ -4,6 +4,23 @@
 
 `<initiative-key>`
 
+## Dependencies
+
+depends_on: []
+
+Use a comma-separated list for dependencies, for example:
+
+`depends_on: user-dive-map, dive-journey`
+
+## Initiative Status
+
+- Status: draft
+- Ready for execution: no
+- Execution started: no
+- Latest execution status: not started.
+
+Lifecycle rule: `00-overview.md` owns durable lifecycle metadata. Update it when an initiative is locked, execution starts, execution completes, or a final report is written.
+
 ## Objective
 
 State the business and technical outcome in plain language.

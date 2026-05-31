@@ -1,4 +1,5 @@
 import type { JourneyEntryType, JourneyEntryVisibility } from "./dive-journey";
+import type { DiveMemoryVisibility } from "./dive-memories";
 import type { ProfileView } from "./profile-view";
 import type { UserBadge } from "./badges";
 
@@ -76,6 +77,22 @@ export interface PassportRecentMedia {
   items: PassportMediaItem[];
 }
 
+export interface PassportMemoryItem {
+  id: string;
+  authorUserId: string;
+  diveSiteId: string;
+  title: string;
+  body?: string;
+  mediaIds: string[];
+  visibility: DiveMemoryVisibility | string;
+  occurredAt: string;
+}
+
+export interface PassportMemoryPreview {
+  state: PassportSectionState;
+  items: PassportMemoryItem[];
+}
+
 export interface PassportSettings {
   showMap: boolean;
   showBadges: boolean;
@@ -93,7 +110,7 @@ export interface ProfilePassport {
   badgeShowcase: PassportBadgeShowcase;
   journeyHighlights: PassportJourneyHighlights;
   recentMedia: PassportRecentMedia;
-  memories: PassportSectionState;
+  memories: PassportMemoryPreview;
   settings: PassportSettings;
 }
 

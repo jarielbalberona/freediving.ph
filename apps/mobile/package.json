@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@clerk/expo": "3.3.0-canary.v20260522203516",
+    "@expo/metro-runtime": "^56.0.13",
     "@expo/ui": "~56.0.15",
     "@expo/vector-icons": "^15.0.2",
     "@freediving.ph/types": "workspace:*",

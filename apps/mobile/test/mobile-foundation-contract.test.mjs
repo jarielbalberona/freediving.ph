@@ -20,7 +20,8 @@ test("mobile package aligns with repository tooling decisions", () => {
   assert.ok(!pkg.dependencies.axios);
   assert.ok(!pkg.dependencies["drizzle-orm"]);
   assert.ok(pkg.dependencies["expo-sqlite"]);
-  assert.equal(pkg.dependencies["@expo/ui"], "~56.0.14");
+  assert.equal(pkg.dependencies["@expo/ui"], "~56.0.15");
+  assert.equal(pkg.dependencies["@expo/metro-runtime"], "^56.0.13");
   assert.ok(pkg.dependencies["@expo/vector-icons"]);
   assert.ok(!pkg.dependencies["lucide-react-native"]);
   assert.ok(!pkg.dependencies["expo-glass-effect"]);

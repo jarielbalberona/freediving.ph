@@ -874,6 +874,38 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/me/dive-memories"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/me/dive-memories"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/me/dive-memories/{memoryID}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/me/dive-memories/{memoryID}"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/me/dive-memories/{memoryID}/tags"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/me/dive-memories/{memoryID}/tags/{taggedUserID}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/me/dive-memory-tags"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/me/dive-memory-tags/{memoryID}"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/me/profile"
     },
     {
@@ -1047,6 +1079,10 @@
     {
       "method": "GET",
       "pattern": "/v1/profiles/{username}/dive-map/{siteID}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/{username}/dive-memories"
     },
     {
       "method": "GET",

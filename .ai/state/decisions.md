@@ -24,3 +24,15 @@ Consequences:
 - V1 marker details may show only the target user's own qualifying media posts for the unlocked site.
 - `dive_memories`, `dive_memory_media`, `dive_memory_tagged_users`, memory CRUD, tagged-user access, tag acceptance/decline, blocking behavior for memory tags, shared-memory visibility, and showing shared/tagged memories inside map markers are out of scope for User Dive Map V1.
 - Future shared-memory marker integration must wait for a separate locked `dive-memories` initiative.
+
+## 2026-05-31: Dive Memories V1 Visibility Policy
+
+Decision: Dive Memories V1 supports `public`, `followers`, `tagged`, and `private` visibility. `followers` uses the existing `saved_users` follower semantics already used by Dive Journey.
+
+Rationale: Phase 1 discovery found repository-backed follower behavior in `saved_users` and existing Dive Journey visibility filtering using `viewer_follows`. Reusing that boundary avoids inventing a new relationship model.
+
+Consequences:
+
+- `followers` memory visibility is allowed in V1.
+- If the saved/follower model changes later, Dive Memories and Dive Journey must be tested together.
+- Tagged-user access still requires tag status and blocking checks; follower visibility does not override tag decline/hidden or blocking behavior.

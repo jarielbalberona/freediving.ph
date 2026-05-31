@@ -8,10 +8,11 @@
 
 - Status: locked
 - Ready for execution: yes
-- Execution started: no
+- Execution started: yes
 - Locked date: 2026-05-31
 - Relocked date: 2026-05-31
 - Previous hard-stop: Phase 1 previously blocked on unresolved Dive Memories/tagged-user privacy rules. That blocker is resolved by de-scoping Dive Memories and tagged-user sharing from User Dive Map V1.
+- Latest execution status: completed on 2026-05-31. Final report: `.ai/initiatives/user-dive-map/reports/final-report.md`.
 
 ## Objective
 

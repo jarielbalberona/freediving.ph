@@ -128,6 +128,21 @@ type PaymentMethod struct {
 	UpdatedAt     time.Time
 }
 
+type Member struct {
+	ID                    string
+	SchoolID              string
+	UserID                string
+	Username              string
+	DisplayName           string
+	AvatarURL             string
+	InstructorDisplayName string
+	InstructorBio         string
+	Role                  string
+	Status                string
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+}
+
 type Session struct {
 	ID                    string
 	SchoolID              string
@@ -253,6 +268,17 @@ type UpdateCourseInput = CreateCourseInput
 type CreatePaymentMethodInput struct {
 	Type, Name, Instructions, QRMediaID, BankName, AccountName, AccountNumber string
 	IsActive                                                                  bool
+}
+
+type CreateMemberInput struct {
+	UserID string
+	Role   string
+	Status string
+}
+
+type UpdateMemberInput struct {
+	Role   string
+	Status string
 }
 
 type CreateSessionInput struct {
@@ -587,6 +613,95 @@ func (r *Repo) UpdatePaymentMethod(ctx context.Context, schoolID, methodID strin
 func (r *Repo) DeletePaymentMethod(ctx context.Context, schoolID, methodID string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE school_payment_methods SET deleted_at=NOW(), updated_at=NOW() WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, methodID)
 	return err
+}
+
+func (r *Repo) ListMembers(ctx context.Context, schoolID string) ([]Member, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT sm.id, sm.school_id, sm.user_id, COALESCE(u.username,''), COALESCE(u.display_name,''), COALESCE(p.avatar_url,''),
+		       COALESCE(ip.display_name,''), COALESCE(ip.bio,''), sm.role, sm.status, sm.created_at, sm.updated_at
+		FROM school_members sm
+		JOIN users u ON u.id = sm.user_id
+		LEFT JOIN profiles p ON p.user_id = u.id
+		LEFT JOIN instructor_profiles ip ON ip.user_id = u.id
+		WHERE sm.school_id=$1 AND sm.deleted_at IS NULL
+		ORDER BY
+			CASE sm.status WHEN 'active' THEN 0 WHEN 'invited' THEN 1 ELSE 2 END,
+			CASE sm.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
+			lower(COALESCE(NULLIF(ip.display_name,''), NULLIF(u.display_name,''), u.username))
+	`, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Member
+	for rows.Next() {
+		item, err := scanMember(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repo) CreateMember(ctx context.Context, schoolID string, input CreateMemberInput) (Member, error) {
+	row := r.pool.QueryRow(ctx, `
+		INSERT INTO school_members (school_id,user_id,role,status)
+		VALUES ($1,$2,$3,$4)
+		RETURNING id
+	`, schoolID, input.UserID, input.Role, input.Status)
+	var id string
+	if err := row.Scan(&id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Member{}, pgx.ErrNoRows
+		}
+		return Member{}, err
+	}
+	return r.GetMember(ctx, schoolID, id)
+}
+
+func (r *Repo) GetMember(ctx context.Context, schoolID, memberID string) (Member, error) {
+	row := r.pool.QueryRow(ctx, `
+		SELECT sm.id, sm.school_id, sm.user_id, COALESCE(u.username,''), COALESCE(u.display_name,''), COALESCE(p.avatar_url,''),
+		       COALESCE(ip.display_name,''), COALESCE(ip.bio,''), sm.role, sm.status, sm.created_at, sm.updated_at
+		FROM school_members sm
+		JOIN users u ON u.id = sm.user_id
+		LEFT JOIN profiles p ON p.user_id = u.id
+		LEFT JOIN instructor_profiles ip ON ip.user_id = u.id
+		WHERE sm.school_id=$1 AND sm.id=$2 AND sm.deleted_at IS NULL
+	`, schoolID, memberID)
+	return scanMember(row)
+}
+
+func (r *Repo) CountActiveOwners(ctx context.Context, schoolID string) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM school_members WHERE school_id=$1 AND role='owner' AND status='active' AND deleted_at IS NULL`, schoolID).Scan(&count)
+	return count, err
+}
+
+func (r *Repo) UpdateMember(ctx context.Context, schoolID, memberID string, input UpdateMemberInput) (Member, error) {
+	row := r.pool.QueryRow(ctx, `
+		UPDATE school_members
+		SET role=$3, status=$4, updated_at=NOW()
+		WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL
+		RETURNING id
+	`, schoolID, memberID, input.Role, input.Status)
+	var id string
+	if err := row.Scan(&id); err != nil {
+		return Member{}, err
+	}
+	return r.GetMember(ctx, schoolID, id)
+}
+
+func (r *Repo) DeleteMember(ctx context.Context, schoolID, memberID string) error {
+	tag, err := r.pool.Exec(ctx, `UPDATE school_members SET status='removed', updated_at=NOW() WHERE school_id=$1 AND id=$2 AND deleted_at IS NULL`, schoolID, memberID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (r *Repo) ListSessions(ctx context.Context, schoolID string, input ListSessionsInput) ([]Session, error) {
@@ -1340,6 +1455,11 @@ func scanCourse(s scanner) (Course, error) {
 func scanPaymentMethod(s scanner) (PaymentMethod, error) {
 	var item PaymentMethod
 	err := s.Scan(&item.ID, &item.SchoolID, &item.Type, &item.Name, &item.Instructions, &item.QRMediaID, &item.QRImageURL, &item.BankName, &item.AccountName, &item.AccountNumber, &item.IsActive, &item.CreatedAt, &item.UpdatedAt)
+	return item, err
+}
+func scanMember(s scanner) (Member, error) {
+	var item Member
+	err := s.Scan(&item.ID, &item.SchoolID, &item.UserID, &item.Username, &item.DisplayName, &item.AvatarURL, &item.InstructorDisplayName, &item.InstructorBio, &item.Role, &item.Status, &item.CreatedAt, &item.UpdatedAt)
 	return item, err
 }
 func scanSession(s scanner) (Session, error) {

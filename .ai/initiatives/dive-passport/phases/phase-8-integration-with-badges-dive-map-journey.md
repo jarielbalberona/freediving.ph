@@ -1,6 +1,6 @@
 # Phase 8: Integration With Badges/Dive Map/Journey
 
-Status: completed
+Status: passed
 
 ## Objective
 

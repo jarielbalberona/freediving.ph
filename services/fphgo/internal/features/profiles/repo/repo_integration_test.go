@@ -332,3 +332,154 @@ func TestListProfileDivingByUsernameAppliesVisibilityBlocksAndStatus(t *testing.
 		t.Fatalf("expected inactive profile owner data to be suppressed, got %+v", inactive)
 	}
 }
+
+func TestProfileDiveMapSiteMemoriesAreGatedByUserDiveSites(t *testing.T) {
+	pool := testProfilesPool(t)
+	repo := profilesrepo.New(pool)
+	ctx := context.Background()
+	nonce := time.Now().UnixNano()
+
+	ownerID := "91000000-0000-4000-8000-000000000001"
+	taggedID := "91000000-0000-4000-8000-000000000002"
+	siteID := "92000000-0000-4000-8000-000000000001"
+	lockedSiteID := "92000000-0000-4000-8000-000000000002"
+	ownerPostID := "93000000-0000-4000-8000-000000000001"
+	taggedPostID := "93000000-0000-4000-8000-000000000002"
+	ownerMemoryID := "94000000-0000-4000-8000-000000000001"
+	taggedMemoryID := "94000000-0000-4000-8000-000000000002"
+	pendingMemoryID := "94000000-0000-4000-8000-000000000003"
+	lockedMemoryID := "94000000-0000-4000-8000-000000000004"
+	ownerUsername := fmt.Sprintf("map_memory_owner_%d", nonce)
+	taggedUsername := fmt.Sprintf("map_memory_tagged_%d", nonce)
+
+	defer func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM users WHERE id IN ($1, $2)`, ownerID, taggedID)
+		_, _ = pool.Exec(ctx, `DELETE FROM dive_sites WHERE id IN ($1, $2)`, siteID, lockedSiteID)
+	}()
+
+	seedProfileMapUser(t, ctx, pool, ownerID, ownerUsername)
+	seedProfileMapUser(t, ctx, pool, taggedID, taggedUsername)
+	seedProfileMapSite(t, ctx, pool, siteID, fmt.Sprintf("map-memory-site-%d", nonce))
+	seedProfileMapSite(t, ctx, pool, lockedSiteID, fmt.Sprintf("map-memory-locked-%d", nonce))
+	seedProfileMapProof(t, ctx, pool, ownerPostID, "95000000-0000-4000-8000-000000000001", "96000000-0000-4000-8000-000000000001", ownerID, siteID)
+	seedProfileMapProof(t, ctx, pool, taggedPostID, "95000000-0000-4000-8000-000000000002", "96000000-0000-4000-8000-000000000002", taggedID, siteID)
+	insertUserDiveSite(t, ctx, pool, ownerID, siteID, ownerPostID)
+	insertUserDiveSite(t, ctx, pool, taggedID, siteID, taggedPostID)
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_memories (id, author_user_id, dive_site_id, title, body, visibility, occurred_at)
+		VALUES
+			($1, $5, $6, 'Owner marker memory', '', 'public', NOW()),
+			($2, $5, $6, 'Tagged accepted memory', '', 'tagged', NOW()),
+			($3, $5, $6, 'Pending hidden memory', '', 'tagged', NOW()),
+			($4, $5, $7, 'Locked site memory', '', 'public', NOW())
+	`, ownerMemoryID, taggedMemoryID, pendingMemoryID, lockedMemoryID, ownerID, siteID, lockedSiteID); err != nil {
+		t.Fatalf("insert dive memories: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_memory_tagged_users (memory_id, tagged_user_id, status)
+		VALUES
+			($1, $3, 'accepted'),
+			($2, $3, 'pending')
+	`, taggedMemoryID, pendingMemoryID, taggedID); err != nil {
+		t.Fatalf("insert memory tags: %v", err)
+	}
+
+	ownerMap, err := repo.GetProfileDiveMapByUsername(ctx, ownerUsername, ownerID)
+	if err != nil {
+		t.Fatalf("owner map: %v", err)
+	}
+	if ownerMap.VisitedSiteCount != 1 || len(ownerMap.Markers) != 1 {
+		t.Fatalf("memories must not unlock extra markers, got %+v", ownerMap)
+	}
+	ownerDetail, err := repo.GetProfileDiveMapSiteByUsername(ctx, ownerUsername, siteID, ownerID)
+	if err != nil {
+		t.Fatalf("owner marker detail: %v", err)
+	}
+	if len(ownerDetail.Memories) != 3 {
+		t.Fatalf("owner should see own visible/private tag-state memories on owned marker, got %+v", ownerDetail.Memories)
+	}
+
+	taggedDetail, err := repo.GetProfileDiveMapSiteByUsername(ctx, taggedUsername, siteID, taggedID)
+	if err != nil {
+		t.Fatalf("tagged marker detail: %v", err)
+	}
+	titles := map[string]bool{}
+	for _, memory := range taggedDetail.Memories {
+		titles[memory.Title] = true
+	}
+	if !titles["Tagged accepted memory"] || titles["Pending hidden memory"] || titles["Locked site memory"] {
+		t.Fatalf("expected only accepted tagged same-site memory on tagged marker, got %+v", taggedDetail.Memories)
+	}
+}
+
+func seedProfileMapUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, username string) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO users (id, username, display_name, account_status)
+		VALUES ($1, $2, $2, 'active')
+		ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, account_status = EXCLUDED.account_status
+	`, id, username); err != nil {
+		t.Fatalf("seed user %s: %v", id, err)
+	}
+}
+
+func seedProfileMapSite(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, slug string) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO dive_sites (id, name, slug, area, entry_difficulty, moderation_state)
+		VALUES ($1, $2, $2, 'Batangas', 'easy', 'approved')
+		ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug, moderation_state = EXCLUDED.moderation_state
+	`, id, slug); err != nil {
+		t.Fatalf("seed site %s: %v", id, err)
+	}
+}
+
+func seedProfileMapProof(t *testing.T, ctx context.Context, pool *pgxpool.Pool, postID, groupID, objectID, userID, siteID string) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO media_objects (id, owner_app_user_id, context_type, object_key, mime_type, size_bytes, width, height, state)
+		VALUES ($1, $2, 'profile_feed', $3, 'image/jpeg', 1024, 100, 100, 'active')
+		ON CONFLICT (id) DO NOTHING
+	`, objectID, userID, objectID+".jpg"); err != nil {
+		t.Fatalf("seed media object %s: %v", objectID, err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO media_upload_groups (id, author_app_user_id, source, item_count)
+		VALUES ($1, $2, 'create_post', 1)
+		ON CONFLICT (id) DO NOTHING
+	`, groupID, userID); err != nil {
+		t.Fatalf("seed upload group %s: %v", groupID, err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO media_posts (id, author_app_user_id, upload_group_id, dive_site_id)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (id) DO NOTHING
+	`, postID, userID, groupID, siteID); err != nil {
+		t.Fatalf("seed media post %s: %v", postID, err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO media_items (post_id, media_object_id, author_app_user_id, upload_group_id, dive_site_id, type, storage_key, mime_type, width, height, status, processing_status, moderation_status)
+		VALUES ($1, $2, $3, $4, $5, 'photo', $6, 'image/jpeg', 100, 100, 'active', 'ready', 'approved')
+		ON CONFLICT (media_object_id) DO NOTHING
+	`, postID, objectID, userID, groupID, siteID, objectID+".jpg"); err != nil {
+		t.Fatalf("seed media item %s: %v", objectID, err)
+	}
+}
+
+func insertUserDiveSite(t *testing.T, ctx context.Context, pool *pgxpool.Pool, userID, siteID, postID string) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO user_dive_sites (
+			user_id, dive_site_id, first_post_id, first_visited_at, last_post_id, last_visited_at, media_post_count, visibility
+		)
+		VALUES ($1, $2, $3, NOW(), $3, NOW(), 1, 'members')
+		ON CONFLICT (user_id, dive_site_id) DO UPDATE
+		SET first_post_id = EXCLUDED.first_post_id,
+		    last_post_id = EXCLUDED.last_post_id,
+		    media_post_count = EXCLUDED.media_post_count,
+		    updated_at = NOW()
+	`, userID, siteID, postID); err != nil {
+		t.Fatalf("insert user dive site: %v", err)
+	}
+}

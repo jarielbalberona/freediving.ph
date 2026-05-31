@@ -88,7 +88,7 @@ func passportToDTO(input passportservice.Passport) ProfilePassport {
 		BadgeShowcase:     badgeShowcaseToDTO(input.BadgeShowcase),
 		JourneyHighlights: journeyHighlightsToDTO(input.JourneyHighlights),
 		RecentMedia:       recentMediaToDTO(input.RecentMedia),
-		Memories:          sectionStateToDTO(input.Memories),
+		Memories:          memoryPreviewToDTO(input.Memories),
 		Settings:          settingsToDTO(input.Settings),
 	}
 }
@@ -210,6 +210,23 @@ func recentMediaToDTO(input passportservice.RecentMedia) PassportRecentMedia {
 		})
 	}
 	return PassportRecentMedia{State: sectionStateToDTO(input.State), Items: items}
+}
+
+func memoryPreviewToDTO(input passportservice.MemoryPreview) PassportMemoryPreview {
+	items := make([]PassportMemoryItem, 0, len(input.Items))
+	for _, item := range input.Items {
+		items = append(items, PassportMemoryItem{
+			ID:           item.ID,
+			AuthorUserID: item.AuthorUserID,
+			DiveSiteID:   item.DiveSiteID,
+			Title:        item.Title,
+			Body:         item.Body,
+			MediaIDs:     append([]string(nil), item.MediaIDs...),
+			Visibility:   item.Visibility,
+			OccurredAt:   formatTime(item.OccurredAt),
+		})
+	}
+	return PassportMemoryPreview{State: sectionStateToDTO(input.State), Items: items}
 }
 
 func sectionStateToDTO(input passportservice.SectionState) PassportSectionState {

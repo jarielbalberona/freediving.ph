@@ -49,7 +49,9 @@ func (s *serviceStub) GetProfilePassport(_ context.Context, username, viewerUser
 		RecentMedia: passportservice.RecentMedia{
 			State: passportservice.SectionState{Status: "empty", Reason: "no_data"},
 		},
-		Memories: passportservice.SectionState{Status: "unavailable", Reason: "source_unavailable"},
+		Memories: passportservice.MemoryPreview{
+			State: passportservice.SectionState{Status: "unavailable", Reason: "source_unavailable"},
+		},
 		Settings: passportservice.Settings{
 			ShowMap:      true,
 			ShowBadges:   true,
@@ -97,7 +99,7 @@ func TestPublicPassportRouteReturnsAggregate(t *testing.T) {
 	if payload.Passport.Profile.Username != "aiko" {
 		t.Fatalf("expected profile summary, got %#v", payload.Passport.Profile)
 	}
-	if payload.Passport.Memories.Status != "unavailable" {
+	if payload.Passport.Memories.State.Status != "unavailable" {
 		t.Fatalf("expected unavailable memories fallback, got %#v", payload.Passport.Memories)
 	}
 	if svc.username != "aiko" || svc.viewerUserID != "" {

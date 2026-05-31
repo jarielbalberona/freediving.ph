@@ -200,9 +200,23 @@ type ProfileDiveMapProofMedia struct {
 	CreatedAt     time.Time
 }
 
+type ProfileDiveMapMemory struct {
+	ID           string
+	AuthorUserID string
+	DiveSiteID   string
+	Title        string
+	Body         string
+	MediaIDs     []string
+	Visibility   string
+	OccurredAt   time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type ProfileDiveMapSiteDetail struct {
-	Marker ProfileDiveMapMarker
-	Media  []ProfileDiveMapProofMedia
+	Marker   ProfileDiveMapMarker
+	Media    []ProfileDiveMapProofMedia
+	Memories []ProfileDiveMapMemory
 }
 
 type BadgeTemplate struct {
@@ -621,7 +635,22 @@ func (s *Service) GetProfileDiveMapSiteByUsername(ctx context.Context, username,
 			CreatedAt:     item.CreatedAt,
 		})
 	}
-	return ProfileDiveMapSiteDetail{Marker: profileDiveMapMarkerFromRepo(result.Marker), Media: media}, nil
+	memories := make([]ProfileDiveMapMemory, 0, len(result.Memories))
+	for _, item := range result.Memories {
+		memories = append(memories, ProfileDiveMapMemory{
+			ID:           item.ID,
+			AuthorUserID: item.AuthorUserID,
+			DiveSiteID:   item.DiveSiteID,
+			Title:        item.Title,
+			Body:         item.Body,
+			MediaIDs:     append([]string(nil), item.MediaIDs...),
+			Visibility:   item.Visibility,
+			OccurredAt:   item.OccurredAt,
+			CreatedAt:    item.CreatedAt,
+			UpdatedAt:    item.UpdatedAt,
+		})
+	}
+	return ProfileDiveMapSiteDetail{Marker: profileDiveMapMarkerFromRepo(result.Marker), Media: media, Memories: memories}, nil
 }
 
 func profileDiveMapMarkerFromRepo(marker profilesrepo.ProfileDiveMapMarker) ProfileDiveMapMarker {

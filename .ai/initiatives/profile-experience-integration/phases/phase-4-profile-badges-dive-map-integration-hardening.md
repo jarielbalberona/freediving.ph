@@ -1,6 +1,6 @@
 # Phase 4: Profile Badges + Dive Map Integration Hardening
 
-Status: completed
+Status: passed
 
 ## Objective
 

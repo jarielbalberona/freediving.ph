@@ -14,6 +14,7 @@
     "test": "pnpm -r --if-present test",
     "preflight": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
     "ai:run": "node tools/ai-runner/index.mjs",
+    "test:ai-runner": "node --test tools/ai-runner/*.test.mjs",
     "dev:web": "pnpm --filter @freediving.ph/web dev",
     "dev:go": "cd services/fphgo && make dev",
     "build:web": "pnpm --filter @freediving.ph/web build",
@@ -31,14 +32,8 @@
       "@esbuild-kit/esm-loader": "2.6.5"
     },
     "supportedArchitectures": {
-      "os": [
-        "darwin",
-        "linux"
-      ],
-      "cpu": [
-        "x64",
-        "arm64"
-      ]
+      "os": ["darwin", "linux"],
+      "cpu": ["x64", "arm64"]
     },
     "onlyBuiltDependencies": [
       "@clerk/shared",

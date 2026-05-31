@@ -6,6 +6,7 @@ export * from "./api/authz";
 export * from "./api/admin";
 export * from "./api/badges";
 export * from "./api/dive-journey";
+export * from "./api/dive-memories";
 export * from "./api/dive-passport";
 export * from "./api/error";
 export * from "./api/me";

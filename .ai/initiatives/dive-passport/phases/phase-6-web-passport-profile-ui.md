@@ -1,6 +1,6 @@
 # Phase 6: Web Passport Profile UI
 
-Status: completed
+Status: passed
 
 ## Objective
 

@@ -29,6 +29,9 @@ import (
 	journeyrepo "fphgo/internal/features/dive_journey/repo"
 	journeyservice "fphgo/internal/features/dive_journey/service"
 	divemaprepo "fphgo/internal/features/dive_map/repo"
+	memorieshttp "fphgo/internal/features/dive_memories/http"
+	memoriesrepo "fphgo/internal/features/dive_memories/repo"
+	memoriesservice "fphgo/internal/features/dive_memories/service"
 	passporthttp "fphgo/internal/features/dive_passport/http"
 	passportrepo "fphgo/internal/features/dive_passport/repo"
 	passportservice "fphgo/internal/features/dive_passport/service"
@@ -99,6 +102,7 @@ type Dependencies struct {
 	ChikaHandler             *chikahttp.Handlers
 	PassportHandler          *passporthttp.Handlers
 	JourneyHandler           *journeyhttp.Handlers
+	MemoriesHandler          *memorieshttp.Handlers
 	ExploreHandler           *explorehttp.Handlers
 	FeedHandler              *feedhttp.Handlers
 	BuddyFinderHandler       *buddyfinderhttp.Handlers
@@ -126,6 +130,8 @@ type Dependencies struct {
 	PassportRoutes           chi.Router
 	JourneyRoutes            chi.Router
 	JourneyPublicRoutes      chi.Router
+	MemoriesRoutes           chi.Router
+	MemoriesPublicRoutes     chi.Router
 	ExploreRoutes            chi.Router
 	FeedRoutes               chi.Router
 	BuddyFinderRoutes        chi.Router
@@ -225,6 +231,9 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	journeyRepo := journeyrepo.New(pool)
 	journeyService := journeyservice.New(journeyRepo)
 	journeyHandler := journeyhttp.New(journeyService, v)
+	memoriesRepo := memoriesrepo.New(pool)
+	memoriesService := memoriesservice.New(memoriesRepo, memoriesservice.WithJourneyWriter(journeyService))
+	memoriesHandler := memorieshttp.New(memoriesService, v)
 
 	notificationsRepo := notificationsrepo.New(pool)
 	notificationOptions := []notificationsservice.Option{notificationsservice.WithBroadcaster(hub)}
@@ -260,6 +269,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 	passportService := passportservice.New(
 		profilesService,
 		journeyService,
+		passportservice.WithMemoryReader(memoriesService),
 		passportservice.WithSettingsRepository(passportRepo),
 	)
 	passportHandler := passporthttp.New(passportService, v)
@@ -399,6 +409,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		ChikaHandler:         chikaHandler,
 		PassportHandler:      passportHandler,
 		JourneyHandler:       journeyHandler,
+		MemoriesHandler:      memoriesHandler,
 		ExploreHandler:       exploreHandler,
 		FeedHandler:          feedHandler,
 		BuddyFinderHandler:   buddyFinderHandler,

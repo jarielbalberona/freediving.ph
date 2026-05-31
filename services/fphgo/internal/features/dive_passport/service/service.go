@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	journeyservice "fphgo/internal/features/dive_journey/service"
+	memoriesservice "fphgo/internal/features/dive_memories/service"
 	passportrepo "fphgo/internal/features/dive_passport/repo"
 	profilesservice "fphgo/internal/features/profiles/service"
 	apperrors "fphgo/internal/shared/errors"
@@ -26,6 +27,10 @@ type JourneyReader interface {
 	ListProfileJourney(ctx context.Context, input journeyservice.ListProfileJourneyInput) ([]journeyservice.JourneyEntry, error)
 }
 
+type MemoryReader interface {
+	ListProfileMemories(ctx context.Context, input memoriesservice.ListProfileMemoriesInput) ([]memoriesservice.Memory, error)
+}
+
 type SettingsRepository interface {
 	GetSettings(ctx context.Context, userID string) (passportrepo.Settings, error)
 	UpsertSettings(ctx context.Context, input passportrepo.UpsertSettingsInput) (passportrepo.Settings, error)
@@ -36,6 +41,7 @@ type Option func(*Service)
 type Service struct {
 	profiles ProfileReader
 	journey  JourneyReader
+	memories MemoryReader
 	settings SettingsRepository
 }
 
@@ -55,6 +61,12 @@ func WithSettingsRepository(repo SettingsRepository) Option {
 	}
 }
 
+func WithMemoryReader(reader MemoryReader) Option {
+	return func(s *Service) {
+		s.memories = reader
+	}
+}
+
 type SectionState struct {
 	Status string
 	Reason string
@@ -67,7 +79,7 @@ type Passport struct {
 	BadgeShowcase     BadgeShowcase
 	JourneyHighlights JourneyHighlights
 	RecentMedia       RecentMedia
-	Memories          SectionState
+	Memories          MemoryPreview
 	Settings          Settings
 }
 
@@ -108,6 +120,11 @@ type MediaItem struct {
 	CreatedAt time.Time
 }
 
+type MemoryPreview struct {
+	State SectionState
+	Items []memoriesservice.Memory
+}
+
 type Settings struct {
 	ShowMap          bool
 	ShowBadges       bool
@@ -142,7 +159,7 @@ func (s *Service) GetProfilePassport(ctx context.Context, username, viewerUserID
 			MediaPostCount: profile.Counts.MediaPosts,
 		},
 		RecentMedia: RecentMedia{State: SectionState{Status: "empty", Reason: "no_data"}},
-		Memories:    SectionState{Status: "unavailable", Reason: "source_unavailable"},
+		Memories:    MemoryPreview{State: SectionState{Status: "unavailable", Reason: "source_unavailable"}},
 		Settings:    settings,
 	}
 
@@ -154,6 +171,8 @@ func (s *Service) GetProfilePassport(ctx context.Context, username, viewerUserID
 
 	passport.JourneyHighlights = s.journeyHighlights(ctx, username, viewerUserID)
 	passport.Stats.JourneyEntryCount = int64(len(passport.JourneyHighlights.Entries))
+	passport.Memories = s.memoryPreview(ctx, username, viewerUserID)
+	passport.Stats.MemoryCount = int64(len(passport.Memories.Items))
 
 	return passport, nil
 }
@@ -311,6 +330,24 @@ func (s *Service) journeyHighlights(ctx context.Context, username, viewerUserID 
 	return JourneyHighlights{
 		State:   readyOrEmpty(len(result)),
 		Entries: append([]journeyservice.JourneyEntry(nil), result...),
+	}
+}
+
+func (s *Service) memoryPreview(ctx context.Context, username, viewerUserID string) MemoryPreview {
+	if s.memories == nil {
+		return MemoryPreview{State: SectionState{Status: "unavailable", Reason: "source_unavailable"}}
+	}
+	result, err := s.memories.ListProfileMemories(ctx, memoriesservice.ListProfileMemoriesInput{
+		Username:     username,
+		ViewerUserID: viewerUserID,
+		Limit:        5,
+	})
+	if err != nil {
+		return MemoryPreview{State: SectionState{Status: "unavailable", Reason: "source_unavailable"}}
+	}
+	return MemoryPreview{
+		State: readyOrEmpty(len(result)),
+		Items: append([]memoriesservice.Memory(nil), result...),
 	}
 }
 

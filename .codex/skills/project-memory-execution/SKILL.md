@@ -22,6 +22,7 @@ Use this skill to execute exactly one initiative phase. The local runner may cal
 
 ## Execution Rules
 
+- Before execution, confirm the initiative is locked, ready for execution, structurally complete, and dependency-ready. If `depends_on` is declared, every dependency must be complete, unblocked, unfailed, and have a final report.
 - Execute the current phase only.
 - Do not expand scope to later phases.
 - Do not modify `.ai/core/*` unless the user explicitly asks.
@@ -29,6 +30,10 @@ Use this skill to execute exactly one initiative phase. The local runner may cal
 - Update `current-state.md`, `known-risks.md`, and `verification-status.md` for every phase.
 - Update `decisions.md` only when a durable project decision is made.
 - Write a phase report under `.ai/initiatives/<initiative-key>/reports/`.
+- Treat initiative `00-overview.md` as the durable owner of lifecycle metadata. Treat phase files as the owner of phase status and phase reports as the owner of execution evidence.
+- Do not leave stale `Next execution target` or contradictory `Execution started` metadata after an initiative completes.
+- When updating repeated state sections for the same phase, replace the keyed section instead of appending duplicate historical copies.
+- Every risk entry must use one lifecycle label: `active`, `accepted`, `resolved`, or `superseded`.
 
 ## Status Handling
 
@@ -40,6 +45,8 @@ Set the active phase status as work proceeds:
 - `passed_with_issues` when the phase is usable but non-blocking risks remain.
 - `blocked` when a hard stop needs human input.
 - `failed` when repair attempts are exhausted or execution is unrecoverable.
+
+Do not use `completed` or `done`. A completed successful phase is `passed` or `passed_with_issues`.
 
 ## Verification
 
@@ -85,10 +92,15 @@ Every phase report must include:
 - final status
 - summary of changes
 - files changed
-- verification commands and results
-- repairs attempted
+- no-application-code confirmation when the initiative is tooling-only
+- verification summary with pass/fail/skipped counts
+- exact command strings run and exact failure excerpts
+- skipped commands with reasons and impact
+- repairs attempted with attempt number, failure cause, repair made, and result
+- unrelated drift classification
 - state files updated
-- risks and limitations
+- decisions updates or explicit statement that no decision update was made
+- risks and limitations with lifecycle labels: `active`, `accepted`, `resolved`, or `superseded`
 - next phase readiness
 
 At initiative completion, create `reports/final-report.md` with:

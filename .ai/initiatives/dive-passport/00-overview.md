@@ -8,8 +8,9 @@
 
 - Status: locked
 - Ready for execution: yes
-- Execution started: no
+- Execution started: yes
 - Locked date: 2026-05-31
+- Latest execution status: completed on 2026-05-31. Final report: `.ai/initiatives/dive-passport/reports/final-report.md`.
 
 ## Objective
 

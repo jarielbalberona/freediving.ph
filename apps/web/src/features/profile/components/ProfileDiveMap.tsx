@@ -103,6 +103,7 @@ export function ProfileDiveMap({ username, isOwner }: ProfileDiveMapProps) {
           isLoading={detailQuery.isPending}
           isError={detailQuery.isError}
           media={detailQuery.data?.media ?? []}
+          memories={detailQuery.data?.memories ?? []}
         />
       </div>
     </section>
@@ -114,11 +115,13 @@ function DiveMapSiteDetail({
   isLoading,
   isError,
   media,
+  memories,
 }: {
   marker?: ProfileDiveMapMarker;
   isLoading: boolean;
   isError: boolean;
   media: NonNullable<ReturnType<typeof useProfileDiveMapSiteQuery>["data"]>["media"];
+  memories: NonNullable<ReturnType<typeof useProfileDiveMapSiteQuery>["data"]>["memories"];
 }) {
   if (!marker) return null;
 
@@ -171,6 +174,30 @@ function DiveMapSiteDetail({
           <StatusCard text="No visible proof media." />
         )}
       </div>
+      {memories.length > 0 ? (
+        <div className="mt-4 border-t border-border/70 pt-3">
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">
+            Memories
+          </p>
+          <div className="space-y-2">
+            {memories.slice(0, 3).map((memory) => (
+              <div key={memory.id} className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="line-clamp-1 text-xs font-medium">{memory.title}</p>
+                  <Badge variant="outline" className="h-5 px-2 text-[11px]">
+                    {memory.visibility}
+                  </Badge>
+                </div>
+                {memory.body ? (
+                  <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                    {memory.body}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 }

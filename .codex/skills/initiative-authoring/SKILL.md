@@ -52,10 +52,25 @@ Use lowercase kebab-case for `<initiative-key>`.
 3. Identify affected modules using actual repo paths.
 4. Define domain terms that future agents must not guess.
 5. Define a module sequence that reduces blast radius.
-6. Define cross-module data flow for frontend, backend, shared contracts, persistence, and external services if applicable.
-7. Define verification commands per phase.
-8. Add hard stops for product, UX, security, privacy, auth, destructive migration, or conflicting-spec decisions.
-9. Create phase files with `Status: pending`.
+6. Declare initiative dependencies with `depends_on` in `00-overview.md`. Use `depends_on: []` when there are no dependencies.
+7. Define cross-module data flow for frontend, backend, shared contracts, persistence, and external services if applicable.
+8. Define verification commands per phase.
+9. Add hard stops for product, UX, security, privacy, auth, destructive migration, or conflicting-spec decisions.
+10. Create phase files with `Status: pending`.
+
+## Status Vocabulary
+
+Use only the canonical phase statuses from `.ai/README.md`:
+
+- `pending`
+- `in_progress`
+- `repairing`
+- `passed`
+- `passed_with_issues`
+- `blocked`
+- `failed`
+
+Do not author phases with `completed` or `done`.
 
 ## Phase Quality Bar
 

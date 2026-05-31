@@ -180,9 +180,23 @@ type ProfileDiveMapProofMedia struct {
 	CreatedAt     time.Time
 }
 
+type ProfileDiveMapMemory struct {
+	ID           string
+	AuthorUserID string
+	DiveSiteID   string
+	Title        string
+	Body         string
+	MediaIDs     []string
+	Visibility   string
+	OccurredAt   time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type ProfileDiveMapSiteDetail struct {
-	Marker ProfileDiveMapMarker
-	Media  []ProfileDiveMapProofMedia
+	Marker   ProfileDiveMapMarker
+	Media    []ProfileDiveMapProofMedia
+	Memories []ProfileDiveMapMemory
 }
 
 type BadgeTemplate struct {
@@ -951,7 +965,131 @@ func (r *Repo) GetProfileDiveMapSiteByUsername(ctx context.Context, username, di
 	if err := rows.Err(); err != nil {
 		return ProfileDiveMapSiteDetail{}, err
 	}
-	return ProfileDiveMapSiteDetail{Marker: marker, Media: media}, nil
+
+	const memoriesQuery = `
+		WITH viewer AS (
+			SELECT NULLIF($3, '')::uuid AS id
+		)
+		SELECT
+			dm.id,
+			dm.author_user_id,
+			dm.dive_site_id,
+			dm.title,
+			dm.body,
+			COALESCE((
+				SELECT array_agg(dmm.media_id::text ORDER BY dmm.sort_order ASC, dmm.id ASC)
+				FROM dive_memory_media dmm
+				WHERE dmm.memory_id = dm.id
+			), '{}'::text[]) AS media_ids,
+			dm.visibility,
+			dm.occurred_at,
+			dm.created_at,
+			dm.updated_at
+		FROM dive_memories dm
+		CROSS JOIN viewer
+		WHERE dm.dive_site_id = $2
+		  AND dm.deleted_at IS NULL
+		  AND EXISTS (
+		    SELECT 1
+		    FROM user_dive_sites uds
+		    WHERE uds.user_id = $1
+		      AND uds.dive_site_id = dm.dive_site_id
+		  )
+		  AND (
+		    dm.author_user_id = $1
+		    OR EXISTS (
+		      SELECT 1
+		      FROM dive_memory_tagged_users dmtu
+		      WHERE dmtu.memory_id = dm.id
+		        AND dmtu.tagged_user_id = $1
+		        AND dmtu.status = 'accepted'
+		    )
+		  )
+		  AND (
+		    viewer.id IS NULL
+		    OR viewer.id = dm.author_user_id
+		    OR NOT EXISTS (
+		      SELECT 1
+		      FROM user_blocks ub
+		      WHERE (ub.blocker_app_user_id = viewer.id AND ub.blocked_app_user_id = dm.author_user_id)
+		         OR (ub.blocker_app_user_id = dm.author_user_id AND ub.blocked_app_user_id = viewer.id)
+		    )
+		  )
+		  AND (
+		    dm.visibility = 'public'
+		    OR (viewer.id = dm.author_user_id AND dm.visibility IN ('private', 'followers', 'tagged'))
+		    OR (
+		      dm.visibility = 'followers'
+		      AND (
+		        viewer.id = dm.author_user_id
+		        OR EXISTS (
+		          SELECT 1
+		          FROM saved_users su
+		          WHERE su.viewer_app_user_id = viewer.id
+		            AND su.saved_app_user_id = dm.author_user_id
+		        )
+		      )
+		    )
+		    OR (
+		      dm.visibility = 'tagged'
+		      AND (
+		        viewer.id = dm.author_user_id
+		        OR EXISTS (
+		          SELECT 1
+		          FROM dive_memory_tagged_users dmtu
+		          WHERE dmtu.memory_id = dm.id
+		            AND dmtu.tagged_user_id = viewer.id
+		            AND dmtu.status = 'accepted'
+		        )
+		      )
+		    )
+		  )
+		ORDER BY dm.occurred_at DESC, dm.id DESC
+		LIMIT 20
+	`
+	memoryRows, err := r.pool.Query(ctx, memoriesQuery, toUUID(marker.UserID), toUUID(marker.DiveSiteID), viewerUserID)
+	if err != nil {
+		return ProfileDiveMapSiteDetail{}, err
+	}
+	defer memoryRows.Close()
+
+	memories := make([]ProfileDiveMapMemory, 0)
+	for memoryRows.Next() {
+		var (
+			id           pgtype.UUID
+			authorUserID pgtype.UUID
+			siteID       pgtype.UUID
+			occurredAt   pgtype.Timestamptz
+			createdAt    pgtype.Timestamptz
+			updatedAt    pgtype.Timestamptz
+			item         ProfileDiveMapMemory
+		)
+		if err := memoryRows.Scan(
+			&id,
+			&authorUserID,
+			&siteID,
+			&item.Title,
+			&item.Body,
+			&item.MediaIDs,
+			&item.Visibility,
+			&occurredAt,
+			&createdAt,
+			&updatedAt,
+		); err != nil {
+			return ProfileDiveMapSiteDetail{}, err
+		}
+		item.ID = id.String()
+		item.AuthorUserID = authorUserID.String()
+		item.DiveSiteID = siteID.String()
+		item.OccurredAt = occurredAt.Time.UTC()
+		item.CreatedAt = createdAt.Time.UTC()
+		item.UpdatedAt = updatedAt.Time.UTC()
+		memories = append(memories, item)
+	}
+	if err := memoryRows.Err(); err != nil {
+		return ProfileDiveMapSiteDetail{}, err
+	}
+	return ProfileDiveMapSiteDetail{Marker: marker, Media: media, Memories: memories}, nil
 }
 
 func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) {

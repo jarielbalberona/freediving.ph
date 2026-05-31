@@ -7,6 +7,7 @@ import (
 	"time"
 
 	journeyservice "fphgo/internal/features/dive_journey/service"
+	memoriesservice "fphgo/internal/features/dive_memories/service"
 	passportrepo "fphgo/internal/features/dive_passport/repo"
 	profilesservice "fphgo/internal/features/profiles/service"
 )
@@ -78,6 +79,19 @@ func (s *journeyStub) ListProfileJourney(_ context.Context, input journeyservice
 	return s.entries, s.err
 }
 
+type memoryStub struct {
+	items []memoriesservice.Memory
+	err   error
+	input memoriesservice.ListProfileMemoriesInput
+	calls int
+}
+
+func (s *memoryStub) ListProfileMemories(_ context.Context, input memoriesservice.ListProfileMemoriesInput) ([]memoriesservice.Memory, error) {
+	s.input = input
+	s.calls++
+	return s.items, s.err
+}
+
 type settingsStub struct {
 	input passportrepo.UpsertSettingsInput
 }
@@ -131,20 +145,25 @@ func TestProfilePassportComposesReadOnlyVisibleSections(t *testing.T) {
 		Title:      "First story",
 		Visibility: "public",
 		OccurredAt: now,
-	}}})
+	}}}, WithMemoryReader(&memoryStub{items: []memoriesservice.Memory{{
+		ID:         "memory-1",
+		Title:      "After the dive",
+		Visibility: "public",
+		OccurredAt: now,
+	}}}))
 
 	passport, err := svc.GetProfilePassport(context.Background(), "aiko", viewerID)
 	if err != nil {
 		t.Fatalf("get passport: %v", err)
 	}
-	if passport.Stats.VisitedSiteCount != 1 || passport.Stats.BadgeCount != 1 || passport.Stats.JourneyEntryCount != 1 || passport.Stats.MediaPostCount != 3 {
+	if passport.Stats.VisitedSiteCount != 1 || passport.Stats.BadgeCount != 1 || passport.Stats.JourneyEntryCount != 1 || passport.Stats.MediaPostCount != 3 || passport.Stats.MemoryCount != 1 {
 		t.Fatalf("unexpected stats: %#v", passport.Stats)
 	}
 	if passport.MapPreview.State.Status != "ready" || passport.BadgeShowcase.State.Status != "ready" || passport.JourneyHighlights.State.Status != "ready" {
 		t.Fatalf("expected ready child sections, got map=%#v badges=%#v journey=%#v", passport.MapPreview.State, passport.BadgeShowcase.State, passport.JourneyHighlights.State)
 	}
-	if passport.Memories.Status != "unavailable" {
-		t.Fatalf("memories must be unavailable until source exists, got %#v", passport.Memories)
+	if passport.Memories.State.Status != "ready" || len(passport.Memories.Items) != 1 {
+		t.Fatalf("expected memory preview from Dive Memories read model, got %#v", passport.Memories)
 	}
 }
 
@@ -194,7 +213,7 @@ func TestProfilePassportEmptyNewUserDoesNotInventSourceData(t *testing.T) {
 	if passport.RecentMedia.State.Status != "empty" || len(passport.RecentMedia.Items) != 0 || passport.Stats.MediaPostCount != 0 {
 		t.Fatalf("expected empty media without fake items, got media=%#v stats=%#v", passport.RecentMedia, passport.Stats)
 	}
-	if passport.Memories.Status != "unavailable" || passport.Stats.MemoryCount != 0 {
+	if passport.Memories.State.Status != "unavailable" || passport.Stats.MemoryCount != 0 {
 		t.Fatalf("expected unavailable memories without fake counts, got memories=%#v stats=%#v", passport.Memories, passport.Stats)
 	}
 }
@@ -202,7 +221,8 @@ func TestProfilePassportEmptyNewUserDoesNotInventSourceData(t *testing.T) {
 func TestProfilePassportForwardsViewerIdentityToVisibilityAwareSources(t *testing.T) {
 	profiles := &profileStub{}
 	journey := &journeyStub{}
-	svc := New(profiles, journey)
+	memories := &memoryStub{}
+	svc := New(profiles, journey, WithMemoryReader(memories))
 
 	if _, err := svc.GetProfilePassport(context.Background(), "aiko", viewerID); err != nil {
 		t.Fatalf("get passport: %v", err)
@@ -216,8 +236,11 @@ func TestProfilePassportForwardsViewerIdentityToVisibilityAwareSources(t *testin
 	if journey.input.Username != "aiko" || journey.input.ViewerUserID != viewerID || journey.input.Limit != 5 {
 		t.Fatalf("journey must receive visibility input, got %#v", journey.input)
 	}
-	if profiles.profileViewCallCount != 1 || profiles.mapCallCount != 1 || profiles.badgeCallCount != 1 || journey.calls != 1 {
-		t.Fatalf("expected read-only single source reads, profile=%d map=%d badges=%d journey=%d", profiles.profileViewCallCount, profiles.mapCallCount, profiles.badgeCallCount, journey.calls)
+	if memories.input.Username != "aiko" || memories.input.ViewerUserID != viewerID || memories.input.Limit != 5 {
+		t.Fatalf("memories must receive visibility input, got %#v", memories.input)
+	}
+	if profiles.profileViewCallCount != 1 || profiles.mapCallCount != 1 || profiles.badgeCallCount != 1 || journey.calls != 1 || memories.calls != 1 {
+		t.Fatalf("expected read-only single source reads, profile=%d map=%d badges=%d journey=%d memories=%d", profiles.profileViewCallCount, profiles.mapCallCount, profiles.badgeCallCount, journey.calls, memories.calls)
 	}
 }
 

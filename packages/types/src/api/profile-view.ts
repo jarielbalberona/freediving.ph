@@ -103,6 +103,19 @@ export type ProfileDiveMapProofMedia = {
   createdAt: string;
 };
 
+export type ProfileDiveMapMemory = {
+  id: string;
+  authorUserId: string;
+  diveSiteId: string;
+  title: string;
+  body?: string;
+  mediaIds: string[];
+  visibility: "public" | "followers" | "tagged" | "private";
+  occurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ProfileDiveMapResponse = {
   visitedSiteCount: number;
   markers: ProfileDiveMapMarker[];
@@ -111,4 +124,5 @@ export type ProfileDiveMapResponse = {
 export type ProfileDiveMapSiteResponse = {
   marker: ProfileDiveMapMarker;
   media: ProfileDiveMapProofMedia[];
+  memories: ProfileDiveMapMemory[];
 };

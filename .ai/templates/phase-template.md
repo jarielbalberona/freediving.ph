@@ -2,6 +2,10 @@
 
 Status: pending
 
+Allowed values: `pending`, `in_progress`, `repairing`, `passed`, `passed_with_issues`, `blocked`, `failed`.
+
+Do not use `completed` or `done`.
+
 ## Goal
 
 State the single outcome this phase must produce.

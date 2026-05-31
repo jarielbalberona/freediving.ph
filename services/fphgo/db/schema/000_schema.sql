@@ -1063,6 +1063,42 @@ CREATE TABLE IF NOT EXISTS journey_entry_media (
   CHECK (sort_order >= 0)
 );
 
+CREATE TABLE IF NOT EXISTS dive_memories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE RESTRICT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  visibility TEXT NOT NULL DEFAULT 'private',
+  occurred_at TIMESTAMPTZ NOT NULL,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (visibility IN ('public', 'followers', 'tagged', 'private')),
+  CHECK (length(trim(title)) > 0)
+);
+
+CREATE TABLE IF NOT EXISTS dive_memory_media (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  memory_id UUID NOT NULL REFERENCES dive_memories(id) ON DELETE CASCADE,
+  media_id UUID NOT NULL REFERENCES media_objects(id) ON DELETE RESTRICT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (memory_id, media_id),
+  CHECK (sort_order >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS dive_memory_tagged_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  memory_id UUID NOT NULL REFERENCES dive_memories(id) ON DELETE CASCADE,
+  tagged_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (memory_id, tagged_user_id),
+  CHECK (status IN ('pending', 'accepted', 'declined', 'hidden'))
+);
+
 CREATE TABLE IF NOT EXISTS passport_settings (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   show_map BOOLEAN NOT NULL DEFAULT TRUE,
@@ -1970,5 +2006,12 @@ CREATE INDEX IF NOT EXISTS idx_journey_entries_public_cursor ON journey_entries 
 CREATE INDEX IF NOT EXISTS idx_journey_entries_visibility_cursor ON journey_entries (user_id, visibility, occurred_at DESC, id DESC) WHERE state = 'active';
 CREATE INDEX IF NOT EXISTS idx_journey_entries_dive_site ON journey_entries (dive_site_id, occurred_at DESC, id DESC) WHERE state = 'active' AND dive_site_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_journey_entry_media_entry_sort ON journey_entry_media (journey_entry_id, sort_order ASC, id ASC);
+CREATE INDEX IF NOT EXISTS idx_dive_memories_author_site_created ON dive_memories (author_user_id, dive_site_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_dive_memories_site_visibility_created ON dive_memories (dive_site_id, visibility, created_at DESC, id DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_dive_memories_deleted_at ON dive_memories (deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_dive_memory_media_memory_sort ON dive_memory_media (memory_id, sort_order ASC, id ASC);
+CREATE INDEX IF NOT EXISTS idx_dive_memory_media_media_id ON dive_memory_media (media_id);
+CREATE INDEX IF NOT EXISTS idx_dive_memory_tagged_users_tagged_status ON dive_memory_tagged_users (tagged_user_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dive_memory_tagged_users_memory_status ON dive_memory_tagged_users (memory_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dive_site_likes_site ON dive_site_likes (dive_site_id);
 CREATE INDEX IF NOT EXISTS idx_dive_site_likes_user ON dive_site_likes (user_id);

@@ -410,9 +410,25 @@ func (h *Handlers) GetProfileDiveMapSiteByUsername(w http.ResponseWriter, r *htt
 			CreatedAt:     item.CreatedAt.UTC().Format(time.RFC3339),
 		})
 	}
+	memories := make([]ProfileDiveMapMemory, 0, len(result.Memories))
+	for _, item := range result.Memories {
+		memories = append(memories, ProfileDiveMapMemory{
+			ID:           item.ID,
+			AuthorUserID: item.AuthorUserID,
+			DiveSiteID:   item.DiveSiteID,
+			Title:        item.Title,
+			Body:         item.Body,
+			MediaIDs:     append([]string(nil), item.MediaIDs...),
+			Visibility:   item.Visibility,
+			OccurredAt:   item.OccurredAt.UTC().Format(time.RFC3339),
+			CreatedAt:    item.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt:    item.UpdatedAt.UTC().Format(time.RFC3339),
+		})
+	}
 	httpx.JSON(w, http.StatusOK, ProfileDiveMapSiteResponse{
-		Marker: profileDiveMapMarkerToDTO(result.Marker),
-		Media:  media,
+		Marker:   profileDiveMapMarkerToDTO(result.Marker),
+		Media:    media,
+		Memories: memories,
 	})
 }
 

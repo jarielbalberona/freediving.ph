@@ -21,8 +21,13 @@ func TestDiveSitesVisitedContractUsesUserDiveSitesSource(t *testing.T) {
 	if strings.Contains(source, "Transitional fallback") || strings.Contains(source, "tagged_sites") {
 		t.Fatal("Dive Sites Visited must not retain a media_posts fallback when user_dive_sites exists")
 	}
-	if strings.Contains(source, "dive_memories") {
-		t.Fatal("Dive Sites Visited must not count dive memories; shared/tagged memories must not inflate counts")
+	countStart := strings.Index(source, "func (r *Repo) countDiveSitesVisitedFromUserDiveSitesByUsername")
+	if countStart < 0 {
+		t.Fatal("Dive Sites Visited username counter must be present")
+	}
+	countSource := source[countStart:]
+	if strings.Contains(countSource, "dive_memories") {
+		t.Fatal("Dive Sites Visited counters must not count dive memories; shared/tagged memories must not inflate counts")
 	}
 	if strings.Contains(source, "JOIN dive_site_updates dsu") {
 		t.Fatal("Dive Sites Visited must not count dive_site_updates; non-proof activity must not inflate counts")
@@ -55,8 +60,11 @@ func TestProfileDiveMapReadsRequireUnlockedUserDiveSiteAndOwnedProofMedia(t *tes
 		!strings.Contains(source, "mi.moderation_status = 'approved'") {
 		t.Fatal("profile Dive Map detail must return only active ready approved proof media")
 	}
-	if strings.Contains(source, "dive_memory") {
-		t.Fatal("profile Dive Map V1 must not read Dive Memories")
+	if !strings.Contains(source, "FROM dive_memories dm") {
+		t.Fatal("profile Dive Map marker detail may read eligible Dive Memories after user_dive_sites gating")
+	}
+	if !strings.Contains(source, "WHERE uds.user_id = $1") || !strings.Contains(source, "AND uds.dive_site_id = dm.dive_site_id") {
+		t.Fatal("profile Dive Map memory previews must remain gated by user_dive_sites ownership")
 	}
 }
 

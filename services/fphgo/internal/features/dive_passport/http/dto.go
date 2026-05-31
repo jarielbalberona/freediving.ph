@@ -15,7 +15,7 @@ type ProfilePassport struct {
 	BadgeShowcase     PassportBadgeShowcase     `json:"badgeShowcase"`
 	JourneyHighlights PassportJourneyHighlights `json:"journeyHighlights"`
 	RecentMedia       PassportRecentMedia       `json:"recentMedia"`
-	Memories          PassportSectionState      `json:"memories"`
+	Memories          PassportMemoryPreview     `json:"memories"`
 	Settings          PassportSettings          `json:"settings"`
 }
 
@@ -116,6 +116,22 @@ type PassportMediaItem struct {
 	URL       string `json:"url"`
 	Type      string `json:"type"`
 	CreatedAt string `json:"createdAt"`
+}
+
+type PassportMemoryPreview struct {
+	State PassportSectionState `json:"state"`
+	Items []PassportMemoryItem `json:"items"`
+}
+
+type PassportMemoryItem struct {
+	ID           string   `json:"id"`
+	AuthorUserID string   `json:"authorUserId"`
+	DiveSiteID   string   `json:"diveSiteId"`
+	Title        string   `json:"title"`
+	Body         string   `json:"body,omitempty"`
+	MediaIDs     []string `json:"mediaIds"`
+	Visibility   string   `json:"visibility"`
+	OccurredAt   string   `json:"occurredAt"`
 }
 
 type PassportSettings struct {

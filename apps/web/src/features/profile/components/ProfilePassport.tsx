@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  PassportMemoryPreview,
   PassportSettings,
   PassportSectionState,
   ProfilePassport as ProfilePassportContract,
@@ -47,7 +48,7 @@ export function ProfilePassport({
         <BadgeCard passport={passport} />
         <JourneyCard passport={passport} />
         <MediaCard passport={passport} />
-        <MemoryCard state={passport.memories} />
+        <MemoryCard memories={passport.memories} />
       </div>
       {isOwner ? (
         <PassportSettingsPanel username={username} settings={passport.settings} />
@@ -147,13 +148,23 @@ function MediaCard({ passport }: { passport: ProfilePassportContract }) {
   );
 }
 
-function MemoryCard({ state }: { state: PassportSectionState }) {
+function MemoryCard({ memories }: { memories: PassportMemoryPreview }) {
   return (
     <PassportCard
       icon={<Compass aria-hidden="true" className="h-4 w-4" />}
       title="Memories"
     >
-      <SectionState state={state} label="Memories are not available yet" />
+      {memories.state.status === "ready" ? (
+        <div className="space-y-1">
+          {memories.items.slice(0, 3).map((memory) => (
+            <p key={memory.id} className="truncate text-sm" title={memory.title}>
+              {memory.title}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <SectionState state={memories.state} label="No memories yet" />
+      )}
     </PassportCard>
   );
 }

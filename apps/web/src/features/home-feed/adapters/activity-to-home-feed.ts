@@ -45,17 +45,24 @@ const mediaStringValue = (value: unknown, key: string): string | undefined =>
 const mediaNumberValue = (value: unknown, key: string): number | undefined =>
   numberValue(asRecord(value), key);
 
-const actorPayload = (item: ActivityFeedItem) => ({
-  authorName: item.actor.name,
-  authorUsername: item.actor.username,
-  authorAvatarUrl: item.actor.avatarUrl,
-  authorPseudonymous: item.actor.id.trim() === "",
-});
+const actorPayload = (item: ActivityFeedItem) => {
+  const actor = asRecord(item.actor);
+  const actorId = stringValue(actor, "id");
 
-const authorHref = (item: ActivityFeedItem) =>
-  canLinkToProfileUsername(item.actor.username)
-    ? getProfileRoute(item.actor.username)
+  return {
+    authorName: stringValue(actor, "name") ?? "",
+    authorUsername: stringValue(actor, "username") ?? "",
+    authorAvatarUrl: stringValue(actor, "avatarUrl"),
+    authorPseudonymous: !actorId,
+  };
+};
+
+const authorHref = (item: ActivityFeedItem) => {
+  const username = stringValue(asRecord(item.actor), "username");
+  return username && canLinkToProfileUsername(username)
+    ? getProfileRoute(username)
     : undefined;
+};
 
 const baseItem = (
   item: ActivityFeedItem,

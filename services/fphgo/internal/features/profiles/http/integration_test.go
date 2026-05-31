@@ -325,6 +325,17 @@ func (s *stubProfilesService) GetProfileDiveMapSiteByUsername(_ context.Context,
 			Height:        900,
 			CreatedAt:     now,
 		}},
+		Memories: []profilesservice.ProfileDiveMapMemory{{
+			ID:           "550e8400-e29b-41d4-a716-446655440096",
+			AuthorUserID: "550e8400-e29b-41d4-a716-446655440000",
+			DiveSiteID:   marker.DiveSiteID,
+			Title:        "Clear water memory",
+			MediaIDs:     []string{},
+			Visibility:   "public",
+			OccurredAt:   now,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}},
 	}, nil
 }
 
@@ -482,8 +493,11 @@ func TestProfileDiveMapEndpointsReturnMarkersAndProofMedia(t *testing.T) {
 	if err := json.Unmarshal(detailRec.Body.Bytes(), &detailBody); err != nil {
 		t.Fatalf("decode profile dive map site response: %v", err)
 	}
-	if detailBody.Marker.DiveSiteSlug != "napaling-reef" || len(detailBody.Media) != 1 || detailBody.Media[0].Type != "photo" {
+	if detailBody.Marker.DiveSiteSlug != "napaling-reef" || len(detailBody.Media) != 1 || detailBody.Media[0].Type != "photo" || len(detailBody.Memories) != 1 {
 		t.Fatalf("expected proof media detail, got %+v", detailBody)
+	}
+	if detailBody.Memories[0].Title != "Clear water memory" {
+		t.Fatalf("expected marker memory preview, got %+v", detailBody.Memories)
 	}
 }
 

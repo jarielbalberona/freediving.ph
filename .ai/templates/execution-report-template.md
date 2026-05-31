@@ -12,15 +12,45 @@ What changed and why.
 
 - `<path>`
 
+Confirm whether the changed files include application code. If the initiative is tooling-only, explicitly state that no backend, frontend, shared contract, migration, or mobile application code was modified.
+
 ## Verification Results
 
-- Command: `<command>`
-- Result: `pass | fail | not_run`
-- Evidence: concise output or failure excerpt.
+### Verification Summary
+
+- Commands run:
+- Passed:
+- Failed:
+- Skipped:
+
+### Exact Commands Run
+
+- Command: `<exact command>`
+  - Result: `pass | fail | not_run`
+  - Evidence: concise output or exact failure excerpt.
+
+### Skipped Commands
+
+- Command: `<exact command>`
+  - Reason skipped:
+  - Impact:
+
+Do not replace exact command evidence with a vague summary.
 
 ## Repairs Attempted
 
-- Attempt number, failure cause, repair made, result.
+- Attempt:
+- Failure cause:
+- Repair made:
+- Result:
+
+Use `None` only when no repair was attempted.
+
+## Unrelated Drift Classification
+
+- Dirty worktree before phase:
+- Unrelated verification drift:
+- Action taken:
 
 ## State Updates
 
@@ -31,7 +61,12 @@ What changed and why.
 
 ## Risks And Limitations
 
-Known residual issues.
+Use risk lifecycle labels:
+
+- `active: <risk>` for unresolved risks.
+- `accepted: <risk and reason>` for tolerated risks.
+- `resolved: <risk and evidence>` for risks closed by this phase.
+- `superseded: <risk and replacement>` for risks replaced by later rules or work.
 
 ## Next Phase Readiness
 

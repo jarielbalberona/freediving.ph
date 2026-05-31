@@ -337,6 +337,36 @@ type DevicePushToken struct {
 	UpdatedAt     pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type DiveMemory struct {
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	AuthorUserID pgtype.UUID        `db:"author_user_id" json:"author_user_id"`
+	DiveSiteID   pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	Title        string             `db:"title" json:"title"`
+	Body         string             `db:"body" json:"body"`
+	Visibility   string             `db:"visibility" json:"visibility"`
+	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type DiveMemoryMedium struct {
+	ID        pgtype.UUID        `db:"id" json:"id"`
+	MemoryID  pgtype.UUID        `db:"memory_id" json:"memory_id"`
+	MediaID   pgtype.UUID        `db:"media_id" json:"media_id"`
+	SortOrder int32              `db:"sort_order" json:"sort_order"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type DiveMemoryTaggedUser struct {
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	MemoryID     pgtype.UUID        `db:"memory_id" json:"memory_id"`
+	TaggedUserID pgtype.UUID        `db:"tagged_user_id" json:"tagged_user_id"`
+	Status       string             `db:"status" json:"status"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type DivePresence struct {
 	ID             pgtype.UUID        `db:"id" json:"id"`
 	UserID         pgtype.UUID        `db:"user_id" json:"user_id"`

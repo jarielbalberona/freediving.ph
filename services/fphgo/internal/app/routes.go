@@ -129,6 +129,7 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		if journeyPublicRouter := resolveJourneyPublicRouter(deps); journeyPublicRouter != nil {
 			r.Mount("/v1/profiles", journeyPublicRouter)
 		}
+		registerPublicMemoryRoutes(r, deps)
 		if exploreRouter := resolveExploreRouter(deps); exploreRouter != nil {
 			r.Mount("/v1/explore", exploreRouter)
 		}
@@ -174,6 +175,7 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 			})
 			registerMemberPassportRoutes(member, deps)
 			registerMemberJourneyRoutes(member, deps)
+			registerMemberMemoryRoutes(member, deps)
 			member.Group(func(blocks chi.Router) {
 				if blocksRouter := resolveBlocksRouter(deps); blocksRouter != nil {
 					blocks.Mount("/v1/blocks", blocksRouter)
@@ -347,6 +349,16 @@ func registerPublicPassportRoutes(r chi.Router, deps *Dependencies) {
 	}
 }
 
+func registerPublicMemoryRoutes(r chi.Router, deps *Dependencies) {
+	if deps.MemoriesHandler != nil {
+		r.Get("/v1/profiles/{username}/dive-memories", deps.MemoriesHandler.ListProfileMemories)
+		return
+	}
+	if deps.MemoriesPublicRoutes != nil {
+		r.Mount("/v1/profiles", deps.MemoriesPublicRoutes)
+	}
+}
+
 func registerMemberPassportRoutes(r chi.Router, deps *Dependencies) {
 	if deps.PassportHandler != nil {
 		r.Get("/v1/me/passport/settings", deps.PassportHandler.GetMySettings)
@@ -379,6 +391,27 @@ func registerMemberJourneyRoutes(r chi.Router, deps *Dependencies) {
 		journey.Post("/v1/me/journey", deps.JourneyHandler.CreateManualEntry)
 		journey.Patch("/v1/me/journey/{entryID}", deps.JourneyHandler.UpdateManualEntry)
 		journey.Delete("/v1/me/journey/{entryID}", deps.JourneyHandler.DeleteManualEntry)
+	})
+}
+
+func registerMemberMemoryRoutes(r chi.Router, deps *Dependencies) {
+	if deps.MemoriesRoutes != nil {
+		r.Mount("/v1", deps.MemoriesRoutes)
+		return
+	}
+	if deps.MemoriesHandler == nil {
+		return
+	}
+	r.Group(func(memories chi.Router) {
+		memories.Use(middleware.RequirePermission(authz.PermissionProfilesWrite))
+		memories.Get("/v1/me/dive-memories", deps.MemoriesHandler.ListOwnMemories)
+		memories.Post("/v1/me/dive-memories", deps.MemoriesHandler.CreateMemory)
+		memories.Patch("/v1/me/dive-memories/{memoryID}", deps.MemoriesHandler.UpdateMemory)
+		memories.Delete("/v1/me/dive-memories/{memoryID}", deps.MemoriesHandler.DeleteMemory)
+		memories.Post("/v1/me/dive-memories/{memoryID}/tags", deps.MemoriesHandler.AddMemoryTags)
+		memories.Delete("/v1/me/dive-memories/{memoryID}/tags/{taggedUserID}", deps.MemoriesHandler.RemoveMemoryTag)
+		memories.Get("/v1/me/dive-memory-tags", deps.MemoriesHandler.ListMyTags)
+		memories.Patch("/v1/me/dive-memory-tags/{memoryID}", deps.MemoriesHandler.UpdateMyTag)
 	})
 }
 

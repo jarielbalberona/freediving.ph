@@ -45,3 +45,19 @@ Phase reports must record exact commands, pass/fail status, and relevant failure
 - Execution started: yes
 - Verification status: completed/pass with unrelated issue
 - Notes: Final Profile Experience Integration verification passed on 2026-05-31 for targeted scope. Passed profile, Dive Map, Dive Journey, Dive Passport, app route, shared types, web type-check/test/lint, `pnpm test:go`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `git diff --stat`, and `git diff --check`. Repo-level `pnpm test` failed only in unrelated `apps/mobile` due dirty Expo dependency drift: `@expo/ui` is `~56.0.15` but the mobile foundation contract expects `~56.0.14`.
+
+### `local-ai-memory-hardening`
+
+- Status: locked
+- Ready for execution: yes
+- Execution started: yes
+- Verification status: completed/pass
+- Notes: Final Local AI Memory Hardening verification passed on 2026-05-31. Passed initiative structure checks, `node tools/ai-runner/index.mjs --help`, `node tools/ai-runner/index.mjs local-ai-memory-hardening --check-only`, `pnpm test:ai-runner`, `pnpm exec biome check tools/ai-runner/index.mjs tools/ai-runner/index.test.mjs package.json`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, `git diff -- .ai .codex/skills tools/ai-runner package.json`, and `git diff --check`. `pnpm test` was not run because this tooling initiative added dedicated runner tests and the known unrelated mobile Expo dependency drift makes full repo test unsuitable as a gating signal here.
+
+### `dive-memories`
+
+- Status: locked
+- Ready for execution: yes
+- Execution started: yes
+- Verification status: Phase 7 passed; Phase 8 in progress
+- Notes: Phase 1 passed on 2026-05-31. Phase 2 passed on 2026-06-01. Phase 3 passed on 2026-06-01. Phase 4 passed on 2026-06-01. Phase 5 passed on 2026-06-01. Phase 6 passed on 2026-06-01. Phase 7 passed on 2026-06-01. Latest passed checks: profile/Dive Map/Dive Memories Go tests, types type-check, web type-check, and `git diff --check`. Commands required explicit PATH entries because the current shell omitted installed Go/pnpm/sqlc locations.

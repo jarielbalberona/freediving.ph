@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
@@ -42,6 +43,19 @@ const adapterPath = path.join(
   appRoot,
   "src/features/home-feed/adapters/activity-to-home-feed.ts",
 );
+
+const runTsxFixture = (code) => {
+  const result = spawnSync(
+    path.join(appRoot, "../../node_modules/.bin/tsx"),
+    ["--eval", code],
+    {
+      cwd: appRoot,
+      encoding: "utf8",
+    },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result.stdout.trim();
+};
 
 test("home feed keeps legacy client while activity feed is the default client", async () => {
   const [routes, homeClient, activityClient, homeHook, activityHook] =
@@ -101,9 +115,47 @@ test("activity preview adapts supported ledger types and skips unknown types saf
   assert.match(source, /case "buddy_intent_created"/);
   assert.match(source, /case "media_post_created"/);
   assert.match(source, /return null/);
-  assert.match(source, /authorAvatarUrl: item\.actor\.avatarUrl/);
-  assert.match(source, /authorPseudonymous: item\.actor\.id\.trim\(\) === ""/);
+  assert.match(source, /const actor = asRecord\(item\.actor\)/);
+  assert.match(source, /authorAvatarUrl: stringValue\(actor, "avatarUrl"\)/);
+  assert.match(source, /authorPseudonymous: !actorId/);
   assert.doesNotMatch(source, /authorUserId/);
+});
+
+test("activity preview tolerates omitted anonymous actor id", () => {
+  const output = runTsxFixture(`
+    import assert from "node:assert/strict";
+    import { activityToHomeFeedItem } from "./src/features/home-feed/adapters/activity-to-home-feed.ts";
+
+    const homeItem = activityToHomeFeedItem({
+      id: "activity_anon_1",
+      type: "chika_thread_created",
+      sourceModule: "chika",
+      sourceType: "thread",
+      sourceId: "thread_anon_1",
+      actor: {
+        name: "anon-abc123",
+      },
+      target: {
+        type: "chika_thread",
+        id: "thread_anon_1",
+      },
+      visibility: "public",
+      occurredAt: "2026-05-31T00:00:00Z",
+      title: "Anonymous report",
+      body: "Surface conditions looked clean.",
+      href: "/chika/thread_anon_1",
+    });
+
+    assert.ok(homeItem);
+    assert.equal(homeItem.authorHref, undefined);
+    assert.equal(homeItem.payload.authorName, "anon-abc123");
+    assert.equal(homeItem.payload.authorUsername, "");
+    assert.equal(homeItem.payload.authorPseudonymous, true);
+    console.log(JSON.stringify(homeItem.payload));
+  `);
+
+  const payload = JSON.parse(output);
+  assert.equal(payload.authorPseudonymous, true);
 });
 
 test("activity media posts preserve display URLs and avoid caption-only downgrade", async () => {
@@ -151,7 +203,10 @@ test("activity media posts preserve display URLs and avoid caption-only downgrad
     component,
     /className="block line-clamp-3 text-sm leading-relaxed text-foreground hover:underline"/,
   );
-  assert.match(dialog, /filter\(\(item\) => item\.type !== "video" && !item\.displayUrl\)/);
+  assert.match(
+    dialog,
+    /filter\(\(item\) => item\.type !== "video" && !item\.displayUrl\)/,
+  );
   assert.match(dialog, /needsMintedUrls && dialogUrls\.isPending/);
   assert.match(dialog, /item\.displayUrl \?\?/);
 });
