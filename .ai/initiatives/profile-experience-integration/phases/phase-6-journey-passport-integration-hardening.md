@@ -1,6 +1,6 @@
 # Phase 6: Journey + Passport Integration Hardening
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -88,4 +88,9 @@ Hard-stop if Passport requires Journey writes, Journey visibility is ambiguous, 
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Passport reads Journey through the `JourneyReader` interface only.
+- Passport forwards viewer identity to `ListProfileJourney`, preserving Journey visibility filtering.
+- Passport aggregate tests prove it does not create Journey entries or acquire generated-entry mutation dependencies.
+- Empty/unavailable Journey states remain explicit in the Passport aggregate contract and UI-facing shared types.

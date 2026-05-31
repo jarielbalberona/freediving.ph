@@ -35,23 +35,25 @@ Before executing an initiative phase, read the relevant `.ai/core` files, this s
 - Next execution target: yes
 - Initiative path: `.ai/initiatives/dive-journey/`
 - Locked date: 2026-05-31
-- Latest execution status: Phase 9 passed on 2026-05-31. Future Passport display integration was documented as read-only through the existing Journey read path, with guard tests against Passport mutation dependencies. Next phase is Phase 10 Final Verification/Reporting.
+- Latest execution status: completed on 2026-05-31. All Dive Journey phases completed, final verification passed, and the initiative final report was written at `.ai/initiatives/dive-journey/reports/final-report.md`.
 - Notes: Dive Journey is authored as the downstream storytelling/timeline layer. It supports manual, generated, media-attached, and conditionally tagged-user entries, but must never become source of truth for Dive Map, visited-site counts, badges, certifications, credentials, or Dive Passport stats.
 
 ### `dive-passport`
 
 - Status: locked
 - Ready for execution: yes
-- Execution started: no
+- Execution started: yes
 - Initiative path: `.ai/initiatives/dive-passport/`
 - Locked date: 2026-05-31
+- Latest execution status: completed on 2026-05-31. All Dive Passport phases completed, final targeted verification passed, local `fph` and `fph_test` migrations reached version 86, and the initiative final report was written at `.ai/initiatives/dive-passport/reports/final-report.md`. Repo-level `pnpm test` is blocked by unrelated mobile Expo dependency drift outside Passport scope.
 - Notes: Dive Passport is authored as the public diver identity/showcase layer. It is an aggregate/read model over Profile, Dive Map, Profile Badges, Dive Journey, media, memories, and summary stats, and must never become a competing source of truth or mutate child systems.
 
 ### `profile-experience-integration`
 
 - Status: locked
 - Ready for execution: yes
-- Execution started: no
+- Execution started: yes
 - Initiative path: `.ai/initiatives/profile-experience-integration/`
 - Locked date: 2026-05-31
+- Latest execution status: completed on 2026-05-31. All Profile Experience Integration phases completed, final targeted verification passed, and the initiative final report was written at `.ai/initiatives/profile-experience-integration/reports/final-report.md`. Repo-level `pnpm test` remains blocked by unrelated mobile Expo dependency drift outside integration scope.
 - Notes: Profile Experience Integration is authored as the final cross-module audit/hardening initiative for Profile Badges, User Dive Map, Dive Journey, and Dive Passport. It verifies source-of-truth boundaries, visibility/privacy consistency, shared contracts, and public profile UX composition without changing locked product ownership rules.

@@ -1,6 +1,6 @@
 # Phase 10: Final Verification/Reporting
 
-Status: pending
+Status: completed
 
 ## Objective
 
@@ -109,4 +109,14 @@ Hard-stop if full verification exposes unrelated dirty-worktree failures that ca
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Applied `0086_passport_settings.sql` to both local `fph` and `fph_test` databases using the provided DSNs.
+- Ran final targeted backend, shared types, web, schema/sqlc, and app-route checks.
+- Ran repo-level `pnpm typecheck`, `pnpm lint`, `pnpm test`, and `pnpm build`.
+- `pnpm test` failed only in `apps/mobile` because unrelated dirty Expo dependency drift changed `@expo/ui` from `~56.0.14` to `~56.0.15` while the mobile foundation contract test still expects `~56.0.14`.
+- Wrote the final Dive Passport report at `.ai/initiatives/dive-passport/reports/final-report.md`.
+
+Final verification verdict:
+
+- PASS WITH ISSUES due unrelated mobile dependency/test drift outside Dive Passport scope.

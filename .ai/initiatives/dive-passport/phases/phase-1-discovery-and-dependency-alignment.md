@@ -1,6 +1,6 @@
 # Phase 1: Discovery And Dependency Alignment
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -100,4 +100,11 @@ Hard-stop instead of continuing if discovery finds unavailable/contradictory Div
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Profile, Profile Badges, Dive Map, and Dive Journey read contracts exist and are usable for a read-only Passport aggregate.
+- Backend boundary recommendation: create `services/fphgo/internal/features/dive_passport` for aggregate composition, with one-way reads from profile/Dive Map/Journey/badge/media surfaces.
+- Optional settings can proceed only as presentation-only `passport_settings` for section visibility and references to existing badge IDs. Settings must not alter child visibility, duplicate child data, or become Passport source truth.
+- Dive Memories are unavailable and must be represented as an empty/deferred section until a separate memory initiative exists.
+- No implementation path requires a `dive_passports` source-of-truth table.
+- This phase was read-only except for initiative report/state updates.

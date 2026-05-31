@@ -1,6 +1,6 @@
 # Phase 2: Source-Of-Truth And Data-Flow Verification
 
-Status: pending
+Status: completed
 
 ## Objective
 
@@ -91,4 +91,23 @@ Hard-stop for source ownership ambiguity, required destructive migration, or beh
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Identified existing source-of-truth invariant tests across Profile Badges, Dive Map, Journey, and Passport.
+- Verified `user_dive_sites` ownership through Dive Map repository integration tests and profile repository contract tests.
+- Verified Journey downstream behavior through generated-entry idempotency tests and no-map-mutation checks.
+- Verified Passport read-only behavior through service tests that reject mutation dependencies.
+- Verified badge writes remain inside Profile Badges and do not create Dive Map ownership.
+- No application code changes were required in this phase.
+
+Verification completed:
+
+- `cd services/fphgo && go test ./internal/features/profiles/...` passed.
+- `cd services/fphgo && go test ./internal/features/dive_map/...` passed.
+- `cd services/fphgo && go test ./internal/features/dive_journey/...` passed.
+- `cd services/fphgo && go test ./internal/features/dive_passport/...` passed.
+- `git diff --check` passed.
+
+Remaining risk:
+
+- Profile badge count helpers still contain a legacy fallback if `user_dive_sites` is absent. In the current migrated schema the table exists and is used; Phase 4 must decide whether to remove the fallback entirely now that Dive Map is implemented.

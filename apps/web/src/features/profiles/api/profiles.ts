@@ -4,6 +4,8 @@ import {
   type ProfileJourneyResponse,
   type ProfileDivingResponse,
   type ProfileBadgesResponse,
+  type ProfilePassportResponse,
+  type PassportSettingsResponse,
   type Profile,
   type ProfileResponse,
   type ProfileView,
@@ -14,6 +16,7 @@ import {
   type UpsertUserBadgeRequest,
   type CreateManualJourneyEntryRequest,
   type JourneyEntryResponse,
+  type UpdatePassportSettingsRequest,
   type UpdateMyProfileRequest,
   type UserBadgeResponse,
 } from "@freediving.ph/types";
@@ -93,12 +96,39 @@ export const profilesApi = {
     );
   },
 
+  getProfilePassportByUsername: async (
+    username: string,
+  ): Promise<ProfilePassportResponse> => {
+    return fphgoFetchClient<ProfilePassportResponse>(
+      routes.v1.profiles.profilePassport(username),
+      { auth: "ready-only" },
+    );
+  },
+
   getProfileJourneyByUsername: async (
     username: string,
   ): Promise<ProfileJourneyResponse> => {
     return fphgoFetchClient<ProfileJourneyResponse>(
       routes.v1.profiles.profileJourney(username),
       { auth: "ready-only" },
+    );
+  },
+
+  getMyPassportSettings: async (): Promise<PassportSettingsResponse> => {
+    return fphgoFetchClient<PassportSettingsResponse>(
+      routes.v1.profiles.myPassportSettings(),
+    );
+  },
+
+  updateMyPassportSettings: async (
+    payload: UpdatePassportSettingsRequest,
+  ): Promise<PassportSettingsResponse> => {
+    return fphgoFetchClient<PassportSettingsResponse>(
+      routes.v1.profiles.myPassportSettings(),
+      {
+        method: "PUT",
+        body: payload as unknown as Record<string, unknown>,
+      },
     );
   },
 

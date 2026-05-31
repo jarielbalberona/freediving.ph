@@ -1,6 +1,6 @@
 # Phase 7: Empty-State And Visibility Hardening
 
-Status: pending
+Status: completed
 
 ## Objective
 
@@ -95,4 +95,18 @@ Hard-stop if child visibility rules conflict, require new product states, or can
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Strengthened Passport service tests for new-user empty states, unavailable children, viewer identity forwarding, presentation-only settings behavior, and absence of source mutation dependencies.
+- Strengthened Passport HTTP tests to prove anonymous and signed-in public aggregate reads pass the correct viewer identity.
+- Strengthened shared TypeScript contract tests for empty/unavailable child sections and presentation-only settings.
+- Strengthened web tests for empty states, forbidden source-truth claims, and presentation-only settings UI.
+- Repaired one overly broad web static assertion during verification; the assertion now scopes to the settings panel instead of incorrectly banning legitimate aggregate stat display.
+
+Verification completed:
+
+- `cd services/fphgo && go test ./internal/features/dive_passport/...` passed.
+- `cd services/fphgo && go test ./internal/features/profiles/...` passed.
+- `pnpm --filter @freediving.ph/types test` passed: 39 tests.
+- `pnpm --filter @freediving.ph/web test` passed: 208 tests, 194 passed, 14 skipped.
+- `git diff --check` passed.

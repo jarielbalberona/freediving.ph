@@ -4,6 +4,9 @@ import type {
   ProfileDiveMapSiteResponse,
   ProfileDivingResponse,
   ProfileJourneyResponse,
+  ProfilePassportResponse,
+  PassportSettingsResponse,
+  UpdatePassportSettingsRequest,
   ProfileView,
   CreateManualJourneyEntryRequest,
   JourneyEntryResponse,
@@ -41,6 +44,20 @@ export const profileApi = {
 
   async getProfileJourney(username: string): Promise<ProfileJourneyResponse> {
     return profilesApi.getProfileJourneyByUsername(normalizeUsername(username));
+  },
+
+  async getProfilePassport(username: string): Promise<ProfilePassportResponse> {
+    return profilesApi.getProfilePassportByUsername(normalizeUsername(username));
+  },
+
+  async getMyPassportSettings(): Promise<PassportSettingsResponse> {
+    return profilesApi.getMyPassportSettings();
+  },
+
+  async updateMyPassportSettings(
+    payload: UpdatePassportSettingsRequest,
+  ): Promise<PassportSettingsResponse> {
+    return profilesApi.updateMyPassportSettings(payload);
   },
 
   async createJourneyEntry(

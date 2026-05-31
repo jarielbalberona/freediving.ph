@@ -1321,79 +1321,11 @@ func (r *Repo) GetUserBadgeByID(ctx context.Context, badgeID, userID string) (Us
 }
 
 func (r *Repo) CountDiveSitesVisitedByUsername(ctx context.Context, username string) (int64, error) {
-	useUserDiveSites, err := r.userDiveSitesTableExists(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if useUserDiveSites {
-		return r.countDiveSitesVisitedFromUserDiveSitesByUsername(ctx, username)
-	}
-	// Transitional fallback until Dive Map owns `user_dive_sites`.
-	// Final contract: user_dive_sites must be derived only from qualifying,
-	// user-owned media_posts.dive_site_id. Tagged/shared memories and non-proof
-	// activity must not unlock sites or inflate this count.
-	const q = `
-		WITH target_user AS (
-			SELECT id
-			FROM users
-			WHERE lower(username) = lower($1)
-			  AND account_status = 'active'
-			LIMIT 1
-		),
-		tagged_sites AS (
-			SELECT mp.dive_site_id
-			FROM target_user u
-			JOIN media_posts mp ON mp.author_app_user_id = u.id
-			WHERE mp.deleted_at IS NULL
-			  AND mp.dive_site_id IS NOT NULL
-		)
-		SELECT COUNT(DISTINCT s.id)::bigint
-		FROM tagged_sites tagged
-		JOIN dive_sites s ON s.id = tagged.dive_site_id
-		WHERE s.moderation_state = 'approved'
-	`
-	var count int64
-	if err := r.pool.QueryRow(ctx, q, username).Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
+	return r.countDiveSitesVisitedFromUserDiveSitesByUsername(ctx, username)
 }
 
 func (r *Repo) CountDiveSitesVisitedByUserID(ctx context.Context, userID string) (int64, error) {
-	useUserDiveSites, err := r.userDiveSitesTableExists(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if useUserDiveSites {
-		return r.countDiveSitesVisitedFromUserDiveSitesByUserID(ctx, userID)
-	}
-	// Transitional fallback until Dive Map owns `user_dive_sites`.
-	// Count only the user's own media_posts tagged to dive_site_id. Shared or
-	// tagged memories are intentionally excluded from the badge contract.
-	const q = `
-		WITH tagged_sites AS (
-			SELECT dive_site_id
-			FROM media_posts
-			WHERE author_app_user_id = $1
-			  AND deleted_at IS NULL
-			  AND dive_site_id IS NOT NULL
-		)
-		SELECT COUNT(DISTINCT s.id)::bigint
-		FROM tagged_sites tagged
-		JOIN dive_sites s ON s.id = tagged.dive_site_id
-		WHERE s.moderation_state = 'approved'
-	`
-	var count int64
-	if err := r.pool.QueryRow(ctx, q, toUUID(userID)).Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-func (r *Repo) userDiveSitesTableExists(ctx context.Context) (bool, error) {
-	var exists bool
-	err := r.pool.QueryRow(ctx, `SELECT to_regclass('public.user_dive_sites') IS NOT NULL`).Scan(&exists)
-	return exists, err
+	return r.countDiveSitesVisitedFromUserDiveSitesByUserID(ctx, userID)
 }
 
 func (r *Repo) countDiveSitesVisitedFromUserDiveSitesByUsername(ctx context.Context, username string) (int64, error) {

@@ -959,7 +959,7 @@ func buildAutoStats(templates []profilesrepo.BadgeTemplate, diveSitesVisited int
 			SourceModule:       template.SourceModule,
 			IsAutoStat:         true,
 			MetadataJSON: map[string]any{
-				"contract": "transitional_media_posts_until_user_dive_sites",
+				"contract": "user_dive_sites",
 			},
 		}
 		items = append(items, item)

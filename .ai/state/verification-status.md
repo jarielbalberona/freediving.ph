@@ -27,21 +27,21 @@ Phase reports must record exact commands, pass/fail status, and relevant failure
 - Status: locked
 - Ready for execution: yes
 - Execution started: yes
-- Verification status: Phase 9 passed
-- Notes: Phase 9 passed on 2026-05-31. Passed `cd services/fphgo && TEST_DB_DSN=postgres://postgres:postgres@localhost:5433/fph_test?sslmode=disable go test ./internal/features/dive_journey/...`, `pnpm --filter @freediving.ph/types type-check`, `git diff --name-only | rg 'dive_passport|dive-passport|passport' || true`, and `git diff --check`.
+- Verification status: completed/passed
+- Notes: Final Dive Journey verification passed on 2026-05-31. Passed `cd services/fphgo && go test ./db/...`, `cd services/fphgo && make sqlc`, `cd services/fphgo && go test ./...`, `pnpm --filter @freediving.ph/types type-check`, `pnpm --filter @freediving.ph/types test`, `pnpm --filter @freediving.ph/web type-check`, `pnpm --filter @freediving.ph/web test`, `pnpm --filter @freediving.ph/web lint`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, `git diff --stat`, and `git diff --check`.
 
 ### `dive-passport`
 
 - Status: locked
 - Ready for execution: yes
-- Execution started: no
-- Verification status: not run
-- Notes: Initiative authoring review completed. No implementation phase has started, and no app/runtime smoke tests were run. Future execution must follow `.ai/initiatives/dive-passport/04-verification-plan.md` and record exact command evidence in phase reports.
+- Execution started: yes
+- Verification status: completed/pass with unrelated issue
+- Notes: Final Dive Passport targeted verification passed on 2026-05-31. Passed `DB_DSN='postgres://postgres:postgres@localhost:5433/fph?sslmode=disable' pnpm migrate:go`, `DB_DSN='postgres://postgres:postgres@localhost:5433/fph_test?sslmode=disable' pnpm migrate:go`, `cd services/fphgo && go test ./internal/features/dive_passport/...`, `cd services/fphgo && go test ./internal/features/profiles/...`, `cd services/fphgo && go test ./internal/app/...`, `cd services/fphgo && go test ./db/...`, `cd services/fphgo && make sqlc`, `pnpm --filter @freediving.ph/types type-check`, `pnpm --filter @freediving.ph/types test`, `pnpm --filter @freediving.ph/web type-check`, `pnpm --filter @freediving.ph/web test`, `pnpm --filter @freediving.ph/web lint`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `git diff --stat`, and `git diff --check`. Repo-level `pnpm test` failed only in unrelated `apps/mobile` due dirty Expo dependency drift: `@expo/ui` is `~56.0.15` but the mobile foundation contract expects `~56.0.14`.
 
 ### `profile-experience-integration`
 
 - Status: locked
 - Ready for execution: yes
-- Execution started: no
-- Verification status: not run
-- Notes: Initiative authoring review completed. No implementation phase has started, and no app/runtime smoke tests were run. Future execution must follow `.ai/initiatives/profile-experience-integration/04-verification-plan.md` and record exact command evidence in phase reports.
+- Execution started: yes
+- Verification status: completed/pass with unrelated issue
+- Notes: Final Profile Experience Integration verification passed on 2026-05-31 for targeted scope. Passed profile, Dive Map, Dive Journey, Dive Passport, app route, shared types, web type-check/test/lint, `pnpm test:go`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `git diff --stat`, and `git diff --check`. Repo-level `pnpm test` failed only in unrelated `apps/mobile` due dirty Expo dependency drift: `@expo/ui` is `~56.0.15` but the mobile foundation contract expects `~56.0.14`.

@@ -1,6 +1,6 @@
 # Phase 3: Backend Aggregate Read API
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -95,4 +95,11 @@ Hard-stop for auth ambiguity, child visibility ambiguity, unavailable/contradict
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added read-only `services/fphgo/internal/features/dive_passport` service and HTTP handler.
+- Added public route `GET /v1/profiles/{username}/passport`.
+- Aggregates profile summary, Dive Map preview, Profile Badges, Journey highlights, media fallback, memories fallback, and default presentation settings.
+- Uses existing child read services and returns stable empty/unavailable section states.
+- Added tests proving visible child data composition, unavailable child fallback, and no source mutation dependencies.
+- Did not add settings schema/API, migrations, web UI, source-system writes, badge verification, certification authority, or Passport source tables.

@@ -29,6 +29,9 @@ import (
 	journeyrepo "fphgo/internal/features/dive_journey/repo"
 	journeyservice "fphgo/internal/features/dive_journey/service"
 	divemaprepo "fphgo/internal/features/dive_map/repo"
+	passporthttp "fphgo/internal/features/dive_passport/http"
+	passportrepo "fphgo/internal/features/dive_passport/repo"
+	passportservice "fphgo/internal/features/dive_passport/service"
 	eventshttp "fphgo/internal/features/events/http"
 	eventsrepo "fphgo/internal/features/events/repo"
 	eventsservice "fphgo/internal/features/events/service"
@@ -94,6 +97,7 @@ type Dependencies struct {
 	UsersHandler             *usershttp.Handlers
 	MessagingHandler         *messaginghttp.Handlers
 	ChikaHandler             *chikahttp.Handlers
+	PassportHandler          *passporthttp.Handlers
 	JourneyHandler           *journeyhttp.Handlers
 	ExploreHandler           *explorehttp.Handlers
 	FeedHandler              *feedhttp.Handlers
@@ -118,6 +122,8 @@ type Dependencies struct {
 	UsersRoutes              chi.Router
 	MessagingRoutes          chi.Router
 	ChikaRoutes              chi.Router
+	PassportPublicRoutes     chi.Router
+	PassportRoutes           chi.Router
 	JourneyRoutes            chi.Router
 	JourneyPublicRoutes      chi.Router
 	ExploreRoutes            chi.Router
@@ -250,6 +256,13 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		profilesservice.WithMediaBaseURL(cfg.MediaCDNBaseURL),
 	)
 	profilesHandler := profileshttp.New(profilesService, v)
+	passportRepo := passportrepo.New(pool)
+	passportService := passportservice.New(
+		profilesService,
+		journeyService,
+		passportservice.WithSettingsRepository(passportRepo),
+	)
+	passportHandler := passporthttp.New(passportService, v)
 	blocksHandler := blockshttp.New(blocksService, v)
 	buddiesHandler := buddieshttp.New(buddiesService, v)
 	reportsRepo := reportsrepo.New(pool)
@@ -384,6 +397,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		UsersHandler:         usersHandler,
 		MessagingHandler:     messagingHandler,
 		ChikaHandler:         chikaHandler,
+		PassportHandler:      passportHandler,
 		JourneyHandler:       journeyHandler,
 		ExploreHandler:       exploreHandler,
 		FeedHandler:          feedHandler,

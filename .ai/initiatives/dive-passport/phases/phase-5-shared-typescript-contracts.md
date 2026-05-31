@@ -1,6 +1,6 @@
 # Phase 5: Shared TypeScript Contracts
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -91,4 +91,9 @@ Hard-stop for contract mismatch that requires source-system ownership changes or
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added shared Passport aggregate and settings contracts in `packages/types/src/api/dive-passport.ts`.
+- Exported Passport contracts from `packages/types/src/index.ts`.
+- Added shared contract tests covering empty/unavailable sections and presentation-only settings.
+- Did not add web-local DTOs, backend behavior, UI, child-system implementation, or source-data duplication.

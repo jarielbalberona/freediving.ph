@@ -1,6 +1,6 @@
 # Phase 7: Public Profile UX Composition Audit
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -92,4 +92,9 @@ Hard-stop if Passport placement or section redundancy requires product/UX decisi
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Passport placement decision: Passport remains a section inside the existing Diving tab, rendered before source-specific Dive Map and Journey sections.
+- Standalone source sections remain visible: Profile Badges stay on the profile overview, while Dive Map and Journey stay as independent Diving tab sections.
+- Owner-only controls remain guarded: Passport settings, Journey creation/deletion, badge management, and Dive Presence/Site CTAs are owner-only.
+- Added a web contract test to guard profile experience composition and owner/public control boundaries.

@@ -125,6 +125,7 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 		if deps.ProfilesHandler != nil {
 			registerPublicProfileRoutes(r, deps.ProfilesHandler)
 		}
+		registerPublicPassportRoutes(r, deps)
 		if journeyPublicRouter := resolveJourneyPublicRouter(deps); journeyPublicRouter != nil {
 			r.Mount("/v1/profiles", journeyPublicRouter)
 		}
@@ -171,6 +172,7 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 					profiles.Mount("/v1", profilesRouter)
 				}
 			})
+			registerMemberPassportRoutes(member, deps)
 			registerMemberJourneyRoutes(member, deps)
 			member.Group(func(blocks chi.Router) {
 				if blocksRouter := resolveBlocksRouter(deps); blocksRouter != nil {
@@ -333,6 +335,27 @@ func resolveJourneyPublicRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return journeyhttp.PublicRoutes(deps.JourneyHandler)
+}
+
+func registerPublicPassportRoutes(r chi.Router, deps *Dependencies) {
+	if deps.PassportHandler != nil {
+		r.Get("/v1/profiles/{username}/passport", deps.PassportHandler.GetProfilePassport)
+		return
+	}
+	if deps.PassportPublicRoutes != nil {
+		r.Mount("/v1/profiles", deps.PassportPublicRoutes)
+	}
+}
+
+func registerMemberPassportRoutes(r chi.Router, deps *Dependencies) {
+	if deps.PassportHandler != nil {
+		r.Get("/v1/me/passport/settings", deps.PassportHandler.GetMySettings)
+		r.Put("/v1/me/passport/settings", deps.PassportHandler.UpdateMySettings)
+		return
+	}
+	if deps.PassportRoutes != nil {
+		r.Mount("/v1", deps.PassportRoutes)
+	}
 }
 
 func registerPublicProfileRoutes(r chi.Router, h *profileshttp.Handlers) {

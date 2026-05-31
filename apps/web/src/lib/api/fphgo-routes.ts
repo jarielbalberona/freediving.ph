@@ -77,8 +77,11 @@ export const routes = {
       ) => `/v1/profiles/${toPathId(username)}/dive-map/${toPathId(siteId)}`,
       profileBadges: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}/badges`,
+      profilePassport: (username: string | number) =>
+        `/v1/profiles/${toPathId(username)}/passport`,
       profileJourney: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}/journey`,
+      myPassportSettings: () => "/v1/me/passport/settings",
       myJourney: () => "/v1/me/journey",
       myJourneyEntry: (entryId: string | number) =>
         `/v1/me/journey/${toPathId(entryId)}`,

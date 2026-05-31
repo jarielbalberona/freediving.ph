@@ -252,7 +252,7 @@ func TestDiveSitesVisitedAutoStatCarriesPassportFieldsAndContractMetadata(t *tes
 	if stat.SourceType != "system" || stat.SourceModule != "system" {
 		t.Fatalf("bad source metadata: %#v", stat)
 	}
-	if stat.MetadataJSON["contract"] != "transitional_media_posts_until_user_dive_sites" {
-		t.Fatalf("missing transitional contract metadata: %#v", stat.MetadataJSON)
+	if stat.MetadataJSON["contract"] != "user_dive_sites" {
+		t.Fatalf("missing user_dive_sites contract metadata: %#v", stat.MetadataJSON)
 	}
 }

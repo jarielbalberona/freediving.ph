@@ -83,3 +83,15 @@ export const useProfileJourneyQuery = (username: string, enabled = true) => {
     placeholderData: keepPreviousData,
   });
 };
+
+export const useProfilePassportQuery = (username: string, enabled = true) => {
+  const normalizedUsername = normalizeUsername(username);
+
+  return useQuery({
+    queryKey: queryKeys.profile.passport(normalizedUsername),
+    enabled: enabled && Boolean(normalizedUsername),
+    queryFn: () => profileApi.getProfilePassport(normalizedUsername),
+    staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
+  });
+};

@@ -1,6 +1,6 @@
 # Phase 4: Optional Passport Settings Schema/API
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -97,4 +97,11 @@ Hard-stop for product ambiguity around settings/featured badges, destructive mig
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added `passport_settings` for presentation preferences only.
+- Added sqlc-backed Passport settings repository.
+- Added owner-only `GET /v1/me/passport/settings` and `PUT /v1/me/passport/settings` routes.
+- Wired settings into the Passport aggregate as presentation defaults/overrides.
+- Added tests proving settings are owner-scoped, validate featured badge ID references, and do not mutate child source systems.
+- Did not add a `dive_passports` source-of-truth table or store copied badge/map/journey/media/memory source data.

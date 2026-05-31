@@ -1,6 +1,6 @@
 # Phase 9: Final Polish And Accessibility
 
-Status: pending
+Status: completed
 
 ## Objective
 
@@ -93,4 +93,20 @@ Hard-stop for unresolved UX decisions requiring product/design input or changes 
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added accessible section/card structure to the Passport profile surface with stable heading IDs and `aria-labelledby`.
+- Marked decorative icons as hidden from assistive technology.
+- Added `aria-live` to loading/unavailable shell states.
+- Converted Passport settings controls to a fieldset/legend with explicit checkbox IDs and labels.
+- Changed settings editing to local draft state with an explicit Save action instead of mutating on every checkbox toggle.
+- Added overflow guards for long site, Journey, and badge text.
+- Added web static tests for scoped accessible Passport structure.
+
+Verification completed:
+
+- `pnpm --filter @freediving.ph/web type-check` passed.
+- `pnpm --filter @freediving.ph/web test` passed: 209 tests, 195 passed, 14 skipped.
+- `pnpm --filter @freediving.ph/web lint` passed.
+- `git diff -- apps/web` reviewed.
+- `git diff --check` passed.

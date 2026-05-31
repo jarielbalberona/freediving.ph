@@ -1092,6 +1092,17 @@ type NotificationSetting struct {
 	UpdatedAt                  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type PassportSetting struct {
+	UserID           pgtype.UUID        `db:"user_id" json:"user_id"`
+	ShowMap          bool               `db:"show_map" json:"show_map"`
+	ShowBadges       bool               `db:"show_badges" json:"show_badges"`
+	ShowJourney      bool               `db:"show_journey" json:"show_journey"`
+	ShowMemories     bool               `db:"show_memories" json:"show_memories"`
+	FeaturedBadgeIds []pgtype.UUID      `db:"featured_badge_ids" json:"featured_badge_ids"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type Profile struct {
 	UserID              pgtype.UUID        `db:"user_id" json:"user_id"`
 	Bio                 string             `db:"bio" json:"bio"`

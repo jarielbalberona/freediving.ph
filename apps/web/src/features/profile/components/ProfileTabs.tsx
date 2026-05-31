@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileDiveMap } from "@/features/profile/components/ProfileDiveMap";
 import { ProfileGrid } from "@/features/profile/components/ProfileGrid";
 import { ProfileJourney } from "@/features/profile/components/ProfileJourney";
+import { ProfilePassport } from "@/features/profile/components/ProfilePassport";
 
 type ProfileTabsProps = {
   mediaItems: ProfileMediaItem[];
@@ -146,6 +147,7 @@ function ProfileDivingTab({
 
   return (
     <div className="space-y-5">
+      <ProfilePassport username={username} isOwner={isOwner} />
       <ProfileDiveMap username={username} isOwner={isOwner} />
       <ProfileJourney username={username} isOwner={isOwner} />
       <ProfileDivePresenceSection

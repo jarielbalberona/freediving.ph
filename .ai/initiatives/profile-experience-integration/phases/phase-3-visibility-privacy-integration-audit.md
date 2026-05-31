@@ -1,6 +1,6 @@
 # Phase 3: Visibility/Privacy Integration Audit
 
-Status: pending
+Status: completed
 
 ## Objective
 
@@ -87,4 +87,24 @@ Hard-stop for privacy ambiguity, missing follower/relationship model needed by a
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Audited existing owner/public visibility behavior across Profile Badges, Dive Map/profile diving, Dive Journey, Dive Passport, shared DTO tests, and web profile composition.
+- Verified public Profile Badges exclude private badges.
+- Verified Journey uses `public | followers | private` and follower state from `saved_users`.
+- Verified Passport forwards viewer identity to child readers and does not apply its own competing visibility policy.
+- Verified web owner controls are gated by `isOwner` from profile viewer relationship.
+- No application code changes were required in this phase.
+
+Verification completed:
+
+- `cd services/fphgo && go test ./internal/features/profiles/...` passed.
+- `cd services/fphgo && go test ./internal/features/dive_journey/...` passed.
+- `cd services/fphgo && go test ./internal/features/dive_passport/...` passed.
+- `pnpm --filter @freediving.ph/types test` passed: 39 tests.
+- `pnpm --filter @freediving.ph/web test` passed: 209 tests, 195 passed, 14 skipped.
+- `git diff --check` passed.
+
+Remaining privacy risk:
+
+- Dive Memories/tagged-user sharing remains deferred. No current module may infer memory visibility or use shared/tagged memory as proof.

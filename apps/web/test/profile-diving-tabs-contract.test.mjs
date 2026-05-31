@@ -60,6 +60,30 @@ test("Diving tab renders separate Dive Presence and Dive Sites sections", async 
   assert.match(tabs, /viewerCanContact/);
 });
 
+test("Profile experience modules compose without hiding source sections behind Passport", async () => {
+  const [page, tabs, passport, journey] = await Promise.all([
+    readFile(pagePath, "utf8"),
+    readFile(tabsPath, "utf8"),
+    readFile(path.join(appRoot, "src/features/profile/components/ProfilePassport.tsx"), "utf8"),
+    readFile(path.join(appRoot, "src/features/profile/components/ProfileJourney.tsx"), "utf8"),
+  ]);
+
+  assert.match(page, /<ProfileBadges/);
+  assert.match(tabs, /<ProfilePassport username=\{username\} isOwner=\{isOwner\} \/>/);
+  assert.match(tabs, /<ProfileDiveMap username=\{username\} isOwner=\{isOwner\} \/>/);
+  assert.match(tabs, /<ProfileJourney username=\{username\} isOwner=\{isOwner\} \/>/);
+
+  const passportIndex = tabs.indexOf("<ProfilePassport");
+  const mapIndex = tabs.indexOf("<ProfileDiveMap");
+  const journeyIndex = tabs.indexOf("<ProfileJourney");
+  assert.ok(passportIndex > -1 && mapIndex > passportIndex && journeyIndex > mapIndex);
+
+  assert.match(passport, /isOwner \? \(/);
+  assert.match(passport, /<PassportSettingsPanel username=\{username\} settings=\{passport\.settings\} \/>/);
+  assert.match(journey, /isOwner \? \(/);
+  assert.match(journey, /isOwner && item\.type === "custom"/);
+});
+
 test("Diving empty states separate owner CTAs from viewer empty states", async () => {
   const tabs = await readFile(tabsPath, "utf8");
 

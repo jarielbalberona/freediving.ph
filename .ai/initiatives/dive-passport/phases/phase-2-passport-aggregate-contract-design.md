@@ -1,6 +1,6 @@
 # Phase 2: Passport Aggregate Contract Design
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -87,4 +87,10 @@ Hard-stop for unresolved aggregate ownership, unresolved settings/featured badge
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Designed the Passport aggregate DTO in the phase report.
+- Mapped every section to source owners or explicit fallback values.
+- Confirmed settings remain presentation-only.
+- Rejected `dive_passports` source-truth storage and all child source-data duplication.
+- No application code, shared contracts, backend code, frontend code, or migrations were changed.

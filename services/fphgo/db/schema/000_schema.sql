@@ -1063,6 +1063,17 @@ CREATE TABLE IF NOT EXISTS journey_entry_media (
   CHECK (sort_order >= 0)
 );
 
+CREATE TABLE IF NOT EXISTS passport_settings (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  show_map BOOLEAN NOT NULL DEFAULT TRUE,
+  show_badges BOOLEAN NOT NULL DEFAULT TRUE,
+  show_journey BOOLEAN NOT NULL DEFAULT TRUE,
+  show_memories BOOLEAN NOT NULL DEFAULT TRUE,
+  featured_badge_ids UUID[] NOT NULL DEFAULT '{}'::uuid[],
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS dive_site_likes (
   dive_site_id UUID NOT NULL REFERENCES dive_sites(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

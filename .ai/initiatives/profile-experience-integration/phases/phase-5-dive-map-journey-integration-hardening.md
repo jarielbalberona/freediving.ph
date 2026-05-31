@@ -1,6 +1,6 @@
 # Phase 5: Dive Map + Journey Integration Hardening
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -87,4 +87,9 @@ Hard-stop if Map or Journey modules are unavailable without safe fallback, or if
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Existing Dive Journey generated-entry tests prove map-style generated entries are idempotent by `source_type`/`source_id`.
+- Existing repository integration tests prove Journey manual/generated entries do not create `user_dive_sites` rows.
+- Dive Map derivation tests still pass against `user_dive_sites` proof ownership.
+- No map milestone product catalog or producer was added; future producers must use `user_dive_sites` as input and Journey generated-entry upsert as a downstream display hook.

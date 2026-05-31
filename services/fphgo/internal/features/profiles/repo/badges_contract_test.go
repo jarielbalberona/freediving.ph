@@ -18,6 +18,9 @@ func TestDiveSitesVisitedContractUsesUserDiveSitesSource(t *testing.T) {
 	if !strings.Contains(source, "countDiveSitesVisitedFromUserDiveSitesByUserID") {
 		t.Fatal("Dive Sites Visited must count through user_dive_sites by user id")
 	}
+	if strings.Contains(source, "Transitional fallback") || strings.Contains(source, "tagged_sites") {
+		t.Fatal("Dive Sites Visited must not retain a media_posts fallback when user_dive_sites exists")
+	}
 	if strings.Contains(source, "dive_memories") {
 		t.Fatal("Dive Sites Visited must not count dive memories; shared/tagged memories must not inflate counts")
 	}

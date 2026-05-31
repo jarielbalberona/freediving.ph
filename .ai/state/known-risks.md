@@ -44,6 +44,7 @@
 - Tagged-user Journey support has no reusable acceptance/decline/privacy policy. It is deferred; later phases must not introduce tags without a separate locked privacy/tagging decision.
 - Shared Journey contracts include optional tagged-user presentation shapes, but these are not permission semantics and do not authorize backend tagged-user behavior.
 - Profile Journey UI currently supports owner create/delete and read display. Manual edit UI and media attachment picker UI are not exposed yet.
+- Final Dive Journey verification passed on 2026-05-31, including Go DB/sqlc/all tests, shared types checks/tests, web type-check/test/lint, repo-level `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, and `git diff --check`.
 
 ### `dive-passport`
 
@@ -52,6 +53,16 @@
 - Optional `passport_settings` must remain presentation-only and must not mutate child visibility, stats, badges, Journey entries, or Dive Map locations.
 - Empty states must be explicit for missing Dive Map, empty Journey, no badges, no memories/media, and new user profiles.
 - Dependencies must stay one-way into Passport; Passport must not feed or mutate Map, Journey, Badges, certifications, media, memories, or stats.
+- Phase 1 confirmed Dive Memories are unavailable; Passport V1 must expose memories as an empty/deferred section or omit it according to the aggregate contract until a separate memory initiative exists.
+- Phase 1 allowed optional settings only as presentation preferences and references to existing badge IDs. Any behavior that changes child visibility, stores copied child records, or invents featured-badge product rules must hard-stop.
+- Phase 3 added the read-only Passport aggregate API. Current media and memories sections are fallback-only; later media/memory integration must use existing read boundaries and must not treat those records as Dive Map proof.
+- Phase 4 added `passport_settings` for presentation preferences only. The table is not Passport source truth and must never store copied child records or change child-system visibility.
+- Phase 6 added the web Passport profile surface. It reads the aggregate contract and mutates only owner presentation settings; it must not be expanded into client-side source calculation or verification claims.
+- Dive Memories remain deferred in the Passport UI and are presented as unavailable rather than as inferred/shared content.
+- Phase 7 proved Passport forwards viewer identity to child readers and does not synthesize missing map, badge, Journey, media, or memory data. The remaining visibility risk is child-reader drift, not Passport-owned policy.
+- Phase 8 confirmed Profile, Dive Map, and Dive Journey do not import `dive_passport`; the dependency direction remains one-way into Passport.
+- Phase 9 improved static accessibility and responsive safeguards, but no manual browser or assistive-technology smoke test was run per autonomous execution constraints.
+- Final Dive Passport targeted verification passed. Full repo `pnpm test` currently fails in `apps/mobile` because unrelated dirty Expo dependency drift changed `@expo/ui` from `~56.0.14` to `~56.0.15` while the mobile foundation contract test still expects `~56.0.14`.
 
 ### `profile-experience-integration`
 
@@ -60,3 +71,13 @@
 - Badge-origin Journey entries must remain display-only and idempotent; Journey must not award, verify, revoke, or mutate badges.
 - Passport must remain read-only and must not duplicate source data while composing profile, badges, map, journey, memories, media, and stats.
 - Public profile UX can easily become redundant or contradictory if standalone module sections and Passport summaries are not deliberately composed.
+- Phase 1 confirmed Dive Memories are still unavailable; any shared/tagged memory integration remains blocked on a separate locked privacy/tagging initiative.
+- Phase 1 found unrelated mobile Expo dependency drift in `apps/mobile/package.json` and `pnpm-lock.yaml`; repo-level `pnpm test` fails until that mobile contract drift is resolved.
+- Phase 4 removed the legacy Profile Badges fallback to owned `media_posts.dive_site_id`; environments missing `user_dive_sites` migration will now fail badge visited-site reads instead of silently using non-canonical truth.
+- Phase 3 found no current cross-module visibility conflict, but Dive Memories/tagged-user sharing remains unavailable and must not be inferred by any profile experience module.
+- Phase 5 confirmed Journey can accept downstream map-style generated entries idempotently, but no actual map milestone producer/catalog was added. Future milestone producers must derive only from `user_dive_sites` and must not let Journey unlock locations.
+- Phase 6 confirmed Passport reads Journey through Journey-owned visibility filtering. Future changes to Journey visibility can affect Passport output and must be tested at the Journey boundary, not patched inside Passport.
+- Phase 7 preserved Passport and standalone source sections together in the profile Diving tab. That is coherent for V1, but a future UX decision may still split Passport into a route or tab if the profile grows too dense.
+- Phase 8 fixed Passport DTO drift by making shared Passport child previews compact. Any web view needing full child fields must call the owning child API directly instead of treating Passport as a full source mirror.
+- Phase 9 recommended follow-up initiatives for Dive Memories/privacy, map milestone producers, profile UX density, and mobile profile experience. None block final verification of the current locked integration initiative.
+- Final Profile Experience Integration targeted verification passed. Full repo `pnpm test` currently fails only because unrelated dirty mobile dependency drift changed `@expo/ui` from the contract-expected `~56.0.14` to `~56.0.15`.

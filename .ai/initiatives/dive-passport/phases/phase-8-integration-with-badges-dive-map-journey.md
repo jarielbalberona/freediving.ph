@@ -1,6 +1,6 @@
 # Phase 8: Integration With Badges/Dive Map/Journey
 
-Status: pending
+Status: completed
 
 ## Objective
 
@@ -91,4 +91,18 @@ Hard-stop if child contracts are unavailable/contradictory, integration requires
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Confirmed Passport aggregate reads available Dive Map, Profile Badges, and Dive Journey child surfaces through one-way service dependencies.
+- Added a focused integration test proving Passport composes bounded Dive Map preview data, badges/auto stats, and Journey highlights from child readers.
+- Confirmed Passport reads each child once and does not require mutation methods.
+- Confirmed no reverse dependency imports from Profile, Dive Map, or Dive Journey into `dive_passport`.
+- No child-system implementation files were added or modified beyond Passport-side integration tests.
+
+Verification completed:
+
+- `cd services/fphgo && go test ./internal/features/dive_passport/...` passed.
+- `cd services/fphgo && go test ./internal/features/profiles/...` passed.
+- `pnpm --filter @freediving.ph/types type-check` passed.
+- `rg -n "dive_passport" services/fphgo/internal/features/profiles services/fphgo/internal/features/dive_map services/fphgo/internal/features/dive_journey || true` returned no matches.
+- `git diff --check` passed.

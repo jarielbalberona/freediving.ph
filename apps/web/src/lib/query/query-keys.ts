@@ -394,8 +394,12 @@ export const queryKeys = {
       [...queryKeys.profile.diveMap(username), "site", siteId] as const,
     badges: (username: string) =>
       [...queryKeys.profile.view(username), "badges"] as const,
+    passport: (username: string) =>
+      [...queryKeys.profile.view(username), "passport"] as const,
     journey: (username: string) =>
       [...queryKeys.profile.view(username), "journey"] as const,
+    myPassportSettings: () =>
+      [...queryKeys.profile.all, "my-passport-settings"] as const,
     myBadges: () => [...queryKeys.profile.all, "my-badges"] as const,
     byUserId: (userId: string) =>
       [...queryKeys.profile.all, "user", userId] as const,

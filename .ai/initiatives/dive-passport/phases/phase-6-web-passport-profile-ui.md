@@ -1,6 +1,6 @@
 # Phase 6: Web Passport Profile UI
 
-Status: pending
+Status: completed
 
 ## Objective
 
@@ -100,4 +100,19 @@ Hard-stop for unresolved UX decision around Passport placement, missing backend 
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added profile Passport API route helpers, query keys, API client functions, and a React Query read hook.
+- Added owner-only Passport settings mutation support for presentation preferences.
+- Added `ProfilePassport` to the profile Diving tab above the detailed Dive Map section.
+- Rendered summary, Dive Map preview, badges, Journey highlights, recent media, and deferred memories states.
+- Added explicit empty states for missing child sections without claiming verification, certification, ranking, or source ownership.
+- Added web contract/static tests covering API wiring, shared contract consumption, empty states, and source-truth copy restrictions.
+
+Verification completed:
+
+- `pnpm --filter @freediving.ph/web type-check` passed.
+- `pnpm --filter @freediving.ph/web test` passed: 207 tests, 193 passed, 14 skipped.
+- `pnpm --filter @freediving.ph/web lint` passed.
+- `git diff -- apps/web packages/types` reviewed.
+- `git diff --check` passed.

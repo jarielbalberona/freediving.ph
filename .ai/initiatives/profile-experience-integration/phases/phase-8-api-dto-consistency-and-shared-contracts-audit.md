@@ -1,6 +1,6 @@
 # Phase 8: API/DTO Consistency And Shared Contracts Audit
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -93,4 +93,9 @@ Hard-stop if DTO alignment requires changing source ownership or unresolved prod
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Found and fixed Passport shared contract drift: the backend returns compact Passport map markers and compact Passport Journey highlights, not full Dive Map marker or Journey entry DTOs.
+- Added explicit `PassportMapMarker` and `PassportJourneyEntry` shared types.
+- Added a shared type contract test proving Passport child previews stay compact and read-only.
+- Verified shared types, web type-check, profile backend tests, app wiring tests, and diff whitespace checks.

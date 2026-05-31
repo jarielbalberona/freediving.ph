@@ -1,6 +1,6 @@
 # Phase 4: Profile Badges + Dive Map Integration Hardening
 
-Status: pending
+Status: completed
 
 ## Objective
 
@@ -87,4 +87,18 @@ Hard-stop if `user_dive_sites` is unavailable and no approved fallback exists, o
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Removed the legacy `media_posts.dive_site_id` fallback from Profile Badges visited-site count helpers.
+- Profile Badges now counts Dive Sites Visited only through `user_dive_sites`.
+- Updated badge contract tests to fail if a transitional media-post fallback returns.
+- Updated Dive Sites Visited auto-stat metadata from `transitional_media_posts_until_user_dive_sites` to `user_dive_sites`.
+- No new badge product rules or map badges were added.
+
+Verification completed:
+
+- `cd services/fphgo && go test ./internal/features/profiles/...` passed.
+- `cd services/fphgo && go test ./internal/features/dive_map/...` passed.
+- `pnpm --filter @freediving.ph/types test` passed: 39 tests.
+- `rg -n "Transitional fallback|transitional_media_posts_until_user_dive_sites|tagged_sites|userDiveSitesTableExists" services/fphgo/internal/features/profiles` returned only the guard assertion in `badges_contract_test.go`.
+- `git diff --check` passed.
