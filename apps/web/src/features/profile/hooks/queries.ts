@@ -29,3 +29,15 @@ export const useProfileDivingQuery = (username: string, enabled = true) => {
     placeholderData: keepPreviousData,
   });
 };
+
+export const useProfileBadgesQuery = (username: string, enabled = true) => {
+  const normalizedUsername = normalizeUsername(username);
+
+  return useQuery({
+    queryKey: queryKeys.profile.badges(normalizedUsername),
+    enabled: enabled && Boolean(normalizedUsername),
+    queryFn: () => profileApi.getProfileBadges(normalizedUsername),
+    staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
+  });
+};

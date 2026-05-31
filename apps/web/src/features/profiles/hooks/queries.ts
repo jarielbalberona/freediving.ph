@@ -29,7 +29,8 @@ export const useUserSearch = (query?: string, limit = 10) => {
   const params = normalizeProfileSearchParams({ query, limit });
   return useQuery({
     queryKey: queryKeys.profile.search(params),
-    queryFn: () => profilesApi.searchUsers(String(params.query), params.limit ?? limit),
+    queryFn: () =>
+      profilesApi.searchUsers(String(params.query), params.limit ?? limit),
     enabled: Boolean(query && query.trim().length > 0),
     staleTime: 30_000,
   });
@@ -41,5 +42,23 @@ export const useSavedHub = (enabled = true) => {
     queryFn: () => profilesApi.getSavedHub(),
     enabled,
     staleTime: 30_000,
+  });
+};
+
+export const useMyBadges = (enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.profile.myBadges(),
+    queryFn: () => profilesApi.getMyBadges(),
+    enabled,
+    staleTime: 30_000,
+  });
+};
+
+export const useProfileBadges = (username: string, enabled = true) => {
+  return useQuery({
+    queryKey: queryKeys.profile.badges(username),
+    queryFn: () => profilesApi.getProfileBadgesByUsername(username),
+    enabled: enabled && Boolean(username),
+    staleTime: 60_000,
   });
 };

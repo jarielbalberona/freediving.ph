@@ -724,6 +724,26 @@ func (s *contractProfilesService) GetProfileDivingByUsername(_ context.Context, 
 	return profilesservice.ProfileDiving{}, nil
 }
 
+func (s *contractProfilesService) GetMyBadges(_ context.Context, _ string) (profilesservice.ProfileBadges, error) {
+	return profilesservice.ProfileBadges{}, nil
+}
+
+func (s *contractProfilesService) GetProfileBadgesByUsername(_ context.Context, _ string) (profilesservice.ProfileBadges, error) {
+	return profilesservice.ProfileBadges{}, nil
+}
+
+func (s *contractProfilesService) CreateUserBadge(_ context.Context, _ profilesservice.UpsertUserBadgeInput) (profilesservice.UserBadge, error) {
+	return profilesservice.UserBadge{}, nil
+}
+
+func (s *contractProfilesService) UpdateUserBadge(_ context.Context, _ profilesservice.UpsertUserBadgeInput) (profilesservice.UserBadge, error) {
+	return profilesservice.UserBadge{}, nil
+}
+
+func (s *contractProfilesService) DeleteUserBadge(_ context.Context, _, _ string) error {
+	return nil
+}
+
 func contractAuthMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

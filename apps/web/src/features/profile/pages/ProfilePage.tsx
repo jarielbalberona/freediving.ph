@@ -16,6 +16,7 @@ import {
 import { useProfileMediaInfiniteQuery } from "@/features/media/hooks";
 import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
+import { ProfileBadges } from "@/features/profile/components/ProfileBadges";
 import { ProfileBucketList } from "@/features/profile/components/ProfileBucketList";
 import { ProfileSkeleton } from "@/features/profile/components/ProfileSkeleton";
 import { ProfileTabs } from "@/features/profile/components/ProfileTabs";
@@ -26,6 +27,7 @@ import {
 import { useSavedHub } from "@/features/profiles/hooks/queries";
 import {
   useProfileDivingQuery,
+  useProfileBadgesQuery,
   useProfileViewQuery,
 } from "@/features/profile/hooks/queries";
 import { getProfileSettingsRoute, normalizeUsername } from "@/lib/routes";
@@ -34,7 +36,8 @@ type ProfilePageProps = {
   username: string;
 };
 
-const FPH_LOGO_WHITE_URL = "https://cdn.freediving.ph/images/fph-logo-white.png";
+const FPH_LOGO_WHITE_URL =
+  "https://cdn.freediving.ph/images/fph-logo-white.png";
 
 export default function ProfilePage({ username }: ProfilePageProps) {
   const router = useRouter();
@@ -45,6 +48,7 @@ export default function ProfilePage({ username }: ProfilePageProps) {
   const profileQuery = useProfileViewQuery(normalizedUsername);
   const mediaQuery = useProfileMediaInfiniteQuery(normalizedUsername);
   const divingQuery = useProfileDivingQuery(normalizedUsername);
+  const badgesQuery = useProfileBadgesQuery(normalizedUsername);
   const savedHubQuery = useSavedHub(session.status === "signed_in");
   const saveUserMutation = useSaveUser();
   const unsaveUserMutation = useUnsaveUser();
@@ -155,6 +159,11 @@ export default function ProfilePage({ username }: ProfilePageProps) {
           isMessagePending={openThreadMutation.isPending}
         />
         <ProfileBucketList items={[]} />
+        <ProfileBadges
+          badges={badgesQuery.data?.badges ?? []}
+          autoStats={badgesQuery.data?.autoStats ?? []}
+          isOwner={isOwner}
+        />
         <ProfileTabs
           mediaItems={mediaItems}
           isLoadingMedia={mediaQuery.isPending && mediaItems.length === 0}
@@ -164,7 +173,9 @@ export default function ProfilePage({ username }: ProfilePageProps) {
             void mediaQuery.fetchNextPage();
           }}
           username={profileQuery.data.username}
-          displayName={profileQuery.data.displayName ?? profileQuery.data.username}
+          displayName={
+            profileQuery.data.displayName ?? profileQuery.data.username
+          }
           avatarUrl={profileQuery.data.avatarUrl}
           diving={divingQuery.data}
           isLoadingDiving={divingQuery.isPending}

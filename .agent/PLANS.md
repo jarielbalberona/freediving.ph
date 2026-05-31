@@ -221,6 +221,100 @@ Replace manual area and coordinate entry with a map-pin flow in `apps/web`, and 
 
 ---
 
+# ExecPlan: Local AI Memory And Autonomous Initiative Runner V1
+
+## 1. Title
+
+Local AI memory and autonomous initiative runner V1
+
+## 2. Objective
+
+Add a Freediving Philippines-only, markdown-first project memory system plus local Codex skills and a runner for phase-based initiative execution.
+
+## 3. Scope
+
+- `.ai` memory hierarchy, templates, lifecycle docs, and starter project state.
+- `.codex/skills/initiative-authoring` planning-only skill.
+- `.codex/skills/project-memory-execution` phase execution skill.
+- `tools/ai-runner` local Node runner and root `pnpm ai:run` script.
+
+## 4. Constraints And Non-Goals
+
+- Do not implement databases, embeddings, vector search, dashboards, cloud services, or multi-project support.
+- Do not touch app feature code as part of this system setup.
+- Do not modify unrelated dirty worktree changes.
+- Runner must have bounded repair attempts and explicit hard-stop behavior.
+
+## 5. Acceptance Criteria
+
+- `.ai` contains meaningful starter content under `core`, `state`, `initiatives`, and `templates`.
+- Skills exist with valid `SKILL.md` frontmatter and focused workflows.
+- Runner can determine the next phase, build a phase execution prompt, optionally invoke Codex, run verification commands, retry repairs, update status/report files, and generate a final report.
+- Phase status values and transitions are documented.
+- Repo exposes `pnpm ai:run <initiative>`.
+
+## 6. Repo Evidence
+
+- Root scripts are managed in `package.json`.
+- Existing project plan policy lives in `.agent/PLANS.md`.
+- Existing `.ai` directory is present but has no files before this change.
+- Existing `.codex` only contains `config.toml` before this change.
+- `codex exec` is available locally at `/opt/homebrew/bin/codex`.
+
+## 7. Risks And Rollback
+
+- Risk: fully autonomous repair can make bad changes if initiative phases are vague. Mitigation: phase hard-stop rules and scoped phase prompts.
+- Risk: runner cannot guarantee Codex behavior. Mitigation: runner records prompts, outputs, verification, and refuses infinite retries.
+- Rollback: remove `.ai`, the two skill folders, `tools/ai-runner`, and the `ai:run` script.
+
+## 8. Milestones
+
+### Milestone 1: Memory hierarchy and templates
+- Goal: create `.ai` source-of-truth docs and reusable templates.
+- Inputs/Dependencies: pasted implementation brief, `AGENTS.md`.
+- Changes: `.ai/README.md`, `.ai/core/*`, `.ai/state/*`, `.ai/templates/*`, `.ai/initiatives/.gitkeep`.
+- Validation Commands: `find .ai -maxdepth 3 -type f`
+- Expected Evidence: required memory files exist and contain non-placeholder project-specific guidance.
+- Rollback Notes: delete newly added `.ai` files.
+- Status: `done`
+
+### Milestone 2: Codex skills
+- Goal: create planning and execution skills for initiative authoring and phase work.
+- Inputs/Dependencies: skill-creator guidance.
+- Changes: `.codex/skills/initiative-authoring/SKILL.md`, `.codex/skills/project-memory-execution/SKILL.md`.
+- Validation Commands: inspect skill frontmatter and body.
+- Expected Evidence: skills are concise, scoped, and include guardrails.
+- Rollback Notes: delete newly added skill directories.
+- Status: `done`
+
+### Milestone 3: Local runner
+- Goal: add a local runner for autonomous phase orchestration.
+- Inputs/Dependencies: `package.json`, `codex exec --help`.
+- Changes: `tools/ai-runner/index.mjs`, root `package.json` script.
+- Validation Commands: `pnpm ai:run -- --help`, `node tools/ai-runner/index.mjs --help`.
+- Expected Evidence: runner prints usage and supports dry-run/autonomous options.
+- Rollback Notes: remove runner and package script.
+- Status: `done`
+
+## 9. Verification Plan
+
+- `node tools/ai-runner/index.mjs --help`
+- `pnpm ai:run -- --help`
+- `pnpm lint`
+
+## 10. Progress Log
+
+- 2026-05-31: Read the pasted V1 brief, root `AGENTS.md`, `.agent/PLANS.md`, root `package.json`, current `.ai`/`.codex` state, and `codex exec --help`.
+- 2026-05-31: Confirmed unrelated dirty file `services/fphgo/internal/features/profiles/http/routes.go` and left it untouched.
+- 2026-05-31: Added `.ai` memory hierarchy, templates, skills, runner, and `pnpm ai:run` script.
+- 2026-05-31: Verified `node tools/ai-runner/index.mjs --help`, `pnpm ai:run -- --help`, `pnpm ai:run --help`, `pnpm lint`, and `pnpm exec biome lint tools/ai-runner/index.mjs package.json`.
+- 2026-05-31: Ran `pnpm typecheck`; it failed in unrelated profile badge work at `apps/web/src/features/profile/components/ProfileBadges.tsx` because local `Button` props do not support `asChild`.
+
+## 11. Outcomes And Follow-Ups
+
+- Outcome: V1 local AI memory, skills, and runner are implemented and verified at the code/documentation level. Full repo type-check is blocked by unrelated profile badge work.
+- Follow-up: first real initiative should be authored with `.codex/skills/initiative-authoring` and run in `--dry-run` first before allowing autonomous Codex execution.
+
 # ExecPlan: Instructors V1 And School Creation Gate
 
 ## 1. Title

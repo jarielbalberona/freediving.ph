@@ -23,7 +23,10 @@ export const mediaPresets = ["thumb", "card", "dialog", "original"] as const;
 export type MediaPreset = (typeof mediaPresets)[number];
 
 export type MediaObjectState = "active" | "hidden" | "deleted";
-export type MediaPostSource = "create_post" | "profile_upload" | "moment_upload";
+export type MediaPostSource =
+  | "create_post"
+  | "profile_upload"
+  | "moment_upload";
 export type MediaItemType = "photo" | "video";
 export type MediaItemStatus = "active" | "hidden" | "deleted";
 export type MomentProcessingStatus =

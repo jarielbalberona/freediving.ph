@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -156,22 +157,22 @@ type BadgeTemplate struct {
 }
 
 type UserBadge struct {
-	ID                 string
-	UserID             string
-	Template           BadgeTemplate
-	ValueText          string
-	ValueNumber        *float64
-	ValueMinutes       *int32
-	ValueSeconds       *int32
-	ReferenceLabel     string
-	ReferenceValue     string
-	ProofMediaID       string
+	ID                  string
+	UserID              string
+	Template            BadgeTemplate
+	ValueText           string
+	ValueNumber         *float64
+	ValueMinutes        *int32
+	ValueSeconds        *int32
+	ReferenceLabel      string
+	ReferenceValue      string
+	ProofMediaID        string
 	ProofMediaObjectKey string
-	VerificationStatus string
-	VerifiedAt         *time.Time
-	VerifiedBy         string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	VerificationStatus  string
+	VerifiedAt          *time.Time
+	VerifiedBy          string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type UpsertUserBadgeInput struct {

@@ -1,5 +1,6 @@
 import {
   type ProfileDivingResponse,
+  type ProfileBadgesResponse,
   type Profile,
   type ProfileResponse,
   type ProfileView,
@@ -7,7 +8,9 @@ import {
   type SaveUserResponse,
   type SavedHubResponse,
   type SearchUsersResponse,
+  type UpsertUserBadgeRequest,
   type UpdateMyProfileRequest,
+  type UserBadgeResponse,
 } from "@freediving.ph/types";
 
 import { fphgoFetchClient } from "@/lib/api/fphgo-fetch-client";
@@ -19,7 +22,9 @@ export const profilesApi = {
   },
 
   getProfileByUserId: async (userId: string): Promise<ProfileResponse> => {
-    return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.profile(userId));
+    return fphgoFetchClient<ProfileResponse>(
+      routes.v1.profiles.profile(userId),
+    );
   },
 
   getUserByUsername: async (username: string): Promise<Profile> => {
@@ -55,7 +60,52 @@ export const profilesApi = {
     );
   },
 
-  updateMyProfile: async (payload: UpdateMyProfileRequest): Promise<ProfileResponse> => {
+  getProfileBadgesByUsername: async (
+    username: string,
+  ): Promise<ProfileBadgesResponse> => {
+    return fphgoFetchClient<ProfileBadgesResponse>(
+      routes.v1.profiles.profileBadges(username),
+      { auth: "ready-only" },
+    );
+  },
+
+  getMyBadges: async (): Promise<ProfileBadgesResponse> => {
+    return fphgoFetchClient<ProfileBadgesResponse>(
+      routes.v1.profiles.myBadges(),
+    );
+  },
+
+  createBadge: async (
+    payload: UpsertUserBadgeRequest,
+  ): Promise<UserBadgeResponse> => {
+    return fphgoFetchClient<UserBadgeResponse>(routes.v1.profiles.myBadges(), {
+      method: "POST",
+      body: payload as unknown as Record<string, unknown>,
+    });
+  },
+
+  updateBadge: async (
+    badgeId: string,
+    payload: UpsertUserBadgeRequest,
+  ): Promise<UserBadgeResponse> => {
+    return fphgoFetchClient<UserBadgeResponse>(
+      routes.v1.profiles.myBadge(badgeId),
+      {
+        method: "PATCH",
+        body: payload as unknown as Record<string, unknown>,
+      },
+    );
+  },
+
+  deleteBadge: async (badgeId: string): Promise<void> => {
+    return fphgoFetchClient<void>(routes.v1.profiles.myBadge(badgeId), {
+      method: "DELETE",
+    });
+  },
+
+  updateMyProfile: async (
+    payload: UpdateMyProfileRequest,
+  ): Promise<ProfileResponse> => {
     return fphgoFetchClient<ProfileResponse>(routes.v1.profiles.me(), {
       method: "PATCH",
       body: payload as Record<string, unknown>,
@@ -67,9 +117,12 @@ export const profilesApi = {
   },
 
   saveUser: async (userId: string): Promise<SaveUserResponse> => {
-    return fphgoFetchClient<SaveUserResponse>(routes.v1.profiles.saveUser(userId), {
-      method: "POST",
-    });
+    return fphgoFetchClient<SaveUserResponse>(
+      routes.v1.profiles.saveUser(userId),
+      {
+        method: "POST",
+      },
+    );
   },
 
   unsaveUser: async (userId: string): Promise<void> => {

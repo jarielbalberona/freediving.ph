@@ -842,6 +842,22 @@
     },
     {
       "method": "GET",
+      "pattern": "/v1/me/badges"
+    },
+    {
+      "method": "POST",
+      "pattern": "/v1/me/badges"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/v1/me/badges/{badgeID}"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/v1/me/badges/{badgeID}"
+    },
+    {
+      "method": "GET",
       "pattern": "/v1/me/course-bookings/"
     },
     {
@@ -1019,6 +1035,10 @@
     {
       "method": "GET",
       "pattern": "/v1/profiles/{username}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/v1/profiles/{username}/badges"
     },
     {
       "method": "GET",

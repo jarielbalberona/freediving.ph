@@ -69,6 +69,11 @@ export const routes = {
         `/v1/profiles/${toPathId(username)}/media`,
       profileDiving: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}/diving`,
+      profileBadges: (username: string | number) =>
+        `/v1/profiles/${toPathId(username)}/badges`,
+      myBadges: () => "/v1/me/badges",
+      myBadge: (badgeId: string | number) =>
+        `/v1/me/badges/${toPathId(badgeId)}`,
       searchUsers: () => "/v1/users/search",
       saveUser: (userId: string | number) =>
         `/v1/users/id/${toPathId(userId)}/save`,

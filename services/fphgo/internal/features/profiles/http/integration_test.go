@@ -91,6 +91,46 @@ func (m *memoryProfilesRepo) ListProfileDivingByUsername(_ context.Context, _ st
 	return profilesrepo.ProfileDiving{}, nil
 }
 
+func (m *memoryProfilesRepo) ListBadgeTemplates(_ context.Context) ([]profilesrepo.BadgeTemplate, error) {
+	return []profilesrepo.BadgeTemplate{}, nil
+}
+
+func (m *memoryProfilesRepo) GetBadgeTemplate(_ context.Context, _ string) (profilesrepo.BadgeTemplate, error) {
+	return profilesrepo.BadgeTemplate{}, nil
+}
+
+func (m *memoryProfilesRepo) ListUserBadgesByUserID(_ context.Context, _ string) ([]profilesrepo.UserBadge, error) {
+	return []profilesrepo.UserBadge{}, nil
+}
+
+func (m *memoryProfilesRepo) ListProfileBadgesByUsername(_ context.Context, _ string) ([]profilesrepo.UserBadge, error) {
+	return []profilesrepo.UserBadge{}, nil
+}
+
+func (m *memoryProfilesRepo) CreateUserBadge(_ context.Context, _ profilesrepo.UpsertUserBadgeInput) (profilesrepo.UserBadge, error) {
+	return profilesrepo.UserBadge{}, nil
+}
+
+func (m *memoryProfilesRepo) UpdateUserBadge(_ context.Context, _ profilesrepo.UpsertUserBadgeInput) (profilesrepo.UserBadge, error) {
+	return profilesrepo.UserBadge{}, nil
+}
+
+func (m *memoryProfilesRepo) DeleteUserBadge(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (m *memoryProfilesRepo) CountDiveSitesVisitedByUsername(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
+func (m *memoryProfilesRepo) CountDiveSitesVisitedByUserID(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
+func (m *memoryProfilesRepo) UserOwnsProofMedia(_ context.Context, _, _ string) (bool, error) {
+	return true, nil
+}
+
 type denyAfterLimiter struct {
 	limit int
 	count int
@@ -348,6 +388,26 @@ func TestProfileDivingEndpointIsPublicAndReturnsSeparatePresenceAndAffinityLists
 	if body.Affinities[0].DiveSiteSlug != "napaling-reef" || body.Affinities[0].DiveSiteName != "Napaling Reef" {
 		t.Fatalf("expected affinity dive-site data, got %+v", body.Affinities[0])
 	}
+}
+
+func (s *stubProfilesService) GetMyBadges(_ context.Context, _ string) (profilesservice.ProfileBadges, error) {
+	return profilesservice.ProfileBadges{}, nil
+}
+
+func (s *stubProfilesService) GetProfileBadgesByUsername(_ context.Context, _ string) (profilesservice.ProfileBadges, error) {
+	return profilesservice.ProfileBadges{}, nil
+}
+
+func (s *stubProfilesService) CreateUserBadge(_ context.Context, _ profilesservice.UpsertUserBadgeInput) (profilesservice.UserBadge, error) {
+	return profilesservice.UserBadge{}, nil
+}
+
+func (s *stubProfilesService) UpdateUserBadge(_ context.Context, _ profilesservice.UpsertUserBadgeInput) (profilesservice.UserBadge, error) {
+	return profilesservice.UserBadge{}, nil
+}
+
+func (s *stubProfilesService) DeleteUserBadge(_ context.Context, _, _ string) error {
+	return nil
 }
 
 func TestPatchProfileValidationReturnsApiErrorIssues(t *testing.T) {

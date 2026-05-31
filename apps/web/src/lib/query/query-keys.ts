@@ -388,6 +388,9 @@ export const queryKeys = {
       [...queryKeys.profile.all, "view", username] as const,
     diving: (username: string) =>
       [...queryKeys.profile.view(username), "diving"] as const,
+    badges: (username: string) =>
+      [...queryKeys.profile.view(username), "badges"] as const,
+    myBadges: () => [...queryKeys.profile.all, "my-badges"] as const,
     byUserId: (userId: string) =>
       [...queryKeys.profile.all, "user", userId] as const,
     search: (params: ProfileSearchParamInput = {}) =>

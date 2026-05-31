@@ -176,23 +176,23 @@ type BadgeTemplate struct {
 }
 
 type UserBadge struct {
-	ID                 string         `json:"id"`
-	Template           BadgeTemplate  `json:"template"`
-	ValueText          string         `json:"valueText,omitempty"`
-	ValueNumber        *float64       `json:"valueNumber,omitempty"`
-	ValueMinutes       *int32         `json:"valueMinutes,omitempty"`
-	ValueSeconds       *int32         `json:"valueSeconds,omitempty"`
-	DisplayValue       string         `json:"displayValue,omitempty"`
-	ReferenceLabel     string         `json:"referenceLabel,omitempty"`
-	ReferenceValue     string         `json:"referenceValue,omitempty"`
-	ProofMediaID       string         `json:"proofMediaId,omitempty"`
+	ID                  string        `json:"id"`
+	Template            BadgeTemplate `json:"template"`
+	ValueText           string        `json:"valueText,omitempty"`
+	ValueNumber         *float64      `json:"valueNumber,omitempty"`
+	ValueMinutes        *int32        `json:"valueMinutes,omitempty"`
+	ValueSeconds        *int32        `json:"valueSeconds,omitempty"`
+	DisplayValue        string        `json:"displayValue,omitempty"`
+	ReferenceLabel      string        `json:"referenceLabel,omitempty"`
+	ReferenceValue      string        `json:"referenceValue,omitempty"`
+	ProofMediaID        string        `json:"proofMediaId,omitempty"`
 	ProofMediaObjectKey string        `json:"proofMediaObjectKey,omitempty"`
-	VerificationStatus string         `json:"verificationStatus"`
-	VerifiedAt         *time.Time     `json:"verifiedAt,omitempty"`
-	VerifiedBy         string         `json:"verifiedBy,omitempty"`
-	IsSystemVerified   bool           `json:"isSystemVerified"`
-	CreatedAt          time.Time      `json:"createdAt"`
-	UpdatedAt          time.Time      `json:"updatedAt"`
+	VerificationStatus  string        `json:"verificationStatus"`
+	VerifiedAt          *time.Time    `json:"verifiedAt,omitempty"`
+	VerifiedBy          string        `json:"verifiedBy,omitempty"`
+	IsSystemVerified    bool          `json:"isSystemVerified"`
+	CreatedAt           time.Time     `json:"createdAt"`
+	UpdatedAt           time.Time     `json:"updatedAt"`
 }
 
 type ProfileBadges struct {
@@ -202,16 +202,16 @@ type ProfileBadges struct {
 }
 
 type UpsertUserBadgeInput struct {
-	ActorID        string
-	BadgeID        string
+	ActorID         string
+	BadgeID         string
 	BadgeTemplateID string
-	ValueText      *string
-	ValueNumber    *float64
-	ValueMinutes   *int32
-	ValueSeconds   *int32
-	ReferenceLabel *string
-	ReferenceValue *string
-	ProofMediaID   *string
+	ValueText       *string
+	ValueNumber     *float64
+	ValueMinutes    *int32
+	ValueSeconds    *int32
+	ReferenceLabel  *string
+	ReferenceValue  *string
+	ProofMediaID    *string
 }
 
 type UpdateMyProfileInput struct {
