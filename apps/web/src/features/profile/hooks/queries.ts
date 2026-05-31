@@ -71,3 +71,15 @@ export const useProfileBadgesQuery = (username: string, enabled = true) => {
     placeholderData: keepPreviousData,
   });
 };
+
+export const useProfileJourneyQuery = (username: string, enabled = true) => {
+  const normalizedUsername = normalizeUsername(username);
+
+  return useQuery({
+    queryKey: queryKeys.profile.journey(normalizedUsername),
+    enabled: enabled && Boolean(normalizedUsername),
+    queryFn: () => profileApi.getProfileJourney(normalizedUsername),
+    staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
+  });
+};

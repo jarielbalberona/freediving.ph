@@ -1,6 +1,6 @@
 # Phase 7: Generated-Entry Integration Preparation
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -90,4 +90,11 @@ Hard-stop if integration preparation requires implementing upstream product beha
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added a display-only generated-entry upsert path in the Dive Journey repository/service.
+- Enforced generated-entry source identity by requiring non-empty `source_type` and `source_id`.
+- Used the existing partial unique index on `(user_id, source_type, source_id, type)` to make regeneration idempotent.
+- Added repository integration coverage proving duplicate source events update one row instead of creating duplicates.
+- Added service coverage proving generated source identity is required and that the service has no Dive Map/badge credential mutation dependency.
+- Did not add upstream producers, eventing infrastructure, Dive Map behavior, badge awarding, Passport aggregation, or media milestone generation.

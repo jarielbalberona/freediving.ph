@@ -158,6 +158,20 @@ sql:
     schema:
       - "db/schema/*.sql"
     queries:
+      - "internal/features/dive_journey/repo/queries/*.sql"
+    gen:
+      go:
+        package: "divejourneysqlc"
+        out: "internal/features/dive_journey/repo/sqlc"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+  - engine: "postgresql"
+    schema:
+      - "db/schema/*.sql"
+    queries:
       - "internal/features/buddyfinder/repo/queries/*.sql"
     gen:
       go:

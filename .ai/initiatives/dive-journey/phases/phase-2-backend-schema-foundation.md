@@ -1,6 +1,6 @@
 # Phase 2: Backend Schema Foundation
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -99,4 +99,10 @@ Hard-stop for destructive migration, unresolved visibility representation, ambig
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added additive Journey persistence in migration `0085_dive_journey.sql`.
+- Added `journey_entries` and `journey_entry_media`.
+- Deferred `journey_entry_tagged_users` because Phase 1 found no reusable tagged-user acceptance/privacy model.
+- Added generated-entry idempotency through a partial unique index on `(user_id, source_type, source_id, type)`.
+- Added sqlc package foundation for `services/fphgo/internal/features/dive_journey`.

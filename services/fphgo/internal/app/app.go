@@ -25,6 +25,9 @@ import (
 	chikahttp "fphgo/internal/features/chika/http"
 	chikarepo "fphgo/internal/features/chika/repo"
 	chikaservice "fphgo/internal/features/chika/service"
+	journeyhttp "fphgo/internal/features/dive_journey/http"
+	journeyrepo "fphgo/internal/features/dive_journey/repo"
+	journeyservice "fphgo/internal/features/dive_journey/service"
 	divemaprepo "fphgo/internal/features/dive_map/repo"
 	eventshttp "fphgo/internal/features/events/http"
 	eventsrepo "fphgo/internal/features/events/repo"
@@ -91,6 +94,7 @@ type Dependencies struct {
 	UsersHandler             *usershttp.Handlers
 	MessagingHandler         *messaginghttp.Handlers
 	ChikaHandler             *chikahttp.Handlers
+	JourneyHandler           *journeyhttp.Handlers
 	ExploreHandler           *explorehttp.Handlers
 	FeedHandler              *feedhttp.Handlers
 	BuddyFinderHandler       *buddyfinderhttp.Handlers
@@ -114,6 +118,8 @@ type Dependencies struct {
 	UsersRoutes              chi.Router
 	MessagingRoutes          chi.Router
 	ChikaRoutes              chi.Router
+	JourneyRoutes            chi.Router
+	JourneyPublicRoutes      chi.Router
 	ExploreRoutes            chi.Router
 	FeedRoutes               chi.Router
 	BuddyFinderRoutes        chi.Router
@@ -210,6 +216,9 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		),
 	)
 	feedHandler := feedhttp.New(feedService, v)
+	journeyRepo := journeyrepo.New(pool)
+	journeyService := journeyservice.New(journeyRepo)
+	journeyHandler := journeyhttp.New(journeyService, v)
 
 	notificationsRepo := notificationsrepo.New(pool)
 	notificationOptions := []notificationsservice.Option{notificationsservice.WithBroadcaster(hub)}
@@ -375,6 +384,7 @@ func BuildDependencies(cfg config.Config, logger *slog.Logger, pool *pgxpool.Poo
 		UsersHandler:         usersHandler,
 		MessagingHandler:     messagingHandler,
 		ChikaHandler:         chikaHandler,
+		JourneyHandler:       journeyHandler,
 		ExploreHandler:       exploreHandler,
 		FeedHandler:          feedHandler,
 		BuddyFinderHandler:   buddyFinderHandler,

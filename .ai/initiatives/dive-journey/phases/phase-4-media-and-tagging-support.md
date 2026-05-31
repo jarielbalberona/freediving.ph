@@ -1,6 +1,6 @@
 # Phase 4: Media And Tagging Support
 
-Status: pending
+Status: passed_with_issues
 
 ## Objective
 
@@ -92,4 +92,10 @@ Hard-stop for media ownership ambiguity, tagged-user privacy ambiguity, missing 
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed with issues on 2026-05-31.
+
+- Added owner-only Journey media attachment support through `journey_entry_media`.
+- Media attachments require active media owned by the Journey entry owner.
+- Attachments do not unlock Dive Map locations or mutate `user_dive_sites`.
+- Tagged-user support was not implemented because Phase 1 found no reusable tagged-user acceptance/privacy model.
+- A separate tagging/privacy decision is still required before Journey tagged users can be implemented safely.

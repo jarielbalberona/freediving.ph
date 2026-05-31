@@ -14,6 +14,7 @@ import (
 	buddieshttp "fphgo/internal/features/buddies/http"
 	buddyfinderhttp "fphgo/internal/features/buddyfinder/http"
 	chikahttp "fphgo/internal/features/chika/http"
+	journeyhttp "fphgo/internal/features/dive_journey/http"
 	eventshttp "fphgo/internal/features/events/http"
 	explorehttp "fphgo/internal/features/explore/http"
 	feedhttp "fphgo/internal/features/feed/http"
@@ -122,7 +123,10 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 			r.Get("/profiles/{username}", deps.UsersHandler.GetProfileByUsername)
 		}
 		if deps.ProfilesHandler != nil {
-			r.Mount("/v1/profiles", profileshttp.PublicRoutes(deps.ProfilesHandler))
+			registerPublicProfileRoutes(r, deps.ProfilesHandler)
+		}
+		if journeyPublicRouter := resolveJourneyPublicRouter(deps); journeyPublicRouter != nil {
+			r.Mount("/v1/profiles", journeyPublicRouter)
 		}
 		if exploreRouter := resolveExploreRouter(deps); exploreRouter != nil {
 			r.Mount("/v1/explore", exploreRouter)
@@ -167,6 +171,7 @@ func NewRouterWithBuildInfo(cfg config.Config, deps *Dependencies, logger *slog.
 					profiles.Mount("/v1", profilesRouter)
 				}
 			})
+			registerMemberJourneyRoutes(member, deps)
 			member.Group(func(blocks chi.Router) {
 				if blocksRouter := resolveBlocksRouter(deps); blocksRouter != nil {
 					blocks.Mount("/v1/blocks", blocksRouter)
@@ -318,6 +323,50 @@ func resolveChikaRouter(deps *Dependencies) chi.Router {
 		return nil
 	}
 	return chikahttp.Routes(deps.ChikaHandler)
+}
+
+func resolveJourneyPublicRouter(deps *Dependencies) chi.Router {
+	if deps.JourneyPublicRoutes != nil {
+		return deps.JourneyPublicRoutes
+	}
+	if deps.JourneyHandler == nil {
+		return nil
+	}
+	return journeyhttp.PublicRoutes(deps.JourneyHandler)
+}
+
+func registerPublicProfileRoutes(r chi.Router, h *profileshttp.Handlers) {
+	r.Get("/v1/profiles/{username}", h.GetProfileViewByUsername)
+	r.Get("/v1/profiles/{username}/diving", h.GetProfileDivingByUsername)
+	r.Get("/v1/profiles/{username}/dive-map", h.GetProfileDiveMapByUsername)
+	r.Get("/v1/profiles/{username}/dive-map/{siteID}", h.GetProfileDiveMapSiteByUsername)
+	r.Get("/v1/profiles/{username}/badges", h.GetProfileBadgesByUsername)
+}
+
+func registerMemberJourneyRoutes(r chi.Router, deps *Dependencies) {
+	if deps.JourneyRoutes != nil {
+		r.Mount("/v1", deps.JourneyRoutes)
+		return
+	}
+	if deps.JourneyHandler == nil {
+		return
+	}
+	r.Group(func(journey chi.Router) {
+		journey.Use(middleware.RequirePermission(authz.PermissionProfilesWrite))
+		journey.Post("/v1/me/journey", deps.JourneyHandler.CreateManualEntry)
+		journey.Patch("/v1/me/journey/{entryID}", deps.JourneyHandler.UpdateManualEntry)
+		journey.Delete("/v1/me/journey/{entryID}", deps.JourneyHandler.DeleteManualEntry)
+	})
+}
+
+func resolveJourneyRouter(deps *Dependencies) chi.Router {
+	if deps.JourneyRoutes != nil {
+		return deps.JourneyRoutes
+	}
+	if deps.JourneyHandler == nil {
+		return nil
+	}
+	return journeyhttp.Routes(deps.JourneyHandler)
 }
 
 func resolveExploreRouter(deps *Dependencies) chi.Router {

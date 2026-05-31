@@ -3,7 +3,10 @@ import type {
   ProfileDiveMapResponse,
   ProfileDiveMapSiteResponse,
   ProfileDivingResponse,
+  ProfileJourneyResponse,
   ProfileView,
+  CreateManualJourneyEntryRequest,
+  JourneyEntryResponse,
 } from "@freediving.ph/types";
 
 import { profilesApi } from "@/features/profiles/api/profiles";
@@ -34,5 +37,19 @@ export const profileApi = {
 
   async getProfileBadges(username: string): Promise<ProfileBadgesResponse> {
     return profilesApi.getProfileBadgesByUsername(normalizeUsername(username));
+  },
+
+  async getProfileJourney(username: string): Promise<ProfileJourneyResponse> {
+    return profilesApi.getProfileJourneyByUsername(normalizeUsername(username));
+  },
+
+  async createJourneyEntry(
+    payload: CreateManualJourneyEntryRequest,
+  ): Promise<JourneyEntryResponse> {
+    return profilesApi.createJourneyEntry(payload);
+  },
+
+  async deleteJourneyEntry(entryId: string): Promise<void> {
+    return profilesApi.deleteJourneyEntry(entryId);
   },
 };

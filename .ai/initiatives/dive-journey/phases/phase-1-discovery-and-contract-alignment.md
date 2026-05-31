@@ -1,6 +1,6 @@
 # Phase 1: Discovery And Contract Alignment
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -95,4 +95,9 @@ Hard-stop instead of continuing if discovery finds ambiguous visibility, ambiguo
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Existing follower behavior is implementable through `saved_users`, which backs profile follower/following counts and the web Follow action.
+- Journey should use a new `services/fphgo/internal/features/dive_journey` backend package.
+- Tagged-user support has no existing acceptance/privacy policy; it must stay conditional and cannot grant proof, ownership, or map unlock behavior.
+- Journey can proceed without violating User Dive Map because no Journey write will touch `user_dive_sites`.

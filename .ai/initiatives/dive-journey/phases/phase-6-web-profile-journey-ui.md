@@ -1,6 +1,6 @@
 # Phase 6: Web Profile Journey UI
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -98,4 +98,10 @@ Hard-stop for unresolved UX decision around timeline presentation, missing backe
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added profile Journey API routes, hooks, mutations, and UI section.
+- Mounted Journey inside the profile Diving tab without changing profile tab structure.
+- Owner manual entry create and soft-delete actions are wired.
+- UI consumes shared contracts from `@freediving.ph/types`.
+- UI does not present Journey as proof, verification, credentials, badges, or Passport.

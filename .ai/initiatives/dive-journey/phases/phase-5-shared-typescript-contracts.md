@@ -1,6 +1,6 @@
 # Phase 5: Shared TypeScript Contracts
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -87,4 +87,9 @@ Hard-stop for contract mismatch that requires backend behavior changes outside p
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added shared Journey contracts under `packages/types/src/api/dive-journey.ts`.
+- Exported contracts from `packages/types/src/index.ts`.
+- Added contract tests for manual and generated Journey entry shapes.
+- Contracts include `public | followers | private`, `sourceType/sourceId`, media IDs, and optional tagged-user presentation shapes.

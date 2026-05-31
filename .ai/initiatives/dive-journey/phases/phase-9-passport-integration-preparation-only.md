@@ -1,6 +1,6 @@
 # Phase 9: Passport Integration Preparation Only
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -87,4 +87,10 @@ Hard-stop if Passport integration preparation requires product behavior, stats a
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Documented the future read-only Passport display path through `Service.ListProfileJourney`, `GET /v1/profiles/{username}/journey`, and shared `ProfileJourneyResponse`/`JourneyEntry` contracts.
+- Documented that Passport stats, visited-site counts, badges, credentials, certifications, profile facts, and proof status must not be sourced from Journey entries.
+- Added service guard tests proving Journey does not depend on Passport mutation/update APIs.
+- Confirmed no Passport implementation files were added in this phase.
+- Did not implement Passport aggregate behavior, Passport UI, stats aggregation, badge verification, certification verification, or Journey-to-Passport write pipelines.

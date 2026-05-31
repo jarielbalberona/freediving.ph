@@ -1,6 +1,6 @@
 # Phase 3: Journey Read/Write APIs And Authorization
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -97,4 +97,11 @@ Hard-stop for auth ambiguity, ambiguous ownership/editing rules, ambiguous hide/
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Added backend Journey read/write routes and owner-scoped manual entry behavior.
+- Added profile Journey read route `GET /v1/profiles/{username}/journey`.
+- Added authenticated manual routes under `/v1/me/journey`.
+- Manual entries can omit `dive_site_id` and media.
+- Deletes are soft owner-scoped state transitions for manual entries.
+- Journey writes do not touch `user_dive_sites`, badges, credentials, or Passport state.

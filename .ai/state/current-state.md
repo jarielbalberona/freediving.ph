@@ -31,11 +31,12 @@ Before executing an initiative phase, read the relevant `.ai/core` files, this s
 
 - Status: locked
 - Ready for execution: yes
-- Execution started: no
+- Execution started: yes
 - Next execution target: yes
 - Initiative path: `.ai/initiatives/dive-journey/`
 - Locked date: 2026-05-31
-- Notes: Dive Journey is authored as the downstream storytelling/timeline layer. It supports manual, memory-based, generated, media-attached, and tagged-user entries, but must never become source of truth for Dive Map, visited-site counts, badges, certifications, credentials, or Dive Passport stats.
+- Latest execution status: Phase 9 passed on 2026-05-31. Future Passport display integration was documented as read-only through the existing Journey read path, with guard tests against Passport mutation dependencies. Next phase is Phase 10 Final Verification/Reporting.
+- Notes: Dive Journey is authored as the downstream storytelling/timeline layer. It supports manual, generated, media-attached, and conditionally tagged-user entries, but must never become source of truth for Dive Map, visited-site counts, badges, certifications, credentials, or Dive Passport stats.
 
 ### `dive-passport`
 

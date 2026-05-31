@@ -828,6 +828,33 @@ type InstructorProfile struct {
 	UpdatedAt             pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type JourneyEntry struct {
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	UserID       pgtype.UUID        `db:"user_id" json:"user_id"`
+	Type         string             `db:"type" json:"type"`
+	Title        string             `db:"title" json:"title"`
+	Body         string             `db:"body" json:"body"`
+	DiveSiteID   pgtype.UUID        `db:"dive_site_id" json:"dive_site_id"`
+	SourceType   *string            `db:"source_type" json:"source_type"`
+	SourceID     *string            `db:"source_id" json:"source_id"`
+	CoverMediaID pgtype.UUID        `db:"cover_media_id" json:"cover_media_id"`
+	Visibility   string             `db:"visibility" json:"visibility"`
+	State        string             `db:"state" json:"state"`
+	OccurredAt   pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+	HiddenAt     pgtype.Timestamptz `db:"hidden_at" json:"hidden_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type JourneyEntryMedium struct {
+	ID             pgtype.UUID        `db:"id" json:"id"`
+	JourneyEntryID pgtype.UUID        `db:"journey_entry_id" json:"journey_entry_id"`
+	MediaID        pgtype.UUID        `db:"media_id" json:"media_id"`
+	SortOrder      int32              `db:"sort_order" json:"sort_order"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type MediaAsset struct {
 	ID          pgtype.UUID        `db:"id" json:"id"`
 	OwnerUserID pgtype.UUID        `db:"owner_user_id" json:"owner_user_id"`

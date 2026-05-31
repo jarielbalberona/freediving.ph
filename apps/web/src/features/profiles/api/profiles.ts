@@ -1,6 +1,7 @@
 import {
   type ProfileDiveMapResponse,
   type ProfileDiveMapSiteResponse,
+  type ProfileJourneyResponse,
   type ProfileDivingResponse,
   type ProfileBadgesResponse,
   type Profile,
@@ -11,6 +12,8 @@ import {
   type SavedHubResponse,
   type SearchUsersResponse,
   type UpsertUserBadgeRequest,
+  type CreateManualJourneyEntryRequest,
+  type JourneyEntryResponse,
   type UpdateMyProfileRequest,
   type UserBadgeResponse,
 } from "@freediving.ph/types";
@@ -88,6 +91,33 @@ export const profilesApi = {
       routes.v1.profiles.profileBadges(username),
       { auth: "ready-only" },
     );
+  },
+
+  getProfileJourneyByUsername: async (
+    username: string,
+  ): Promise<ProfileJourneyResponse> => {
+    return fphgoFetchClient<ProfileJourneyResponse>(
+      routes.v1.profiles.profileJourney(username),
+      { auth: "ready-only" },
+    );
+  },
+
+  createJourneyEntry: async (
+    payload: CreateManualJourneyEntryRequest,
+  ): Promise<JourneyEntryResponse> => {
+    return fphgoFetchClient<JourneyEntryResponse>(
+      routes.v1.profiles.myJourney(),
+      {
+        method: "POST",
+        body: payload as unknown as Record<string, unknown>,
+      },
+    );
+  },
+
+  deleteJourneyEntry: async (entryId: string): Promise<void> => {
+    return fphgoFetchClient<void>(routes.v1.profiles.myJourneyEntry(entryId), {
+      method: "DELETE",
+    });
   },
 
   getMyBadges: async (): Promise<ProfileBadgesResponse> => {

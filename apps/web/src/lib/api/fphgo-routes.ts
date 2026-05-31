@@ -77,6 +77,11 @@ export const routes = {
       ) => `/v1/profiles/${toPathId(username)}/dive-map/${toPathId(siteId)}`,
       profileBadges: (username: string | number) =>
         `/v1/profiles/${toPathId(username)}/badges`,
+      profileJourney: (username: string | number) =>
+        `/v1/profiles/${toPathId(username)}/journey`,
+      myJourney: () => "/v1/me/journey",
+      myJourneyEntry: (entryId: string | number) =>
+        `/v1/me/journey/${toPathId(entryId)}`,
       myBadges: () => "/v1/me/badges",
       myBadge: (badgeId: string | number) =>
         `/v1/me/badges/${toPathId(badgeId)}`,

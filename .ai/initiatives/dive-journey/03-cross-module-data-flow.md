@@ -59,3 +59,20 @@ Badges remain their own domain. Journey may display badge-related entries later,
 ## Passport Boundary
 
 Dive Passport is a future aggregate/showcase layer. Journey may feed Passport display later through read-only timeline data, but Passport implementation and stats aggregation are out of scope.
+
+Future Passport display integration should use the existing Profile Journey read path:
+
+- Backend service boundary: `dive_journey.Service.ListProfileJourney`.
+- Backend HTTP boundary: `GET /v1/profiles/{username}/journey`.
+- Shared contract boundary: `ProfileJourneyResponse` and `JourneyEntry` from `@freediving.ph/types`.
+
+Passport must treat Journey rows as storytelling/display records only. Passport stats, visited-site counts, badges, credentials, certifications, profile facts, and proof status must come from their owning modules, not from Journey entries.
+
+Passport must not:
+
+- create Journey entries
+- hide, delete, or regenerate Journey entries
+- infer visited sites from Journey `dive_site_id`
+- infer badges from Journey `type = 'badge'`
+- infer credentials or certifications from Journey body/title/source metadata
+- write Passport state back into Journey

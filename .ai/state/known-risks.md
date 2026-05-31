@@ -31,10 +31,19 @@
 ### `dive-journey`
 
 - Journey must remain downstream; using it as source of truth for Dive Map, badges, certifications, credentials, or Passport stats would corrupt the product model.
-- `followers` visibility may require a product decision if the follower system is unavailable or insufficient.
-- Generated entries require careful `source_type`/`source_id` idempotency to prevent duplicate timeline entries during regeneration.
-- Manual and generated entry hide/delete/archive semantics must be confirmed from existing conventions before implementation.
+- `followers` visibility is implementable through existing `saved_users`, which backs profile follower/following counts and Follow/Following UI.
+- Phase 2 added `journey_entries` and `journey_entry_media` only. `journey_entry_tagged_users` remains deferred; later phases must not implement tagged-user visibility by assumption.
+- Phase 4 added owner-only media attachments. Attached media is storytelling metadata only and must not be treated as Dive Map proof or visited-site count input.
+- Phase 7 added display-only generated-entry upsert helpers and tests. Regeneration is idempotent by `(user_id, source_type, source_id, type)`.
+- Generated-entry producers still do not exist. Future Dive Map, badge, event/course, media, or memory producers must remain authoritative and use Journey only as a downstream display artifact.
+- Manual Journey delete is implemented as owner-scoped soft deletion (`state='deleted'`) for active manual custom entries.
+- Phase 8 added generated entry hide/archive support for active generated rows, scoped by owner, entry type, `source_type`, and `source_id`.
+- Phase 9 documented the future Passport display path as read-only. Passport must consume Journey through existing profile Journey reads and must not derive stats, proof, badges, credentials, or certifications from Journey entries.
 - Shared/tagged memories must not unlock locations or inflate visited-site counts through Journey.
+- Profile Journey reads use `saved_users` for follower visibility and `user_blocks` for blocking. Any future dedicated follower model would need a targeted migration of that policy.
+- Tagged-user Journey support has no reusable acceptance/decline/privacy policy. It is deferred; later phases must not introduce tags without a separate locked privacy/tagging decision.
+- Shared Journey contracts include optional tagged-user presentation shapes, but these are not permission semantics and do not authorize backend tagged-user behavior.
+- Profile Journey UI currently supports owner create/delete and read display. Manual edit UI and media attachment picker UI are not exposed yet.
 
 ### `dive-passport`
 

@@ -8,7 +8,7 @@
 
 - Status: locked
 - Ready for execution: yes
-- Execution started: no
+- Execution started: yes
 - Locked date: 2026-05-31
 
 ## Objective

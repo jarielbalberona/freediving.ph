@@ -1,6 +1,6 @@
 # Phase 8: Visibility/Hide/Delete Hardening
 
-Status: pending
+Status: passed
 
 ## Objective
 
@@ -93,4 +93,11 @@ Hard-stop if enforcing visibility conflicts with existing auth behavior, require
 
 ## Completion Notes
 
-Filled by the execution skill or runner.
+Completed on 2026-05-31.
+
+- Strengthened repository tests for public/followers/private visibility, manual soft delete behavior, generated hide/archive behavior, and hidden-entry read exclusion.
+- Added generated-entry hide support scoped by owner, entry type, `source_type`, and `source_id`.
+- Added service tests for generated hide source identity validation, not-found mapping, and source-scoped archive behavior.
+- Added shared type tests for locked visibility states and hidden state contracts.
+- Strengthened web static tests to prove Journey UI keeps delete controls owner/custom-only and does not present Journey as proof.
+- Did not introduce new visibility states, notifications, upstream producer behavior, or source-of-truth mutations.
