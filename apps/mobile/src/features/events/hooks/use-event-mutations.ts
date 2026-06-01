@@ -3,17 +3,21 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   CreateEventPostRequest,
   EventDetailResponse,
+  EventParticipantPayment,
   EventPostsResponse,
+  JoinEventRequest,
+  SubmitEventPaymentRequest,
 } from "@freediving.ph/types";
 
 import {
   createEventPost,
-  joinEvent,
+  joinEventWithAnswers,
   leaveEvent,
   removeEventInterest,
   removeEventPostFish,
   setEventInterest,
   setEventPostFish,
+  submitEventPayment,
 } from "@/features/events/api/events-api";
 import { FphgoApiError } from "@/lib/api";
 import { mobileQueryKeys } from "@/lib/query";
@@ -70,16 +74,35 @@ export const useEventAttendanceMutation = (slug: string, eventId: string) => {
   const getRequiredToken = useRequiredToken();
 
   return useMutation({
-    mutationFn: async (action: "join" | "leave") => {
+    mutationFn: async (
+      payload:
+        | "join"
+        | "leave"
+        | { action: "join"; joinAnswers?: JoinEventRequest["joinAnswers"]; participantNote?: string },
+    ) => {
       const token = await getRequiredToken();
       const id = requireEventId(eventId);
-      return action === "join" ? joinEvent(id, token) : leaveEvent(id, token);
+      if (payload === "leave") return leaveEvent(id, token);
+      const joinPayload =
+        payload === "join"
+          ? ({ joinAnswers: {} } satisfies JoinEventRequest)
+          : ({
+              joinAnswers: payload.joinAnswers ?? {},
+              participantNote: payload.participantNote?.trim() || undefined,
+            } satisfies JoinEventRequest);
+      return joinEventWithAnswers(id, joinPayload, token);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: mobileQueryKeys.events.detail(slug),
       });
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.events.lists() });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.events.myPass(eventId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.events.paymentMethods(eventId),
+      });
     },
   });
 };
@@ -180,6 +203,37 @@ export const useEventPostFishMutation = (slug: string, eventId: string) => {
       });
       queryClient.invalidateQueries({
         queryKey: mobileQueryKeys.events.detail(slug),
+      });
+    },
+  });
+};
+
+export const useSubmitEventPaymentMutation = (slug: string, eventId: string) => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (
+      payload: Omit<SubmitEventPaymentRequest, "eventId">,
+    ): Promise<EventParticipantPayment> => {
+      const response = await submitEventPayment(
+        {
+          ...payload,
+          eventId: requireEventId(eventId),
+        },
+        await getRequiredToken(),
+      );
+      return response.payment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.events.detail(slug),
+      });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.events.myPass(eventId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.events.paymentMethods(eventId),
       });
     },
   });

@@ -1,6 +1,9 @@
 import { FlashList } from "@shopify/flash-list";
 import { Galeria } from "@nandorojo/galeria";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
+import { Link } from "expo-router";
+import type { Href } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -36,6 +39,7 @@ const getProfileMediaCompatUrls = (item: ProfileMediaItem) =>
 type ProfileMediaGridItem = {
   caption: string | null;
   id: string;
+  postId: string;
   sourceUrl: string;
   status: "active" | "hidden" | "deleted" | undefined;
   tileHeight: number;
@@ -106,6 +110,7 @@ const normalizeMedia = (
   return {
     caption: item.postCaption?.trim() || item.caption?.trim() || null,
     id: item.id,
+    postId: item.postId,
     sourceUrl,
     status: item.status,
     tileHeight: Math.max(110, Math.round(tileWidth * safeRatio)),
@@ -249,6 +254,21 @@ export function ProfileMediaMasonryGrid({
                       ) : null}
                     </View>
                   ) : null}
+                  <Link
+                    href={
+                      `/(app)/(tabs)/(home)/media/${encodeURIComponent(item.postId)}` as Href
+                    }
+                    asChild
+                  >
+                    <Pressable
+                      accessibilityLabel="Open media post"
+                      accessibilityRole="link"
+                      className="absolute right-2 top-2 size-8 items-center justify-center rounded-full bg-black/55"
+                      hitSlop={6}
+                    >
+                      <Ionicons color="white" name="open-outline" size={16} />
+                    </Pressable>
+                  </Link>
                 </View>
               </Galeria.Image>
             </View>

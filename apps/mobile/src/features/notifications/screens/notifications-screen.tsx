@@ -14,9 +14,13 @@ import {
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { requestForegroundCoarseLocation } from "@/features/location/lib/foreground-location";
-import { NotificationCard } from "@/features/notifications/components/notification-card";
+import { ManageableNotificationCard } from "@/features/notifications/components/notification-card";
 import { useNotificationSettingsMutation } from "@/features/notifications/hooks/use-notification-settings-mutation";
 import { useNotificationSettingsQuery } from "@/features/notifications/hooks/use-notification-settings-query";
+import {
+  useDeleteNotificationMutation,
+  useMarkNotificationReadMutation,
+} from "@/features/notifications/hooks/use-notification-mutations";
 import { useNotificationsQuery } from "@/features/notifications/hooks/use-notifications-query";
 import { useRegisterPushDeviceMutation } from "@/features/notifications/hooks/use-register-push-device-mutation";
 import { buildPushDeviceRegistrationRequest } from "@/features/notifications/lib/push-notifications";
@@ -53,6 +57,8 @@ export function NotificationsScreen() {
   const notificationsQuery = useNotificationsQuery();
   const settingsQuery = useNotificationSettingsQuery();
   const settingsMutation = useNotificationSettingsMutation();
+  const markReadMutation = useMarkNotificationReadMutation();
+  const deleteNotificationMutation = useDeleteNotificationMutation();
   const registerPushMutation = useRegisterPushDeviceMutation();
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
@@ -277,13 +283,24 @@ export function NotificationsScreen() {
                   {unreadCount} unread notification{unreadCount === 1 ? "" : "s"}
                 </Text>
                 <Text className="mt-1 text-sm leading-6 text-muted-foreground">
-                  Open each update when you are ready. Mobile read actions are coming later.
+                  Open each update or mark it read when you are ready.
                 </Text>
               </View>
             ) : null}
 
             {notifications.map((notification) => (
-              <NotificationCard notification={notification} key={notification.id} />
+              <ManageableNotificationCard
+                isDeleting={deleteNotificationMutation.isPending}
+                isMarkingRead={markReadMutation.isPending}
+                notification={notification}
+                key={notification.id}
+                onDelete={(notificationId) =>
+                  deleteNotificationMutation.mutate(notificationId)
+                }
+                onMarkRead={(notificationId) =>
+                  markReadMutation.mutate(notificationId)
+                }
+              />
             ))}
           </View>
         ) : null}

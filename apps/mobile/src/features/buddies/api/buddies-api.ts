@@ -3,7 +3,12 @@ import type {
   BuddyFinderIntentResponse,
   BuddyFinderMessageEntryResponse,
   BuddyFinderPreviewResponse,
+  BuddyListResponse,
+  BuddyPreviewResponse,
+  BuddyRequest,
   CreateBuddyFinderIntentRequest,
+  IncomingBuddyRequestsResponse,
+  OutgoingBuddyRequestsResponse,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -74,5 +79,81 @@ export const getBuddyFinderMessageEntry = (intentId: string, authToken: string) 
       auth: "required",
       authToken,
       method: "POST",
+    },
+  );
+
+type BuddyRequestResponse = {
+  request: BuddyRequest;
+};
+
+export const getBuddyList = (authToken: string) =>
+  fphgoFetch<BuddyListResponse>("/v1/buddies", {
+    auth: "required",
+    authToken,
+  });
+
+export const getIncomingBuddyRequests = (authToken: string) =>
+  fphgoFetch<IncomingBuddyRequestsResponse>("/v1/buddies/requests/incoming", {
+    auth: "required",
+    authToken,
+  });
+
+export const getOutgoingBuddyRequests = (authToken: string) =>
+  fphgoFetch<OutgoingBuddyRequestsResponse>("/v1/buddies/requests/outgoing", {
+    auth: "required",
+    authToken,
+  });
+
+export const sendBuddyRequest = (targetUserId: string, authToken: string) =>
+  fphgoFetch<BuddyRequestResponse>("/v1/buddies/requests", {
+    auth: "required",
+    authToken,
+    body: { targetUserId },
+    method: "POST",
+  });
+
+export const acceptBuddyRequest = (requestId: string, authToken: string) =>
+  fphgoFetch<BuddyRequestResponse>(
+    `/v1/buddies/requests/${encodeURIComponent(requestId)}/accept`,
+    {
+      auth: "required",
+      authToken,
+      method: "POST",
+    },
+  );
+
+export const declineBuddyRequest = (requestId: string, authToken: string) =>
+  fphgoFetch<BuddyRequestResponse>(
+    `/v1/buddies/requests/${encodeURIComponent(requestId)}/decline`,
+    {
+      auth: "required",
+      authToken,
+      method: "POST",
+    },
+  );
+
+export const cancelBuddyRequest = (requestId: string, authToken: string) =>
+  fphgoFetch<BuddyRequestResponse>(
+    `/v1/buddies/requests/${encodeURIComponent(requestId)}`,
+    {
+      auth: "required",
+      authToken,
+      method: "DELETE",
+    },
+  );
+
+export const removeBuddy = (buddyUserId: string, authToken: string) =>
+  fphgoFetch<void>(`/v1/buddies/${encodeURIComponent(buddyUserId)}`, {
+    auth: "required",
+    authToken,
+    method: "DELETE",
+  });
+
+export const getBuddyPreview = (userId: string, authToken: string) =>
+  fphgoFetch<BuddyPreviewResponse>(
+    `/v1/buddies/preview/${encodeURIComponent(userId)}`,
+    {
+      auth: "required",
+      authToken,
     },
   );

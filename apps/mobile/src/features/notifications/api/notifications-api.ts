@@ -4,6 +4,7 @@ import type {
   NotificationSettings,
   PushDeviceToken,
   RegisterPushDeviceRequest,
+  Notification,
   UpdateNotificationSettingsRequest,
 } from "@freediving.ph/types";
 
@@ -74,3 +75,23 @@ export const deletePushDevice = (deviceId: string, authToken: string) =>
     authToken,
     method: "DELETE",
   });
+
+export const markNotificationRead = (notificationId: number, authToken: string) =>
+  fphgoFetch<Notification>(
+    `/v1/notifications/${encodeURIComponent(String(notificationId))}/read`,
+    {
+      auth: "required",
+      authToken,
+      method: "POST",
+    },
+  );
+
+export const deleteNotification = (notificationId: number, authToken: string) =>
+  fphgoFetch<void>(
+    `/v1/notifications/${encodeURIComponent(String(notificationId))}`,
+    {
+      auth: "required",
+      authToken,
+      method: "DELETE",
+    },
+  );

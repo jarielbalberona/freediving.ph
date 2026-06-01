@@ -14,7 +14,11 @@ import {
 } from "@/features/notifications/lib/notification-format";
 
 type NotificationCardProps = {
+  isDeleting?: boolean;
+  isMarkingRead?: boolean;
   notification: Notification;
+  onDelete?: (notificationId: number) => void;
+  onMarkRead?: (notificationId: number) => void;
 };
 
 function NotificationCardContent({ notification }: NotificationCardProps) {
@@ -57,5 +61,58 @@ export function NotificationCard({ notification }: NotificationCardProps) {
         <NotificationCardContent notification={notification} />
       </Pressable>
     </Link>
+  );
+}
+
+export function ManageableNotificationCard({
+  isDeleting = false,
+  isMarkingRead = false,
+  notification,
+  onDelete,
+  onMarkRead,
+}: NotificationCardProps) {
+  const href = notificationHref(notification);
+  const isUnread = notification.status === "UNREAD";
+
+  return (
+    <View className="gap-2">
+      {href ? (
+        <Link href={href} asChild>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={`Open ${notificationTitle(notification)} notification`}
+            className="active:opacity-80"
+          >
+            <NotificationCardContent notification={notification} />
+          </Pressable>
+        </Link>
+      ) : (
+        <NotificationCardContent notification={notification} />
+      )}
+      <View className="flex-row flex-wrap gap-2 px-1">
+        {isUnread ? (
+          <Pressable
+            accessibilityLabel="Mark notification read"
+            accessibilityRole="button"
+            className="min-h-9 items-center justify-center rounded-full bg-secondary px-3"
+            disabled={isMarkingRead}
+            onPress={() => onMarkRead?.(notification.id)}
+          >
+            <Text className="text-xs font-semibold text-foreground">
+              Mark read
+            </Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityLabel="Delete notification"
+          accessibilityRole="button"
+          className="min-h-9 items-center justify-center rounded-full bg-secondary px-3"
+          disabled={isDeleting}
+          onPress={() => onDelete?.(notification.id)}
+        >
+          <Text className="text-xs font-semibold text-foreground">Delete</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }

@@ -27,9 +27,10 @@ const withQuery = (
   return query ? `${path}?${query}` : path;
 };
 
-export const getChikaThreads = (params: { limit?: number } = {}) =>
+export const getChikaThreads = (params: { category?: string; limit?: number } = {}) =>
   fphgoFetch<ChikaThreadListResponse>(
     withQuery("/v1/chika/threads", {
+      category: params.category,
       limit: params.limit,
     }),
     { auth: "optional" },

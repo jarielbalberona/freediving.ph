@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+
+const root = path.resolve(import.meta.dirname, "..");
+const read = (relativePath) =>
+  fs.readFileSync(path.join(root, relativePath), "utf8");
+
+test("mobile profile core uses shared badge and dive identity contracts", () => {
+  const api = read("src/features/profiles/api/profiles-api.ts");
+  const hooks = read("src/features/profiles/hooks/use-profile-activity-query.ts");
+  const keys = read("src/lib/query/query-keys.ts");
+
+  for (const contract of [
+    "ProfileBadgesResponse",
+    "ProfileDiveMapResponse",
+    "ProfilePassportResponse",
+    "ProfileJourneyResponse",
+    "ProfileDiveMemoriesResponse",
+  ]) {
+    assert.match(api, new RegExp(contract));
+  }
+  for (const pathPart of [
+    "/badges",
+    "/dive-map",
+    "/passport",
+    "/journey",
+    "/dive-memories",
+  ]) {
+    assert.match(api, new RegExp(pathPart));
+  }
+  assert.match(hooks, /useProfileBadgesQuery/);
+  assert.match(hooks, /useProfileDiveMapQuery/);
+  assert.match(hooks, /useProfilePassportQuery/);
+  assert.match(hooks, /useProfileJourneyQuery/);
+  assert.match(hooks, /useProfileDiveMemoriesQuery/);
+  assert.match(keys, /diveMemories/);
+});
+
+test("mobile profile renders read-only badges and proof-based dive identity summary", () => {
+  const ownProfile = read("src/features/profiles/screens/profile-screen.tsx");
+  const publicProfile = read("src/features/profiles/screens/public-profile-screen.tsx");
+  const summary = read("src/features/profiles/components/profile-dive-identity-summary.tsx");
+  const badges = read("src/features/profiles/components/profile-badges-section.tsx");
+  const tabs = read("src/features/profiles/components/profile-tabs.tsx");
+
+  assert.match(ownProfile, /ProfileDiveIdentitySummary/);
+  assert.match(publicProfile, /ProfileDiveIdentitySummary/);
+  assert.match(ownProfile, /ProfileBadgesSection/);
+  assert.match(publicProfile, /ProfileBadgesSection/);
+  assert.match(tabs, /Badges/);
+  assert.match(summary, /own qualifying media posts/);
+  assert.match(summary, /Memories stay contextual and do not unlock locations/);
+  assert.match(
+    summary,
+    /visitedSiteCount =\s+passportStats\?\.visitedSiteCount \?\? diveMap\?\.visitedSiteCount \?\? 0;/,
+  );
+  assert.doesNotMatch(badges, /mutate|POST|PATCH|DELETE/);
+});
+
+test("own profile edit includes backend-supported identity fields", () => {
+  const ownProfile = read("src/features/profiles/screens/profile-screen.tsx");
+
+  assert.match(ownProfile, /homeArea: homeArea\.trim\(\) \|\| undefined/);
+  assert.match(ownProfile, /location: homeArea\.trim\(\) \|\| undefined/);
+  assert.match(ownProfile, /avatarUrl: avatarUrl\.trim\(\) \|\| undefined/);
+  assert.match(ownProfile, /certLevel: certLevelDraft\.trim\(\) \|\| undefined/);
+  assert.match(ownProfile, /interests: interests/);
+  assert.match(ownProfile, /useLocalDraft<ProfileEditDraft>/);
+});

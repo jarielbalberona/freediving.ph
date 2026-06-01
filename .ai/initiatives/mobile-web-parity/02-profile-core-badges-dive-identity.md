@@ -1,8 +1,8 @@
 # 02 Profile Core, Badges, And Dive Identity
 
-Status: Ready After Previous
+Status: PASS WITH ISSUES
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after `01-auth-onboarding-account-setup.md` has a terminal passing status.
 PASS criterion: mobile profile exposes core identity, read-only badges, and compact dive identity summaries without mutating child source systems.
 
@@ -135,3 +135,52 @@ Rollback mobile profile UI/hook changes. Risk is source-of-truth corruption if c
 ## 18. Handoff Notes For The Next Initiative
 
 `03-media-posts-comments-deep-links.md` can build on the profile media grid and route media items into first-class detail screens.
+
+## Execution Result
+
+Verdict: PASS WITH ISSUES
+
+Completed on: 2026-06-01
+
+The implementation completed the mobile profile core parity slice: own and public profile screens now use shared/backend badge, Dive Map, Passport, Journey, and Dive Memories contracts for read-only mobile summaries. Own profile editing now supports backend-backed avatar URL, home area/location, certification, and interests fields in addition to display name and bio, with local draft preservation for all exposed edit fields.
+
+The remaining issue is not an application-code failure: iOS Simulator smoke remains environment-blocked because the repo-supported mobile launch command cannot install or find CocoaPods/Homebrew tooling in this machine context. Static mobile verification passed.
+
+### Files Changed
+
+- `apps/mobile/src/features/profiles/api/profiles-api.ts`
+- `apps/mobile/src/features/profiles/hooks/use-profile-activity-query.ts`
+- `apps/mobile/src/features/profiles/screens/profile-screen.tsx`
+- `apps/mobile/src/features/profiles/screens/public-profile-screen.tsx`
+- `apps/mobile/src/features/profiles/components/profile-badges-section.tsx`
+- `apps/mobile/src/features/profiles/components/profile-dive-identity-summary.tsx`
+- `apps/mobile/src/features/profiles/components/profile-tabs.tsx`
+- `apps/mobile/src/lib/query/query-keys.ts`
+- `apps/mobile/test/profile-core-parity.test.mjs`
+- `.ai/initiatives/mobile-web-parity/reports/02-profile-core-badges-dive-identity.md`
+- `.ai/state/current-state.md`
+- `docs/mobile-web-parity-assessment.md`
+
+### Verification Run
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile ios` BLOCKED by local CocoaPods/Homebrew environment from initiative 01 smoke attempt; no app runtime result claimed.
+- `git diff --check` PASS
+
+### Remaining Gaps
+
+- Cover image editing is not implemented because the shared public profile/update contract exposes `avatarUrl`, not a clear mobile-safe cover update contract.
+- Full badge management remains intentionally out of scope.
+- Full native Dive Map, Journey write flows, Passport settings, and Dive Memories write/detail parity remain out of scope for this initiative.
+- Runtime simulator validation is still pending until local iOS tooling is fixed.
+
+### Manual Smoke Checklist
+
+- Sign in as a complete user and open the Profile tab.
+- Confirm avatar, header, posts, Badges tab, Diving tab, and compact Dive identity summary render.
+- Edit display name, avatar URL, bio, home area, certification, and interests; save and reload.
+- Open another public profile and confirm badge/dive identity empty/loading/error states do not crash.
+- Confirm Dive identity copy does not claim memories unlock locations.
+- Confirm no profile edit action appears on another user's profile.

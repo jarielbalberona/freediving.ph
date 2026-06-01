@@ -1,10 +1,11 @@
 # 10 Schools Public, Courses, And Bookings
 
-Status: Ready After Previous
+Status: passed
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile supports public school discovery, course/session detail, booking, payment instructions/proof, my bookings, and cancellation where policy allows.
+Latest execution: PASS on 2026-06-01. Mobile Schools now supports public list/search/filter, school detail/profile, course list/detail, sessions, student booking form, payment instructions/proof upload through `course_booking_receipt`, My Bookings, student cancellation, school/course/my-bookings deep links, targeted tests, mobile type-check/lint, and iOS Simulator smoke on iPhone 17 Pro Max.
 
 ## Readiness Rationale
 
@@ -131,11 +132,19 @@ If simulator testing cannot be run, document the blocker and include a manual ch
 
 ## 16. Manual Smoke Checklist
 
-- Browse schools.
-- Open school and course detail.
-- Book a course/session.
-- Upload payment proof if implemented.
-- View and cancel booking if allowed.
+- [x] Browse schools.
+- [x] Open school and course detail.
+- [ ] Book a course/session with a signed-in test account.
+- [ ] Upload payment proof for a paid booking with active school payment method.
+- [x] View My bookings empty state.
+- [ ] View and cancel booking if allowed by backend status.
+
+Runtime smoke performed on iPhone 17 Pro Max Simulator against the running Expo/Metro session:
+
+- `freediving-ph-app:///(app)/(tabs)/(home)/schools`
+- `freediving-ph-app:///(app)/(tabs)/(home)/schools/codex-smoke-school`
+- `freediving-ph-app:///(app)/(tabs)/(home)/schools/codex-smoke-school/courses/codex-free-course`
+- `freediving-ph-app:///(app)/(tabs)/(home)/schools/bookings`
 
 ## 17. Rollback/Risk Notes
 

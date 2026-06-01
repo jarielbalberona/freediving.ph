@@ -7,6 +7,9 @@ import type {
   MediaPostComment,
   MediaPostCommentLikeState,
   MediaPostCommentListResponse,
+  MediaPostDetailResponse,
+  MediaPostLikeState,
+  MediaPostSaveState,
   MediaUploadResponse,
   MomentStatusResponse,
   MomentUploadIntentResponse,
@@ -37,12 +40,16 @@ export const uploadMediaFiles = (
   files: NativeUploadFile[],
   contextType: MediaContextType,
   authToken: string,
+  contextId?: string,
 ) => {
   const formData = new FormData();
   for (const file of files) {
     formData.append("files", file as unknown as Blob);
   }
   formData.append("contextType", contextType);
+  if (contextId?.trim()) {
+    formData.append("contextId", contextId.trim());
+  }
 
   return fphgoFetch<{
     errors?: Array<{ code: string; index: number; message: string }>;
@@ -65,6 +72,52 @@ export const createMediaPost = (
     body: payload,
     method: "POST",
   });
+
+export const getMediaPostDetail = (postId: string) =>
+  fphgoFetch<MediaPostDetailResponse>(
+    `/v1/media/posts/${encodeURIComponent(postId)}`,
+    { auth: "optional" },
+  );
+
+export const likeMediaPost = (postId: string, authToken: string) =>
+  fphgoFetch<MediaPostLikeState>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/likes`,
+    {
+      auth: "required",
+      authToken,
+      method: "POST",
+    },
+  );
+
+export const unlikeMediaPost = (postId: string, authToken: string) =>
+  fphgoFetch<MediaPostLikeState>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/likes`,
+    {
+      auth: "required",
+      authToken,
+      method: "DELETE",
+    },
+  );
+
+export const saveMediaPost = (postId: string, authToken: string) =>
+  fphgoFetch<MediaPostSaveState>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/saves`,
+    {
+      auth: "required",
+      authToken,
+      method: "POST",
+    },
+  );
+
+export const unsaveMediaPost = (postId: string, authToken: string) =>
+  fphgoFetch<MediaPostSaveState>(
+    `/v1/media/posts/${encodeURIComponent(postId)}/saves`,
+    {
+      auth: "required",
+      authToken,
+      method: "DELETE",
+    },
+  );
 
 export const getMediaPostComments = (
   postId: string,

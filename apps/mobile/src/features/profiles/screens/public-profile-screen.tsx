@@ -9,6 +9,9 @@ import {
   MobileScrollScreen,
   MobileSection,
 } from "@/components/shell";
+import { ProfileBuddyActions } from "@/features/buddies/components/profile-buddy-actions";
+import { ProfileBadgesSection } from "@/features/profiles/components/profile-badges-section";
+import { ProfileDiveIdentitySummary } from "@/features/profiles/components/profile-dive-identity-summary";
 import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
 import {
   type HeaderProfile,
@@ -18,7 +21,12 @@ import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-
 import { ProfileDiveSpotHighlights } from "@/features/profiles/components/profile-dive-spot-highlights";
 import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
 import {
+  useProfileBadgesQuery,
+  useProfileDiveMapQuery,
+  useProfileDiveMemoriesQuery,
   useProfileDivingQuery,
+  useProfileJourneyQuery,
+  useProfilePassportQuery,
 } from "@/features/profiles/hooks/use-profile-activity-query";
 import {
   normalizeProfileDiveSpotHighlights,
@@ -38,6 +46,11 @@ export function PublicProfileScreen() {
   const profile = profileQuery.data?.profile;
   const mediaQuery = useProfileMediaQuery(profile?.username);
   const divingQuery = useProfileDivingQuery(profile?.username);
+  const badgesQuery = useProfileBadgesQuery(profile?.username);
+  const diveMapQuery = useProfileDiveMapQuery(profile?.username);
+  const passportQuery = useProfilePassportQuery(profile?.username);
+  const journeyQuery = useProfileJourneyQuery(profile?.username);
+  const memoriesQuery = useProfileDiveMemoriesQuery(profile?.username);
   const posts = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const highlights = normalizeProfileDiveSpotHighlights(posts);
   const presences = divingQuery.data?.presences ?? [];
@@ -110,9 +123,31 @@ export function PublicProfileScreen() {
           profile={profile as HeaderProfile}
           stats={headerStats}
         />
+        {!isOwner ? <ProfileBuddyActions profile={profile} /> : null}
       </MobileSection>
 
       <ProfileDiveSpotHighlights highlights={highlights} />
+      <ProfileDiveIdentitySummary
+        badges={badgesQuery.data}
+        diveMap={diveMapQuery.data}
+        hasError={Boolean(
+          badgesQuery.error ||
+            diveMapQuery.error ||
+            passportQuery.error ||
+            journeyQuery.error ||
+            memoriesQuery.error,
+        )}
+        isLoading={
+          badgesQuery.isLoading ||
+          diveMapQuery.isLoading ||
+          passportQuery.isLoading ||
+          journeyQuery.isLoading ||
+          memoriesQuery.isLoading
+        }
+        journey={journeyQuery.data}
+        memories={memoriesQuery.data}
+        passport={passportQuery.data}
+      />
 
       <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
 
@@ -127,6 +162,17 @@ export function PublicProfileScreen() {
               onLoadMore={() => {
                 void mediaQuery.fetchNextPage();
               }}
+            />
+          </MobileSection>
+        ) : null}
+
+        {activeTab === "badges" ? (
+          <MobileSection title="Badges & credentials">
+            <ProfileBadgesSection
+              autoStats={badgesQuery.data?.autoStats ?? []}
+              badges={badgesQuery.data?.badges ?? []}
+              error={badgesQuery.error}
+              isLoading={badgesQuery.isLoading}
             />
           </MobileSection>
         ) : null}

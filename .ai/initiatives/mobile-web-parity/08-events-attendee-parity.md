@@ -1,10 +1,11 @@
 # 08 Events Attendee Parity
 
-Status: Ready After Previous
+Status: passed
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile supports attendee-facing event discovery, detail, joining, passes if needed, posts/updates, and payment-proof flows where contracts exist.
+Latest execution result: PASS on 2026-06-01. Mobile Events now supports attendee list search/filter controls, join form answers, participant notes, attendee pass display, read-only pass deep links, payment method/proof submission flow, public program/prize/sponsor sections, event update/reaction preservation, targeted tests, and iOS Simulator smoke on iPhone 17 Pro Max. Organizer approval, payment review, check-in, setup, and destructive event management remain split to initiative 09.
 
 ## Readiness Rationale
 

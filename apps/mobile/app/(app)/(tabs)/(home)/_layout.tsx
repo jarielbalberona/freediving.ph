@@ -38,8 +38,32 @@ export default function HomeStackLayout() {
         }}
       />
       <Stack.Screen
+        name="events/[slug]/pass/[token]"
+        options={{
+          title: "Event pass",
+        }}
+      />
+      <Stack.Screen
         name="schools"
         options={nativeLargeTitleOptions("Schools")}
+      />
+      <Stack.Screen
+        name="schools/[slug]"
+        options={{
+          title: "School",
+        }}
+      />
+      <Stack.Screen
+        name="schools/[slug]/courses/[courseSlug]"
+        options={{
+          title: "Course",
+        }}
+      />
+      <Stack.Screen
+        name="schools/bookings/index"
+        options={{
+          title: "My bookings",
+        }}
       />
       <Stack.Screen
         name="manage-schools"
@@ -51,6 +75,12 @@ export default function HomeStackLayout() {
         name="instructor-application"
         options={{
           title: "Instructor Application",
+        }}
+      />
+      <Stack.Screen
+        name="instructors/[username]"
+        options={{
+          title: "Instructor",
         }}
       />
       <Stack.Screen
@@ -79,6 +109,12 @@ export default function HomeStackLayout() {
         name="notifications"
         options={{
           title: "Notifications",
+        }}
+      />
+      <Stack.Screen
+        name="media/[postId]"
+        options={{
+          title: "Media post",
         }}
       />
       <Stack.Screen

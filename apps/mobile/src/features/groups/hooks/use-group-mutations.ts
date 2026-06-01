@@ -1,12 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/expo";
 import type {
+  CreateGroupRequest,
   CreateGroupPostRequest,
+  GroupListResponse,
   GroupPostsResponse,
 } from "@freediving.ph/types";
 
 import {
   acceptGroupInvite,
+  createGroup,
   createGroupPost,
   joinGroup,
   leaveGroup,
@@ -54,6 +57,28 @@ const requireGroupPostPayload = (
     content,
     groupId: requireGroupId(groupId),
     title: payload.title?.trim() || undefined,
+  };
+};
+
+const requireCreateGroupPayload = (
+  payload: CreateGroupRequest,
+): CreateGroupRequest => {
+  const name = payload.name.trim();
+  if (name.length < 3) {
+    throw new FphgoApiError(400, "Group name must be at least 3 characters.", null);
+  }
+  return {
+    ...payload,
+    bio: payload.bio?.trim() || undefined,
+    description: payload.description?.trim() || undefined,
+    formattedAddress: payload.formattedAddress?.trim() || undefined,
+    joinPolicy: payload.joinPolicy ?? "open",
+    location: payload.location?.trim() || undefined,
+    locationName: payload.locationName?.trim() || undefined,
+    locationSource: payload.locationSource ?? "manual",
+    name,
+    slug: payload.slug?.trim() || undefined,
+    visibility: payload.visibility ?? "public",
   };
 };
 
@@ -155,6 +180,38 @@ export const useCreateGroupPostMutation = (slug: string, groupId: string) => {
         queryClient.invalidateQueries({ queryKey: mobileQueryKeys.groups.detail(slug) });
       }
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.groups.posts(groupId) });
+    },
+  });
+};
+
+export const useCreateGroupMutation = () => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (payload: CreateGroupRequest) =>
+      createGroup(requireCreateGroupPayload(payload), await getRequiredToken()),
+    onSuccess: (response) => {
+      queryClient.setQueriesData<GroupListResponse>(
+        { queryKey: mobileQueryKeys.groups.lists() },
+        (current) =>
+          current
+            ? {
+                ...current,
+                groups: [
+                  response.group,
+                  ...current.groups.filter(
+                    (group) => group.id !== response.group.id,
+                  ),
+                ],
+                pagination: {
+                  ...current.pagination,
+                  total: current.pagination.total + 1,
+                },
+              }
+            : current,
+      );
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.groups.lists() });
     },
   });
 };

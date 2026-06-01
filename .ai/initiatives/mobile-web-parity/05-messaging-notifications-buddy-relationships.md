@@ -1,8 +1,8 @@
 # 05 Messaging, Notifications, And Buddy Relationships
 
-Status: Ready After Previous
+Status: PASS WITH ISSUES
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile distinguishes Buddy Finder intents from buddy relationships and supports relationship actions, messaging entry points, and notification routing without bypassing backend policy.
 
@@ -138,3 +138,64 @@ Rollback buddy/message/notification mobile changes. Risks are harassment pathway
 ## 18. Handoff Notes For The Next Initiative
 
 Explore can then show buddy intents and message actions with clearer relationship boundaries.
+
+## Execution Result
+
+Verdict: PASS WITH ISSUES
+
+Completed on: 2026-06-01
+
+Mobile now distinguishes Buddy Finder intents from bilateral buddy relationships. The Buddies screen keeps intent posting/listing separate from a new relationship section for incoming requests, outgoing requests, accepted buddies, and remove/cancel/accept/decline actions. Public profiles now show backend-backed buddy/message actions using canonical buddy request/list state and direct-message thread creation/reuse.
+
+Notifications now support native message route resolution plus mark-read and delete controls using the existing notification endpoints. Buddy Finder message entry continues to use the existing intent message-entry endpoint and opens/reuses canonical messaging threads.
+
+The remaining issue is runtime verification only: iOS Simulator smoke remains environment-blocked because the repo-supported launch command cannot complete CocoaPods/Homebrew setup in this machine context. Static checks passed.
+
+### Files Changed
+
+- `apps/mobile/src/features/buddies/api/buddies-api.ts`
+- `apps/mobile/src/features/buddies/components/buddy-relationship-section.tsx`
+- `apps/mobile/src/features/buddies/components/profile-buddy-actions.tsx`
+- `apps/mobile/src/features/buddies/hooks/use-buddy-mutations.ts`
+- `apps/mobile/src/features/buddies/hooks/use-buddy-relationship-queries.ts`
+- `apps/mobile/src/features/buddies/screens/buddies-screen.tsx`
+- `apps/mobile/src/features/messages/hooks/use-message-mutations.ts`
+- `apps/mobile/src/features/notifications/api/notifications-api.ts`
+- `apps/mobile/src/features/notifications/components/notification-card.tsx`
+- `apps/mobile/src/features/notifications/hooks/use-notification-mutations.ts`
+- `apps/mobile/src/features/notifications/screens/notifications-screen.tsx`
+- `apps/mobile/src/features/profiles/screens/public-profile-screen.tsx`
+- `apps/mobile/src/features/shared/links/lib/resolve-fph-link.ts`
+- `apps/mobile/src/features/shared/links/__tests__/resolve-fph-link.test.ts`
+- `apps/mobile/src/lib/query/query-keys.ts`
+- `apps/mobile/test/buddy-messaging-notifications-parity.test.mjs`
+- `apps/mobile/test/resolve-fph-link.test.mjs`
+- `.ai/initiatives/mobile-web-parity/reports/05-messaging-notifications-buddy-relationships.md`
+- `.ai/state/current-state.md`
+- `docs/mobile-web-parity-assessment.md`
+
+### Verification Run
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile ios` BLOCKED by local CocoaPods/Homebrew environment from initiative 01 smoke attempt; no app runtime result claimed.
+- `git diff --check` PASS
+
+### Remaining Gaps
+
+- Incoming request accept/decline is available in the Buddies relationship section, not directly on the other user's profile.
+- Realtime messaging remains out of scope.
+- Destructive remove-buddy currently uses a direct mobile action without an extra confirmation dialog; backend remains canonical.
+- iOS Simulator runtime smoke is pending until local CocoaPods/Homebrew tooling is fixed.
+
+### Manual Smoke Checklist
+
+- Send a buddy request from another user's profile.
+- Cancel an outgoing request from profile and from Buddies.
+- Accept and decline incoming requests from Buddies.
+- Remove an accepted buddy.
+- Start a message from a profile where backend allows messaging.
+- Start a message from a Buddy Finder intent.
+- Tap `/messages/{threadId}` and buddy/message notification action URLs.
+- Mark a notification read and delete a notification.

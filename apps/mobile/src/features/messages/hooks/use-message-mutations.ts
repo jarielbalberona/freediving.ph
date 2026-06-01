@@ -10,6 +10,7 @@ import {
   acceptThreadRequest,
   declineThreadRequest,
   markThreadRead,
+  openDirectMessageThread,
   sendThreadMessage,
 } from "@/features/messages/api/messages-api";
 import { FphgoApiError } from "@/lib/api";
@@ -110,6 +111,25 @@ export const useSendMessageMutation = (threadId: string) => {
       });
       queryClient.invalidateQueries({
         queryKey: mobileQueryKeys.messages.unreadCount(),
+      });
+    },
+  });
+};
+
+export const useOpenDirectMessageThreadMutation = () => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (targetUserId: string) =>
+      openDirectMessageThread(
+        { targetUserId },
+        await getRequiredToken(),
+      ),
+    onSuccess: (thread) => {
+      queryClient.setQueryData(mobileQueryKeys.messages.detail(thread.id), thread);
+      queryClient.invalidateQueries({
+        queryKey: mobileQueryKeys.messages.threadLists(),
       });
     },
   });

@@ -1,13 +1,22 @@
 import type {
   CreateEventPostRequest,
+  EventCompetition,
   EventDetailResponse,
   EventFilters,
+  EventJoinFormField,
   EventListResponse,
+  EventParticipantPayment,
+  EventPass,
+  EventPaymentMethod,
   EventPostResponse,
   EventPostReactionResponse,
   EventPostsResponse,
+  EventPrize,
+  EventProgramItem,
+  EventSponsor,
   JoinEventResponse,
   JoinEventRequest,
+  SubmitEventPaymentRequest,
 } from "@freediving.ph/types";
 
 import { fphgoFetch } from "@/lib/api";
@@ -56,6 +65,18 @@ export const joinEvent = (eventId: string, authToken: string) =>
     method: "POST",
   });
 
+export const joinEventWithAnswers = (
+  eventId: string,
+  payload: JoinEventRequest,
+  authToken: string,
+) =>
+  fphgoFetch<JoinEventResponse>(`/v1/events/${encodeURIComponent(eventId)}/join`, {
+    auth: "required",
+    authToken,
+    body: payload,
+    method: "POST",
+  });
+
 export const leaveEvent = (eventId: string, authToken: string) =>
   fphgoFetch<void>(`/v1/events/${encodeURIComponent(eventId)}/leave`, {
     auth: "required",
@@ -80,6 +101,72 @@ export const removeEventInterest = (eventId: string, authToken: string) =>
 export const getEventPosts = (eventId: string) =>
   fphgoFetch<EventPostsResponse>(
     `/v1/events/${encodeURIComponent(eventId)}/posts`,
+    { auth: "optional" },
+  );
+
+export const getEventJoinFormFields = (eventId: string) =>
+  fphgoFetch<{ fields: EventJoinFormField[] }>(
+    `/v1/events/${encodeURIComponent(eventId)}/join-form-fields`,
+    { auth: "optional" },
+  );
+
+export const getMyEventPass = (eventId: string, authToken: string) =>
+  fphgoFetch<EventPass>(`/v1/events/${encodeURIComponent(eventId)}/pass`, {
+    auth: "required",
+    authToken,
+  });
+
+export const verifyEventPass = (slug: string, token: string) =>
+  fphgoFetch<EventPass>(
+    `/v1/events/${encodeURIComponent(slug)}/pass/${encodeURIComponent(token)}`,
+    { auth: "optional" },
+  );
+
+export const getEventPaymentMethods = (eventId: string, authToken: string) =>
+  fphgoFetch<{ paymentMethods: EventPaymentMethod[] }>(
+    `/v1/events/${encodeURIComponent(eventId)}/payment-methods`,
+    { auth: "required", authToken },
+  );
+
+export const submitEventPayment = (
+  payload: SubmitEventPaymentRequest,
+  authToken: string,
+) =>
+  fphgoFetch<{ payment: EventParticipantPayment }>(
+    `/v1/events/${encodeURIComponent(payload.eventId)}/payments`,
+    {
+      auth: "required",
+      authToken,
+      body: {
+        paymentMethodId: payload.paymentMethodId,
+        proofMediaId: payload.proofMediaId,
+        referenceNumber: payload.referenceNumber,
+      },
+      method: "POST",
+    },
+  );
+
+export const getEventProgramItems = (eventId: string) =>
+  fphgoFetch<{ programItems: EventProgramItem[] }>(
+    `/v1/events/${encodeURIComponent(eventId)}/program`,
+    { auth: "optional" },
+  );
+
+export const getEventCompetitions = (eventId: string) =>
+  fphgoFetch<{ competitions: EventCompetition[] }>(
+    `/v1/events/${encodeURIComponent(eventId)}/competitions`,
+    { auth: "optional" },
+  );
+
+export const getEventPrizes = (eventId: string) =>
+  fphgoFetch<{ prizes: EventPrize[] }>(
+    `/v1/events/${encodeURIComponent(eventId)}/prizes`,
+    { auth: "optional" },
+  );
+
+export const getEventSponsors = (eventId: string) =>
+  fphgoFetch<{ sponsors: EventSponsor[] }>(
+    `/v1/events/${encodeURIComponent(eventId)}/sponsors`,
     { auth: "optional" },
   );
 

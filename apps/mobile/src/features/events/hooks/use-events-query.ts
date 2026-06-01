@@ -1,12 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 
+import type { EventFilters } from "@freediving.ph/types";
+
 import { getEvents } from "@/features/events/api/events-api";
 import { mobileQueryKeys } from "@/lib/query";
 
 const EVENT_LIST_LIMIT = 24;
 
-export function useEventsQuery() {
+export function useEventsQuery(params: EventFilters = {}) {
   const filters = {
+    beginnerFriendly: params.beginnerFriendly,
+    difficulty: params.difficulty,
+    price: params.price,
+    search: params.search,
+    type: params.type,
     limit: EVENT_LIST_LIMIT,
     page: 1,
     status: "published" as const,

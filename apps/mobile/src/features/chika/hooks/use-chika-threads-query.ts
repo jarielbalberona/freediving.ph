@@ -5,9 +5,12 @@ import { mobileQueryKeys } from "@/lib/query/query-keys";
 
 const CHIKA_THREAD_LIMIT = 20;
 
-export const useChikaThreadsQuery = () =>
+export const useChikaThreadsQuery = (category?: string) =>
   useQuery({
-    queryFn: () => getChikaThreads({ limit: CHIKA_THREAD_LIMIT }),
-    queryKey: mobileQueryKeys.chika.threadList({ limit: CHIKA_THREAD_LIMIT }),
+    queryFn: () => getChikaThreads({ category, limit: CHIKA_THREAD_LIMIT }),
+    queryKey: mobileQueryKeys.chika.threadList({
+      category,
+      limit: CHIKA_THREAD_LIMIT,
+    }),
     staleTime: 5 * 60 * 1000,
   });

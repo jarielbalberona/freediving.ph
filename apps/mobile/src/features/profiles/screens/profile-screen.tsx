@@ -15,6 +15,8 @@ import {
   useProfileMediaQuery,
 } from "@/features/media/hooks/use-profile-media-query";
 import { ProfileDetailRow } from "@/features/profiles/components/profile-detail-row";
+import { ProfileBadgesSection } from "@/features/profiles/components/profile-badges-section";
+import { ProfileDiveIdentitySummary } from "@/features/profiles/components/profile-dive-identity-summary";
 import { ProfileDivingSection } from "@/features/profiles/components/profile-diving-section";
 import {
   type HeaderProfile,
@@ -24,7 +26,12 @@ import { ProfileDiveSpotHighlights } from "@/features/profiles/components/profil
 import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
 import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
 import {
+  useProfileBadgesQuery,
+  useProfileDiveMapQuery,
+  useProfileDiveMemoriesQuery,
   useProfileDivingQuery,
+  useProfileJourneyQuery,
+  useProfilePassportQuery,
 } from "@/features/profiles/hooks/use-profile-activity-query";
 import { useUpdateMyProfileMutation } from "@/features/profiles/hooks/use-profile-mutations";
 import { useMyProfileQuery } from "@/features/profiles/hooks/use-my-profile-query";
@@ -37,6 +44,15 @@ import { useLocalDraft } from "@/local/drafts/use-local-draft";
 import { useOutbox } from "@/local/outbox/use-outbox";
 import { PendingSyncPanel } from "@/local/sync/pending-sync-panel";
 
+type ProfileEditDraft = {
+  avatarUrl?: string;
+  bio?: string;
+  certLevel?: string;
+  displayName: string;
+  homeArea?: string;
+  interests?: string;
+};
+
 export function ProfileScreen() {
   const { isLoaded, isSignedIn } = useAuth();
   const profileQuery = useMyProfileQuery();
@@ -44,14 +60,21 @@ export function ProfileScreen() {
   const updateProfile = useUpdateMyProfileMutation();
   const mediaQuery = useProfileMediaQuery(profile?.username);
   const divingQuery = useProfileDivingQuery(profile?.username);
+  const badgesQuery = useProfileBadgesQuery(profile?.username);
+  const diveMapQuery = useProfileDiveMapQuery(profile?.username);
+  const passportQuery = useProfilePassportQuery(profile?.username);
+  const journeyQuery = useProfileJourneyQuery(profile?.username);
+  const memoriesQuery = useProfileDiveMemoriesQuery(profile?.username);
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [isEditing, setIsEditing] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | undefined>();
   const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
-  const profileDraft = useLocalDraft<{ bio?: string; displayName: string }>(
-    "profile_edit",
-  );
+  const [homeArea, setHomeArea] = useState("");
+  const [certLevelDraft, setCertLevelDraft] = useState("");
+  const [interests, setInterests] = useState("");
+  const profileDraft = useLocalDraft<ProfileEditDraft>("profile_edit");
   const outbox = useOutbox();
   const posts = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const highlights = normalizeProfileDiveSpotHighlights(posts);
@@ -66,8 +89,12 @@ export function ProfileScreen() {
 
   useEffect(() => {
     if (!profileDraft.draft) return;
+    setAvatarUrl(profileDraft.draft.payload.avatarUrl ?? "");
     setDisplayName(profileDraft.draft.payload.displayName);
     setBio(profileDraft.draft.payload.bio ?? "");
+    setCertLevelDraft(profileDraft.draft.payload.certLevel ?? "");
+    setHomeArea(profileDraft.draft.payload.homeArea ?? "");
+    setInterests(profileDraft.draft.payload.interests ?? "");
     setIsEditing(true);
   }, [profileDraft.draft]);
 
@@ -130,8 +157,12 @@ export function ProfileScreen() {
         <ProfileHeader
           isOwner
           onEdit={() => {
+            setAvatarUrl(profile.avatarUrl ?? "");
             setDisplayName(profile.displayName);
             setBio(profile.bio ?? "");
+            setHomeArea(profile.homeArea || profile.location || "");
+            setCertLevelDraft(profile.certLevel ?? "");
+            setInterests((profile.interests ?? []).join(", "));
             setIsEditing((value) => !value);
           }}
           profile={profile as HeaderProfile}
@@ -140,6 +171,27 @@ export function ProfileScreen() {
       </MobileSection>
 
       <ProfileDiveSpotHighlights highlights={highlights} />
+      <ProfileDiveIdentitySummary
+        badges={badgesQuery.data}
+        diveMap={diveMapQuery.data}
+        hasError={Boolean(
+          badgesQuery.error ||
+            diveMapQuery.error ||
+            passportQuery.error ||
+            journeyQuery.error ||
+            memoriesQuery.error,
+        )}
+        isLoading={
+          badgesQuery.isLoading ||
+          diveMapQuery.isLoading ||
+          passportQuery.isLoading ||
+          journeyQuery.isLoading ||
+          memoriesQuery.isLoading
+        }
+        journey={journeyQuery.data}
+        memories={memoriesQuery.data}
+        passport={passportQuery.data}
+      />
 
       <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
 
@@ -152,6 +204,17 @@ export function ProfileScreen() {
             isLoading={mediaQuery.isLoading}
             items={posts}
             onLoadMore={() => void mediaQuery.fetchNextPage()}
+          />
+        </MobileSection>
+      ) : null}
+
+      {activeTab === "badges" ? (
+        <MobileSection title="Badges & credentials">
+          <ProfileBadgesSection
+            autoStats={badgesQuery.data?.autoStats ?? []}
+            badges={badgesQuery.data?.badges ?? []}
+            error={badgesQuery.error}
+            isLoading={badgesQuery.isLoading}
           />
         </MobileSection>
       ) : null}
@@ -190,6 +253,15 @@ export function ProfileScreen() {
               value={displayName}
             />
             <TextInput
+              autoCapitalize="none"
+              className="rounded-2xl border border-border bg-card p-3 text-foreground"
+              keyboardType="url"
+              onChangeText={setAvatarUrl}
+              placeholder="Avatar image URL"
+              placeholderTextColor="#64748b"
+              value={avatarUrl}
+            />
+            <TextInput
               className="min-h-24 rounded-2xl border border-border bg-card p-3 text-foreground"
               multiline
               onChangeText={setBio}
@@ -197,12 +269,38 @@ export function ProfileScreen() {
               placeholderTextColor="#64748b"
               value={bio}
             />
+            <TextInput
+              className="rounded-2xl border border-border bg-card p-3 text-foreground"
+              onChangeText={setHomeArea}
+              placeholder="Home area"
+              placeholderTextColor="#64748b"
+              value={homeArea}
+            />
+            <TextInput
+              className="rounded-2xl border border-border bg-card p-3 text-foreground"
+              onChangeText={setCertLevelDraft}
+              placeholder="Certification"
+              placeholderTextColor="#64748b"
+              value={certLevelDraft}
+            />
+            <TextInput
+              className="min-h-20 rounded-2xl border border-border bg-card p-3 text-foreground"
+              multiline
+              onChangeText={setInterests}
+              placeholder="Interests, separated by commas"
+              placeholderTextColor="#64748b"
+              value={interests}
+            />
             <MobileButton
               variant="secondary"
               onPress={() =>
                 void profileDraft.save({
+                  avatarUrl: avatarUrl.trim() || undefined,
                   bio: bio.trim() || undefined,
+                  certLevel: certLevelDraft.trim() || undefined,
                   displayName: displayName.trim(),
+                  homeArea: homeArea.trim() || undefined,
+                  interests: interests.trim() || undefined,
                 })
               }
             >
@@ -214,8 +312,12 @@ export function ProfileScreen() {
                 onPress={() =>
                   void profileDraft.discard().then(() => {
                     setActionMessage("Draft discarded.");
+                    setAvatarUrl(profile.avatarUrl ?? "");
                     setBio(profile.bio ?? "");
+                    setCertLevelDraft(profile.certLevel ?? "");
                     setDisplayName(profile.displayName);
+                    setHomeArea(profile.homeArea || profile.location || "");
+                    setInterests((profile.interests ?? []).join(", "));
                   })
                 }
               >
@@ -228,14 +330,27 @@ export function ProfileScreen() {
                 if (!requireSignedIn()) return;
                 updateProfile.mutate(
                   {
+                    avatarUrl: avatarUrl.trim() || undefined,
                     bio: bio.trim() || undefined,
+                    certLevel: certLevelDraft.trim() || undefined,
                     displayName: displayName.trim(),
+                    homeArea: homeArea.trim() || undefined,
+                    interests: interests
+                      .split(",")
+                      .map((item) => item.trim())
+                      .filter(Boolean)
+                      .slice(0, 8),
+                    location: homeArea.trim() || undefined,
                   },
                   {
                     onError: () => {
                       void profileDraft.save({
+                        avatarUrl: avatarUrl.trim() || undefined,
                         bio: bio.trim() || undefined,
+                        certLevel: certLevelDraft.trim() || undefined,
                         displayName: displayName.trim(),
+                        homeArea: homeArea.trim() || undefined,
+                        interests: interests.trim() || undefined,
                       });
                       setActionMessage("Could not update profile. Saved as draft.");
                     },

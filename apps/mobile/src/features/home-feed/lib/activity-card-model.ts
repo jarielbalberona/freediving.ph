@@ -84,6 +84,9 @@ const segmentFromHref = (href: string | undefined, prefix: string) => {
   return safeSegment(href.slice(prefix.length).split(/[?#]/)[0]);
 };
 
+const nativeDetailHref = (basePath: string, segment: string) =>
+  `${basePath}/${encodeURIComponent(segment)}`;
+
 const stringValue = (
   source: Record<string, unknown> | undefined,
   key: string,
@@ -183,10 +186,14 @@ export const getHomeActivityCardHref = (
       : undefined;
   }
 
-  if (
-    item.type === "dive_site_update_added" ||
-    item.type === "media_post_created"
-  ) {
+  if (item.type === "media_post_created") {
+    const postId = safeSegment(item.sourceId);
+    return postId
+      ? (nativeDetailHref("/(app)/(tabs)/(home)/media", postId) as Href)
+      : undefined;
+  }
+
+  if (item.type === "dive_site_update_added") {
     const slug =
       safeSegment(stringValue(item.metadata, "diveSiteSlug")) ??
       segmentFromHref(item.href, "/explore/sites/");

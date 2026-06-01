@@ -61,3 +61,11 @@ Phase reports must record exact commands, pass/fail status, and relevant failure
 - Execution started: yes
 - Verification status: completed/passed
 - Notes: Phase 1 passed on 2026-05-31. Phases 2-10 passed on 2026-06-01. Final verification passed for targeted Go checks, app route checks, DB checks, sqlc generation, shared type-check/tests, web type-check/lint/test, repo lint/typecheck/test/build, and `git diff --check`. Commands required explicit PATH entries because the current shell omitted installed Go/pnpm/sqlc locations.
+
+### `mobile-web-parity`
+
+- Status: locked
+- Ready for execution: partial
+- Execution started: yes
+- Verification status: in progress/pass through 12
+- Notes: Initiatives 01-05 passed static mobile verification and were recorded as pass-with-issues because iOS Simulator smoke was unavailable at execution time. Initiative 06 passed on 2026-06-01 with mobile test/type-check/lint, iOS Simulator smoke on iPhone 17 Pro Max via the running Expo/Metro session, and `git diff --check`. Initiative 07 passed on 2026-06-01 with `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test`, `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`, `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`, iOS Simulator smoke for group list/detail, and `git diff --check`. Initiative 08 passed on 2026-06-01 with `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test`, `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`, `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`, iOS Simulator smoke for events list/detail/joined pass/pass deep-link route, and `git diff --check`. Initiative 10 passed on 2026-06-01 with `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test`, `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`, `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`, iOS Simulator smoke for schools list/detail/course/my bookings, and `git diff --check`. Initiative 12 passed on 2026-06-01 with `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test`, `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`, `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`, iOS Simulator smoke for instructor application/public route, and `git diff --check`.

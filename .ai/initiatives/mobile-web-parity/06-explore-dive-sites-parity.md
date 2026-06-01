@@ -1,10 +1,11 @@
 # 06 Explore And Dive Sites Parity
 
-Status: Ready After Previous
+Status: passed
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile Explore supports practical list/detail parity, user actions, submissions/status, and contribution flows without violating proof-based Dive Map rules.
+Latest execution result: PASS on 2026-06-01. Mobile Explore now has native search/filter/sort controls, save/like visible actions, detail status sections, condition report submission, suggest-edit submission, presence/affinity/review surfaces, related/community previews, my submissions/edit proposal status hooks, targeted mobile tests, and successful iOS Simulator smoke on iPhone 17 Pro Max.
 
 ## Readiness Rationale
 

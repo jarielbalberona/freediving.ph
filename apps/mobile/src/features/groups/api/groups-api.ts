@@ -1,4 +1,6 @@
 import type {
+  CreateGroupRequest,
+  CreateGroupResponse,
   CreateGroupPostResponse,
   CreateGroupPostRequest,
   GroupDetailResponse,
@@ -91,3 +93,11 @@ export const createGroupPost = (
       method: "POST",
     },
   );
+
+export const createGroup = (payload: CreateGroupRequest, authToken: string) =>
+  fphgoFetch<CreateGroupResponse>("/v1/groups", {
+    auth: "required",
+    authToken,
+    body: payload,
+    method: "POST",
+  });

@@ -172,6 +172,13 @@ export function MobileMediaFeedItem({
             onPress: () => setCommentsOpen(true),
           },
           {
+            accessibilityLabel: "Open media post",
+            disabled: !item.href,
+            icon: "open-outline",
+            label: "Open",
+            onPress: () => openHref(item.href),
+          },
+          {
             accessibilityLabel: "Share media post",
             icon: "share-outline",
             label: "Share",

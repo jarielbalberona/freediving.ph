@@ -1,8 +1,8 @@
 # 04 Chika Forums Parity
 
-Status: Ready After Previous
+Status: PASS WITH ISSUES
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile Chika supports category-aware browsing, reliable thread detail/create/reply/vote behavior, and pseudonymous display aligned with backend rules.
 
@@ -130,3 +130,50 @@ Rollback Chika screen/API hook changes. Main risk is identity leakage in pseudon
 ## 18. Handoff Notes For The Next Initiative
 
 Messaging, notifications, and buddy relationships can then link into Chika targets reliably.
+
+## Execution Result
+
+Verdict: PASS WITH ISSUES
+
+Completed on: 2026-06-01
+
+Mobile Chika now supports backend category filtering in the thread list. The Chika screen loads categories, renders native category chips, sends the selected category slug to `/v1/chika/threads?category=...`, and keys category-specific thread cache entries correctly. Thread detail deep-link guards, draft/outbox preservation, optimistic rollback paths, nested replies, and reaction handling were verified by focused tests.
+
+Pseudonymous display remains server-authoritative: mobile uses `authorDisplayName` and category pseudonym flags from the backend, and tests guard against deriving or revealing real author fields in comment display.
+
+The remaining issue is runtime verification only: iOS Simulator smoke remains environment-blocked because the repo-supported launch command cannot complete CocoaPods/Homebrew setup in this machine context. Static checks passed.
+
+### Files Changed
+
+- `apps/mobile/src/features/chika/api/chika-api.ts`
+- `apps/mobile/src/features/chika/hooks/use-chika-threads-query.ts`
+- `apps/mobile/src/features/chika/hooks/use-chika-mutations.ts`
+- `apps/mobile/src/features/chika/screens/chika-screen.tsx`
+- `apps/mobile/src/lib/query/query-keys.ts`
+- `apps/mobile/test/chika-forums-parity.test.mjs`
+- `.ai/initiatives/mobile-web-parity/reports/04-chika-forums-parity.md`
+- `.ai/state/current-state.md`
+- `docs/mobile-web-parity-assessment.md`
+
+### Verification Run
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile ios` BLOCKED by local CocoaPods/Homebrew environment from initiative 01 smoke attempt; no app runtime result claimed.
+- `git diff --check` PASS
+
+### Remaining Gaps
+
+- Full web markdown editor remains intentionally out of scope.
+- Report actions remain out of scope for the later user-safety/report/block initiative.
+- Realtime Chika updates remain out of scope.
+- iOS Simulator runtime smoke is pending until local CocoaPods/Homebrew tooling is fixed.
+
+### Manual Smoke Checklist
+
+- Open Chika and switch between All plus each category chip.
+- Open a thread by tapping a card and by a `/chika/{slug}` public link.
+- Create a thread in a category and confirm it appears in the matching filtered list.
+- Reply, nested reply, upvote, downvote, and retry after a simulated failure/offline state.
+- Confirm pseudonymous categories show backend-provided labels and do not reveal usernames/avatar identity.

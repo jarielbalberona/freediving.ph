@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
-import type { CreateExploreSiteSubmissionRequest } from "@freediving.ph/types";
+import type {
+  CreateExploreSiteSubmissionRequest,
+  ExploreSiteCard as ExploreSiteCardDto,
+} from "@freediving.ph/types";
 
 import {
   MobileEmptyState,
@@ -17,7 +20,10 @@ import {
   useExploreSiteSaveMutation,
   useSubmitExploreSiteMutation,
 } from "@/features/explore/hooks/use-explore-mutations";
-import { useExploreSitesQuery } from "@/features/explore/hooks/use-explore-sites-query";
+import {
+  type ExploreSiteSortMode,
+  useExploreSitesQuery,
+} from "@/features/explore/hooks/use-explore-sites-query";
 import { useMyExploreSubmissionsQuery } from "@/features/explore/hooks/use-my-explore-submissions-query";
 import { FphgoApiError, isAuthErrorStatus } from "@/lib/api/fphgo-client";
 import { shouldQueueFailedMutation } from "@/local/outbox/supported-operations";
@@ -89,6 +95,43 @@ const initialForm: SubmissionFormState = {
   lng: "",
   name: "",
   typicalConditions: "",
+};
+
+type ExploreFilters = {
+  area: string;
+  difficulty: "all" | "easy" | "moderate" | "hard";
+  savedOnly: boolean;
+  search: string;
+  sort: ExploreSiteSortMode;
+  verifiedOnly: boolean;
+};
+
+const initialFilters: ExploreFilters = {
+  area: "",
+  difficulty: "all",
+  savedOnly: false,
+  search: "",
+  sort: "default",
+  verifiedOnly: false,
+};
+
+const sortSites = (items: ExploreSiteCardDto[], sort: ExploreSiteSortMode) => {
+  switch (sort) {
+    case "popular":
+      return [...items].sort(
+        (left, right) => right.likeCount - left.likeCount || left.name.localeCompare(right.name),
+      );
+    case "recent":
+      return [...items].sort(
+        (left, right) =>
+          right.recentUpdateCount - left.recentUpdateCount ||
+          new Date(right.lastUpdatedAt).getTime() -
+            new Date(left.lastUpdatedAt).getTime(),
+      );
+    case "default":
+    default:
+      return items;
+  }
 };
 
 const validateSubmission = (form: SubmissionFormState) => {
@@ -166,20 +209,38 @@ const validateSubmission = (form: SubmissionFormState) => {
 };
 
 export function ExploreScreen() {
-  const sitesQuery = useExploreSitesQuery();
   const submissionsQuery = useMyExploreSubmissionsQuery();
   const submitSite = useSubmitExploreSiteMutation();
   const likeSite = useExploreSiteLikeMutation();
   const saveSite = useExploreSiteSaveMutation();
   const outbox = useOutbox();
   const { isLoaded, isSignedIn } = useAuth();
+  const [filters, setFilters] = useState<ExploreFilters>(initialFilters);
   const [showSubmit, setShowSubmit] = useState(false);
   const [form, setForm] = useState<SubmissionFormState>(initialForm);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const sites = sitesQuery.data?.items ?? [];
   const submissions = submissionsQuery.data?.items ?? [];
   const canUseMemberActions = isLoaded && Boolean(isSignedIn);
+  const sitesQuery = useExploreSitesQuery({
+    area: filters.area,
+    difficulty: filters.difficulty === "all" ? undefined : filters.difficulty,
+    savedOnly: filters.savedOnly && canUseMemberActions,
+    search: filters.search,
+    sort: filters.sort,
+    verifiedOnly: filters.verifiedOnly,
+  });
+  const sites = useMemo(
+    () => sortSites(sitesQuery.data?.items ?? [], filters.sort),
+    [filters.sort, sitesQuery.data?.items],
+  );
+  const filtersApplied =
+    Boolean(filters.search.trim()) ||
+    Boolean(filters.area.trim()) ||
+    filters.difficulty !== "all" ||
+    filters.verifiedOnly ||
+    filters.savedOnly ||
+    filters.sort !== "default";
 
   useEffect(() => {
     if (outbox.message === "Synced") {
@@ -439,6 +500,99 @@ export function ExploreScreen() {
         description="Browse community-shared places to dive across the Philippines."
         title="Dive spots"
       >
+        <View className="mb-4 gap-3">
+          <TextInput
+            accessibilityLabel="Search dive spots"
+            className="rounded-2xl border border-border bg-card p-3 text-foreground"
+            onChangeText={(value) =>
+              setFilters((current) => ({ ...current, search: value }))
+            }
+            placeholder="Search by site, town, or area"
+            placeholderTextColor="#64748b"
+            value={filters.search}
+          />
+          <TextInput
+            accessibilityLabel="Filter by area"
+            className="rounded-2xl border border-border bg-card p-3 text-foreground"
+            onChangeText={(value) =>
+              setFilters((current) => ({ ...current, area: value }))
+            }
+            placeholder="Area, city, or province"
+            placeholderTextColor="#64748b"
+            value={filters.area}
+          />
+          <View className="flex-row flex-wrap gap-2">
+            {(["all", "easy", "moderate", "hard"] as const).map((difficulty) => (
+              <MobileButton
+                key={difficulty}
+                variant={filters.difficulty === difficulty ? "primary" : "secondary"}
+                onPress={() =>
+                  setFilters((current) => ({ ...current, difficulty }))
+                }
+              >
+                {difficulty === "all"
+                  ? "Any level"
+                  : difficulty === "easy"
+                    ? "Easy"
+                    : difficulty === "moderate"
+                      ? "Moderate"
+                      : "Hard"}
+              </MobileButton>
+            ))}
+          </View>
+          <View className="flex-row flex-wrap gap-2">
+            <MobileButton
+              variant={filters.verifiedOnly ? "primary" : "secondary"}
+              onPress={() =>
+                setFilters((current) => ({
+                  ...current,
+                  verifiedOnly: !current.verifiedOnly,
+                }))
+              }
+            >
+              Verified
+            </MobileButton>
+            <MobileButton
+              disabled={!canUseMemberActions}
+              variant={filters.savedOnly ? "primary" : "secondary"}
+              onPress={() =>
+                setFilters((current) => ({
+                  ...current,
+                  savedOnly: !current.savedOnly,
+                }))
+              }
+            >
+              Saved
+            </MobileButton>
+            {(["default", "recent", "popular"] as const).map((sort) => (
+              <MobileButton
+                key={sort}
+                variant={filters.sort === sort ? "primary" : "secondary"}
+                onPress={() => setFilters((current) => ({ ...current, sort }))}
+              >
+                {sort === "default"
+                  ? "Default"
+                  : sort === "recent"
+                    ? "Recent"
+                    : "Popular"}
+              </MobileButton>
+            ))}
+          </View>
+          {filters.savedOnly && !canUseMemberActions ? (
+            <Text className="text-sm text-muted-foreground">
+              Sign in to filter by saved dive spots.
+            </Text>
+          ) : null}
+          {filtersApplied ? (
+            <MobileButton
+              variant="ghost"
+              onPress={() => setFilters(initialFilters)}
+            >
+              Reset filters
+            </MobileButton>
+          ) : null}
+        </View>
+
         {sitesQuery.isLoading ? <MobileLoadingState message="Loading dive spots." /> : null}
 
         {sitesQuery.error ? (

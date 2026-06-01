@@ -15,6 +15,8 @@ export const mobileQueryKeys = {
   },
   media: {
     all: ["media"] as const,
+    postDetail: (postId: string) =>
+      [...mobileQueryKeys.media.all, "posts", postId] as const,
     postCommentsRoot: (postId: string) =>
       [...mobileQueryKeys.media.all, "posts", postId, "comments"] as const,
     postComments: (postId: string, params: { limit?: number }) =>
@@ -25,7 +27,15 @@ export const mobileQueryKeys = {
   explore: {
     all: ["explore"] as const,
     sites: () => [...mobileQueryKeys.explore.all, "sites"] as const,
-    siteList: (params: { limit?: number }) =>
+    siteList: (params: {
+      area?: string;
+      difficulty?: string;
+      limit?: number;
+      savedOnly?: boolean;
+      search?: string;
+      sort?: string;
+      verifiedOnly?: boolean;
+    }) =>
       [...mobileQueryKeys.explore.all, "sites", params] as const,
     siteDetails: () =>
       [...mobileQueryKeys.explore.all, "sites", "detail"] as const,
@@ -33,11 +43,25 @@ export const mobileQueryKeys = {
       [...mobileQueryKeys.explore.siteDetails(), slug] as const,
     submissions: () => [...mobileQueryKeys.explore.all, "submissions"] as const,
     mySubmissions: () => [...mobileQueryKeys.explore.submissions(), "mine"] as const,
+    editProposals: () =>
+      [...mobileQueryKeys.explore.all, "edit-proposals"] as const,
+    myEditProposals: () =>
+      [...mobileQueryKeys.explore.editProposals(), "mine"] as const,
+    related: (slug: string) =>
+      [...mobileQueryKeys.explore.siteDetail(slug), "related"] as const,
+    presence: (slug: string) =>
+      [...mobileQueryKeys.explore.siteDetail(slug), "presence"] as const,
+    affinities: (slug: string) =>
+      [...mobileQueryKeys.explore.siteDetail(slug), "affinities"] as const,
+    reviews: (slug: string) =>
+      [...mobileQueryKeys.explore.siteDetail(slug), "reviews"] as const,
+    communityPosts: (slug: string) =>
+      [...mobileQueryKeys.explore.siteDetail(slug), "community-posts"] as const,
   },
   chika: {
     all: ["chika"] as const,
     threads: () => [...mobileQueryKeys.chika.all, "threads"] as const,
-    threadList: (params: { limit?: number }) =>
+    threadList: (params: { category?: string; limit?: number }) =>
       [...mobileQueryKeys.chika.all, "threads", params] as const,
     threadDetails: () =>
       [...mobileQueryKeys.chika.all, "threads", "detail"] as const,
@@ -52,12 +76,64 @@ export const mobileQueryKeys = {
   events: {
     all: ["events"] as const,
     lists: () => [...mobileQueryKeys.events.all, "list"] as const,
-    list: (params: { limit?: number; page?: number; status?: string }) =>
+    list: (params: {
+      beginnerFriendly?: boolean;
+      difficulty?: string;
+      limit?: number;
+      page?: number;
+      price?: string;
+      search?: string;
+      status?: string;
+      type?: string;
+    }) =>
       [...mobileQueryKeys.events.all, "list", params] as const,
     detail: (slug: string) =>
       [...mobileQueryKeys.events.all, "detail", slug] as const,
+    joinFormFields: (eventId: string) =>
+      [...mobileQueryKeys.events.all, "detail", eventId, "join-form-fields"] as const,
+    myPass: (eventId: string) =>
+      [...mobileQueryKeys.events.all, "detail", eventId, "my-pass"] as const,
+    paymentMethods: (eventId: string) =>
+      [...mobileQueryKeys.events.all, "detail", eventId, "payment-methods"] as const,
+    program: (eventId: string) =>
+      [...mobileQueryKeys.events.all, "detail", eventId, "program"] as const,
+    prizes: (eventId: string) =>
+      [...mobileQueryKeys.events.all, "detail", eventId, "prizes"] as const,
+    sponsors: (eventId: string) =>
+      [...mobileQueryKeys.events.all, "detail", eventId, "sponsors"] as const,
+    pass: (slug: string, token: string) =>
+      [...mobileQueryKeys.events.all, "pass", slug, token] as const,
     posts: (eventId: string) =>
       [...mobileQueryKeys.events.all, "posts", eventId] as const,
+  },
+  schools: {
+    all: ["schools"] as const,
+    lists: () => [...mobileQueryKeys.schools.all, "list"] as const,
+    list: (params?: { courseType?: string; location?: string; search?: string }) =>
+      [...mobileQueryKeys.schools.lists(), params ?? {}] as const,
+    details: () => [...mobileQueryKeys.schools.all, "detail"] as const,
+    detail: (slug: string) =>
+      [...mobileQueryKeys.schools.details(), slug] as const,
+    courses: (
+      slug: string,
+      params?: {
+        courseType?: string;
+        level?: string;
+        payment?: string;
+        search?: string;
+      },
+    ) => [...mobileQueryKeys.schools.detail(slug), "courses", params ?? {}] as const,
+    course: (slug: string, courseSlug: string) =>
+      [...mobileQueryKeys.schools.detail(slug), "courses", courseSlug] as const,
+    sessions: (slug: string, courseSlug: string) =>
+      [...mobileQueryKeys.schools.course(slug, courseSlug), "sessions"] as const,
+    myBookings: () => [...mobileQueryKeys.schools.all, "my-bookings"] as const,
+  },
+  instructors: {
+    all: ["instructors"] as const,
+    me: () => [...mobileQueryKeys.instructors.all, "me"] as const,
+    public: (username: string) =>
+      [...mobileQueryKeys.instructors.all, "public", username] as const,
   },
   buddies: {
     all: ["buddies"] as const,
@@ -68,11 +144,24 @@ export const mobileQueryKeys = {
     intents: (params?: { limit?: number }) =>
       [...mobileQueryKeys.buddies.intentLists(), params ?? {}] as const,
     mine: () => [...mobileQueryKeys.buddies.all, "mine"] as const,
+    relationships: () => [...mobileQueryKeys.buddies.all, "relationships"] as const,
+    list: () => [...mobileQueryKeys.buddies.relationships(), "list"] as const,
+    incomingRequests: () =>
+      [...mobileQueryKeys.buddies.relationships(), "incoming"] as const,
+    outgoingRequests: () =>
+      [...mobileQueryKeys.buddies.relationships(), "outgoing"] as const,
+    relationshipPreview: (userId: string) =>
+      [...mobileQueryKeys.buddies.relationships(), "preview", userId] as const,
   },
   groups: {
     all: ["groups"] as const,
     lists: () => [...mobileQueryKeys.groups.all, "list"] as const,
-    list: (params?: { limit?: number; mine?: boolean }) =>
+    list: (params?: {
+      limit?: number;
+      mine?: boolean;
+      search?: string;
+      visibility?: string;
+    }) =>
       [...mobileQueryKeys.groups.lists(), params ?? {}] as const,
     details: () => [...mobileQueryKeys.groups.all, "detail"] as const,
     detail: (slug: string) =>
@@ -110,7 +199,17 @@ export const mobileQueryKeys = {
     me: () => [...mobileQueryKeys.profile.all, "me"] as const,
     public: (username: string) =>
       [...mobileQueryKeys.profile.all, "public", username] as const,
+    badges: (username: string) =>
+      [...mobileQueryKeys.profile.all, "public", username, "badges"] as const,
     diving: (username: string) =>
       [...mobileQueryKeys.profile.all, "public", username, "diving"] as const,
+    diveMap: (username: string) =>
+      [...mobileQueryKeys.profile.all, "public", username, "dive-map"] as const,
+    passport: (username: string) =>
+      [...mobileQueryKeys.profile.all, "public", username, "passport"] as const,
+    journey: (username: string) =>
+      [...mobileQueryKeys.profile.all, "public", username, "journey"] as const,
+    diveMemories: (username: string) =>
+      [...mobileQueryKeys.profile.all, "public", username, "dive-memories"] as const,
   },
 };

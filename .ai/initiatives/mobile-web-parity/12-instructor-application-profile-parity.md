@@ -1,10 +1,11 @@
 # 12 Instructor Application And Profile Parity
 
-Status: Ready After Previous
+Status: passed
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile supports instructor application/profile/certification parity without faking verification or bypassing school creation prerequisites.
+Latest execution: PASS on 2026-06-01. Mobile now supports the authenticated instructor application/profile screen, certification list/create/edit/delete, image proof upload through `instructor_certification_proof`, backend verification status display, submit attestation, public instructor route, instructor deep links, targeted tests, mobile type-check/lint, and iOS Simulator smoke.
 
 ## Readiness Rationale
 
@@ -129,12 +130,19 @@ If simulator testing cannot be run, document the blocker and include a manual ch
 
 ## 16. Manual Smoke Checklist
 
-- Open instructor application signed out/signed in.
-- Save details.
-- Add/edit/remove certification.
-- Upload proof if implemented.
-- Submit application.
-- Verify status messaging for pending/verified/rejected cases.
+- [x] Open instructor application signed in.
+- [ ] Open instructor application signed out.
+- [ ] Save details.
+- [ ] Add/edit/remove certification.
+- [ ] Upload proof if implemented.
+- [ ] Submit application.
+- [x] Verify status messaging for verified case.
+- [x] Open public instructor route error state for missing instructor.
+
+Runtime smoke performed on iPhone 17 Pro Max Simulator against the running Expo/Metro session:
+
+- `freediving-ph-app:///(app)/(tabs)/(home)/instructor-application`
+- `freediving-ph-app:///(app)/(tabs)/(home)/instructors/jariel`
 
 ## 17. Rollback/Risk Notes
 

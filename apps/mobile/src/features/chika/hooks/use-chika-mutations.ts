@@ -25,6 +25,7 @@ import { FphgoApiError } from "@/lib/api";
 import { mobileQueryKeys } from "@/lib/query";
 
 const CHIKA_THREAD_LIST_LIMIT = 20;
+const chikaThreadListsKey = mobileQueryKeys.chika.threads();
 const chikaThreadListKey = mobileQueryKeys.chika.threadList({
   limit: CHIKA_THREAD_LIST_LIMIT,
 });
@@ -148,7 +149,7 @@ export const useCreateChikaCommentMutation = (threadId: string) => {
       ),
     onSuccess: (comment) => {
       queryClient.setQueriesData<ChikaThreadListResponse>(
-        { queryKey: chikaThreadListKey },
+        { queryKey: chikaThreadListsKey },
         (current) =>
           current
             ? {
@@ -202,7 +203,7 @@ export const useSetChikaThreadReactionMutation = (threadId: string, slug: string
     onMutate: async (type) => {
       const targetThreadId = requireMutationTarget(threadId, "Chika thread");
       const threadDetailKey = mobileQueryKeys.chika.threadDetail(slug);
-      const threadListKey = chikaThreadListKey;
+      const threadListKey = chikaThreadListsKey;
       await Promise.all([
         queryClient.cancelQueries({ queryKey: threadDetailKey }),
         queryClient.cancelQueries({ queryKey: threadListKey }),

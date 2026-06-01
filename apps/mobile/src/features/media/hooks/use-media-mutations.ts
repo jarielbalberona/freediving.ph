@@ -9,6 +9,9 @@ import type {
   MediaPostComment,
   MediaPostCommentLikeState,
   MediaPostCommentListResponse,
+  MediaPostDetailResponse,
+  MediaPostLikeState,
+  MediaPostSaveState,
 } from "@freediving.ph/types";
 
 import {
@@ -18,8 +21,12 @@ import {
   createMomentUploadIntent,
   deleteMediaPostComment,
   likeMediaPostComment,
+  likeMediaPost,
+  saveMediaPost,
   syncMomentStatus,
+  unlikeMediaPost,
   unlikeMediaPostComment,
+  unsaveMediaPost,
   uploadMediaFiles,
   uploadMomentToDirectUrl,
 } from "@/features/media/api/media-api";
@@ -99,6 +106,59 @@ const patchFeedItemCount = (
   };
 };
 
+const patchFeedItemMediaState = (
+  item: ActivityFeedItem,
+  postId: string,
+  patch: Record<string, unknown>,
+) => {
+  if (item.type !== "media_post_created" || item.sourceId !== postId) return item;
+
+  return {
+    ...item,
+    stats: {
+      ...(typeof item.stats === "object" && item.stats !== null ? item.stats : {}),
+      ...patch,
+    },
+    metadata: {
+      ...(typeof item.metadata === "object" && item.metadata !== null
+        ? item.metadata
+        : {}),
+      ...patch,
+    },
+  };
+};
+
+const patchFeedMediaState = (
+  current: ActivityFeedOrInfinite,
+  postId: string,
+  patch: Record<string, unknown>,
+) => {
+  if (!current) return current;
+
+  if (
+    typeof current === "object" &&
+    "pages" in current &&
+    Array.isArray(current.pages)
+  ) {
+    return {
+      ...current,
+      pages: current.pages.map((page) => ({
+        ...page,
+        items: page.items.map((item) =>
+          patchFeedItemMediaState(item, postId, patch),
+        ),
+      })),
+    } as ActivityFeedOrInfinite;
+  }
+
+  return {
+    ...(current as ActivityFeedResponse),
+    items: (current as ActivityFeedResponse).items.map((item) =>
+      patchFeedItemMediaState(item, postId, patch),
+    ),
+  };
+};
+
 const patchFeedCommentCount = (
   current: ActivityFeedOrInfinite,
   postId: string,
@@ -157,6 +217,58 @@ const patchCommentLikeState = (
         viewerHasLiked: payload.viewerHasLiked,
       }
     : comment;
+
+const patchMediaPostDetailLikeState = (
+  current: MediaPostDetailResponse | undefined,
+  payload: MediaPostLikeState,
+) =>
+  current
+    ? {
+        ...current,
+        post: {
+          ...current.post,
+          post: {
+            ...current.post.post,
+            likeCount: payload.likeCount,
+            viewerHasLiked: payload.viewerHasLiked,
+          },
+        },
+      }
+    : current;
+
+const patchMediaPostDetailSaveState = (
+  current: MediaPostDetailResponse | undefined,
+  payload: MediaPostSaveState,
+) =>
+  current
+    ? {
+        ...current,
+        post: {
+          ...current.post,
+          post: {
+            ...current.post.post,
+            viewerHasSaved: payload.viewerHasSaved,
+          },
+        },
+      }
+    : current;
+
+const patchMediaPostDetailCommentCount = (
+  current: MediaPostDetailResponse | undefined,
+  delta: number,
+) =>
+  current
+    ? {
+        ...current,
+        post: {
+          ...current.post,
+          post: {
+            ...current.post.post,
+            commentCount: clampCount(current.post.post.commentCount + delta),
+          },
+        },
+      }
+    : current;
 
 export const useCreatePhotoPostMutation = () => {
   const queryClient = useQueryClient();
@@ -253,6 +365,67 @@ export const useSyncMomentStatusMutation = () => {
   });
 };
 
+export const useToggleMediaPostLikeMutation = (postId: string | undefined) => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (viewerHasLiked: boolean) => {
+      const targetPostId = requirePostId(postId ?? "");
+      const token = await getRequiredToken();
+      return viewerHasLiked
+        ? unlikeMediaPost(targetPostId, token)
+        : likeMediaPost(targetPostId, token);
+    },
+    onSuccess: (response) => {
+      if (!postId) return;
+      queryClient.setQueryData<MediaPostDetailResponse>(
+        mobileQueryKeys.media.postDetail(postId),
+        (current) => patchMediaPostDetailLikeState(current, response),
+      );
+      queryClient.setQueriesData<ActivityFeedOrInfinite>(
+        { queryKey: mobileQueryKeys.feed.all },
+        (current) =>
+          patchFeedMediaState(current, postId, {
+            likeCount: response.likeCount,
+            viewerHasLiked: response.viewerHasLiked,
+          }),
+      );
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.profile.all });
+    },
+  });
+};
+
+export const useToggleMediaPostSaveMutation = (postId: string | undefined) => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (viewerHasSaved: boolean) => {
+      const targetPostId = requirePostId(postId ?? "");
+      const token = await getRequiredToken();
+      return viewerHasSaved
+        ? unsaveMediaPost(targetPostId, token)
+        : saveMediaPost(targetPostId, token);
+    },
+    onSuccess: (response) => {
+      if (!postId) return;
+      queryClient.setQueryData<MediaPostDetailResponse>(
+        mobileQueryKeys.media.postDetail(postId),
+        (current) => patchMediaPostDetailSaveState(current, response),
+      );
+      queryClient.setQueriesData<ActivityFeedOrInfinite>(
+        { queryKey: mobileQueryKeys.feed.all },
+        (current) =>
+          patchFeedMediaState(current, postId, {
+            viewerHasSaved: response.viewerHasSaved,
+          }),
+      );
+      queryClient.invalidateQueries({ queryKey: mobileQueryKeys.profile.all });
+    },
+  });
+};
+
 export const useCreateMediaPostCommentMutation = (postId: string | undefined) => {
   const queryClient = useQueryClient();
   const getRequiredToken = useRequiredToken();
@@ -276,6 +449,10 @@ export const useCreateMediaPostCommentMutation = (postId: string | undefined) =>
       );
       queryClient.setQueriesData<ActivityFeedOrInfinite>({ queryKey: mobileQueryKeys.feed.all },
         (current) => patchFeedCommentCount(current, postId, 1),
+      );
+      queryClient.setQueryData<MediaPostDetailResponse>(
+        mobileQueryKeys.media.postDetail(postId),
+        (current) => patchMediaPostDetailCommentCount(current, 1),
       );
       queryClient.invalidateQueries({ queryKey: mobileQueryKeys.profile.all });
     },
@@ -312,6 +489,10 @@ export const useDeleteMediaPostCommentMutation = (postId: string | undefined) =>
       queryClient.setQueriesData<ActivityFeedOrInfinite>(
         { queryKey: mobileQueryKeys.feed.all },
         (current) => patchFeedCommentCount(current, postId, -1),
+      );
+      queryClient.setQueryData<MediaPostDetailResponse>(
+        mobileQueryKeys.media.postDetail(postId),
+        (current) => patchMediaPostDetailCommentCount(current, -1),
       );
 
       return { commentsKey, previousComments };

@@ -1,8 +1,8 @@
 # 01 Auth, Onboarding, And Account Setup
 
-Status: Ready
+Status: PASS WITH ISSUES
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 PASS criterion: authenticated new users can complete required mobile profile setup; complete users bypass onboarding; account basics remain policy-aligned.
 
 ## Readiness Rationale
@@ -140,3 +140,71 @@ Rollback by removing the onboarding route and auth redirect changes. Main risks 
 ## 18. Handoff Notes For The Next Initiative
 
 After onboarding is stable, `02-profile-core-badges-dive-identity.md` can safely rely on profile identity data being present.
+
+## Implementation Summary
+
+Implemented mobile onboarding/account foundation for first-run authenticated users:
+
+- Added `/onboarding` mobile route and native onboarding screen.
+- Added backend-profile-derived completion utility using `displayName` plus `homeArea`/`location`.
+- Added signed-in app-shell guard so incomplete users are redirected to onboarding and complete users bypass it.
+- Reused existing `PATCH /v1/me/profile` mobile mutation for `displayName`, `homeArea`, `location`, `interests`, and `certLevel`.
+- Added account settings entry point back to profile setup while preserving sign out.
+- Added targeted mobile tests for route wiring, completion rules, supported payload fields, and settings access.
+- Updated `docs/mobile-web-parity-assessment.md` to reflect onboarding is no longer missing.
+
+## Files Changed
+
+- `apps/mobile/app/_layout.tsx`
+- `apps/mobile/app/(app)/_layout.tsx`
+- `apps/mobile/app/onboarding.tsx`
+- `apps/mobile/src/features/onboarding/screens/onboarding-screen.tsx`
+- `apps/mobile/src/features/auth/screens/settings-screen.tsx`
+- `apps/mobile/src/features/profiles/lib/profile-completion.ts`
+- `apps/mobile/test/auth-onboarding-parity.test.mjs`
+- `docs/mobile-web-parity-assessment.md`
+- `.ai/initiatives/mobile-web-parity/01-auth-onboarding-account-setup.md`
+- `.ai/state/current-state.md`
+
+## Static Checks Run
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test`: passed, 28/28 tests.
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`: passed.
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`: passed.
+- `git diff --check`: pending final run for this initiative.
+
+Initial attempts with `pnpm` failed because `pnpm` is not on the default shell PATH in this Codex session. The working command path is `/opt/homebrew/bin/pnpm`.
+
+## iOS Simulator Smoke Result
+
+- Command: `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile ios`
+- Result: blocked by local environment/toolchain.
+- Failure classification: dependency/toolchain and environment, not app code.
+- Exact failure: Expo attempted to install CocoaPods, `gem install cocoapods --no-document` exited non-zero, then Homebrew install failed with `spawn brew ENOENT`.
+- Static verification still passed.
+
+Because the iOS Simulator command did not reach app build/launch, runtime smoke is not claimed as passed. This initiative is `PASS WITH ISSUES` until CocoaPods/brew tooling is available and manual simulator smoke confirms there is no onboarding/auth loop.
+
+## Remaining Gaps
+
+- Runtime iOS Simulator smoke remains manual/environment-blocked.
+- Username editing is not implemented because `UpdateMyProfileRequest` does not expose username mutation. Existing username ownership/rules remain backend-owned.
+- Backend profile creation for truly missing profile rows was not changed. If a newly authenticated user can hit `GET /v1/me/profile` 404 in production, that is a backend provisioning issue for a later focused fix.
+
+## Manual Smoke Checklist
+
+- Launch the app on iOS Simulator after CocoaPods tooling is installed.
+- Sign in as an incomplete user; confirm `/onboarding` appears before member tabs.
+- Submit display name and home area; confirm redirect to Home.
+- Relaunch as the same complete user; confirm no onboarding loop.
+- Open Settings, tap Profile setup, confirm complete users are redirected back to Home.
+- Sign out; confirm protected member data is not exposed.
+
+## Risks
+
+- `accepted`: iOS runtime smoke is environment-blocked in this session by missing CocoaPods CLI/Homebrew PATH.
+- `active`: backend behavior for a signed-in user with no profile row was not changed; the current mobile screen reports setup load failure instead of creating a profile client-side.
+
+## Next Initiative
+
+Proceed to `02-profile-core-badges-dive-identity.md` because `01` static checks passed and the iOS failure is an environment/toolchain blocker, not a code-caused runtime failure.

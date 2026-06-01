@@ -532,10 +532,7 @@ test("events uses shared contracts and member event actions", () => {
   assert.match(detail, /Post update/);
   assert.match(detail, /Discard draft/);
   assert.match(detail, /Could not update fish reaction/);
-  assert.doesNotMatch(
-    detail,
-    /booking|check-in|check in|receipt|Payment instructions|admin/i,
-  );
+  assert.doesNotMatch(detail, /approve participant|reject participant|admin/i);
   assert.match(mutations, /requireEventId/);
   assert.match(mutations, /isLoaded/);
   assert.match(mutations, /isSignedIn/);

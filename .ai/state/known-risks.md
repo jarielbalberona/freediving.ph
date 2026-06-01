@@ -120,3 +120,24 @@ Risk lifecycle labels:
 - active: Memory integration must not create source-of-truth drift: memories cannot unlock map locations, inflate counts, mutate `user_dive_sites`, award badges, or verify credentials.
 - active: Repo-level `pnpm test` may remain polluted by unrelated mobile `@expo/ui` drift; execution must use targeted checks if that persists.
 - active: Local shell PATH drift can hide installed Go, pnpm, and sqlc binaries. Use explicit PATH entries for verification if the default shell omits `/usr/local/go/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, or `/Users/jariel/go/bin`.
+
+### `mobile-web-parity`
+
+- accepted: Initiatives 01-05 passed static verification but their original execution reports recorded iOS Simulator smoke as environment-blocked. Initiative 06 confirmed the simulator and Metro are now usable, but the earlier initiatives have not been retroactively runtime-smoked.
+- accepted: Explore site detail save state is exact after a user acts, but direct-opened site detail responses do not currently expose initial `isSaved`; adding that would require a backend/shared detail contract change.
+- active: Native Explore map remains deferred until list/detail parity is stable and a map-provider/runtime requirement is explicitly worthwhile.
+- active: Mobile parity work must continue to preserve the proof-based Dive Map boundary: saves, likes, reviews, presence, and affinity are not visit proof and must not mutate or imply `user_dive_sites` ownership.
+- accepted: Mobile Groups intentionally does not expose archive/delete, invite-by-user-id, member actions, or group image/cover media wiring in initiative 07. Those are role/destructive/media-policy surfaces and should stay web/management scope until a tighter mobile management requirement exists.
+- active: Group access, membership, roles, posting rights, and private visibility remain backend-canonical. Mobile UI state and cached lists must never grant access or management capability.
+- accepted: Mobile Events attendee pass displays canonical token/link and read-only pass state, not a generated QR image. Native QR rendering needs a dedicated dependency/UX choice or backend-provided QR image before claiming scannable QR parity.
+- accepted: Mobile Events payment proof upload in initiative 08 supports image proof through existing media upload contracts. File/document proof remains unimplemented because mobile has no document picker dependency in this scope.
+- active: Event organizer approval/rejection, payment review, check-in, setup, program management, prize/sponsor management, and destructive event actions remain split to initiative 09. Attendee mobile screens must not expose or simulate those controls.
+- active: Event participation, payment status, pass validity, private visibility, and post permissions remain backend-canonical. Mobile cache state must never grant access or management capability.
+- accepted: Mobile Schools initiative 10 cannot show a true public instructor list because the current public school/course contracts do not expose school instructors. Adding it requires a backend/shared contract, not a mobile-local DTO.
+- accepted: Mobile Schools payment proof upload supports image receipts through existing `course_booking_receipt` media context. Document/PDF proof remains out of scope because no document-picker dependency was introduced.
+- active: School management, booking approval/rejection, payment review, member management, and destructive school actions remain split to later initiatives. Public booking screens must not expose or simulate those controls.
+- active: School/course availability, booking status, payment status, cancellation eligibility, and receipt ownership remain backend-canonical. Mobile cache state must never grant booking/payment capability.
+- accepted: Mobile Instructor initiative 12 exposes raw structured location code fields because backend submission requires at least one structured code and no native PSGC/location picker was introduced in scope.
+- accepted: Mobile Instructor certification proof upload supports image proof through existing `instructor_certification_proof`. Document/PDF proof remains out of scope.
+- active: Instructor verification, rejection, suspension, and admin proof review remain web/admin-only. Mobile must not present approval/rejection controls or fake verification state.
+- active: School creation eligibility remains backend-canonical. A user should be approved before creating their own school, while instructors may belong to multiple schools.

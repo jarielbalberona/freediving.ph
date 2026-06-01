@@ -1,6 +1,12 @@
 import { Pressable, Text, View } from "react-native";
 
-type ProfileTab = "posts" | "diving";
+type ProfileTab = "posts" | "badges" | "diving";
+
+const profileTabs: Array<{ label: string; value: ProfileTab }> = [
+  { label: "Posts", value: "posts" },
+  { label: "Badges", value: "badges" },
+  { label: "Diving", value: "diving" },
+];
 
 export function ProfileTabs({
   activeTab,
@@ -11,39 +17,25 @@ export function ProfileTabs({
 }) {
   return (
     <View className="flex-row overflow-hidden rounded-full border border-border/70">
-      <Pressable
-        accessibilityLabel="Show posts"
-        accessibilityRole="button"
-        className={`flex-1 items-center py-2.5 ${
-          activeTab === "posts" ? "bg-secondary" : "bg-transparent"
-        }`}
-        onPress={() => onChange("posts")}
-      >
-        <Text
-          className={`text-sm font-semibold ${
-            activeTab === "posts" ? "text-foreground" : "text-muted-foreground"
+      {profileTabs.map((tab) => (
+        <Pressable
+          key={tab.value}
+          accessibilityLabel={`Show ${tab.label.toLowerCase()}`}
+          accessibilityRole="button"
+          className={`flex-1 items-center py-2.5 ${
+            activeTab === tab.value ? "bg-secondary" : "bg-transparent"
           }`}
+          onPress={() => onChange(tab.value)}
         >
-          Posts
-        </Text>
-      </Pressable>
-
-      <Pressable
-        accessibilityLabel="Show diving"
-        accessibilityRole="button"
-        className={`flex-1 items-center py-2.5 ${
-          activeTab === "diving" ? "bg-secondary" : "bg-transparent"
-        }`}
-        onPress={() => onChange("diving")}
-      >
-        <Text
-          className={`text-sm font-semibold ${
-            activeTab === "diving" ? "text-foreground" : "text-muted-foreground"
-          }`}
-        >
-          Diving
-        </Text>
-      </Pressable>
+          <Text
+            className={`text-sm font-semibold ${
+              activeTab === tab.value ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            {tab.label}
+          </Text>
+        </Pressable>
+      ))}
     </View>
   );
 }

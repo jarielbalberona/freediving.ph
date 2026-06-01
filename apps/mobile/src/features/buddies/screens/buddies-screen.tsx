@@ -15,6 +15,7 @@ import {
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { BuddyIntentCard } from "@/features/buddies/components/buddy-intent-card";
+import { BuddyRelationshipSection } from "@/features/buddies/components/buddy-relationship-section";
 import {
   useBuddyMessageEntryMutation,
   useCreateBuddyIntentMutation,
@@ -303,6 +304,15 @@ export function BuddiesScreen() {
           )}
         </MobileSection>
       )}
+
+      {canUseMemberBuddies ? (
+        <MobileSection
+          description="Manage accepted buddies separately from Buddy Finder posts."
+          title="Buddy relationships"
+        >
+          <BuddyRelationshipSection />
+        </MobileSection>
+      ) : null}
 
       <MobileSection
         description="Find divers who have shared where and when they want to dive."

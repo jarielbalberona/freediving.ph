@@ -1,8 +1,8 @@
 # 03 Media Posts, Comments, And Deep Links
 
-Status: Ready After Previous
+Status: PASS WITH ISSUES
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile media posts have routeable detail views, social actions, comments, save behavior, and deep-link handling aligned with web contracts.
 
@@ -131,3 +131,55 @@ Rollback route and media detail changes. Risk is broken deep links or duplicate 
 ## 18. Handoff Notes For The Next Initiative
 
 After media detail routing is stable, Chika can receive similar deep-link and action reliability treatment.
+
+## Execution Result
+
+Verdict: PASS WITH ISSUES
+
+Completed on: 2026-06-01
+
+Mobile media posts now have a routeable native detail surface backed by the existing `/v1/media/posts/{postId}` contract. Feed media posts, profile media tiles, notification action URLs, and public web post links can route to the native detail screen. Like/unlike, save/unsave, comments, comment delete, and comment-like behavior use the existing backend/shared contracts. Composer/upload/outbox behavior was not changed.
+
+The remaining issue is runtime verification only: iOS Simulator smoke remains environment-blocked because the repo-supported launch command cannot complete CocoaPods/Homebrew setup in this machine context. Static checks passed.
+
+### Files Changed
+
+- `apps/mobile/app/(app)/(tabs)/(home)/_layout.tsx`
+- `apps/mobile/app/(app)/(tabs)/(home)/media/[postId].tsx`
+- `apps/mobile/src/features/media/api/media-api.ts`
+- `apps/mobile/src/features/media/hooks/use-media-post-detail-query.ts`
+- `apps/mobile/src/features/media/hooks/use-media-mutations.ts`
+- `apps/mobile/src/features/media/screens/media-post-detail-screen.tsx`
+- `apps/mobile/src/features/home-feed/components/mobile-feed-items.tsx`
+- `apps/mobile/src/features/home-feed/lib/activity-card-model.ts`
+- `apps/mobile/src/features/profiles/components/profile-media-masonry-grid.tsx`
+- `apps/mobile/src/features/shared/links/lib/resolve-fph-link.ts`
+- `apps/mobile/src/features/shared/links/__tests__/resolve-fph-link.test.ts`
+- `apps/mobile/test/media-posts-parity.test.mjs`
+- `apps/mobile/test/resolve-fph-link.test.mjs`
+- `.ai/initiatives/mobile-web-parity/reports/03-media-posts-comments-deep-links.md`
+- `.ai/state/current-state.md`
+- `docs/mobile-web-parity-assessment.md`
+
+### Verification Run
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint` PASS
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile ios` BLOCKED by local CocoaPods/Homebrew environment from initiative 01 smoke attempt; no app runtime result claimed.
+- `git diff --check` PASS
+
+### Remaining Gaps
+
+- iOS Simulator runtime smoke is pending until local CocoaPods/Homebrew tooling is fixed.
+- The mobile detail screen uses the existing gallery viewer and comments sheet; it does not introduce a separate media library or rebuild the composer.
+- Copy-link is covered by native share. A dedicated clipboard action is not implemented because no clipboard dependency is present.
+
+### Manual Smoke Checklist
+
+- Open a media post from the home feed and confirm the detail screen loads.
+- Open a media post from a profile grid using the open-post control.
+- Open a public link shaped like `https://freediving.ph/{username}/posts/{postId}` and confirm it resolves to native media detail.
+- Like/unlike, save/unsave, open comments, add a comment, like a comment, and delete your own comment where allowed.
+- Tap media in the detail screen and confirm the full-screen viewer opens and dismisses cleanly.
+- Confirm the composer/upload/outbox flow still works from the Create tab.

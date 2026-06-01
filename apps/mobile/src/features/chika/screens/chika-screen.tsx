@@ -1,5 +1,6 @@
 import { Link } from "expo-router";
-import { View } from "react-native";
+import { useState } from "react";
+import { Text, View } from "react-native";
 import { useAuth } from "@clerk/expo";
 
 import {
@@ -11,13 +12,20 @@ import {
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { ChikaThreadCard } from "@/features/chika/components/chika-thread-card";
+import { useChikaCategoriesQuery } from "@/features/chika/hooks/use-chika-categories-query";
 import { useChikaThreadsQuery } from "@/features/chika/hooks/use-chika-threads-query";
 
 export function ChikaScreen() {
   const { isLoaded, isSignedIn } = useAuth();
-  const threadsQuery = useChikaThreadsQuery();
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
+  const categoriesQuery = useChikaCategoriesQuery();
+  const threadsQuery = useChikaThreadsQuery(selectedCategory);
   const threads = threadsQuery.data?.items ?? [];
   const canPostChika = isLoaded && Boolean(isSignedIn);
+  const categories = categoriesQuery.data?.items ?? [];
+  const selectedCategoryName =
+    categories.find((category) => category.slug === selectedCategory)?.name ??
+    "Latest Chika";
 
   return (
     <MobileScrollScreen subtitle="Community threads" title="Chika">
@@ -40,8 +48,48 @@ export function ChikaScreen() {
 
       <MobileSection
         description="Read the latest community conversations from divers around the Philippines."
-        title="Latest Chika"
+        title={selectedCategoryName}
       >
+        <View className="mb-4 gap-3">
+          {categoriesQuery.isLoading ? (
+            <MobileLoadingState message="Loading Chika categories." />
+          ) : null}
+          {categoriesQuery.error ? (
+            <View className="gap-2">
+              <Text className="text-sm text-muted-foreground">
+                Categories are unavailable right now.
+              </Text>
+              <MobileButton
+                variant="secondary"
+                onPress={() => void categoriesQuery.refetch()}
+              >
+                Retry categories
+              </MobileButton>
+            </View>
+          ) : null}
+          {categories.length > 0 ? (
+            <View className="flex-row flex-wrap gap-2">
+              <MobileButton
+                variant={!selectedCategory ? "primary" : "secondary"}
+                onPress={() => setSelectedCategory(undefined)}
+              >
+                All
+              </MobileButton>
+              {categories.map((category) => (
+                <MobileButton
+                  key={category.id}
+                  variant={
+                    selectedCategory === category.slug ? "primary" : "secondary"
+                  }
+                  onPress={() => setSelectedCategory(category.slug)}
+                >
+                  {category.name}
+                </MobileButton>
+              ))}
+            </View>
+          ) : null}
+        </View>
+
         {threadsQuery.isLoading ? <MobileLoadingState message="Loading Chika." /> : null}
 
         {threadsQuery.error ? (
@@ -58,7 +106,11 @@ export function ChikaScreen() {
 
         {!threadsQuery.isLoading && !threadsQuery.error && threads.length === 0 ? (
           <MobileEmptyState
-            description="Start conversations on the web while mobile posting is being prepared."
+            description={
+              selectedCategory
+                ? "No threads in this category yet."
+                : "No Chika threads yet."
+            }
             title="No Chika threads yet"
           />
         ) : null}

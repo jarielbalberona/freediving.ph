@@ -7,9 +7,14 @@ import type {
 } from "@freediving.ph/types";
 
 import {
+  acceptBuddyRequest,
+  cancelBuddyRequest,
   createBuddyFinderIntent,
+  declineBuddyRequest,
   deleteBuddyFinderIntent,
   getBuddyFinderMessageEntry,
+  removeBuddy,
+  sendBuddyRequest,
 } from "@/features/buddies/api/buddies-api";
 import { openDirectMessageThread } from "@/features/messages/api/messages-api";
 import { FphgoApiError } from "@/lib/api";
@@ -119,5 +124,69 @@ export const useBuddyMessageEntryMutation = () => {
         queryKey: mobileQueryKeys.messages.threadLists(),
       });
     },
+  });
+};
+
+const invalidateBuddyRelationships = (
+  queryClient: ReturnType<typeof useQueryClient>,
+) => {
+  queryClient.invalidateQueries({
+    queryKey: mobileQueryKeys.buddies.relationships(),
+  });
+  queryClient.invalidateQueries({ queryKey: mobileQueryKeys.profile.all });
+};
+
+export const useSendBuddyRequestMutation = () => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (targetUserId: string) =>
+      sendBuddyRequest(targetUserId, await getRequiredToken()),
+    onSuccess: () => invalidateBuddyRelationships(queryClient),
+  });
+};
+
+export const useAcceptBuddyRequestMutation = () => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (requestId: string) =>
+      acceptBuddyRequest(requestId, await getRequiredToken()),
+    onSuccess: () => invalidateBuddyRelationships(queryClient),
+  });
+};
+
+export const useDeclineBuddyRequestMutation = () => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (requestId: string) =>
+      declineBuddyRequest(requestId, await getRequiredToken()),
+    onSuccess: () => invalidateBuddyRelationships(queryClient),
+  });
+};
+
+export const useCancelBuddyRequestMutation = () => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (requestId: string) =>
+      cancelBuddyRequest(requestId, await getRequiredToken()),
+    onSuccess: () => invalidateBuddyRelationships(queryClient),
+  });
+};
+
+export const useRemoveBuddyMutation = () => {
+  const queryClient = useQueryClient();
+  const getRequiredToken = useRequiredToken();
+
+  return useMutation({
+    mutationFn: async (buddyUserId: string) =>
+      removeBuddy(buddyUserId, await getRequiredToken()),
+    onSuccess: () => invalidateBuddyRelationships(queryClient),
   });
 };

@@ -1,10 +1,11 @@
 # 07 Groups Parity
 
-Status: Ready After Previous
+Status: passed
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile groups support discovery, detail, membership, invitations, posts, creation, and lightweight allowed management without bypassing role rules.
+Latest execution result: PASS on 2026-06-01. Mobile Groups now supports search/filter/my-groups controls, create-group flow, role-aware detail/membership/post surfaces, deep-link smoke, targeted tests, and iOS Simulator smoke on iPhone 17 Pro Max. Destructive archive/delete/member management and group media image wiring remain intentionally out of scope.
 
 ## Readiness Rationale
 
