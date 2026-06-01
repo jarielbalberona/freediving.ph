@@ -68,8 +68,8 @@ func (r *Repo) IsBlockedEitherDirection(ctx context.Context, a, b string) (bool,
 
 func (r *Repo) AreBuddies(ctx context.Context, a, b string) (bool, error) {
 	return r.queries.AreBuddies(ctx, buddiesqlc.AreBuddiesParams{
-		AppUserIDA:   toUUID(a),
-		AppUserIDA_2: toUUID(b),
+		Column1: toUUID(a),
+		Column2: toUUID(b),
 	})
 }
 

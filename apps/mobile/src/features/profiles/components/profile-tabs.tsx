@@ -1,11 +1,25 @@
-import { Pressable, Text, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Pressable, ScrollView } from "react-native";
 
-type ProfileTab = "posts" | "badges" | "diving";
+type ProfileTab =
+  | "posts"
+  | "badges"
+  | "diving"
+  | "dive-map"
+  | "dive-journey"
+  | "dive-passport";
 
-const profileTabs: Array<{ label: string; value: ProfileTab }> = [
-  { label: "Posts", value: "posts" },
-  { label: "Badges", value: "badges" },
-  { label: "Diving", value: "diving" },
+const profileTabs: Array<{
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: ProfileTab;
+}> = [
+  { icon: "grid-outline", label: "Posts", value: "posts" },
+  { icon: "ribbon-outline", label: "Badges", value: "badges" },
+  { icon: "water-outline", label: "Diving", value: "diving" },
+  { icon: "map-outline", label: "Dive Map", value: "dive-map" },
+  { icon: "git-branch-outline", label: "Dive Journey", value: "dive-journey" },
+  { icon: "id-card-outline", label: "Dive Passport", value: "dive-passport" },
 ];
 
 export function ProfileTabs({
@@ -16,27 +30,35 @@ export function ProfileTabs({
   onChange: (tab: ProfileTab) => void;
 }) {
   return (
-    <View className="flex-row overflow-hidden rounded-full border border-border/70">
-      {profileTabs.map((tab) => (
-        <Pressable
-          key={tab.value}
-          accessibilityLabel={`Show ${tab.label.toLowerCase()}`}
-          accessibilityRole="button"
-          className={`flex-1 items-center py-2.5 ${
-            activeTab === tab.value ? "bg-secondary" : "bg-transparent"
-          }`}
-          onPress={() => onChange(tab.value)}
-        >
-          <Text
-            className={`text-sm font-semibold ${
-              activeTab === tab.value ? "text-foreground" : "text-muted-foreground"
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerClassName="gap-2"
+    >
+      {profileTabs.map((tab) => {
+        const active = activeTab === tab.value;
+        return (
+          <Pressable
+            key={tab.value}
+            accessibilityLabel={`Show ${tab.label.toLowerCase()}`}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            className={`min-w-12 items-center rounded-full border px-3 py-2.5 ${
+              active
+                ? "border-primary bg-secondary"
+                : "border-border/70 bg-transparent"
             }`}
+            onPress={() => onChange(tab.value)}
           >
-            {tab.label}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
+            <Ionicons
+              color={active ? "#0A1F2E" : "#64748b"}
+              name={tab.icon}
+              size={20}
+            />
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 }
 

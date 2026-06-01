@@ -149,7 +149,7 @@ export function SchoolManagementScreen() {
 
   const updateBooking = (
     booking: CourseBookingRequest,
-    action: "approve" | "cancel" | "complete" | "reject",
+    action: "approve" | "cancel" | "complete" | "reject" | "schedule",
   ) => {
     bookingMutation.mutate(
       { action, bookingId: booking.id },
@@ -404,13 +404,23 @@ export function SchoolManagementScreen() {
                           booking.status === "scheduled") ? (
                           <View className="flex-row gap-2">
                             <View className="flex-1">
-                              <MobileButton
-                                disabled={bookingMutation.isPending}
-                                variant="secondary"
-                                onPress={() => updateBooking(booking, "complete")}
-                              >
-                                Complete
-                              </MobileButton>
+                              {booking.status === "approved" ? (
+                                <MobileButton
+                                  disabled={bookingMutation.isPending}
+                                  variant="secondary"
+                                  onPress={() => updateBooking(booking, "schedule")}
+                                >
+                                  Schedule
+                                </MobileButton>
+                              ) : (
+                                <MobileButton
+                                  disabled={bookingMutation.isPending}
+                                  variant="secondary"
+                                  onPress={() => updateBooking(booking, "complete")}
+                                >
+                                  Complete
+                                </MobileButton>
+                              )}
                             </View>
                             <View className="flex-1">
                               <MobileButton

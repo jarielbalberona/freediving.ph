@@ -57,7 +57,7 @@ export const useCreateBadge = () => {
     mutationFn: (payload: UpsertUserBadgeRequest) =>
       profilesApi.createBadge(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile.myBadges() });
+      invalidateBadgeQueries(queryClient);
     },
   });
 };
@@ -74,7 +74,7 @@ export const useUpdateBadge = () => {
       payload: UpsertUserBadgeRequest;
     }) => profilesApi.updateBadge(badgeId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile.myBadges() });
+      invalidateBadgeQueries(queryClient);
     },
   });
 };
@@ -85,7 +85,21 @@ export const useDeleteBadge = () => {
   return useMutation({
     mutationFn: (badgeId: string) => profilesApi.deleteBadge(badgeId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile.myBadges() });
+      invalidateBadgeQueries(queryClient);
     },
   });
 };
+
+function invalidateBadgeQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.profile.myBadges() });
+  queryClient.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey;
+      return (
+        Array.isArray(key) && key[0] === "profile" && key.includes("badges")
+      );
+    },
+  });
+}

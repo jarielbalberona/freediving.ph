@@ -204,3 +204,57 @@ Public release needs one of:
 - An explicitly approved guarded mobile dev-auth QA harness that cannot run in production builds.
 
 Until then, full role-matrix and destructive/payment/report/block/media mutation QA remains blocked.
+
+## Final Public-Release Role/Mutation QA Addendum
+
+Date: 2026-06-01
+
+Final public-release gate status: PASS
+
+Report 21 closed the remaining report 18-20 gaps. The final pass used the ten Clerk test identities ending in `+clerk_test@clerk.com`, local DB mappings, disposable `QA Mobile Parity` records, account-by-account iOS Simulator route proof, and a real Clerk session JWT API runner.
+
+Passed:
+
+- all ten Clerk identities mapped to deterministic local DB users;
+- remaining simulator sessions for member B, instructor applicant, approved instructor, school owner, event organizer, group owner, super admin, and target user;
+- moderator and member simulator evidence retained from report 20;
+- 60 real-Clerk-JWT role/mutation checks across media, Chika, buddies, messaging, events, schools, instructor application, reports, blocks, and moderation;
+- final DB state proof for event attendance/check-in, event payment verification, school booking/payment/session completion, instructor submission state, block cleanup, and disposable report rejection.
+
+Bugs fixed during final QA:
+
+- backend buddy `AreBuddies` UUID inference failure after buddy accept/remove/send flows;
+- mobile school management showing `Complete` before the backend-required `Schedule` transition;
+- missing seed payment methods and instructor proof media for disposable payment/proof review flows.
+
+Remaining public-release blockers for the local mobile-web parity gate: none.
+
+Normal release process remains outside this parity gate: staging/prod config review, store/device QA where applicable, and product sign-off for intentionally web-owned destructive/admin surfaces.
+
+## Profile Tabs Parity Correction Addendum
+
+Date: 2026-06-01
+
+Final status after correction: PASS for code-wise profile tab parity.
+
+Report 22 corrected a gap discovered after the final role/mutation QA: mobile profile had the shared profile-experience data queries and compact summaries, but did not expose the same top-level profile tab structure as web.
+
+Corrected:
+
+- web profile tabs are now icon-only controls with accessible labels/titles;
+- mobile profile tabs now match the web tab order exactly: Posts, Badges, Diving, Dive Map, Dive Journey, Dive Passport;
+- mobile own and public profile screens now render real Dive Map, Dive Journey, and Dive Passport tab content from existing shared/backend contracts;
+- Dive Map proof rules remain intact: only the profile owner's own qualifying media posts tagged to a dive site unlock locations; memories remain contextual and do not inflate counts.
+
+Passed:
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/web type-check`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test -- test/profile-core-parity.test.mjs`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/web test -- test/profile-diving-tabs-contract.test.mjs`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/web lint`
+
+Skipped:
+
+- Browser and iOS Simulator smoke for the icon-tab UI. Impact: this pass proves code-wise parity and contracts, but not runtime visual rendering on device/browser.

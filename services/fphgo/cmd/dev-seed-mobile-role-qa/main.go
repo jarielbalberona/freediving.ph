@@ -44,16 +44,20 @@ const (
 	eventParticipant  = "47000000-0000-4000-8000-000000000002"
 	eventProofMediaID = "47000000-0000-4000-8000-000000000003"
 	eventPaymentID    = "47000000-0000-4000-8000-000000000004"
+	eventPayMethodID  = "47000000-0000-4000-8000-000000000005"
 	schoolID          = "48000000-0000-4000-8000-000000000001"
 	courseID          = "48000000-0000-4000-8000-000000000002"
 	sessionID         = "48000000-0000-4000-8000-000000000003"
 	bookingID         = "48000000-0000-4000-8000-000000000004"
 	bookingProofID    = "48000000-0000-4000-8000-000000000005"
 	bookingPaymentID  = "48000000-0000-4000-8000-000000000006"
+	schoolPayMethodID = "48000000-0000-4000-8000-000000000007"
 	applicantProfile  = "49000000-0000-4000-8000-000000000001"
 	instructorProfile = "49000000-0000-4000-8000-000000000002"
 	applicantCertID   = "49000000-0000-4000-8000-000000000003"
 	instructorCertID  = "49000000-0000-4000-8000-000000000004"
+	applicantProofID  = "49000000-0000-4000-8000-000000000005"
+	instructorProofID = "49000000-0000-4000-8000-000000000006"
 	diveUpdateID      = "4a000000-0000-4000-8000-000000000001"
 	reportUserID      = "4b000000-0000-4000-8000-000000000001"
 	reportThreadID    = "4b000000-0000-4000-8000-000000000002"
@@ -399,6 +403,13 @@ func seedEvents(ctx context.Context, tx pgx.Tx, users map[string]qaUser) error {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `
+		INSERT INTO event_payment_methods (id, event_id, type, name, instructions, bank_name, account_name, account_number, is_active)
+		VALUES ($1, $2, 'bank_transfer', 'QA Mobile Parity Event Bank', 'Disposable event payment method for mobile parity QA.', 'QA Bank', 'QA Mobile Parity Event', '0000000000', true)
+		ON CONFLICT (id) DO UPDATE SET is_active = true, updated_at = now()
+	`, eventPayMethodID, eventID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO media_objects (id, owner_app_user_id, context_type, object_key, mime_type, size_bytes, width, height, state)
 		VALUES ($1, $2, 'event_attachment', 'qa-mobile-parity/event-payment-proof.jpg', 'image/jpeg', 2048, 1000, 700, 'active')
 		ON CONFLICT (id) DO UPDATE SET owner_app_user_id = EXCLUDED.owner_app_user_id, state = 'active'
@@ -406,10 +417,10 @@ func seedEvents(ctx context.Context, tx pgx.Tx, users map[string]qaUser) error {
 		return err
 	}
 	_, err := tx.Exec(ctx, `
-		INSERT INTO event_participant_payments (id, event_id, event_participation_id, user_id, amount, currency, proof_media_id, reference_number, status)
-		VALUES ($1, $2, $3, $4, 500.00, 'PHP', $5, 'QA-EVENT-REF', 'submitted')
-		ON CONFLICT (event_participation_id) DO UPDATE SET proof_media_id = EXCLUDED.proof_media_id, reference_number = EXCLUDED.reference_number, status = 'submitted', updated_at = now()
-	`, eventPaymentID, eventID, eventParticipant, memberA, eventProofMediaID)
+		INSERT INTO event_participant_payments (id, event_id, event_participation_id, user_id, amount, currency, payment_method_id, proof_media_id, reference_number, status)
+		VALUES ($1, $2, $3, $4, 500.00, 'PHP', $5, $6, 'QA-EVENT-REF', 'submitted')
+		ON CONFLICT (event_participation_id) DO UPDATE SET payment_method_id = EXCLUDED.payment_method_id, proof_media_id = EXCLUDED.proof_media_id, reference_number = EXCLUDED.reference_number, status = 'submitted', updated_at = now()
+	`, eventPaymentID, eventID, eventParticipant, memberA, eventPayMethodID, eventProofMediaID)
 	return err
 }
 
@@ -444,6 +455,13 @@ func seedSchools(ctx context.Context, tx pgx.Tx, users map[string]qaUser) error 
 		return err
 	}
 	if _, err := tx.Exec(ctx, `
+		INSERT INTO school_payment_methods (id, school_id, type, name, instructions, bank_name, account_name, account_number, is_active)
+		VALUES ($1, $2, 'bank_transfer', 'QA Mobile Parity School Bank', 'Disposable school payment method for mobile parity QA.', 'QA Bank', 'QA Mobile Parity School', '1111111111', true)
+		ON CONFLICT (id) DO UPDATE SET is_active = true, deleted_at = NULL, updated_at = now()
+	`, schoolPayMethodID, schoolID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO course_sessions (id, school_id, course_id, slug, title, starts_at, ends_at, location_label, instructor_user_id, capacity, status, notes_markdown, location_mode)
 		VALUES ($1, $2, $3, 'qa-mobile-parity-session', $4, now() + interval '21 days', now() + interval '21 days 6 hours', 'Anilao QA', $5, 8, 'scheduled', $6, 'inherit_course')
 		ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, status = 'scheduled', instructor_user_id = EXCLUDED.instructor_user_id, updated_at = now()
@@ -465,10 +483,10 @@ func seedSchools(ctx context.Context, tx pgx.Tx, users map[string]qaUser) error 
 		return err
 	}
 	_, err := tx.Exec(ctx, `
-		INSERT INTO course_booking_payments (id, booking_id, course_id, school_id, student_user_id, amount, currency, proof_media_id, reference_number, status)
-		VALUES ($1, $2, $3, $4, $5, 1200.00, 'PHP', $6, 'QA-COURSE-REF', 'submitted')
-		ON CONFLICT (booking_id) DO UPDATE SET proof_media_id = EXCLUDED.proof_media_id, reference_number = EXCLUDED.reference_number, status = 'submitted', updated_at = now()
-	`, bookingPaymentID, bookingID, courseID, schoolID, memberA, bookingProofID)
+		INSERT INTO course_booking_payments (id, booking_id, course_id, school_id, student_user_id, amount, currency, payment_method_id, proof_media_id, reference_number, status)
+		VALUES ($1, $2, $3, $4, $5, 1200.00, 'PHP', $6, $7, 'QA-COURSE-REF', 'submitted')
+		ON CONFLICT (booking_id) DO UPDATE SET payment_method_id = EXCLUDED.payment_method_id, proof_media_id = EXCLUDED.proof_media_id, reference_number = EXCLUDED.reference_number, status = 'submitted', updated_at = now()
+	`, bookingPaymentID, bookingID, courseID, schoolID, memberA, schoolPayMethodID, bookingProofID)
 	return err
 }
 
@@ -499,20 +517,29 @@ func seedInstructors(ctx context.Context, tx pgx.Tx, users map[string]qaUser) er
 	certs := []struct {
 		id        string
 		profileID string
+		ownerID   string
+		proofID   string
 		level     string
 		status    string
 		verifier  any
 		verified  any
 	}{
-		{applicantCertID, applicantProfile, qaLabel + " Applicant Certification", "pending", nil, nil},
-		{instructorCertID, instructorProfile, qaLabel + " Approved Certification", "verified", moderator, time.Now()},
+		{applicantCertID, applicantProfile, applicant, applicantProofID, qaLabel + " Applicant Certification", "pending", nil, nil},
+		{instructorCertID, instructorProfile, instructor, instructorProofID, qaLabel + " Approved Certification", "verified", moderator, time.Now()},
 	}
 	for _, cert := range certs {
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO instructor_certifications (id, instructor_profile_id, agency, certification_level, certification_number, verification_status, verified_at, verified_by, official_verification_url)
-			VALUES ($1, $2, 'other', $3, 'QA-MOBILE-PARITY', $4, $5, $6, 'https://example.test/qa-mobile-parity-cert')
-			ON CONFLICT (id) DO UPDATE SET certification_level = EXCLUDED.certification_level, verification_status = EXCLUDED.verification_status, verified_at = EXCLUDED.verified_at, verified_by = EXCLUDED.verified_by, updated_at = now()
-		`, cert.id, cert.profileID, cert.level, cert.status, cert.verified, cert.verifier); err != nil {
+			INSERT INTO media_objects (id, owner_app_user_id, context_type, object_key, mime_type, size_bytes, width, height, state)
+			VALUES ($1, $2, 'instructor_certification_proof', $3, 'image/jpeg', 2048, 1000, 700, 'active')
+			ON CONFLICT (id) DO UPDATE SET owner_app_user_id = EXCLUDED.owner_app_user_id, state = 'active'
+		`, cert.proofID, cert.ownerID, "qa-mobile-parity/instructor-proof-"+cert.id+".jpg"); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO instructor_certifications (id, instructor_profile_id, agency, certification_level, certification_number, proof_media_id, verification_status, verified_at, verified_by, official_verification_url)
+			VALUES ($1, $2, 'other', $3, 'QA-MOBILE-PARITY', $4, $5, $6, $7, 'https://example.test/qa-mobile-parity-cert')
+			ON CONFLICT (id) DO UPDATE SET certification_level = EXCLUDED.certification_level, proof_media_id = EXCLUDED.proof_media_id, verification_status = EXCLUDED.verification_status, verified_at = EXCLUDED.verified_at, verified_by = EXCLUDED.verified_by, updated_at = now()
+		`, cert.id, cert.profileID, cert.level, cert.proofID, cert.status, cert.verified, cert.verifier); err != nil {
 			return err
 		}
 	}

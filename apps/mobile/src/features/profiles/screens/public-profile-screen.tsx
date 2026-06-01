@@ -17,6 +17,11 @@ import {
   type HeaderProfile,
   ProfileHeader,
 } from "@/features/profiles/components/profile-header";
+import {
+  ProfileDiveMapSection,
+  ProfileJourneySection,
+  ProfilePassportSection,
+} from "@/features/profiles/components/profile-experience-sections";
 import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
 import { ProfileDiveSpotHighlights } from "@/features/profiles/components/profile-dive-spot-highlights";
 import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
@@ -195,6 +200,41 @@ export function PublicProfileScreen() {
               error={divingQuery.error}
               isLoading={divingQuery.isLoading}
               presences={presences}
+            />
+          </MobileSection>
+        ) : null}
+
+        {activeTab === "dive-map" ? (
+          <MobileSection
+            title="Dive Map"
+            description="Proof-backed locations from this diver's own qualifying media posts."
+          >
+            <ProfileDiveMapSection
+              data={diveMapQuery.data}
+              error={diveMapQuery.error}
+              isLoading={diveMapQuery.isLoading}
+              isOwner={isOwner}
+            />
+          </MobileSection>
+        ) : null}
+
+        {activeTab === "dive-journey" ? (
+          <MobileSection title="Dive Journey">
+            <ProfileJourneySection
+              data={journeyQuery.data}
+              error={journeyQuery.error}
+              isLoading={journeyQuery.isLoading}
+              isOwner={isOwner}
+            />
+          </MobileSection>
+        ) : null}
+
+        {activeTab === "dive-passport" ? (
+          <MobileSection title="Dive Passport">
+            <ProfilePassportSection
+              data={passportQuery.data}
+              error={passportQuery.error}
+              isLoading={passportQuery.isLoading}
             />
           </MobileSection>
         ) : null}

@@ -44,18 +44,54 @@ test("mobile profile renders read-only badges and proof-based dive identity summ
   const summary = read("src/features/profiles/components/profile-dive-identity-summary.tsx");
   const badges = read("src/features/profiles/components/profile-badges-section.tsx");
   const tabs = read("src/features/profiles/components/profile-tabs.tsx");
+  const experience = read(
+    "src/features/profiles/components/profile-experience-sections.tsx",
+  );
 
   assert.match(ownProfile, /ProfileDiveIdentitySummary/);
   assert.match(publicProfile, /ProfileDiveIdentitySummary/);
   assert.match(ownProfile, /ProfileBadgesSection/);
   assert.match(publicProfile, /ProfileBadgesSection/);
   assert.match(tabs, /Badges/);
+  for (const label of [
+    "Posts",
+    "Badges",
+    "Diving",
+    "Dive Map",
+    "Dive Journey",
+    "Dive Passport",
+  ]) {
+    assert.match(tabs, new RegExp(label));
+  }
+  for (const value of [
+    "posts",
+    "badges",
+    "diving",
+    "dive-map",
+    "dive-journey",
+    "dive-passport",
+  ]) {
+    assert.match(tabs, new RegExp(`value: "${value}"`));
+  }
+  assert.match(tabs, /Ionicons/);
+  assert.match(tabs, /accessibilityRole="tab"/);
+  assert.match(tabs, /accessibilityState=\{\{ selected: active \}\}/);
   assert.match(summary, /own qualifying media posts/);
   assert.match(summary, /Memories stay contextual and do not unlock locations/);
   assert.match(
     summary,
     /visitedSiteCount =\s+passportStats\?\.visitedSiteCount \?\? diveMap\?\.visitedSiteCount \?\? 0;/,
   );
+  assert.match(ownProfile, /activeTab === "dive-map"/);
+  assert.match(publicProfile, /activeTab === "dive-map"/);
+  assert.match(ownProfile, /activeTab === "dive-journey"/);
+  assert.match(publicProfile, /activeTab === "dive-journey"/);
+  assert.match(ownProfile, /activeTab === "dive-passport"/);
+  assert.match(publicProfile, /activeTab === "dive-passport"/);
+  assert.match(experience, /ProfileDiveMapSection/);
+  assert.match(experience, /ProfileJourneySection/);
+  assert.match(experience, /ProfilePassportSection/);
+  assert.match(experience, /own qualifying\s+media posts tagged to a dive site/);
   assert.doesNotMatch(badges, /mutate|POST|PATCH|DELETE/);
 });
 

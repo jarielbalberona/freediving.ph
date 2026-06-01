@@ -4,7 +4,7 @@ Date: 2026-06-01
 
 ## Status
 
-PASS WITH ISSUES. The local iOS Simulator proved several seeded mutation paths and exposed one real Chika bug, which was fixed. Full public-release QA is still blocked by missing role-specific QA identities and disposable records for destructive/payment/report flows.
+PASS. The local iOS Simulator and Clerk-backed API QA now prove the seeded role/mutation matrix for the completed mobile-web parity scope. Earlier blockers around missing role-specific identities and disposable destructive/payment/report records were resolved by the Clerk test user pack and `QA Mobile Parity` seed data.
 
 ## Proven In Local Simulator
 
@@ -160,3 +160,87 @@ Still required:
 - school owner booking/payment/session proof;
 - instructor proof-upload/submission proof;
 - super-admin-only route proof.
+
+## Final Public-Release Role/Mutation QA Follow-Up
+
+Date: 2026-06-01
+
+Status: PASS.
+
+Report: `.ai/initiatives/mobile-web-parity/reports/21-final-public-release-role-mutation-qa.md`.
+
+Final evidence folder:
+
+```text
+/tmp/fph-clerk-role-qa/
+```
+
+Closed from the previous follow-up:
+
+- member B simulator sign-in/settings, message thread/send, moderation denial, media detail/comment sheet render;
+- instructor applicant simulator sign-in/settings and application route;
+- approved instructor simulator sign-in/settings and public instructor route;
+- school owner simulator sign-in/settings and management route;
+- event organizer simulator sign-in/settings and management route;
+- group owner simulator sign-in/settings and group detail route;
+- super admin simulator sign-in/settings and moderation route;
+- target user simulator sign-in/settings and moderation denial;
+- real Clerk JWT API proof for media comment create/like/delete;
+- block/list/blocked-action/unblock proof;
+- buddy accept/list/remove/send/cancel/decline proof;
+- event interest/pass/payment-review/attendance/check-in proof;
+- school booking create/cancel/approve/schedule/complete/payment/session proof;
+- instructor proof URL, certification proof update, and submit proof;
+- super-admin report detail/reject proof.
+
+Final API proof:
+
+```text
+{
+  "ok": true,
+  "count": 60,
+  "output": "/tmp/fph-clerk-role-qa/api-role-mutation-results.json"
+}
+```
+
+Final local DB proof:
+
+```text
+users               | 10
+event_participation | attended/checked=true
+event_payment       | verified
+course_booking      | completed
+course_payment      | verified
+course_session      | completed
+applicant_profile   | pending
+user_blocks         | 0
+reports_rejected    | 1
+```
+
+The remaining release work is normal release process work, not parity QA: staging/prod config review, store/device QA where applicable, and product sign-off for any intentionally web-owned destructive/admin surfaces.
+
+## Profile Tabs Parity Correction Follow-Up
+
+Date: 2026-06-01
+
+Status: PASS for code-wise verification.
+
+Report: `.ai/initiatives/mobile-web-parity/reports/22-profile-tabs-parity-correction.md`.
+
+Corrected after the final release-role QA:
+
+- web profile tabs changed to icon-only controls with accessible labels/titles;
+- mobile profile tabs now match the web order exactly: Posts, Badges, Diving, Dive Map, Dive Journey, Dive Passport;
+- mobile own/public profile screens now render real Dive Map, Dive Journey, and Dive Passport tab content from existing shared/backend profile contracts;
+- Dive Map remains proof-backed by the user's own qualifying media posts, and memories do not unlock locations or inflate counts.
+
+Verification:
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/web type-check`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test -- test/profile-core-parity.test.mjs`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/web test -- test/profile-diving-tabs-contract.test.mjs`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/web lint`
+
+No simulator or browser smoke was run for this focused icon-tab correction.

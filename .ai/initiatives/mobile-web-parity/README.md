@@ -158,14 +158,13 @@ Status rules:
 | 09 | Event Organizer Management | Add mobile organizer management with strict guards. | PASS | 08; 16 | core participant/payment/check-in subset implemented; desktop setup/destructive modules deferred |
 | 11 | School Management | Add mobile school owner/admin operations with strict guards. | PASS | 10; 12; 16 | core booking/payment/session workspace implemented; destructive desktop modules deferred |
 | 15 | Admin And Moderation Triage | Add mobile moderation/admin triage. | PASS | 14; 16 | triage/status subset implemented; destructive actions remain web-owned |
-| 17 | Final Audit And Release Gate | Re-audit final parity and release readiness. | PASS WITH ISSUES | all prior outcomes | accepted smoke/destructive-scope gaps documented |
+| 17 | Final Audit And Release Gate | Re-audit final parity and release readiness. | PASS | all prior outcomes | report 21 closed the remaining local role/mutation QA gaps |
 
 ## Safe To Execute First
 
 - `00` is `Done` and should not be rerun unless the assessment source changes materially.
-- `01` is `Ready` and is the current execution target.
-- Every `Ready After Previous` initiative is part of autonomous implementation and should run automatically after earlier initiatives in the canonical order finish.
-- The runner must stop only on `Blocked`, unresolved `Decision-Gated`, hard contract conflicts, auth/privacy/safety ambiguity, or broad unrelated verification failure.
+- No numbered parity implementation initiative remains open after report 21.
+- The next work is normal release process work: staging/prod config review, store/device QA where applicable, and product sign-off for intentionally web-owned destructive/admin surfaces.
 
 ## Needs Product Decision Before Execution
 

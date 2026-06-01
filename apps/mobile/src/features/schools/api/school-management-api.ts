@@ -55,7 +55,7 @@ export const listManagedBookings = (slug: string, authToken: string) =>
 export const setManagedBookingStatus = (
   slug: string,
   bookingId: string,
-  action: "approve" | "cancel" | "complete" | "reject",
+  action: "approve" | "cancel" | "complete" | "reject" | "schedule",
   authToken: string,
 ) =>
   fphgoFetch<{ booking: CourseBookingRequest }>(

@@ -15,18 +15,18 @@ const areBuddies = `-- name: AreBuddies :one
 SELECT EXISTS (
   SELECT 1
   FROM buddies
-WHERE app_user_id_a = LEAST($1, $2)
-  AND app_user_id_b = GREATEST($1, $2)
+WHERE app_user_id_a = LEAST($1::uuid, $2::uuid)
+  AND app_user_id_b = GREATEST($1::uuid, $2::uuid)
 )
 `
 
 type AreBuddiesParams struct {
-	AppUserIDA   pgtype.UUID `db:"app_user_id_a" json:"app_user_id_a"`
-	AppUserIDA_2 pgtype.UUID `db:"app_user_id_a_2" json:"app_user_id_a_2"`
+	Column1 pgtype.UUID `db:"column_1" json:"column_1"`
+	Column2 pgtype.UUID `db:"column_2" json:"column_2"`
 }
 
 func (q *Queries) AreBuddies(ctx context.Context, arg AreBuddiesParams) (bool, error) {
-	row := q.db.QueryRow(ctx, areBuddies, arg.AppUserIDA, arg.AppUserIDA_2)
+	row := q.db.QueryRow(ctx, areBuddies, arg.Column1, arg.Column2)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err

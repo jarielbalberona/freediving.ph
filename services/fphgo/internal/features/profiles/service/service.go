@@ -220,21 +220,22 @@ type ProfileDiveMapSiteDetail struct {
 }
 
 type BadgeTemplate struct {
-	ID           string         `json:"id"`
-	Slug         string         `json:"slug"`
-	Name         string         `json:"name"`
-	Category     string         `json:"category"`
-	ValueType    string         `json:"valueType"`
-	Unit         string         `json:"unit,omitempty"`
-	Icon         string         `json:"icon,omitempty"`
-	Description  string         `json:"description,omitempty"`
-	IsSystem     bool           `json:"isSystem"`
-	DisplayOrder int32          `json:"displayOrder"`
-	Rarity       string         `json:"rarity"`
-	IsPublic     bool           `json:"isPublic"`
-	IsRepeatable bool           `json:"isRepeatable"`
-	SourceModule string         `json:"sourceModule"`
-	MetadataJSON map[string]any `json:"metadataJson,omitempty"`
+	ID            string         `json:"id"`
+	Slug          string         `json:"slug"`
+	Name          string         `json:"name"`
+	Category      string         `json:"category"`
+	ValueType     string         `json:"valueType"`
+	Unit          string         `json:"unit,omitempty"`
+	Icon          string         `json:"icon,omitempty"`
+	BadgeImageURL string         `json:"badgeImageUrl,omitempty"`
+	Description   string         `json:"description,omitempty"`
+	IsSystem      bool           `json:"isSystem"`
+	DisplayOrder  int32          `json:"displayOrder"`
+	Rarity        string         `json:"rarity"`
+	IsPublic      bool           `json:"isPublic"`
+	IsRepeatable  bool           `json:"isRepeatable"`
+	SourceModule  string         `json:"sourceModule"`
+	MetadataJSON  map[string]any `json:"metadataJson,omitempty"`
 }
 
 type UserBadge struct {
@@ -267,9 +268,18 @@ type UserBadge struct {
 }
 
 type ProfileBadges struct {
-	Templates []BadgeTemplate `json:"templates,omitempty"`
-	Badges    []UserBadge     `json:"badges"`
-	AutoStats []UserBadge     `json:"autoStats"`
+	Templates         []BadgeTemplate        `json:"templates,omitempty"`
+	Badges            []UserBadge            `json:"badges"`
+	AutoStats         []UserBadge            `json:"autoStats"`
+	CategorySummaries []BadgeCategorySummary `json:"categorySummaries"`
+}
+
+type BadgeCategorySummary struct {
+	Category     string `json:"category"`
+	Label        string `json:"label"`
+	IdentityName string `json:"identityName"`
+	ImageURL     string `json:"imageUrl"`
+	Count        int64  `json:"count"`
 }
 
 type UpsertUserBadgeInput struct {
@@ -689,11 +699,13 @@ func (s *Service) GetMyBadges(ctx context.Context, actorID string) (ProfileBadge
 	if err != nil {
 		return ProfileBadges{}, apperrors.New(http.StatusInternalServerError, "badge_stats_failed", "failed to load badge stats", err)
 	}
+	autoStats := s.buildAutoStats(templates, visited)
 
 	return ProfileBadges{
-		Templates: mapBadgeTemplates(templates),
-		Badges:    s.mapUserBadges(rows),
-		AutoStats: buildAutoStats(templates, visited),
+		Templates:         s.mapBadgeTemplates(templates),
+		Badges:            s.mapUserBadges(rows),
+		AutoStats:         autoStats,
+		CategorySummaries: s.buildBadgeCategorySummaries(rows, autoStats),
 	}, nil
 }
 
@@ -714,9 +726,11 @@ func (s *Service) GetProfileBadgesByUsername(ctx context.Context, username strin
 	if err != nil {
 		return ProfileBadges{}, apperrors.New(http.StatusInternalServerError, "badge_stats_failed", "failed to load badge stats", err)
 	}
+	autoStats := s.buildAutoStats(templates, visited)
 	return ProfileBadges{
-		Badges:    s.mapUserBadges(rows),
-		AutoStats: buildAutoStats(templates, visited),
+		Badges:            s.mapUserBadges(rows),
+		AutoStats:         autoStats,
+		CategorySummaries: s.buildBadgeCategorySummaries(rows, autoStats),
 	}, nil
 }
 
@@ -911,7 +925,7 @@ func (s *Service) mapUserBadges(rows []profilesrepo.UserBadge) []UserBadge {
 func (s *Service) mapUserBadge(row profilesrepo.UserBadge) UserBadge {
 	item := UserBadge{
 		ID:                  row.ID,
-		Template:            mapBadgeTemplate(row.Template),
+		Template:            s.mapBadgeTemplateWithImage(row.Template),
 		ValueText:           row.ValueText,
 		ValueNumber:         row.ValueNumber,
 		ValueMinutes:        row.ValueMinutes,
@@ -939,35 +953,93 @@ func (s *Service) mapUserBadge(row profilesrepo.UserBadge) UserBadge {
 	return item
 }
 
-func mapBadgeTemplates(rows []profilesrepo.BadgeTemplate) []BadgeTemplate {
+func (s *Service) mapBadgeTemplates(rows []profilesrepo.BadgeTemplate) []BadgeTemplate {
 	items := make([]BadgeTemplate, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, mapBadgeTemplate(row))
+		items = append(items, s.mapBadgeTemplateWithImage(row))
 	}
 	return items
 }
 
-func mapBadgeTemplate(row profilesrepo.BadgeTemplate) BadgeTemplate {
+func (s *Service) mapBadgeTemplateWithImage(row profilesrepo.BadgeTemplate) BadgeTemplate {
 	return BadgeTemplate{
-		ID:           row.ID,
-		Slug:         row.Slug,
-		Name:         row.Name,
-		Category:     row.Category,
-		ValueType:    row.ValueType,
-		Unit:         row.Unit,
-		Icon:         row.Icon,
-		Description:  row.Description,
-		IsSystem:     row.IsSystem,
-		DisplayOrder: row.DisplayOrder,
-		Rarity:       row.Rarity,
-		IsPublic:     row.IsPublic,
-		IsRepeatable: row.IsRepeatable,
-		SourceModule: row.SourceModule,
-		MetadataJSON: cleanMetadata(row.MetadataJSON),
+		ID:            row.ID,
+		Slug:          row.Slug,
+		Name:          row.Name,
+		Category:      row.Category,
+		ValueType:     row.ValueType,
+		Unit:          row.Unit,
+		Icon:          row.Icon,
+		BadgeImageURL: badgeImageURLForSlug(row.Slug, s.mediaBaseURL),
+		Description:   row.Description,
+		IsSystem:      row.IsSystem,
+		DisplayOrder:  row.DisplayOrder,
+		Rarity:        row.Rarity,
+		IsPublic:      row.IsPublic,
+		IsRepeatable:  row.IsRepeatable,
+		SourceModule:  row.SourceModule,
+		MetadataJSON:  cleanMetadata(row.MetadataJSON),
 	}
 }
 
-func buildAutoStats(templates []profilesrepo.BadgeTemplate, diveSitesVisited int64) []UserBadge {
+func badgeImageURLForSlug(slug, baseURL string) string {
+	key := strings.TrimSpace(slug)
+	if key == "" {
+		return ""
+	}
+	return mediaurl.Materialize("images/badges/"+key+".png", baseURL)
+}
+
+type badgeCategoryIdentity struct {
+	category     string
+	label        string
+	identityName string
+	imagePath    string
+}
+
+var badgeCategoryIdentities = []badgeCategoryIdentity{
+	{category: "personal_best", label: "Performance Mark", identityName: "Performance Mark", imagePath: "images/badges/performance-mark.png"},
+	{category: "certification", label: "Credential Seal", identityName: "Credential Seal", imagePath: "images/badges/credential-seal.png"},
+	{category: "experience", label: "Field Experience", identityName: "Field Experience", imagePath: "images/badges/field-experience.png"},
+	{category: "community_role", label: "Leadership Crest", identityName: "Leadership Crest", imagePath: "images/badges/leadership-crest.png"},
+	{category: "auto_stat", label: "Explorer Stamp", identityName: "Explorer Stamp", imagePath: "images/badges/explorer-stamp.png"},
+}
+
+func (s *Service) buildBadgeCategorySummaries(badges []profilesrepo.UserBadge, autoStats []UserBadge) []BadgeCategorySummary {
+	counts := map[string]int64{}
+	for _, badge := range badges {
+		cat := strings.TrimSpace(badge.Template.Category)
+		if cat == "" {
+			continue
+		}
+		counts[cat]++
+	}
+	for _, badge := range autoStats {
+		cat := strings.TrimSpace(badge.Template.Category)
+		if cat == "" {
+			continue
+		}
+		counts[cat]++
+	}
+
+	summaries := make([]BadgeCategorySummary, 0, len(badgeCategoryIdentities))
+	for _, identity := range badgeCategoryIdentities {
+		count := counts[identity.category]
+		if count <= 0 {
+			continue
+		}
+		summaries = append(summaries, BadgeCategorySummary{
+			Category:     identity.category,
+			Label:        identity.label,
+			IdentityName: identity.identityName,
+			ImageURL:     mediaurl.Materialize(identity.imagePath, s.mediaBaseURL),
+			Count:        count,
+		})
+	}
+	return summaries
+}
+
+func (s *Service) buildAutoStats(templates []profilesrepo.BadgeTemplate, diveSitesVisited int64) []UserBadge {
 	items := make([]UserBadge, 0, 1)
 	for _, template := range templates {
 		if template.Slug != "dive-sites-visited" {
@@ -976,7 +1048,7 @@ func buildAutoStats(templates []profilesrepo.BadgeTemplate, diveSitesVisited int
 		value := float64(diveSitesVisited)
 		item := UserBadge{
 			ID:                 "system:dive-sites-visited",
-			Template:           mapBadgeTemplate(template),
+			Template:           s.mapBadgeTemplateWithImage(template),
 			ValueNumber:        &value,
 			DisplayValue:       fmt.Sprintf("%d", diveSitesVisited),
 			VerificationStatus: "verified",

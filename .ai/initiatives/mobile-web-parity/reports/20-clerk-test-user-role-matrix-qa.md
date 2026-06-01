@@ -1,6 +1,6 @@
 # 20 Clerk Test User Role Matrix QA Report
 
-Final status: PASS WITH ISSUES
+Final status: PASS WITH ISSUES, superseded by report 21
 Date: 2026-06-01
 
 ## Verdict
@@ -8,6 +8,8 @@ Date: 2026-06-01
 The previous identity blocker is partially resolved. Clerk test users were created in the test Clerk instance, mapped to local DB users, assigned roles, and seeded with disposable `QA Mobile Parity` records. Real iOS Simulator proof now exists for member and moderator Clerk-backed sessions.
 
 This is still not public-release final. The full role matrix was not completed account-by-account for every role, and several mutation-heavy flows remain manual.
+
+Superseded note: `.ai/initiatives/mobile-web-parity/reports/21-final-public-release-role-mutation-qa.md` completed the remaining account-by-account simulator proof and Clerk JWT mutation matrix. Keep this report as historical evidence for the identity-pack setup and initial blocker removal.
 
 ## Safe Environment
 

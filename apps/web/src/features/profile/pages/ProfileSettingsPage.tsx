@@ -10,7 +10,6 @@ import { Loader2, Sparkles } from "lucide-react";
 import { AuthGuard } from "@/components/auth/guard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -215,13 +214,18 @@ export default function ProfileSettingsPage({
       title="Sign in to edit your profile"
       description="Please sign in to manage your profile."
     >
-      <div className="container mx-auto max-w-2xl space-y-6 p-6">
+      <div className="container mx-auto max-w-2xl space-y-8 px-4 py-6 sm:px-6">
         {isProfileMismatch ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile mismatch</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                Profile mismatch
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                These settings belong to your signed-in profile.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 onClick={() =>
@@ -241,151 +245,152 @@ export default function ProfileSettingsPage({
               >
                 Back to profile
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-8">
-              <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-                <Avatar className="h-24 w-24 shrink-0 rounded-full">
-                  <AvatarImage
-                    src={avatarPreviewURL}
-                    className="rounded-full object-cover"
+          <section className="space-y-8">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                Profile Settings
+              </h1>
+            </div>
+
+            <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+              <Avatar className="h-24 w-24 shrink-0 rounded-full">
+                <AvatarImage
+                  src={avatarPreviewURL}
+                  className="rounded-full object-cover"
+                />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+              <div className="grid w-full gap-2">
+                <Label htmlFor="avatar">Upload avatar photo</Label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Input
+                    id="avatar"
+                    type="file"
+                    className="sm:flex-1"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={(event) => {
+                      const selected = event.target.files?.[0] ?? null;
+                      event.currentTarget.value = "";
+                      if (!selected) return;
+                      openCropper(selected);
+                    }}
                   />
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                <div className="grid w-full gap-2">
-                  <Label htmlFor="avatar">Upload avatar photo</Label>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <Input
-                      id="avatar"
-                      type="file"
-                      className="sm:flex-1"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      onChange={(event) => {
-                        const selected = event.target.files?.[0] ?? null;
-                        event.currentTarget.value = "";
-                        if (!selected) return;
-                        openCropper(selected);
-                      }}
-                    />
-                    <Button
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      onClick={onUploadAvatar}
-                      disabled={!preparedAvatar || isUploadingAvatar}
-                    >
-                      {isUploadingAvatar ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Upload Avatar
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Crop + auto-compress before upload. Allowed: JPG, PNG, WebP,
-                    GIF. Max: {formatBytes(MAX_AVATAR_BYTES)}.
-                  </p>
-                  {preparedAvatar ? (
-                    <p className="text-xs text-muted-foreground">
-                      Ready: {preparedAvatar.width}x{preparedAvatar.height} •{" "}
-                      {formatBytes(preparedAvatar.sizeBytes)} (
-                      {preparedAvatar.mimeType})
-                    </p>
-                  ) : null}
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={onUploadAvatar}
+                    disabled={!preparedAvatar || isUploadingAvatar}
+                  >
+                    {isUploadingAvatar ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Upload Avatar
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </div>
-
-              <Form {...form}>
-                <form
-                  className="grid gap-6"
-                  noValidate
-                  onSubmit={form.handleSubmit(onSaveProfile)}
-                >
-                  {formError ? (
-                    <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                      {formError}
-                    </p>
-                  ) : null}
-                  <FormField
-                    control={form.control}
-                    name="displayName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Display Name</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder="Your full name"
-                            autoComplete="off"
-                            maxLength={80}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="bio"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bio</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            {...field}
-                            placeholder="Tell us about yourself"
-                            className="resize-none"
-                            rows={4}
-                            maxLength={500}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex justify-end gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => router.push(closeHref)}
-                    >
-                      Close
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={
-                        updateProfileMutation.isPending ||
-                        form.formState.isSubmitting
-                      }
-                    >
-                      {updateProfileMutation.isPending ||
-                      form.formState.isSubmitting
-                        ? "Saving..."
-                        : "Save Changes"}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-
-              {myProfileQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading profile...
+                <p className="text-xs text-muted-foreground">
+                  Crop + auto-compress before upload. Allowed: JPG, PNG, WebP,
+                  GIF. Max: {formatBytes(MAX_AVATAR_BYTES)}.
                 </p>
-              ) : null}
-            </CardContent>
-          </Card>
+                {preparedAvatar ? (
+                  <p className="text-xs text-muted-foreground">
+                    Ready: {preparedAvatar.width}x{preparedAvatar.height} •{" "}
+                    {formatBytes(preparedAvatar.sizeBytes)} (
+                    {preparedAvatar.mimeType})
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <Form {...form}>
+              <form
+                className="grid gap-6"
+                noValidate
+                onSubmit={form.handleSubmit(onSaveProfile)}
+              >
+                {formError ? (
+                  <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {formError}
+                  </p>
+                ) : null}
+                <FormField
+                  control={form.control}
+                  name="displayName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Display Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Your full name"
+                          autoComplete="off"
+                          maxLength={80}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="bio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bio</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          placeholder="Tell us about yourself"
+                          className="resize-none"
+                          rows={4}
+                          maxLength={500}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push(closeHref)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      updateProfileMutation.isPending ||
+                      form.formState.isSubmitting
+                    }
+                  >
+                    {updateProfileMutation.isPending ||
+                    form.formState.isSubmitting
+                      ? "Saving..."
+                      : "Save Changes"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+
+            {myProfileQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">
+                Loading profile...
+              </p>
+            ) : null}
+          </section>
         )}
       </div>
 

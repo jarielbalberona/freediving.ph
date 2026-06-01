@@ -27,9 +27,10 @@ type ProfileDiveMapSiteResponse struct {
 }
 
 type ProfileBadgesResponse struct {
-	Templates []BadgeTemplate `json:"templates,omitempty"`
-	Badges    []UserBadge     `json:"badges"`
-	AutoStats []UserBadge     `json:"autoStats"`
+	Templates         []BadgeTemplate        `json:"templates,omitempty"`
+	Badges            []UserBadge            `json:"badges"`
+	AutoStats         []UserBadge            `json:"autoStats"`
+	CategorySummaries []BadgeCategorySummary `json:"categorySummaries"`
 }
 
 type UserBadgeResponse struct {
@@ -178,21 +179,30 @@ type ProfileDiveMapMemory struct {
 }
 
 type BadgeTemplate struct {
-	ID           string         `json:"id"`
-	Slug         string         `json:"slug"`
-	Name         string         `json:"name"`
-	Category     string         `json:"category"`
-	ValueType    string         `json:"valueType"`
-	Unit         string         `json:"unit,omitempty"`
-	Icon         string         `json:"icon,omitempty"`
-	Description  string         `json:"description,omitempty"`
-	IsSystem     bool           `json:"isSystem"`
-	DisplayOrder int32          `json:"displayOrder"`
-	Rarity       string         `json:"rarity"`
-	IsPublic     bool           `json:"isPublic"`
-	IsRepeatable bool           `json:"isRepeatable"`
-	SourceModule string         `json:"sourceModule"`
-	MetadataJSON map[string]any `json:"metadataJson,omitempty"`
+	ID            string         `json:"id"`
+	Slug          string         `json:"slug"`
+	Name          string         `json:"name"`
+	Category      string         `json:"category"`
+	ValueType     string         `json:"valueType"`
+	Unit          string         `json:"unit,omitempty"`
+	Icon          string         `json:"icon,omitempty"`
+	BadgeImageURL string         `json:"badgeImageUrl,omitempty"`
+	Description   string         `json:"description,omitempty"`
+	IsSystem      bool           `json:"isSystem"`
+	DisplayOrder  int32          `json:"displayOrder"`
+	Rarity        string         `json:"rarity"`
+	IsPublic      bool           `json:"isPublic"`
+	IsRepeatable  bool           `json:"isRepeatable"`
+	SourceModule  string         `json:"sourceModule"`
+	MetadataJSON  map[string]any `json:"metadataJson,omitempty"`
+}
+
+type BadgeCategorySummary struct {
+	Category     string `json:"category"`
+	Label        string `json:"label"`
+	IdentityName string `json:"identityName"`
+	ImageURL     string `json:"imageUrl"`
+	Count        int64  `json:"count"`
 }
 
 type UserBadge struct {

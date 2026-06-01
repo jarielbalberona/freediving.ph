@@ -6,11 +6,19 @@ import type {
   PassportSectionState,
   ProfilePassport as ProfilePassportContract,
 } from "@freediving.ph/types";
-import { BadgeCheck, BookOpen, Compass, IdCard, Image, Map } from "lucide-react";
+import {
+  BadgeCheck,
+  BookOpen,
+  Compass,
+  IdCard,
+  Image,
+  Map,
+} from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ProfileTabHeader } from "@/features/profile/components/ProfileTabHeader";
 import { useUpdatePassportSettings } from "@/features/profile/hooks/passport-mutations";
 import { useProfilePassportQuery } from "@/features/profile/hooks/queries";
 
@@ -32,16 +40,18 @@ export function ProfilePassport({
   }
 
   return (
-    <section aria-labelledby="profile-passport-heading" className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <IdCard aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-          <h2 id="profile-passport-heading" className="font-semibold text-base">
-            Passport
-          </h2>
-        </div>
-        <Badge variant="outline">{passport.stats.visitedSiteCount} sites</Badge>
-      </div>
+    <section className="space-y-3">
+      <ProfileTabHeader
+        id="profile-passport-heading"
+        title="Passport"
+        subtitle="A compact overview of your dive history and visibility settings."
+        icon={<IdCard aria-hidden="true" className="h-4 w-4" />}
+        action={
+          <Badge variant="outline">
+            {passport.stats.visitedSiteCount} sites
+          </Badge>
+        }
+      />
       <div className="grid gap-3 md:grid-cols-2">
         <SummaryCard passport={passport} />
         <MapCard passport={passport} />
@@ -51,7 +61,10 @@ export function ProfilePassport({
         <MemoryCard memories={passport.memories} />
       </div>
       {isOwner ? (
-        <PassportSettingsPanel username={username} settings={passport.settings} />
+        <PassportSettingsPanel
+          username={username}
+          settings={passport.settings}
+        />
       ) : null}
     </section>
   );
@@ -72,20 +85,33 @@ function SummaryCard({ passport }: { passport: ProfilePassportContract }) {
 
 function MapCard({ passport }: { passport: ProfilePassportContract }) {
   return (
-    <PassportCard icon={<Map aria-hidden="true" className="h-4 w-4" />} title="Dive Map">
+    <PassportCard
+      icon={<Map aria-hidden="true" className="h-4 w-4" />}
+      title="Dive Map"
+    >
       {passport.mapPreview.state.status === "ready" ? (
         <div className="space-y-2">
-          <Metric label="Visited sites" value={passport.mapPreview.visitedSiteCount} />
+          <Metric
+            label="Visited sites"
+            value={passport.mapPreview.visitedSiteCount}
+          />
           <div className="space-y-1">
             {passport.mapPreview.markers.slice(0, 3).map((marker) => (
-              <p key={marker.diveSiteId} className="truncate text-sm" title={marker.diveSiteName}>
+              <p
+                key={marker.diveSiteId}
+                className="truncate text-sm"
+                title={marker.diveSiteName}
+              >
                 {marker.diveSiteName}
               </p>
             ))}
           </div>
         </div>
       ) : (
-        <SectionState state={passport.mapPreview.state} label="No visited sites yet" />
+        <SectionState
+          state={passport.mapPreview.state}
+          label="No visited sites yet"
+        />
       )}
     </PassportCard>
   );
@@ -100,13 +126,20 @@ function BadgeCard({ passport }: { passport: ProfilePassportContract }) {
       {passport.badgeShowcase.state.status === "ready" ? (
         <div className="flex flex-wrap gap-2">
           {passport.badgeShowcase.badges.slice(0, 4).map((badge) => (
-            <Badge key={badge.id} variant="secondary" className="max-w-full break-words">
+            <Badge
+              key={badge.id}
+              variant="secondary"
+              className="max-w-full break-words"
+            >
               {badge.name}
             </Badge>
           ))}
         </div>
       ) : (
-        <SectionState state={passport.badgeShowcase.state} label="No badges yet" />
+        <SectionState
+          state={passport.badgeShowcase.state}
+          label="No badges yet"
+        />
       )}
     </PassportCard>
   );
@@ -138,11 +171,20 @@ function JourneyCard({ passport }: { passport: ProfilePassportContract }) {
 
 function MediaCard({ passport }: { passport: ProfilePassportContract }) {
   return (
-    <PassportCard icon={<Image aria-hidden="true" className="h-4 w-4" />} title="Media">
+    <PassportCard
+      icon={<Image aria-hidden="true" className="h-4 w-4" />}
+      title="Media"
+    >
       {passport.recentMedia.state.status === "ready" ? (
-        <Metric label="Recent media" value={passport.recentMedia.items.length} />
+        <Metric
+          label="Recent media"
+          value={passport.recentMedia.items.length}
+        />
       ) : (
-        <SectionState state={passport.recentMedia.state} label="No recent media yet" />
+        <SectionState
+          state={passport.recentMedia.state}
+          label="No recent media yet"
+        />
       )}
     </PassportCard>
   );
@@ -157,7 +199,11 @@ function MemoryCard({ memories }: { memories: PassportMemoryPreview }) {
       {memories.state.status === "ready" ? (
         <div className="space-y-1">
           {memories.items.slice(0, 3).map((memory) => (
-            <p key={memory.id} className="truncate text-sm" title={memory.title}>
+            <p
+              key={memory.id}
+              className="truncate text-sm"
+              title={memory.title}
+            >
               {memory.title}
             </p>
           ))}
@@ -205,14 +251,21 @@ function PassportSettingsPanel({
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {sections.map(([key, label]) => (
-          <label key={key} htmlFor={`passport-${key}`} className="flex items-center gap-2 text-sm">
+          <label
+            key={key}
+            htmlFor={`passport-${key}`}
+            className="flex items-center gap-2 text-sm"
+          >
             <input
               id={`passport-${key}`}
               name={key}
               type="checkbox"
               checked={draft[key]}
               onChange={(event) =>
-                setDraft((current) => ({ ...current, [key]: event.target.checked }))
+                setDraft((current) => ({
+                  ...current,
+                  [key]: event.target.checked,
+                }))
               }
               className="h-4 w-4"
             />
@@ -236,7 +289,10 @@ function PassportCard({
   const headingID = `profile-passport-${title.toLowerCase().replaceAll(" ", "-")}`;
 
   return (
-    <article aria-labelledby={headingID} className="rounded-lg border border-border/70 p-3">
+    <article
+      aria-labelledby={headingID}
+      className="rounded-lg border border-border/70 p-3"
+    >
       <div className="mb-2 flex min-w-0 items-center gap-2 text-muted-foreground">
         {icon}
         <h3 id={headingID} className="font-medium text-foreground text-sm">

@@ -15,8 +15,8 @@ SELECT EXISTS (
 SELECT EXISTS (
   SELECT 1
   FROM buddies
-WHERE app_user_id_a = LEAST($1, $2)
-  AND app_user_id_b = GREATEST($1, $2)
+WHERE app_user_id_a = LEAST($1::uuid, $2::uuid)
+  AND app_user_id_b = GREATEST($1::uuid, $2::uuid)
 );
 
 -- name: GetPendingRequestBetweenUsers :one

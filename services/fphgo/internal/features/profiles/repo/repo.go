@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1117,8 +1118,9 @@ func (r *Repo) ListBadgeTemplates(ctx context.Context) ([]BadgeTemplate, error) 
 				WHEN 'personal_best' THEN 1
 				WHEN 'certification' THEN 2
 				WHEN 'experience' THEN 3
-				WHEN 'auto_stat' THEN 4
-				ELSE 5
+				WHEN 'community_role' THEN 4
+				WHEN 'auto_stat' THEN 5
+				ELSE 6
 			END,
 			display_order,
 			name
@@ -1271,7 +1273,8 @@ func (r *Repo) listUserBadges(ctx context.Context, userPredicate string, arg any
 				WHEN 'personal_best' THEN 1
 				WHEN 'certification' THEN 2
 				WHEN 'experience' THEN 3
-				ELSE 4
+				WHEN 'community_role' THEN 4
+				ELSE 5
 			END,
 			ub.display_order,
 			bt.display_order,
@@ -1733,7 +1736,9 @@ func numericValue(value *float64) pgtype.Numeric {
 		return pgtype.Numeric{}
 	}
 	var numeric pgtype.Numeric
-	_ = numeric.Scan(*value)
+	if err := numeric.Scan(strconv.FormatFloat(*value, 'f', -1, 64)); err != nil {
+		return pgtype.Numeric{}
+	}
 	return numeric
 }
 

@@ -1,12 +1,13 @@
 "use client";
 
 import type { JourneyEntry } from "@freediving.ph/types";
-import { Clock3, Plus, Trash2 } from "lucide-react";
+import { Route, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ProfileTabHeader } from "@/features/profile/components/ProfileTabHeader";
 import {
   useCreateJourneyEntry,
   useDeleteJourneyEntry,
@@ -28,13 +29,12 @@ export function ProfileJourney({
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Clock3 className="h-4 w-4 text-muted-foreground" />
-          <h2 className="font-semibold text-base">Journey</h2>
-        </div>
-        <Badge variant="outline">{items.length}</Badge>
-      </div>
+      <ProfileTabHeader
+        title="Journey"
+        subtitle="Story notes and milestones from your diving path."
+        icon={<Route className="h-4 w-4" />}
+        action={<Badge variant="outline">{items.length}</Badge>}
+      />
 
       {isOwner ? (
         <form
@@ -68,7 +68,9 @@ export function ProfileJourney({
       {isError ? <JourneyStatus title="Journey is unavailable" /> : null}
       {!isLoading && !isError && items.length === 0 ? (
         <JourneyStatus
-          title={isOwner ? "No journey entries yet." : "No visible journey yet."}
+          title={
+            isOwner ? "No journey entries yet." : "No visible journey yet."
+          }
         />
       ) : null}
       {items.length > 0 ? (
@@ -96,6 +98,8 @@ function JourneyItem({
   isOwner: boolean;
   onDelete: () => void;
 }) {
+  const mediaIds = item.mediaIds ?? [];
+
   return (
     <li className="rounded-lg border border-border/70 p-3">
       <div className="flex items-start justify-between gap-3">
@@ -107,8 +111,8 @@ function JourneyItem({
           <div className="flex flex-wrap gap-2 text-muted-foreground text-xs">
             <span>{formatJourneyDate(item.occurredAt)}</span>
             <span>{item.visibility}</span>
-            {item.mediaIds.length > 0 ? (
-              <span>{item.mediaIds.length} media</span>
+            {mediaIds.length > 0 ? (
+              <span>{mediaIds.length} media</span>
             ) : null}
           </div>
         </div>

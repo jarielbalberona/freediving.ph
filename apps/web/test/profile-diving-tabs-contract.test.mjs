@@ -7,14 +7,28 @@ const cwd = path.resolve(globalThis.process.cwd());
 const appRoot = cwd.endsWith(path.join("apps", "web"))
   ? cwd
   : path.join(cwd, "apps", "web");
-const tabsPath = path.join(appRoot, "src/features/profile/components/ProfileTabs.tsx");
-const pagePath = path.join(appRoot, "src/features/profile/pages/ProfilePage.tsx");
+const tabsPath = path.join(
+  appRoot,
+  "src/features/profile/components/ProfileTabs.tsx",
+);
+const pagePath = path.join(
+  appRoot,
+  "src/features/profile/pages/ProfilePage.tsx",
+);
 const hooksPath = path.join(appRoot, "src/features/profile/hooks/queries.ts");
-const profileApiPath = path.join(appRoot, "src/features/profile/api/profileApi.ts");
-const profilesApiPath = path.join(appRoot, "src/features/profiles/api/profiles.ts");
+const profileApiPath = path.join(
+  appRoot,
+  "src/features/profile/api/profileApi.ts",
+);
+const profilesApiPath = path.join(
+  appRoot,
+  "src/features/profiles/api/profiles.ts",
+);
 const routesPath = path.join(appRoot, "src/lib/api/fphgo-routes.ts");
 const typesPath = path.join(
-  cwd.endsWith(path.join("apps", "web")) ? path.dirname(path.dirname(appRoot)) : cwd,
+  cwd.endsWith(path.join("apps", "web"))
+    ? path.dirname(path.dirname(appRoot))
+    : cwd,
   "packages/types/src/api/profile-view.ts",
 );
 
@@ -33,12 +47,24 @@ test("/[username] profile has the required profile experience tabs with Posts as
   assert.match(tabs, /"dive-journey"/);
   assert.match(tabs, /"dive-passport"/);
   assert.match(tabs, /: "posts"/);
-  assert.match(tabs, /<TabsTrigger value="posts">Posts<\/TabsTrigger>/);
-  assert.match(tabs, /<TabsTrigger value="badges">Badges<\/TabsTrigger>/);
-  assert.match(tabs, /<TabsTrigger value="diving">Diving<\/TabsTrigger>/);
-  assert.match(tabs, /<TabsTrigger value="dive-map">Dive Map<\/TabsTrigger>/);
-  assert.match(tabs, /<TabsTrigger value="dive-journey">Dive Journey<\/TabsTrigger>/);
-  assert.match(tabs, /<TabsTrigger value="dive-passport">Dive Passport<\/TabsTrigger>/);
+  assert.match(tabs, /profileTabItems/);
+  assert.match(tabs, /label: "Posts"/);
+  assert.match(tabs, /label: "Badges"/);
+  assert.match(tabs, /label: "Diving"/);
+  assert.match(tabs, /label: "Dive Map"/);
+  assert.match(tabs, /label: "Dive Journey"/);
+  assert.match(tabs, /label: "Dive Passport"/);
+  assert.match(tabs, /aria-label=\{label\}/);
+  assert.match(tabs, /title=\{label\}/);
+  assert.match(tabs, /<Icon aria-hidden="true"/);
+  assert.match(tabs, /<span className="sr-only">\{label\}<\/span>/);
+  assert.match(tabs, /variant="line"/);
+  assert.match(tabs, /border-b border-border\/70/);
+  assert.match(tabs, /grid-cols-6/);
+  assert.match(tabs, /border-b-2 border-transparent/);
+  assert.match(tabs, /after:bg-primary/);
+  assert.match(tabs, /data-\[active\]:bg-transparent/);
+  assert.match(tabs, /activeTab === value && "border-primary text-foreground"/);
   assert.match(tabs, /nextParams\.set\("tab", nextTab\)/);
 });
 
@@ -69,18 +95,53 @@ test("Diving tab renders separate Dive Presence and Dive Sites sections", async 
 });
 
 test("Profile experience modules are routed to separate source-owned tabs", async () => {
-  const [page, tabs, passport, journey] = await Promise.all([
+  const [page, tabs, badges, map, passport, journey] = await Promise.all([
     readFile(pagePath, "utf8"),
     readFile(tabsPath, "utf8"),
-    readFile(path.join(appRoot, "src/features/profile/components/ProfilePassport.tsx"), "utf8"),
-    readFile(path.join(appRoot, "src/features/profile/components/ProfileJourney.tsx"), "utf8"),
+    readFile(
+      path.join(appRoot, "src/features/profile/components/ProfileBadges.tsx"),
+      "utf8",
+    ),
+    readFile(
+      path.join(appRoot, "src/features/profile/components/ProfileDiveMap.tsx"),
+      "utf8",
+    ),
+    readFile(
+      path.join(appRoot, "src/features/profile/components/ProfilePassport.tsx"),
+      "utf8",
+    ),
+    readFile(
+      path.join(appRoot, "src/features/profile/components/ProfileJourney.tsx"),
+      "utf8",
+    ),
   ]);
 
   assert.doesNotMatch(page, /<ProfileBadges/);
-  assert.match(tabs, /<ProfileBadges badges=\{badges\} autoStats=\{autoStats\} isOwner=\{isOwner\} \/>/);
-  assert.match(tabs, /<ProfilePassport username=\{username\} isOwner=\{isOwner\} \/>/);
-  assert.match(tabs, /<ProfileDiveMap username=\{username\} isOwner=\{isOwner\} \/>/);
-  assert.match(tabs, /<ProfileJourney username=\{username\} isOwner=\{isOwner\} \/>/);
+  assert.match(
+    tabs,
+    /<ProfileBadges\s+badges=\{badges\}\s+autoStats=\{autoStats\}\s+isOwner=\{isOwner\}\s+\/>/,
+  );
+  assert.match(
+    tabs,
+    /<ProfilePassport\s+username=\{username\}\s+isOwner=\{isOwner\}\s+\/>/,
+  );
+  assert.match(
+    tabs,
+    /<ProfileDiveMap\s+username=\{username\}\s+isOwner=\{isOwner\}\s+\/>/,
+  );
+  assert.match(
+    tabs,
+    /<ProfileJourney\s+username=\{username\}\s+isOwner=\{isOwner\}\s+\/>/,
+  );
+  assert.match(tabs, /<ProfileTabHeader/);
+  assert.match(tabs, /title="Diving"/);
+  assert.match(tabs, /subtitle="Presence and dive sites\."/);
+  assert.match(tabs, /<TabsContent value="posts" className="px-1">/);
+  assert.match(tabs, /<TabsContent value="badges" className="px-2">/);
+  assert.match(tabs, /<TabsContent value="diving" className="px-2">/);
+  assert.match(tabs, /<TabsContent value="dive-map" className="px-2">/);
+  assert.match(tabs, /<TabsContent value="dive-journey" className="px-2">/);
+  assert.match(tabs, /<TabsContent value="dive-passport" className="px-2">/);
 
   const badgeTabIndex = tabs.indexOf('value="badges"');
   const divingTabIndex = tabs.indexOf('value="diving"');
@@ -98,10 +159,84 @@ test("Profile experience modules are routed to separate source-owned tabs", asyn
   const mapIndex = tabs.indexOf("<ProfileDiveMap");
   const journeyIndex = tabs.indexOf("<ProfileJourney");
   const passportIndex = tabs.indexOf("<ProfilePassport");
-  assert.ok(mapIndex > -1 && journeyIndex > mapIndex && passportIndex > journeyIndex);
+  assert.ok(
+    mapIndex > -1 && journeyIndex > mapIndex && passportIndex > journeyIndex,
+  );
 
+  assert.match(badges, /<ProfileTabHeader/);
+  assert.match(badges, /icon={<Award className="h-4 w-4" \/>}/);
+  assert.match(badges, /title="Badges & Credentials"/);
+  assert.match(
+    badges,
+    /subtitle="Certifications, experience, community roles, and personal bests\."/,
+  );
+  assert.match(badges, /isOwner \? \(/);
+  assert.match(badges, /href="\/management\/badges"/);
+  assert.match(badges, /Manage/);
+  assert.match(badges, /badgeCategoryOrder/);
+  assert.match(badges, /category: "personal_best", title: "Performance Marks"/);
+  assert.match(badges, /category: "certification", title: "Credential Seals"/);
+  assert.match(badges, /category: "experience", title: "Field Experience"/);
+  assert.match(
+    badges,
+    /category: "community_role", title: "Leadership Crests"/,
+  );
+  assert.match(badges, /category: "auto_stat", title: "Explorer Stamps"/);
+  assert.ok(
+    badges.indexOf('category: "personal_best"') <
+      badges.indexOf('category: "certification"') &&
+      badges.indexOf('category: "certification"') <
+        badges.indexOf('category: "experience"') &&
+      badges.indexOf('category: "experience"') <
+        badges.indexOf('category: "community_role"') &&
+      badges.indexOf('category: "community_role"') <
+        badges.indexOf('category: "auto_stat"'),
+  );
+  assert.match(
+    badges,
+    /items\.filter\(\(item\) => item\.category === config\.category\)/,
+  );
+  assert.match(badges, /\.filter\(\(group\) => group\.items\.length > 0\)/);
+  assert.match(badges, /<ProfileBadgeCard key=\{item\.id\} item=\{item\} \/>/);
+  assert.match(badges, /import Image from "next\/image"/);
+  assert.match(badges, /item\.template\.badgeImageUrl/);
+  assert.match(badges, /alt=\{`\$\{badgeName\} badge logo`\}/);
+  assert.match(badges, /import \{ Badge \} from "@\/components\/ui\/badge"/);
+  assert.match(badges, /item\.displayValue \? \(/);
+  assert.match(
+    badges,
+    /<Badge variant="secondary" className="h-5 px-1\.5 text-\[10px\]">/,
+  );
+  assert.match(badges, /No badges yet/);
+  assert.match(
+    badges,
+    /Badges, credentials, and milestones will appear here\./,
+  );
+  assert.doesNotMatch(badges, /https:\/\/cdn\.freediving\.ph/);
+  assert.match(map, /<ProfileTabHeader/);
+  assert.match(map, /title="Dive Map"/);
+  assert.match(
+    map,
+    /subtitle="Sites you've visited and the memories tied to them\."/,
+  );
+  assert.match(passport, /<ProfileTabHeader/);
+  assert.match(passport, /id="profile-passport-heading"/);
+  assert.match(passport, /title="Passport"/);
+  assert.match(
+    passport,
+    /subtitle="A compact overview of your dive history and visibility settings\."/,
+  );
   assert.match(passport, /isOwner \? \(/);
-  assert.match(passport, /<PassportSettingsPanel username=\{username\} settings=\{passport\.settings\} \/>/);
+  assert.match(
+    passport,
+    /<PassportSettingsPanel\s+username=\{username\}\s+settings=\{passport\.settings\}\s+\/>/,
+  );
+  assert.match(journey, /<ProfileTabHeader/);
+  assert.match(journey, /title="Journey"/);
+  assert.match(
+    journey,
+    /subtitle="Story notes and milestones from your diving path\."/,
+  );
   assert.match(journey, /isOwner \? \(/);
   assert.match(journey, /isOwner && item\.type === "custom"/);
 });

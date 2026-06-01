@@ -182,7 +182,7 @@ export const useManagedBookingStatusMutation = (slug: string) => {
 
   return useMutation({
     mutationFn: async (payload: {
-      action: "approve" | "cancel" | "complete" | "reject";
+      action: "approve" | "cancel" | "complete" | "reject" | "schedule";
       bookingId: string;
     }) => {
       const response = await setManagedBookingStatus(

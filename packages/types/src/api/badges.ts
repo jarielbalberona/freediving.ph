@@ -2,6 +2,7 @@ export type BadgeCategory =
   | "personal_best"
   | "certification"
   | "experience"
+  | "community_role"
   | "auto_stat";
 
 export type BadgeValueType = "time" | "distance" | "number" | "text" | "none";
@@ -43,6 +44,7 @@ export type BadgeTemplate = {
   valueType: BadgeValueType;
   unit?: string;
   icon?: string;
+  badgeImageUrl?: string;
   description?: string;
   isSystem: boolean;
   displayOrder: number;
@@ -90,10 +92,19 @@ export type UserBadge = {
   updatedAt?: string;
 };
 
+export type BadgeCategorySummary = {
+  category: BadgeCategory;
+  label: string;
+  identityName: string;
+  imageUrl: string;
+  count: number;
+};
+
 export type ProfileBadgesResponse = {
   templates?: BadgeTemplate[];
   badges: UserBadge[];
   autoStats: UserBadge[];
+  categorySummaries: BadgeCategorySummary[];
 };
 
 export type UserBadgeResponse = {

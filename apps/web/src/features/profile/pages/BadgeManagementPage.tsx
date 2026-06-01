@@ -6,15 +6,24 @@ import type {
   UpsertUserBadgeRequest,
   UserBadge,
 } from "@freediving.ph/types";
-import { Loader2, Trash2 } from "lucide-react";
-import type { Dispatch, SetStateAction } from "react";
+import { Award, Loader2, Trash2 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import type { Dispatch, SetStateAction, SyntheticEvent } from "react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthGuard } from "@/components/auth/guard";
+import { CommunityHeader } from "@/components/community/community-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -27,6 +36,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useUploadMedia } from "@/features/media";
+import { ManagementPageContainer } from "@/components/layout/management-page-container";
+import { useCurrentProfileHref } from "@/features/profile/hooks/use-current-profile-href";
 import {
   useCreateBadge,
   useDeleteBadge,
@@ -37,12 +48,14 @@ import { useMyBadges } from "@/features/profiles/hooks/queries";
 const categoryLabels: Record<BadgeCategory, string> = {
   personal_best: "Personal Bests",
   certification: "Certifications",
-  experience: "Experience / Community Roles",
+  experience: "Experience",
+  community_role: "Community Roles",
   auto_stat: "Auto Stats",
 };
 
 type BadgeFormState = {
   badgeId: string | null;
+  badgeCategory: BadgeCategory | "";
   badgeTemplateId: string;
   valueNumber: string;
   valueMinutes: string;
@@ -56,6 +69,7 @@ type BadgeFormState = {
 
 const initialForm: BadgeFormState = {
   badgeId: null,
+  badgeCategory: "",
   badgeTemplateId: "",
   valueNumber: "",
   valueMinutes: "",
@@ -74,22 +88,39 @@ export default function BadgeManagementPage() {
   const updateBadge = useUpdateBadge();
   const deleteBadge = useDeleteBadge();
   const [form, setForm] = useState<BadgeFormState>(initialForm);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const currentProfileHref = useCurrentProfileHref();
 
   const templates =
     badgesQuery.data?.templates?.filter((item) => !item.isSystem) ?? [];
-  const selectedTemplate = templates.find(
-    (item) => item.id === form.badgeTemplateId,
-  );
   const groupedTemplates = useMemo(
     () => groupTemplates(templates),
     [templates],
+  );
+  const selectedTemplates = form.badgeCategory
+    ? (groupedTemplates[form.badgeCategory] ?? [])
+    : [];
+  const selectedTemplate = selectedTemplates.find(
+    (item) => item.id === form.badgeTemplateId,
   );
   const isSaving =
     createBadge.isPending || updateBadge.isPending || uploadMedia.isPending;
 
   const resetForm = () => setForm(initialForm);
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+  const openEditDialog = (badge: UserBadge) => {
+    setForm(formFromBadge(badge));
+    setDialogOpen(true);
+  };
 
   const saveBadge = async () => {
+    if (!form.badgeCategory) {
+      toast.error("Select a badge category.");
+      return;
+    }
     if (!selectedTemplate) {
       toast.error("Select a badge template.");
       return;
@@ -106,6 +137,7 @@ export default function BadgeManagementPage() {
         toast.success("Badge added");
       }
       resetForm();
+      setDialogOpen(false);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to save badge",
@@ -133,168 +165,58 @@ export default function BadgeManagementPage() {
       title="Sign in to manage badges"
       description="Please sign in to manage your badges and credentials."
     >
-      <div className="container mx-auto max-w-4xl space-y-6 p-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Badges & Credentials
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add personal bests, certifications, and community roles.
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{form.badgeId ? "Edit Badge" : "Add Badge"}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-5">
-            <div className="grid gap-2">
-              <Label>Badge type</Label>
-              <Select
-                value={form.badgeTemplateId}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    badgeTemplateId: value ?? "",
-                    valueNumber: "",
-                    valueMinutes: "",
-                    valueSeconds: "",
-                    valueText: "",
-                  }))
-                }
-                items={templates.map((item) => ({
-                  value: item.id,
-                  label: item.name,
-                }))}
+      <ManagementPageContainer variant="wide">
+        <CommunityHeader
+          title="Badges & Credentials"
+          subtitle="Add personal bests, certifications, experience, and community roles."
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                render={<Link href={currentProfileHref} />}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select badge type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(groupedTemplates).map(([category, items]) => (
-                    <SelectGroup key={category}>
-                      <SelectLabel>
-                        {categoryLabels[category as BadgeCategory]}
-                      </SelectLabel>
-                      {items.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedTemplate ? (
-              <BadgeValueFields
-                template={selectedTemplate}
-                form={form}
-                setForm={setForm}
-              />
-            ) : null}
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="referenceLabel">Reference label</Label>
-                <Input
-                  id="referenceLabel"
-                  value={form.referenceLabel}
-                  placeholder="Certification Number"
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      referenceLabel: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="referenceValue">Reference value</Label>
-                <Input
-                  id="referenceValue"
-                  value={form.referenceValue}
-                  placeholder="AIDA-12345"
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      referenceValue: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Visibility</Label>
-              <Select
-                value={form.visibility}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    visibility: value === "private" ? "private" : "public",
-                  }))
-                }
-                items={[
-                  { value: "public", label: "Public" },
-                  { value: "private", label: "Private" },
-                ]}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="proof">Proof photo</Label>
-              <Input
-                id="proof"
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.currentTarget.value = "";
-                  if (file) void uploadProof(file);
-                }}
-              />
-              {form.proofMediaId ? (
-                <p className="text-xs text-muted-foreground">
-                  Proof attached: {form.proofMediaId}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={resetForm}>
-                Clear
+                Back to profile
               </Button>
-              <Button type="button" disabled={isSaving} onClick={saveBadge}>
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                    Saving
-                  </>
-                ) : form.badgeId ? (
-                  "Update Badge"
-                ) : (
-                  "Add Badge"
-                )}
-              </Button>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger
+                  render={<Button type="button" onClick={openCreateDialog} />}
+                >
+                  Add
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl!">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {form.badgeId
+                        ? "Edit Badge & Credentials"
+                        : "Add Badge & Credentials"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <BadgeFormFields
+                    template={selectedTemplate}
+                    form={form}
+                    setForm={setForm}
+                    groupedTemplates={groupedTemplates}
+                    templates={selectedTemplates}
+                    isSaving={isSaving}
+                    onProofUpload={(file) => void uploadProof(file)}
+                    onClear={resetForm}
+                    onSave={saveBadge}
+                    categoryLabels={categoryLabels}
+                  />
+                </DialogContent>
+              </Dialog>
             </div>
-          </CardContent>
-        </Card>
+          }
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Badges</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">
+              Your Badges
+            </h2>
+          </div>
+          <div className="space-y-3">
             {badgesQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">Loading badges...</p>
             ) : null}
@@ -302,7 +224,9 @@ export default function BadgeManagementPage() {
               <BadgeRow
                 key={badge.id}
                 badge={badge}
-                onEdit={() => setForm(formFromBadge(badge))}
+                onEdit={() => {
+                  openEditDialog(badge);
+                }}
                 onDelete={() => {
                   void deleteBadge.mutateAsync(badge.id).catch((error) => {
                     toast.error(
@@ -324,10 +248,221 @@ export default function BadgeManagementPage() {
                 No user-created badges yet.
               </p>
             ) : null}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </section>
+      </ManagementPageContainer>
     </AuthGuard>
+  );
+}
+
+function BadgeFormFields({
+  template,
+  form,
+  setForm,
+  groupedTemplates,
+  templates,
+  isSaving,
+  onProofUpload,
+  onClear,
+  onSave,
+  categoryLabels,
+}: {
+  template: BadgeTemplate | undefined;
+  form: BadgeFormState;
+  setForm: Dispatch<SetStateAction<BadgeFormState>>;
+  groupedTemplates: Record<string, BadgeTemplate[]>;
+  templates: BadgeTemplate[];
+  isSaving: boolean;
+  onProofUpload: (file: File) => void;
+  onClear: () => void;
+  onSave: () => void;
+  categoryLabels: Record<BadgeCategory, string>;
+}) {
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-2">
+        <Label>Badge category</Label>
+        <Select
+          value={form.badgeCategory}
+          onValueChange={(value) =>
+            setForm((current) => ({
+              ...current,
+              badgeCategory: (value as BadgeCategory) ?? "",
+              badgeTemplateId: "",
+              valueNumber: "",
+              valueMinutes: "",
+              valueSeconds: "",
+              valueText: "",
+              referenceLabel: "",
+              referenceValue: "",
+              visibility: "public",
+            }))
+          }
+          items={Object.keys(groupedTemplates).map((category) => ({
+            value: category,
+            label: categoryLabels[category as BadgeCategory],
+          }))}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select badge category" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(groupedTemplates).map((category) => (
+              <SelectItem key={category} value={category}>
+                {categoryLabels[category as BadgeCategory]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-2">
+        <Label>Badge type</Label>
+        <Select
+          value={form.badgeTemplateId}
+          onValueChange={(value) =>
+            setForm((current) => ({
+              ...current,
+              badgeTemplateId: value ?? "",
+              valueNumber: "",
+              valueMinutes: "",
+              valueSeconds: "",
+              valueText: "",
+            }))
+          }
+          items={templates.map((item) => ({
+            value: item.id,
+            label: item.name,
+          }))}
+          disabled={!form.badgeCategory}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue
+              placeholder={
+                form.badgeCategory
+                  ? "Select badge type"
+                  : "Select a category first"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {templates.length ? (
+              <SelectGroup>
+                <SelectLabel>
+                  {categoryLabels[form.badgeCategory as BadgeCategory]}
+                </SelectLabel>
+                {templates.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ) : null}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {template ? (
+        <BadgeValueFields template={template} form={form} setForm={setForm} />
+      ) : null}
+
+      {form.badgeCategory !== "personal_best" ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="referenceLabel">Reference label</Label>
+              <Input
+                id="referenceLabel"
+                value={form.referenceLabel}
+                placeholder="Certification Number"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    referenceLabel: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="referenceValue">Reference value</Label>
+              <Input
+                id="referenceValue"
+                value={form.referenceValue}
+                placeholder="AIDA-12345"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    referenceValue: event.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Visibility</Label>
+            <Select
+              value={form.visibility}
+              onValueChange={(value) =>
+                setForm((current) => ({
+                  ...current,
+                  visibility: value === "private" ? "private" : "public",
+                }))
+              }
+              items={[
+                { value: "public", label: "Public" },
+                { value: "private", label: "Private" },
+              ]}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      ) : null}
+
+      <div className="grid gap-2">
+        <Label htmlFor="proof">Proof photo (optional)</Label>
+        <Input
+          id="proof"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.currentTarget.value = "";
+            if (file) onProofUpload(file);
+          }}
+        />
+        {form.proofMediaId ? (
+          <p className="text-xs text-muted-foreground">
+            Proof attached: {form.proofMediaId}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onClear}>
+          Clear
+        </Button>
+        <Button type="button" disabled={isSaving} onClick={onSave}>
+          {isSaving ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Saving
+            </>
+          ) : form.badgeId ? (
+            "Update Badge & Credentials"
+          ) : (
+            "Add Badge & Credentials"
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -430,31 +565,78 @@ function BadgeRow({
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const imageSrc = normalizeBadgeImageSrc(badge.template.badgeImageUrl);
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
-      <div className="space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium">
-            {badge.displayValue
-              ? `${badge.template.name} • ${badge.displayValue}`
-              : badge.template.name}
-          </p>
-          <Badge
-            variant={
-              badge.verificationStatus === "verified" ? "secondary" : "outline"
-            }
-          >
-            {system ? "System Verified" : badge.verificationStatus}
-          </Badge>
-          {!system ? <Badge variant="outline">{badge.visibility}</Badge> : null}
+    <div className="flex flex-wrap items-center justify-between gap-3 ">
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center">
+          {imageSrc && !imageFailed ? (
+            <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+              <DialogTrigger
+                render={
+                  <button
+                    type="button"
+                    className="cursor-zoom-in"
+                    aria-label={`Open ${badge.template.name} badge image`}
+                    title="Open image"
+                  />
+                }
+              >
+                <Image
+                  src={imageSrc}
+                  alt={`${badge.template.name} badge logo`}
+                  width={60}
+                  height={60}
+                  sizes="60px"
+                  className="h-16 w-16 object-contain"
+                  onError={(event: SyntheticEvent<HTMLImageElement>) => {
+                    event.currentTarget.style.display = "none";
+                    setImageFailed(true);
+                  }}
+                />
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-3xl!">
+                <DialogHeader>
+                  <DialogTitle className="sr-only">
+                    {badge.template.name} badge image
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="flex items-center justify-center">
+                  <Image
+                    src={imageSrc}
+                    alt={`${badge.template.name} badge logo full view`}
+                    width={960}
+                    height={960}
+                    sizes="(max-width: 768px) 90vw, 60vw"
+                    className="h-auto max-h-[80vh] w-auto max-w-full object-contain"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Award className="h-5 w-5 text-muted-foreground" />
+          )}
         </div>
-        {badge.referenceLabel || badge.referenceValue ? (
-          <p className="text-xs text-muted-foreground">
-            {[badge.referenceLabel, badge.referenceValue]
-              .filter(Boolean)
-              .join(": ")}
-          </p>
-        ) : null}
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium">{badge.template.name}</p>
+            {badge.displayValue ? (
+              <Badge variant="secondary" className="h-6 px-2">
+                {badge.displayValue}
+              </Badge>
+            ) : null}
+          </div>
+          {badge.referenceLabel || badge.referenceValue ? (
+            <p className="text-xs text-muted-foreground">
+              {[badge.referenceLabel, badge.referenceValue]
+                .filter(Boolean)
+                .join(": ")}
+            </p>
+          ) : null}
+        </div>
       </div>
       {!system ? (
         <div className="flex gap-2">
@@ -498,7 +680,8 @@ function buildPayload(
     referenceLabel: form.referenceLabel.trim() || undefined,
     referenceValue: form.referenceValue.trim() || undefined,
     proofMediaId: form.proofMediaId || undefined,
-    visibility: form.visibility,
+    visibility:
+      template.category === "personal_best" ? "public" : form.visibility,
   };
 
   if (template.valueType === "time") {
@@ -513,8 +696,8 @@ function buildPayload(
   }
 
   if (template.valueType === "distance" || template.valueType === "number") {
-    const value = Number(form.valueNumber);
-    if (!Number.isFinite(value) || value < 0) {
+    const value = parseNumericBadgeValue(form.valueNumber, template.unit);
+    if (value == null || value < 0) {
       toast.error("Enter a valid value.");
       return null;
     }
@@ -533,9 +716,36 @@ function buildPayload(
   return payload;
 }
 
+function parseNumericBadgeValue(input: string, unit?: string): number | null {
+  const raw = input.trim();
+  if (!raw) return null;
+
+  const normalizedUnit = (unit ?? "").trim().toLowerCase();
+  let candidate = raw.toLowerCase();
+  if (normalizedUnit) {
+    const suffixPattern = new RegExp(`\\s*${normalizedUnit}$`, "i");
+    candidate = candidate.replace(suffixPattern, "");
+  }
+
+  candidate = candidate.replace(/,/g, "").trim();
+  if (!candidate) return null;
+
+  const value = Number(candidate);
+  if (!Number.isFinite(value)) return null;
+  return value;
+}
+
+function normalizeBadgeImageSrc(value?: string): string {
+  const src = value?.trim() ?? "";
+  if (!src) return "";
+  if (src.startsWith("http://") || src.startsWith("https://")) return src;
+  return src.startsWith("/") ? src : `/${src}`;
+}
+
 function formFromBadge(badge: UserBadge): BadgeFormState {
   return {
     badgeId: badge.id,
+    badgeCategory: badge.template.category,
     badgeTemplateId: badge.template.id,
     valueNumber: badge.valueNumber?.toString() ?? "",
     valueMinutes: badge.valueMinutes?.toString() ?? "",

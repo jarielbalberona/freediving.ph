@@ -868,7 +868,7 @@ CREATE TABLE IF NOT EXISTS badge_templates (
   metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (category IN ('personal_best', 'certification', 'experience', 'auto_stat')),
+  CHECK (category IN ('personal_best', 'certification', 'experience', 'community_role', 'auto_stat')),
   CHECK (value_type IN ('time', 'distance', 'number', 'text', 'none')),
   CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary')),
   CHECK (source_module IN ('profile', 'dive_map', 'courses', 'events', 'schools', 'system', 'admin')),

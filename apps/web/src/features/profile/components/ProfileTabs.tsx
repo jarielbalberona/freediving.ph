@@ -7,7 +7,17 @@ import type {
   ProfileMediaItem,
   UserBadge,
 } from "@freediving.ph/types";
-import { CalendarClock, MapPinned, MessageCircle } from "lucide-react";
+import {
+  Award,
+  CalendarClock,
+  Grid3X3,
+  IdCard,
+  MapPinned,
+  MessageCircle,
+  Route,
+  Waves,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -20,6 +30,8 @@ import { ProfileDiveMap } from "@/features/profile/components/ProfileDiveMap";
 import { ProfileGrid } from "@/features/profile/components/ProfileGrid";
 import { ProfileJourney } from "@/features/profile/components/ProfileJourney";
 import { ProfilePassport } from "@/features/profile/components/ProfilePassport";
+import { ProfileTabHeader } from "@/features/profile/components/ProfileTabHeader";
+import { cn } from "@/lib/utils";
 
 type ProfileTabsProps = {
   mediaItems: ProfileMediaItem[];
@@ -54,8 +66,24 @@ const profileTabValues: ProfileTabValue[] = [
   "dive-passport",
 ];
 
+const profileTabItems: Array<{
+  value: ProfileTabValue;
+  label: string;
+  Icon: LucideIcon;
+}> = [
+  { value: "posts", label: "Posts", Icon: Grid3X3 },
+  { value: "badges", label: "Badges", Icon: Award },
+  { value: "diving", label: "Diving", Icon: Waves },
+  { value: "dive-map", label: "Dive Map", Icon: MapPinned },
+  { value: "dive-journey", label: "Dive Journey", Icon: Route },
+  { value: "dive-passport", label: "Dive Passport", Icon: IdCard },
+];
+
 const isProfileTabValue = (value: string | null): value is ProfileTabValue =>
   profileTabValues.includes(value as ProfileTabValue);
+
+const profileTabTriggerClassName =
+  "rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent px-2 text-muted-foreground after:bg-primary hover:bg-transparent hover:text-foreground data-[active]:bg-transparent data-[active]:text-foreground";
 
 export function ProfileTabs({
   mediaItems,
@@ -81,9 +109,7 @@ export function ProfileTabs({
     : "posts";
 
   const setTab = (value: string | null) => {
-    const nextTab: ProfileTabValue = isProfileTabValue(value)
-      ? value
-      : "posts";
+    const nextTab: ProfileTabValue = isProfileTabValue(value) ? value : "posts";
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set("tab", nextTab);
     const suffix = nextParams.toString();
@@ -94,15 +120,26 @@ export function ProfileTabs({
 
   return (
     <section className="space-y-0">
-      <Separator />
-      <Tabs value={activeTab} onValueChange={setTab} className="gap-5 pt-2">
-        <TabsList className="mx-auto grid h-auto w-full max-w-3xl grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-          <TabsTrigger value="posts">Posts</TabsTrigger>
-          <TabsTrigger value="badges">Badges</TabsTrigger>
-          <TabsTrigger value="diving">Diving</TabsTrigger>
-          <TabsTrigger value="dive-map">Dive Map</TabsTrigger>
-          <TabsTrigger value="dive-journey">Dive Journey</TabsTrigger>
-          <TabsTrigger value="dive-passport">Dive Passport</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setTab} className="gap-4">
+        <TabsList
+          variant="line"
+          className="mx-auto grid h-12! w-full max-w-3xl grid-cols-6 border-b border-border/70 px-2"
+        >
+          {profileTabItems.map(({ value, label, Icon }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              aria-label={label}
+              title={label}
+              className={cn(
+                profileTabTriggerClassName,
+                activeTab === value && "border-primary text-foreground",
+              )}
+            >
+              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+              <span className="sr-only">{label}</span>
+            </TabsTrigger>
+          ))}
         </TabsList>
         <TabsContent value="posts" className="px-1">
           <ProfilePostsTab
@@ -116,23 +153,27 @@ export function ProfileTabs({
             avatarUrl={avatarUrl}
           />
         </TabsContent>
-        <TabsContent value="badges">
-          <ProfileBadges badges={badges} autoStats={autoStats} isOwner={isOwner} />
+        <TabsContent value="badges" className="px-2">
+          <ProfileBadges
+            badges={badges}
+            autoStats={autoStats}
+            isOwner={isOwner}
+          />
         </TabsContent>
-        <TabsContent value="diving">
+        <TabsContent value="diving" className="px-2">
           <ProfileDivingTab
             data={diving}
             isLoading={isLoadingDiving}
             isOwner={isOwner}
           />
         </TabsContent>
-        <TabsContent value="dive-map">
+        <TabsContent value="dive-map" className="px-2">
           <ProfileDiveMap username={username} isOwner={isOwner} />
         </TabsContent>
-        <TabsContent value="dive-journey">
+        <TabsContent value="dive-journey" className="px-2">
           <ProfileJourney username={username} isOwner={isOwner} />
         </TabsContent>
-        <TabsContent value="dive-passport">
+        <TabsContent value="dive-passport" className="px-2">
           <ProfilePassport username={username} isOwner={isOwner} />
         </TabsContent>
       </Tabs>
@@ -187,10 +228,11 @@ function ProfileDivingTab({
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-base font-semibold">Diving</h2>
-        <p className="text-muted-foreground text-sm">Presence and dive sites.</p>
-      </div>
+      <ProfileTabHeader
+        title="Diving"
+        subtitle="Presence and dive sites."
+        icon={<Waves className="h-4 w-4" />}
+      />
       <ProfileDivePresenceSection
         items={data?.presences ?? []}
         isOwner={isOwner}

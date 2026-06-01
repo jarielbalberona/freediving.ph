@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { ProfileTabHeader } from "@/features/profile/components/ProfileTabHeader";
 import {
   useProfileDiveMapQuery,
   useProfileDiveMapSiteQuery,
@@ -37,7 +38,11 @@ export function ProfileDiveMap({ username, isOwner }: ProfileDiveMapProps) {
     return markers[0];
   }, [markers, selectedSiteId]);
   const selectedID = selectedMarker?.diveSiteId ?? null;
-  const detailQuery = useProfileDiveMapSiteQuery(username, selectedID, Boolean(selectedID));
+  const detailQuery = useProfileDiveMapSiteQuery(
+    username,
+    selectedID,
+    Boolean(selectedID),
+  );
 
   if (mapQuery.isPending && !mapQuery.data) {
     return <StatusCard text="Loading Dive Map" />;
@@ -49,23 +54,40 @@ export function ProfileDiveMap({ username, isOwner }: ProfileDiveMapProps) {
 
   if (markers.length === 0) {
     return (
-      <EmptyDiveMapState
-        title={isOwner ? "No proof-backed dive sites yet." : "No visible Dive Map sites yet."}
-      />
+      <section className="space-y-3">
+        <ProfileTabHeader
+          title="Dive Map"
+          subtitle="Sites you've visited and the memories tied to them."
+          icon={<MapPinned className="h-4 w-4" />}
+          action={
+            <Badge variant="outline" className="h-6 px-2 text-xs">
+              {formatVisitedCount(mapQuery.data)}
+            </Badge>
+          }
+        />
+        <EmptyDiveMapState
+          title={
+            isOwner
+              ? "No proof-backed dive sites yet."
+              : "No visible Dive Map sites yet."
+          }
+        />
+      </section>
     );
   }
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-base font-semibold">
-          <MapPinned className="h-4 w-4" />
-          <h2>Dive Map</h2>
-        </div>
-        <Badge variant="outline" className="h-6 px-2 text-xs">
-          {formatVisitedCount(mapQuery.data)}
-        </Badge>
-      </div>
+      <ProfileTabHeader
+        title="Dive Map"
+        subtitle="Sites you've visited and the memories tied to them."
+        icon={<MapPinned className="h-4 w-4" />}
+        action={
+          <Badge variant="outline" className="h-6 px-2 text-xs">
+            {formatVisitedCount(mapQuery.data)}
+          </Badge>
+        }
+      />
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
         <div className="space-y-3">
           <ProfileDiveMapVisual
@@ -102,8 +124,9 @@ function ProfileDiveMapVisual({
 }) {
   const markersWithCoordinates = markers.filter(hasCoordinates);
   const selectedMarker =
-    markersWithCoordinates.find((marker) => marker.diveSiteId === selectedSiteId) ??
-    markersWithCoordinates[0];
+    markersWithCoordinates.find(
+      (marker) => marker.diveSiteId === selectedSiteId,
+    ) ?? markersWithCoordinates[0];
   const center = selectedMarker
     ? { lat: selectedMarker.latitude, lng: selectedMarker.longitude }
     : PHILIPPINES_CENTER;
@@ -115,8 +138,8 @@ function ProfileDiveMapVisual({
           <MapPinned className="mx-auto h-5 w-5 text-muted-foreground" />
           <p className="font-medium text-sm">Map coordinates unavailable</p>
           <p className="text-muted-foreground text-xs leading-5">
-            The proof-backed sites are still listed below. Coordinates can be added
-            to dive sites later without changing Dive Map ownership.
+            The proof-backed sites are still listed below. Coordinates can be
+            added to dive sites later without changing Dive Map ownership.
           </p>
         </div>
       </div>
@@ -204,7 +227,10 @@ function ProfileMapMarkers({
       if (currentMarker) {
         removeMarkerContent(currentMarker.content);
         currentMarker.content = content;
-        currentMarker.position = { lat: marker.latitude, lng: marker.longitude };
+        currentMarker.position = {
+          lat: marker.latitude,
+          lng: marker.longitude,
+        };
         currentMarker.zIndex = active ? 100 : 1;
         continue;
       }
@@ -218,7 +244,9 @@ function ProfileMapMarkers({
         zIndex: active ? 100 : 1,
       });
 
-      nextMarker.addEventListener("gmp-click", () => onSelectSite(marker.diveSiteId));
+      nextMarker.addEventListener("gmp-click", () =>
+        onSelectSite(marker.diveSiteId),
+      );
       markersRef.current.set(marker.diveSiteId, nextMarker);
     }
   }, [map, markerLibrary, markers, onSelectSite, selectedSiteId]);
@@ -304,8 +332,12 @@ function DiveMapSiteDetail({
   marker?: ProfileDiveMapMarker;
   isLoading: boolean;
   isError: boolean;
-  media: NonNullable<ReturnType<typeof useProfileDiveMapSiteQuery>["data"]>["media"];
-  memories: NonNullable<ReturnType<typeof useProfileDiveMapSiteQuery>["data"]>["memories"];
+  media: NonNullable<
+    ReturnType<typeof useProfileDiveMapSiteQuery>["data"]
+  >["media"];
+  memories: NonNullable<
+    ReturnType<typeof useProfileDiveMapSiteQuery>["data"]
+  >["memories"];
 }) {
   if (!marker) return null;
 
@@ -324,7 +356,8 @@ function DiveMapSiteDetail({
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         <Badge variant="outline" className="h-5 px-2 text-[11px]">
-          {marker.mediaPostCount} proof {marker.mediaPostCount === 1 ? "post" : "posts"}
+          {marker.mediaPostCount} proof{" "}
+          {marker.mediaPostCount === 1 ? "post" : "posts"}
         </Badge>
         <Badge variant="outline" className="h-5 px-2 text-[11px]">
           {formatShortDate(marker.firstVisitedAt)}
@@ -367,7 +400,9 @@ function DiveMapSiteDetail({
             {memories.slice(0, 3).map((memory) => (
               <div key={memory.id} className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="line-clamp-1 text-xs font-medium">{memory.title}</p>
+                  <p className="line-clamp-1 text-xs font-medium">
+                    {memory.title}
+                  </p>
                   <Badge variant="outline" className="h-5 px-2 text-[11px]">
                     {memory.visibility}
                   </Badge>
@@ -397,7 +432,10 @@ function hasCoordinates(
   );
 }
 
-function createMarkerContent(isSelected: boolean, count: number): HTMLDivElement {
+function createMarkerContent(
+  isSelected: boolean,
+  count: number,
+): HTMLDivElement {
   const marker = document.createElement("div");
   marker.style.width = isSelected ? "42px" : "34px";
   marker.style.height = isSelected ? "42px" : "34px";
@@ -425,10 +463,6 @@ function removeMarkerContent(content: Node | null | undefined) {
 function EmptyDiveMapState({ title }: { title: string }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-center gap-2 text-base font-semibold">
-        <MapPinned className="h-4 w-4" />
-        <h2>Dive Map</h2>
-      </div>
       <div className="rounded-xl border border-dashed border-border/70 bg-background/55 px-4 py-4">
         <p className="text-sm font-semibold text-foreground">{title}</p>
       </div>

@@ -230,7 +230,8 @@ func TestCreateBadgeRejectsSystemTemplate(t *testing.T) {
 }
 
 func TestDiveSitesVisitedAutoStatCarriesPassportFieldsAndContractMetadata(t *testing.T) {
-	stats := buildAutoStats([]profilesrepo.BadgeTemplate{{
+	svc := New(&badgeTestRepo{})
+	stats := svc.buildAutoStats([]profilesrepo.BadgeTemplate{{
 		ID:           "550e8400-e29b-41d4-a716-446655440001",
 		Slug:         "dive-sites-visited",
 		Name:         "Dive Sites Visited",
@@ -254,5 +255,37 @@ func TestDiveSitesVisitedAutoStatCarriesPassportFieldsAndContractMetadata(t *tes
 	}
 	if stat.MetadataJSON["contract"] != "user_dive_sites" {
 		t.Fatalf("missing user_dive_sites contract metadata: %#v", stat.MetadataJSON)
+	}
+	if stat.Template.BadgeImageURL != "images/badges/dive-sites-visited.png" {
+		t.Fatalf("missing derived badge image url: %#v", stat.Template)
+	}
+}
+
+func TestBadgeCategorySummariesIncludeVisibleCategoriesAndAutoStat(t *testing.T) {
+	svc := New(&badgeTestRepo{}, WithMediaBaseURL("https://cdn.example.com"))
+	summaries := svc.buildBadgeCategorySummaries(
+		[]profilesrepo.UserBadge{
+			{Template: profilesrepo.BadgeTemplate{Category: "experience"}},
+			{Template: profilesrepo.BadgeTemplate{Category: "community_role"}},
+			{Template: profilesrepo.BadgeTemplate{Category: "community_role"}},
+		},
+		[]UserBadge{
+			{Template: BadgeTemplate{Category: "auto_stat"}},
+		},
+	)
+	if len(summaries) != 3 {
+		t.Fatalf("expected 3 summaries, got %d: %#v", len(summaries), summaries)
+	}
+	if summaries[0].Category != "experience" || summaries[0].Label != "Field Experience" || summaries[0].Count != 1 {
+		t.Fatalf("unexpected experience summary: %#v", summaries[0])
+	}
+	if summaries[0].ImageURL != "https://cdn.example.com/images/badges/field-experience.png" {
+		t.Fatalf("unexpected experience image url: %#v", summaries[0])
+	}
+	if summaries[1].Category != "community_role" || summaries[1].Label != "Leadership Crest" || summaries[1].Count != 2 {
+		t.Fatalf("unexpected community role summary: %#v", summaries[1])
+	}
+	if summaries[2].Category != "auto_stat" || summaries[2].Label != "Explorer Stamp" || summaries[2].Count != 1 {
+		t.Fatalf("unexpected auto stat summary: %#v", summaries[2])
 	}
 }

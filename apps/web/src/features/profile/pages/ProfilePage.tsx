@@ -29,6 +29,7 @@ import {
   useProfileBadgesQuery,
   useProfileViewQuery,
 } from "@/features/profile/hooks/queries";
+import { queryKeys } from "@/lib/query/query-keys";
 import { getProfileSettingsRoute, normalizeUsername } from "@/lib/routes";
 
 type ProfilePageProps = {
@@ -82,17 +83,6 @@ export default function ProfilePage({ username }: ProfilePageProps) {
   });
   const isFollowPending =
     saveUserMutation.isPending || unsaveUserMutation.isPending;
-
-  const viewerRelationship = profileQuery.data?.viewerRelationship;
-
-  const isOwner = Boolean(viewerRelationship?.isSelf);
-  const canMessage = Boolean(viewerRelationship?.canMessage);
-  const isFollowing = Boolean(
-    viewerRelationship?.isFollowing ??
-      savedHubQuery.data?.users?.some(
-        (saved) => saved.userId === profileQuery.data?.id,
-      ),
-  );
   const mediaItems = mediaQuery.data?.pages.flatMap((page) => page.items) ?? [];
 
   if (profileQuery.isPending && !profileQuery.data) {
@@ -124,14 +114,101 @@ export default function ProfilePage({ username }: ProfilePageProps) {
     );
   }
 
+  const profile = profileQuery.data;
+  const viewerRelationship = profile.viewerRelationship;
+  const signedInUser = session.status === "signed_in" ? session.me : null;
+  const isOwnerById = Boolean(
+    signedInUser?.userId && profile.id && signedInUser.userId === profile.id,
+  );
+  const isOwnerByUsername = Boolean(
+    signedInUser?.username &&
+      profile.username &&
+      normalizeUsername(signedInUser.username) ===
+        normalizeUsername(profile.username),
+  );
+  const isOwner = Boolean(
+    viewerRelationship?.isSelf ||
+      viewerRelationship?.canEdit ||
+      isOwnerById ||
+      isOwnerByUsername,
+  );
+  const showVisitorActions = !isOwner && session.status !== "loading";
+  const isFollowing = Boolean(
+    viewerRelationship?.isFollowing ??
+      savedHubQuery.data?.users?.some((saved) => saved.userId === profile.id),
+  );
+  const patchFollowingState = (nextIsFollowing: boolean) => {
+    queryClient.setQueryData(
+      queryKeys.profile.view(normalizedUsername),
+      (current: typeof profile | undefined) => {
+        if (!current) return current;
+        return {
+          ...current,
+          counts: {
+            ...current.counts,
+            followers: Math.max(
+              0,
+              current.counts.followers + (nextIsFollowing ? 1 : -1),
+            ),
+          },
+          viewerRelationship: current.viewerRelationship
+            ? {
+                ...current.viewerRelationship,
+                isFollowing: nextIsFollowing,
+              }
+            : current.viewerRelationship,
+        };
+      },
+    );
+    queryClient.setQueryData(
+      queryKeys.profile.saved(),
+      (current: typeof savedHubQuery.data | undefined) => {
+        if (!current) return current;
+        const users = current.users ?? [];
+        const targetUserId = profile.id;
+        const existingIndex = users.findIndex(
+          (saved) => saved.userId === targetUserId,
+        );
+        if (nextIsFollowing) {
+          if (existingIndex >= 0) return current;
+          return {
+            ...current,
+            users: [
+              ...users,
+              {
+                userId: targetUserId,
+                username: profile.username,
+                displayName: profile.displayName ?? profile.username,
+                emailVerified: false,
+                phoneVerified: false,
+                avatarUrl: profile.avatarUrl,
+                homeArea: profile.locationText,
+                certLevel: undefined,
+                buddyCount: 0,
+                reportCount: 0,
+                savedAt: new Date().toISOString(),
+              },
+            ],
+          };
+        }
+        if (existingIndex === -1) return current;
+        return {
+          ...current,
+          users: users.filter((saved) => saved.userId !== targetUserId),
+        };
+      },
+    );
+  };
+
   return (
     <div className="mx-auto max-w-[935px]">
       <div className="space-y-6 md:space-y-8">
         <ProfileHeader
-          profile={profileQuery.data}
+          profile={profile}
           isOwner={isOwner}
-          canMessage={canMessage}
+          showVisitorActions={showVisitorActions}
           isFollowing={isFollowing}
+          badgeCategorySummaries={badgesQuery.data?.categorySummaries ?? []}
           settingsHref={
             currentProfileHref === `/${normalizedUsername}`
               ? getProfileSettingsRoute(normalizedUsername)
@@ -140,19 +217,23 @@ export default function ProfilePage({ username }: ProfilePageProps) {
           onFollowClick={() => {
             if (isFollowPending) return;
             if (isFollowing) {
-              unsaveUserMutation.mutate(profileQuery.data.id);
+              unsaveUserMutation.mutate(profile.id, {
+                onSuccess: () => patchFollowingState(false),
+              });
               return;
             }
-            saveUserMutation.mutate(profileQuery.data.id);
+            saveUserMutation.mutate(profile.id, {
+              onSuccess: () => patchFollowingState(true),
+            });
           }}
           isFollowPending={isFollowPending}
           onMessageClick={() => {
             messageClickStartRef.current = currentMessagePerfTime();
             logMessagingPerf("profile_message_click", {
-              targetKnown: Boolean(profileQuery.data.id),
+              targetKnown: Boolean(profile.id),
             });
             openThreadMutation.mutate({
-              profileUserId: profileQuery.data.id,
+              profileUserId: profile.id,
             });
           }}
           isMessagePending={openThreadMutation.isPending}
@@ -167,10 +248,8 @@ export default function ProfilePage({ username }: ProfilePageProps) {
             void mediaQuery.fetchNextPage();
           }}
           username={profileQuery.data.username}
-          displayName={
-            profileQuery.data.displayName ?? profileQuery.data.username
-          }
-          avatarUrl={profileQuery.data.avatarUrl}
+          displayName={profile.displayName ?? profile.username}
+          avatarUrl={profile.avatarUrl}
           diving={divingQuery.data}
           isLoadingDiving={divingQuery.isPending}
           badges={badgesQuery.data?.badges ?? []}

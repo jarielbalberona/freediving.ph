@@ -530,7 +530,17 @@ func profileBadgesToDTO(input profilesservice.ProfileBadges, includeTemplates bo
 	for _, badge := range input.AutoStats {
 		autoStats = append(autoStats, userBadgeToDTO(badge))
 	}
-	resp := ProfileBadgesResponse{Badges: badges, AutoStats: autoStats}
+	categorySummaries := make([]BadgeCategorySummary, 0, len(input.CategorySummaries))
+	for _, item := range input.CategorySummaries {
+		categorySummaries = append(categorySummaries, BadgeCategorySummary{
+			Category:     item.Category,
+			Label:        item.Label,
+			IdentityName: item.IdentityName,
+			ImageURL:     item.ImageURL,
+			Count:        item.Count,
+		})
+	}
+	resp := ProfileBadgesResponse{Badges: badges, AutoStats: autoStats, CategorySummaries: categorySummaries}
 	if includeTemplates {
 		resp.Templates = badgeTemplatesToDTO(input.Templates)
 	}
@@ -541,21 +551,22 @@ func badgeTemplatesToDTO(input []profilesservice.BadgeTemplate) []BadgeTemplate 
 	items := make([]BadgeTemplate, 0, len(input))
 	for _, item := range input {
 		items = append(items, BadgeTemplate{
-			ID:           item.ID,
-			Slug:         item.Slug,
-			Name:         item.Name,
-			Category:     item.Category,
-			ValueType:    item.ValueType,
-			Unit:         item.Unit,
-			Icon:         item.Icon,
-			Description:  item.Description,
-			IsSystem:     item.IsSystem,
-			DisplayOrder: item.DisplayOrder,
-			Rarity:       item.Rarity,
-			IsPublic:     item.IsPublic,
-			IsRepeatable: item.IsRepeatable,
-			SourceModule: item.SourceModule,
-			MetadataJSON: item.MetadataJSON,
+			ID:            item.ID,
+			Slug:          item.Slug,
+			Name:          item.Name,
+			Category:      item.Category,
+			ValueType:     item.ValueType,
+			Unit:          item.Unit,
+			Icon:          item.Icon,
+			BadgeImageURL: item.BadgeImageURL,
+			Description:   item.Description,
+			IsSystem:      item.IsSystem,
+			DisplayOrder:  item.DisplayOrder,
+			Rarity:        item.Rarity,
+			IsPublic:      item.IsPublic,
+			IsRepeatable:  item.IsRepeatable,
+			SourceModule:  item.SourceModule,
+			MetadataJSON:  item.MetadataJSON,
 		})
 	}
 	return items

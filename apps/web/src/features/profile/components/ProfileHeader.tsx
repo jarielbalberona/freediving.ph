@@ -1,3 +1,4 @@
+import type { BadgeCategorySummary } from "@freediving.ph/types";
 import Link from "next/link";
 import { BadgeCheck, Settings2 } from "lucide-react";
 
@@ -8,6 +9,7 @@ import {
   instructorAgencyLabels,
   usePublicInstructor,
 } from "@/features/instructors";
+import { ProfileBadgeIdentityRow } from "@/features/profile/components/ProfileBadgeIdentityRow";
 import type { ProfileView } from "@/features/profile/types";
 import { getProfileSettingsRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -15,13 +17,14 @@ import { cn } from "@/lib/utils";
 type ProfileHeaderProps = {
   profile: ProfileView;
   isOwner: boolean;
-  canMessage: boolean;
+  showVisitorActions?: boolean;
   isFollowing?: boolean;
   settingsHref?: string | null;
   onFollowClick?: () => void;
   isFollowPending?: boolean;
   onMessageClick?: () => void;
   isMessagePending?: boolean;
+  badgeCategorySummaries?: BadgeCategorySummary[];
 };
 
 const formatCount = (value: number): string =>
@@ -45,14 +48,12 @@ function ProfileStat({
 }
 
 function ActionButtons({
-  canMessage,
   isFollowing,
   onFollowClick,
   isFollowPending,
   onMessageClick,
   isMessagePending,
 }: {
-  canMessage: boolean;
   isFollowing?: boolean;
   onFollowClick?: () => void;
   isFollowPending?: boolean;
@@ -63,7 +64,7 @@ function ActionButtons({
     <div className="flex flex-wrap gap-2">
       <Button
         variant={isFollowing ? "outline" : "default"}
-        disabled={!canMessage || isFollowPending}
+        disabled={isFollowPending}
         onClick={onFollowClick}
         size="sm"
       >
@@ -71,7 +72,7 @@ function ActionButtons({
       </Button>
       <Button
         variant="outline"
-        disabled={!canMessage || isMessagePending}
+        disabled={isMessagePending}
         onClick={onMessageClick}
         size="sm"
       >
@@ -84,13 +85,14 @@ function ActionButtons({
 export function ProfileHeader({
   profile,
   isOwner,
-  canMessage,
+  showVisitorActions = true,
   isFollowing,
   settingsHref,
   onFollowClick,
   isFollowPending = false,
   onMessageClick,
   isMessagePending = false,
+  badgeCategorySummaries = [],
 }: ProfileHeaderProps) {
   const resolvedSettingsHref =
     settingsHref ?? getProfileSettingsRoute(profile.username);
@@ -154,10 +156,10 @@ export function ProfileHeader({
                 {profile.bio}
               </p>
             ) : null}
+            <ProfileBadgeIdentityRow items={badgeCategorySummaries} />
           </div>
-          {!isOwner ? (
+          {!isOwner && showVisitorActions ? (
             <ActionButtons
-              canMessage={canMessage}
               isFollowing={isFollowing}
               onFollowClick={onFollowClick}
               isFollowPending={isFollowPending}
@@ -194,16 +196,15 @@ export function ProfileHeader({
               >
                 <Settings2 className="size-4" />
               </Link>
-            ) : (
+            ) : showVisitorActions ? (
               <ActionButtons
-                canMessage={canMessage}
                 isFollowing={isFollowing}
                 onFollowClick={onFollowClick}
                 isFollowPending={isFollowPending}
                 onMessageClick={onMessageClick}
                 isMessagePending={isMessagePending}
               />
-            )}
+            ) : null}
           </div>
 
           <div className="flex flex-wrap gap-8">
@@ -233,6 +234,7 @@ export function ProfileHeader({
                 {profile.bio}
               </p>
             ) : null}
+            <ProfileBadgeIdentityRow items={badgeCategorySummaries} />
           </div>
         </div>
       </div>

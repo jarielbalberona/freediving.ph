@@ -5,6 +5,7 @@ import {
   CalendarHeart,
   LayoutDashboard,
   School,
+  ShieldCheck,
   UserRoundPen,
   Users,
 } from "lucide-react";
@@ -26,7 +27,7 @@ import {
 import { useSession } from "@/features/auth/session";
 import { isActiveRoute } from "@/config/nav";
 
-const managementItems = [
+export const managementItems = [
   {
     href: "/management",
     label: "Overview",
@@ -51,6 +52,11 @@ const managementItems = [
     href: "/management/instructor-profile",
     label: "Instructor Profile",
     icon: UserRoundPen,
+  },
+  {
+    href: "/management/badges",
+    label: "My Badges & Credentials",
+    icon: ShieldCheck,
   },
 ];
 

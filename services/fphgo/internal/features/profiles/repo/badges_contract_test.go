@@ -1,9 +1,12 @@
 package repo
 
 import (
+	"math"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func TestDiveSitesVisitedContractUsesUserDiveSitesSource(t *testing.T) {
@@ -76,5 +79,27 @@ func TestPublicProfileBadgesExcludePrivateUserBadges(t *testing.T) {
 	source := string(raw)
 	if !strings.Contains(source, "ub.visibility = 'public'") {
 		t.Fatal("public profile badges must filter out private user badges")
+	}
+}
+
+func TestNumericValueRoundTripForBadgeNumbers(t *testing.T) {
+	value := 23.5
+	numeric := numericValue(&value)
+	if !numeric.Valid {
+		t.Fatal("numericValue must return a valid pg numeric for finite floats")
+	}
+
+	roundTrip := numericPtr(numeric)
+	if roundTrip == nil {
+		t.Fatal("numericPtr must decode numeric values produced by numericValue")
+	}
+	if math.Abs(*roundTrip-value) > 0.000001 {
+		t.Fatalf("unexpected round-trip value: got %v want %v", *roundTrip, value)
+	}
+}
+
+func TestNumericPtrHandlesInvalidNumeric(t *testing.T) {
+	if value := numericPtr(pgtype.Numeric{}); value != nil {
+		t.Fatal("numericPtr should return nil for invalid numerics")
 	}
 }
