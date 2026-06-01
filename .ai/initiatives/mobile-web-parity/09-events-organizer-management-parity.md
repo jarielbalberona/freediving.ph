@@ -1,9 +1,24 @@
 # 09 Events Organizer Management Parity
 
-Status: Ready After Previous
+Status: PASS
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses; implement only role-guarded organizer capabilities backed by existing contracts.
+
+## Execution Result
+
+- Final status: PASS
+- Completed: 2026-06-01
+- Report: `.ai/initiatives/mobile-web-parity/reports/09-events-organizer-management-parity.md`
+- Implemented mobile-native organizer management for contract-proven event participant, payment review, and pass check-in workflows.
+- Added route/deep-link coverage for `/events/[slug]/manage`, guarded by `event.viewerCanManage` from the backend event detail contract.
+- Kept full desktop setup/settings/program/sponsor/award destructive management out of mobile scope for this initiative.
+- Verification passed:
+  - `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test -- events-organizer-management-parity.test.mjs resolve-fph-link.test.mjs events-attendee-parity.test.mjs`
+  - `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`
+  - `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`
+  - `git diff --check`
+  - iOS Simulator smoke on iPhone 17 Pro Max with the running Expo/Metro session.
 
 ## Readiness Rationale
 
@@ -126,10 +141,13 @@ If simulator testing cannot be run, document the blocker and include a manual ch
 
 ## 16. Manual Smoke Checklist
 
-- Open as non-participant, attendee, organizer, and admin.
-- Attempt each management action.
-- Verify destructive confirmations.
-- Verify check-in/payment/participant updates in web after mobile action.
+- Open `/events/event-1/manage` as an organizer/admin and confirm the event management header, summary counts, check-in token input, filters, and participant cards render.
+- Open as a non-manager and confirm the backend-gated "Organizer access required" state.
+- Approve and reject a seeded pending participant; verify the confirmation appears before rejection and web reflects the resulting status.
+- Mark a seeded confirmed participant as attended and no-show; verify web reflects the resulting status.
+- Paste a seeded pass token and check in; verify the pass and participant status in web.
+- Open payment proof for a seeded submitted payment; approve and reject throwaway payments only.
+- Confirm back navigation returns to event detail and the public attendee surface remains unchanged for non-organizers.
 
 ## 17. Rollback/Risk Notes
 

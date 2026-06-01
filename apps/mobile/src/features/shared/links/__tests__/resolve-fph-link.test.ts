@@ -34,10 +34,22 @@ test("resolves confirmed Freediving Philippines URLs to native mobile routes", (
     "https://freediving.ph/events/some-event/pass/token-1",
     "/(app)/(tabs)/(home)/events/some-event/pass/token-1",
   );
+  assertNative(
+    "https://freediving.ph/events/some-event/manage",
+    "/(app)/(tabs)/(home)/events/some-event/manage",
+  );
   assertNative("https://freediving.ph/schools", "/(app)/(tabs)/(home)/schools");
   assertNative(
     "https://freediving.ph/schools/school-one",
     "/(app)/(tabs)/(home)/schools/school-one",
+  );
+  assertNative(
+    "https://freediving.ph/schools/school-one/manage",
+    "/(app)/(tabs)/(home)/manage-schools?slug=school-one",
+  );
+  assertNative(
+    "https://freediving.ph/management/schools/school-one",
+    "/(app)/(tabs)/(home)/manage-schools?slug=school-one",
   );
   assertNative(
     "https://freediving.ph/schools/school-one/courses/intro-course",
@@ -55,6 +67,24 @@ test("resolves confirmed Freediving Philippines URLs to native mobile routes", (
   assertNative(
     "https://freediving.ph/instructors/jariel",
     "/(app)/(tabs)/(home)/instructors/jariel",
+  );
+  assertNative("https://freediving.ph/saved", "/(app)/(tabs)/(home)/saved");
+  assertNative("https://freediving.ph/search", "/(app)/(tabs)/search");
+  assertNative(
+    "https://freediving.ph/admin/moderation",
+    "/(app)/(tabs)/(home)/moderation",
+  );
+  assertNative(
+    "https://freediving.ph/admin/moderation/reports/report-1",
+    "/(app)/(tabs)/(home)/moderation?reportId=report-1",
+  );
+  assertNative("https://freediving.ph/sign-in", "/sign-in");
+  assertNative("https://freediving.ph/sign-up", "/sign-up");
+  assertNative("https://freediving.ph/onboarding", "/onboarding");
+  assertNative("https://freediving.ph/guides", "/(app)/(tabs)/(home)/learn");
+  assertNative(
+    "https://freediving.ph/founder-note",
+    "/(app)/(tabs)/(home)/founders-note",
   );
   assertNative("https://freediving.ph/explore", "/(app)/(tabs)/(home)/explore");
   assertNative(
@@ -77,6 +107,11 @@ test("resolves confirmed Freediving Philippines URLs to native mobile routes", (
   assertNative(
     "https://freediving.ph/profile/jariel",
     "/(app)/(tabs)/(home)/profile/jariel",
+  );
+  assertNative("https://freediving.ph/profile", "/(app)/(tabs)/profile");
+  assertNative(
+    "https://freediving.ph/profile/settings",
+    "/(app)/(tabs)/profile/settings",
   );
   assertNative(
     "https://freediving.ph/jariel",
@@ -103,10 +138,8 @@ test("resolves confirmed Freediving Philippines URLs to native mobile routes", (
 
 test("keeps unsupported internal URLs on browser fallback", () => {
   assertUnsupported("https://freediving.ph/admin");
-  assertUnsupported("https://freediving.ph/schools/school-one/manage");
   assertUnsupported("https://freediving.ph/instructor/admin");
   assertUnsupported("https://freediving.ph/media");
-  assertUnsupported("https://freediving.ph/events/some-event/manage");
   assertUnsupported("https://freediving.ph/explore/submissions");
 });
 

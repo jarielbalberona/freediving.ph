@@ -4,12 +4,14 @@ import type { ChikaCommentResponse } from "@freediving.ph/types";
 
 import { SocialActionRow, UserIdentityRow } from "@/components/social";
 import { formatChikaDate, stripMarkdownPreview } from "@/features/chika/lib/chika-format";
+import { ReportAction } from "@/features/safety/components/report-action";
 import { LinkedText } from "@/features/shared/links/components/LinkedText";
 
 type ChikaCommentCardProps = {
   actionsDisabled?: boolean;
   comment: ChikaCommentResponse;
   depth?: number;
+  reportEnabled?: boolean;
   onReact?: (commentId: string, type: "upvote" | "downvote" | null) => void;
   onReply?: (commentId: string) => void;
 };
@@ -18,6 +20,7 @@ export function ChikaCommentCard({
   actionsDisabled = false,
   comment,
   depth = 0,
+  reportEnabled = false,
   onReact,
   onReply,
 }: ChikaCommentCardProps) {
@@ -98,6 +101,16 @@ export function ChikaCommentCard({
                         ]
                       : []),
                   ]}
+                />
+              </View>
+            ) : null}
+            {reportEnabled ? (
+              <View className="mt-2 self-start">
+                <ReportAction
+                  buttonLabel="Report reply"
+                  contextLabel="reply"
+                  targetId={comment.id}
+                  targetType="chika_comment"
                 />
               </View>
             ) : null}

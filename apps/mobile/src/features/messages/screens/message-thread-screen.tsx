@@ -19,6 +19,7 @@ import {
   useMessageThreadQuery,
   useThreadMessagesQuery,
 } from "@/features/messages/hooks/use-message-queries";
+import { ReportAction } from "@/features/safety/components/report-action";
 
 const firstParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
@@ -181,7 +182,7 @@ export function MessageThreadScreen() {
             {messages.map((message) => (
               <View
                 key={message.id}
-                className={`max-w-[86%] rounded-2xl p-3 ${
+                className={`max-w-[86%] gap-2 rounded-2xl p-3 ${
                   message.isOwn ? "self-end bg-primary" : "self-start bg-card"
                 }`}
               >
@@ -192,6 +193,16 @@ export function MessageThreadScreen() {
                 >
                   {message.body}
                 </Text>
+                {!message.isOwn && message.kind === "text" ? (
+                  <View className="self-start">
+                    <ReportAction
+                      buttonLabel="Report message"
+                      contextLabel="message"
+                      targetId={message.id}
+                      targetType="message"
+                    />
+                  </View>
+                ) : null}
               </View>
             ))}
           </View>

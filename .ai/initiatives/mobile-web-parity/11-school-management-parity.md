@@ -1,9 +1,24 @@
 # 11 School Management Parity
 
-Status: Ready After Previous
+Status: PASS
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses; implement only role-guarded school owner/admin capabilities backed by existing contracts.
+
+## Execution Result
+
+- Final status: PASS
+- Completed: 2026-06-01
+- Report: `.ai/initiatives/mobile-web-parity/reports/11-school-management-parity.md`
+- Replaced the mobile school management placeholder with a backend-gated native management workspace.
+- Implemented managed-school switcher/dashboard, read-only courses/sessions/members/payment-methods surfaces, booking search/filter, booking approve/reject/complete/cancel actions, session complete/cancel actions, payment proof opening, and payment verify/reject actions.
+- Kept full profile editing, course/session creation/editing, member mutation, payment method mutation, school deletion, and other destructive desktop management out of mobile scope.
+- Verification passed:
+  - `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test -- school-management-parity.test.mjs resolve-fph-link.test.mjs schools-public-bookings-parity.test.mjs`
+  - `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`
+  - `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`
+  - `git diff --check`
+  - iOS Simulator smoke on iPhone 17 Pro Max with the running Expo/Metro session.
 
 ## Readiness Rationale
 
@@ -129,9 +144,12 @@ If simulator testing cannot be run, document the blocker and include a manual ch
 
 - Open as signed-out, student, instructor, school admin, and owner.
 - Verify route access for each role.
-- Exercise each approved mutation.
-- Confirm changed state in web management.
-- Confirm destructive actions require confirmation.
+- Confirm instructors see read-only school management and owner/admin-only actions are hidden.
+- Approve/reject a seeded pending booking; confirm rejection asks for confirmation and web reflects the status.
+- Complete/cancel a seeded approved or scheduled booking; confirm cancellation asks for confirmation and web reflects the status.
+- Open a seeded payment proof; approve and reject throwaway payments only.
+- Complete/cancel a seeded scheduled session; confirm cancellation asks for confirmation and web reflects the status.
+- Confirm full school deletion, course deletion, member removal, and payment method deletion are not exposed on mobile.
 
 ## 17. Rollback/Risk Notes
 

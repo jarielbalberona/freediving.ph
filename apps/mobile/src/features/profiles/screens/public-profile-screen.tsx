@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { Stack } from "expo-router";
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import {
   MobileErrorState,
@@ -20,6 +20,7 @@ import {
 import { ProfileMediaMasonryGrid } from "@/features/profiles/components/profile-media-masonry-grid";
 import { ProfileDiveSpotHighlights } from "@/features/profiles/components/profile-dive-spot-highlights";
 import { ProfileTab, ProfileTabs } from "@/features/profiles/components/profile-tabs";
+import { ProfileSafetyActions } from "@/features/safety/components/profile-safety-actions";
 import {
   useProfileBadgesQuery,
   useProfileDiveMapQuery,
@@ -98,7 +99,9 @@ export function PublicProfileScreen() {
               className="rounded-full bg-secondary px-3 py-2"
               onPress={() => void profileQuery.refetch()}
             >
-              Try again
+              <Text className="text-center font-semibold text-secondary-foreground">
+                Try again
+              </Text>
             </Pressable>
           </View>
         </MobileScrollScreen>
@@ -123,7 +126,15 @@ export function PublicProfileScreen() {
           profile={profile as HeaderProfile}
           stats={headerStats}
         />
-        {!isOwner ? <ProfileBuddyActions profile={profile} /> : null}
+        {!isOwner ? (
+          <>
+            <ProfileSafetyActions profile={profile} />
+            {profile.viewerRelationship?.isBlocked ||
+            profile.viewerRelationship?.hasBlockedViewer ? null : (
+              <ProfileBuddyActions profile={profile} />
+            )}
+          </>
+        ) : null}
       </MobileSection>
 
       <ProfileDiveSpotHighlights highlights={highlights} />

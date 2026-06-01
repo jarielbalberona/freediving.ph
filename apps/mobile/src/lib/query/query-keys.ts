@@ -95,6 +95,8 @@ export const mobileQueryKeys = {
       [...mobileQueryKeys.events.all, "detail", eventId, "my-pass"] as const,
     paymentMethods: (eventId: string) =>
       [...mobileQueryKeys.events.all, "detail", eventId, "payment-methods"] as const,
+    participants: (eventId: string) =>
+      [...mobileQueryKeys.events.all, "management", eventId, "participants"] as const,
     program: (eventId: string) =>
       [...mobileQueryKeys.events.all, "detail", eventId, "program"] as const,
     prizes: (eventId: string) =>
@@ -128,6 +130,20 @@ export const mobileQueryKeys = {
     sessions: (slug: string, courseSlug: string) =>
       [...mobileQueryKeys.schools.course(slug, courseSlug), "sessions"] as const,
     myBookings: () => [...mobileQueryKeys.schools.all, "my-bookings"] as const,
+    management: () => [...mobileQueryKeys.schools.all, "management"] as const,
+    managedList: () => [...mobileQueryKeys.schools.management(), "list"] as const,
+    managedDetail: (slug: string) =>
+      [...mobileQueryKeys.schools.management(), "detail", slug] as const,
+    managedCourses: (slug: string) =>
+      [...mobileQueryKeys.schools.managedDetail(slug), "courses"] as const,
+    managedSessions: (slug: string) =>
+      [...mobileQueryKeys.schools.managedDetail(slug), "sessions"] as const,
+    managedBookings: (slug: string) =>
+      [...mobileQueryKeys.schools.managedDetail(slug), "bookings"] as const,
+    managedMembers: (slug: string) =>
+      [...mobileQueryKeys.schools.managedDetail(slug), "members"] as const,
+    managedPaymentMethods: (slug: string) =>
+      [...mobileQueryKeys.schools.managedDetail(slug), "payment-methods"] as const,
   },
   instructors: {
     all: ["instructors"] as const,
@@ -211,5 +227,23 @@ export const mobileQueryKeys = {
       [...mobileQueryKeys.profile.all, "public", username, "journey"] as const,
     diveMemories: (username: string) =>
       [...mobileQueryKeys.profile.all, "public", username, "dive-memories"] as const,
+    saved: () => [...mobileQueryKeys.profile.all, "saved"] as const,
+  },
+  safety: {
+    all: ["safety"] as const,
+    blocks: () => [...mobileQueryKeys.safety.all, "blocks"] as const,
+    reports: () => [...mobileQueryKeys.safety.all, "reports"] as const,
+  },
+  moderation: {
+    all: ["moderation"] as const,
+    reports: (params?: { status?: string; targetType?: string }) =>
+      [...mobileQueryKeys.moderation.all, "reports", params ?? {}] as const,
+    report: (reportId: string) =>
+      [...mobileQueryKeys.moderation.all, "reports", reportId] as const,
+  },
+  search: {
+    all: ["search"] as const,
+    people: (query: string) => [...mobileQueryKeys.search.all, "people", query] as const,
+    sites: (query: string) => [...mobileQueryKeys.search.all, "sites", query] as const,
   },
 };

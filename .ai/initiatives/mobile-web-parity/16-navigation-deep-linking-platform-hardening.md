@@ -1,8 +1,11 @@
 # 16 Navigation, Deep Linking, And Platform Hardening
 
-Status: Ready After Previous
+Status: passed
 Ready for execution: yes
-Execution started: no
+Execution started: yes
+Execution completed: yes
+Completed date: 2026-06-01
+Verdict: PASS
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile navigation, deep links, auth gates, placeholders, and platform contracts are consistent across parity surfaces.
 
@@ -82,6 +85,29 @@ Routes are navigation state only. Entity existence and access come from backend 
 - Stop if a deep-link target would expose unauthorized data before fetch validation.
 - Do not add nav items to unfinished placeholder routes.
 - Do not fake parity by routing to generic home.
+
+## Execution Summary
+
+- Audited implemented Expo Router surfaces against the shared link resolver.
+- Hardened resolver coverage for implemented auth/account/search routes: `/sign-in`, `/sign-up`, `/onboarding`, `/search`, `/profile`, and `/profile/settings`.
+- Added focused route inventory, auth/account route, and notification listener tests.
+- Preserved unsupported internal fallback behavior for unfinished or web-owned workflows.
+- Did not add new product features, backend routes, or management/admin navigation.
+
+## Verification Result
+
+PASS on 2026-06-01.
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`
+- iOS Simulator smoke on iPhone 17 Pro Max with running Expo/Metro:
+  - profile settings/account route: `/tmp/fph-ios-nav-settings-16.png`
+  - Search route: `/tmp/fph-ios-nav-search-16.png`
+  - Onboarding deep link while signed in: `/tmp/fph-ios-nav-onboarding-16.png`
+- `git diff --check`
+
+Runtime note: opening the onboarding route while signed in with a complete profile followed the existing auth/profile gate back into the app shell, which is the expected guarded behavior.
 
 ## 14. Acceptance Criteria
 

@@ -140,6 +140,62 @@ export function resolveFphLink(rawUrl: string): FphLinkResolution {
     return { type: "native", href: "/(app)/(tabs)/(home)", sourceUrl };
   }
 
+  if (parts[0] === "sign-in" && parts.length === 1) {
+    return { type: "native", href: "/sign-in", sourceUrl };
+  }
+
+  if (parts[0] === "sign-up" && parts.length === 1) {
+    return { type: "native", href: "/sign-up", sourceUrl };
+  }
+
+  if (parts[0] === "onboarding" && parts.length === 1) {
+    return { type: "native", href: "/onboarding", sourceUrl };
+  }
+
+  if (parts[0] === "search" && parts.length === 1) {
+    return { type: "native", href: "/(app)/(tabs)/search", sourceUrl };
+  }
+
+  if (parts[0] === "moderation") {
+    if (parts.length === 1) {
+      return {
+        type: "native",
+        href: "/(app)/(tabs)/(home)/moderation",
+        sourceUrl,
+      };
+    }
+    if (parts.length === 3 && parts[1] === "reports") {
+      const reportId = safeSegment(parts[2]);
+      return reportId
+        ? {
+            type: "native",
+            href: `/(app)/(tabs)/(home)/moderation?reportId=${encodeSegment(reportId)}`,
+            sourceUrl,
+          }
+        : unsupported(parsed, "Invalid moderation report URL.");
+    }
+  }
+
+  if (parts[0] === "admin" && parts[1] === "moderation") {
+    if (parts.length === 2) {
+      return {
+        type: "native",
+        href: "/(app)/(tabs)/(home)/moderation",
+        sourceUrl,
+      };
+    }
+    if (parts.length === 4 && parts[2] === "reports") {
+      const reportId = safeSegment(parts[3]);
+      return reportId
+        ? {
+            type: "native",
+            href: `/(app)/(tabs)/(home)/moderation?reportId=${encodeSegment(reportId)}`,
+            sourceUrl,
+          }
+        : unsupported(parsed, "Invalid moderation report URL.");
+    }
+  }
+
   if (parts[0] === "explore") {
     if (parts.length === 1) {
       return {
@@ -212,6 +268,16 @@ export function resolveFphLink(rawUrl: string): FphLinkResolution {
           }
         : unsupported(parsed, "Invalid event slug.");
     }
+    if (parts.length === 3 && parts[2] === "manage") {
+      const slug = safeSegment(parts[1]);
+      return slug
+        ? {
+            type: "native",
+            href: `${nativeDetailHref("/(app)/(tabs)/(home)/events", slug)}/manage`,
+            sourceUrl,
+          }
+        : unsupported(parsed, "Invalid event slug.");
+    }
     if (parts.length === 4 && parts[2] === "pass") {
       const slug = safeSegment(parts[1]);
       const token = safeSegment(parts[3]);
@@ -224,6 +290,26 @@ export function resolveFphLink(rawUrl: string): FphLinkResolution {
         : unsupported(parsed, "Invalid event pass URL.");
     }
     return unsupported(parsed, "Event URL is not supported natively yet.");
+  }
+
+  if (parts[0] === "management" && parts[1] === "schools") {
+    if (parts.length === 2) {
+      return {
+        type: "native",
+        href: "/(app)/(tabs)/(home)/manage-schools",
+        sourceUrl,
+      };
+    }
+    if (parts.length >= 3) {
+      const slug = safeSegment(parts[2]);
+      return slug
+        ? {
+            type: "native",
+            href: `/(app)/(tabs)/(home)/manage-schools?slug=${encodeSegment(slug)}`,
+            sourceUrl,
+          }
+        : unsupported(parsed, "Invalid school management URL.");
+    }
   }
 
   if (parts[0] === "schools") {
@@ -243,6 +329,16 @@ export function resolveFphLink(rawUrl: string): FphLinkResolution {
             sourceUrl,
           }
         : unsupported(parsed, "Invalid school slug.");
+    }
+    if (parts.length === 3 && parts[2] === "manage") {
+      const slug = safeSegment(parts[1]);
+      return slug
+        ? {
+            type: "native",
+            href: `/(app)/(tabs)/(home)/manage-schools?slug=${encodeSegment(slug)}`,
+            sourceUrl,
+          }
+        : unsupported(parsed, "Invalid school management URL.");
     }
     if (parts.length === 4 && parts[2] === "courses") {
       const slug = safeSegment(parts[1]);
@@ -329,6 +425,22 @@ export function resolveFphLink(rawUrl: string): FphLinkResolution {
     return unsupported(parsed, "Group URL is not supported natively yet.");
   }
 
+  if (parts[0] === "profile" && parts.length === 1) {
+    return {
+      type: "native",
+      href: "/(app)/(tabs)/profile",
+      sourceUrl,
+    };
+  }
+
+  if (parts[0] === "profile" && parts.length === 2 && parts[1] === "settings") {
+    return {
+      type: "native",
+      href: "/(app)/(tabs)/profile/settings",
+      sourceUrl,
+    };
+  }
+
   if (parts[0] === "profile" && parts.length === 4 && parts[2] === "posts") {
     const postId = safeSegment(parts[3]);
     return postId
@@ -355,6 +467,36 @@ export function resolveFphLink(rawUrl: string): FphLinkResolution {
     return {
       type: "native",
       href: "/(app)/(tabs)/(home)/notifications",
+      sourceUrl,
+    };
+  }
+
+  if (parts[0] === "saved" && parts.length === 1) {
+    return {
+      type: "native",
+      href: "/(app)/(tabs)/(home)/saved",
+      sourceUrl,
+    };
+  }
+
+  if (parts[0] === "guides" && (parts.length === 1 || parts.length === 2)) {
+    return {
+      type: "native",
+      href: "/(app)/(tabs)/(home)/learn",
+      sourceUrl,
+    };
+  }
+
+  if (
+    (parts[0] === "founder-note" || parts[0] === "learn") &&
+    parts.length === 1
+  ) {
+    return {
+      type: "native",
+      href:
+        parts[0] === "founder-note"
+          ? "/(app)/(tabs)/(home)/founders-note"
+          : "/(app)/(tabs)/(home)/learn",
       sourceUrl,
     };
   }

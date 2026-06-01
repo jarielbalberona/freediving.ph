@@ -1,10 +1,11 @@
 # 17 Final Parity Audit And Release Gate
 
-Status: Ready After Previous
+Status: PASS WITH ISSUES
 Ready for execution: yes
-Execution started: no
+Execution started: yes
 Dependency gate: execute automatically after every prior mobile-web parity initiative is passed, passed with accepted issues, or explicitly documented as blocked/decision-gated.
 PASS criterion: final code-wise parity audit proves implemented mobile surfaces match planned web capabilities, known gaps are accepted, and release criteria are explicit.
+Execution result: completed on 2026-06-01. Final code-wise verification passed, all prior implementation reports exist, and representative iOS Simulator smoke passed. The release gate is PASS WITH ISSUES because initiatives 01-05 retain documented non-retroactive iOS smoke gaps from their original environment-blocked executions, and some high-risk/destructive management/admin sub-surfaces remain intentionally web-owned.
 
 ## Readiness Rationale
 
@@ -88,6 +89,8 @@ Audit that backend remains canonical and that no mobile feature uses cache/local
 - Verification evidence is concrete.
 - Final report gives a clear release recommendation.
 
+Execution result: PASS WITH ISSUES. The final report maps all initiative surfaces, confirms code-wise checks passed, and documents accepted release gaps instead of claiming literal runtime proof for every route.
+
 ## 15. Verification Commands
 
 - `find apps/web/src/app -type f \( -name 'page.tsx' -o -name 'layout.tsx' -o -name 'route.ts' \) | sort`
@@ -119,6 +122,12 @@ If simulator testing cannot be run, document the blocker and include a manual ch
 - Complete app walkthrough as signed-out and signed-in user.
 - Verify profile, media, Chika, messaging, buddies, Explore, groups, events, schools, instructors, saved/search/learn, safety, and gated admin/management decisions.
 - Record device/runtime results outside agent execution.
+
+Execution smoke notes:
+
+- iOS Simulator final spot checks passed for `freediving-ph-app://saved`, `freediving-ph-app://search`, and `freediving-ph-app://moderation`.
+- Screenshots: `/tmp/fph-ios-final-17-saved.png`, `/tmp/fph-ios-final-17-search.png`, `/tmp/fph-ios-final-17-moderation.png`.
+- Automated smoke did not execute dirtying mutations for moderation, event organizer management, school management, bookings, reports, or block actions.
 
 ## 17. Rollback/Risk Notes
 

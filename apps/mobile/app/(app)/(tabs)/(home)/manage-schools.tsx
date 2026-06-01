@@ -1,13 +1,10 @@
 import { MobileAuthRequired } from "@/components/shell/mobile-auth-required";
-import { NavPlaceholderScreen } from "@/features/readiness/nav-placeholder-screen";
+import { SchoolManagementScreen } from "@/features/schools/screens/school-management-screen";
 
 export default function ManageSchoolsRoute() {
   return (
     <MobileAuthRequired>
-      <NavPlaceholderScreen
-        description="School management is coming to mobile. Use the web app to manage school profiles, courses, bookings, and payment methods."
-        title="Manage Schools"
-      />
+      <SchoolManagementScreen />
     </MobileAuthRequired>
   );
 }

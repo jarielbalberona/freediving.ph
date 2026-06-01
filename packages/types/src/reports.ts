@@ -1,6 +1,11 @@
 import type { ApiErrorEnvelope } from "./api/error";
 
-export type ReportTargetType = "user" | "message" | "chika_thread" | "chika_comment";
+export type ReportTargetType =
+  | "user"
+  | "message"
+  | "chika_thread"
+  | "chika_comment"
+  | "dive_site_update";
 
 export type ReportReasonCode = "spam" | "harassment" | "impersonation" | "unsafe" | "other";
 

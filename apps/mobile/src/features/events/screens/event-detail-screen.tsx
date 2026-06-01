@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
 import { useAuth } from "@clerk/expo";
@@ -118,6 +118,7 @@ const nativeFileFromAsset = (asset: ImagePickerAsset, fallbackPrefix: string) =>
 
 export function EventDetailScreen() {
   const params = useLocalSearchParams<{ slug?: string | string[] }>();
+  const router = useRouter();
   const slug = firstParam(params.slug);
   const eventQuery = useEventDetailQuery(slug);
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -459,6 +460,29 @@ export function EventDetailScreen() {
             <EventDetailRow label="Safety notes" value={event.safetyNotes} />
           </View>
         </MobileSection>
+
+        {event.viewerCanManage ? (
+          <MobileSection title="Organizer">
+            <MobileCard>
+              <View className="gap-3">
+                <View className="flex-row flex-wrap gap-2">
+                  <StatusPill tone="primary">Organizer access</StatusPill>
+                  <StatusPill>{participantStatusLabel(event.viewerParticipation?.status)}</StatusPill>
+                </View>
+                <MobileButton
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(app)/(tabs)/(home)/events/[slug]/manage",
+                      params: { slug: event.slug },
+                    })
+                  }
+                >
+                  Manage event
+                </MobileButton>
+              </View>
+            </MobileCard>
+          </MobileSection>
+        ) : null}
 
         <MobileSection title="Attendance">
           <View className="gap-3">

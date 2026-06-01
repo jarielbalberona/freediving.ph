@@ -78,6 +78,7 @@ test("native tabs expose mobile search without fake search plumbing", () => {
   );
   const searchLayout = read("app/(app)/(tabs)/search/_layout.tsx");
   const searchScreen = read("app/(app)/(tabs)/search/index.tsx");
+  const searchScreenComponent = read("src/features/search/screens/search-screen.tsx");
 
   assert.match(sharedNav, /id: "search"[\s\S]*?label: "Search"/);
   assert.match(sharedNav, /id: "search"[\s\S]*?platforms: \["mobile"\]/);
@@ -164,11 +165,17 @@ test("native tabs expose mobile search without fake search plumbing", () => {
     searchLayout,
     /headerSearchBarOptions|nativeSearchOptions/,
   );
-  assert.match(searchScreen, /@expo\/ui/);
-  assert.match(searchScreen, /<Host/);
-  assert.match(searchScreen, /<Column/);
-  assert.match(searchScreen, /Search is coming soon\./);
-  assert.doesNotMatch(searchScreen, /fetch|fphgo|useQuery|TODO|mock|fake/i);
+  assert.match(searchScreen, /SearchScreen/);
+  assert.match(searchScreenComponent, /usePeopleSearchQuery/);
+  assert.match(searchScreenComponent, /useSiteSearchQuery/);
+  assert.match(searchScreenComponent, /useSavedHubQuery/);
+  assert.match(searchScreenComponent, /People/);
+  assert.match(searchScreenComponent, /Dive sites/);
+  assert.match(searchScreenComponent, /Saved/);
+  assert.doesNotMatch(
+    `${searchScreen}\n${searchScreenComponent}`,
+    /@expo\/ui|Search is coming soon|TODO|mock|fake/i,
+  );
 });
 
 test("required environment contract is documented", () => {
@@ -473,7 +480,7 @@ test("chika uses shared contracts, nested replies, and vote actions", () => {
   assert.match(mutations, /setQueriesData<ChikaCommentListResponse>/);
   assert.match(queryKeys, /threadCommentsRoot/);
   assert.doesNotMatch(detail, /websocket|realtime/i);
-  assert.doesNotMatch(detail, /moderation|admin|report|block/i);
+  assert.doesNotMatch(detail, /moderation|admin/i);
   assert.ok(format.includes('includes("/")'));
 
   const screen = read("src/features/chika/screens/chika-screen.tsx");
@@ -629,7 +636,7 @@ test("profiles use shared contracts, auth gating, edit, posts, and diving", () =
   );
   assert.doesNotMatch(
     publicScreen,
-    /upload|editProfile|followAction|sendMessage|report|block/i,
+    /upload|editProfile|followAction|sendMessage/i,
   );
   assert.doesNotMatch(profileGrid, /upload|sendMessage|report|block/i);
   assert.ok(format.includes('includes("/")'));

@@ -1,8 +1,11 @@
 # 14 User Safety, Report, And Block
 
-Status: Ready After Previous
+Status: passed
 Ready for execution: yes
-Execution started: no
+Execution started: yes
+Execution completed: yes
+Completed date: 2026-06-01
+Verdict: PASS
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses.
 PASS criterion: mobile exposes user-facing report/block controls across supported surfaces without implementing full moderation dashboards.
 
@@ -91,6 +94,34 @@ Report status and block relationships are backend truth. Client cache may optimi
 - Stop if a target type is not accepted by backend report contracts.
 - Stop if block effects on messaging/buddies/groups are unclear.
 - Do not add moderator actions.
+
+## Execution Summary
+
+- Added shared block DTOs and aligned shared report target types with backend report intake.
+- Added mobile safety API/hooks for report creation, block, unblock, and blocked-user list reads.
+- Added reusable native report sheet with reason selectors and optional details.
+- Added profile report/block/unblock controls, blocked relationship messaging, and blocked-user Settings list.
+- Added Chika thread and reply report entry points.
+- Added message report entry points for non-own text messages.
+- Did not add moderator dashboards, suspension/read-only controls, identity reveal, shadowban, or admin actions.
+
+## Verification Result
+
+PASS on 2026-06-01.
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/types type-check`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/types test`
+- iOS Simulator smoke on iPhone 17 Pro Max with running Expo/Metro:
+  - public profile safety actions: `/tmp/fph-ios-profile-safety-14.png`
+  - settings blocked-user state: `/tmp/fph-ios-settings-safety-14.png`
+  - Chika thread/reply report actions: `/tmp/fph-ios-chika-safety-14.png`
+  - messages list route after message-screen integration: `/tmp/fph-ios-messages-safety-14.png`
+- `git diff --check`
+
+Runtime limitation: simulator smoke confirmed touched screens render without redbox and show available safety entry points where seeded data exists. It did not submit real reports or execute a block/unblock mutation to avoid mutating seeded user state during verification.
 
 ## 14. Acceptance Criteria
 

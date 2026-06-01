@@ -5,7 +5,9 @@ import type {
   EventFilters,
   EventJoinFormField,
   EventListResponse,
+  EventParticipant,
   EventParticipantPayment,
+  EventPaymentProofUrl,
   EventPass,
   EventPaymentMethod,
   EventPostResponse,
@@ -16,6 +18,7 @@ import type {
   EventSponsor,
   JoinEventResponse,
   JoinEventRequest,
+  ReviewEventPaymentRequest,
   SubmitEventPaymentRequest,
 } from "@freediving.ph/types";
 
@@ -128,6 +131,23 @@ export const getEventPaymentMethods = (eventId: string, authToken: string) =>
     { auth: "required", authToken },
   );
 
+export const getEventParticipants = (eventId: string, authToken: string) =>
+  fphgoFetch<{
+    attendees?: EventParticipant[];
+    pagination?: {
+      hasNext?: boolean;
+      hasPrev?: boolean;
+      limit: number;
+      page: number;
+      total: number;
+      totalPages: number;
+    };
+    participants?: EventParticipant[];
+  }>(`/v1/events/${encodeURIComponent(eventId)}/participants?limit=100`, {
+    auth: "required",
+    authToken,
+  });
+
 export const submitEventPayment = (
   payload: SubmitEventPaymentRequest,
   authToken: string,
@@ -144,6 +164,79 @@ export const submitEventPayment = (
       },
       method: "POST",
     },
+  );
+
+export const getEventPaymentProofUrl = (
+  eventId: string,
+  paymentId: string,
+  authToken: string,
+) =>
+  fphgoFetch<EventPaymentProofUrl>(
+    `/v1/events/${encodeURIComponent(eventId)}/payments/${encodeURIComponent(paymentId)}/proof-url`,
+    { auth: "required", authToken },
+  );
+
+export const reviewEventPayment = (
+  eventId: string,
+  paymentId: string,
+  status: "rejected" | "verified",
+  payload: ReviewEventPaymentRequest,
+  authToken: string,
+) =>
+  fphgoFetch<{ payment: EventParticipantPayment }>(
+    `/v1/events/${encodeURIComponent(eventId)}/payments/${encodeURIComponent(paymentId)}/${status === "verified" ? "verify" : "reject"}`,
+    {
+      auth: "required",
+      authToken,
+      body: payload,
+      method: "PATCH",
+    },
+  );
+
+export const approveEventParticipant = (
+  eventId: string,
+  participantId: string,
+  authToken: string,
+) =>
+  fphgoFetch<EventParticipant>(
+    `/v1/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(participantId)}/approve`,
+    { auth: "required", authToken, method: "PATCH" },
+  );
+
+export const rejectEventParticipant = (
+  eventId: string,
+  participantId: string,
+  authToken: string,
+) =>
+  fphgoFetch<EventParticipant>(
+    `/v1/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(participantId)}/reject`,
+    { auth: "required", authToken, method: "PATCH" },
+  );
+
+export const updateEventParticipantStatus = (
+  eventId: string,
+  participantId: string,
+  status: Extract<EventParticipant["status"], "attended" | "cancelled" | "confirmed" | "no_show">,
+  authToken: string,
+) =>
+  fphgoFetch<EventParticipant>(
+    `/v1/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(participantId)}/status`,
+    {
+      auth: "required",
+      authToken,
+      body: { status },
+      method: "PATCH",
+    },
+  );
+
+export const checkInEventPass = (
+  slug: string,
+  token: string,
+  authToken: string,
+) =>
+  fphgoFetch<EventPass>(
+    `/v1/events/${encodeURIComponent(slug)}/pass/${encodeURIComponent(token)}/check-in`,
+    { auth: "required", authToken, method: "POST" },
   );
 
 export const getEventProgramItems = (eventId: string) =>

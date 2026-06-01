@@ -12,6 +12,7 @@ export * from "./api/error";
 export * from "./api/me";
 export * from "./api/profile";
 export * from "./api/profile-view";
+export * from "./blocks";
 export * from "./feed";
 export * from "./instructors";
 export * from "./media";

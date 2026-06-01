@@ -7,6 +7,8 @@ import type {
   ProfilePassportResponse,
   ProfileViewResponse,
   ProfileResponse,
+  SavedHubResponse,
+  SearchUsersResponse,
   UpdateMyProfileRequest,
 } from "@freediving.ph/types";
 
@@ -38,6 +40,18 @@ export const updateMyProfile = (
     body: payload,
     method: "PATCH",
   });
+
+export const getSavedHub = (authToken: string) =>
+  fphgoFetch<SavedHubResponse>("/v1/me/saved", {
+    auth: "required",
+    authToken,
+  });
+
+export const searchUsers = (query: string, limit = 10) =>
+  fphgoFetch<SearchUsersResponse>(
+    `/v1/users/search?q=${encodeURIComponent(query.trim())}&limit=${limit}`,
+    { auth: "optional" },
+  );
 
 export const getProfileDiving = (username: string) =>
   fphgoFetch<ProfileDivingResponse>(

@@ -1,8 +1,11 @@
 # 13 Saved, Search, Learn, And Guides
 
-Status: Ready After Previous
+Status: passed
 Ready for execution: yes
-Execution started: no
+Execution started: yes
+Execution completed: yes
+Completed date: 2026-06-01
+Verdict: PASS
 Dependency gate: execute automatically after prior initiatives in the canonical sequence have terminal passing statuses; implement only supported saved/search/learn surfaces with existing contracts or clearly scoped native content.
 
 ## Readiness Rationale
@@ -89,9 +92,33 @@ Search results and saved state come from backend APIs. React Query cache is not 
 
 ## 13. Implementation Guards
 
-- Hard-stop until global search scope is defined.
+- Global search remains out of scope until a backend/shared global search contract is defined.
 - Stop if any search result would bypass backend visibility.
 - Do not hardcode public-content data if backend/search should own it.
+
+## Execution Summary
+
+- Added scoped mobile search for people and dive sites using existing backend contracts only.
+- Added authenticated saved hub access through `/v1/me/saved`.
+- Added `/saved` mobile route that opens directly to the Saved scope.
+- Replaced Learn and Founder Note placeholders with compact native mobile content and links to existing product surfaces.
+- Added deep-link resolver support for `/saved`, `/learn`, `/guides`, guide slugs, and `/founder-note`.
+- Did not implement broad/global search, SEO article parity, admin/management search, or new backend contracts.
+
+## Verification Result
+
+PASS on 2026-06-01.
+
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile test`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile type-check`
+- `/opt/homebrew/bin/pnpm --filter @freediving.ph/mobile lint`
+- iOS Simulator smoke on iPhone 17 Pro Max with running Expo/Metro:
+  - `freediving-ph-app:///(app)/(tabs)/search`
+  - `freediving-ph-app:///(app)/(tabs)/(home)/saved`
+  - `freediving-ph-app:///(app)/(tabs)/(home)/learn`
+  - `freediving-ph-app:///(app)/(tabs)/(home)/founders-note`
+  - Screenshots: `/tmp/fph-ios-search-13.png`, `/tmp/fph-ios-saved-13.png`, `/tmp/fph-ios-learn-13.png`, `/tmp/fph-ios-founder-13.png`
+- `git diff --check`
 
 ## 14. Acceptance Criteria
 

@@ -44,6 +44,12 @@ export default function HomeStackLayout() {
         }}
       />
       <Stack.Screen
+        name="events/[slug]/manage"
+        options={{
+          title: "Event management",
+        }}
+      />
+      <Stack.Screen
         name="schools"
         options={nativeLargeTitleOptions("Schools")}
       />
@@ -72,6 +78,12 @@ export default function HomeStackLayout() {
         }}
       />
       <Stack.Screen
+        name="moderation"
+        options={{
+          title: "Moderation",
+        }}
+      />
+      <Stack.Screen
         name="instructor-application"
         options={{
           title: "Instructor Application",
@@ -97,6 +109,12 @@ export default function HomeStackLayout() {
         name="learn"
         options={{
           title: "Learn",
+        }}
+      />
+      <Stack.Screen
+        name="saved"
+        options={{
+          title: "Saved",
         }}
       />
       <Stack.Screen

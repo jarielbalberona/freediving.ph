@@ -12,6 +12,7 @@ import {
 } from "@/components/shell";
 import { MobileButton } from "@/components/ui/mobile-button";
 import { ChikaCommentCard } from "@/features/chika/components/chika-comment-card";
+import { ReportAction } from "@/features/safety/components/report-action";
 import {
   useCreateChikaCommentMutation,
   useSetChikaCommentReactionMutation,
@@ -222,6 +223,16 @@ export function ChikaThreadDetailScreen() {
             <Text className="text-xs text-muted-foreground">
               {thread.commentCount} {thread.commentCount === 1 ? "reply" : "replies"}
             </Text>
+            {canUseChikaActions ? (
+              <View className="self-start">
+                <ReportAction
+                  buttonLabel="Report thread"
+                  contextLabel="thread"
+                  targetId={thread.id}
+                  targetType="chika_thread"
+                />
+              </View>
+            ) : null}
             {canUseChikaActions ? (
               <View className="flex-row flex-wrap gap-2">
                 <MobileButton
@@ -464,6 +475,7 @@ export function ChikaThreadDetailScreen() {
                   key={comment.id}
                   comment={comment}
                   depth={depth}
+                  reportEnabled={canUseChikaActions}
                   onReact={
                     canUseChikaActions
                       ? (commentId, type) =>

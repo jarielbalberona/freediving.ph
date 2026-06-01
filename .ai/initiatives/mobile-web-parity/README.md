@@ -3,7 +3,7 @@
 Status: locked
 Ready for execution: partial
 Execution started: yes
-Latest execution status: `00-mobile-web-parity-assessment-lock.md` passed on 2026-06-01. Readiness model corrected on 2026-06-01 so sequence-gated work remains part of autonomous implementation. Current target is `01-auth-onboarding-account-setup.md`.
+Latest execution status: Clerk test user role QA is PASS WITH ISSUES as of 2026-06-01. Code-wise mobile verification is green, initiatives 01-05 have retroactive iOS Simulator route smoke, seeded local simulator mutations passed for messaging/event/group/Chika, and Clerk-backed QA identities now exist for the role matrix. Public release still needs the rest of the role accounts and mutation-heavy flows simulator-smoked.
 
 ## Purpose
 
@@ -152,13 +152,13 @@ Status rules:
 | 08 | Events Attendee | Add attendee-facing event parity without organizer management. | Ready After Previous | 01; 03 if proof upload included | no |
 | 10 | Schools Public, Courses, Bookings | Add public school/course/booking/my-bookings parity. | Ready After Previous | 01; 03 if proof upload included | no |
 | 12 | Instructor Application/Profile | Add instructor application/profile/certification parity. | Ready After Previous | 01; 10 if public profiles used | no |
-| 13 | Saved, Search, Learn, Guides | Add saved hub and supported search/learn parity. | Ready After Previous | 02, 03, 06, optional 10 | no; unsupported sub-scopes become documented gaps |
-| 14 | User Safety, Report, Block | Add user-facing report/block controls. | Ready After Previous | core user surfaces | no |
-| 16 | Navigation And Deep Linking | Harden route/deep-link/auth/navigation behavior. | Ready After Previous | release-candidate feature set | no |
-| 09 | Event Organizer Management | Add mobile organizer management with strict guards. | Ready After Previous | 08; 16 | no; hard-stop only on specific unsafe/destructive contract gap |
-| 11 | School Management | Add mobile school owner/admin operations with strict guards. | Ready After Previous | 10; 12; 16 | no; hard-stop only on specific unsafe/destructive contract gap |
-| 15 | Admin And Moderation Triage | Add mobile moderation/admin triage. | Ready After Previous | 14; 16 | no for triage/read-only; destructive actions require proven existing policy |
-| 17 | Final Audit And Release Gate | Re-audit final parity and release readiness. | Ready After Previous | all prior outcomes | no |
+| 13 | Saved, Search, Learn, Guides | Add saved hub and supported search/learn parity. | PASS | 02, 03, 06, optional 10 | unsupported sub-scopes documented as gaps |
+| 14 | User Safety, Report, Block | Add user-facing report/block controls. | PASS | core user surfaces | no moderator/admin actions added |
+| 16 | Navigation And Deep Linking | Harden route/deep-link/auth/navigation behavior. | PASS | release-candidate feature set | no |
+| 09 | Event Organizer Management | Add mobile organizer management with strict guards. | PASS | 08; 16 | core participant/payment/check-in subset implemented; desktop setup/destructive modules deferred |
+| 11 | School Management | Add mobile school owner/admin operations with strict guards. | PASS | 10; 12; 16 | core booking/payment/session workspace implemented; destructive desktop modules deferred |
+| 15 | Admin And Moderation Triage | Add mobile moderation/admin triage. | PASS | 14; 16 | triage/status subset implemented; destructive actions remain web-owned |
+| 17 | Final Audit And Release Gate | Re-audit final parity and release readiness. | PASS WITH ISSUES | all prior outcomes | accepted smoke/destructive-scope gaps documented |
 
 ## Safe To Execute First
 
