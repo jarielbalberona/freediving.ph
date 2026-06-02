@@ -5,10 +5,7 @@ import { BadgeCheck, Settings2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import {
-  instructorAgencyLabels,
-  usePublicInstructor,
-} from "@/features/instructors";
+import { usePublicInstructor } from "@/features/instructors";
 import { ProfileBadgeIdentityRow } from "@/features/profile/components/ProfileBadgeIdentityRow";
 import type { ProfileView } from "@/features/profile/types";
 import { getProfileSettingsRoute } from "@/lib/routes";
@@ -99,10 +96,7 @@ export function ProfileHeader({
   const instructorQuery = usePublicInstructor(profile.username);
   const instructorApplication = instructorQuery.data?.application;
   const verifiedInstructorProfile = instructorApplication?.profile;
-  const firstCertification = instructorApplication?.certifications[0];
-  const instructorSummary = firstCertification
-    ? `${firstCertification.agency === "other" ? firstCertification.agencyOtherName : instructorAgencyLabels[firstCertification.agency]} ${firstCertification.certificationLevel}`.trim()
-    : "Verified Instructor";
+  const instructorSummary = "Verified Instructor";
 
   return (
     <section className="space-y-6 px-4">

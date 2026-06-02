@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { AuthGuard } from "@/components/auth/guard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -55,7 +55,8 @@ export default function ProfileSettingsPage({
   const router = useRouter();
   const myProfileQuery = useMyProfile();
   const uploadMediaMutation = useUploadMedia();
-  const updateProfileMutation = useUpdateMyProfile();
+  const avatarUpdateMutation = useUpdateMyProfile();
+  const profileUpdateMutation = useUpdateMyProfile();
 
   const form = useForm<ProfileSettingsValues>({
     resolver: zodResolver(profileSettingsSchema),
@@ -70,8 +71,6 @@ export default function ProfileSettingsPage({
   const [localAvatarPreviewURL, setLocalAvatarPreviewURL] = useState<
     string | null
   >(null);
-  const [preparedAvatar, setPreparedAvatar] =
-    useState<AvatarTransformResult | null>(null);
   const [cropSourceURL, setCropSourceURL] = useState<string | null>(null);
   const [cropSourceFileName, setCropSourceFileName] = useState<string>("");
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
@@ -95,18 +94,12 @@ export default function ProfileSettingsPage({
     if (!profile) return;
     if (
       !localAvatarPreviewURL &&
-      !preparedAvatar &&
       profile.avatarUrl &&
       profile.avatarUrl !== avatarPreviewURL
     ) {
       setAvatarPreviewURL(profile.avatarUrl ?? "");
     }
-  }, [
-    avatarPreviewURL,
-    myProfileQuery.data?.profile,
-    localAvatarPreviewURL,
-    preparedAvatar,
-  ]);
+  }, [avatarPreviewURL, myProfileQuery.data?.profile, localAvatarPreviewURL]);
 
   useEffect(() => {
     return () => {
@@ -125,7 +118,7 @@ export default function ProfileSettingsPage({
   }, [displayName, myProfileQuery.data?.profile.username]);
 
   const isUploadingAvatar =
-    uploadMediaMutation.isPending || updateProfileMutation.isPending;
+    uploadMediaMutation.isPending || avatarUpdateMutation.isPending;
   const closeUsername =
     myProfileQuery.data?.profile.username ?? username ?? null;
   const closeHref = closeUsername
@@ -152,48 +145,51 @@ export default function ProfileSettingsPage({
     setCropDialogOpen(true);
   };
 
-  const applyPreparedAvatar = (result: AvatarTransformResult) => {
+  const clearLocalAvatarPreview = () => {
     if (localAvatarPreviewURL) URL.revokeObjectURL(localAvatarPreviewURL);
-    const nextPreviewURL = URL.createObjectURL(result.file);
-    setLocalAvatarPreviewURL(nextPreviewURL);
-    setAvatarPreviewURL(nextPreviewURL);
-    setPreparedAvatar(result);
-    if (cropSourceURL) {
-      URL.revokeObjectURL(cropSourceURL);
-      setCropSourceURL(null);
-    }
+    setLocalAvatarPreviewURL(null);
   };
 
-  const onUploadAvatar = async () => {
-    if (!preparedAvatar) return;
+  const uploadAvatar = async (
+    result: AvatarTransformResult,
+    previewUrl: string,
+  ) => {
     try {
       const uploaded = await uploadMediaMutation.mutateAsync({
-        file: preparedAvatar.file,
+        file: result.file,
         contextType: AVATAR_CONTEXT,
       });
-      const updated = await updateProfileMutation.mutateAsync({
+      const updated = await avatarUpdateMutation.mutateAsync({
         avatarUrl: uploaded.objectKey,
       });
-      const persistedAvatarURL = updated.profile.avatarUrl;
-
-      if (localAvatarPreviewURL) {
-        URL.revokeObjectURL(localAvatarPreviewURL);
-      }
-      setLocalAvatarPreviewURL(null);
-      setPreparedAvatar(null);
-      setAvatarPreviewURL(persistedAvatarURL || avatarPreviewURL);
+      clearLocalAvatarPreview();
+      setAvatarPreviewURL(updated.profile.avatarUrl || previewUrl);
       toast.success("Avatar updated");
     } catch (error) {
+      clearLocalAvatarPreview();
+      setAvatarPreviewURL(myProfileQuery.data?.profile.avatarUrl ?? "");
       const message =
         error instanceof Error ? error.message : "Failed to upload avatar";
       toast.error(message);
     }
   };
 
+  const applyPreparedAvatar = (result: AvatarTransformResult) => {
+    clearLocalAvatarPreview();
+    const nextPreviewURL = URL.createObjectURL(result.file);
+    setLocalAvatarPreviewURL(nextPreviewURL);
+    setAvatarPreviewURL(nextPreviewURL);
+    if (cropSourceURL) {
+      URL.revokeObjectURL(cropSourceURL);
+      setCropSourceURL(null);
+    }
+    void uploadAvatar(result, nextPreviewURL);
+  };
+
   const onSaveProfile = async (values: ProfileSettingsValues) => {
     setFormError("");
     try {
-      await updateProfileMutation.mutateAsync({
+      await profileUpdateMutation.mutateAsync({
         displayName: values.displayName.trim() || undefined,
         bio: values.bio.trim() || undefined,
       });
@@ -265,47 +261,27 @@ export default function ProfileSettingsPage({
               </Avatar>
               <div className="grid w-full gap-2">
                 <Label htmlFor="avatar">Upload avatar photo</Label>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Input
-                    id="avatar"
-                    type="file"
-                    className="sm:flex-1"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={(event) => {
-                      const selected = event.target.files?.[0] ?? null;
-                      event.currentTarget.value = "";
-                      if (!selected) return;
-                      openCropper(selected);
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    onClick={onUploadAvatar}
-                    disabled={!preparedAvatar || isUploadingAvatar}
-                  >
-                    {isUploadingAvatar ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Upload Avatar
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <Input
+                  id="avatar"
+                  type="file"
+                  className="sm:flex-1"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  disabled={isUploadingAvatar}
+                  onChange={(event) => {
+                    const selected = event.target.files?.[0] ?? null;
+                    event.currentTarget.value = "";
+                    if (!selected) return;
+                    openCropper(selected);
+                  }}
+                />
                 <p className="text-xs text-muted-foreground">
-                  Crop + auto-compress before upload. Allowed: JPG, PNG, WebP,
-                  GIF. Max: {formatBytes(MAX_AVATAR_BYTES)}.
+                  After cropping, the photo uploads automatically. Allowed:
+                  JPG, PNG, WebP, GIF. Max: {formatBytes(MAX_AVATAR_BYTES)}.
                 </p>
-                {preparedAvatar ? (
+                {isUploadingAvatar ? (
                   <p className="text-xs text-muted-foreground">
-                    Ready: {preparedAvatar.width}x{preparedAvatar.height} •{" "}
-                    {formatBytes(preparedAvatar.sizeBytes)} (
-                    {preparedAvatar.mimeType})
+                    <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />
+                    Uploading avatar...
                   </p>
                 ) : null}
               </div>
@@ -372,11 +348,11 @@ export default function ProfileSettingsPage({
                   <Button
                     type="submit"
                     disabled={
-                      updateProfileMutation.isPending ||
+                      profileUpdateMutation.isPending ||
                       form.formState.isSubmitting
                     }
                   >
-                    {updateProfileMutation.isPending ||
+                    {profileUpdateMutation.isPending ||
                     form.formState.isSubmitting
                       ? "Saving..."
                       : "Save Changes"}
